@@ -36,10 +36,11 @@ function isValidEmail(value: string): boolean {
 
 interface SignInFlowProps {
   prefill?: SignInPrefill | null;
+  deferHandleStep?: boolean;
   onComplete?: () => void;
 }
 
-export function SignInFlow({ prefill, onComplete }: SignInFlowProps) {
+export function SignInFlow({ prefill, deferHandleStep = false, onComplete }: SignInFlowProps) {
   const signIn = useAuthStore((s) => s.signIn);
   const setAccount = useAuthStore((s) => s.setAccount);
 
@@ -80,13 +81,15 @@ export function SignInFlow({ prefill, onComplete }: SignInFlowProps) {
   function completeSignIn(session: AuthSessionResponse) {
     clearAuthReturnIntent();
     signIn(session);
-    if (session.account.handlePending) {
+    if (session.account.handlePending && !deferHandleStep) {
       setError(null);
       setBusy(false);
       setStep("handle");
       return;
     }
-    toast.success(`Signed in as @${session.account.handle}`);
+    if (!session.account.handlePending) {
+      toast.success(`Signed in as @${session.account.handle}`);
+    }
     onComplete?.();
   }
 
