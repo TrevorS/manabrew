@@ -468,12 +468,20 @@ export abstract class PromptLayerBase {
   protected spec: PromptOverlaySpec | null = null;
   protected viewportWidth = 0;
   protected viewportHeight = 0;
+  protected viewportRight: number | null = null;
+
+  protected get layoutWidth(): number {
+    return this.viewportRight == null
+      ? this.viewportWidth
+      : Math.min(this.viewportWidth, this.viewportRight);
+  }
   protected actionBounds: Rectangle | null = null;
   protected modalOpen = false;
   protected selectedIds = new Set<string>();
   protected counts = new Map<number | string, number>();
   protected numberValue = 0;
   protected numberBuffer = "";
+  protected numberInputFocused = false;
   protected order: string[] = [];
   protected scryItems: Record<string, string[]> = {};
   protected scrySelectedId: string | null = null;
@@ -690,7 +698,7 @@ export abstract class PromptLayerBase {
     height: number;
   } {
     return fitPromptCardDimensions(
-      this.viewportWidth - PANEL_PADDING * 2 - 24,
+      this.layoutWidth - PANEL_PADDING * 2 - 24,
       this.viewportHeight,
       maxHeight,
     );
@@ -717,13 +725,13 @@ export abstract class PromptLayerBase {
     const width = Math.min(
       GAME_CARD_SIZES.preview.width,
       (availableHeight * CARD_W) / CARD_H,
-      Math.max(80, this.viewportWidth - PANEL_PADDING * 2 - 24),
+      Math.max(80, this.layoutWidth - PANEL_PADDING * 2 - 24),
     );
     return { width, height: width * CARD_ASPECT_RATIO };
   }
 
   protected modalPromptWidth(maxWidth: number): number {
-    const viewportWidth = this.viewportWidth - 24;
+    const viewportWidth = this.layoutWidth - 24;
     const sourceCard = this.promptSourceCard();
     if (!sourceCard) return Math.min(maxWidth, viewportWidth);
     const sourceWidth = this.promptCardDisplayDimensions(
@@ -780,14 +788,21 @@ export abstract class PromptLayerBase {
     this.rebuild();
   }
 
-  protected bindPromptCardActivation(target: Container, card: CardDto, sprite: CardSprite): void {
+  protected bindPromptCardActivation(
+    target: Container,
+    card: CardDto,
+    sprite: CardSprite,
+    hoverFeedback = true,
+  ): void {
     let restingZIndex: number | null = null;
     const showFeedback = () => {
+      if (!hoverFeedback) return;
       sprite.setElevation(1);
       sprite.setRing(hexToNum(this.theme.gameTheme.cardRing));
       this.callbacks.onRenderRequested?.();
     };
     const hideFeedback = () => {
+      if (!hoverFeedback) return;
       sprite.setElevation(0);
       sprite.setRing(null);
       this.callbacks.onRenderRequested?.();
@@ -1145,12 +1160,12 @@ export abstract class PromptLayerBase {
     if (!filter) return;
     filter.background
       .clear()
-      .roundRect(0, filter.y, filter.width, 40, 8)
-      .fill({ color: hexToNum(this.theme.appTheme.background), alpha: 0.72 })
+      .roundRect(0.5, filter.y + 0.5, filter.width - 1, 39, 7.5)
+      .fill({ color: hexToNum(this.theme.appTheme.background), alpha: focused ? 0.85 : 0.72 })
       .stroke({
         color: hexToNum(focused ? this.theme.gameTheme.cardRing : this.theme.appTheme.border),
-        width: focused ? 2 : 1,
-        alpha: focused ? 0.9 : 1,
+        width: 1,
+        alpha: 1,
       });
     filter.caret.visible = focused;
   }
