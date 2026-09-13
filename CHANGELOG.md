@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.42.5](https://github.com/witchesofthehill/manabrew/compare/v3.42.4...v3.42.5) (2026-09-13)
+
+### Fixes
+
+* **telemetry:** file offline games under the player's relay name ([#919](https://github.com/witchesofthehill/manabrew/issues/919)) ([5089cbe](https://github.com/witchesofthehill/manabrew/commit/5089cbed4e98f3b5fa2430c6ffbc4afe4462c227))
+
 ## [3.42.4](https://github.com/witchesofthehill/manabrew/compare/v3.42.3...v3.42.4) (2026-09-12)
 
 ### Fixes
