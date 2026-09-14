@@ -44,6 +44,26 @@ it into an exit code. `--json` keeps a run's table for a later baseline.
 Two hundred decisions per cell is where the p90 stops moving between runs.
 Twelve 4-seat games is about two thousand `chooseAction` decisions.
 
+## A/B
+
+```sh
+node scripts/engine-bench/stress.mjs --tag ab --engines base=npm,pr=packages/forge-wasm \
+  --seats 2,4 --games 30 --jobs 3
+python3 scripts/engine-bench/pool.py --ab scripts/engine-bench/runs/ab --fail-over 20
+```
+
+`--engines` plays the one plan under every arm, same seeds and decks, arms
+interleaved in the queue so machine load lands on both. The first arm is the
+control. `pool.py --ab` gives each cell the ratio of p50 and p90, a 95%
+bootstrap interval and the share of resamples in which the arm is slower.
+
+The bootstrap resamples games, not decisions. A game's decisions rise and fall
+with its board, so an A/A test over decisions reported a 25% difference that
+was not there; over games the same run reads 0.7-1.2. That is also why the
+interval narrows with games rather than decisions: eight per arm is a smoke
+test, thirty is where a 20% change separates from noise. `--fail-over` fails
+only when the whole p50 interval sits above the threshold.
+
 Read the same-turn half. The cross-turn half contains whole opponent turns.
 `docs/agents/LATENCY_ANALYSIS.md` has the rest of the traps.
 

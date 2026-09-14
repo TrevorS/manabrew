@@ -13,14 +13,27 @@ With `--baseline` the same table is read from another run and each cell is
 shown as a ratio. `--fail-over N` exits 1 when any p50 or p90 with at least
 `--min-n` decisions on both sides is more than N percent slower. `--json` writes
 the pooled table for a later baseline.
+
+`--ab runs/<tag>` reads a `stress.mjs --engines` run: the first arm is the
+control, and every other arm is compared to it cell by cell with a bootstrap
+interval on the p50 and p90 ratios and the share of resamples in which the arm
+is slower. A ratio whose interval straddles 1.0 is noise at that sample size.
+Games are the unit the bootstrap resamples, so the interval narrows with games,
+not decisions: eight 2-seat games per arm put the `chooseAction` p50 interval
+at about 0.7-1.2, thirty is where a 20% change separates from noise.
+
+    python3 scripts/engine-bench/pool.py --ab runs/ab --fail-over 20
 """
 import argparse
 import glob
 import json
 import os
+import random
 import re
 import sys
 from collections import defaultdict
+
+BOOT = 400
 
 GC_LINE = re.compile(r"^\[\d+:0x[0-9a-f]+\]\s+(\d+) ms: (\w+).*?([\d.]+) / [\d.]+ ms")
 
@@ -49,17 +62,24 @@ def read_run(path):
 
 
 def pool(games):
-    """{(seats, type): [same-turn ms]} plus per-game facts."""
+    """{(seats, type): [same-turn ms]} plus per-game facts.
+
+    `by_game` keeps the same cells split per process, because decisions inside
+    one game share its board and are not independent draws.
+    """
     cells = defaultdict(list)
+    by_game = defaultdict(list)
     facts = []
     for g in games:
         ends = [r for r in g["rows"] if r["ev"] == "end"]
+        mine = defaultdict(list)
         for r in g["rows"]:
             if r["ev"] == "decision" and not r.get("turns"):
-                cells[(g["seats"], r["type"])].append(r["ms"])
-        for r in g["rows"]:
-            if r["ev"] == "decision" and not r.get("turns"):
-                cells[(g["seats"], "*")].append(r["ms"])
+                mine[(g["seats"], r["type"])].append(r["ms"])
+                mine[(g["seats"], "*")].append(r["ms"])
+        for key, v in mine.items():
+            cells[key].extend(v)
+            by_game[key].append(v)
         plays = sum(1 for r in g["rows"] if r["ev"] == "play" and r["output"] == "act")
         loops = sum(1 for r in g["rows"] if r["ev"] == "loop")
         heaps = [e["memory"]["rss"] for e in ends if "memory" in e]
@@ -79,6 +99,7 @@ def pool(games):
                 "gc_total_ms": round(sum(g["pauses"])) if g["pauses"] else None,
             }
         )
+    pool.by_game = by_game
     return cells, facts
 
 
@@ -95,14 +116,95 @@ def summarise(cells):
     }
 
 
+def bootstrap(a_games, b_games, rng):
+    """Ratio b/a of p50 and p90 with a 95% interval and P(b slower) on p50.
+
+    Resamples games, not decisions: one game's decisions rise and fall with
+    its board, so an A/A test over decisions reports differences that are
+    not there.
+    """
+    a = [ms for g in a_games for ms in g]
+    b = [ms for g in b_games for ms in g]
+    r50, r90 = [], []
+    for _ in range(BOOT):
+        sa = [ms for _ in a_games for ms in a_games[rng.randrange(len(a_games))]]
+        sb = [ms for _ in b_games for ms in b_games[rng.randrange(len(b_games))]]
+        r50.append(quantile(sb, 50) / max(1, quantile(sa, 50)))
+        r90.append(quantile(sb, 90) / max(1, quantile(sa, 90)))
+    r50.sort()
+    r90.sort()
+    lo, hi = int(BOOT * 0.025), int(BOOT * 0.975) - 1
+    return {
+        "p50": quantile(b, 50) / max(1, quantile(a, 50)),
+        "p50_lo": r50[lo],
+        "p50_hi": r50[hi],
+        "p90": quantile(b, 90) / max(1, quantile(a, 90)),
+        "p90_lo": r90[lo],
+        "p90_hi": r90[hi],
+        "slower": sum(1 for r in r50 if r > 1) / BOOT,
+    }
+
+
+def ab(run, min_n, min_games, fail_over):
+    manifest = json.load(open(os.path.join(run, "manifest.json")))
+    arms = list(manifest["engines"])
+    if len(arms) < 2:
+        print(f"{run}: one arm only, nothing to compare")
+        return 2
+    pooled = {}
+    per_game = {}
+    for arm in arms:
+        games = read_run(os.path.join(run, arm))
+        cells, facts = pool(games)
+        pooled[arm] = cells
+        per_game[arm] = pool.by_game
+        clean = sum(f["games"] for f in facts if f["clean"])
+        print(f"{arm}: {manifest['engines'][arm]}; {len(games)} processes, {clean} clean, "
+              f"{sum(len(v) for (s, k), v in cells.items() if k == '*')} same-turn decisions")
+    control = arms[0]
+    rng = random.Random(1)
+    verdict = 0
+    for arm in arms[1:]:
+        print(f"\n{arm} vs {control}, ratio > 1 is slower, 95% bootstrap interval")
+        print(f"{'seats':>5} {'type':<24}{'n ctl':>7}{'n arm':>7}{'p50':>7}{'interval':>16}{'p90':>7}{'interval':>16}{'P(slower)':>10}")
+        bad = []
+        for key in sorted(pooled[control], key=lambda k: (k[0], -len(pooled[control][k]))):
+            a = pooled[control][key]
+            b = pooled[arm].get(key, [])
+            ga, gb = per_game[control][key], per_game[arm].get(key, [])
+            if len(a) < min_n or len(b) < min_n or len(ga) < min_games or len(gb) < min_games:
+                continue
+            r = bootstrap(ga, gb, rng)
+            seats, kind = key
+            print(f"{seats:>5} {kind:<24}{len(a):>7}{len(b):>7}{r['p50']:>7.2f}"
+                  f"{r['p50_lo']:>7.2f}-{r['p50_hi']:<8.2f}{r['p90']:>7.2f}"
+                  f"{r['p90_lo']:>7.2f}-{r['p90_hi']:<8.2f}{r['slower']:>10.2f}")
+            if fail_over is not None and r["p50_lo"] > 1 + fail_over / 100:
+                bad.append((seats, kind, r["p50"]))
+        if bad:
+            verdict = 1
+            print(f"\nFAIL {arm}: whole interval above {fail_over:.0f}% slower on " +
+                  ", ".join(f"{s}-seat {k} ({r:.2f}x)" for s, k, r in bad))
+        elif fail_over is not None:
+            print(f"\nok {arm}: no cell whose whole interval is above {fail_over:.0f}% slower")
+    return verdict
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("run")
+    ap.add_argument("run", nargs="?")
+    ap.add_argument("--ab", help="a stress.mjs --engines run directory")
     ap.add_argument("--baseline")
     ap.add_argument("--fail-over", type=float, default=None, help="percent slower on p50/p90 that fails")
     ap.add_argument("--min-n", type=int, default=100)
+    ap.add_argument("--min-games", type=int, default=8, help="games per arm a cell needs for --ab")
     ap.add_argument("--json", help="write the pooled table here")
     args = ap.parse_args()
+
+    if args.ab:
+        return ab(args.ab, args.min_n, args.min_games, args.fail_over)
+    if not args.run:
+        ap.error("a run directory or --ab is required")
 
     games = read_run(args.run)
     if not games:

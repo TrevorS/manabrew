@@ -12,6 +12,11 @@
  *   node scripts/engine-bench/stress.mjs --tag pr --engine packages/forge-wasm --seats 4
  *   python3 scripts/engine-bench/pool.py runs/pr --baseline runs/main
  *
+ * An A/B is the same plan under several engines: `--engines base=npm,pr=<dir>`
+ * plays every game once per arm with the same seed and decks, arms
+ * interleaved in the queue so whatever else the machine is doing lands on
+ * both. Output goes to `runs/<tag>/<arm>/`; `pool.py --ab runs/<tag>` reads it.
+ *
  * `--decks` picks the pool the combinations are drawn from: a comma-separated
  * list of preset basenames or deck files, or a directory of deck JSON. Each game
  * takes the next `seats` decks off a rotation of that pool, so the pool is
@@ -41,7 +46,14 @@ const gamesPerShape = Number(option("games", 8));
 const perEngine = Number(option("per-engine", 1));
 const jobs = Number(option("jobs", Math.max(1, Math.floor(cpus().length / 2))));
 const policy = option("policy", "greedy");
-const engine = option("engine", "npm");
+const arms = option("engines", null)
+  ? option("engines")
+      .split(",")
+      .map((pair) => {
+        const [name, source] = pair.split("=");
+        return { name, source: source ?? name };
+      })
+  : [{ name: null, source: option("engine", "npm") }];
 const timeoutS = Number(option("timeout", 1800));
 const seed0 = Number(option("seed", 1000));
 const traceGc = flag("trace-gc");
@@ -85,9 +97,10 @@ for (const seats of seatCounts) {
   for (let i = 0; i < gamesPerShape; i += 1) {
     const decks = Array.from({ length: seats }, (_, k) => pool[(rotation + k) % pool.length]);
     rotation += seats;
-    const seed = seed0 + plan.length * perEngine;
+    const seed = seed0 + (plan.length / arms.length) * perEngine;
     const name = `s${seats}-g${String(i + 1).padStart(3, "0")}`;
-    plan.push({ name, seats, decks, seed });
+    for (const arm of arms)
+      plan.push({ name, seats, decks, seed, arm: arm.name, engine: arm.source });
   }
 }
 
@@ -98,7 +111,7 @@ writeFileSync(
     {
       tag,
       startedAt: new Date().toISOString(),
-      engine,
+      engines: Object.fromEntries(arms.map((a) => [a.name ?? "engine", a.source])),
       policy,
       perEngine,
       jobs,
@@ -110,13 +123,15 @@ writeFileSync(
   ),
 );
 
+for (const arm of arms) mkdirSync(join(outDir, arm.name ?? ""), { recursive: true });
+
 function play(game) {
-  const out = join(outDir, `${game.name}.jsonl`);
+  const out = join(outDir, game.arm ?? "", `${game.name}.jsonl`);
   const args = [
     ...(traceGc ? ["--trace-gc"] : []),
     join(here, "forge-wasm-game.mjs"),
     "--engine",
-    engine,
+    game.engine,
     "--seats",
     String(game.seats),
     "--decks",
@@ -142,15 +157,15 @@ function play(game) {
       writeFileSync(out.replace(/\.jsonl$/, ".log"), Buffer.concat(log));
       const s = ((Date.now() - startedAt) / 1000).toFixed(0);
       console.log(
-        `${code === 0 ? "ok  " : "FAIL"} ${game.name} ${s}s ${game.decks.map((d) => basename(d, ".json")).join(" ")}`,
+        `${code === 0 ? "ok  " : "FAIL"} ${game.arm ? `${game.arm}/` : ""}${game.name} ${s}s ${game.decks.map((d) => basename(d, ".json")).join(" ")}`,
       );
-      resolve({ name: game.name, code, seconds: Number(s) });
+      resolve({ name: game.name, arm: game.arm, code, seconds: Number(s) });
     });
   });
 }
 
 console.log(
-  `${plan.length} games, ${jobs} at a time, engine=${engine} policy=${policy} -> ${outDir}`,
+  `${plan.length} games, ${jobs} at a time, engines=${arms.map((a) => a.source).join(" ")} policy=${policy} -> ${outDir}`,
 );
 const queue = [...plan];
 const results = [];
@@ -166,5 +181,10 @@ writeFileSync(
   JSON.stringify({ finishedAt: new Date().toISOString(), results }, null, 2),
 );
 console.log(`\n${results.length - failed.length}/${results.length} games finished cleanly`);
-if (failed.length) console.log(`not clean: ${failed.map((r) => r.name).join(" ")}`);
-console.log(`python3 scripts/engine-bench/pool.py ${outDir}`);
+if (failed.length)
+  console.log(`not clean: ${failed.map((r) => `${r.arm ? `${r.arm}/` : ""}${r.name}`).join(" ")}`);
+console.log(
+  arms.length > 1
+    ? `python3 scripts/engine-bench/pool.py --ab ${outDir}`
+    : `python3 scripts/engine-bench/pool.py ${outDir}`,
+);
