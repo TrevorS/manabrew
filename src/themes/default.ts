@@ -1,10 +1,9 @@
 import type { ThemePreset } from "./presets";
 import { buildGameColors, type BasePalette } from "./buildGameColors";
 
-const cream = "#e7e2dc";
 const primary = "#D4632E";
 const secondary = "#713A98";
-const accent = "#7ca982";
+const accent = "#e7e2dc";
 const charcoal = "#131416";
 const cardCharcoal = "#1a1c1d";
 const mutedGraphite = "#232627";
@@ -15,7 +14,7 @@ const lightBorder = "#b9bfbd";
 const white = "#ffffff";
 
 const palette: BasePalette = {
-  foreground: cream,
+  foreground: accent,
   labelMuted: accent,
   labelGhost: secondary,
   placeholderFill: charcoal,
@@ -37,7 +36,7 @@ const palette: BasePalette = {
   pink: "#ce5d82",
   slate: "#7a8180",
   brown: "#ad6848",
-  paper: cream,
+  paper: accent,
   poison: "#82ad41",
   promptDefense: "#4f9fd0",
   manaW: "#f8f6d8",
@@ -53,7 +52,7 @@ const preset: ThemePreset = {
   name: "Manabrew",
   description: "Manabrew default theme",
   light: {
-    background: cream,
+    background: accent,
     foreground: charcoal,
     card: white,
     "card-foreground": charcoal,
@@ -63,7 +62,7 @@ const preset: ThemePreset = {
     "primary-foreground": charcoal,
     secondary,
     "secondary-foreground": white,
-    muted: cream,
+    muted: accent,
     "muted-foreground": lightMutedText,
     accent,
     "accent-foreground": charcoal,
@@ -80,17 +79,17 @@ const preset: ThemePreset = {
   },
   dark: {
     background: charcoal,
-    foreground: cream,
+    foreground: accent,
     card: cardCharcoal,
-    "card-foreground": cream,
+    "card-foreground": accent,
     popover: popoverGraphite,
-    "popover-foreground": cream,
+    "popover-foreground": accent,
     primary,
     "primary-foreground": charcoal,
     secondary,
     "secondary-foreground": white,
     muted: mutedGraphite,
-    "muted-foreground": cream,
+    "muted-foreground": accent,
     accent,
     "accent-foreground": charcoal,
     destructive: "#c93d50",
