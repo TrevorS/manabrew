@@ -27,7 +27,6 @@ import type { PromptOverlaySpec } from "@/pixi/prompts/prompt.types";
 import { buildPlayerHudBadges, buildZoneBadges } from "@/components/game/panels/playerHudBadges";
 import { PlayerSheetModal } from "@/components/game/panels/PlayerSheetModal";
 import { GlobalStateRail } from "@/components/game/panels/GlobalStateRail";
-import { MobileOpponentSwitcher } from "@/components/game/panels/MobileOpponentSwitcher";
 import { MobilePhaseStops } from "@/components/game/panels/MobilePhaseStops";
 import { MobileHandControl } from "@/components/game/panels/MobileHandControl";
 import type { ZoneTileSpec } from "@/pixi/board/BoardZoneTiles";
@@ -1589,8 +1588,6 @@ export function GameBoard({
     return Object.fromEntries(Object.keys(zoneTilesByPlayer).map((playerId) => [playerId, []]));
   }, [zoneTilesByPlayer, compactBoard]);
   const hudBarSpecs = playerBarSpecs;
-  const displayedOpponentId = manualFocusId ?? focusedOpponentId;
-  const focusedOpponent = opponents.find((opponent) => opponent.id === displayedOpponentId);
 
   const unifiedRegions = useMemo((): BoardCanvasRegion[] => {
     const seatColorOf = (pid: string): string =>
@@ -1955,37 +1952,19 @@ export function GameBoard({
           onLongPressCard={onLongPressCard}
         />
         {compactBoard && (
-          <>
-            {!mobileHandOpen && (
-              <MobileOpponentSwitcher
-                name={stripUsernameTag(focusedOpponent?.name ?? "Opponent")}
-                index={Math.max(
-                  0,
-                  opponents.findIndex((opponent) => opponent.id === displayedOpponentId),
-                )}
-                count={opponents.length}
-                disabled={
-                  isTargetingPrompt ||
-                  promptType === "chooseAttackers" ||
-                  promptType === "chooseBlockers"
-                }
-                onNext={() => cycleField(1)}
-              />
-            )}
-            <MobilePhaseStops
-              open={!mobileHandOpen && mobilePanel?.kind === "phases"}
-              currentStep={step}
-              selfStops={selfStops}
-              opponents={opponents.map((opponent) => ({
-                id: opponent.id,
-                name: stripUsernameTag(opponent.name),
-                stops: opponentStopsMap.get(opponent.id) ?? new Set(DEFAULT_OPPONENT_STOPS),
-              }))}
-              onClose={() => setMobilePanel(null)}
-              onToggleSelf={toggleSelfStop}
-              onToggleOpponent={toggleOpponentStop}
-            />
-          </>
+          <MobilePhaseStops
+            open={!mobileHandOpen && mobilePanel?.kind === "phases"}
+            currentStep={step}
+            selfStops={selfStops}
+            opponents={opponents.map((opponent) => ({
+              id: opponent.id,
+              name: stripUsernameTag(opponent.name),
+              stops: opponentStopsMap.get(opponent.id) ?? new Set(DEFAULT_OPPONENT_STOPS),
+            }))}
+            onClose={() => setMobilePanel(null)}
+            onToggleSelf={toggleSelfStop}
+            onToggleOpponent={toggleOpponentStop}
+          />
         )}
       </div>
       {sheetSpec && <PlayerSheetModal spec={sheetSpec} onClose={() => setSheetPlayerId(null)} />}
