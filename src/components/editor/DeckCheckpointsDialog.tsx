@@ -113,7 +113,7 @@ export function DeckCheckpointsDialog({
               if (event.key === "Enter") saveCheckpoint();
             }}
           />
-          <Button onClick={saveCheckpoint}>
+          <Button variant="outline" onClick={saveCheckpoint}>
             <Plus className="mr-1.5 h-4 w-4" /> Capture
           </Button>
         </div>
@@ -129,9 +129,8 @@ export function DeckCheckpointsDialog({
                 </p>
               </div>
               <Button
-                size="sm"
+                size="xs"
                 variant="outline"
-                className="h-7 text-xs"
                 onClick={() =>
                   onRestore(
                     {

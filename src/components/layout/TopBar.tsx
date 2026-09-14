@@ -66,7 +66,7 @@ function getRouteChrome(pathname: string, search: string): RouteChrome {
   if (pathname === ROUTES.DESIGN_SYSTEM) {
     return { title: "Design System", fallback: ROUTES.PLAY };
   }
-  if (pathname === "/card-mock") return { title: "Card Face Gallery", fallback: ROUTES.PLAY };
+  if (pathname === "/card-mock") return { title: "Theme Editor", fallback: ROUTES.PLAY };
   return { title: null, fallback: ROUTES.PLAY };
 }
 
@@ -169,6 +169,7 @@ export function TopBar({ override }: TopBarProps) {
         />
         {phase !== "idle" && version && (
           <Button
+            variant="secondary"
             size="sm"
             disabled={downloading || navigationDisabled}
             onClick={() => void installDesktopUpdate()}
