@@ -64,6 +64,9 @@ public final class ManaBrewEngineAdapter {
         FModel.initialize(null, prefs -> {
             prefs.setPref(ForgePreferences.FPref.LOAD_CARD_SCRIPTS_LAZILY, true);
             prefs.setPref(ForgePreferences.FPref.DECKGEN_CARDBASED, false);
+            // Skips the tap/untap/mana replacement scan of zones other than
+            // battlefield and command (Card-Forge/forge#11160).
+            prefs.setPref(ForgePreferences.FPref.PERFORMANCE_MODE, true);
             return null;
         });
         initialized = true;
