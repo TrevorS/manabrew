@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.42.7](https://github.com/witchesofthehill/manabrew/compare/v3.42.6...v3.42.7) (2026-09-13)
+
+### Fixes
+
+* claim username ([#922](https://github.com/witchesofthehill/manabrew/issues/922)) ([b2bcb6e](https://github.com/witchesofthehill/manabrew/commit/b2bcb6e107d8ca099d7d8dac7d524e340dbb8760))
+
+## [3.42.6](https://github.com/witchesofthehill/manabrew/compare/v3.42.5...v3.42.6) (2026-09-13)
+
+### Fixes
+
+* affinity bug on action psace ([#920](https://github.com/witchesofthehill/manabrew/issues/920)) ([feffed0](https://github.com/witchesofthehill/manabrew/commit/feffed0407016ad257a1def10508cf464b326cc7))
+
 ## [3.42.5](https://github.com/witchesofthehill/manabrew/compare/v3.42.4...v3.42.5) (2026-09-13)
 
 ### Fixes

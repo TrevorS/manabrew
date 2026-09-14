@@ -1,17 +1,16 @@
-import { CARD_BACK_IMAGE_URL } from "@/components/game/game.constants";
-import { GAME_CARD_DEFAULTS } from "@/lib/gameCard";
 import { resolveCardFaces } from "@/lib/cardFaces";
 import { scryfallToSampleGameCard } from "@/lib/sampleGameCard";
 import { useTheme } from "@/hooks/useTheme";
 import { useGameStore } from "@/stores/useGameStore";
 import { useScryfallStore } from "@/stores/useScryfallStore";
-import type { CardDto } from "@/protocol/game";
+import type { CardDto, StackObjectDto } from "@/protocol/game";
 import type { DeckCard } from "@/protocol/deck";
 import type { PromptPresentation } from "@/protocol";
 import type { HandActionOption } from "@/stores/useGameUIStore";
 import type { PlayerHudSpec } from "@/pixi/hud/playerHud.types";
 import type { ClientGameView, ClientPlayerDto } from "@/stores/gameStore.types";
 import { PREVIEW_SCENARIOS, type ScryPreviewLayout } from "../devPreviewScenarios";
+import { buildDevDialogFixtures } from "@/components/dev/gameplayDialogFixtures";
 
 export async function loadDevScryCards(layout: ScryPreviewLayout): Promise<CardDto[]> {
   const scenarios = PREVIEW_SCENARIOS.filter((scenario) => scenario.scry?.includes(layout));
@@ -37,55 +36,6 @@ export async function loadDevScryCards(layout: ScryPreviewLayout): Promise<CardD
     }),
   );
 }
-
-function makeCard(id: string, name: string, power: string, toughness: string): CardDto {
-  return {
-    ...GAME_CARD_DEFAULTS,
-    id,
-    identity: { name, setCode: "", cardNumber: "", isToken: false },
-    color: "G",
-    manaCost: "{2}{G}",
-    cmc: 3,
-    types: ["Creature"],
-    power,
-    toughness,
-    basePower: Number(power),
-    baseToughness: Number(toughness),
-    controllerId: "dev-player",
-    ownerId: "dev-player",
-    text: "Vigilance",
-    keywords: ["Vigilance"],
-  };
-}
-
-export const FALLBACK_CARDS = [
-  makeCard("dev-card-1", "Serra Angel", "4", "4"),
-  makeCard("dev-card-2", "Grizzly Bears", "2", "2"),
-  makeCard("dev-card-3", "Llanowar Elves", "1", "1"),
-];
-
-const FALLBACK_SOURCE_CARD: DeckCard = {
-  identity: { id: "dev-source", name: "Serra Angel", setCode: "", cardNumber: "" },
-  uris: {
-    small: CARD_BACK_IMAGE_URL,
-    normal: CARD_BACK_IMAGE_URL,
-    large: CARD_BACK_IMAGE_URL,
-    png: CARD_BACK_IMAGE_URL,
-    art_crop: CARD_BACK_IMAGE_URL,
-    border_crop: CARD_BACK_IMAGE_URL,
-  },
-  color: "W",
-  colorIdentity: ["W"],
-  manaCost: "{3}{W}{W}",
-  cmc: 5,
-  types: ["Creature"],
-  subtypes: ["Angel"],
-  supertypes: [],
-  keywords: ["Flying", "Vigilance"],
-  power: "4",
-  toughness: "4",
-  text: "Flying, vigilance",
-};
 
 export const ABILITY_OPTIONS: HandActionOption[] = [
   {
@@ -132,6 +82,7 @@ export interface DevDialogFixtures {
   opponents: ClientPlayerDto[];
   targetPlayer: ClientPlayerDto;
   presentation: PromptPresentation;
+  stack: StackObjectDto[];
   cardById: Map<string, CardDto>;
   playerSpec: PlayerHudSpec;
 }
@@ -141,99 +92,10 @@ export function useDevDialogFixtures(previewCards?: CardDto[]): DevDialogFixture
   const gameDecks = useGameStore((state) => state.gameDecks);
   const theme = useTheme().gameTheme;
 
-  if (!gameView || gameView.players.length === 0) return null;
-
-  const visibleCards = [
-    ...gameView.battlefield,
-    ...gameView.players.flatMap((player) => [
-      ...player.hand,
-      ...player.graveyard,
-      ...player.exile,
-      ...player.commandZone,
-    ]),
-  ];
-  const me = gameView.players[0];
-  const cards = previewCards
-    ? previewCards.map((card) => ({ ...card, ownerId: me.id, controllerId: me.id }))
-    : FALLBACK_CARDS.map((fallback, index) => visibleCards[index] ?? fallback);
-  const sourceCard =
-    Object.values(gameDecks).flatMap((deck) => deck.cards)[0] ?? FALLBACK_SOURCE_CARD;
-  const opponents = gameView.players.slice(1);
-  const targetPlayer = opponents[0] ?? me;
-  const presentation: PromptPresentation = {
-    title: "Choose for Serra Angel",
-    description: "Select the option you want to use.",
-    text: "Representative prompt text with {W} and {G} mana symbols.",
-    targets: [{ kind: "player", id: targetPlayer.id, intent: "friendly" }],
-  };
-  const cardById = new Map(cards.map((card) => [card.id, card]));
-  const playerSpec: PlayerHudSpec = {
-    playerId: me.id,
-    name: me.name,
-    isSelf: true,
-    life: me.life,
-    color: theme.playerColors.self,
-    isBot: !me.isHuman,
-    isActiveTurn: true,
-    isPriorityPlayer: true,
-    isTargetable: false,
-    isSelectedTarget: false,
-    isFlashing: false,
-    isEliminated: false,
-    isDisconnected: false,
-    inCombat: true,
-    combatLethal: false,
-    manaPool: { W: 2, U: 1, B: 0, R: 0, G: 3, C: 1 },
-    badges: [
-      {
-        id: "hand",
-        icon: "card-pickup",
-        color: theme.badges.hand,
-        label: "Cards in Hand",
-        count: 7,
-      },
-      {
-        id: "graveyard",
-        icon: "tombstone",
-        color: theme.textMuted,
-        label: "Graveyard",
-        count: 12,
-        zone: true,
-      },
-      { id: "exile", icon: "vortex", color: theme.textMuted, label: "Exile", count: 2, zone: true },
-      { id: "monarch", icon: "crown", color: theme.badges.monarch, label: "Monarch" },
-      {
-        id: "poison",
-        icon: "poison-bottle",
-        color: theme.badges.poison,
-        label: "Poison Counters",
-        count: 3,
-      },
-      {
-        id: "cmd-dev",
-        icon: "broadsword",
-        color: theme.badges.commanderDamage,
-        label: "Commander damage",
-        count: 8,
-      },
-    ],
-    ruleFacts: [
-      { id: "hand-size", label: "Maximum hand size", value: "7" },
-      { id: "land-plays", label: "Land plays", value: "1 / 2", emphasized: true },
-      { id: "commander-casts", label: "Commander casts", value: "2" },
-      { id: "cards-drawn", label: "Cards drawn this turn", value: "1" },
-    ],
-  };
-
-  return {
+  return buildDevDialogFixtures(
     gameView,
-    cards,
-    sourceCard,
-    me,
-    opponents,
-    targetPlayer,
-    presentation,
-    cardById,
-    playerSpec,
-  };
+    Object.values(gameDecks).flatMap((deck) => deck.cards),
+    theme,
+    previewCards,
+  );
 }

@@ -27,8 +27,15 @@ import { AccountSection } from "@/components/settings/AccountSection";
 import { MyAssetsSection } from "@/components/settings/MyAssetsSection";
 import { CardArtDownloadSection } from "@/components/settings/CardArtDownloadSection";
 import { PreferenceCard } from "@/components/settings/PreferenceCard";
-import { toPickerHexColor } from "@/themes/gameTheme";
-import type { GameThemeColors } from "@/themes/gameTheme";
+import { toPickerHexColor, parseThemeColor, formatThemeColor } from "@/themes/gameTheme";
+import type { GameThemeColorKey } from "@/themes/gameTheme";
+import {
+  APP_THEME_COLOR_DESCRIPTIONS,
+  APP_THEME_COLOR_LABELS,
+  APP_THEME_GROUPS,
+  GAME_THEME_COLOR_DESCRIPTIONS,
+  GAME_THEME_GROUPS,
+} from "@/themes/themeMetadata";
 import { getDefaultGameThemeColorMap } from "@/hooks/useTheme";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,124 +53,6 @@ import { Navigate, useLocation } from "react-router-dom";
 import { HelpCircle, Minus, Pencil, Plus, Server, Trash2 } from "lucide-react";
 import { KNOWN_RELAYS, type KnownRelay } from "@/config/knownRelays";
 import { cn } from "@/lib/utils";
-
-/**
- * Canonical key unions. These drive the typed colour-description maps
- * below so a typo in a description key fails at compile time and adding
- * a new token to the schema shows up as a missing-description TS error
- * (via the `Record<…>` form used on the descriptions themselves — not
- * `Partial<Record<…>>` — so exhaustiveness is enforced).
- */
-type AppThemeKey = keyof ThemeColors;
-
-/**
- * Dot-notation string keys for every leaf in `GameThemeColors`.
- * Produces `"pointer.hostile" | "mana.W" | "textOnTinted" | …` at the
- * TS level; `Partial<Record<GameThemePath, string>>` on the description
- * map catches typos without forcing every leaf to be documented at
- * once. Add new tokens to the schema first — the description keys are
- * then type-checked against the live shape.
- */
-type GameThemePath = {
-  [K in keyof GameThemeColors & string]: GameThemeColors[K] extends string
-    ? K
-    : GameThemeColors[K] extends Record<string, string>
-      ? `${K}.${keyof GameThemeColors[K] & string}`
-      : never;
-}[keyof GameThemeColors & string];
-
-const APP_THEME_COLOR_DESCRIPTIONS: Record<AppThemeKey, string> = {
-  background: "Page / window background fill.",
-  foreground: "Default body text colour.",
-  card: "Surface colour for cards, panels, and solid containers.",
-  "card-foreground": "Text colour placed on `card` surfaces.",
-  popover: "Background of popovers, menus, and floating panels.",
-  "popover-foreground": "Text colour inside popovers.",
-  primary: "Primary action colour — main call-to-action buttons, links, active chip fills.",
-  "primary-foreground": "Text / icons placed on a `primary` background.",
-  secondary: "Secondary / subtle button background.",
-  "secondary-foreground": "Text on secondary-style buttons.",
-  muted: "Muted surface for low-priority regions.",
-  "muted-foreground": "Captions, hints, and secondary text colour.",
-  accent: "Hover / active highlight surface.",
-  "accent-foreground": "Text on accent surfaces.",
-  destructive: "Destructive actions, errors, and deny states.",
-  "destructive-foreground": "Text placed on `destructive` buttons.",
-  border: "Default border and divider lines.",
-  input: "Form input borders and backgrounds.",
-  ring: "Focus ring around interactive elements.",
-  selection: "Background of selected text.",
-  "selection-foreground": "Colour of selected text itself.",
-  commander: "Commander indicator (crown icon, commander panel accent).",
-  warning: "Warning states and soft cautions.",
-  overlay: "Modal / dialog backdrop dim.",
-};
-
-const GAME_THEME_COLOR_DESCRIPTIONS: Partial<Record<GameThemePath, string>> = {
-  "activeAction.priority": "Highlight surrounding the player who currently has priority.",
-  "activeAction.active": "Active-turn ring, turn-text colour, and general 'your turn' cue.",
-  "promptAction.passAction": "Pass priority / pass turn button fill.",
-  "promptAction.attackAction": "Declare-attackers button fill.",
-  "promptAction.defenseAction": "Defense / declare-blockers button fill.",
-  "promptAction.cancel": "Cancel / decline button fill.",
-  "arrow.attack": "Attacker arrow from attacker to defender.",
-  "arrow.block": "Blocker arrow from blocker to attacker.",
-  "arrow.hostileTarget": "Legacy hostile-target arrow (Pixi fallback).",
-  "arrow.friendlyTarget": "Legacy friendly-target arrow (Pixi fallback).",
-  "pointer.hostile":
-    "Glow around the cursor for hostile targeting — damage, destroy, sacrifice, exile, counter, etc. Also used for the mulligan-reject ring.",
-  "pointer.friendly":
-    "Glow around the cursor for friendly / supportive targeting — buff, heal, draw, reveal, untap, attach, copy.",
-  "mana.W": "White mana pip and dual-land tap-button tint.",
-  "mana.U": "Blue mana pip and dual-land tap-button tint.",
-  "mana.B": "Black mana pip and dual-land tap-button tint.",
-  "mana.R": "Red mana pip and dual-land tap-button tint.",
-  "mana.G": "Green mana pip and dual-land tap-button tint.",
-  "mana.C": "Colorless mana pip and tap-button tint.",
-  "cardStatus.exerted": "Badge colour for exerted creatures (won't untap).",
-  "cardStatus.morph": "Badge for face-down / morph creatures.",
-  "cardStatus.bestow": "Badge for bestowed auras.",
-  "cardStatus.token": "Badge for token creatures.",
-  "cardStatus.transformed": "Badge for transformed double-faced cards.",
-  "cardStatus.plotted": "Badge for plotted cards in exile.",
-  "cardStatus.madness": "Badge for madness-exiled cards.",
-  "cardStatus.warped": "Badge for warp-exiled cards.",
-  "cardStatus.copy": "Badge for permanents that are copies of another card.",
-  "counter.default": "Fallback chip colour for unknown counter types.",
-  "counter.p1p1": "+1/+1 counter chip.",
-  "counter.m1m1": "-1/-1 counter chip.",
-  "counter.loyalty": "Loyalty counter chip (planeswalkers).",
-  "counter.charge": "Charge counter chip.",
-  "counter.quest": "Quest counter chip.",
-  "counter.study": "Study counter chip.",
-  "counter.lore": "Lore counter chip (sagas).",
-  "counter.age": "Age counter chip.",
-  "counter.time": "Time counter chip (suspend, etc.).",
-  "counter.fade": "Fade counter chip.",
-  "counter.level": "Level counter chip (level-up creatures).",
-  "counter.storage": "Storage counter chip.",
-  "counter.mining": "Mining counter chip.",
-  "counter.brick": "Brick counter chip.",
-  "counter.depletion": "Depletion counter chip.",
-  "counter.page": "Page counter chip (book rooms).",
-  "pt.neutral": "P/T badge when stats match the printed base.",
-  "pt.lethal": "P/T badge when incoming damage would be lethal.",
-  "pt.buffed": "P/T badge when stats are above the printed base.",
-  "pt.debuffed": "P/T badge when stats are below the printed base.",
-  success: "Positive states — connected, saved, victory banner, good FPS.",
-  poison: "Poison counter / skull icon — MTG infect-green.",
-  life: "Life total / heart icon.",
-  "canvas.background": "Pixi canvas table background fill.",
-  "canvas.shadow": "Drop-shadow ink (almost always black).",
-  "canvas.neutral": "High-contrast stroke / outline colour for arrows and icons.",
-  "phaseStrip.background": "Raised charcoal surface behind phase-strip cells.",
-  "cardPlaceholder.fill": "Loading-state card sprite fill.",
-  "cardPlaceholder.stroke": "Loading-state card sprite border.",
-  textOnTinted: "Text colour placed on tinted chips and badges.",
-  textMuted: "Subdued label colour on empty-zone placeholders.",
-  textGhost: "Ghost card-name colour shown while art loads.",
-  cardRing: "Default card selection / focus ring.",
-};
 
 /**
  * Small `?` hover-help icon shown next to a picker label. Renders a
@@ -198,153 +87,6 @@ function HelpMark({ description }: { description: string | undefined }) {
     </span>
   );
 }
-
-const APP_THEME_COLOR_LABELS: Record<AppThemeKey, string> = {
-  background: "Background",
-  foreground: "Text",
-  card: "Card Surface",
-  "card-foreground": "Card Text",
-  popover: "Popover Surface",
-  "popover-foreground": "Popover Text",
-  primary: "Primary",
-  "primary-foreground": "Primary Text",
-  secondary: "Secondary",
-  "secondary-foreground": "Secondary Text",
-  muted: "Muted Surface",
-  "muted-foreground": "Muted Text",
-  accent: "Accent",
-  "accent-foreground": "Accent Text",
-  destructive: "Destructive",
-  "destructive-foreground": "Destructive Text",
-  border: "Border",
-  input: "Input",
-  ring: "Focus Ring",
-  selection: "Selection",
-  "selection-foreground": "Selection Text",
-  commander: "Commander",
-  warning: "Warning",
-  overlay: "Overlay",
-};
-
-const APP_THEME_GROUPS: { heading: string; description: string; keys: AppThemeKey[] }[] = [
-  {
-    heading: "Surfaces & Foregrounds",
-    description: "Neutral page, card, and popover backgrounds plus their paired text colours.",
-    keys: ["background", "foreground", "card", "card-foreground", "popover", "popover-foreground"],
-  },
-  {
-    heading: "Brand & Accent",
-    description: "Primary action colour and the softer accent / secondary tints.",
-    keys: [
-      "primary",
-      "primary-foreground",
-      "secondary",
-      "secondary-foreground",
-      "accent",
-      "accent-foreground",
-    ],
-  },
-  {
-    heading: "State Signals",
-    description: "Destructive, warning, commander, and selection highlights.",
-    keys: [
-      "destructive",
-      "destructive-foreground",
-      "warning",
-      "commander",
-      "selection",
-      "selection-foreground",
-    ],
-  },
-  {
-    heading: "Muted & Structure",
-    description: "Subdued surfaces, borders, input fields, focus ring, and overlay dim.",
-    keys: ["muted", "muted-foreground", "border", "input", "ring", "overlay"],
-  },
-];
-
-const GAME_THEME_GROUPS: {
-  heading: string;
-  description: string;
-  prefixes?: string[];
-  exactKeys?: string[];
-}[] = [
-  {
-    heading: "Active Action",
-    description: "Priority ring, turn glow, and related active-state cues.",
-    prefixes: ["activeAction."],
-  },
-  {
-    heading: "Prompt Buttons",
-    description: "Pass, attack, defense, cancel, and related prompt action buttons.",
-    prefixes: ["promptAction."],
-  },
-  {
-    heading: "Combat & Placement Arrows",
-    description: "Curved arrows for attack / block declarations and the placement ghost.",
-    prefixes: ["arrow."],
-  },
-  {
-    heading: "Targeting Pointers",
-    description: "Per-intent pointer icon glow (sacrifice, destroy, exile, bounce, tap …).",
-    prefixes: ["pointer."],
-  },
-  {
-    heading: "Mana Symbols",
-    description: "W / U / B / R / G / C pip and tap-button tints.",
-    prefixes: ["mana."],
-  },
-  {
-    heading: "Card Status Badges",
-    description: "Exerted, morph, bestow, token, transformed, plotted, madness, warped.",
-    prefixes: ["cardStatus."],
-  },
-  {
-    heading: "Counters",
-    description: "Per-counter-type chip colour (P1P1, M1M1, Loyalty, Charge …).",
-    prefixes: ["counter."],
-  },
-  {
-    heading: "P / T Badge",
-    description: "Neutral / lethal / buffed / debuffed stat-badge backgrounds.",
-    prefixes: ["pt."],
-  },
-  {
-    heading: "Status Signals",
-    description: "Generic UI states: success (connected / win), poison counter, life / heart.",
-    exactKeys: ["success", "poison", "life"],
-  },
-  {
-    heading: "Canvas",
-    description: "Pixi table background, shadow ink, and high-contrast neutral.",
-    prefixes: ["canvas."],
-  },
-  {
-    heading: "Card Placeholder",
-    description: "Sprite fill / stroke used while a card's image is loading.",
-    prefixes: ["cardPlaceholder."],
-  },
-  {
-    heading: "Text Roles",
-    description: "Generic text colours on tinted chips, empty zones, and ghost placeholders.",
-    exactKeys: ["textOnTinted", "textMuted", "textGhost"],
-  },
-  {
-    heading: "Player Colours",
-    description: "Per-seat colours for phase strip indicators and turn tint.",
-    prefixes: ["playerColors."],
-  },
-  {
-    heading: "Badges",
-    description: "Status chip icon colours rendered next to the mana pool.",
-    prefixes: ["badges."],
-  },
-  {
-    heading: "Card Ring",
-    description: "Fallback ring / selection halo colour.",
-    exactKeys: ["cardRing"],
-  },
-];
 
 const FLASH_MIN = 200;
 const FLASH_MAX = 2000;
@@ -414,7 +156,21 @@ export default function Settings() {
 
   function commitThemeColorEdit(path: string, fallbackValue: string) {
     const next = editingThemeColorValue.trim() || fallbackValue;
-    prefs.setGameThemeColorOverride(path, next);
+    const parsed = parseThemeColor(next);
+    if (!parsed) {
+      toast.error("Use a valid hex or rgb/rgba color.");
+      return;
+    }
+    const color = formatThemeColor(parsed.hex, parsed.alpha);
+    if (path.startsWith("app.")) {
+      prefs.setAppThemeColorOverride(
+        resolvedTheme === "light" ? "light" : "dark",
+        path.slice(4) as keyof ThemeColors,
+        color,
+      );
+    } else {
+      prefs.setGameThemeColorOverride(path, color);
+    }
     setEditingThemeColorPath(null);
     setEditingThemeColorValue("");
   }
@@ -657,7 +413,7 @@ export default function Settings() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={handleSave} disabled={!hasChanges && !server.error}>
+            <Button variant="primary" onClick={handleSave} disabled={!hasChanges && !server.error}>
               Save & Reconnect
             </Button>
             <DropdownMenu>
@@ -748,7 +504,12 @@ export default function Settings() {
                 placeholder="Name this server"
                 className="max-w-xs"
               />
-              <Button size="sm" onClick={saveCurrentServer} disabled={!newServerName.trim()}>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={saveCurrentServer}
+                disabled={!newServerName.trim()}
+              >
                 Save
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setSavingServer(false)}>
@@ -915,7 +676,7 @@ export default function Settings() {
                 {HAND_ORDER_OPTIONS.map((option) => (
                   <Button
                     key={option.value}
-                    variant={prefs.handOrderMode === option.value ? "default" : "outline"}
+                    variant={prefs.handOrderMode === option.value ? "selected" : "outline"}
                     size="sm"
                     onClick={() => prefs.setHandOrderMode(option.value)}
                   >
@@ -933,14 +694,14 @@ export default function Settings() {
             >
               <div className="flex flex-wrap gap-2">
                 <Button
-                  variant={!prefs.battlefieldAutoSort ? "default" : "outline"}
+                  variant={!prefs.battlefieldAutoSort ? "selected" : "outline"}
                   size="sm"
                   onClick={() => prefs.setBattlefieldAutoSort(false)}
                 >
                   Free placement
                 </Button>
                 <Button
-                  variant={prefs.battlefieldAutoSort ? "default" : "outline"}
+                  variant={prefs.battlefieldAutoSort ? "selected" : "outline"}
                   size="sm"
                   onClick={() => prefs.setBattlefieldAutoSort(true)}
                 >
@@ -957,14 +718,14 @@ export default function Settings() {
             >
               <div className="flex flex-wrap gap-2">
                 <Button
-                  variant={!prefs.lockZoneTiles ? "default" : "outline"}
+                  variant={!prefs.lockZoneTiles ? "selected" : "outline"}
                   size="sm"
                   onClick={() => prefs.setLockZoneTiles(false)}
                 >
                   Movable
                 </Button>
                 <Button
-                  variant={prefs.lockZoneTiles ? "default" : "outline"}
+                  variant={prefs.lockZoneTiles ? "selected" : "outline"}
                   size="sm"
                   onClick={() => prefs.setLockZoneTiles(true)}
                 >
@@ -982,21 +743,21 @@ export default function Settings() {
               <div className="flex items-start gap-4">
                 <div className="flex-1 flex flex-wrap content-start gap-2">
                   <Button
-                    variant={prefs.battlefieldCardStyle === "realistic" ? "default" : "outline"}
+                    variant={prefs.battlefieldCardStyle === "realistic" ? "selected" : "outline"}
                     size="sm"
                     onClick={() => prefs.setBattlefieldCardStyle("realistic")}
                   >
                     Realistic
                   </Button>
                   <Button
-                    variant={prefs.battlefieldCardStyle === "art" ? "default" : "outline"}
+                    variant={prefs.battlefieldCardStyle === "art" ? "selected" : "outline"}
                     size="sm"
                     onClick={() => prefs.setBattlefieldCardStyle("art")}
                   >
                     Art-forward
                   </Button>
                   <Button
-                    variant={prefs.battlefieldCardStyle === "frame" ? "default" : "outline"}
+                    variant={prefs.battlefieldCardStyle === "frame" ? "selected" : "outline"}
                     size="sm"
                     onClick={() => prefs.setBattlefieldCardStyle("frame")}
                   >
@@ -1013,14 +774,14 @@ export default function Settings() {
             >
               <div className="flex flex-wrap gap-2">
                 <Button
-                  variant={prefs.inGameAnimations ? "default" : "outline"}
+                  variant={prefs.inGameAnimations ? "selected" : "outline"}
                   size="sm"
                   onClick={() => prefs.setInGameAnimations(true)}
                 >
                   On
                 </Button>
                 <Button
-                  variant={!prefs.inGameAnimations ? "default" : "outline"}
+                  variant={!prefs.inGameAnimations ? "selected" : "outline"}
                   size="sm"
                   onClick={() => prefs.setInGameAnimations(false)}
                 >
@@ -1036,14 +797,14 @@ export default function Settings() {
               >
                 <div className="flex flex-wrap gap-2">
                   <Button
-                    variant={prefs.ironsmithRuntimeEnabled ? "default" : "outline"}
+                    variant={prefs.ironsmithRuntimeEnabled ? "selected" : "outline"}
                     size="sm"
                     onClick={() => prefs.setIronsmithRuntimeEnabled(true)}
                   >
                     On
                   </Button>
                   <Button
-                    variant={!prefs.ironsmithRuntimeEnabled ? "default" : "outline"}
+                    variant={!prefs.ironsmithRuntimeEnabled ? "selected" : "outline"}
                     size="sm"
                     onClick={() => prefs.setIronsmithRuntimeEnabled(false)}
                   >
@@ -1059,14 +820,14 @@ export default function Settings() {
             >
               <div className="flex flex-wrap gap-2">
                 <Button
-                  variant={prefs.opponentLayout === "focused" ? "default" : "outline"}
+                  variant={prefs.opponentLayout === "focused" ? "selected" : "outline"}
                   size="sm"
                   onClick={() => prefs.setOpponentLayout("focused")}
                 >
                   Focused
                 </Button>
                 <Button
-                  variant={prefs.opponentLayout === "overview" ? "default" : "outline"}
+                  variant={prefs.opponentLayout === "overview" ? "selected" : "outline"}
                   size="sm"
                   onClick={() => prefs.setOpponentLayout("overview")}
                 >
@@ -1081,14 +842,14 @@ export default function Settings() {
             >
               <div className="flex flex-wrap gap-2">
                 <Button
-                  variant={prefs.directTransport ? "default" : "outline"}
+                  variant={prefs.directTransport ? "selected" : "outline"}
                   size="sm"
                   onClick={() => prefs.setDirectTransport(true)}
                 >
                   On
                 </Button>
                 <Button
-                  variant={!prefs.directTransport ? "default" : "outline"}
+                  variant={!prefs.directTransport ? "selected" : "outline"}
                   size="sm"
                   onClick={() => prefs.setDirectTransport(false)}
                 >
@@ -1105,7 +866,7 @@ export default function Settings() {
                 {INLINE_CARD_STYLE_OPTIONS.map((option) => (
                   <Button
                     key={option.value}
-                    variant={prefs.handCardStyle === option.value ? "default" : "outline"}
+                    variant={prefs.handCardStyle === option.value ? "selected" : "outline"}
                     size="sm"
                     onClick={() => prefs.setHandCardStyle(option.value)}
                   >
@@ -1123,7 +884,7 @@ export default function Settings() {
                 {INLINE_CARD_STYLE_OPTIONS.map((option) => (
                   <Button
                     key={option.value}
-                    variant={prefs.stackCardStyle === option.value ? "default" : "outline"}
+                    variant={prefs.stackCardStyle === option.value ? "selected" : "outline"}
                     size="sm"
                     onClick={() => prefs.setStackCardStyle(option.value)}
                   >
@@ -1141,7 +902,7 @@ export default function Settings() {
                 {IN_GAME_CARD_PREVIEW_STYLE_OPTIONS.map((option) => (
                   <Button
                     key={option.value}
-                    variant={prefs.inGameCardPreviewStyle === option.value ? "default" : "outline"}
+                    variant={prefs.inGameCardPreviewStyle === option.value ? "selected" : "outline"}
                     size="sm"
                     onClick={() => prefs.setInGameCardPreviewStyle(option.value)}
                   >
@@ -1190,21 +951,21 @@ export default function Settings() {
               <Label>App Theme</Label>
               <div className="flex items-center gap-2">
                 <Button
-                  variant={theme === "light" ? "default" : "outline"}
+                  variant={theme === "light" ? "selected" : "outline"}
                   size="sm"
                   onClick={() => setTheme("light")}
                 >
                   Light
                 </Button>
                 <Button
-                  variant={theme === "dark" ? "default" : "outline"}
+                  variant={theme === "dark" ? "selected" : "outline"}
                   size="sm"
                   onClick={() => setTheme("dark")}
                 >
                   Dark
                 </Button>
                 <Button
-                  variant={theme === "system" ? "default" : "outline"}
+                  variant={theme === "system" ? "selected" : "outline"}
                   size="sm"
                   onClick={() => setTheme("system")}
                 >
@@ -1327,8 +1088,14 @@ export default function Settings() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={prefs.resetAppThemeColorOverrides}
-                disabled={Object.keys(prefs.appThemeColorOverrides).length === 0}
+                onClick={() =>
+                  prefs.resetAppThemeColorOverrides(resolvedTheme === "light" ? "light" : "dark")
+                }
+                disabled={
+                  Object.keys(
+                    prefs.appThemeColorOverrides[resolvedTheme === "light" ? "light" : "dark"],
+                  ).length === 0
+                }
               >
                 Reset Colors
               </Button>
@@ -1360,7 +1127,7 @@ export default function Settings() {
                     <div className="space-y-1">
                       {filteredKeys.map((key) => {
                         const presetValue = activePreset?.[mode]?.[key as keyof ThemeColors] ?? "";
-                        const activeValue = prefs.appThemeColorOverrides[key] ?? presetValue;
+                        const activeValue = prefs.appThemeColorOverrides[mode][key] ?? presetValue;
                         return (
                           <div
                             key={key}
@@ -1373,20 +1140,48 @@ export default function Settings() {
                             <div className="flex items-center gap-2 min-w-0">
                               <input
                                 type="color"
-                                value={activeValue}
+                                aria-label={APP_THEME_COLOR_LABELS[key]}
+                                value={toPickerHexColor(activeValue)}
                                 onChange={(e) =>
-                                  prefs.setAppThemeColorOverride(key, e.target.value)
+                                  prefs.setAppThemeColorOverride(
+                                    mode,
+                                    key,
+                                    formatThemeColor(
+                                      e.target.value,
+                                      parseThemeColor(activeValue)!.alpha,
+                                    ),
+                                  )
                                 }
                                 className="h-8 w-10 shrink-0 rounded border border-input bg-transparent p-0.5"
                               />
-                              <button
-                                type="button"
-                                className="flex-1 min-w-0 text-right text-[11px] font-mono text-muted-foreground hover:text-foreground underline-offset-2 hover:underline truncate"
-                                onClick={() => beginThemeColorEdit(`app.${key}`, activeValue)}
-                                title="Click to edit color value"
-                              >
-                                {activeValue}
-                              </button>
+                              {editingThemeColorPath === `app.${key}` ? (
+                                <input
+                                  autoFocus
+                                  aria-label={`${APP_THEME_COLOR_LABELS[key]} value`}
+                                  value={editingThemeColorValue}
+                                  onChange={(e) => setEditingThemeColorValue(e.target.value)}
+                                  onBlur={() => commitThemeColorEdit(`app.${key}`, presetValue)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter")
+                                      commitThemeColorEdit(`app.${key}`, presetValue);
+                                    if (e.key === "Escape") {
+                                      setEditingThemeColorPath(null);
+                                      setEditingThemeColorValue("");
+                                    }
+                                  }}
+                                  className="flex-1 min-w-0 h-7 rounded border border-input bg-background px-1.5 text-right text-[11px] font-mono"
+                                  spellCheck={false}
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="flex-1 min-w-0 text-right text-[11px] font-mono text-muted-foreground hover:text-foreground underline-offset-2 hover:underline truncate"
+                                  onClick={() => beginThemeColorEdit(`app.${key}`, activeValue)}
+                                  title="Click to edit color value"
+                                >
+                                  {activeValue}
+                                </button>
+                              )}
                             </div>
                           </div>
                         );
@@ -1481,7 +1276,9 @@ export default function Settings() {
                               >
                                 <span>{path}</span>
                                 <HelpMark
-                                  description={GAME_THEME_COLOR_DESCRIPTIONS[path as GameThemePath]}
+                                  description={
+                                    GAME_THEME_COLOR_DESCRIPTIONS[path as GameThemeColorKey]
+                                  }
                                 />
                               </Label>
                               <div className="flex items-center gap-2 min-w-0">
@@ -1490,7 +1287,13 @@ export default function Settings() {
                                   type="color"
                                   value={toPickerHexColor(activeColor)}
                                   onChange={(e) =>
-                                    prefs.setGameThemeColorOverride(path, e.target.value)
+                                    prefs.setGameThemeColorOverride(
+                                      path,
+                                      formatThemeColor(
+                                        e.target.value,
+                                        parseThemeColor(activeColor)!.alpha,
+                                      ),
+                                    )
                                   }
                                   className="h-8 w-10 shrink-0 rounded border border-input bg-transparent p-0.5"
                                 />

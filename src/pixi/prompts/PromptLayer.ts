@@ -16,6 +16,7 @@ import {
   ACTION_DRAWER_BUMP_EVENT,
   AUTOPASS_DELAY_MAX_MS,
   AUTOPASS_DELAY_MIN_MS,
+  GAME_CARD_SIZES,
 } from "@/components/game/game.constants";
 import { usePromptPreferencesStore } from "@/stores/usePromptPreferencesStore";
 import { usePreferencesStore } from "@/stores/usePreferencesStore";
@@ -48,6 +49,9 @@ import {
   samePromptPresentation,
 } from "./PromptLayerBase";
 import { PromptModalLayer } from "./PromptModalLayer";
+
+const ACTION_CARD_SIZE = GAME_CARD_SIZES.battlefield;
+const ACTION_CARD_GAP = 8;
 
 export class PromptLayer extends PromptModalLayer {
   private readonly unsubscribePromptPreferences: () => void;
@@ -402,7 +406,7 @@ export class PromptLayer extends PromptModalLayer {
       const glowColor =
         effectivePromptType === "chooseAttackers" && action.pendingAttackers.length > 0
           ? this.theme.gameTheme.promptAction.attackAction
-          : this.theme.gameTheme.activeAction.priority;
+          : this.theme.appTheme.primary;
       this.actionGlow = new PromptGlow({
         width,
         height: panelHeight,
@@ -520,10 +524,7 @@ export class PromptLayer extends PromptModalLayer {
   ): ActionViewLayout {
     const action = this.spec!.action;
     const disabled = action.isWaitingForResponse || action.isWaitingForOthers || preview;
-    const passColor = this.theme.gameTheme.promptAction.passAction;
     const attackColor = this.theme.gameTheme.promptAction.attackAction;
-    const defenseColor = this.theme.gameTheme.promptAction.defenseAction;
-    const cancelColor = this.theme.gameTheme.promptAction.cancel;
     const muted = this.theme.appTheme["muted-foreground"];
 
     switch (viewKey) {
@@ -588,7 +589,7 @@ export class PromptLayer extends PromptModalLayer {
             "Attack All",
             "lucide-swords",
             attackAll,
-            attackColor,
+            "attackAction",
             disabled,
             minimal,
             touch,
@@ -597,7 +598,7 @@ export class PromptLayer extends PromptModalLayer {
             !minimal && attackCount > 0 ? `Attack (${attackCount})` : "Attack",
             "lucide-sword",
             action.onSubmitAttack,
-            attackColor,
+            "attackAction",
             disabled || attackCount === 0,
             minimal,
             touch,
@@ -607,7 +608,7 @@ export class PromptLayer extends PromptModalLayer {
             "Pass",
             "lucide-ban",
             action.onPassPriority,
-            passColor,
+            "priority",
             disabled,
             minimal,
             touch,
@@ -677,7 +678,7 @@ export class PromptLayer extends PromptModalLayer {
               `Block ${action.blockAssignments.length}`,
               "lucide-shield",
               () => action.onDeclareBlockers(action.blockAssignments),
-              defenseColor,
+              "defenseAction",
               disabled || !!action.blockRequirementError,
               minimal,
               touch,
@@ -692,7 +693,7 @@ export class PromptLayer extends PromptModalLayer {
             "No Blocks",
             "lucide-ban",
             action.onPassPriority,
-            cancelColor,
+            "cancel",
             disabled,
             minimal,
             touch,
@@ -732,7 +733,7 @@ export class PromptLayer extends PromptModalLayer {
         let y = instruction.height + 6;
         const controls = [
           this.makeButton("AUTO", action.onDefaultDamageOrder, {
-            color: attackColor,
+            action: "attackAction",
             flat: true,
             shadow: true,
             radius: 8,
@@ -746,7 +747,7 @@ export class PromptLayer extends PromptModalLayer {
         if (action.damageOrderCount > 0) {
           controls.push(
             this.makeButton("UNDO", action.onUndoDamageOrder, {
-              color: attackColor,
+              action: "attackAction",
               flat: true,
               shadow: true,
               radius: 8,
@@ -765,7 +766,7 @@ export class PromptLayer extends PromptModalLayer {
         if (complete) {
           y += 6;
           const confirm = this.makeButton("CONFIRM ORDER", action.onConfirmDamageOrder, {
-            color: attackColor,
+            action: "attackAction",
             flat: true,
             shadow: true,
             radius: 8,
@@ -793,7 +794,7 @@ export class PromptLayer extends PromptModalLayer {
               action.targetCompletionLabel ?? "Done",
               cancel ? "lucide-ban" : "lucide-check",
               action.onCompleteTargets,
-              cancel ? cancelColor : passColor,
+              cancel ? "cancel" : "priority",
               disabled,
               minimal,
               touch,
@@ -811,7 +812,7 @@ export class PromptLayer extends PromptModalLayer {
           this.spec!.onShowModal,
           {
             title: hidden ? "Prompt required. Click to reopen." : "Prompt is open.",
-            color: cancelColor,
+            action: "cancel",
             flat: true,
             radius: minimal ? 20 : 8,
             shadow: true,
@@ -837,18 +838,18 @@ export class PromptLayer extends PromptModalLayer {
             [
               this.makeActionButton(
                 "Keep",
-                "lucide-check",
+                "lucide-check-bold",
                 action.onMulliganKeep,
-                passColor,
+                "priority",
                 disabled,
                 true,
                 touch,
               ),
               this.makeActionButton(
                 "Mulligan",
-                "lucide-rotate-cw",
+                "lucide-rotate-cw-bold",
                 action.onMulliganDraw,
-                this.theme.appTheme.secondary,
+                "secondary",
                 disabled,
                 true,
                 touch,
@@ -880,28 +881,28 @@ export class PromptLayer extends PromptModalLayer {
         const row = this.layoutActionRow(
           [
             this.makeButton("Keep", action.onMulliganKeep, {
-              color: passColor,
+              action: "priority",
               flat: true,
               shadow: true,
               radius: 8,
               disabled,
               width: (width - 6) / 2,
               height: 36,
-              icon: "lucide-check",
+              icon: "lucide-check-bold",
               iconSize: 14,
               fontSize: 14,
               fontWeight: "900",
               letterSpacing: 1.12,
             }),
             this.makeButton("Mulligan", action.onMulliganDraw, {
-              color: this.theme.appTheme.secondary,
+              variant: "secondary",
               flat: true,
               shadow: true,
               radius: 8,
               disabled,
               width: (width - 6) / 2,
               height: 36,
-              icon: "lucide-rotate-cw",
+              icon: "lucide-rotate-cw-bold",
               iconSize: 14,
               fontSize: 14,
               fontWeight: "900",
@@ -931,7 +932,7 @@ export class PromptLayer extends PromptModalLayer {
     label: string,
     icon: string,
     onPress: (() => void) | undefined,
-    color: string,
+    role: keyof Theme["gameTheme"]["promptAction"] | "priority" | "primary" | "secondary",
     disabled: boolean,
     minimal: boolean,
     touch: boolean,
@@ -939,7 +940,7 @@ export class PromptLayer extends PromptModalLayer {
   ): PromptButton {
     const showLabel = minimal || touch;
     return this.makeButton(label, onPress, {
-      color,
+      ...(role === "primary" || role === "secondary" ? { variant: role } : { action: role }),
       flat: true,
       shadow: true,
       radius: 8,
@@ -1000,7 +1001,7 @@ export class PromptLayer extends PromptModalLayer {
       minimal || morphed
         ? null
         : this.makeButton(endLabel, action.onPassEndTurn, {
-            color: this.theme.appTheme.secondary,
+            variant: "secondary",
             flat: true,
             radius: 8,
             disabled,
@@ -1015,7 +1016,7 @@ export class PromptLayer extends PromptModalLayer {
       !minimal && combo ? `${passLabel}  ${comboSymbols(combo)}` : passLabel,
       morphed ? action.onPassEndTurn : action.onPassPriority,
       {
-        color: this.theme.gameTheme.promptAction.passAction,
+        action: "priority",
         flat: true,
         radius: minimal ? 20 : 8,
         disabled,
@@ -1034,7 +1035,7 @@ export class PromptLayer extends PromptModalLayer {
         pass.buttonWidth,
         height,
         minimal ? 20 : 8,
-        this.theme.gameTheme.textOnTinted,
+        this.theme.appTheme["primary-foreground"],
       );
     }
     this.priorityButtons = { pass, end };
@@ -1168,9 +1169,7 @@ export class PromptLayer extends PromptModalLayer {
           action.targetCompletionLabel ?? "Done",
           action.targetCompletionKind === "cancel" ? "lucide-ban" : "lucide-check",
           action.onCompleteTargets,
-          action.targetCompletionKind === "cancel"
-            ? this.theme.gameTheme.promptAction.cancel
-            : this.theme.gameTheme.promptAction.passAction,
+          action.targetCompletionKind === "cancel" ? "cancel" : "priority",
           disabled,
           minimal,
           touch,
@@ -1181,7 +1180,9 @@ export class PromptLayer extends PromptModalLayer {
       Math.min(
         minimal
           ? 208
-          : availableWidth - (source ? 68 : 0) - (completion ? completion.buttonWidth + 6 : 0),
+          : availableWidth -
+              (source ? ACTION_CARD_SIZE.width + ACTION_CARD_GAP : 0) -
+              (completion ? completion.buttonWidth + 6 : 0),
         availableWidth,
       ),
     );
@@ -1212,12 +1213,12 @@ export class PromptLayer extends PromptModalLayer {
       if (source) {
         source.position.set(
           (Math.max(stripWidth, completion ? stripWidth + completion.buttonWidth + 6 : stripWidth) -
-            60) /
+            ACTION_CARD_SIZE.width) /
             2,
           0,
         );
         container.addChild(source);
-        y = 90;
+        y = ACTION_CARD_SIZE.height + ACTION_CARD_GAP;
       }
       strip.position.set(0, y);
       container.addChild(strip);
@@ -1233,20 +1234,21 @@ export class PromptLayer extends PromptModalLayer {
     if (source) {
       source.position.set(0, 0);
       container.addChild(source);
-      x = 68;
+      x = ACTION_CARD_SIZE.width + ACTION_CARD_GAP;
     }
-    strip.position.set(x, source ? 24 : 0);
+    const actionRowY = source ? (ACTION_CARD_SIZE.height - 36) / 2 : 0;
+    strip.position.set(x, actionRowY);
     container.addChild(strip);
     x += stripWidth;
     if (completion) {
-      completion.position.set(x + 6, source ? 24 : 0);
+      completion.position.set(x + 6, actionRowY);
       container.addChild(completion);
       x += 6 + completion.buttonWidth;
     }
     return {
       container,
       width: x,
-      height: source ? 84 : Math.max(36, completion?.buttonHeight ?? 0),
+      height: source ? ACTION_CARD_SIZE.height : Math.max(36, completion?.buttonHeight ?? 0),
     };
   }
 
@@ -1266,8 +1268,8 @@ export class PromptLayer extends PromptModalLayer {
       const source = this.makeActionCardThumbnail(sourceCard);
       if (minimal) {
         container.addChild(source);
-        y = 92;
-        width = 60;
+        y = ACTION_CARD_SIZE.height + ACTION_CARD_GAP;
+        width = ACTION_CARD_SIZE.width;
       } else {
         source.position.set(0, 0);
         container.addChild(source);
@@ -1276,21 +1278,21 @@ export class PromptLayer extends PromptModalLayer {
           description,
           12,
           this.theme.appTheme["muted-foreground"],
-          availableWidth - 68,
+          availableWidth - ACTION_CARD_SIZE.width - ACTION_CARD_GAP,
         );
-        text.position.set(68, 4);
+        text.position.set(ACTION_CARD_SIZE.width + ACTION_CARD_GAP, 4);
         container.addChild(text);
         if (info.delveCount) {
           const delved = promptRichText(
             `Delved for {${info.delveCount}}`,
             12,
             this.theme.appTheme["muted-foreground"],
-            availableWidth - 68,
+            availableWidth - ACTION_CARD_SIZE.width - ACTION_CARD_GAP,
           );
-          delved.position.set(68, 8 + text.height);
+          delved.position.set(ACTION_CARD_SIZE.width + ACTION_CARD_GAP, 8 + text.height);
           container.addChild(delved);
         }
-        y = 92;
+        y = ACTION_CARD_SIZE.height + ACTION_CARD_GAP;
         width = availableWidth;
       }
     } else if (!minimal && info) {
@@ -1317,7 +1319,7 @@ export class PromptLayer extends PromptModalLayer {
             : "CHOOSE HOW TO PAY",
         10,
         info.canConfirmFromPool
-          ? this.theme.gameTheme.promptAction.passAction
+          ? this.theme.appTheme.primary
           : this.theme.appTheme["muted-foreground"],
         {
           weight: "700",
@@ -1337,7 +1339,7 @@ export class PromptLayer extends PromptModalLayer {
         info?.canConfirmFromPool ? "Confirm" : "Auto",
         info?.canConfirmFromPool ? "lucide-check" : "lucide-wand-sparkles",
         info?.canConfirmFromPool ? action.onPayManaCost : action.onAutoManaCost,
-        this.theme.gameTheme.promptAction.passAction,
+        "priority",
         disabled,
         minimal,
         touch,
@@ -1349,7 +1351,7 @@ export class PromptLayer extends PromptModalLayer {
           "Delve",
           "exile",
           info.onOpenDelve,
-          this.theme.gameTheme.promptAction.defenseAction,
+          "defenseAction",
           disabled,
           minimal,
           touch,
@@ -1362,7 +1364,7 @@ export class PromptLayer extends PromptModalLayer {
           `${info.lifeToPay} Life`,
           "lucide-heart-crack",
           info.onPayLife,
-          this.theme.gameTheme.promptAction.attackAction,
+          "attackAction",
           disabled,
           minimal,
           touch,
@@ -1374,7 +1376,7 @@ export class PromptLayer extends PromptModalLayer {
         "Cancel",
         "lucide-ban",
         action.onCancelManaCost,
-        this.theme.gameTheme.promptAction.cancel,
+        "cancel",
         disabled,
         minimal,
         touch,
@@ -1387,7 +1389,7 @@ export class PromptLayer extends PromptModalLayer {
     );
     if (minimal && info?.sourceCard) {
       const source = container.children[0];
-      if (source) source.x = Math.max(0, (rows.width - 60) / 2);
+      if (source) source.x = Math.max(0, (rows.width - ACTION_CARD_SIZE.width) / 2);
     }
     rows.container.position.set(minimal ? 0 : Math.max(0, (availableWidth - rows.width) / 2), y);
     container.addChild(rows.container);
@@ -1408,7 +1410,6 @@ export class PromptLayer extends PromptModalLayer {
     const selected = action.mulliganSelectedCount ?? 0;
     const count = action.mulliganPutBackCount ?? 0;
     const canConfirm = !disabled && selected === count;
-    const color = this.theme.appTheme.primary;
     if (minimal) {
       const label = promptText(
         `${selected}/${count} selected`,
@@ -1424,7 +1425,7 @@ export class PromptLayer extends PromptModalLayer {
         "Confirm",
         "lucide-check",
         action.onMulliganPutBackConfirm,
-        color,
+        "primary",
         !canConfirm,
         true,
         touch,
@@ -1453,7 +1454,6 @@ export class PromptLayer extends PromptModalLayer {
     label.anchor.set(0.5, 0);
     label.position.set(width / 2, 0);
     const button = this.makeButton("CONFIRM", action.onMulliganPutBackConfirm, {
-      color,
       flat: true,
       shadow: true,
       radius: 8,
@@ -1560,7 +1560,6 @@ export class PromptLayer extends PromptModalLayer {
           : `Autopass: dead priority windows pass automatically${hint}`,
         icon: fullControl ? "lucide-hand" : "lucide-zap",
         iconSize: 12,
-        color: fullControl ? this.theme.gameTheme.textOnTinted : this.theme.appTheme.border,
         outline: true,
         backgroundColor: this.theme.gameTheme.textOnTinted,
         backgroundAlpha: fullControl ? 0.15 : 0.05,
@@ -1610,7 +1609,10 @@ export class PromptLayer extends PromptModalLayer {
     const sprite = new CardSprite(card, "zone");
     const place = () => {
       sprite.scale.set(1);
-      const scale = 60 / sprite.width;
+      const scale = Math.min(
+        ACTION_CARD_SIZE.width / sprite.width,
+        ACTION_CARD_SIZE.height / sprite.height,
+      );
       sprite.scale.set(scale);
       sprite.position.set(sprite.pivot.x * scale, sprite.pivot.y * scale);
     };
@@ -1618,7 +1620,7 @@ export class PromptLayer extends PromptModalLayer {
     place();
     sprite.eventMode = "none";
     container.addChild(sprite);
-    container.hitArea = new Rectangle(0, 0, 60, 84);
+    container.hitArea = new Rectangle(0, 0, ACTION_CARD_SIZE.width, ACTION_CARD_SIZE.height);
     container.eventMode = "static";
     container.cursor = "pointer";
     this.bindPromptCardLongPress(container, card, sprite, true);

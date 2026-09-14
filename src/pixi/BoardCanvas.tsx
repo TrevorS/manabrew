@@ -17,7 +17,7 @@ import type { PlayerHudSpec as PlayerBarSpec } from "./hud/playerHud.types";
 import type { ZoneTileSpec } from "./board/BoardZoneTiles";
 import { battlefieldScaleForMultiplier, scaleForRowsWithCombatRow } from "./GridLayout";
 import { setPixiTextStyleTheme } from "./textStyles";
-import { getTheme } from "@/hooks/useTheme";
+import { getTheme, subscribeTheme } from "@/hooks/useTheme";
 import { useHandScale } from "@/hooks/useHandScale";
 import { usePreferencesStore } from "@/stores/usePreferencesStore";
 import { useGameStore } from "@/stores/useGameStore";
@@ -598,11 +598,13 @@ export function BoardCanvas({
 
   useEffect(() => {
     if (!scene) return;
-    return usePreferencesStore.subscribe(() => {
+    const applyTheme = () => {
       const theme = getTheme();
       setPixiTextStyleTheme(theme);
       scene.setTheme(theme);
-    });
+    };
+    applyTheme();
+    return subscribeTheme(applyTheme);
   }, [scene]);
 
   const handActions = useMemo(

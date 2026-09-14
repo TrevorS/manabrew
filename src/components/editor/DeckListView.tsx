@@ -221,7 +221,7 @@ function CardCornerActions({
           className={cn(
             "rounded-full p-0.5 shadow transition-colors",
             isCover
-              ? "bg-primary/90 text-white"
+              ? "bg-selection/90 text-selection-foreground"
               : "bg-overlay/70 text-muted-foreground opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100",
           )}
           title={isCover ? "Remove as deck art cover" : "Set as deck art cover"}
@@ -240,7 +240,7 @@ function CardCornerActions({
           className={cn(
             "rounded-full p-0.5 shadow transition-colors",
             isCoverBack
-              ? "bg-primary/90 text-white"
+              ? "bg-selection/90 text-selection-foreground"
               : "bg-overlay/70 text-muted-foreground opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100",
           )}
           title={
@@ -687,7 +687,7 @@ function DraggableStackCard({
       />
       {unsupported && (
         <div
-          className="absolute top-1 right-1 z-30 rounded-full bg-warning/90 text-white p-0.5 shadow"
+          className="absolute top-1 right-1 z-30 rounded-full bg-warning/90 p-0.5 text-background shadow"
           title="Unsupported by the Manabrew and Forge engines"
         >
           <AlertTriangle className="h-3 w-3" />
@@ -968,7 +968,7 @@ function CardVisual({
       />
       {unsupported && (
         <div
-          className="absolute top-1 right-1 z-30 rounded-full bg-warning/90 text-white p-0.5 shadow"
+          className="absolute top-1 right-1 z-30 rounded-full bg-warning/90 p-0.5 text-background shadow"
           title="Unsupported by the Manabrew and Forge engines"
         >
           <AlertTriangle className="h-3 w-3" />
