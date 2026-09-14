@@ -14,8 +14,35 @@ python3 scripts/engine-bench/summarise.py 'g*.jsonl'
 ```
 
 `--seats` 2 or 4, `--decks` a comma-separated list of `public/preset_decks`
-basenames, `--out` the JSONL, `--timeout` seconds. The human seat passes on every
-priority, so a reading is the AI's cost and not a scripted line of play.
+basenames or deck files, `--out` the JSONL, `--timeout` seconds. By default the
+human seat passes on every priority, so a reading is the AI's cost and not a
+scripted line of play. `--policy greedy` plays a land a turn, casts what
+auto-pay can cover and attacks with everything, which puts the human's
+permanents on the board. `--engine <dir>` loads a checkout's
+`packages/forge-wasm` (after `yarn build:forge-wasm`) instead of the npm
+package. `--games N` plays N games in one engine and samples the host heap
+between them. `--seed` pins the shuffle.
+
+## A run, not a game
+
+```sh
+node scripts/engine-bench/stress.mjs --tag main --seats 2,4 --games 12
+node scripts/engine-bench/stress.mjs --tag pr --engine packages/forge-wasm --seats 2,4 --games 12
+python3 scripts/engine-bench/pool.py scripts/engine-bench/runs/pr \
+  --baseline scripts/engine-bench/runs/main --fail-over 25
+```
+
+`stress.mjs` plays a matrix, a game per process, `--jobs` at a time (half the
+cores by default). Decks rotate through a pool: the ten Commander presets, or
+`--decks` as a list or a directory of deck files. `--per-engine N` plays N
+games back to back in each process, which is what a tab does. `pool.py` reads
+the run as one population: same-turn percentiles by seat count and prompt
+type, game outcomes, human acts, loop flips, rss per game and GC pauses under
+`--trace-gc`. With `--baseline` every cell is a ratio and `--fail-over` turns
+it into an exit code. `--json` keeps a run's table for a later baseline.
+
+Two hundred decisions per cell is where the p90 stops moving between runs.
+Twelve 4-seat games is about two thousand `chooseAction` decisions.
 
 Read the same-turn half. The cross-turn half contains whole opponent turns.
 `docs/agents/LATENCY_ANALYSIS.md` has the rest of the traps.
