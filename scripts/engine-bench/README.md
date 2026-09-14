@@ -95,6 +95,14 @@ Wasm frames in a released build carry no names, so a profile there stops at
 `wasm-function[51278]`. The JVM gives Java stacks for the same AI on the same
 board, which is how #817 was found.
 
+A seed replays the same game on both runtimes when the human seat answers the
+same way: `--policy greedy` here mirrors the wasm driver's, and the seat names
+match. So a stall seen in a `stress.mjs` run can be replayed on the JVM by seed
+with `--sysprop forge.synchronous=true --jfr`, and the fix measured on the
+identical game (same decision count, same turn count) rather than on a
+population. That is how the alternative-cost and `canGainKeyword` reorders in
+witchesofthehill/forge#13 were found and checked.
+
 Do not A/B whole games. They diverge run to run even at a fixed seed, so game
 length swamps the change under test. Compare profiles, or pool decisions across
 several games and read the percentiles.
