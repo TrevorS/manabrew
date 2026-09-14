@@ -18,6 +18,8 @@ the pooled table for a later baseline.
 control, and every other arm is compared to it cell by cell with a bootstrap
 interval on the p50 and p90 ratios and the share of resamples in which the arm
 is slower. A ratio whose interval straddles 1.0 is noise at that sample size.
+The per-arm tail line (p99, p99.9, max, counts over 1, 5 and 20 s) is where a
+deadline shows; the ratio table is about the median and will not see it.
 Games are the unit the bootstrap resamples, so the interval narrows with games,
 not decisions: eight 2-seat games per arm put the `chooseAction` p50 interval
 at about 0.7-1.2, thirty is where a 20% change separates from noise.
@@ -161,6 +163,11 @@ def ab(run, min_n, min_games, fail_over):
         clean = sum(f["games"] for f in facts if f["clean"])
         print(f"{arm}: {manifest['engines'][arm]}; {len(games)} processes, {clean} clean, "
               f"{sum(len(v) for (s, k), v in cells.items() if k == '*')} same-turn decisions")
+        for seats in sorted({s for s, k in cells}):
+            v = cells[(seats, "*")]
+            print(f"  {seats} seats tail: p99 {quantile(v, 99)} p99.9 {quantile(v, 99.9)} max {max(v)}, "
+                  f"over 1s {sum(m > 1000 for m in v)}, over 5s {sum(m > 5000 for m in v)}, "
+                  f"over 20s {sum(m > 20000 for m in v)}")
     control = arms[0]
     rng = random.Random(1)
     verdict = 0
