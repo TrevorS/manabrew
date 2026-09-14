@@ -10,6 +10,7 @@ import {
   type Ticker,
 } from "pixi.js";
 import type { Theme } from "@/hooks/useTheme";
+import { withAlpha } from "@/themes/gameTheme";
 import { hexToNum, mixNum } from "@/pixi/colorUtils";
 import { CardSprite } from "@/pixi/CardSprite";
 import {
@@ -990,35 +991,85 @@ export class PromptLayer extends PromptModalLayer {
     const passLabel = morphed ? endLabel : counting ? "PASSING" : "PASS";
     const combo = morphed ? endCombo : passCombo;
     const height = 40;
-    const gap = 4;
+
+    if (minimal) {
+      const end = this.makeButton(endLabel, action.onPassEndTurn, {
+        variant: "secondary",
+        flat: true,
+        radius: 20,
+        disabled,
+        height,
+        paddingX: 12,
+        fontSize: 10,
+        fontWeight: "700",
+        letterSpacing: 1,
+        title: endCombo ? `${endTitle} (${comboSymbols(endCombo)})` : endTitle,
+      });
+      const pass = this.makeButton(
+        passLabel,
+        morphed ? action.onPassEndTurn : action.onPassPriority,
+        {
+          action: "priority",
+          flat: true,
+          radius: 20,
+          disabled,
+          height,
+          paddingX: 16,
+          fontSize: 12,
+          fontWeight: "900",
+          letterSpacing: 1.44,
+          title: morphed ? endTitle : "Pass priority",
+        },
+      );
+      if (counting) {
+        this.addAutopassFill(
+          pass,
+          pass.buttonWidth,
+          height,
+          20,
+          this.theme.appTheme["primary-foreground"],
+        );
+      }
+      this.priorityButtons = { pass, end };
+      return this.layoutActionRow([pass, end], 4);
+    }
+
     const end = morphed
       ? null
       : this.makeButton(endLabel, action.onPassEndTurn, {
-          variant: "secondary",
           flat: true,
-          radius: minimal ? 20 : 8,
+          radius: 0,
           disabled,
           height,
-          paddingX: minimal ? 12 : 14,
+          paddingX: 14,
           fontSize: 10,
           fontWeight: "700",
           letterSpacing: 1,
+          foreground: withAlpha(this.theme.gameTheme.textOnTinted, 0.75),
+          backgroundColor: this.theme.gameTheme.canvas.shadow,
+          backgroundAlpha: 0.15,
+          hoverBackgroundAlpha: 0.3,
           title: endCombo ? `${endTitle} (${comboSymbols(endCombo)})` : endTitle,
         });
     const pass = this.makeButton(
-      !minimal && combo ? `${passLabel}  ${comboSymbols(combo)}` : passLabel,
+      passLabel,
       morphed ? action.onPassEndTurn : action.onPassPriority,
       {
-        action: "priority",
+        color: this.theme.appTheme.primary,
         flat: true,
-        radius: minimal ? 20 : 8,
+        radius: 0,
         disabled,
         height,
-        width: minimal ? undefined : availableWidth - (end ? end.buttonWidth + gap : 0),
+        width: availableWidth - (end?.buttonWidth ?? 0),
         paddingX: 16,
         fontSize: 12,
         fontWeight: "900",
         letterSpacing: 1.44,
+        foreground: this.theme.appTheme["primary-foreground"],
+        backgroundColor: this.theme.gameTheme.textOnTinted,
+        backgroundAlpha: morphed ? 0.15 : 0,
+        hoverBackgroundAlpha: morphed ? 0.2 : 0.1,
+        shortcut: combo ? comboSymbols(combo) : undefined,
         title: morphed ? endTitle : "Pass priority",
       },
     );
@@ -1027,12 +1078,44 @@ export class PromptLayer extends PromptModalLayer {
         pass,
         pass.buttonWidth,
         height,
-        minimal ? 20 : 8,
+        0,
         this.theme.appTheme["primary-foreground"],
       );
     }
+    const container = new Container();
+    const clipped = new Container();
+    const surface = new Graphics()
+      .roundRect(0, 0, availableWidth, height, 8)
+      .fill({ color: hexToNum(this.theme.appTheme.primary) });
+    const mask = new Graphics()
+      .roundRect(0, 0, availableWidth, height, 8)
+      .fill({ color: 0xffffff });
+    const ring = new Graphics().roundRect(0.5, 0.5, availableWidth - 1, height - 1, 7.5).stroke({
+      color: hexToNum(this.theme.gameTheme.textOnTinted),
+      width: 1,
+      alpha: 0.2,
+    });
+    surface.eventMode = "none";
+    mask.eventMode = "none";
+    ring.eventMode = "none";
+    clipped.addChild(surface, pass);
+    if (end) {
+      end.position.x = pass.buttonWidth;
+      const divider = new Graphics()
+        .moveTo(pass.buttonWidth, 0)
+        .lineTo(pass.buttonWidth, height)
+        .stroke({
+          color: hexToNum(this.theme.gameTheme.textOnTinted),
+          width: 1,
+          alpha: 0.2,
+        });
+      divider.eventMode = "none";
+      clipped.addChild(end, divider);
+    }
+    clipped.mask = mask;
+    container.addChild(mask, clipped, ring);
     this.priorityButtons = { pass, end };
-    return this.layoutActionRow(end ? [pass, end] : [pass], gap);
+    return { container, width: availableWidth, height };
   }
 
   private buildNoActionView(availableWidth: number, minimal: boolean): ActionViewLayout {

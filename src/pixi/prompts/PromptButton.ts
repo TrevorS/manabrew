@@ -30,6 +30,7 @@ export interface PromptButtonOptions {
   radius?: number;
   shadow?: boolean;
   badge?: string;
+  shortcut?: string;
   tooltip?: boolean;
   backgroundColor?: string;
   backgroundAlpha?: number;
@@ -53,6 +54,7 @@ export class PromptButton extends Container {
   private readonly labelText: Text;
   private readonly iconSprite: Sprite | null;
   private readonly badgeContainer: Container | null;
+  private readonly shortcutContainer: Container | null;
   private readonly tooltipContainer: Container | null;
   private readonly theme: Theme;
   private options: PromptButtonOptions;
@@ -110,6 +112,8 @@ export class PromptButton extends Container {
     this.labelText.eventMode = "none";
     this.labelText.visible = labelPlacement !== "hidden";
     this.visual.addChild(this.labelText);
+    this.shortcutContainer = options.shortcut ? this.makeShortcut(options.shortcut) : null;
+    if (this.shortcutContainer) this.visual.addChild(this.shortcutContainer);
     this.badgeContainer = options.badge ? this.makeBadge(options.badge) : null;
     if (this.badgeContainer) this.addChild(this.badgeContainer);
     this.tooltipContainer =
@@ -178,10 +182,17 @@ export class PromptButton extends Container {
     if (placement === "stacked") {
       return Math.max(40, iconWidth + paddingX * 2, this.labelText.width + paddingX * 2);
     }
-    const gap = this.iconSprite && this.options.label ? 6 : 0;
+    const shortcutWidth = this.shortcutContainer?.getLocalBounds().width ?? 0;
+    const contentWidths = [
+      ...(iconWidth > 0 ? [iconWidth] : []),
+      ...(this.labelText.width > 0 ? [this.labelText.width] : []),
+      ...(shortcutWidth > 0 ? [shortcutWidth] : []),
+    ];
     return Math.max(
       this.options.compact ? 48 : 76,
-      iconWidth + gap + this.labelText.width + paddingX * 2,
+      contentWidths.reduce((sum, itemWidth) => sum + itemWidth, 0) +
+        Math.max(0, contentWidths.length - 1) * 6 +
+        paddingX * 2,
     );
   }
 
@@ -251,8 +262,19 @@ export class PromptButton extends Container {
     }
     this.background.clear().roundRect(0, 0, width, height, radius);
     if (this.options.flat) {
-      this.background.fill({ color, alpha: colorAlpha(fill) });
-      if (active) {
+      const flatFill = this.options.backgroundColor ?? fill;
+      const baseAlpha = this.options.backgroundAlpha ?? colorAlpha(flatFill);
+      const activeAlpha = this.options.hoverBackgroundAlpha;
+      this.background.fill({
+        color: hexToNum(flatFill),
+        alpha:
+          active && activeAlpha != null
+            ? this.pressed
+              ? Math.min(1, activeAlpha + 0.08)
+              : activeAlpha
+            : baseAlpha,
+      });
+      if (active && activeAlpha == null) {
         this.background.roundRect(0, 0, width, height, radius).fill({
           color: foreground,
           alpha: this.pressed ? 0.2 : 0.12,
@@ -306,14 +328,28 @@ export class PromptButton extends Container {
     } else if (placement === "hidden") {
       if (this.iconSprite) this.iconSprite.position.set(width / 2, height / 2);
     } else {
-      const gap = this.iconSprite && this.options.label ? 6 : 0;
-      const contentWidth = (this.iconSprite ? iconSize : 0) + gap + this.labelText.width;
-      const contentX = (width - contentWidth) / 2;
-      if (this.iconSprite) this.iconSprite.position.set(contentX + iconSize / 2, height / 2);
-      this.labelText.position.set(
-        contentX + (this.iconSprite ? iconSize + gap : 0) + this.labelText.width / 2,
-        height / 2,
-      );
+      const shortcutWidth = this.shortcutContainer?.getLocalBounds().width ?? 0;
+      const contentWidths = [
+        ...(this.iconSprite ? [iconSize] : []),
+        ...(this.labelText.width > 0 ? [this.labelText.width] : []),
+        ...(shortcutWidth > 0 ? [shortcutWidth] : []),
+      ];
+      let contentX =
+        (width -
+          contentWidths.reduce((sum, itemWidth) => sum + itemWidth, 0) -
+          Math.max(0, contentWidths.length - 1) * 6) /
+        2;
+      if (this.iconSprite) {
+        this.iconSprite.position.set(contentX + iconSize / 2, height / 2);
+        contentX += iconSize + 6;
+      }
+      if (this.labelText.width > 0) {
+        this.labelText.position.set(contentX + this.labelText.width / 2, height / 2);
+        contentX += this.labelText.width + (this.shortcutContainer ? 6 : 0);
+      }
+      if (this.shortcutContainer) {
+        this.shortcutContainer.position.set(contentX + shortcutWidth / 2, height / 2);
+      }
     }
     if (this.iconSprite)
       this.iconSprite.alpha = this.options.iconTint === false ? 1 : foregroundAlpha;
@@ -330,6 +366,32 @@ export class PromptButton extends Container {
       this.tooltipContainer.position.set(width / 2, -18);
       this.tooltipContainer.visible = this.hovered || this.focused;
     }
+  }
+
+  private makeShortcut(value: string): Container {
+    const shortcut = new Container();
+    const label = new Text({
+      text: value,
+      style: new TextStyle({
+        fontFamily: "system-ui, -apple-system, sans-serif",
+        fontSize: 10,
+        fontWeight: "700",
+        fill: hexToNum(this.theme.gameTheme.textOnTinted),
+      }),
+    });
+    label.anchor.set(0.5);
+    label.alpha = 0.85;
+    const width = Math.max(20, label.width + 12);
+    const height = 18;
+    const background = new Graphics()
+      .roundRect(-width / 2, -height / 2, width, height, 4)
+      .fill({ color: hexToNum(this.theme.gameTheme.canvas.shadow), alpha: 0.25 })
+      .moveTo(-width / 2 + 4, height / 2 - 1)
+      .lineTo(width / 2 - 4, height / 2 - 1)
+      .stroke({ color: hexToNum(this.theme.gameTheme.canvas.shadow), width: 1, alpha: 0.35 });
+    shortcut.eventMode = "none";
+    shortcut.addChild(background, label);
+    return shortcut;
   }
 
   private makeBadge(value: string): Container {
