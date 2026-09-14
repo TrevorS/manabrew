@@ -1061,7 +1061,8 @@ export default function Game({ exitTo }: GameProps = {}) {
         }
       },
       dismissHover: preview.dismiss,
-      onLongPress: (card, pos) => preview.showSticky(card, pos.x, pos.y),
+      onLongPress: (card, pos) =>
+        preview.showSticky(card, pos.x, pos.y, undefined, { allowOverModal: true }),
     });
 
   const draggingIsPermanent = draggingHandCard ? isPermanentSpellCard(draggingHandCard) : false;
@@ -2411,7 +2412,9 @@ export default function Game({ exitTo }: GameProps = {}) {
           onLongPressCard={(card, rect) => {
             setCommandPreviewSource(null);
             commandZonePreview.dismiss();
-            preview.showSticky(card, rect.left + rect.width / 2, rect.top + rect.height / 2, rect);
+            preview.showSticky(card, rect.left + rect.width / 2, rect.top + rect.height / 2, rect, {
+              allowOverModal: true,
+            });
           }}
           onHandHoverChange={setHandCardLifted}
           getHandActions={getHandActionOptions}

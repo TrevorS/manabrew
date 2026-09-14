@@ -176,10 +176,6 @@ export class PromptLayer extends PromptModalLayer {
     return this.actionBounds?.clone() ?? null;
   }
 
-  get compactAction(): boolean {
-    return this.viewportHeight <= 520 && isCoarsePointer();
-  }
-
   destroy(): void {
     window.removeEventListener("keydown", this.keyListener);
     window.removeEventListener("keydown", this.onModifierEvent);

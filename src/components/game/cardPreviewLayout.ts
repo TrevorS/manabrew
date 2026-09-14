@@ -29,6 +29,30 @@ export interface PreviewLayout {
   panelScale: number;
   slotMarginLeft: number;
 }
+export interface PreviewCardDimensionsInput {
+  usableWidth: number;
+  usableHeight: number;
+  horizontal: boolean;
+  reservedWidth?: number;
+}
+
+export function computePreviewCardDimensions(input: PreviewCardDimensionsInput): {
+  width: number;
+  height: number;
+} {
+  const naturalWidth = input.horizontal ? CARD_H : CARD_W;
+  const naturalHeight = input.horizontal ? CARD_W : CARD_H;
+  const horizontalScale = Math.max(
+    0.1,
+    (input.usableWidth - (input.reservedWidth ?? 0) - 16) / naturalWidth,
+  );
+  const verticalScale = Math.max(1, input.usableHeight - 16) / naturalHeight;
+  const scale = Math.min(1, horizontalScale, verticalScale);
+  return {
+    width: naturalWidth * scale,
+    height: naturalHeight * scale,
+  };
+}
 
 export function computePreviewLayout(input: PreviewLayoutInput): PreviewLayout {
   const { placement, anchorRect, mouseX, mouseY, horizontal, hasPanel, panelHeight, slot } = input;
@@ -45,19 +69,20 @@ export function computePreviewLayout(input: PreviewLayoutInput): PreviewLayout {
     input.viewportBottom ?? Number.POSITIVE_INFINITY,
   );
   const naturalCardWidth = horizontal ? CARD_H : CARD_W;
-  const naturalCardHeight = horizontal ? CARD_W : CARD_H;
+  const usableHeight = slot ? slot.clientHeight : viewBottom - viewTop;
   const usableWidth = slot ? slot.clientWidth : viewRight - viewLeft;
   const maxPanelWidth = usableWidth - naturalCardWidth * 0.1 - 10 - 16;
   const sidePanelWidth = hasPanel
     ? Math.max(48, Math.min(ACTIONS_PANEL_W, usableWidth * 0.4, maxPanelWidth))
     : 0;
   const panelSpace = hasPanel ? sidePanelWidth + 10 : 0;
-  const horizontalScale = Math.max(0.1, (usableWidth - panelSpace - 16) / naturalCardWidth);
-  const availableHeight = Math.max(1, slot ? slot.clientHeight - 8 : viewBottom - viewTop - 16);
-  const verticalScale = availableHeight / naturalCardHeight;
-  const previewScale = Math.min(1, horizontalScale, verticalScale);
-  const cardWidth = naturalCardWidth * previewScale;
-  const cardHeight = naturalCardHeight * previewScale;
+  const { width: cardWidth, height: cardHeight } = computePreviewCardDimensions({
+    usableWidth,
+    usableHeight,
+    horizontal,
+    reservedWidth: panelSpace,
+  });
+  const availableHeight = Math.max(1, usableHeight - 16);
   let panelScale = hasPanel && panelHeight > 0 ? Math.min(1, availableHeight / panelHeight) : 1;
   const totalWidth = cardWidth + panelSpace;
 

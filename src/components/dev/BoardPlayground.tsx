@@ -91,14 +91,20 @@ export function BoardPlayground({ themeEditor = false }: { themeEditor?: boolean
   const viewport = PREVIEW_VIEWPORTS[viewportIndex]!;
   const showSticky = preview.showSticky;
   const inspect = useCallback(
-    (card: CardDto, bounds?: { x: number; y: number; width: number; height: number }) => {
+    (
+      card: CardDto,
+      bounds?: { x: number; y: number; width: number; height: number },
+      allowOverModal = false,
+    ) => {
       if (isFacelessCard(card)) return;
       setSelectedId(card.id);
       if (bounds) {
         const rect = new DOMRect(bounds.x, bounds.y, bounds.width, bounds.height);
-        showSticky(card, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, rect);
+        showSticky(card, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, rect, {
+          allowOverModal,
+        });
       } else {
-        showSticky(card);
+        showSticky(card, undefined, undefined, undefined, { allowOverModal });
       }
     },
     [showSticky],
@@ -774,7 +780,7 @@ export function BoardPlayground({ themeEditor = false }: { themeEditor?: boolean
             onTargetPlayer: gameplay.setSelectedTarget,
             onHoverCard: hover,
             onHoverHandCard: hover,
-            onLongPressCard: (card, bounds) => inspect(card, bounds),
+            onLongPressCard: (card, bounds) => inspect(card, bounds, true),
             onRightClickCard:
               previewMode === "right-click"
                 ? (card, bounds) => {
@@ -813,7 +819,7 @@ export function BoardPlayground({ themeEditor = false }: { themeEditor?: boolean
             onDismissPreview={preview.dismiss}
             onFlipPreview={preview.flipCard}
             onTogglePreviewView={togglePreviewView}
-            onLongPressCard={(card, anchor) => inspect(card, anchor)}
+            onLongPressCard={(card, anchor) => inspect(card, anchor, true)}
           />
           {compact && (
             <MobileHandControl

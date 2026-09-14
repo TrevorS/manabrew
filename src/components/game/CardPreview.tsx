@@ -375,7 +375,7 @@ export function CardPreview({
           slot
             ? "relative w-full h-full flex items-start justify-start pointer-events-none"
             : cn(
-                "fixed z-[9999]",
+                "fixed z-[10001]",
                 placement !== "pinned" && interactive && (showSidePanel || hasPreviewControls)
                   ? "pointer-events-auto"
                   : "pointer-events-none",

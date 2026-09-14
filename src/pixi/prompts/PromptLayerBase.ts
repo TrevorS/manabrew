@@ -29,11 +29,14 @@ import {
   fitPromptCardDimensions,
   promptCardDisplayDimensions as getPromptCardDisplayDimensions,
 } from "@/components/game/game.utils";
+import { computePreviewCardDimensions } from "@/components/game/cardPreviewLayout";
+import { getSafeAreaInsets } from "@/lib/safeArea";
 import { usePromptPreferencesStore } from "@/stores/usePromptPreferencesStore";
 import { usePreferencesStore } from "@/stores/usePreferencesStore";
 import { type PromptActionViewKey } from "@/stores/useGameDevStore";
 import { resolveCombo, useKeybindingsStore } from "@/stores/useKeybindingsStore";
 import { comboFromEvent, combosMatch, formatCombo } from "@/lib/keybindings";
+import { isCoarsePointer } from "@/lib/responsive";
 import type { CardDto } from "@/protocol";
 import { PromptButton, type PromptButtonOptions } from "./PromptButton";
 import { PromptGlow } from "./PromptGlow";
@@ -485,6 +488,10 @@ export abstract class PromptLayerBase {
       ? this.viewportWidth
       : Math.min(this.viewportWidth, this.viewportRight);
   }
+  get compactAction(): boolean {
+    return this.viewportHeight <= 520 && isCoarsePointer();
+  }
+
   protected actionBounds: Rectangle | null = null;
   protected modalOpen = false;
   protected selectedIds = new Set<string>();
@@ -738,25 +745,35 @@ export abstract class PromptLayerBase {
     );
   }
 
-  protected promptSourceCardDimensions(): {
+  protected promptSourceCardDisplayDimensions(): {
     width: number;
     height: number;
   } {
-    return fitPromptCardDimensions(this.layoutWidth - PANEL_PADDING * 2 - 24, this.viewportHeight);
+    const sourceCard = this.promptSourceCard();
+    if (!sourceCard) return { width: 0, height: 0 };
+    const naturalSize = this.promptCardDisplayDimensions(sourceCard, GAME_CARD_SIZES.preview.width);
+    const safe = getSafeAreaInsets();
+    return computePreviewCardDimensions({
+      usableWidth: this.layoutWidth - safe.left - safe.right,
+      usableHeight: this.viewportHeight - safe.top - safe.bottom,
+      horizontal: naturalSize.width > naturalSize.height,
+    });
   }
 
   protected modalPromptWidth(maxWidth: number): number {
     const viewportWidth = this.layoutWidth - 24;
     const sourceCard = this.promptSourceCard();
+    if (this.compactAction) {
+      if (!sourceCard) return viewportWidth;
+      return Math.max(
+        0,
+        viewportWidth - this.promptSourceCardDisplayDimensions().width - SOURCE_CARD_GAP,
+      );
+    }
     if (!sourceCard) return Math.min(maxWidth, viewportWidth);
-    const sourceWidth = this.promptCardDisplayDimensions(
-      sourceCard,
-      this.promptSourceCardDimensions().width,
-    ).width;
-    const widthWithSourceCard = viewportWidth - sourceWidth - SOURCE_CARD_GAP;
-    return widthWithSourceCard >= 320
-      ? Math.min(maxWidth, widthWithSourceCard)
-      : Math.min(maxWidth, viewportWidth);
+    const widthWithSourceCard =
+      viewportWidth - this.promptSourceCardDisplayDimensions().width - SOURCE_CARD_GAP;
+    return Math.min(maxWidth, Math.max(0, widthWithSourceCard));
   }
 
   protected promptCardState(card: CardDto): PromptCardDisplayState {
