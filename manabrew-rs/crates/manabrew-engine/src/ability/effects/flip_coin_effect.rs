@@ -175,7 +175,6 @@ fn flip_single_coin(
     }
 
     let source_card_id = sa.source.expect("coin flip requires a source card");
-    let source_card_name = ctx.game.card(source_card_id).card_name.clone();
     let outcome = if sa.ir.no_call {
         if kept_result {
             "heads"
@@ -215,7 +214,6 @@ fn flip_single_coin(
             final_results: vec![kept_result_number],
             ignored_rolls,
             source_card_id: Some(source_card_id),
-            source_card_name: Some(source_card_name),
         },
     );
     for agent in ctx.agents.iter_mut() {

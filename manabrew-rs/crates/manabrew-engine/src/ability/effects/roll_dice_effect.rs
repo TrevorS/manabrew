@@ -224,7 +224,6 @@ pub(crate) fn roll_for_player(
     let ignore = resolve_numeric_svar(ctx.game, sa, "IgnoreLower", 0);
     let mut ignored_rolls = Vec::new();
     let mut dice_pt_exchanges = HashSet::new();
-    let source_name = ctx.game.card(source_id).card_name.clone();
     let mut natural_rolls = roll_action(
         ctx.game,
         ctx.rng,
@@ -413,7 +412,6 @@ pub(crate) fn roll_for_player(
             final_results: kept_rolls.clone(),
             ignored_rolls: ignored_rolls.clone(),
             source_card_id: Some(source_id),
-            source_card_name: Some(source_name.clone()),
         },
     );
     for agent in ctx.agents.iter_mut() {
@@ -601,7 +599,6 @@ pub fn roll_to_visit_attractions(
             final_results: kept_rolls.clone(),
             ignored_rolls: ignored_rolls.clone(),
             source_card_id: None,
-            source_card_name: Some("Attraction roll".to_string()),
         },
     );
     for agent in agents.iter_mut() {

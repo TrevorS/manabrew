@@ -355,8 +355,8 @@
       "refs": []
     },
     "DiceRolledInput": {
-      "ts": "interface DiceRolledInput {\n  presentation: PromptPresentation;\n  sides: number;\n  rolls: Array<DiceRollEntry>;\n  sourceCardId?: string;\n  sourceCardName?: string;\n}",
-      "rust": "#[serde(rename_all = \"camelCase\")]\npub struct DiceRolledInput {\n    pub presentation: PromptPresentation,\n    pub sides: i32,\n    pub rolls: Vec<DiceRollEntry>,\n    #[serde(default, skip_serializing_if = \"Option::is_none\")]\n    pub source_card_id: Option<String>,\n    #[serde(default, skip_serializing_if = \"Option::is_none\")]\n    pub source_card_name: Option<String>,\n}",
+      "ts": "interface DiceRolledInput {\n  presentation: PromptPresentation;\n  sides: number;\n  rolls: Array<DiceRollEntry>;\n}",
+      "rust": "#[serde(rename_all = \"camelCase\")]\npub struct DiceRolledInput {\n    pub presentation: PromptPresentation,\n    pub sides: i32,\n    pub rolls: Vec<DiceRollEntry>,\n}",
       "refs": ["DiceRollEntry", "PromptPresentation"]
     },
     "DirectiveInput": {

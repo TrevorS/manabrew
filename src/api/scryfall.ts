@@ -22,7 +22,6 @@ export const SCRYFALL_API = "https://api.scryfall.com";
 export const COLLECTION_BATCH_SIZE = 75;
 const SCRYFALL_REQUEST_INTERVAL_MS = 300;
 const SCRYFALL_DEFAULT_RATE_LIMIT_COOLDOWN_MS = 60_000;
-const SCRYFALL_MIN_RATE_LIMIT_COOLDOWN_MS = 1_000;
 
 let nextScryfallRequestAt = 0;
 let scryfallCooldownUntil = 0;
@@ -68,11 +67,9 @@ async function waitForScryfallSlot(signal?: AbortSignal | null): Promise<void> {
 }
 
 function applyScryfallCooldown(response: Response): number {
-  const retryAfterMs = Math.max(
+  const retryAfterMs =
     parseRetryAfterMs(response.headers.get("retry-after")) ??
-      SCRYFALL_DEFAULT_RATE_LIMIT_COOLDOWN_MS,
-    SCRYFALL_MIN_RATE_LIMIT_COOLDOWN_MS,
-  );
+    SCRYFALL_DEFAULT_RATE_LIMIT_COOLDOWN_MS;
   scryfallCooldownUntil = Math.max(scryfallCooldownUntil, Date.now() + retryAfterMs);
   nextScryfallRequestAt = Math.max(nextScryfallRequestAt, scryfallCooldownUntil);
   return retryAfterMs;
