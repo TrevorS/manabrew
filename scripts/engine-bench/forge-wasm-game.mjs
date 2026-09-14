@@ -300,6 +300,9 @@ let turn = 0;
 let gameStartedAt = Date.now();
 let finishGame = null;
 const logs = [];
+const STALL_MS = Number(option("stall", 5000));
+let lastPrompt = null;
+let logLines = 0;
 
 function summarise() {
   const decisions = rows.filter((r) => r.ev === "decision");
@@ -328,13 +331,20 @@ function summarise() {
 
 function exit(why) {
   console.log(`\n${why}: ${games} games over ${((Date.now() - startedAt) / 1000).toFixed(0)}s`);
-  if (why !== "game:over") console.log(`forge log tail:\n  ${logs.slice(-25).join("\n  ")}`);
+  if (why !== "game:over") {
+    console.log(
+      `forge log tail:\n  ${logs
+        .slice(-25)
+        .map((l) => l.text)
+        .join("\n  ")}`,
+    );
+  }
   summarise();
   process.exit(why === "game:over" ? 0 : 1);
 }
 
 setTimeout(() => {
-  note({ ev: "end", why: "timeout", prompts, turn, tail: logs.slice(-30) });
+  note({ ev: "end", why: "timeout", prompts, turn, tail: logs.slice(-30).map((l) => l.text) });
   exit("timeout");
 }, timeoutS * 1000).unref();
 
@@ -350,6 +360,11 @@ const engine = await createForgeEngine({
       note({ ev: "turnaround", type, ms: Date.now() - answeredAt, turn });
       answeredAt = null;
     }
+    lastPrompt = {
+      type,
+      actions: prompt.input?.actions?.length ?? null,
+      casts: prompt.input?.actions?.filter((a) => a.type === "cast").length ?? null,
+    };
     const output = answer(type, prompt, turn);
     if (output?.type === "act" || output?.type === "cancel" || output?.type === "pay") {
       note({ ev: "play", type, output: output.type, card: prompt.input.cardId ?? null, turn });
@@ -365,13 +380,25 @@ const engine = await createForgeEngine({
   onError: (error) => note({ ev: "error", error: JSON.stringify(error).slice(0, 300) }),
   onEvent: (event, payload) => {
     if (event === "forge:decision") {
-      note({ ev: "decision", ...payload, turn });
-      if (payload.ms > 5000) {
+      note({ ev: "decision", ...payload, turn, offered: lastPrompt?.actions ?? null });
+      if (payload.ms > STALL_MS) {
         console.log(`  stall ${payload.ms}ms ${payload.type} turns=${payload.turns} @turn ${turn}`);
+        const since = Date.now() - payload.ms - 50;
+        note({
+          ev: "stall",
+          ...payload,
+          turn,
+          prompt: lastPrompt,
+          log: logs.filter((l) => l.at >= since).map((l) => `${l.at - since}ms ${l.text}`),
+        });
       }
       return;
     }
-    if (event === "forge:log") logs.push(payload.text);
+    if (event === "forge:log") {
+      logLines += 1;
+      logs.push({ at: Date.now(), text: payload.text.slice(0, 300) });
+      if (logs.length > 2000) logs.splice(0, 1000);
+    }
     if (event === "game:forced_end") finishGame?.("game:forced_end");
     if (event === "game:over") finishGame?.("game:over");
   },
@@ -405,8 +432,9 @@ for (game = 1; game <= games; game += 1) {
     prompts,
     turn,
     duration_ms: Date.now() - gameStartedAt,
+    logLines,
     memory: memory(),
-    tail: why === "game:over" ? [] : logs.slice(-30),
+    tail: why === "game:over" ? [] : logs.slice(-30).map((l) => l.text),
   });
   console.log(
     `game ${game}/${games} ${why}: ${prompts} prompts over ${((Date.now() - gameStartedAt) / 1000).toFixed(0)}s, turn ${turn}`,
