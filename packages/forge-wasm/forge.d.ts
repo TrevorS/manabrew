@@ -46,6 +46,8 @@ export interface ForgeStartGameOptions {
   opponentDecks?: ForgeDeck[];
   startingLife?: number;
   commanderName?: string;
+  /** Pins the shuffle. Omitted, the engine seeds from the clock. */
+  seed?: number;
 }
 
 export interface ForgeStartMultiplayerGameOptions {
@@ -54,6 +56,8 @@ export interface ForgeStartMultiplayerGameOptions {
   enginePlayerIndex: number;
   commanderNames?: Array<string | null>;
   startingLife?: number;
+  /** Pins the shuffle. Omitted, the engine seeds from the clock. */
+  seed?: number;
 }
 
 /**
