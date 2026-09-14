@@ -2,8 +2,10 @@ import { RouterProvider } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { router } from "@/router";
 import { Toaster } from "@/components/ui/sonner";
+import { DebugLogOverlay } from "@/components/dev/DebugLogOverlay";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppInitGate } from "@/components/AppInitGate";
+import { SignInDialog } from "@/components/auth/SignInDialog";
 import { useTheme } from "@/hooks/useTheme";
 import { useGameDevStore } from "@/stores/useGameDevStore";
 import { useDeckStore } from "@/stores/useDeckStore";
@@ -11,6 +13,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { toast } from "sonner";
 import { getPlatformType } from "@/platform";
 import { initApp } from "@/lib/appInit";
+import { isFeatureEnabled } from "@/featureFlags";
 import { isHostedEngineAvailable } from "@/config/webRuntimeConfig";
 // Importing the store wires the `app:init` event subscription at module load —
 // earlier than App mounts, and earlier than the `initApp()` below — so the gate
@@ -88,7 +91,9 @@ function App() {
           <AppInitGate>
             <RouterProvider router={router} />
           </AppInitGate>
+          {isFeatureEnabled("accounts") && <SignInDialog />}
           <Toaster />
+          {import.meta.env.VITE_STAGING_TOOLS === "1" && <DebugLogOverlay />}
           {import.meta.env.DEV && devToolsEnabled && (
             <Suspense>
               <DevToolsPanel />

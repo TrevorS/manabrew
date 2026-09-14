@@ -1,39 +1,23 @@
-/**
- * Drop-in replacement for game-engine.worker.ts backed by the Forge rules
- * engine compiled to WebAssembly with GraalVM Web Image.
- *
- * The wire format is unchanged: the module writes {kind:"state"|"prompt"|...}
- * into the same SharedArrayBuffer and blocks on Atomics.wait, so WorkerBridge
- * and the whole game UI read it exactly as they read the Rust engine.
- *
- * Plain JS and a classic worker on purpose: the generated launcher is an IIFE
- * loaded with importScripts, which module workers forbid.
- *
- * Expects forge-harness/build-wasm.sh output plus the packed assets in
- * public/forge/.
- */
 const SAB_SIZE = 256 * 1024;
-let launcherUrl = "/forge/forgeharness.js";
-let wasmUrl = "/forge/forgeharness.js.wasm";
+let launcherUrl = null;
+let wasmUrl = null;
 
 let booting = null;
 let gameRunning = false;
 
 const postEvent = (event, payload) => self.postMessage({ type: "event", event, payload });
 
-// Forge writes to stderr, the generated launcher turns stderr into
-// console.error, and a console.error from deep inside wasm makes DevTools
-// attach the whole wasm stack to every single line — a printed Java stack
-// trace becomes hundreds of entries. So the worker does not write to its own
-// console at all: every level is forwarded to the page, which logs one plain
-// line per message (see the forge:log handler in src/platform/web.ts) and
-// keeps the level for anyone who wants to filter on it.
 for (const level of ["log", "warn", "error"]) {
   console[level] = (...args) => {
-    try { postEvent("forge:log", { level, text: args.join(" ") }); } catch { /* ignore */ }
+    try {
+      postEvent("forge:log", { level, text: args.join(" ") });
+    } catch {
+      /* ignore */
+    }
   };
 }
-const postResponse = (requestId, payload) => self.postMessage({ type: "response", requestId, payload });
+const postResponse = (requestId, payload) =>
+  self.postMessage({ type: "response", requestId, payload });
 const postError = (requestId, error) => self.postMessage({ type: "response", requestId, error });
 
 function boot() {
@@ -79,13 +63,6 @@ function frontFace(name) {
   return cut < 0 ? String(name) : String(name).slice(0, cut);
 }
 
-/**
- * Forge applies commander rules from the game variant, not from the presence of
- * a commander, so a commander deck started as "Constructed" plays as a 100-card
- * singleton pile with no command zone. The offline client passes no format, so
- * the deck's own format decides — same mapping as java_game_variant() in the
- * node (crates/self-hosted-node/src/host.rs).
- */
 function forgeVariant(deck) {
   const format = String((deck && deck.format) || "").toLowerCase();
   if (format === "commander") return "Commander";
@@ -94,14 +71,23 @@ function forgeVariant(deck) {
   return "Constructed";
 }
 
-/** Each seat's commanders, falling back to the name the client passed for the human seat. */
 function commanderNames(deck, fallback) {
   const names = ((deck && deck.commanders) || [])
-    .map((card) => frontFace(((card.identity || card).name) || ""))
+    .map((card) => frontFace((card.identity || card).name || ""))
     .filter(Boolean);
   if (names.length) return names;
   const single = fallback ? frontFace(fallback) : "";
   return single ? [single] : [];
+}
+
+/**
+ * The clock unless the caller pins one. A pinned seed makes a bench rerun start
+ * from the same shuffle; it does not make the game replay, because the AI's
+ * timeouts and the host's scheduling still vary.
+ */
+function gameSeed(args) {
+  const seed = args && Number(args.seed);
+  return Number.isInteger(seed) && seed > 0 ? seed % 2147483647 : Date.now() % 2147483647;
 }
 
 async function startGame(requestId, args) {
@@ -116,16 +102,6 @@ async function startGame(requestId, args) {
     return postError(requestId, "start_game requires a deck and opponent deck");
   }
 
-  // Framed by the host from cardset.rkyv and handed over with the game: this
-  // worker is plain JS served from public/, so it cannot resolve the bundled
-  // module that reads the archive. It has to exist before boot, because the
-  // engine reads its assets while importScripts runs main().
-  if (!args.forgeAssets) {
-    return postError(requestId, "start_game arrived without the framed Forge assets");
-  }
-  self.__forgeAssets = args.forgeAssets;
-  console.log(`[assets] received ${(self.__forgeAssets.length / 1024) | 0} KiB from the host`);
-
   try {
     await boot();
   } catch (e) {
@@ -139,14 +115,13 @@ async function startGame(requestId, args) {
   postEvent("game:sab", { buffer: sab });
   postResponse(requestId, "game-started");
 
-
   const variant = forgeVariant(humanDeck);
   const commanderGame = variant !== "Constructed";
   const request = {
     gameId: `forge-${Date.now()}`,
     variant,
     startingLife: (args && args.startingLife) || (commanderGame ? 40 : 20),
-    seed: Date.now() % 2147483647,
+    seed: gameSeed(args),
     players: [
       {
         name: "You",
@@ -179,13 +154,6 @@ async function startGame(requestId, args) {
   }
 }
 
-/**
- * Hosts a table: every seat is a person, so every seat gets its own buffer and
- * its own view of the board. Same contract as the Rust worker's
- * start_multiplayer_game — game:sab for the local seat, game:remote_sab tagged
- * with the player slot for each of the others — so nothing downstream of the
- * bridge can tell the two engines apart.
- */
 async function startMultiplayerGame(requestId, args) {
   if (gameRunning) return postError(requestId, "Game already active.");
 
@@ -204,11 +172,6 @@ async function startMultiplayerGame(requestId, args) {
   if (localPlayerIndex < 0 || localPlayerIndex >= decks.length) {
     return postError(requestId, "enginePlayerIndex out of range");
   }
-  if (!args.forgeAssets) {
-    return postError(requestId, "start_multiplayer_game arrived without the framed Forge assets");
-  }
-  self.__forgeAssets = args.forgeAssets;
-  console.log(`[assets] received ${(self.__forgeAssets.length / 1024) | 0} KiB from the host`);
 
   try {
     await boot();
@@ -236,7 +199,7 @@ async function startMultiplayerGame(requestId, args) {
     gameId: `forge-${Date.now()}`,
     variant,
     startingLife: (args && args.startingLife) || (commanderGame ? 40 : 20),
-    seed: Date.now() % 2147483647,
+    seed: gameSeed(args),
     players: decks.map((deck, index) => ({
       name: playerNames[index] || `Player ${index + 1}`,
       ai: false,
@@ -274,17 +237,16 @@ self.onmessage = (e) => {
       (err) => postError(msg.requestId, String(err)),
     );
   }
-  // Prompts and state flow through the SAB, not through commands, so these are
-  // the same no-ops the Rust worker answers with. Anything else does not belong
-  // here at all: the bridge routes non-engine commands to the Rust worker, and
-  // a command that reaches this worker anyway is a routing bug, not something
-  // to paper over with a null the caller will dereference.
   if (msg.command === "end_game") {
     gameRunning = false;
     self.__forgeSeatSabs = null;
     return postResponse(msg.requestId, null);
   }
-  if (msg.command === "respond" || msg.command === "get_prompt" || msg.command === "get_game_view") {
+  if (
+    msg.command === "respond" ||
+    msg.command === "get_prompt" ||
+    msg.command === "get_game_view"
+  ) {
     return postResponse(msg.requestId, null);
   }
   postError(
@@ -293,7 +255,4 @@ self.onmessage = (e) => {
   );
 };
 
-// The bridge waits for this before sending any command. Booting the module
-// eagerly would cost the whole asset load up front, so report ready and let
-// the first start_game pay for it.
 postEvent("worker:init", { stage: "ready" });
