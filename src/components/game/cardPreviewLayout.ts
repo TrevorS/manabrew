@@ -15,6 +15,8 @@ export interface PreviewLayoutInput {
   hasPanel: boolean;
   panelHeight: number;
   slot: HTMLElement | null;
+  viewportRight?: number;
+  viewportBottom?: number;
 }
 
 export interface PreviewLayout {
@@ -33,9 +35,15 @@ export function computePreviewLayout(input: PreviewLayoutInput): PreviewLayout {
 
   const safe = getSafeAreaInsets();
   const viewLeft = safe.left;
-  const viewRight = window.innerWidth - safe.right;
+  const viewRight = Math.min(
+    window.innerWidth - safe.right,
+    input.viewportRight ?? Number.POSITIVE_INFINITY,
+  );
   const viewTop = safe.top;
-  const viewBottom = window.innerHeight - safe.bottom;
+  const viewBottom = Math.min(
+    window.innerHeight - safe.bottom,
+    input.viewportBottom ?? Number.POSITIVE_INFINITY,
+  );
   const naturalCardWidth = horizontal ? CARD_H : CARD_W;
   const naturalCardHeight = horizontal ? CARD_W : CARD_H;
   const usableWidth = slot ? slot.clientWidth : viewRight - viewLeft;
@@ -50,8 +58,7 @@ export function computePreviewLayout(input: PreviewLayoutInput): PreviewLayout {
   const previewScale = Math.min(1, horizontalScale, verticalScale);
   const cardWidth = naturalCardWidth * previewScale;
   const cardHeight = naturalCardHeight * previewScale;
-  const panelScale = hasPanel && panelHeight > 0 ? Math.min(1, availableHeight / panelHeight) : 1;
-  const previewHeight = Math.max(cardHeight, panelHeight * panelScale);
+  let panelScale = hasPanel && panelHeight > 0 ? Math.min(1, availableHeight / panelHeight) : 1;
   const totalWidth = cardWidth + panelSpace;
 
   const panelFitsRightOf = (left: number) =>
@@ -125,8 +132,14 @@ export function computePreviewLayout(input: PreviewLayoutInput): PreviewLayout {
   );
   top = Math.max(
     viewTop + CARD_PREVIEW_EDGE_PAD,
-    Math.min(top, viewBottom - previewHeight - CARD_PREVIEW_EDGE_PAD),
+    Math.min(top, viewBottom - cardHeight - CARD_PREVIEW_EDGE_PAD),
   );
+  if (!slot && hasPanel && panelHeight > 0) {
+    panelScale = Math.min(
+      1,
+      Math.max(0.1, (viewBottom - top - CARD_PREVIEW_EDGE_PAD) / panelHeight),
+    );
+  }
 
   const slotMarginLeft = slot
     ? Math.max(

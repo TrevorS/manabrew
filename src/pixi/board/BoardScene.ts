@@ -252,6 +252,12 @@ export class BoardScene {
   private attackDragCandidate: string | null = null;
   private activeGesturePointerId: number | null = null;
   private longPress = new LongPressGesture();
+  private cardPressSelection: {
+    pointerId: number;
+    cardId: string;
+    selected: Set<string>;
+    restoreOnRelease: boolean;
+  } | null = null;
   private pinchPointers = new Map<number, { x: number; y: number }>();
   private pinchStart: {
     dist: number;
@@ -1109,7 +1115,14 @@ export class BoardScene {
     if (this.dragHandler.isDragging) {
       this.dragHandler.end();
       local?.hideGridSkeleton();
+    } else {
+      this.dragHandler.cancel();
     }
+    if (this.cardPressSelection && this.selection) {
+      this.selection.setSelected(new Set(this.cardPressSelection.selected));
+      this.selection.refresh();
+    }
+    this.cardPressSelection = null;
     if (this.selection?.isMarqueeActive() && local) {
       this.selection.endMarquee(local.snapshotCurrentPositions());
     }
@@ -1963,7 +1976,13 @@ export class BoardScene {
         if (e.button !== 0) return;
         if (this.dragHandler.justDraggedCardIds.has(sprite.card.id)) return;
         if (this.longPress.consumeTap(sprite.card.id)) return;
-        this.overlay?.handleCardTap(sprite.card);
+        const state = region?.getLastState();
+        if (state?.selectableCardIds?.includes(sprite.card.id)) {
+          this.callbacks.onClickCard?.(sprite.card);
+          return;
+        }
+        this.restoreCardPressSelection(sprite.card.id, e.pointerId);
+        this.fireTapPreview(sprite);
       });
     } else {
       sprite.on("pointerdown", (e: FederatedPointerEvent) => {
@@ -1983,10 +2002,13 @@ export class BoardScene {
       sprite.on("pointertap", (e: FederatedPointerEvent) => {
         if (e.button !== 0) return;
         if (this.longPress.consumeTap(sprite.card.id)) return;
-        if (isAttackerTap(region?.getLastState() ?? null, sprite.card.id)) {
+        const state = region?.getLastState() ?? null;
+        if (isAttackerTap(state, sprite.card.id)) {
           this.callbacks.onAttackerClick?.(sprite.card);
-        } else {
+        } else if (state?.selectableCardIds?.includes(sprite.card.id)) {
           this.callbacks.onClickCard?.(sprite.card);
+        } else {
+          this.fireTapPreview(sprite);
         }
       });
       sprite.on("pointerup", () => {
@@ -2036,6 +2058,18 @@ export class BoardScene {
 
   private fireRightClickPreview(sprite: CardSprite): void {
     this.callbacks.onRightClickCard?.(sprite.card, this.toViewportBounds(sprite.getBounds()));
+  }
+  private fireTapPreview(sprite: CardSprite): void {
+    this.callbacks.onClickAnyCard?.(sprite.card, this.toViewportBounds(sprite.getBounds()));
+  }
+
+  private restoreCardPressSelection(cardId: string, pointerId: number): void {
+    const press = this.cardPressSelection;
+    if (!press || press.cardId !== cardId || press.pointerId !== pointerId) return;
+    this.cardPressSelection = null;
+    if (!this.selection) return;
+    this.selection.setSelected(new Set(press.selected));
+    this.selection.refresh();
   }
 
   private fireLongPressPreview(
@@ -2115,14 +2149,21 @@ export class BoardScene {
     e: FederatedPointerEvent,
   ): void {
     if (this.destroyed || this.pinchStart) return;
-    const selectionBeforePress =
-      e.pointerType === "touch" && this.selection ? new Set(this.selection.getSelected()) : null;
-    this.longPress.start(e, sprite.card.id, () =>
-      this.fireLongPressPreview(region, sprite, selectionBeforePress),
-    );
+    const selectionBeforePress = new Set(this.selection?.getSelected() ?? []);
+    this.cardPressSelection = {
+      pointerId: e.pointerId,
+      cardId: sprite.card.id,
+      selected: selectionBeforePress,
+      restoreOnRelease: !(
+        region.getLastState()?.selectableCardIds?.includes(sprite.card.id) ?? false
+      ),
+    };
+    this.longPress.start(e, sprite.card.id, () => {
+      this.cardPressSelection = null;
+      this.fireLongPressPreview(region, sprite, selectionBeforePress);
+    });
     this.onBattlefieldCardDown(sprite, e);
   }
-
   private onBattlefieldCardDown(sprite: CardSprite, e: FederatedPointerEvent): void {
     if (this.destroyed) return;
     if (this.pinchStart) return;
@@ -2205,6 +2246,7 @@ export class BoardScene {
 
     const newPositions = this.dragHandler.move(pos.x, pos.y);
     if (!newPositions) return;
+    this.cardPressSelection = null;
     this.callbacks.onDismissHoverPreview?.();
     const primaryId = this.dragHandler.primaryDraggingCardId;
     let primaryPos: ScreenPos | null = null;
@@ -2253,6 +2295,21 @@ export class BoardScene {
       e.pointerId !== this.activeGesturePointerId
     ) {
       return;
+    }
+    const releasedPointerId = e?.pointerId;
+    if (
+      releasedPointerId !== undefined &&
+      this.cardPressSelection?.pointerId === releasedPointerId
+    ) {
+      const press = this.cardPressSelection;
+      window.setTimeout(() => {
+        if (this.cardPressSelection !== press) return;
+        if (press.restoreOnRelease && this.selection) {
+          this.selection.setSelected(new Set(press.selected));
+          this.selection.refresh();
+        }
+        this.cardPressSelection = null;
+      }, 0);
     }
     this.activeGesturePointerId = null;
     this.attackDragCandidate = null;

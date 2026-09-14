@@ -52,11 +52,8 @@ export function MobileHandControl({
           : `Open hand, ${count} cards${actionable ? ", actions available" : ""}`
       }
       className={cn(
-        "pointer-events-auto absolute z-[4] flex min-h-12 items-center justify-center gap-2 rounded-full border border-border/80 bg-card/95 px-4 font-game text-sm font-semibold text-foreground shadow-xl backdrop-blur-md active:bg-accent",
-        open ? "right-2 top-2" : "bottom-2 left-1/2 -translate-x-1/2",
-        actionable &&
-          !open &&
-          "border-card-ring bg-card-ring/15 ring-2 ring-card-ring shadow-[0_0_18px_var(--card-ring)]",
+        "group pointer-events-auto absolute z-[4] flex min-h-12 items-center justify-center gap-2 px-3 font-game text-sm font-semibold tracking-wide text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-card-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-safe:transition-[color,opacity,transform] active:scale-[0.98]",
+        open ? "right-2 top-2" : "bottom-0 left-1/2 -translate-x-1/2",
         (locked || count === 0) && "opacity-70",
       )}
       disabled={locked || count === 0}
@@ -67,7 +64,14 @@ export function MobileHandControl({
       ) : (
         <CardsInHandIcon count={count} className="h-7 w-9" />
       )}
-      {open ? (locked ? "Select cards" : "Close") : `Hand ${count}`}
+      {open ? (locked ? "Select cards" : "Close") : count}
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute bottom-0 left-1/2 h-0.5 w-16 -translate-x-1/2 bg-foreground/25 motion-safe:transition-[width,height,background-color,box-shadow]",
+          actionable && !open && "h-[3px] w-24 bg-card-ring shadow-[0_0_12px_var(--card-ring)]",
+        )}
+      />
     </button>
   );
 }

@@ -753,7 +753,7 @@ export class BoardRegion {
           entry.overlay.zIndex = entry.targetZIndex + Z_OVERLAY_OFFSET;
           entry.overlay.alpha = lerp(
             entry.overlay.alpha,
-            isHovered && overlayActive ? 1 : 0,
+            overlayActive ? 1 : 0,
             OVERLAY_FADE_LERP,
             SNAP_ALPHA,
           );

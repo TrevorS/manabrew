@@ -56,37 +56,6 @@ export class BattlefieldOverlay {
     this.host = host;
   }
 
-  handleCardTap(card: CardDto): void {
-    const state = this.host.getLastState();
-    if (!state) {
-      this.host.getCallbacks().onClickCard?.(card);
-      return;
-    }
-
-    const kind: ActionKind = {
-      isTappable: state.tappableLandIds?.includes(card.id) ?? false,
-      isUntappable: state.untappableLandIds?.includes(card.id) ?? false,
-      isSelectable: state.selectableCardIds?.includes(card.id) ?? false,
-    };
-
-    if (kind.isTappable) {
-      const expandedMana = this.manaAbilitiesForCard(card.id, state.manaAbilityOptions);
-      if (expandedMana.length > 1) {
-        this.host.getCallbacks().onClickCard?.(card);
-        return;
-      }
-      this.dispatchAction(card, state, kind);
-      return;
-    }
-
-    if (kind.isUntappable) {
-      this.dispatchAction(card, state, kind);
-      return;
-    }
-
-    this.host.getCallbacks().onClickCard?.(card);
-  }
-
   rebuild(entry: SpriteEntry, state: BattlefieldState): void {
     const card = entry.sprite.card;
     const kind: ActionKind = {
@@ -132,7 +101,7 @@ export class BattlefieldOverlay {
     if (kind.isTappable && expandedMana.length > 0 && !this.host.isCompact()) {
       this.drawManaGrid(overlay, card, state, expandedMana);
     } else {
-      this.drawSingleButton(overlay, card, state, kind, expandedMana.length > 1);
+      this.drawSingleButton(overlay, card, state, kind);
     }
 
     overlay.visible = true;
@@ -211,6 +180,10 @@ export class BattlefieldOverlay {
         const x = colIndex * btnW;
         const y = rowIndex * btnH;
         const currentW = rowEntries.length === 1 ? CARD_W : btnW;
+        const controlX = x + 2;
+        const controlH = Math.min(40, btnH - 4);
+        const controlY = y + (btnH - controlH) / 2;
+        const controlW = currentW - 4;
         const letter = letters[0];
         const color = manaColorFor(
           letter,
@@ -221,7 +194,13 @@ export class BattlefieldOverlay {
         const btn = new Graphics();
         const paintBtn = (highlighted: boolean) => {
           btn.clear();
-          btn.roundRect(x, y, currentW, btnH, CARD_RADIUS);
+          btn.roundRect(
+            controlX,
+            controlY,
+            controlW,
+            controlH,
+            Math.min(CARD_RADIUS, controlH / 2),
+          );
           btn.fill({
             color,
             alpha: highlighted ? MANA_BUTTON_HOVER_ALPHA : MANA_BUTTON_ALPHA,
@@ -241,8 +220,8 @@ export class BattlefieldOverlay {
         const icons = iconLabels.map((iconLabel, iconIndex) => {
           const icon = this.createManaIcon(iconLabel, iconSize, iconBgSize);
           const spacing = iconLabels.length > 2 ? 14 : 18;
-          icon.x = x + currentW / 2 + (iconIndex - (iconLabels.length - 1) / 2) * spacing;
-          icon.y = y + btnH / 2;
+          icon.x = controlX + controlW / 2 + (iconIndex - (iconLabels.length - 1) / 2) * spacing;
+          icon.y = controlY + controlH / 2;
           overlay.addChild(icon);
           return icon;
         });
@@ -277,7 +256,6 @@ export class BattlefieldOverlay {
     card: CardDto,
     state: BattlefieldState,
     kind: ActionKind,
-    multiMana = false,
   ): void {
     const ring = hexToNum(this.host.getTheme().gameTheme.cardRing);
     let label = OVERLAY_LABEL_SELECT;
@@ -304,11 +282,16 @@ export class BattlefieldOverlay {
       idleAlpha = ACTION_BUTTON_ALPHA;
       hoverAlpha = ACTION_BUTTON_HOVER_ALPHA;
     }
+    const selectionOnly = kind.isSelectable && !kind.isTappable && !kind.isUntappable;
+    const controlX = selectionOnly ? 0 : 6;
+    const controlY = selectionOnly ? 0 : (CARD_H - 40) / 2;
+    const controlW = selectionOnly ? CARD_W : CARD_W - 12;
+    const controlH = selectionOnly ? CARD_H : 40;
 
     const btn = new Graphics();
     const paintBtn = (highlighted: boolean) => {
       btn.clear();
-      btn.roundRect(0, 0, CARD_W, CARD_H, CARD_RADIUS);
+      btn.roundRect(controlX, controlY, controlW, controlH, Math.min(CARD_RADIUS, controlH / 2));
       btn.fill({ color, alpha: highlighted ? hoverAlpha : idleAlpha });
     };
     paintBtn(false);
@@ -317,8 +300,8 @@ export class BattlefieldOverlay {
     // Prefer the MTG card symbol (T / Q) when we have one — falls back to
     // the text label for generic SELECT or while the SVG is loading.
     const centerIcon = symbol ? this.createManaIcon(symbol, 14, 18) : this.createLabelIcon(label);
-    centerIcon.x = CARD_W / 2;
-    centerIcon.y = CARD_H / 2;
+    centerIcon.x = controlX + controlW / 2;
+    centerIcon.y = controlY + controlH / 2;
     const iconScale = Math.min(
       CARD_W / (2 * 18 + 4),
       Math.max(1, MIN_ICON_SCREEN_PX / (2 * 18 * this.host.getCardScale())),
@@ -329,14 +312,12 @@ export class BattlefieldOverlay {
     this.wireButton(
       btn,
       card.id,
-      () =>
-        multiMana
-          ? this.host.getCallbacks().onClickCard?.(card)
-          : this.dispatchAction(card, state, kind),
+      () => this.dispatchAction(card, state, kind),
       (highlighted) => {
         paintBtn(highlighted);
         centerIcon.scale.set(iconScale * (highlighted ? ICON_HOVER_SCALE : 1));
       },
+      selectionOnly,
     );
   }
 
@@ -354,6 +335,7 @@ export class BattlefieldOverlay {
     cardId: string,
     onTap: () => void,
     onHoverChange?: (highlighted: boolean) => void,
+    forwardCardPress = false,
   ): void {
     btn.eventMode = "static";
     btn.cursor = "pointer";
@@ -376,8 +358,10 @@ export class BattlefieldOverlay {
     btn.on("pointerdown", (e: FederatedPointerEvent) => {
       e.stopPropagation();
       if (e.button !== 0) return;
-      const entry = this.host.getEntries().get(cardId);
-      if (entry) this.host.startCardPress(entry.sprite, e);
+      if (forwardCardPress) {
+        const entry = this.host.getEntries().get(cardId);
+        if (entry) this.host.startCardPress(entry.sprite, e);
+      }
     });
     btn.on("pointertap", (e: FederatedPointerEvent) => {
       e.stopPropagation();

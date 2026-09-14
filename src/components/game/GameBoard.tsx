@@ -645,6 +645,13 @@ export function GameBoard({
           onHoverZoneCards(null);
         }
       },
+      onClickAnyCard: onLongPressCard
+        ? (card, bounds) => {
+            setMobilePanel(null);
+            setMobileHandOpen(false);
+            onLongPressCard(card, new DOMRect(bounds.x, bounds.y, bounds.width, bounds.height));
+          }
+        : undefined,
       onRightClickCard: onRightClickCard
         ? (card, bounds) =>
             onRightClickCard(card, new DOMRect(bounds.x, bounds.y, bounds.width, bounds.height))

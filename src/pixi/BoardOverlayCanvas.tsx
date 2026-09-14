@@ -47,10 +47,12 @@ export interface BoardOverlayPreviewSpec {
   card: ClientCardDto;
   phase: "open" | "closing";
   sticky: boolean;
+  placement: "auto" | "top-center" | "pinned";
   showBackFace: boolean;
   suppressed: boolean;
   skipEnterAnimation: boolean;
   actions: HandActionOption[];
+  reserveSidePanel: boolean;
   mousePos: { x: number; y: number };
   anchorRect: DOMRect | null;
   viewportRight?: number;
@@ -134,9 +136,11 @@ function toRulesPreviewSpec(
   return {
     card: spec.card,
     phase: spec.phase,
+    placement: spec.placement,
     sticky: spec.sticky,
     showBackFace: spec.showBackFace,
     suppressed: spec.suppressed,
+    reserveSidePanel: spec.reserveSidePanel,
     skipEnterAnimation: spec.skipEnterAnimation,
     actions: spec.actions,
     anchor: spec.anchorRect

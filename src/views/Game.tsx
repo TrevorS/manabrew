@@ -90,7 +90,7 @@ import { Card } from "@/components/game/Card";
 import { cn } from "@/lib/utils";
 import { applyManualTabletopAction, getSelectedGameRuntime } from "@/game";
 import type { HandActionOption } from "@/stores/useGameUIStore";
-import { parsePrintedCardRailMetadata } from "@/components/game/cardRailState";
+import { deriveCardRailState, parsePrintedCardRailMetadata } from "@/components/game/cardRailState";
 import { peekCard, useScryfallStore } from "@/stores/useScryfallStore";
 import { scryfallToSampleGameCard } from "@/lib/sampleGameCard";
 import type { GameRuntime, ManualTabletopApi } from "@/game";
@@ -679,6 +679,9 @@ export default function Game({ exitTo }: GameProps = {}) {
       source: card,
     });
   };
+  const handleHandCardInspect = (card: CardDto, e: { clientX: number; clientY: number }) => {
+    preview.showSticky(card, e.clientX, e.clientY);
+  };
 
   const handleHandCardDragStart = (card: CardDto, e: HandDragStart) => {
     const actions = getHandActionOptions(card);
@@ -1047,7 +1050,7 @@ export default function Game({ exitTo }: GameProps = {}) {
       battlefieldContainerRef,
       handDropExclusionPx: Math.round(HAND_CARD_BASE.containerH * vScale * 0.35),
       getHandBounds: () => boardSceneRef.current?.getHandBounds() ?? null,
-      onClickCard: handleHandCardAction,
+      onClickCard: handleHandCardInspect,
       onCastSpell: handleCastSpell,
       onBattlefieldDrop: (card, position) => {
         if (
@@ -2160,11 +2163,14 @@ export default function Game({ exitTo }: GameProps = {}) {
       ? {
           card: livePreviewCard,
           phase: preview.phase === "closing" ? "closing" : "open",
+          placement: preview.placement,
           sticky: preview.isSticky,
           showBackFace: previewShowBackFace,
           suppressed: previewSuppressed,
           skipEnterAnimation: skipPreviewEnterAnimation,
           actions: hoveredCardActions,
+          reserveSidePanel:
+            hoveredCardActions.length > 0 || deriveCardRailState(livePreviewCard) != null,
           mousePos: preview.mousePos,
           anchorRect: preview.anchorRect,
           slotRect: null,
@@ -2653,6 +2659,7 @@ export default function Game({ exitTo }: GameProps = {}) {
           suppressed={previewSuppressed}
           skipEnterAnimation={skipPreviewEnterAnimation}
           onToggleView={togglePreviewView}
+          viewportRight={boardViewportRight}
         />
       )}
 

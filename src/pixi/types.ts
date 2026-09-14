@@ -53,7 +53,7 @@ export interface ArrowSpec {
 
 export interface GameCanvasCallbacks {
   onClickCard?: (card: CardDto) => void;
-  onClickAnyCard?: (card: CardDto) => void;
+  onClickAnyCard?: (card: CardDto, screenBounds: ScreenBounds) => void;
   onHoverCard?: (
     card: CardDto | null,
     screenBounds?: ScreenBounds,

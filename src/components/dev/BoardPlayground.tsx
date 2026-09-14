@@ -25,7 +25,7 @@ import { PlayerSheetModal } from "@/components/game/panels/PlayerSheetModal";
 import { MobileHandControl } from "@/components/game/panels/MobileHandControl";
 import { BoardPlaygroundControls } from "@/components/dev/BoardPlaygroundControls";
 import { buildPlaygroundSpecs } from "@/components/dev/boardPlayground.specs";
-import { parsePrintedCardRailMetadata } from "@/components/game/cardRailState";
+import { deriveCardRailState, parsePrintedCardRailMetadata } from "@/components/game/cardRailState";
 import { resolveCardFaces } from "@/lib/cardFaces";
 import { scryfallToSampleGameCard } from "@/lib/sampleGameCard";
 import { usePreferencesStore } from "@/stores/usePreferencesStore";
@@ -347,12 +347,14 @@ export function BoardPlayground({ themeEditor = false }: { themeEditor?: boolean
           card: previewCard,
           phase: preview.phase === "closing" ? "closing" : "open",
           sticky: preview.isSticky,
+          placement: preview.placement,
           showBackFace: preview.showBackFace,
           suppressed: false,
           skipEnterAnimation: skipPreviewEnterAnimation,
           actions: previewActions,
           mousePos: preview.mousePos,
           anchorRect: preview.anchorRect,
+          reserveSidePanel: previewActions.length > 0 || deriveCardRailState(previewCard) != null,
         }
       : null;
   const externalPreviewActive = previewCard !== null && preview.phase === "open";
