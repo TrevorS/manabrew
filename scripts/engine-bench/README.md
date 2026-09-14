@@ -47,10 +47,16 @@ Twelve 4-seat games is about two thousand `chooseAction` decisions.
 ## A/B
 
 ```sh
-node scripts/engine-bench/stress.mjs --tag ab --engines base=npm,pr=packages/forge-wasm \
+node scripts/engine-bench/fetch-engine.mjs --into target/engines/prod
+node scripts/engine-bench/stress.mjs --tag ab --engines prod=target/engines/prod,pr=packages/forge-wasm \
   --seats 2,4 --games 30 --jobs 3
 python3 scripts/engine-bench/pool.py --ab scripts/engine-bench/runs/ab --fail-over 20
 ```
+
+`fetch-engine.mjs` assembles an engine directory from a deployed site: the
+launcher and wasm players are running, under this checkout's facade. No Web
+Image toolchain and no npm release needed to bench prod or staging
+(`--from https://staging.manabrew.app`).
 
 `--engines` plays the one plan under every arm, same seeds and decks, arms
 interleaved in the queue so machine load lands on both. The first arm is the
