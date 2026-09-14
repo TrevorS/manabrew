@@ -42,7 +42,8 @@ function Choice<T extends string | boolean>({
           <Button
             key={String(option.value)}
             size="sm"
-            variant={value === option.value ? "selected" : "outline"}
+            variant="outline"
+            className="aria-pressed:border-accent"
             aria-pressed={value === option.value}
             onClick={() => onChange(option.value)}
           >

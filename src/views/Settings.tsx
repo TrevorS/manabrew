@@ -39,7 +39,7 @@ import {
 import { getDefaultGameThemeColorMap } from "@/hooks/useTheme";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { Button as BaseButton, type ButtonProps } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -85,6 +85,18 @@ function HelpMark({ description }: { description: string | undefined }) {
         {description}
       </span>
     </span>
+  );
+}
+
+function Button({ variant, className, ...props }: ButtonProps) {
+  const selected = variant === "selected";
+  return (
+    <BaseButton
+      {...props}
+      variant={selected ? "outline" : variant}
+      aria-pressed={selected ? true : props["aria-pressed"]}
+      className={cn(selected && "border-accent", className)}
+    />
   );
 }
 

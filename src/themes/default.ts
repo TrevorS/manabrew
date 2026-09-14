@@ -25,7 +25,7 @@ const palette: BasePalette = {
   orange: primary,
   amber: primary,
   yellow: "#d8d34a",
-  green: accent,
+  green: "#7ca982",
   teal: "#3fb6b8",
   cyan: "#4cbfd3",
   blue: "#527fbd",
