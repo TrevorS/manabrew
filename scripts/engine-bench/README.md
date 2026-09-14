@@ -58,6 +58,16 @@ launcher and wasm players are running, under this checkout's facade. No Web
 Image toolchain and no npm release needed to bench prod or staging
 (`--from https://staging.manabrew.app`).
 
+With the Web Image toolchain (`WEBIMAGE_GRAALVM_HOME`, binaryen on PATH),
+`yarn build:forge-wasm` on the branch under test takes about 25 minutes and
+stages `packages/forge-wasm/forgeharness.js{,.wasm}`. Copy those two files into
+an engine directory together with **this checkout's** facade
+(`engine.js`, `forge-engine.worker.js`, `node.js`, `node-worker.cjs`,
+`seat.js`, `stamp.js`): a facade from a branch without the `seed` option
+ignores the seed and every run is a different game. Build in a second
+worktree; switching the branch of the worktree a run is using pulls the
+scripts out from under it.
+
 `--engines` plays the one plan under every arm, same seeds and decks, arms
 interleaved in the queue so machine load lands on both. The first arm is the
 control. `pool.py --ab` gives each cell the ratio of p50 and p90, a 95%
