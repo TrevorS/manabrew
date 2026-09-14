@@ -1910,6 +1910,16 @@ export function GameBoard({
             onLayoutChange?.(layout);
           }}
         />
+        {compactBoard && (!mobilePanel || mobileHandOpen) && (
+          <MobileHandControl
+            count={orderedHand.length}
+            open={mobileHandOpen}
+            locked={!!handSelectionMode}
+            actionable={mobileHandActionable}
+            onToggle={toggleMobileHand}
+            onBoundsChange={setMobileHandControlBounds}
+          />
+        )}
       </div>
       <div className="absolute inset-0 z-[9000] pointer-events-none">
         <BoardOverlayCanvas
@@ -1935,16 +1945,6 @@ export function GameBoard({
         />
         {compactBoard && (
           <>
-            {(!mobilePanel || mobileHandOpen) && (
-              <MobileHandControl
-                count={orderedHand.length}
-                open={mobileHandOpen}
-                locked={!!handSelectionMode}
-                actionable={mobileHandActionable}
-                onToggle={toggleMobileHand}
-                onBoundsChange={setMobileHandControlBounds}
-              />
-            )}
             {!mobileHandOpen && (
               <MobileOpponentSwitcher
                 name={stripUsernameTag(focusedOpponent?.name ?? "Opponent")}

@@ -338,6 +338,9 @@ export class BoardScene {
   private canvasLeaveListener: () => void;
   private onStageMove = (e: FederatedPointerEvent): void => this.onGlobalMove(e);
   private onStageUp = (e: FederatedPointerEvent): void => this.onGlobalUp(e);
+  private onStageTapCapture = (e: FederatedPointerEvent): void => {
+    if (this.tapSuppressedPointers.has(e.pointerId)) e.stopImmediatePropagation();
+  };
 
   constructor(app: Application, callbacks: GameCanvasCallbacks) {
     this.app = app;
@@ -437,6 +440,7 @@ export class BoardScene {
     app.stage.on("pointermove", this.onStageMove);
     app.stage.on("pointerup", this.onStageUp);
     app.stage.on("pointerupoutside", this.onStageUp);
+    app.stage.on("pointertapcapture", this.onStageTapCapture);
 
     this.cursorListener = (e: MouseEvent) => {
       if (topModal()) {
@@ -1929,9 +1933,9 @@ export class BoardScene {
       getSelectedCardIds: () => this.selection?.getSelected() ?? new Set<string>(),
       getLastState: () => region.getLastState(),
       getEntries: () => region.getEntries(),
-      isJustDragged: (id) =>
+      consumeCardTap: (id) =>
         this.dragHandler.justDraggedCardIds.has(id) || this.longPress.consumeTap(id),
-      startCardDrag: (sprite, e) => this.onBattlefieldCardDown(sprite, e),
+      startCardPress: (sprite, e) => this.beginBattlefieldCardPress(region, sprite, e),
       cancelHoverClear: () => this.cancelHoverClear(),
       setCardHovered: (sprite, force = false, trigger) =>
         this.setBattlefieldCardHovered(region, sprite, force, trigger),
@@ -1952,15 +1956,11 @@ export class BoardScene {
     if (isLocal && sprite.card.controllerId === playerId) {
       sprite.on("pointerdown", (e: FederatedPointerEvent) => {
         e.stopPropagation();
-        if (e.button !== 0) return;
-        if (region) {
-          this.longPress.start(e, sprite.card.id, () => this.fireLongPressPreview(region, sprite));
-        }
-        this.onBattlefieldCardDown(sprite, e);
+        if (e.button !== 0 || !region) return;
+        this.beginBattlefieldCardPress(region, sprite, e);
       });
       sprite.on("pointertap", (e: FederatedPointerEvent) => {
         if (e.button !== 0) return;
-        if (this.tapSuppressedPointers.has(e.pointerId)) return;
         if (this.dragHandler.justDraggedCardIds.has(sprite.card.id)) return;
         if (this.longPress.consumeTap(sprite.card.id)) return;
         this.overlay?.handleCardTap(sprite.card);
@@ -1982,7 +1982,6 @@ export class BoardScene {
       });
       sprite.on("pointertap", (e: FederatedPointerEvent) => {
         if (e.button !== 0) return;
-        if (this.tapSuppressedPointers.has(e.pointerId)) return;
         if (this.longPress.consumeTap(sprite.card.id)) return;
         if (isAttackerTap(region?.getLastState() ?? null, sprite.card.id)) {
           this.callbacks.onAttackerClick?.(sprite.card);
@@ -2039,10 +2038,11 @@ export class BoardScene {
     this.callbacks.onRightClickCard?.(sprite.card, this.toViewportBounds(sprite.getBounds()));
   }
 
-  private fireLongPressPreview(region: BoardRegion, sprite: CardSprite): void {
-    // A fired long-press is preview-only: drop the drag armed by the same
-    // pointerdown, or hold jitter / release wobble past the drag threshold
-    // reaches onGlobalMove's dismiss and closes the sticky preview.
+  private fireLongPressPreview(
+    region: BoardRegion,
+    sprite: CardSprite,
+    selectionBeforePress: ReadonlySet<string> | null = null,
+  ): void {
     if (this.dragHandler.isDragging) {
       const state = region.getLastState();
       if (state) region.updateBattlefield(state);
@@ -2056,15 +2056,9 @@ export class BoardScene {
       const state = ud.region.getLastState();
       if (state) ud.region.updateBattlefield(state);
     }
-    const selection = this.selection;
-    if (selection) {
-      const selected = selection.getSelected();
-      // Undo only the selection this press created; keep a wider marquee/shift
-      // selection the card was already part of.
-      if (selected.size === 1 && selected.has(sprite.card.id)) {
-        selection.setSelected(new Set());
-        selection.refresh();
-      }
+    if (selectionBeforePress && this.selection) {
+      this.selection.setSelected(new Set(selectionBeforePress));
+      this.selection.refresh();
     }
     if (this.callbacks.onLongPressCard) {
       this.callbacks.onLongPressCard(sprite.card, this.toViewportBounds(sprite.getBounds()));
@@ -2113,6 +2107,20 @@ export class BoardScene {
       window.clearTimeout(this.hoverClearTimer);
       this.hoverClearTimer = null;
     }
+  }
+
+  private beginBattlefieldCardPress(
+    region: BoardRegion,
+    sprite: CardSprite,
+    e: FederatedPointerEvent,
+  ): void {
+    if (this.destroyed || this.pinchStart) return;
+    const selectionBeforePress =
+      e.pointerType === "touch" && this.selection ? new Set(this.selection.getSelected()) : null;
+    this.longPress.start(e, sprite.card.id, () =>
+      this.fireLongPressPreview(region, sprite, selectionBeforePress),
+    );
+    this.onBattlefieldCardDown(sprite, e);
   }
 
   private onBattlefieldCardDown(sprite: CardSprite, e: FederatedPointerEvent): void {
@@ -2638,6 +2646,7 @@ export class BoardScene {
     this.app.stage.off("pointermove", this.onStageMove);
     this.app.stage.off("pointerup", this.onStageUp);
     this.app.stage.off("pointerupoutside", this.onStageUp);
+    this.app.stage.off("pointertapcapture", this.onStageTapCapture);
     try {
       this.dragHandler.destroy();
       this.phaseStrip.destroy();

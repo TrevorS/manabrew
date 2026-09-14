@@ -99,6 +99,7 @@ export class BattlefieldOverlay {
 
     if (!kind.isTappable && !kind.isUntappable && !kind.isSelectable) {
       entry.overlayActive = false;
+      if (entry.overlay) entry.overlay.eventMode = "none";
       return;
     }
 
@@ -107,6 +108,7 @@ export class BattlefieldOverlay {
       : [];
 
     entry.overlayActive = true;
+    if (entry.overlay) entry.overlay.eventMode = "passive";
     const sig = JSON.stringify([
       kind.isTappable,
       kind.isUntappable,
@@ -347,18 +349,6 @@ export class BattlefieldOverlay {
     return icon;
   }
 
-  /**
-   * Wires an overlay button's pointer events — tap (with drag-guard), hover
-   * feedback, plus keeping the parent card's hover state alive while the
-   * cursor is over the button (so the overlay doesn't fade out when the
-   * cursor leaves the sprite's hit area to interact with the overlay).
-   *
-   * The button also forwards `pointerdown` to the sprite's drag-start
-   * handler — without this, overlay buttons (which sit above the sprite
-   * in the display tree) would swallow the press and the user could
-   * never drag an actionable card. If the press turns into a
-   * real drag, `pointertap` bails out via the drag-guard.
-   */
   private wireButton(
     btn: Graphics,
     cardId: string,
@@ -387,11 +377,11 @@ export class BattlefieldOverlay {
       e.stopPropagation();
       if (e.button !== 0) return;
       const entry = this.host.getEntries().get(cardId);
-      if (entry) this.host.startCardDrag(entry.sprite, e);
+      if (entry) this.host.startCardPress(entry.sprite, e);
     });
     btn.on("pointertap", (e: FederatedPointerEvent) => {
       e.stopPropagation();
-      if (e.button !== 0 || this.host.isJustDragged(cardId)) return;
+      if (e.button !== 0 || this.host.consumeCardTap(cardId)) return;
       onTap();
     });
     btn.on("rightclick", (e: FederatedPointerEvent) => {
