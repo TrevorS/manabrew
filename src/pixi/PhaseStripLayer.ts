@@ -53,10 +53,10 @@ const CELL_W = 60;
 const CELL_H = 28;
 const CELL_GAP = 5;
 const CELL_R = 4;
-const COMPACT_PILL_H = 24;
-const COMPACT_PILL_MIN_W = 76;
-const COMPACT_PILL_PAD_X = 14;
-const COMPACT_PILL_HIT_PAD = 10;
+const COMPACT_PILL_H = 22;
+const COMPACT_PILL_MIN_W = 56;
+const COMPACT_PILL_PAD_X = 10;
+const COMPACT_PILL_HIT_PAD = 13;
 const COMBAT_ICON_SIZE = 16;
 const COMBAT_EXPAND_PAD_X = 12;
 const COMBAT_EXPAND_LABEL_GAP = 5;
@@ -166,6 +166,7 @@ export interface PhaseStripState {
 export interface PhaseStripCallbacks {
   onToggleSelfPhase?: (phaseId: string) => void;
   onToggleOpponentPhase?: (opponentId: string, phaseId: string) => void;
+  onOpenCompactControls?: () => void;
 }
 
 export class PhaseStripLayer {
@@ -196,6 +197,7 @@ export class PhaseStripLayer {
   private pillFlash: Graphics;
   private pillHit: Graphics;
   private compact = false;
+  private dividerVisible = true;
   private expanded = false;
   private expandedAt = 0;
   private pillFlashStart = 0;
@@ -356,7 +358,13 @@ export class PhaseStripLayer {
     this.pillHit = new Graphics();
     this.pillHit.eventMode = "static";
     this.pillHit.cursor = "pointer";
-    this.pillHit.on("pointertap", () => this.expand());
+    this.pillHit.on("pointertap", () => {
+      if (this.callbacks.onOpenCompactControls) {
+        this.callbacks.onOpenCompactControls();
+        return;
+      }
+      this.expand();
+    });
     this.pillContainer.addChild(this.pillHit);
     this.container.addChild(this.pillContainer);
 
@@ -395,6 +403,11 @@ export class PhaseStripLayer {
     this.expanded = false;
     if (this.lastState) this.render(this.lastState);
     this.onExpandedChange?.();
+  }
+  setDividerVisible(visible: boolean): void {
+    if (this.dividerVisible === visible) return;
+    this.dividerVisible = visible;
+    if (this.lastState) this.render(this.lastState);
   }
 
   isCompactExpanded(): boolean {
@@ -556,7 +569,7 @@ export class PhaseStripLayer {
     }
 
     this.lineGfx.clear();
-    if (!showPill) {
+    if (!showPill && this.dividerVisible) {
       const lineLeft = stripLeft * fitX + stripOffset;
       const lineRight = stripRight * fitX + stripOffset;
       this.lineGfx.moveTo(0, lineY);
@@ -614,11 +627,13 @@ export class PhaseStripLayer {
         color: hexToNum(this.theme.gameTheme.canvas.neutral),
         alpha: 0.001,
       });
-      this.lineGfx.moveTo(0, lineY);
-      this.lineGfx.lineTo(pillX - CELL_GAP, lineY);
-      this.lineGfx.moveTo(pillX + pillW + CELL_GAP, lineY);
-      this.lineGfx.lineTo(this.canvasWidth, lineY);
-      this.lineGfx.stroke({ color: turnColor, width: 2, alpha: STRIP_TURN_ALPHA });
+      if (this.dividerVisible) {
+        this.lineGfx.moveTo(0, lineY);
+        this.lineGfx.lineTo(pillX - CELL_GAP, lineY);
+        this.lineGfx.moveTo(pillX + pillW + CELL_GAP, lineY);
+        this.lineGfx.lineTo(this.canvasWidth, lineY);
+        this.lineGfx.stroke({ color: turnColor, width: 2, alpha: STRIP_TURN_ALPHA });
+      }
       this.pillRect = { x: pillX, y: pillY, w: pillW, c: turnColor };
       if (stepChanged && animationsEnabled()) this.pillFlashStart = performance.now();
     } else {

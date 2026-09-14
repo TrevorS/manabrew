@@ -31,6 +31,7 @@ import type { CardDto } from "@/protocol";
 import { PromptButton, type PromptButtonOptions } from "./PromptButton";
 import { PromptGlow } from "./PromptGlow";
 import { LongPressGesture } from "@/pixi/LongPressGesture";
+import type { ScreenBounds } from "@/pixi/types";
 import { animationsEnabled } from "@/pixi/effects/enabled";
 import { gsap } from "@/pixi/effects/gsap";
 import {
@@ -540,6 +541,8 @@ export abstract class PromptLayerBase {
   protected entranceKey: object | string | null = null;
   protected entranceTween: gsap.core.Tween | null = null;
   protected actionLongPress = new LongPressGesture();
+  protected promptCardLongPress = new LongPressGesture();
+  protected promptCardPointerId: number | null = null;
   protected selectionFilter = "";
   protected selectionFilterFocused = false;
   protected selectionFilterBlinkAt = 0;
@@ -787,6 +790,45 @@ export abstract class PromptLayerBase {
     else return;
     this.rebuild();
   }
+  protected bindPromptCardLongPress(
+    target: Container,
+    card: CardDto,
+    sprite: CardSprite,
+    stopPropagation = false,
+  ): void {
+    target.on("pointerdown", (event: FederatedPointerEvent) => {
+      if (event.pointerType !== "touch") return;
+      if (stopPropagation) event.stopPropagation();
+      this.promptCardPointerId = event.pointerId;
+      this.promptCardLongPress.start(event, card.id, () => {
+        const bounds = sprite.getBounds();
+        const screenBounds: ScreenBounds = {
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height,
+        };
+        this.callbacks.onLongPressCard?.(card, screenBounds);
+      });
+    });
+    target.on("globalpointermove", (event: FederatedPointerEvent) => {
+      if (event.pointerId === this.promptCardPointerId) {
+        this.promptCardLongPress.move(event.global.x, event.global.y);
+      }
+    });
+    const finish = (event: FederatedPointerEvent) => {
+      if (event.pointerId !== this.promptCardPointerId) return;
+      this.promptCardPointerId = null;
+      this.promptCardLongPress.cancel();
+      this.promptCardLongPress.releaseFired();
+    };
+    target.on("pointerup", finish);
+    target.on("pointerupoutside", finish);
+    target.on("pointercancel", finish);
+    target.on("pointertapcapture", (event: FederatedPointerEvent) => {
+      if (this.promptCardLongPress.consumeTap(card.id)) event.stopImmediatePropagation();
+    });
+  }
 
   protected bindPromptCardActivation(
     target: Container,
@@ -833,6 +875,7 @@ export abstract class PromptLayerBase {
     target.on("pointerdowncapture", activate);
     target.on("focusin", activate);
     target.on("focusout", deactivate);
+    this.bindPromptCardLongPress(target, card, sprite);
   }
 
   hitTestRules(x: number, y: number): boolean {

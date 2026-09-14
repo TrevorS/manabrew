@@ -368,12 +368,14 @@ export class BattlefieldOverlay {
     btn.eventMode = "static";
     btn.cursor = "pointer";
     btn.on("pointerover", (e: FederatedPointerEvent) => {
+      if (e.pointerType === "touch") return;
       this.host.cancelHoverClear();
       const entry = this.host.getEntries().get(cardId);
       if (entry) this.host.setCardHovered(entry.sprite, false, e);
       onHoverChange?.(true);
     });
     btn.on("pointermove", (e: FederatedPointerEvent) => {
+      if (e.pointerType === "touch") return;
       const entry = this.host.getEntries().get(cardId);
       if (entry) this.host.setCardHovered(entry.sprite, true, e);
     });

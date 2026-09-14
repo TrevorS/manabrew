@@ -194,6 +194,8 @@ export class PromptLayer extends PromptModalLayer {
     this.app.stage.off("pointercancel", this.onStageCancel);
     this.app.ticker.remove(this.onTick);
     this.actionLongPress.reset();
+    this.promptCardLongPress.reset();
+    this.promptCardPointerId = null;
     this.callbacks.onReferenceChange?.(null);
     this.cancelDrag();
     this.entranceTween?.kill();
@@ -262,6 +264,8 @@ export class PromptLayer extends PromptModalLayer {
     }
   }
   protected rebuild(): void {
+    this.promptCardLongPress.reset();
+    this.promptCardPointerId = null;
     this.stopWaitingAnimation();
     this.activePromptCard = null;
     this.callbacks.onReferenceChange?.(null);
@@ -362,25 +366,24 @@ export class PromptLayer extends PromptModalLayer {
     const rowWidth = view.width + (menu ? 4 + menu.width : 0);
     const contentWidth =
       fixedWidth == null ? Math.max(rowWidth, combat?.width ?? 0) : fixedContentWidth;
-    const width = fixedWidth ?? Math.min(this.viewportWidth - 12, Math.max(40, contentWidth + 12));
+    const width =
+      fixedWidth ??
+      Math.min(this.viewportWidth - 12, Math.max(40, contentWidth + (minimal ? 0 : 12)));
     const headerHeight = minimal ? 0 : 34;
-    const sectionPaddingX = minimal ? 6 : 8;
-    const sectionPaddingTop = minimal ? 4 : 8;
-    const sectionPaddingBottom = minimal ? 4 : 8;
+    const sectionPaddingX = minimal ? 0 : 8;
+    const sectionPaddingTop = minimal ? 0 : 8;
+    const sectionPaddingBottom = minimal ? 0 : 8;
     const contentGap = combat ? 8 : 0;
     const viewHeight = Math.max(view.height, menu?.height ?? 0);
     const bodyHeight =
       sectionPaddingTop + (combat?.height ?? 0) + contentGap + viewHeight + sectionPaddingBottom;
     const panelHeight = headerHeight + bodyHeight;
     const x = this.viewportWidth - width - (minimal || shortScreen ? 6 : 12);
-    const unclampedY =
-      minimal && action.dividerY != null
-        ? action.dividerY - panelHeight / 2
-        : minimal
-          ? this.viewportHeight - panelHeight - 80
-          : shortScreen
-            ? this.viewportHeight - panelHeight - 118
-            : this.viewportHeight - panelHeight;
+    const unclampedY = minimal
+      ? this.viewportHeight - panelHeight - 6
+      : shortScreen
+        ? this.viewportHeight - panelHeight - 118
+        : this.viewportHeight - panelHeight;
     const y = minimal
       ? Math.max(6, Math.min(this.viewportHeight - panelHeight - 6, unclampedY))
       : unclampedY;
@@ -395,7 +398,7 @@ export class PromptLayer extends PromptModalLayer {
     panel.accessibleTitle = hasAction ? actionTitle(effectivePromptType) : "Waiting";
     panel.tabIndex = -1;
 
-    if (hasAction) {
+    if (hasAction && !minimal) {
       const glowColor =
         effectivePromptType === "chooseAttackers" && action.pendingAttackers.length > 0
           ? this.theme.gameTheme.promptAction.attackAction
@@ -410,10 +413,12 @@ export class PromptLayer extends PromptModalLayer {
       });
     }
 
-    const background = this.makeActionPanelSurface(width, panelHeight, radius, squareBottom);
-    if (this.actionGlow) panel.addChild(this.actionGlow.spill);
-    panel.addChild(background);
-    if (this.actionGlow) panel.addChild(this.actionGlow);
+    if (!minimal) {
+      const background = this.makeActionPanelSurface(width, panelHeight, radius, squareBottom);
+      if (this.actionGlow) panel.addChild(this.actionGlow.spill);
+      panel.addChild(background);
+      if (this.actionGlow) panel.addChild(this.actionGlow);
+    }
 
     if (!minimal) {
       let right = width - 8;
@@ -939,16 +944,17 @@ export class PromptLayer extends PromptModalLayer {
       shadow: true,
       radius: 8,
       disabled,
+      height: minimal ? 42 : touch ? 48 : undefined,
       labelPlacement: showLabel ? "stacked" : "hidden",
       tooltip: !showLabel,
       title: options.title ?? label,
       badge: options.badge,
       icon,
-      iconSize: 14,
+      iconSize: touch ? 16 : 14,
       fontSize: showLabel ? 8 : 12,
       fontWeight: "700",
       letterSpacing: showLabel ? 0.4 : 0,
-      paddingX: 6,
+      paddingX: touch ? 10 : 6,
     });
   }
 
@@ -988,22 +994,23 @@ export class PromptLayer extends PromptModalLayer {
     const counting = this.autopassRemainingMs != null;
     const passLabel = morphed ? endLabel : counting ? "PASSING" : "PASS";
     const combo = morphed ? endCombo : passCombo;
-    const height = 40;
+    const height = minimal ? 42 : 40;
     const gap = 4;
-    const end = morphed
-      ? null
-      : this.makeButton(endLabel, action.onPassEndTurn, {
-          color: this.theme.appTheme.secondary,
-          flat: true,
-          radius: minimal ? 20 : 8,
-          disabled,
-          height,
-          paddingX: minimal ? 12 : 14,
-          fontSize: 10,
-          fontWeight: "700",
-          letterSpacing: 1,
-          title: endCombo ? `${endTitle} (${comboSymbols(endCombo)})` : endTitle,
-        });
+    const end =
+      minimal || morphed
+        ? null
+        : this.makeButton(endLabel, action.onPassEndTurn, {
+            color: this.theme.appTheme.secondary,
+            flat: true,
+            radius: 8,
+            disabled,
+            height,
+            paddingX: 14,
+            fontSize: 10,
+            fontWeight: "700",
+            letterSpacing: 1,
+            title: endCombo ? `${endTitle} (${comboSymbols(endCombo)})` : endTitle,
+          });
     const pass = this.makeButton(
       !minimal && combo ? `${passLabel}  ${comboSymbols(combo)}` : passLabel,
       morphed ? action.onPassEndTurn : action.onPassPriority,
@@ -1505,14 +1512,14 @@ export class PromptLayer extends PromptModalLayer {
   }
 
   private makeActionMenuButton(minimal: boolean): ActionViewLayout {
-    const size = minimal ? 22 : 18;
+    const size = minimal ? 24 : 18;
     const button = new Container();
     const icon = this.makeIcon("lucide-settings", 14, this.theme.gameTheme.textOnTinted);
     icon.position.set(size / 2, size / 2);
     button.addChild(icon);
     button.eventMode = "static";
     button.cursor = "pointer";
-    const inset = minimal ? 8 : 10;
+    const inset = minimal ? 12 : 10;
     button.hitArea = new Rectangle(-inset, -inset, size + inset * 2, size + inset * 2);
     button.on("pointerover", () => {
       icon.alpha = 0.75;
@@ -1612,6 +1619,9 @@ export class PromptLayer extends PromptModalLayer {
     sprite.eventMode = "none";
     container.addChild(sprite);
     container.hitArea = new Rectangle(0, 0, 60, 84);
+    container.eventMode = "static";
+    container.cursor = "pointer";
+    this.bindPromptCardLongPress(container, card, sprite, true);
     return container;
   }
 

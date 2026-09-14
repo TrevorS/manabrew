@@ -18,6 +18,7 @@ import {
   GAP,
   HAND_BOTTOM_SINK_FRAC,
   HAND_BOTTOM_SINK_FRAC_COMPACT,
+  HAND_BOTTOM_SINK_FRAC_SHEET,
   HAND_HOVER_HOLD_MS,
   HAND_LERP,
   HAND_REORDER_LERP,
@@ -48,6 +49,7 @@ export class HandController {
   private lastState: HandState | null = null;
   private vScale = 1;
   private compact = false;
+  private sheetOpen = false;
   private rulesViewDefault = false;
   private dropActive = false;
   private reorderIndex: number | null = null;
@@ -111,6 +113,16 @@ export class HandController {
     if (this.compact === compact) return;
     this.compact = compact;
     if (this.lastState) this.updateHand(this.lastState);
+  }
+  setSheetOpen(open: boolean): void {
+    if (this.sheetOpen === open) return;
+    this.sheetOpen = open;
+    this.relayout();
+  }
+
+  private bottomSinkFrac(): number {
+    if (this.sheetOpen) return HAND_BOTTOM_SINK_FRAC_SHEET;
+    return this.compact ? HAND_BOTTOM_SINK_FRAC_COMPACT : HAND_BOTTOM_SINK_FRAC;
   }
 
   setRulesViewDefault(active: boolean): void {
@@ -488,7 +500,7 @@ export class HandController {
   getBottomY(): number {
     const zone = this.host.getPlayZone();
     const dims = this.getDimensions();
-    const sink = this.compact ? HAND_BOTTOM_SINK_FRAC_COMPACT : HAND_BOTTOM_SINK_FRAC;
+    const sink = this.bottomSinkFrac();
     return zone.y + zone.height + dims.cardH * sink;
   }
 
@@ -512,7 +524,7 @@ export class HandController {
     const scale = this.vScale;
     const cardW = Math.round(base.cardW * scale);
     const cardH = Math.round(base.cardH * scale);
-    const sink = this.compact ? HAND_BOTTOM_SINK_FRAC_COMPACT : HAND_BOTTOM_SINK_FRAC;
+    const sink = this.bottomSinkFrac();
     const available = Math.max(cardW, this.host.getPlayZone().width - cardW);
     return {
       cardW,

@@ -187,6 +187,7 @@ export class StackLayer implements StackAnchorProvider {
           (id) => this.setHovered(id),
           (id) => this.toggleRulesView(id),
           (id) => this.toggleFace(id),
+          (card, bounds) => this.callbacks.onLongPressCard?.(card, bounds),
         );
         this.container.addChild(sprite.container);
         this.sprites.set(card.id, sprite);

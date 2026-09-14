@@ -74,6 +74,7 @@ export interface GameCanvasCallbacks {
   onReorderHand?: (cardId: string, toIndex: number) => void;
   onClickCard_Hand?: (card: CardDto, pointer?: { clientX: number; clientY: number }) => void;
   onHoverHandCard?: (card: CardDto | null, screenBounds?: ScreenBounds) => void;
+  onMobileHandOpenChange?: (open: boolean) => void;
   onTargetPlayer?: (playerId: string) => void;
   onShowPlayerSheet?: (playerId: string) => void;
   onLongPressCard?: (card: CardDto, screenBounds: ScreenBounds) => void;

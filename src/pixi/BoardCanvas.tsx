@@ -9,6 +9,10 @@ installPixiPatches();
 
 import { BoardScene, type BoardPlayerSpec } from "./board/BoardScene";
 import { computeBoardLayout, type RegionOrientation } from "./board/boardLayout";
+import {
+  DESKTOP_BATTLEFIELD_LAYOUT,
+  type BattlefieldLayoutPolicy,
+} from "./board/battlefieldLayoutPolicy";
 import type { PlayerHudSpec as PlayerBarSpec } from "./hud/playerHud.types";
 import type { ZoneTileSpec } from "./board/BoardZoneTiles";
 import { battlefieldScaleForMultiplier, scaleForRowsWithCombatRow } from "./GridLayout";
@@ -20,7 +24,6 @@ import { useGameStore } from "@/stores/useGameStore";
 import { isCoarsePointer } from "@/lib/responsive";
 import { registerPixiApp } from "./visibility";
 import {
-  BATTLEFIELD_MIN_ROWS,
   BATTLEFIELD_MIN_ROWS_LARGEST,
   FIELD_INNER_EDGE_PAD_PX,
   HAND_ACTIONS_CLEAR_DELAY_MS,
@@ -92,7 +95,9 @@ interface BoardCanvasProps {
   attackerOptions?: { attackerId: string; validTargetIds: string[] }[];
   phaseStrip: PhaseStripState;
   phaseStripCallbacks?: PhaseStripCallbacks;
-  compact?: boolean;
+  layoutPolicy?: BattlefieldLayoutPolicy;
+  mobileHandOpen?: boolean;
+  mobileHandControlBounds?: DOMRect | null;
   opponentLayout?: "focused" | "overview";
   focusLocked?: boolean;
   focusedOpponentId?: string | null;
@@ -135,7 +140,9 @@ export function BoardCanvas({
   attackerOptions,
   phaseStrip,
   phaseStripCallbacks,
-  compact,
+  layoutPolicy = DESKTOP_BATTLEFIELD_LAYOUT,
+  mobileHandOpen = false,
+  mobileHandControlBounds,
   opponentLayout = "focused",
   focusLocked = false,
   focusedOpponentId,
@@ -157,6 +164,8 @@ export function BoardCanvas({
   onLayout,
   className,
 }: BoardCanvasProps) {
+  const compact = layoutPolicy.compact;
+  const effectiveBottomReserve = layoutPolicy.reserveHandSpace ? (selfBottomReserve ?? 0) : 0;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const appRef = useRef<Application | null>(null);
   const [scene, setScene] = useState<BoardScene | null>(null);
@@ -165,7 +174,8 @@ export function BoardCanvas({
   const onLayoutRef = useRef(onLayout);
   const reserveRef = useRef(0);
   const latestLayoutRef = useRef<BoardCanvasLayout | null>(null);
-  const selfBottomReserveRef = useRef(selfBottomReserve ?? 0);
+  const selfBottomReserveRef = useRef(effectiveBottomReserve);
+  const reserveHandSpaceRef = useRef(layoutPolicy.reserveHandSpace);
 
   const cardSizeMultiplier = usePreferencesStore((s) => s.cardSizeMultiplier);
   const cardStyle = usePreferencesStore((s) => s.battlefieldCardStyle);
@@ -299,6 +309,7 @@ export function BoardCanvas({
           onClickCard_Hand: (...a) => callbacksRef.current.onClickCard_Hand?.(...a),
           onCastSpell: (...a) => callbacksRef.current.onCastSpell?.(...a),
           onDismissHoverPreview: () => callbacksRef.current.onDismissHoverPreview?.(),
+          onMobileHandOpenChange: (...a) => callbacksRef.current.onMobileHandOpenChange?.(...a),
           onHoverHandCard: (card, bounds) => {
             callbacksRef.current.onHoverHandCard?.(card, bounds);
             if (card && bounds) {
@@ -324,7 +335,9 @@ export function BoardCanvas({
           if (!base) return;
           const updated = {
             ...base,
-            selfClusterMaxHeight: Math.max(px, selfBottomReserveRef.current),
+            selfClusterMaxHeight: reserveHandSpaceRef.current
+              ? Math.max(px, selfBottomReserveRef.current)
+              : Math.max(1, base.self?.height ?? 1),
           };
           latestLayoutRef.current = updated;
           onLayoutRef.current?.(updated);
@@ -382,18 +395,19 @@ export function BoardCanvas({
       w,
       h,
       opponentCount,
-      selfBottomReserve ?? 0,
-      compact ?? false,
+      effectiveBottomReserve,
+      compact,
       opponentLayout,
     );
-    s.setCompactMode(compact ?? false);
+    s.setCompactMode(compact);
+    s.setPhaseDividerVisible(layoutPolicy.showPhaseDivider);
     s.setFocusLocked(focusLocked);
     const playmatTrim = (usable: number) => Math.max(1, usable - FIELD_INNER_EDGE_PAD_PX);
-    const selfUsable = playmatTrim(Math.max(1, layout.self.height - (selfBottomReserve ?? 0)));
+    const selfUsable = playmatTrim(Math.max(1, layout.self.height - effectiveBottomReserve));
     const selfScale = Math.max(
       Number.EPSILON,
       compact
-        ? scaleForRowsWithCombatRow(selfUsable, BATTLEFIELD_MIN_ROWS)
+        ? scaleForRowsWithCombatRow(selfUsable, layoutPolicy.battlefieldRows)
         : Math.min(
             battlefieldScaleForMultiplier(selfUsable, cardSizeMultiplier),
             scaleForRowsWithCombatRow(selfUsable, BATTLEFIELD_MIN_ROWS_LARGEST),
@@ -406,7 +420,7 @@ export function BoardCanvas({
       layout.opponentLayout === "overview"
         ? scaleForRowsWithCombatRow(oppUsable, 1)
         : compact
-          ? scaleForRowsWithCombatRow(oppUsable, BATTLEFIELD_MIN_ROWS)
+          ? scaleForRowsWithCombatRow(oppUsable, layoutPolicy.battlefieldRows)
           : Math.min(
               battlefieldScaleForMultiplier(oppUsable, cardSizeMultiplier),
               scaleForRowsWithCombatRow(oppUsable, BATTLEFIELD_MIN_ROWS_LARGEST),
@@ -417,7 +431,9 @@ export function BoardCanvas({
     const next: BoardCanvasLayout = {
       self: layout.self,
       dividerY: layout.dividerY,
-      selfClusterMaxHeight: Math.max(reserveRef.current, selfBottomReserve ?? 0),
+      selfClusterMaxHeight: layoutPolicy.reserveHandSpace
+        ? Math.max(reserveRef.current, effectiveBottomReserve)
+        : Math.max(1, layout.self.height),
       opponents: opponentIds.map((id, i) => ({
         playerId: id,
         rect: layout.opponents[i]?.rect ?? layout.self,
@@ -432,15 +448,39 @@ export function BoardCanvas({
     cardSizeMultiplier,
     handViewportScale,
     compact,
+    layoutPolicy,
     opponentLayout,
     focusLocked,
-    selfBottomReserve,
+    effectiveBottomReserve,
     showPlayerBars,
   ]);
 
   useEffect(() => {
+    reserveHandSpaceRef.current = layoutPolicy.reserveHandSpace;
+    selfBottomReserveRef.current = effectiveBottomReserve;
+  }, [layoutPolicy.reserveHandSpace, effectiveBottomReserve]);
+
+  useEffect(() => {
     reconfigure();
   }, [reconfigure, scene]);
+  useEffect(() => {
+    scene?.setMobileHandOpen(layoutPolicy.handPresentation === "sheet" && mobileHandOpen);
+  }, [scene, layoutPolicy.handPresentation, mobileHandOpen]);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!scene || !canvas) return;
+    const canvasBounds = canvas.getBoundingClientRect();
+    scene.setMobileHandControlBlocker(
+      layoutPolicy.compact && !mobileHandOpen && mobileHandControlBounds
+        ? {
+            x: mobileHandControlBounds.left - canvasBounds.left,
+            y: mobileHandControlBounds.top - canvasBounds.top,
+            width: mobileHandControlBounds.width,
+            height: mobileHandControlBounds.height,
+          }
+        : null,
+    );
+  }, [scene, layoutPolicy.compact, mobileHandOpen, mobileHandControlBounds]);
 
   useEffect(() => {
     const parent = canvasRef.current?.parentElement;

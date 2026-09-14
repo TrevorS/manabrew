@@ -6,6 +6,10 @@ import { BoardCanvas } from "@/pixi/BoardCanvas";
 import { BoardOverlayCanvas, type BoardOverlayPreviewSpec } from "@/pixi/BoardOverlayCanvas";
 import type { StackSpec } from "@/pixi/stack/stack.types";
 import type { BoardScene } from "@/pixi/board/BoardScene";
+import {
+  DESKTOP_BATTLEFIELD_LAYOUT,
+  MOBILE_BATTLEFIELD_LAYOUT,
+} from "@/pixi/board/battlefieldLayoutPolicy";
 import type { PhaseStripState } from "@/pixi/PhaseStripLayer";
 import type { GameCanvasCallbacks } from "@/pixi/types";
 import { useGameDevStore } from "@/stores/useGameDevStore";
@@ -17,6 +21,7 @@ import { HoverCardPreview } from "@/components/game/HoverCardPreview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlayerSheetModal } from "@/components/game/panels/PlayerSheetModal";
+import { MobileHandControl } from "@/components/game/panels/MobileHandControl";
 import { BoardPlaygroundControls } from "@/components/dev/BoardPlaygroundControls";
 import { buildPlaygroundSpecs } from "@/components/dev/boardPlayground.specs";
 import { parsePrintedCardRailMetadata } from "@/components/game/cardRailState";
@@ -75,6 +80,8 @@ export function BoardPlayground() {
   const triggerEtbGlow = useGameDevStore((state) => state.triggerEtbGlow);
   const preview = useCardPreview([], { useTriggerPreference: true });
   const compact = useIsMobileGame();
+  const [mobileHandOpen, setMobileHandOpen] = useState(false);
+  const [mobileHandControlBounds, setMobileHandControlBounds] = useState<DOMRect | null>(null);
   const theme = useTheme().gameTheme;
   const previewStyle = usePreferencesStore((state) => state.inGameCardPreviewStyle);
   const setPreviewStyle = usePreferencesStore((state) => state.setInGameCardPreviewStyle);
@@ -640,7 +647,9 @@ export function BoardPlayground() {
                 return next;
               }),
           }}
-          compact={compact}
+          layoutPolicy={compact ? MOBILE_BATTLEFIELD_LAYOUT : DESKTOP_BATTLEFIELD_LAYOUT}
+          mobileHandOpen={compact && mobileHandOpen}
+          mobileHandControlBounds={mobileHandControlBounds}
           opponentLayout={overview ? "overview" : "focused"}
           focusedOpponentId={focusedPlayerId}
           manualFocusId={focusedPlayerId}
@@ -668,8 +677,10 @@ export function BoardPlayground() {
                 : undefined,
             onShowPlayerSheet: (playerId) => {
               preview.dismiss();
+              setMobileHandOpen(false);
               setSheetPlayerId(playerId);
             },
+            onMobileHandOpenChange: setMobileHandOpen,
             onFlipCard: preview.flipCard,
             onDismissHoverPreview: preview.dismiss,
           }}
@@ -690,7 +701,18 @@ export function BoardPlayground() {
             onDismissPreview={preview.dismiss}
             onFlipPreview={preview.flipCard}
             onTogglePreviewView={togglePreviewView}
+            onLongPressCard={(card, anchor) => inspect(card, anchor)}
           />
+          {compact && (
+            <MobileHandControl
+              count={hand.length}
+              open={mobileHandOpen}
+              locked={false}
+              actionable={false}
+              onToggle={() => setMobileHandOpen((open) => !open)}
+              onBoundsChange={setMobileHandControlBounds}
+            />
+          )}
         </div>
       </div>
       {previewStyle === "printed" && (

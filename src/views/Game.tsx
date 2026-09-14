@@ -1974,7 +1974,8 @@ export default function Game({ exitTo }: GameProps = {}) {
     !viewingZone &&
     !abilityPickerState &&
     commandZonePreview.phase !== "hidden";
-  const previewSuppressed = !!promptType && !HOVER_ALLOWED_PROMPTS.has(promptType);
+  const previewSuppressed =
+    !preview.isSticky && !!promptType && !HOVER_ALLOWED_PROMPTS.has(promptType);
   const externalPreviewActive =
     !previewSuppressed &&
     ((showInGamePreview && preview.phase === "open") ||
