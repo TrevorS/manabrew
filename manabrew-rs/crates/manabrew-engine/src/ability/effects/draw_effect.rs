@@ -21,7 +21,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
 }
 
-fn draw_for_player(
+pub(crate) fn draw_for_player(
     ctx: &mut EffectContext,
     sa: &crate::spellability::SpellAbility,
     target: crate::ids::PlayerId,

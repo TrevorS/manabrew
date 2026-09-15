@@ -187,6 +187,7 @@ effect_dispatch! {
     ApiType::SkipPhase => skip_phase_effect::SkipPhaseEffect,
     ApiType::AddPhase => add_phase_effect::AddPhaseEffect,
     ApiType::Phases => phases_effect::PhasesEffect,
+    ApiType::Recruit => recruit_effect::RecruitEffect,
     ApiType::Regenerate => regenerate_effect::RegenerateEffect,
     ApiType::Play => play_effect::PlayEffect,
     ApiType::Animate => animate_effect::AnimateEffect,

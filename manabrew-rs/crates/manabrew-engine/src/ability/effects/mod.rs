@@ -160,6 +160,7 @@ pub mod pump_all_effect;
 pub mod pump_effect;
 pub mod radiation_effect;
 pub mod rearrange_top_of_library_effect;
+pub mod recruit_effect;
 pub mod regenerate_effect;
 pub mod regeneration_effect;
 pub mod remove_from_combat_effect;
