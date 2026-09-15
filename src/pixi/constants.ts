@@ -15,6 +15,8 @@ export const STACK_MAX_SLIDE_CARDS = 2;
 export const TABLE_RADIUS = 8;
 export const MAX_LAND_SLOTS = 100;
 export const MAX_GRID_SLOTS = 200;
+export const COMPACT_LAND_OVERLAP_MIN = 4;
+export const COMPACT_LAND_STEP_FRAC = 0.64;
 
 export const BATTLEFIELD_CARD_SCALE_DEFAULT = 1.15;
 // Absolute floor so cards never go microscopic on very short displays.

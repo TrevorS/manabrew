@@ -37,6 +37,8 @@ import {
   CARD_RADIUS,
   COMBAT_DIM_ALPHA,
   COMBAT_DIM_TINT_LEVEL,
+  COMPACT_LAND_OVERLAP_MIN,
+  COMPACT_LAND_STEP_FRAC,
   DAMAGE_SHAKE_AMP_PX,
   DAMAGE_SHAKE_FRAMES,
   EXIT_FADE_LERP,
@@ -1194,6 +1196,23 @@ export class BoardRegion {
       }
     }
   }
+  private compressCompactLands(cards: CardDto[], positions: Map<string, Point>, cardWidth: number) {
+    if (!this.compactZones) return;
+    const lands = cards
+      .filter((card) => battlefieldCardCategory(card) === "land" && positions.has(card.id))
+      .sort((a, b) => positions.get(a.id)!.x - positions.get(b.id)!.x);
+    if (
+      lands.length < COMPACT_LAND_OVERLAP_MIN ||
+      lands.some((card) => this.userPlacedCards.has(card.id))
+    ) {
+      return;
+    }
+    const step = cardWidth * COMPACT_LAND_STEP_FRAC;
+    const startX = this.zoneCenterX() - (step * (lands.length - 1)) / 2;
+    for (let index = 0; index < lands.length; index++) {
+      positions.get(lands[index]!.id)!.x = startX + step * index;
+    }
+  }
 
   private computeBattlefieldGrid(cards: CardDto[]): Map<string, Point> {
     const positions = new Map<string, Point>();
@@ -1342,6 +1361,7 @@ export class BoardRegion {
         positions.set(c.id, { x: centerX, y: anchorY });
       }
     }
+    this.compressCompactLands(cards, positions, grid.cardW);
 
     return positions;
   }
