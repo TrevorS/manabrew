@@ -181,6 +181,7 @@ export function BoardCanvas({
 
   const cardSizeMultiplier = usePreferencesStore((s) => s.cardSizeMultiplier);
   const cardStyle = usePreferencesStore((s) => s.battlefieldCardStyle);
+  const effectiveCardStyle = compact ? "frame" : cardStyle;
   const lockZoneTiles = usePreferencesStore((s) => s.lockZoneTiles);
   const handViewportScale = useHandScale();
   const promptType = useGameStore((s) => s.currentPrompt?.input.type);
@@ -592,8 +593,8 @@ export function BoardCanvas({
   }, [scene, autoSort]);
 
   useEffect(() => {
-    scene?.setCardStyle(cardStyle);
-  }, [scene, cardStyle]);
+    scene?.setCardStyle(effectiveCardStyle);
+  }, [scene, effectiveCardStyle]);
 
   useEffect(() => {
     scene?.setZoneTilesLocked(lockZoneTiles);
