@@ -4,6 +4,8 @@ export interface BattlefieldLayoutPolicy {
   opponentBattlefieldRows: number;
   selfFieldShare: number;
   focusedSelfFieldShare: number;
+  opponentCardScaleRatio: number;
+  focusedOpponentCardScaleRatio: number;
   reserveHandSpace: boolean;
   handPresentation: "inline" | "sheet";
   showPhaseDivider: boolean;
@@ -15,6 +17,8 @@ export const DESKTOP_BATTLEFIELD_LAYOUT = {
   opponentBattlefieldRows: 3,
   selfFieldShare: 0.5,
   focusedSelfFieldShare: 0.5,
+  opponentCardScaleRatio: 1,
+  focusedOpponentCardScaleRatio: 1,
   reserveHandSpace: true,
   handPresentation: "inline",
   showPhaseDivider: true,
@@ -24,8 +28,10 @@ export const MOBILE_BATTLEFIELD_LAYOUT = {
   compact: true,
   selfBattlefieldRows: 2,
   opponentBattlefieldRows: 1,
-  selfFieldShare: 0.64,
+  selfFieldShare: 2 / 3,
   focusedSelfFieldShare: 0.5,
+  opponentCardScaleRatio: 1,
+  focusedOpponentCardScaleRatio: 1.25,
   reserveHandSpace: false,
   handPresentation: "sheet",
   showPhaseDivider: true,

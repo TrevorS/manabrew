@@ -431,7 +431,7 @@ export function BoardCanvas({
     );
     const oppUsables = layout.opponents.map((o) => playmatTrim(Math.max(1, o.rect.height)));
     const oppUsable = oppUsables.length ? Math.min(...oppUsables) : selfUsable;
-    const oppScale = Math.max(
+    const uncappedOppScale = Math.max(
       Number.EPSILON,
       layout.opponentLayout === "overview"
         ? compact
@@ -444,6 +444,12 @@ export function BoardCanvas({
               scaleForRowsWithCombatRow(oppUsable, BATTLEFIELD_MIN_ROWS_LARGEST),
             ),
     );
+    const opponentScaleRatio = opponentFieldFocused
+      ? layoutPolicy.focusedOpponentCardScaleRatio
+      : layoutPolicy.opponentCardScaleRatio;
+    const oppScale = compact
+      ? Math.min(uncappedOppScale, selfScale * opponentScaleRatio)
+      : uncappedOppScale;
     s.configure(players, layout, { self: selfScale, opponent: oppScale }, combatRowReserved);
     s.setHandScale(compact ? 1 : handViewportScale);
     const next: BoardCanvasLayout = {
