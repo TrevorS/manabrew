@@ -106,5 +106,29 @@
   {
     "name": "saga_chapter",
     "args": "--deck1 saga_chapter --deck2 saga_chapter --seed 42 --max-turns 40 --games 3 --prefer-actions --deep --investigate"
+  },
+  {
+    "name": "recruit_discard_nonland_token",
+    "args": "--deck1 \"inline:Bard's Company*4|Celebrate the Mountain-king*4|Esgaroth Garrison*4|Great Gilded Boat*4|Lake-town Lookout*4|Island*12|Plains*12\" --deck2 \"inline:Long Lake Nuisance*4|Patient Instructor*4|Sound the Trumpets*4|The Mountain-king's Return*4|The Queen of Dale*4|Island*12|Plains*12\" --seed 42 --max-turns 20 --games 1"
+  },
+  {
+    "name": "teamwork_unpaid_count",
+    "args": "--deck1 \"inline:Atlantis Attacks*4|Cruel Alliance*4|Earth's Mightiest Heroes*4|Go Nuts!*4|HULK SMASH!*4|Helicarrier Strike*4|Swamp*5|Forest*5|Mountain*5|Island*5|Plains*4\" --deck2 \"inline:Murdock's Crusade*4|Repulsor Blast*4|Team Tactics*4|Too Evil to Stay Dead*4|We Say Thee Nay!*4|Widow's Bite*4|Swamp*6|Mountain*6|Island*6|Plains*6\" --seed 42 --max-turns 20 --games 1"
+  },
+  {
+    "name": "count_you_flip_and_descended",
+    "args": "--deck1 \"inline:Edgar, King of Figaro*4|Molten Collapse*4|Swamp*8|Mountain*8|Island*8\" --deck2 \"inline:The Mycotyrant*4|Swamp*12|Forest*12\" --seed 42 --max-turns 20 --games 1"
+  },
+  {
+    "name": "paradigm_exile_and_copy",
+    "args": "--deck1 \"inline:Decorum Dissertation*4|Echocasting Symposium*4|Germination Practicum*4|Swamp*8|Forest*8|Island*8\" --deck2 \"inline:Improvisation Capstone*4|Restoration Seminar*4|Mountain*12|Plains*12\" --seed 45 --max-turns 20 --games 1"
+  },
+  {
+    "name": "control_player_resolves",
+    "args": "--deck1 \"inline:Construct a Cosmic Cube*4|Secret of Bloodbending*4|Swamp*12|Island*12\" --deck2 \"inline:The Dominion Bracelet*4|Plains*12|Island*12\" --seed 42 --max-turns 20 --games 1"
+  },
+  {
+    "name": "increment_counters",
+    "args": "--deck1 \"inline:Cuboid Colony*16|Forest*12|Island*12\" --deck2 \"inline:Grizzly Bears*16|Forest*12|Island*12\" --seed 42 --max-turns 20 --games 1"
   }
 ]
