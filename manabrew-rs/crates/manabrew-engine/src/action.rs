@@ -366,6 +366,13 @@ impl GameState {
             .map(|c| c.id)
             .collect();
 
+        if src_zone == ZoneType::Battlefield && dest_zone != ZoneType::Battlefield {
+            self.add_left_battlefield_this_turn(card_id);
+        }
+        if src_zone == ZoneType::Graveyard && dest_zone != ZoneType::Graveyard {
+            self.add_left_graveyard_this_turn(card_id);
+        }
+
         // Tokens and copy-tokens cease to exist when leaving the battlefield (CR 110.5g).
         // Set zone to None (limbo) and remove from source zone without adding to destination.
         if is_token && dest_zone != ZoneType::Battlefield {

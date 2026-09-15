@@ -11,24 +11,7 @@ use crate::spellability::SpellAbilityMode;
 use crate::trigger::TriggerType;
 
 fn unlocked_room_count(ctx: &EffectContext, card_id: CardId) -> i32 {
-    let card = ctx.game.card(card_id);
-    // Check explicit counter first.
-    if let Some(count) = card
-        .svars
-        .get("UnlockedRoomCount")
-        .and_then(|v| v.parse::<i32>().ok())
-    {
-        return count;
-    }
-    // A Room on the battlefield always has at least its first door unlocked
-    // (the door it was cast as).  The first door unlock happens implicitly at
-    // ETB without going through unlock_door_effect::resolve(), so
-    // UnlockedRoomCount is never set to 1.  Infer count=1 for Room cards on
-    // the battlefield.
-    if card.zone == ZoneType::Battlefield && card.type_line.has_subtype("Room") {
-        return 1;
-    }
-    0
+    ctx.game.card(card_id).get_unlocked_room_count()
 }
 
 /// Struct form of this effect so it can participate in the

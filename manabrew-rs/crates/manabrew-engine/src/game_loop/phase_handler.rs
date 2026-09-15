@@ -672,6 +672,9 @@ impl GameLoop {
             }
         }
 
+        game.clear_left_battlefield_this_turn();
+        game.clear_left_graveyard_this_turn();
+
         // Player-owned cleanup state that expires at end of turn.
         let player_ids = game.player_order.clone();
         for player in player_ids {

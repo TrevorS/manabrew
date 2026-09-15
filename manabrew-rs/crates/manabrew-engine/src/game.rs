@@ -220,7 +220,12 @@ pub struct GameState {
     #[serde(skip)]
     pub last_sacrificed_card: Option<CardId>,
     #[serde(skip)]
-    pub counter_added_this_turn: BTreeMap<(GameEntity, Option<u64>, CounterType), i32>,
+    pub counter_added_this_turn:
+        BTreeMap<(GameEntity, Option<u64>, CounterType, Option<PlayerId>), i32>,
+    #[serde(skip)]
+    pub left_battlefield_this_turn: Vec<CardId>,
+    #[serde(skip)]
+    pub left_graveyard_this_turn: Vec<CardId>,
 }
 
 impl GameState {
@@ -266,6 +271,8 @@ impl GameState {
             pre_sba_battlefield: Vec::new(),
             last_sacrificed_card: None,
             counter_added_this_turn: BTreeMap::new(),
+            left_battlefield_this_turn: Vec::new(),
+            left_graveyard_this_turn: Vec::new(),
         }
     }
 
@@ -376,6 +383,33 @@ impl GameState {
         }
     }
 
+    pub fn add_left_battlefield_this_turn(&mut self, lki: CardId) {
+        self.left_battlefield_this_turn.push(lki);
+    }
+
+    pub fn add_left_graveyard_this_turn(&mut self, lki: CardId) {
+        self.left_graveyard_this_turn.push(lki);
+    }
+
+    pub fn clear_left_battlefield_this_turn(&mut self) {
+        self.left_battlefield_this_turn.clear();
+    }
+
+    pub fn clear_left_graveyard_this_turn(&mut self) {
+        self.left_graveyard_this_turn.clear();
+    }
+
+    pub fn is_void(&self) -> bool {
+        self.left_battlefield_this_turn
+            .iter()
+            .any(|&card| !self.card(card).is_land())
+            || self.stack.get_spells_cast_this_turn().iter().any(|&card| {
+                self.card(card).cast_sa.as_ref().is_some_and(|sa| {
+                    sa.alt_cost == Some(crate::spellability::AlternativeCost::Warp)
+                })
+            })
+    }
+
     pub fn reset_zone_turn_tracking(&mut self) {
         for zone in self.zones.values_mut() {
             zone.reset_cards_added_this_turn();
@@ -397,7 +431,7 @@ impl GameState {
     ) -> i32 {
         self.counter_added_this_turn
             .iter()
-            .filter(|((entry_entity, timestamp, entry_type), _)| {
+            .filter(|((entry_entity, timestamp, entry_type, _), _)| {
                 *entry_entity == entity
                     && *timestamp == self.counter_entity_timestamp(entity)
                     && counter_type.is_none_or(|ct| ct == entry_type)
@@ -406,8 +440,54 @@ impl GameState {
             .sum()
     }
 
+    pub fn get_counter_added_this_turn(
+        &self,
+        counter_type: Option<&CounterType>,
+        valid_player: &str,
+        valid_card: &str,
+        source: CardId,
+        source_controller: PlayerId,
+    ) -> i32 {
+        let source_card = self.card(source);
+        let card_selectors: Vec<_> = valid_card
+            .split(',')
+            .map(crate::parsing::cached_compiled_selector)
+            .collect();
+        self.counter_added_this_turn
+            .iter()
+            .filter(|((entity, timestamp, entry_type, putter), _)| {
+                counter_type.is_none_or(|ct| ct == entry_type)
+                    && putter.is_some_and(|putter| {
+                        valid_player.split(',').any(|valid| {
+                            crate::card::valid_filter::matches_valid_player(
+                                valid,
+                                putter,
+                                source_controller,
+                            )
+                        })
+                    })
+                    && match entity {
+                        GameEntity::Card(card) => {
+                            *timestamp == self.counter_entity_timestamp(*entity)
+                                && card_selectors.iter().any(|selector| {
+                                    crate::card::valid_filter::matches_valid_card_selector_in_game(
+                                        selector,
+                                        self.card(*card),
+                                        source_card,
+                                        self,
+                                    )
+                                })
+                        }
+                        GameEntity::Player(_) => false,
+                    }
+            })
+            .map(|(_, amount)| *amount)
+            .sum()
+    }
+
     pub fn record_counter_added(
         &mut self,
+        putter: Option<PlayerId>,
         entity: GameEntity,
         counter_type: &CounterType,
         amount: i32,
@@ -418,6 +498,7 @@ impl GameState {
                 entity,
                 self.counter_entity_timestamp(entity),
                 counter_type.clone(),
+                putter,
             ))
             .or_default() += amount;
     }

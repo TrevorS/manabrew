@@ -385,7 +385,7 @@ fn add_counter_internal(
     if added <= 0 {
         return 0;
     }
-    game.record_counter_added(object, counter_type, added);
+    game.record_counter_added(source, object, counter_type, added);
 
     if let Some(trigger_handler) = trigger_handler {
         params = object_params(object, params);

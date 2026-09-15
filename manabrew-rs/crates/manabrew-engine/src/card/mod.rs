@@ -3483,6 +3483,19 @@ impl Card {
     pub fn update_replacement_effects(&mut self) {
         self.recompute_changed_card_traits();
     }
+    pub fn get_unlocked_room_count(&self) -> i32 {
+        if let Some(count) = self
+            .svars
+            .get("UnlockedRoomCount")
+            .and_then(|v| v.parse::<i32>().ok())
+        {
+            return count;
+        }
+        if self.zone == ZoneType::Battlefield && self.type_line.has_subtype("Room") {
+            return 1;
+        }
+        0
+    }
     pub fn was_cast(&self) -> bool {
         // Mirrors Java `Card.wasCast()`: true iff `castFrom` was set during
         // cast resolution. Sneak Attack and other "put onto battlefield"
