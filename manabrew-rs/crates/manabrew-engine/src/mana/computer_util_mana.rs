@@ -1422,10 +1422,15 @@ fn can_pay_non_tap_mana_ability_costs(
     let Some(ab_idx) = ma.ability_index else {
         return true;
     };
-    let cost_parts: Vec<_> = game.card(ma.card_id).activated_abilities[ab_idx]
-        .cost
-        .parts
-        .clone();
+    let Some(ability) = game
+        .card(ma.card_id)
+        .activated_abilities
+        .iter()
+        .find(|ab| ab.ability_index == ab_idx)
+    else {
+        return false;
+    };
+    let cost_parts: Vec<_> = ability.cost.parts.clone();
     for part in &cost_parts {
         if !can_pay_source_paid_mana_cost_part(
             game,
@@ -1493,10 +1498,15 @@ fn pay_non_tap_mana_ability_costs(
     let Some(ab_idx) = ma.ability_index else {
         return true;
     };
-    let cost_parts: Vec<_> = game.card(ma.card_id).activated_abilities[ab_idx]
-        .cost
-        .parts
-        .clone();
+    let Some(ability) = game
+        .card(ma.card_id)
+        .activated_abilities
+        .iter()
+        .find(|ab| ab.ability_index == ab_idx)
+    else {
+        return false;
+    };
+    let cost_parts: Vec<_> = ability.cost.parts.clone();
     for part in &cost_parts {
         match part {
             CostPart::Tap | CostPart::Mana { .. } => {}
@@ -3099,11 +3109,12 @@ fn source_requires_tap(game: &GameState, ma: &ManaAbilityRef) -> bool {
     match ma.ability_index {
         // Implicit mana abilities (basic/subtype lands) always require tapping.
         None => true,
-        Some(ab_idx) => game.card(ma.card_id).activated_abilities[ab_idx]
-            .cost
-            .parts
+        Some(ab_idx) => game
+            .card(ma.card_id)
+            .activated_abilities
             .iter()
-            .any(|p| matches!(p, CostPart::Tap)),
+            .find(|ab| ab.ability_index == ab_idx)
+            .is_some_and(|ab| ab.cost.parts.iter().any(|p| matches!(p, CostPart::Tap))),
     }
 }
 
