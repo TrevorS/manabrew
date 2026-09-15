@@ -80,6 +80,13 @@ import { isCoarsePointer } from "@/lib/responsive";
 const COARSE_POINTER = isCoarsePointer();
 
 type Point = ScreenPos;
+type BattlefieldCardCategory = "creature" | "land" | "other";
+
+function battlefieldCardCategory(card: CardDto): BattlefieldCardCategory {
+  if (card.types.includes("Creature")) return "creature";
+  if (card.types.includes("Land")) return "land";
+  return "other";
+}
 
 interface BoardRegionOptions {
   orientation: RegionOrientation;
@@ -1268,7 +1275,7 @@ export class BoardRegion {
       landRows = [lastUsableRow];
     } else if (usableRows === 2) {
       creatureRows = [0];
-      otherRows = [0, 1];
+      otherRows = this.compactZones ? [lastUsableRow] : [0, 1];
       landRows = [lastUsableRow];
     } else {
       creatureRows = [0];
@@ -1283,20 +1290,16 @@ export class BoardRegion {
       landRows = flip(landRows);
     }
 
-    type CardCategory = "creature" | "land" | "other";
-    const classify = (c: CardDto): CardCategory => {
-      if (c.types.includes("Creature")) return "creature";
-      if (c.types.includes("Land")) return "land";
-      return "other";
-    };
+    const classify = battlefieldCardCategory;
 
-    const categoryConfig: Record<CardCategory, { rows: number[]; anchorTop: boolean }> = {
-      creature: { rows: creatureRows, anchorTop: !this.mirrored },
-      other: { rows: otherRows, anchorTop: !this.mirrored },
-      land: { rows: landRows, anchorTop: this.mirrored },
-    };
+    const categoryConfig: Record<BattlefieldCardCategory, { rows: number[]; anchorTop: boolean }> =
+      {
+        creature: { rows: creatureRows, anchorTop: !this.mirrored },
+        other: { rows: otherRows, anchorTop: !this.mirrored },
+        land: { rows: landRows, anchorTop: this.mirrored },
+      };
 
-    const catOrder: CardCategory[] = ["creature", "other", "land"];
+    const catOrder: BattlefieldCardCategory[] = ["creature", "other", "land"];
     const sortedUnplaced = [...unplaced].sort(
       (a, b) => catOrder.indexOf(classify(a)) - catOrder.indexOf(classify(b)),
     );
