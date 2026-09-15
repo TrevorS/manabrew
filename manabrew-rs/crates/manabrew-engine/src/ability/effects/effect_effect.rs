@@ -183,6 +183,8 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
             let sa_granted = build_spell_ability_from_host_card(&effect, ability_text, owner);
             effect.add_spell_ability(&sa_granted);
         }
+        effect.base_trigger_count = effect.triggers.len();
+        effect.base_ability_count = effect.activated_abilities.len();
 
         // Copy SVars from host so triggers/replacements can resolve Execute$/etc.
         let host_svars = ctx.game.card(source_id).svars.clone();
