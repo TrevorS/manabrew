@@ -381,27 +381,15 @@ fn resolve_defined_cards_for_sa_ref_inner(
     }
 }
 
-fn triggering_cards_from_key(sa: &SpellAbility, key: AbilityKey) -> Vec<CardId> {
-    let cards = sa.get_triggering_cards(key);
-    if !cards.is_empty() {
-        return cards;
-    }
-    sa.get_triggering_object(key)
-        .and_then(|raw| raw.parse::<u32>().ok())
-        .map(CardId)
-        .into_iter()
-        .collect()
-}
-
 fn triggered_target_lki_cards(sa: &SpellAbility) -> Vec<CardId> {
-    let target_cards = triggering_cards_from_key(sa, AbilityKey::TargetCard);
+    let target_cards = sa.get_triggering_cards(AbilityKey::TargetCard);
     if !target_cards.is_empty() {
         return target_cards;
     }
     if sa.get_triggering_player(AbilityKey::TargetPlayer).is_some() {
         return Vec::new();
     }
-    triggering_cards_from_key(sa, AbilityKey::Target)
+    sa.get_triggering_cards(AbilityKey::Target)
 }
 
 // ── SpellAbilityEffect utility functions ────────────────────────────

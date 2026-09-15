@@ -468,7 +468,10 @@ impl ReplacementEffect {
                     // Java `ReplaceDamage.setReplacingObjects`: DamageAmount,
                     // Target (from Affected), Source (from DamageSource).
                     let target_csv = target.0.to_string();
-                    node.set_triggering_object(AbilityKey::Target, target_csv.as_str());
+                    node.set_triggering_value(
+                        AbilityKey::Target,
+                        crate::event::AbilityValue::Card(*target),
+                    );
                     node.set_triggering_object(AbilityKey::Affected, target_csv.as_str());
                     node.set_triggering_object(
                         AbilityKey::DamageAmount,
@@ -611,7 +614,10 @@ impl ReplacementEffect {
                     source,
                 } => {
                     let target_csv = target.0.to_string();
-                    node.set_triggering_object(AbilityKey::Target, target_csv.as_str());
+                    node.set_triggering_value(
+                        AbilityKey::Target,
+                        crate::event::AbilityValue::Card(*target),
+                    );
                     node.set_triggering_object(AbilityKey::Affected, target_csv.as_str());
                     node.set_triggering_object(
                         AbilityKey::DamageAmount,
@@ -638,7 +644,10 @@ impl ReplacementEffect {
                 }
                 ReplacementEvent::Attached { card, target } => {
                     node.set_triggering_object(AbilityKey::Card, card.0.to_string().as_str());
-                    node.set_triggering_object(AbilityKey::Target, target.0.to_string().as_str());
+                    node.set_triggering_value(
+                        AbilityKey::Target,
+                        crate::event::AbilityValue::Card(*target),
+                    );
                     node.set_triggering_object(AbilityKey::Affected, target.0.to_string().as_str());
                 }
                 ReplacementEvent::ProduceMana {
