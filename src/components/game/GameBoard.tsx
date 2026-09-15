@@ -24,6 +24,7 @@ import {
 } from "@/pixi/board/battlefieldLayoutPolicy";
 import type { PlayerHudSpec, PlayerHudBadge, PlayerHudFact } from "@/pixi/hud/playerHud.types";
 import type { PromptOverlaySpec } from "@/pixi/prompts/prompt.types";
+import type { PhaseStripCallbacks, PhaseStripState } from "@/pixi/PhaseStripLayer";
 import { buildPlayerHudBadges, buildZoneBadges } from "@/components/game/panels/playerHudBadges";
 import { PlayerSheetModal } from "@/components/game/panels/PlayerSheetModal";
 import { GlobalStateRail } from "@/components/game/panels/GlobalStateRail";
@@ -734,7 +735,7 @@ export function GameBoard({
   const opponentStopsMap = usePhaseStopStore((s) => s.opponentStops);
   const toggleOpponentStop = usePhaseStopStore((s) => s.toggleOpponentStop);
 
-  const pixiPhaseStrip = useMemo((): import("@/pixi/PhaseStripLayer").PhaseStripState => {
+  const pixiPhaseStrip = useMemo((): PhaseStripState => {
     const oppEnabled = new Map<string, Set<string>>();
     for (const op of opponents) {
       oppEnabled.set(op.id, opponentStopsMap.get(op.id) ?? new Set(DEFAULT_OPPONENT_STOPS));
@@ -751,26 +752,33 @@ export function GameBoard({
     };
   }, [step, activePlayerId, me.id, selfStops, opponents, opponentStopsMap]);
 
+  const openMobilePhaseStops = useCallback(() => {
+    onDismissHoverPreview?.();
+    setSheetPlayerId(null);
+    setMobileHandOpen(false);
+    setMobilePanel({ kind: "phases" });
+  }, [onDismissHoverPreview, setMobileHandOpen, setMobilePanel, setSheetPlayerId]);
+
   const pixiPhaseStripCallbacks = useMemo(
-    (): import("@/pixi/PhaseStripLayer").PhaseStripCallbacks => ({
+    (): PhaseStripCallbacks => ({
       onToggleSelfPhase: toggleSelfStop,
       onToggleOpponentPhase: toggleOpponentStop,
-      onOpenCompactControls: () => {
-        onDismissHoverPreview?.();
-        setSheetPlayerId(null);
-        setMobileHandOpen(false);
-        setMobilePanel({ kind: "phases" });
-      },
+      onOpenCompactControls: openMobilePhaseStops,
     }),
-    [
-      toggleSelfStop,
-      toggleOpponentStop,
-      onDismissHoverPreview,
-      setMobileHandOpen,
-      setSheetPlayerId,
-      setMobilePanel,
-    ],
+    [toggleSelfStop, toggleOpponentStop, openMobilePhaseStops],
   );
+
+  const compactPromptOverlaySpec = useMemo<PromptOverlaySpec | null>(() => {
+    if (!promptOverlaySpec) return null;
+    if (!compactBoard) return promptOverlaySpec;
+    return {
+      ...promptOverlaySpec,
+      action: {
+        ...promptOverlaySpec.action,
+        onOpenPhaseStops: openMobilePhaseStops,
+      },
+    };
+  }, [compactBoard, openMobilePhaseStops, promptOverlaySpec]);
 
   const boardRef = useRef<HTMLDivElement>(null);
   const setBoardRef = useCallback(
@@ -809,11 +817,6 @@ export function GameBoard({
     }
     return [...ids];
   }, [combatRows, me.id]);
-  const combatActive =
-    promptType === "chooseAttackers" ||
-    promptType === "chooseBlockers" ||
-    combatRows.length > 0 ||
-    combatAssignmentsAll.length > 0;
 
   const cycleField = (dir: 1 | -1) => {
     if (opponents.length === 0 || document.querySelector('[role="dialog"]')) return;
@@ -1920,15 +1923,7 @@ export function GameBoard({
           layoutPolicy={layoutPolicy}
           mobileHandOpen={mobileHandOpen}
           focusedOpponentId={focusedOpponentId}
-          opponentFieldFocused={
-            !isSelfTurn ||
-            isTargetingPrompt ||
-            promptType === "chooseAttackers" ||
-            promptType === "chooseBlockers" ||
-            combatFocusIds.length > 0
-          }
           combatFocusIds={combatFocusIds}
-          combatActive={combatActive}
           manualFocusId={manualFocusId}
           playerBars={hudBarSpecs}
           showPlayerBars
@@ -1967,7 +1962,7 @@ export function GameBoard({
           onTargetSpell={onTargetSpell}
           onHoverStack={onHoverStack}
           onToggleStack={onToggleStack}
-          promptSpec={promptOverlaySpec ?? null}
+          promptSpec={compactPromptOverlaySpec}
           promptViewportRight={promptViewportRight}
           ambientColor={ambientColor}
           externalPreviewActive={externalPreviewActive}

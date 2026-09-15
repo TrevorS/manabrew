@@ -1,7 +1,7 @@
 /**
  * Pure helpers for the battlefield grid layout. Cells are sized from the
- * card footprint (CARD_W × CARD_H) scaled by the user's battlefield card
- * scale preference, plus GAP on one side. Blocked cells are any cell whose
+ * configured card footprint scaled by the user's battlefield card scale
+ * preference, plus GAP on one side. Blocked cells are any cell whose
  * footprint intersects an overlay keep-out rect (hand, PASS cluster, etc.).
  */
 
@@ -17,10 +17,10 @@ import {
 import type { PlayZoneRect } from "./types";
 
 /** Vertical band a field reserves at its inner edge while combat presentation
- *  is active. `BoardRegion.playArea` carves the same amount that
- *  `BoardCanvas` subtracts when selecting the card scale. */
-export const combatRowReserve = (cardScale: number): number =>
-  CARD_H * cardScale + COMBAT_ROW_PAD_Y * 2 + COMBAT_STAGE_PADDING_PX;
+ *  is active. `BoardRegion.playArea` carves the same height occupied by the
+ *  current battlefield card footprint. */
+export const combatRowReserve = (cardScale: number, cardHeight: number = CARD_H): number =>
+  cardHeight * cardScale + COMBAT_ROW_PAD_Y * 2 + COMBAT_STAGE_PADDING_PX;
 
 export interface GridBlocker {
   x: number;
@@ -100,9 +100,10 @@ export const computeGridLayout = (
   blockers: GridBlocker[],
   cardScale: number,
   leftAlign = false,
+  cardHeight: number = CARD_H,
 ): GridLayoutInfo => {
   const cardW = CARD_W * cardScale;
-  const cardH = CARD_H * cardScale;
+  const cardH = cardHeight * cardScale;
   const breathingW = cardW * CELL_BREATHING_FRAC;
   const breathingH = cardH * CELL_BREATHING_FRAC;
   const cellW = cardW + GAP + breathingW;

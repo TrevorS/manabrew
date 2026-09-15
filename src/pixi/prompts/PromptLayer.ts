@@ -17,6 +17,7 @@ import {
   AUTOPASS_DELAY_MAX_MS,
   AUTOPASS_DELAY_MIN_MS,
   GAME_CARD_SIZES,
+  PHASES,
 } from "@/components/game/game.constants";
 import { usePromptPreferencesStore } from "@/stores/usePromptPreferencesStore";
 import { usePreferencesStore } from "@/stores/usePreferencesStore";
@@ -359,11 +360,11 @@ export class PromptLayer extends PromptModalLayer {
       : isNoActionView || action.promptType === "chooseAction";
     const fixedWidth = minimal ? null : shortScreen ? 230 : 300;
     const fixedContentWidth = fixedWidth == null ? this.viewportWidth - 24 : fixedWidth - 16;
-    const menu = minimal ? this.makeActionMenuButton(true) : null;
-    const viewAvailableWidth = fixedContentWidth - (menu ? menu.width + 4 : 0);
+    const controls = minimal ? this.makeCompactActionControls() : null;
+    const viewAvailableWidth = fixedContentWidth - (controls ? controls.width + 4 : 0);
     const view = this.buildActionView(viewKey, viewAvailableWidth, minimal, touch, preview);
     const combat = minimal ? null : this.buildActionCombatInfo(fixedContentWidth);
-    const rowWidth = view.width + (menu ? 4 + menu.width : 0);
+    const rowWidth = view.width + (controls ? 4 + controls.width : 0);
     const contentWidth =
       fixedWidth == null ? Math.max(rowWidth, combat?.width ?? 0) : fixedContentWidth;
     const width =
@@ -374,7 +375,7 @@ export class PromptLayer extends PromptModalLayer {
     const sectionPaddingTop = minimal ? 0 : 8;
     const sectionPaddingBottom = minimal ? 0 : 8;
     const contentGap = combat ? 8 : 0;
-    const viewHeight = Math.max(view.height, menu?.height ?? 0);
+    const viewHeight = Math.max(view.height, controls?.height ?? 0);
     const bodyHeight =
       sectionPaddingTop + (combat?.height ?? 0) + contentGap + viewHeight + sectionPaddingBottom;
     const panelHeight = headerHeight + bodyHeight;
@@ -454,13 +455,13 @@ export class PromptLayer extends PromptModalLayer {
     }
 
     let contentY = headerHeight + sectionPaddingTop;
-    if (menu) {
+    if (controls) {
       view.container.position.set(sectionPaddingX, contentY + (viewHeight - view.height) / 2);
-      menu.container.position.set(
+      controls.container.position.set(
         sectionPaddingX + view.width + 4,
-        contentY + (viewHeight - menu.height) / 2,
+        contentY + (viewHeight - controls.height) / 2,
       );
-      panel.addChild(view.container, menu.container);
+      panel.addChild(view.container, controls.container);
     } else {
       view.container.position.set(
         sectionPaddingX + Math.max(0, (contentWidth - view.width) / 2),
@@ -1509,15 +1510,66 @@ export class PromptLayer extends PromptModalLayer {
     return container;
   }
 
+  private makeCompactActionControls(): ActionViewLayout {
+    const controlViews = [this.makeCompactPhaseButton(), this.makeActionMenuButton(true)].filter(
+      (control): control is ActionViewLayout => control != null,
+    );
+    const height = controlViews.reduce(
+      (controlHeight, control) => Math.max(controlHeight, control.height),
+      0,
+    );
+    const container = new Container();
+    let width = 0;
+    for (const control of controlViews) {
+      control.container.position.set(width, (height - control.height) / 2);
+      container.addChild(control.container);
+      width += control.width + 4;
+    }
+    return {
+      container,
+      width: Math.max(0, width - 4),
+      height,
+    };
+  }
+
+  private makeCompactPhaseButton(): ActionViewLayout | null {
+    const action = this.spec!.action;
+    if (!action.onOpenPhaseStops) return null;
+    const phaseLabel = PHASES.find((phase) => phase.id === action.step)?.short ?? action.step;
+    const button = this.makeButton(phaseLabel, action.onOpenPhaseStops, {
+      title: "Open phase stops",
+      width: 48,
+      height: 48,
+      compact: true,
+      flat: true,
+      shadow: true,
+      radius: 10,
+      backgroundColor: this.theme.gameTheme.phaseStrip.background,
+      borderColor: this.theme.appTheme.primary,
+      borderAlpha: 0.8,
+      hoverBorderAlpha: 1,
+      pressOffsetY: 1,
+      fontSize: 10,
+      fontWeight: "900",
+      paddingX: 0,
+    });
+    button.on("pointerdown", (event: FederatedPointerEvent) => event.stopPropagation());
+    return {
+      container: button,
+      width: button.buttonWidth,
+      height: button.buttonHeight,
+    };
+  }
+
   private makeActionMenuButton(minimal: boolean): ActionViewLayout {
-    const size = minimal ? 24 : 18;
+    const size = minimal ? 48 : 18;
     const button = new Container();
     const icon = this.makeIcon("lucide-settings", 14, this.theme.gameTheme.textOnTinted);
     icon.position.set(size / 2, size / 2);
     button.addChild(icon);
     button.eventMode = "static";
     button.cursor = "pointer";
-    const inset = minimal ? 12 : 10;
+    const inset = minimal ? 0 : 10;
     button.hitArea = new Rectangle(-inset, -inset, size + inset * 2, size + inset * 2);
     button.on("pointerover", () => {
       icon.alpha = 0.75;

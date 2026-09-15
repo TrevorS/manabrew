@@ -103,8 +103,6 @@ interface BoardCanvasProps {
   mobileHandOpen?: boolean;
   mobileHandControlBounds?: DOMRect | null;
   opponentLayout?: "focused" | "overview";
-  opponentFieldFocused?: boolean;
-  combatActive?: boolean;
   focusLocked?: boolean;
   focusedOpponentId?: string | null;
   combatFocusIds?: string[];
@@ -151,8 +149,6 @@ export function BoardCanvas({
   mobileHandOpen = false,
   mobileHandControlBounds,
   opponentLayout = "focused",
-  opponentFieldFocused = false,
-  combatActive = false,
   focusLocked = false,
   focusedOpponentId,
   combatFocusIds,
@@ -189,7 +185,6 @@ export function BoardCanvas({
 
   const cardSizeMultiplier = usePreferencesStore((s) => s.cardSizeMultiplier);
   const cardStyle = usePreferencesStore((s) => s.battlefieldCardStyle);
-  const effectiveCardStyle = compact ? "frame" : cardStyle;
   const lockZoneTiles = usePreferencesStore((s) => s.lockZoneTiles);
   const handViewportScale = useHandScale();
   const promptType = useGameStore((s) => s.currentPrompt?.input.type);
@@ -408,22 +403,19 @@ export function BoardCanvas({
       opponentCount,
       effectiveBottomReserve,
       compact,
-      compact && opponentFieldFocused
-        ? layoutPolicy.focusedSelfFieldShare
-        : layoutPolicy.selfFieldShare,
+      layoutPolicy.selfFieldShare,
       opponentLayout,
     );
     s.setCompactMode(compact);
     s.setPhaseDividerVisible(layoutPolicy.showPhaseDivider);
     s.setFocusLocked(focusLocked);
     const playmatTrim = (usable: number) => Math.max(1, usable - FIELD_INNER_EDGE_PAD_PX);
-    const scaleForCompactRows = combatActive ? scaleForRowsWithCombatRow : maxScaleForRows;
-    const combatRowReserved = !compact || combatActive;
+    const combatRowReserved = !compact;
     const selfUsable = playmatTrim(Math.max(1, layout.self.height - effectiveBottomReserve));
     const selfScale = Math.max(
       Number.EPSILON,
       compact
-        ? scaleForCompactRows(selfUsable, layoutPolicy.selfBattlefieldRows)
+        ? maxScaleForRows(selfUsable, layoutPolicy.selfBattlefieldRows)
         : Math.min(
             battlefieldScaleForMultiplier(selfUsable, cardSizeMultiplier),
             scaleForRowsWithCombatRow(selfUsable, BATTLEFIELD_MIN_ROWS_LARGEST),
@@ -435,18 +427,16 @@ export function BoardCanvas({
       Number.EPSILON,
       layout.opponentLayout === "overview"
         ? compact
-          ? scaleForCompactRows(oppUsable, 1)
+          ? maxScaleForRows(oppUsable, 1)
           : scaleForRowsWithCombatRow(oppUsable, 1)
         : compact
-          ? scaleForCompactRows(oppUsable, layoutPolicy.opponentBattlefieldRows)
+          ? maxScaleForRows(oppUsable, layoutPolicy.opponentBattlefieldRows)
           : Math.min(
               battlefieldScaleForMultiplier(oppUsable, cardSizeMultiplier),
               scaleForRowsWithCombatRow(oppUsable, BATTLEFIELD_MIN_ROWS_LARGEST),
             ),
     );
-    const opponentScaleRatio = opponentFieldFocused
-      ? layoutPolicy.focusedOpponentCardScaleRatio
-      : layoutPolicy.opponentCardScaleRatio;
+    const opponentScaleRatio = layoutPolicy.opponentCardScaleRatio;
     const oppScale = compact
       ? Math.min(uncappedOppScale, selfScale * opponentScaleRatio)
       : uncappedOppScale;
@@ -472,8 +462,6 @@ export function BoardCanvas({
     cardSizeMultiplier,
     handViewportScale,
     compact,
-    opponentFieldFocused,
-    combatActive,
     layoutPolicy,
     opponentLayout,
     focusLocked,
@@ -615,8 +603,8 @@ export function BoardCanvas({
   }, [scene, autoSort]);
 
   useEffect(() => {
-    scene?.setCardStyle(effectiveCardStyle);
-  }, [scene, effectiveCardStyle]);
+    scene?.setCardStyle(cardStyle);
+  }, [scene, cardStyle]);
 
   useEffect(() => {
     scene?.setZoneTilesLocked(lockZoneTiles);

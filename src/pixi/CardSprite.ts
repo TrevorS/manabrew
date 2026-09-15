@@ -416,6 +416,7 @@ export class CardSprite extends Container {
   private _imageLoaded = false;
   private _imageSettled = false;
   private readonly isBattlefield: boolean;
+  private compactSquare = false;
   private readonly showsBattlefieldRail: boolean;
   private cw: number;
   private ch: number;
@@ -437,9 +438,9 @@ export class CardSprite extends Container {
     this.kind = kind;
     this.isBattlefield = kind !== "hand";
     this.showsBattlefieldRail = kind === "battlefield";
-    const horizontal = this.isHorizontal();
-    this.cw = horizontal ? CARD_H : CARD_W;
-    this.ch = horizontal ? CARD_W : CARD_H;
+    const { width, height } = this.displayDimensions();
+    this.cw = width;
+    this.ch = height;
     this.eventMode = "static";
     this.cursor = "pointer";
 
@@ -673,6 +674,15 @@ export class CardSprite extends Container {
     return asGameDeckCard(useGameStore.getState().gameDecks, this.card);
   }
 
+  private displayDimensions(): { width: number; height: number } {
+    if (this.compactSquare && this.kind === "battlefield") {
+      return { width: CARD_W, height: CARD_W };
+    }
+    return this.isHorizontal()
+      ? { width: CARD_H, height: CARD_W }
+      : { width: CARD_W, height: CARD_H };
+  }
+
   // Scryfall serves horizontal-frame cards as upright 5:7 PNGs — rotate
   // the sprite 90° so the printed art reads in landscape inside the slot.
   private isHorizontal(): boolean {
@@ -683,11 +693,32 @@ export class CardSprite extends Container {
   get horizontalFrame(): boolean {
     return this.cw > this.ch;
   }
+  setCompactSquare(active: boolean): void {
+    const compactSquare = active && this.kind === "battlefield";
+    if (compactSquare === this.compactSquare) return;
+    this.compactSquare = compactSquare;
+    if (!this.reapplyOrientation()) return;
+    if (this._imageLoaded) {
+      if (activeStyle === "realistic") this.fitImageToSlot();
+      else this.fitArtCover();
+    }
+    if (this.mustAttackActive) {
+      this.mustAttackActive = false;
+      this.setMustAttack(true);
+    }
+    if (this.doomedGfx.visible) {
+      this.doomedGfx.visible = false;
+      this.setDoomed(true);
+    }
+    this.rebuildDecorations(true);
+    this.refreshCardRadiusChrome();
+    this.redrawHoverDebug();
+    if (this.promptReferenceColor != null) this.setPromptReference(this.promptReferenceColor);
+    this.onVisualChange?.();
+  }
 
   private reapplyOrientation(): boolean {
-    const horizontal = this.isHorizontal();
-    const cw = horizontal ? CARD_H : CARD_W;
-    const ch = horizontal ? CARD_W : CARD_H;
+    const { width: cw, height: ch } = this.displayDimensions();
     if (cw === this.cw && ch === this.ch) return false;
     this.cw = cw;
     this.ch = ch;
@@ -720,6 +751,10 @@ export class CardSprite extends Container {
   }
 
   private fitImageToSlot(): void {
+    if (this.compactSquare) {
+      this.fitPrintedSquare();
+      return;
+    }
     if (this.isHorizontal()) {
       this.imageSpr.anchor.set(0.5, 0.5);
       this.imageSpr.x = this.cw / 2;
@@ -733,6 +768,22 @@ export class CardSprite extends Container {
       this.imageSpr.y = 0;
       this.imageSpr.setSize(this.cw, this.ch);
     }
+  }
+  private fitPrintedSquare(): void {
+    const texture = this.imageSpr.texture;
+    if (texture.width === 0 || texture.height === 0) return;
+    const horizontal = this.isHorizontal();
+    const sourceW = horizontal ? texture.height : texture.width;
+    const sourceH = horizontal ? texture.width : texture.height;
+    const scale = Math.max(this.cw / sourceW, this.ch / sourceH);
+    const visualW = sourceW * scale;
+    const visualH = sourceH * scale;
+    this.imageSpr.anchor.set(0.5, 0.5);
+    this.imageSpr.rotation = horizontal ? Math.PI / 2 : 0;
+    this.imageSpr.x = this.cw / 2;
+    this.imageSpr.y = this.ch / 2 + (horizontal ? 0 : Math.max(0, visualH - this.ch) / 2);
+    if (horizontal) this.imageSpr.setSize(visualH, visualW);
+    else this.imageSpr.setSize(visualW, visualH);
   }
 
   private async loadImage(): Promise<void> {

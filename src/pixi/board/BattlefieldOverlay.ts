@@ -55,6 +55,9 @@ export class BattlefieldOverlay {
   constructor(host: OverlayHost) {
     this.host = host;
   }
+  private cardHeight(): number {
+    return this.host.isCompact() ? CARD_W : CARD_H;
+  }
 
   rebuild(entry: SpriteEntry, state: BattlefieldState): void {
     const card = entry.sprite.card;
@@ -96,6 +99,7 @@ export class BattlefieldOverlay {
     entry.overlaySig = sig;
 
     const overlay = this.ensureContainer(entry);
+    overlay.pivot.set(CARD_W / 2, this.cardHeight() / 2);
     overlay.removeChildren().forEach((c) => c.destroy({ children: true }));
 
     if (kind.isTappable && expandedMana.length > 0 && !this.host.isCompact()) {
@@ -134,7 +138,6 @@ export class BattlefieldOverlay {
     // would disable hit testing for the entire subtree.
     overlay.eventMode = "passive";
     overlay.alpha = 0;
-    overlay.pivot.set(CARD_W / 2, CARD_H / 2);
     this.host.getContainer().addChild(overlay);
     entry.overlay = overlay;
     return overlay;
@@ -284,9 +287,10 @@ export class BattlefieldOverlay {
     }
     const selectionOnly = kind.isSelectable && !kind.isTappable && !kind.isUntappable;
     const controlX = selectionOnly ? 0 : 6;
-    const controlY = selectionOnly ? 0 : (CARD_H - 40) / 2;
+    const cardHeight = this.cardHeight();
+    const controlY = selectionOnly ? 0 : (cardHeight - 40) / 2;
     const controlW = selectionOnly ? CARD_W : CARD_W - 12;
-    const controlH = selectionOnly ? CARD_H : 40;
+    const controlH = selectionOnly ? cardHeight : 40;
 
     const btn = new Graphics();
     const paintBtn = (highlighted: boolean) => {

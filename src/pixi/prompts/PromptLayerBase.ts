@@ -417,7 +417,9 @@ function sameActionPresentation(
       left.targetCompletionKind === right.targetCompletionKind &&
       !!left.onCompleteTargets === !!right.onCompleteTargets &&
       !!left.onOpenCombat === !!right.onOpenCombat &&
+      !!left.onOpenPhaseStops === !!right.onOpenPhaseStops &&
       left.isMyTurn === right.isMyTurn &&
+      left.step === right.step &&
       samePayManaInfo(left.payManaCostInfo, right.payManaCostInfo) &&
       left.mulliganCount === right.mulliganCount &&
       !!left.onMulliganKeep === !!right.onMulliganKeep &&

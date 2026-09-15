@@ -31,7 +31,7 @@ import {
 import { DragHandler } from "../DragHandler";
 import { cellFromPoint, type GridCell } from "../GridLayout";
 import { prewarmManaSymbols } from "../manaSymbolCache";
-import { CARD_H } from "@/components/game/game.constants";
+import { CARD_W, CARD_H } from "@/components/game/game.constants";
 import { lerp, setFrameRatio } from "./pixiHelpers";
 import { animationsEnabled } from "../effects/enabled";
 import { gsap } from "../effects/gsap";
@@ -547,7 +547,7 @@ export class BoardScene {
       region.setPlaymat(spec.playmat);
       region.container.zIndex = zIndex;
       region.setAutoSort(this.autoSort);
-      region.setCompactZones(this.compactMode);
+      region.setCompactMode(this.compactMode);
       region.setZoneTilesLocked(this.zoneTilesLocked);
       region.setSkeletonDebug(this.gridSkeletonDebug);
       region.setAttackRowDebug(this.attackRowDebug);
@@ -1458,11 +1458,12 @@ export class BoardScene {
     this.compactMode = compact;
     if (!compact) this.mobileHandOpen = false;
     this.phaseStrip.setCompact(compact);
+    this.phaseStrip.container.visible = !compact;
     this.hand?.setCompact(compact);
     this.playerBars.setCompact(compact);
     this.syncMobileHandPresentation();
     this.applyDelimiters();
-    for (const rec of this.regions.values()) rec.region.setCompactZones(compact);
+    for (const rec of this.regions.values()) rec.region.setCompactMode(compact);
   }
 
   setMobileHandOpen(open: boolean): void {
@@ -1820,7 +1821,7 @@ export class BoardScene {
     if (!zone) return { x: 0, y: 0, scaleX: scale, scaleY: scale };
     const point = this.root.toGlobal({
       x: zone.x + zone.width / 2,
-      y: zone.y + (CARD_H * scale) / 2,
+      y: zone.y + ((this.compactMode ? CARD_W : CARD_H) * scale) / 2,
     });
     return {
       x: point.x,
