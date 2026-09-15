@@ -63,7 +63,7 @@ export function MobilePhaseStops({
           </div>
           <button
             type="button"
-            className="min-h-12 rounded-lg border border-border bg-background/60 px-4 text-sm font-semibold text-foreground"
+            className="min-h-12 rounded-lg border border-border bg-background/60 px-4 text-sm font-semibold text-foreground motion-safe:transition-[scale,background-color,border-color] active:scale-[0.98]"
             onClick={onClose}
           >
             Done
@@ -106,7 +106,7 @@ function StopRow({
               aria-pressed={enabled}
               title={phase.label}
               className={cn(
-                "relative flex min-h-12 min-w-0 items-center justify-center rounded-md border px-1 font-game text-[10px] font-bold",
+                "relative flex min-h-12 min-w-0 items-center justify-center rounded-md border px-1 font-game text-[10px] font-bold motion-safe:transition-[scale,background-color,border-color] active:scale-95",
                 enabled
                   ? "border-primary bg-primary/20 text-foreground"
                   : "border-border/70 bg-background/40 text-muted-foreground",

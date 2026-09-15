@@ -17,6 +17,7 @@ interface DragState {
   hasMoved: boolean;
   lastMouseX: number;
   targetTilt: number;
+  moveThresholdPx: number | null;
 }
 
 interface HandExclusion {
@@ -77,6 +78,7 @@ export class DragHandler {
     selectedCardIds: Set<string>,
     currentPositions: Map<string, ScreenPos>,
     shift: boolean,
+    moveThresholdPx: number | null = null,
   ): Set<string> {
     let selection = new Set(selectedCardIds);
 
@@ -106,6 +108,7 @@ export class DragHandler {
       hasMoved: false,
       lastMouseX: mouseX,
       targetTilt: 0,
+      moveThresholdPx,
     };
 
     return selection;
@@ -134,7 +137,9 @@ export class DragHandler {
     const dy = mouseY - this.drag.startMouseY;
 
     if (!this.drag.hasMoved) {
-      if (Math.abs(dx) < MOVE_THRESHOLD && Math.abs(dy) < MOVE_THRESHOLD) {
+      if (this.drag.moveThresholdPx == null) {
+        if (Math.abs(dx) < MOVE_THRESHOLD && Math.abs(dy) < MOVE_THRESHOLD) return null;
+      } else if (dx * dx + dy * dy < this.drag.moveThresholdPx ** 2) {
         return null;
       }
       this.drag.hasMoved = true;

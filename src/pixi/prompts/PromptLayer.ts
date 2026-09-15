@@ -939,16 +939,17 @@ export class PromptLayer extends PromptModalLayer {
       ...(role === "primary" || role === "secondary" ? { variant: role } : { action: role }),
       flat: true,
       shadow: true,
+      compact: minimal,
       radius: 8,
       disabled,
-      height: minimal ? 42 : touch ? 48 : undefined,
+      height: minimal || touch ? 48 : undefined,
       labelPlacement: showLabel ? "stacked" : "hidden",
       tooltip: !showLabel,
       title: options.title ?? label,
       badge: options.badge,
       icon,
       iconSize: touch ? 16 : 14,
-      fontSize: showLabel ? 8 : 12,
+      fontSize: minimal ? 9 : touch ? 10 : 12,
       fontWeight: "700",
       letterSpacing: showLabel ? 0.4 : 0,
       paddingX: touch ? 10 : 6,
@@ -991,7 +992,7 @@ export class PromptLayer extends PromptModalLayer {
     const counting = this.autopassRemainingMs != null;
     const passLabel = morphed ? endLabel : counting ? "PASSING" : "PASS";
     const combo = morphed ? endCombo : passCombo;
-    const height = minimal ? 42 : 40;
+    const height = minimal ? 48 : 40;
     const gap = 4;
     const end =
       minimal || morphed
@@ -1015,6 +1016,7 @@ export class PromptLayer extends PromptModalLayer {
         action: "priority",
         flat: true,
         radius: minimal ? 20 : 8,
+        compact: minimal,
         disabled,
         height,
         width: minimal ? undefined : availableWidth - (end ? end.buttonWidth + gap : 0),
@@ -1041,7 +1043,7 @@ export class PromptLayer extends PromptModalLayer {
   private buildNoActionView(availableWidth: number, minimal: boolean): ActionViewLayout {
     const container = new Container();
     const width = minimal ? 30 : availableWidth;
-    const height = minimal ? 40 : 48;
+    const height = 48;
     const color = this.theme.appTheme["muted-foreground"];
     const hourglassWidth = 21;
     const labelGap = 11;

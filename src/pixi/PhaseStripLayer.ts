@@ -203,6 +203,7 @@ export class PhaseStripLayer {
   private pillFlashStart = 0;
   private pillLabel = "";
   private pillRect: { x: number; y: number; w: number; c: number } | null = null;
+  private pillPressed = false;
   private forceShowIndicators = false;
   private expandedBounds: { x: number; y: number; w: number; h: number } | null = null;
   private realState: PhaseStripState | null = null;
@@ -358,6 +359,11 @@ export class PhaseStripLayer {
     this.pillHit = new Graphics();
     this.pillHit.eventMode = "static";
     this.pillHit.cursor = "pointer";
+    this.pillHit.on("pointerdown", () => this.setPillPressed(true));
+    this.pillHit.on("pointerup", () => this.setPillPressed(false));
+    this.pillHit.on("pointerupoutside", () => this.setPillPressed(false));
+    this.pillHit.on("pointercancel", () => this.setPillPressed(false));
+    this.pillHit.on("pointerout", () => this.setPillPressed(false));
     this.pillHit.on("pointertap", () => {
       if (this.callbacks.onOpenCompactControls) {
         this.callbacks.onOpenCompactControls();
@@ -401,6 +407,7 @@ export class PhaseStripLayer {
     if (this.compact === compact) return;
     this.compact = compact;
     this.expanded = false;
+    this.setPillPressed(false);
     if (this.lastState) this.render(this.lastState);
     this.onExpandedChange?.();
   }
@@ -408,6 +415,12 @@ export class PhaseStripLayer {
     if (this.dividerVisible === visible) return;
     this.dividerVisible = visible;
     if (this.lastState) this.render(this.lastState);
+  }
+  private setPillPressed(pressed: boolean): void {
+    if (this.pillPressed === pressed) return;
+    this.pillPressed = pressed;
+    this.pillBg.alpha = pressed ? 0.82 : 1;
+    this.pillText.scale.set(pressed ? 0.96 : 1);
   }
 
   isCompactExpanded(): boolean {

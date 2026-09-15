@@ -190,7 +190,7 @@ function HandSummary({
       className={cn(
         "col-span-2 flex min-h-16 items-center gap-3 rounded-md border bg-muted/25 px-3 py-2 text-left",
         onView &&
-          "hover:border-card-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-card-ring",
+          "hover:border-card-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-card-ring motion-safe:transition-[scale,border-color,background-color] active:scale-[0.98]",
       )}
       style={
         actionable && actionColor
@@ -240,7 +240,7 @@ function ResourceTile({ badge }: { badge: PlayerHudBadge }) {
       type="button"
       className={cn(
         className,
-        "hover:border-card-ring hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-card-ring",
+        "hover:border-card-ring hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-card-ring motion-safe:transition-[scale,border-color,background-color] active:scale-[0.98]",
       )}
       style={actionStyle}
       onClick={badge.onTap}
@@ -317,7 +317,7 @@ function BadgeRow({ badge }: { badge: PlayerHudBadge }) {
       type="button"
       className={cn(
         className,
-        "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-card-ring",
+        "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-card-ring motion-safe:transition-[scale,background-color] active:scale-[0.98]",
       )}
       onClick={badge.onTap}
     >

@@ -42,6 +42,7 @@ import { gsap } from "../effects/gsap";
 import { LongPressGesture } from "../LongPressGesture";
 import { PREVIEW_TIMING, type PreviewPointerInput } from "@/lib/cardPreview";
 import { topModal } from "@/lib/modalStack";
+import { TOUCH_MOVE_SLOP_PX } from "@/lib/responsive";
 import { intentIsHostile } from "@/types/promptType";
 import {
   GAP,
@@ -2187,6 +2188,7 @@ export class BoardScene {
         selection.getSelected(),
         local.snapshotCurrentPositions(),
         e.shiftKey,
+        e.pointerType === "touch" ? TOUCH_MOVE_SLOP_PX : undefined,
       ),
     );
     this.activeGesturePointerId = e.pointerId;
