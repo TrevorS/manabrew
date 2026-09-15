@@ -38,7 +38,7 @@ impl GameLoop {
         None
     }
 
-    fn announce_values_like_x(
+    pub(crate) fn announce_values_like_x(
         &mut self,
         game: &mut GameState,
         agents: &mut [Box<dyn PlayerAgent>],
@@ -125,6 +125,14 @@ impl GameLoop {
         let mut min = 0;
 
         if announce == "X" {
+            let ab_x_min = sa
+                .ir
+                .x_min_text
+                .as_deref()
+                .and_then(|value| value.trim().parse::<i32>().ok());
+            if let Some(ab_x_min) = ab_x_min {
+                min = ab_x_min;
+            }
             if let Some(limit) = sa.ir.x_max_limit_text.as_deref() {
                 max = max.min(crate::svar::resolve_numeric_value(game, sa, limit, 0));
             }
@@ -134,7 +142,7 @@ impl GameLoop {
                 {
                     max = max.min(cost_x);
                 }
-                if cost.has_mana_cost() {
+                if cost.has_mana_cost() && ab_x_min.is_none() {
                     min = cost
                         .parts
                         .iter()

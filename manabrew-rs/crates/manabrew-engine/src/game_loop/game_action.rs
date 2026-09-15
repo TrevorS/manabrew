@@ -788,6 +788,17 @@ impl GameLoop {
         {
             return false;
         }
+        let mut need_x = true;
+        if !self.announce_values_like_x(
+            game,
+            agents,
+            player,
+            &mut sa,
+            Some(&activation_cost),
+            &mut need_x,
+        ) {
+            return false;
+        }
         agents[player.index()].set_targeting_cancellable(true);
         let targets_ok = sa.setup_targets(game, agents, &self.mana_pools);
         agents[player.index()].set_targeting_cancellable(false);
@@ -834,6 +845,18 @@ impl GameLoop {
         if sa.api == Some(crate::ability::api_type::ApiType::Charm)
             && !crate::ability::effects::charm_effect::make_choices_precast(game, agents, &mut sa)
         {
+            return false;
+        }
+        let announce_cost = sa.pay_costs.clone().unwrap_or_else(|| ab.cost.clone());
+        let mut need_x = true;
+        if !self.announce_values_like_x(
+            game,
+            agents,
+            player,
+            &mut sa,
+            Some(&announce_cost),
+            &mut need_x,
+        ) {
             return false;
         }
         agents[player.index()].set_targeting_cancellable(true);
