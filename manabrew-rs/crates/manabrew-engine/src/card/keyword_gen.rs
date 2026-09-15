@@ -168,10 +168,15 @@ impl Card {
             .chain(self.granted_keywords.iter_strings())
         {
             if let Some(n_str) = crate::keyword::extract_keyword_cost_str(kw, "Crew") {
-                let n = n_str.trim();
-                let ab_text = format!(
+                let mut k = n_str.split(':');
+                let n = k.next().unwrap_or_default().trim();
+                let mut ab_text = format!(
                     "AB$ Animate | Cost$ tapXType<Any/Creature.Other+withTotalPowerGE{{{n}}}> | Defined$ Self | Types$ Artifact,Creature | Secondary$ True | SpellDescription$ Crew {n}"
                 );
+                if let Some(extra) = k.next() {
+                    ab_text.push_str(" | ");
+                    ab_text.push_str(extra);
+                }
                 let next_idx = self.activated_abilities.len();
                 if let Some(ab) = parse_activated_ability(&ab_text, next_idx) {
                     self.activated_abilities.push(ab);
@@ -383,10 +388,15 @@ impl Card {
         }
         for kw in self.keywords.iter_strings() {
             if let Some(n_str) = crate::keyword::extract_keyword_cost_str(kw, "Crew") {
-                let n = n_str.trim();
-                let ab_text = format!(
+                let mut k = n_str.split(':');
+                let n = k.next().unwrap_or_default().trim();
+                let mut ab_text = format!(
                     "AB$ Animate | Cost$ tapXType<Any/Creature.Other+withTotalPowerGE{{{n}}}> | Defined$ Self | Types$ Artifact,Creature | Secondary$ True | SpellDescription$ Crew {n}"
                 );
+                if let Some(extra) = k.next() {
+                    ab_text.push_str(" | ");
+                    ab_text.push_str(extra);
+                }
                 let next_idx = self.activated_abilities.len();
                 if let Some(ab) = parse_activated_ability(&ab_text, next_idx) {
                     self.activated_abilities.push(ab);
