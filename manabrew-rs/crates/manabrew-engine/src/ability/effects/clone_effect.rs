@@ -33,113 +33,138 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         None => return,
     };
 
-    // Step 2: Determine the clone target (what to copy ONTO)
-    let clone_target_id = if let Some(defined) = sa.ir.clone_target.as_deref() {
-        match defined {
-            "Self" => source_id,
-            "ParentTarget" => ctx.parent_target_card.unwrap_or(source_id),
-            "Remembered" => ctx
-                .game
-                .card(source_id)
-                .remembered_cards
-                .first()
-                .copied()
-                .unwrap_or(source_id),
-            _ => source_id,
-        }
-    } else {
-        // Default: the source card itself (the creature entering as a clone)
-        source_id
-    };
+    let clone_targets: Vec<crate::ids::CardId> =
+        if let Some(defined) = sa.ir.clone_target.as_deref() {
+            let targets: Vec<crate::ids::CardId> = match defined {
+                "Self" => vec![source_id],
+                "ParentTarget" => ctx.parent_target_card.into_iter().collect(),
+                "Remembered" => ctx.game.card(source_id).remembered_cards.clone(),
+                _ if defined.starts_with("Valid ") => {
+                    let filter = defined.strip_prefix("Valid ").unwrap_or("").trim();
+                    let mut out = Vec::new();
+                    for &pid in &ctx.game.player_order {
+                        for &cid in ctx.game.cards_in_zone(ZoneType::Battlefield, pid) {
+                            if matches_valid_cards_for_sa(
+                                ctx.game,
+                                sa,
+                                ctx.game.card(cid),
+                                None,
+                                filter,
+                            ) {
+                                out.push(cid);
+                            }
+                        }
+                    }
+                    out
+                }
+                _ => crate::ability::ability_utils::get_defined_cards(
+                    ctx.game,
+                    Some(source_id),
+                    defined,
+                    Some(controller),
+                ),
+            };
+            if targets.is_empty() {
+                return;
+            }
+            targets
+        } else {
+            vec![source_id]
+        };
 
-    // Step 3: Copy characteristics from source → target
     let src = ctx.game.card(clone_source_id).clone();
-    let duration = crate::parsing::raw_get(&sa.ability_text, crate::parsing::keys::DURATION);
-    let active_animation = capture_active_animation(ctx.game.card(clone_target_id));
-    if ctx.game.card(clone_target_id).clone_state.is_none() {
-        let mut state = ctx.game.card(clone_target_id).capture_clone_state();
-        state.expires_at_cleanup = duration.is_some() || sa.ir.duration.is_some();
-        if let Some(animate_state) = ctx.game.card(clone_target_id).animate_state.as_ref() {
-            state.original_type_line = animate_state.original_type_line.clone();
-            state.original_base_power = animate_state.original_base_power;
-            state.original_base_toughness = animate_state.original_base_toughness;
-            state.original_color = animate_state.original_color;
+    for clone_target_id in clone_targets {
+        if ctx.game.card(clone_target_id).phased_out {
+            continue;
         }
-        ctx.game
-            .card_mut(clone_target_id)
-            .set_clone_state(Some(state));
-    }
-    let target = &mut ctx.game.cards[clone_target_id.index()];
-    crate::card::card_copy_service::copy_copiable_characteristics(&src, target);
-    target.add_clone_state();
-    target.activated_abilities = src.activated_abilities.clone();
-    target.static_abilities = src.static_abilities.clone();
-    target.replacement_effects = src.replacement_effects.clone();
-    target.ensure_crew_activated_ability();
-    target.base_ability_count = target.activated_abilities.len();
-    target.base_trigger_count = target.triggers.len();
-    target.set_perpetual(&src, false);
-    target.reset_changed_card_traits_baseline_to_current();
-
-    // Step 4: Apply clone-state modifications from the cloning ability.
-    if let Some(add_types) = sa.ir.add_types.as_deref() {
-        for ty in split_param_list_value(Some(add_types), " & ") {
-            ctx.game.card_mut(clone_target_id).add_type(&ty);
-        }
-    }
-
-    if let Some(set_color) = sa.ir.set_color.as_deref() {
-        ctx.game
-            .card_mut(clone_target_id)
-            .set_color(ColorSet::from_names(set_color));
-    }
-
-    if let Some(power) = sa
-        .ir
-        .set_power
-        .as_deref()
-        .and_then(|value| value.parse().ok())
-    {
-        ctx.game
-            .card_mut(clone_target_id)
-            .set_base_power(Some(power));
-    }
-    if let Some(toughness) = sa
-        .ir
-        .set_toughness
-        .as_deref()
-        .and_then(|value| value.parse().ok())
-    {
-        ctx.game
-            .card_mut(clone_target_id)
-            .set_base_toughness(Some(toughness));
-    }
-
-    if let Some(add_kws) = sa.ir.add_keywords.as_deref() {
-        let keywords = add_kws.strip_prefix("IfNew ").unwrap_or(add_kws);
-        for kw in split_param_list_value(Some(keywords), " & ") {
+        // Step 3: Copy characteristics from source → target
+        let duration = crate::parsing::raw_get(&sa.ability_text, crate::parsing::keys::DURATION);
+        let active_animation = capture_active_animation(ctx.game.card(clone_target_id));
+        if ctx.game.card(clone_target_id).clone_state.is_none() {
+            let mut state = ctx.game.card(clone_target_id).capture_clone_state();
+            state.expires_at_cleanup = duration.is_some() || sa.ir.duration.is_some();
+            if let Some(animate_state) = ctx.game.card(clone_target_id).animate_state.as_ref() {
+                state.original_type_line = animate_state.original_type_line.clone();
+                state.original_base_power = animate_state.original_base_power;
+                state.original_base_toughness = animate_state.original_base_toughness;
+                state.original_color = animate_state.original_color;
+            }
             ctx.game
                 .card_mut(clone_target_id)
-                .add_intrinsic_keyword(&kw);
+                .set_clone_state(Some(state));
         }
-    }
+        let target = &mut ctx.game.cards[clone_target_id.index()];
+        crate::card::card_copy_service::copy_copiable_characteristics(&src, target);
+        target.add_clone_state();
+        target.activated_abilities = src.activated_abilities.clone();
+        target.static_abilities = src.static_abilities.clone();
+        target.replacement_effects = src.replacement_effects.clone();
+        target.ensure_crew_activated_ability();
+        target.base_ability_count = target.activated_abilities.len();
+        target.base_trigger_count = target.triggers.len();
+        target.set_perpetual(&src, false);
+        target.reset_changed_card_traits_baseline_to_current();
 
-    if let Some(animation) = active_animation {
-        reapply_active_animation(ctx.game.card_mut(clone_target_id), &animation);
-    }
+        // Step 4: Apply clone-state modifications from the cloning ability.
+        if let Some(add_types) = sa.ir.add_types.as_deref() {
+            for ty in split_param_list_value(Some(add_types), " & ") {
+                ctx.game.card_mut(clone_target_id).add_type(&ty);
+            }
+        }
 
-    // Step 5: Apply PumpKeywords$ (extra temporary keywords on the copy)
-    if let Some(pump_kws) = sa.ir.pump_keywords.as_deref() {
-        for kw in split_param_list_value(Some(pump_kws), " & ") {
+        if let Some(set_color) = sa.ir.set_color.as_deref() {
             ctx.game
                 .card_mut(clone_target_id)
-                .add_intrinsic_keyword(&kw);
+                .set_color(ColorSet::from_names(set_color));
         }
-    }
 
-    // Step 6: Re-register triggers for the cloned card
-    ctx.trigger_handler
-        .register_active_trigger(ctx.game, clone_target_id);
+        if let Some(power) = sa
+            .ir
+            .set_power
+            .as_deref()
+            .and_then(|value| value.parse().ok())
+        {
+            ctx.game
+                .card_mut(clone_target_id)
+                .set_base_power(Some(power));
+        }
+        if let Some(toughness) = sa
+            .ir
+            .set_toughness
+            .as_deref()
+            .and_then(|value| value.parse().ok())
+        {
+            ctx.game
+                .card_mut(clone_target_id)
+                .set_base_toughness(Some(toughness));
+        }
+
+        if let Some(add_kws) = sa.ir.add_keywords.as_deref() {
+            let keywords = add_kws.strip_prefix("IfNew ").unwrap_or(add_kws);
+            for kw in split_param_list_value(Some(keywords), " & ") {
+                ctx.game
+                    .card_mut(clone_target_id)
+                    .add_intrinsic_keyword(&kw);
+            }
+        }
+
+        if let Some(animation) = active_animation {
+            reapply_active_animation(ctx.game.card_mut(clone_target_id), &animation);
+        }
+
+        // Step 5: Apply PumpKeywords$ (extra temporary keywords on the copy)
+        if let Some(pump_kws) = sa.ir.pump_keywords.as_deref() {
+            for kw in split_param_list_value(Some(pump_kws), " & ") {
+                ctx.game
+                    .card_mut(clone_target_id)
+                    .add_intrinsic_keyword(&kw);
+            }
+        }
+
+        // Step 6: Re-register triggers for the cloned card
+        ctx.trigger_handler
+            .register_active_trigger(ctx.game, clone_target_id);
+    }
 }
 
 /// End-of-turn revert for clone effects. Mirrors the `GameCommand.run()`
