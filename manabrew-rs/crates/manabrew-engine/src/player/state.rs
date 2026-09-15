@@ -109,6 +109,7 @@ pub struct PlayerState {
     pub attacked_players_last_turn: Vec<PlayerId>,
     pub attacked_players_this_combat: Vec<PlayerId>,
     pub been_dealt_combat_damage_since_last_turn: bool,
+    pub combat_damage_received_this_turn: i32,
     pub attractions_visited_this_turn: i32,
     pub num_flips_this_turn: i32,
     pub num_rolls_this_turn: i32,
@@ -230,6 +231,7 @@ impl PlayerState {
             attacked_players_last_turn: Vec::new(),
             attacked_players_this_combat: Vec::new(),
             been_dealt_combat_damage_since_last_turn: false,
+            combat_damage_received_this_turn: 0,
             attractions_visited_this_turn: 0,
             num_flips_this_turn: 0,
             num_rolls_this_turn: 0,
@@ -409,6 +411,7 @@ impl PlayerState {
         self.explored_this_turn = 0;
         self.assigned_damage_this_turn = 0;
         self.assigned_combat_damage_this_turn = 0;
+        self.combat_damage_received_this_turn = 0;
         self.opponents_assigned_damage_this_turn = 0;
         self.attacked_players_this_turn.clear();
         self.attacked_players_last_turn.clear();
@@ -479,6 +482,7 @@ impl PlayerState {
         self.explored_this_turn = 0;
         self.assigned_damage_this_turn = 0;
         self.assigned_combat_damage_this_turn = 0;
+        self.combat_damage_received_this_turn = 0;
         self.opponents_assigned_damage_this_turn = 0;
         self.attacked_players_last_turn = self.attacked_players_this_turn.clone();
         self.attacked_players_this_turn.clear();

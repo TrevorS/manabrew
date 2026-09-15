@@ -293,6 +293,15 @@ impl GameLoop {
                 // Mirrors Java PhaseHandler line 1103: game.copyLastState().
                 game.copy_last_state();
                 self.set_phase(game, agents, phase);
+                match phase {
+                    PhaseType::Upkeep => game.turn.n_upkeeps_this_turn += 1,
+                    PhaseType::EndOfTurn => game.turn.n_end_of_turns_this_turn += 1,
+                    PhaseType::Cleanup => {
+                        game.turn.n_upkeeps_this_turn = 0;
+                        game.turn.n_end_of_turns_this_turn = 0;
+                    }
+                    _ => {}
+                }
                 if emit_phase_trigger {
                     self.emit_phase_trigger(game, phase);
                 }

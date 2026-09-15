@@ -93,7 +93,7 @@ pub fn is_stacking_keyword(keyword: &str) -> bool {
 pub fn get_this_turn_entered(
     game: &GameState,
     to: ZoneType,
-    from: ZoneType,
+    from: Option<ZoneType>,
     valid: &str,
     src: CardId,
     controller: PlayerId,
@@ -105,7 +105,7 @@ pub fn get_this_turn_entered(
                 game.zone(to, pid)
                     .cards_added_this_turn
                     .iter()
-                    .filter(|(origin, _)| *origin == from)
+                    .filter(|(origin, _)| from.is_none_or(|from| *origin == from))
                     .map(|(_, cid)| *cid),
             );
         }
@@ -118,7 +118,7 @@ pub fn get_this_turn_entered(
 pub fn get_last_turn_entered(
     game: &GameState,
     to: ZoneType,
-    from: ZoneType,
+    from: Option<ZoneType>,
     valid: &str,
     src: CardId,
     controller: PlayerId,
@@ -130,7 +130,7 @@ pub fn get_last_turn_entered(
                 game.zone(to, pid)
                     .cards_added_last_turn
                     .iter()
-                    .filter(|(origin, _)| *origin == from)
+                    .filter(|(origin, _)| from.is_none_or(|from| *origin == from))
                     .map(|(_, cid)| *cid),
             );
         }
@@ -170,19 +170,26 @@ pub fn get_last_turn_cast(
     )
 }
 
-pub fn get_this_turn_activated(
-    game: &GameState,
+pub fn get_this_turn_activated<'a>(
+    game: &'a GameState,
     valid: &str,
     src: CardId,
     controller: PlayerId,
-) -> Vec<CardId> {
-    let activated: Vec<CardId> = game
-        .cards
+) -> Vec<&'a SpellAbility> {
+    let _ = controller;
+    let source = game.card(src);
+    game.stack
+        .get_ability_activated_this_turn()
         .iter()
-        .filter(|card| card.activated_this_turn())
-        .map(|card| card.id)
-        .collect();
-    filter_valid_cards(game, activated, valid, src, controller)
+        .filter(|sa| {
+            crate::spellability::matches_valid_sa(
+                valid,
+                sa,
+                source,
+                sa.source.map(|host| game.card(host)),
+            )
+        })
+        .collect()
 }
 
 pub fn get_cast_since_beginning_of_your_last_turn(

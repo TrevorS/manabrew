@@ -18,7 +18,6 @@ use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 use crate::mana::mana_cost_being_paid::ManaCostBeingPaid;
 use crate::mana::ManaPool;
-use crate::player::player_predicates;
 use crate::spellability::SpellAbility;
 use crate::staticability::StaticMode;
 use crate::trigger::TriggerHandler;
@@ -128,24 +127,6 @@ fn color_to_shard(color: Color) -> forge_foundation::mana::ManaCostShard {
     }
 }
 
-fn matches_cost_adjustment_activator(
-    game: &GameState,
-    source: &Card,
-    caster: PlayerId,
-    activator: &str,
-) -> bool {
-    match activator.to_ascii_lowercase().as_str() {
-        "you" | "player.you" => source.controller == caster,
-        "opponent" | "player.opponent" => {
-            player_predicates::is_opponent_of(game, caster, source.controller)
-        }
-        _ => {
-            eprintln!("[WARN] Unknown cost adjustment Activator: {activator:?}");
-            false
-        }
-    }
-}
-
 // ── Public API: compute_cost_adjustment ──────────────────────────────
 
 /// Compute cost adjustments for casting `spell_card` by `caster` from `cast_zone`.
@@ -235,16 +216,12 @@ fn compute_cost_adjustment_inner(
             }
 
             // ── checkRequirement: Activator$ ─────────────────────────
-            if let Some(activator) = st_ab.ir.activator_raw.as_deref() {
-                if !matches_cost_adjustment_activator(game, source, caster, activator) {
-                    continue;
-                }
-            } else {
-                // No Activator$ parameter: applies to ALL players.
-                // Java's matchesValidParam("Activator", ...) returns true when
-                // the parameter is absent, making the effect universal.
-                // Examples: Urza's Incubator (ReduceCost for all),
-                // Thalia (RaiseCost for all).
+            if !valid_filter::matches_valid_player_opt(
+                st_ab.ir.activator_raw.as_deref(),
+                caster,
+                source.controller,
+            ) {
+                continue;
             }
 
             // ── checkRequirement: ValidCard$ ─────────────────────────
@@ -441,12 +418,12 @@ pub fn compute_raise_cost_parts_with_targets(
                 }
             }
 
-            if let Some(activator) = st_ab.ir.activator_raw.as_deref() {
-                if !matches_cost_adjustment_activator(game, source, caster, activator) {
-                    continue;
-                }
-            } else {
-                // RaiseCost without Activator$ → universal effect (e.g. Thalia)
+            if !valid_filter::matches_valid_player_opt(
+                st_ab.ir.activator_raw.as_deref(),
+                caster,
+                source.controller,
+            ) {
+                continue;
             }
 
             if !matches_valid_card(

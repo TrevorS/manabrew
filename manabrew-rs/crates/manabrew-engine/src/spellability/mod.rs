@@ -299,6 +299,8 @@ pub struct SpellAbility {
     /// Last known state for LKI tracking.
     #[serde(default)]
     pub last_state: HashMap<String, String>,
+    #[serde(default)]
+    pub last_state_battlefield: Vec<CardId>,
     /// Java parity: batched zone-change table accumulated for `ChangeZoneResolve`.
     #[serde(skip)]
     pub change_zone_table: Option<CardZoneTable>,
@@ -653,6 +655,7 @@ impl SpellAbility {
             pips_to_reduce: Vec::new(),
             may_choose_new_targets: false,
             last_state: HashMap::new(),
+            last_state_battlefield: Vec::new(),
             change_zone_table: None,
             damage_map: None,
             prevent_map: None,

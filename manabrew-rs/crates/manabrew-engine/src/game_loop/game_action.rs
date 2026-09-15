@@ -988,6 +988,7 @@ impl GameLoop {
                 .and_modify(|c| *c += 1)
                 .or_insert(1);
         }
+        game.stack.add_ability_activated_this_turn(&sa);
 
         // Push to stack
         let card_name = game.card(card_id).card_name.clone();

@@ -1662,6 +1662,7 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         "historic" => matches_card_state(CardStateSelector::Historic, card, context),
         "modified" => matches_card_state(CardStateSelector::Modified, card, context),
         "issaddled" => matches_card_state(CardStateSelector::Saddled, card, context),
+        "issuspected" => card.has_s_var("Suspected"),
         "mayplaysource" => matches_card_state(CardStateSelector::MayPlaySource, card, context),
         "exiledwithsource" => {
             matches_context_predicate(&ContextPredicate::ExiledWithSource, card, context)
@@ -2257,6 +2258,7 @@ fn matches_type_and_qualifier_parts(
                 | "historic"
                 | "modified"
                 | "issaddled"
+                | "issuspected"
                 | "mayplaysource"
                 | "suspended"
                 | "singletarget"

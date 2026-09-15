@@ -1714,6 +1714,7 @@ pub fn resolve_count_svar_for_sa(
         let restrictions = parts.next().unwrap_or("").trim();
         let (restrictions, aggregator) = restrictions.split_once('$').unwrap_or((restrictions, ""));
         if !restrictions.is_empty() {
+            let self_only = zone_part.ends_with("Self");
             let zones: Vec<ZoneType> = if zone_part.is_empty() {
                 vec![ZoneType::Battlefield]
             } else {
@@ -1722,7 +1723,7 @@ pub fn resolve_count_svar_for_sa(
                     .filter_map(crate::ability::ability_utils::parse_zone_type)
                     .collect()
             };
-            if !zones.is_empty() {
+            if self_only || !zones.is_empty() {
                 let source = game.card(source_id);
                 let selector = crate::parsing::cached_compiled_selector(restrictions);
                 // Thread targets through so `TargetedPlayerOwn` etc. resolve.
@@ -1738,10 +1739,13 @@ pub fn resolve_count_svar_for_sa(
                     .cards
                     .iter()
                     .filter(|card| {
-                        zones.contains(&card.zone)
-                            && crate::card::valid_filter::matches_valid_card_selector_with_context(
-                                &selector, card, ctx,
-                            )
+                        (if self_only {
+                            card.id == source_id
+                        } else {
+                            zones.contains(&card.zone)
+                        }) && crate::card::valid_filter::matches_valid_card_selector_with_context(
+                            &selector, card, ctx,
+                        )
                     })
                     .collect();
                 let count = match aggregator {
@@ -1989,6 +1993,445 @@ pub fn resolve_count_svar_for_sa(
         let count =
             card.remembered_cards.len() + card.remembered_players.len() + card.remembered_cmc.len();
         return do_x_math(count as i32, operators, game, source_id, controller, sa);
+    }
+
+    if let Some(body) = expr.strip_prefix("Count$") {
+        let (l0, operators) = body.split_once('/').unwrap_or((body, ""));
+        let sq: Vec<&str> = l0.split('.').collect();
+        let paidparts: Vec<&str> = l0.splitn(2, '$').collect();
+        let player = game.player(controller);
+        let math = |num: i32| do_x_math(num, operators, game, source_id, controller, sa);
+        let calculate_branch = |condition: bool| {
+            let chosen = sq
+                .get(if condition { 1 } else { 2 })
+                .copied()
+                .unwrap_or("0");
+            resolve_svar_expression(chosen, game, source_id, controller, sa)
+        };
+
+        if sq[0].starts_with("IsPrime") {
+            let comp_string: Vec<&str> = sq[0].split(' ').collect();
+            let lhs = resolve_svar_expression(
+                comp_string.get(1).copied().unwrap_or("0"),
+                game,
+                source_id,
+                controller,
+                sa,
+            );
+            let v = lhs > 1 && (2..).take_while(|d| d * d <= lhs).all(|d| lhs % d != 0);
+            return math(calculate_branch(v));
+        }
+        if sq[0] == "ResolvedThisTurn" {
+            let host = sa.source.unwrap_or(source_id);
+            return math(game.card(host).get_ability_resolved_this_turn(Some(sa)) as i32);
+        }
+        if sq[0] == "Delirium" {
+            return math(calculate_branch(game.player_has_delirium(controller)));
+        }
+        if sq[0] == "CommittedCrimeThisTurn" {
+            return math(calculate_branch(player.committed_crime_this_turn > 0));
+        }
+        if sq[0] == "YourStartingLife" {
+            return math(player.starting_life);
+        }
+        if sq[0].contains("LifeYouLostThisTurn") {
+            return math(player.life_lost_this_turn);
+        }
+        if sq[0].contains("LifeYouGainedThisTurn") {
+            return math(player.life_gained_this_turn);
+        }
+        if sq[0].contains("LifeYourTeamGainedThisTurn") {
+            return math(player.life_gained_by_team_this_turn);
+        }
+        if sq[0].contains("LifeYouGainedTimesThisTurn") {
+            return math(player.life_gained_times_this_turn);
+        }
+        if sq[0].contains("LifeOppsLostThisTurn") {
+            let lost = game
+                .player_order
+                .iter()
+                .filter(|&&pid| {
+                    crate::player::player_predicates::is_opponent_of(game, controller, pid)
+                })
+                .map(|&pid| game.player(pid).life_lost_this_turn)
+                .sum();
+            return math(lost);
+        }
+        if sq[0] == "CrewSize" {
+            return math(game.card(source_id).crewed_by_this_turn.len() as i32);
+        }
+        if sq[0] == "TotalDamageReceivedThisTurn" {
+            return math(game.card(source_id).assigned_damage);
+        }
+        if sq[0] == "MaxCombatDamageThisTurn" {
+            return math(
+                game.players
+                    .iter()
+                    .map(|p| p.combat_damage_received_this_turn)
+                    .max()
+                    .unwrap_or(0),
+            );
+        }
+        if sq[0].starts_with("Morbid") {
+            let res = crate::card::card_util::get_this_turn_entered(
+                game,
+                ZoneType::Graveyard,
+                Some(ZoneType::Battlefield),
+                "Creature",
+                source_id,
+                controller,
+            );
+            return math(calculate_branch(!res.is_empty()));
+        }
+
+        if sq[0].starts_with("CountersAddedThisTurn") {
+            let parts: Vec<&str> = l0.split(' ').collect();
+            if parts.len() >= 4 {
+                let counter_type = (!parts[1].eq_ignore_ascii_case("Any"))
+                    .then(|| crate::ability::effects::parse_counter_type(parts[1]));
+                return math(game.get_counter_added_this_turn(
+                    counter_type.as_ref(),
+                    parts[2],
+                    parts[3],
+                    source_id,
+                    controller,
+                ));
+            }
+        }
+        if sq[0].contains("TimesKicked") {
+            let card = game.card(source_id);
+            let magnitude = if crate::ability::ability_utils::is_unlinked_from_cast_sa(sa, card) {
+                0
+            } else {
+                card.cast_sa.as_ref().map_or(0, |cast_sa| {
+                    if cast_sa.kick_count > 0 {
+                        cast_sa.kick_count as i32
+                    } else {
+                        let has_k1 = cast_sa
+                            .optional_costs
+                            .contains(&crate::spellability::OptionalCost::Kicker1);
+                        let has_k2 = cast_sa
+                            .optional_costs
+                            .contains(&crate::spellability::OptionalCost::Kicker2);
+                        if has_k1 == has_k2 {
+                            if has_k1 {
+                                2
+                            } else {
+                                0
+                            }
+                        } else {
+                            1
+                        }
+                    }
+                })
+            };
+            return math(magnitude);
+        }
+        if sq[0].starts_with("Bargain") {
+            return math(calculate_branch(
+                sa.optional_costs
+                    .contains(&crate::spellability::OptionalCost::Bargain),
+            ));
+        }
+        if sq[0].starts_with("Teamwork") {
+            return math(calculate_branch(
+                sa.optional_costs
+                    .contains(&crate::spellability::OptionalCost::Teamwork),
+            ));
+        }
+        if sq[0] == "YouFlipThisTurn" {
+            return math(game.player(controller).num_flips_this_turn);
+        }
+        if sq[0] == "YouDescendedThisTurn" {
+            return math(
+                game.player(controller)
+                    .permanents_put_into_graveyard_this_turn,
+            );
+        }
+        if sq[0] == "UnlockedDoors" {
+            let doors = game
+                .cards_in_zone(ZoneType::Battlefield, controller)
+                .iter()
+                .map(|&card| game.card(card))
+                .filter(|card| card.type_line.has_subtype("Room"))
+                .map(|card| card.get_unlocked_room_count())
+                .sum();
+            return math(doors);
+        }
+        if sq[0].starts_with("Void") {
+            return math(calculate_branch(game.is_void()));
+        }
+        if sq[0].starts_with("LeftBattlefieldThisTurn")
+            || sq[0].starts_with("LeftGraveyardThisTurn")
+        {
+            if let Some((_, valid_filter)) = l0.split_once(' ') {
+                let selector = crate::parsing::cached_compiled_selector(valid_filter);
+                let source = game.card(source_id);
+                let list = if sq[0].starts_with("LeftBattlefieldThisTurn") {
+                    &game.left_battlefield_this_turn
+                } else {
+                    &game.left_graveyard_this_turn
+                };
+                let count = list
+                    .iter()
+                    .filter(|&&card| {
+                        crate::card::valid_filter::matches_valid_card_selector_in_game(
+                            &selector,
+                            game.card(card),
+                            source,
+                            game,
+                        )
+                    })
+                    .count();
+                return math(count as i32);
+            }
+        }
+        if sq[0].starts_with("ImprintedSize") {
+            return math(game.card(source_id).imprinted_cards.len() as i32);
+        }
+        if let Some(rest) = sq[0].strip_prefix("wasCastFrom") {
+            let your = sq[0].contains("Your");
+            let by_you = sq[0].contains("ByYou");
+            let mut str_zone = rest;
+            if your {
+                str_zone = str_zone.strip_prefix("Your").unwrap_or(str_zone);
+            }
+            if by_you {
+                str_zone = &str_zone[..str_zone.find("ByYou").unwrap_or(str_zone.len())];
+            }
+            let card = game.card(source_id);
+            let zones_match = card
+                .cast_from
+                .is_some_and(|zone| Some(zone) == ZoneType::from_str_compat(str_zone))
+                && (!by_you
+                    || card
+                        .cast_sa
+                        .as_ref()
+                        .is_some_and(|cast_sa| cast_sa.activating_player == controller))
+                && (!your || card.owner == controller);
+            return math(calculate_branch(zones_match));
+        }
+        if sq[0].ends_with("InOwnMainPhase") {
+            let is_my_main = game.turn.is_main_phase()
+                && game.active_player() == controller
+                && (!sq[0].starts_with("IfCast") || game.card(source_id).was_cast());
+            return math(
+                sq.get(if is_my_main { 1 } else { 2 })
+                    .and_then(|value| value.parse::<i32>().ok())
+                    .unwrap_or(0),
+            );
+        }
+        if sq[0].starts_with("FinishedUpkeepsThisTurn") {
+            return math(
+                game.turn.n_upkeeps_this_turn
+                    - i32::from(game.turn.phase == forge_foundation::PhaseType::Upkeep),
+            );
+        }
+        if sq[0].starts_with("FinishedEndOfTurnsThisTurn") {
+            return math(
+                game.turn.n_end_of_turns_this_turn
+                    - i32::from(game.turn.phase == forge_foundation::PhaseType::EndOfTurn),
+            );
+        }
+        if sq[0].starts_with("CreaturesAttackedThisTurn") {
+            if let Some((_, valid_filter)) = l0.split_once(' ') {
+                let selector = crate::parsing::cached_compiled_selector(valid_filter);
+                let source = game.card(source_id);
+                let count = game
+                    .cards
+                    .iter()
+                    .filter(|card| {
+                        card.controller == controller
+                            && card.attacked_this_turn
+                            && card.is_creature()
+                    })
+                    .filter(|card| {
+                        crate::card::valid_filter::matches_valid_card_selector_in_game(
+                            &selector, card, source, game,
+                        )
+                    })
+                    .count();
+                return math(count as i32);
+            }
+        }
+        if sq[0].starts_with("MostProminentCreatureType") {
+            if let Some((_, restriction)) = l0.split_once(' ') {
+                let selector = crate::parsing::cached_compiled_selector(restriction);
+                let source = game.card(source_id);
+                let mut all_creature_type = 0;
+                let mut map: std::collections::HashMap<&str, i32> =
+                    std::collections::HashMap::new();
+                for card in game.cards.iter().filter(|card| {
+                    card.zone == ZoneType::Battlefield
+                        && crate::card::valid_filter::matches_valid_card_selector_in_game(
+                            &selector, card, source, game,
+                        )
+                }) {
+                    if card.has_keyword("Changeling") {
+                        all_creature_type += 1;
+                        continue;
+                    }
+                    for creature_type in card
+                        .type_line
+                        .subtypes
+                        .iter()
+                        .filter(|subtype| crate::game::TypeRegistry::is_creature_type(subtype))
+                    {
+                        *map.entry(creature_type.as_str()).or_default() += 1;
+                    }
+                }
+                return math(map.values().copied().max().unwrap_or(0) + all_creature_type);
+            }
+        }
+        if let Some(rest) = l0.strip_prefix("DifferentCounterKinds_") {
+            let selector = crate::parsing::cached_compiled_selector(rest);
+            let source = game.card(source_id);
+            let kinds: std::collections::BTreeSet<_> = game
+                .cards
+                .iter()
+                .filter(|card| {
+                    card.zone == ZoneType::Battlefield
+                        && crate::card::valid_filter::matches_valid_card_selector_in_game(
+                            &selector, card, source, game,
+                        )
+                })
+                .flat_map(|card| {
+                    card.counters
+                        .iter()
+                        .filter(|(_, amount)| **amount > 0)
+                        .map(|(counter_type, _)| counter_type.clone())
+                })
+                .collect();
+            return math(kinds.len() as i32);
+        }
+
+        let mut some_cards: Option<Vec<CardId>> = None;
+        if sq[0].starts_with("LastStateBattlefieldWithFallback") {
+            if let Some((_, valid)) = paidparts[0].split_once(' ') {
+                let host = game.card(sa.source.unwrap_or(source_id));
+                if !host.was_cast() {
+                    return math(0);
+                }
+                let mut cards = host
+                    .cast_sa
+                    .as_ref()
+                    .map_or_else(Vec::new, |cast_sa| cast_sa.last_state_battlefield.clone());
+                if cards.is_empty() {
+                    cards = game
+                        .cards
+                        .iter()
+                        .filter(|card| card.zone == ZoneType::Battlefield)
+                        .map(|card| card.id)
+                        .collect();
+                }
+                let selector = crate::parsing::cached_compiled_selector(valid);
+                let targeted_players: Vec<crate::ids::PlayerId> =
+                    sa.target_chosen.target_player.into_iter().collect();
+                let targeted_cards: Vec<crate::ids::CardId> =
+                    sa.target_chosen.target_card.into_iter().collect();
+                let ctx =
+                    crate::card::valid_filter::MatchContext::from_source(game.card(source_id))
+                        .with_game(game)
+                        .with_targets(&targeted_cards, &targeted_players)
+                        .with_spell_ability(sa);
+                // TODO(parity): Java filters the cast-time LKI copies, not the live cards.
+                some_cards = Some(
+                    cards
+                        .into_iter()
+                        .filter(|&card| {
+                            crate::card::valid_filter::matches_valid_card_selector_with_context(
+                                &selector,
+                                game.card(card),
+                                ctx,
+                            )
+                        })
+                        .collect(),
+                );
+            }
+        }
+        if sq[0].starts_with("ThisTurnCast") || sq[0].starts_with("LastTurnCast") {
+            let working_copy: Vec<&str> = paidparts[0].split('_').collect();
+            if let Some(&valid_filter) = working_copy.get(1) {
+                some_cards = Some(if working_copy[0].contains("This") {
+                    crate::card::card_util::get_this_turn_cast(
+                        game,
+                        valid_filter,
+                        source_id,
+                        controller,
+                    )
+                } else {
+                    crate::card::card_util::get_last_turn_cast(
+                        game,
+                        valid_filter,
+                        source_id,
+                        controller,
+                    )
+                });
+            }
+        }
+        if sq[0].starts_with("ThisTurnActivated") {
+            let working_copy: Vec<&str> = paidparts[0].split('_').collect();
+            if let Some(&valid_filter) = working_copy.get(1) {
+                // TODO(parity): also count matching abilities on game.costPaymentStack.
+                let activated = crate::card::card_util::get_this_turn_activated(
+                    game,
+                    valid_filter,
+                    source_id,
+                    controller,
+                )
+                .len();
+                return math(activated as i32);
+            }
+        }
+        if sq[0].starts_with("ThisTurnEntered") || sq[0].starts_with("LastTurnEntered") {
+            let working_copy: Vec<&str> = paidparts[0].splitn(5, '_').collect();
+            let destination = working_copy
+                .get(1)
+                .and_then(|zone| ZoneType::from_str_compat(zone));
+            let has_from = working_copy.get(2) == Some(&"from");
+            let origin = if has_from {
+                working_copy
+                    .get(3)
+                    .and_then(|zone| ZoneType::from_str_compat(zone))
+            } else {
+                None
+            };
+            if let (Some(destination), Some(&valid_filter)) =
+                (destination, working_copy.get(if has_from { 4 } else { 2 }))
+            {
+                some_cards = Some(if sq[0].starts_with("This") {
+                    crate::card::card_util::get_this_turn_entered(
+                        game,
+                        destination,
+                        origin,
+                        valid_filter,
+                        source_id,
+                        controller,
+                    )
+                } else {
+                    crate::card::card_util::get_last_turn_entered(
+                        game,
+                        destination,
+                        origin,
+                        valid_filter,
+                        source_id,
+                        controller,
+                    )
+                });
+            }
+        }
+        if let Some(some_cards) = some_cards {
+            let num = match paidparts.get(1) {
+                Some(property) => crate::ability::ability_utils::handle_paid(
+                    game,
+                    &some_cards,
+                    property,
+                    source_id,
+                ),
+                None => some_cards.len() as i32,
+            };
+            return math(num);
+        }
     }
 
     expr.parse::<i32>().unwrap_or_else(|_| {

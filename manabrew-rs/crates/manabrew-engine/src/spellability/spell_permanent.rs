@@ -95,6 +95,7 @@ pub fn create_permanent_spell(
         pips_to_reduce: Vec::new(),
         may_choose_new_targets: false,
         last_state: HashMap::new(),
+        last_state_battlefield: Vec::new(),
         change_zone_table: None,
         damage_map: None,
         prevent_map: None,

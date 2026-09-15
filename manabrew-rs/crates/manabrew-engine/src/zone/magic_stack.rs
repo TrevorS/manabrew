@@ -123,7 +123,7 @@ pub struct MagicStack {
 
     /// Abilities activated this turn.
     #[serde(default)]
-    this_turn_activated: Vec<CardId>,
+    this_turn_activated: Vec<SpellAbility>,
 
     /// Maximum distinct sources that have been on the stack simultaneously.
     #[serde(default)]
@@ -638,9 +638,11 @@ impl MagicStack {
     /// Track an ability activation this turn.
     /// Mirrors Java's `MagicStack.addAbilityActivatedThisTurn()`.
     pub fn add_ability_activated_this_turn(&mut self, sa: &SpellAbility) {
-        if let Some(source) = sa.source {
-            self.this_turn_activated.push(source);
-        }
+        self.this_turn_activated.push(sa.clone());
+    }
+
+    pub fn get_ability_activated_this_turn(&self) -> &[SpellAbility] {
+        &self.this_turn_activated
     }
 
     /// Reset max distinct sources counter.

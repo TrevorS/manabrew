@@ -157,6 +157,8 @@ pub struct TurnState {
 
     // Per-turn flags
     pub drawn_for_turn: bool,
+    pub n_upkeeps_this_turn: i32,
+    pub n_end_of_turns_this_turn: i32,
 }
 
 impl TurnState {
@@ -171,6 +173,8 @@ impl TurnState {
             combat_blockers_declared: false,
             combat_block_assignments: vec![],
             drawn_for_turn: false,
+            n_upkeeps_this_turn: 0,
+            n_end_of_turns_this_turn: 0,
         }
     }
 

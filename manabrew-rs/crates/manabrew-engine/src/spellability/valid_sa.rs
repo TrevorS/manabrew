@@ -104,6 +104,7 @@ fn matches_property_token_positive(
         "xcost" => sa.cost_has_x(),
         "singletarget" => sa.targets_single_target(),
         "crew" => is_crew(sa, ability_host),
+        "equip" => is_keyword_ability(sa, ability_host, Keyword::Equip, "equip"),
         "saddle" => is_keyword_ability(sa, ability_host, Keyword::Saddle, "saddle"),
         "station" => is_keyword_ability(sa, ability_host, Keyword::Station, "station"),
         "vehicle" | "mount" | "spacecraft" | "planet" => {

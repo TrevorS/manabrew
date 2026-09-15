@@ -691,6 +691,7 @@ impl GameState {
             if is_combat {
                 self.player_mut(target)
                     .been_dealt_combat_damage_since_last_turn = true;
+                self.player_mut(target).combat_damage_received_this_turn += amount;
             }
         }
     }

@@ -333,8 +333,14 @@ impl GameLoop {
         // Record the cast SA on the source card so `isUnlinkedFromCastSA` and
         // friends can check linkage later. Mirrors Java `Card.setCastSA`.
         if stack_push.entry.spell_ability.is_spell {
-            game.card_mut(stack_push.source_card).cast_sa =
-                Some(Box::new(stack_push.entry.spell_ability.clone()));
+            let mut cause = stack_push.entry.spell_ability.clone();
+            cause.last_state_battlefield = game
+                .cards
+                .iter()
+                .filter(|card| card.zone == forge_foundation::ZoneType::Battlefield)
+                .map(|card| card.id)
+                .collect();
+            game.card_mut(stack_push.source_card).cast_sa = Some(Box::new(cause));
         }
         if let Some(pending_stack_id) = stack_push.pending_stack_id {
             game.stack
