@@ -100,7 +100,12 @@ export class PromptLayer extends PromptModalLayer {
       this.rebuild();
     });
     this.unsubscribePreferences = usePreferencesStore.subscribe((state, previous) => {
-      if (state.promptCardStyle === previous.promptCardStyle) return;
+      if (
+        state.promptCardStyle === previous.promptCardStyle &&
+        state.mobileHandedness === previous.mobileHandedness
+      ) {
+        return;
+      }
       this.promptCardStates.clear();
       this.rebuild();
     });
@@ -176,6 +181,10 @@ export class PromptLayer extends PromptModalLayer {
     if (!this.container.visible) return false;
     if (this.modalOpen) return true;
     return this.actionBounds?.contains(x, y) ?? false;
+  }
+
+  private get leftHanded(): boolean {
+    return usePreferencesStore.getState().mobileHandedness === "left";
   }
 
   destroy(): void {
@@ -377,7 +386,9 @@ export class PromptLayer extends PromptModalLayer {
     const viewHeight = Math.max(view.height, controls?.height ?? 0);
     const bodyHeight = sectionPaddingTop + viewHeight + sectionPaddingBottom;
     const panelHeight = headerHeight + bodyHeight;
-    const x = this.viewportWidth - width - (minimal || shortScreen ? 6 : 12);
+    const leftHanded = this.leftHanded;
+    const edgeMargin = minimal || shortScreen ? 6 : 12;
+    const x = minimal && leftHanded ? edgeMargin : this.viewportWidth - width - edgeMargin;
     const unclampedY = minimal
       ? this.viewportHeight - panelHeight - 6
       : shortScreen
@@ -1499,9 +1510,14 @@ export class PromptLayer extends PromptModalLayer {
 
   private makeCompactActionControls(): ActionViewLayout {
     const phase = this.makeCompactPhaseButton();
-    const controlViews = phase
-      ? [this.makeActionMenuButton(true), phase]
-      : [this.makeActionMenuButton(true)];
+    const menu = this.makeActionMenuButton(true);
+    const controlViews = this.leftHanded
+      ? phase
+        ? [phase, menu]
+        : [menu]
+      : phase
+        ? [menu, phase]
+        : [menu];
     const height = controlViews.reduce(
       (controlHeight, control) => Math.max(controlHeight, control.height),
       0,

@@ -2,6 +2,8 @@ import { useLayoutEffect, useRef } from "react";
 import { X } from "lucide-react";
 
 import { CardsInHandIcon } from "@/components/game/panels/CardsInHandIcon";
+import { usePreferencesStore } from "@/stores/usePreferencesStore";
+
 import { cn } from "@/lib/utils";
 
 interface MobileHandControlProps {
@@ -23,6 +25,7 @@ export function MobileHandControl({
 }: MobileHandControlProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
 
+  const leftHanded = usePreferencesStore((s) => s.mobileHandedness === "left");
   useLayoutEffect(() => {
     const button = buttonRef.current;
     if (!button || !onBoundsChange) return;
@@ -53,7 +56,11 @@ export function MobileHandControl({
       }
       className={cn(
         "group pointer-events-auto absolute z-[4] flex min-h-12 items-center justify-center gap-2 px-3 font-game text-sm font-semibold tracking-wide text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-card-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-safe:transition-[color,opacity,transform] active:scale-[0.98]",
-        open ? "right-2 top-2" : "bottom-0 left-1/2 -translate-x-1/2",
+        open
+          ? leftHanded
+            ? "left-2 top-2"
+            : "right-2 top-2"
+          : "bottom-0 left-1/2 -translate-x-1/2",
         (locked || count === 0) && "opacity-70",
       )}
       disabled={locked || count === 0}
