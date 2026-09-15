@@ -531,12 +531,11 @@ impl Trigger {
     }
 
     pub fn get_activations_this_turn(&self, game: &GameState, host_card: CardId) -> u32 {
-        if self.get_overriding_ability().is_some() {
-            return game
-                .card(host_card)
-                .get_ability_activated_this_turn(self.get_overriding_ability());
-        }
-        0
+        let host = game.card(host_card);
+        host.get_ability_activated_this_turn(
+            self.ensure_ability(game, host_card, host.controller)
+                .as_ref(),
+        )
     }
 
     /// Polymorphic `Valid...` check for optional card payloads.
@@ -721,12 +720,11 @@ impl Trigger {
     }
 
     pub fn get_activations_this_game(&self, game: &GameState, host_card: CardId) -> u32 {
-        if self.get_overriding_ability().is_some() {
-            return game
-                .card(host_card)
-                .get_ability_activated_this_game(self.get_overriding_ability());
-        }
-        0
+        let host = game.card(host_card);
+        host.get_ability_activated_this_game(
+            self.ensure_ability(game, host_card, host.controller)
+                .as_ref(),
+        )
     }
 
     /// Mirrors Java Trigger.meetsRequirementsOnTriggeredObjects() subset.
@@ -922,9 +920,9 @@ impl Trigger {
 
     /// Tracks trigger activation on the host card.
     pub fn trigger_run(&self, game: &mut GameState, host_card: CardId) {
-        if self.get_overriding_ability().is_some() {
+        if let Some(sa) = self.ensure_ability(game, host_card, game.card(host_card).controller) {
             game.card_mut(host_card)
-                .add_ability_activated_for(self.get_overriding_ability());
+                .add_ability_activated_for(Some(&sa));
         }
     }
 
