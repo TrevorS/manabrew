@@ -431,6 +431,35 @@ impl Card {
                 .or_insert_with(|| "DB$ Pump | Defined$ Self | NumAtt$ 1 | NumDef$ 1".to_string());
         }
 
+        if kw == "Storied" && self.is_permanent() {
+            let raw = "Mode$ Always | TriggerZones$ Battlefield | Secondary$ True | Static$ True | EnduringStory$ False | IsPresent$ Permanent.YouCtrl+Historic | PresentCompare$ GE3 | Execute$ TrigStoried | TriggerDescription$ Storied";
+            if let Some(mut trig) = parse_trigger(raw, next_id) {
+                trig.execute = "TrigStoried".to_string();
+                self.add_trigger(trig);
+            }
+            self.svars
+                .entry("TrigStoried".to_string())
+                .or_insert_with(|| "DB$ InternalEnduringStory".to_string());
+        }
+
+        if kw == "Increment" {
+            let raw = "Mode$ SpellCast | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Secondary$ True | Execute$ TrigIncrement | TriggerDescription$ Increment";
+            if let Some(mut trig) = parse_trigger(raw, next_id) {
+                trig.execute = "TrigIncrement".to_string();
+                trig.base
+                    .set_keyword(crate::keyword::keyword_interface::KeywordInterface::new(
+                        crate::keyword::Keyword::Increment,
+                        kw,
+                    ));
+                self.add_trigger(trig);
+            }
+            self.svars
+                .entry("TrigIncrement".to_string())
+                .or_insert_with(|| {
+                    "DB$ PutCounter | CounterType$ P1P1 | CounterNum$ 1".to_string()
+                });
+        }
+
         if let Some(n_str) = crate::keyword::extract_keyword_cost_str(kw, "Bushido") {
             if n_str.parse::<i32>().is_ok() {
                 let raw1 = format!(

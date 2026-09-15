@@ -92,6 +92,8 @@ pub struct PlayerState {
     pub monarch_effect_card: Option<CardId>,
     pub initiative_effect_card: Option<CardId>,
     pub blessing_effect_card: Option<CardId>,
+    #[serde(default)]
+    pub enduring_story_effect_card: Option<CardId>,
     pub radiation_effect_card: Option<CardId>,
     pub ring_effect_card: Option<CardId>,
     pub contraption_sprocket_effect_card: Option<CardId>,
@@ -212,6 +214,7 @@ impl PlayerState {
             monarch_effect_card: None,
             initiative_effect_card: None,
             blessing_effect_card: None,
+            enduring_story_effect_card: None,
             radiation_effect_card: None,
             ring_effect_card: None,
             contraption_sprocket_effect_card: None,
@@ -395,6 +398,7 @@ impl PlayerState {
         self.monarch_effect_card = None;
         self.initiative_effect_card = None;
         self.blessing_effect_card = None;
+        self.enduring_story_effect_card = None;
         self.radiation_effect_card = None;
         self.ring_effect_card = None;
         self.contraption_sprocket_effect_card = None;

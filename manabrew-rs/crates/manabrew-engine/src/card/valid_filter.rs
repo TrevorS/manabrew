@@ -136,6 +136,7 @@ pub struct CardTraitRequirementsIr {
     revolt: Option<String>,
     desert: Option<String>,
     blessing: Option<String>,
+    enduring_story: Option<String>,
     day_time: Option<String>,
     adamant: Option<String>,
     life_total: Option<String>,
@@ -208,6 +209,7 @@ impl CardTraitRequirementsIr {
             && self.revolt.is_none()
             && self.desert.is_none()
             && self.blessing.is_none()
+            && self.enduring_story.is_none()
             && self.day_time.is_none()
             && self.adamant.is_none()
             && self.life_total.is_none()
@@ -240,6 +242,7 @@ impl CardTraitRequirementsIr {
             "Revolt" => self.revolt = Some(value.to_string()),
             "Desert" => self.desert = Some(value.to_string()),
             "Blessing" => self.blessing = Some(value.to_string()),
+            "EnduringStory" => self.enduring_story = Some(value.to_string()),
             "DayTime" => self.day_time = Some(value.to_string()),
             "Adamant" => self.adamant = Some(value.to_string()),
             "LifeTotal" => self.life_total = Some(value.to_string()),
@@ -2793,6 +2796,7 @@ fn check_condition_value(game: &GameState, condition: Option<&str>, source: &Car
         "Ferocious" => game.player_has_ferocious(controller),
         "Desert" => game.player_has_desert(controller),
         "Blessing" => game.player_has_blessing(controller),
+        "EnduringStory" => game.player_has_enduring_story(controller),
         "Monarch" => game.monarch == Some(controller),
         "Night" => game.is_night,
         "FatefulHour" => game.player(controller).life <= 5,
@@ -2877,6 +2881,12 @@ fn meets_card_trait_requirements(
     if !check_boolean_requirement(
         requirements.blessing.as_deref(),
         game.player_has_blessing(controller),
+    ) {
+        return false;
+    }
+    if !check_boolean_requirement(
+        requirements.enduring_story.as_deref(),
+        game.player_has_enduring_story(controller),
     ) {
         return false;
     }

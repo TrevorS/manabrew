@@ -359,6 +359,7 @@ pub enum Keyword {
     StartYourEngines,
     StartingIntensity,
     Station,
+    Storied,
     Storm,
     Strive,
     Sunburst,
@@ -566,6 +567,7 @@ impl Keyword {
             Keyword::StartYourEngines => "Start your engines",
             Keyword::StartingIntensity => "Starting intensity",
             Keyword::Station => "Station",
+            Keyword::Storied => "Storied",
             Keyword::Storm => "Storm",
             Keyword::Strive => "Strive",
             Keyword::Sunburst => "Sunburst",
@@ -651,6 +653,7 @@ impl Keyword {
                 | Keyword::Spree
                 | Keyword::StartYourEngines
                 | Keyword::StartingIntensity
+                | Keyword::Storied
                 | Keyword::Tiered
                 | Keyword::Trample
                 | Keyword::UmbraArmor
@@ -855,6 +858,7 @@ impl Keyword {
             Keyword::StartYourEngines,
             Keyword::StartingIntensity,
             Keyword::Station,
+            Keyword::Storied,
             Keyword::Storm,
             Keyword::Strive,
             Keyword::Sunburst,

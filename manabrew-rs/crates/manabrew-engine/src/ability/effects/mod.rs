@@ -117,6 +117,7 @@ pub mod heist_effect;
 pub mod immediate_trigger_effect;
 pub mod incubate_effect;
 pub mod intensify_effect;
+pub mod internal_enduring_story_effect;
 pub mod internal_radiation_effect;
 pub mod investigate_effect;
 pub mod learn_effect;

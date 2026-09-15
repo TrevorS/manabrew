@@ -268,6 +268,7 @@ effect_dispatch! {
     ApiType::Planeswalk => planeswalk_effect::PlaneswalkEffect,
     ApiType::Radiation => radiation_effect::RadiationEffect,
     ApiType::InternalRadiation => internal_radiation_effect::InternalRadiationEffect,
+    ApiType::InternalEnduringStory => internal_enduring_story_effect::InternalEnduringStoryEffect,
     ApiType::ZoneExchange => zone_exchange_effect::ZoneExchangeEffect,
     ApiType::RemoveFromGame => remove_from_game_effect::RemoveFromGameEffect,
     ApiType::RemoveFromMatch => remove_from_match_effect::RemoveFromMatchEffect,

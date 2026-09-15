@@ -98,6 +98,9 @@ pub(super) fn check_condition(game: &GameState, sa: &SpellAbility) -> bool {
         if cond == "Kicked" {
             return sa.kicked;
         }
+        if cond == "EnduringStory" && !game.player_has_enduring_story(activator) {
+            return false;
+        }
     }
     // Check ConditionCheckSVar$ Kicked (SVar-based kicked gate)
     if let Some(cond) = sa.ir.condition_check_svar.as_deref() {

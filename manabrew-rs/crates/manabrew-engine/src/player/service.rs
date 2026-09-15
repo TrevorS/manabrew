@@ -306,6 +306,27 @@ impl GameState {
         self.player_mut(player).ring_bearer = bearer;
     }
 
+    pub fn player_set_enduring_story(
+        &mut self,
+        player: PlayerId,
+        story: bool,
+        set_code: Option<String>,
+    ) {
+        if self.player(player).enduring_story_effect_card.is_some() == story {
+            return;
+        }
+        if story {
+            let effect = new_player_effect_card(player, "An Enduring Story", set_code);
+            let effect_id = self.create_card(effect);
+            self.move_card(effect_id, ZoneType::Command, player);
+            self.player_mut(player).enduring_story_effect_card = Some(effect_id);
+        } else {
+            let effect_id = self.player(player).enduring_story_effect_card;
+            self.remove_player_effect_card(player, effect_id);
+            self.player_mut(player).enduring_story_effect_card = None;
+        }
+    }
+
     pub fn player_set_blessing(&mut self, player: PlayerId, value: bool) {
         self.player_mut(player).has_city_blessing = value;
         self.ensure_blessing_effect(player);
@@ -827,6 +848,10 @@ impl GameState {
 
     pub fn player_has_blessing(&self, player: PlayerId) -> bool {
         self.player(player).has_city_blessing
+    }
+
+    pub fn player_has_enduring_story(&self, player: PlayerId) -> bool {
+        self.player(player).enduring_story_effect_card.is_some()
     }
 
     pub fn player_has_revolt(&self, player: PlayerId) -> bool {

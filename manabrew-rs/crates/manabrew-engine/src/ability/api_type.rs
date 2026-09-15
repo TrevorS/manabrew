@@ -217,6 +217,7 @@ pub enum ApiType {
     InternalLegendaryRule,
     InternalIgnoreEffect,
     InternalRadiation,
+    InternalEnduringStory,
     Plot,
 }
 
@@ -460,6 +461,7 @@ const ALL_API_TYPES: &[(&str, ApiType)] = &[
     ("InternalLegendaryRule", ApiType::InternalLegendaryRule),
     ("InternalIgnoreEffect", ApiType::InternalIgnoreEffect),
     ("InternalRadiation", ApiType::InternalRadiation),
+    ("InternalEnduringStory", ApiType::InternalEnduringStory),
     // ── Aliases: alternate script names that map to canonical variants ──
     ("ControlExchange", ApiType::ExchangeControl),
     ("ControlGain", ApiType::GainControl),
