@@ -360,6 +360,7 @@ impl GameLoop {
         // Untap permanents — uses agent interaction for "may choose not to untap".
         let cards: Vec<crate::ids::CardId> =
             game.cards_in_zone(ZoneType::Battlefield, active).to_vec();
+        let mut untap_map: Vec<(crate::ids::PlayerId, Vec<crate::ids::CardId>)> = Vec::new();
         for cid in cards {
             if game.card(cid).exerted {
                 game.card_mut(cid).clear_exerted();
@@ -380,8 +381,11 @@ impl GameLoop {
                 } else {
                     true
                 };
-                if should_untap {
-                    game.untap_during_untap_step(cid, active);
+                if should_untap && game.untap_during_untap_step(cid, active) {
+                    match untap_map.iter_mut().find(|(player, _)| *player == active) {
+                        Some((_, untapped)) => untapped.push(cid),
+                        None => untap_map.push((active, vec![cid])),
+                    }
                 }
             }
         }
@@ -405,14 +409,32 @@ impl GameLoop {
             if !card.tapped {
                 continue;
             }
+            let controller = card.controller;
             if crate::staticability::static_ability_untap_other_player::untap(
                 &cards_snapshot,
                 card,
                 active,
-            ) {
-                game.untap_during_untap_step(cid, active);
+            ) && game.untap_during_untap_step(cid, active)
+            {
+                match untap_map
+                    .iter_mut()
+                    .find(|(player, _)| *player == controller)
+                {
+                    Some((_, untapped)) => untapped.push(cid),
+                    None => untap_map.push((controller, vec![cid])),
+                }
             }
         }
+
+        self.trigger_handler.run_trigger(
+            TriggerType::UntapAll,
+            crate::event::RunParams {
+                map: Some(untap_map),
+                phase: Some(game.turn.phase),
+                ..Default::default()
+            },
+            false,
+        );
 
         self.pool_mut(active).reset_pool();
     }

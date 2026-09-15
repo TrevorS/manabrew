@@ -27,8 +27,7 @@ impl GameLoop {
         self.trigger_handler.run_trigger(
             TriggerType::UntapAll,
             RunParams {
-                card: Some(card_id),
-                player: Some(player),
+                map: Some(vec![(player, vec![card_id])]),
                 ..Default::default()
             },
             false,

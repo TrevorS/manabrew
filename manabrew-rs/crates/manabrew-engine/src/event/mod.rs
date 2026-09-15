@@ -175,6 +175,7 @@ pub struct RunParams {
     pub card_lki: Option<CardId>,
     /// Additional card collection payload used by many Java triggers (AbilityKey.Cards).
     pub cards: Option<Vec<CardId>>,
+    pub map: Option<Vec<(PlayerId, Vec<CardId>)>>,
     /// Batched zone-change payload used by Java's CardZoneTable triggers.
     pub zone_changes: Option<Vec<ZoneChangeRecord>>,
     /// Java-style `CardZoneTable` object payload for batch zone-change triggers.

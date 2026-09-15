@@ -10,14 +10,46 @@ use super::trigger::{Trigger, TriggerBehavior};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TriggerUntapAll {
-    pub valid_card: Option<crate::parsing::CompiledSelector>,
+    pub valid_player: Option<crate::parsing::CompiledSelector>,
+    pub valid_cards: Option<crate::parsing::CompiledSelector>,
 }
 
 impl TriggerUntapAll {
     pub fn parse(params: &Params) -> Box<dyn TriggerBehavior> {
         Box::new(Self {
-            valid_card: params.selector_cloned(keys::VALID_CARD),
+            valid_player: params.selector_cloned(keys::VALID_PLAYER),
+            valid_cards: params.selector_cloned(keys::VALID_CARDS),
         })
+    }
+
+    fn filtered_map(
+        &self,
+        trigger: &Trigger,
+        params: &RunParams,
+        game: &GameState,
+    ) -> Vec<(crate::ids::PlayerId, Vec<crate::ids::CardId>)> {
+        let mut pass_map = Vec::new();
+        for (player, cards) in params.map.iter().flatten() {
+            if trigger.matches_optional_valid_player_filter(&self.valid_player, Some(*player), game)
+            {
+                let mut pass_cards = Vec::new();
+                if self.valid_cards.is_some() {
+                    for card in cards {
+                        if trigger.matches_optional_valid_card_filter(
+                            &self.valid_cards,
+                            Some(*card),
+                            game,
+                        ) {
+                            pass_cards.push(*card);
+                        }
+                    }
+                }
+                if !pass_cards.is_empty() {
+                    pass_map.push((*player, pass_cards));
+                }
+            }
+        }
+        pass_map
     }
 }
 
@@ -28,33 +60,34 @@ impl TriggerBehavior for TriggerUntapAll {
     }
 
     fn perform_test(&self, trigger: &Trigger, params: &RunParams, game: &GameState) -> bool {
-        let _host_card = trigger.base.card_trait_base.host_card_id();
-        let _host_controller = trigger.base.card_trait_base.host_controller(game);
-        trigger.matches_optional_valid_card_filter(&self.valid_card, params.card, game)
+        !self.filtered_map(trigger, params, game).is_empty()
     }
 
     fn set_triggering_objects(
         &self,
-        _trigger: &Trigger,
+        trigger: &Trigger,
         sa: &mut SpellAbility,
         params: &RunParams,
-        _game: &GameState,
+        game: &GameState,
     ) {
-        // TODO: port Map<Player, CardCollection> iteration from Java (AbilityKey.Map + filteredMap)
-        // Java sets: Map, Player (map.keySet()), Cards (all values combined), Amount (cards.size())
-        // For now we pass through cards directly without Map-based filtering
-        if let Some(cards) = params.cards.as_ref() {
-            let csv = cards
-                .iter()
-                .map(|c| c.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            sa.set_triggering_object(crate::ability::AbilityKey::Cards, &csv);
-            sa.set_triggering_object(crate::ability::AbilityKey::Amount, cards.len().to_string());
+        let map = self.filtered_map(trigger, params, game);
+        let untapped: Vec<crate::ids::CardId> = map
+            .iter()
+            .flat_map(|(_, cards)| cards.iter().copied())
+            .collect();
+        if let Some((player, _)) = map.first() {
+            sa.set_triggering_object(crate::ability::AbilityKey::Player, player.0.to_string());
         }
-        if let Some(p) = params.player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Player, p.0.to_string());
-        }
+        let csv = untapped
+            .iter()
+            .map(|c| c.0.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        sa.set_triggering_object(crate::ability::AbilityKey::Cards, &csv);
+        sa.set_triggering_object(
+            crate::ability::AbilityKey::Amount,
+            untapped.len().to_string(),
+        );
     }
 
     fn get_important_stack_objects(&self, _trigger: &Trigger, sa: &SpellAbility) -> String {
