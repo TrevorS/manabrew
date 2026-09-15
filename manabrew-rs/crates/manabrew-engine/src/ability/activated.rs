@@ -76,6 +76,8 @@ pub struct ActivatedAbility {
     /// Whether this ability has PowerUp$ True.
     #[serde(default)]
     pub power_up: bool,
+    #[serde(default)]
+    pub exhaust: bool,
     /// Whether this ability has SorcerySpeed$ True.
     #[serde(default)]
     pub sorcery_speed: bool,
@@ -154,6 +156,7 @@ pub fn parse_activated_ability(raw: &str, index: usize) -> Option<ActivatedAbili
         .get(keys::GAME_ACTIVATION_LIMIT)
         .and_then(|v| v.parse::<u32>().ok());
     let power_up = params.is_true(keys::POWER_UP);
+    let exhaust = params.is_true(keys::EXHAUST);
     let sorcery_speed = params.is_true(keys::SORCERY_SPEED);
     let is_unlock_door = ab_type.eq_ignore_ascii_case("UnlockDoor");
     let is_mana_reflected = ab_type.eq_ignore_ascii_case("ManaReflected");
@@ -208,6 +211,7 @@ pub fn parse_activated_ability(raw: &str, index: usize) -> Option<ActivatedAbili
         spell_description_lower,
         game_activation_limit,
         power_up,
+        exhaust,
         sorcery_speed,
         is_unlock_door,
         is_mana_reflected,

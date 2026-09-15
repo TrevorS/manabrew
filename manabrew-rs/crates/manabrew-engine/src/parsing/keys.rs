@@ -119,6 +119,7 @@ pub const ADD_POWER: &str = "AddPower";
 pub const ADD_TOUGHNESS: &str = "AddToughness";
 pub const POWER: &str = "Power";
 pub const POWER_UP: &str = "PowerUp";
+pub const EXHAUST: &str = "Exhaust";
 pub const PLANESWALKER: &str = "Planeswalker";
 pub const SET_POWER: &str = "SetPower";
 pub const SET_TOUGHNESS: &str = "SetToughness";

@@ -192,7 +192,7 @@ impl GameLoop {
                 }
             }
             // PowerUp: once-per-game restriction
-            if ab.power_up {
+            if ab.power_up || ab.exhaust {
                 let card = game.card(card_id);
                 if card
                     .activations_this_game
@@ -411,7 +411,7 @@ impl GameLoop {
                     continue;
                 }
             }
-            if ab.power_up
+            if (ab.power_up || ab.exhaust)
                 && card
                     .activations_this_game
                     .get(&ab.ability_index)
