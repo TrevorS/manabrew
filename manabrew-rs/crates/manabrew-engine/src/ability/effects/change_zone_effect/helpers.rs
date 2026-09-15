@@ -233,16 +233,7 @@ pub(super) fn apply_pre_move(
         // Transformed$ — before move
         if sa.is_transformed() {
             if ctx.game.card(card_id).other_part.is_some() {
-                ctx.game.card_mut(card_id).set_transformed(true);
-                if let Some(other_name) = ctx
-                    .game
-                    .card(card_id)
-                    .other_part
-                    .as_ref()
-                    .map(|o| o.name.clone())
-                {
-                    ctx.game.card_mut(card_id).set_card_name(other_name);
-                }
+                ctx.game.card_mut(card_id).change_card_state();
             } else {
                 return false;
             }
