@@ -40,6 +40,7 @@ pub fn create_permanent_spell(
         ir: crate::ability::ability_ir::SpellAbilityIr::default(),
         target_restrictions: None,
         target_chosen: TargetChoices::default(),
+        parent_targeting_card: None,
         pay_costs: None,
         sub_ability: None,
         wrapped_ability: None,

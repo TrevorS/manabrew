@@ -310,10 +310,10 @@ fn resolve_defined_cards_for_svar(
 ) -> Vec<CardId> {
     let defined_ref = DefinedRef::parse(defined);
     match defined_ref {
-        DefinedRef::Targeted
-        | DefinedRef::TargetedCard
-        | DefinedRef::ThisTargetedCard
-        | DefinedRef::ParentTargeted => sa.target_chosen.all_target_cards(),
+        DefinedRef::Targeted | DefinedRef::TargetedCard | DefinedRef::ThisTargetedCard => {
+            sa.target_chosen.all_target_cards()
+        }
+        DefinedRef::ParentTargeted => sa.parent_targeting_card.into_iter().collect(),
         DefinedRef::TriggeredCard | DefinedRef::TriggeredCardLkiCopy => {
             let cards = sa.get_triggering_cards(crate::ability::AbilityKey::Card);
             if cards.is_empty() {

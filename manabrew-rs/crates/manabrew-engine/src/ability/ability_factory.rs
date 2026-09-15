@@ -342,6 +342,7 @@ pub fn build_spell_ability_for_card_cast(
         ir: crate::ability::ability_ir::SpellAbilityIr::default(),
         target_restrictions,
         target_chosen: TargetChoices::default(),
+        parent_targeting_card: None,
         pay_costs: Some(Cost {
             parts: vec![CostPart::Mana {
                 cost: card.mana_cost.clone(),
@@ -513,6 +514,7 @@ fn build_spell_ability_of_type_with_params(
         ir,
         target_restrictions,
         target_chosen: TargetChoices::default(),
+        parent_targeting_card: None,
         pay_costs: cost,
         sub_ability,
         wrapped_ability: None,

@@ -837,7 +837,8 @@ impl GameLoop {
                 || (parent_target_player.is_some() && sa.target_chosen.target_player.is_none())
                 || (parent_target_stack_entry.is_some()
                     && sa.target_chosen.target_stack_entry.is_none())
-                || (inherited_trigger_index.is_some() && sa.trigger_index.is_none());
+                || (inherited_trigger_index.is_some() && sa.trigger_index.is_none())
+                || sa.parent_targeting_card != parent_target_card;
             let sa_ref = if needs_ctx_clone {
                 sa_with_ctx = sa.clone();
                 if root_kicked && !sa_with_ctx.kicked {
@@ -855,6 +856,7 @@ impl GameLoop {
                 if sa_with_ctx.trigger_index.is_none() {
                     sa_with_ctx.trigger_index = inherited_trigger_index;
                 }
+                sa_with_ctx.parent_targeting_card = parent_target_card;
                 &sa_with_ctx
             } else {
                 sa

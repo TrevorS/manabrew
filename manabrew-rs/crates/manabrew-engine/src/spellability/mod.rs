@@ -130,6 +130,8 @@ pub struct SpellAbility {
     /// The chosen targets for this ability.
     /// Mirrors Java's `targetChosen` field.
     pub target_chosen: TargetChoices,
+    #[serde(default)]
+    pub parent_targeting_card: Option<CardId>,
     /// Parsed costs from `Cost$` parameter.
     /// Mirrors Java's `payCosts` field.
     pub pay_costs: Option<Cost>,
@@ -596,6 +598,7 @@ impl SpellAbility {
             ir,
             target_restrictions,
             target_chosen: TargetChoices::default(),
+            parent_targeting_card: None,
             pay_costs: cost,
             sub_ability: None,
             wrapped_ability: None,
