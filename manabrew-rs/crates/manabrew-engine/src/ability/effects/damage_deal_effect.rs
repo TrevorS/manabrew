@@ -441,6 +441,17 @@ fn evaluate_svar_expr(ctx: &EffectContext, sa: &SpellAbility, expr: &str) -> i32
             );
         }
     }
+    if expr.starts_with("SVar$") {
+        if let Some(source_id) = sa.source {
+            return crate::svar::resolve_svar_expression(
+                expr,
+                ctx.game,
+                source_id,
+                sa.activating_player,
+                sa,
+            );
+        }
+    }
     // Sacrificed$CardPower / Sacrificed$CardToughness — LKI from cost payment.
     // Used by Rite of Consumption: SVar:X:Sacrificed$CardPower
     if expr == "Sacrificed$CardPower" || expr == "Sacrificed$CardToughness" {
