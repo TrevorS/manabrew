@@ -17,7 +17,6 @@ import { GHOST_CLICK_ARM_MS } from "@/lib/responsive";
 import type { TargetRef } from "@/protocol/prompts/common";
 import { intentIsHostile } from "@/types/promptType";
 import type { BoardScene } from "./board/BoardScene";
-import type { BlockingRect } from "./board/types";
 import { useKeybindings } from "@/hooks/useKeybindings";
 import { PromptLayer } from "./prompts/PromptLayer";
 import type { PromptOverlaySpec } from "./prompts/prompt.types";
@@ -357,7 +356,6 @@ export function BoardOverlayCanvas({
     let initialized = false;
     let destroyed = false;
     let registeredScene: BoardScene | null = null;
-    let lastPromptBlockers = "";
     let arrow: ArrowLayer | null = null;
     let stack: StackLayer | null = null;
     let prompt: PromptLayer | null = null;
@@ -393,7 +391,6 @@ export function BoardOverlayCanvas({
       registeredScene?.setOverlayInvalidation(null);
       registeredScene?.setOverlayHitTest(null);
       registeredScene?.setPromptReference(null);
-      registeredScene?.setPlayerBlockers(new Map());
       stack?.setPromptReference(null, null);
       arrow?.destroy();
       stack?.destroy();
@@ -553,9 +550,7 @@ export function BoardOverlayCanvas({
             registeredScene?.setOverlayInvalidation(null);
             registeredScene?.setOverlayHitTest(null);
             registeredScene?.setPromptReference(null);
-            registeredScene?.setPlayerBlockers(new Map());
             registeredScene = currentScene;
-            lastPromptBlockers = "";
             registeredScene?.setStackAnchorProvider(stack);
             registeredScene?.setOverlayInvalidation(() => scheduler?.request());
             registeredScene?.setOverlayHitTest(
@@ -569,30 +564,6 @@ export function BoardOverlayCanvas({
           }
 
           promptLayer.update(deltaMs);
-          if (currentScene) {
-            const bounds = promptLayer.getActionBounds();
-            const spec = promptSpecRef.current;
-            const blockers = new Map<string, BlockingRect[]>();
-            if (bounds && spec) {
-              blockers.set(spec.localPlayerId, [
-                { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
-              ]);
-              if (promptLayer.compactAction) {
-                for (const player of spec.gameView.players) {
-                  if (player.id !== spec.localPlayerId) {
-                    blockers.set(player.id, [
-                      { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
-                    ]);
-                  }
-                }
-              }
-            }
-            const blockerKey = JSON.stringify([...blockers]);
-            if (blockerKey !== lastPromptBlockers) {
-              lastPromptBlockers = blockerKey;
-              currentScene.setPlayerBlockers(blockers);
-            }
-          }
 
           const definitions = currentScene?.getArrowDefs() ?? [];
           arrow?.update(definitions, deltaMs);
