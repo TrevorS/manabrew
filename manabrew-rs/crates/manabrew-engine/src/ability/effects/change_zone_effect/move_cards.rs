@@ -171,27 +171,13 @@ pub(super) fn move_cards(
 
     // AtEOT$ delayed triggers
     if let Some(eot_svar) = sa.ir.at_eot.as_deref() {
-        for &cid in &moved {
-            ctx.trigger_handler
-                .register_delayed_trigger(crate::trigger::handler::DelayedTrigger {
-                    mode: TriggerType::Phase,
-                    trigger_mode: Box::new(crate::trigger::trigger_always::TriggerAlways)
-                        as Box<dyn crate::trigger::TriggerBehavior>,
-                    params: crate::parsing::Params::default(),
-                    execute_svar: eot_svar.to_string(),
-                    controller,
-                    source_card: sa.source.unwrap_or(cid),
-                    created_turn: ctx.game.turn.turn_number,
-                    created_phase: ctx.game.turn.phase,
-                    target_card: Some(cid),
-                    remembered_amount: 0,
-                    remembered_cards: Vec::new(),
-                    remembered_players: Vec::new(),
-                    remembered_lki_cards: Vec::new(),
-                    sort_after_active: false,
-                    trigger_order: None,
-                });
-        }
+        crate::ability::spell_ability_effect::register_at_eot(
+            ctx.trigger_handler,
+            ctx.game,
+            sa,
+            eot_svar,
+            moved.clone(),
+        );
     }
 
     // Duration$ UntilHostLeavesPlay — mark exiled cards for return

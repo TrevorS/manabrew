@@ -793,13 +793,18 @@ pub fn register_at_eot(
     if remembered.is_empty() {
         return;
     }
-    let action = action.parse::<AtEotAction>().unwrap_or_default();
+    let your = action.starts_with("Your");
+    let action = action
+        .strip_prefix("Your")
+        .unwrap_or(action)
+        .parse::<AtEotAction>()
+        .unwrap_or_default();
     let execute_svar = action.execute_svar().to_string();
     trigger_handler.register_delayed_trigger(crate::trigger::handler::DelayedTrigger {
         mode: crate::trigger::TriggerType::Phase,
         trigger_mode: Box::new(crate::trigger::trigger_phase::TriggerPhase {
             phases: vec![forge_foundation::PhaseType::EndOfTurn],
-            valid_player: None,
+            valid_player: your.then(|| crate::parsing::cached_compiled_selector("You")),
         }) as Box<dyn crate::trigger::TriggerBehavior>,
         params: crate::parsing::Params::default(),
         execute_svar,
