@@ -137,6 +137,13 @@ export function GameSettingsModal({ onClose }: { onClose: () => void }) {
             onChange={prefs.setChooseOrderOnMultipleTriggers}
             hint="When off, simultaneous triggers are ordered automatically."
           />
+          <Choice
+            label="Touch feedback"
+            value={prefs.hapticFeedback}
+            options={ON_OFF}
+            onChange={prefs.setHapticFeedback}
+            hint="Short vibrations on long-press recognition, placements, and rejected drops. Only takes effect on devices that support it."
+          />
         </Section>
         <Section title="Board appearance">
           <div className="space-y-2">

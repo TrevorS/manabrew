@@ -39,6 +39,7 @@ import { LongPressGesture } from "../LongPressGesture";
 import { PREVIEW_TIMING, type PreviewPointerInput } from "@/lib/cardPreview";
 import { topModal } from "@/lib/modalStack";
 import { TOUCH_MOVE_SLOP_PX } from "@/lib/responsive";
+import { haptic } from "@/lib/haptics";
 import { intentIsHostile } from "@/types/promptType";
 import {
   GAP,
@@ -2005,6 +2006,7 @@ export class BoardScene {
     sprite: CardSprite,
     selectionBeforePress: ReadonlySet<string> | null = null,
   ): void {
+    haptic("select");
     if (this.dragHandler.isDragging) {
       const state = region.getLastState();
       if (state) region.updateBattlefield(state);
@@ -2252,6 +2254,7 @@ export class BoardScene {
       const ud = this.unassignDrag;
       this.unassignDrag = null;
       if (ud.overOwn) {
+        haptic("confirm");
         this.callbacks.onUnassignAttacker?.(ud.cardId);
       } else {
         const state = ud.region.getLastState();
@@ -2260,6 +2263,7 @@ export class BoardScene {
       return;
     }
     if (this.blockDragBlockerId) {
+      haptic("confirm");
       this.callbacks.onUnassignBlock?.(this.blockDragBlockerId);
       this.setBlockDragId(null);
       return;
@@ -2284,15 +2288,18 @@ export class BoardScene {
       this.setAttackDragId(null);
       local.hideGridSkeleton();
       if (result?.wasDrag) {
+        let assigned = false;
         for (const id of draggedIds) {
           const opt = this.attackerOptions.find((a) => a.attackerId === id);
           if (!opt) continue;
           if (targetId && opt.validTargetIds.includes(targetId)) {
+            assigned = true;
             this.callbacks.onAssignAttacker?.(id, targetId);
           } else {
             this.callbacks.onUnassignAttacker?.(id);
           }
         }
+        if (assigned) haptic("confirm");
       }
       const state = local.getLastState();
       if (state) local.updateBattlefield(state);
@@ -2320,6 +2327,7 @@ export class BoardScene {
     } else if (hoveredCell) {
       local.commitCellDrop(draggedIds, hoveredCell, primaryId);
     }
+    haptic(stackTargetId || hoveredCell ? "confirm" : "warn");
     const state = local.getLastState();
     if (state) local.updateBattlefield(state);
   }
