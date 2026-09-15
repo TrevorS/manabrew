@@ -197,6 +197,7 @@ struct CapturingAgent {
     current_turn: u32,
     current_phase: String,
     last_game_state: Option<GameState>,
+    pending_turn_snapshot: Option<crate::protocol::StateSnapshot>,
     pending_pay_mana_cost_args: Option<Vec<String>>,
     pending_pay_mana_cost_card: Option<CardId>,
     failed_payment_cards_this_turn: HashSet<CardId>,
@@ -295,6 +296,7 @@ impl CapturingAgent {
             current_turn: 0,
             current_phase: "Unknown".to_string(),
             last_game_state: None,
+            pending_turn_snapshot: None,
             pending_pay_mana_cost_args: None,
             pending_pay_mana_cost_card: None,
             failed_payment_cards_this_turn: HashSet::new(),
@@ -551,8 +553,10 @@ impl PlayerAgent for CapturingAgent {
                 self.pending_pay_mana_cost_args = None;
                 self.pending_pay_mana_cost_card = None;
                 if self.capture_snapshots {
-                    if let Some(ref game) = self.last_game_state {
-                        let mut snap = snapshot_game(game);
+                    let pending = self.pending_turn_snapshot.take();
+                    if let Some(mut snap) =
+                        pending.or_else(|| self.last_game_state.as_ref().map(snapshot_game))
+                    {
                         snap.phase = "Untap".to_string();
                         let active = snap.active_player as usize;
                         for (i, p) in snap.players.iter_mut().enumerate() {
@@ -636,6 +640,9 @@ impl PlayerAgent for CapturingAgent {
 
     fn snapshot_state(&mut self, game: &GameState, mana_pools: &[manabrew_engine::mana::ManaPool]) {
         self.inner.snapshot_state(game, mana_pools);
+        if self.capture_snapshots && game.turn.turn_number != self.current_turn {
+            self.pending_turn_snapshot = Some(snapshot_game(game));
+        }
         self.last_game_state = Some(Self::shallow_game_state(game));
         self.stop_if_card_copy_guard_tripped(game);
         self.stop_if_decision_guard_tripped(game);
