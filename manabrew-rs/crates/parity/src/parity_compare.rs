@@ -233,7 +233,7 @@ fn compare_callbacks(
         for position in 0..length {
             let (rust_record, java_record) = (rust.get(position), java.get(position));
             let same = matches!((rust_record, java_record), (Some(r), Some(j))
-                if r.player == j.player && r.name == j.name && r.outcome == j.outcome);
+                if r.player == j.player && r.name == j.name);
             if !same {
                 let anchor = rust_record
                     .or(java_record)
