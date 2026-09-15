@@ -135,7 +135,10 @@ impl TriggerBehavior for TriggerDamageDoneOnce {
         }
         let sources = self.damage_sources(trigger, params, game);
         if !sources.is_empty() {
-            sa.set_triggering_object(crate::ability::AbilityKey::Sources, sources);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Sources,
+                crate::event::AbilityValue::Cards(sources),
+            );
         }
         if let Some(p) = params.attacking_player {
             sa.set_triggering_value(

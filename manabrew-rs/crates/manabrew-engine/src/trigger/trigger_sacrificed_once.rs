@@ -50,7 +50,10 @@ impl TriggerBehavior for TriggerSacrificedOnce {
     ) {
         // TODO: port ValidCard filtering from Java (CardLists.getValidCards)
         if let Some(cards) = params.cards.as_ref() {
-            sa.set_triggering_object(crate::ability::AbilityKey::Cards, cards.clone());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Cards,
+                crate::event::AbilityValue::Cards(cards.clone()),
+            );
             sa.set_triggering_object(crate::ability::AbilityKey::Amount, cards.len().to_string());
         }
         if let Some(p) = params.player {

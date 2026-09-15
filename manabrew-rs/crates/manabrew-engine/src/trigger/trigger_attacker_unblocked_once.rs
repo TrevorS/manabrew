@@ -56,19 +56,22 @@ impl TriggerBehavior for TriggerAttackerUnblockedOnce {
         }
         // Defenders combines both player and card defender IDs
         {
-            let mut parts = Vec::new();
+            let mut objects = Vec::new();
             if let Some(players) = params.defenders_player_ids.as_ref() {
                 for p in players {
-                    parts.push(p.0.to_string());
+                    objects.push(crate::agent::GameEntity::Player(*p));
                 }
             }
             if let Some(cards) = params.defenders_card_ids.as_ref() {
                 for c in cards {
-                    parts.push(c.0.to_string());
+                    objects.push(crate::agent::GameEntity::Card(*c));
                 }
             }
-            if !parts.is_empty() {
-                sa.set_triggering_object(crate::ability::AbilityKey::Defenders, parts.join(","));
+            if !objects.is_empty() {
+                sa.set_triggering_value(
+                    crate::ability::AbilityKey::Defenders,
+                    crate::event::AbilityValue::GameEntities(objects),
+                );
             }
         }
     }
@@ -82,8 +85,8 @@ impl TriggerBehavior for TriggerAttackerUnblockedOnce {
             "AttackingPlayer: {}, Defenders: {}",
             sa.get_triggering_object_text(crate::ability::AbilityKey::AttackingPlayer)
                 .unwrap_or_default(),
-            sa.get_triggering_object(crate::ability::AbilityKey::Defenders)
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Defenders)
+                .unwrap_or_default()
         )
     }
 }

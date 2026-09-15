@@ -63,9 +63,15 @@ impl TriggerBehavior for TriggerDamageDealtOnce {
             sa.set_triggering_object(crate::ability::AbilityKey::DamageAmount, amount.to_string());
         }
         if let Some(card) = params.damage_target_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Targets, card.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Targets,
+                crate::event::AbilityValue::Cards(vec![card]),
+            );
         } else if let Some(player) = params.damage_target_player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Targets, player.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Targets,
+                crate::event::AbilityValue::Players(vec![player]),
+            );
         }
     }
 

@@ -70,15 +70,28 @@ impl TriggerBehavior for TriggerAttacks {
             params.defenders_card_ids.as_ref(),
         ) {
             (Some(players), None) => {
-                sa.set_triggering_object(crate::ability::AbilityKey::Defenders, players.clone());
+                sa.set_triggering_value(
+                    crate::ability::AbilityKey::Defenders,
+                    crate::event::AbilityValue::Players(players.clone()),
+                );
             }
             (None, Some(cards)) => {
-                sa.set_triggering_object(crate::ability::AbilityKey::Defenders, cards.clone());
+                sa.set_triggering_value(
+                    crate::ability::AbilityKey::Defenders,
+                    crate::event::AbilityValue::Cards(cards.clone()),
+                );
             }
             (Some(players), Some(cards)) => {
-                let mut parts: Vec<String> = players.iter().map(|p| p.0.to_string()).collect();
-                parts.extend(cards.iter().map(|c| c.0.to_string()));
-                sa.set_triggering_object(crate::ability::AbilityKey::Defenders, parts.join(","));
+                let objects = players
+                    .iter()
+                    .copied()
+                    .map(crate::agent::GameEntity::Player)
+                    .chain(cards.iter().copied().map(crate::agent::GameEntity::Card))
+                    .collect();
+                sa.set_triggering_value(
+                    crate::ability::AbilityKey::Defenders,
+                    crate::event::AbilityValue::GameEntities(objects),
+                );
             }
             (None, None) => {}
         }

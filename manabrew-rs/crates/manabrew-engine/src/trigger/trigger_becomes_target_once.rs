@@ -65,9 +65,15 @@ impl TriggerBehavior for TriggerBecomesTargetOnce {
         }
         // Targets from the batch targeting event
         if let Some(card) = params.target_card.or(params.card) {
-            sa.set_triggering_object(crate::ability::AbilityKey::Targets, card.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Targets,
+                crate::event::AbilityValue::Cards(vec![card]),
+            );
         } else if let Some(p) = params.target_player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Targets, p.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Targets,
+                crate::event::AbilityValue::Players(vec![p]),
+            );
         }
     }
 

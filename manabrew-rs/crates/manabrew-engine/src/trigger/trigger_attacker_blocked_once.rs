@@ -63,7 +63,10 @@ impl TriggerBehavior for TriggerAttackerBlockedOnce {
         _game: &GameState,
     ) {
         if let Some(attackers) = params.attacker_ids.as_ref() {
-            sa.set_triggering_object(AbilityKey::Attackers, attackers.clone());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Attackers,
+                crate::event::AbilityValue::Cards(attackers.clone()),
+            );
         }
     }
 

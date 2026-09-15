@@ -53,12 +53,21 @@ impl TriggerBehavior for TriggerDamageAll {
             sa.set_triggering_object(crate::ability::AbilityKey::DamageAmount, amount.to_string());
         }
         if let Some(src) = params.damage_source {
-            sa.set_triggering_object(crate::ability::AbilityKey::Sources, src.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Sources,
+                crate::event::AbilityValue::Cards(vec![src]),
+            );
         }
         if let Some(card) = params.damage_target_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Targets, card.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Targets,
+                crate::event::AbilityValue::Cards(vec![card]),
+            );
         } else if let Some(player) = params.damage_target_player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Targets, player.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Targets,
+                crate::event::AbilityValue::Players(vec![player]),
+            );
         }
     }
 
@@ -70,8 +79,8 @@ impl TriggerBehavior for TriggerDamageAll {
         // Java: "Damage Source: " + Sources + ", Damaged: " + Targets + ", Amount: " + DamageAmount
         format!(
             "Damage Source: {}, Damaged: {}, Amount: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Sources)
-                .unwrap_or(""),
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Sources)
+                .unwrap_or_default(),
             sa.get_triggering_object_text(crate::ability::AbilityKey::Targets)
                 .unwrap_or_default(),
             sa.get_triggering_object(crate::ability::AbilityKey::DamageAmount)

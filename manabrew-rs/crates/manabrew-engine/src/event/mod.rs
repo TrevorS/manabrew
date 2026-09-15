@@ -76,6 +76,14 @@ impl AbilityValue {
                 .map(|player| player.0.to_string())
                 .collect::<Vec<_>>()
                 .join(","),
+            AbilityValue::GameEntities(entities) => entities
+                .iter()
+                .map(|entity| match entity {
+                    crate::agent::GameEntity::Card(card) => card.0.to_string(),
+                    crate::agent::GameEntity::Player(player) => player.0.to_string(),
+                })
+                .collect::<Vec<_>>()
+                .join(","),
             AbilityValue::String(value) => value.clone(),
             AbilityValue::Int(value) => value.to_string(),
             AbilityValue::Bool(value) => value.to_string(),
