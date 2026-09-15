@@ -339,13 +339,16 @@ pub(super) fn resolve_hidden_origin(
     }
 
     let search_player = if sa.defined_player().is_none() {
-        sa.target_chosen.target_player.unwrap_or_else(|| {
-            if defined.eq_ignore_ascii_case("Opponent") {
-                ctx.game.opponent_of(controller)
-            } else {
-                controller
-            }
-        })
+        sa.target_chosen
+            .target_player
+            .filter(|_| sa.uses_targeting())
+            .unwrap_or_else(|| {
+                if defined.eq_ignore_ascii_case("Opponent") {
+                    ctx.game.opponent_of(controller)
+                } else {
+                    controller
+                }
+            })
     } else if defined.eq_ignore_ascii_case("Opponent") {
         ctx.game.opponent_of(controller)
     } else {
