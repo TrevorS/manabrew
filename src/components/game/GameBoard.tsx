@@ -809,6 +809,11 @@ export function GameBoard({
     }
     return [...ids];
   }, [combatRows, me.id]);
+  const combatActive =
+    promptType === "chooseAttackers" ||
+    promptType === "chooseBlockers" ||
+    combatRows.length > 0 ||
+    combatAssignmentsAll.length > 0;
 
   const cycleField = (dir: 1 | -1) => {
     if (opponents.length === 0 || document.querySelector('[role="dialog"]')) return;
@@ -1923,6 +1928,7 @@ export function GameBoard({
             combatFocusIds.length > 0
           }
           combatFocusIds={combatFocusIds}
+          combatActive={combatActive}
           manualFocusId={manualFocusId}
           playerBars={hudBarSpecs}
           showPlayerBars

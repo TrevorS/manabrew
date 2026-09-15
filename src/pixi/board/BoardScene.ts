@@ -507,6 +507,7 @@ export class BoardScene {
     players: BoardPlayerSpec[],
     layout: BoardLayout,
     scales: { self: number; opponent: number },
+    combatRowReserved = true,
   ): void {
     if (this.destroyed) return;
     this.cardScale = scales.self;
@@ -527,6 +528,7 @@ export class BoardScene {
         existing.zone = zone;
         existing.region.container.zIndex = zIndex;
         existing.region.setOverviewMode(this.overview && !spec.isLocal);
+        existing.region.setCombatRowReserved(combatRowReserved);
         existing.region.setZone(zone, orientation);
         existing.region.setCardScale(regionScale);
         existing.region.setPlaymatSettings(spec.playmatSettings);
@@ -538,7 +540,7 @@ export class BoardScene {
         this.root,
         zone,
         regionScale,
-        { orientation },
+        { orientation, combatRowReserved },
       );
       region.setPlaymatSettings(spec.playmatSettings);
       region.setOverviewMode(this.overview && !spec.isLocal);

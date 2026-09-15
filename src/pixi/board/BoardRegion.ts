@@ -98,6 +98,7 @@ const OVERFLOW_PRIORITY: Record<BattlefieldCardCategory, number> = {
 
 interface BoardRegionOptions {
   orientation: RegionOrientation;
+  combatRowReserved: boolean;
 }
 
 const ENTRANCE_LAND_PX = 8;
@@ -129,6 +130,7 @@ export class BoardRegion {
   private clipX: number | null = null;
   private clipWidth: number | null = null;
   private cardScale: number;
+  private combatRowReserved: boolean;
   private overview = false;
   private seatColor: string;
   private seatName = "";
@@ -184,6 +186,7 @@ export class BoardRegion {
     this.host = host;
     this.seatColor = host.getTheme().gameTheme.canvas.neutral;
     this.cardScale = cardScale;
+    this.combatRowReserved = options.combatRowReserved;
     this.mirrored = options.orientation !== "bottom";
 
     this.container = new Container();
@@ -453,6 +456,12 @@ export class BoardRegion {
   setCardScale(scale: number): void {
     if (!Number.isFinite(scale) || scale <= 0 || scale === this.cardScale) return;
     this.cardScale = scale;
+    if (this.lastState) this.updateBattlefield(this.lastState);
+    else this.placeZoneTiles(this.freshGrid(), new Set());
+  }
+  setCombatRowReserved(reserved: boolean): void {
+    if (reserved === this.combatRowReserved) return;
+    this.combatRowReserved = reserved;
     if (this.lastState) this.updateBattlefield(this.lastState);
     else this.placeZoneTiles(this.freshGrid(), new Set());
   }
@@ -1633,7 +1642,7 @@ export class BoardRegion {
 
   private playArea(): PlayZoneRect {
     const z = this.usableZone();
-    const reserve = combatRowReserve(this.cardScale);
+    const reserve = this.combatRowReserved ? combatRowReserve(this.cardScale) : 0;
     return {
       x: z.x,
       y: z.y + (this.mirrored ? 0 : FIELD_INNER_EDGE_PAD_PX + reserve),
