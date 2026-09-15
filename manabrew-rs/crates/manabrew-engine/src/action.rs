@@ -203,6 +203,25 @@ impl GameState {
                 let counter_type =
                     crate::ability::effects::parse_counter_type(parts.next().unwrap_or_default());
                 let amount_text = parts.next().unwrap_or_default();
+                if let Some(extra_params) = parts
+                    .next()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty() && *value != "no Condition")
+                {
+                    let params = crate::parsing::Params::from_raw(extra_params);
+                    let requirements =
+                        crate::card::valid_filter::CardTraitRequirementsIr::from_key_values(
+                            params.iter(),
+                            params
+                                .selector_untracked(crate::parsing::keys::IS_PRESENT)
+                                .cloned(),
+                            params.selector_untracked("IsPresent2").cloned(),
+                        );
+                    let card = &self.cards[card_id.index()];
+                    if !requirements.meets(self, card, card) {
+                        continue;
+                    }
+                }
                 let amount = amount_text.parse::<i32>().unwrap_or_else(|_| {
                     let card = &self.cards[card_id.index()];
                     card.svars
