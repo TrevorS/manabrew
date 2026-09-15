@@ -115,18 +115,33 @@ impl TriggerBehavior for TriggerDamageDoneOnce {
         game: &GameState,
     ) {
         if let Some(card) = params.damage_target_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Target, card);
-            sa.set_triggering_object(crate::ability::AbilityKey::TargetCard, card);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Target,
+                crate::event::AbilityValue::Card(card),
+            );
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::TargetCard,
+                crate::event::AbilityValue::Card(card),
+            );
         } else if let Some(player) = params.damage_target_player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Target, player);
-            sa.set_triggering_object(crate::ability::AbilityKey::TargetPlayer, player);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Target,
+                crate::event::AbilityValue::Player(player),
+            );
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::TargetPlayer,
+                crate::event::AbilityValue::Player(player),
+            );
         }
         let sources = self.damage_sources(trigger, params, game);
         if !sources.is_empty() {
             sa.set_triggering_object(crate::ability::AbilityKey::Sources, sources);
         }
         if let Some(p) = params.attacking_player {
-            sa.set_triggering_object(crate::ability::AbilityKey::AttackingPlayer, p);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::AttackingPlayer,
+                crate::event::AbilityValue::Player(p),
+            );
         }
         let amount = self.damage_amount(trigger, params, game);
         sa.set_triggering_object(crate::ability::AbilityKey::DamageAmount, amount.to_string());

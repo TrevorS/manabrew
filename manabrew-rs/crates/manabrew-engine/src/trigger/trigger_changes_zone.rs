@@ -164,7 +164,10 @@ impl TriggerBehavior for TriggerChangesZone {
         //        else: copy both Card and CardLKI from runParams
         if trigger.ir.origin_zone == Some(forge_foundation::ZoneType::Battlefield) {
             if let Some(card_id) = params.card_lki.or(params.card) {
-                sa.set_triggering_object(crate::ability::AbilityKey::Card, card_id);
+                sa.set_triggering_value(
+                    crate::ability::AbilityKey::Card,
+                    crate::event::AbilityValue::Card(card_id),
+                );
                 if let Some(power) = params.lki_power {
                     sa.set_triggering_object(
                         crate::ability::AbilityKey::TriggeredCardPower,
@@ -179,14 +182,23 @@ impl TriggerBehavior for TriggerChangesZone {
                 }
             }
             if let Some(card_id) = params.card {
-                sa.set_triggering_object(crate::ability::AbilityKey::NewCard, card_id);
+                sa.set_triggering_value(
+                    crate::ability::AbilityKey::NewCard,
+                    crate::event::AbilityValue::Card(card_id),
+                );
             }
         } else {
             if let Some(card_id) = params.card {
-                sa.set_triggering_object(crate::ability::AbilityKey::Card, card_id);
+                sa.set_triggering_value(
+                    crate::ability::AbilityKey::Card,
+                    crate::event::AbilityValue::Card(card_id),
+                );
             }
             if let Some(card_lki) = params.card_lki {
-                sa.set_triggering_object(crate::ability::AbilityKey::CardLKI, card_lki);
+                sa.set_triggering_value(
+                    crate::ability::AbilityKey::CardLKI,
+                    crate::event::AbilityValue::Card(card_lki),
+                );
             }
         }
     }

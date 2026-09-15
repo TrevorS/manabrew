@@ -2558,7 +2558,10 @@ mod tests {
         let host_id = game.create_card(host);
 
         let mut sa = SpellAbility::new_simple(Some(host_id), p0, "DB$ GainLife | LifeAmount$ X");
-        sa.set_triggering_object(crate::ability::AbilityKey::AttackedTarget, p1);
+        sa.set_triggering_value(
+            crate::ability::AbilityKey::AttackedTarget,
+            crate::event::AbilityValue::Player(p1),
+        );
 
         assert_eq!(resolve_numeric_svar(&game, &sa, "LifeAmount", 0), 14);
     }
@@ -2623,7 +2626,10 @@ mod tests {
             p0,
             "DB$ LoseLife | Defined$ TriggeredTarget | LifeAmount$ X",
         );
-        sa.set_triggering_object(crate::ability::AbilityKey::TargetPlayer, p1);
+        sa.set_triggering_value(
+            crate::ability::AbilityKey::TargetPlayer,
+            crate::event::AbilityValue::Player(p1),
+        );
 
         assert_eq!(resolve_numeric_svar(&game, &sa, "LifeAmount", 0), 5);
     }

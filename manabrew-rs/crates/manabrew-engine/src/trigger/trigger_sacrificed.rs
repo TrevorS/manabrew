@@ -49,7 +49,10 @@ impl TriggerBehavior for TriggerSacrificed {
         _game: &GameState,
     ) {
         if let Some(card) = params.card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Card, card);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Card,
+                crate::event::AbilityValue::Card(card),
+            );
         }
     }
 

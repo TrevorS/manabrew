@@ -54,14 +54,29 @@ impl TriggerBehavior for TriggerDamageDone {
         // Java: sa.setTriggeringObject(AbilityKey.Source, CardCopyService.getLKICopy(DamageSource))
         // TODO: Java uses CardCopyService.getLKICopy for the source. We just use the ID directly.
         if let Some(src) = params.damage_source {
-            sa.set_triggering_object(crate::ability::AbilityKey::Source, src);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Source,
+                crate::event::AbilityValue::Card(src),
+            );
         }
         if let Some(card) = params.damage_target_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Target, card);
-            sa.set_triggering_object(crate::ability::AbilityKey::TargetCard, card);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Target,
+                crate::event::AbilityValue::Card(card),
+            );
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::TargetCard,
+                crate::event::AbilityValue::Card(card),
+            );
         } else if let Some(player) = params.damage_target_player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Target, player);
-            sa.set_triggering_object(crate::ability::AbilityKey::TargetPlayer, player);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Target,
+                crate::event::AbilityValue::Player(player),
+            );
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::TargetPlayer,
+                crate::event::AbilityValue::Player(player),
+            );
         }
         // TODO: Java also sets Cause (SpellAbility) from runParams.
         // Skipping Cause for now since SpellAbility is complex and stored as object in Java.
@@ -69,7 +84,10 @@ impl TriggerBehavior for TriggerDamageDone {
             sa.set_triggering_object(crate::ability::AbilityKey::DamageAmount, amount.to_string());
         }
         if let Some(p) = params.defending_player {
-            sa.set_triggering_object(crate::ability::AbilityKey::DefendingPlayer, p);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::DefendingPlayer,
+                crate::event::AbilityValue::Player(p),
+            );
         }
     }
 

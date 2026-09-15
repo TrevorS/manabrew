@@ -54,7 +54,10 @@ impl TriggerBehavior for TriggerSacrificedOnce {
             sa.set_triggering_object(crate::ability::AbilityKey::Amount, cards.len().to_string());
         }
         if let Some(p) = params.player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Player, p);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Player,
+                crate::event::AbilityValue::Player(p),
+            );
         }
         // TODO: port SpellAbility triggering object (AbilityKey.Cause)
     }

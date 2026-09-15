@@ -56,7 +56,10 @@ impl TriggerBehavior for TriggerCrewedSaddled {
         _game: &GameState,
     ) {
         if let Some(card) = params.card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Card, card);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Card,
+                crate::event::AbilityValue::Card(card),
+            );
         }
         if let Some(crew) = params.crew_cards.as_ref() {
             sa.set_triggering_object(crate::ability::AbilityKey::Crew, crew.clone());

@@ -53,7 +53,10 @@ impl TriggerBehavior for TriggerAttacks {
         }
         // Java: sa.setTriggeringObjectsFrom(runParams, AbilityKey.Attacker, AbilityKey.Defenders, AbilityKey.DefendingPlayer);
         if let Some(attacker) = params.attacker {
-            sa.set_triggering_object(crate::ability::AbilityKey::Attacker, attacker);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Attacker,
+                crate::event::AbilityValue::Card(attacker),
+            );
         }
         // Defenders combines both player and card defender IDs
         match (
@@ -74,7 +77,10 @@ impl TriggerBehavior for TriggerAttacks {
             (None, None) => {}
         }
         if let Some(p) = params.defending_player {
-            sa.set_triggering_object(crate::ability::AbilityKey::DefendingPlayer, p);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::DefendingPlayer,
+                crate::event::AbilityValue::Player(p),
+            );
         }
     }
 
