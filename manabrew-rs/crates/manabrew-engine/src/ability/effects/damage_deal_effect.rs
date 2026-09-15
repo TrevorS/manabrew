@@ -508,6 +508,6 @@ fn evaluate_svar_expr(ctx: &EffectContext, sa: &SpellAbility, expr: &str) -> i32
             .parent_target_card
             .map(|id| ctx.game.card(id).toughness())
             .unwrap_or(0),
-        _ => 0,
+        _ => crate::svar::resolve_numeric_value(ctx.game, sa, expr, 0),
     }
 }
