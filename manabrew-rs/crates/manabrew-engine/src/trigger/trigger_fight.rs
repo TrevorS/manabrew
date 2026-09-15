@@ -41,14 +41,17 @@ impl TriggerBehavior for TriggerFight {
         _game: &GameState,
     ) {
         if let Some(card) = params.card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Fighter, card.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Fighter,
+                crate::event::AbilityValue::Card(card),
+            );
         }
     }
 
     fn get_important_stack_objects(&self, _trigger: &Trigger, sa: &SpellAbility) -> String {
         format!(
             "Fighter: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Fighter)
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Fighter)
                 .unwrap_or_default()
         )
     }

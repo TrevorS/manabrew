@@ -52,9 +52,15 @@ impl TriggerBehavior for TriggerAttackerUnblocked {
             );
         }
         if let Some(c) = params.attacked_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Defender, c.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Defender,
+                crate::event::AbilityValue::Card(c),
+            );
         } else if let Some(p) = params.attacked_player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Defender, p.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Defender,
+                crate::event::AbilityValue::Player(p),
+            );
         }
         if let Some(p) = params.defending_player {
             sa.set_triggering_value(

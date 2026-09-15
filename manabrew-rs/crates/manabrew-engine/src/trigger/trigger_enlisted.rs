@@ -57,7 +57,10 @@ impl TriggerBehavior for TriggerEnlisted {
             );
         }
         if let Some(enlisted) = params.enlisted {
-            sa.set_triggering_object(crate::ability::AbilityKey::Enlisted, enlisted.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Enlisted,
+                crate::event::AbilityValue::Card(enlisted),
+            );
         }
     }
 

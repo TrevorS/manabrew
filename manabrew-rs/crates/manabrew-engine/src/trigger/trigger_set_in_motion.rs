@@ -41,7 +41,10 @@ impl TriggerBehavior for TriggerSetInMotion {
         _game: &GameState,
     ) {
         if let Some(card) = params.card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Scheme, card.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Scheme,
+                crate::event::AbilityValue::Card(card),
+            );
         }
     }
 

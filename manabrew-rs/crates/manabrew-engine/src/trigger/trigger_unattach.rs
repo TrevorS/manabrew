@@ -41,10 +41,16 @@ impl TriggerBehavior for TriggerUnattach {
         _game: &GameState,
     ) {
         if let Some(obj) = params.object_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Object, obj.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Object,
+                crate::event::AbilityValue::Card(obj),
+            );
         }
         if let Some(src) = params.source_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::AttachSource, src.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::AttachSource,
+                crate::event::AbilityValue::Card(src),
+            );
         }
     }
 

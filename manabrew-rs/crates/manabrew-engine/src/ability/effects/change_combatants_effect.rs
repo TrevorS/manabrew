@@ -87,15 +87,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 if let Some(original) = original_defender {
                     match original {
                         crate::combat::DefenderId::Player(pid) => {
-                            entry.set_triggering_object(
+                            entry.spell_ability.set_triggering_value(
                                 crate::ability::AbilityKey::OriginalDefender,
-                                &pid.0.to_string(),
+                                crate::event::AbilityValue::Player(pid),
                             );
                         }
                         crate::combat::DefenderId::Permanent(cid) => {
-                            entry.set_triggering_object(
+                            entry.spell_ability.set_triggering_value(
                                 crate::ability::AbilityKey::OriginalDefender,
-                                &cid.0.to_string(),
+                                crate::event::AbilityValue::Card(cid),
                             );
                         }
                     }

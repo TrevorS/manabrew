@@ -64,7 +64,10 @@ impl TriggerBehavior for TriggerPhase {
                 crate::ability::AbilityKey::Player,
                 crate::event::AbilityValue::Player(p),
             );
-            sa.set_triggering_object(crate::ability::AbilityKey::TriggeredPlayer, p);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::TriggeredPlayer,
+                crate::event::AbilityValue::Player(p),
+            );
         }
     }
 

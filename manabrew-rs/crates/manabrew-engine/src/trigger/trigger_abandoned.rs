@@ -47,7 +47,10 @@ impl TriggerBehavior for TriggerAbandoned {
         _game: &GameState,
     ) {
         if let Some(v) = params.card.as_ref() {
-            sa.set_triggering_object(crate::ability::AbilityKey::Scheme, v.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Scheme,
+                crate::event::AbilityValue::Card(*v),
+            );
         }
     }
 

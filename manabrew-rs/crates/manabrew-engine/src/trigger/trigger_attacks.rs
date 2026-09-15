@@ -47,9 +47,15 @@ impl TriggerBehavior for TriggerAttacks {
     ) {
         // Java: sa.setTriggeringObject(AbilityKey.Defender, runParams.get(AbilityKey.Attacked));
         if let Some(p) = params.attacked_player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Defender, p);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Defender,
+                crate::event::AbilityValue::Player(p),
+            );
         } else if let Some(c) = params.attacked_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Defender, c);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Defender,
+                crate::event::AbilityValue::Card(c),
+            );
         }
         // Java: sa.setTriggeringObjectsFrom(runParams, AbilityKey.Attacker, AbilityKey.Defenders, AbilityKey.DefendingPlayer);
         if let Some(attacker) = params.attacker {

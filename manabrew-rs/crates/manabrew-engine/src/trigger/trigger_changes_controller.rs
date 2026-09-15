@@ -49,9 +49,9 @@ impl TriggerBehavior for TriggerChangesController {
             );
         }
         if let Some(p) = params.original_controller {
-            sa.set_triggering_object(
+            sa.set_triggering_value(
                 crate::ability::AbilityKey::OriginalController,
-                p.0.to_string(),
+                crate::event::AbilityValue::Player(p),
             );
         }
     }

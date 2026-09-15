@@ -48,7 +48,10 @@ impl TriggerBehavior for TriggerExplores {
         // Java: sa.setTriggeringObject(AbilityKey.Explorer, runParams.get(AbilityKey.Card));
         //       if (runParams.containsKey(AbilityKey.Explored)) sa.setTriggeringObjectsFrom(runParams, AbilityKey.Explored);
         if let Some(card_id) = params.card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Explorer, card_id.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Explorer,
+                crate::event::AbilityValue::Card(card_id),
+            );
         }
         if let Some(explored) = params.explored {
             sa.set_triggering_value(
@@ -62,7 +65,7 @@ impl TriggerBehavior for TriggerExplores {
         // Java: "Explorer: " + Explorer + optional ", Explored: " + Explored
         let mut sb = format!(
             "Explorer: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Explorer)
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Explorer)
                 .unwrap_or_default()
         );
         if let Some(explored) = sa.get_triggering_object_text(crate::ability::AbilityKey::Explored)

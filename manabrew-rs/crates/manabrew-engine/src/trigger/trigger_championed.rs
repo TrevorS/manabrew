@@ -52,7 +52,10 @@ impl TriggerBehavior for TriggerChampioned {
         _game: &GameState,
     ) {
         if let Some(c) = params.championed_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Championed, c.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Championed,
+                crate::event::AbilityValue::Card(c),
+            );
         }
         if let Some(card) = params.card {
             sa.set_triggering_value(

@@ -65,9 +65,15 @@ impl TriggerBehavior for TriggerCounterTypeAddedAll {
         _game: &GameState,
     ) {
         if let Some(obj) = params.object_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Object, obj.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Object,
+                crate::event::AbilityValue::Card(obj),
+            );
         } else if let Some(p) = params.object_player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Object, p.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Object,
+                crate::event::AbilityValue::Player(p),
+            );
         }
     }
 
