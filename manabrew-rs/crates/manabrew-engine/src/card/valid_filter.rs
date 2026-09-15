@@ -1446,6 +1446,11 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         "basic" => card.type_line.is_basic(),
         "snow" => card.type_line.is_snow(),
         "kicked" => card.kicked,
+        "teamwork" => card.cast_sa.as_ref().is_some_and(|cast_sa| {
+            cast_sa
+                .optional_costs
+                .contains(&crate::spellability::OptionalCost::Teamwork)
+        }),
         "cameundercontrolsincelastupkeep" => card.came_under_control_since_last_upkeep(),
         "noncreature" => !card.is_creature(),
         "nonland" => !card.is_land(),
@@ -2115,6 +2120,15 @@ fn matches_type_and_qualifier_parts(
                 }
                 "kicked" => {
                     if !card.kicked {
+                        return false;
+                    }
+                }
+                "teamwork" => {
+                    if !card.cast_sa.as_ref().is_some_and(|cast_sa| {
+                        cast_sa
+                            .optional_costs
+                            .contains(&crate::spellability::OptionalCost::Teamwork)
+                    }) {
                         return false;
                     }
                 }

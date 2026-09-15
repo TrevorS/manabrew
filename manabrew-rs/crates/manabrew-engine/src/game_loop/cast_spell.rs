@@ -919,6 +919,26 @@ impl GameLoop {
             mana_cost
         };
 
+        let teamwork_amount = game.card(card_id).get_keyword_cost("Teamwork");
+        let teamwork_cost = teamwork_amount.as_ref().map(|amount| {
+            crate::cost::parse_cost(&format!(
+                "tapXType<Any/Creature.YouCtrl+withTotalPowerGE{{{amount}}}>"
+            ))
+        });
+        let teamwork_paid = match (&teamwork_cost, &teamwork_amount) {
+            (Some(cost), Some(amount))
+                if crate::cost::can_pay(cost, game, None, card_id, player, None) =>
+            {
+                agents[player.index()].snapshot_state(game, &self.mana_pools);
+                agents[player.index()].choose_kicker(
+                    player,
+                    &format!("Teamwork<{amount}>"),
+                    Some(card_id),
+                )
+            }
+            _ => false,
+        };
+
         // Check Multikicker: pay kicker cost any number of times
         let kick_count = if let Some(mk_cost_str) = game.card(card_id).get_multikicker_cost() {
             let mk_mc = forge_foundation::ManaCost::parse(&mk_cost_str);
@@ -1304,6 +1324,9 @@ impl GameLoop {
         }
 
         sa.buyback_paid = buyback_paid;
+        if teamwork_paid {
+            sa.add_optional_cost(crate::spellability::OptionalCost::Teamwork);
+        }
         sa.kick_count = kick_count;
         sa.replicate_count = replicate_count;
         sa.x_mana_cost_paid = x_value;
@@ -2130,6 +2153,26 @@ impl GameLoop {
                     if !waterbend_tapped.contains(&cid) {
                         waterbend_tapped.push(cid);
                     }
+                }
+            }
+        }
+
+        if teamwork_paid {
+            if let Some(ref cost) = teamwork_cost {
+                if !self.pay_additional_costs(
+                    game,
+                    agents,
+                    player,
+                    card_id,
+                    cost,
+                    None,
+                    true,
+                    Some(&mut sa),
+                    None,
+                    None,
+                    None,
+                ) {
+                    rollback_cast!();
                 }
             }
         }

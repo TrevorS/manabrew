@@ -19,6 +19,7 @@ pub enum OptionalCost {
     Entwine,
     /// Bargain — sacrifice an artifact, enchantment, or token.
     Bargain,
+    Teamwork,
     /// Promise of a gift — offer a card to an opponent.
     PromiseGift,
     /// Retrace — cast from graveyard by discarding a land.
@@ -55,6 +56,7 @@ impl OptionalCost {
             OptionalCost::Buyback => "Buyback",
             OptionalCost::Entwine => "Entwine",
             OptionalCost::Bargain => "Bargain",
+            OptionalCost::Teamwork => "Teamwork",
             OptionalCost::PromiseGift => "Promise of a Gift",
             OptionalCost::Retrace => "Retrace",
             OptionalCost::Jumpstart => "Jumpstart",
@@ -79,6 +81,7 @@ impl OptionalCost {
             OptionalCost::Buyback => "BB",
             OptionalCost::Entwine => "EN",
             OptionalCost::Bargain => "BG",
+            OptionalCost::Teamwork => "",
             OptionalCost::PromiseGift => "PG",
             OptionalCost::Retrace => "RT",
             OptionalCost::Jumpstart => "JS",
