@@ -39,20 +39,16 @@ impl TriggerBehavior for TriggerBlockersDeclared {
         _game: &GameState,
     ) {
         if let Some(blockers) = params.blocker_ids.as_ref() {
-            let csv = blockers
-                .iter()
-                .map(|c| c.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            sa.set_triggering_object(crate::ability::AbilityKey::Blockers, &csv);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Blockers,
+                crate::event::AbilityValue::Cards(blockers.clone()),
+            );
         }
         if let Some(attackers) = params.attacker_ids.as_ref() {
-            let csv = attackers
-                .iter()
-                .map(|c| c.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            sa.set_triggering_object(crate::ability::AbilityKey::Attackers, &csv);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Attackers,
+                crate::event::AbilityValue::Cards(attackers.clone()),
+            );
         }
     }
 
@@ -63,8 +59,8 @@ impl TriggerBehavior for TriggerBlockersDeclared {
     ) -> String {
         format!(
             "Blockers: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Blockers)
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Blockers)
+                .unwrap_or_default()
         )
     }
 }

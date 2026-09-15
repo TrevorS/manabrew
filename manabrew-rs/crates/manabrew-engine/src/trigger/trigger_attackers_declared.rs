@@ -118,12 +118,10 @@ impl TriggerBehavior for TriggerAttackersDeclared {
     ) {
         // Java: sa.setTriggeringObject(AbilityKey.Attackers, attackers);
         if let Some(attacker_ids) = params.attacker_ids.as_ref() {
-            let csv = attacker_ids
-                .iter()
-                .map(|c| c.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            sa.set_triggering_object(crate::ability::AbilityKey::Attackers, &csv);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Attackers,
+                crate::event::AbilityValue::Cards(attacker_ids.clone()),
+            );
         }
         // Java: sa.setTriggeringObject(AbilityKey.AttackedTarget, attackedTarget);
         // Combine defender players and defender cards into a single CSV

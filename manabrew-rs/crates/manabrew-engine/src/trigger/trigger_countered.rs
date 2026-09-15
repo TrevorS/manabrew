@@ -95,8 +95,8 @@ impl TriggerBehavior for TriggerCountered {
             "Countered: {}, Cause: {}",
             sa.get_triggering_object_text(crate::ability::AbilityKey::Card)
                 .unwrap_or_default(),
-            sa.get_triggering_object(crate::ability::AbilityKey::Cause)
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Cause)
+                .unwrap_or_default()
         )
     }
 }

@@ -84,7 +84,7 @@ impl TriggerBehavior for TriggerDiscarded {
             "Discarded: {}, Cause: {}",
             sa.get_triggering_object_text(crate::ability::AbilityKey::Card)
                 .unwrap_or_default(),
-            sa.get_triggering_object(crate::ability::AbilityKey::Cause)
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Cause)
                 .unwrap_or_default()
         )
     }

@@ -81,12 +81,10 @@ impl TriggerBehavior for TriggerUntapAll {
                 crate::event::AbilityValue::Player(*player),
             );
         }
-        let csv = untapped
-            .iter()
-            .map(|c| c.0.to_string())
-            .collect::<Vec<_>>()
-            .join(",");
-        sa.set_triggering_object(crate::ability::AbilityKey::Cards, &csv);
+        sa.set_triggering_value(
+            crate::ability::AbilityKey::Cards,
+            crate::event::AbilityValue::Cards(untapped.clone()),
+        );
         sa.set_triggering_object(
             crate::ability::AbilityKey::Amount,
             untapped.len().to_string(),

@@ -57,12 +57,10 @@ impl TriggerBehavior for TriggerBlocks {
             );
         }
         if let Some(attackers) = params.attacker_ids.as_ref() {
-            let csv = attackers
-                .iter()
-                .map(|c| c.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            sa.set_triggering_object(crate::ability::AbilityKey::Attackers, &csv);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Attackers,
+                crate::event::AbilityValue::Cards(attackers.clone()),
+            );
         }
     }
 

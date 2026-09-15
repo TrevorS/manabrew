@@ -57,12 +57,10 @@ impl TriggerBehavior for TriggerExcessDamageAll {
         // Java: sa.setTriggeringObject(AbilityKey.Targets, getDamageTargets(DamageTargets))
         // TODO: getDamageTargets filters with ValidTarget — free function has no access to trigger params
         if let Some(cards) = params.cards.as_ref() {
-            let csv = cards
-                .iter()
-                .map(|c| c.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            sa.set_triggering_object(crate::ability::AbilityKey::Targets, &csv);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Targets,
+                crate::event::AbilityValue::Cards(cards.clone()),
+            );
         }
     }
 
@@ -70,7 +68,7 @@ impl TriggerBehavior for TriggerExcessDamageAll {
         // Java: "Damaged: " + Targets
         format!(
             "Damaged: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Targets)
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Targets)
                 .unwrap_or_default()
         )
     }

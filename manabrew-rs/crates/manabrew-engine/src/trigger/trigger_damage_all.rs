@@ -72,8 +72,8 @@ impl TriggerBehavior for TriggerDamageAll {
             "Damage Source: {}, Damaged: {}, Amount: {}",
             sa.get_triggering_object(crate::ability::AbilityKey::Sources)
                 .unwrap_or(""),
-            sa.get_triggering_object(crate::ability::AbilityKey::Targets)
-                .unwrap_or(""),
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Targets)
+                .unwrap_or_default(),
             sa.get_triggering_object(crate::ability::AbilityKey::DamageAmount)
                 .unwrap_or("")
         )

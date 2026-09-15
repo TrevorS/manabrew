@@ -228,12 +228,10 @@ impl TriggerBehavior for TriggerAbilityTriggered {
         // Java: sa.setTriggeringObjectsFrom(runParams, AbilityKey.SpellAbility, AbilityKey.Cause);
         // SpellAbility and Cause are complex objects; store what we can
         if let Some(ref cause_cards) = params.cards {
-            let csv = cause_cards
-                .iter()
-                .map(|c| c.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            sa.set_triggering_object(crate::ability::AbilityKey::Cause, &csv);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Cause,
+                crate::event::AbilityValue::Cards(cause_cards.clone()),
+            );
         } else if let Some(cause_card) = params.cause_card {
             sa.set_triggering_object(crate::ability::AbilityKey::Cause, cause_card.0.to_string());
         }

@@ -60,12 +60,10 @@ impl TriggerBehavior for TriggerConjureAll {
         // TODO: Java filters cards by ValidCard param before setting.
         // We don't have access to trigger params here, passing through all cards.
         if let Some(cards) = params.cards.as_ref() {
-            let csv = cards
-                .iter()
-                .map(|c| c.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            sa.set_triggering_object(crate::ability::AbilityKey::Cards, &csv);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Cards,
+                crate::event::AbilityValue::Cards(cards.clone()),
+            );
         }
         if let Some(p) = params.player {
             sa.set_triggering_value(

@@ -67,12 +67,10 @@ impl TriggerBehavior for TriggerTokenCreatedOnce {
     ) {
         // TODO: port ValidToken filtering from Java (IterableUtil.filter with CardPredicates.restriction)
         if let Some(cards) = params.cards.as_ref() {
-            let csv = cards
-                .iter()
-                .map(|c| c.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            sa.set_triggering_object(crate::ability::AbilityKey::Cards, &csv);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Cards,
+                crate::event::AbilityValue::Cards(cards.clone()),
+            );
         }
     }
 

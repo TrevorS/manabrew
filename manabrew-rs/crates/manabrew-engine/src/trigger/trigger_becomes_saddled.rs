@@ -60,12 +60,10 @@ impl TriggerBehavior for TriggerBecomesSaddled {
             );
         }
         if let Some(crew) = params.crew_cards.as_ref() {
-            let csv = crew
-                .iter()
-                .map(|c| c.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            sa.set_triggering_object(crate::ability::AbilityKey::Crew, &csv);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Crew,
+                crate::event::AbilityValue::Cards(crew.clone()),
+            );
         }
     }
 
@@ -78,8 +76,8 @@ impl TriggerBehavior for TriggerBecomesSaddled {
             "Saddled: {}  SaddledBy: {}",
             sa.get_triggering_object_text(crate::ability::AbilityKey::Card)
                 .unwrap_or_default(),
-            sa.get_triggering_object(crate::ability::AbilityKey::Crew)
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Crew)
+                .unwrap_or_default()
         )
     }
 }

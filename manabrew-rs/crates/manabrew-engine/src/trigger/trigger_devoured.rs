@@ -46,12 +46,10 @@ impl TriggerBehavior for TriggerDevoured {
         _game: &GameState,
     ) {
         if let Some(cards) = params.cards.as_ref() {
-            let csv = cards
-                .iter()
-                .map(|c| c.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            sa.set_triggering_object(crate::ability::AbilityKey::Devoured, &csv);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Devoured,
+                crate::event::AbilityValue::Cards(cards.clone()),
+            );
         }
     }
 
@@ -62,7 +60,7 @@ impl TriggerBehavior for TriggerDevoured {
     ) -> String {
         format!(
             "Devoured: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Devoured)
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Devoured)
                 .unwrap_or_default()
         )
     }

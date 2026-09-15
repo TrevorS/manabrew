@@ -42,19 +42,17 @@ impl TriggerBehavior for TriggerFightOnce {
         _game: &GameState,
     ) {
         if let Some(cards) = params.cards.as_ref() {
-            let csv = cards
-                .iter()
-                .map(|c| c.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            sa.set_triggering_object(crate::ability::AbilityKey::Fighters, &csv);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Fighters,
+                crate::event::AbilityValue::Cards(cards.clone()),
+            );
         }
     }
 
     fn get_important_stack_objects(&self, _trigger: &Trigger, sa: &SpellAbility) -> String {
         // Java: "Fighter 1: " + fighters.get(0) + ", Fighter 2: " + fighters.get(1)
         let fighters_csv = sa
-            .get_triggering_object(crate::ability::AbilityKey::Fighters)
+            .get_triggering_object_text(crate::ability::AbilityKey::Fighters)
             .unwrap_or_default();
         let parts: Vec<&str> = fighters_csv.split(',').collect();
         let f1 = parts.first().copied().unwrap_or("");

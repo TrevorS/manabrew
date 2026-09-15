@@ -52,12 +52,10 @@ impl TriggerBehavior for TriggerAttackerBlocked {
             );
         }
         if let Some(blockers) = params.blocker_ids.as_ref() {
-            let csv = blockers
-                .iter()
-                .map(|c| c.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            sa.set_triggering_object(crate::ability::AbilityKey::Blockers, &csv);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Blockers,
+                crate::event::AbilityValue::Cards(blockers.clone()),
+            );
         }
         if let Some(p) = params.defending_player {
             sa.set_triggering_value(
@@ -81,7 +79,7 @@ impl TriggerBehavior for TriggerAttackerBlocked {
             .get_triggering_object_text(crate::ability::AbilityKey::Attacker)
             .unwrap_or_default();
         let num_blockers = sa
-            .get_triggering_object(crate::ability::AbilityKey::Blockers)
+            .get_triggering_object_text(crate::ability::AbilityKey::Blockers)
             .map(|s| {
                 if s.is_empty() {
                     0

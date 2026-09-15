@@ -57,12 +57,10 @@ impl TriggerBehavior for TriggerMilledOnce {
     ) {
         // TODO: port ValidCard filtering from Java (CardLists.getValidCards)
         if let Some(cards) = params.cards.as_ref() {
-            let csv = cards
-                .iter()
-                .map(|c| c.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            sa.set_triggering_object(crate::ability::AbilityKey::Cards, &csv);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Cards,
+                crate::event::AbilityValue::Cards(cards.clone()),
+            );
             sa.set_triggering_object(crate::ability::AbilityKey::Amount, cards.len().to_string());
         }
         if let Some(p) = params.player {
