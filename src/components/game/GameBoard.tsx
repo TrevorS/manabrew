@@ -1520,21 +1520,9 @@ export function GameBoard({
   }, [playerBarSpecs, zoneTilesByPlayer, compactBoard, gameTheme]);
 
   const unifiedRegions = useMemo((): BoardCanvasRegion[] => {
-    const seatColorOf = (pid: string): string =>
-      pid === me.id
-        ? playerColors.self
-        : playerColors[OPPONENT_SEATS[opponents.findIndex((o) => o.id === pid)] ?? "opponent1"];
-    const nameOf = (pid: string): string =>
-      pid === me.id ? "You" : (opponents.find((o) => o.id === pid)?.name ?? "Player");
     const rowFields = (combatRow?: CombatRow): Partial<BattlefieldState> => ({
       combatRowAttackerIds: combatRow?.attackerIds,
       combatRowBlocks: combatRow?.blocks,
-      combatRowGroups: combatRow?.groups.map((g) => ({
-        color: seatColorOf(g.controllerId),
-        label: nameOf(g.controllerId),
-        avatarUrl: avatarByPlayerId.get(g.controllerId),
-        attackerIds: g.attackerIds,
-      })),
     });
     const oppState = (cards: CardDto[], combatRow?: CombatRow): BattlefieldState => ({
       cards,
@@ -1617,7 +1605,6 @@ export function GameBoard({
     opponentPermanentsByPlayer,
     battlefield,
     combatRows,
-    avatarByPlayerId,
     ownerRingByCard,
     pixiBattlefield,
     promptType,

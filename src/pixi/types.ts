@@ -123,12 +123,6 @@ export interface BattlefieldState {
   ownerRingByCard?: Record<string, string>;
   combatRowAttackerIds?: string[];
   combatRowBlocks?: CombatAssignmentDto[];
-  combatRowGroups?: {
-    color: string;
-    label: string;
-    avatarUrl?: string;
-    attackerIds: string[];
-  }[];
 }
 
 export interface HandState {

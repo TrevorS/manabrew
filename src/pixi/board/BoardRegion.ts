@@ -146,7 +146,6 @@ export class BoardRegion {
   private skeletonDebug = false;
   private attackRowDebug = false;
   private attackRowDebugGfx = new Graphics();
-  private combatRowGroups: NonNullable<BattlefieldState["combatRowGroups"]> = [];
   private combatRow: CombatRowRenderer;
   private effectiveChildrenMap = new Map<string, string[]>();
   private cardById = new Map<string, CardDto>();
@@ -775,7 +774,6 @@ export class BoardRegion {
     this.combatRowAttackerIds = new Set(state.combatRowAttackerIds ?? []);
     this.combatRowBlocks = state.combatRowBlocks ?? [];
     this.combatRowBlockerIds = new Set(this.combatRowBlocks.map((b) => b.blockerId));
-    this.combatRowGroups = state.combatRowGroups ?? [];
     const cardMap = new Map<string, CardDto>(state.cards.map((c) => [c.id, c]));
     this.cardById = cardMap;
     const currentIds = new Set(state.cards.map((c) => c.id));
@@ -1066,10 +1064,7 @@ export class BoardRegion {
         stripTop,
         stripWidth: bandW,
         stripHeight: halfH * 2 + COMBAT_ROW_PAD_Y * 2,
-        mirrored: this.mirrored,
-        targetName: this.seatName,
         connectors,
-        groups: this.combatRowGroups,
       },
       this.host.getTheme(),
     );
