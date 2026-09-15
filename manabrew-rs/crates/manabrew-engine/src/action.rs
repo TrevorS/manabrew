@@ -244,6 +244,7 @@ impl GameState {
                 });
                 *etb_counters.entry(counter_type).or_default() += amount.max(0);
             }
+            let card_etb_counters = std::mem::take(&mut self.cards[card_id.index()].etb_counters);
             let card = &self.cards[card_id.index()];
             if card.type_line.has_subtype("Saga") && card.has_chapter() {
                 let amount = if card.has_keyword("Read ahead") {
@@ -276,9 +277,9 @@ impl GameState {
                     .entry(crate::card::CounterType::Loyalty)
                     .or_default() += loyalty.max(0);
             }
-            *etb_counters
-                .entry(crate::card::CounterType::P1P1)
-                .or_default() += card.etb_counters_p1p1.max(0);
+            for (counter_type, amount) in &card_etb_counters {
+                *etb_counters.entry(counter_type.clone()).or_default() += (*amount).max(0);
+            }
             let sunburst = card.sunburst_count();
             if sunburst > 0 && card.has_keyword("Sunburst") {
                 let counter_type = if card.is_creature() {
@@ -331,6 +332,17 @@ impl GameState {
                 ),
                 _ => (dest_zone, None, None, Vec::new()),
             };
+        let replaced_etb_counters = std::mem::take(&mut self.cards[card_id.index()].etb_counters);
+        let etb_counter_map = if replaced_etb_counters.is_empty() {
+            etb_counter_map
+        } else {
+            let mut counter_map = etb_counter_map.unwrap_or_default();
+            counter_map.push(crate::replacement::replacement_handler::CounterMapValue {
+                source: Some(dest_owner),
+                counters: replaced_etb_counters,
+            });
+            Some(counter_map)
+        };
         let replacement_marked_etb_tapped = dest_zone == ZoneType::Battlefield
             && self.card(card_id).tapped
             && !tapped_before_replacement;
@@ -483,7 +495,7 @@ impl GameState {
                         );
                     }
                 }
-                self.cards[card_id.index()].etb_counters_p1p1 = 0;
+                self.cards[card_id.index()].etb_counters.clear();
                 // Update LKI snapshot: card just entered the battlefield.
                 // Ensures it's available for later TriggeredCard$CardPower lookups
                 // even if it dies within the same resolution chain.

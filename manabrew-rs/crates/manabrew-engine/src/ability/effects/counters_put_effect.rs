@@ -185,16 +185,23 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             return;
         }
     }
-    let count = ctx.add_counter(
-        card_id,
-        &counter_type,
-        count,
-        sa,
-        RunParams {
-            source_player: Some(placer),
-            ..Default::default()
-        },
-    );
+    let count = if sa.ir.etb {
+        ctx.game
+            .card_mut(card_id)
+            .add_etb_counter(counter_type.clone(), count);
+        count
+    } else {
+        ctx.add_counter(
+            card_id,
+            &counter_type,
+            count,
+            sa,
+            RunParams {
+                source_player: Some(placer),
+                ..Default::default()
+            },
+        )
+    };
 
     if sa.ir.renown && count > 0 {
         ctx.game.card_mut(card_id).set_renowned(true);
@@ -249,7 +256,7 @@ fn resolve_card_target(
     {
         return None;
     }
-    (game.card(card).zone == ZoneType::Battlefield).then_some(card)
+    (sa.ir.etb || game.card(card).zone == ZoneType::Battlefield).then_some(card)
 }
 
 /// True when CountersPutEffect.java:625-636 would route the CounterType

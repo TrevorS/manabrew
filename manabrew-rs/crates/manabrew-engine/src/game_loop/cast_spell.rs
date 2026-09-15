@@ -1933,7 +1933,8 @@ impl GameLoop {
                             .next()
                             .and_then(|s| s.parse::<i32>().ok())
                             .unwrap_or(1);
-                        game.card_mut(card_id).add_etb_counters_p1p1(count);
+                        game.card_mut(card_id)
+                            .add_etb_counter(crate::card::CounterType::P1P1, count);
                     }
                     applied.insert(counter_spec.clone());
                 }

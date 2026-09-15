@@ -627,7 +627,7 @@ impl Card {
 
         if let Some(n_str) = crate::keyword::extract_keyword_cost_str(kw, "Modular") {
             if let Ok(n) = n_str.parse::<i32>() {
-                self.etb_counters_p1p1 += n;
+                self.add_etb_counter(crate::card::CounterType::P1P1, n);
 
                 let raw = format!(
                     "Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ TrigModular | TriggerDescription$ Modular {n_str}"

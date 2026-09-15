@@ -622,8 +622,7 @@ pub struct Card {
     pub damage_history: damage_history::DamageHistory,
     /// Specific cards this creature must block (set by effects like Lure variants).
     pub must_block_cards: Vec<CardId>,
-    /// +1/+1 counters to add on ETB (from mana that adds counters, e.g. Guildmages' Forum).
-    pub etb_counters_p1p1: i32,
+    pub etb_counters: BTreeMap<CounterType, i32>,
     /// Bitmask of colors of mana spent to cast this spell (for Sunburst/Converge).
     /// Uses ManaAtom bit flags (W=1, U=2, B=4, R=8, G=16).
     pub colors_spent_to_cast: u16,
@@ -912,7 +911,7 @@ impl Card {
             lki_counters: None,
             damage_history: damage_history::DamageHistory::default(),
             must_block_cards: Vec::new(),
-            etb_counters_p1p1: 0,
+            etb_counters: BTreeMap::new(),
             colors_spent_to_cast: 0,
             paying_mana_to_cast: Vec::new(),
             chosen_modes: None,
@@ -2184,8 +2183,8 @@ impl Card {
         self.attacked_this_turn = true;
     }
 
-    pub fn add_etb_counters_p1p1(&mut self, amount: i32) {
-        self.etb_counters_p1p1 += amount;
+    pub fn add_etb_counter(&mut self, counter_type: CounterType, amount: i32) {
+        *self.etb_counters.entry(counter_type).or_default() += amount;
     }
 
     pub fn increment_commander_cast_count(&mut self) {
@@ -2691,9 +2690,10 @@ impl Card {
     }
 
     pub fn put_etb_counters(&mut self) {
-        if self.etb_counters_p1p1 > 0 {
-            self.add_counter(&CounterType::P1P1, self.etb_counters_p1p1);
-            self.etb_counters_p1p1 = 0;
+        for (counter_type, amount) in std::mem::take(&mut self.etb_counters) {
+            if amount > 0 {
+                self.add_counter(&counter_type, amount);
+            }
         }
     }
 
