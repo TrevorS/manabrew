@@ -1,4 +1,4 @@
-use crate::HashMap;
+use indexmap::IndexMap;
 use std::cmp::Reverse;
 
 use super::attack_requirement::{self, AttackRequirement};
@@ -18,8 +18,8 @@ pub struct AttackConstraints {
     pub possible_attackers: Vec<CardId>,
     pub possible_defenders: Vec<DefenderId>,
     pub global_restrictions: GlobalAttackRestrictions,
-    pub restrictions: HashMap<CardId, AttackRestriction>,
-    pub requirements: HashMap<CardId, AttackRequirement>,
+    pub restrictions: IndexMap<CardId, AttackRestriction>,
+    pub requirements: IndexMap<CardId, AttackRequirement>,
 }
 
 /// Per-creature attack restriction state.
@@ -165,8 +165,8 @@ impl AttackConstraints {
             possible_defenders,
         );
 
-        let mut restrictions = HashMap::default();
-        let mut requirements = HashMap::default();
+        let mut restrictions = IndexMap::new();
+        let mut requirements = IndexMap::new();
 
         for &attacker in &possible_attackers {
             restrictions.insert(
@@ -193,7 +193,7 @@ impl AttackConstraints {
         }
     }
 
-    pub fn get_restrictions(&self) -> &HashMap<CardId, AttackRestriction> {
+    pub fn get_restrictions(&self) -> &IndexMap<CardId, AttackRestriction> {
         &self.restrictions
     }
 
@@ -201,7 +201,7 @@ impl AttackConstraints {
         &self.global_restrictions
     }
 
-    pub fn get_requirements(&self) -> &HashMap<CardId, AttackRequirement> {
+    pub fn get_requirements(&self) -> &IndexMap<CardId, AttackRequirement> {
         &self.requirements
     }
 

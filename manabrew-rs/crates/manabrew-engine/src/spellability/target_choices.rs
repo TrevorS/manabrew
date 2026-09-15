@@ -3,7 +3,7 @@
 //! Mirrors Java's `spellability/TargetChoices.java` — a container holding
 //! the actual selected targets for a spell ability.
 
-use crate::HashMap;
+use indexmap::IndexMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -26,7 +26,7 @@ pub struct TargetChoices {
     /// Divided damage/effect allocation per target card.
     /// Mirrors Java's `TargetChoices.dividedMap`.
     #[serde(skip)]
-    pub divided_map: HashMap<CardId, i32>,
+    pub divided_map: IndexMap<CardId, i32>,
 }
 
 impl TargetChoices {
@@ -84,7 +84,7 @@ impl TargetChoices {
             self.target_card = None;
             self.target_card_zone_timestamp = None;
         }
-        self.divided_map.remove(&card);
+        self.divided_map.shift_remove(&card);
     }
 
     /// Clear all targets.
@@ -111,10 +111,10 @@ impl TargetChoices {
             self.target_card = Some(new);
             self.target_card_zone_timestamp = None;
             // Move divided allocation if present
-            if let Some(amount) = self.divided_map.remove(&old) {
+            if let Some(amount) = self.divided_map.shift_remove(&old) {
                 self.divided_map.insert(new, amount);
             }
-        } else if let Some(amount) = self.divided_map.remove(&old) {
+        } else if let Some(amount) = self.divided_map.shift_remove(&old) {
             self.divided_map.insert(new, amount);
         }
     }

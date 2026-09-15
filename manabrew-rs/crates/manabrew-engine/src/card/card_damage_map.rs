@@ -3,7 +3,8 @@
 //! Mirrors the Java `CardDamageMap` behavior for accumulating damage from
 //! source cards to card/player targets and emitting one-shot damage triggers.
 
-use crate::{HashMap, HashSet};
+use crate::HashMap;
+use indexmap::{IndexMap, IndexSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -24,7 +25,7 @@ pub enum DamageTarget {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CardDamageMap {
-    data: HashMap<CardId, HashMap<DamageTarget, i32>>,
+    data: IndexMap<CardId, IndexMap<DamageTarget, i32>>,
 }
 
 impl CardDamageMap {
@@ -104,7 +105,7 @@ impl CardDamageMap {
     }
 
     pub fn trigger_prevent_damage(&self, trigger_handler: &mut TriggerHandler, is_combat: bool) {
-        let mut by_target: HashMap<DamageTarget, i32> = HashMap::default();
+        let mut by_target: IndexMap<DamageTarget, i32> = IndexMap::new();
         for targets in self.data.values() {
             for (&target, &amount) in targets {
                 *by_target.entry(target).or_insert(0) += amount;
@@ -158,8 +159,8 @@ impl CardDamageMap {
         }
 
         // Target -> aggregate damage
-        let mut by_target: HashMap<DamageTarget, i32> = HashMap::default();
-        let mut target_controllers: HashMap<DamageTarget, HashSet<PlayerId>> = HashMap::default();
+        let mut by_target: IndexMap<DamageTarget, i32> = IndexMap::new();
+        let mut target_controllers: IndexMap<DamageTarget, IndexSet<PlayerId>> = IndexMap::new();
         for (&source, targets) in &self.data {
             for (&target, &amount) in targets {
                 *by_target.entry(target).or_insert(0) += amount;

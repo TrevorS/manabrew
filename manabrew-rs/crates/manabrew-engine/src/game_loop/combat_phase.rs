@@ -574,8 +574,8 @@ impl GameLoop {
         }
         // Fire AttackersDeclaredOneTarget-style batches first, then the aggregate event.
         if !chosen_attackers.is_empty() {
-            let mut grouped_attackers: crate::HashMap<combat::DefenderId, Vec<CardId>> =
-                crate::HashMap::default();
+            let mut grouped_attackers: indexmap::IndexMap<combat::DefenderId, Vec<CardId>> =
+                indexmap::IndexMap::new();
             for &(attacker_id, defender) in &chosen_attackers {
                 grouped_attackers
                     .entry(defender)

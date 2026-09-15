@@ -977,7 +977,7 @@ impl GameLoop {
                             sa.target_chosen.target_card = None;
                             sa.target_chosen.target_card_zone_timestamp = None;
                         }
-                        sa.target_chosen.divided_map.remove(&target_card_id);
+                        sa.target_chosen.divided_map.shift_remove(&target_card_id);
                     }
                 }
 

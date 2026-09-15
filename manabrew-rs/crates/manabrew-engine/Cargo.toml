@@ -15,7 +15,7 @@ strum = "0.28"
 serde = { workspace = true }
 serde_json = { workspace = true }
 rand = "0.8"
-indexmap = "2"
+indexmap = { version = "2", features = ["serde"] }
 smallvec = "1"
 typetag = "0.2"
 dyn-clone = "1"

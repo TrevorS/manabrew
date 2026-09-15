@@ -1,6 +1,6 @@
 //! Zone-change aggregation table (Java parity: `CardZoneTable`).
 
-use crate::HashMap;
+use indexmap::IndexMap;
 
 use forge_foundation::ZoneType;
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,7 @@ use crate::trigger::TriggerType;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CardZoneTable {
-    data: HashMap<(ZoneType, ZoneType), Vec<CardId>>,
+    data: IndexMap<(ZoneType, ZoneType), Vec<CardId>>,
     created_tokens: Vec<CardId>,
     first_time_token_creators: Vec<PlayerId>,
     last_state_battlefield: Vec<CardId>,

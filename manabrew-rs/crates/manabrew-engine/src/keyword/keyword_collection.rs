@@ -2,7 +2,7 @@
 //!
 //! Ported from Java's `KeywordCollection.java` in `forge/game/keyword/`.
 
-use crate::HashMap;
+use indexmap::IndexMap;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -15,7 +15,7 @@ use super::keyword_instance::{Keyword, KeywordInstanceData};
 #[derive(Debug, Clone, Default)]
 pub struct KeywordCollection {
     /// Map from keyword enum to list of keyword instance original strings.
-    map: HashMap<Keyword, Vec<KeywordInstanceData>>,
+    map: IndexMap<Keyword, Vec<KeywordInstanceData>>,
 }
 
 impl Serialize for KeywordCollection {
@@ -39,7 +39,7 @@ impl KeywordCollection {
     /// Create a new empty keyword collection.
     pub fn new() -> Self {
         Self {
-            map: HashMap::default(),
+            map: IndexMap::new(),
         }
     }
 
@@ -121,7 +121,7 @@ impl KeywordCollection {
     /// Remove all instances of a keyword enum variant.
     pub fn remove_all(&mut self, keyword: Keyword) -> bool {
         self.map
-            .remove(&keyword)
+            .shift_remove(&keyword)
             .map(|v| !v.is_empty())
             .unwrap_or(false)
     }

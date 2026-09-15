@@ -823,7 +823,6 @@ impl GameLoop {
     pub(crate) fn fire_combat_damage_triggers(&mut self, events: &[combat::CombatDamageEvent]) {
         use crate::card::card_damage_map::{CardDamageMap, DamageTarget};
         use crate::ids::{CardId, PlayerId};
-        use crate::HashMap;
 
         // Per-event: fire DamageDone and LifeGained
         for event in events {
@@ -863,8 +862,9 @@ impl GameLoop {
             Card(CardId),
             Player(PlayerId),
         }
-        let mut by_target: HashMap<Target, i32> = HashMap::default();
-        let mut maps_by_target: HashMap<Target, CardDamageMap> = HashMap::default();
+        let mut by_target: indexmap::IndexMap<Target, i32> = indexmap::IndexMap::new();
+        let mut maps_by_target: indexmap::IndexMap<Target, CardDamageMap> =
+            indexmap::IndexMap::new();
         for event in events {
             if event.amount <= 0 {
                 continue;

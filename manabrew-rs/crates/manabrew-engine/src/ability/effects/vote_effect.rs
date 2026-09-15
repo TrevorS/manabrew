@@ -5,8 +5,6 @@
 //! determine which sub-ability resolves. Handles ties, secret votes, and
 //! additional vote amounts.
 
-use crate::HashMap;
-
 use super::EffectContext;
 use crate::event::RunParams;
 use crate::ids::PlayerId;
@@ -50,7 +48,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
 
     // Collect votes
-    let mut vote_counts: HashMap<String, Vec<PlayerId>> = HashMap::default();
+    let mut vote_counts: indexmap::IndexMap<String, Vec<PlayerId>> = indexmap::IndexMap::new();
     for choice in &choices {
         vote_counts.insert(choice.clone(), Vec::new());
     }
