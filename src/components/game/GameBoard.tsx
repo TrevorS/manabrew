@@ -1930,6 +1930,7 @@ export function GameBoard({
             setUnifiedLayout(layout);
             onLayoutChange?.(layout);
           }}
+          showBackground={false}
         />
         {compactBoard && (!mobilePanel || mobileHandOpen) && (
           <MobileHandControl

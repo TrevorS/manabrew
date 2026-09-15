@@ -62,6 +62,7 @@ import { GameBoard } from "@/components/game/GameBoard";
 import { buildCombatRows } from "@/components/game/combatRows";
 import { readableTextColor, withAlpha } from "@/themes/gameTheme";
 import { useTheme } from "@/hooks/useTheme";
+import { boardBackgroundDarken, boardBackgroundUrl } from "@/pixi/board/boardBackgrounds";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { useLimitedStore } from "@/stores/useLimitedStore";
@@ -299,6 +300,11 @@ export default function Game({ exitTo }: GameProps = {}) {
   const zonePanelOrder = usePreferencesStore((s) => s.zonePanelOrder);
   const inGameCardPreviewStyle = usePreferencesStore((s) => s.inGameCardPreviewStyle);
   const cardPreviewMode = usePreferencesStore((s) => s.cardPreviewMode);
+  const roomTableStyle = useServerStore((s) => s.currentRoom?.table_style);
+  const boardBackgroundId = usePreferencesStore((s) => s.boardBackgroundId);
+  const backgroundId = roomTableStyle ?? boardBackgroundId;
+  const backgroundUrl = boardBackgroundUrl(backgroundId);
+  const backgroundDarken = boardBackgroundDarken(backgroundId);
   const vScale = useHandScale();
   const themeColors = useTheme().gameTheme;
   const location = useLocation();
@@ -2308,7 +2314,7 @@ export default function Game({ exitTo }: GameProps = {}) {
   return (
     <div
       ref={containerRef}
-      className="font-game game-touch-surface relative flex flex-col h-full min-h-0 overflow-hidden select-none pb-[var(--safe-area-inset-bottom)] pl-[var(--safe-area-inset-left)] pr-[var(--safe-area-inset-right)] pt-[var(--safe-area-inset-top)]"
+      className="font-game game-touch-surface relative isolate flex flex-col h-full min-h-0 overflow-hidden select-none bg-canvas-background pb-[var(--safe-area-inset-bottom)] pl-[var(--safe-area-inset-left)] pr-[var(--safe-area-inset-right)] pt-[var(--safe-area-inset-top)]"
       style={
         {
           "--flash-duration": `${flashDurationMs}ms`,
@@ -2327,6 +2333,16 @@ export default function Game({ exitTo }: GameProps = {}) {
         } as React.CSSProperties
       }
     >
+      {backgroundUrl && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url(${backgroundUrl})`,
+            filter: `brightness(${1 - backgroundDarken})`,
+          }}
+        />
+      )}
       <LandscapeGate />
       <DevViewportFrame>
         <GameBoard

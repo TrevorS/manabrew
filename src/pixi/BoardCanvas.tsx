@@ -121,6 +121,7 @@ interface BoardCanvasProps {
   externalPreviewActive?: boolean;
   onLayout?: (layout: BoardCanvasLayout) => void;
   className?: string;
+  showBackground?: boolean;
 }
 
 interface HandHoverState {
@@ -163,6 +164,7 @@ export function BoardCanvas({
   externalPreviewActive,
   onLayout,
   className,
+  showBackground = true,
 }: BoardCanvasProps) {
   const compact = layoutPolicy.compact;
   const effectiveBottomReserve = layoutPolicy.reserveHandSpace ? (selfBottomReserve ?? 0) : 0;
@@ -663,11 +665,9 @@ export function BoardCanvas({
 
   const roomTableStyle = useServerStore((s) => s.currentRoom?.table_style);
   const boardBackground = usePreferencesStore((s) => s.boardBackgroundId);
-
-  useEffect(() => {
-    const backgroundId = roomTableStyle ?? boardBackground;
-    scene?.setBackground(boardBackgroundUrl(backgroundId), boardBackgroundDarken(backgroundId));
-  }, [scene, roomTableStyle, boardBackground]);
+  const backgroundId = roomTableStyle ?? boardBackground;
+  const backgroundUrl = boardBackgroundUrl(backgroundId);
+  const backgroundDarken = boardBackgroundDarken(backgroundId);
 
   const inGameAnimations = usePreferencesStore((s) => s.inGameAnimations);
   useEffect(() => {
@@ -739,10 +739,37 @@ export function BoardCanvas({
   });
 
   return (
-    <div className={className} style={{ position: "relative", width: "100%", height: "100%" }}>
+    <div
+      className={className}
+      style={{ isolation: "isolate", position: "relative", width: "100%", height: "100%" }}
+    >
+      {showBackground && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-canvas-background"
+          style={{ zIndex: 0 }}
+        >
+          {backgroundUrl && (
+            <div
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              style={{
+                backgroundImage: `url(${backgroundUrl})`,
+                filter: `brightness(${1 - backgroundDarken})`,
+              }}
+            />
+          )}
+        </div>
+      )}
       <canvas
         ref={canvasRef}
-        style={{ width: "100%", height: "100%", display: "block", touchAction: "none" }}
+        style={{
+          position: "relative",
+          zIndex: 1,
+          width: "100%",
+          height: "100%",
+          display: "block",
+          touchAction: "none",
+        }}
         onContextMenu={(e) => e.preventDefault()}
       />
       {showActionPanel && !handRulesView && (

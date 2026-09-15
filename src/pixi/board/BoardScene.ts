@@ -3,14 +3,10 @@ import {
   Container,
   FillGradient,
   Graphics,
-  ImageSource,
   Point,
-  Sprite,
   Text,
-  Texture,
   type FederatedPointerEvent,
 } from "pixi.js";
-import { boardBackgroundDarken, boardBackgroundUrl } from "./boardBackgrounds";
 import { withAlpha } from "@/themes/gameTheme";
 import type { CardDto, PlaymatSettings } from "@/protocol/game";
 import type { AttackTargetDto, TargetRef } from "@/protocol/prompts/common";
@@ -197,30 +193,12 @@ interface FogParticleGroup {
   container: Container;
   particles: FogParticle[];
 }
-const boardBackgroundTextures = new Map<string, Promise<Texture>>();
-
-function loadBoardBackground(url: string): Promise<Texture> {
-  const cached = boardBackgroundTextures.get(url);
-  if (cached) return cached;
-  const promise = new Promise<Texture>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(new Texture({ source: new ImageSource({ resource: img }) }));
-    img.onerror = reject;
-    img.src = url;
-  });
-  boardBackgroundTextures.set(url, promise);
-  return promise;
-}
 
 export class BoardScene {
   private app: Application;
   private callbacks: GameCanvasCallbacks;
   private theme: Theme;
   private root: Container;
-  private baseBg: Graphics;
-  private baseImage: Sprite;
-  private baseImageUrl: string | null = null;
-  private baseImageDarken = 0;
   private collapseVeil: Graphics;
   private canvasW = 0;
   private canvasH = 0;
@@ -369,19 +347,6 @@ export class BoardScene {
           this.hand?.isDraggingFromHand() ||
           !this.overlayHitTest?.(x, y)),
     };
-
-    this.baseBg = new Graphics();
-    this.baseBg.eventMode = "none";
-    this.baseBg.zIndex = -1000;
-    this.root.addChild(this.baseBg);
-
-    this.baseImage = new Sprite();
-    this.baseImage.eventMode = "none";
-    this.baseImage.zIndex = -999;
-    this.baseImage.anchor.set(0.5);
-    this.baseImage.visible = false;
-    this.root.addChild(this.baseImage);
-    this.setBackground(boardBackgroundUrl(undefined), boardBackgroundDarken(undefined));
 
     this.dragHandler = new DragHandler();
     this.mobileHandBackdrop = new Graphics();
@@ -1601,24 +1566,6 @@ export class BoardScene {
     for (const rec of this.regions.values()) rec.region.restyleCards();
   }
 
-  setBackground(url: string | null, darken = 0): void {
-    if (this.destroyed || (url === this.baseImageUrl && darken === this.baseImageDarken)) return;
-    this.baseImageUrl = url;
-    this.baseImageDarken = darken;
-    const channel = Math.round(255 * (1 - darken));
-    this.baseImage.tint = (channel << 16) | (channel << 8) | channel;
-    if (!url) {
-      this.baseImage.visible = false;
-      return;
-    }
-    void loadBoardBackground(url).then((texture) => {
-      if (this.destroyed || this.baseImageUrl !== url) return;
-      this.baseImage.texture = texture;
-      this.baseImage.visible = true;
-      this.drawBaseBg();
-    });
-  }
-
   setHoverDebug(on: boolean): void {
     if (this.destroyed) return;
     setCardSpriteHoverDebug(on);
@@ -1653,7 +1600,6 @@ export class BoardScene {
     this.hand?.restyle();
     this.phaseStrip.setTheme(theme);
     this.playerBars.setTheme(theme);
-    this.drawBaseBg();
     for (const rec of this.regions.values()) rec.region.redrawTheme();
     this.applyDelimiters(); // repaint the collapse veil in the new theme colour
     if (this.promptReference) this.setPromptReference(this.promptReference);
@@ -1669,7 +1615,6 @@ export class BoardScene {
     this.canvasH = height;
     this.pinchPointers.clear();
     this.resetBoardZoom();
-    this.drawBaseBg();
     this.syncMobileHandPresentation();
   }
 
@@ -1697,17 +1642,6 @@ export class BoardScene {
       if (position) return position;
     }
     return null;
-  }
-
-  private drawBaseBg(): void {
-    this.baseBg.clear();
-    if (this.canvasW <= 0 || this.canvasH <= 0) return;
-    this.baseBg.rect(0, 0, this.canvasW, this.canvasH);
-    this.baseBg.fill({ color: hexToNum(this.theme.gameTheme.canvas.background), alpha: 1 });
-    if (!this.baseImage.visible) return;
-    const texture = this.baseImage.texture;
-    this.baseImage.scale.set(Math.max(this.canvasW / texture.width, this.canvasH / texture.height));
-    this.baseImage.position.set(this.canvasW / 2, this.canvasH / 2);
   }
 
   private makeRegionHost(playerId: string, isLocal: boolean): RegionHost {
