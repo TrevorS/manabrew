@@ -90,6 +90,12 @@ function battlefieldCardCategory(card: CardDto): BattlefieldCardCategory {
   return "other";
 }
 
+const OVERFLOW_PRIORITY: Record<BattlefieldCardCategory, number> = {
+  creature: 0,
+  other: 1,
+  land: 2,
+};
+
 interface BoardRegionOptions {
   orientation: RegionOrientation;
 }
@@ -1145,20 +1151,33 @@ export class BoardRegion {
     }
     if (topLevelCandidates.length <= freeCellCount) return;
 
-    const prioritized = topLevelCandidates.map((card, i) => ({ card, i }));
+    const anchorIds = new Set<string>();
+    const anchoredCategories = new Set<BattlefieldCardCategory>();
+    for (const card of topLevelCandidates) {
+      const category = battlefieldCardCategory(card);
+      if (anchoredCategories.has(category)) continue;
+      anchoredCategories.add(category);
+      anchorIds.add(card.id);
+    }
+    const prioritized = topLevelCandidates.map((card, index) => ({
+      card,
+      index,
+      protected:
+        card.id === this.pendingDrop?.cardId ||
+        this.userPlacedCards.has(card.id) ||
+        anchorIds.has(card.id),
+    }));
     prioritized.sort((a, b) => {
-      const aPending = a.card.id === this.pendingDrop?.cardId ? 0 : 1;
-      const bPending = b.card.id === this.pendingDrop?.cardId ? 0 : 1;
-      if (aPending !== bPending) return aPending - bPending;
-      const aHas = this.userSlots.has(a.card.id) ? 1 : 0;
-      const bHas = this.userSlots.has(b.card.id) ? 1 : 0;
-      if (aHas !== bHas) return aHas - bHas;
-      return a.i - b.i;
+      if (a.protected !== b.protected) return a.protected ? -1 : 1;
+      const category =
+        OVERFLOW_PRIORITY[battlefieldCardCategory(a.card)] -
+        OVERFLOW_PRIORITY[battlefieldCardCategory(b.card)];
+      return category || a.index - b.index;
     });
     const overflowCount = topLevelCandidates.length - freeCellCount;
-    const overflow = prioritized.slice(-overflowCount).map((p) => p.card);
-    const overflowIds = new Set(overflow.map((c) => c.id));
-    const keepers = topLevelCandidates.filter((c) => !overflowIds.has(c.id));
+    const overflow = prioritized.slice(-overflowCount).map(({ card }) => card);
+    const overflowIds = new Set(overflow.map((card) => card.id));
+    const keepers = topLevelCandidates.filter((card) => !overflowIds.has(card.id));
     if (keepers.length === 0) return;
 
     const centerX = zone.x + zone.width / 2;
@@ -1176,23 +1195,24 @@ export class BoardRegion {
       return { x: centerX, y: fallbackY };
     };
 
-    for (const oc of overflow) {
-      const isLand = oc.types.includes("Land");
-      const anchorY = isLand ? landAnchorY : nonLandAnchorY;
+    for (const overflowCard of overflow) {
+      const category = battlefieldCardCategory(overflowCard);
+      const anchorY = category === "land" ? landAnchorY : nonLandAnchorY;
       let bestId: string | null = null;
       let bestDist = Infinity;
-      for (const k of keepers) {
-        if (k.id === oc.id) continue;
-        const kp = keeperPos(k.id, anchorY);
-        const d = (kp.x - centerX) ** 2 + (kp.y - anchorY) ** 2;
-        if (d < bestDist) {
-          bestDist = d;
-          bestId = k.id;
+      for (const keeper of keepers) {
+        if (battlefieldCardCategory(keeper) !== category) continue;
+        const position = keeperPos(keeper.id, anchorY);
+        const distance = (position.x - centerX) ** 2 + (position.y - anchorY) ** 2;
+        if (distance < bestDist) {
+          bestDist = distance;
+          bestId = keeper.id;
         }
       }
       if (bestId) {
-        this.uiParent.set(oc.id, bestId);
-        this.userSlots.delete(oc.id);
+        this.uiParent.set(overflowCard.id, bestId);
+        this.userSlots.delete(overflowCard.id);
+        this.stackCounts.set(bestId, (this.stackCounts.get(bestId) ?? 1) + 1);
       }
     }
   }
