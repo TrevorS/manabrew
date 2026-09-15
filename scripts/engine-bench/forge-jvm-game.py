@@ -45,7 +45,8 @@ def front_face(name):
 
 def load_deck(basename):
     """A preset flattened the way the wasm worker flattens it: one entry per copy."""
-    raw = json.load(open(os.path.join(PRESETS, f"{basename}.json")))
+    path = basename if basename.endswith(".json") else os.path.join(PRESETS, f"{basename}.json")
+    raw = json.load(open(path))
     cards = []
     for c in raw["cards"]:
         entry = {"name": front_face(c["name"])}
@@ -183,7 +184,7 @@ class Greedy:
 
 
 greedy = Greedy()
-LOOP_AFTER = 60
+LOOP_AFTER = {"chooseAction": 400, "default": 60}
 loop = {"turn": -1, "counts": {}, "flipped": False}
 FLIPPED = {
     "chooseBoolean": lambda p: {"type": "decision", "value": True},
@@ -196,10 +197,11 @@ def answer(kind, prompt, turn):
     if loop["turn"] != turn:
         loop.update(turn=turn, counts={}, flipped=False)
     seen = loop["counts"][kind] = loop["counts"].get(kind, 0) + 1
-    if seen == LOOP_AFTER and not loop["flipped"]:
+    limit = LOOP_AFTER.get(kind, LOOP_AFTER["default"])
+    if seen == limit and not loop["flipped"]:
         loop["flipped"] = True
         note({"ev": "loop", "type": kind, "turn": turn})
-    if seen >= 2 * LOOP_AFTER:
+    if seen >= 2 * limit:
         return None
     if loop["flipped"] and kind in FLIPPED:
         return FLIPPED[kind](prompt)

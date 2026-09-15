@@ -225,8 +225,11 @@ const greedy = {
  * inside one turn is not a game, so flip to "yes, everything" for that turn,
  * and if that does not move it either, give the game up as a loop.
  */
-const LOOP_AFTER = 60;
-const loop = { turn: -1, counts: new Map(), flipped: false, dumped: false };
+// Priority comes back after every spell and ability the other seats play, so
+// a wide four-seat turn is hundreds of chooseAction prompts; the other types
+// come a handful of times a turn, so sixty of one is a re-ask.
+const LOOP_AFTER = { chooseAction: 400, default: 60 };
+const loop = { turn: -1, counts: new Map(), flipped: false, conceded: 0 };
 function loopGuard(type, prompt, atTurn) {
   if (loop.turn !== atTurn) {
     loop.turn = atTurn;
@@ -235,11 +238,12 @@ function loopGuard(type, prompt, atTurn) {
   }
   const seen = (loop.counts.get(type) ?? 0) + 1;
   loop.counts.set(type, seen);
-  if (seen === LOOP_AFTER && !loop.flipped) {
+  const limit = LOOP_AFTER[type] ?? LOOP_AFTER.default;
+  if (seen === limit && !loop.flipped) {
     loop.flipped = true;
     note({ ev: "loop", type, turn: atTurn, prompt: JSON.stringify(prompt).slice(0, 600) });
   }
-  return seen >= 2 * LOOP_AFTER ? "concede" : loop.flipped ? "flip" : null;
+  return seen >= 2 * limit ? "concede" : loop.flipped ? "flip" : null;
 }
 
 const FLIPPED = {
@@ -365,14 +369,24 @@ const engine = await createForgeEngine({
       actions: prompt.input?.actions?.length ?? null,
       casts: prompt.input?.actions?.filter((a) => a.type === "cast").length ?? null,
     };
-    const output = answer(type, prompt, turn);
+    let output = answer(type, prompt, turn);
     if (output?.type === "act" || output?.type === "cancel" || output?.type === "pay") {
       note({ ev: "play", type, output: output.type, card: prompt.input.cardId ?? null, turn });
     }
     if (!output) {
-      note({ ev: "unhandled", type, prompt: JSON.stringify(prompt).slice(0, 600) });
-      engine.directive({ type: "concede" });
-      return;
+      // A concede is read at the next prompt, so the pending one still needs
+      // an answer; keep answering with the pass policy while it lands, and
+      // give up on a game that keeps asking anyway.
+      if (loop.conceded === 0) {
+        note({ ev: "unhandled", type, prompt: JSON.stringify(prompt).slice(0, 600) });
+        engine.directive({ type: "concede" });
+      }
+      loop.conceded += 1;
+      if (loop.conceded > 50) {
+        finishGame?.("loop");
+        return;
+      }
+      output = REPLIES[type]?.(prompt) ?? { type: "pass" };
     }
     answeredAt = Date.now();
     engine.respond(prompt.promptId, { type, output });
@@ -440,6 +454,7 @@ for (game = 1; game <= games; game += 1) {
     `game ${game}/${games} ${why}: ${prompts} prompts over ${((Date.now() - gameStartedAt) / 1000).toFixed(0)}s, turn ${turn}`,
   );
   if (why !== "game:over") exit(why);
+  loop.conceded = 0;
   logs.length = 0;
 }
 
