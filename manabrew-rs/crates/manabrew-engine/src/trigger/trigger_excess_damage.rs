@@ -64,7 +64,7 @@ impl TriggerBehavior for TriggerExcessDamage {
         // Java: "Damaged: " + Target + ", Amount: " + DamageAmount
         format!(
             "Damaged: {}, Amount: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Target)
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Target)
                 .unwrap_or_default(),
             sa.get_triggering_object(crate::ability::AbilityKey::DamageAmount)
                 .unwrap_or_default()

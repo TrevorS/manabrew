@@ -52,7 +52,7 @@ impl TriggerBehavior for TriggerLifeLostAll {
         // Simplified: show Player only since we don't have the map
         format!(
             "Player: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Player)
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Player)
                 .unwrap_or_default()
         )
     }

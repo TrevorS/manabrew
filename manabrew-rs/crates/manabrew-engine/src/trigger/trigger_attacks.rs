@@ -85,8 +85,8 @@ impl TriggerBehavior for TriggerAttacks {
     ) -> String {
         format!(
             "Attacker: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Attacker)
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Attacker)
+                .unwrap_or_default()
         )
     }
 }

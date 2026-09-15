@@ -77,8 +77,8 @@ impl TriggerBehavior for TriggerAttackerUnblockedOnce {
     ) -> String {
         format!(
             "AttackingPlayer: {}, Defenders: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::AttackingPlayer)
-                .unwrap_or(""),
+            sa.get_triggering_object_text(crate::ability::AbilityKey::AttackingPlayer)
+                .unwrap_or_default(),
             sa.get_triggering_object(crate::ability::AbilityKey::Defenders)
                 .unwrap_or("")
         )

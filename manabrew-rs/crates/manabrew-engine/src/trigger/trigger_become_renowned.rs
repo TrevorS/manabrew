@@ -58,8 +58,8 @@ impl TriggerBehavior for TriggerBecomeRenowned {
     ) -> String {
         format!(
             "Renowned: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Card)
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Card)
+                .unwrap_or_default()
         )
     }
 }

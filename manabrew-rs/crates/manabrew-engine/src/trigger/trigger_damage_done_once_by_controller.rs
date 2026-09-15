@@ -70,20 +70,20 @@ impl TriggerBehavior for TriggerDamageDoneOnceByController {
     ) -> String {
         // Java: if Target != null { "Damaged: " + Target + ", " } + "Damage Source: " + Source
         let target = sa
-            .get_triggering_object(crate::ability::AbilityKey::Target)
-            .unwrap_or("");
+            .get_triggering_object_text(crate::ability::AbilityKey::Target)
+            .unwrap_or_default();
         if target.is_empty() {
             format!(
                 "Damage Source: {}",
-                sa.get_triggering_object(crate::ability::AbilityKey::Source)
-                    .unwrap_or("")
+                sa.get_triggering_object_text(crate::ability::AbilityKey::Source)
+                    .unwrap_or_default()
             )
         } else {
             format!(
                 "Damaged: {}, Damage Source: {}",
                 target,
-                sa.get_triggering_object(crate::ability::AbilityKey::Source)
-                    .unwrap_or("")
+                sa.get_triggering_object_text(crate::ability::AbilityKey::Source)
+                    .unwrap_or_default()
             )
         }
     }

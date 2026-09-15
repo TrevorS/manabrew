@@ -71,8 +71,8 @@ impl TriggerBehavior for TriggerCrewedSaddled {
         // Java uses two spaces between Card and Crew sections
         format!(
             "Card: {}  Crew: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Card)
-                .unwrap_or(""),
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Card)
+                .unwrap_or_default(),
             sa.get_triggering_object(crate::ability::AbilityKey::Crew)
                 .unwrap_or("")
         )

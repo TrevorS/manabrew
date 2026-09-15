@@ -59,7 +59,7 @@ impl TriggerBehavior for TriggerDiscover {
     ) -> String {
         format!(
             "Player: {}, Amount: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Player)
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Player)
                 .unwrap_or_default(),
             sa.get_triggering_object(crate::ability::AbilityKey::Amount)
                 .unwrap_or_default()

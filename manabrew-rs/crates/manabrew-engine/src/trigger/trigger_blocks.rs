@@ -70,8 +70,8 @@ impl TriggerBehavior for TriggerBlocks {
     ) -> String {
         format!(
             "Blocker: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Blocker)
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Blocker)
+                .unwrap_or_default()
         )
     }
 }

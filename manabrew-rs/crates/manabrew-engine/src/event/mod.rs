@@ -354,99 +354,145 @@ pub struct RunParams {
 impl RunParams {
     pub fn add_common_trigger_objects(&self, sa: &mut crate::spellability::SpellAbility) {
         if let Some(card_id) = self.card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Card, card_id.0.to_string());
-            sa.set_triggering_object(crate::ability::AbilityKey::NewCard, card_id.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Card,
+                AbilityValue::Card(card_id),
+            );
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::NewCard,
+                AbilityValue::Card(card_id),
+            );
         }
         if let Some(card_id) = self.card_lki {
-            sa.set_triggering_object(crate::ability::AbilityKey::CardLKI, card_id.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::CardLKI,
+                AbilityValue::Card(card_id),
+            );
         }
         if let Some(player_id) = self.activator.or(self.cause_player) {
-            sa.set_triggering_object(
+            sa.set_triggering_value(
                 crate::ability::AbilityKey::Activator,
-                player_id.0.to_string(),
+                AbilityValue::Player(player_id),
             );
         }
         if let Some(player_id) = self.player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Player, player_id.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Player,
+                AbilityValue::Player(player_id),
+            );
         }
         if let Some(player_id) = self.attacking_player {
-            sa.set_triggering_object(
+            sa.set_triggering_value(
                 crate::ability::AbilityKey::AttackingPlayer,
-                player_id.0.to_string(),
+                AbilityValue::Player(player_id),
             );
         }
         if let Some(player_id) = self.defending_player {
-            sa.set_triggering_object(
+            sa.set_triggering_value(
                 crate::ability::AbilityKey::DefendingPlayer,
-                player_id.0.to_string(),
+                AbilityValue::Player(player_id),
             );
         }
         if let Some(card_id) = self.causer.or(self.cause_card) {
-            sa.set_triggering_object(crate::ability::AbilityKey::Causer, card_id.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Causer,
+                AbilityValue::Card(card_id),
+            );
         }
         if let Some(card_id) = self.source_card.or(self.spell_card) {
-            sa.set_triggering_object(crate::ability::AbilityKey::Source, card_id.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Source,
+                AbilityValue::Card(card_id),
+            );
         }
         if let Some(card_id) = self.attacker {
-            sa.set_triggering_object(crate::ability::AbilityKey::Attacker, card_id.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Attacker,
+                AbilityValue::Card(card_id),
+            );
         }
         if let Some(card_id) = self.blocker {
-            sa.set_triggering_object(crate::ability::AbilityKey::Blocker, card_id.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Blocker,
+                AbilityValue::Card(card_id),
+            );
         }
         if let Some(card_id) = self.attacked_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Attacked, card_id.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Attacked,
+                AbilityValue::Card(card_id),
+            );
         }
         if let Some(player_id) = self.attacked_player {
-            sa.set_triggering_object(
+            sa.set_triggering_value(
                 crate::ability::AbilityKey::AttackedTarget,
-                player_id.0.to_string(),
+                AbilityValue::Player(player_id),
             );
         }
         if let Some(card_id) = self.target_card {
-            let value = card_id.0.to_string();
-            sa.set_triggering_object(crate::ability::AbilityKey::Target, &value);
-            sa.set_triggering_object(crate::ability::AbilityKey::TargetCard, &value);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Target,
+                AbilityValue::Card(card_id),
+            );
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::TargetCard,
+                AbilityValue::Card(card_id),
+            );
         }
         if let Some(player_id) = self.target_player {
-            let value = player_id.0.to_string();
-            sa.set_triggering_object(crate::ability::AbilityKey::Target, &value);
-            sa.set_triggering_object(crate::ability::AbilityKey::TargetPlayer, &value);
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Target,
+                AbilityValue::Player(player_id),
+            );
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::TargetPlayer,
+                AbilityValue::Player(player_id),
+            );
         }
         if self.target_player.is_none() {
             if let Some(player_id) = self.damage_target_player {
-                let value = player_id.0.to_string();
-                sa.set_triggering_object(crate::ability::AbilityKey::Target, &value);
-                sa.set_triggering_object(crate::ability::AbilityKey::TargetPlayer, &value);
+                sa.set_triggering_value(
+                    crate::ability::AbilityKey::Target,
+                    AbilityValue::Player(player_id),
+                );
+                sa.set_triggering_value(
+                    crate::ability::AbilityKey::TargetPlayer,
+                    AbilityValue::Player(player_id),
+                );
             }
         }
         if self.target_card.is_none() {
             if let Some(card_id) = self.damage_target_card {
-                let value = card_id.0.to_string();
-                sa.set_triggering_object(crate::ability::AbilityKey::Target, &value);
-                sa.set_triggering_object(crate::ability::AbilityKey::TargetCard, &value);
+                sa.set_triggering_value(
+                    crate::ability::AbilityKey::Target,
+                    AbilityValue::Card(card_id),
+                );
+                sa.set_triggering_value(
+                    crate::ability::AbilityKey::TargetCard,
+                    AbilityValue::Card(card_id),
+                );
             }
         }
         if let Some(card_id) = self.explored {
-            sa.set_triggering_object(crate::ability::AbilityKey::Explored, card_id.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Explored,
+                AbilityValue::Card(card_id),
+            );
         }
         if let Some(cards) = self.cards.as_deref() {
-            let csv = cards
-                .iter()
-                .map(|card_id| card_id.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            if !csv.is_empty() {
-                sa.set_triggering_object(crate::ability::AbilityKey::Cards, &csv);
+            if !cards.is_empty() {
+                sa.set_triggering_value(
+                    crate::ability::AbilityKey::Cards,
+                    AbilityValue::Cards(cards.to_vec()),
+                );
             }
         }
         if let Some(cards) = self.attacker_ids.as_deref() {
-            let csv = cards
-                .iter()
-                .map(|card_id| card_id.0.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            if !csv.is_empty() {
-                sa.set_triggering_object(crate::ability::AbilityKey::Attackers, &csv);
+            if !cards.is_empty() {
+                sa.set_triggering_value(
+                    crate::ability::AbilityKey::Attackers,
+                    AbilityValue::Cards(cards.to_vec()),
+                );
             }
         }
         if let Some(value) = self.life_amount {

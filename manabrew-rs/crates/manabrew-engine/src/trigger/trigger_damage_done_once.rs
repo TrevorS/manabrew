@@ -139,8 +139,8 @@ impl TriggerBehavior for TriggerDamageDoneOnce {
     ) -> String {
         // Java: if Target != null { "Damaged: " + Target + ", " } + "Amount: " + DamageAmount
         let target = sa
-            .get_triggering_object(crate::ability::AbilityKey::Target)
-            .unwrap_or("");
+            .get_triggering_object_text(crate::ability::AbilityKey::Target)
+            .unwrap_or_default();
         if target.is_empty() {
             format!(
                 "Amount: {}",

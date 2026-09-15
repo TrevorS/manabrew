@@ -105,8 +105,8 @@ impl TriggerBehavior for TriggerCounterAdded {
         _trigger: &super::trigger::Trigger,
         sa: &SpellAbility,
     ) -> String {
-        let card = sa.get_triggering_object(crate::ability::AbilityKey::Card);
-        let player = sa.get_triggering_object(crate::ability::AbilityKey::Player);
+        let card = sa.get_triggering_object_text(crate::ability::AbilityKey::Card);
+        let player = sa.get_triggering_object_text(crate::ability::AbilityKey::Player);
         if let Some(c) = card {
             format!("AddedOnce: {c}")
         } else if let Some(p) = player {

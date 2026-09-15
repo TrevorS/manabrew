@@ -74,8 +74,8 @@ impl TriggerBehavior for TriggerAttackerBlockedOnce {
     ) -> String {
         format!(
             "Attackers: {}",
-            sa.get_triggering_object(AbilityKey::Attackers)
-                .unwrap_or("")
+            sa.get_triggering_object_text(AbilityKey::Attackers)
+                .unwrap_or_default()
         )
     }
 }

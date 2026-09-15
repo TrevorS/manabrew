@@ -81,10 +81,10 @@ impl TriggerBehavior for TriggerDamageDone {
         // Java: "Damage Source: " + Source + ", Damaged: " + Target + ", Amount: " + DamageAmount
         format!(
             "Damage Source: {}, Damaged: {}, Amount: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Source)
-                .unwrap_or(""),
-            sa.get_triggering_object(crate::ability::AbilityKey::Target)
-                .unwrap_or(""),
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Source)
+                .unwrap_or_default(),
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Target)
+                .unwrap_or_default(),
             sa.get_triggering_object(crate::ability::AbilityKey::DamageAmount)
                 .unwrap_or("")
         )

@@ -53,8 +53,8 @@ impl TriggerBehavior for TriggerBecomeMonarch {
     ) -> String {
         format!(
             "Player: {}, ",
-            sa.get_triggering_object(crate::ability::AbilityKey::Player)
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Player)
+                .unwrap_or_default()
         )
     }
 }

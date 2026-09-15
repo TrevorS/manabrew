@@ -63,7 +63,7 @@ impl TriggerBehavior for TriggerCrankContraption {
     ) -> String {
         format!(
             "Cranked: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Card)
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Card)
                 .unwrap_or_default()
         )
     }

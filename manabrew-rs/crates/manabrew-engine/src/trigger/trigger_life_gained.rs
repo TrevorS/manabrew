@@ -80,7 +80,7 @@ impl TriggerBehavior for TriggerLifeGained {
         // Java: "Player: " + Player + ", GainedAmount: " + LifeAmount
         format!(
             "Player: {}, GainedAmount: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Player)
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Player)
                 .unwrap_or_default(),
             sa.get_triggering_object(crate::ability::AbilityKey::LifeAmount)
                 .unwrap_or_default()

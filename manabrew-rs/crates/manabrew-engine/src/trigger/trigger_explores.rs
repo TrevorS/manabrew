@@ -62,7 +62,8 @@ impl TriggerBehavior for TriggerExplores {
             sa.get_triggering_object(crate::ability::AbilityKey::Explorer)
                 .unwrap_or_default()
         );
-        if let Some(explored) = sa.get_triggering_object(crate::ability::AbilityKey::Explored) {
+        if let Some(explored) = sa.get_triggering_object_text(crate::ability::AbilityKey::Explored)
+        {
             sb.push_str(&format!(", Explored: {explored}"));
         }
         sb

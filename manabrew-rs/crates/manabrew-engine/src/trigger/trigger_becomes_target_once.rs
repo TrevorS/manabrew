@@ -75,8 +75,8 @@ impl TriggerBehavior for TriggerBecomesTargetOnce {
     ) -> String {
         format!(
             "Source: {}, Targets: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Source)
-                .unwrap_or(""),
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Source)
+                .unwrap_or_default(),
             sa.get_triggering_object(crate::ability::AbilityKey::Targets)
                 .unwrap_or("")
         )

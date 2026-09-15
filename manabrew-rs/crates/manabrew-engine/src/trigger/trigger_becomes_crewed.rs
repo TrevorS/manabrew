@@ -88,8 +88,8 @@ impl TriggerBehavior for TriggerBecomesCrewed {
     ) -> String {
         format!(
             "Vehicle: {}  Crew: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Card)
-                .unwrap_or(""),
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Card)
+                .unwrap_or_default(),
             sa.get_triggering_object(crate::ability::AbilityKey::Crew)
                 .unwrap_or("")
         )

@@ -47,7 +47,7 @@ impl TriggerBehavior for TriggerLosesGame {
     fn get_important_stack_objects(&self, _trigger: &Trigger, sa: &SpellAbility) -> String {
         format!(
             "Player: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Player)
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Player)
                 .unwrap_or_default()
         )
     }

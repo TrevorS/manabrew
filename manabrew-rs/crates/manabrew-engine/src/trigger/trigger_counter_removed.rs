@@ -61,7 +61,7 @@ impl TriggerBehavior for TriggerCounterRemoved {
     ) -> String {
         format!(
             "RemovedFrom: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Card)
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Card)
                 .unwrap_or_default()
         )
     }

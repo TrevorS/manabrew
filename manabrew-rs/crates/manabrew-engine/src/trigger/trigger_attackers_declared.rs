@@ -168,8 +168,8 @@ impl TriggerBehavior for TriggerAttackersDeclared {
     ) -> String {
         format!(
             "Number Attackers: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Attackers)
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Attackers)
+                .unwrap_or_default()
         )
     }
 }

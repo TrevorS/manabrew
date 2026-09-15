@@ -72,8 +72,8 @@ impl TriggerBehavior for TriggerAttackerBlocked {
         sa: &SpellAbility,
     ) -> String {
         let attacker = sa
-            .get_triggering_object(crate::ability::AbilityKey::Attacker)
-            .unwrap_or("");
+            .get_triggering_object_text(crate::ability::AbilityKey::Attacker)
+            .unwrap_or_default();
         let num_blockers = sa
             .get_triggering_object(crate::ability::AbilityKey::Blockers)
             .map(|s| {

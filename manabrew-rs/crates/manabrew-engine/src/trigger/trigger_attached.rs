@@ -62,8 +62,8 @@ impl TriggerBehavior for TriggerAttached {
     ) -> String {
         format!(
             "Attachee: {}",
-            sa.get_triggering_object(crate::ability::AbilityKey::Target)
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Target)
+                .unwrap_or_default()
         )
     }
 }
