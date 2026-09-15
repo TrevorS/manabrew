@@ -3,6 +3,7 @@ function audioAsset(name: string) {
 }
 
 export const DISPLAY_EVENT_AUDIO_ASSETS = {
+  gameStart: audioAsset("game-start"),
   bookClose: audioAsset("book-close"),
   cardContactFirm: audioAsset("card-contact-firm"),
   cardContactSoft: audioAsset("card-contact-soft"),
@@ -13,9 +14,11 @@ export const DISPLAY_EVENT_AUDIO_ASSETS = {
   gemLight: audioAsset("gem-light"),
   metalHeavy: audioAsset("metal-heavy"),
   metalLight: audioAsset("metal-light"),
+  mulligan: audioAsset("mulligan"),
   pageBrisk: audioAsset("page-brisk"),
   pageSoft: audioAsset("page-soft"),
   pieceHeavy: audioAsset("piece-heavy"),
+  priority: audioAsset("priority"),
   shuffle: audioAsset("shuffle"),
   spellBright: audioAsset("spell-bright"),
   spellFire: audioAsset("spell-fire"),
@@ -59,7 +62,9 @@ export const DISPLAY_EVENT_AUDIO: Record<string, DisplayEventAudioDefinition> = 
   "game.player.life-loss": audio("stoneHeavy", 3, 80, 0.75),
   "game.turn.start": audio("gemLight", 1, 250, 0.75),
   "game.random.die-roll": audio("woodenDice", 2, 120, 0.7),
-  "game.start": audio("bookClose", 1, 500, 0.8),
+  "game.start": audio("gameStart", 1, 500, 0.75),
+  "prompt.priority-required": audio("priority", 1, 100, 0.45),
+  "prompt.mulligan-required": audio("mulligan", 1, 500, 0.65),
   "prompt.decision-required": audio("gemLight", 1, 250, 0.65),
   "prompt.target-required": audio("gemLight", 1, 250, 0.65),
   "prompt.payment-required": audio("gemLight", 1, 250, 0.65),

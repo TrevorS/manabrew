@@ -107,6 +107,8 @@ impl DisplayEventType {
         Self(Cow::Borrowed("game.land.enter.white-red-black"));
     pub const GAME_LAND_ENTER_OTHER: Self = Self(Cow::Borrowed("game.land.enter.other"));
     pub const GAME_CARD_SCRIPTED_EFFECT: Self = Self(Cow::Borrowed("game.card.scripted-effect"));
+    pub const PROMPT_PRIORITY_REQUIRED: Self = Self(Cow::Borrowed("prompt.priority-required"));
+    pub const PROMPT_MULLIGAN_REQUIRED: Self = Self(Cow::Borrowed("prompt.mulligan-required"));
     pub const PROMPT_DECISION_REQUIRED: Self = Self(Cow::Borrowed("prompt.decision-required"));
     pub const PROMPT_TARGET_REQUIRED: Self = Self(Cow::Borrowed("prompt.target-required"));
     pub const PROMPT_PAYMENT_REQUIRED: Self = Self(Cow::Borrowed("prompt.payment-required"));

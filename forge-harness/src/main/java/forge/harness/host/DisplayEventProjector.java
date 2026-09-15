@@ -118,6 +118,8 @@ final class DisplayEventProjector extends IGameEventVisitor.Base<DisplayEventPro
         GAME_LAND_ENTER_WHITE_RED_BLACK("game.land.enter.white-red-black"),
         GAME_LAND_ENTER_OTHER("game.land.enter.other"),
         GAME_CARD_SCRIPTED_EFFECT("game.card.scripted-effect"),
+        PRIORITY_REQUIRED("prompt.priority-required"),
+        MULLIGAN_REQUIRED("prompt.mulligan-required"),
         DECISION_REQUIRED("prompt.decision-required"),
         TARGET_REQUIRED("prompt.target-required"),
         PAYMENT_REQUIRED("prompt.payment-required"),
@@ -643,6 +645,10 @@ final class DisplayEventProjector extends IGameEventVisitor.Base<DisplayEventPro
             return null;
         }
         switch (promptType) {
+            case "chooseAction":
+                return EventType.PRIORITY_REQUIRED;
+            case "mulligan":
+                return EventType.MULLIGAN_REQUIRED;
             case "chooseBoardTargets":
                 return EventType.TARGET_REQUIRED;
             case "payManaCost":

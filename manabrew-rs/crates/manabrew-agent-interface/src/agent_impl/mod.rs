@@ -256,9 +256,9 @@ fn project_display(source: DisplayProjection<'_>) -> Option<ProjectedDisplayEven
                 | PromptInput::ChooseCombatDamageAssignment(_) => {
                     DisplayEventType::PROMPT_COMBAT_REQUIRED.clone()
                 }
-                PromptInput::ChooseAction(_)
-                | PromptInput::Mulligan(_)
-                | PromptInput::MulliganPutBack(_)
+                PromptInput::ChooseAction(_) => DisplayEventType::PROMPT_PRIORITY_REQUIRED.clone(),
+                PromptInput::Mulligan(_) => DisplayEventType::PROMPT_MULLIGAN_REQUIRED.clone(),
+                PromptInput::MulliganPutBack(_)
                 | PromptInput::ChooseBoolean(_)
                 | PromptInput::ChooseFromSelection(_)
                 | PromptInput::RevealCards(_)
