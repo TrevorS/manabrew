@@ -101,7 +101,7 @@ impl Clone for CardTraitBase {
             id: self.id,
             host_card_id: self.host_card_id,
             card_state_name: self.card_state_name,
-            keyword: None,
+            keyword: self.keyword.clone(),
             original_map_params: self.original_map_params.clone(),
             map_params: self.map_params.clone(),
             intrinsic: self.intrinsic,

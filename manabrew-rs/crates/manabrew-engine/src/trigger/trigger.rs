@@ -756,6 +756,29 @@ impl Trigger {
                 return false;
             }
         }
+        if self
+            .base
+            .card_trait_base
+            .is_keyword(crate::keyword::keyword_instance::Keyword::Increment)
+        {
+            let host = game.card(host_card);
+            if !host.is_creature() {
+                return false;
+            }
+            let Some(sp) = run_params.spell_ability.as_ref() else {
+                return false;
+            };
+            let p = host.controller;
+            let v = sp
+                .source
+                .filter(|_| sp.activating_player == p)
+                .map_or(0, |source| {
+                    game.card(source).paying_mana_to_cast.len() as i32
+                });
+            if v <= host.power() && v <= host.toughness() {
+                return false;
+            }
+        }
 
         let Some(condition) = condition else {
             return true;
