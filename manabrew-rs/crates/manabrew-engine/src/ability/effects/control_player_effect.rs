@@ -31,27 +31,5 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         // through the controller's agent instead of the target's agent
         ctx.game
             .player_set_controlled_by(target_player, Some(controller));
-
-        // Register a cleanup to remove control at end of next turn
-        // Java uses addUntil on the cleanup step — we use a delayed trigger
-        ctx.trigger_handler
-            .register_delayed_trigger(crate::trigger::handler::DelayedTrigger {
-                mode: crate::trigger::TriggerType::Phase,
-                trigger_mode: Box::new(crate::trigger::trigger_always::TriggerAlways)
-                    as Box<dyn crate::trigger::TriggerBehavior>,
-                params: crate::parsing::Params::default(),
-                execute_svar: "ControlPlayerCleanup".to_string(),
-                controller,
-                source_card: sa.source.unwrap_or(crate::ids::CardId(0)),
-                created_turn: ctx.game.turn.turn_number,
-                created_phase: ctx.game.turn.phase,
-                target_card: None,
-                remembered_amount: target_player.0 as i32,
-                remembered_cards: Vec::new(),
-                remembered_players: Vec::new(),
-                remembered_lki_cards: Vec::new(),
-                sort_after_active: false,
-                trigger_order: None,
-            });
     }
 }
