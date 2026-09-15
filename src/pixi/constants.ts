@@ -83,8 +83,6 @@ export const FLOATER_RISE_PER_FRAME = 0.7;
 export const FLOATER_FONT_SIZE = 24;
 
 export const CAST_DRAG_SCALE = 1.25;
-export const CAST_DRAG_CARD_DROP_PX = 16;
-export const CAST_DRAG_HAND_SINK_PX = 200;
 
 export const EXIT_FADE_LERP = 0.2;
 export const EXIT_SHRINK = 0.95;

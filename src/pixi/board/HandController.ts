@@ -17,8 +17,6 @@ import { HAND_CARD_BASE } from "@/components/game/game.styles";
 import { HandReorderIndicator } from "../HandReorderIndicator";
 import { CARD_W, CARD_H } from "@/components/game/game.constants";
 import {
-  CAST_DRAG_CARD_DROP_PX,
-  CAST_DRAG_HAND_SINK_PX,
   CAST_DRAG_SCALE,
   GAP,
   HAND_BOTTOM_SINK_FRAC,
@@ -56,7 +54,6 @@ export class HandController {
   private compact = false;
   private sheetOpen = false;
   private rulesViewDefault = false;
-  private dropActive = false;
   private reorderIndex: number | null = null;
   private hoverDebugGfx: Graphics;
   private reorderIndicator: HandReorderIndicator;
@@ -136,12 +133,6 @@ export class HandController {
     for (const sprite of this.sprites.values()) sprite.setHandRulesView(active);
   }
 
-  setDropActive(active: boolean): void {
-    if (this.dropActive === active) return;
-    this.dropActive = active;
-    this.relayout();
-  }
-
   isDraggingPermanent(): boolean {
     return this.lastState?.draggingCardId != null && this.lastState?.draggingIsPermanent === true;
   }
@@ -201,12 +192,6 @@ export class HandController {
     const hitZones: HandHitZone[] = [];
     let reorderIndicatorShown = false;
 
-    // The fan only reshapes for a drag that originates from the hand. A card
-    // dragged from the command zone sets `draggingCardId` too, but must not sink
-    // the hand out of the way.
-    const draggingInHand =
-      state.draggingCardId != null && state.cards.some((c) => c.id === state.draggingCardId);
-
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i]!;
       const l = layout[i]!;
@@ -230,12 +215,6 @@ export class HandController {
       const isReordering = !selectionMode && card.id === state.reorderingCardId;
       const isCastingPermanent = isCastDrag && !isReordering && state.draggingIsPermanent === true;
       const isCastingSpell = isCastDrag && !isReordering && state.draggingIsPermanent !== true;
-      const reshapeFan = !selectionMode && !isReordering && draggingInHand && this.dropActive;
-      const castOffset = reshapeFan
-        ? Math.round(
-            (isCastingPermanent ? CAST_DRAG_CARD_DROP_PX : CAST_DRAG_HAND_SINK_PX) * this.vScale,
-          )
-        : 0;
       const castScale = isCastingPermanent ? CAST_DRAG_SCALE : 1;
 
       const isHidden =
@@ -259,7 +238,7 @@ export class HandController {
       }
       this.targets.set(card.id, {
         x: centerX + l.x,
-        y: bottomY + l.y - l.scaleH / 2 + selectedDrop + castOffset,
+        y: bottomY + l.y - l.scaleH / 2 + selectedDrop,
         rot,
         scaleX: (l.scaleW / CARD_W) * castScale,
         scaleY: (l.scaleH / CARD_H) * castScale,
@@ -271,7 +250,7 @@ export class HandController {
               index: i,
               card,
               x: centerX + l.x,
-              y: bottomY + l.y - l.scaleH / 2 + selectedDrop + castOffset,
+              y: bottomY + l.y - l.scaleH / 2 + selectedDrop,
               width: l.scaleW,
               height: l.scaleH,
             }

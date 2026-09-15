@@ -1534,7 +1534,6 @@ export class BoardScene {
   setDropActive(active: boolean): void {
     this.dropActive = active;
     this.localRegion()?.setDropActive(active);
-    this.hand?.setDropActive(active);
   }
 
   commitPendingDrop(cardId: string, clientX: number, clientY: number): boolean {
