@@ -29,12 +29,6 @@ pub struct DiceRolledInput {
     pub presentation: PromptPresentation,
     pub sides: i32,
     pub rolls: Vec<DiceRollEntry>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub source_card_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub source_card_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

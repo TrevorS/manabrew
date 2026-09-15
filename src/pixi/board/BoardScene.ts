@@ -10,7 +10,7 @@ import {
   Texture,
   type FederatedPointerEvent,
 } from "pixi.js";
-import { boardBackgroundUrl } from "./boardBackgrounds";
+import { boardBackgroundDarken, boardBackgroundUrl } from "./boardBackgrounds";
 import { withAlpha } from "@/themes/gameTheme";
 import type { CardDto, PlaymatSettings } from "@/protocol/game";
 import type { AttackTargetDto, TargetRef } from "@/protocol/prompts/common";
@@ -41,6 +41,7 @@ import { animationsEnabled } from "../effects/enabled";
 import { gsap } from "../effects/gsap";
 import { LongPressGesture } from "../LongPressGesture";
 import { PREVIEW_TIMING, type PreviewPointerInput } from "@/lib/cardPreview";
+import { topModal } from "@/lib/modalStack";
 import { intentIsHostile } from "@/types/promptType";
 import {
   FLOATER_FONT_SIZE,
@@ -215,6 +216,7 @@ export class BoardScene {
   private baseBg: Graphics;
   private baseImage: Sprite;
   private baseImageUrl: string | null = null;
+  private baseImageDarken = 0;
   private collapseVeil: Graphics;
   private canvasW = 0;
   private canvasH = 0;
@@ -343,6 +345,7 @@ export class BoardScene {
     app.stage.eventMode = "static";
     app.stage.hitArea = {
       contains: (x, y) =>
+        !topModal() &&
         x >= 0 &&
         x <= this.canvasW &&
         y >= 0 &&
@@ -363,7 +366,7 @@ export class BoardScene {
     this.baseImage.anchor.set(0.5);
     this.baseImage.visible = false;
     this.root.addChild(this.baseImage);
-    this.setBackground(boardBackgroundUrl(undefined));
+    this.setBackground(boardBackgroundUrl(undefined), boardBackgroundDarken(undefined));
 
     this.dragHandler = new DragHandler();
 
@@ -419,10 +422,34 @@ export class BoardScene {
     app.stage.on("pointerupoutside", this.onStageUp);
 
     this.cursorListener = (e: MouseEvent) => {
+      if (topModal()) {
+        if (this.hand?.hasActiveHover()) this.hand.resetHover();
+        this.updateHoveredOpponent(-1, -1);
+        return;
+      }
       this.cursorViewportX = e.clientX;
       this.cursorViewportY = e.clientY;
       const rect = this.app.canvas.getBoundingClientRect();
-      this.updateHoveredOpponent(e.clientX - rect.left, e.clientY - rect.top);
+      const canvasX = e.clientX - rect.left;
+      const canvasY = e.clientY - rect.top;
+      if (
+        this.activeGesturePointerId === null &&
+        !this.hand?.isDraggingFromHand() &&
+        this.overlayHitTest?.(canvasX, canvasY)
+      ) {
+        if (this.hand?.hasActiveHover()) this.hand.resetHover();
+        this.updateHoveredOpponent(-1, -1);
+        return;
+      }
+      this.updateHoveredOpponent(canvasX, canvasY);
+      if (this.hand?.hasActiveHover()) {
+        const point = this.root.toLocal(
+          RECT_SCRATCH_A.set(canvasX, canvasY),
+          undefined,
+          RECT_SCRATCH_A,
+        );
+        this.hand.clearHoverOutside(point.x, point.y);
+      }
     };
     window.addEventListener("pointermove", this.cursorListener);
     this.canvasLeaveListener = () => this.hand?.clearHover();
@@ -1201,6 +1228,13 @@ export class BoardScene {
   handUsesRulesView(cardId: string): boolean {
     return this.hand?.usesRulesView(cardId) === true;
   }
+  hitTestHandRules(x: number, y: number): boolean {
+    return this.hand?.hitTestRules(x, y) === true;
+  }
+
+  scrollHandRulesAt(x: number, y: number, delta: number, mode: number): boolean {
+    return this.hand?.scrollRulesAt(x, y, delta, mode) ?? false;
+  }
 
   toggleHoveredHandRulesView(): boolean | null {
     return this.hand?.toggleHoveredRulesView() ?? null;
@@ -1418,6 +1452,10 @@ export class BoardScene {
     this.overlayHitTest = hitTest;
   }
 
+  suppressPointerTap(pointerId: number): void {
+    this.tapSuppressedPointers.add(pointerId);
+  }
+
   setPlayerBlockers(blockers: Map<string, BlockingRect[]>): void {
     this.playerBlockers = blockers;
     this.layoutSelfBar();
@@ -1460,9 +1498,12 @@ export class BoardScene {
     for (const rec of this.regions.values()) rec.region.restyleCards();
   }
 
-  setBackground(url: string | null): void {
-    if (this.destroyed || url === this.baseImageUrl) return;
+  setBackground(url: string | null, darken = 0): void {
+    if (this.destroyed || (url === this.baseImageUrl && darken === this.baseImageDarken)) return;
     this.baseImageUrl = url;
+    this.baseImageDarken = darken;
+    const channel = Math.round(255 * (1 - darken));
+    this.baseImage.tint = (channel << 16) | (channel << 8) | channel;
     if (!url) {
       this.baseImage.visible = false;
       return;
@@ -1531,8 +1572,8 @@ export class BoardScene {
     this.promptReference = target;
     const color =
       target?.intent != null && intentIsHostile(target.intent)
-        ? this.theme.gameTheme.pointer.hostile
-        : this.theme.gameTheme.pointer.friendly;
+        ? this.theme.gameTheme.targeting.hostile
+        : this.theme.gameTheme.targeting.friendly;
     const cardId = target?.kind === "card" ? target.id : null;
     for (const rec of this.regions.values()) {
       rec.region.setPromptReference(cardId, target ? hexToNum(color) : null);
@@ -2014,6 +2055,11 @@ export class BoardScene {
 
   private onGlobalMove(e: FederatedPointerEvent): void {
     if (this.destroyed) return;
+    if (topModal()) {
+      if (this.hand?.hasActiveHover()) this.hand.resetHover();
+      this.updateHoveredOpponent(-1, -1);
+      return;
+    }
     if (this.pinchStart) return;
     if (this.activeGesturePointerId !== null && e.pointerId !== this.activeGesturePointerId) {
       return;
@@ -2293,11 +2339,15 @@ export class BoardScene {
           to.pos.x += (idx - (total - 1) / 2) * ATTACK_ARROW_LANE_PX;
         }
       }
-      const pointer = this.theme.gameTheme.pointer;
+      const targeting = this.theme.gameTheme.targeting;
       const color =
-        spec.hostile == null
-          ? undefined
-          : hexToNum(spec.hostile ? pointer.hostile : pointer.friendly);
+        spec.type === "attack"
+          ? hexToNum(targeting.hostile)
+          : spec.type === "block"
+            ? hexToNum(targeting.friendly)
+            : spec.hostile == null
+              ? undefined
+              : hexToNum(spec.hostile ? targeting.hostile : targeting.friendly);
       // Placement arrows landing in a visible field also outline the target slot.
       let slot: { width: number; height: number } | undefined;
       if (spec.type === "placement" && spec.to.kind === "placement-ghost" && !to.hint) {
@@ -2331,14 +2381,14 @@ export class BoardScene {
         this.stackProvider?.getCastingAnchor(id, target) ??
         this.resolveArrowEndpoint({ kind: "card", id }, canvasRect);
       if (from) {
-        const t = this.theme.gameTheme.pointer;
+        const targeting = this.theme.gameTheme.targeting;
         resolved.push({
           fromX: from.x,
           fromY: from.y,
           toX: target.x,
           toY: target.y,
           type: "casting",
-          color: hexToNum(this.castingArrow.hostile ? t.hostile : t.friendly),
+          color: hexToNum(this.castingArrow.hostile ? targeting.hostile : targeting.friendly),
         });
       }
     }
@@ -2384,7 +2434,7 @@ export class BoardScene {
           toX,
           toY,
           type: "attack",
-          color: hexToNum(this.theme.gameTheme.pointer.hostile),
+          color: hexToNum(this.theme.gameTheme.targeting.hostile),
         });
       }
     }

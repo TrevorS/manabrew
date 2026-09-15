@@ -29,6 +29,7 @@ import forge.game.spellability.SpellAbility;
 import forge.game.staticability.StaticAbilityCantAttackBlock;
 import forge.game.staticability.StaticAbilityMustAttack;
 import forge.game.zone.ZoneType;
+import forge.item.PaperCard;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -715,8 +716,7 @@ public final class ManaBrewInteractiveSession {
                     java.util.List.of(roll), java.util.List.of(roll), java.util.List.of(), p == winner));
         }
         publishAgentPrompt("player-" + playerId, null,
-                new DiceRolledInput(
-                        presentation("Roll for first player", null), sides, rollEntries, null, null));
+                new DiceRolledInput(presentation("Roll for first player", null), sides, rollEntries));
     }
 
     private void publishManaPaymentPrompt(
@@ -1143,6 +1143,23 @@ public final class ManaBrewInteractiveSession {
                 ? new ArrayList<Card>()
                 : new ArrayList<Card>(cardsForPrompt);
         publishRevealCardsPrompt(playerId, cards, zone, owner, messagePrefix);
+        awaitRevealAcknowledgement();
+    }
+    void awaitRevealPaperCards(
+            final int playerId,
+            final List<? extends PaperCard> cardsForPrompt,
+            final Player owner,
+            final String messagePrefix
+    ) {
+        requireAttached();
+        final String ownerPlayerId = "player-" + SnapshotExtractor.playerIndex(game, owner);
+        final List<CardDto> cards = new ArrayList<>();
+        for (int i = 0; i < cardsForPrompt.size(); i++) {
+            cards.add(InteractiveSnapshotExtractor.paperCardDto(
+                    cardsForPrompt.get(i), "java-paper-card-" + playerId + "-" + i, ownerPlayerId));
+        }
+        publishAgentPrompt("player-" + playerId, null,
+                revealInput(ZoneKind.LIBRARY, messagePrefix, ownerPlayerId, cards));
         awaitRevealAcknowledgement();
     }
 

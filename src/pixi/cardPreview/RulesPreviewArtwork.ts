@@ -1,9 +1,11 @@
 import { Container, FillGradient, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import { hexToNum } from "@/pixi/colorUtils";
 import { withAlpha } from "@/themes/gameTheme";
+import { drawTopSquareBottomRoundedRect } from "@/pixi/cardPreview/rulesPreviewFrame";
 
 const ART_FADE_START = 0.85;
 const ART_FADE_END_ALPHA = 0.8;
+const ART_TOP_OVERLAP = 1;
 
 export interface RulesPreviewArtworkLayout {
   x: number;
@@ -82,10 +84,12 @@ export class RulesPreviewArtwork {
       return;
     }
 
-    this.setCroppedTexture(width, height);
+    const artworkY = y - ART_TOP_OVERLAP;
+    const artworkHeight = height + ART_TOP_OVERLAP;
+    this.setCroppedTexture(width, artworkHeight);
     this.artwork.anchor.set(0);
-    this.artwork.position.set(x, y);
-    this.artwork.setSize(width, height);
+    this.artwork.position.set(x, artworkY);
+    this.artwork.setSize(width, artworkHeight);
     if (this.fadeGradient === null || this.fadeGradientColor !== paper) {
       this.fadeGradient?.destroy();
       this.fadeGradient = new FillGradient({
@@ -101,10 +105,8 @@ export class RulesPreviewArtwork {
       this.fadeGradientColor = paper;
     }
     this.fade.visible = true;
-    this.fade
-      .roundRect(x, y, width, height, radius)
-      .rect(x, y, width, radius)
-      .fill(this.fadeGradient);
+    drawTopSquareBottomRoundedRect(this.fade, x, y, width, height, radius);
+    this.fade.fill(this.fadeGradient);
     this.cornerCover.visible = radius > 0;
     if (radius > 0) {
       const bottom = y + height;

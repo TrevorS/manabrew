@@ -1,14 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type { PromptActionSpec } from "@/components/game/game.types";
+import { registerModal } from "@/lib/modalStack";
 import { BoardOverlayCanvas } from "@/pixi/BoardOverlayCanvas";
 import type { PromptOverlaySpec } from "@/pixi/prompts/prompt.types";
 import type { StackSpec } from "@/pixi/stack/stack.types";
-import type { Prompt, PromptInput } from "@/protocol";
+import type { Prompt } from "@/protocol";
 
 import type { DevDialogPreview } from "../promptDialogPreviews";
 import type { DevDialogFixtures } from "./useDevDialogFixtures";
+import { FALLBACK_CARDS } from "@/components/dev/gameplayDialogFixtures";
+import { previewInput } from "@/components/dev/gameplayPromptFixtures";
 
 interface PromptModalPreviewProps {
   preview: DevDialogPreview;
@@ -26,10 +29,12 @@ const EMPTY_STACK: StackSpec = {
 };
 
 export function PromptModalPreview({ preview, fixtures, onClose }: PromptModalPreviewProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => registerModal(panelRef.current!), []);
   const [damageOrder, setDamageOrder] = useState<string[]>([]);
   const input = useMemo(() => previewInput(preview, fixtures), [preview, fixtures]);
   const prompt = useMemo<Prompt>(() => ({ input }) as Prompt, [input]);
-  const blockerCards = useMemo(() => fixtures.cards.slice(1, 3), [fixtures.cards]);
+  const blockerCards = useMemo(() => FALLBACK_CARDS.slice(1, 3), []);
   const spec = useMemo<PromptOverlaySpec>(() => {
     const action: PromptActionSpec = {
       promptType: input.type,
@@ -55,7 +60,6 @@ export function PromptModalPreview({ preview, fixtures, onClose }: PromptModalPr
       onConfirmDamageOrder: onClose,
       onUndoDamageOrder: () => setDamageOrder((current) => current.slice(0, -1)),
       onDefaultDamageOrder: () => setDamageOrder(blockerCards.map((card) => card.id)),
-      onOpenStack: noAction,
       onToggleBoardMenu: noAction,
       resolveCardName: (cardId) => cardId,
       resolveCard: () => undefined,
@@ -72,13 +76,27 @@ export function PromptModalPreview({ preview, fixtures, onClose }: PromptModalPr
     return {
       currentPrompt: prompt,
       localPlayerId: fixtures.me.id,
-      gameView: fixtures.gameView,
-      sourceDeckCard: fixtures.sourceCard,
+      gameView:
+        input.type === "chooseCombatDamageAssignment" ||
+        input.type === "chooseDamageAssignmentOrder"
+          ? {
+              ...fixtures.gameView,
+              battlefield: FALLBACK_CARDS.map((card) => ({
+                ...card,
+                zoneId: "battlefield",
+              })),
+            }
+          : fixtures.gameView,
+      sourceDeckCard:
+        input.type === "chooseCombatDamageAssignment" ||
+        input.type === "chooseDamageAssignmentOrder"
+          ? undefined
+          : fixtures.sourceCard,
       action,
       damageOrder:
         input.type === "chooseDamageAssignmentOrder"
           ? {
-              attackerName: fixtures.cards[0]!.identity.name,
+              attackerName: FALLBACK_CARDS[0]!.identity.name,
               blockerCards,
               order: damageOrder,
               onToggle: (cardId) =>
@@ -112,174 +130,18 @@ export function PromptModalPreview({ preview, fixtures, onClose }: PromptModalPr
   return createPortal(
     <>
       <div className="pointer-events-none fixed inset-0 z-[9998]">
-        <BoardOverlayCanvas
-          scene={null}
-          stackSpec={EMPTY_STACK}
-          onOpenStack={noAction}
-          onTargetSpell={noAction}
-          onHoverStack={noAction}
-          onToggleStack={noAction}
-          promptSpec={spec}
-        />
+        <div ref={panelRef} className="h-full" role="dialog" aria-label="Prompt preview">
+          <BoardOverlayCanvas
+            scene={null}
+            stackSpec={EMPTY_STACK}
+            onTargetSpell={noAction}
+            onHoverStack={noAction}
+            onToggleStack={noAction}
+            promptSpec={spec}
+          />
+        </div>
       </div>
     </>,
     document.body,
   );
-}
-
-function previewInput(preview: DevDialogPreview, fixtures: DevDialogFixtures): PromptInput {
-  const { cards, me, targetPlayer, presentation } = fixtures;
-  switch (preview) {
-    case "choose-boolean":
-      return {
-        type: "chooseBoolean",
-        presentation,
-        confirmLabel: "Create the token",
-        denyLabel: "Decline",
-      };
-    case "choose-color":
-      return {
-        type: "chooseColor",
-        presentation,
-        validColors: ["W", "U", "B", "R", "G"],
-        amount: 1,
-        repeatAllowed: false,
-      };
-    case "choose-colors":
-      return {
-        type: "chooseColor",
-        presentation,
-        validColors: ["W", "U", "B", "R", "G"],
-        amount: 3,
-        repeatAllowed: true,
-      };
-    case "choose-number-buttons":
-      return { type: "chooseNumber", presentation, min: 0, max: 5 };
-    case "choose-number-input":
-      return { type: "chooseNumber", presentation, min: 0, max: 99 };
-    case "choose-cards":
-      return { type: "chooseCards", presentation, cards, min: 1, max: 2 };
-    case "reveal-cards":
-      return {
-        type: "revealCards",
-        presentation,
-        cards,
-        zone: "battlefield",
-        ownerPlayerId: me.id,
-      };
-    case "scry":
-    case "scry-landscape":
-    case "scry-double-sided":
-    case "scry-mixed":
-      return {
-        type: "scry",
-        presentation: { ...presentation, title: `Scry ${cards.length}` },
-        cards,
-        zones: ["libraryTop", "libraryBottom", "graveyard"],
-      };
-    case "reorder":
-      return {
-        type: "reorder",
-        presentation: { ...presentation, title: "Choose the trigger order" },
-        items: cards.map((card, index) => ({
-          id: card.id,
-          card,
-          oracle: `Triggered ability ${index + 1}`,
-        })),
-      };
-    case "choose-selection":
-      return {
-        type: "chooseFromSelection",
-        presentation,
-        minTotal: 1,
-        maxTotal: 3,
-        options: [
-          { label: "Draw a card", weight: 1, canRepeat: false },
-          { label: "Create a 1/1 Soldier token", weight: 1, canRepeat: true },
-          { label: "Gain 3 life", weight: 1, canRepeat: false },
-          { label: "Return a permanent to its owner's hand", weight: 2, canRepeat: false },
-          { label: "Add {G}{G}", weight: 1, canRepeat: false },
-          { label: "Put two +1/+1 counters on a creature", weight: 2, canRepeat: false },
-        ],
-      };
-    case "assign-combat-damage":
-      return {
-        type: "chooseCombatDamageAssignment",
-        attackerId: cards[0]!.id,
-        blockerIds: [cards[1]!.id, cards[2]!.id],
-        defenderId: targetPlayer.id,
-        totalDamage: 7,
-        attackerHasDeathtouch: false,
-      };
-    case "damage-order":
-      return {
-        type: "chooseDamageAssignmentOrder",
-        attackerId: cards[0]!.id,
-        blockerIds: [cards[1]!.id, cards[2]!.id],
-        blockerCards: cards.slice(1, 3),
-      };
-    case "dice-roll":
-      return {
-        type: "diceRolled",
-        presentation: { ...presentation, title: "Roll two dice" },
-        sides: 6,
-        rolls: [
-          {
-            round: 0,
-            playerId: me.id,
-            naturalResults: [4, 2],
-            finalResults: [5, 2],
-            ignoredRolls: [1],
-            highlighted: false,
-          },
-        ],
-      };
-    case "dice-roll-contest":
-      return {
-        type: "diceRolled",
-        presentation: { ...presentation, title: "Roll for first player" },
-        sides: 20,
-        rolls: [
-          {
-            label: me.name,
-            playerId: me.id,
-            round: 0,
-            naturalResults: [14],
-            finalResults: [14],
-            ignoredRolls: [],
-            highlighted: false,
-          },
-          {
-            label: targetPlayer.name,
-            playerId: targetPlayer.id,
-            round: 0,
-            naturalResults: [14],
-            finalResults: [14],
-            ignoredRolls: [],
-            highlighted: false,
-          },
-          {
-            label: me.name,
-            playerId: me.id,
-            round: 1,
-            naturalResults: [18],
-            finalResults: [18],
-            ignoredRolls: [],
-            highlighted: true,
-          },
-          {
-            label: targetPlayer.name,
-            playerId: targetPlayer.id,
-            round: 1,
-            naturalResults: [7],
-            finalResults: [7],
-            ignoredRolls: [],
-            highlighted: false,
-          },
-        ],
-      };
-    case "game-over":
-      return { type: "gameOver" } as PromptInput;
-  }
-  throw new Error(`Unsupported prompt preview: ${preview}`);
 }

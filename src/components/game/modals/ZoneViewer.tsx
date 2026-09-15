@@ -1,4 +1,8 @@
 import { useMemo } from "react";
+import {
+  PROMPT_CARD_MODAL_MAX_WIDTH_CLASS,
+  PROMPT_MODAL_HEIGHT_CLASS,
+} from "@/components/game/game.constants";
 import type { CardDto } from "@/protocol/game";
 import { useTheme } from "@/hooks/useTheme";
 import { useGameUIStore } from "@/stores/useGameUIStore";
@@ -61,10 +65,14 @@ export function ZoneViewer({
     targetHostile === undefined
       ? theme.cardRing
       : targetHostile
-        ? theme.arrow.hostileTarget
-        : theme.arrow.friendlyTarget;
+        ? theme.targeting.hostile
+        : theme.targeting.friendly;
   return (
-    <Modal onClose={onClose} maxWidth="max-w-[1280px]" className="h-[90dvh]">
+    <Modal
+      onClose={onClose}
+      maxWidth={PROMPT_CARD_MODAL_MAX_WIDTH_CLASS}
+      className={PROMPT_MODAL_HEIGHT_CLASS}
+    >
       <Modal.Header onClose={onClose}>
         <h2 className="text-base font-semibold">{title}</h2>
         <p className="text-xs text-muted-foreground">
@@ -78,11 +86,19 @@ export function ZoneViewer({
         key={key}
         items={items}
         picker
+        activateOnClick={mode !== "manual"}
         pending={pending}
         intentColor={color}
         initialState={useGameUIStore.getState().zoneBrowserStates[key]}
         onStateChange={(state) => saveState(key, state)}
-        onActivate={onClickCard ? (item) => onClickCard(item.id) : undefined}
+        onActivate={
+          onClickCard
+            ? (item) => {
+                onClickCard(item.id);
+                if (mode === "browse" || mode === "cast") onClose();
+              }
+            : undefined
+        }
         defaultActionLabel={clickLabel ?? ACTION_LABELS[mode]}
         actionLabel={(item) =>
           item.selected ? (selectedLabel ?? "Undo selection") : (clickLabel ?? ACTION_LABELS[mode])

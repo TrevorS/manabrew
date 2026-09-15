@@ -2,7 +2,6 @@ import {
   Container,
   Sprite,
   Texture,
-  ImageSource,
   Graphics,
   GraphicsContext,
   Text,
@@ -15,7 +14,7 @@ import type { CardDto } from "@/protocol/game";
 import type { HandActionOption } from "@/stores/useGameUIStore";
 import { deriveCardRailState, type CardRailState } from "@/components/game/cardRailState";
 import { cardTypeLine, counterColorKey, counterIconName } from "@/components/game/cardPresentation";
-import { CARD_W, CARD_H, CARD_RADIUS, CARD_BACK_IMAGE_URL } from "@/components/game/game.constants";
+import { CARD_W, CARD_H, CARD_RADIUS } from "@/components/game/game.constants";
 import { deriveCardChoiceIndicators } from "@/components/game/game.utils";
 import { isHorizontalGameCard } from "@/lib/horizontalGameCard";
 import type { Theme } from "@/hooks/useTheme";
@@ -29,9 +28,9 @@ import { useGameStore } from "@/stores/useGameStore";
 import { usePreferencesStore, type BattlefieldCardStyle } from "@/stores/usePreferencesStore";
 import { battlefieldKeywords } from "@/lib/battlefieldKeywords";
 import { applyManaSymbol, parseManaCost } from "./manaSymbols";
-import { asDeckCard } from "@/lib/decks";
+import { asGameDeckCard } from "@/lib/decks";
 import { isFacelessCard } from "@/lib/gameCard";
-import { fetchImageElement } from "@/api/scryfall";
+import { loadCardBack } from "./cardBackTexture";
 import { DEBUG_KEYWORD_CARD_ID, useGameDevStore } from "@/stores/useGameDevStore";
 import { applyIcon } from "./panelIcons";
 import { type OneShot, oneShot, oneShotProgress, pulse } from "./effects/animation";
@@ -328,25 +327,6 @@ const resolvePTBgColor = (card: CardDto): number => {
   return hexToNum(pt.neutral);
 };
 
-let cardBackTexture: Texture | null = null;
-let cardBackPromise: Promise<Texture> | null = null;
-
-export function loadCardBack(): Promise<Texture> {
-  if (cardBackTexture) return Promise.resolve(cardBackTexture);
-  if (!cardBackPromise) {
-    cardBackPromise = fetchImageElement(CARD_BACK_IMAGE_URL)
-      .then((img) => {
-        cardBackTexture = new Texture({ source: new ImageSource({ resource: img }) });
-        return cardBackTexture;
-      })
-      .catch((error: unknown) => {
-        cardBackPromise = null;
-        throw error;
-      });
-  }
-  return cardBackPromise;
-}
-
 export class CardSprite extends Container {
   private static readonly instances = new Set<CardSprite>();
 
@@ -395,6 +375,7 @@ export class CardSprite extends Container {
   private promptReferenceColor: number | null = null;
   private ownerRingGfx: Graphics;
   private contentContainer: Container;
+  private printedFaceContainer: Container;
   private ptContainer: Container;
   private ptBg: Graphics;
   private ptText: Text;
@@ -439,6 +420,7 @@ export class CardSprite extends Container {
   private cw: number;
   private ch: number;
   onReorient?: () => void;
+  onVisualChange?: () => void;
   private previewFace: 0 | 1 | null = null;
   private loadGeneration = 0;
   private readonly kind: "battlefield" | "hand" | "zone";
@@ -477,6 +459,8 @@ export class CardSprite extends Container {
     this.addChild(this.promptReferenceGfx);
 
     this.contentContainer = new Container();
+    this.printedFaceContainer = new Container();
+    this.contentContainer.addChild(this.printedFaceContainer);
     this.addChild(this.contentContainer);
 
     this.placeholderGfx = new Graphics();
@@ -655,9 +639,6 @@ export class CardSprite extends Container {
         y <= this.ch + this.hitPad,
     };
 
-    // Everything except the selection/target ring lives under contentContainer so
-    // the summoning-sick / phased desaturate filter greys the card body but leaves
-    // the interaction ring at full color.
     for (const child of [...this.children]) {
       if (
         child !== this.shadowGfx &&
@@ -666,7 +647,7 @@ export class CardSprite extends Container {
         child !== this.promptReferenceGfx &&
         child !== this.contentContainer
       ) {
-        this.contentContainer.addChild(child);
+        this.printedFaceContainer.addChild(child);
       }
     }
     this.addChild(this.pulseRing.gfx);
@@ -689,7 +670,7 @@ export class CardSprite extends Container {
       const definition = useGameDevStore.getState().debugCardDefinition;
       if (definition) return definition;
     }
-    return asDeckCard(useGameStore.getState().gameDecks[this.card.ownerId], this.card);
+    return asGameDeckCard(useGameStore.getState().gameDecks, this.card);
   }
 
   // Scryfall serves horizontal-frame cards as upright 5:7 PNGs — rotate
@@ -759,6 +740,7 @@ export class CardSprite extends Container {
     this._imageLoaded = false;
     this._imageSettled = false;
     this.imageSpr.visible = false;
+    this.imageMask.visible = false;
     this.imageSpr.texture = Texture.EMPTY;
     this.placeholderGfx.visible = true;
     this.nameText.visible = true;
@@ -780,15 +762,20 @@ export class CardSprite extends Container {
     }
     if (this.destroyed || generation !== this.loadGeneration) return;
     this._imageSettled = true;
-    if (texture === Texture.EMPTY) return;
+    if (texture === Texture.EMPTY) {
+      this.onVisualChange?.();
+      return;
+    }
 
     this.imageSpr.texture = texture;
     this.imageSpr.visible = true;
+    this.imageMask.visible = true;
     if (custom) this.fitArtCover();
     else this.fitImageToSlot();
     this.placeholderGfx.visible = false;
     this.nameText.visible = false;
     this._imageLoaded = true;
+    this.onVisualChange?.();
   }
 
   setPreviewFace(face: 0 | 1 | null): void {
@@ -813,22 +800,22 @@ export class CardSprite extends Container {
     if (this.kind !== "hand" || this.usesHandRulesView === active) return;
     if (!this.handRulesFace) {
       const faceIndex = this.previewFace ?? (this.card.isTransformed ? 1 : 0);
-      const deckCard = this.deckCard();
       this.handRulesFace = new HandRulesCardFace(
         this.card,
         faceIndex,
         this.cw,
         this.ch,
-        deckCard.layout,
         activeTheme,
       );
       this.contentContainer.addChild(this.handRulesFace);
+      this.handRulesFace.onRenderRequested = () => this.onVisualChange?.();
       this.handRulesFace.setActions(this.handRulesActions, this.onSelectHandRulesAction);
       this.handRulesFace.setHighlightedEffect(this.handRulesHighlight);
     } else {
       this.handRulesFace.visible = active;
       if (active) this.updateHandRulesFace();
     }
+    this.printedFaceContainer.visible = !active;
     this.updateHandControls();
     this.refreshCardRadiusChrome();
   }
@@ -883,11 +870,16 @@ export class CardSprite extends Container {
     this.handRulesHighlight = text;
     this.handRulesFace?.setHighlightedEffect(text);
   }
+  scrollHandRules(delta: number, mode: number): boolean {
+    if (!this.handRulesFace?.visible) return false;
+    this.handRulesFace.scrollBy(delta, mode);
+    return true;
+  }
 
   private updateHandRulesFace(): void {
     if (!this.handRulesFace?.visible) return;
     const faceIndex = this.previewFace ?? (this.card.isTransformed ? 1 : 0);
-    this.handRulesFace.setContent(this.card, faceIndex, this.cw, this.ch, this.deckCard().layout);
+    this.handRulesFace.setContent(this.card, faceIndex, this.cw, this.ch);
   }
 
   private fitArtCover(): void {
@@ -1148,7 +1140,7 @@ export class CardSprite extends Container {
     }
     const color = attacking
       ? hexToNum(activeTheme.gameTheme.pt.lethal)
-      : hexToNum(activeTheme.gameTheme.textOnTinted);
+      : hexToNum(activeTheme.gameTheme.cardStatus.summoningSick);
     const maxAlpha = attacking ? EDGE_GLOW.attackingMaxAlpha : EDGE_GLOW.sickMaxAlpha;
     const layers = EDGE_GLOW.layers;
     const step = EDGE_GLOW.insetStep;

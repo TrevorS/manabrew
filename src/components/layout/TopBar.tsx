@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { installDesktopUpdate } from "@/hooks/useDesktopUpdater";
 import { ROUTES } from "@/lib/constants";
 import { useDesktopUpdateStore } from "@/stores/useDesktopUpdateStore";
-import { useGameStore } from "@/stores/useGameStore";
 import { AccountMenu } from "./AccountMenu";
 import { ManaBrewLogo } from "./ManaBrewLogo";
 import { NavSheet } from "./NavSheet";
@@ -68,7 +67,7 @@ function getRouteChrome(pathname: string, search: string): RouteChrome {
   if (pathname === ROUTES.DESIGN_SYSTEM) {
     return { title: "Design System", fallback: ROUTES.PLAY };
   }
-  if (pathname === "/card-mock") return { title: "Card Face Gallery", fallback: ROUTES.PLAY };
+  if (pathname === "/card-mock") return { title: "Theme Editor", fallback: ROUTES.PLAY };
   return { title: null, fallback: ROUTES.PLAY };
 }
 
@@ -82,11 +81,12 @@ export function TopBar({ override }: TopBarProps) {
   const phase = useDesktopUpdateStore((s) => s.phase);
   const version = useDesktopUpdateStore((s) => s.version);
   const progress = useDesktopUpdateStore((s) => s.progress);
-  const isGameActive = useGameStore((s) => s.isGameActive);
   const routeChrome = getRouteChrome(location.pathname, location.search);
   const title = override?.title ?? routeChrome.title;
   const isPlayHome = normalizePathname(location.pathname) === ROUTES.PLAY;
-  const navigationDisabled = isGameActive || override?.navigationDisabled === true;
+  // AppShell hides this bar while the board is shown, so a live game never
+  // reaches here except from another route, where it must stay navigable.
+  const navigationDisabled = override?.navigationDisabled === true;
 
   const downloading = phase === "downloading";
   const updateLabel = downloading
@@ -96,7 +96,6 @@ export function TopBar({ override }: TopBarProps) {
     : `Update to ${version}`;
 
   function goBack() {
-    if (isGameActive) return;
     if (override?.onBack) {
       override.onBack();
       return;
@@ -120,7 +119,6 @@ export function TopBar({ override }: TopBarProps) {
   }
 
   function goHome() {
-    if (isGameActive) return;
     if (override?.onHome) {
       override.onHome();
     } else {
@@ -135,7 +133,6 @@ export function TopBar({ override }: TopBarProps) {
           size="icon"
           variant="ghost"
           className="group h-8 w-8 shrink-0 border border-transparent motion-safe:transition-[background-color,border-color,color,box-shadow] hover:border-primary/30 hover:bg-primary/10 hover:text-primary hover:shadow-sm"
-          disabled={isGameActive}
           onClick={goBack}
           title="Back"
         >
@@ -145,7 +142,6 @@ export function TopBar({ override }: TopBarProps) {
       )}
       <button
         type="button"
-        disabled={isGameActive}
         onClick={goHome}
         aria-label="Manabrew Home"
         className="group relative flex shrink-0 items-center gap-2 rounded-xl border border-transparent p-0.5 motion-safe:transition-[background-color,border-color,box-shadow] hover:border-primary/30 hover:bg-primary/10 hover:shadow-sm focus-visible:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:before:absolute pointer-coarse:before:-inset-2.5 pointer-coarse:before:content-['']"
@@ -175,6 +171,7 @@ export function TopBar({ override }: TopBarProps) {
         <TopBarSoundMenu />
         {phase !== "idle" && version && (
           <Button
+            variant="secondary"
             size="sm"
             disabled={downloading || navigationDisabled}
             onClick={() => void installDesktopUpdate()}

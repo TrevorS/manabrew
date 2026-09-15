@@ -51,7 +51,7 @@ export class StackCardSprite {
     spec: StackCardSpec,
     cardWidth: number,
     rulesView: boolean,
-    onOpen: () => void,
+    onRenderRequested: (() => void) | undefined,
     onTarget: (id: string) => void,
     onHover: (id: string | null) => void,
     onToggleRules: (id: string) => void,
@@ -69,9 +69,16 @@ export class StackCardSprite {
     this.ring.eventMode = "none";
     this.promptReference.eventMode = "none";
     this.face = new CardSprite(spec.card, "hand");
+    this.face.onVisualChange = onRenderRequested;
     this.face.scale.set(this.faceScale);
     this.face.setHandRulesView(rulesView);
     this.face.setHandRulesHighlight(spec.sourceAbilityText ?? "");
+    this.face.on("pointerdown", (event: FederatedPointerEvent) => {
+      if (this.face.usesHandRulesView) event.stopPropagation();
+    });
+    this.face.on("pointertap", (event: FederatedPointerEvent) => {
+      if (this.face.usesHandRulesView) event.stopPropagation();
+    });
     this.viewControls = new HandCardControls(theme);
     this.face.position.set(0, 0);
 
@@ -79,8 +86,8 @@ export class StackCardSprite {
     this.width = (horiz ? CARD_H : CARD_W) * this.faceScale;
     this.height = (horiz ? CARD_W : CARD_H) * this.faceScale;
 
-    this.container.eventMode = "static";
-    this.container.cursor = "pointer";
+    this.container.eventMode = "dynamic";
+    this.container.cursor = spec.isValidTarget ? "pointer" : "default";
     this.container.hitArea = new Rectangle(
       -this.width / 2,
       -this.height / 2,
@@ -90,7 +97,6 @@ export class StackCardSprite {
     this.container.on("pointertap", () => {
       if (this.longPress.consumeTap(this.spec.id)) return;
       if (this.spec.isValidTarget) onTarget(this.spec.id);
-      else onOpen();
     });
     this.container.on("pointerdown", (event: FederatedPointerEvent) => {
       if (event.pointerType === "touch") this.touchPointerId = event.pointerId;
@@ -140,6 +146,10 @@ export class StackCardSprite {
     this.redraw();
   }
 
+  scrollRules(delta: number, mode: number): boolean {
+    return this.face.scrollHandRules(delta, mode);
+  }
+
   setTheme(theme: Theme): void {
     this.theme = theme;
     this.viewControls.setTheme(theme);
@@ -158,6 +168,7 @@ export class StackCardSprite {
       spec.card.isTransformed !== this.spec.card.isTransformed;
     const dimChanged = spec.isDimmed !== this.spec.isDimmed;
     this.spec = spec;
+    this.container.cursor = spec.isValidTarget ? "pointer" : "default";
     this.face.updateCardContent(spec.card);
     this.face.setHandRulesHighlight(spec.sourceAbilityText ?? "");
     if (controlsChanged) this.syncControls();
@@ -349,7 +360,7 @@ export class StackCardSprite {
         .roundRect(-hw, -hh, this.width, this.height, r)
         .stroke({ color: ring, width: 4, alpha: 0.95 });
     } else if (this.spec.isCasting) {
-      const c = seat ?? hexToNum(this.theme.gameTheme.pointer.friendly);
+      const c = seat ?? hexToNum(this.theme.gameTheme.targeting.friendly);
       this.ring
         .roundRect(-hw, -hh, this.width, this.height, r)
         .stroke({ color: c, width: 3, alpha: 0.9 });

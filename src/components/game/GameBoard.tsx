@@ -17,6 +17,7 @@ import {
 import type { StackSpec } from "@/pixi/stack/stack.types";
 import type { CombatRow } from "@/components/game/combatRows";
 import type { BoardScene } from "@/pixi/board/BoardScene";
+import { boardAmbientColor, boardBackgroundUrl } from "@/pixi/board/boardBackgrounds";
 import type { PlayerHudSpec, PlayerHudBadge, PlayerHudFact } from "@/pixi/hud/playerHud.types";
 import type { PromptOverlaySpec } from "@/pixi/prompts/prompt.types";
 import { buildPlayerHudBadges, buildZoneBadges } from "@/components/game/panels/playerHudBadges";
@@ -189,11 +190,11 @@ interface GameBoardProps {
   onUntapLands?: (cardIds: string[]) => void;
 
   stackSpec: StackSpec;
-  onOpenStack: () => void;
   onTargetSpell: (spellId: string) => void;
   onHoverStack: (stackObjectId: string | null) => void;
   onToggleStack: () => void;
   promptOverlaySpec?: PromptOverlaySpec | null;
+  promptViewportRight?: number;
 
   boardSceneRef?: React.MutableRefObject<BoardScene | null>;
 
@@ -283,11 +284,11 @@ export function GameBoard({
   onUntapLand,
   onUntapLands,
   stackSpec,
-  onOpenStack,
   onTargetSpell,
   onHoverStack,
   onToggleStack,
   promptOverlaySpec,
+  promptViewportRight,
   boardSceneRef,
   battlefieldContainerRef,
   handSelectionMode,
@@ -701,7 +702,7 @@ export function GameBoard({
   const localSceneRef = useRef<BoardScene | null>(null);
   const sceneRef = boardSceneRef ?? localSceneRef;
   const [overlayScene, setOverlayScene] = useState<BoardScene | null>(null);
-  const gameTheme = useTheme().gameTheme;
+  const { appTheme, gameTheme } = useTheme();
   const playerColors = gameTheme.playerColors;
 
   // The opponent whose field auto-expands: the active one on their turn,
@@ -748,6 +749,20 @@ export function GameBoard({
   const defaultPlaymatSettings = usePreferencesStore((s) => s.defaultPlaymatSettings);
   const playerDecks = useServerStore((s) => s.playerDecks);
   const relayPlayers = useServerStore((s) => s.players);
+
+  const roomTableStyle = useServerStore((s) => s.currentRoom?.table_style);
+  const boardBackgroundId = usePreferencesStore((s) => s.boardBackgroundId);
+  const backgroundId = roomTableStyle ?? boardBackgroundId;
+  const [ambientColor, setAmbientColor] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void boardAmbientColor(boardBackgroundUrl(backgroundId)).then((color) => {
+      if (!cancelled) setAmbientColor(color);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [backgroundId]);
 
   const avatarByPlayerId = useMemo(() => {
     const map = new Map<string, string>();
@@ -939,7 +954,7 @@ export function GameBoard({
               {
                 id: "controlled-player",
                 icon: "overlord-helm",
-                color: gameTheme.activeAction.priority,
+                color: appTheme.primary,
                 label: `Controlled by ${controlledByName}`,
               },
             ]
@@ -1011,7 +1026,7 @@ export function GameBoard({
               {
                 id: "player-keyword",
                 icon: "round-shield",
-                color: gameTheme.activeAction.priority,
+                color: appTheme.primary,
                 label: playerKeywords.join(" · "),
               },
             ]
@@ -1154,6 +1169,8 @@ export function GameBoard({
         isPriorityPlayer: dev.forcePriority ? true : priorityPlayerId === player.id,
         isTargetable: dev.forceTargetable ? true : playerIsTargetable(player.id),
         isSelectedTarget: dev.forceSelectedTarget ? true : selectedAttackDefenderId === player.id,
+        targetingIntent:
+          promptType === "chooseAttackers" ? "attack" : boardTargetsPrompt?.input.intent,
         isFlashing: dev.forceFlashing ? true : turnFlashPlayerId === player.id,
         isEliminated: dev.forceEliminated ? true : player.status !== "playing",
         isDisconnected: dev.forceDisconnected
@@ -1192,13 +1209,15 @@ export function GameBoard({
     priorityPlayerId,
     playerIsTargetable,
     selectedAttackDefenderId,
+    promptType,
+    boardTargetsPrompt,
     turnFlashPlayerId,
     monarchId,
     initiativeHolderId,
     gameTheme.badges,
     gameTheme.pt,
     gameTheme.activeAction.active,
-    gameTheme.activeAction.priority,
+    appTheme.primary,
     gameTheme.promptAction.defenseAction,
     gameTheme.textMuted,
     devOverrides,
@@ -1319,8 +1338,8 @@ export function GameBoard({
   const zoneTilesByPlayer = useMemo<Record<string, ZoneTileSpec[]>>(() => {
     const active = gameTheme.activeAction.active;
     const targetColor = hostileTargeting
-      ? gameTheme.arrow.hostileTarget
-      : gameTheme.arrow.friendlyTarget;
+      ? gameTheme.targeting.hostile
+      : gameTheme.targeting.friendly;
     const top = (cards: CardDto[]) => (cards.length > 0 ? cards[cards.length - 1] : undefined);
 
     const gyPlayable =
@@ -1332,7 +1351,6 @@ export function GameBoard({
     const self: ZoneTileSpec[] = [
       {
         key: ZONE_TILE_KEY.library,
-        label: "Lib",
         count: me.libraryCount,
         topCard: top(library),
         back: library.length === 0,
@@ -1341,7 +1359,6 @@ export function GameBoard({
       },
       {
         key: ZONE_TILE_KEY.graveyard,
-        label: "GY",
         count: graveyard.length,
         topCard: top(graveyard),
         onOpen: openGraveyard,
@@ -1354,7 +1371,6 @@ export function GameBoard({
       },
       {
         key: ZONE_TILE_KEY.exile,
-        label: "EX",
         count: exile.length,
         topCard: top(exile),
         onOpen: openExile,
@@ -1369,7 +1385,6 @@ export function GameBoard({
     if ((myCommandZone?.length ?? 0) > 0) {
       self.push({
         key: ZONE_TILE_KEY.command,
-        label: "CMD",
         count: myCommandZone!.length,
         topCard: top(myCommandZone!),
         previewCards: myCommandZone!,
@@ -1414,7 +1429,6 @@ export function GameBoard({
       const tiles: ZoneTileSpec[] = [
         {
           key: ZONE_TILE_KEY.library,
-          label: "Lib",
           count: op.libraryCount,
           topCard: top(op.library),
           back: op.library.length === 0,
@@ -1425,7 +1439,6 @@ export function GameBoard({
         },
         {
           key: ZONE_TILE_KEY.graveyard,
-          label: "GY",
           count: op.graveyard.length,
           topCard: top(op.graveyard),
           onOpen: () =>
@@ -1434,7 +1447,6 @@ export function GameBoard({
         },
         {
           key: ZONE_TILE_KEY.exile,
-          label: "EX",
           count: op.exile.length,
           topCard: top(op.exile),
           onOpen: () => openOpZone(`${stripUsernameTag(op.name)}'s Exile`, op.exile, exTargets),
@@ -1444,7 +1456,6 @@ export function GameBoard({
       if ((op.commandZone?.length ?? 0) > 0) {
         tiles.push({
           key: ZONE_TILE_KEY.command,
-          label: "CMD",
           count: op.commandZone.length,
           topCard: top(op.commandZone),
           previewCards: op.commandZone,
@@ -1775,7 +1786,6 @@ export function GameBoard({
         onBlurCard={() => onHoverCard(null)}
         onInspectPlayer={setSheetPlayerId}
         onTargetPlayer={onTargetPlayer}
-        onOpenStack={onOpenStack}
         onTargetSpell={onTargetSpell}
         onToggleStack={onToggleStack}
         onToggleSelfPhase={toggleSelfStop}
@@ -1834,11 +1844,12 @@ export function GameBoard({
         <BoardOverlayCanvas
           scene={overlayScene}
           stackSpec={stackSpec}
-          onOpenStack={onOpenStack}
           onTargetSpell={onTargetSpell}
           onHoverStack={onHoverStack}
           onToggleStack={onToggleStack}
           promptSpec={promptOverlaySpec ?? null}
+          promptViewportRight={promptViewportRight}
+          ambientColor={ambientColor}
           externalPreviewActive={externalPreviewActive}
           previewSpec={rulesPreview}
           commandPreviewSpec={commandPreview}

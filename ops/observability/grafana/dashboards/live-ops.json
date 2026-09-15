@@ -12,6 +12,11 @@
   "refresh": "30s",
   "links": [
     {
+      "title": "Activity",
+      "type": "link",
+      "url": "/d/manabrew-activity"
+    },
+    {
       "title": "Executive Health",
       "type": "link",
       "url": "/d/manabrew-executive"
@@ -562,7 +567,7 @@
     {
       "id": 16,
       "type": "stat",
-      "title": "Deck-play events dropped",
+      "title": "Analytics waiting on the hub",
       "description": "relay-to-Hub evidence events lost since the relay started",
       "gridPos": {
         "x": 12,
@@ -577,7 +582,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(manabrew_relay_deck_play_events_dropped_total)",
+          "expr": "sum(manabrew_relay_analytics_delivered_total{path=\"spooled\"}) - sum(manabrew_relay_analytics_delivered_total{path=\"drained\"})",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

@@ -125,7 +125,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         );
     }
 
-    let source_card_name = ctx.game.card(source_card_id).card_name.clone();
     crate::agent::notify_all_agents(
         ctx.agents,
         GameLogEvent::rule(format!("Planar die: {result_name}")).with_player(player),
@@ -146,7 +145,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .map(planar_face_number)
                 .collect(),
             source_card_id: Some(source_card_id),
-            source_card_name: Some(source_card_name),
         },
     );
     for agent in ctx.agents.iter_mut() {

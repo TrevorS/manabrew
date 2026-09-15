@@ -25,8 +25,10 @@ import { isFacelessCard } from "@/lib/gameCard";
 interface Props {
   items: CardBrowserItem[];
   picker?: boolean;
+  compact?: boolean;
   pending?: boolean;
   intentColor?: string;
+  activateOnClick?: boolean;
   onActivate?: (item: CardBrowserItem) => void;
   actionLabel?: (item: CardBrowserItem) => string;
   defaultActionLabel?: string;
@@ -40,7 +42,9 @@ export function DialogCardBrowser({
   items,
   picker = false,
   pending = false,
+  compact = false,
   intentColor,
+  activateOnClick = false,
   onActivate,
   actionLabel,
   defaultActionLabel = "Choose card",
@@ -49,11 +53,11 @@ export function DialogCardBrowser({
   initialState,
   onStateChange,
 }: Props) {
-  const defaultOnlyActions = picker && !!onActivate;
   const [state, setState] = useState<CardBrowserState>(() =>
-    createCardBrowserState(initialState, picker, defaultOnlyActions),
+    createCardBrowserState(initialState, picker),
   );
   const [inspectionOpen, setInspectionOpen] = useState(false);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const desktop = useIsDesktop();
   const search = useRef<HTMLInputElement>(null);
   const scope = useRef<HTMLDivElement>(null);
@@ -78,15 +82,17 @@ export function DialogCardBrowser({
         type: state.type,
         color: state.color,
         sort: state.sort,
-        onlyActions: state.onlyActions,
       }),
-    [searchable, state.type, state.color, state.sort, state.onlyActions, query],
+    [searchable, state.type, state.color, state.sort, query],
   );
   const types = useMemo(
     () => [...new Set(items.flatMap((item) => item.card.types))].sort(),
     [items],
   );
-  const active = visible.find((item) => item.id === state.activeId);
+  const hovered = visible.find((item) => item.id === hoveredId);
+  const active = !pending
+    ? (hovered ?? visible.find((item) => item.id === state.activeId))
+    : undefined;
   const inspection = active
     ? (state.inspection[active.id] ?? {
         rules: defaultView === "rules",
@@ -96,6 +102,7 @@ export function DialogCardBrowser({
     : null;
   const changeFilter = (patch: Partial<CardBrowserState>) => {
     setInspectionOpen(false);
+    setHoveredId(null);
     setState((current) => ({ ...current, ...patch, scrollTop: 0 }));
   };
   const selectedCount = items.filter((item) => item.selected).length;
@@ -105,9 +112,16 @@ export function DialogCardBrowser({
     setState((current) => (current.activeId === id ? current : { ...current, activeId: id }));
     if (!picker && open && !desktop) setInspectionOpen(true);
   };
-  const focusPickerCard = (id: string) => {
-    const option = scope.current?.querySelector<HTMLElement>(`[data-card-key="${CSS.escape(id)}"]`);
-    (option ?? scope.current)?.focus({ preventScroll: true });
+  const focusPickerCard = (id?: string | null) => {
+    const option = id
+      ? scope.current?.querySelector<HTMLElement>(`[data-card-key="${CSS.escape(id)}"]`)
+      : null;
+    const fallback =
+      scope.current?.querySelector<HTMLElement>('[data-card-key][tabindex="0"]') ?? scope.current;
+    (option ?? fallback)?.focus({ preventScroll: true });
+  };
+  const returnFocusToCards = () => {
+    requestAnimationFrame(() => focusPickerCard(state.activeId));
   };
   const toggleView = (item: CardBrowserItem) => {
     if (!isFacelessCard(item.card)) {
@@ -125,7 +139,7 @@ export function DialogCardBrowser({
       ...(picker && active
         ? {
             "toggle-card-view": () => {
-              focusPickerCard(active.id);
+              if (!hovered) focusPickerCard(active.id);
               toggleView(active);
             },
           }
@@ -148,38 +162,45 @@ export function DialogCardBrowser({
           event.preventDefault();
           event.stopPropagation();
           changeFilter({ query: "" });
-          search.current?.focus();
+          returnFocusToCards();
+        } else if (event.key === "Escape" && document.activeElement === search.current) {
+          event.preventDefault();
+          event.stopPropagation();
+          returnFocusToCards();
         }
       }}
     >
-      <DialogCardBrowserToolbar
-        search={search}
-        state={state}
-        types={types}
-        picker={picker}
-        visibleCount={visible.length}
-        totalCount={items.length}
-        selectedCount={selectedCount}
-        hasActions={!!onActivate}
-        loading={loading}
-        incomplete={incomplete}
-        onFilter={changeFilter}
-        onSize={(size) => setState((current) => ({ ...current, size }))}
-        defaultOnlyActions={defaultOnlyActions}
-      />
+      {!compact && (
+        <DialogCardBrowserToolbar
+          search={search}
+          state={state}
+          types={types}
+          visibleCount={visible.length}
+          totalCount={items.length}
+          selectedCount={selectedCount}
+          loading={loading}
+          incomplete={incomplete}
+          onFilter={changeFilter}
+        />
+      )}
       <div
         className={cn(
-          "grid min-h-0 flex-1 gap-3 p-3",
+          "grid min-h-0 flex-1 gap-3",
+          compact ? "p-1" : "px-1 py-3",
           !picker && "md:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]",
         )}
       >
         {picker ? (
           <DialogCardPickerGrid
             items={visible}
+            fitToContainer={compact}
             state={state}
             defaultRules={defaultView === "rules"}
             actionable={!!onActivate}
+            pending={pending}
             onSelect={(id) => inspect(id, false)}
+            onHover={setHoveredId}
+            onActivate={activateOnClick ? onActivate : undefined}
             onScroll={scroll}
             onChange={changeInspection}
           />
@@ -219,7 +240,7 @@ export function DialogCardBrowser({
           </>
         )}
       </div>
-      {picker && onActivate && (
+      {picker && onActivate && !activateOnClick && (
         <DialogCardBrowserActionTray
           active={active}
           selectedCount={selectedCount}

@@ -53,7 +53,6 @@ export interface BoardOverlayPreviewSpec {
   anchorRect: DOMRect | null;
   viewportRight?: number;
   slotRect?: DOMRect | null;
-  variant: "field" | "hand";
 }
 
 export interface BoardOverlayCommandPreviewSpec {
@@ -93,11 +92,12 @@ function updateRulesPreviewBackdrop(
 interface BoardOverlayCanvasProps {
   scene: BoardScene | null;
   stackSpec: StackSpec;
-  onOpenStack: () => void;
   onTargetSpell: (spellId: string) => void;
   onHoverStack: (stackObjectId: string | null) => void;
   onToggleStack: () => void;
   promptSpec: PromptOverlaySpec | null;
+  promptViewportRight?: number;
+  ambientColor?: number | null;
   className?: string;
   externalPreviewActive?: boolean;
   previewSpec?: BoardOverlayPreviewSpec | null;
@@ -110,12 +110,25 @@ interface BoardOverlayCanvasProps {
   onFlipPreview?: () => void;
   onTogglePreviewView?: () => void;
 }
+function syncPromptViewport(
+  prompt: PromptLayer,
+  canvas: HTMLCanvasElement,
+  width: number,
+  height: number,
+  viewportRight: number | undefined,
+): void {
+  prompt.setViewport(
+    width,
+    height,
+    viewportRight == null ? null : viewportRight - canvas.getBoundingClientRect().left,
+  );
+}
+
 function toRulesPreviewSpec(
   spec: BoardOverlayPreviewSpec,
   canvasRect: DOMRect,
 ): RulesCardPreviewSpec {
   return {
-    variant: spec.variant,
     card: spec.card,
     phase: spec.phase,
     sticky: spec.sticky,
@@ -219,11 +232,12 @@ function syncRulesPreviewActionGlow(
 export function BoardOverlayCanvas({
   scene,
   stackSpec,
-  onOpenStack,
   onTargetSpell,
   onHoverStack,
   onToggleStack,
   promptSpec,
+  promptViewportRight,
+  ambientColor = null,
   className,
   externalPreviewActive = false,
   previewSpec,
@@ -260,7 +274,6 @@ export function BoardOverlayCanvas({
   const [hoveredStackObjectId, setHoveredStackObjectId] = useState<string | null>(null);
 
   const cbRef = useRef({
-    onOpenStack,
     onTargetSpell,
     onHoverStack,
     onToggleStack,
@@ -273,9 +286,9 @@ export function BoardOverlayCanvas({
     onTogglePreviewView,
   });
   const promptSpecRef = useRef(promptSpec);
+  const promptViewportRightRef = useRef(promptViewportRight);
   useEffect(() => {
     cbRef.current = {
-      onOpenStack,
       onTargetSpell,
       onHoverStack,
       onToggleStack,
@@ -292,7 +305,6 @@ export function BoardOverlayCanvas({
     onDismissPreview,
     onFlipPreview,
     onHoverStack,
-    onOpenStack,
     onPreviewPointerEnter,
     onPreviewPointerLeave,
     onSelectPreviewAction,
@@ -303,6 +315,22 @@ export function BoardOverlayCanvas({
   useEffect(() => {
     promptSpecRef.current = promptSpec;
   }, [promptSpec]);
+
+  useEffect(() => {
+    promptViewportRightRef.current = promptViewportRight;
+    const prompt = promptRef.current;
+    const canvas = canvasRef.current;
+    const parent = canvas?.parentElement;
+    if (!prompt || !canvas || !parent) return;
+    syncPromptViewport(
+      prompt,
+      canvas,
+      parent.clientWidth,
+      parent.clientHeight,
+      promptViewportRight,
+    );
+    schedulerRef.current?.request();
+  }, [promptViewportRight]);
 
   useEffect(() => {
     previewSpecRef.current = previewSpec;
@@ -405,6 +433,12 @@ export function BoardOverlayCanvas({
 
         app.stage.eventMode = "static";
         app.stage.sortableChildren = true;
+        app.stage.hitArea = {
+          contains: (x, y) => {
+            const modal = topModal();
+            return app.screen.contains(x, y) && (!modal || modal.contains(canvas));
+          },
+        };
 
         arrow = new ArrowLayer();
         arrow.setTheme(themeRef.current);
@@ -412,13 +446,13 @@ export function BoardOverlayCanvas({
         arrowRef.current = arrow;
 
         stack = new StackLayer(themeRef.current, {
-          onOpen: () => cbRef.current.onOpenStack(),
           onTargetSpell: (id) => cbRef.current.onTargetSpell(id),
           onHover: (id) => {
             setHoveredStackObjectId(id);
             cbRef.current.onHoverStack(id);
           },
           onToggleCollapsed: () => cbRef.current.onToggleStack(),
+          onRenderRequested: () => scheduler?.request(),
         });
         stackRef.current = stack;
         stack.setViewport(width, height);
@@ -431,8 +465,8 @@ export function BoardOverlayCanvas({
             sceneRef.current?.setPromptReference(sceneTarget);
             const color =
               target?.intent != null && intentIsHostile(target.intent)
-                ? themeRef.current.gameTheme.pointer.hostile
-                : themeRef.current.gameTheme.pointer.friendly;
+                ? themeRef.current.gameTheme.targeting.hostile
+                : themeRef.current.gameTheme.targeting.friendly;
             stackRef.current?.setPromptReference(
               target?.kind === "spell" ? target.id : null,
               target ? hexToNum(color) : null,
@@ -442,10 +476,11 @@ export function BoardOverlayCanvas({
             target.kind === "spell"
               ? (stackRef.current?.getAnchor(target.id) ?? null)
               : (sceneRef.current?.getPromptReferenceAnchor(target) ?? null),
+          onRenderRequested: () => scheduler?.request(),
         });
         prompt = promptLayer;
         promptRef.current = promptLayer;
-        promptLayer.setViewport(width, height);
+        syncPromptViewport(promptLayer, canvas, width, height, promptViewportRightRef.current);
         promptLayer.setSpec(promptSpecRef.current);
 
         const backdrop = new Graphics();
@@ -460,6 +495,7 @@ export function BoardOverlayCanvas({
             syncPreviewPointerRef.current?.();
             scheduler?.request();
           },
+          onRenderRequested: () => scheduler?.request(),
           onSelectAction: (action) => cbRef.current.onSelectPreviewAction?.(action),
           onDismiss: () => cbRef.current.onDismissPreview?.(),
           onFlip: () => cbRef.current.onFlipPreview?.(),
@@ -479,6 +515,7 @@ export function BoardOverlayCanvas({
             cbRef.current.onDismissPreview?.();
             cbRef.current.onCastCommandCard?.(cardId);
           },
+          onRenderRequested: () => scheduler?.request(),
         });
         commandPreviewLayer.container.zIndex = 10_001;
         commandPreview = commandPreviewLayer;
@@ -645,7 +682,15 @@ export function BoardOverlayCanvas({
         renderer.resolution = overlayResolution(width, height);
         renderer.resize(width, height);
         stackRef.current?.setViewport(width, height);
-        promptRef.current?.setViewport(width, height);
+        if (promptRef.current && canvasRef.current) {
+          syncPromptViewport(
+            promptRef.current,
+            canvasRef.current,
+            width,
+            height,
+            promptViewportRightRef.current,
+          );
+        }
         const preview = previewRef.current;
         const canvasRect = canvasRef.current?.getBoundingClientRect();
         if (preview && canvasRect) {
@@ -696,10 +741,36 @@ export function BoardOverlayCanvas({
     };
     const unbindPreviewScroll = bindPreviewScroll(
       window,
-      (x, y) => hitAt(x, y).rulesPreview,
+      (clientX, clientY) => {
+        const modal = topModal();
+        if (
+          (modal && !modal.contains(canvas)) ||
+          document.elementFromPoint(clientX, clientY) !== canvas
+        ) {
+          return false;
+        }
+        const rect = canvas.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+        const prompt = promptRef.current;
+        if (prompt?.hitTest(x, y)) return prompt.hitTestRules(x, y);
+        return (
+          (previewRef.current?.hitTest(x, y) ?? false) ||
+          (stackRef.current?.hitTestRules(x, y) ?? false)
+        );
+      },
       (delta, mode, clientX, clientY) => {
         const rect = canvas.getBoundingClientRect();
-        previewRef.current?.scrollBy(delta, mode, clientX - rect.left, clientY - rect.top);
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+        const prompt = promptRef.current;
+        if (prompt?.hitTest(x, y)) {
+          prompt.scrollRulesAt(x, y, delta, mode);
+        } else if (previewRef.current?.hitTest(x, y)) {
+          previewRef.current.scrollBy(delta, mode, x, y);
+        } else {
+          stackRef.current?.scrollRulesAt(x, y, delta, mode);
+        }
         schedulerRef.current?.request();
       },
     );
@@ -708,6 +779,14 @@ export function BoardOverlayCanvas({
     let hasPointer = false;
     const syncPointer = () => {
       if (!hasPointer) return;
+      const modal = topModal();
+      if (modal && !modal.contains(canvas)) {
+        previewRef.current?.clearHover();
+        commandPreviewRef.current?.clearHover();
+        canvas.style.pointerEvents = "none";
+        schedulerRef.current?.request();
+        return;
+      }
       const rect = canvas.getBoundingClientRect();
       const x = pointerX - rect.left;
       const y = pointerY - rect.top;
@@ -747,6 +826,11 @@ export function BoardOverlayCanvas({
       if (event.pointerType === "touch") hasPointer = false;
       dismissedClickPointerId = null;
       const hit = hitAt(event.clientX, event.clientY);
+      const canvasOwnsDirectPointer =
+        event.pointerType !== "touch" && event.composedPath().includes(canvas);
+      if (canvasOwnsDirectPointer || hit.stack || hit.prompt || hit.preview) {
+        sceneRef.current?.suppressPointerTap(event.pointerId);
+      }
       const currentPreview = previewSpecRef.current;
       const stickyOpen =
         currentPreview?.sticky &&
@@ -816,6 +900,10 @@ export function BoardOverlayCanvas({
   }, []);
 
   useEffect(() => {
+    promptRef.current?.setAmbientColor(ambientColor);
+  }, [ambientColor]);
+
+  useEffect(() => {
     themeRef.current = theme;
     arrowRef.current?.setTheme(theme);
     stackRef.current?.setTheme(theme);
@@ -875,6 +963,7 @@ export function BoardOverlayCanvas({
     if (!rulesPreviewOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (topModal() || event.defaultPrevented || event.isComposing) return;
+      if (promptRef.current?.blocksBoard) return;
       if (event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target;
       if (

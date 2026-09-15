@@ -10,7 +10,7 @@ import {
 import type { Theme } from "@/hooks/useTheme";
 import type { ClientCardDto } from "@/stores/gameStore.types";
 import type { InGameCardPreviewStyle } from "@/stores/usePreferencesStore";
-import { CARD_H, CARD_W } from "@/components/game/game.constants";
+import { CARD_H, CARD_W, GAME_CARD_SIZES } from "@/components/game/game.constants";
 import { CardSprite } from "@/pixi/CardSprite";
 import { hexToNum } from "@/pixi/colorUtils";
 import { gsap } from "@/pixi/effects/gsap";
@@ -42,9 +42,9 @@ interface CommandZonePreviewLayerCallbacks {
   onPointerLeave: () => void;
   onInteractionReady: () => void;
   onCastCard: (cardId: string) => void;
+  onRenderRequested: () => void;
 }
 
-const PREVIEW_WIDTH = 220;
 const PREVIEW_GAP = 12;
 const EDGE_PAD = 8;
 const ANCHOR_GAP = 12;
@@ -185,6 +185,7 @@ export class CommandZonePreviewLayer {
     }
     this.entries = cards.map((card) => {
       const sprite = new CardSprite(card, "hand");
+      sprite.onVisualChange = this.callbacks.onRenderRequested;
       const castButton = new Container();
       const castButtonBackground = new Graphics();
       const castButtonIcon = new Sprite(Texture.EMPTY);
@@ -250,7 +251,7 @@ export class CommandZonePreviewLayer {
     );
     const maxBaseHeight = Math.max(...baseHeights);
     const idealScale = Math.min(
-      PREVIEW_WIDTH / CARD_W,
+      GAME_CARD_SIZES.preview.width / CARD_W,
       (this.viewportHeight - EDGE_PAD * 2) / maxBaseHeight,
     );
     const widthWithoutGaps = baseWidths.reduce((sum, width) => sum + width, 0);
@@ -406,7 +407,7 @@ export class CommandZonePreviewLayer {
 
   private paintCastButton(entry: PreviewEntry, hovered: boolean): void {
     const foreground = hovered
-      ? this.theme.gameTheme.textOnTinted
+      ? this.theme.appTheme["primary-foreground"]
       : this.theme.appTheme["popover-foreground"];
     entry.castButtonBackground
       .clear()

@@ -84,7 +84,6 @@ pub enum GameNotification {
         final_results: Vec<i32>,
         ignored_rolls: Vec<i32>,
         source_card_id: Option<CardId>,
-        source_card_name: Option<String>,
     },
     FirstPlayerRoll {
         sides: i32,

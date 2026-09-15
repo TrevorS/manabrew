@@ -11,7 +11,8 @@ import type { CardDto } from "@/protocol/game";
 import type { Theme } from "@/hooks/useTheme";
 import { hexToNum } from "../colorUtils";
 import { applyIcon } from "../panelIcons";
-import { CardSprite, loadCardBack } from "../CardSprite";
+import { CardSprite } from "../CardSprite";
+import { loadCardBack } from "../cardBackTexture";
 import { animationsEnabled } from "../effects/enabled";
 import { gsap } from "../effects/gsap";
 
@@ -21,7 +22,6 @@ import { LongPressGesture } from "../LongPressGesture";
 
 export interface ZoneTileSpec {
   key: string;
-  label: string;
   count: number;
   topCard?: CardDto;
   previewCards?: CardDto[];
@@ -68,7 +68,6 @@ interface Tile {
   renderedTopCard: CardDto | null;
   back: Sprite | null;
   backMask: Graphics | null;
-  icon: Text;
   iconSprite: Sprite;
   countText: Text;
   taxText: Text;
@@ -263,11 +262,6 @@ export class BoardZoneTiles {
         lane: ((index * 3) % ZONE_PARTICLE_COUNT) / (ZONE_PARTICLE_COUNT - 1),
       });
     }
-    const icon = new Text({
-      text: spec.label,
-      style: { fontFamily: "system-ui, sans-serif", fontSize: 10, fontWeight: "500" },
-    });
-    icon.anchor.set(0.5);
     const iconSprite = new Sprite(Texture.EMPTY);
     iconSprite.anchor.set(0.5);
     iconSprite.visible = false;
@@ -291,7 +285,7 @@ export class BoardZoneTiles {
       },
     });
     taxText.anchor.set(0.5);
-    container.addChild(stack, ambient, hoverGlow, outline, icon, iconSprite, countText, taxText);
+    container.addChild(stack, ambient, hoverGlow, outline, iconSprite, countText, taxText);
     this.container.addChild(container);
     const tile: Tile = {
       spec,
@@ -306,7 +300,6 @@ export class BoardZoneTiles {
       renderedTopCard: null,
       back: null,
       backMask: null,
-      icon,
       iconSprite,
       countText,
       taxText,
@@ -436,19 +429,19 @@ export class BoardZoneTiles {
     });
   }
 
-  private ambientColor(tile: Tile): number {
+  private zoneColor(tile: Tile): string {
     const gt = this.theme.gameTheme;
     switch (tile.spec.key) {
       case ZONE_TILE_KEY.library:
-        return hexToNum(gt.counter.page);
+        return gt.zone.library;
       case ZONE_TILE_KEY.graveyard:
-        return hexToNum(gt.canvas.neutral);
+        return gt.zone.graveyard;
       case ZONE_TILE_KEY.exile:
-        return hexToNum(gt.cardStatus.transformed);
+        return gt.zone.exile;
       case ZONE_TILE_KEY.command:
-        return hexToNum(tile.spec.commander ?? gt.badges.monarch);
+        return gt.zone.command;
       default:
-        return hexToNum(gt.cardRing);
+        return gt.cardRing;
     }
   }
 
@@ -461,7 +454,7 @@ export class BoardZoneTiles {
     const width = this.cardW;
     const height = this.cardH;
     const hoverColor = highlightColor ?? hexToNum(this.theme.gameTheme.cardRing);
-    const ambientColor = this.ambientColor(tile);
+    const ambientColor = hexToNum(this.zoneColor(tile));
     tile.hoverGlow
       .clear()
       .roundRect(-3 * scale, -3 * scale, width + 6 * scale, height + 6 * scale, radius)
@@ -683,8 +676,11 @@ export class BoardZoneTiles {
       const isCommand = spec.key === ZONE_TILE_KEY.command;
       const hasEmptySkeleton =
         !hasContent && (spec.key === ZONE_TILE_KEY.graveyard || spec.key === ZONE_TILE_KEY.exile);
-      const identity = spec.commander ?? gt.textMuted;
-      const color = hl ?? hexToNum(identity);
+      const iconColor =
+        spec.key === ZONE_TILE_KEY.graveyard || spec.key === ZONE_TILE_KEY.exile
+          ? this.zoneColor(tile)
+          : (spec.commander ?? gt.textMuted);
+      const color = hl ?? hexToNum(iconColor);
       const iconKey = isCommand ? "overlord-helm" : ZONE_BADGES[spec.key]?.icon;
       const iconSize = Math.round(cardW * (hasContent ? 0.2 : 0.32));
       tile.outline.clear();
@@ -716,22 +712,9 @@ export class BoardZoneTiles {
         tile.face.scale.set(cardW / CARD_W);
         tile.face.position.set(cardW / 2, cardH / 2);
       }
-      tile.icon.visible = !hasContent;
-      tile.icon.text = spec.label;
-      tile.icon.style.fontSize = Math.max(9, Math.round(10 * k));
-      tile.icon.style.fill = color;
-      tile.icon.alpha = hl !== null ? 1 : 0.75;
-      tile.icon.position.set(cardW / 2, cardH / 2 + iconSize * 0.8);
       tile.iconSprite.visible = !!iconKey && (!hasContent || !isLibrary);
       if (iconKey) {
-        applyIcon(
-          tile.iconSprite,
-          iconKey,
-          spec.highlightColor ?? identity,
-          64,
-          iconSize,
-          iconSize,
-        );
+        applyIcon(tile.iconSprite, iconKey, iconColor, 64, iconSize, iconSize);
         tile.iconSprite.alpha = hasContent || hl !== null ? 1 : 0.7;
         tile.iconSprite.position.set(
           hasContent ? iconSize / 2 + 5 * k : cardW / 2,
@@ -749,12 +732,7 @@ export class BoardZoneTiles {
       } else if (hasEmptySkeleton) {
         drawDottedRoundRect(tile.outline, cardW, cardH, radius, neutral);
       }
-      if (!hasContent) {
-        const etchY = cardH / 2 + iconSize * 1.2;
-        tile.outline.moveTo(cardW * 0.35, etchY);
-        tile.outline.lineTo(cardW * 0.65, etchY);
-        tile.outline.stroke({ color, width: 1, alpha: 0.3 });
-      } else if (tile.iconSprite.visible) {
+      if (hasContent && tile.iconSprite.visible) {
         const badgeRadius = iconSize / 2 + 3 * k;
         tile.outline.circle(tile.iconSprite.x, tile.iconSprite.y, badgeRadius);
         tile.outline.fill({ color: shadow, alpha: 0.9 });

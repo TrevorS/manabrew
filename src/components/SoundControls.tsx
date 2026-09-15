@@ -24,7 +24,7 @@ export function SoundControls({ className }: SoundControlsProps) {
     <div className={cn("flex items-center gap-3", className)}>
       <Button
         type="button"
-        variant={soundMuted ? "default" : "outline"}
+        variant={soundMuted ? "selected" : "outline"}
         size="icon"
         className="h-8 w-8 shrink-0"
         onClick={toggleSoundMuted}

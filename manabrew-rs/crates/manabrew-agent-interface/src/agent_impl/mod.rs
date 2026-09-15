@@ -1698,8 +1698,6 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
                             },
                             sides,
                             rolls: entries,
-                            source_card_id: None,
-                            source_card_name: None,
                         },
                     ),
                     None,
@@ -1712,7 +1710,6 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
                 final_results,
                 ignored_rolls,
                 source_card_id,
-                source_card_name,
             } => {
                 self.present_prompt(
                     PromptInput::DiceRolled(
@@ -1733,8 +1730,6 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
                                 ignored_rolls,
                                 highlighted: false,
                             }],
-                            source_card_id: source_card_id.map(card_id_str),
-                            source_card_name,
                         },
                     ),
                     source_card_id,

@@ -13,7 +13,7 @@ import type { PlayerHudSpec as PlayerBarSpec } from "./hud/playerHud.types";
 import type { ZoneTileSpec } from "./board/BoardZoneTiles";
 import { battlefieldScaleForMultiplier, scaleForRowsWithCombatRow } from "./GridLayout";
 import { setPixiTextStyleTheme } from "./textStyles";
-import { getTheme } from "@/hooks/useTheme";
+import { getTheme, subscribeTheme } from "@/hooks/useTheme";
 import { useHandScale } from "@/hooks/useHandScale";
 import { usePreferencesStore } from "@/stores/usePreferencesStore";
 import { useGameStore } from "@/stores/useGameStore";
@@ -33,9 +33,10 @@ import { useCardFaces } from "@/hooks/useCardFaces";
 import { useKeybindings } from "@/hooks/useKeybindings";
 import { useGameDevStore } from "@/stores/useGameDevStore";
 import { useServerStore } from "@/stores/useServerStore";
-import { boardBackgroundUrl } from "@/pixi/board/boardBackgrounds";
+import { boardBackgroundDarken, boardBackgroundUrl } from "@/pixi/board/boardBackgrounds";
 import { setAnimationsEnabled } from "./effects/enabled";
 import { withAlpha } from "@/themes/gameTheme";
+import { bindPreviewScroll } from "./cardPreview/previewScroll";
 
 /** Matches HandCardActions `w-[220px]`. */
 const HAND_ACTIONS_PANEL_W = 220;
@@ -179,6 +180,7 @@ export function BoardCanvas({
 
   const [handHover, setHandHover] = useState<HandHoverState | null>(null);
   const clearTimerRef = useRef<number | null>(null);
+  const handActionHoverHeldRef = useRef(false);
   const cancelHandHoverClear = useCallback(() => {
     if (clearTimerRef.current != null) {
       window.clearTimeout(clearTimerRef.current);
@@ -192,6 +194,16 @@ export function BoardCanvas({
       clearTimerRef.current = null;
     }, HAND_ACTIONS_CLEAR_DELAY_MS);
   }, [cancelHandHoverClear]);
+  const holdHandActionHover = useCallback(() => {
+    handActionHoverHeldRef.current = true;
+    cancelHandHoverClear();
+    sceneRef.current?.holdHandHover();
+  }, [cancelHandHoverClear]);
+  const releaseHandActionHover = useCallback(() => {
+    handActionHoverHeldRef.current = false;
+    scheduleHandHoverClear();
+    sceneRef.current?.releaseHandHover();
+  }, [scheduleHandHoverClear]);
 
   useEffect(() => {
     if (externalSceneRef) externalSceneRef.current = scene;
@@ -333,6 +345,21 @@ export function BoardCanvas({
       if (initSettled) release();
     };
   }, [cancelHandHoverClear]);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !scene) return;
+    return bindPreviewScroll(
+      canvas,
+      (clientX, clientY) => {
+        const rect = canvas.getBoundingClientRect();
+        return scene.hitTestHandRules(clientX - rect.left, clientY - rect.top);
+      },
+      (delta, mode, clientX, clientY) => {
+        const rect = canvas.getBoundingClientRect();
+        scene.scrollHandRulesAt(clientX - rect.left, clientY - rect.top, delta, mode);
+      },
+    );
+  }, [scene]);
 
   const players: BoardPlayerSpec[] = regions.map((r) => ({
     playerId: r.playerId,
@@ -531,11 +558,13 @@ export function BoardCanvas({
 
   useEffect(() => {
     if (!scene) return;
-    return usePreferencesStore.subscribe(() => {
+    const applyTheme = () => {
       const theme = getTheme();
       setPixiTextStyleTheme(theme);
       scene.setTheme(theme);
-    });
+    };
+    applyTheme();
+    return subscribeTheme(applyTheme);
   }, [scene]);
 
   const handActions = useMemo(
@@ -562,6 +591,13 @@ export function BoardCanvas({
     );
   }, [handCardStyle, hoverCardId, scene]);
   const showHandFlip = !!handHover && hoverFaces.isFlippable;
+  const handActionPanelVisible = Boolean(showActionPanel && !handRulesView);
+  useEffect(() => {
+    if (handActionPanelVisible || !handActionHoverHeldRef.current) return;
+    handActionHoverHeldRef.current = false;
+    cancelHandHoverClear();
+    scene?.releaseHandHover();
+  }, [cancelHandHoverClear, handActionPanelVisible, scene]);
   const showHoverAreas = useGameDevStore((s) => s.showHoverAreas);
 
   useEffect(() => {
@@ -585,11 +621,13 @@ export function BoardCanvas({
     scene?.setAttackRowDebug(showAttackRows);
   }, [scene, showAttackRows]);
 
-  const tableStyle = useServerStore((s) => s.currentRoom?.table_style);
+  const roomTableStyle = useServerStore((s) => s.currentRoom?.table_style);
+  const boardBackground = usePreferencesStore((s) => s.boardBackgroundId);
 
   useEffect(() => {
-    scene?.setBackground(boardBackgroundUrl(tableStyle));
-  }, [scene, tableStyle]);
+    const backgroundId = roomTableStyle ?? boardBackground;
+    scene?.setBackground(boardBackgroundUrl(backgroundId), boardBackgroundDarken(backgroundId));
+  }, [scene, roomTableStyle, boardBackground]);
 
   const inGameAnimations = usePreferencesStore((s) => s.inGameAnimations);
   useEffect(() => {
@@ -685,14 +723,8 @@ export function BoardCanvas({
                 : "transparent",
               zIndex: Z_HAND_ACTIONS_MENU - 1,
             }}
-            onMouseEnter={() => {
-              cancelHandHoverClear();
-              sceneRef.current?.holdHandHover();
-            }}
-            onMouseLeave={() => {
-              scheduleHandHoverClear();
-              sceneRef.current?.releaseHandHover();
-            }}
+            onMouseEnter={holdHandActionHover}
+            onMouseLeave={releaseHandActionHover}
           />
           <div
             style={{
@@ -707,14 +739,8 @@ export function BoardCanvas({
               top: handHover.bounds.y,
               zIndex: Z_HAND_ACTIONS_MENU,
             }}
-            onMouseEnter={() => {
-              cancelHandHoverClear();
-              sceneRef.current?.holdHandHover();
-            }}
-            onMouseLeave={() => {
-              scheduleHandHoverClear();
-              sceneRef.current?.releaseHandHover();
-            }}
+            onMouseEnter={holdHandActionHover}
+            onMouseLeave={releaseHandActionHover}
           >
             <HandCardActions actions={handActions} onSelectAction={selectHandAction} />
           </div>

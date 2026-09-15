@@ -12,7 +12,7 @@ export function buildPlaygroundSpecs(
   table: PlaygroundTable,
   theme: GameThemeColors,
   compact: boolean,
-  inspect: (card: CardDto) => void,
+  openZone: (ownerId: string, zone: ZoneKind) => void,
 ) {
   const colors = [
     theme.playerColors.self,
@@ -87,14 +87,6 @@ export function buildPlaygroundSpecs(
       const topCard = cards[cards.length - 1];
       tiles.push({
         key: ZONE_TILE_KEY[zone],
-        label:
-          zone === "library"
-            ? "Lib"
-            : zone === "graveyard"
-              ? "GY"
-              : zone === "exile"
-                ? "EX"
-                : "CMD",
         count,
         topCard,
         back: zone === "library",
@@ -105,7 +97,7 @@ export function buildPlaygroundSpecs(
               ? seat * 2
               : 0
             : undefined,
-        onOpen: topCard ? () => inspect(topCard) : undefined,
+        onOpen: topCard ? () => openZone(player.id, zone) : undefined,
       });
     }
     zoneTiles[player.id] = compact

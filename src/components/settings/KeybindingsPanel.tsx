@@ -95,7 +95,7 @@ export function KeybindingsPanel() {
                     <div className="flex items-center gap-1.5">
                       <Button
                         size="sm"
-                        variant={isCapturing ? "secondary" : "outline"}
+                        variant={isCapturing ? "selected" : "outline"}
                         className={cn("h-7 min-w-24 text-xs", isCapturing && "animate-pulse")}
                         style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
                         onClick={() => setCapturingId(isCapturing ? null : b.id)}
@@ -104,9 +104,8 @@ export function KeybindingsPanel() {
                       </Button>
                       {isCustom && (
                         <Button
-                          size="icon"
+                          size="icon-sm"
                           variant="ghost"
-                          className="h-7 w-7"
                           title="Reset to default"
                           onClick={() => resetBinding(b.id)}
                         >

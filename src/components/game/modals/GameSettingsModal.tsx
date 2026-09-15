@@ -19,6 +19,8 @@ import {
 } from "@/components/game/cardPreviewStyles";
 import { usePromptPreferencesStore } from "@/stores/usePromptPreferencesStore";
 import { HAND_ORDER_OPTIONS } from "@/lib/handOrder";
+import { TableSetupTableCard } from "@/components/lobby/TableSetupTableCard";
+import { useServerStore } from "@/stores/useServerStore";
 
 function Choice<T extends string | boolean>({
   label,
@@ -41,7 +43,8 @@ function Choice<T extends string | boolean>({
           <Button
             key={String(option.value)}
             size="sm"
-            variant={value === option.value ? "default" : "outline"}
+            variant="outline"
+            className="aria-pressed:border-accent"
             aria-pressed={value === option.value}
             onClick={() => onChange(option.value)}
           >
@@ -71,6 +74,8 @@ export function GameSettingsModal({ onClose }: { onClose: () => void }) {
   const fullControl = usePromptPreferencesStore((s) => s.fullControl);
   const setFullControl = usePromptPreferencesStore((s) => s.setFullControl);
   const id = useId();
+  const roomTableStyle = useServerStore((s) => s.currentRoom?.table_style);
+  const tableBackgroundLocked = roomTableStyle != null;
   return (
     <Modal onClose={onClose} maxWidth="max-w-xl">
       <Modal.CloseShortcut keybinding="open-settings" onClose={onClose} />
@@ -179,6 +184,21 @@ export function GameSettingsModal({ onClose }: { onClose: () => void }) {
             ]}
             onChange={prefs.setOpponentLayout}
           />
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Table background</p>
+            <TableSetupTableCard
+              background={prefs.boardBackgroundId}
+              onBackgroundChange={prefs.setBoardBackgroundId}
+              columns={4}
+              className=""
+              disabled={tableBackgroundLocked}
+            />
+            <p className="text-xs text-muted-foreground">
+              {tableBackgroundLocked
+                ? "The host picked this table's background when creating it."
+                : "Used when a table does not provide its own background, including offline games."}
+            </p>
+          </div>
           <Choice
             label="Zone piles"
             value={prefs.lockZoneTiles}
@@ -225,7 +245,9 @@ export function GameSettingsModal({ onClose }: { onClose: () => void }) {
         </Section>
       </Modal.Body>
       <Modal.Footer>
-        <Modal.Close onClose={onClose}>Done</Modal.Close>
+        <Modal.Close onClose={onClose} variant="ghost">
+          Done
+        </Modal.Close>
       </Modal.Footer>
     </Modal>
   );

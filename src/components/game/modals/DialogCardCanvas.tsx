@@ -7,9 +7,9 @@ import { OverlayRenderScheduler, overlayResolution } from "@/pixi/overlay/overla
 import { useTheme } from "@/hooks/useTheme";
 import { useScryfallStore } from "@/stores/useScryfallStore";
 import { useGameStore } from "@/stores/useGameStore";
-import { asDeckCard } from "@/lib/decks";
+import { asGameDeckCard } from "@/lib/decks";
 import { isFacelessCard } from "@/lib/gameCard";
-import { CARD_W, CARD_H } from "@/components/game/game.constants";
+import { CARD_W, CARD_H, GAME_CARD_SIZES } from "@/components/game/game.constants";
 import { animationsEnabled } from "@/pixi/effects/enabled";
 import type { CardInspectionState } from "./cardInspection";
 
@@ -57,7 +57,16 @@ export function DialogCardCanvas(props: Props) {
       const rotated = horizontal && state.rotated;
       const width = horizontal && !rotated ? CARD_H : CARD_W;
       const height = horizontal && !rotated ? CARD_W : CARD_H;
-      const scale = Math.min((host.clientWidth - 20) / width, (host.clientHeight - 20) / height);
+      const maxWidth =
+        horizontal && !rotated ? GAME_CARD_SIZES.preview.height : GAME_CARD_SIZES.preview.width;
+      const maxHeight =
+        horizontal && !rotated ? GAME_CARD_SIZES.preview.width : GAME_CARD_SIZES.preview.height;
+      const scale = Math.min(
+        maxWidth / width,
+        maxHeight / height,
+        (host.clientWidth - 20) / width,
+        (host.clientHeight - 20) / height,
+      );
       sprite.rotation = rotated ? -Math.PI / 2 : 0;
       sprite.scale.set(Math.max(0.1, scale));
       sprite.position.set(host.clientWidth / 2, host.clientHeight / 2);
@@ -70,6 +79,7 @@ export function DialogCardCanvas(props: Props) {
       if (!sprite || sprite.card.id !== card.id) {
         sprite?.destroy({ children: true });
         sprite = new CardSprite(card, "hand");
+        sprite.onVisualChange = request;
         sprite.onReorient = layout;
         app.stage.addChild(sprite);
       } else sprite.updateCardContent(card);
@@ -96,7 +106,7 @@ export function DialogCardCanvas(props: Props) {
       );
       layout();
       if (!isFacelessCard(card)) {
-        const deck = asDeckCard(useGameStore.getState().gameDecks[card.ownerId], card);
+        const deck = asGameDeckCard(useGameStore.getState().gameDecks, card);
         void useScryfallStore
           .getState()
           .getCardTexture(deck, state.rules ? "art" : "full", state.face)

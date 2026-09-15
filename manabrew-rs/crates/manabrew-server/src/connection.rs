@@ -202,6 +202,44 @@ fn broadcast_to_lobby(state: &Arc<ServerState>, msg: &ServerMessage) {
     }
 }
 
+fn advertised_features(state: &Arc<ServerState>) -> Vec<String> {
+    crate::protocol::FEATURES
+        .iter()
+        .filter(|f| {
+            state.direct_transport
+                || (**f != crate::protocol::FEATURE_ROOM_TRANSPORT
+                    && **f != crate::protocol::FEATURE_PEER_SIGNAL)
+        })
+        .map(|f| f.to_string())
+        .collect()
+}
+
+/// Pushes the room's data-plane roster to its members only.
+pub fn broadcast_room_transport(state: &Arc<ServerState>, room_id: &str) {
+    if !state.direct_transport {
+        return;
+    }
+    let Some(room) = state.rooms.get(room_id) else {
+        return;
+    };
+    // Unconsented rooms get an empty roster, which tells an early dialer to tear down.
+    let consented = room.transport_consented();
+    let msg = ServerMessage::RoomTransport {
+        room_id: room_id.to_string(),
+        ice_servers: state.ice_servers.clone(),
+        host: consented.then(|| room.transport_host()).flatten(),
+        members: if consented {
+            room.transport_members()
+        } else {
+            Vec::new()
+        },
+    };
+    metrics::record_transport_roster(if consented { "sent" } else { "withheld" });
+    // Drop the shard guard first; `broadcast_to_room` locks `state.rooms` again.
+    drop(room);
+    broadcast_to_room(state, room_id, &msg);
+}
+
 fn connected_player_id_by_username(state: &Arc<ServerState>, username: &str) -> Option<String> {
     state
         .players
@@ -455,29 +493,77 @@ fn room_player_id_in(room: &Room, target_username: &str) -> Option<String> {
     }
 }
 
-/// Whether every client that would receive this envelope ships the `stateDelta`
-/// applier. One seat that does not is enough to fall back to a full state: a
-/// dropped patch leaves that player's board frozen for the rest of the game.
-fn state_patch_audience_ready(
+/// The seats that would receive this envelope and cannot take a `stateDelta`,
+/// so must be sent the whole board instead: a dropped patch leaves that
+/// player's board frozen for the rest of the game.
+///
+/// Per seat, not per envelope. Until 2026-09-11 one such seat folded the patch
+/// for everyone, and every hosted room has one: the node's bot seats and the
+/// node itself authenticate as services with no client version. So every
+/// broadcast patch went out as a full state to every human, ~40 KB per
+/// decision on a four-seat board that the seated client then discarded, and
+/// the node was sent its own bot seats' boards back. A service is our own
+/// code, never a stale install, and either applies patches or ignores states
+/// altogether; it is never the reason to fold.
+fn seats_needing_full_state(
     state: &Arc<ServerState>,
     room: &Room,
     sender_player_id: &str,
     target_username: Option<&str>,
-) -> bool {
-    let applies = |player_id: &str| {
+) -> Vec<String> {
+    let needs_full = |player_id: &str| {
         state
             .players
             .get(player_id)
-            .is_some_and(|player| player.client.applies_state_patches())
+            .is_some_and(|player| !player.is_service && !player.client.applies_state_patches())
     };
     match target_username {
         // An unresolvable target means the send is about to be dropped anyway.
-        Some(target) => room_player_id_in(room, target).is_none_or(|pid| applies(&pid)),
+        Some(target) => room_player_id_in(room, target)
+            .filter(|pid| needs_full(pid))
+            .into_iter()
+            .collect(),
         None => room
             .connected_player_ids()
-            .iter()
-            .filter(|pid| pid.as_str() != sender_player_id)
-            .all(|pid| applies(pid)),
+            .into_iter()
+            .filter(|pid| pid.as_str() != sender_player_id && needs_full(pid))
+            .collect(),
+    }
+}
+
+/// Broadcast a board update, sending each seat the shape it can take: the
+/// patch to seats that apply patches, the whole board to the rest.
+fn broadcast_state_split(
+    state: &Arc<ServerState>,
+    sender_player_id: &str,
+    room_id: &str,
+    patch: &ServerMessage,
+    full: Option<&ServerMessage>,
+    needs_full: &[String],
+) {
+    let Some(full) = full else {
+        broadcast_to_room_except(state, sender_player_id, room_id, patch);
+        return;
+    };
+    let (Ok(patch_json), Ok(full_json)) =
+        (serde_json::to_string(patch), serde_json::to_string(full))
+    else {
+        return;
+    };
+    let player_ids = match state.rooms.get(room_id) {
+        Some(room) => room.connected_player_ids(),
+        None => return,
+    };
+    for pid in player_ids
+        .iter()
+        .filter(|pid| pid.as_str() != sender_player_id)
+    {
+        if needs_full.contains(pid) {
+            metrics::record_state_patch_downgrade();
+            emit_to(state, pid, full, &full_json);
+        } else {
+            emit_to(state, pid, patch, &patch_json);
+        }
     }
 }
 
@@ -792,10 +878,7 @@ async fn authenticate(
                     player_id: None,
                     reconnected: None,
                     error: Some("Invalid server key".into()),
-                    features: crate::protocol::FEATURES
-                        .iter()
-                        .map(|f| f.to_string())
-                        .collect(),
+                    features: advertised_features(state),
                     art_base_url: state.art_base_url.clone(),
                 };
                 send_msg(sender, &reply);
@@ -812,10 +895,7 @@ async fn authenticate(
                     player_id: None,
                     reconnected: None,
                     error: Some("identity token expired".into()),
-                    features: crate::protocol::FEATURES
-                        .iter()
-                        .map(|f| f.to_string())
-                        .collect(),
+                    features: advertised_features(state),
                     art_base_url: state.art_base_url.clone(),
                 };
                 send_msg(sender, &reply);
@@ -833,10 +913,7 @@ async fn authenticate(
                     player_id: None,
                     reconnected: None,
                     error: Some("Username cannot be empty".into()),
-                    features: crate::protocol::FEATURES
-                        .iter()
-                        .map(|f| f.to_string())
-                        .collect(),
+                    features: advertised_features(state),
                     art_base_url: state.art_base_url.clone(),
                 };
                 send_msg(sender, &reply);
@@ -855,10 +932,7 @@ async fn authenticate(
                         player_id: None,
                         reconnected: None,
                         error: Some(format!("Username '{username}' is already taken")),
-                        features: crate::protocol::FEATURES
-                            .iter()
-                            .map(|f| f.to_string())
-                            .collect(),
+                        features: advertised_features(state),
                         art_base_url: state.art_base_url.clone(),
                     };
                     send_msg(sender, &reply);
@@ -935,10 +1009,7 @@ async fn authenticate(
                 player_id: Some(player_id.clone()),
                 reconnected: Some(false),
                 error: None,
-                features: crate::protocol::FEATURES
-                    .iter()
-                    .map(|f| f.to_string())
-                    .collect(),
+                features: advertised_features(state),
                 art_base_url: state.art_base_url.clone(),
             };
             send_msg(sender, &reply);
@@ -955,10 +1026,7 @@ async fn authenticate(
                 player_id: None,
                 reconnected: None,
                 error: Some("First message must be Authenticate".into()),
-                features: crate::protocol::FEATURES
-                    .iter()
-                    .map(|f| f.to_string())
-                    .collect(),
+                features: advertised_features(state),
                 art_base_url: state.art_base_url.clone(),
             };
             send_msg(sender, &reply);
@@ -1021,10 +1089,7 @@ fn reclaim_session(
         player_id: Some(existing_pid.to_string()),
         reconnected: Some(true),
         error: None,
-        features: crate::protocol::FEATURES
-            .iter()
-            .map(|f| f.to_string())
-            .collect(),
+        features: advertised_features(state),
         art_base_url: state.art_base_url.clone(),
     };
     send_msg(sender, &reply);
@@ -1262,6 +1327,7 @@ fn handle_client_message(
                         }
                     }
                     broadcast_to_room(state, &room_id, &ServerMessage::RoomUpdate { room: info });
+                    broadcast_room_transport(state, &room_id);
                     let is_service = state.players.get(player_id).is_some_and(|p| p.is_service);
                     if !is_service {
                         send_room_chat_history(state, player_id, &room_id);
@@ -1343,6 +1409,7 @@ fn handle_client_message(
                                 },
                             );
                         }
+                        broadcast_room_transport(state, &rid);
                     }
                 }
                 Err(ServerError::NotInRoom) => {
@@ -1501,7 +1568,6 @@ fn handle_client_message(
                         started.player_order
                     );
                     metrics::record_game_started(started.room_info.engine);
-                    state.deck_play_events.game_started(&started);
                     state
                         .analytics
                         .emit(analytics::game_started_event(&started));
@@ -1603,7 +1669,38 @@ fn handle_client_message(
                 engine_cross_p90: stats.engine_think_cross_turn.as_ref().map(|t| t.p90),
                 engine_cross_max: stats.engine_think_cross_turn.as_ref().map(|t| t.max),
                 think_hidden: stats.think_samples_hidden,
+                reply_wait_p50: stats.reply_wait.as_ref().map(|t| t.p50),
+                reply_wait_p90: stats.reply_wait.as_ref().map(|t| t.p90),
+                reply_wait_max: stats.reply_wait.as_ref().map(|t| t.max),
+                client_work_p50: stats.client_work.as_ref().map(|t| t.p50),
+                client_work_p90: stats.client_work.as_ref().map(|t| t.p90),
+                client_work_max: stats.client_work.as_ref().map(|t| t.max),
             });
+        }
+
+        ClientMessage::ReportGameOutcome { game_id, outcome } => {
+            let room_id = state.players.get(player_id).and_then(|p| p.room_id.clone());
+            let recorded = room_id
+                .and_then(|room_id| state.rooms.get_mut(&room_id))
+                .filter(|room| room.is_host(player_id))
+                .and_then(|mut room| {
+                    room.replay
+                        .as_mut()
+                        .filter(|replay| replay.game_id == game_id)
+                        .map(|replay| replay.record_outcome(outcome))
+                })
+                .is_some();
+            metrics::record_game_outcome_report(if recorded {
+                metrics::OUTCOME_REPORT_ACCEPTED
+            } else {
+                metrics::OUTCOME_REPORT_REJECTED
+            });
+            if !recorded {
+                debug!(
+                    "[analytics] '{}' filed an outcome for a game it does not host",
+                    username
+                );
+            }
         }
 
         ClientMessage::RequestResync => {
@@ -1696,19 +1793,18 @@ fn handle_client_message(
                         .then(|| replay.game_id.clone())
                 });
                 let seats = room.players.len();
-                let folded_state = (is_state_patch(&game_state)
-                    && !state_patch_audience_ready(
-                        state,
-                        &room,
-                        player_id,
-                        canonical_target.as_deref(),
-                    ))
-                .then(|| {
-                    room.replay
-                        .as_ref()
-                        .and_then(|replay| replay.state_after(&game_state).cloned())
-                })
-                .flatten();
+                let needs_full = if is_state_patch(&game_state) {
+                    seats_needing_full_state(state, &room, player_id, canonical_target.as_deref())
+                } else {
+                    Vec::new()
+                };
+                let folded_state = (!needs_full.is_empty())
+                    .then(|| {
+                        room.replay
+                            .as_ref()
+                            .and_then(|replay| replay.state_after(&game_state).cloned())
+                    })
+                    .flatten();
                 drop(room);
                 if let Some(game_id) = capture_game_id {
                     // Only a player's own envelope carries a link that is theirs.
@@ -1732,17 +1828,14 @@ fn handle_client_message(
                     metrics::record_state_handling(seats, handling_started.elapsed());
                     return;
                 }
-                let game_state = match folded_state {
-                    Some(full) => {
-                        metrics::record_state_patch_downgrade();
-                        full
-                    }
-                    None => game_state,
-                };
                 let msg = ServerMessage::StateUpdate {
                     from_player: username.to_string(),
                     state: game_state,
                 };
+                let full_msg = folded_state.map(|full| ServerMessage::StateUpdate {
+                    from_player: username.to_string(),
+                    state: full,
+                });
                 match canonical_target {
                     Some(target) => {
                         debug!(
@@ -1751,7 +1844,15 @@ fn handle_client_message(
                             target,
                             &rid[..8]
                         );
-                        send_to_room_player(state, &rid, &target, &msg);
+                        // A patch the relay could not expand still goes out:
+                        // the seat drops it, which is no worse than silence.
+                        match &full_msg {
+                            Some(full) => {
+                                metrics::record_state_patch_downgrade();
+                                send_to_room_player(state, &rid, &target, full);
+                            }
+                            None => send_to_room_player(state, &rid, &target, &msg),
+                        }
                     }
                     None => {
                         debug!(
@@ -1759,7 +1860,14 @@ fn handle_client_message(
                             username,
                             &rid[..8]
                         );
-                        broadcast_to_room_except(state, player_id, &rid, &msg);
+                        broadcast_state_split(
+                            state,
+                            player_id,
+                            &rid,
+                            &msg,
+                            full_msg.as_ref(),
+                            &needs_full,
+                        );
                     }
                 }
                 metrics::record_state_handling(seats, handling_started.elapsed());
@@ -1770,6 +1878,161 @@ fn handle_client_message(
                 );
                 send_error(sender, &ServerError::NotInRoom);
             }
+        }
+
+        ClientMessage::ReportTransport { game_id, seats } => {
+            let Some(room_id) = state.players.get(player_id).and_then(|p| p.room_id.clone()) else {
+                return;
+            };
+            // Host only, and only for the game the relay believes is running.
+            let authorised = state.rooms.get(&room_id).is_some_and(|room| {
+                room.is_host(player_id)
+                    && room
+                        .replay
+                        .as_ref()
+                        .is_some_and(|replay| replay.game_id == game_id)
+            });
+            if !authorised || seats.is_empty() {
+                return;
+            }
+            let event = AnalyticsEvent::TransportUsed {
+                ts: analytics::now_ts(),
+                room_id,
+                game_id: game_id.clone(),
+                host: username.to_string(),
+                seats,
+            };
+            if let Ok(envelope) = serde_json::to_value(&event) {
+                state
+                    .analytics
+                    .capture_envelope(&game_id, username, &envelope, None);
+            }
+            state.analytics.emit(event);
+        }
+
+        ClientMessage::AnnounceTransport { endpoint } => {
+            let Some(room_id) = state.players.get(player_id).and_then(|p| p.room_id.clone()) else {
+                send_error(sender, &ServerError::NotInRoom);
+                return;
+            };
+            let withdrawn = endpoint.is_none();
+            let accepted = state.direct_transport
+                && match state.rooms.get_mut(&room_id) {
+                    Some(mut room) => room.set_transport(player_id, endpoint),
+                    None => false,
+                };
+            // Silent on purpose: no error reaches a squatter.
+            if !accepted {
+                metrics::record_transport_announcement("rejected");
+                return;
+            }
+            metrics::record_transport_announcement(if withdrawn { "withdraw" } else { "announce" });
+            broadcast_room_transport(state, &room_id);
+        }
+
+        ClientMessage::SignalPeer { to, payload } => {
+            let Some(room_id) = state.players.get(player_id).and_then(|p| p.room_id.clone()) else {
+                send_error(sender, &ServerError::NotInRoom);
+                return;
+            };
+            if !state.direct_transport {
+                metrics::record_peer_signal("disabled");
+                return;
+            }
+            if serde_json::to_string(&payload)
+                .map_or(true, |json| json.len() > crate::protocol::MAX_SIGNAL_BYTES)
+            {
+                metrics::record_peer_signal("oversize");
+                return;
+            }
+            // Relay-attested sender; never client supplied.
+            let Some(from) = state.players.get(player_id).map(|p| p.username.clone()) else {
+                metrics::record_peer_signal("no_sender");
+                return;
+            };
+            let target = state
+                .rooms
+                .get(&room_id)
+                .and_then(|room| room.participant_id_by_username(&to));
+            let Some(target_id) = target else {
+                metrics::record_peer_signal("no_target");
+                return;
+            };
+            if target_id == player_id {
+                metrics::record_peer_signal("self");
+                return;
+            }
+            let Some(target_player) = state.players.get(&target_id) else {
+                metrics::record_peer_signal("no_target");
+                return;
+            };
+            if !target_player.connected {
+                metrics::record_peer_signal("offline");
+                return;
+            }
+            send_msg(
+                &target_player.sender,
+                &ServerMessage::PeerSignal { from, payload },
+            );
+            metrics::record_peer_signal("forwarded");
+        }
+
+        ClientMessage::ReportPlaneQuality { report } => {
+            if !state.direct_transport {
+                return;
+            }
+            // Relay-attested reporter; never client supplied.
+            let Some(username) = state.players.get(player_id).map(|p| p.username.clone()) else {
+                return;
+            };
+            let room_id = state.players.get(player_id).and_then(|p| p.room_id.clone());
+            let known_peer = room_id
+                .as_ref()
+                .and_then(|rid| state.rooms.get(rid))
+                .is_some_and(|room| room.participant_id_by_username(&report.peer).is_some());
+            if !known_peer {
+                return;
+            }
+            // Labels come from fixed sets, never from the wire.
+            let Some(outcome) = plane_outcome_label(&report.outcome) else {
+                return;
+            };
+            let Some(plane) = plane_label(&report.plane) else {
+                return;
+            };
+            let pair = candidate_pair_label(report.candidate_pair.as_deref());
+            // Counted once per attempt; the measured phase is the same attempt.
+            if report.phase == crate::protocol::PLANE_PHASE_SETTLED {
+                metrics::record_plane_attempt(plane, outcome, pair);
+            }
+
+            let sane = |value: Option<u32>| value.filter(|ms| *ms <= crate::protocol::MAX_PLANE_MS);
+            let connect_ms = sane(report.connect_ms);
+            let rtt_ms = sane(report.rtt_ms);
+            let relay_rtt_ms = sane(report.relay_rtt_ms);
+            if let Some(ms) = connect_ms {
+                metrics::record_plane_connect(plane, ms);
+            }
+            if let Some(ms) = rtt_ms {
+                metrics::record_plane_rtt(plane, ms, relay_rtt_ms);
+            }
+
+            let candidate_pair = report.candidate_pair.filter(|value| {
+                value.len() <= crate::protocol::MAX_CANDIDATE_PAIR_BYTES && !value.is_empty()
+            });
+            state.analytics.emit(AnalyticsEvent::PlaneQuality {
+                ts: analytics::now_ts(),
+                room_id,
+                username,
+                peer: report.peer,
+                plane: plane.to_string(),
+                outcome: outcome.to_string(),
+                phase: report.phase,
+                connect_ms,
+                rtt_ms,
+                relay_rtt_ms,
+                candidate_pair,
+            });
         }
 
         ClientMessage::SendChat { scope, text } => {
@@ -1853,6 +2116,8 @@ fn msg_type_of(msg: &ServerMessage) -> &'static str {
         ServerMessage::GameAborted { .. } => "GameAborted",
         ServerMessage::Error { .. } => "Error",
         ServerMessage::ServerShuttingDown { .. } => "ServerShuttingDown",
+        ServerMessage::RoomTransport { .. } => "RoomTransport",
+        ServerMessage::PeerSignal { .. } => "PeerSignal",
         ServerMessage::ChatMessage(_) => "ChatMessage",
         ServerMessage::ChatHistory { .. } => "ChatHistory",
         ServerMessage::RoomInvite { .. } => "RoomInvite",
@@ -1876,11 +2141,90 @@ fn client_msg_type(msg: &ClientMessage) -> &'static str {
         ClientMessage::SetMaxPlayers { .. } => "SetMaxPlayers",
         ClientMessage::StartGame { .. } => "StartGame",
         ClientMessage::EndGame { .. } => "EndGame",
+        ClientMessage::ReportGameOutcome { .. } => "ReportGameOutcome",
         ClientMessage::ReportEngineStats { .. } => "ReportEngineStats",
         ClientMessage::RequestResync => "RequestResync",
         ClientMessage::BroadcastState { .. } => "BroadcastState",
         ClientMessage::TurnChange { .. } => "TurnChange",
+        ClientMessage::AnnounceTransport { .. } => "AnnounceTransport",
+        ClientMessage::ReportTransport { .. } => "ReportTransport",
+        ClientMessage::SignalPeer { .. } => "SignalPeer",
+        ClientMessage::ReportPlaneQuality { .. } => "ReportPlaneQuality",
         ClientMessage::SendChat { .. } => "SendChat",
         ClientMessage::InviteToRoom { .. } => "InviteToRoom",
+    }
+}
+
+fn plane_outcome_label(outcome: &str) -> Option<&'static str> {
+    crate::protocol::PLANE_OUTCOMES
+        .iter()
+        .find(|known| **known == outcome)
+        .copied()
+}
+
+fn plane_label(plane: &str) -> Option<&'static str> {
+    match plane {
+        crate::protocol::TRANSPORT_WEBRTC => Some(crate::protocol::TRANSPORT_WEBRTC),
+        _ => None,
+    }
+}
+
+/// Buckets an ICE candidate pair into a bounded set of labels.
+fn candidate_pair_label(pair: Option<&str>) -> &'static str {
+    let Some(pair) = pair else {
+        return "unknown";
+    };
+    let (local, remote) = match pair.split_once('/') {
+        Some(split) => split,
+        None => return "other",
+    };
+    match (local, remote) {
+        ("host", "host") => "lan",
+        (_, "relay") | ("relay", _) => "turn",
+        ("srflx" | "prflx", "srflx" | "prflx") => "punched",
+        ("host", "srflx" | "prflx") | ("srflx" | "prflx", "host") => "mixed",
+        _ => "other",
+    }
+}
+
+#[cfg(test)]
+mod plane_quality_tests {
+    use super::*;
+
+    #[test]
+    fn outcomes_come_from_the_fixed_set() {
+        assert_eq!(plane_outcome_label("connected"), Some("connected"));
+        assert_eq!(plane_outcome_label("timeout"), Some("timeout"));
+        assert_eq!(plane_outcome_label("connected "), None);
+        assert_eq!(plane_outcome_label("whatever"), None);
+        assert_eq!(plane_outcome_label(""), None);
+    }
+
+    #[test]
+    fn planes_come_from_the_fixed_set() {
+        assert_eq!(plane_label("webrtc"), Some("webrtc"));
+        assert_eq!(plane_label("carrier pigeon"), None);
+    }
+
+    #[test]
+    fn a_lan_pair_is_not_a_punched_one() {
+        assert_eq!(candidate_pair_label(Some("host/host")), "lan");
+        assert_eq!(candidate_pair_label(Some("srflx/srflx")), "punched");
+        assert_eq!(candidate_pair_label(Some("prflx/srflx")), "punched");
+        assert_eq!(candidate_pair_label(Some("host/srflx")), "mixed");
+        assert_eq!(candidate_pair_label(Some("srflx/host")), "mixed");
+    }
+
+    #[test]
+    fn turn_is_labelled_even_though_we_run_none() {
+        assert_eq!(candidate_pair_label(Some("relay/srflx")), "turn");
+        assert_eq!(candidate_pair_label(Some("srflx/relay")), "turn");
+    }
+
+    #[test]
+    fn an_absent_or_malformed_pair_stays_bounded() {
+        assert_eq!(candidate_pair_label(None), "unknown");
+        assert_eq!(candidate_pair_label(Some("nonsense")), "other");
+        assert_eq!(candidate_pair_label(Some("a/b")), "other");
     }
 }

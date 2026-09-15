@@ -19,7 +19,10 @@ export function DialogCardPickerCanvas(props: DialogCardPickerCanvasProps) {
   });
 
   useLayoutEffect(() => {
-    const nextProps = { ...props, ringColor: theme.gameTheme.cardRing };
+    const nextProps = {
+      ...props,
+      ringColor: theme.gameTheme.cardRing,
+    };
     latestProps.current = nextProps;
     sceneRef.current?.update(nextProps);
   }, [props, theme.gameTheme.cardRing]);

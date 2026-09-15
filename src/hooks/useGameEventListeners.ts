@@ -7,14 +7,10 @@ import {
   SELF_HOSTED_NODE_RELAY_PROTOCOL,
 } from "@/game";
 import { teardownForgeAiSession } from "@/game/hostedAiPlay";
-import { reportEngineStats } from "@/lib/engineStatsReport";
-import {
-  currentOfflineGameId,
-  reportOfflineGame,
-  type OfflineSeatOutcome,
-} from "@/lib/offlinePlayRecord";
+import { engineReportGameId, reportEngineStats } from "@/lib/engineStatsReport";
+import { currentOfflineGameId, reportOfflineGame } from "@/lib/offlinePlayRecord";
+import { offlineSeats } from "@/lib/offlineSeats";
 import { clearLocalGame } from "@/lib/localGamePresence";
-import { useAuthStore } from "@/stores/useAuthStore";
 import { useGameStore } from "@/stores/useGameStore";
 import type { GameState } from "@/stores/useGameStore";
 import { useServerStore } from "@/stores/useServerStore";
@@ -32,7 +28,7 @@ import {
 import type { Prompt, StateUpdate, ProtocolError } from "@/protocol";
 import type { DisplayEvent } from "@/protocol/display";
 import type { GameViewDto } from "@/protocol/game";
-import { SERVER_ERROR_CODE } from "@/types/server";
+import { RELAY_FEATURE, SERVER_ERROR_CODE } from "@/types/server";
 import type { AuthResultPayload, GameAbortedPayload, RoomMessagePayload } from "@/types/server";
 
 type SelfHostedNodeRoomPayload = {
@@ -147,18 +143,35 @@ function isOver(state: Pick<GameState, "gameView" | "currentPrompt">): boolean {
   return (state.gameView?.gameOver ?? false) || isGameOverPrompt(state.currentPrompt);
 }
 
+let outcomeFiledFor: string | null = null;
+
 /**
- * The human's name comes from the account when there is one, so an offline game
- * joins the same player's relay games rather than a second identity.
+ * The host is the only seat the relay takes an outcome from, and since the
+ * state stream may bypass the relay it is the only way the relay learns how a
+ * game ended. Slots go on the wire; the relay owns the seat names.
  */
-function offlineSeats(state: GameState): OfflineSeatOutcome[] {
-  const handle = useAuthStore.getState().account?.handle;
-  return (state.gameView?.players ?? []).map((player) => ({
-    seatId: player.id,
-    username: player.isHuman ? (handle ?? player.name) : player.name,
-    isBot: !player.isHuman,
-    conceded: player.status === "conceded",
-  }));
+function reportHostOutcome(state: GameState): void {
+  const server = useServerStore.getState();
+  const gameId = server.gameId;
+  if (!gameId || outcomeFiledFor === gameId) return;
+  if (!server.username || server.currentRoom?.host !== server.username) return;
+  if (!server.hasRelayFeature(RELAY_FEATURE.GameOutcome)) return;
+  const over = isOver(state);
+  // A `pagehide` on a tab switch files the game as not over; if it then
+  // finishes in the same page the final report must still go out.
+  if (over || state.fatalError) outcomeFiledFor = gameId;
+  const view = state.gameView;
+  void getPlatform()
+    .server?.reportGameOutcome(gameId, {
+      game_over: over,
+      winner_slot: view?.winnerId ?? undefined,
+      conceded_slots: (view?.players ?? [])
+        .filter((player) => player.status === "conceded")
+        .map((player) => player.id),
+      fatal_message: state.fatalError ?? undefined,
+      turns: view?.turn,
+    })
+    .catch(() => undefined);
 }
 
 /** Close the book on the current game. Safe to call more than once. */
@@ -167,14 +180,15 @@ function reportEngineGame(): void {
   // Read before the offline record is closed: reporting the game clears it, and
   // the engine report below needs the same id to file itself against.
   const offlineGameId = currentOfflineGameId();
+  if (state.isMultiplayer) reportHostOutcome(state);
   if (!state.isMultiplayer) {
     clearLocalGame();
-    const players = state.gameView?.players ?? [];
+    const seats = offlineSeats(state.gameView);
     const winnerId = state.gameView?.winnerId ?? null;
     reportOfflineGame({
       gameOver: isOver(state),
-      winner: players.find((player) => player.id === winnerId)?.name ?? null,
-      seats: offlineSeats(state),
+      winner: seats.find((seat) => seat.seatId === winnerId)?.username ?? null,
+      seats,
     });
   }
   reportEngineStats({
@@ -185,7 +199,11 @@ function reportEngineGame(): void {
     // engine sends a gameOver prompt and `gameView` never gets the flag, so
     // reading the flag alone filed finished games as quits.
     endReason: isOver(state) ? "gameOver" : "left",
-    gameId: useServerStore.getState().gameId ?? offlineGameId,
+    gameId: engineReportGameId(
+      state.isMultiplayer,
+      useServerStore.getState().gameId,
+      offlineGameId,
+    ),
     send: state.isMultiplayer
       ? async (stats, gameId) => {
           await getPlatform().server?.reportEngineStats(stats, gameId);

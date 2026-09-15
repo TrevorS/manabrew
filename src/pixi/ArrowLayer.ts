@@ -403,7 +403,7 @@ export class ArrowLayer {
         break;
       case "casting":
         this.setupPlacement(entry, arrow, {
-          color: arrow.color ?? hexToNum(this.theme.gameTheme.arrow.friendlyTarget),
+          color: arrow.color ?? hexToNum(this.theme.gameTheme.targeting.friendly),
           strokeWidth: CAST_STROKE_WIDTH,
           alpha: CAST_ALPHA,
           dash: CAST_DASH,
@@ -471,16 +471,24 @@ export class ArrowLayer {
       arrow.color ??
       hexToNum(
         arrow.type === "attack"
-          ? this.theme.gameTheme.pointer.hostile
-          : this.theme.gameTheme.pointer.friendly,
+          ? this.theme.gameTheme.targeting.hostile
+          : this.theme.gameTheme.targeting.friendly,
       );
 
     const gradKey = `${ax1.toFixed(1)},${ay1.toFixed(1)},${ax2.toFixed(1)},${ay2.toFixed(1)},${hue}`;
     if (entry.gradKey !== gradKey || !entry.underGrad || !entry.coreGrad) {
       entry.underGrad?.destroy();
       entry.coreGrad?.destroy();
-      entry.underGrad = new FillGradient(ax1, ay1, ax2, ay2);
-      entry.coreGrad = new FillGradient(ax1, ay1, ax2, ay2);
+      entry.underGrad = new FillGradient({
+        type: "linear",
+        start: { x: ax1, y: ay1 },
+        end: { x: ax2, y: ay2 },
+      });
+      entry.coreGrad = new FillGradient({
+        type: "linear",
+        start: { x: ax1, y: ay1 },
+        end: { x: ax2, y: ay2 },
+      });
       for (const [stop, alpha] of PAINTERLY_GRADIENT_STOPS) {
         const color = hueWithAlpha(hue, alpha);
         entry.underGrad.addColorStop(stop, color);
