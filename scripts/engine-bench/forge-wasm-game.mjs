@@ -211,9 +211,18 @@ const greedy = {
     this.paying = p.input.cardId;
     return { type: "pay", auto: true };
   },
-  chooseAttackers(p) {
+  attackAsks: 0,
+  chooseAttackers(p, atTurn) {
+    // A re-ask in the same turn means the engine rejected the declaration
+    // (goad: must attack someone other than the goader, which the prompt
+    // does not say), so rotate the target on each ask.
+    this.attackAsks = this.turn === atTurn ? this.attackAsks + 1 : 0;
+    this.reset(atTurn);
+    const k = this.attackAsks;
     const assignments = (p.input.attackers || []).flatMap((a) =>
-      a.validTargetIds?.length ? [{ attackerId: a.attackerId, targetId: a.validTargetIds[0] }] : [],
+      a.validTargetIds?.length
+        ? [{ attackerId: a.attackerId, targetId: a.validTargetIds[k % a.validTargetIds.length] }]
+        : [],
     );
     return { type: "declareAttackers", assignments };
   },
@@ -254,7 +263,27 @@ const FLIPPED = {
   }),
 };
 
+let rejectedAttacks = 0;
 function answer(type, prompt, atTurn) {
+  // The harness reports a rejected attack declaration as a revealCards prompt
+  // and asks again, with no reason a client could act on. That is a game that
+  // will not move; say so instead of waiting for the timeout.
+  if (
+    type === "revealCards" &&
+    prompt.input?.presentation?.title === "Attack declaration invalid"
+  ) {
+    rejectedAttacks += 1;
+    if (rejectedAttacks >= 20) {
+      note({
+        ev: "unhandled",
+        type: "chooseAttackers",
+        why: "declaration rejected 20 times",
+        turn: atTurn,
+      });
+      finishGame?.("attack-rejected");
+      return { type: "revealCardsAcknowledged" };
+    }
+  }
   const guard = loopGuard(type, prompt, atTurn);
   if (guard === "concede") return null;
   if (guard === "flip" && FLIPPED[type]) return FLIPPED[type](prompt);
@@ -455,6 +484,7 @@ for (game = 1; game <= games; game += 1) {
   );
   if (why !== "game:over") exit(why);
   loop.conceded = 0;
+  rejectedAttacks = 0;
   logs.length = 0;
 }
 

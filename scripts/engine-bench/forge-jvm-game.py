@@ -148,6 +148,7 @@ class Greedy:
         self.land_played_on = -1
         self.tried = set()
         self.paying = None
+        self.attack_asks = 0
 
     def reset(self, turn):
         if turn != self.turn:
@@ -178,8 +179,11 @@ class Greedy:
         return {"type": "pay", "auto": True}
 
     def chooseAttackers(self, p, turn):
+        self.attack_asks = self.attack_asks + 1 if self.turn == turn else 0
+        self.reset(turn)
+        k = self.attack_asks
         return {"type": "declareAttackers", "assignments": [
-            {"attackerId": a["attackerId"], "targetId": a["validTargetIds"][0]}
+            {"attackerId": a["attackerId"], "targetId": a["validTargetIds"][k % len(a["validTargetIds"])]}
             for a in p["input"].get("attackers", []) if a.get("validTargetIds")]}
 
 
