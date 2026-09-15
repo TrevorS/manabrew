@@ -50,6 +50,11 @@ export function loadSoundAsset(asset: SoundAssetDefinition): Promise<Sound | nul
   return load;
 }
 
+export function logSoundPlayback(src: string): void {
+  if (!import.meta.env.DEV) return;
+  console.info(`[sound] played ${src.slice(src.lastIndexOf("/") + 1)}`);
+}
+
 export function applySoundPreferences(soundMuted: boolean, soundVolume: number): void {
   sound.volumeAll = soundVolume;
   if (!soundMuted) {
@@ -83,7 +88,10 @@ export function playAppSound(name: AppSound): void {
     }
 
     try {
-      void Promise.resolve(soundAsset.play({ volume: definition.volume })).catch(() => undefined);
+      const playback = soundAsset.play({ volume: definition.volume });
+      void Promise.resolve(playback)
+        .then(() => logSoundPlayback(definition.src))
+        .catch(() => undefined);
     } catch {
       return;
     }

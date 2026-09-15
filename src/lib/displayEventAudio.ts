@@ -1,6 +1,6 @@
 import type { Sound } from "@pixi/sound";
 
-import { loadSoundAsset } from "@/lib/soundRuntime";
+import { loadSoundAsset, logSoundPlayback } from "@/lib/soundRuntime";
 import type { DisplayEvent } from "@/protocol/display";
 import { usePreferencesStore } from "@/stores/usePreferencesStore";
 import {
@@ -72,7 +72,11 @@ async function playDisplayEventAudio(
     try {
       const playback = soundAsset?.play({ volume: definition.volume, complete: release });
       if (!playback) release();
-      else void Promise.resolve(playback).catch(release);
+      else {
+        void Promise.resolve(playback)
+          .then(() => logSoundPlayback(DISPLAY_EVENT_AUDIO_ASSETS[assetKey].src))
+          .catch(release);
+      }
     } catch {
       release();
     }
