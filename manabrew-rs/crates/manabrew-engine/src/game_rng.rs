@@ -29,6 +29,10 @@ pub trait GameRng {
     /// Must match `java.util.Random.nextInt(bound)` for parity.
     fn next_int(&mut self, bound: i32) -> i32;
 
+    fn next_boolean(&mut self) -> bool {
+        self.next_int(2) == 0
+    }
+
     /// Debug: return the total number of RNG calls made so far (if tracked).
     fn call_count(&self) -> u64 {
         0

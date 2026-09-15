@@ -115,6 +115,10 @@ impl GameRng for JavaGameRng {
         v
     }
 
+    fn next_boolean(&mut self) -> bool {
+        self.0.borrow_mut().next_boolean()
+    }
+
     fn call_count(&self) -> u64 {
         self.0.borrow().call_count
     }
