@@ -1,6 +1,8 @@
 export interface BattlefieldLayoutPolicy {
   compact: boolean;
-  battlefieldRows: number;
+  selfBattlefieldRows: number;
+  opponentBattlefieldRows: number;
+  selfFieldShare: number;
   reserveHandSpace: boolean;
   handPresentation: "inline" | "sheet";
   showPhaseDivider: boolean;
@@ -8,7 +10,9 @@ export interface BattlefieldLayoutPolicy {
 
 export const DESKTOP_BATTLEFIELD_LAYOUT = {
   compact: false,
-  battlefieldRows: 3,
+  selfBattlefieldRows: 3,
+  opponentBattlefieldRows: 3,
+  selfFieldShare: 0.5,
   reserveHandSpace: true,
   handPresentation: "inline",
   showPhaseDivider: true,
@@ -16,7 +20,9 @@ export const DESKTOP_BATTLEFIELD_LAYOUT = {
 
 export const MOBILE_BATTLEFIELD_LAYOUT = {
   compact: true,
-  battlefieldRows: 2,
+  selfBattlefieldRows: 2,
+  opponentBattlefieldRows: 1,
+  selfFieldShare: 0.64,
   reserveHandSpace: false,
   handPresentation: "sheet",
   showPhaseDivider: true,

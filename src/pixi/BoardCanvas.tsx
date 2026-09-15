@@ -399,6 +399,7 @@ export function BoardCanvas({
       opponentCount,
       effectiveBottomReserve,
       compact,
+      layoutPolicy.selfFieldShare,
       opponentLayout,
     );
     s.setCompactMode(compact);
@@ -409,7 +410,7 @@ export function BoardCanvas({
     const selfScale = Math.max(
       Number.EPSILON,
       compact
-        ? scaleForRowsWithCombatRow(selfUsable, layoutPolicy.battlefieldRows)
+        ? scaleForRowsWithCombatRow(selfUsable, layoutPolicy.selfBattlefieldRows)
         : Math.min(
             battlefieldScaleForMultiplier(selfUsable, cardSizeMultiplier),
             scaleForRowsWithCombatRow(selfUsable, BATTLEFIELD_MIN_ROWS_LARGEST),
@@ -422,7 +423,7 @@ export function BoardCanvas({
       layout.opponentLayout === "overview"
         ? scaleForRowsWithCombatRow(oppUsable, 1)
         : compact
-          ? scaleForRowsWithCombatRow(oppUsable, layoutPolicy.battlefieldRows)
+          ? scaleForRowsWithCombatRow(oppUsable, layoutPolicy.opponentBattlefieldRows)
           : Math.min(
               battlefieldScaleForMultiplier(oppUsable, cardSizeMultiplier),
               scaleForRowsWithCombatRow(oppUsable, BATTLEFIELD_MIN_ROWS_LARGEST),

@@ -259,7 +259,7 @@ export class BoardScene {
   private tapSuppressedPointers = new Set<number>();
 
   private hand: HandController | null = null;
-  private mobileHandBackdrop: Graphics;
+  private mobileHandBackdrop: Container;
   private mobileHandOpen = false;
   private handRulesViewDefault = false;
   private selection: SelectionController | null = null;
@@ -349,11 +349,14 @@ export class BoardScene {
     };
 
     this.dragHandler = new DragHandler();
-    this.mobileHandBackdrop = new Graphics();
+    this.mobileHandBackdrop = new Container();
     this.mobileHandBackdrop.visible = false;
     this.mobileHandBackdrop.eventMode = "none";
     this.mobileHandBackdrop.cursor = "pointer";
     this.mobileHandBackdrop.zIndex = Z_HAND_CONTAINER - 1;
+    this.mobileHandBackdrop.hitArea = {
+      contains: (x, y) => x >= 0 && x <= this.canvasW && y >= 0 && y <= this.canvasH,
+    };
     this.mobileHandBackdrop.on("pointerdown", (event: FederatedPointerEvent) => {
       event.stopPropagation();
     });
@@ -1160,17 +1163,7 @@ export class BoardScene {
     if (this.hand) this.hand.container.visible = !this.compactMode || open;
     this.mobileHandBackdrop.visible = open;
     this.mobileHandBackdrop.eventMode = open ? "static" : "none";
-    this.mobileHandBackdrop.clear();
     const handRect = this.hand?.getBlockerRect() ?? null;
-    if (open) {
-      const sheetTop = Math.max(0, (handRect?.y ?? this.canvasH) - GAP);
-      this.mobileHandBackdrop
-        .rect(0, 0, this.canvasW, this.canvasH)
-        .fill({ color: hexToNum(this.theme.gameTheme.canvas.background), alpha: 0.72 })
-        .roundRect(0, sheetTop, this.canvasW, this.canvasH - sheetTop + GAP, 16)
-        .fill({ color: hexToNum(this.theme.gameTheme.canvas.background), alpha: 0.96 })
-        .stroke({ color: hexToNum(this.theme.appTheme.border), alpha: 0.8, width: 1 });
-    }
     this.dragHandler.setHandExclusion(this.compactMode && !open ? null : handRect);
   }
 

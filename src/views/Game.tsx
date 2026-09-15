@@ -688,6 +688,13 @@ export default function Game({ exitTo }: GameProps = {}) {
   const handleHandCardInspect = (card: CardDto, e: { clientX: number; clientY: number }) => {
     preview.showSticky(card, e.clientX, e.clientY);
   };
+  const handleHandCardTap = (card: CardDto, e: { clientX: number; clientY: number }) => {
+    if (playableIds.has(card.id)) {
+      handleHandCardAction(card, e);
+      return;
+    }
+    handleHandCardInspect(card, e);
+  };
 
   const handleHandCardDragStart = (card: CardDto, e: HandDragStart) => {
     const actions = getHandActionOptions(card);
@@ -1056,7 +1063,7 @@ export default function Game({ exitTo }: GameProps = {}) {
       battlefieldContainerRef,
       handDropExclusionPx: Math.round(HAND_CARD_BASE.containerH * vScale * 0.35),
       getHandBounds: () => boardSceneRef.current?.getHandBounds() ?? null,
-      onClickCard: handleHandCardInspect,
+      onClickCard: handleHandCardTap,
       onCastSpell: handleCastSpell,
       onBattlefieldDrop: (card, position) => {
         if (
