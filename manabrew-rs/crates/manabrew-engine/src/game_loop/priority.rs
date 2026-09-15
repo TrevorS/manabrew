@@ -50,6 +50,10 @@ impl GameLoop {
             if game.game_over {
                 return;
             }
+            if self.is_aborted() {
+                game.game_over = true;
+                return;
+            }
             self.with_shared_state_mutation(game, agents, |_this, game, _agents| {
                 game.turn.priority_player = priority_player;
             });
@@ -65,6 +69,10 @@ impl GameLoop {
             loop {
                 let sba_changed = super::check_sba(game, &mut self.trigger_handler, agents);
                 if game.game_over {
+                    return;
+                }
+                if self.is_aborted() {
+                    game.game_over = true;
                     return;
                 }
                 let stack_before = game.stack.len();

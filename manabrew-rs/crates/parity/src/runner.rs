@@ -4,7 +4,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
@@ -54,6 +54,8 @@ pub fn deck_search_dirs(override_dir: Option<&str>) -> Vec<&str> {
     }
 }
 const CARD_COPY_GUARD_THRESHOLD: usize = 100;
+const DECISION_GUARD_THRESHOLD: u32 = 20_000;
+const GAME_WALL_CLOCK_LIMIT_SECS: u64 = 600;
 
 type LiveLogWriter = Arc<Mutex<BufWriter<File>>>;
 
@@ -191,6 +193,7 @@ struct CapturingAgent {
     deep: bool,
     callback_snapshots: bool,
     abort_signal: Arc<AtomicBool>,
+    decisions: Arc<AtomicU32>,
     current_turn: u32,
     current_phase: String,
     last_game_state: Option<GameState>,
@@ -262,6 +265,7 @@ impl CapturingAgent {
         deep: bool,
         callback_snapshots: bool,
         abort_signal: Arc<AtomicBool>,
+        decisions: Arc<AtomicU32>,
     ) -> Self {
         let observer = Arc::new(ParityObserver::new(
             Arc::clone(&shared_log),
@@ -287,6 +291,7 @@ impl CapturingAgent {
             deep,
             callback_snapshots,
             abort_signal,
+            decisions,
             current_turn: 0,
             current_phase: "Unknown".to_string(),
             last_game_state: None,
@@ -378,6 +383,33 @@ impl CapturingAgent {
             &format!(
                 "truncated: {count} copies of {name} on battlefield (limit {CARD_COPY_GUARD_THRESHOLD})"
             ),
+        );
+    }
+
+    fn stop_if_decision_guard_tripped(&self, game: &GameState) {
+        if self.decisions.fetch_add(1, Ordering::Relaxed) < DECISION_GUARD_THRESHOLD {
+            return;
+        }
+        if self.abort_signal.swap(true, Ordering::Relaxed) {
+            return;
+        }
+        let snapshot = snapshot_game(game);
+        self.parity_observer
+            .push_entry(ParityLogEntry::Snapshot(snapshot.clone()));
+        self.parity_observer
+            .push_entry(ParityLogEntry::Decision(DecisionRecord {
+                turn: snapshot.turn,
+                phase: snapshot.phase.clone(),
+                deciding_player: self.player_id.0,
+                kind: "$PARITY_GUARD".to_string(),
+                options: vec![],
+                choice: format!("ABORTED: decision limit {DECISION_GUARD_THRESHOLD} reached"),
+                timestamp_ms: current_timestamp_ms(),
+            }));
+        self.parity_observer.on_event(
+            "ParityGuard",
+            Some(self.player_id),
+            &format!("truncated: decision limit {DECISION_GUARD_THRESHOLD} reached"),
         );
     }
 
@@ -606,6 +638,7 @@ impl PlayerAgent for CapturingAgent {
         self.inner.snapshot_state(game, mana_pools);
         self.last_game_state = Some(Self::shallow_game_state(game));
         self.stop_if_card_copy_guard_tripped(game);
+        self.stop_if_decision_guard_tripped(game);
     }
 
     fn choose_action(
@@ -1122,6 +1155,25 @@ pub fn run_with_data_streaming(
     game_loop.set_provide_priority_action_space(false);
     let abort_signal = Arc::new(AtomicBool::new(false));
     game_loop.set_abort_signal(Arc::clone(&abort_signal));
+    let decisions = Arc::new(AtomicU32::new(0));
+    let game_finished = Arc::new(AtomicBool::new(false));
+    {
+        let abort_signal = Arc::clone(&abort_signal);
+        let game_finished = Arc::clone(&game_finished);
+        std::thread::spawn(move || {
+            for _ in 0..GAME_WALL_CLOCK_LIMIT_SECS {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                if game_finished.load(Ordering::Relaxed) {
+                    return;
+                }
+            }
+            if !abort_signal.swap(true, Ordering::Relaxed) {
+                eprintln!(
+                    "[parity-guard] game exceeded {GAME_WALL_CLOCK_LIMIT_SECS}s wall clock limit"
+                );
+            }
+        });
+    }
 
     // Register token templates
     for (script_name, template) in &data.token_templates {
@@ -1250,6 +1302,7 @@ pub fn run_with_data_streaming(
             config.deep,
             false,
             Arc::clone(&abort_signal),
+            Arc::clone(&decisions),
         )),
         Box::new(CapturingAgent::new(
             p1,
@@ -1267,6 +1320,7 @@ pub fn run_with_data_streaming(
             config.deep,
             false,
             Arc::clone(&abort_signal),
+            Arc::clone(&decisions),
         )),
     ];
 
@@ -1280,11 +1334,15 @@ pub fn run_with_data_streaming(
     manabrew_engine::perf::reset_counters();
 
     // Run turns — CapturingAgent captures turn-start snapshots automatically
-    while !runtime.game().game_over && runtime.game().turn.turn_number <= config.max_turns {
+    while !runtime.game().game_over
+        && runtime.game().turn.turn_number <= config.max_turns
+        && !abort_signal.load(Ordering::Relaxed)
+    {
         let _t_turn = Instant::now();
         runtime.run_turn(&mut rng);
         manabrew_engine::perf::record_turn_wall(_t_turn.elapsed());
     }
+    game_finished.store(true, Ordering::Relaxed);
 
     crate::parity_log::clear_sink();
 
