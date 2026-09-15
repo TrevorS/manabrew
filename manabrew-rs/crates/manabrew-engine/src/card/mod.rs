@@ -659,6 +659,8 @@ pub struct Card {
     pub visited_this_turn: bool,
     /// Number of times this permanent has crewed this turn.
     pub times_crewed_this_turn: u32,
+    #[serde(default)]
+    pub crewed_by_this_turn: Vec<CardId>,
     /// Whether this permanent is currently crewed.
     pub is_crewed: bool,
     /// Whether this card should ignore legend rule checks.
@@ -927,6 +929,7 @@ impl Card {
             milled: false,
             visited_this_turn: false,
             times_crewed_this_turn: 0,
+            crewed_by_this_turn: Vec::new(),
             is_crewed: false,
             ignore_legend_rule_flag: false,
             ability_activated_this_turn: 0,
@@ -3422,15 +3425,18 @@ impl Card {
     pub fn reset_times_crewed_this_turn(&mut self) {
         self.times_crewed_this_turn = 0;
     }
-    pub fn becomes_crewed(&mut self) {
+    pub fn becomes_crewed(&mut self, crew: &[CardId]) {
         self.is_crewed = true;
         self.times_crewed_this_turn += 1;
+        self.add_crewed_by_this_turn(crew);
     }
     pub fn reset_crewed(&mut self) {
         self.is_crewed = false;
+        self.reset_times_crewed_this_turn();
+        self.crewed_by_this_turn.clear();
     }
-    pub fn add_crewed_by_this_turn(&mut self, _card: CardId) {
-        self.times_crewed_this_turn += 1;
+    pub fn add_crewed_by_this_turn(&mut self, crew: &[CardId]) {
+        self.crewed_by_this_turn.extend_from_slice(crew);
     }
     pub fn visit_attraction(&mut self) {
         self.visited_this_turn = true;

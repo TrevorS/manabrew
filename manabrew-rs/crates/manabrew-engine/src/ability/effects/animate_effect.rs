@@ -166,7 +166,35 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .as_deref()
             .is_some_and(|desc| desc.to_ascii_lowercase().starts_with("crew"))
         {
-            ctx.game.card_mut(card_id).becomes_crewed();
+            let crew: Vec<crate::ids::CardId> = sa
+                .paid_hash
+                .get(crate::cost::cost_tap_type::HASH_CARDS)
+                .map(|values| {
+                    values
+                        .iter()
+                        .filter_map(|value| {
+                            value
+                                .strip_prefix("Card#")
+                                .unwrap_or(value)
+                                .parse::<u32>()
+                                .ok()
+                                .map(crate::ids::CardId)
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            ctx.game.card_mut(card_id).becomes_crewed(&crew);
+            let first_time = ctx.game.card(card_id).times_crewed_this_turn == 1;
+            ctx.trigger_handler.run_trigger(
+                crate::trigger::TriggerType::BecomesCrewed,
+                crate::event::RunParams {
+                    card: Some(card_id),
+                    crew_cards: Some(crew),
+                    first_time: Some(first_time),
+                    ..Default::default()
+                },
+                false,
+            );
         }
 
         // Apply P/T
