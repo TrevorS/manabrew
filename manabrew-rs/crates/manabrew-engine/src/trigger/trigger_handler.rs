@@ -760,13 +760,7 @@ impl TriggerHandler {
                     );
                     sa.trigger_objects.insert(
                         crate::ability::AbilityKey::RememberedLKI,
-                        delayed
-                            .remembered_lki_cards
-                            .iter()
-                            .map(|card_id| card_id.0.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",")
-                            .into(),
+                        crate::event::AbilityValue::Cards(delayed.remembered_lki_cards.clone()),
                     );
                 }
 
@@ -948,13 +942,7 @@ impl TriggerHandler {
                     );
                     sa.trigger_objects.insert(
                         crate::ability::AbilityKey::RememberedLKI,
-                        delayed
-                            .remembered_lki_cards
-                            .iter()
-                            .map(|card_id| card_id.0.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",")
-                            .into(),
+                        crate::event::AbilityValue::Cards(delayed.remembered_lki_cards.clone()),
                     );
                 }
 
