@@ -439,6 +439,7 @@ fn apply_duration_flags(effect: &mut Card, duration: Option<&AbilityDuration>, s
     let d = match duration {
         Some(AbilityDuration::UntilHostLeavesPlay) => EffectDuration::UntilHostLeavesPlay,
         Some(AbilityDuration::UntilHostLeavesPlayOrEot) => EffectDuration::UntilHostLeavesPlayOrEOT,
+        Some(AbilityDuration::Permanent) => EffectDuration::Permanent,
         Some(AbilityDuration::Unsupported(raw)) if raw.eq_ignore_ascii_case("Permanent") => {
             EffectDuration::Permanent
         }
