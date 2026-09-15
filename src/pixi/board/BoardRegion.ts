@@ -1537,17 +1537,19 @@ export class BoardRegion {
     } else if (state.pendingCardIds?.includes(card.id)) {
       sprite.setRing(hexToNum(theme.appTheme.primary));
     } else if (state.tappableLandIds?.includes(card.id)) {
-      sprite.setRing(hexToNum(theme.gameTheme.cardRing));
+      sprite.setRing(null);
+      sprite.setPlayableRing(hexToNum(theme.gameTheme.cardRing));
     } else if (state.untappableLandIds?.includes(card.id)) {
       sprite.setRing(hexToNum(theme.gameTheme.interaction.untap));
     } else if (state.hostileTargetCardIds?.includes(card.id)) {
       sprite.setRing(hexToNum(theme.gameTheme.targeting.hostile));
     } else if (state.selectableCardIds?.includes(card.id)) {
-      sprite.setRing(
-        state.hostileTargeting
-          ? hexToNum(theme.gameTheme.targeting.hostile)
-          : hexToNum(theme.gameTheme.cardRing),
-      );
+      if (state.hostileTargeting) {
+        sprite.setRing(hexToNum(theme.gameTheme.targeting.hostile));
+      } else {
+        sprite.setRing(null);
+        sprite.setPlayableRing(hexToNum(theme.gameTheme.cardRing));
+      }
     } else {
       sprite.setRing(null);
     }

@@ -1317,9 +1317,11 @@ export class PlayerHudCapsule {
   }
 
   private applyTargetable(): void {
+    const actionableZone =
+      this.compact && this.spec.badges.some((badge) => badge.zone && badge.actionable);
     const mode = this.spec.isSelectedTarget
       ? "solid"
-      : this.spec.isTargetable
+      : this.spec.isTargetable || actionableZone
         ? this.motionEnabled
           ? "pulse"
           : "solid"
@@ -1350,10 +1352,16 @@ export class PlayerHudCapsule {
   }
 
   private drawTargetRing(): void {
+    const actionableZone =
+      this.compact &&
+      !this.spec.isTargetable &&
+      !this.spec.isSelectedTarget &&
+      this.spec.badges.some((badge) => badge.zone && badge.actionable);
     const intent = this.spec.targetingIntent;
     const game = this.theme.gameTheme;
-    const color =
-      intent === "attack"
+    const color = actionableZone
+      ? game.cardRing
+      : intent === "attack"
         ? game.promptAction.attackAction
         : intent === "block"
           ? game.promptAction.defenseAction
@@ -1363,6 +1371,14 @@ export class PlayerHudCapsule {
               : game.targeting.friendly
             : game.cardSelection;
     this.targetRing.clear();
+    if (actionableZone) {
+      this.targetRing.circle(this.avatarCx, this.avatarCy, this.avatarDia / 2 + 4);
+      this.targetRing.stroke({
+        color: hexToNum(color),
+        width: 6,
+        alpha: 0.2,
+      });
+    }
     this.targetRing.circle(this.avatarCx, this.avatarCy, this.avatarDia / 2 + 1);
     this.targetRing.stroke({
       color: hexToNum(color),

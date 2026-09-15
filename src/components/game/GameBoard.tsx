@@ -1416,7 +1416,7 @@ export function GameBoard({
   // On-grid zone tiles (deck / graveyard / exile / command) per player — same
   // data + open/highlight behaviour as the panel, rendered on the battlefield.
   const zoneTilesByPlayer = useMemo<Record<string, ZoneTileSpec[]>>(() => {
-    const active = gameTheme.activeAction.active;
+    const available = gameTheme.cardRing;
     const targetColor = hostileTargeting
       ? gameTheme.targeting.hostile
       : gameTheme.targeting.friendly;
@@ -1435,7 +1435,7 @@ export function GameBoard({
         topCard: top(library),
         back: library.length === 0,
         onOpen: library.length > 0 ? openLibrary : undefined,
-        highlightColor: libPlayable ? active : undefined,
+        highlightColor: libPlayable ? available : undefined,
       },
       {
         key: ZONE_TILE_KEY.graveyard,
@@ -1446,7 +1446,7 @@ export function GameBoard({
           isTargetingPrompt && graveyardTargetIds.length > 0
             ? targetColor
             : gyPlayable
-              ? active
+              ? available
               : undefined,
       },
       {
@@ -1458,7 +1458,7 @@ export function GameBoard({
           isTargetingPrompt && exileTargetIds.length > 0
             ? targetColor
             : exPlayable
-              ? active
+              ? available
               : undefined,
       },
     ];
@@ -1473,7 +1473,7 @@ export function GameBoard({
           isTargetingPrompt && commandTargetIds.length > 0
             ? targetColor
             : (commandPlayableIds?.length ?? 0) > 0
-              ? active
+              ? available
               : undefined,
         commander: playerColors.self,
         commanderTax: top(myCommandZone!)?.commanderTax,
@@ -1528,14 +1528,14 @@ export function GameBoard({
           topCard: top(op.graveyard),
           onOpen: () =>
             openOpZone(`${stripUsernameTag(op.name)}'s Graveyard`, op.graveyard, gyTargets),
-          highlightColor: gyTargets.length > 0 ? targetColor : gyPlayable ? active : undefined,
+          highlightColor: gyTargets.length > 0 ? targetColor : gyPlayable ? available : undefined,
         },
         {
           key: ZONE_TILE_KEY.exile,
           count: op.exile.length,
           topCard: top(op.exile),
           onOpen: () => openOpZone(`${stripUsernameTag(op.name)}'s Exile`, op.exile, exTargets),
-          highlightColor: exTargets.length > 0 ? targetColor : exPlayable ? active : undefined,
+          highlightColor: exTargets.length > 0 ? targetColor : exPlayable ? available : undefined,
         },
       ];
       if ((op.commandZone?.length ?? 0) > 0) {
@@ -1546,7 +1546,7 @@ export function GameBoard({
           previewCards: op.commandZone,
           onOpen: () =>
             openOpZone(`${stripUsernameTag(op.name)}'s Command Zone`, op.commandZone, cmdTargets),
-          highlightColor: cmdTargets.length > 0 ? targetColor : cmdPlayable ? active : undefined,
+          highlightColor: cmdTargets.length > 0 ? targetColor : cmdPlayable ? available : undefined,
           commander: playerColors[OPPONENT_SEATS[oppIndex] ?? "opponent1"],
           commanderTax: top(op.commandZone)?.commanderTax,
         });
@@ -1587,7 +1587,19 @@ export function GameBoard({
     if (!compactBoard) return zoneTilesByPlayer;
     return Object.fromEntries(Object.keys(zoneTilesByPlayer).map((playerId) => [playerId, []]));
   }, [zoneTilesByPlayer, compactBoard]);
-  const hudBarSpecs = playerBarSpecs;
+  const hudBarSpecs = useMemo(
+    () =>
+      compactBoard
+        ? playerBarSpecs.map((spec) => ({
+            ...spec,
+            badges: [
+              ...spec.badges,
+              ...buildZoneBadges(zoneTilesByPlayer[spec.playerId] ?? [], gameTheme.textMuted),
+            ],
+          }))
+        : playerBarSpecs,
+    [compactBoard, playerBarSpecs, zoneTilesByPlayer, gameTheme.textMuted],
+  );
 
   const unifiedRegions = useMemo((): BoardCanvasRegion[] => {
     const seatColorOf = (pid: string): string =>
@@ -1719,6 +1731,7 @@ export function GameBoard({
               badge.id === "hand"
                 ? {
                     ...badge,
+                    color: sheetHandActionable ? gameTheme.cardRing : badge.color,
                     actionable: sheetHandActionable,
                     onTap:
                       sheetPlayer && sheetPlayer.hand.length > 0
