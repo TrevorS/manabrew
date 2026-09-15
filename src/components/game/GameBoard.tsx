@@ -370,16 +370,20 @@ export function GameBoard({
     },
     [onDismissHoverPreview, setMobileHandOpen, setMobilePanel, setSheetPlayerId],
   );
-  useEffect(
-    () =>
-      useGameStore.subscribe((state) => {
-        if (!state.gameView?.gameOver) return;
-        setSheetPlayerId(null);
-        setMobilePanel(null);
-        setMobileHandOpen(false);
-      }),
-    [setMobileHandOpen, setMobilePanel, setSheetPlayerId],
-  );
+  useEffect(() => {
+    let activePromptId = useGameStore.getState().currentPrompt?.promptId;
+    return useGameStore.subscribe((state) => {
+      const nextPromptId = state.currentPrompt?.promptId;
+      if (nextPromptId !== activePromptId) {
+        activePromptId = nextPromptId;
+        if (!handSelectionMode) setMobileHandOpen(false);
+      }
+      if (!state.gameView?.gameOver) return;
+      setSheetPlayerId(null);
+      setMobilePanel(null);
+      setMobileHandOpen(false);
+    });
+  }, [handSelectionMode, setMobileHandOpen, setMobilePanel, setSheetPlayerId]);
 
   // On our turn, one opponent field stays expanded (sticky) instead of an even
   // split: the last-active opponent by default, or whichever we last hovered.

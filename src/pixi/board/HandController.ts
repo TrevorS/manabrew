@@ -7,7 +7,12 @@ import { CardSprite } from "../CardSprite";
 import { getTheme } from "@/hooks/useTheme";
 import type { HandState, ScreenBounds, ScreenPos } from "../types";
 import { hexToNum } from "../colorUtils";
-import { computeBaseLayout, computeHandLayout, HAND_FAN_PARAMS } from "../HandLayout";
+import {
+  COMPACT_HAND_FAN_PARAMS,
+  computeBaseLayout,
+  computeHandLayout,
+  HAND_FAN_PARAMS,
+} from "../HandLayout";
 import { HAND_CARD_BASE } from "@/components/game/game.styles";
 import { HandReorderIndicator } from "../HandReorderIndicator";
 import { CARD_W, CARD_H } from "@/components/game/game.constants";
@@ -520,7 +525,7 @@ export class HandController {
 
   getDimensions() {
     const base = HAND_CARD_BASE;
-    const params = HAND_FAN_PARAMS;
+    const params = this.sheetOpen ? COMPACT_HAND_FAN_PARAMS : HAND_FAN_PARAMS;
     const scale = this.vScale;
     const cardW = Math.round(base.cardW * scale);
     const cardH = Math.round(base.cardH * scale);
