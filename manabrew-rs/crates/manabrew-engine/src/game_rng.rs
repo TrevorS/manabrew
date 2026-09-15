@@ -42,6 +42,7 @@ pub trait GameRng {
 /// Default RNG using `rand::thread_rng()` — non-deterministic, for normal gameplay.
 pub struct ThreadRngAdapter;
 
+#[allow(clippy::disallowed_methods)]
 impl GameRng for ThreadRngAdapter {
     fn shuffle_cards(&mut self, cards: &mut [CardId]) {
         use rand::seq::SliceRandom;

@@ -16,8 +16,10 @@
 // `match` blocks inside `if let` mirror Java's pattern of nested `if (x instanceof Y)` checks.
 #![allow(clippy::collapsible_match)]
 
+#[allow(clippy::disallowed_types)]
 pub type HashMap<K, V> =
     std::collections::HashMap<K, V, std::hash::BuildHasherDefault<std::hash::DefaultHasher>>;
+#[allow(clippy::disallowed_types)]
 pub type HashSet<T> =
     std::collections::HashSet<T, std::hash::BuildHasherDefault<std::hash::DefaultHasher>>;
 

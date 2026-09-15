@@ -1,5 +1,3 @@
-use rand::seq::SliceRandom;
-
 use crate::ability::ability_utils;
 use crate::card::valid_filter;
 use crate::game::GameState;
@@ -75,11 +73,6 @@ impl CardLists {
 
     pub fn sort_by_power_desc(game: &GameState, list: &mut [CardId]) {
         list.sort_by_key(|&cid| -game.card(cid).power());
-    }
-
-    pub fn shuffle(list: &mut [CardId]) {
-        let mut rng = rand::thread_rng();
-        list.shuffle(&mut rng);
     }
 
     pub fn filter_controlled_by(

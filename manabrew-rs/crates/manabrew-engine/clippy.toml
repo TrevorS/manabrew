@@ -1,0 +1,8 @@
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "use crate::HashMap, or IndexMap when iteration order is observable" },
+    { path = "std::collections::HashSet", reason = "use crate::HashSet, or IndexSet when iteration order is observable" },
+    { path = "std::collections::hash_map::RandomState", reason = "random hasher breaks same-seed replay" },
+]
+disallowed-methods = [
+    { path = "rand::thread_rng", reason = "use the game loop's seeded RNG" },
+]
