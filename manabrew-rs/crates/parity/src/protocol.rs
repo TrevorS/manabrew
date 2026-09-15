@@ -170,6 +170,16 @@ pub struct CardSnapshot {
     pub summoning_sick: bool,
     pub counters: BTreeMap<String, i32>,
     pub controller: u32,
+    #[serde(default)]
+    pub types: Vec<String>,
+    #[serde(default)]
+    pub keywords: Vec<String>,
+    #[serde(default)]
+    pub attached_to: Option<String>,
+    #[serde(default)]
+    pub token: bool,
+    #[serde(default)]
+    pub face_down: bool,
 }
 
 // ── Game Trace ─────────────────────────────────────────────────────

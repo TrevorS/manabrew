@@ -214,6 +214,30 @@ public final class SnapshotExtractor {
         // Controller index
         cs.put("controller", playerIndex(game, c.getController()));
 
+        List<String> types = new ArrayList<>();
+        for (String typeToken : c.getType().toString().replaceAll("\\(.*\\)", "").split(" ")) {
+            if (!typeToken.isEmpty() && !typeToken.equals("-")) {
+                types.add(typeToken);
+            }
+        }
+        Collections.sort(types);
+        cs.put("types", types);
+
+        TreeSet<String> keywords = new TreeSet<>();
+        for (forge.game.keyword.KeywordInterface keyword : c.getUnhiddenKeywords().getValues()) {
+            keywords.add(keyword.getOriginal().split(":", 2)[0].trim().toLowerCase(Locale.ROOT));
+        }
+        cs.put("keywords", new ArrayList<>(keywords));
+
+        forge.game.GameEntity attached = c.getEntityAttachedTo();
+        if (attached instanceof Card) {
+            cs.put("attached_to", normalizeCardName(((Card) attached).getName()));
+        } else if (attached instanceof Player) {
+            cs.put("attached_to", "P" + playerIndex(game, (Player) attached));
+        }
+        cs.put("token", c.isToken());
+        cs.put("face_down", c.isFaceDown());
+
         return cs;
     }
 

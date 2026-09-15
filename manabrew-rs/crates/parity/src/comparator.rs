@@ -382,6 +382,56 @@ fn compare_battlefield(
                         &jc.controller,
                     ));
                 }
+                if rc.types != jc.types {
+                    divs.push(divergence(
+                        index,
+                        turn,
+                        phase,
+                        &format!("{card_prefix}.types"),
+                        &format!("{:?}", rc.types),
+                        &format!("{:?}", jc.types),
+                    ));
+                }
+                if rc.keywords != jc.keywords {
+                    divs.push(divergence(
+                        index,
+                        turn,
+                        phase,
+                        &format!("{card_prefix}.keywords"),
+                        &format!("{:?}", rc.keywords),
+                        &format!("{:?}", jc.keywords),
+                    ));
+                }
+                if rc.attached_to != jc.attached_to {
+                    divs.push(divergence(
+                        index,
+                        turn,
+                        phase,
+                        &format!("{card_prefix}.attached_to"),
+                        &format!("{:?}", rc.attached_to),
+                        &format!("{:?}", jc.attached_to),
+                    ));
+                }
+                if rc.token != jc.token {
+                    divs.push(divergence(
+                        index,
+                        turn,
+                        phase,
+                        &format!("{card_prefix}.token"),
+                        &rc.token,
+                        &jc.token,
+                    ));
+                }
+                if rc.face_down != jc.face_down {
+                    divs.push(divergence(
+                        index,
+                        turn,
+                        phase,
+                        &format!("{card_prefix}.face_down"),
+                        &rc.face_down,
+                        &jc.face_down,
+                    ));
+                }
             }
             (Some(rc), None) => {
                 divs.push(divergence(

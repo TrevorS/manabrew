@@ -115,6 +115,17 @@ fn snapshot_player(
                 summoning_sick: card.summoning_sick && !card.has_haste(),
                 counters,
                 controller: card.controller.0,
+                types: card_types(card),
+                keywords: card_keywords(card),
+                attached_to: card
+                    .attached_to
+                    .map(|attached| game.card(attached).card_name.clone())
+                    .or_else(|| {
+                        card.attached_to_player
+                            .map(|player| format!("P{}", player.0))
+                    }),
+                token: card.is_token,
+                face_down: card.face_down,
             }
         })
         .collect();
@@ -213,6 +224,44 @@ fn snapshot_player(
         speed: player.speed,
         mana_pool,
     }
+}
+
+fn card_types(card: &manabrew_engine::card::CardInstance) -> Vec<String> {
+    let mut types: Vec<String> = card
+        .type_line
+        .to_string()
+        .split_whitespace()
+        .filter(|token| *token != "-")
+        .map(str::to_string)
+        .collect();
+    types.sort();
+    types
+}
+
+fn card_keywords(card: &manabrew_engine::card::CardInstance) -> Vec<String> {
+    let mut keywords: Vec<String> = card
+        .keywords
+        .as_string_list()
+        .into_iter()
+        .chain(card.granted_keywords.as_string_list())
+        .chain(card.pump_keywords.as_string_list())
+        .filter(|keyword| {
+            !card
+                .cant_have_keywords
+                .contains(&keyword.to_ascii_lowercase())
+        })
+        .map(|keyword| {
+            keyword
+                .split(':')
+                .next()
+                .unwrap_or_default()
+                .trim()
+                .to_lowercase()
+        })
+        .collect();
+    keywords.sort();
+    keywords.dedup();
+    keywords
 }
 
 /// Format a counter map as Java's `TreeMap.toString()`, e.g. `"{-1/-1=1, +1/+1=2}"` or `"{}"`.

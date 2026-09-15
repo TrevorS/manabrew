@@ -64,7 +64,7 @@ struct Manifest {
 }
 
 const MANIFEST_FILE: &str = "manifest.json";
-const CACHE_VERSION: u32 = 5;
+const CACHE_VERSION: u32 = 6;
 
 impl JavaCache {
     /// Open (or create) a cache directory.
