@@ -623,6 +623,9 @@ impl GameState {
                     card.remove_clone_states();
                 }
             }
+            ZoneType::Stack => {
+                self.cards[card_id.index()].controller = dest_owner;
+            }
             _ => {}
         }
 
