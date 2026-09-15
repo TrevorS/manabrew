@@ -870,7 +870,7 @@ impl GameLoop {
                     type_filter,
                     min_total_power,
                 } => {
-                    self.pay_tap_type_cost(
+                    if !self.pay_tap_type_cost(
                         game,
                         agents,
                         player,
@@ -879,7 +879,10 @@ impl GameLoop {
                         amount.resolve(game, card_id, player),
                         *min_total_power,
                         sa.as_deref_mut(),
-                    );
+                    ) {
+                        payment_ok = false;
+                        break;
+                    }
                 }
                 CostPart::UntapType {
                     amount,
@@ -1597,17 +1600,18 @@ impl GameLoop {
                                 );
                             }
                         }
-                    } else {
-                        self.pay_tap_type_cost(
-                            game,
-                            agents,
-                            player,
-                            card_id,
-                            type_filter,
-                            amount.resolve(game, card_id, player),
-                            *min_total_power,
-                            sa.as_deref_mut(),
-                        );
+                    } else if !self.pay_tap_type_cost(
+                        game,
+                        agents,
+                        player,
+                        card_id,
+                        type_filter,
+                        amount.resolve(game, card_id, player),
+                        *min_total_power,
+                        sa.as_deref_mut(),
+                    ) {
+                        payment_ok = false;
+                        break;
                     }
                 }
                 CostPart::UntapType {
@@ -3305,7 +3309,7 @@ impl GameLoop {
         amount: i32,
         min_total_power: Option<i32>,
         sa: Option<&mut SpellAbility>,
-    ) {
+    ) -> bool {
         let mut tapped_cards = Vec::new();
         if let Some(power_threshold) = min_total_power {
             let valid = cost::get_tap_type_targets(game, player, type_filter, source);
@@ -3344,7 +3348,7 @@ impl GameLoop {
                     })
                     .sum();
                 if chosen_power < power_threshold {
-                    return;
+                    return false;
                 }
 
                 let mut accum = 0;
@@ -3372,7 +3376,7 @@ impl GameLoop {
         } else {
             let valid = cost::get_tap_type_targets(game, player, type_filter, source);
             if valid.len() < amount.max(0) as usize {
-                return;
+                return false;
             }
             let chosen_cards = agents[player.index()].choose_cards_for_effect(
                 player,
@@ -3381,7 +3385,7 @@ impl GameLoop {
                 amount.max(0) as usize,
             );
             if chosen_cards.len() < amount.max(0) as usize {
-                return;
+                return false;
             }
             for chosen in chosen_cards.into_iter().take(amount.max(0) as usize) {
                 if !valid.contains(&chosen) || tapped_cards.contains(&chosen) {
@@ -3407,6 +3411,7 @@ impl GameLoop {
                 sa.add_cost_to_hash_list(crate::cost::cost_tap_type::HASH_CARDS, &value);
             }
         }
+        true
     }
 
     /// Untap `amount` tapped permanents matching `type_filter` as cost.
