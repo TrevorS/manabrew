@@ -1,4 +1,4 @@
-import type { Sound } from "@pixi/sound";
+import type { IMediaInstance, Sound } from "@pixi/sound";
 
 import { loadSoundAsset, logSoundPlayback } from "@/lib/soundRuntime";
 import type { DisplayEvent } from "@/protocol/display";
@@ -10,28 +10,82 @@ import {
   type DisplayEventAudioDefinition,
 } from "./displayEventAudioCatalog";
 
+interface PendingCue {
+  definition: DisplayEventAudioDefinition;
+  generation: number;
+}
+
+interface PlaybackCue extends PendingCue {
+  assetKey: DisplayEventAudioAssetKey;
+}
+
+interface ActivePlayback {
+  token: symbol;
+  instance: IMediaInstance | null;
+}
+
+const DISPLAY_AUDIO_BURST_IDLE_MS = 50;
+
 const loadedAssets = new Map<DisplayEventAudioAssetKey, Sound>();
-const activeVoices = new Map<string, number>();
-const lastPlayedAt = new Map<string, number>();
+const pendingBurst = new Map<string, PendingCue>();
+const cueQueue: PlaybackCue[] = [];
 const variantOffsets = new Map<string, number>();
 const seenPromptEvents = new Set<string>();
 let playbackQueue = Promise.resolve();
+let burstFlushTimer: number | null = null;
+let activePlayback: ActivePlayback | null = null;
 let sessionGeneration = 0;
 
-function releaseVoice(voiceKey: string, generation: number): void {
-  if (generation !== sessionGeneration) return;
-  const remaining = (activeVoices.get(voiceKey) ?? 1) - 1;
-  if (remaining > 0) activeVoices.set(voiceKey, remaining);
-  else activeVoices.delete(voiceKey);
+function finishPlayback(token: symbol): void {
+  if (activePlayback?.token !== token) return;
+  activePlayback = null;
+  playNextCue();
 }
-async function playDisplayEventAudio(
-  event: DisplayEvent,
-  definition: DisplayEventAudioDefinition,
-  generation: number,
-): Promise<void> {
+
+function playNextCue(): void {
+  if (activePlayback) return;
+
+  while (cueQueue.length > 0) {
+    const cue = cueQueue.shift();
+    if (!cue || cue.generation !== sessionGeneration || usePreferencesStore.getState().soundMuted) {
+      continue;
+    }
+
+    const soundAsset = loadedAssets.get(cue.assetKey);
+    if (!soundAsset) continue;
+
+    const token = Symbol();
+    activePlayback = { token, instance: null };
+    try {
+      const playback = soundAsset.play({ volume: cue.definition.volume });
+      if (!playback) {
+        activePlayback = null;
+        continue;
+      }
+
+      void Promise.resolve(playback)
+        .then((instance) => {
+          if (activePlayback?.token !== token) {
+            instance.stop();
+            return;
+          }
+          activePlayback.instance = instance;
+          logSoundPlayback(DISPLAY_EVENT_AUDIO_ASSETS[cue.assetKey].src);
+          instance.once("end", () => finishPlayback(token));
+          instance.once("stop", () => finishPlayback(token));
+        })
+        .catch(() => finishPlayback(token));
+      return;
+    } catch {
+      activePlayback = null;
+    }
+  }
+}
+
+async function loadCue(voiceKey: string, pending: PendingCue): Promise<PlaybackCue | null> {
   const variants = (
     await Promise.all(
-      definition.variants.map(async (key) => {
+      pending.definition.variants.map(async (key) => {
         const loaded = loadedAssets.get(key);
         if (loaded) return key;
         const soundAsset = await loadSoundAsset(DISPLAY_EVENT_AUDIO_ASSETS[key]);
@@ -41,48 +95,44 @@ async function playDisplayEventAudio(
       }),
     )
   ).filter((key): key is DisplayEventAudioAssetKey => key !== null);
-  if (generation !== sessionGeneration || usePreferencesStore.getState().soundMuted) return;
-  if (variants.length === 0) return;
-
-  const voiceKey = definition.variants.join("\u0000");
-  const now = performance.now();
-  const previousPlay = lastPlayedAt.get(voiceKey);
-  if (previousPlay !== undefined && now - previousPlay < definition.cooldownMs) return;
-
-  const active = activeVoices.get(voiceKey) ?? 0;
-  const requested = Number.isSafeInteger(event.count) && event.count > 0 ? event.count : 1;
-  const voices = Math.min(requested, Math.max(0, definition.voiceLimit - active));
-  if (voices === 0) return;
-
-  lastPlayedAt.set(voiceKey, now);
-  const initialOffset = variantOffsets.get(voiceKey) ?? 0;
-  variantOffsets.set(voiceKey, initialOffset + voices);
-  activeVoices.set(voiceKey, active + voices);
-
-  for (let index = 0; index < voices; index += 1) {
-    const assetKey = variants[(initialOffset + index) % variants.length];
-    const soundAsset = loadedAssets.get(assetKey);
-    let released = false;
-    const release = () => {
-      if (released) return;
-      released = true;
-      releaseVoice(voiceKey, generation);
-    };
-
-    try {
-      const playback = soundAsset?.play({ volume: definition.volume, complete: release });
-      if (!playback) release();
-      else {
-        void Promise.resolve(playback)
-          .then(() => logSoundPlayback(DISPLAY_EVENT_AUDIO_ASSETS[assetKey].src))
-          .catch(release);
-      }
-    } catch {
-      release();
-    }
+  if (
+    pending.generation !== sessionGeneration ||
+    usePreferencesStore.getState().soundMuted ||
+    variants.length === 0
+  ) {
+    return null;
   }
+
+  const initialOffset = variantOffsets.get(voiceKey) ?? 0;
+  variantOffsets.set(voiceKey, initialOffset + 1);
+  return {
+    ...pending,
+    assetKey: variants[initialOffset % variants.length],
+  };
 }
 
+async function enqueueBurst(batch: Array<[string, PendingCue]>): Promise<void> {
+  const cues = (await Promise.all(batch.map(([key, cue]) => loadCue(key, cue)))).filter(
+    (cue): cue is PlaybackCue => cue !== null,
+  );
+  cueQueue.push(...cues);
+  playNextCue();
+}
+
+function flushBurst(): void {
+  window.clearTimeout(burstFlushTimer ?? undefined);
+  burstFlushTimer = null;
+  if (pendingBurst.size === 0) return;
+
+  const batch = [...pendingBurst.entries()];
+  pendingBurst.clear();
+  playbackQueue = playbackQueue.then(() => enqueueBurst(batch)).catch(() => undefined);
+}
+
+function scheduleBurstFlush(): void {
+  window.clearTimeout(burstFlushTimer ?? undefined);
+  burstFlushTimer = window.setTimeout(flushBurst, DISPLAY_AUDIO_BURST_IDLE_MS);
+}
 export function presentDisplayEventAudio(event: DisplayEvent): void {
   if (usePreferencesStore.getState().soundMuted) return;
   const definition = DISPLAY_EVENT_AUDIO[event.eventType];
@@ -99,20 +149,28 @@ export function presentDisplayEventAudio(event: DisplayEvent): void {
     seenPromptEvents.add(promptEventKey);
   }
 
-  const generation = sessionGeneration;
-  playbackQueue = playbackQueue
-    .then(() => playDisplayEventAudio(event, definition, generation))
-    .catch(() => undefined);
+  const voiceKey = definition.variants.join("\u0000");
+  pendingBurst.set(voiceKey, { definition, generation: sessionGeneration });
+  if (event.eventType.startsWith("prompt.") || event.eventType.startsWith("game.outcome.")) {
+    flushBurst();
+  } else {
+    scheduleBurstFlush();
+  }
 }
 
 export function stopDisplayEventAudio(): void {
   sessionGeneration += 1;
+  window.clearTimeout(burstFlushTimer ?? undefined);
+  burstFlushTimer = null;
+  pendingBurst.clear();
+  cueQueue.length = 0;
+  const active = activePlayback;
+  activePlayback = null;
+  active?.instance?.stop();
   for (const soundAsset of loadedAssets.values()) {
     soundAsset.stop();
   }
   playbackQueue = Promise.resolve();
-  activeVoices.clear();
-  lastPlayedAt.clear();
 }
 
 export function resetDisplayEventAudioSession(): void {

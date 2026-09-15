@@ -20,6 +20,12 @@ These effects form a restrained tabletop palette: physical cards, wooden pieces,
 
 Every bundled source is listed below with its original filename and direct download. `card-play.wav` and `shuffle.wav` are the existing byte-for-byte copies retained from HaelDB's pack. `priority.wav` was converted with FFmpeg to 44.1 kHz mono signed 16-bit PCM WAV and raised by 4 dB. `game-start.wav` is the fourth sound in the Door Open, Door Close Set preview montage, extracted from 5.000–5.430 seconds and converted to that format without gain changes. `mulligan.wav` and `spell-fire.wav` were converted to the same format without trimming or gain changes. The other recordings were converted to the same format without trimming or gain changes.
 
+## Playback policy
+
+Display-event audio is intentionally queued by interaction cue rather than played at transport arrival time. Forge publishes one queued display event per animation frame and flushes the group immediately before a prompt. The client closes a cue group at a prompt or game outcome, with a 50 ms idle fallback for streams without either boundary, and coalesces repeated recordings once within that group.
+
+Distinct cues remain in engine order and play one at a time. The next recording starts only after the active recording ends, so prompt acknowledgement normally gives the queue time to drain before the next interaction. At game start this produces one sequential `shuffle.wav`, `coin.wav`, `game-start.wav`, `card-contact-soft.wav`, and `mulligan.wav` cue instead of overlapping sounds or one draw sound per opening-hand card. This policy changes audio presentation only; visual, haptic, and accessibility presenters still receive every display event.
+
 | Bundled file            | Used for                                    | Original file                              | Direct download                                                                                        | Duration |      Size |
 | ----------------------- | ------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------ | -------: | --------: |
 | `book-close.wav`        | Night transition                            | `book_04.ogg`                              | [80 CC0 RPG SFX](https://opengameart.org/sites/default/files/80-CC0-RPG-SFX_0.zip)                     |  1.159 s | 102,274 B |
