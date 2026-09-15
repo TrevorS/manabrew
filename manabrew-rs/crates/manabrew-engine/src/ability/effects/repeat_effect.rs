@@ -80,22 +80,33 @@ fn check_repeat_conditions(ctx: &mut EffectContext, sa: &SpellAbility) -> bool {
         }
     }
 
-    if let (Some(defined), Some(present), Some(compare)) = (
-        sa.ir.repeat_defined.as_deref(),
-        sa.ir.repeat_present.as_deref(),
-        sa.ir.repeat_compare.as_deref(),
-    ) {
+    if let Some(present) = sa.ir.repeat_present.as_deref() {
+        let compare = sa.ir.repeat_compare.as_deref().unwrap_or("GE1");
         let Some(source_id) = sa.source else {
             return false;
         };
         let source = ctx.game.card(source_id);
-        let defined_ref = DefinedRef::parse(defined);
-        let cards: Vec<_> = if matches!(defined_ref, DefinedRef::Imprinted) {
-            source.imprinted_cards.clone()
-        } else if matches!(defined_ref, DefinedRef::Remembered) {
-            source.remembered_cards.clone()
-        } else {
-            Vec::new()
+        let cards: Vec<_> = match sa.ir.repeat_defined.as_deref() {
+            Some(defined) => match DefinedRef::parse(defined) {
+                DefinedRef::Imprinted => source.imprinted_cards.clone(),
+                DefinedRef::Remembered => source.remembered_cards.clone(),
+                _ => crate::ability::ability_utils::get_defined_cards(
+                    ctx.game,
+                    Some(source_id),
+                    defined,
+                    Some(sa.activating_player),
+                ),
+            },
+            None => ctx
+                .game
+                .player_order
+                .iter()
+                .flat_map(|&pid| {
+                    ctx.game
+                        .cards_in_zone(forge_foundation::ZoneType::Battlefield, pid)
+                        .to_vec()
+                })
+                .collect(),
         };
 
         let present_count = if present.eq_ignore_ascii_case("Card.sharesNameWith Remembered") {
