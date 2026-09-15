@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.44.0](https://github.com/witchesofthehill/manabrew/compare/v3.43.2...v3.44.0) (2026-09-15)
+
+### Features
+
+* **ui:** major battlefield improvements ([#873](https://github.com/witchesofthehill/manabrew/issues/873)) ([4ae76d4](https://github.com/witchesofthehill/manabrew/commit/4ae76d45a1875b77ec0cc911231c24c91ee1c94c))
+
 ## [3.43.2](https://github.com/witchesofthehill/manabrew/compare/v3.43.1...v3.43.2) (2026-09-15)
 
 ### Fixes
