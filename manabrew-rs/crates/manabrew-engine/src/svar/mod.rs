@@ -199,15 +199,23 @@ fn card_x_property(
     let value = parts.first().copied().unwrap_or("");
     let operators = parts.get(1).copied().unwrap_or("");
 
+    let in_play = card.zone == forge_foundation::ZoneType::Battlefield;
+    let net_power = if in_play {
+        card.power()
+    } else {
+        card.lki_power.unwrap_or_else(|| card.power())
+    };
+    let net_toughness = if in_play {
+        card.toughness()
+    } else {
+        card.lki_toughness.unwrap_or_else(|| card.toughness())
+    };
     let base = match value {
-        "CardPower" => card.lki_power.unwrap_or_else(|| card.power()),
+        "CardPower" => net_power,
         "CardBasePower" => card.base_power.unwrap_or(0),
-        "CardToughness" => card.lki_toughness.unwrap_or_else(|| card.toughness()),
+        "CardToughness" => net_toughness,
         "CardBaseToughness" => card.base_toughness.unwrap_or(0),
-        "CardSumPT" => {
-            card.lki_power.unwrap_or_else(|| card.power())
-                + card.lki_toughness.unwrap_or_else(|| card.toughness())
-        }
+        "CardSumPT" => net_power + net_toughness,
         _ if value.starts_with("CardManaCost") || value == "ManaCost" => {
             let mut cmc = card.mana_value();
             if value.contains("LKI") && card.zone != forge_foundation::ZoneType::Stack {

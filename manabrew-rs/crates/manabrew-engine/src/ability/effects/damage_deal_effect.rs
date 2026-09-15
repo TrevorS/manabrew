@@ -425,10 +425,6 @@ fn resolve_svar_amount(ctx: &EffectContext, sa: &SpellAbility, var_name: &str) -
 /// Evaluate a simple SVar expression string.
 /// Mirrors Java's `AbilityUtils.calculateAmount` for common SVar patterns.
 fn evaluate_svar_expr(ctx: &EffectContext, sa: &SpellAbility, expr: &str) -> i32 {
-    // Count$Kicked.X.Y — delegate to shared evaluator
-    if expr.starts_with("Count$Kicked.") {
-        return super::evaluate_svar(expr, sa);
-    }
     // Count$ expressions — delegate to shared game-aware resolver
     if expr.starts_with("Count$") {
         if let Some(source_id) = sa.source {
