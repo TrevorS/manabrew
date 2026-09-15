@@ -66,6 +66,9 @@ public final class ManaBrewInteractiveSession {
     void attach(final Match match, final Game game) {
         this.match = Objects.requireNonNull(match, "match");
         this.game = Objects.requireNonNull(game, "game");
+        // Bench knob: the AI budgets change play once they fire, so an exactness
+        // replay of an engine change needs them out of the way.
+        game.AI_TIMEOUT = Integer.getInteger("forge.ai-timeout", game.AI_TIMEOUT);
     }
 
     public String getSessionId() {
