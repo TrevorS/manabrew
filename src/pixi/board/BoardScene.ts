@@ -29,7 +29,7 @@ import {
   type PhaseStripState,
 } from "../PhaseStripLayer";
 import { DragHandler } from "../DragHandler";
-import { cellFromPoint, type GridCell } from "../GridLayout";
+import { dropCellFromPoint, type GridCell } from "../GridLayout";
 import { prewarmManaSymbols } from "../manaSymbolCache";
 import { CARD_W, CARD_H } from "@/components/game/game.constants";
 import { lerp, setFrameRatio } from "./pixiHelpers";
@@ -281,6 +281,7 @@ export class BoardScene {
   private overlayHitTest: ((x: number, y: number) => boolean) | null = null;
 
   private hoveredCell: GridCell | null = null;
+  private invalidDropPoint: ScreenPos | null = null;
   private stackTargetId: string | null = null;
   private dropActive = false;
 
@@ -1088,6 +1089,9 @@ export class BoardScene {
     } else {
       this.dragHandler.cancel();
     }
+    this.hoveredCell = null;
+    this.stackTargetId = null;
+    this.invalidDropPoint = null;
     if (this.cardPressSelection && this.selection) {
       this.selection.setSelected(new Set(this.cardPressSelection.selected));
       this.selection.refresh();
@@ -2190,20 +2194,23 @@ export class BoardScene {
       this.hoveredCell = null;
       this.stackTargetId = null;
       local.hideGridSkeleton();
+      this.invalidDropPoint = null;
       return;
     }
 
     const grid = local.getGridInfo();
-    if (primaryPos && grid) {
-      this.hoveredCell = cellFromPoint(grid, primaryPos.x, primaryPos.y);
-      this.stackTargetId = this.hoveredCell
-        ? local.findStackTargetAt(this.hoveredCell, draggingIds)
-        : null;
-    } else {
-      this.hoveredCell = null;
-      this.stackTargetId = null;
-    }
-    local.drawGridSkeleton(draggingIds, this.hoveredCell, this.stackTargetId);
+    this.hoveredCell =
+      primaryPos && grid ? dropCellFromPoint(grid, primaryPos.x, primaryPos.y) : null;
+    this.stackTargetId = this.hoveredCell
+      ? local.findStackTargetAt(this.hoveredCell, draggingIds)
+      : null;
+    this.invalidDropPoint = primaryPos && !this.hoveredCell ? primaryPos : null;
+    local.drawGridSkeleton(
+      draggingIds,
+      this.hoveredCell,
+      this.stackTargetId,
+      this.invalidDropPoint,
+    );
   }
 
   private onGlobalUp(e?: FederatedPointerEvent): void {
@@ -2298,6 +2305,7 @@ export class BoardScene {
     const hoveredCell = this.hoveredCell;
     this.stackTargetId = null;
     this.hoveredCell = null;
+    this.invalidDropPoint = null;
     local.hideGridSkeleton();
 
     if (!result?.wasDrag) return;

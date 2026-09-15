@@ -10,6 +10,7 @@ import {
   cellsByDistance,
   combatRowReserve,
   computeGridLayout,
+  dropCellFromPoint,
   type GridCell,
   type GridLayoutInfo,
 } from "../GridLayout";
@@ -1956,10 +1957,33 @@ export class BoardRegion {
     gfx.visible = true;
   }
 
+  private drawInvalidDropMarker(
+    gfx: Graphics,
+    centerX: number,
+    centerY: number,
+    cardW: number,
+    cardH: number,
+  ): void {
+    const color = hexToNum(this.host.getTheme().gameTheme.pt.lethal);
+    const x = centerX - cardW / 2;
+    const y = centerY - cardH / 2;
+    const inset = Math.min(GAP * 2, cardW / 4, cardH / 4);
+    gfx.roundRect(x, y, cardW, cardH, CARD_RADIUS);
+    gfx.fill({ color, alpha: GRID_SKELETON_FILL_ALPHA * 4 });
+    gfx.roundRect(x, y, cardW, cardH, CARD_RADIUS);
+    gfx.stroke({ color, width: 3, alpha: GRID_SKELETON_HOVER_ALPHA });
+    gfx.moveTo(x + inset, y + inset);
+    gfx.lineTo(x + cardW - inset, y + cardH - inset);
+    gfx.moveTo(x + cardW - inset, y + inset);
+    gfx.lineTo(x + inset, y + cardH - inset);
+    gfx.stroke({ color, width: 3, alpha: GRID_SKELETON_HOVER_ALPHA });
+  }
+
   drawGridSkeleton(
     draggingIds: Set<string>,
     hoveredCell: GridCell | null,
     stackTargetId: string | null,
+    invalidDropPoint: ScreenPos | null = null,
   ): void {
     const gfx = this.gridSkeletonGfx;
     gfx.clear();
@@ -1971,6 +1995,7 @@ export class BoardRegion {
     const theme = this.host.getTheme();
     const color = hexToNum(theme.gameTheme.activeAction.active);
     const blockedColor = hexToNum(theme.gameTheme.pt.lethal);
+    const stackColor = hexToNum(theme.gameTheme.targeting.friendly);
     const occupied = new Map<string, string>();
     for (const [id, pos] of this.gridTargets) {
       if (draggingIds.has(id)) continue;
@@ -2009,9 +2034,24 @@ export class BoardRegion {
           : isOccupied
             ? 0
             : baseFill;
+      const cellColor = isStack ? stackColor : color;
       gfx.roundRect(cell.x, cell.y, grid.cardW, grid.cardH, CARD_RADIUS);
-      if (fillAlpha > 0) gfx.fill({ color, alpha: fillAlpha });
-      gfx.stroke({ color, width: isStack || isHover ? 2 : 1, alpha: strokeAlpha });
+      if (fillAlpha > 0) gfx.fill({ color: cellColor, alpha: fillAlpha });
+      gfx.stroke({ color: cellColor, width: isStack || isHover ? 2 : 1, alpha: strokeAlpha });
+      if (isStack) {
+        const offset = GAP / 2;
+        gfx.roundRect(cell.x + offset, cell.y - offset, grid.cardW, grid.cardH, CARD_RADIUS);
+        gfx.stroke({ color: stackColor, width: 2, alpha: GRID_SKELETON_STACK_ALPHA });
+      }
+    }
+    if (invalidDropPoint) {
+      this.drawInvalidDropMarker(
+        gfx,
+        invalidDropPoint.x,
+        invalidDropPoint.y,
+        grid.cardW,
+        grid.cardH,
+      );
     }
     if (this.skeletonDebug) {
       for (const b of this.collectLocalBlockers()) {
@@ -2037,11 +2077,9 @@ export class BoardRegion {
     const gfx = this.gridSkeletonGfx;
     gfx.clear();
 
-    const hoveredCell = cellFromPoint(grid, localX, localY);
-    this.lastDropCell =
-      hoveredCell && !hoveredCell.blocked ? { col: hoveredCell.col, row: hoveredCell.row } : null;
-    const hoveredKey =
-      hoveredCell && !hoveredCell.blocked ? cellKey(hoveredCell.col, hoveredCell.row) : null;
+    const hoveredCell = dropCellFromPoint(grid, localX, localY);
+    this.lastDropCell = hoveredCell ? { col: hoveredCell.col, row: hoveredCell.row } : null;
+    const hoveredKey = hoveredCell ? cellKey(hoveredCell.col, hoveredCell.row) : null;
 
     for (const cell of grid.cells) {
       if (cell.blocked) continue;
@@ -2065,6 +2103,9 @@ export class BoardRegion {
             ? GRID_SKELETON_STROKE_ALPHA_COMPACT
             : GRID_SKELETON_STROKE_ALPHA,
       });
+    }
+    if (!hoveredCell) {
+      this.drawInvalidDropMarker(gfx, localX, localY, grid.cardW, grid.cardH);
     }
     gfx.visible = true;
   }

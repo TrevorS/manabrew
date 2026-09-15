@@ -189,6 +189,23 @@ export const cellFromPoint = (info: GridLayoutInfo, px: number, py: number): Gri
   return cellAt(info, col, row);
 };
 
+export const dropCellFromPoint = (
+  info: GridLayoutInfo,
+  px: number,
+  py: number,
+): GridCell | null => {
+  if (
+    px < info.zone.x ||
+    px > info.zone.x + info.zone.width ||
+    py < info.zone.y ||
+    py > info.zone.y + info.zone.height
+  ) {
+    return null;
+  }
+  const cell = cellFromPoint(info, px, py);
+  return cell && !cell.blocked ? cell : null;
+};
+
 /**
  * All cells sorted by distance from (tx, ty). Blocked cells can be filtered
  * by the caller. Used to pick the nearest-free slot to a preferred anchor
