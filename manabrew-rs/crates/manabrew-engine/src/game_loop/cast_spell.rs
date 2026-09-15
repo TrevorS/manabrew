@@ -1430,6 +1430,21 @@ impl GameLoop {
         } else {
             mana_cost
         };
+        let mana_cost = if game.card(card_id).has_keyword("Tiered") {
+            let mut total = mana_cost.clone();
+            let mut sub = Some(&sa);
+            while let Some(current) = sub {
+                if let Some(mode_cost) =
+                    crate::parsing::raw_get(&current.ability_text, keys::MODE_COST)
+                {
+                    total = total.add(&forge_foundation::ManaCost::parse(mode_cost));
+                }
+                sub = current.sub_ability.as_deref();
+            }
+            total
+        } else {
+            mana_cost
+        };
 
         let display_total_cost = if commander_tax > 0 {
             original_mana_cost.add(&forge_foundation::ManaCost::generic(commander_tax))
