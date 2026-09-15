@@ -759,6 +759,58 @@ impl Card {
         }
     }
 
+    pub(crate) fn generate_keyword_paradigm(&mut self) {
+        if !self.keywords.iter_strings().any(|kw| kw == "Paradigm") {
+            return;
+        }
+        let Some(idx) = self
+            .abilities
+            .iter()
+            .position(|a| crate::parsing::raw_has_key(a, keys::SP))
+        else {
+            return;
+        };
+        let mut last = None;
+        let mut text = self.abilities[idx].clone();
+        while let Some(sub) = crate::parsing::raw_get(&text, keys::SUB_ABILITY).map(str::to_string)
+        {
+            if sub == "ParadigmExile" || last.as_ref() == Some(&sub) {
+                return;
+            }
+            let Some(next) = self.svars.get(&sub).cloned() else {
+                return;
+            };
+            last = Some(sub);
+            text = next;
+        }
+        let appended = format!("{text} | SubAbility$ ParadigmExile");
+        match last {
+            Some(name) => {
+                self.svars.insert(name, appended);
+            }
+            None => self.abilities[idx] = appended,
+        }
+        self.svars.insert(
+            "ParadigmExile".to_string(),
+            "DB$ ChangeZone | Defined$ Self | Origin$ Stack | Destination$ Exile | SubAbility$ ParadigmEffect".to_string(),
+        );
+        self.svars.insert(
+            "ParadigmEffect".to_string(),
+            format!(
+                "DB$ Effect | Triggers$ ParadigmTrigger | Duration$ Permanent | Unique$ True | Name$ {}' Paradigm",
+                self.card_name
+            ),
+        );
+        self.svars.insert(
+            "ParadigmTrigger".to_string(),
+            "Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | OptionalDecider$ You | Execute$ ParadigmCopy | TriggerDescription$ Paradigm".to_string(),
+        );
+        self.svars.insert(
+            "ParadigmCopy".to_string(),
+            "DB$ Play | Defined$ EffectSource | ValidSA$ Spell | ZoneRegardless$ True | WithoutManaCost$ True | Optional$ True | CopyCard$ True".to_string(),
+        );
+    }
+
     pub(crate) fn generate_keyword_chapter_triggers(&mut self) {
         if !self.has_subtype("Saga") {
             return;

@@ -375,7 +375,7 @@ impl GameState {
 
         // Tokens and copy-tokens cease to exist when leaving the battlefield (CR 110.5g).
         // Set zone to None (limbo) and remove from source zone without adding to destination.
-        if is_token && dest_zone != ZoneType::Battlefield {
+        if is_token && dest_zone != ZoneType::Battlefield && dest_zone != ZoneType::Stack {
             if let Some(table) = self.pending_change_zone_table.as_mut() {
                 table.put(Some(src_zone), Some(ZoneType::None), card_id);
             }

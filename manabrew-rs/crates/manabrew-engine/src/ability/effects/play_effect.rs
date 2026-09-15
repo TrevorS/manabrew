@@ -61,6 +61,21 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
+    let card_id = if crate::parsing::raw_has_key(&sa.ability_text, "CopyCard") {
+        let original = ctx.game.card(card_id);
+        let zone = original.zone;
+        let mut copy =
+            crate::card::card_copy_service::copy_card(original, false, Some(controller), None);
+        copy.set_controller(controller);
+        copy.is_token = true;
+        copy.copied_permanent = Some(card_id);
+        let copy_id = ctx.game.create_card(copy);
+        ctx.game.zone_mut(zone, controller).add(copy_id);
+        copy_id
+    } else {
+        card_id
+    };
+
     // ── Step 3: Get ability to play
     let spell_sa_base =
         crate::spellability::build_spell_ability_for_card_cast(ctx.game, card_id, controller);

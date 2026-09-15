@@ -198,6 +198,7 @@ pub(crate) fn assemble_card(
         card.add_trigger(trig);
     }
     card.generate_keyword_chapter_triggers();
+    card.generate_keyword_paradigm();
     if card.type_line.has_subtype("Saga") && card.has_chapter() {
         let read_ahead = card.has_keyword("Read ahead");
         let replacement = if read_ahead {

@@ -131,6 +131,7 @@ pub enum DefinedCardToken {
     TopOfGraveyard,
     Tapped,
     Untapped,
+    EffectSource,
 }
 
 /// Resolve `Defined$` strings to a list of card IDs.
@@ -173,6 +174,14 @@ pub fn get_defined_cards(
     Vec::new()
 }
 
+fn find_effect_root(game: &GameState, start_card: CardId) -> Option<CardId> {
+    let cc = game.card(start_card).effect_source?;
+    if game.card(cc).effect_source.is_some() {
+        return find_effect_root(game, cc);
+    }
+    Some(cc)
+}
+
 fn resolve_defined_card_token(
     token: DefinedCardToken,
     game: &GameState,
@@ -181,6 +190,11 @@ fn resolve_defined_card_token(
 ) -> Vec<CardId> {
     match token {
         DefinedCardToken::SelfCard => host_card.into_iter().collect(),
+        DefinedCardToken::EffectSource => host_card
+            .filter(|&host| game.card(host).effect_source.is_some())
+            .and_then(|host| find_effect_root(game, host))
+            .into_iter()
+            .collect(),
         DefinedCardToken::Remembered => host_card
             .map(|src| game.card(src).remembered_cards.clone())
             .unwrap_or_default(),
