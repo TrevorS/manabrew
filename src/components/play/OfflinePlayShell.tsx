@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useIsShortScreen, useIsTouch } from "@/hooks/useBreakpoints";
 
 interface OfflinePlayShellProps {
-  children: ReactNode;
+  children: ReactNode | ((modeToggle: ReactNode) => ReactNode);
 }
 
 const TABS = [
@@ -29,10 +29,31 @@ export function OfflinePlayShell({ children }: OfflinePlayShellProps) {
   const shortScreen = useIsShortScreen();
   const isTouch = useIsTouch();
   const compact = shortScreen && isTouch;
+
   const [modesExpanded, setModesExpanded] = useState(!compact);
-
+  const compactCollapsed = compact && !modesExpanded;
   const activeTab = TABS.find(({ to }) => to === location.pathname) ?? TABS[0]!;
-
+  const modeToggle = compact ? (
+    <button
+      type="button"
+      aria-expanded={modesExpanded}
+      aria-label={modesExpanded ? "Hide offline mode switcher" : "Show offline mode switcher"}
+      onClick={() => setModesExpanded((expanded) => !expanded)}
+      className={cn(
+        "flex shrink-0 items-center gap-1.5 rounded-lg border border-border/70 bg-background/80 px-2.5 shadow-sm backdrop-blur-md",
+        "text-xs font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11",
+        "motion-safe:transition-colors",
+      )}
+    >
+      <activeTab.icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span className="truncate">{activeTab.label}</span>
+      {modesExpanded ? (
+        <ChevronUp className="h-4 w-4 shrink-0" aria-hidden />
+      ) : (
+        <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
+      )}
+    </button>
+  ) : null;
   const renderTabs = () => (
     <div
       className={cn(
@@ -87,42 +108,20 @@ export function OfflinePlayShell({ children }: OfflinePlayShellProps) {
   return (
     <div className="relative h-full min-h-0 overflow-hidden">
       <div className="relative z-10 flex h-full min-h-0 flex-col">
-        <nav
-          aria-label="Offline play type"
-          className={cn("shrink-0 px-4 pt-4 sm:px-6 lg:px-8", compact && "pt-1.5 sm:pt-1.5")}
-        >
-          {compact ? (
-            <div className="mx-auto w-full max-w-xl space-y-1">
-              <button
-                type="button"
-                aria-expanded={modesExpanded}
-                aria-label={
-                  modesExpanded ? "Hide offline mode switcher" : "Show offline mode switcher"
-                }
-                onClick={() => setModesExpanded((expanded) => !expanded)}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-xl border border-border/70 bg-background/80 px-3 py-1 shadow-sm backdrop-blur-md",
-                  "text-xs font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-9",
-                  "motion-safe:transition-colors",
-                )}
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <activeTab.icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  <span className="truncate">{activeTab.label}</span>
-                </span>
-                {modesExpanded ? (
-                  <ChevronUp className="h-4 w-4 shrink-0" aria-hidden />
-                ) : (
-                  <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
-                )}
-              </button>
-              {modesExpanded && renderTabs()}
-            </div>
-          ) : (
-            renderTabs()
-          )}
-        </nav>
-        <div className="min-h-0 flex-1">{children}</div>
+        {!compactCollapsed && (
+          <nav
+            aria-label="Offline play type"
+            className={cn("shrink-0 px-4 pt-4 sm:px-6 lg:px-8", compact && "pt-1.5 sm:pt-1.5")}
+          >
+            {!compact && renderTabs()}
+            {compact && modesExpanded && (
+              <div className="mx-auto w-full max-w-xl">{renderTabs()}</div>
+            )}
+          </nav>
+        )}
+        <div className="min-h-0 flex-1">
+          {typeof children === "function" ? children(modeToggle) : children}
+        </div>
       </div>
     </div>
   );

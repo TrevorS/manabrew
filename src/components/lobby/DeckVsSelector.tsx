@@ -44,6 +44,7 @@ interface SelectedDeck {
 interface DeckVsSelectorProps {
   preSelectedDeckId?: string;
   preSelectedHubDeckId?: string;
+  leadingControl?: ReactNode;
   onStart: (
     playerDeck: Deck,
     opponentDecks: Deck[],
@@ -58,6 +59,7 @@ type PlayFormatId = string;
 export function DeckVsSelector({
   preSelectedDeckId,
   preSelectedHubDeckId,
+  leadingControl,
   onStart,
 }: DeckVsSelectorProps) {
   const denseDecks = useIsShortScreen();
@@ -504,6 +506,7 @@ export function DeckVsSelector({
     <div className="flex h-full min-h-0 flex-col">
       {shortTouch ? (
         <div className="flex shrink-0 items-center gap-2 border-b bg-muted/5 px-4 py-1.5">
+          {leadingControl}
           <select
             aria-label="Filter decks by format"
             value={selectedFormat ?? ""}
