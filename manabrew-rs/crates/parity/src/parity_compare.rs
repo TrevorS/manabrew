@@ -21,7 +21,17 @@ pub fn compare_matchup(
 ) -> MatchupResult {
     let rust_snapshots = rust_trace.snapshot_vec();
     let java_snapshots = java_data.snapshot_vec();
-    let outcome = compare_snapshots(config, &rust_snapshots, &java_snapshots, false);
+    let mut outcome = compare_snapshots(config, &rust_snapshots, &java_snapshots, false);
+    if config.callback_compare && outcome.first_divergence.is_none() {
+        if let Some(divergence) =
+            compare_callbacks(&rust_trace.log, &java_data.log, outcome.compared_until)
+        {
+            outcome.compared_until = divergence.snapshot_index + 1;
+            outcome.diverge_rust_idx = Some(divergence.snapshot_index);
+            outcome.diverge_java_idx = Some(divergence.snapshot_index);
+            outcome.first_divergence = Some(divergence);
+        }
+    }
     build_matchup_result(
         config,
         &rust_snapshots,
@@ -136,6 +146,110 @@ fn build_matchup_result(
         java_log,
         finished_turn,
     }
+}
+
+const COMPARED_CALLBACKS: &[&str] = &[
+    "$ACTION_SPACE",
+    "assign_combat_damage",
+    "choose_action",
+    "choose_attackers",
+    "choose_binary",
+    "choose_blockers",
+    "choose_card_name",
+    "choose_cards_for_effect",
+    "choose_cards_for_zone_change",
+    "choose_cards_to_bottom",
+    "choose_color",
+    "choose_colors",
+    "choose_counter_type",
+    "choose_damage_assignment_order",
+    "choose_delve",
+    "choose_dice_to_reroll",
+    "choose_dig",
+    "choose_discard",
+    "choose_mode",
+    "choose_number",
+    "choose_number_for_keyword_cost",
+    "choose_number_from_list",
+    "choose_optional_trigger",
+    "choose_reorder_library",
+    "choose_roll_swap_value",
+    "choose_roll_to_ignore",
+    "choose_roll_to_modify",
+    "choose_roll_to_swap",
+    "choose_sacrifice",
+    "choose_scry",
+    "choose_single_card_for_zone_change",
+    "choose_single_entity_for_effect",
+    "choose_single_replacement_effect",
+    "choose_spell_abilities_for_effect",
+    "choose_surveil",
+    "choose_target_spell",
+    "choose_targets_for",
+    "choose_type",
+    "confirm_action",
+    "confirm_payment",
+    "confirm_replacement_effect",
+    "enlist_attackers",
+    "exert_attackers",
+    "flip_coin_call",
+    "help_pay_assist",
+    "pay_combat_cost",
+    "pay_cost_to_prevent_effect",
+    "pay_mana_cost",
+    "specify_mana_combo",
+];
+
+fn compare_callbacks(
+    rust_log: &[ParityLogEntry],
+    java_log: &[ParityLogEntry],
+    snapshot_windows: usize,
+) -> Option<Divergence> {
+    fn window(
+        log: &[ParityLogEntry],
+        snapshot_index: usize,
+    ) -> Vec<&crate::protocol::CallbackRecord> {
+        log.iter()
+            .filter_map(|entry| match entry {
+                ParityLogEntry::Callback(record)
+                    if record.snapshot_index == snapshot_index
+                        && COMPARED_CALLBACKS.contains(&record.name.as_str()) =>
+                {
+                    Some(record)
+                }
+                _ => None,
+            })
+            .collect()
+    }
+    fn describe(record: Option<&&crate::protocol::CallbackRecord>) -> String {
+        record
+            .map(|record| format!("P{} {} -> {}", record.player, record.name, record.outcome))
+            .unwrap_or_else(|| "missing".to_string())
+    }
+    for snapshot_index in 0..snapshot_windows {
+        let rust = window(rust_log, snapshot_index);
+        let java = window(java_log, snapshot_index);
+        let length = rust.len().max(java.len());
+        for position in 0..length {
+            let (rust_record, java_record) = (rust.get(position), java.get(position));
+            let same = matches!((rust_record, java_record), (Some(r), Some(j))
+                if r.player == j.player && r.name == j.name && r.outcome == j.outcome);
+            if !same {
+                let anchor = rust_record
+                    .or(java_record)
+                    .expect("one side has a callback");
+                return Some(Divergence {
+                    snapshot_index,
+                    turn: anchor.turn,
+                    phase: anchor.phase.clone(),
+                    field: format!("callbacks[{position}]"),
+                    rust_value: describe(rust_record),
+                    java_value: describe(java_record),
+                });
+            }
+        }
+    }
+    None
 }
 
 fn guard_abort_turn(log: &[ParityLogEntry]) -> Option<u32> {

@@ -951,6 +951,7 @@ pub struct RunConfig {
     pub full_log: bool,
     /// Write Rust-side parity entries as they are recorded.
     pub live_log: Option<PathBuf>,
+    pub callback_compare: bool,
 }
 
 pub struct LoadedData {

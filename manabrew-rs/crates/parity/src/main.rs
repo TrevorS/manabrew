@@ -176,6 +176,10 @@ struct Cli {
     #[arg(long)]
     repeat_check: bool,
 
+    /// Also compare the shared callback sequence within each matching snapshot window
+    #[arg(long)]
+    callback_compare: bool,
+
     /// Number of games to run (single-match mode only); seeds increment from --seed
     #[arg(long, default_value_t = 1)]
     games: usize,
@@ -384,6 +388,7 @@ fn build_config(cli: &Cli, deck1: &str, deck2: &str, seed: u64) -> RunConfig {
         commanders: cli.commander.clone(),
         full_log: cli.full_log,
         live_log: cli.live_log.clone(),
+        callback_compare: cli.callback_compare,
     }
 }
 
@@ -1658,6 +1663,7 @@ fn run_fuzz_mode(cli: &Cli) {
             commanders: vec![],
             full_log: false,
             live_log: None,
+            callback_compare: false,
         };
 
         let matchup_result = if let Some(ref mut srv) = server {
@@ -2524,6 +2530,7 @@ fn run_serve_mode(cli: &Cli) {
                         commanders: queued_job.commanders.clone(),
                         full_log: false,
                         live_log: None,
+                        callback_compare: false,
                     };
                     let m = run_matchup_cached(&config, data_ref, pool_ref, cache_ref);
                     if m.cache_hit {
@@ -2736,6 +2743,7 @@ fn run_serve_mode(cli: &Cli) {
             full_log: false,
             log_snapshots: false,
             live_log: None,
+            callback_compare: false,
         };
 
         let served = run_matchup_cached(&config, &data, &server_pool, java_cache.as_ref());

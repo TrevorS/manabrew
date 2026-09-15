@@ -504,6 +504,7 @@ impl App {
             commanders: self.trace_commanders.clone(),
             full_log: false,
             live_log: None,
+            callback_compare: false,
         }
     }
 

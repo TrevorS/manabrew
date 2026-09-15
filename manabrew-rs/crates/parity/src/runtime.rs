@@ -610,6 +610,7 @@ mod tests {
             commanders: vec![],
             full_log: false,
             live_log: None,
+            callback_compare: false,
         }
     }
 
