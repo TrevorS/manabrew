@@ -13,12 +13,15 @@ pub struct TriggerSpellAbilityCastOrCopy {
     pub trigger_type: TriggerType,
     pub valid_card: Option<crate::parsing::CompiledSelector>,
     pub valid_activating_player: Option<crate::parsing::CompiledSelector>,
+    #[serde(default)]
+    pub valid_sa: Option<String>,
 }
 
 impl TriggerSpellAbilityCastOrCopy {
     pub fn parse(mode_str: &str, params: &Params) -> Box<dyn TriggerBehavior> {
         let valid_card = params.selector_cloned(keys::VALID_CARD);
         let valid_activating_player = params.selector_cloned(keys::VALID_ACTIVATING_PLAYER);
+        let valid_sa = params.get_cloned(keys::VALID_SA);
         let trigger_type = match mode_str {
             "SpellCast" => TriggerType::SpellCast,
             "AbilityCast" => TriggerType::AbilityCast,
@@ -36,6 +39,7 @@ impl TriggerSpellAbilityCastOrCopy {
             trigger_type,
             valid_card,
             valid_activating_player,
+            valid_sa,
         })
     }
 }
@@ -64,7 +68,22 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
                 )
             }
         };
+        let valid_sa_matches = self.valid_sa.as_deref().is_none_or(|filter| {
+            params
+                .source_sa
+                .as_ref()
+                .or(params.spell_ability.as_ref())
+                .is_some_and(|sa| {
+                    crate::spellability::matches_valid_sa(
+                        filter,
+                        sa,
+                        trigger.base.card_trait_base.host_card(game),
+                        sa.source.map(|source| game.card(source)),
+                    )
+                })
+        });
         valid_card_matches
+            && valid_sa_matches
             && trigger.matches_optional_valid_player_filter(
                 &self.valid_activating_player,
                 params.spell_controller,
