@@ -1338,7 +1338,7 @@ export class BoardRegion {
       landRows = [lastUsableRow];
     } else if (usableRows === 2) {
       creatureRows = [0];
-      otherRows = this.compactMode ? [lastUsableRow] : [0, 1];
+      otherRows = [0, 1];
       landRows = [lastUsableRow];
     } else {
       creatureRows = [0];
