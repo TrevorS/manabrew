@@ -172,6 +172,10 @@ struct Cli {
     #[arg(long, default_value_t = 10)]
     max_turns: u32,
 
+    /// Run the Rust game twice with the same seed and report the first differing log entry
+    #[arg(long)]
+    repeat_check: bool,
+
     /// Number of games to run (single-match mode only); seeds increment from --seed
     #[arg(long, default_value_t = 1)]
     games: usize,
@@ -422,6 +426,10 @@ fn main() {
     }
 
     let cli = Cli::parse();
+    if cli.repeat_check {
+        run_repeat_check(&cli);
+        return;
+    }
     let games_flag_present =
         std::env::args().any(|arg| arg == "--games" || arg.starts_with("--games="));
 
@@ -738,6 +746,70 @@ fn game_seeds(start_seed: u64, games: usize) -> Vec<u64> {
             })
         })
         .collect()
+}
+
+fn run_repeat_check(cli: &Cli) {
+    let config = build_config(cli, &cli.deck1, &cli.deck2, cli.seed);
+    let data = match runner::load_data(config.cards_dir.as_deref(), cli.is_verbose()) {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("[parity] Load error: {e}");
+            std::process::exit(1);
+        }
+    };
+    let runs: Vec<Vec<serde_json::Value>> = (0..2)
+        .map(|_| match runner::run_with_data(&config, &data) {
+            Ok(trace) => trace
+                .log
+                .iter()
+                .map(|entry| {
+                    let mut value = serde_json::to_value(entry).unwrap_or_default();
+                    strip_timestamps(&mut value);
+                    value
+                })
+                .collect(),
+            Err(e) => {
+                eprintln!("[parity] Error: {e}");
+                std::process::exit(1);
+            }
+        })
+        .collect();
+    let first = runs[0].iter().zip(&runs[1]).position(|(a, b)| a != b);
+    match first {
+        Some(index) => {
+            println!(
+                "REPEAT_CHECK DIFF at entry {index}\n  first:  {}\n  second: {}",
+                runs[0][index], runs[1][index]
+            );
+            std::process::exit(1);
+        }
+        None if runs[0].len() != runs[1].len() => {
+            println!(
+                "REPEAT_CHECK DIFF entry count {} vs {}",
+                runs[0].len(),
+                runs[1].len()
+            );
+            std::process::exit(1);
+        }
+        None => println!("REPEAT_CHECK identical ({} entries)", runs[0].len()),
+    }
+}
+
+fn strip_timestamps(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(map) => {
+            map.remove("timestamp_ms");
+            for child in map.values_mut() {
+                strip_timestamps(child);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for child in items {
+                strip_timestamps(child);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn run_rust_only_mode(cli: &Cli) {
