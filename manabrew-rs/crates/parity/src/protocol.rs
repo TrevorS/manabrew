@@ -122,6 +122,12 @@ pub struct StateSnapshot {
     pub players: Vec<PlayerSnapshot>,
     pub stack: Vec<String>,
     #[serde(default)]
+    pub monarch: Option<u32>,
+    #[serde(default)]
+    pub initiative: Option<u32>,
+    #[serde(default)]
+    pub day_night: String,
+    #[serde(default)]
     pub timestamp_ms: u64,
 }
 
@@ -145,6 +151,12 @@ pub struct PlayerSnapshot {
     /// compared as an ordered list, not sorted.
     #[serde(default)]
     pub library_top: Vec<String>,
+    #[serde(default)]
+    pub counters: BTreeMap<String, i32>,
+    #[serde(default)]
+    pub speed: i32,
+    #[serde(default)]
+    pub mana_pool: Vec<i32>,
 }
 
 /// A card on the battlefield, normalized for comparison.

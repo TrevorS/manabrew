@@ -71,6 +71,37 @@ pub fn compare(index: usize, rust: &StateSnapshot, java: &StateSnapshot) -> Vec<
         ));
     }
 
+    if rust.monarch != java.monarch {
+        divs.push(divergence(
+            index,
+            turn,
+            &phase,
+            "monarch",
+            &format!("{:?}", rust.monarch),
+            &format!("{:?}", java.monarch),
+        ));
+    }
+    if rust.initiative != java.initiative {
+        divs.push(divergence(
+            index,
+            turn,
+            &phase,
+            "initiative",
+            &format!("{:?}", rust.initiative),
+            &format!("{:?}", java.initiative),
+        ));
+    }
+    if rust.day_night != java.day_night {
+        divs.push(divergence(
+            index,
+            turn,
+            &phase,
+            "day_night",
+            &rust.day_night,
+            &java.day_night,
+        ));
+    }
+
     // Per-player comparison
     let max_players = rust.players.len().max(java.players.len());
     for i in 0..max_players {
@@ -137,6 +168,27 @@ fn compare_players(
     cmp_field!(has_lost);
     cmp_field!(has_won);
     cmp_field!(library_size);
+    cmp_field!(speed);
+    if rust.counters != java.counters {
+        divs.push(divergence(
+            index,
+            turn,
+            phase,
+            &format!("{prefix}.counters"),
+            &format!("{:?}", rust.counters),
+            &format!("{:?}", java.counters),
+        ));
+    }
+    if rust.mana_pool != java.mana_pool {
+        divs.push(divergence(
+            index,
+            turn,
+            phase,
+            &format!("{prefix}.mana_pool"),
+            &format!("{:?}", rust.mana_pool),
+            &format!("{:?}", java.mana_pool),
+        ));
+    }
 
     // Diagnostic: compare library top order (ordered, not sorted) so silent
     // library-order divergences surface early. `library_top` is the first few

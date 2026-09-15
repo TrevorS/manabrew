@@ -14,10 +14,13 @@ use manabrew_engine::ids::PlayerId;
 
 use crate::protocol::{CardSnapshot, PlayerSnapshot, StateSnapshot};
 
-pub fn snapshot_game(game: &GameState) -> StateSnapshot {
+pub fn snapshot_game(
+    game: &GameState,
+    mana_pools: &[manabrew_engine::mana::ManaPool],
+) -> StateSnapshot {
     let mut players = Vec::new();
     for player in &game.players {
-        players.push(snapshot_player(game, player.id));
+        players.push(snapshot_player(game, player.id, mana_pools));
     }
 
     let mut stack: Vec<String> = game
@@ -47,6 +50,16 @@ pub fn snapshot_game(game: &GameState) -> StateSnapshot {
         winner: game.winner.map(|p| p.0),
         players: normalize_turn_start_players(players, game.turn.active_player),
         stack,
+        monarch: game.monarch.map(|p| p.0),
+        initiative: game.initiative_holder.map(|p| p.0),
+        day_night: if !game.day_night_started {
+            "none"
+        } else if game.is_night {
+            "night"
+        } else {
+            "day"
+        }
+        .to_string(),
         timestamp_ms,
     }
 }
@@ -63,7 +76,11 @@ fn normalize_turn_start_players(
     players
 }
 
-fn snapshot_player(game: &GameState, pid: PlayerId) -> PlayerSnapshot {
+fn snapshot_player(
+    game: &GameState,
+    pid: PlayerId,
+    mana_pools: &[manabrew_engine::mana::ManaPool],
+) -> PlayerSnapshot {
     let player = game.player(pid);
 
     // Battlefield cards with full details. Match Java's
@@ -157,6 +174,27 @@ fn snapshot_player(game: &GameState, pid: PlayerId) -> PlayerSnapshot {
         .map(|&cid| game.card(cid).full_name.clone())
         .collect();
 
+    let mut counters = BTreeMap::new();
+    if player.energy_counters > 0 {
+        counters.insert("energy".to_string(), player.energy_counters);
+    }
+    if player.radiation_counters > 0 {
+        counters.insert("rad".to_string(), player.radiation_counters);
+    }
+    let mana_pool = mana_pools
+        .get(pid.index())
+        .map(|pool| {
+            vec![
+                pool.white(),
+                pool.blue(),
+                pool.black(),
+                pool.red(),
+                pool.green(),
+                pool.colorless(),
+            ]
+        })
+        .unwrap_or_else(|| vec![0; 6]);
+
     PlayerSnapshot {
         name: player.name.clone(),
         index: pid.0,
@@ -171,6 +209,9 @@ fn snapshot_player(game: &GameState, pid: PlayerId) -> PlayerSnapshot {
         exile,
         library_size,
         library_top,
+        counters,
+        speed: player.speed,
+        mana_pool,
     }
 }
 

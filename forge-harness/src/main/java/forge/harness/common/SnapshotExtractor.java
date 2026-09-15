@@ -45,6 +45,9 @@ public final class SnapshotExtractor {
         snapshot.put("game_over", game.isGameOver());
 
         snapshot.put("winner", winnerIndex(game));
+        snapshot.put("monarch", game.getMonarch() == null ? null : playerIndex(game, game.getMonarch()));
+        snapshot.put("initiative", game.getHasInitiative() == null ? null : playerIndex(game, game.getHasInitiative()));
+        snapshot.put("day_night", game.getDayTime() == null ? "none" : game.isNight() ? "night" : "day");
 
         // players — use getRegisteredPlayers() to include lost players
         List<Map<String, Object>> players = new ArrayList<>();
@@ -80,6 +83,24 @@ public final class SnapshotExtractor {
         ps.put("lands_played", p.getLandsPlayedThisTurn());
         ps.put("has_lost", p.hasLost());
         ps.put("has_won", isOutcomeWinner(game, p));
+
+        Map<String, Integer> playerCounters = new TreeMap<>();
+        for (com.google.common.collect.Multiset.Entry<CounterType> entry : p.getCounters().entrySet()) {
+            String counterName = counterTypeName(entry.getElement());
+            if (entry.getCount() > 0 && !counterName.equalsIgnoreCase("poison")) {
+                playerCounters.put(counterName, entry.getCount());
+            }
+        }
+        ps.put("counters", playerCounters);
+        ps.put("speed", p.getSpeed());
+        List<Integer> manaPool = new ArrayList<>();
+        manaPool.add(p.getManaPool().getAmountOfColor(forge.card.MagicColor.WHITE));
+        manaPool.add(p.getManaPool().getAmountOfColor(forge.card.MagicColor.BLUE));
+        manaPool.add(p.getManaPool().getAmountOfColor(forge.card.MagicColor.BLACK));
+        manaPool.add(p.getManaPool().getAmountOfColor(forge.card.MagicColor.RED));
+        manaPool.add(p.getManaPool().getAmountOfColor(forge.card.MagicColor.GREEN));
+        manaPool.add(p.getManaPool().getAmountOfColor(forge.card.MagicColor.COLORLESS));
+        ps.put("mana_pool", manaPool);
 
         // Battlefield — full card snapshots sorted alphabetically
         List<Card> bfCards = new ArrayList<>(p.getCardsIn(ZoneType.Battlefield));

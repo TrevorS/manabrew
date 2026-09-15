@@ -198,6 +198,7 @@ struct CapturingAgent {
     current_phase: String,
     last_game_state: Option<GameState>,
     pending_turn_snapshot: Option<crate::protocol::StateSnapshot>,
+    last_mana_pools: Vec<manabrew_engine::mana::ManaPool>,
     pending_pay_mana_cost_args: Option<Vec<String>>,
     pending_pay_mana_cost_card: Option<CardId>,
     failed_payment_cards_this_turn: HashSet<CardId>,
@@ -297,6 +298,7 @@ impl CapturingAgent {
             current_phase: "Unknown".to_string(),
             last_game_state: None,
             pending_turn_snapshot: None,
+            last_mana_pools: Vec::new(),
             pending_pay_mana_cost_args: None,
             pending_pay_mana_cost_card: None,
             failed_payment_cards_this_turn: HashSet::new(),
@@ -325,7 +327,7 @@ impl CapturingAgent {
         let Some(ref game) = self.last_game_state else {
             return;
         };
-        let snapshot = snapshot_game(game);
+        let snapshot = snapshot_game(game, &self.last_mana_pools);
         let timestamp_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_millis() as u64)
@@ -364,7 +366,7 @@ impl CapturingAgent {
         if self.abort_signal.swap(true, Ordering::Relaxed) {
             return;
         }
-        let snapshot = snapshot_game(game);
+        let snapshot = snapshot_game(game, &self.last_mana_pools);
         self.parity_observer
             .push_entry(ParityLogEntry::Snapshot(snapshot.clone()));
         self.parity_observer
@@ -395,7 +397,7 @@ impl CapturingAgent {
         if self.abort_signal.swap(true, Ordering::Relaxed) {
             return;
         }
-        let snapshot = snapshot_game(game);
+        let snapshot = snapshot_game(game, &self.last_mana_pools);
         self.parity_observer
             .push_entry(ParityLogEntry::Snapshot(snapshot.clone()));
         self.parity_observer
@@ -554,9 +556,11 @@ impl PlayerAgent for CapturingAgent {
                 self.pending_pay_mana_cost_card = None;
                 if self.capture_snapshots {
                     let pending = self.pending_turn_snapshot.take();
-                    if let Some(mut snap) =
-                        pending.or_else(|| self.last_game_state.as_ref().map(snapshot_game))
-                    {
+                    if let Some(mut snap) = pending.or_else(|| {
+                        self.last_game_state
+                            .as_ref()
+                            .map(|game| snapshot_game(game, &self.last_mana_pools))
+                    }) {
                         snap.phase = "Untap".to_string();
                         let active = snap.active_player as usize;
                         for (i, p) in snap.players.iter_mut().enumerate() {
@@ -578,7 +582,10 @@ impl PlayerAgent for CapturingAgent {
                 if self.deep && self.player_id.0 == 0 {
                     if let Some(ref game) = self.last_game_state {
                         self.parity_observer
-                            .push_entry(ParityLogEntry::Snapshot(snapshot_game(game)));
+                            .push_entry(ParityLogEntry::Snapshot(snapshot_game(
+                                game,
+                                &self.last_mana_pools,
+                            )));
                         self.parity_observer.mark_snapshot();
                     }
                 }
@@ -590,7 +597,10 @@ impl PlayerAgent for CapturingAgent {
                 if self.deep && self.player_id.0 == 0 {
                     if let Some(ref game) = self.last_game_state {
                         self.parity_observer
-                            .push_entry(ParityLogEntry::Snapshot(snapshot_game(game)));
+                            .push_entry(ParityLogEntry::Snapshot(snapshot_game(
+                                game,
+                                &self.last_mana_pools,
+                            )));
                         self.parity_observer.mark_snapshot();
                     }
                 }
@@ -640,8 +650,9 @@ impl PlayerAgent for CapturingAgent {
 
     fn snapshot_state(&mut self, game: &GameState, mana_pools: &[manabrew_engine::mana::ManaPool]) {
         self.inner.snapshot_state(game, mana_pools);
+        self.last_mana_pools = mana_pools.to_vec();
         if self.capture_snapshots && game.turn.turn_number != self.current_turn {
-            self.pending_turn_snapshot = Some(snapshot_game(game));
+            self.pending_turn_snapshot = Some(snapshot_game(game, &self.last_mana_pools));
         }
         self.last_game_state = Some(Self::shallow_game_state(game));
         self.stop_if_card_copy_guard_tripped(game);
