@@ -32,11 +32,16 @@ import { applyManaSymbol, parseManaCost } from "./manaSymbols";
 import { asGameDeckCard } from "@/lib/decks";
 import { isFacelessCard } from "@/lib/gameCard";
 import { loadCardBack } from "./cardBackTexture";
+
 import { DEBUG_KEYWORD_CARD_ID, useGameDevStore } from "@/stores/useGameDevStore";
 import { applyIcon } from "./panelIcons";
+import { isCoarsePointer } from "@/lib/responsive";
 import { type OneShot, oneShot, oneShotProgress, pulse } from "./effects/animation";
+
 import { gsap } from "./effects/gsap";
 import { bump } from "./effects/easing";
+
+const STACK_BADGE_TOUCH_PAD = 14;
 import { animationsEnabled } from "./effects/enabled";
 import {
   CARD_SHADOW,
@@ -1467,7 +1472,8 @@ export class CardSprite extends Container {
     this.stackCountContainer.x = 3;
     this.stackCountContainer.y = 2;
     if (this.stackBadgeTap) {
-      this.stackCountContainer.hitArea = new Rectangle(-4, -4, tw + 8, th + 8);
+      const pad = isCoarsePointer() ? STACK_BADGE_TOUCH_PAD : 4;
+      this.stackCountContainer.hitArea = new Rectangle(-pad, -pad, tw + pad * 2, th + pad * 2);
     }
   }
 
