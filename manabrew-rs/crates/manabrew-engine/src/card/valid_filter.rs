@@ -524,7 +524,7 @@ pub fn matches_valid_card_selector_with_context(
 /// to make it fatal while debugging a specific divergence.
 #[cfg(debug_assertions)]
 fn report_selector_drift(kind: &str, compiled: bool, legacy: bool, raw: &str) {
-    use std::collections::HashSet;
+    use crate::HashSet;
     use std::sync::{Mutex, OnceLock};
 
     if compiled == legacy {
@@ -537,7 +537,7 @@ fn report_selector_drift(kind: &str, compiled: bool, legacy: bool, raw: &str) {
     }
     static REPORTED: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
     let mut reported = REPORTED
-        .get_or_init(|| Mutex::new(HashSet::new()))
+        .get_or_init(|| Mutex::new(HashSet::default()))
         .lock()
         .unwrap();
     if reported.insert(raw.to_string()) {

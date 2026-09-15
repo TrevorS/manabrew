@@ -6,7 +6,7 @@
 //! (see `trigger_handler.rs` top comment), so every resolver needs a handful
 //! of mutable references. This struct packs them.
 
-use std::collections::HashMap;
+use crate::HashMap;
 
 use forge_foundation::ZoneType;
 

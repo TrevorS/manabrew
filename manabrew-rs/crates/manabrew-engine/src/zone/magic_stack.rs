@@ -144,7 +144,7 @@ pub struct MagicStack {
 
     /// Cast commands keyed by card name — callbacks to run when a spell resolves.
     #[serde(default)]
-    cast_commands: std::collections::HashMap<String, Vec<String>>,
+    cast_commands: crate::HashMap<String, Vec<String>>,
 }
 
 /// An undo entry tracking a spell that can be undone.
@@ -171,7 +171,7 @@ impl MagicStack {
             undo_stack: Vec::new(),
             undo_stack_owner: None,
             simultaneous_entries: Vec::new(),
-            cast_commands: std::collections::HashMap::new(),
+            cast_commands: crate::HashMap::default(),
             recently_removed: Vec::new(),
         }
     }
@@ -219,7 +219,7 @@ impl MagicStack {
     }
 
     fn update_max_distinct_sources(&mut self) {
-        let distinct: std::collections::HashSet<_> = self
+        let distinct: crate::HashSet<_> = self
             .entries
             .iter()
             .filter_map(|e| e.spell_ability.source)

@@ -3,7 +3,7 @@
 //! Mirrors the Java `CardDamageMap` behavior for accumulating damage from
 //! source cards to card/player targets and emitting one-shot damage triggers.
 
-use std::collections::{HashMap, HashSet};
+use crate::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -104,7 +104,7 @@ impl CardDamageMap {
     }
 
     pub fn trigger_prevent_damage(&self, trigger_handler: &mut TriggerHandler, is_combat: bool) {
-        let mut by_target: HashMap<DamageTarget, i32> = HashMap::new();
+        let mut by_target: HashMap<DamageTarget, i32> = HashMap::default();
         for targets in self.data.values() {
             for (&target, &amount) in targets {
                 *by_target.entry(target).or_insert(0) += amount;
@@ -158,8 +158,8 @@ impl CardDamageMap {
         }
 
         // Target -> aggregate damage
-        let mut by_target: HashMap<DamageTarget, i32> = HashMap::new();
-        let mut target_controllers: HashMap<DamageTarget, HashSet<PlayerId>> = HashMap::new();
+        let mut by_target: HashMap<DamageTarget, i32> = HashMap::default();
+        let mut target_controllers: HashMap<DamageTarget, HashSet<PlayerId>> = HashMap::default();
         for (&source, targets) in &self.data {
             for (&target, &amount) in targets {
                 *by_target.entry(target).or_insert(0) += amount;

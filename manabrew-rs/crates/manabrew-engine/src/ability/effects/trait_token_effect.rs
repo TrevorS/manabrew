@@ -50,7 +50,7 @@ pub fn parse_token_params(ctx: &EffectContext, sa: &SpellAbility) -> Option<Toke
 
 /// Look up a token template by script name from the template map.
 pub fn get_token_template<'a>(
-    templates: &'a std::collections::HashMap<String, Card>,
+    templates: &'a crate::HashMap<String, Card>,
     script: &str,
 ) -> Option<&'a Card> {
     // Try exact match first, then case-insensitive

@@ -1,5 +1,5 @@
+use crate::HashMap;
 use std::cmp::Reverse;
-use std::collections::HashMap;
 
 use super::attack_requirement::{self, AttackRequirement};
 use super::attack_restriction::{self, AttackRestrictionType};
@@ -27,7 +27,7 @@ pub struct AttackConstraints {
 #[derive(Debug, Clone)]
 pub struct AttackRestriction {
     pub attacker: CardId,
-    pub types: std::collections::HashSet<AttackRestrictionType>,
+    pub types: crate::HashSet<AttackRestrictionType>,
     pub cant_attack: bool,
     pub cant_attack_defenders: Vec<DefenderId>,
 }
@@ -91,8 +91,8 @@ impl AttackRestriction {
         &self,
         attackers: &[(CardId, DefenderId)],
         cards: &[Card],
-    ) -> std::collections::HashSet<AttackRestrictionType> {
-        let mut violations = std::collections::HashSet::new();
+    ) -> crate::HashSet<AttackRestrictionType> {
+        let mut violations = crate::HashSet::default();
         let n = attackers.len();
 
         if self.types.contains(&AttackRestrictionType::OnlyAlone) && n > 1 {
@@ -133,7 +133,7 @@ impl AttackRestriction {
         violations
     }
 
-    pub fn get_types(&self) -> &std::collections::HashSet<AttackRestrictionType> {
+    pub fn get_types(&self) -> &crate::HashSet<AttackRestrictionType> {
         &self.types
     }
 }
@@ -165,8 +165,8 @@ impl AttackConstraints {
             possible_defenders,
         );
 
-        let mut restrictions = HashMap::new();
-        let mut requirements = HashMap::new();
+        let mut restrictions = HashMap::default();
+        let mut requirements = HashMap::default();
 
         for &attacker in &possible_attackers {
             restrictions.insert(
@@ -276,7 +276,7 @@ impl AttackConstraints {
 
         // Greedy: add creatures with requirements in priority order
         let mut attack_map: Vec<(CardId, DefenderId)> = Vec::new();
-        let mut used: std::collections::HashSet<CardId> = std::collections::HashSet::new();
+        let mut used: crate::HashSet<CardId> = crate::HashSet::default();
         let mut remaining_max = max;
 
         for req in &reqs {

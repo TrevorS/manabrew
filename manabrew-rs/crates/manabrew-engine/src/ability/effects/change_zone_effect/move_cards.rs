@@ -316,8 +316,8 @@ mod tests {
     use crate::mana::ManaPool;
     use crate::spellability::SpellAbility;
     use crate::trigger::TriggerHandler;
+    use crate::HashMap;
     use forge_foundation::{CardTypeLine, ColorSet, ManaCost};
-    use std::collections::HashMap;
 
     struct ReverseRng;
 
@@ -360,10 +360,10 @@ mod tests {
 
         let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(PassAgent), Box::new(PassAgent)];
         let mut trigger_handler = TriggerHandler::new();
-        let token_templates = HashMap::new();
-        let token_art_variants = HashMap::new();
-        let token_fallback = HashMap::new();
-        let edition_dates = HashMap::new();
+        let token_templates = HashMap::default();
+        let token_art_variants = HashMap::default();
+        let token_fallback = HashMap::default();
+        let edition_dates = HashMap::default();
         let mut mana_pools = vec![ManaPool::new(), ManaPool::new()];
         let mut rng = ReverseRng;
         let mut ctx = EffectContext {

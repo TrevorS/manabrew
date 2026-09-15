@@ -1,4 +1,5 @@
-use std::collections::{BTreeSet, HashMap};
+use crate::HashMap;
+use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
@@ -185,9 +186,9 @@ impl PlayerState {
             has_conceded: false,
             left_game: false,
             outcome: None,
-            commander_damage_received: HashMap::new(),
+            commander_damage_received: HashMap::default(),
             commanders: Vec::new(),
-            commander_casts: HashMap::new(),
+            commander_casts: HashMap::default(),
             commander_damage_enabled: true,
             skip_turns: 0,
             skip_next_draw: false,
@@ -242,22 +243,22 @@ impl PlayerState {
             lands_entered_battlefield_this_turn: 0,
             permanents_put_into_graveyard_this_turn: 0,
             completed_dungeons: Vec::new(),
-            notes: HashMap::new(),
-            noted_num: HashMap::new(),
+            notes: HashMap::default(),
+            noted_num: HashMap::default(),
             tapped_land_for_mana_this_turn: false,
             committed_crime_this_turn: 0,
             changed_keywords: Vec::new(),
             keywords_until_my_next_turn: Vec::new(),
             keywords_until_end_of_turn: Vec::new(),
-            maingame_card_mapping: HashMap::new(),
+            maingame_card_mapping: HashMap::default(),
             controlled_while_searching: BTreeSet::new(),
             avatar_index: 0,
             sleeve_index: 0,
             crank_counter: 3,
-            additional_votes: HashMap::new(),
-            additional_optional_votes: HashMap::new(),
+            additional_votes: HashMap::default(),
+            additional_optional_votes: HashMap::default(),
             control_votes: BTreeSet::new(),
-            additional_villainous_choices: HashMap::new(),
+            additional_villainous_choices: HashMap::default(),
             declares_attackers: BTreeSet::new(),
             declares_blockers: BTreeSet::new(),
             elemental_bend_triggers: BTreeSet::new(),
@@ -267,7 +268,7 @@ impl PlayerState {
             gained_ownership: Vec::new(),
             paid_for_stack: Vec::new(),
             devotion_mod: 0,
-            draft_notes: HashMap::new(),
+            draft_notes: HashMap::default(),
             statistics: PlayerStatistics {
                 opening_hand_size: 7,
                 ..PlayerStatistics::default()

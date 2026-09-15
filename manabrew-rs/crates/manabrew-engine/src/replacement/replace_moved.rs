@@ -2,7 +2,7 @@
 //!
 //! Mirrors Java `ReplaceMoved.java` in `forge/game/replacement/`.
 
-use std::collections::HashMap;
+use crate::HashMap;
 
 use forge_foundation::ZoneType;
 
@@ -252,10 +252,10 @@ fn execute_replacement_ability(
     }
 
     let mut local_trigger_handler = TriggerHandler::new();
-    let local_token_templates: HashMap<String, Card> = HashMap::new();
-    let local_token_art_variants: HashMap<(String, String), usize> = HashMap::new();
-    let local_token_fallback: HashMap<String, String> = HashMap::new();
-    let local_edition_dates: HashMap<String, String> = HashMap::new();
+    let local_token_templates: HashMap<String, Card> = HashMap::default();
+    let local_token_art_variants: HashMap<(String, String), usize> = HashMap::default();
+    let local_token_fallback: HashMap<String, String> = HashMap::default();
+    let local_edition_dates: HashMap<String, String> = HashMap::default();
     let mut local_rng = ThreadRngAdapter;
 
     let mut parent_target_card: Option<CardId> = None;

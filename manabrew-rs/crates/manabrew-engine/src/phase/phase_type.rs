@@ -6,7 +6,7 @@
 
 pub use forge_foundation::PhaseType;
 
-use std::collections::HashSet;
+use crate::HashSet;
 
 /// Phase group index — maps each phase to its parent group.
 /// Mirrors Java's `PHASE_INDEX` map.
@@ -33,7 +33,7 @@ pub fn phase_group_index(phase: PhaseType) -> usize {
 /// Supports "Phase1->Phase2" range syntax and "Main" alias for Main1+Main2.
 /// Mirrors Java's `PhaseType.parseRange()`.
 pub fn parse_range(values: &str) -> HashSet<PhaseType> {
-    let mut result = HashSet::new();
+    let mut result = HashSet::default();
     for s in values.split(',') {
         let s = s.trim();
         if let Some(idx) = s.find("->") {

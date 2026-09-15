@@ -291,7 +291,7 @@ pub fn from_string(s: &str) -> Option<AbilityKey> {
 }
 
 pub fn add_card_zone_table_params(
-    trigger_params: &mut std::collections::HashMap<String, String>,
+    trigger_params: &mut crate::HashMap<String, String>,
     change_zone_table: &crate::card::card_zone_table::CardZoneTable,
 ) {
     trigger_params.insert(

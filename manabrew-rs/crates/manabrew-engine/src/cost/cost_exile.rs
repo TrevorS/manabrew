@@ -204,8 +204,7 @@ pub fn can_pay(
         } => {
             let resolved_amount = amount.resolve(game, source, player);
             let base_filter = super::normalize_exile_base_filter(type_filter);
-            let mut by_owner: std::collections::HashMap<crate::ids::PlayerId, i32> =
-                std::collections::HashMap::new();
+            let mut by_owner: crate::HashMap<crate::ids::PlayerId, i32> = crate::HashMap::default();
             for p in &game.players {
                 for &cid in game.cards_in_zone(forge_foundation::ZoneType::Graveyard, p.id) {
                     if base_filter == "Card"

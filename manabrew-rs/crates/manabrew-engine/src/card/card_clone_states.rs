@@ -1,6 +1,6 @@
 //! Clone-state container (Java parity: `CardCloneStates`).
 
-use std::collections::HashMap;
+use crate::HashMap;
 
 use crate::card::Card;
 use crate::ids::CardId;

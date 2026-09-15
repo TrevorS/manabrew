@@ -3,7 +3,7 @@
 //! Mirrors Java's `spellability/TargetChoices.java` — a container holding
 //! the actual selected targets for a spell ability.
 
-use std::collections::HashMap;
+use crate::HashMap;
 
 use serde::{Deserialize, Serialize};
 

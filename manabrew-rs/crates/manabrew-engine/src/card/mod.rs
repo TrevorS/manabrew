@@ -49,7 +49,8 @@ pub const KEYWORD_PLOTTED_PREFIX: &str = "Plotted:";
 /// These cards can be cast from exile on a later turn for their normal mana cost.
 pub const KEYWORD_WARP_EXILED: &str = "WarpExiled";
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use crate::{HashMap, HashSet};
+use std::collections::BTreeMap;
 
 use forge_carddb::CardRules;
 use forge_foundation::{CardStateName, CardTypeLine, ColorSet, CoreType, ManaCost, ZoneType};
@@ -852,13 +853,13 @@ impl Card {
             paid_cost_exiled_cards: Vec::new(),
             haunted_by: Vec::new(),
             haunting: None,
-            chosen_map: HashMap::new(),
+            chosen_map: HashMap::default(),
             remembered_cmc: Vec::new(),
             effect_source: None,
             clone_origin: None,
             copied_permanent: None,
             cast_sa: None,
-            chosen_charm_modes: HashMap::new(),
+            chosen_charm_modes: HashMap::default(),
             remembered_lki_cards: Vec::new(),
             lose_control_condition: None,
             temp_effect_until_eot: false,
@@ -924,7 +925,7 @@ impl Card {
             may_play: Vec::new(),
             can_block_additional: 0,
             can_block_any: false,
-            cant_have_keywords: HashSet::new(),
+            cant_have_keywords: HashSet::default(),
             intensity: 0,
             surveilled: false,
             milled: false,
@@ -1639,7 +1640,7 @@ impl Card {
     }
 
     pub fn update_remembered(&mut self) {
-        let mut seen = HashSet::new();
+        let mut seen = HashSet::default();
         self.remembered_cards.retain(|c| seen.insert(*c));
     }
 
@@ -1798,7 +1799,7 @@ impl Card {
     }
 
     pub fn rebuild_mutated_states(&mut self) {
-        let mut seen = HashSet::new();
+        let mut seen = HashSet::default();
         self.melded_with.retain(|c| seen.insert(*c));
     }
 
@@ -2748,7 +2749,7 @@ impl Card {
     pub fn can_produce_color_mana(
         &self,
         game: &GameState,
-        colors: &std::collections::HashSet<String>,
+        colors: &crate::HashSet<String>,
     ) -> bool {
         crate::card::card_util::card_can_produce_color_mana(game, self.id, colors)
     }
@@ -3004,11 +3005,11 @@ impl Card {
     }
 
     pub fn update_may_look(&mut self) {
-        let mut seen = HashSet::new();
+        let mut seen = HashSet::default();
         self.may_look_at.retain(|p| seen.insert(*p));
     }
     pub fn update_may_play(&mut self) {
-        let mut seen = HashSet::new();
+        let mut seen = HashSet::default();
         self.may_play.retain(|p| seen.insert(*p));
     }
 
@@ -3271,7 +3272,7 @@ impl Card {
         self.phased_out = !self.phased_out;
     }
     pub fn associated_with_color(&self, game: &GameState, color: &str) -> bool {
-        let mut colors = HashSet::new();
+        let mut colors = HashSet::default();
         colors.insert(color.to_string());
         forge_foundation::Color::from_name(&color.to_ascii_lowercase())
             .map(|parsed| self.color.has_any_color(parsed.mask()))
@@ -3996,11 +3997,11 @@ impl HasSVars for Card {
         self.set_s_var(name, value);
     }
 
-    fn set_svars(&mut self, new_svars: std::collections::HashMap<String, String>) {
+    fn set_svars(&mut self, new_svars: crate::HashMap<String, String>) {
         self.set_svars_map(new_svars.into_iter().collect());
     }
 
-    fn get_svars(&self) -> &std::collections::HashMap<String, String> {
+    fn get_svars(&self) -> &crate::HashMap<String, String> {
         panic!("Card::get_svars is not supported yet; use get_s_var/has_s_var parity accessors");
     }
 
@@ -4012,7 +4013,7 @@ impl HasSVars for Card {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashSet;
+    use crate::HashSet;
 
     use forge_carddb::parse_card_script;
     use forge_foundation::ManaCost;
@@ -4245,7 +4246,7 @@ mod tests {
         game.move_card(white_id, ZoneType::Battlefield, p0);
         game.move_card(pool_id, ZoneType::Battlefield, p0);
 
-        let mut white = HashSet::new();
+        let mut white = HashSet::default();
         white.insert("white".to_string());
         assert!(game.card(white_id).can_produce_color_mana(&game, &white));
         assert!(game.card(pool_id).can_produce_color_mana(&game, &white));

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use crate::HashMap;
 use std::sync::{Mutex, OnceLock};
 
 use super::CounterType;
@@ -13,7 +13,7 @@ impl CounterKeywordType {
     /// Java parity: cached factory for keyword counter wrappers.
     pub fn get(s: &str) -> CounterKeywordType {
         static CACHE: OnceLock<Mutex<HashMap<String, CounterKeywordType>>> = OnceLock::new();
-        let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+        let cache = CACHE.get_or_init(|| Mutex::new(HashMap::default()));
         let mut lock = cache.lock().expect("counter keyword cache poisoned");
         if let Some(existing) = lock.get(s) {
             return existing.clone();

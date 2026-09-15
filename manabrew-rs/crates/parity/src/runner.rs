@@ -1183,9 +1183,9 @@ pub fn run_with_data_streaming(
     // Copy token art variant data from the card DB for game-RNG parity.
     // Java's Aggregates.random() on a Set consumes nextInt() per element,
     // so Rust must know how many art variants each token has per edition.
-    game_loop.token_art_variants = data.db.token_art_variants().clone();
-    game_loop.token_fallback = data.db.token_fallback().clone();
-    game_loop.edition_dates = data.db.edition_dates().clone();
+    game_loop.token_art_variants = data.db.token_art_variants().clone().into_iter().collect();
+    game_loop.token_fallback = data.db.token_fallback().clone().into_iter().collect();
+    game_loop.edition_dates = data.db.edition_dates().clone().into_iter().collect();
 
     // Shared storage for parity log entries captured by CapturingAgent
     let shared_log: Arc<Mutex<Vec<ParityLogEntry>>> = Arc::new(Mutex::new(Vec::new()));

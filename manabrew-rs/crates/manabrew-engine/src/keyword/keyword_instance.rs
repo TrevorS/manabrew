@@ -2,7 +2,7 @@
 //!
 //! Ported from Java's `KeywordInstance.java` and `Keyword.java` in `forge/game/keyword/`.
 
-use std::collections::HashMap;
+use crate::HashMap;
 use std::fmt;
 
 /// Base data shared by all keyword instances.
@@ -59,7 +59,7 @@ impl KeywordInstance {
             replacements: Vec::new(),
             spell_abilities: Vec::new(),
             static_abilities: Vec::new(),
-            svars: HashMap::new(),
+            svars: HashMap::default(),
         }
     }
 

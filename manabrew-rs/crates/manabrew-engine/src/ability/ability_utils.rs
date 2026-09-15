@@ -1599,7 +1599,7 @@ pub fn player_x_property(
         "DomainCount" => {
             // Count distinct basic land types among lands the player controls
             let lands = game.cards_in_zone(ZoneType::Battlefield, player);
-            let mut types = std::collections::HashSet::new();
+            let mut types = crate::HashSet::default();
             for &cid in lands {
                 let card = game.card(cid);
                 if !card.is_land() {
@@ -1781,7 +1781,7 @@ pub fn count_card_types_from_list(
     cards: &[CardId],
     permanent_types: bool,
 ) -> i32 {
-    let mut types = std::collections::HashSet::new();
+    let mut types = crate::HashSet::default();
     for &cid in cards {
         let card = game.card(cid);
         for ct in &card.type_line.core_types {
@@ -1812,7 +1812,7 @@ pub fn count_card_types_from_list(
 /// Count distinct supertypes among a list of cards.
 /// Mirrors Java's `AbilityUtils.countSuperTypesFromList(Iterable<Card>)`.
 pub fn count_super_types_from_list(game: &GameState, cards: &[CardId]) -> i32 {
-    let mut types = std::collections::HashSet::new();
+    let mut types = crate::HashSet::default();
     for &cid in cards {
         let card = game.card(cid);
         for st in &card.type_line.supertypes {
@@ -1825,7 +1825,7 @@ pub fn count_super_types_from_list(game: &GameState, cards: &[CardId]) -> i32 {
 /// Count distinct subtypes among a list of cards.
 /// Mirrors Java's `AbilityUtils.countSubTypesFromList(Iterable<Card>)`.
 pub fn count_sub_types_from_list(game: &GameState, cards: &[CardId]) -> i32 {
-    let mut types = std::collections::HashSet::new();
+    let mut types = crate::HashSet::default();
     for &cid in cards {
         let card = game.card(cid);
         for subtype in &card.type_line.subtypes {
@@ -1986,7 +1986,7 @@ pub fn filter_list_by_type(
 /// Format: "SourceColor->TargetColor" (additive) or "SourceColor<-TargetColor" (restrictive)
 /// Multiple pairs separated by spaces.
 pub fn apply_mana_color_conversion(
-    conversions: &mut std::collections::HashMap<String, Vec<String>>,
+    conversions: &mut crate::HashMap<String, Vec<String>>,
     conversion_str: &str,
 ) {
     for pair in conversion_str.split_whitespace() {

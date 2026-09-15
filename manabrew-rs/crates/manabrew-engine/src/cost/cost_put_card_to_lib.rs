@@ -84,8 +84,8 @@ pub fn can_pay(
                     )
             })
             .collect();
-        let mut by_controller: std::collections::HashMap<crate::ids::PlayerId, i32> =
-            std::collections::HashMap::new();
+        let mut by_controller: crate::HashMap<crate::ids::PlayerId, i32> =
+            crate::HashMap::default();
         for cid in pool {
             let ctrl = game.card(cid).controller;
             *by_controller.entry(ctrl).or_insert(0) += 1;

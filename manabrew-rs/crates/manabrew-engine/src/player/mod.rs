@@ -957,10 +957,10 @@ pub fn init_commander_color(game: &mut GameState, player: PlayerId) {
 }
 
 pub fn all_cards_unique_mana_symbols(game: &GameState, player: PlayerId) -> bool {
-    use std::collections::HashSet;
+    use crate::HashSet;
 
-    let mut colored = HashSet::new();
-    let mut generic = HashSet::new();
+    let mut colored = HashSet::default();
+    let mut generic = HashSet::default();
     for &card_id in game.cards_in_zone(ZoneType::Library, player) {
         let cost = &game.card(card_id).mana_cost;
         for shard in cost.shards() {

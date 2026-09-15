@@ -5,7 +5,7 @@
 //! this module provides the phase-specific state tracking that the
 //! game loop delegates to.
 
-use std::collections::HashMap;
+use crate::HashMap;
 
 use forge_foundation::PhaseType;
 
@@ -50,7 +50,7 @@ impl PhaseHandler {
             phase: None,
             turn: 0,
             extra_turns: Vec::new(),
-            extra_phases: HashMap::new(),
+            extra_phases: HashMap::default(),
             n_upkeeps_this_turn: 0,
             n_upkeeps_this_game: 0,
             n_combats_this_turn: 0,

@@ -284,7 +284,7 @@ fn matches_choose_from_list_path(sa: &SpellAbility) -> bool {
 #[cfg(test)]
 mod tests {
     use crate::ability::spell_ability_effect::SpellAbilityEffect;
-    use std::collections::HashMap;
+    use crate::HashMap;
 
     use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 
@@ -356,10 +356,10 @@ mod tests {
         let mut agents: Vec<Box<dyn crate::agent::PlayerAgent>> =
             vec![Box::new(PassAgent), Box::new(PassAgent)];
         let mut mana_pools = vec![ManaPool::default(), ManaPool::default()];
-        let token_templates = HashMap::new();
-        let templates_variants: HashMap<(String, String), usize> = HashMap::new();
-        let token_fallback: HashMap<String, String> = HashMap::new();
-        let edition_dates: HashMap<String, String> = HashMap::new();
+        let token_templates = HashMap::default();
+        let templates_variants: HashMap<(String, String), usize> = HashMap::default();
+        let token_fallback: HashMap<String, String> = HashMap::default();
+        let edition_dates: HashMap<String, String> = HashMap::default();
         let mut rng_adapter = crate::game_rng::ThreadRngAdapter;
         let mut ctx = make_ctx(
             &mut game,

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use crate::HashSet;
 
 use forge_foundation::ManaAtom;
 use forge_foundation::ZoneType;
@@ -23,7 +23,7 @@ const MANATYPES: [u16; 6] = [
 /// Mirrors Java's `StaticAbilityUnspentMana.getManaToKeep()`.
 /// Returns a deduplicated `HashSet<u16>` of `ManaAtom` constants.
 pub fn get_mana_to_keep(game: &GameState, player: PlayerId) -> HashSet<u16> {
-    let mut result = HashSet::new();
+    let mut result = HashSet::default();
     for card in game
         .cards
         .iter()

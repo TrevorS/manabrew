@@ -2259,8 +2259,7 @@ pub fn resolve_count_svar_for_sa(
                 let selector = crate::parsing::cached_compiled_selector(restriction);
                 let source = game.card(source_id);
                 let mut all_creature_type = 0;
-                let mut map: std::collections::HashMap<&str, i32> =
-                    std::collections::HashMap::new();
+                let mut map: crate::HashMap<&str, i32> = crate::HashMap::default();
                 for card in game.cards.iter().filter(|card| {
                     card.zone == ZoneType::Battlefield
                         && crate::card::valid_filter::matches_valid_card_selector_in_game(

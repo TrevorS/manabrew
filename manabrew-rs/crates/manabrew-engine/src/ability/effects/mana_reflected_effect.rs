@@ -133,7 +133,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
 }
 
-fn colors_from_names(colors: std::collections::HashSet<String>) -> Vec<u16> {
+fn colors_from_names(colors: crate::HashSet<String>) -> Vec<u16> {
     let mut out = Vec::new();
     for color in colors {
         let atom = match color.as_str() {

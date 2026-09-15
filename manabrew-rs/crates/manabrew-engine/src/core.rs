@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use crate::HashMap;
 
 pub trait Identifiable {
     fn id(&self) -> i32;

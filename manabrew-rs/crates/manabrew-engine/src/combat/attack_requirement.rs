@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use crate::HashMap;
 
 use super::DefenderId;
 use crate::card::Card;
@@ -104,7 +104,7 @@ pub fn compute_attack_requirements_with_defenders(
             n_attack_anything += 1;
         }
 
-        let mut defender_specific = HashMap::new();
+        let mut defender_specific = HashMap::default();
         for &defender in possible_defenders {
             defender_specific.insert(defender, n_attack_anything);
         }

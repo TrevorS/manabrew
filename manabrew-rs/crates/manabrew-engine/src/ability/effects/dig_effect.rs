@@ -298,7 +298,7 @@ mod tests {
     use crate::mana::ManaPool;
     use crate::spellability::SpellAbility;
     use crate::trigger::handler::TriggerHandler;
-    use std::collections::HashMap;
+    use crate::HashMap;
 
     fn make_land(game: &mut GameState, owner: PlayerId) -> CardId {
         let c = Card::new(
@@ -420,10 +420,10 @@ mod tests {
         let mut agents: Vec<Box<dyn PlayerAgent>> =
             vec![Box::new(TakeFirstAgent), Box::new(PassAgent)];
         let mut mana_pools = vec![ManaPool::default(), ManaPool::default()];
-        let token_templates = HashMap::new();
-        let templates_variants: HashMap<(String, String), usize> = HashMap::new();
-        let token_fallback: HashMap<String, String> = HashMap::new();
-        let edition_dates: HashMap<String, String> = HashMap::new();
+        let token_templates = HashMap::default();
+        let templates_variants: HashMap<(String, String), usize> = HashMap::default();
+        let token_fallback: HashMap<String, String> = HashMap::default();
+        let edition_dates: HashMap<String, String> = HashMap::default();
         let mut rng_adapter = crate::game_rng::ThreadRngAdapter;
         let mut ctx = EffectContext {
             game: &mut game,

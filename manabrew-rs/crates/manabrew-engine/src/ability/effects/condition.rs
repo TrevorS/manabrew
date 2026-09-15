@@ -118,7 +118,7 @@ pub(super) fn check_condition(game: &GameState, sa: &SpellAbility) -> bool {
         let value = if let Some(valid_filter) = expr.strip_prefix("Imprinted$Valid ") {
             let imprinted = game.card(source_id).imprinted_cards.clone();
             if valid_filter.eq_ignore_ascii_case("Card.sharesNameWith Remembered") {
-                let remembered_names: std::collections::HashSet<String> = game
+                let remembered_names: crate::HashSet<String> = game
                     .card(source_id)
                     .remembered_cards
                     .iter()

@@ -35,7 +35,7 @@ impl GameLoop {
         game: &GameState,
         player: PlayerId,
         card_id: CardId,
-        chosen_types_by_source: &std::collections::HashMap<CardId, String>,
+        chosen_types_by_source: &crate::HashMap<CardId, String>,
     ) -> bool {
         let Some((host, sa)) = crate::spellability::build_spell_ability_for_card_state_cast(
             game,
@@ -180,7 +180,7 @@ impl GameLoop {
                 })
                 .sum()
         };
-        let chosen_types_by_source: std::collections::HashMap<CardId, String> = game
+        let chosen_types_by_source: crate::HashMap<CardId, String> = game
             .cards
             .iter()
             .filter_map(|c| c.chosen_type.clone().map(|chosen| (c.id, chosen)))

@@ -10,7 +10,7 @@
 //! S$ Mode$ CantAttack | Affected$ Creature.YouControl | Description$ Creatures you control can't attack.
 //! ```
 
-use std::collections::HashMap;
+use crate::HashMap;
 
 use forge_foundation::ColorSet;
 use forge_foundation::ZoneType;
@@ -1105,7 +1105,7 @@ pub fn parse_static_ability(raw: &str) -> Option<StaticAbility> {
         ignore_effect_cards: Vec::new(),
         ignore_effect_players: Vec::new(),
         may_play_turn: 0,
-        svars: HashMap::new(),
+        svars: HashMap::default(),
         ir,
     };
     st_ab.sync_trait_base_params();

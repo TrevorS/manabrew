@@ -1,7 +1,7 @@
+use crate::HashMap;
 use forge_foundation::mana::ManaAtom;
 use forge_foundation::{ManaCost, ManaCostShard, ZoneType};
 use indexmap::IndexMap;
-use std::collections::HashMap;
 
 use crate::agent::ManaAbilityOption;
 use crate::cost::cost_part::pay_cost_from_source;
@@ -1083,7 +1083,7 @@ fn collect_sorted_candidates_with_pref(
         .flat_map(|v| v.iter().cloned())
         .collect();
     // Deduplicate by (card_id, ability_index) — same ability may appear under multiple color keys.
-    let mut seen = std::collections::HashSet::new();
+    let mut seen = crate::HashSet::default();
     out.retain(|ma| seen.insert((ma.card_id, ma.ability_index, ma.source_order)));
     // Sort by score, then by zone_timestamp (battlefield entry order) to match
     // Java's card iteration which uses timestamp order, not CardId order.
@@ -1139,7 +1139,7 @@ fn choose_candidate(
 fn shard_priority(unpaid: &ManaCostBeingPaid, candidates: &[ManaAbilityRef]) -> Vec<ManaCostShard> {
     let mut colored = Vec::new();
     let mut generic = None;
-    let mut seen = std::collections::HashSet::new();
+    let mut seen = crate::HashSet::default();
     for shard in unpaid.get_distinct_shards() {
         if matches!(shard, ManaCostShard::X | ManaCostShard::ColoredX) {
             continue;
@@ -1299,7 +1299,7 @@ fn is_sole_source_for_other_shard_candidates(
     candidates: &[ManaAbilityRef],
     unpaid: &ManaCostBeingPaid,
 ) -> bool {
-    let mut seen = std::collections::HashSet::new();
+    let mut seen = crate::HashSet::default();
     for other_shard in unpaid.get_distinct_shards() {
         if other_shard == current_shard {
             continue;
@@ -1969,7 +1969,7 @@ fn sort_mana_abilities(
     mana_ability_map: &mut IndexMap<ManaCostShard, Vec<ManaAbilityRef>>,
     colors_most_common: &[u16],
 ) {
-    let mut mana_card_score: HashMap<CardId, i32> = HashMap::new();
+    let mut mana_card_score: HashMap<CardId, i32> = HashMap::default();
     let mut ordered_cards: Vec<CardId> = Vec::new();
 
     for abilities in mana_ability_map.values() {
@@ -2440,7 +2440,7 @@ pub fn can_pay_mana_cost_with_reserved_sacrifices(
         count_a.cmp(&count_b).then(a.cmp(&b))
     });
 
-    let mut committed = std::collections::HashSet::new();
+    let mut committed = crate::HashSet::default();
     for requirement in requirements {
         let mut best_index: Option<usize> = None;
         let mut best_pop = usize::MAX;
@@ -2480,7 +2480,7 @@ pub fn can_pay_spell_mana_cost_for_action_space(
         return true;
     }
 
-    let mut used_sources = std::collections::HashSet::new();
+    let mut used_sources = crate::HashSet::default();
     let mut guard = 0u32;
     while !unpaid.is_paid() && guard < 128 {
         guard += 1;

@@ -1,4 +1,5 @@
-use std::collections::{HashMap, VecDeque};
+use crate::HashMap;
+use std::collections::VecDeque;
 use std::hash::{DefaultHasher, Hasher};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -160,10 +161,10 @@ impl GameLoop {
             combat: CombatState::new(),
             trigger_handler: TriggerHandler::new(),
             game_log: GameLog::new(),
-            token_templates: HashMap::new(),
-            token_art_variants: HashMap::new(),
-            token_fallback: HashMap::new(),
-            edition_dates: HashMap::new(),
+            token_templates: HashMap::default(),
+            token_art_variants: HashMap::default(),
+            token_fallback: HashMap::default(),
+            edition_dates: HashMap::default(),
             game_rng: Box::new(ThreadRngAdapter),
             experimental_restore_snapshot: false,
             previous_game_state: None,

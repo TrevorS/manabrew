@@ -79,7 +79,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use crate::HashMap;
 
     use super::SkipPhaseEffect;
     use crate::ability::effects::EffectContext;
@@ -104,10 +104,10 @@ mod tests {
         let mut agents: Vec<Box<dyn crate::agent::PlayerAgent>> =
             vec![Box::new(PassAgent), Box::new(PassAgent)];
         let mut mp = vec![ManaPool::default(), ManaPool::default()];
-        let templates = HashMap::new();
-        let templates_variants = HashMap::new();
-        let token_fallback = HashMap::new();
-        let edition_dates: HashMap<String, String> = HashMap::new();
+        let templates = HashMap::default();
+        let templates_variants = HashMap::default();
+        let token_fallback = HashMap::default();
+        let edition_dates: HashMap<String, String> = HashMap::default();
         let mut rng_adapter = crate::game_rng::ThreadRngAdapter;
         let mut ctx = EffectContext {
             game: &mut game,
@@ -139,10 +139,10 @@ mod tests {
         let mut agents: Vec<Box<dyn crate::agent::PlayerAgent>> =
             vec![Box::new(PassAgent), Box::new(PassAgent)];
         let mut mp = vec![ManaPool::default(), ManaPool::default()];
-        let templates = HashMap::new();
-        let templates_variants = HashMap::new();
-        let token_fallback = HashMap::new();
-        let edition_dates: HashMap<String, String> = HashMap::new();
+        let templates = HashMap::default();
+        let templates_variants = HashMap::default();
+        let token_fallback = HashMap::default();
+        let edition_dates: HashMap<String, String> = HashMap::default();
         let mut rng_adapter = crate::game_rng::ThreadRngAdapter;
         let mut ctx = EffectContext {
             game: &mut game,

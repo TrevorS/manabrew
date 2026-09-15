@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use crate::HashMap;
 
 use crate::game::GameState;
 use crate::keyword::keyword_instance::Keyword;
@@ -22,7 +22,7 @@ impl WrappedAbility {
         Self {
             wrapped,
             trigger: None,
-            additional_ability_lists: HashMap::new(),
+            additional_ability_lists: HashMap::default(),
         }
     }
 
@@ -30,7 +30,7 @@ impl WrappedAbility {
         Self {
             wrapped,
             trigger: Some(trigger),
-            additional_ability_lists: HashMap::new(),
+            additional_ability_lists: HashMap::default(),
         }
     }
 

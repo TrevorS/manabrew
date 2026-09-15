@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use crate::HashMap;
 
 use super::DefenderId;
 use crate::card::Card;
@@ -45,7 +45,7 @@ impl GlobalAttackRestrictions {
     ) -> Self {
         let mut max = static_ability_attack_restrict::global_attack_restrict(cards);
 
-        let mut defender_max = HashMap::new();
+        let mut defender_max = HashMap::default();
         for &defender in possible_defenders {
             if let DefenderId::Player(pid) = defender {
                 if let Some(def_max) =

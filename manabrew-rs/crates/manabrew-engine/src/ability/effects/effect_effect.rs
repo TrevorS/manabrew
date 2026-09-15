@@ -522,13 +522,10 @@ mod tests {
 
         let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(PassAgent), Box::new(PassAgent)];
         let mut trigger_handler = TriggerHandler::new();
-        let token_templates = std::collections::HashMap::new();
-        let templates_variants: std::collections::HashMap<(String, String), usize> =
-            std::collections::HashMap::new();
-        let token_fallback: std::collections::HashMap<String, String> =
-            std::collections::HashMap::new();
-        let edition_dates: std::collections::HashMap<String, String> =
-            std::collections::HashMap::new();
+        let token_templates = crate::HashMap::default();
+        let templates_variants: crate::HashMap<(String, String), usize> = crate::HashMap::default();
+        let token_fallback: crate::HashMap<String, String> = crate::HashMap::default();
+        let edition_dates: crate::HashMap<String, String> = crate::HashMap::default();
         let mut mana_pools = vec![ManaPool::new(), ManaPool::new()];
         let mut rng_adapter = crate::game_rng::ThreadRngAdapter;
         let mut ctx = EffectContext {

@@ -4,7 +4,7 @@
 //! Parses ability strings (AB$, SP$, DB$, ST$ prefixed) and constructs
 //! the corresponding `SpellAbility` with all sub-abilities resolved.
 
-use std::collections::HashMap;
+use crate::HashMap;
 
 use crate::ability::api_type::ApiType;
 use crate::card::Card;
@@ -206,7 +206,7 @@ const CONDITION_KEYS: &[&str] = &[
 /// Parse a pipe-delimited ability string into a key-value map.
 /// Mirrors Java's `AbilityFactory.getMapParams()`.
 pub fn get_map_params(ab_string: &str) -> HashMap<String, String> {
-    let mut map = HashMap::new();
+    let mut map = HashMap::default();
     for segment in ab_string.split('|') {
         let segment = segment.trim();
         if let Some(idx) = segment.find('$') {
@@ -399,14 +399,14 @@ pub fn build_spell_ability_for_card_cast(
         x_mana_cost_paid: 0,
         discarded_cost_cards: Vec::new(),
         optional_costs: Vec::new(),
-        paid_hash: std::collections::HashMap::new(),
+        paid_hash: crate::HashMap::default(),
         paying_mana: Vec::new(),
         paid_abilities: Vec::new(),
         mana_part: None,
         express_mana_choice: None,
         convoke_tapped: Vec::new(),
         spliced_cards: Vec::new(),
-        announce_vars: std::collections::HashMap::new(),
+        announce_vars: crate::HashMap::default(),
         sacrificed_as_emerge: None,
         sacrificed_as_offering: None,
         description: String::new(),
@@ -414,18 +414,18 @@ pub fn build_spell_ability_for_card_cast(
         is_mana_ability: false,
         is_land_ability: false,
         cast_face_down: false,
-        trigger_objects: std::collections::HashMap::new(),
-        trigger_spell_abilities: std::collections::HashMap::new(),
-        additional_ability_lists: std::collections::HashMap::new(),
-        replacing_objects: std::collections::HashMap::new(),
+        trigger_objects: crate::HashMap::default(),
+        trigger_spell_abilities: crate::HashMap::default(),
+        additional_ability_lists: crate::HashMap::default(),
+        replacing_objects: crate::HashMap::default(),
         trigger_remembered: Vec::new(),
         restriction,
         condition,
         rollback_effects: Vec::new(),
-        optional_keyword_amounts: std::collections::HashMap::new(),
+        optional_keyword_amounts: crate::HashMap::default(),
         pips_to_reduce: Vec::new(),
         may_choose_new_targets: false,
-        last_state: std::collections::HashMap::new(),
+        last_state: crate::HashMap::default(),
         last_state_battlefield: Vec::new(),
         change_zone_table: None,
         damage_map: None,
@@ -561,14 +561,14 @@ fn build_spell_ability_of_type_with_params(
         x_mana_cost_paid: 0,
         discarded_cost_cards: Vec::new(),
         optional_costs: Vec::new(),
-        paid_hash: std::collections::HashMap::new(),
+        paid_hash: crate::HashMap::default(),
         paying_mana: Vec::new(),
         paid_abilities: Vec::new(),
         mana_part,
         express_mana_choice: None,
         convoke_tapped: Vec::new(),
         spliced_cards: Vec::new(),
-        announce_vars: std::collections::HashMap::new(),
+        announce_vars: crate::HashMap::default(),
         sacrificed_as_emerge: None,
         sacrificed_as_offering: None,
         description: String::new(),
@@ -576,18 +576,18 @@ fn build_spell_ability_of_type_with_params(
         is_mana_ability: false,
         is_land_ability: false,
         cast_face_down: false,
-        trigger_objects: std::collections::HashMap::new(),
-        trigger_spell_abilities: std::collections::HashMap::new(),
-        additional_ability_lists: std::collections::HashMap::new(),
-        replacing_objects: std::collections::HashMap::new(),
+        trigger_objects: crate::HashMap::default(),
+        trigger_spell_abilities: crate::HashMap::default(),
+        additional_ability_lists: crate::HashMap::default(),
+        replacing_objects: crate::HashMap::default(),
         trigger_remembered: Vec::new(),
         restriction,
         condition,
         rollback_effects: Vec::new(),
-        optional_keyword_amounts: std::collections::HashMap::new(),
+        optional_keyword_amounts: crate::HashMap::default(),
         pips_to_reduce: Vec::new(),
         may_choose_new_targets: false,
-        last_state: std::collections::HashMap::new(),
+        last_state: crate::HashMap::default(),
         last_state_battlefield: Vec::new(),
         change_zone_table: None,
         damage_map: None,

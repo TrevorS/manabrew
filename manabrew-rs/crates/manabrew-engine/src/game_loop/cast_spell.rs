@@ -1924,7 +1924,7 @@ impl GameLoop {
         // add those keywords to the spell's card.
         let keywords_after = self.pool(player).collect_keyword_mana();
         {
-            let mut applied = std::collections::HashSet::new();
+            let mut applied = crate::HashSet::default();
             for (kw, valid) in &keywords_before {
                 if applied.contains(kw) {
                     continue;
@@ -1952,7 +1952,7 @@ impl GameLoop {
         // mark the card to receive counters on ETB.
         let counters_after = self.pool(player).collect_counter_mana();
         {
-            let mut applied = std::collections::HashSet::new();
+            let mut applied = crate::HashSet::default();
             for (counter_spec, valid) in &counters_before {
                 if applied.contains(counter_spec) {
                     continue;
@@ -1997,7 +1997,7 @@ impl GameLoop {
             let mut combined_before = triggers_before.clone();
             combined_before.extend(payment_consumed);
             let triggers_before = combined_before;
-            let mut fired = std::collections::HashSet::new();
+            let mut fired = crate::HashSet::default();
             for (svar_name, source_id) in &triggers_before {
                 if fired.contains(&(svar_name.clone(), *source_id)) {
                     continue;

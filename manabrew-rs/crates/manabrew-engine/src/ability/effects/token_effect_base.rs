@@ -4,7 +4,7 @@
 //! resolver functions rather than subclasses, so this module exposes a trait
 //! with Java-parity default methods plus a concrete stateless implementation
 //! used by effects that need the common token path.
-use std::collections::HashMap;
+use crate::HashMap;
 
 use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 

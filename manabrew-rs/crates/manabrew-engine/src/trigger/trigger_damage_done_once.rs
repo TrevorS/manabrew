@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use crate::HashSet;
 
 use serde::{Deserialize, Serialize};
 
@@ -66,7 +66,7 @@ impl TriggerDamageDoneOnce {
         game: &GameState,
     ) -> Vec<CardId> {
         if let Some(map) = params.damage_map.as_ref() {
-            let mut seen = HashSet::new();
+            let mut seen = HashSet::default();
             let mut sources = Vec::new();
             for (source, _, _) in map.entries() {
                 if !trigger.matches_optional_valid_card_filter(
@@ -180,7 +180,7 @@ pub fn get_damage_amount(params: &RunParams) -> i32 {
 pub fn get_damage_sources(params: &RunParams) -> Vec<CardId> {
     match params.damage_map.as_ref() {
         Some(map) => {
-            let mut seen = HashSet::new();
+            let mut seen = HashSet::default();
             let mut sources = Vec::new();
             for (source, _, _) in map.entries() {
                 if seen.insert(source) {

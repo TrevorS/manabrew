@@ -1,5 +1,5 @@
 use super::{resolve_defined_players, resolve_numeric_svar, EffectContext};
-use std::collections::{HashMap, HashSet};
+use crate::{HashMap, HashSet};
 
 use crate::agent::notification::GameNotification;
 use crate::agent::GameLogEvent;
@@ -218,7 +218,7 @@ fn roll_for_player(
     let rolled_to_visit_attractions = sa.param_is_true("ToVisitYourAttractions");
     let ignore = resolve_numeric_svar(ctx.game, sa, "IgnoreLower", 0);
     let mut ignored_rolls = Vec::new();
-    let mut dice_pt_exchanges = HashSet::new();
+    let mut dice_pt_exchanges = HashSet::default();
     let source_name = ctx.game.card(source_id).card_name.clone();
     let mut natural_rolls = roll_action(
         ctx.game,
@@ -334,7 +334,7 @@ fn roll_for_player(
         }
     }
     if sa.param_is_true("NoteDoubles") {
-        let mut unique = std::collections::HashSet::new();
+        let mut unique = crate::HashSet::default();
         if kept_rolls.iter().any(|roll| !unique.insert(*roll)) {
             ctx.game.card_mut(source_id).set_s_var("Doubles", "1");
         }
@@ -457,8 +457,8 @@ pub fn roll_to_visit_attractions(
         sides: 6,
         number: 1,
         ignore: 0,
-        ignore_chosen: HashMap::new(),
-        dice_pt_exchanges: HashSet::new(),
+        ignore_chosen: HashMap::default(),
+        dice_pt_exchanges: HashSet::default(),
     };
     let result = apply_replacements(game, &mut event);
     if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
@@ -478,7 +478,7 @@ pub fn roll_to_visit_attractions(
             ignore_chosen.clone(),
             dice_pt_exchanges.clone(),
         ),
-        _ => (1, 0, HashMap::new(), HashSet::new()),
+        _ => (1, 0, HashMap::default(), HashSet::default()),
     };
     if roll_count == 0 {
         return;
@@ -632,8 +632,8 @@ fn roll_action(
         sides,
         number: amount,
         ignore,
-        ignore_chosen: HashMap::new(),
-        dice_pt_exchanges: HashSet::new(),
+        ignore_chosen: HashMap::default(),
+        dice_pt_exchanges: HashSet::default(),
     };
     let result = apply_replacements(game, &mut event);
     if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
@@ -653,7 +653,12 @@ fn roll_action(
             ignore_chosen,
             dice_pt_exchanges,
         ),
-        _ => (amount.max(0), ignore.max(0), HashMap::new(), HashSet::new()),
+        _ => (
+            amount.max(0),
+            ignore.max(0),
+            HashMap::default(),
+            HashSet::default(),
+        ),
     };
     dice_pt_exchanges.extend(new_pt_exchanges);
 
@@ -1658,7 +1663,7 @@ mod tests {
                 modified_value: 6,
             },
         ];
-        let mut swaps = HashSet::new();
+        let mut swaps = HashSet::default();
         swaps.insert(card_id);
 
         apply_dice_pt_exchanges(&mut agents, &mut game, player, &mut rolls, &swaps);
@@ -1850,10 +1855,10 @@ mod tests {
             vec![Box::new(RerollAgent), Box::new(RerollAgent)];
         let mut mana_pools = vec![ManaPool::default(), ManaPool::default()];
         let mut rng = FixedRng::new(&[0, 5]);
-        let token_templates = HashMap::new();
-        let templates_variants: HashMap<(String, String), usize> = HashMap::new();
-        let token_fallback: HashMap<String, String> = HashMap::new();
-        let edition_dates: HashMap<String, String> = HashMap::new();
+        let token_templates = HashMap::default();
+        let templates_variants: HashMap<(String, String), usize> = HashMap::default();
+        let token_fallback: HashMap<String, String> = HashMap::default();
+        let edition_dates: HashMap<String, String> = HashMap::default();
         let mut ctx = EffectContext {
             game: &mut game,
             combat: None,
@@ -1909,10 +1914,10 @@ mod tests {
             vec![Box::new(ModifyAgent), Box::new(ModifyAgent)];
         let mut mana_pools = vec![ManaPool::default(), ManaPool::default()];
         let mut rng = FixedRng::new(&[0, 4]);
-        let token_templates = HashMap::new();
-        let templates_variants: HashMap<(String, String), usize> = HashMap::new();
-        let token_fallback: HashMap<String, String> = HashMap::new();
-        let edition_dates: HashMap<String, String> = HashMap::new();
+        let token_templates = HashMap::default();
+        let templates_variants: HashMap<(String, String), usize> = HashMap::default();
+        let token_fallback: HashMap<String, String> = HashMap::default();
+        let edition_dates: HashMap<String, String> = HashMap::default();
         let mut ctx = EffectContext {
             game: &mut game,
             combat: None,

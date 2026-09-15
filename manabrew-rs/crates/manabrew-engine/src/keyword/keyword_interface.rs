@@ -3,7 +3,7 @@
 //! Ported as a concrete struct because current Rust callers store
 //! `KeywordInterface` by value, unlike Java's interface-based hierarchy.
 
-use std::collections::HashMap;
+use crate::HashMap;
 
 use crate::card::trait_card_trait_changes::CardTraitChanges;
 use crate::core::HasSVars;
@@ -43,7 +43,7 @@ impl KeywordInterface {
             intrinsic: false,
             idx: -1,
             amount: 1,
-            svars: HashMap::new(),
+            svars: HashMap::default(),
             triggers: Vec::new(),
             replacements: Vec::new(),
             spell_abilities: Vec::new(),

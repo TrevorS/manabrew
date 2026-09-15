@@ -2,7 +2,7 @@
 //!
 //! Ported from Java's `KeywordCollection.java` in `forge/game/keyword/`.
 
-use std::collections::HashMap;
+use crate::HashMap;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -39,7 +39,7 @@ impl KeywordCollection {
     /// Create a new empty keyword collection.
     pub fn new() -> Self {
         Self {
-            map: HashMap::new(),
+            map: HashMap::default(),
         }
     }
 

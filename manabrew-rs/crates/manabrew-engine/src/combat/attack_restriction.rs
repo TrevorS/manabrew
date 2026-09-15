@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use crate::HashSet;
 
 use forge_foundation::ZoneType;
 
@@ -11,7 +11,7 @@ pub use super::attack_restriction_type::AttackRestrictionType;
 /// Parse attack restrictions from a creature's keywords.
 /// Mirrors Java's `AttackRestriction.setRestrictions()` — matches exact keyword strings.
 pub fn get_restrictions(card: &Card) -> HashSet<AttackRestrictionType> {
-    let mut restrictions = HashSet::new();
+    let mut restrictions = HashSet::default();
 
     for kw in card
         .keywords
@@ -111,7 +111,7 @@ pub fn can_attack(card: &Card, num_attackers: usize) -> bool {
 /// Mirrors Java's `AttackRestriction.getViolation()` — checks restrictions
 /// against the set of all chosen attackers (not just battlefield state).
 pub fn validate_attack_restrictions(attackers: &[CardId], cards: &[Card]) -> HashSet<CardId> {
-    let mut illegal = HashSet::new();
+    let mut illegal = HashSet::default();
     let num_attackers = attackers.len();
 
     for &attacker_id in attackers {

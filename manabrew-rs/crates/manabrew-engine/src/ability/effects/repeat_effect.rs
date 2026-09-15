@@ -110,7 +110,7 @@ fn check_repeat_conditions(ctx: &mut EffectContext, sa: &SpellAbility) -> bool {
         };
 
         let present_count = if present.eq_ignore_ascii_case("Card.sharesNameWith Remembered") {
-            let remembered_names: std::collections::HashSet<String> = source
+            let remembered_names: crate::HashSet<String> = source
                 .remembered_cards
                 .iter()
                 .map(|&cid| ctx.game.card(cid).card_name.clone())

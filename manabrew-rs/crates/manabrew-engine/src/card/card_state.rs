@@ -3,7 +3,7 @@
 //! Rust now exposes a concrete `CardState` contract for Java parity while
 //! still keeping adapter helpers for the existing `Card`-centric engine.
 
-use std::collections::{HashMap, HashSet};
+use crate::{HashMap, HashSet};
 
 use forge_foundation::{CardStateName, CardTypeLine, ColorSet, ManaCost};
 
@@ -134,8 +134,8 @@ impl CardState {
             replacement_effects: Vec::new(),
             static_abilities: Vec::new(),
             image_key: String::new(),
-            s_vars: HashMap::new(),
-            ability_for_trigger: HashMap::new(),
+            s_vars: HashMap::default(),
+            ability_for_trigger: HashMap::default(),
             cached_keywords: KeywordCollection::new(),
             rarity: CardRarity::Unknown,
             set_code: CardEdition::UNKNOWN_CODE.to_string(),
@@ -626,7 +626,7 @@ pub fn update_keywords_cache(card: &mut Card) {
     // Only collapse duplicates of "redundant" keywords (Flying, Trample, ...).
     // Stackable keywords like Cascade or Annihilator must keep every instance
     // because they trigger once per copy on the source.
-    let mut seen = HashSet::new();
+    let mut seen = HashSet::default();
     let keywords = card.keywords.as_string_list();
     card.keywords.clear();
     for kw in keywords {

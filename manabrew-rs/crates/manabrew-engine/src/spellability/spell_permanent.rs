@@ -3,7 +3,7 @@
 //! Creates SpellAbility instances configured as permanent spells (creatures
 //! and non-creatures) that resolve by moving to the battlefield.
 
-use std::collections::HashMap;
+use crate::HashMap;
 
 use crate::ability::api_type::ApiType;
 use crate::ids::{CardId, PlayerId};
@@ -68,14 +68,14 @@ pub fn create_permanent_spell(
         x_mana_cost_paid: 0,
         discarded_cost_cards: Vec::new(),
         optional_costs: Vec::new(),
-        paid_hash: HashMap::new(),
+        paid_hash: HashMap::default(),
         paying_mana: Vec::new(),
         paid_abilities: Vec::new(),
         mana_part: None,
         express_mana_choice: None,
         convoke_tapped: Vec::new(),
         spliced_cards: Vec::new(),
-        announce_vars: HashMap::new(),
+        announce_vars: HashMap::default(),
         sacrificed_as_emerge: None,
         sacrificed_as_offering: None,
         description: String::new(),
@@ -83,18 +83,18 @@ pub fn create_permanent_spell(
         is_mana_ability: false,
         is_land_ability: false,
         cast_face_down: false,
-        trigger_objects: HashMap::new(),
-        trigger_spell_abilities: HashMap::new(),
-        additional_ability_lists: HashMap::new(),
-        replacing_objects: HashMap::new(),
+        trigger_objects: HashMap::default(),
+        trigger_spell_abilities: HashMap::default(),
+        additional_ability_lists: HashMap::default(),
+        replacing_objects: HashMap::default(),
         trigger_remembered: Vec::new(),
         restriction: SpellAbilityRestriction::default(),
         condition: SpellAbilityCondition::default(),
         rollback_effects: Vec::new(),
-        optional_keyword_amounts: HashMap::new(),
+        optional_keyword_amounts: HashMap::default(),
         pips_to_reduce: Vec::new(),
         may_choose_new_targets: false,
-        last_state: HashMap::new(),
+        last_state: HashMap::default(),
         last_state_battlefield: Vec::new(),
         change_zone_table: None,
         damage_map: None,

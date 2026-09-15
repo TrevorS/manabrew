@@ -1,6 +1,6 @@
 //! Partial parity module for Java `CardFactoryUtil`.
 
-use std::collections::HashSet;
+use crate::HashSet;
 
 use crate::card::Card;
 use crate::parsing::{keys, Params};

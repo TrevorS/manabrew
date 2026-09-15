@@ -203,14 +203,10 @@ impl GameLoop {
                 .iter()
                 .map(|(attacker, _)| *attacker)
                 .collect();
-            let mut optional_exert_by_attacker: std::collections::HashMap<
-                CardId,
-                Vec<(i32, String)>,
-            > = std::collections::HashMap::new();
-            let mut optional_enlist_by_attacker: std::collections::HashMap<
-                CardId,
-                Vec<(i32, String)>,
-            > = std::collections::HashMap::new();
+            let mut optional_exert_by_attacker: crate::HashMap<CardId, Vec<(i32, String)>> =
+                crate::HashMap::default();
+            let mut optional_enlist_by_attacker: crate::HashMap<CardId, Vec<(i32, String)>> =
+                crate::HashMap::default();
 
             for &attacker in &declared_attackers {
                 let static_abilities = game.card(attacker).static_abilities.clone();
@@ -578,8 +574,8 @@ impl GameLoop {
         }
         // Fire AttackersDeclaredOneTarget-style batches first, then the aggregate event.
         if !chosen_attackers.is_empty() {
-            let mut grouped_attackers: std::collections::HashMap<combat::DefenderId, Vec<CardId>> =
-                std::collections::HashMap::new();
+            let mut grouped_attackers: crate::HashMap<combat::DefenderId, Vec<CardId>> =
+                crate::HashMap::default();
             for &(attacker_id, defender) in &chosen_attackers {
                 grouped_attackers
                     .entry(defender)
@@ -718,7 +714,7 @@ impl GameLoop {
                     return;
                 }
                 // Ignore duplicate blocker assignments; first assignment wins.
-                let mut seen_blockers = std::collections::HashSet::new();
+                let mut seen_blockers = crate::HashSet::default();
                 chosen_blockers.retain(|(blocker, _)| seen_blockers.insert(*blocker));
                 self.game_log.log(
                     GameLogEntryType::PriorityResponse,
@@ -1096,8 +1092,8 @@ impl GameLoop {
         game: &GameState,
         agents: &mut [Box<dyn PlayerAgent>],
         first_strike_only: bool,
-    ) -> std::collections::HashSet<CardId> {
-        let mut choices = std::collections::HashSet::new();
+    ) -> crate::HashSet<CardId> {
+        let mut choices = crate::HashSet::default();
         for &(attacker_id, _) in &self.combat.attackers {
             if !self.combat.is_blocked(attacker_id) {
                 continue;

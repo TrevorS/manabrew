@@ -3,7 +3,7 @@
 //! Mirrors Java's `SpellAbilityVariables.java` — stores conditions like
 //! zone, phase, sorcery speed, and various boolean game-state checks.
 
-use std::collections::HashSet;
+use crate::HashSet;
 
 use forge_foundation::{PhaseType, ZoneType};
 use serde::{Deserialize, Serialize};
@@ -80,7 +80,7 @@ impl Default for SpellAbilityVariables {
     fn default() -> Self {
         Self {
             zone: ZoneType::Battlefield,
-            phases: HashSet::new(),
+            phases: HashSet::default(),
             sorcery_speed: false,
             instant_speed: false,
             activator: "You".to_string(),

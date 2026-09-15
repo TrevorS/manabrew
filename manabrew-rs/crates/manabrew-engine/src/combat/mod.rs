@@ -10,7 +10,7 @@ pub mod combat_util;
 pub mod global_attack_restrictions;
 pub mod selector_domain;
 
-use std::collections::{HashMap, HashSet};
+use crate::{HashMap, HashSet};
 
 use forge_foundation::ZoneType;
 use serde::{Deserialize, Serialize};
@@ -313,8 +313,8 @@ impl CombatState {
 
         let mut events = Vec::new();
         let mut counter_table = crate::game_entity_counter_table::GameEntityCounterTable::default();
-        let mut blocker_damage_allocations: HashMap<(CardId, CardId), i32> = HashMap::new();
-        let mut computed_blocker_allocations: HashSet<CardId> = HashSet::new();
+        let mut blocker_damage_allocations: HashMap<(CardId, CardId), i32> = HashMap::default();
+        let mut computed_blocker_allocations: HashSet<CardId> = HashSet::default();
         // Java parity: combat damage in a step is simultaneous, so replacement checks
         // like Phyrexian Unlife's life condition must use life totals from step start.
         let life_at_step_start: Vec<i32> = game.players.iter().map(|p| p.life).collect();
@@ -1249,7 +1249,7 @@ fn validate_damage_assignment(
         return (Vec::new(), 0);
     }
 
-    let mut per_blocker: HashMap<CardId, i32> = HashMap::new();
+    let mut per_blocker: HashMap<CardId, i32> = HashMap::default();
     let mut defender_damage = 0;
     let mut assigned_total = 0;
 

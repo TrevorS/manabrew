@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use crate::HashSet;
 
 use forge_foundation::ZoneType;
 
@@ -158,7 +158,7 @@ impl TriggerHandler {
             delayed_triggers: Vec::new(),
             this_turn_delayed_triggers: Vec::new(),
             player_defined_delayed_triggers: Vec::new(),
-            suppressed_modes: HashSet::new(),
+            suppressed_modes: HashSet::default(),
             all_suppressed: false,
             next_trigger_id: 0,
             pre_matched_triggers: Vec::new(),

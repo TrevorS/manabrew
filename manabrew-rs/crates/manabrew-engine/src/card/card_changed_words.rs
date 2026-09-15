@@ -1,6 +1,7 @@
 //! Changed-word replacement table (Java parity: `CardChangedWords`).
 
-use std::collections::{BTreeMap, HashMap};
+use crate::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
 struct WordHolder {

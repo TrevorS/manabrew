@@ -12,7 +12,8 @@
 //! * `Card` does not implement `ITranslatable`; `get_host_name` returns a
 //!   `HostName` enum. The `Card`-branch is pending that impl.
 
-use std::collections::{BTreeMap, HashMap};
+use crate::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -383,7 +384,7 @@ impl CardTraitBase {
     /// Merged SVar map across keyword-static → self.
     /// Local `svars` override fallbacks, matching Java `getSVars()` at line 613.
     pub fn get_all_svars(&self) -> HashMap<String, String> {
-        let mut res: HashMap<String, String> = HashMap::new();
+        let mut res: HashMap<String, String> = HashMap::default();
         for src in self.get_svar_fallback(None) {
             for (k, v) in HasSVars::get_svars(src) {
                 res.insert(k.clone(), v.clone());
