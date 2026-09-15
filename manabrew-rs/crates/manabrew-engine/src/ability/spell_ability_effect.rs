@@ -322,6 +322,22 @@ fn resolve_defined_cards_for_sa_ref_inner(
             sa.target_chosen.target_card.into_iter().collect()
         }
         DefinedRef::TriggeredTargetLkiCopy => triggered_target_lki_cards(sa),
+        DefinedRef::DelayTriggerRememberedLki | DefinedRef::DelayTriggerRemembered => {
+            let mut cards = Vec::new();
+            for value in &sa.trigger_remembered {
+                let ids = match value {
+                    crate::event::AbilityValue::Card(card_id) => vec![*card_id],
+                    crate::event::AbilityValue::Cards(card_ids) => card_ids.clone(),
+                    _ => Vec::new(),
+                };
+                for card_id in ids {
+                    if !cards.contains(&card_id) {
+                        cards.push(card_id);
+                    }
+                }
+            }
+            cards
+        }
         DefinedRef::TriggeredCard | DefinedRef::TriggeredCardLkiCopy => {
             let cards = sa.get_triggering_cards(AbilityKey::Card);
             if cards.is_empty() {

@@ -128,17 +128,10 @@ pub(super) fn resolve_known_origin(
                 | DefinedRef::RememberedLki
         )
     ) {
-        let cards = if matches!(defined_ref, Some(DefinedRef::DelayTriggerRemembered)) {
-            sa.trigger_remembered
-                .iter()
-                .flat_map(|value| match value {
-                    crate::event::AbilityValue::Card(card_id) => vec![*card_id],
-                    crate::event::AbilityValue::Cards(cards) => cards.clone(),
-                    _ => Vec::new(),
-                })
-                .collect()
-        } else {
+        let cards = if matches!(defined_ref, Some(DefinedRef::RememberedLki)) {
             parse_trigger_object_cards(sa, "RememberedLKI")
+        } else {
+            crate::ability::spell_ability_effect::get_defined_cards_or_targeted(ctx.game, sa)
         };
         cards
             .into_iter()
