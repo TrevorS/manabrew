@@ -100,7 +100,12 @@ export function OnboardingWelcome({ onComplete }: { onComplete: () => void }) {
       </div>
 
       <div className="flex flex-col items-center gap-3">
-        <Button disabled={!canConfirm} onClick={() => void confirm()} className="w-full max-w-xs">
+        <Button
+          variant="primary"
+          disabled={!canConfirm}
+          onClick={() => void confirm()}
+          className="w-full max-w-xs"
+        >
           {busy ? "Checking…" : "Let's brew"}
         </Button>
         {isFeatureEnabled("accounts") && (

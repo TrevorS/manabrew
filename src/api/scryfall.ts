@@ -262,9 +262,9 @@ export async function fetchCardsBySet(setCode: string): Promise<ScryfallCard[]> 
 
 const SCRYFALL_IMAGE_MAX_RETRIES = 3;
 
-async function fetchImageBlob(url: string): Promise<string> {
+async function fetchImageBlob(url: string, cache: RequestCache): Promise<string> {
   const response = await fetch(url, {
-    cache: "no-store",
+    cache,
     credentials: "omit",
     mode: "cors",
   });
@@ -301,7 +301,7 @@ export async function fetchImageElement(url: string): Promise<HTMLImageElement> 
   let lastError: unknown;
   for (let attempt = 0; attempt <= SCRYFALL_IMAGE_MAX_RETRIES; attempt += 1) {
     try {
-      const objectUrl = await fetchImageBlob(url);
+      const objectUrl = await fetchImageBlob(url, "no-cache");
       return await loadImageElement(objectUrl, url, true);
     } catch (err) {
       lastError = err;

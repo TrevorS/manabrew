@@ -374,9 +374,9 @@ export function CollectionImportDialog({
               )}
               <div className="flex flex-wrap gap-1" aria-label="Filter import preview">
                 <Button
-                  size="sm"
+                  size="xs"
                   variant={previewFilter === "all" ? "secondary" : "ghost"}
-                  className="h-7 px-2.5 text-xs"
+                  className="px-2.5"
                   onClick={() => setPreviewFilter("all")}
                 >
                   All {validatedPreview.length}
@@ -481,6 +481,7 @@ export function CollectionImportDialog({
           </Button>
           {parsed && (
             <Button
+              variant="primary"
               onClick={() => void applyImport()}
               disabled={
                 saving ||
@@ -551,7 +552,7 @@ function ImportMode({
   onChange: () => void;
 }) {
   return (
-    <label className="flex cursor-pointer gap-3 rounded-lg border p-3 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+    <label className="flex cursor-pointer gap-3 rounded-lg border p-3 has-[:checked]:border-selection has-[:checked]:bg-selection/10">
       <input type="radio" name="collection-import-mode" checked={checked} onChange={onChange} />
       <span>
         <span className="block text-sm font-medium">{title}</span>

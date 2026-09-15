@@ -44,15 +44,15 @@ Protocol generators replace their output directories. Do not run `yarn gen:types
 
 ## Lint and format (yarn)
 
-These are `package.json` scripts (not files in this folder). **Run before every commit** — see the root `/AGENTS.md` "Before every commit" section.
+The pre-commit hook runs `lint-staged` only. Full TypeScript and Rust gates run in `build-checks.yml`; Clippy is conditional on Rust-affecting changes. Use the full local gate when explicitly requested or when reproducing a CI failure.
 
 | Command           | What it runs                                                                                | When to use                                   |
 | ----------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `yarn lint:all`   | ESLint + Prettier check + `tsc --noEmit` + `cargo fmt --check` + `cargo clippy -D warnings` | Always, before every commit. The full gate.   |
-| `yarn fix:all`    | `eslint --fix` + `prettier --write` + `cargo fmt` + `tsc --noEmit`                          | When `lint:all` fails on auto-fixable issues. |
-| `yarn format:all` | `prettier --write src` + `cargo fmt --all`                                                  | Formatting only — no lint, no typecheck.      |
+| `yarn lint:all`   | ESLint + Prettier check + `tsc --noEmit` + `cargo fmt --check` + `cargo clippy -D warnings` | Explicit full local verification or CI parity |
+| `yarn fix:all`    | `eslint --fix` + `prettier --write src` + `cargo fmt` + `tsc --noEmit`                      | When the full local gate finds fixable issues |
+| `yarn format:all` | `prettier --write src` + `cargo fmt --all`                                                  | Formatting only — no lint or typecheck        |
 
-Narrower variants also exist (`yarn lint`, `yarn lint:rust`, `yarn format`, `yarn format:check`) for partial runs during iteration. Don't ship a commit that only ran a narrow variant — `lint:all` is the gate.
+Narrower variants (`yarn lint`, `yarn lint:rust`, `yarn format`, `yarn format:check`) remain available for focused local checks.
 
 Never use `--no-verify` to bypass the commit-msg or pre-commit hooks. If a hook fails, fix the cause.
 
