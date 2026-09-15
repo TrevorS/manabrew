@@ -42,7 +42,10 @@ export function loadSoundAsset(asset: SoundAssetDefinition): Promise<Sound | nul
       loadedAssets.set(asset.alias, soundAsset);
       return soundAsset;
     })
-    .catch(() => null);
+    .catch(() => {
+      assetLoads.delete(asset.alias);
+      return null;
+    });
   assetLoads.set(asset.alias, load);
   return load;
 }
