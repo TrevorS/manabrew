@@ -60,6 +60,8 @@ pub fn snapshot_game(
             "day"
         }
         .to_string(),
+        game_rng_calls: 0,
+        agent_rng_calls: 0,
         timestamp_ms,
     }
 }

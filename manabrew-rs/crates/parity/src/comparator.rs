@@ -101,6 +101,26 @@ pub fn compare(index: usize, rust: &StateSnapshot, java: &StateSnapshot) -> Vec<
             &java.day_night,
         ));
     }
+    if rust.game_rng_calls != java.game_rng_calls {
+        divs.push(divergence(
+            index,
+            turn,
+            &phase,
+            "game_rng_calls",
+            &rust.game_rng_calls,
+            &java.game_rng_calls,
+        ));
+    }
+    if rust.agent_rng_calls != java.agent_rng_calls {
+        divs.push(divergence(
+            index,
+            turn,
+            &phase,
+            "agent_rng_calls",
+            &rust.agent_rng_calls,
+            &java.agent_rng_calls,
+        ));
+    }
 
     // Per-player comparison
     let max_players = rust.players.len().max(java.players.len());

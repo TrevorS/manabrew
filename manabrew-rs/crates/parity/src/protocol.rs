@@ -128,6 +128,10 @@ pub struct StateSnapshot {
     #[serde(default)]
     pub day_night: String,
     #[serde(default)]
+    pub game_rng_calls: u64,
+    #[serde(default)]
+    pub agent_rng_calls: u64,
+    #[serde(default)]
     pub timestamp_ms: u64,
 }
 

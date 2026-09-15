@@ -199,6 +199,8 @@ struct CapturingAgent {
     last_game_state: Option<GameState>,
     pending_turn_snapshot: Option<crate::protocol::StateSnapshot>,
     last_mana_pools: Vec<manabrew_engine::mana::ManaPool>,
+    agent_rng_ref: Rc<RefCell<JavaRandom>>,
+    game_rng_ref: Rc<RefCell<JavaRandom>>,
     pending_pay_mana_cost_args: Option<Vec<String>>,
     pending_pay_mana_cost_card: Option<CardId>,
     failed_payment_cards_this_turn: HashSet<CardId>,
@@ -277,6 +279,8 @@ impl CapturingAgent {
         ));
         Self {
             player_id,
+            agent_rng_ref: Rc::clone(&rng),
+            game_rng_ref: Rc::clone(&game_rng),
             inner: DeterministicAgent::new(
                 player_id,
                 verbose.clone(),
@@ -327,7 +331,7 @@ impl CapturingAgent {
         let Some(ref game) = self.last_game_state else {
             return;
         };
-        let snapshot = snapshot_game(game, &self.last_mana_pools);
+        let snapshot = self.snapshot_with_rng_counts(game);
         let timestamp_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_millis() as u64)
@@ -366,7 +370,7 @@ impl CapturingAgent {
         if self.abort_signal.swap(true, Ordering::Relaxed) {
             return;
         }
-        let snapshot = snapshot_game(game, &self.last_mana_pools);
+        let snapshot = self.snapshot_with_rng_counts(game);
         self.parity_observer
             .push_entry(ParityLogEntry::Snapshot(snapshot.clone()));
         self.parity_observer
@@ -390,6 +394,13 @@ impl CapturingAgent {
         );
     }
 
+    fn snapshot_with_rng_counts(&self, game: &GameState) -> crate::protocol::StateSnapshot {
+        let mut snapshot = snapshot_game(game, &self.last_mana_pools);
+        snapshot.game_rng_calls = self.game_rng_ref.borrow().api_call_count;
+        snapshot.agent_rng_calls = self.agent_rng_ref.borrow().api_call_count;
+        snapshot
+    }
+
     fn stop_if_decision_guard_tripped(&self, game: &GameState) {
         if self.decisions.fetch_add(1, Ordering::Relaxed) < DECISION_GUARD_THRESHOLD {
             return;
@@ -397,7 +408,7 @@ impl CapturingAgent {
         if self.abort_signal.swap(true, Ordering::Relaxed) {
             return;
         }
-        let snapshot = snapshot_game(game, &self.last_mana_pools);
+        let snapshot = self.snapshot_with_rng_counts(game);
         self.parity_observer
             .push_entry(ParityLogEntry::Snapshot(snapshot.clone()));
         self.parity_observer
@@ -559,7 +570,7 @@ impl PlayerAgent for CapturingAgent {
                     if let Some(mut snap) = pending.or_else(|| {
                         self.last_game_state
                             .as_ref()
-                            .map(|game| snapshot_game(game, &self.last_mana_pools))
+                            .map(|game| self.snapshot_with_rng_counts(game))
                     }) {
                         snap.phase = "Untap".to_string();
                         let active = snap.active_player as usize;
@@ -581,11 +592,9 @@ impl PlayerAgent for CapturingAgent {
                 }
                 if self.deep && self.player_id.0 == 0 {
                     if let Some(ref game) = self.last_game_state {
-                        self.parity_observer
-                            .push_entry(ParityLogEntry::Snapshot(snapshot_game(
-                                game,
-                                &self.last_mana_pools,
-                            )));
+                        self.parity_observer.push_entry(ParityLogEntry::Snapshot(
+                            self.snapshot_with_rng_counts(game),
+                        ));
                         self.parity_observer.mark_snapshot();
                     }
                 }
@@ -596,11 +605,9 @@ impl PlayerAgent for CapturingAgent {
                 }
                 if self.deep && self.player_id.0 == 0 {
                     if let Some(ref game) = self.last_game_state {
-                        self.parity_observer
-                            .push_entry(ParityLogEntry::Snapshot(snapshot_game(
-                                game,
-                                &self.last_mana_pools,
-                            )));
+                        self.parity_observer.push_entry(ParityLogEntry::Snapshot(
+                            self.snapshot_with_rng_counts(game),
+                        ));
                         self.parity_observer.mark_snapshot();
                     }
                 }
@@ -652,7 +659,7 @@ impl PlayerAgent for CapturingAgent {
         self.inner.snapshot_state(game, mana_pools);
         self.last_mana_pools = mana_pools.to_vec();
         if self.capture_snapshots && game.turn.turn_number != self.current_turn {
-            self.pending_turn_snapshot = Some(snapshot_game(game, &self.last_mana_pools));
+            self.pending_turn_snapshot = Some(self.snapshot_with_rng_counts(game));
         }
         self.last_game_state = Some(Self::shallow_game_state(game));
         self.stop_if_card_copy_guard_tripped(game);

@@ -12,6 +12,7 @@ const MASK: i64 = (1i64 << 48) - 1;
 pub struct JavaRandom {
     seed: i64,
     pub call_count: u64,
+    pub api_call_count: u64,
     pub label: &'static str,
 }
 
@@ -21,6 +22,7 @@ impl JavaRandom {
         Self {
             seed: (seed ^ MULTIPLIER) & MASK,
             call_count: 0,
+            api_call_count: 0,
             label: "unknown",
         }
     }
@@ -35,6 +37,7 @@ impl JavaRandom {
     /// Equivalent to `java.util.Random.nextInt(int bound)`.
     pub fn next_int(&mut self, bound: i32) -> i32 {
         assert!(bound > 0, "bound must be positive");
+        self.api_call_count += 1;
         let call_before = self.call_count;
         // Power-of-two fast path
         let result = if bound & (bound - 1) == 0 {

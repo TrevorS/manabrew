@@ -48,6 +48,9 @@ public final class SnapshotExtractor {
         snapshot.put("monarch", game.getMonarch() == null ? null : playerIndex(game, game.getMonarch()));
         snapshot.put("initiative", game.getHasInitiative() == null ? null : playerIndex(game, game.getHasInitiative()));
         snapshot.put("day_night", game.getDayTime() == null ? "none" : game.isNight() ? "night" : "day");
+        java.util.Random gameRandom = forge.util.MyRandom.getRandom();
+        snapshot.put("game_rng_calls", gameRandom instanceof CountingRandom countingRandom ? countingRandom.getCallCount() : -1);
+        snapshot.put("agent_rng_calls", ParityLog.rngCallCount());
 
         // players — use getRegisteredPlayers() to include lost players
         List<Map<String, Object>> players = new ArrayList<>();
