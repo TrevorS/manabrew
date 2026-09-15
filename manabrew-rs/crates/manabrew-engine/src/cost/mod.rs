@@ -1362,7 +1362,8 @@ fn can_pay_part_distributed(
             cost_add_mana::can_pay(game, pool, source, player, ability, part)
         }
         CostPart::Waterbend { .. } => {
-            cost_waterbend::can_pay(game, available_mana, source, player, part)
+            available_mana.is_none()
+                || cost_waterbend::can_pay(game, available_mana, source, player, part)
         }
         CostPart::ChooseColor(_) => {
             cost_choose_color::can_pay(game, pool, source, player, ability, part)

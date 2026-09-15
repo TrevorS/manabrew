@@ -1,6 +1,7 @@
 use super::mana_payment::ManaPaymentSession;
 use super::*;
 
+#[derive(Clone, Copy)]
 pub(crate) enum CostPaymentContext {
     TriggerResolve,
     ActivatedAbility,
@@ -1066,13 +1067,19 @@ impl GameLoop {
                     }
                 }
                 CostPart::Waterbend { amount } => {
-                    self.pay_waterbend_cost(
+                    if !self.pay_waterbend_cost(
                         game,
                         agents,
                         player,
                         card_id,
                         amount.resolve(game, card_id, player),
-                    );
+                        mandatory,
+                        context,
+                        sa.as_deref_mut(),
+                    ) {
+                        payment_ok = false;
+                        break;
+                    }
                 }
                 CostPart::ChooseColor(amount) => {
                     let resolved_amount = amount.resolve(game, card_id, player);
@@ -1788,13 +1795,19 @@ impl GameLoop {
                     }
                 }
                 CostPart::Waterbend { amount } => {
-                    self.pay_waterbend_cost(
+                    if !self.pay_waterbend_cost(
                         game,
                         agents,
                         player,
                         card_id,
                         amount.resolve(game, card_id, player),
-                    );
+                        _mandatory,
+                        CostPaymentContext::TriggerResolve,
+                        sa.as_deref_mut(),
+                    ) {
+                        payment_ok = false;
+                        break;
+                    }
                 }
                 CostPart::ChooseColor(amount) => {
                     let resolved_amount = amount.resolve(game, card_id, player);
@@ -2175,9 +2188,12 @@ impl GameLoop {
         player: PlayerId,
         card_id: CardId,
         amount: i32,
-    ) {
+        mandatory: bool,
+        context: CostPaymentContext,
+        sa: Option<&mut SpellAbility>,
+    ) -> bool {
         if amount <= 0 {
-            return;
+            return true;
         }
         // Gather tappable artifacts/creatures (excluding the source card)
         let untapped: Vec<CardId> = game
@@ -2218,10 +2234,32 @@ impl GameLoop {
             }
         }
 
-        // Pay remaining from mana pool as generic
-        if remaining > 0 {
-            self.mana_pools[player.index()].pay_generic(remaining);
+        if remaining <= 0 {
+            return true;
         }
+        let remaining_cost = crate::cost::Cost {
+            parts: vec![CostPart::Mana {
+                cost: forge_foundation::ManaCost::generic(remaining),
+                x_min: 0,
+                is_exiled_creature_cost: false,
+                is_enchanted_creature_cost: false,
+                is_cost_pay_any_number_of_times: false,
+                max_waterbend: None,
+            }],
+            has_tap: false,
+            mandatory,
+        };
+        self.pay_ability_cost(
+            game,
+            agents,
+            player,
+            card_id,
+            &remaining_cost,
+            None,
+            mandatory,
+            context,
+            sa,
+        )
     }
 
     /// Exile `amount` cards from ANY player's graveyard matching `type_filter`.
