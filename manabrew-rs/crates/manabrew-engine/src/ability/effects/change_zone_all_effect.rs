@@ -223,6 +223,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 continue; // already moved
             }
             let old_zone = ctx.game.card(card_id).zone;
+            ctx.game.setup_static_effect(card_id, sa);
             ctx.move_card(card_id, dest_zone, dest_owner);
             if dest_zone == ZoneType::Library {
                 moved_to_library.push((card_id, dest_owner));

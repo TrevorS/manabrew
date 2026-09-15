@@ -898,6 +898,7 @@ pub struct CardFilter {
     pub shares_creature_type_with_source: bool,
     /// Only match cards that share a creature type with the source's equipped creature.
     pub shares_creature_type_with_equipped: bool,
+    pub remembered_only: bool,
 }
 
 impl CardFilter {
@@ -943,6 +944,7 @@ impl CardFilter {
             "sharesCreatureTypeWith" => f.shares_creature_type_with_source = true,
             "SharesColorWith Equipped" => f.shares_color_with_equipped = true,
             "sharesCreatureTypeWith Equipped" => f.shares_creature_type_with_equipped = true,
+            "IsRemembered" => f.remembered_only = true,
             s if s.starts_with("named") => {
                 f.card_name = Some(s["named".len()..].to_string());
             }
@@ -968,6 +970,9 @@ impl CardFilter {
             return false;
         }
         if self.other_only && card.id == source.id {
+            return false;
+        }
+        if self.remembered_only && !source.remembered_cards.contains(&card.id) {
             return false;
         }
         if self.commander_only && !card.is_commander {

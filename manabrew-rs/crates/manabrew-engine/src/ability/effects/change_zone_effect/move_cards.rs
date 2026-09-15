@@ -119,6 +119,7 @@ pub(super) fn move_cards(
         // `GameAction.changeZone()` running `replacementHandler.run(Moved)`
         // regardless of destination.
         let final_dest = apply_hand_library_replacement(ctx, card_id, old_zone, dest_zone);
+        ctx.game.setup_static_effect(card_id, sa);
         ctx.move_card(card_id, final_dest, dest_owner);
         if final_dest == ZoneType::Battlefield {
             ctx.trigger_handler

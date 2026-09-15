@@ -710,6 +710,82 @@ impl GameState {
         debug_assert!(self.card_zone_location_matches_card(card_id));
     }
 
+    pub(crate) fn setup_static_effect(
+        &mut self,
+        copied: CardId,
+        cause: &crate::spellability::SpellAbility,
+    ) {
+        let Some(static_effect) = cause.ir.static_effect.as_deref() else {
+            return;
+        };
+        if !self.card(copied).type_line.is_permanent() {
+            return;
+        }
+        let Some(source) = cause.source else {
+            return;
+        };
+        if let Some(check_svar) = cause.ir.static_effect_check_svar.as_deref() {
+            let cmp = cause
+                .ir
+                .static_effect_svar_compare
+                .as_deref()
+                .unwrap_or("GE1");
+            let calculate_amount = |amount: &str| {
+                amount.parse::<i32>().unwrap_or_else(|_| {
+                    self.card(source).get_s_var(amount).map_or(0, |expr| {
+                        crate::svar::resolve_svar_expression(
+                            expr,
+                            self,
+                            source,
+                            cause.activating_player,
+                            cause,
+                        )
+                    })
+                })
+            };
+            let lhs = calculate_amount(check_svar);
+            let rhs = calculate_amount(cmp.get(2..).unwrap_or_default());
+            if !crate::parsing::compare::compare_expr(
+                lhs,
+                &format!("{}{rhs}", cmp.get(..2).unwrap_or_default()),
+            ) {
+                return;
+            }
+        }
+
+        let name = format!("Static Effect #{}", cause.id);
+        let opt = self
+            .cards_in_zone(ZoneType::Command, cause.activating_player)
+            .iter()
+            .copied()
+            .find(|&cid| self.card(cid).card_name == name);
+
+        let eff = match opt {
+            Some(eff) => eff,
+            None => {
+                let Some(mut st_ab) = self.card(source).get_s_var(static_effect).and_then(|raw| {
+                    crate::staticability::parse_static_ability(&format!("S$ {raw}"))
+                }) else {
+                    return;
+                };
+                let eff =
+                    crate::ability::spell_ability_effect::create_effect(self, cause, &name, "");
+                st_ab.ir.active_zones = vec![ZoneType::Command];
+                st_ab.ir.has_zone_keys = true;
+                st_ab.ir.affected_zones = ZoneType::ALL.to_vec();
+                st_ab.base.set_intrinsic(true);
+                let effect = self.card_mut(eff);
+                effect.add_static_ability(st_ab);
+                effect.set_forget_on_moved_origin(Some(ZoneType::Battlefield));
+                effect.set_exile_when_no_remembered(true);
+                eff
+            }
+        };
+
+        self.card_mut(eff).add_remembered_card(copied);
+        apply_continuous_effects(self);
+    }
+
     /// Deal damage to a card (creature).
     ///
     /// Runs replacement effects (e.g. damage prevention) before applying.
