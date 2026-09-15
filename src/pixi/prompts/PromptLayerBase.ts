@@ -417,7 +417,8 @@ function sameActionPresentation(
       left.targetCompletionKind === right.targetCompletionKind &&
       !!left.onCompleteTargets === !!right.onCompleteTargets &&
       !!left.onOpenCombat === !!right.onOpenCombat &&
-      !!left.onOpenPhaseStops === !!right.onOpenPhaseStops &&
+      left.compactPhaseControl?.color === right.compactPhaseControl?.color &&
+      !!left.compactPhaseControl?.onOpen === !!right.compactPhaseControl?.onOpen &&
       left.isMyTurn === right.isMyTurn &&
       left.step === right.step &&
       samePayManaInfo(left.payManaCostInfo, right.payManaCostInfo) &&

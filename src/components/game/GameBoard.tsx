@@ -768,18 +768,6 @@ export function GameBoard({
     [toggleSelfStop, toggleOpponentStop, openMobilePhaseStops],
   );
 
-  const compactPromptOverlaySpec = useMemo<PromptOverlaySpec | null>(() => {
-    if (!promptOverlaySpec) return null;
-    if (!compactBoard) return promptOverlaySpec;
-    return {
-      ...promptOverlaySpec,
-      action: {
-        ...promptOverlaySpec.action,
-        onOpenPhaseStops: openMobilePhaseStops,
-      },
-    };
-  }, [compactBoard, openMobilePhaseStops, promptOverlaySpec]);
-
   const boardRef = useRef<HTMLDivElement>(null);
   const setBoardRef = useCallback(
     (el: HTMLDivElement | null) => {
@@ -795,6 +783,28 @@ export function GameBoard({
   const [overlayScene, setOverlayScene] = useState<BoardScene | null>(null);
   const { appTheme, gameTheme } = useTheme();
   const playerColors = gameTheme.playerColors;
+  const activeOpponentIndex = opponents.findIndex((opponent) => opponent.id === activePlayerId);
+  const activeOpponentSeat = OPPONENT_SEATS[activeOpponentIndex];
+  const activePhaseColor =
+    activePlayerId === me.id
+      ? playerColors.self
+      : activeOpponentSeat
+        ? playerColors[activeOpponentSeat]
+        : gameTheme.textMuted;
+  const compactPromptOverlaySpec = useMemo<PromptOverlaySpec | null>(() => {
+    if (!promptOverlaySpec) return null;
+    if (!compactBoard) return promptOverlaySpec;
+    return {
+      ...promptOverlaySpec,
+      action: {
+        ...promptOverlaySpec.action,
+        compactPhaseControl: {
+          color: activePhaseColor,
+          onOpen: openMobilePhaseStops,
+        },
+      },
+    };
+  }, [activePhaseColor, compactBoard, openMobilePhaseStops, promptOverlaySpec]);
 
   // The opponent whose field auto-expands: the active one on their turn,
   // otherwise the sticky one on ours (defaulting to the first opponent). The
@@ -1982,9 +1992,12 @@ export function GameBoard({
             open={!mobileHandOpen && mobilePanel?.kind === "phases"}
             currentStep={step}
             selfStops={selfStops}
-            opponents={opponents.map((opponent) => ({
+            activeColor={activePhaseColor}
+            selfColor={playerColors.self}
+            opponents={opponents.map((opponent, index) => ({
               id: opponent.id,
               name: stripUsernameTag(opponent.name),
+              color: playerColors[OPPONENT_SEATS[index] ?? "opponent1"],
               stops: opponentStopsMap.get(opponent.id) ?? new Set(DEFAULT_OPPONENT_STOPS),
             }))}
             onClose={() => setMobilePanel(null)}

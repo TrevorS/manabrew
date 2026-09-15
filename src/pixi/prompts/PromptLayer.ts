@@ -53,6 +53,10 @@ import { PromptModalLayer } from "./PromptModalLayer";
 
 const ACTION_CARD_SIZE = GAME_CARD_SIZES.battlefield;
 const ACTION_CARD_GAP = 8;
+const COMPACT_PHASE_PILL_HEIGHT = 22;
+const COMPACT_PHASE_PILL_MIN_WIDTH = 48;
+const COMPACT_PHASE_PILL_PADDING_X = 8;
+const COMPACT_PHASE_TOUCH_HEIGHT = 48;
 
 export class PromptLayer extends PromptModalLayer {
   private readonly unsubscribePromptPreferences: () => void;
@@ -1511,9 +1515,10 @@ export class PromptLayer extends PromptModalLayer {
   }
 
   private makeCompactActionControls(): ActionViewLayout {
-    const controlViews = [this.makeCompactPhaseButton(), this.makeActionMenuButton(true)].filter(
-      (control): control is ActionViewLayout => control != null,
-    );
+    const phase = this.makeCompactPhaseButton();
+    const controlViews = phase
+      ? [this.makeActionMenuButton(true), phase]
+      : [this.makeActionMenuButton(true)];
     const height = controlViews.reduce(
       (controlHeight, control) => Math.max(controlHeight, control.height),
       0,
@@ -1534,30 +1539,49 @@ export class PromptLayer extends PromptModalLayer {
 
   private makeCompactPhaseButton(): ActionViewLayout | null {
     const action = this.spec!.action;
-    if (!action.onOpenPhaseStops) return null;
-    const phaseLabel = PHASES.find((phase) => phase.id === action.step)?.short ?? action.step;
-    const button = this.makeButton(phaseLabel, action.onOpenPhaseStops, {
-      title: "Open phase stops",
-      width: 48,
-      height: 48,
-      compact: true,
-      flat: true,
-      shadow: true,
-      radius: 10,
-      backgroundColor: this.theme.gameTheme.phaseStrip.background,
-      borderColor: this.theme.appTheme.primary,
-      borderAlpha: 0.8,
-      hoverBorderAlpha: 1,
-      pressOffsetY: 1,
-      fontSize: 10,
-      fontWeight: "900",
-      paddingX: 0,
+    const control = action.compactPhaseControl;
+    if (!control) return null;
+    const label = PHASES.find((phase) => phase.id === action.step)?.short ?? action.step;
+    const text = promptText(label, 10, this.theme.gameTheme.textOnTinted, {
+      weight: "800",
     });
-    button.on("pointerdown", (event: FederatedPointerEvent) => event.stopPropagation());
+    const width = Math.max(
+      COMPACT_PHASE_PILL_MIN_WIDTH,
+      Math.ceil(text.width) + COMPACT_PHASE_PILL_PADDING_X * 2,
+    );
+    const pillY = (COMPACT_PHASE_TOUCH_HEIGHT - COMPACT_PHASE_PILL_HEIGHT) / 2;
+    const background = new Graphics()
+      .roundRect(0, pillY, width, COMPACT_PHASE_PILL_HEIGHT, COMPACT_PHASE_PILL_HEIGHT / 2)
+      .fill({ color: hexToNum(this.theme.gameTheme.phaseStrip.background) })
+      .roundRect(0, pillY, width, COMPACT_PHASE_PILL_HEIGHT, COMPACT_PHASE_PILL_HEIGHT / 2)
+      .stroke({ color: hexToNum(control.color), width: 2, alignment: 0.5 });
+    text.anchor.set(0.5);
+    text.position.set(width / 2, COMPACT_PHASE_TOUCH_HEIGHT / 2);
+    const button = new Container();
+    button.addChild(background, text);
+    button.eventMode = "static";
+    button.cursor = "pointer";
+    button.hitArea = new Rectangle(0, 0, width, COMPACT_PHASE_TOUCH_HEIGHT);
+    button.accessible = true;
+    button.accessibleTitle = "Open phase stops";
+    button.tabIndex = 0;
+    const setPressed = (pressed: boolean) => {
+      background.alpha = pressed ? 0.82 : 1;
+      text.scale.set(pressed ? 0.96 : 1);
+    };
+    button.on("pointerdown", (event: FederatedPointerEvent) => {
+      event.stopPropagation();
+      setPressed(true);
+    });
+    button.on("pointerup", () => setPressed(false));
+    button.on("pointerupoutside", () => setPressed(false));
+    button.on("pointercancel", () => setPressed(false));
+    button.on("pointerout", () => setPressed(false));
+    button.on("pointertap", control.onOpen);
     return {
       container: button,
-      width: button.buttonWidth,
-      height: button.buttonHeight,
+      width,
+      height: COMPACT_PHASE_TOUCH_HEIGHT,
     };
   }
 
