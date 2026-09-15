@@ -1487,6 +1487,9 @@ impl TriggerHandler {
         if self.is_trigger_suppressed(*mode) {
             return false;
         }
+        if *mode == TriggerType::Always && game.stack.has_state_trigger_id(trigger.id) {
+            return false;
+        }
 
         // Common trigger phase/requirement/limit checks (Java Trigger base behavior).
         if !trigger.phases_check(game, host_card, params.phase) {
