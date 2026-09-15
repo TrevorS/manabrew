@@ -52,7 +52,10 @@ impl TriggerBehavior for TriggerAbilityResolves {
         _game: &GameState,
     ) {
         if let Some(card) = params.card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Source, card.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Source,
+                crate::event::AbilityValue::Card(card),
+            );
         }
         // SpellAbility is a complex object, skip for now
     }

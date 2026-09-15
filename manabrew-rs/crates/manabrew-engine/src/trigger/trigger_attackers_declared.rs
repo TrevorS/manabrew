@@ -157,7 +157,10 @@ impl TriggerBehavior for TriggerAttackersDeclared {
         }
         // Java: sa.setTriggeringObjectsFrom(runParams, AbilityKey.AttackingPlayer);
         if let Some(p) = params.attacking_player {
-            sa.set_triggering_object(crate::ability::AbilityKey::AttackingPlayer, p.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::AttackingPlayer,
+                crate::event::AbilityValue::Player(p),
+            );
         }
     }
 

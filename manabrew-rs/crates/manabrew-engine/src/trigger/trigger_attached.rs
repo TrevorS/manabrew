@@ -48,10 +48,16 @@ impl TriggerBehavior for TriggerAttached {
         _game: &GameState,
     ) {
         if let Some(source) = params.source_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Source, source.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Source,
+                crate::event::AbilityValue::Card(source),
+            );
         }
         if let Some(card) = params.card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Target, card.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Target,
+                crate::event::AbilityValue::Card(card),
+            );
         }
     }
 

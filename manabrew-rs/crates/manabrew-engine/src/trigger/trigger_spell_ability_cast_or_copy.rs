@@ -100,7 +100,10 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
     ) {
         // Java: sa.setTriggeringObject(AbilityKey.Card, cause.getHostCard())
         if let Some(card) = params.spell_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Card, card.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Card,
+                crate::event::AbilityValue::Card(card),
+            );
         }
         // TODO: port SpellAbility triggering object (AbilityKey.SpellAbility = cause)
         // TODO: port SpellAbilityTargets triggering object (from cause.getAllTargetChoices)
@@ -108,10 +111,16 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
             sa.set_triggering_object(crate::ability::AbilityKey::LifeAmount, amount.to_string());
         }
         if let Some(lki) = params.card_lki {
-            sa.set_triggering_object(crate::ability::AbilityKey::CardLKI, lki.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::CardLKI,
+                crate::event::AbilityValue::Card(lki),
+            );
         }
         if let Some(p) = params.activator {
-            sa.set_triggering_object(crate::ability::AbilityKey::Activator, p.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Activator,
+                crate::event::AbilityValue::Player(p),
+            );
         }
         // TODO: port CurrentStormCount triggering object - not yet in RunParams
         // TODO: port CurrentCastSpells triggering object - not yet in RunParams

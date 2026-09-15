@@ -114,17 +114,23 @@ impl TriggerBehavior for TriggerBecomesTarget {
     ) {
         if let Some(ref source_sa) = params.source_sa {
             if let Some(source_card) = source_sa.source {
-                sa.set_triggering_object(
+                sa.set_triggering_value(
                     crate::ability::AbilityKey::Source,
-                    source_card.0.to_string(),
+                    crate::event::AbilityValue::Card(source_card),
                 );
             }
             sa.set_triggering_spell_ability("SourceSA", source_sa.clone());
         }
         if let Some(card) = params.target_card.or(params.card) {
-            sa.set_triggering_object(crate::ability::AbilityKey::Target, card.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Target,
+                crate::event::AbilityValue::Card(card),
+            );
         } else if let Some(p) = params.target_player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Target, p.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Target,
+                crate::event::AbilityValue::Player(p),
+            );
         }
     }
 

@@ -214,10 +214,16 @@ impl TriggerBehavior for TriggerAbilityTriggered {
         // The source is the host card of the triggered SpellAbility
         if let Some(ref triggered_sa) = params.spell_ability {
             if let Some(source) = triggered_sa.source {
-                sa.set_triggering_object(crate::ability::AbilityKey::Source, source.0.to_string());
+                sa.set_triggering_value(
+                    crate::ability::AbilityKey::Source,
+                    crate::event::AbilityValue::Card(source),
+                );
             }
         } else if let Some(card) = params.source_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Source, card.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Source,
+                crate::event::AbilityValue::Card(card),
+            );
         }
         // Java: sa.setTriggeringObjectsFrom(runParams, AbilityKey.SpellAbility, AbilityKey.Cause);
         // SpellAbility and Cause are complex objects; store what we can

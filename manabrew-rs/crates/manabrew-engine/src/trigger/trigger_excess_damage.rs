@@ -47,9 +47,15 @@ impl TriggerBehavior for TriggerExcessDamage {
         _game: &GameState,
     ) {
         if let Some(card) = params.damage_target_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Target, card.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Target,
+                crate::event::AbilityValue::Card(card),
+            );
         } else if let Some(player) = params.damage_target_player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Target, player.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Target,
+                crate::event::AbilityValue::Player(player),
+            );
         }
         if let Some(amount) = params.damage_amount {
             sa.set_triggering_object(crate::ability::AbilityKey::DamageAmount, amount.to_string());

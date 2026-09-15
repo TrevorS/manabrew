@@ -51,7 +51,10 @@ impl TriggerBehavior for TriggerBlocks {
         _game: &GameState,
     ) {
         if let Some(blocker) = params.blocker {
-            sa.set_triggering_object(crate::ability::AbilityKey::Blocker, blocker.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Blocker,
+                crate::event::AbilityValue::Card(blocker),
+            );
         }
         if let Some(attackers) = params.attacker_ids.as_ref() {
             let csv = attackers

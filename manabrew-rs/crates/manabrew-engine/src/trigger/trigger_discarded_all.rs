@@ -60,7 +60,10 @@ impl TriggerBehavior for TriggerDiscardedAll {
             sa.set_triggering_object(crate::ability::AbilityKey::Amount, cards.len().to_string());
         }
         if let Some(p) = params.player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Player, p.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Player,
+                crate::event::AbilityValue::Player(p),
+            );
         }
         // TODO: AbilityKey.Cause is a SpellAbility in Java, cannot be stored as String easily
     }

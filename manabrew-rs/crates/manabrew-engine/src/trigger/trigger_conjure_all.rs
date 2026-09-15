@@ -68,7 +68,10 @@ impl TriggerBehavior for TriggerConjureAll {
             sa.set_triggering_object(crate::ability::AbilityKey::Cards, &csv);
         }
         if let Some(p) = params.player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Player, p.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Player,
+                crate::event::AbilityValue::Player(p),
+            );
         }
         // TODO: Java also sets Cause from runParams via
         // sa.setTriggeringObjectsFrom(runParams, AbilityKey.Cause)

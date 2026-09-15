@@ -76,7 +76,10 @@ impl TriggerBehavior for TriggerUntapAll {
             .flat_map(|(_, cards)| cards.iter().copied())
             .collect();
         if let Some((player, _)) = map.first() {
-            sa.set_triggering_object(crate::ability::AbilityKey::Player, player.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Player,
+                crate::event::AbilityValue::Player(*player),
+            );
         }
         let csv = untapped
             .iter()

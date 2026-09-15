@@ -51,10 +51,16 @@ impl TriggerBehavior for TriggerMentored {
         _game: &GameState,
     ) {
         if let Some(card) = params.card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Card, card.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Card,
+                crate::event::AbilityValue::Card(card),
+            );
         }
         if let Some(src) = params.source_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Source, src.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Source,
+                crate::event::AbilityValue::Card(src),
+            );
         }
     }
 

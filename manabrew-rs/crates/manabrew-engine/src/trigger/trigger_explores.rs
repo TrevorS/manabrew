@@ -51,7 +51,10 @@ impl TriggerBehavior for TriggerExplores {
             sa.set_triggering_object(crate::ability::AbilityKey::Explorer, card_id.0.to_string());
         }
         if let Some(explored) = params.explored {
-            sa.set_triggering_object(crate::ability::AbilityKey::Explored, explored.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Explored,
+                crate::event::AbilityValue::Card(explored),
+            );
         }
     }
 

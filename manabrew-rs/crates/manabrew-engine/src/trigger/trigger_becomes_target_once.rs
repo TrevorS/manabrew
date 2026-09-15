@@ -52,13 +52,16 @@ impl TriggerBehavior for TriggerBecomesTargetOnce {
         // Java: sa.setTriggeringObject(AbilityKey.Source, ((SpellAbility) runParams.get(AbilityKey.SourceSA)).getHostCard());
         if let Some(ref source_sa) = params.source_sa {
             if let Some(source_card) = source_sa.source {
-                sa.set_triggering_object(
+                sa.set_triggering_value(
                     crate::ability::AbilityKey::Source,
-                    source_card.0.to_string(),
+                    crate::event::AbilityValue::Card(source_card),
                 );
             }
         } else if let Some(source) = params.source_card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Source, source.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Source,
+                crate::event::AbilityValue::Card(source),
+            );
         }
         // Targets from the batch targeting event
         if let Some(card) = params.target_card.or(params.card) {

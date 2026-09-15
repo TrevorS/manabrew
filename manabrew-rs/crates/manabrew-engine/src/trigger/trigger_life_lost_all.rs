@@ -43,7 +43,10 @@ impl TriggerBehavior for TriggerLifeLostAll {
         // TODO: Java stores a Map<Player, Integer> — Rust can't store a map in trigger_objects HashMap<String,String>.
         //       Simplified: store Player from params. Map filtering with ValidPlayer/ValidAmountEach skipped.
         if let Some(p) = params.player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Player, p.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Player,
+                crate::event::AbilityValue::Player(p),
+            );
         }
     }
 

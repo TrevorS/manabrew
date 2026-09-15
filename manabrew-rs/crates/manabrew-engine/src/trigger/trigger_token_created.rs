@@ -48,10 +48,16 @@ impl TriggerBehavior for TriggerTokenCreated {
         _game: &GameState,
     ) {
         if let Some(p) = params.player {
-            sa.set_triggering_object(crate::ability::AbilityKey::Player, p.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Player,
+                crate::event::AbilityValue::Player(p),
+            );
         }
         if let Some(card) = params.card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Card, card.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Card,
+                crate::event::AbilityValue::Card(card),
+            );
         }
     }
 

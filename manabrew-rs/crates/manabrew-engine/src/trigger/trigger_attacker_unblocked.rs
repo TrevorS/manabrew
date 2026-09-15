@@ -46,7 +46,10 @@ impl TriggerBehavior for TriggerAttackerUnblocked {
         _game: &GameState,
     ) {
         if let Some(attacker) = params.attacker {
-            sa.set_triggering_object(crate::ability::AbilityKey::Attacker, attacker.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Attacker,
+                crate::event::AbilityValue::Card(attacker),
+            );
         }
         if let Some(c) = params.attacked_card {
             sa.set_triggering_object(crate::ability::AbilityKey::Defender, c.0.to_string());
@@ -54,7 +57,10 @@ impl TriggerBehavior for TriggerAttackerUnblocked {
             sa.set_triggering_object(crate::ability::AbilityKey::Defender, p.0.to_string());
         }
         if let Some(p) = params.defending_player {
-            sa.set_triggering_object(crate::ability::AbilityKey::DefendingPlayer, p.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::DefendingPlayer,
+                crate::event::AbilityValue::Player(p),
+            );
         }
     }
 

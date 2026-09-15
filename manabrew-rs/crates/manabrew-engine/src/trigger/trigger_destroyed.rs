@@ -55,10 +55,16 @@ impl TriggerBehavior for TriggerDestroyed {
     ) {
         // Java: sa.setTriggeringObjectsFrom(runParams, AbilityKey.Card, AbilityKey.Causer)
         if let Some(card_id) = params.card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Card, card_id.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Card,
+                crate::event::AbilityValue::Card(card_id),
+            );
         }
         if let Some(causer) = params.causer {
-            sa.set_triggering_object(crate::ability::AbilityKey::Causer, causer.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Causer,
+                crate::event::AbilityValue::Card(causer),
+            );
         }
     }
 

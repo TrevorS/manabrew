@@ -64,13 +64,19 @@ impl TriggerBehavior for TriggerTapsForMana {
         _game: &GameState,
     ) {
         if let Some(card) = params.card {
-            sa.set_triggering_object(crate::ability::AbilityKey::Card, card.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Card,
+                crate::event::AbilityValue::Card(card),
+            );
         }
         if let Some(produced) = params.produced.as_ref() {
             sa.set_triggering_object(crate::ability::AbilityKey::Produced, produced);
         }
         if let Some(p) = params.activator {
-            sa.set_triggering_object(crate::ability::AbilityKey::Activator, p.0.to_string());
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::Activator,
+                crate::event::AbilityValue::Player(p),
+            );
         }
     }
 
