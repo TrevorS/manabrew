@@ -4,6 +4,7 @@ import type { CardDto, DayTime } from "@/protocol/game";
 import type { ClientPlayerDto } from "@/stores/gameStore.types";
 import type { Prompt, StepKind } from "@/protocol";
 import { validCardIdsInCards, type BoardTargetBuckets } from "@/lib/boardTargets";
+import { PHASE_CONTROLS } from "@/components/game/panels/MobilePhaseStops";
 import type { PreviewPointerInput } from "@/lib/cardPreview";
 import { stripUsernameTag } from "@/lib/username";
 import { nextHandOrderMode } from "@/lib/handOrder";
@@ -793,6 +794,9 @@ export function GameBoard({
         : gameTheme.textMuted;
   const compactPromptOverlaySpec = useMemo<PromptOverlaySpec | null>(() => {
     if (!promptOverlaySpec) return null;
+    const armedStopReached = PHASE_CONTROLS.some(
+      (phase) => selfStops.has(phase.id) && phase.currentSteps.includes(step),
+    );
     if (!compactBoard) return promptOverlaySpec;
     return {
       ...promptOverlaySpec,
@@ -801,10 +805,11 @@ export function GameBoard({
         compactPhaseControl: {
           color: activePhaseColor,
           onOpen: openMobilePhaseStops,
+          pulse: armedStopReached,
         },
       },
     };
-  }, [activePhaseColor, compactBoard, openMobilePhaseStops, promptOverlaySpec]);
+  }, [activePhaseColor, compactBoard, openMobilePhaseStops, promptOverlaySpec, selfStops, step]);
 
   // The opponent whose field auto-expands: the active one on their turn,
   // otherwise the sticky one on ours (defaulting to the first opponent). The

@@ -419,6 +419,7 @@ function sameActionPresentation(
       !!left.onOpenCombat === !!right.onOpenCombat &&
       left.compactPhaseControl?.color === right.compactPhaseControl?.color &&
       !!left.compactPhaseControl?.onOpen === !!right.compactPhaseControl?.onOpen &&
+      !!left.compactPhaseControl?.pulse === !!right.compactPhaseControl?.pulse &&
       left.isMyTurn === right.isMyTurn &&
       left.step === right.step &&
       samePayManaInfo(left.payManaCostInfo, right.payManaCostInfo) &&

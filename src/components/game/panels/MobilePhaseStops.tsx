@@ -7,7 +7,7 @@ import type { StepKind } from "@/protocol";
 
 const COMBAT_STOP: StepKind = "combatDeclareAttackers";
 const COMBAT_PHASE_IDS = PHASES.filter((phase) => phase.combat).map((phase) => phase.id);
-const PHASE_CONTROLS = PHASES.filter(
+export const PHASE_CONTROLS = PHASES.filter(
   (phase) => phase.id !== "untap" && (!phase.combat || phase.id === COMBAT_STOP),
 ).map((phase) => ({
   id: phase.id,

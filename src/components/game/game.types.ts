@@ -93,6 +93,7 @@ export interface PromptActionSpec {
   compactPhaseControl?: {
     color: string;
     onOpen: () => void;
+    pulse?: boolean;
   };
   onOpenCombat?: () => void;
   targetCompletionLabel?: string | null;

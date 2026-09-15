@@ -60,6 +60,7 @@ const COMPACT_PHASE_PILL_PADDING_X = 8;
 const COMPACT_PHASE_TOUCH_HEIGHT = 48;
 
 export class PromptLayer extends PromptModalLayer {
+  private phasePulseFired = false;
   private readonly unsubscribePromptPreferences: () => void;
   private readonly unsubscribePreferences: () => void;
   private readonly unsubscribeKeybindings: () => void;
@@ -1558,6 +1559,34 @@ export class PromptLayer extends PromptModalLayer {
     text.position.set(width / 2, COMPACT_PHASE_TOUCH_HEIGHT / 2);
     const button = new Container();
     button.addChild(background, text);
+    if (control.pulse && animationsEnabled()) {
+      if (!this.phasePulseFired) {
+        this.phasePulseFired = true;
+        const ring = new Graphics()
+          .roundRect(
+            -4,
+            pillY - 4,
+            width + 8,
+            COMPACT_PHASE_PILL_HEIGHT + 8,
+            (COMPACT_PHASE_PILL_HEIGHT + 8) / 2,
+          )
+          .stroke({ color: hexToNum(control.color), width: 2, alignment: 0.5 });
+        ring.eventMode = "none";
+        button.addChild(ring);
+        gsap.fromTo(
+          ring,
+          { alpha: 0.95 },
+          {
+            alpha: 0,
+            duration: 1.1,
+            ease: "sine.out",
+            onComplete: () => ring.destroy(),
+          },
+        );
+      }
+    } else {
+      this.phasePulseFired = false;
+    }
     button.eventMode = "static";
     button.cursor = "pointer";
     button.hitArea = new Rectangle(0, 0, width, COMPACT_PHASE_TOUCH_HEIGHT);
