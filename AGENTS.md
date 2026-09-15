@@ -75,15 +75,13 @@ The `forge/` submodule has no local `AGENTS.md`; treat it as read-only and use i
 
 ## Before every commit
 
-Run these three checks **for every commit**, no exceptions. They apply regardless of which part of the codebase you touched.
+The pre-commit hook runs staged-file formatting and linting for every commit. Full-repository TypeScript and Rust gates run in `build-checks.yml`, where Rust checks are scoped to Rust-affecting changes.
 
-### 1. Lint, format, and typecheck
+### 1. Lint and format staged files
 
-```bash
-yarn lint:all      # eslint + prettier --check + tsc + cargo fmt --check + cargo clippy -D warnings
-```
+The hook runs `npx lint-staged` automatically. Do not run `yarn lint:all` solely because you are about to commit; it remains available for an explicit full local check.
 
-If lint fails, do **not** bypass it. Fix the underlying issue, or run:
+If the staged checks fail, do not bypass them. Fix the underlying issue or use the applicable formatter:
 
 ```bash
 yarn fix:all       # eslint --fix + prettier --write + cargo fmt + tsc
