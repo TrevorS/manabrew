@@ -455,9 +455,20 @@ impl TriggerHandler {
             notify_all_agents(agents, event);
 
             let is_optional = pt.optional;
+            let is_static = pt
+                .entry
+                .spell_ability
+                .trigger_source
+                .zip(pt.entry.spell_ability.trigger_index)
+                .and_then(|(source, index)| {
+                    game.cards
+                        .get(source.index())
+                        .and_then(|card| card.triggers.get(index))
+                })
+                .is_some_and(|trigger| trigger.is_static());
             let pushed_entry = pt.entry.clone();
             game.stack.push(pt.entry);
-            if pushed_entry.spell_ability.is_trigger {
+            if pushed_entry.spell_ability.is_trigger && !is_static {
                 let source_card = pushed_entry.spell_ability.source;
                 self.run_trigger(
                     TriggerType::SpellAbilityCast,

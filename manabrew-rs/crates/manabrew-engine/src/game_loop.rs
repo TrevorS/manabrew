@@ -789,6 +789,7 @@ fn check_sba(
 ) -> bool {
     let _perf_scope =
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::PrioritySba);
+    trigger_handler.run_trigger(TriggerType::Always, RunParams::default(), false);
     let result = game.check_state_based_actions_with_trigger_agents(Some(trigger_handler), agents);
     if result {
         // Flush triggers fired during SBA before re-registering. This preserves
