@@ -66,6 +66,10 @@ export class DragHandler {
     return this.drag !== null && this.drag.hasMoved;
   }
 
+  get hasDrag(): boolean {
+    return this.drag !== null && this.drag.hasMoved;
+  }
+
   get draggingCardIds(): Set<string> {
     if (!this.drag) return new Set();
     return new Set(this.drag.cardIds);

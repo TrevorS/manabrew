@@ -203,6 +203,9 @@ export class BoardScene {
   private collapseVeil: Graphics;
   private canvasW = 0;
   private canvasH = 0;
+  private canvasDomRect: DOMRect | null = null;
+  private canvasDomRectFrame = -1;
+  private domRectTick = 0;
   private boardWidth = 0;
   private topHeight = 0;
   private destroyed = false;
@@ -426,7 +429,7 @@ export class BoardScene {
       }
       this.cursorViewportX = e.clientX;
       this.cursorViewportY = e.clientY;
-      const rect = this.app.canvas.getBoundingClientRect();
+      const rect = this.canvasRect();
       const canvasX = e.clientX - rect.left;
       const canvasY = e.clientY - rect.top;
       if (
@@ -455,14 +458,14 @@ export class BoardScene {
 
     this.pinchDownListener = (e: PointerEvent) => {
       if (e.pointerType !== "touch") return;
-      const rect = this.app.canvas.getBoundingClientRect();
+      const rect = this.canvasRect();
       this.pinchPointers.set(e.pointerId, { x: e.clientX - rect.left, y: e.clientY - rect.top });
       if (this.pinchStart) this.tapSuppressedPointers.add(e.pointerId);
       else if (this.pinchPointers.size === 2) this.beginPinch();
     };
     this.pinchMoveListener = (e: PointerEvent) => {
       if (!this.pinchPointers.has(e.pointerId)) return;
-      const rect = this.app.canvas.getBoundingClientRect();
+      const rect = this.canvasRect();
       this.pinchPointers.set(e.pointerId, { x: e.clientX - rect.left, y: e.clientY - rect.top });
       if (this.pinchStart) this.updatePinch();
     };
@@ -480,7 +483,7 @@ export class BoardScene {
     window.addEventListener("pointercancel", this.gestureCancelListener);
     this.stripOutsideListener = (e: PointerEvent) => {
       if (!this.phaseStrip.isCompactExpanded()) return;
-      const rect = this.app.canvas.getBoundingClientRect();
+      const rect = this.canvasRect();
       const p = this.phaseStrip.container.toLocal(
         new Point(e.clientX - rect.left, e.clientY - rect.top),
       );
@@ -1302,7 +1305,7 @@ export class BoardScene {
 
   applyCombatBlocks(blocks: { blockerId: string; attackerId: string }[]): void {
     if (this.destroyed) return;
-    const canvasLeft = this.app.canvas.getBoundingClientRect().left;
+    const canvasLeft = this.canvasRect().left;
     const regionOf = (cardId: string): BoardRegion | null => {
       for (const rec of this.regions.values()) {
         if (rec.region.getCardPosition(cardId)) return rec.region;
@@ -1537,7 +1540,7 @@ export class BoardScene {
   commitPendingDrop(cardId: string, clientX: number, clientY: number): boolean {
     const region = this.localRegion();
     if (!region) return false;
-    const canvasRect = this.app.canvas.getBoundingClientRect();
+    const canvasRect = this.canvasRect();
     region.drawDropGrid(clientX - canvasRect.left, clientY - canvasRect.top);
     return region.commitPendingDrop(cardId);
   }
@@ -1601,11 +1604,19 @@ export class BoardScene {
     this.syncMobileHandPresentation();
   }
 
+  private canvasRect(): DOMRect {
+    const frame = this.domRectTick;
+    if (this.canvasDomRectFrame !== frame || !this.canvasDomRect) {
+      this.canvasDomRect = this.app.canvas.getBoundingClientRect();
+      this.canvasDomRectFrame = frame;
+    }
+    return this.canvasDomRect;
+  }
+
   resize(width: number, height: number): void {
     if (this.destroyed) return;
     this.app.renderer.resize(width, height);
     this.dragHandler.setContainerSize(width, height);
-    this.playerBars.setViewport(width, height);
     this.canvasW = width;
     this.canvasH = height;
     this.pinchPointers.clear();
@@ -1655,7 +1666,7 @@ export class BoardScene {
         if (isLocal) this.overlay?.rebuild(entry, state);
       },
       wireSprite: (sprite) => this.wireSprite(sprite, playerId, isLocal),
-      screenXToLocalX: (screenX) => screenX - this.app.canvas.getBoundingClientRect().left,
+      screenXToLocalX: (screenX) => screenX - this.canvasRect().left,
       getHandReserveBottom: () =>
         isLocal && !this.compactMode ? this.handReserveBottom() * HAND_RESERVE_TRIM : 0,
       spawnFloatingText: (x, y, content, color) => this.spawnFloatingText(x, y, content, color),
@@ -1976,7 +1987,7 @@ export class BoardScene {
     width: number;
     height: number;
   } {
-    const canvasRect = this.app.canvas.getBoundingClientRect();
+    const canvasRect = this.canvasRect();
     return {
       x: bounds.x + canvasRect.left,
       y: bounds.y + canvasRect.top,
@@ -2169,7 +2180,7 @@ export class BoardScene {
 
     const draggingFromHand = hand.isDraggingFromHand();
     if (draggingFromHand) hand.updateReorderAt(pos.x, pos.y);
-    const dragging = this.dragHandler.draggingCardIds.size > 0 || draggingFromHand;
+    const dragging = this.dragHandler.hasDrag || draggingFromHand;
     if (!dragging && e.pointerType !== "touch") {
       hand.updateHoverAt(pos.x, pos.y, e);
     } else if (hand.hasActiveHover()) {
@@ -2349,6 +2360,7 @@ export class BoardScene {
       lerp(this.phaseStrip.getDimAlpha(), this.phaseStripAlphaTarget, 0.2, 0.01),
     );
     this.animateFloaters(frameRatio);
+    this.domRectTick++;
     this.captureStackSeeds();
     const handReserve = this.handReserveBottom();
     if (this.handReserveCb && handReserve !== this.lastEmittedHandReserve) {
@@ -2358,7 +2370,7 @@ export class BoardScene {
     if (this.dropActive) {
       const local = this.localRegion();
       if (this.hand?.isDraggingPermanent()) {
-        const canvasRect = this.app.canvas.getBoundingClientRect();
+        const canvasRect = this.canvasRect();
         local?.drawDropGrid(
           this.cursorViewportX - canvasRect.left,
           this.cursorViewportY - canvasRect.top,
@@ -2417,7 +2429,7 @@ export class BoardScene {
     // player loses targeting feedback exactly when combat opens the fields.
     if (this.delimitersSettling() && !interacting) return [];
     if (this.arrowSpecs.length === 0 && !interacting) return [];
-    const canvasRect = this.app.canvas.getBoundingClientRect();
+    const canvasRect = this.canvasRect();
     const resolved: ArrowDef[] = [];
     const attackTargetCounts = new Map<string, number>();
     for (const s of this.arrowSpecs) {
