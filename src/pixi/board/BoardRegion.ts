@@ -152,6 +152,7 @@ export class BoardRegion {
   private userSlots = new Map<string, { col: number; row: number }>();
   private userPlacedCards = new Set<string>();
   private uiParent = new Map<string, string>();
+  private stackPeekAnchorId: string | null = null;
   private stackCounts = new Map<string, number>();
   private nameGroupChildren = new Set<string>();
   private combatStaging: SceneCombatStaging | null = null;
@@ -798,6 +799,12 @@ export class BoardRegion {
 
   updateBattlefield(state: BattlefieldState): void {
     if (this.host.isDestroyed() || !state || !Array.isArray(state.cards)) return;
+    if (
+      this.stackPeekAnchorId !== null &&
+      !state.cards.some((c) => this.uiParent.get(c.id) === this.stackPeekAnchorId)
+    ) {
+      this.collapseStackPeek();
+    }
     const prevCards = new Map<string, CardDto>();
     for (const c of this.lastState?.cards ?? []) prevCards.set(c.id, c);
     const isFirstState = this.lastState === null;
@@ -1512,7 +1519,11 @@ export class BoardRegion {
         ? applyCardOverrides(card, useGameDevStore.getState().cardOverrides)
         : card;
     if (entry.sprite.card !== overriddenCard) entry.sprite.updateCardContent(overriddenCard);
-    entry.sprite.setStackCount(this.stackCounts.get(card.id) ?? 1);
+    const stackCount = this.stackCounts.get(card.id) ?? 1;
+    entry.sprite.setStackCount(stackCount);
+    entry.sprite.setStackBadgeInteractive(
+      stackCount > 1 ? () => this.toggleStackPeek(card.id) : null,
+    );
     const orderIdx = state.orderedCardIds?.indexOf(card.id) ?? -1;
     entry.sprite.setOrderBadge(orderIdx >= 0 ? orderIdx + 1 : null);
     entry.targetRotation = overriddenCard.tapped ? (this.mirrored ? -Math.PI / 2 : Math.PI / 2) : 0;
@@ -1797,7 +1808,29 @@ export class BoardRegion {
       seen.add(childId);
       result.push(childId);
     }
+
     return result;
+  }
+
+  toggleStackPeek(anchorId: string): void {
+    if (this.stackPeekAnchorId === anchorId) {
+      this.collapseStackPeek();
+      return;
+    }
+    const state = this.lastState;
+    const anchor = state?.cards.find((c) => c.id === anchorId);
+    const entry = this.entries.get(anchorId);
+    if (!state || !anchor || !entry) return;
+    const pile = [anchor, ...state.cards.filter((c) => this.uiParent.get(c.id) === anchorId)];
+    const b = entry.sprite.getBounds();
+    this.stackPeekAnchorId = anchorId;
+    this.host.previewCards(pile, { x: b.x, y: b.y, width: b.width, height: b.height });
+  }
+
+  collapseStackPeek(): void {
+    if (this.stackPeekAnchorId === null) return;
+    this.stackPeekAnchorId = null;
+    this.host.previewCards(null);
   }
 
   followAttachmentsDuringDrag(parentId: string, parentCenter: Point): void {

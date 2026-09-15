@@ -1031,6 +1031,10 @@ export class BoardScene {
     return !!b && x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height;
   }
 
+  private collapseStackPeeks(): void {
+    for (const rec of this.regions.values()) rec.region.collapseStackPeek();
+  }
+
   private beginPinch(): void {
     const pts = [...this.pinchPointers.values()];
     const a = pts[0]!;
@@ -1111,6 +1115,7 @@ export class BoardScene {
     this.setAttackDragId(null);
     this.attackDragCandidate = null;
     this.activeGesturePointerId = null;
+    this.collapseStackPeeks();
     this.longPress.reset();
     const state = local?.getLastState();
     if (local && state) local.updateBattlefield(state);
@@ -2088,6 +2093,7 @@ export class BoardScene {
     this.onBattlefieldCardDown(sprite, e);
   }
   private onBattlefieldCardDown(sprite: CardSprite, e: FederatedPointerEvent): void {
+    this.collapseStackPeeks();
     if (this.destroyed) return;
     if (this.pinchStart) return;
     const local = this.localRegion();

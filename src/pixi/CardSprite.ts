@@ -7,6 +7,7 @@ import {
   Text,
   TextStyle,
   FillGradient,
+  Rectangle,
   ColorMatrixFilter,
   type DestroyOptions,
 } from "pixi.js";
@@ -612,6 +613,14 @@ export class CardSprite extends Container {
     this.stackCountContainer.addChild(this.stackCountBg);
     this.stackCountContainer.addChild(this.stackCountText);
     this.stackCountContainer.visible = false;
+    this.stackCountContainer.on("pointerdown", (e) => {
+      if (this.stackBadgeTap) e.stopPropagation();
+    });
+    this.stackCountContainer.on("pointertap", (e) => {
+      if (!this.stackBadgeTap) return;
+      e.stopPropagation();
+      this.stackBadgeTap();
+    });
     this.addChild(this.stackCountContainer);
 
     this.orderBadgeContainer = new Container();
@@ -1429,6 +1438,15 @@ export class CardSprite extends Container {
     });
   }
 
+  private stackBadgeTap: (() => void) | null = null;
+
+  setStackBadgeInteractive(onTap: (() => void) | null): void {
+    this.stackBadgeTap = onTap;
+    this.stackCountContainer.eventMode = onTap ? "static" : "passive";
+    this.stackCountContainer.cursor = onTap ? "pointer" : "default";
+    if (!onTap) this.stackCountContainer.hitArea = null;
+  }
+
   setStackCount(count: number): void {
     if (count <= 1) {
       this.stackCountContainer.visible = false;
@@ -1448,6 +1466,9 @@ export class CardSprite extends Container {
     this.stackCountText.y = 1;
     this.stackCountContainer.x = 3;
     this.stackCountContainer.y = 2;
+    if (this.stackBadgeTap) {
+      this.stackCountContainer.hitArea = new Rectangle(-4, -4, tw + 8, th + 8);
+    }
   }
 
   setOrderBadge(n: number | null): void {
