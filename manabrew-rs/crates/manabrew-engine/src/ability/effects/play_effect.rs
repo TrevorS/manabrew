@@ -208,11 +208,19 @@ fn resolve_target_cards(ctx: &EffectContext, sa: &SpellAbility) -> Vec<CardId> {
                 )
             })
             .filter(|card| {
-                if valid_sa.is_some_and(|v| v.eq_ignore_ascii_case("Spell")) {
+                valid_sa.is_none_or(|v| {
                     !card.is_land()
-                } else {
-                    true
-                }
+                        && crate::spellability::matches_valid_sa(
+                            v,
+                            &crate::spellability::build_spell_ability_for_card_cast(
+                                ctx.game,
+                                card.id,
+                                sa.activating_player,
+                            ),
+                            source,
+                            Some(card),
+                        )
+                })
             })
             .map(|card| card.id)
             .collect();

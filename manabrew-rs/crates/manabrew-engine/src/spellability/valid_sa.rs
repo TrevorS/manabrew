@@ -119,7 +119,9 @@ fn matches_property_token_positive(
             {
                 return true;
             }
-            ability_host.is_some_and(|host| host.has_property(token))
+            ability_host.is_some_and(|host| {
+                crate::card::card_property::card_has_property(host, token, source.controller)
+            })
         }
     }
 }
