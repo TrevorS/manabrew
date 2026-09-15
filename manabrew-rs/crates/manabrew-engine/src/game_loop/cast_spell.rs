@@ -1211,6 +1211,7 @@ impl GameLoop {
         // ── X mana cost handling ──────────────────────────────────
         let original_mana_cost = mana_cost.clone();
         let mut spell_cost = Self::parse_spell_cost(&abilities_for_spell);
+        let mut alternate_additional_mana = None;
 
         if let Some(alt_additional) = game
             .card(card_id)
@@ -1235,6 +1236,19 @@ impl GameLoop {
                 .unwrap_or(0)
                 .min(variant_costs.len() - 1);
             let chosen = variant_costs.swap_remove(chosen_idx);
+            alternate_additional_mana = Some(
+                chosen
+                    .parts
+                    .iter()
+                    .filter_map(|part| {
+                        if let CostPart::Mana { cost: mc, .. } = part {
+                            Some(mc.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .fold(forge_foundation::ManaCost::zero(), |acc, mc| acc.add(&mc)),
+            );
             spell_cost = Some(match spell_cost {
                 Some(mut existing) => {
                     existing.parts.extend(chosen.parts);
@@ -1244,6 +1258,10 @@ impl GameLoop {
             });
         }
         let spell_cost = spell_cost;
+        let mana_cost = match alternate_additional_mana {
+            Some(extra) => mana_cost.add(&extra),
+            None => mana_cost,
+        };
         let x_count = mana_cost.count_x();
         let mut x_value = 0u32;
         let mana_cost = if x_count > 0 {
