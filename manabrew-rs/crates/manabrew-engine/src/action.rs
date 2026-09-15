@@ -307,6 +307,8 @@ impl GameState {
             counter_cause,
             counter_is_effect: dest_zone == ZoneType::Battlefield,
             after_replacement_static_abilities: Vec::new(),
+            stack_sa: None,
+            fizzle: None,
         };
         let tapped_before_replacement = self.card(card_id).tapped;
         if apply_move_replacement {
@@ -414,6 +416,13 @@ impl GameState {
             apply_continuous_effects(self);
             debug_assert!(self.card_zone_location_matches_card(card_id));
             return;
+        }
+
+        if src_zone == ZoneType::Stack
+            && !matches!(dest_zone, ZoneType::Stack | ZoneType::Battlefield)
+            && self.cards[card_id.index()].is_transformed
+        {
+            self.cards[card_id.index()].transform();
         }
 
         // Remove from source zone
@@ -1099,6 +1108,8 @@ impl GameState {
             counter_cause: None,
             counter_is_effect: false,
             after_replacement_static_abilities: Vec::new(),
+            stack_sa: None,
+            fizzle: None,
         };
         if let Some(agents) = agents.as_deref_mut() {
             apply_replacements_with_agents(self, agents, &mut moved_event);

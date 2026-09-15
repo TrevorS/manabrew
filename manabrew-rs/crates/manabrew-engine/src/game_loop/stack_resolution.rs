@@ -154,7 +154,15 @@ impl GameLoop {
                     let dest = if entry.spell_ability.alt_cost
                         == Some(crate::spellability::AlternativeCost::Harmonize)
                     {
-                        apply_moved_replacement(game, card_id, ZoneType::Graveyard, Some(agents))
+                        apply_moved_replacement(
+                            game,
+                            card_id,
+                            ZoneType::Graveyard,
+                            Some(&entry.spell_ability),
+                            Some(true),
+                            Some(agents),
+                            Some(&mut self.replacement_runtime()),
+                        )
                     } else if entry.spell_ability.alt_cost
                         == Some(crate::spellability::AlternativeCost::Flashback)
                         || entry.spell_ability.alt_cost
@@ -164,9 +172,19 @@ impl GameLoop {
                     } else {
                         // Apply Moved replacement WITH agents for proper RNG consumption
                         // (e.g. Rest in Peace + Leyline of the Void both redirecting).
-                        apply_moved_replacement(game, card_id, ZoneType::Graveyard, Some(agents))
+                        apply_moved_replacement(
+                            game,
+                            card_id,
+                            ZoneType::Graveyard,
+                            Some(&entry.spell_ability),
+                            Some(true),
+                            Some(agents),
+                            Some(&mut self.replacement_runtime()),
+                        )
                     };
-                    self.move_card_with_runtime(game, card_id, dest, owner, agents);
+                    if game.card(card_id).zone == ZoneType::Stack {
+                        self.move_card_with_runtime(game, card_id, dest, owner, agents);
+                    }
                 }
             }
             apply_continuous_effects(game);
@@ -721,7 +739,15 @@ impl GameLoop {
                     // Determine destination based on alternative cost / keywords
                     let dest = if alt_cost == Some(crate::spellability::AlternativeCost::Harmonize)
                     {
-                        apply_moved_replacement(game, card_id, ZoneType::Graveyard, Some(agents))
+                        apply_moved_replacement(
+                            game,
+                            card_id,
+                            ZoneType::Graveyard,
+                            Some(&entry.spell_ability),
+                            Some(false),
+                            Some(agents),
+                            Some(&mut self.replacement_runtime()),
+                        )
                     } else if alt_cost == Some(crate::spellability::AlternativeCost::Flashback)
                         || alt_cost == Some(crate::spellability::AlternativeCost::Escape)
                     {
@@ -765,9 +791,19 @@ impl GameLoop {
                         );
                         ZoneType::Exile
                     } else {
-                        apply_moved_replacement(game, card_id, ZoneType::Graveyard, Some(agents))
+                        apply_moved_replacement(
+                            game,
+                            card_id,
+                            ZoneType::Graveyard,
+                            Some(&entry.spell_ability),
+                            Some(false),
+                            Some(agents),
+                            Some(&mut self.replacement_runtime()),
+                        )
                     };
-                    self.move_card_with_runtime(game, card_id, dest, owner, agents);
+                    if game.card(card_id).zone == ZoneType::Stack {
+                        self.move_card_with_runtime(game, card_id, dest, owner, agents);
+                    }
                 }
             }
         }

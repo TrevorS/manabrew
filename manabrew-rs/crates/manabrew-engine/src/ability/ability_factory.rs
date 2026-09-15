@@ -16,7 +16,7 @@ use crate::parsing::keys::ST;
 use crate::parsing::{keys, Params, ParsedParams};
 use crate::spellability::target_restrictions::TargetRestrictions;
 use crate::spellability::{AbilityManaPart, SpellAbility, TargetChoices};
-use forge_foundation::ZoneType;
+use forge_foundation::{CardStateName, ZoneType};
 use serde::{Deserialize, Serialize};
 
 /// The record type prefix for an ability definition.
@@ -260,6 +260,60 @@ pub fn build_spell_ability_from_host_card(
     )
 }
 
+fn build_spell_ability_for_host_cast(host: &Card, player: PlayerId) -> Option<SpellAbility> {
+    let spell_ability_text = host
+        .abilities
+        .iter()
+        .find(|a| crate::parsing::raw_has_key(a, keys::SP))?;
+    let mut sa =
+        build_spell_ability_of_type(host, spell_ability_text, player, AbilityRecordType::Spell);
+    // Card-cast context: if SP$ omitted Cost$, default to card mana cost.
+    if sa.pay_costs.is_none() {
+        sa.pay_costs = Some(Cost {
+            parts: vec![CostPart::Mana {
+                cost: host.mana_cost.clone(),
+                x_min: 0,
+                is_exiled_creature_cost: false,
+                is_enchanted_creature_cost: false,
+                is_cost_pay_any_number_of_times: false,
+                max_waterbend: None,
+            }],
+            has_tap: false,
+            mandatory: false,
+        });
+    }
+    // Aura enchantments with SP$ but no ValidTgts$: inject Enchant-derived targeting.
+    // Some aura cards have SP$ lines for ETB effects but rely on the Enchant keyword
+    // for targeting. Without this, the aura can target anything.
+    if sa.target_restrictions.is_none() && host.type_line.has_subtype("Aura") {
+        let enchant_type = host.get_keyword_cost("Enchant").unwrap_or_default();
+        let params_str = crate::parsing::enchant_type_to_target_params(&enchant_type);
+        sa.target_restrictions = TargetRestrictions::new(&Params::from_raw(&params_str));
+    }
+    Some(sa)
+}
+
+pub fn build_spell_ability_for_card_state_cast(
+    game: &GameState,
+    card_id: CardId,
+    player: PlayerId,
+    state_name: CardStateName,
+) -> Option<(Card, SpellAbility)> {
+    let mut host = game.card(card_id).clone();
+    if host.is_transformed
+        || !host
+            .other_part
+            .as_ref()
+            .is_some_and(|other| other.state_name == state_name)
+    {
+        return None;
+    }
+    host.transform();
+    let mut sa = build_spell_ability_for_host_cast(&host, player)?;
+    sa.ir.card_state_name = Some(format!("{state_name:?}"));
+    Some((host, sa))
+}
+
 /// Build a spell ability for card-casting contexts.
 ///
 /// This mirrors Java's Spell object construction for vanilla cards:
@@ -272,43 +326,7 @@ pub fn build_spell_ability_for_card_cast(
 ) -> SpellAbility {
     let _perf_scope =
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::AbilityBuild);
-    if let Some(spell_ability_text) = game
-        .card(card_id)
-        .abilities
-        .iter()
-        .find(|a| crate::parsing::raw_has_key(a, keys::SP))
-        .cloned()
-    {
-        let host = game.card(card_id);
-        let mut sa = build_spell_ability_of_type(
-            host,
-            &spell_ability_text,
-            player,
-            AbilityRecordType::Spell,
-        );
-        // Card-cast context: if SP$ omitted Cost$, default to card mana cost.
-        if sa.pay_costs.is_none() {
-            sa.pay_costs = Some(Cost {
-                parts: vec![CostPart::Mana {
-                    cost: host.mana_cost.clone(),
-                    x_min: 0,
-                    is_exiled_creature_cost: false,
-                    is_enchanted_creature_cost: false,
-                    is_cost_pay_any_number_of_times: false,
-                    max_waterbend: None,
-                }],
-                has_tap: false,
-                mandatory: false,
-            });
-        }
-        // Aura enchantments with SP$ but no ValidTgts$: inject Enchant-derived targeting.
-        // Some aura cards have SP$ lines for ETB effects but rely on the Enchant keyword
-        // for targeting. Without this, the aura can target anything.
-        if sa.target_restrictions.is_none() && host.type_line.has_subtype("Aura") {
-            let enchant_type = host.get_keyword_cost("Enchant").unwrap_or_default();
-            let params_str = crate::parsing::enchant_type_to_target_params(&enchant_type);
-            sa.target_restrictions = TargetRestrictions::new(&Params::from_raw(&params_str));
-        }
+    if let Some(sa) = build_spell_ability_for_host_cast(game.card(card_id), player) {
         return sa;
     }
 

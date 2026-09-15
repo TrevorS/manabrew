@@ -30,6 +30,81 @@ impl GameLoop {
         has_all_color_source || crate::mana::has_replacement_adjusted_available_mana(game, player)
     }
 
+    fn can_play_secondary_spell(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+        chosen_types_by_source: &std::collections::HashMap<CardId, String>,
+    ) -> bool {
+        let Some((host, sa)) = crate::spellability::build_spell_ability_for_card_state_cast(
+            game,
+            card_id,
+            player,
+            forge_foundation::CardStateName::Secondary,
+        ) else {
+            return false;
+        };
+        if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_in_context(
+            &game.cards,
+            &sa,
+            &crate::staticability::static_ability_cant_be_cast::restriction_host(&host),
+            player,
+            Some(game),
+        ) || !crate::spellability::spell::can_play(&sa, game)
+            || !target_restrictions::has_candidates_in_spell_ability_chain(game, player, &sa)
+            || sa.target_restrictions.as_ref().is_some_and(|tr| {
+                tr.get_min_targets(game, &sa)
+                    > crate::card::card_util::get_valid_cards_to_target(game, &sa).len() as i32
+            })
+        {
+            return false;
+        }
+        let Some(cost) = sa.pay_costs.as_ref() else {
+            return false;
+        };
+        if !crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player) {
+            return false;
+        }
+        let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
+            game,
+            &host,
+            player,
+            ZoneType::Hand,
+        );
+        let raise_mana = crate::cost::cost_adjustment::compute_raise_cost_parts(
+            game,
+            &host,
+            player,
+            ZoneType::Hand,
+        )
+        .as_ref()
+        .map(Self::mana_from_cost)
+        .unwrap_or_else(|| forge_foundation::ManaCost::generic(0));
+        let base = cost_adj
+            .apply(&Self::mana_from_cost(cost).without_x())
+            .add(&raise_mana);
+        let payable = crate::mana::apply_player_life_payment_keywords(game, player, &base);
+        let reduced = apply_cost_reductions(game, player, card_id, &host, &payable);
+        let payment_ctx = mana::ManaPaymentContext {
+            is_spell: true,
+            is_activated_ability: false,
+            sa_on_stack: false,
+            type_line: Some(host.type_line.clone()),
+            card_name: Some(host.card_name.clone()),
+            card_color: Some(host.color),
+            chosen_types_by_source: chosen_types_by_source.clone(),
+        };
+        crate::mana::can_pay_spell_mana_cost_for_action_space(
+            game,
+            self.pool(player),
+            player,
+            card_id,
+            &reduced,
+            &payment_ctx,
+        )
+    }
+
     /// Get cards the active player can play.
     pub(crate) fn get_playable_cards(
         &self,
@@ -113,6 +188,13 @@ impl GameLoop {
 
         for &card_id in hand {
             let card = game.card(card_id);
+            if self.can_play_secondary_spell(game, player, card_id, &chosen_types_by_source) {
+                playable.push(crate::agent::PlayOption {
+                    card_id,
+                    mode: crate::agent::PlayCardMode::Secondary,
+                    alt_cost_index: 0,
+                });
+            }
             if card.is_land() {
                 if crate::staticability::static_ability_cant_be_cast::cant_play_land_ability(
                     &game.cards,

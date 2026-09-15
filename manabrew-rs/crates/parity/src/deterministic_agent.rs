@@ -343,7 +343,7 @@ impl DeterministicAgent {
     }
 
     fn play_option_label(&self, play: PlayOption) -> String {
-        if self.is_land(play.card_id) {
+        if self.is_land(play.card_id) && play.mode != PlayCardMode::Secondary {
             return format!("LAND:{}", self.card_name(play.card_id));
         }
         // MDFC back-face land — Java buckets as LAND via isLandAbility().
@@ -368,6 +368,7 @@ impl DeterministicAgent {
             PlayCardMode::Normal => "0",
             PlayCardMode::BackFaceLand => "0",
             PlayCardMode::RoomRightSplit => "0",
+            PlayCardMode::Secondary => "0",
             PlayCardMode::Alternative(AlternativeCost::Flashback) => "Flashback",
             PlayCardMode::Alternative(AlternativeCost::Spectacle) => "Spectacle",
             PlayCardMode::Alternative(AlternativeCost::Evoke) => "Evoke",
@@ -433,6 +434,7 @@ impl DeterministicAgent {
             PlayCardMode::RoomRightSplit => self
                 .play_option_face_name(play)
                 .unwrap_or_else(|| "2".to_string()),
+            PlayCardMode::Secondary => "1".to_string(),
             PlayCardMode::Alternative(AlternativeCost::Warp) => "Warp".to_string(),
             PlayCardMode::StaticAlternative => "StaticAlternative".to_string(),
             // Other modes already have unique variant strings, so fallback rarely matters.
@@ -931,6 +933,7 @@ impl PlayerAgent for DeterministicAgent {
                             PlayCardMode::Normal => "Normal",
                             PlayCardMode::BackFaceLand => "BackFaceLand",
                             PlayCardMode::RoomRightSplit => "RoomRightSplit",
+                            PlayCardMode::Secondary => "Secondary",
                             PlayCardMode::UnlockDoor => "UnlockDoor",
                             PlayCardMode::StaticAlternative => "StaticAlternative",
                             PlayCardMode::ForetellExile => "ForetellExile",
@@ -980,6 +983,7 @@ impl PlayerAgent for DeterministicAgent {
                             PlayCardMode::Normal => "Normal",
                             PlayCardMode::BackFaceLand => "BackFaceLand",
                             PlayCardMode::RoomRightSplit => "RoomRightSplit",
+                            PlayCardMode::Secondary => "Secondary",
                             PlayCardMode::UnlockDoor => "UnlockDoor",
                             PlayCardMode::StaticAlternative => "StaticAlternative",
                             PlayCardMode::ForetellExile => "ForetellExile",

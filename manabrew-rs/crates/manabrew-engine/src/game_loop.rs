@@ -224,6 +224,20 @@ impl GameLoop {
         &mut self.mana_pools[pid.index()]
     }
 
+    pub(crate) fn replacement_runtime(
+        &mut self,
+    ) -> crate::replacement::replacement_handler::ReplacementRuntime<'_> {
+        crate::replacement::replacement_handler::ReplacementRuntime {
+            trigger_handler: &mut self.trigger_handler,
+            token_templates: &self.token_templates,
+            token_art_variants: &self.token_art_variants,
+            token_fallback: &self.token_fallback,
+            edition_dates: &self.edition_dates,
+            mana_pools: &mut self.mana_pools,
+            rng: &mut *self.game_rng,
+        }
+    }
+
     pub(crate) fn move_card_with_runtime(
         &mut self,
         game: &mut GameState,
@@ -232,15 +246,7 @@ impl GameLoop {
         dest_owner: PlayerId,
         agents: &mut [Box<dyn PlayerAgent>],
     ) {
-        let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
-            trigger_handler: &mut self.trigger_handler,
-            token_templates: &self.token_templates,
-            token_art_variants: &self.token_art_variants,
-            token_fallback: &self.token_fallback,
-            edition_dates: &self.edition_dates,
-            mana_pools: &mut self.mana_pools,
-            rng: &mut *self.game_rng,
-        };
+        let mut runtime = self.replacement_runtime();
         game.move_card_with_agents_and_replacement_runtime(
             card_id,
             dest_zone,

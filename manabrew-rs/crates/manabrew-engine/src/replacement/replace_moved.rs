@@ -32,14 +32,23 @@ pub fn can_replace(
     if effect.event != ReplacementType::Moved {
         return false;
     }
-    let (moving_id, origin, destination, is_discard) = match event {
+    let (moving_id, origin, destination, is_discard, stack_sa, fizzle) = match event {
         ReplacementEvent::Moved {
             card,
             origin,
             destination,
             is_discard,
+            stack_sa,
+            fizzle,
             ..
-        } => (*card, *origin, *destination, *is_discard),
+        } => (
+            *card,
+            *origin,
+            *destination,
+            *is_discard,
+            stack_sa.as_deref(),
+            *fizzle,
+        ),
         _ => return false,
     };
     // Discard$ True — only match when the move is from a discard action.
@@ -83,6 +92,23 @@ pub fn can_replace(
             return false;
         }
     }
+    if let Some(valid_stack_sa) = effect.ir.valid_stack_sa_text.as_deref() {
+        let Some(stack_sa) = stack_sa else {
+            return false;
+        };
+        let stack_sa_host = stack_sa.source.map(|id| game.card(id));
+        if !crate::spellability::valid_sa::matches_valid_sa(
+            valid_stack_sa,
+            stack_sa,
+            source_card,
+            stack_sa_host,
+        ) {
+            return false;
+        }
+    }
+    if effect.ir.fizzle.is_some() && effect.ir.fizzle != fizzle {
+        return false;
+    }
     // Mirrors Java `ReplaceMoved.canReplace()` L103: only gate ETB chains.
     if destination == ZoneType::Battlefield && !effect.can_replace_etb(source_card, moving_card) {
         return false;
@@ -99,10 +125,10 @@ pub fn execute(
     agents: Option<&mut [Box<dyn PlayerAgent>]>,
     runtime: Option<&mut ReplacementRuntime<'_>>,
 ) -> ReplacementResult {
-    let (moving_id, _destination) = match event {
+    let (moving_id, destination) = match event {
         ReplacementEvent::Moved {
             card, destination, ..
-        } => (*card, destination),
+        } => (*card, *destination),
         _ => return ReplacementResult::NotReplaced,
     };
     // Check NewDestination$ first (explicit redirect), then ReplaceWith$ (common alias).
@@ -152,6 +178,13 @@ pub fn execute(
         if !succeeded {
             return ReplacementResult::NotReplaced;
         }
+    } else if let Some(ability) = effect.base.get_overriding_ability() {
+        // TODO(parity): ETB overriding abilities (etbCounter, read ahead) are applied through move_card_internal's etb_counters instead.
+        if destination != ZoneType::Battlefield
+            && !execute_replacement_ability(effect, ability.clone(), game, event, agents, runtime)
+        {
+            return ReplacementResult::NotReplaced;
+        }
     }
     if let Some(result) = effect.ir.replacement_result.as_deref() {
         return match result {
@@ -172,13 +205,24 @@ fn execute_replace_with(
     source_card_id: CardId,
     event: &ReplacementEvent,
     agents: Option<&mut [Box<dyn PlayerAgent>]>,
-    mut runtime: Option<&mut ReplacementRuntime<'_>>,
+    runtime: Option<&mut ReplacementRuntime<'_>>,
 ) -> bool {
     let Some(raw) = game.card(source_card_id).svars.get(replace_with).cloned() else {
         return false;
     };
     let controller = game.card(source_card_id).controller;
-    let mut sa = build_spell_ability(game, source_card_id, &raw, controller);
+    let sa = build_spell_ability(game, source_card_id, &raw, controller);
+    execute_replacement_ability(effect, sa, game, event, agents, runtime)
+}
+
+fn execute_replacement_ability(
+    effect: &ReplacementEffect,
+    mut sa: crate::spellability::SpellAbility,
+    game: &mut GameState,
+    event: &ReplacementEvent,
+    agents: Option<&mut [Box<dyn PlayerAgent>]>,
+    mut runtime: Option<&mut ReplacementRuntime<'_>>,
+) -> bool {
     effect.set_replacing_objects(event, &mut sa);
 
     // `local_agents_storage` keeps the fallback Vec alive when the caller

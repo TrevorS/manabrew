@@ -256,6 +256,8 @@ fn apply_hand_library_replacement(
         counter_cause: None,
         counter_is_effect: false,
         after_replacement_static_abilities: Vec::new(),
+        stack_sa: None,
+        fizzle: None,
     };
     let mut handler = ReplacementHandler::new();
     handler.run(ctx.game, Some(ctx.agents), None, &mut event);

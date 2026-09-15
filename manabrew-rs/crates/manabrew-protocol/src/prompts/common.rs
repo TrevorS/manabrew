@@ -68,6 +68,7 @@ pub enum PlayCardMode {
     Normal,
     BackFaceLand,
     RoomRightSplit,
+    Secondary,
     Alternative { cost: AlternativeCostKind },
     StaticAlternative,
     ForetellExile,

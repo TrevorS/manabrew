@@ -426,8 +426,8 @@
       "refs": []
     },
     "PlayCardMode": {
-      "ts": "type PlayCardMode =\n  | { type: \"normal\" }\n  | { type: \"backFaceLand\" }\n  | { type: \"roomRightSplit\" }\n  | { type: \"alternative\"; cost: AlternativeCostKind }\n  | { type: \"staticAlternative\" }\n  | { type: \"foretellExile\" }\n  | { type: \"unlockDoor\" };",
-      "rust": "/// Mirrors the engine's `PlayCardMode`.\n#[serde(\n    tag = \"type\",\n    rename_all = \"camelCase\",\n    rename_all_fields = \"camelCase\"\n)]\npub enum PlayCardMode {\n    Normal,\n    BackFaceLand,\n    RoomRightSplit,\n    Alternative { cost: AlternativeCostKind },\n    StaticAlternative,\n    ForetellExile,\n    UnlockDoor,\n}",
+      "ts": "type PlayCardMode =\n  | { type: \"normal\" }\n  | { type: \"backFaceLand\" }\n  | { type: \"roomRightSplit\" }\n  | { type: \"secondary\" }\n  | { type: \"alternative\"; cost: AlternativeCostKind }\n  | { type: \"staticAlternative\" }\n  | { type: \"foretellExile\" }\n  | { type: \"unlockDoor\" };",
+      "rust": "/// Mirrors the engine's `PlayCardMode`.\n#[serde(\n    tag = \"type\",\n    rename_all = \"camelCase\",\n    rename_all_fields = \"camelCase\"\n)]\npub enum PlayCardMode {\n    Normal,\n    BackFaceLand,\n    RoomRightSplit,\n    Secondary,\n    Alternative { cost: AlternativeCostKind },\n    StaticAlternative,\n    ForetellExile,\n    UnlockDoor,\n}",
       "refs": ["AlternativeCostKind"]
     },
     "PlayerCounterKind": {

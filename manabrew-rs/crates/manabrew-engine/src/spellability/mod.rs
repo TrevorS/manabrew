@@ -1645,9 +1645,23 @@ impl SpellAbility {
         }
         if let Some(card_id) = self.source {
             let card = game.card(card_id);
-            if ((self.is_spell || self.is_land_ability) && card.type_line.is_instant())
-                || card.has_keyword("Flash")
-            {
+            let state_name = self
+                .ir
+                .card_state_name
+                .as_deref()
+                .and_then(forge_foundation::CardStateName::from_str_compat);
+            let alternate_state = card
+                .other_part
+                .as_ref()
+                .filter(|other| !card.is_transformed && Some(other.state_name) == state_name);
+            let (is_instant, has_flash) = match alternate_state {
+                Some(other) => (
+                    other.type_line.is_instant(),
+                    other.keywords.contains("Flash"),
+                ),
+                None => (card.type_line.is_instant(), card.has_keyword("Flash")),
+            };
+            if ((self.is_spell || self.is_land_ability) && is_instant) || has_flash {
                 return true;
             }
             return crate::staticability::static_ability_cast_with_flash::any_with_flash_for_card(
@@ -1874,6 +1888,7 @@ impl SpellAbility {
 // Re-export here for backward compatibility.
 pub use crate::ability::ability_factory::build_spell_ability;
 pub use crate::ability::ability_factory::build_spell_ability_for_card_cast;
+pub use crate::ability::ability_factory::build_spell_ability_for_card_state_cast;
 pub use crate::ability::ability_factory::build_spell_ability_from_host_card;
 
 /// Check whether any spell on the stack has split second.

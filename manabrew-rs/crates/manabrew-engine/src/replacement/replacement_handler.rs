@@ -90,6 +90,8 @@ pub enum ReplacementEvent {
         counter_cause: Option<Box<crate::spellability::SpellAbility>>,
         counter_is_effect: bool,
         after_replacement_static_abilities: Vec<(CardId, Vec<String>)>,
+        stack_sa: Option<Box<crate::spellability::SpellAbility>>,
+        fizzle: Option<bool>,
     },
 
     /// A player is gaining life.
@@ -481,7 +483,10 @@ pub fn apply_moved_replacement(
     game: &mut GameState,
     card_id: CardId,
     dest: ZoneType,
+    stack_sa: Option<&crate::spellability::SpellAbility>,
+    fizzle: Option<bool>,
     agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
+    runtime: Option<&mut ReplacementRuntime<'_>>,
 ) -> ZoneType {
     if dest != ZoneType::Graveyard {
         return dest;
@@ -496,9 +501,11 @@ pub fn apply_moved_replacement(
         counter_cause: None,
         counter_is_effect: false,
         after_replacement_static_abilities: Vec::new(),
+        stack_sa: stack_sa.map(|sa| Box::new(sa.clone())),
+        fizzle,
     };
     let mut handler = ReplacementHandler::new();
-    handler.run(game, agents, None, &mut event);
+    handler.run(game, agents, runtime, &mut event);
     if let ReplacementEvent::Moved { destination, .. } = event {
         destination
     } else {
@@ -1888,6 +1895,8 @@ mod tests {
             counter_cause: None,
             counter_is_effect: false,
             after_replacement_static_abilities: Vec::new(),
+            stack_sa: None,
+            fizzle: None,
         };
         let result = apply_replacements(&mut game, &mut event);
         assert_eq!(result, ReplacementResult::Updated);
@@ -1920,6 +1929,8 @@ mod tests {
             counter_cause: None,
             counter_is_effect: false,
             after_replacement_static_abilities: Vec::new(),
+            stack_sa: None,
+            fizzle: None,
         };
         let result = apply_replacements(&mut game, &mut event);
         assert_eq!(result, ReplacementResult::NotReplaced);
@@ -1953,6 +1964,8 @@ mod tests {
             counter_cause: None,
             counter_is_effect: false,
             after_replacement_static_abilities: Vec::new(),
+            stack_sa: None,
+            fizzle: None,
         };
         let result = apply_replacements_with_agents(&mut game, agents.as_mut_slice(), &mut event);
         assert_eq!(result, ReplacementResult::Updated);
@@ -1990,6 +2003,8 @@ mod tests {
             counter_cause: None,
             counter_is_effect: false,
             after_replacement_static_abilities: Vec::new(),
+            stack_sa: None,
+            fizzle: None,
         };
         let result = apply_replacements_with_agents(&mut game, agents.as_mut_slice(), &mut event);
         assert_eq!(result, ReplacementResult::Updated);

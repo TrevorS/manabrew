@@ -521,14 +521,22 @@ impl GameLoop {
                 played.then_some(PlaySpellAbilityResult::AbilityActivated)
             }
         } else {
-            self.cast_card_spell_ability(
+            let card_id = prepared.spell_ability.source?;
+            let was_transformed = game.card(card_id).is_transformed;
+            let played = self.cast_card_spell_ability(
                 game,
                 agents,
                 player,
                 prepared.spell_ability,
                 prepared.static_alternative_cost_prepared,
-            )
-            .map(|(card_id, card_name)| PlaySpellAbilityResult::CardPlayed { card_id, card_name })
+            );
+            if played.is_none() && game.card(card_id).is_transformed != was_transformed {
+                game.card_mut(card_id).transform();
+            }
+            played.map(|(card_id, card_name)| PlaySpellAbilityResult::CardPlayed {
+                card_id,
+                card_name,
+            })
         }
     }
 
@@ -540,11 +548,21 @@ impl GameLoop {
         play: crate::agent::PlayOption,
     ) -> Option<PreparedSpellAbility> {
         let play_mode = play.mode;
-        let mut sa = crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
+        let mut sa = if play_mode == crate::agent::PlayCardMode::Secondary {
+            crate::spellability::build_spell_ability_for_card_state_cast(
+                game,
+                card_id,
+                player,
+                forge_foundation::CardStateName::Secondary,
+            )?
+            .1
+        } else {
+            crate::spellability::build_spell_ability_for_card_cast(game, card_id, player)
+        };
         sa.alt_cost_index = play.alt_cost_index;
         let mut static_alternative_cost_prepared = false;
         match play_mode {
-            crate::agent::PlayCardMode::Normal => {}
+            crate::agent::PlayCardMode::Normal | crate::agent::PlayCardMode::Secondary => {}
             crate::agent::PlayCardMode::RoomRightSplit => {
                 let cost = game.card(card_id).svars.get("RoomRightSplitCost")?;
                 sa.pay_costs = Some(parse_cost(cost));
@@ -712,6 +730,7 @@ impl GameLoop {
         static_alternative_cost_prepared: bool,
     ) -> Option<(CardId, String)> {
         let card_id = sa.source?;
+        game.card_mut(card_id).set_split_state_to_play_ability(&sa);
         let card = game.card(card_id);
         let card_name = card.card_name.clone();
         let original_zone = card.zone;

@@ -240,7 +240,13 @@ fn resolve_effect_name(sa: &SpellAbility, host_name: &str) -> String {
     if let Some(name) = sa.ir.name_text.as_deref() {
         return name.to_string();
     }
-    let suffix = if sa.ir.boon { "'s Boon" } else { "'s Effect" };
+    let suffix = if crate::parsing::raw_has_key(&sa.ability_text, "Adventure") {
+        "'s Adventure"
+    } else if sa.ir.boon {
+        "'s Boon"
+    } else {
+        "'s Effect"
+    };
     format!("{host_name}{suffix}")
 }
 

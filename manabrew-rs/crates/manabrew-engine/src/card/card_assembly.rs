@@ -292,7 +292,9 @@ pub(crate) fn assemble_card(
     }
 
     // Double-faced cards
-    if rules.split_type.is_dual_faced() {
+    if rules.split_type.is_dual_faced()
+        || rules.split_type.changed_state_name() == Some(CardStateName::Secondary)
+    {
         if let Some(ref back_face) = rules.other_part {
             let mut back_trigger_id = 0u32;
             let back_triggers: Vec<_> = back_face
@@ -319,7 +321,7 @@ pub(crate) fn assemble_card(
                 })
                 .collect();
 
-            let back_replacement_effects: Vec<ReplacementEffect> = back_face
+            let mut back_replacement_effects: Vec<ReplacementEffect> = back_face
                 .replacements
                 .iter()
                 .filter_map(|raw| {
@@ -330,11 +332,20 @@ pub(crate) fn assemble_card(
                     )
                 })
                 .collect();
+            if back_face.type_line.has_subtype("Adventure") {
+                back_replacement_effects
+                    .extend(super::card_factory_util::setup_adventure_ability(&mut card));
+            }
+            if back_face.type_line.has_subtype("Omen") {
+                back_replacement_effects
+                    .extend(super::card_factory_util::setup_omen_ability(&card));
+            }
 
             card.other_part = Some(CardOtherPart {
                 name: back_face.name.clone(),
                 oracle_text: back_face.oracle_text.replace("\\n", "\n"),
                 is_modal: rules.split_type == forge_foundation::CardSplitType::Modal,
+                state_name: rules.split_type.changed_state_name().unwrap_or_default(),
                 type_line: back_face.type_line.clone(),
                 mana_cost: back_face.mana_cost.clone(),
                 color: intrinsic_color(back_face),

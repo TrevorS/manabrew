@@ -385,12 +385,39 @@ pub fn setup_siege_abilities(card: &mut Card) {
     card.update_triggers();
 }
 
-pub fn setup_adventure_ability(_card: &mut Card) -> Option<ReplacementEffect> {
-    None
+pub fn setup_adventure_ability(card: &mut Card) -> Option<ReplacementEffect> {
+    let repeffstr = "R$ Event$ Moved | ValidCard$ Card.Self | Origin$ Stack | ExcludeDestination$ Exile | ValidStackSa$ Spell.Adventure | Fizzle$ False | Secondary$ True | Description$ Adventure";
+
+    let ab_exile = "DB$ ChangeZone | Defined$ Self | Origin$ Stack | Destination$ Exile | StackDescription$ None";
+    let mut sa_exile =
+        crate::spellability::build_spell_ability_from_host_card(card, ab_exile, card.controller);
+
+    let ab_effect = "DB$ Effect | RememberObjects$ Self | StaticAbilities$ Play | ForgetOnMoved$ Exile | Duration$ Permanent | ConditionDefined$ Self | ConditionPresent$ Card.!copiedSpell+!token | Adventure$ True";
+    let sa_effect =
+        crate::spellability::build_spell_ability_from_host_card(card, ab_effect, card.controller);
+
+    card.set_s_var(
+        "Play",
+        "Mode$ Continuous | MayPlay$ True | EffectZone$ Command | Affected$ Card.IsRemembered+!Adventure | AffectedZone$ Exile | Description$ You may cast EFFECTSOURCE.",
+    );
+
+    sa_exile.sub_ability = Some(Box::new(sa_effect));
+
+    let mut re = parse_replacement_effect(repeffstr)?;
+    re.base.set_overriding_ability(sa_exile);
+    Some(re)
 }
 
-pub fn setup_omen_ability(_card: &mut Card) -> Option<ReplacementEffect> {
-    None
+pub fn setup_omen_ability(card: &Card) -> Option<ReplacementEffect> {
+    let repeffstr = "R$ Event$ Moved | ValidCard$ Card.Self | Origin$ Stack | ValidStackSa$ Spell.Omen | Fizzle$ False | Secondary$ True | Description$ Omen";
+
+    let ab_shuffle = "DB$ ChangeZone | Defined$ Self | Origin$ Stack | Destination$ Library | Shuffle$ True | StackDescription$ None";
+    let sa_shuffle =
+        crate::spellability::build_spell_ability_from_host_card(card, ab_shuffle, card.controller);
+
+    let mut re = parse_replacement_effect(repeffstr)?;
+    re.base.set_overriding_ability(sa_shuffle);
+    Some(re)
 }
 
 pub fn run() {

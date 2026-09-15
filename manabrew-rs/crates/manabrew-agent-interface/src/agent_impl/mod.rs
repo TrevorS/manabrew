@@ -312,6 +312,7 @@ impl<R: Responder> PromptAgent<R> {
                 "Play back face as land".to_string(),
             ),
             E::RoomRightSplit => (PlayCardMode::RoomRightSplit, "Cast right room".to_string()),
+            E::Secondary => (PlayCardMode::Secondary, "Cast secondary face".to_string()),
             E::StaticAlternative => (
                 PlayCardMode::StaticAlternative,
                 "Cast with alternative cost".to_string(),
@@ -336,6 +337,7 @@ impl<R: Responder> PromptAgent<R> {
             E::Normal => "normal".to_string(),
             E::BackFaceLand => "backFaceLand".to_string(),
             E::RoomRightSplit => "roomRightSplit".to_string(),
+            E::Secondary => "secondary".to_string(),
             E::StaticAlternative => "staticAlternative".to_string(),
             E::ForetellExile => "foretellExile".to_string(),
             E::UnlockDoor => "unlockDoor".to_string(),
@@ -353,6 +355,7 @@ impl<R: Responder> PromptAgent<R> {
             "foretellExile" => Some(PlayCardMode::ForetellExile),
             "unlockDoor" => Some(PlayCardMode::UnlockDoor),
             "roomRightSplit" => Some(PlayCardMode::RoomRightSplit),
+            "secondary" => Some(PlayCardMode::Secondary),
             s if s.starts_with("alternative:") => {
                 let alt = match &s["alternative:".len()..] {
                     "flashback" => A::Flashback,

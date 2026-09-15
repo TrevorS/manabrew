@@ -52,7 +52,7 @@ pub const KEYWORD_WARP_EXILED: &str = "WarpExiled";
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use forge_carddb::CardRules;
-use forge_foundation::{CardTypeLine, ColorSet, CoreType, ManaCost, ZoneType};
+use forge_foundation::{CardStateName, CardTypeLine, ColorSet, CoreType, ManaCost, ZoneType};
 use serde::{Deserialize, Serialize};
 
 use crate::ability::activated::{parse_activated_ability, ActivatedAbility};
@@ -103,6 +103,8 @@ pub struct CardOtherPart {
     /// Invariant across `transform()`, so it is not swapped there.
     #[serde(default)]
     pub is_modal: bool,
+    #[serde(default)]
+    pub state_name: CardStateName,
     pub type_line: CardTypeLine,
     pub mana_cost: ManaCost,
     pub color: ColorSet,
@@ -2077,7 +2079,9 @@ impl Card {
     /// Whether this card is double-faced (has a back side).
     /// Mirrors Java `Card.isDoubleFaced()`.
     pub fn is_double_faced(&self) -> bool {
-        self.other_part.is_some()
+        self.other_part
+            .as_ref()
+            .is_some_and(|other| other.state_name != CardStateName::Secondary)
     }
 
     pub fn change_to_state(&mut self) {
@@ -3669,6 +3673,23 @@ impl Card {
     /// face may be played from hand. Transform / meld backs are not modal.
     pub fn is_modal(&self) -> bool {
         self.other_part.as_ref().is_some_and(|other| other.is_modal)
+    }
+
+    pub fn set_split_state_to_play_ability(&mut self, sa: &SpellAbility) {
+        let state_name = sa
+            .ir
+            .card_state_name
+            .as_deref()
+            .and_then(CardStateName::from_str_compat);
+        if !self.is_transformed
+            && state_name.is_some()
+            && self
+                .other_part
+                .as_ref()
+                .is_some_and(|other| Some(other.state_name) == state_name)
+        {
+            self.transform();
+        }
     }
 
     pub fn transform(&mut self) {
