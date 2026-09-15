@@ -927,6 +927,12 @@ impl SpellAbility {
 
     /// Get a triggering object by key.
     /// Mirrors Java's `SpellAbility.getTriggeringObject(String)`.
+    pub fn get_triggering_object_text<K: TriggerKeyInput>(&self, key: K) -> Option<String> {
+        key.into_ability_key()
+            .and_then(|parsed| self.get_triggering_value(parsed))
+            .map(AbilityValue::to_trigger_text)
+    }
+
     pub fn get_triggering_object<K: TriggerKeyInput>(&self, key: K) -> Option<&str> {
         key.into_ability_key()
             .and_then(|parsed| self.get_triggering_value(parsed))

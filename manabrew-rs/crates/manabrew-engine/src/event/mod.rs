@@ -61,6 +61,27 @@ impl AbilityValue {
             _ => "",
         }
     }
+
+    pub fn to_trigger_text(&self) -> String {
+        match self {
+            AbilityValue::Card(card) => card.0.to_string(),
+            AbilityValue::Player(player) => player.0.to_string(),
+            AbilityValue::Cards(cards) => cards
+                .iter()
+                .map(|card| card.0.to_string())
+                .collect::<Vec<_>>()
+                .join(","),
+            AbilityValue::Players(players) => players
+                .iter()
+                .map(|player| player.0.to_string())
+                .collect::<Vec<_>>()
+                .join(","),
+            AbilityValue::String(value) => value.clone(),
+            AbilityValue::Int(value) => value.to_string(),
+            AbilityValue::Bool(value) => value.to_string(),
+            _ => String::new(),
+        }
+    }
 }
 
 impl std::ops::Deref for AbilityValue {
