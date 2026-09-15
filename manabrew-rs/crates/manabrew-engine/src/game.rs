@@ -284,6 +284,17 @@ impl GameState {
         for replacement_effect in &mut card.replacement_effects {
             replacement_effect.base.set_host_card_id(bound_host.id);
         }
+        if let Some(other) = card.other_part.as_mut() {
+            for trigger in &mut other.triggers {
+                trigger.bind_host_card_id(bound_host.id);
+            }
+            for static_ability in &mut other.static_abilities {
+                static_ability.base.set_host_card_id(bound_host.id);
+            }
+            for replacement_effect in &mut other.replacement_effects {
+                replacement_effect.base.set_host_card_id(bound_host.id);
+            }
+        }
         self.cards.push(card);
         id
     }
