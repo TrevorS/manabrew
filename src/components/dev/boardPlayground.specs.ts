@@ -46,11 +46,6 @@ export function buildPlaygroundSpecs(
         cards: battlefield.filter((card) => regionOf(card) === player.id),
         combatRowAttackerIds: row?.attackerIds,
         combatRowBlocks: row?.blocks,
-        combatRowGroups: row?.groups.map((group) => ({
-          color: colorByPlayer.get(group.controllerId)!,
-          label: table.players.find((entry) => entry.id === group.controllerId)!.name,
-          attackerIds: group.attackerIds,
-        })),
       },
     };
   });

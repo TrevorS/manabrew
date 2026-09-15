@@ -10,6 +10,7 @@ import {
   type Ticker,
 } from "pixi.js";
 import type { Theme } from "@/hooks/useTheme";
+import { withAlpha } from "@/themes/gameTheme";
 import { hexToNum, mixNum } from "@/pixi/colorUtils";
 import { CardSprite } from "@/pixi/CardSprite";
 import {
@@ -175,10 +176,6 @@ export class PromptLayer extends PromptModalLayer {
     if (!this.container.visible) return false;
     if (this.modalOpen) return true;
     return this.actionBounds?.contains(x, y) ?? false;
-  }
-
-  getActionBounds(): Rectangle | null {
-    return this.actionBounds?.clone() ?? null;
   }
 
   destroy(): void {
@@ -362,26 +359,23 @@ export class PromptLayer extends PromptModalLayer {
     const showPriorityMode = action.promptActionOverride
       ? viewKey === "chooseAction" || viewKey === "noAction"
       : isNoActionView || action.promptType === "chooseAction";
+    const contextLines = this.actionContextLines();
+    const showActionContext = !minimal && (contextLines.length > 0 || this.hasActionCombatInfo());
+    if (!showActionContext) this.actionContextOpen = false;
     const fixedWidth = minimal ? null : shortScreen ? 230 : 300;
     const fixedContentWidth = fixedWidth == null ? this.viewportWidth - 24 : fixedWidth - 16;
     const controls = minimal ? this.makeCompactActionControls() : null;
     const viewAvailableWidth = fixedContentWidth - (controls ? controls.width + 4 : 0);
     const view = this.buildActionView(viewKey, viewAvailableWidth, minimal, touch, preview);
-    const combat = minimal ? null : this.buildActionCombatInfo(fixedContentWidth);
     const rowWidth = view.width + (controls ? 4 + controls.width : 0);
-    const contentWidth =
-      fixedWidth == null ? Math.max(rowWidth, combat?.width ?? 0) : fixedContentWidth;
-    const width =
-      fixedWidth ??
-      Math.min(this.viewportWidth - 12, Math.max(40, contentWidth + (minimal ? 0 : 12)));
+    const contentWidth = fixedWidth == null ? rowWidth : fixedContentWidth;
+    const width = fixedWidth ?? Math.min(this.viewportWidth - 12, Math.max(40, contentWidth + 12));
     const headerHeight = minimal ? 0 : 34;
-    const sectionPaddingX = minimal ? 0 : 8;
-    const sectionPaddingTop = minimal ? 0 : 8;
-    const sectionPaddingBottom = minimal ? 0 : 8;
-    const contentGap = combat ? 8 : 0;
+    const sectionPaddingX = minimal ? 6 : 8;
+    const sectionPaddingTop = minimal ? 4 : 8;
+    const sectionPaddingBottom = minimal ? 4 : 8;
     const viewHeight = Math.max(view.height, controls?.height ?? 0);
-    const bodyHeight =
-      sectionPaddingTop + (combat?.height ?? 0) + contentGap + viewHeight + sectionPaddingBottom;
+    const bodyHeight = sectionPaddingTop + viewHeight + sectionPaddingBottom;
     const panelHeight = headerHeight + bodyHeight;
     const x = this.viewportWidth - width - (minimal || shortScreen ? 6 : 12);
     const unclampedY = minimal
@@ -437,6 +431,12 @@ export class PromptLayer extends PromptModalLayer {
         panel.addChild(mode);
         right -= mode.buttonWidth + 6;
       }
+      if (showActionContext) {
+        const info = this.makeActionContextButton();
+        info.position.set(right - info.buttonWidth, 6);
+        panel.addChild(info);
+        right -= info.buttonWidth + 6;
+      }
       const title = promptText(
         (hasAction ? actionTitle(effectivePromptType) : "Waiting").toUpperCase(),
         11,
@@ -458,7 +458,7 @@ export class PromptLayer extends PromptModalLayer {
       );
     }
 
-    let contentY = headerHeight + sectionPaddingTop;
+    const contentY = headerHeight + sectionPaddingTop;
     if (controls) {
       view.container.position.set(sectionPaddingX, contentY + (viewHeight - view.height) / 2);
       controls.container.position.set(
@@ -472,11 +472,6 @@ export class PromptLayer extends PromptModalLayer {
         contentY,
       );
       panel.addChild(view.container);
-    }
-    contentY += viewHeight + contentGap;
-    if (combat) {
-      combat.container.position.set(sectionPaddingX, contentY);
-      panel.addChild(combat.container);
     }
 
     if (minimal) {
@@ -513,6 +508,14 @@ export class PromptLayer extends PromptModalLayer {
 
     this.container.addChild(panel);
     this.actionBounds = new Rectangle(x, y, width, panelHeight);
+    if (this.actionContextOpen && showActionContext) {
+      this.renderActionContextPopover(
+        x,
+        y,
+        width,
+        hasAction ? actionTitle(effectivePromptType) : "Waiting",
+      );
+    }
     if (minimal && action.dimmed) this.container.visible = false;
   }
 
@@ -863,22 +866,6 @@ export class PromptLayer extends PromptModalLayer {
           );
         }
         const width = availableWidth;
-        const mulliganCount = action.mulliganCount ?? 0;
-        const status = promptText(
-          mulliganCount > 0
-            ? `MULLIGAN ${mulliganCount} · KEEPING PUTS ${mulliganCount} BACK`
-            : "OPENING HAND · KEEP OR DRAW A NEW SEVEN",
-          10,
-          this.theme.appTheme["muted-foreground"],
-          {
-            weight: "600",
-            width,
-            align: "center",
-            letterSpacing: 0.7,
-          },
-        );
-        status.anchor.set(0.5, 0);
-        status.position.set(width / 2, 0);
         const row = this.layoutActionRow(
           [
             this.makeButton("Keep", action.onMulliganKeep, {
@@ -912,14 +899,7 @@ export class PromptLayer extends PromptModalLayer {
           ],
           6,
         );
-        row.container.position.set(0, status.height + 6);
-        const container = new Container();
-        container.addChild(status, row.container);
-        return {
-          container,
-          width,
-          height: status.height + 6 + row.height,
-        };
+        return row;
       }
       case "mulliganPutBack":
         return this.buildMulliganPutBackView(availableWidth, minimal, touch, disabled);
@@ -997,38 +977,86 @@ export class PromptLayer extends PromptModalLayer {
     const counting = this.autopassRemainingMs != null;
     const passLabel = morphed ? endLabel : counting ? "PASSING" : "PASS";
     const combo = morphed ? endCombo : passCombo;
-    const height = minimal ? 48 : 40;
-    const gap = 4;
-    const end =
-      minimal || morphed
-        ? null
-        : this.makeButton(endLabel, action.onPassEndTurn, {
-            variant: "secondary",
-            flat: true,
-            radius: 8,
-            disabled,
-            height,
-            paddingX: 14,
-            fontSize: 10,
-            fontWeight: "700",
-            letterSpacing: 1,
-            title: endCombo ? `${endTitle} (${comboSymbols(endCombo)})` : endTitle,
-          });
-    const pass = this.makeButton(
-      !minimal && combo ? `${passLabel}  ${comboSymbols(combo)}` : passLabel,
-      morphed ? action.onPassEndTurn : action.onPassPriority,
-      {
-        action: "priority",
+    const height = 40;
+
+    if (minimal) {
+      const end = this.makeButton(endLabel, action.onPassEndTurn, {
+        variant: "secondary",
         flat: true,
-        radius: minimal ? 20 : 8,
-        compact: minimal,
+        radius: 20,
         disabled,
         height,
-        width: minimal ? undefined : availableWidth - (end ? end.buttonWidth + gap : 0),
+        paddingX: 12,
+        fontSize: 10,
+        fontWeight: "700",
+        letterSpacing: 1,
+        title: endCombo ? `${endTitle} (${comboSymbols(endCombo)})` : endTitle,
+      });
+      const pass = this.makeButton(
+        passLabel,
+        morphed ? action.onPassEndTurn : action.onPassPriority,
+        {
+          action: "priority",
+          flat: true,
+          radius: 20,
+          disabled,
+          height,
+          paddingX: 16,
+          fontSize: 12,
+          fontWeight: "900",
+          letterSpacing: 1.44,
+          title: morphed ? endTitle : "Pass priority",
+        },
+      );
+      if (counting) {
+        this.addAutopassFill(
+          pass,
+          pass.buttonWidth,
+          height,
+          20,
+          this.theme.appTheme["primary-foreground"],
+        );
+      }
+      this.priorityButtons = { pass, end };
+      return this.layoutActionRow([pass, end], 4);
+    }
+
+    const end = morphed
+      ? null
+      : this.makeButton(endLabel, action.onPassEndTurn, {
+          flat: true,
+          radius: 0,
+          disabled,
+          height,
+          paddingX: 14,
+          fontSize: 10,
+          fontWeight: "700",
+          letterSpacing: 1,
+          foreground: withAlpha(this.theme.gameTheme.textOnTinted, 0.75),
+          backgroundColor: this.theme.gameTheme.canvas.shadow,
+          backgroundAlpha: 0.15,
+          hoverBackgroundAlpha: 0.3,
+          title: endCombo ? `${endTitle} (${comboSymbols(endCombo)})` : endTitle,
+        });
+    const pass = this.makeButton(
+      passLabel,
+      morphed ? action.onPassEndTurn : action.onPassPriority,
+      {
+        color: this.theme.appTheme.primary,
+        flat: true,
+        radius: 0,
+        disabled,
+        height,
+        width: availableWidth - (end?.buttonWidth ?? 0),
         paddingX: 16,
         fontSize: 12,
         fontWeight: "900",
         letterSpacing: 1.44,
+        foreground: this.theme.appTheme["primary-foreground"],
+        backgroundColor: this.theme.gameTheme.textOnTinted,
+        backgroundAlpha: morphed ? 0.15 : 0,
+        hoverBackgroundAlpha: morphed ? 0.2 : 0.1,
+        shortcut: combo ? comboSymbols(combo) : undefined,
         title: morphed ? endTitle : "Pass priority",
       },
     );
@@ -1037,12 +1065,44 @@ export class PromptLayer extends PromptModalLayer {
         pass,
         pass.buttonWidth,
         height,
-        minimal ? 20 : 8,
+        0,
         this.theme.appTheme["primary-foreground"],
       );
     }
+    const container = new Container();
+    const clipped = new Container();
+    const surface = new Graphics()
+      .roundRect(0, 0, availableWidth, height, 8)
+      .fill({ color: hexToNum(this.theme.appTheme.primary) });
+    const mask = new Graphics()
+      .roundRect(0, 0, availableWidth, height, 8)
+      .fill({ color: 0xffffff });
+    const ring = new Graphics().roundRect(0.5, 0.5, availableWidth - 1, height - 1, 7.5).stroke({
+      color: hexToNum(this.theme.gameTheme.textOnTinted),
+      width: 1,
+      alpha: 0.2,
+    });
+    surface.eventMode = "none";
+    mask.eventMode = "none";
+    ring.eventMode = "none";
+    clipped.addChild(surface, pass);
+    if (end) {
+      end.position.x = pass.buttonWidth;
+      const divider = new Graphics()
+        .moveTo(pass.buttonWidth, 0)
+        .lineTo(pass.buttonWidth, height)
+        .stroke({
+          color: hexToNum(this.theme.gameTheme.textOnTinted),
+          width: 1,
+          alpha: 0.2,
+        });
+      divider.eventMode = "none";
+      clipped.addChild(end, divider);
+    }
+    clipped.mask = mask;
+    container.addChild(mask, clipped, ring);
     this.priorityButtons = { pass, end };
-    return this.layoutActionRow(end ? [pass, end] : [pass], gap);
+    return { container, width: availableWidth, height };
   }
 
   private buildNoActionView(availableWidth: number, minimal: boolean): ActionViewLayout {
@@ -1264,79 +1324,6 @@ export class PromptLayer extends PromptModalLayer {
     const action = this.spec!.action;
     const info = action.payManaCostInfo;
     const container = new Container();
-    let y = 0;
-    let width = 0;
-    const sourceCard = this.promptSourceCard();
-    if (sourceCard && info) {
-      const source = this.makeActionCardThumbnail(sourceCard);
-      if (minimal) {
-        container.addChild(source);
-        y = ACTION_CARD_SIZE.height + ACTION_CARD_GAP;
-        width = ACTION_CARD_SIZE.width;
-      } else {
-        source.position.set(0, 0);
-        container.addChild(source);
-        const description = info.description || `Cast ${info.cardName} for ${info.manaCost}`;
-        const text = promptRichText(
-          description,
-          12,
-          this.theme.appTheme["muted-foreground"],
-          availableWidth - ACTION_CARD_SIZE.width - ACTION_CARD_GAP,
-        );
-        text.position.set(ACTION_CARD_SIZE.width + ACTION_CARD_GAP, 4);
-        container.addChild(text);
-        if (info.delveCount) {
-          const delved = promptRichText(
-            `Delved for {${info.delveCount}}`,
-            12,
-            this.theme.appTheme["muted-foreground"],
-            availableWidth - ACTION_CARD_SIZE.width - ACTION_CARD_GAP,
-          );
-          delved.position.set(ACTION_CARD_SIZE.width + ACTION_CARD_GAP, 8 + text.height);
-          container.addChild(delved);
-        }
-        y = ACTION_CARD_SIZE.height + ACTION_CARD_GAP;
-        width = availableWidth;
-      }
-    } else if (!minimal && info) {
-      const description = info.description || `Cast ${info.cardName} for ${info.manaCost}`;
-      const text = promptRichText(
-        description,
-        12,
-        this.theme.appTheme["muted-foreground"],
-        availableWidth,
-        { align: "center" },
-      );
-      text.position.set(0, 0);
-      container.addChild(text);
-      y = text.height + 8;
-      width = availableWidth;
-    }
-    if (!minimal && info) {
-      const manaInPool = Object.values(info.manaPool).reduce((total, amount) => total + amount, 0);
-      const status = promptText(
-        info.canConfirmFromPool
-          ? `PAYMENT READY · ${manaInPool} MANA IN POOL`
-          : manaInPool > 0
-            ? `${manaInPool} MANA IN POOL · CHOOSE PAYMENT`
-            : "CHOOSE HOW TO PAY",
-        10,
-        info.canConfirmFromPool
-          ? this.theme.appTheme.primary
-          : this.theme.appTheme["muted-foreground"],
-        {
-          weight: "700",
-          width: availableWidth,
-          align: "center",
-          letterSpacing: 0.7,
-        },
-      );
-      status.anchor.set(0.5, 0);
-      status.position.set(availableWidth / 2, y);
-      container.addChild(status);
-      y += status.height + 8;
-      width = availableWidth;
-    }
     const buttons = [
       this.makeActionButton(
         info?.canConfirmFromPool ? "Confirm" : "Auto",
@@ -1390,16 +1377,12 @@ export class PromptLayer extends PromptModalLayer {
       minimal ? this.viewportWidth - 24 : availableWidth,
       12,
     );
-    if (minimal && info?.sourceCard) {
-      const source = container.children[0];
-      if (source) source.x = Math.max(0, (rows.width - ACTION_CARD_SIZE.width) / 2);
-    }
-    rows.container.position.set(minimal ? 0 : Math.max(0, (availableWidth - rows.width) / 2), y);
+    rows.container.position.set(minimal ? 0 : Math.max(0, (availableWidth - rows.width) / 2), 0);
     container.addChild(rows.container);
     return {
       container,
-      width: Math.max(width, minimal ? rows.width : availableWidth),
-      height: y + rows.height,
+      width: minimal ? rows.width : availableWidth,
+      height: rows.height,
     };
   }
 
@@ -1617,6 +1600,71 @@ export class PromptLayer extends PromptModalLayer {
     return { container: button, width: size, height: size };
   }
 
+  private makeActionContextButton(): PromptButton {
+    const open = this.actionContextOpen;
+    return this.makeButton(
+      "PROMPT INFO",
+      () => {
+        this.actionContextOpen = !this.actionContextOpen;
+        this.rebuild();
+      },
+      {
+        title: open ? "Hide prompt details" : "Show prompt details",
+        icon: "lucide-info",
+        iconSize: 12,
+        labelPlacement: "hidden",
+        outline: true,
+        backgroundColor: this.theme.gameTheme.textOnTinted,
+        backgroundAlpha: open ? 0.15 : 0.05,
+        borderColor: open ? this.theme.gameTheme.textOnTinted : this.theme.appTheme.border,
+        hoverBackgroundAlpha: open ? 0.2 : 0.1,
+        hoverBorderAlpha: open ? 0.3 : 1,
+        pressOffsetY: 1,
+        borderAlpha: open ? 0.3 : 0.6,
+        width: 22,
+        height: 22,
+        paddingX: 4,
+      },
+    );
+  }
+
+  private actionContextLines(): string[] {
+    const action = this.spec!.action;
+    const promptType = promptTypeForView(action.promptType, action.promptActionOverride);
+    const lines = getPromptContextLines(promptType, {
+      mulliganCount: action.mulliganCount,
+      mustAttackHint: action.mustAttackHint,
+      blockRestrictionHint: action.blockRestrictionHint,
+      payManaCostInfo: action.payManaCostInfo,
+      mulliganPutBackCount: action.mulliganPutBackCount,
+      mulliganSelectedCount: action.mulliganSelectedCount,
+    });
+    const info = action.payManaCostInfo;
+    if (promptType === "payManaCost" && info) {
+      const manaInPool = Object.values(info.manaPool).reduce((total, amount) => total + amount, 0);
+      lines.push(
+        info.canConfirmFromPool
+          ? `PAYMENT READY · ${manaInPool} MANA IN POOL`
+          : manaInPool > 0
+            ? `${manaInPool} MANA IN POOL · CHOOSE PAYMENT`
+            : "CHOOSE HOW TO PAY",
+      );
+    }
+    return lines;
+  }
+
+  private hasActionCombatInfo(): boolean {
+    const action = this.spec!.action;
+    if (action.combatPairings.length > 0) return true;
+    const isAttackDecl = action.promptType === "chooseAttackers";
+    const isBlockDecl = action.promptType === "chooseBlockers";
+    const activeAttackers = isAttackDecl ? action.pendingAttackers : action.attackerIds;
+    const sample =
+      useGameDevStore.getState().gameStateOverrides.forceCombatSummary &&
+      activeAttackers.length === 0;
+    return (isAttackDecl || isBlockDecl || sample) && (activeAttackers.length > 0 || sample);
+  }
+
   private makePriorityModePill(disabled: boolean): PromptButton {
     const state = usePromptPreferencesStore.getState();
     const combo = resolveCombo("toggle-priority-mode", useKeybindingsStore.getState().overrides);
@@ -1680,7 +1728,7 @@ export class PromptLayer extends PromptModalLayer {
 
   private makeActionCardThumbnail(card: CardDto): Container {
     const container = new Container();
-    const sprite = new CardSprite(card, "zone");
+    const sprite = new CardSprite(card, "hand");
     const place = () => {
       sprite.scale.set(1);
       const scale = Math.min(
@@ -1923,20 +1971,6 @@ export class PromptLayer extends PromptModalLayer {
         );
         container.addChild(lethalLabel);
       }
-      if ((isAttackDecl || isBlockDecl) && !sample && action.onOpenCombat) {
-        const info = this.makeIcon("lucide-info", 14, muted);
-        info.position.set(availableWidth - 14, y + 17);
-        const target = new Container();
-        target.position.set(availableWidth - 28, y + 3);
-        target.hitArea = new Rectangle(0, 0, 28, 28);
-        target.eventMode = "static";
-        target.cursor = "pointer";
-        target.accessible = true;
-        target.accessibleTitle = "Combat breakdown";
-        target.tabIndex = 0;
-        target.on("pointertap", action.onOpenCombat);
-        container.addChild(info, target);
-      }
       y += height;
     }
 
@@ -1949,19 +1983,8 @@ export class PromptLayer extends PromptModalLayer {
     panelWidth: number,
     titleValue: string,
   ): void {
-    const action = this.spec!.action;
-    const lines = getPromptContextLines(
-      promptTypeForView(action.promptType, action.promptActionOverride),
-      {
-        mulliganCount: action.mulliganCount,
-        mustAttackHint: action.mustAttackHint,
-        blockRestrictionHint: action.blockRestrictionHint,
-        payManaCostInfo: action.payManaCostInfo,
-        mulliganPutBackCount: action.mulliganPutBackCount,
-        mulliganSelectedCount: action.mulliganSelectedCount,
-      },
-    );
-    const width = Math.min(256, Math.max(120, panelX + panelWidth - 8));
+    const lines = this.actionContextLines();
+    const width = Math.min(320, Math.max(240, panelX + panelWidth - 8));
     const popover = new Container();
     const title = promptText(titleValue.toUpperCase(), 11, this.theme.appTheme.foreground, {
       weight: "700",
@@ -1972,6 +1995,18 @@ export class PromptLayer extends PromptModalLayer {
     title.alpha = 0.9;
     popover.addChild(title);
     let y = 8 + title.height + 6;
+    if (
+      promptTypeForView(this.spec!.action.promptType, this.spec!.action.promptActionOverride) ===
+      "payManaCost"
+    ) {
+      const sourceCard = this.promptSourceCard();
+      if (sourceCard) {
+        const source = this.makeActionCardThumbnail(sourceCard);
+        source.position.set((width - ACTION_CARD_SIZE.width) / 2, y);
+        popover.addChild(source);
+        y += ACTION_CARD_SIZE.height + 8;
+      }
+    }
     for (const line of lines) {
       const text = promptRichText(line, 11, this.theme.appTheme["muted-foreground"], width - 24);
       text.position.set(12, y);

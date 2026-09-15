@@ -290,7 +290,6 @@ export class BoardScene {
 
   private handInsetLeft = 0;
   private handInsetRight = 0;
-  private playerBlockers = new Map<string, BlockingRect[]>();
   private mobileHandControlBlocker: BlockingRect | null = null;
   private lastCapsuleRects = new Map<string, string>();
   private autoSort = false;
@@ -1519,16 +1518,6 @@ export class BoardScene {
     const state = local?.getLastState();
     if (local && state) local.updateBattlefield(state);
   }
-
-  setPlayerBlockers(blockers: Map<string, BlockingRect[]>): void {
-    this.playerBlockers = blockers;
-    this.layoutSelfBar();
-    for (const rec of this.regions.values()) {
-      const state = rec.region.getLastState();
-      if (state) rec.region.updateBattlefield(state);
-    }
-  }
-
   setDropActive(active: boolean): void {
     this.dropActive = active;
     this.localRegion()?.setDropActive(active);
@@ -1644,7 +1633,6 @@ export class BoardScene {
     return {
       getTheme: () => this.theme,
       collectBlockers: () => [
-        ...(this.playerBlockers.get(playerId) ?? []),
         ...(isLocal ? this.localBlockers() : []),
         ...this.gridCapsuleBlockers(playerId, isLocal),
       ],

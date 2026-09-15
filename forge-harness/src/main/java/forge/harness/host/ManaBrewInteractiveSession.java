@@ -601,8 +601,7 @@ public final class ManaBrewInteractiveSession {
                     java.util.List.of(roll), java.util.List.of(roll), java.util.List.of(), p == winner));
         }
         publishAgentPrompt("player-" + playerId, null,
-                new DiceRolledInput(
-                        presentation("Roll for first player", null), sides, rollEntries, null, null));
+                new DiceRolledInput(presentation("Roll for first player", null), sides, rollEntries));
     }
 
     private void publishManaPaymentPrompt(

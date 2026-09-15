@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.43.0](https://github.com/witchesofthehill/manabrew/compare/v3.42.7...v3.43.0) (2026-09-14)
+
+### Features
+
+* **bench:** stress the wasm engine across a matrix of games ([#924](https://github.com/witchesofthehill/manabrew/issues/924)) ([f0c236b](https://github.com/witchesofthehill/manabrew/commit/f0c236bb2a25734010ad0b6686abcef262d4c724))
+
 ## [3.42.7](https://github.com/witchesofthehill/manabrew/compare/v3.42.6...v3.42.7) (2026-09-13)
 
 ### Fixes
