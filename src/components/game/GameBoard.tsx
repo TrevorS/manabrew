@@ -1911,6 +1911,13 @@ export function GameBoard({
           layoutPolicy={layoutPolicy}
           mobileHandOpen={mobileHandOpen}
           focusedOpponentId={focusedOpponentId}
+          opponentFieldFocused={
+            !isSelfTurn ||
+            isTargetingPrompt ||
+            promptType === "chooseAttackers" ||
+            promptType === "chooseBlockers" ||
+            combatFocusIds.length > 0
+          }
           combatFocusIds={combatFocusIds}
           manualFocusId={manualFocusId}
           playerBars={hudBarSpecs}

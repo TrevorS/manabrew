@@ -99,6 +99,7 @@ interface BoardCanvasProps {
   mobileHandOpen?: boolean;
   mobileHandControlBounds?: DOMRect | null;
   opponentLayout?: "focused" | "overview";
+  opponentFieldFocused?: boolean;
   focusLocked?: boolean;
   focusedOpponentId?: string | null;
   combatFocusIds?: string[];
@@ -145,6 +146,7 @@ export function BoardCanvas({
   mobileHandOpen = false,
   mobileHandControlBounds,
   opponentLayout = "focused",
+  opponentFieldFocused = false,
   focusLocked = false,
   focusedOpponentId,
   combatFocusIds,
@@ -400,7 +402,9 @@ export function BoardCanvas({
       opponentCount,
       effectiveBottomReserve,
       compact,
-      layoutPolicy.selfFieldShare,
+      compact && opponentFieldFocused
+        ? layoutPolicy.focusedSelfFieldShare
+        : layoutPolicy.selfFieldShare,
       opponentLayout,
     );
     s.setCompactMode(compact);
@@ -452,6 +456,7 @@ export function BoardCanvas({
     cardSizeMultiplier,
     handViewportScale,
     compact,
+    opponentFieldFocused,
     layoutPolicy,
     opponentLayout,
     focusLocked,
