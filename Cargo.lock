@@ -4396,7 +4396,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew"
-version = "3.44.2"
+version = "3.44.3"
 dependencies = [
  "flate2",
  "forge-carddb",

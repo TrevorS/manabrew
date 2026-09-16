@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.44.3](https://github.com/witchesofthehill/manabrew/compare/v3.44.2...v3.44.3) (2026-09-16)
+
+### Fixes
+
+* **ui:** allow opponent expansion while targeting ([#941](https://github.com/witchesofthehill/manabrew/issues/941)) ([010df66](https://github.com/witchesofthehill/manabrew/commit/010df66480161228eff9a67443a98a3b57b43785))
+
 ## [3.44.2](https://github.com/witchesofthehill/manabrew/compare/v3.44.1...v3.44.2) (2026-09-16)
 
 ### Fixes
