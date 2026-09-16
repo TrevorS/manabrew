@@ -97,9 +97,7 @@ impl TriggerBehavior for TriggerCounterAddedAll {
     ) -> String {
         format!(
             "Amount: {}",
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Amount)
-                .cloned()
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Amount)
                 .unwrap_or_default()
         )
     }

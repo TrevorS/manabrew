@@ -72,9 +72,7 @@ impl TriggerBehavior for TriggerChampioned {
     ) -> String {
         format!(
             "Championed: {}",
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Championed)
-                .cloned()
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Championed)
                 .unwrap_or_default()
         )
     }

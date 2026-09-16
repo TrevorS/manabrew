@@ -124,9 +124,7 @@ impl TriggerBehavior for TriggerCounterAddedOnce {
         format!(
             "AddedOnce: {}, Amount: {}",
             target.cloned().unwrap_or_default(),
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Amount)
-                .cloned()
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Amount)
                 .unwrap_or_default()
         )
     }

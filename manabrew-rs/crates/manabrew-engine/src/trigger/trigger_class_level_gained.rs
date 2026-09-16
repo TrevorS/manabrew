@@ -67,9 +67,7 @@ impl TriggerBehavior for TriggerClassLevelGained {
     ) -> String {
         format!(
             "Class Level: {}",
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::ClassLevel)
-                .cloned()
+            sa.get_triggering_object_text(crate::ability::AbilityKey::ClassLevel)
                 .unwrap_or_default()
         )
     }

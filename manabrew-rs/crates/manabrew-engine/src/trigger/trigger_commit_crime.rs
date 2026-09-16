@@ -58,9 +58,7 @@ impl TriggerBehavior for TriggerCommitCrime {
     ) -> String {
         format!(
             "Player: {}",
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Player)
-                .cloned()
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Player)
                 .unwrap_or_default()
         )
     }

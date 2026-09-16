@@ -126,13 +126,9 @@ impl TriggerBehavior for TriggerCounterPlayerAddedAll {
     ) -> String {
         format!(
             "AddedOnce: {}: {}",
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Source)
-                .cloned()
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Source)
                 .unwrap_or_default(),
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Object)
-                .cloned()
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Object)
                 .unwrap_or_default()
         )
     }
