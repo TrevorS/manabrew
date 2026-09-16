@@ -709,7 +709,13 @@ fn matches_card_type_predicate(card_type: &CardSelectorType, card: &Card) -> boo
         CardSelectorType::NonLand => !card.is_land(),
         CardSelectorType::NonCreature => !card.is_creature(),
         CardSelectorType::Named(name) => card.card_name.eq_ignore_ascii_case(name),
-        CardSelectorType::Subtype(subtype) => card.has_subtype(subtype),
+        CardSelectorType::Subtype(subtype) => {
+            if subtype.eq_ignore_ascii_case("Outlaw") {
+                card.is_outlaw()
+            } else {
+                card.has_subtype(subtype)
+            }
+        }
     }
 }
 
@@ -1418,12 +1424,14 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
             "legendary" => card.type_line.is_legendary(),
             "basic" => card.type_line.is_basic(),
             "snow" => card.type_line.is_snow(),
+            "outlaw" => card.is_outlaw(),
             _ => card.has_subtype(value),
         };
         return !positive_match;
     }
 
     match value_lower.as_str() {
+        "outlaw" => card.is_outlaw(),
         "self" | "strictlyself" | "card.self" => card.id == source.id,
         "other" | "strictlyother" => card.id != source.id,
         "youctrl" | "youcontrol" | "you" => card.controller == source.controller,
@@ -2016,6 +2024,7 @@ fn matches_type_and_qualifier_parts(
                     "legendary" => card.type_line.is_legendary(),
                     "basic" => card.type_line.is_basic(),
                     "snow" => card.type_line.is_snow(),
+                    "outlaw" => card.is_outlaw(),
                     _ => {
                         // Try subtype match
                         card.has_subtype(raw)
@@ -2027,6 +2036,11 @@ fn matches_type_and_qualifier_parts(
                 continue;
             }
             match sub_lower.as_str() {
+                "outlaw" => {
+                    if !card.is_outlaw() {
+                        return false;
+                    }
+                }
                 "self" => {
                     if card.id != source.id {
                         return false;

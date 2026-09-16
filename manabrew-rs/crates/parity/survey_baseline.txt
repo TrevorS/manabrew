@@ -20,7 +20,7 @@ survey_g114 survey_g115 PASS
 survey_g116 survey_g117 PASS
 survey_g122 survey_g123 FAIL FAILED AT TURN 20
 survey_g124 survey_g125 PASS
-survey_g126 survey_g127 FAIL FAILED AT TURN 13
+survey_g126 survey_g127 PASS
 survey_g136 survey_g137 FAIL FAILED AT TURN 11
 survey_g146 survey_g147 FAIL FAILED AT TURN 10
 survey_g156 survey_g157 FAIL FAILED AT TURN 15

@@ -899,6 +899,7 @@ pub struct CardFilter {
     /// Only match cards that share a creature type with the source's equipped creature.
     pub shares_creature_type_with_equipped: bool,
     pub remembered_only: bool,
+    pub outlaw_only: bool,
 }
 
 impl CardFilter {
@@ -945,6 +946,7 @@ impl CardFilter {
             "SharesColorWith Equipped" => f.shares_color_with_equipped = true,
             "sharesCreatureTypeWith Equipped" => f.shares_creature_type_with_equipped = true,
             "IsRemembered" => f.remembered_only = true,
+            "Outlaw" => f.outlaw_only = true,
             s if s.starts_with("named") => {
                 f.card_name = Some(s["named".len()..].to_string());
             }
@@ -973,6 +975,9 @@ impl CardFilter {
             return false;
         }
         if self.remembered_only && !source.remembered_cards.contains(&card.id) {
+            return false;
+        }
+        if self.outlaw_only && !card.is_outlaw() {
             return false;
         }
         if self.commander_only && !card.is_commander {

@@ -48,6 +48,7 @@ pub const KEYWORD_PLOTTED_PREFIX: &str = "Plotted:";
 /// Marker for cards exiled via Warp's end-of-turn trigger.
 /// These cards can be cast from exile on a later turn for their normal mana cost.
 pub const KEYWORD_WARP_EXILED: &str = "WarpExiled";
+pub const OUTLAW_TYPES: [&str; 5] = ["Assassin", "Mercenary", "Pirate", "Rogue", "Warlock"];
 
 use crate::{HashMap, HashSet};
 use std::collections::BTreeMap;
@@ -3293,6 +3294,12 @@ impl Card {
             return true;
         }
         self.has_keyword("Changeling") && crate::game::TypeRegistry::is_creature_type(creature_type)
+    }
+
+    pub fn is_outlaw(&self) -> bool {
+        OUTLAW_TYPES
+            .iter()
+            .any(|creature_type| self.has_creature_type(creature_type))
     }
     pub fn has_subtype(&self, subtype: &str) -> bool {
         self.type_line.has_subtype(subtype) || self.has_creature_type(subtype)
