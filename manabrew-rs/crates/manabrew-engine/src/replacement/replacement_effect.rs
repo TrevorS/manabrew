@@ -753,9 +753,9 @@ impl ReplacementEffect {
                     number,
                     ..
                 } => {
-                    node.set_triggering_object(
+                    node.set_triggering_value(
                         AbilityKey::TriggeredPlayer,
-                        player.index().to_string().as_str(),
+                        crate::event::AbilityValue::Player(*player),
                     );
                     node.set_triggering_object(AbilityKey::Num, number.to_string().as_str());
                     node.set_triggering_object(AbilityKey::Sides, sides.to_string().as_str());
