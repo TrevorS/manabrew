@@ -303,8 +303,14 @@ fn compare_snapshots(
                 if std::env::var_os("PARITY_ALL_DIVERGENCES").is_some() {
                     for d in &divs {
                         eprintln!(
-                            "[all-div] T{} {} {}: Rust={} Java={}",
-                            d.turn, d.phase, d.field, d.rust_value, d.java_value
+                            "[all-div] {} vs {} T{} {} {}: Rust={} Java={}",
+                            config.deck1,
+                            config.deck2,
+                            d.turn,
+                            d.phase,
+                            d.field,
+                            d.rust_value,
+                            d.java_value
                         );
                     }
                 }
