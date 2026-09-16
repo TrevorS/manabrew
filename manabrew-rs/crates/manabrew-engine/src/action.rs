@@ -401,6 +401,17 @@ impl GameState {
                     exile_effects.push(eff_id);
                 }
             }
+            // A token ceasing to exist leaves the battlefield, so anything
+            // attached to it becomes unattached. This branch returns before the
+            // generic leave-battlefield detach below, so it repeats it here.
+            let attachments: Vec<CardId> = self.cards[card_id.index()].attachments.clone();
+            for aura_id in attachments {
+                self.cards[aura_id.index()].attached_to = None;
+                self.cards[aura_id.index()].is_bestowed = false;
+            }
+            self.cards[card_id.index()].attachments.clear();
+            self.detach(card_id);
+
             self.cards[card_id.index()].zone = ZoneType::None;
             if src_zone != ZoneType::None {
                 self.remove_card_from_zone(src_zone, src_owner, card_id);
