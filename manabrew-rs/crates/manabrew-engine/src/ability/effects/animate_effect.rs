@@ -395,6 +395,9 @@ fn resolve_animate_targets(
                     return ctx.game.card(src).remembered_cards.clone();
                 }
             }
+            DefinedRef::Targeted | DefinedRef::TargetedCard | DefinedRef::ThisTargetedCard => {
+                return sa.target_chosen.target_card.into_iter().collect();
+            }
             _ => {}
         }
     }

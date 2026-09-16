@@ -18,7 +18,7 @@ survey_g096 survey_g097 FAIL FAILED AT TURN 7
 survey_g106 survey_g107 FAIL FAILED AT TURN 10
 survey_g114 survey_g115 PASS
 survey_g116 survey_g117 PASS
-survey_g122 survey_g123 FAIL FAILED AT TURN 20
+survey_g122 survey_g123 PASS
 survey_g124 survey_g125 PASS
 survey_g126 survey_g127 PASS
 survey_g136 survey_g137 FAIL FAILED AT TURN 11
