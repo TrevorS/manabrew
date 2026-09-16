@@ -241,6 +241,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
         if dest_zone1 == ZoneType::Battlefield {
+            if sa.ir.tapped {
+                ctx.game.tap(id);
+            }
             ctx.trigger_handler.register_active_trigger(ctx.game, id);
             let _ = super::add_to_combat(ctx, sa, id, keys::ATTACKING);
         }
@@ -273,6 +276,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ctx.move_card(id, dest_zone2, dest_owner);
             zone_movements.put(Some(ZoneType::Library), Some(dest_zone2), id);
             if dest_zone2 == ZoneType::Battlefield {
+                if sa.ir.tapped {
+                    ctx.game.tap(id);
+                }
                 ctx.trigger_handler.register_active_trigger(ctx.game, id);
             }
             emit_zone_trigger(ctx.trigger_handler, id, ZoneType::Library, dest_zone2);
