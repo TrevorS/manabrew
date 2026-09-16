@@ -248,9 +248,10 @@ fn card_keywords(card: &manabrew_engine::card::CardInstance) -> Vec<String> {
         .chain(card.granted_keywords.as_string_list())
         .chain(card.pump_keywords.as_string_list())
         .filter(|keyword| {
-            !card
-                .cant_have_keywords
-                .contains(&keyword.to_ascii_lowercase())
+            keyword.as_str() != manabrew_engine::card::KEYWORD_WARP_EXILED
+                && !card
+                    .cant_have_keywords
+                    .contains(&keyword.to_ascii_lowercase())
         })
         .map(|keyword| {
             keyword
