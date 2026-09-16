@@ -1600,6 +1600,35 @@ impl GameState {
             }
         }
 
+        // CR 704.5q: an Equipment attached to a permanent it can no longer be
+        // legally attached to becomes unattached. Unlike an Aura it stays on
+        // the battlefield. Java collects these in unAttachList and calls
+        // unattachFromEntity on each.
+        // TODO(parity): Java's unattachFromEntity also fires the Unattached
+        // trigger; detach does not.
+        {
+            let unattach_ids: Vec<CardId> = self
+                .cards
+                .iter()
+                .filter(|c| {
+                    c.zone == ZoneType::Battlefield && c.type_line.has_subtype("Equipment")
+                })
+                .filter(|c| match c.attached_to {
+                    Some(host_id) if host_id.index() < self.cards.len() => {
+                        let host = &self.cards[host_id.index()];
+                        host.zone == ZoneType::Battlefield && !host.type_line.is_creature()
+                    }
+                    _ => false,
+                })
+                .map(|c| c.id)
+                .collect();
+
+            for equipment_id in unattach_ids {
+                self.detach(equipment_id);
+                any_changes = true;
+            }
+        }
+
         // Check game over
         let alive = self.alive_players();
         if alive.len() <= 1 {

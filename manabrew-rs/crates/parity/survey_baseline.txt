@@ -6,7 +6,7 @@ survey_g016 survey_g017 FAIL FAILED AT TURN 20
 survey_g018 survey_g019 PASS
 survey_g020 survey_g021 PASS
 survey_g026 survey_g027 PASS
-survey_g032 survey_g033 FAIL FAILED AT TURN 19
+survey_g032 survey_g033 PASS
 survey_g034 survey_g035 PASS
 survey_g036 survey_g037 FAIL FAILED AT TURN 9
 survey_g046 survey_g047 FAIL FAILED AT TURN 6
