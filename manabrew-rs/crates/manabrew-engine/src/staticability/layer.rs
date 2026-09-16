@@ -80,6 +80,8 @@ enum EffectKind {
     },
     /// Add a type/subtype to the card (`AddType$`). Mirrors Java layer 4.
     AddType(String),
+    /// Remove all creature types (`RemoveCreatureTypes$`). Mirrors Java layer 4.
+    RemoveCreatureTypes,
     /// Grant a triggered ability (from AddTrigger$). The string is the raw trigger text.
     GrantTrigger {
         text: String,
@@ -347,6 +349,14 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                                 power: p,
                                 toughness: t,
                             },
+                        });
+                    }
+
+                    if sa.ir.remove_creature_types {
+                        pending.push(PendingEffect {
+                            layer: Layer::Type,
+                            target,
+                            kind: EffectKind::RemoveCreatureTypes,
                         });
                     }
 
@@ -637,6 +647,27 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                             "DB$ Counter | Defined$ TriggeredSourceSA | UnlessCost$ {cost_str}"
                         ),
                     );
+                }
+            }
+            EffectKind::RemoveCreatureTypes => {
+                let card = &mut game.cards[effect.target.index()];
+                if card
+                    .type_line
+                    .subtypes
+                    .iter()
+                    .any(|s| crate::game::TypeRegistry::creature_types()
+                        .iter()
+                        .any(|ct| ct.eq_ignore_ascii_case(s)))
+                {
+                    if card.static_type_line_base.is_none() {
+                        card.static_type_line_base = Some(card.type_line.clone());
+                    }
+                    card.type_line.subtypes.retain(|s| {
+                        !crate::game::TypeRegistry::creature_types()
+                        .iter()
+                        .any(|ct| ct.eq_ignore_ascii_case(s))
+                    });
+                    card.update_types();
                 }
             }
             EffectKind::AddType(t) => {

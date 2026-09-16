@@ -45,7 +45,7 @@ survey_g302 survey_g303 FAIL FAILED AT TURN 10
 survey_g314 survey_g315 PASS
 survey_g316 survey_g317 FAIL FAILED AT TURN 12
 survey_g330 survey_g331 FAIL FAILED AT TURN 8
-survey_g340 survey_g341 FAIL FAILED AT TURN 12
+survey_g340 survey_g341 FAIL FAILED AT TURN 16
 survey_g346 survey_g347 FAIL FAILED AT TURN 9
 survey_g352 survey_g353 FAIL FAILED AT TURN 9
 survey_g354 survey_g355 PASS
