@@ -23,6 +23,7 @@ pub enum CardSplitType {
     Omen,
     Modal,
     Specialize,
+    Prepare,
 }
 
 impl CardSplitType {
@@ -37,6 +38,7 @@ impl CardSplitType {
             Self::Omen => FaceSelectionMethod::UsePrimaryFace,
             Self::Modal => FaceSelectionMethod::UseActiveFace,
             Self::Specialize => FaceSelectionMethod::UseActiveFace,
+            Self::Prepare => FaceSelectionMethod::UseActiveFace,
         }
     }
 
@@ -51,6 +53,7 @@ impl CardSplitType {
             Self::Omen => Some(CardStateName::Secondary),
             Self::Modal => Some(CardStateName::Backside),
             Self::Specialize => None,
+            Self::Prepare => Some(CardStateName::PreparedSpell),
         }
     }
 
@@ -69,6 +72,7 @@ impl CardSplitType {
             "Omen" => Some(Self::Omen),
             "Modal" => Some(Self::Modal),
             "Specialize" => Some(Self::Specialize),
+            "Prepare" => Some(Self::Prepare),
             _ => None,
         }
     }
@@ -93,6 +97,7 @@ pub enum CardStateName {
     SpecializeB,
     SpecializeR,
     SpecializeG,
+    PreparedSpell,
 }
 
 impl CardStateName {
@@ -116,6 +121,7 @@ impl CardStateName {
             "SpecializeB" => Some(Self::SpecializeB),
             "SpecializeR" => Some(Self::SpecializeR),
             "SpecializeG" => Some(Self::SpecializeG),
+            "PreparedSpell" => Some(Self::PreparedSpell),
             _ => {
                 // Case-insensitive fallback
                 let lower = s.to_ascii_lowercase();
@@ -128,6 +134,7 @@ impl CardStateName {
                     "leftsplit" => Some(Self::LeftSplit),
                     "rightsplit" => Some(Self::RightSplit),
                     "secondary" => Some(Self::Secondary),
+                    "preparedspell" => Some(Self::PreparedSpell),
                     "emptyroom" => Some(Self::EmptyRoom),
                     "specializew" => Some(Self::SpecializeW),
                     "specializeu" => Some(Self::SpecializeU),
