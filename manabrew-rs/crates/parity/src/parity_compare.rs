@@ -300,6 +300,14 @@ fn compare_snapshots(
                     }
                 }
 
+                if std::env::var_os("PARITY_ALL_DIVERGENCES").is_some() {
+                    for d in &divs {
+                        eprintln!(
+                            "[all-div] T{} {} {}: Rust={} Java={}",
+                            d.turn, d.phase, d.field, d.rust_value, d.java_value
+                        );
+                    }
+                }
                 first_divergence = divs.into_iter().next();
                 compared_until = compared_index + 1;
                 diverge_rust_idx = Some(rust_idx);
