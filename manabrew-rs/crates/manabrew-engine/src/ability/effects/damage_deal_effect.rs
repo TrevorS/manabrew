@@ -474,7 +474,7 @@ fn evaluate_svar_expr(ctx: &EffectContext, sa: &SpellAbility, expr: &str) -> i32
         };
         if let Some(value) = crate::ability::ability_key::from_string(trigger_value_key)
             .and_then(|key| sa.get_triggering_value(key))
-            .and_then(|value| value.trim().parse::<i32>().ok())
+            .and_then(|value| value.to_trigger_text().trim().parse::<i32>().ok())
         {
             return value;
         }

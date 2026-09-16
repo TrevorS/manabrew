@@ -224,7 +224,7 @@ fn trigger_card_object(sa: &SpellAbility, key: &str) -> Option<CardId> {
 fn trigger_int_object(sa: &SpellAbility, key: &str) -> Option<i32> {
     crate::ability::ability_key::from_string(key)
         .and_then(|ability_key| sa.get_triggering_value(ability_key))
-        .and_then(|value| value.trim().parse::<i32>().ok())
+        .and_then(|value| value.to_trigger_text().trim().parse::<i32>().ok())
 }
 
 /// Resolve SVar properties that explicitly ask for triggered-card LKI.

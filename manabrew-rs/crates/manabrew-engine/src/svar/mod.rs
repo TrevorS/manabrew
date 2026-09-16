@@ -13,7 +13,8 @@ fn parse_trigger_int_values(sa: &SpellAbility, key: &str) -> Vec<i32> {
     crate::ability::ability_key::from_string(key)
         .and_then(|ability_key| sa.get_triggering_value(ability_key))
         .map(|raw| {
-            raw.split(',')
+            raw.to_trigger_text()
+                .split(',')
                 .filter_map(|part| part.trim().parse::<i32>().ok())
                 .collect::<Vec<_>>()
         })
@@ -1397,10 +1398,10 @@ pub fn evaluate_svar(expr: &str, sa: &SpellAbility) -> i32 {
 }
 
 fn trigger_result_values(sa: &SpellAbility) -> Vec<i32> {
-    sa.trigger_objects
-        .get(&crate::ability::AbilityKey::Result)
+    sa.get_triggering_value(crate::ability::AbilityKey::Result)
         .map(|raw| {
-            raw.split(',')
+            raw.to_trigger_text()
+                .split(',')
                 .filter_map(|part| part.trim().parse::<i32>().ok())
                 .collect::<Vec<_>>()
         })

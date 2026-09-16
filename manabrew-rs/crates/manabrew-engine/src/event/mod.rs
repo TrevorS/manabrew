@@ -48,20 +48,7 @@ pub enum AbilityValue {
     Phase(PhaseType),
 }
 
-impl Default for AbilityValue {
-    fn default() -> Self {
-        AbilityValue::String(String::new())
-    }
-}
-
 impl AbilityValue {
-    pub fn as_str(&self) -> &str {
-        match self {
-            AbilityValue::String(value) => value.as_str(),
-            _ => "",
-        }
-    }
-
     pub fn to_trigger_text(&self) -> String {
         match self {
             AbilityValue::Card(card) => card.0.to_string(),
@@ -89,14 +76,6 @@ impl AbilityValue {
             AbilityValue::Bool(value) => value.to_string(),
             _ => String::new(),
         }
-    }
-}
-
-impl std::ops::Deref for AbilityValue {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        self.as_str()
     }
 }
 
