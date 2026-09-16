@@ -444,15 +444,23 @@ impl ReplacementEffect {
                     destination,
                     ..
                 } => {
-                    let card_csv = card.0.to_string();
                     // Java `ReplaceMoved.setReplacingObjects`: Card + (NewCard,
                     // CardLKI, Cause, LastStateBattlefield, LastStateGraveyard,
                     // CounterTable, CounterMap). Rust's `ReplacementEvent::Moved`
                     // only carries card + zones; the other keys aren't tracked
                     // on the event today.
-                    node.set_triggering_object(AbilityKey::Card, card_csv.as_str());
-                    node.set_triggering_object(AbilityKey::ReplacedCard, card_csv.as_str());
-                    node.set_triggering_object(AbilityKey::Affected, card_csv.as_str());
+                    node.set_triggering_value(
+                        AbilityKey::Card,
+                        crate::event::AbilityValue::Card(*card),
+                    );
+                    node.set_triggering_value(
+                        AbilityKey::ReplacedCard,
+                        crate::event::AbilityValue::Card(*card),
+                    );
+                    node.set_triggering_value(
+                        AbilityKey::Affected,
+                        crate::event::AbilityValue::Card(*card),
+                    );
                     node.set_triggering_object(AbilityKey::Origin, format!("{origin:?}").as_str());
                     node.set_triggering_object(
                         AbilityKey::Destination,
@@ -467,20 +475,27 @@ impl ReplacementEffect {
                 } => {
                     // Java `ReplaceDamage.setReplacingObjects`: DamageAmount,
                     // Target (from Affected), Source (from DamageSource).
-                    let target_csv = target.0.to_string();
                     node.set_triggering_value(
                         AbilityKey::Target,
                         crate::event::AbilityValue::Card(*target),
                     );
-                    node.set_triggering_object(AbilityKey::Affected, target_csv.as_str());
+                    node.set_triggering_value(
+                        AbilityKey::Affected,
+                        crate::event::AbilityValue::Card(*target),
+                    );
                     node.set_triggering_object(
                         AbilityKey::DamageAmount,
                         amount.to_string().as_str(),
                     );
                     if let Some(src) = source {
-                        let src_csv = src.0.to_string();
-                        node.set_triggering_object(AbilityKey::Source, src_csv.as_str());
-                        node.set_triggering_object(AbilityKey::DamageSource, src_csv.as_str());
+                        node.set_triggering_value(
+                            AbilityKey::Source,
+                            crate::event::AbilityValue::Card(*src),
+                        );
+                        node.set_triggering_value(
+                            AbilityKey::DamageSource,
+                            crate::event::AbilityValue::Card(*src),
+                        );
                     }
                 }
                 ReplacementEvent::DamageToPlayer {
@@ -494,20 +509,30 @@ impl ReplacementEffect {
                         amount.to_string().as_str(),
                     );
                     if let Some(src) = source {
-                        let src_csv = src.0.to_string();
-                        node.set_triggering_object(AbilityKey::Source, src_csv.as_str());
-                        node.set_triggering_object(AbilityKey::DamageSource, src_csv.as_str());
+                        node.set_triggering_value(
+                            AbilityKey::Source,
+                            crate::event::AbilityValue::Card(*src),
+                        );
+                        node.set_triggering_value(
+                            AbilityKey::DamageSource,
+                            crate::event::AbilityValue::Card(*src),
+                        );
                     }
-                    node.set_triggering_object(
+                    node.set_triggering_value(
                         AbilityKey::TriggeredPlayer,
-                        target.index().to_string().as_str(),
+                        crate::event::AbilityValue::Player(*target),
                     );
                 }
                 ReplacementEvent::Destroy { target } => {
                     // Java `ReplaceDestroy.setReplacingObjects`: Card, Cause.
-                    let target_csv = target.0.to_string();
-                    node.set_triggering_object(AbilityKey::Card, target_csv.as_str());
-                    node.set_triggering_object(AbilityKey::Affected, target_csv.as_str());
+                    node.set_triggering_value(
+                        AbilityKey::Card,
+                        crate::event::AbilityValue::Card(*target),
+                    );
+                    node.set_triggering_value(
+                        AbilityKey::Affected,
+                        crate::event::AbilityValue::Card(*target),
+                    );
                 }
                 ReplacementEvent::AddCounter {
                     target,
@@ -517,20 +542,28 @@ impl ReplacementEffect {
                 } => {
                     // Java `ReplaceAddCounter.setReplacingObjects`: CounterMap,
                     // Card/Player (polymorphic on Affected), Object.
-                    let target_csv = match target {
-                        crate::agent::GameEntity::Card(card) => card.0.to_string(),
-                        crate::agent::GameEntity::Player(player) => player.0.to_string(),
-                    };
                     match target {
-                        crate::agent::GameEntity::Card(_) => {
-                            node.set_triggering_object(AbilityKey::Card, target_csv.as_str());
+                        crate::agent::GameEntity::Card(card) => {
+                            node.set_triggering_value(
+                                AbilityKey::Card,
+                                crate::event::AbilityValue::Card(*card),
+                            );
                         }
-                        crate::agent::GameEntity::Player(_) => {
-                            node.set_triggering_object(AbilityKey::Player, target_csv.as_str());
+                        crate::agent::GameEntity::Player(player) => {
+                            node.set_triggering_value(
+                                AbilityKey::Player,
+                                crate::event::AbilityValue::Player(*player),
+                            );
                         }
                     }
-                    node.set_triggering_object(AbilityKey::Affected, target_csv.as_str());
-                    node.set_triggering_object(AbilityKey::Object, target_csv.as_str());
+                    node.set_triggering_value(
+                        AbilityKey::Affected,
+                        crate::event::AbilityValue::GameEntities(vec![*target]),
+                    );
+                    node.set_triggering_value(
+                        AbilityKey::Object,
+                        crate::event::AbilityValue::GameEntities(vec![*target]),
+                    );
                     node.set_triggering_object(
                         AbilityKey::CounterMap,
                         format!("{counter_type:?}:{count}").as_str(),
@@ -543,41 +576,66 @@ impl ReplacementEffect {
                 } => {
                     // Java `ReplaceDraw.setReplacingObjects`: Player (from
                     // Affected) + Cause + Source (from cause.getHostCard()).
-                    let pid = player.index().to_string();
-                    node.set_triggering_object(AbilityKey::TriggeredPlayer, pid.as_str());
-                    node.set_triggering_object(AbilityKey::Affected, pid.as_str());
+                    node.set_triggering_value(
+                        AbilityKey::TriggeredPlayer,
+                        crate::event::AbilityValue::Player(*player),
+                    );
+                    node.set_triggering_value(
+                        AbilityKey::Affected,
+                        crate::event::AbilityValue::Player(*player),
+                    );
                     node.set_triggering_object(AbilityKey::Num, extra_draws.to_string().as_str());
                 }
                 ReplacementEvent::DrawCards { player, count } => {
                     // Java `ReplaceDrawCards.setReplacingObjects`: Player + Num.
-                    let pid = player.index().to_string();
-                    node.set_triggering_object(AbilityKey::TriggeredPlayer, pid.as_str());
-                    node.set_triggering_object(AbilityKey::Affected, pid.as_str());
+                    node.set_triggering_value(
+                        AbilityKey::TriggeredPlayer,
+                        crate::event::AbilityValue::Player(*player),
+                    );
+                    node.set_triggering_value(
+                        AbilityKey::Affected,
+                        crate::event::AbilityValue::Player(*player),
+                    );
                     node.set_triggering_object(AbilityKey::Num, count.to_string().as_str());
                 }
                 ReplacementEvent::CreateToken { player, count, .. } => {
                     // Java `ReplaceToken.setReplacingObjects`: TokenNum, Token,
                     // Cause, Player.
-                    let pid = player.index().to_string();
-                    node.set_triggering_object(AbilityKey::TriggeredPlayer, pid.as_str());
-                    node.set_triggering_object(AbilityKey::Affected, pid.as_str());
+                    node.set_triggering_value(
+                        AbilityKey::TriggeredPlayer,
+                        crate::event::AbilityValue::Player(*player),
+                    );
+                    node.set_triggering_value(
+                        AbilityKey::Affected,
+                        crate::event::AbilityValue::Player(*player),
+                    );
                     node.set_triggering_object(AbilityKey::TokenNum, count.to_string().as_str());
                 }
                 ReplacementEvent::GainLife { player, amount }
                 | ReplacementEvent::PayLife { player, amount }
                 | ReplacementEvent::LifeReduced { player, amount, .. } => {
-                    let pid = player.index().to_string();
-                    node.set_triggering_object(AbilityKey::TriggeredPlayer, pid.as_str());
-                    node.set_triggering_object(AbilityKey::Affected, pid.as_str());
+                    node.set_triggering_value(
+                        AbilityKey::TriggeredPlayer,
+                        crate::event::AbilityValue::Player(*player),
+                    );
+                    node.set_triggering_value(
+                        AbilityKey::Affected,
+                        crate::event::AbilityValue::Player(*player),
+                    );
                     node.set_triggering_object(AbilityKey::LifeAmount, amount.to_string().as_str());
                 }
                 ReplacementEvent::Mill { player, count }
                 | ReplacementEvent::Scry { player, count }
                 | ReplacementEvent::Proliferate { player, count }
                 | ReplacementEvent::CopySpell { player, count } => {
-                    let pid = player.index().to_string();
-                    node.set_triggering_object(AbilityKey::TriggeredPlayer, pid.as_str());
-                    node.set_triggering_object(AbilityKey::Affected, pid.as_str());
+                    node.set_triggering_value(
+                        AbilityKey::TriggeredPlayer,
+                        crate::event::AbilityValue::Player(*player),
+                    );
+                    node.set_triggering_value(
+                        AbilityKey::Affected,
+                        crate::event::AbilityValue::Player(*player),
+                    );
                     node.set_triggering_object(AbilityKey::Num, count.to_string().as_str());
                 }
                 ReplacementEvent::BeginTurn { player }
@@ -593,9 +651,14 @@ impl ReplacementEffect {
                 | ReplacementEvent::Planeswalk { player }
                 | ReplacementEvent::SetInMotion { player }
                 | ReplacementEvent::AssembleContraption { player } => {
-                    let pid = player.index().to_string();
-                    node.set_triggering_object(AbilityKey::TriggeredPlayer, pid.as_str());
-                    node.set_triggering_object(AbilityKey::Affected, pid.as_str());
+                    node.set_triggering_value(
+                        AbilityKey::TriggeredPlayer,
+                        crate::event::AbilityValue::Player(*player),
+                    );
+                    node.set_triggering_value(
+                        AbilityKey::Affected,
+                        crate::event::AbilityValue::Player(*player),
+                    );
                 }
                 ReplacementEvent::Counter { card }
                 | ReplacementEvent::Tap { card }
@@ -604,29 +667,36 @@ impl ReplacementEffect {
                 | ReplacementEvent::Transform { card }
                 | ReplacementEvent::TurnFaceUp { card }
                 | ReplacementEvent::AssignDealDamage { card } => {
-                    let csv = card.0.to_string();
-                    node.set_triggering_object(AbilityKey::Card, csv.as_str());
-                    node.set_triggering_object(AbilityKey::Affected, csv.as_str());
+                    node.set_triggering_value(
+                        AbilityKey::Card,
+                        crate::event::AbilityValue::Card(*card),
+                    );
+                    node.set_triggering_value(
+                        AbilityKey::Affected,
+                        crate::event::AbilityValue::Card(*card),
+                    );
                 }
                 ReplacementEvent::DealtDamage {
                     target,
                     amount,
                     source,
                 } => {
-                    let target_csv = target.0.to_string();
                     node.set_triggering_value(
                         AbilityKey::Target,
                         crate::event::AbilityValue::Card(*target),
                     );
-                    node.set_triggering_object(AbilityKey::Affected, target_csv.as_str());
+                    node.set_triggering_value(
+                        AbilityKey::Affected,
+                        crate::event::AbilityValue::Card(*target),
+                    );
                     node.set_triggering_object(
                         AbilityKey::DamageAmount,
                         amount.to_string().as_str(),
                     );
                     if let Some(src) = source {
-                        node.set_triggering_object(
+                        node.set_triggering_value(
                             AbilityKey::DamageSource,
-                            src.0.to_string().as_str(),
+                            crate::event::AbilityValue::Card(*src),
                         );
                     }
                 }
@@ -635,31 +705,45 @@ impl ReplacementEffect {
                     counter_type,
                     count,
                 } => {
-                    let target_csv = target.0.to_string();
-                    node.set_triggering_object(AbilityKey::Card, target_csv.as_str());
+                    node.set_triggering_value(
+                        AbilityKey::Card,
+                        crate::event::AbilityValue::Card(*target),
+                    );
                     node.set_triggering_object(
                         AbilityKey::CounterMap,
                         format!("{counter_type:?}:{count}").as_str(),
                     );
                 }
                 ReplacementEvent::Attached { card, target } => {
-                    node.set_triggering_object(AbilityKey::Card, card.0.to_string().as_str());
+                    node.set_triggering_value(
+                        AbilityKey::Card,
+                        crate::event::AbilityValue::Card(*card),
+                    );
                     node.set_triggering_value(
                         AbilityKey::Target,
                         crate::event::AbilityValue::Card(*target),
                     );
-                    node.set_triggering_object(AbilityKey::Affected, target.0.to_string().as_str());
+                    node.set_triggering_value(
+                        AbilityKey::Affected,
+                        crate::event::AbilityValue::Card(*target),
+                    );
                 }
                 ReplacementEvent::ProduceMana {
                     source,
                     activator,
                     mana,
                 } => {
-                    node.set_triggering_object(AbilityKey::Source, source.0.to_string().as_str());
-                    node.set_triggering_object(AbilityKey::Card, source.0.to_string().as_str());
-                    node.set_triggering_object(
+                    node.set_triggering_value(
+                        AbilityKey::Source,
+                        crate::event::AbilityValue::Card(*source),
+                    );
+                    node.set_triggering_value(
+                        AbilityKey::Card,
+                        crate::event::AbilityValue::Card(*source),
+                    );
+                    node.set_triggering_value(
                         AbilityKey::TriggeredPlayer,
-                        activator.index().to_string().as_str(),
+                        crate::event::AbilityValue::Player(*activator),
                     );
                     node.set_triggering_object(AbilityKey::Produced, mana.as_str());
                 }
