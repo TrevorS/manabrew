@@ -1,0 +1,59 @@
+{
+  "label": "Survey G472",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Flamehold Grappler",
+      "count": 4
+    },
+    {
+      "name": "Jeskai Brushmaster",
+      "count": 4
+    },
+    {
+      "name": "Jeskai Revelation",
+      "count": 4
+    },
+    {
+      "name": "Jeskai Shrinekeeper",
+      "count": 4
+    },
+    {
+      "name": "Monastery Messenger",
+      "count": 4
+    },
+    {
+      "name": "Narset, Jeskai Waymaster",
+      "count": 4
+    },
+    {
+      "name": "New Way Forward",
+      "count": 4
+    },
+    {
+      "name": "Rediscover the Way",
+      "count": 4
+    },
+    {
+      "name": "Riverwheel Sweep",
+      "count": 4
+    },
+    {
+      "name": "Shiko, Paragon of the Way",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 7
+    },
+    {
+      "name": "Island",
+      "count": 7
+    },
+    {
+      "name": "Mountain",
+      "count": 6
+    }
+  ]
+}

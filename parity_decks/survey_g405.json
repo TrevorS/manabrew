@@ -1,0 +1,51 @@
+{
+  "label": "Survey G405",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Might of the Ancestors",
+      "count": 4
+    },
+    {
+      "name": "Mighty Mutanimals",
+      "count": 4
+    },
+    {
+      "name": "Miner's Guidewing",
+      "count": 4
+    },
+    {
+      "name": "Minwu, White Mage",
+      "count": 4
+    },
+    {
+      "name": "Mischievous Pup",
+      "count": 4
+    },
+    {
+      "name": "Mockingbird, Ace Agent",
+      "count": 4
+    },
+    {
+      "name": "Moment of Glory",
+      "count": 4
+    },
+    {
+      "name": "Moment of Valor",
+      "count": 4
+    },
+    {
+      "name": "Momo, Friendly Flier",
+      "count": 4
+    },
+    {
+      "name": "Momo, Playful Pet",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

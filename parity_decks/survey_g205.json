@@ -1,0 +1,51 @@
+{
+  "label": "Survey G205",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Boldwyr Aggressor",
+      "count": 4
+    },
+    {
+      "name": "Bolrac-Clan Basher",
+      "count": 4
+    },
+    {
+      "name": "Boltwave",
+      "count": 4
+    },
+    {
+      "name": "Bombard",
+      "count": 4
+    },
+    {
+      "name": "Bombur, Gentle Dreamer",
+      "count": 4
+    },
+    {
+      "name": "Boneclub Berserker",
+      "count": 4
+    },
+    {
+      "name": "Bonehoard Dracosaur",
+      "count": 4
+    },
+    {
+      "name": "Boommobile",
+      "count": 4
+    },
+    {
+      "name": "Bot Bashing Time",
+      "count": 4
+    },
+    {
+      "name": "Bothersome Noisemaker",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

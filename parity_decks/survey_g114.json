@@ -1,0 +1,51 @@
+{
+  "label": "Survey G114",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Vein Ripper",
+      "count": 4
+    },
+    {
+      "name": "Venerated Stormsinger",
+      "count": 4
+    },
+    {
+      "name": "Vengeful Bloodwitch",
+      "count": 4
+    },
+    {
+      "name": "Venom's Hunger",
+      "count": 4
+    },
+    {
+      "name": "Venom, Evil Unleashed",
+      "count": 4
+    },
+    {
+      "name": "Venomized Cat",
+      "count": 4
+    },
+    {
+      "name": "Vile Mutilator",
+      "count": 4
+    },
+    {
+      "name": "Villainous Wrath",
+      "count": 4
+    },
+    {
+      "name": "Vincent Valentine",
+      "count": 4
+    },
+    {
+      "name": "Vincent's Limit Break",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

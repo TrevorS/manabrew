@@ -1,0 +1,35 @@
+{
+  "label": "Survey G461",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "War Machine, Legacy of Iron",
+      "count": 4
+    },
+    {
+      "name": "Warleader's Call",
+      "count": 4
+    },
+    {
+      "name": "Wilt in the Heat",
+      "count": 4
+    },
+    {
+      "name": "Windcrag Siege",
+      "count": 4
+    },
+    {
+      "name": "Zidane, Tantalus Thief",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Mountain",
+      "count": 10
+    }
+  ]
+}

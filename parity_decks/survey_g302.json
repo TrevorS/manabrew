@@ -1,0 +1,51 @@
+{
+  "label": "Survey G302",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Iron Lad, Diverging Destiny",
+      "count": 4
+    },
+    {
+      "name": "Ironheart, Clever Champion",
+      "count": 4
+    },
+    {
+      "name": "It'll Quench Ya!",
+      "count": 4
+    },
+    {
+      "name": "Jace Reawakened",
+      "count": 4
+    },
+    {
+      "name": "Jaded Analyst",
+      "count": 4
+    },
+    {
+      "name": "Jadzi, Steward of Fate",
+      "count": 4
+    },
+    {
+      "name": "Jailbreak Scheme",
+      "count": 4
+    },
+    {
+      "name": "Jill, Shiva's Dominant",
+      "count": 4
+    },
+    {
+      "name": "Johann's Stopgap",
+      "count": 4
+    },
+    {
+      "name": "Justice, Vance Astrovik",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 20
+    }
+  ]
+}

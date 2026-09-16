@@ -1,0 +1,55 @@
+{
+  "label": "Survey G012",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Elvenking's Halls",
+      "count": 4
+    },
+    {
+      "name": "Embermouth Sentinel",
+      "count": 4
+    },
+    {
+      "name": "Energybending",
+      "count": 4
+    },
+    {
+      "name": "Eriette's Tempting Apple",
+      "count": 4
+    },
+    {
+      "name": "Eroded Canyon",
+      "count": 4
+    },
+    {
+      "name": "Escape Tunnel",
+      "count": 4
+    },
+    {
+      "name": "Etched Cornfield",
+      "count": 4
+    },
+    {
+      "name": "Evendo, Waking Haven",
+      "count": 4
+    },
+    {
+      "name": "Everything Pizza",
+      "count": 4
+    },
+    {
+      "name": "Evolving Wilds",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "label": "Survey G171",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Moon-Vigil Adherents",
+      "count": 4
+    },
+    {
+      "name": "Morcant's Eyes",
+      "count": 4
+    },
+    {
+      "name": "Mossborn Hydra",
+      "count": 4
+    },
+    {
+      "name": "Mosswood Dreadknight",
+      "count": 4
+    },
+    {
+      "name": "Mutable Explorer",
+      "count": 4
+    },
+    {
+      "name": "Mutagen Man, Living Ooze",
+      "count": 4
+    },
+    {
+      "name": "Mutant Chain Reaction",
+      "count": 4
+    },
+    {
+      "name": "Nasty Little Rabbit",
+      "count": 4
+    },
+    {
+      "name": "Nature's Rhythm",
+      "count": 4
+    },
+    {
+      "name": "Needletooth Pack",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "label": "Survey G293",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Finch Formation",
+      "count": 4
+    },
+    {
+      "name": "First-Time Flyer",
+      "count": 4
+    },
+    {
+      "name": "Fleeting Distraction",
+      "count": 4
+    },
+    {
+      "name": "Fleeting Reflection",
+      "count": 4
+    },
+    {
+      "name": "Flexible Waterbender",
+      "count": 4
+    },
+    {
+      "name": "Flitterwing Nuisance",
+      "count": 4
+    },
+    {
+      "name": "Flood the Engine",
+      "count": 4
+    },
+    {
+      "name": "Floodpits Drowner",
+      "count": 4
+    },
+    {
+      "name": "Flow State",
+      "count": 4
+    },
+    {
+      "name": "Flying Octobot",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 20
+    }
+  ]
+}

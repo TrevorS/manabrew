@@ -1,0 +1,51 @@
+{
+  "label": "Survey G170",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Mindful Biomancer",
+      "count": 4
+    },
+    {
+      "name": "Mineshaft Spider",
+      "count": 4
+    },
+    {
+      "name": "Mirkwood Pathmaker",
+      "count": 4
+    },
+    {
+      "name": "Mistbreath Elder",
+      "count": 4
+    },
+    {
+      "name": "Mister Hyde, Monster Within",
+      "count": 4
+    },
+    {
+      "name": "Mistmeadow Council",
+      "count": 4
+    },
+    {
+      "name": "Mole Man, Moloid Master",
+      "count": 4
+    },
+    {
+      "name": "Molt Tender",
+      "count": 4
+    },
+    {
+      "name": "Mona Lisa, Science Geek",
+      "count": 4
+    },
+    {
+      "name": "Monstrous Emergence",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

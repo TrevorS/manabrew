@@ -1,0 +1,23 @@
+{
+  "label": "Survey G366",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Visionary's Dance",
+      "count": 4
+    },
+    {
+      "name": "Zaffai and the Tempests",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 10
+    },
+    {
+      "name": "Mountain",
+      "count": 10
+    }
+  ]
+}

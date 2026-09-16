@@ -1,0 +1,55 @@
+{
+  "label": "Survey G125",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "The Chief Warg",
+      "count": 4
+    },
+    {
+      "name": "The Coming of Galactus",
+      "count": 4
+    },
+    {
+      "name": "The Gitrog, Ravenous Ride",
+      "count": 4
+    },
+    {
+      "name": "The Last Ronin",
+      "count": 4
+    },
+    {
+      "name": "The Mycotyrant",
+      "count": 4
+    },
+    {
+      "name": "The Serpent Society",
+      "count": 4
+    },
+    {
+      "name": "The Swarmweaver",
+      "count": 4
+    },
+    {
+      "name": "Thundering Broodwagon",
+      "count": 4
+    },
+    {
+      "name": "Titania, Rugged Rumbler",
+      "count": 4
+    },
+    {
+      "name": "Tom, Bert, and William",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 10
+    },
+    {
+      "name": "Forest",
+      "count": 10
+    }
+  ]
+}

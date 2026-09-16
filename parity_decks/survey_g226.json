@@ -1,0 +1,51 @@
+{
+  "label": "Survey G226",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Greasewrench Goblin",
+      "count": 4
+    },
+    {
+      "name": "Great Train Heist",
+      "count": 4
+    },
+    {
+      "name": "Gristle Glutton",
+      "count": 4
+    },
+    {
+      "name": "Gundabad Opportunist",
+      "count": 4
+    },
+    {
+      "name": "Gwen Stacy",
+      "count": 4
+    },
+    {
+      "name": "HULK SMASH!",
+      "count": 4
+    },
+    {
+      "name": "HYDRA Assault Robot",
+      "count": 4
+    },
+    {
+      "name": "Hand That Feeds",
+      "count": 4
+    },
+    {
+      "name": "Hard-Won Jitte",
+      "count": 4
+    },
+    {
+      "name": "Harnesser of Storms",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

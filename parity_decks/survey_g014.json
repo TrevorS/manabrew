@@ -1,0 +1,55 @@
+{
+  "label": "Survey G014",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Floodfarm Verge",
+      "count": 4
+    },
+    {
+      "name": "Foggy Bottom Swamp",
+      "count": 4
+    },
+    {
+      "name": "Fomori Vault",
+      "count": 4
+    },
+    {
+      "name": "Foot Headquarters",
+      "count": 4
+    },
+    {
+      "name": "Foraging Wickermaw",
+      "count": 4
+    },
+    {
+      "name": "Forgotten Monument",
+      "count": 4
+    },
+    {
+      "name": "Forlorn Flats",
+      "count": 4
+    },
+    {
+      "name": "Forum of Amity",
+      "count": 4
+    },
+    {
+      "name": "Foul Roads",
+      "count": 4
+    },
+    {
+      "name": "Found Footage",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

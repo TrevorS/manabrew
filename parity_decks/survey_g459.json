@@ -1,0 +1,55 @@
+{
+  "label": "Survey G459",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Pursue the Past",
+      "count": 4
+    },
+    {
+      "name": "Quintorius Kand",
+      "count": 4
+    },
+    {
+      "name": "Ragost, Deft Gastronaut",
+      "count": 4
+    },
+    {
+      "name": "Raph & Leo, Sibling Rivals",
+      "count": 4
+    },
+    {
+      "name": "Sami, Ship's Engineer",
+      "count": 4
+    },
+    {
+      "name": "Sami, Wildcat Captain",
+      "count": 4
+    },
+    {
+      "name": "Seedglaive Mentor",
+      "count": 4
+    },
+    {
+      "name": "Spirit Mascot",
+      "count": 4
+    },
+    {
+      "name": "Startled Relic Sloth",
+      "count": 4
+    },
+    {
+      "name": "Sun Warriors",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Mountain",
+      "count": 10
+    }
+  ]
+}

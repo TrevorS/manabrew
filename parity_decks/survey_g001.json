@@ -1,0 +1,55 @@
+{
+  "label": "Survey G001",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Adventuring Gear",
+      "count": 4
+    },
+    {
+      "name": "Aetherjacket",
+      "count": 4
+    },
+    {
+      "name": "Aettir and Priwen",
+      "count": 4
+    },
+    {
+      "name": "Agatha's Soul Cauldron",
+      "count": 4
+    },
+    {
+      "name": "Agna Qel'a",
+      "count": 4
+    },
+    {
+      "name": "Airship Engine Room",
+      "count": 4
+    },
+    {
+      "name": "All-Fates Scroll",
+      "count": 4
+    },
+    {
+      "name": "Amonkhet Raceway",
+      "count": 4
+    },
+    {
+      "name": "Anticausal Vestige",
+      "count": 4
+    },
+    {
+      "name": "Arc Reactor",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

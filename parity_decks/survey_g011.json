@@ -1,0 +1,55 @@
+{
+  "label": "Survey G011",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Dreamroot Cascade",
+      "count": 4
+    },
+    {
+      "name": "Dwarven Mattock",
+      "count": 4
+    },
+    {
+      "name": "Echoing Deeps",
+      "count": 4
+    },
+    {
+      "name": "Eclipsed Realms",
+      "count": 4
+    },
+    {
+      "name": "Eden, Seat of the Sanctum",
+      "count": 4
+    },
+    {
+      "name": "Edgewall Inn",
+      "count": 4
+    },
+    {
+      "name": "Eerie Gravestone",
+      "count": 4
+    },
+    {
+      "name": "Elegant Parlor",
+      "count": 4
+    },
+    {
+      "name": "Elixir",
+      "count": 4
+    },
+    {
+      "name": "Elven Passage",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

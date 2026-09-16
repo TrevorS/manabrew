@@ -1,0 +1,55 @@
+{
+  "label": "Survey G033",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Restless Spire",
+      "count": 4
+    },
+    {
+      "name": "Restless Vents",
+      "count": 4
+    },
+    {
+      "name": "Restless Vinestalk",
+      "count": 4
+    },
+    {
+      "name": "Ring of the Lucii",
+      "count": 4
+    },
+    {
+      "name": "Riverpyre Verge",
+      "count": 4
+    },
+    {
+      "name": "Roaming Throne",
+      "count": 4
+    },
+    {
+      "name": "Rocket-Powered Goblin Glider",
+      "count": 4
+    },
+    {
+      "name": "Rockface Village",
+      "count": 4
+    },
+    {
+      "name": "Rocky Roads",
+      "count": 4
+    },
+    {
+      "name": "Rogue's Passage",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

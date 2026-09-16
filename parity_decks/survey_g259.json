@@ -1,0 +1,51 @@
+{
+  "label": "Survey G259",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Take for a Ride",
+      "count": 4
+    },
+    {
+      "name": "Tannuk, Steadfast Second",
+      "count": 4
+    },
+    {
+      "name": "Tattered Ratter",
+      "count": 4
+    },
+    {
+      "name": "Taxi Driver",
+      "count": 4
+    },
+    {
+      "name": "Team Tactics",
+      "count": 4
+    },
+    {
+      "name": "Teapot Slinger",
+      "count": 4
+    },
+    {
+      "name": "Tectonic Hazard",
+      "count": 4
+    },
+    {
+      "name": "Terminal Velocity",
+      "count": 4
+    },
+    {
+      "name": "Terrapact Intimidator",
+      "count": 4
+    },
+    {
+      "name": "Territorial Bruntar",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

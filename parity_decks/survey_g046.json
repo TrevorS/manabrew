@@ -1,0 +1,55 @@
+{
+  "label": "Survey G046",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Training Compound",
+      "count": 4
+    },
+    {
+      "name": "Tranquil Cove",
+      "count": 4
+    },
+    {
+      "name": "Transcendent Archaic",
+      "count": 4
+    },
+    {
+      "name": "Transmutation Font",
+      "count": 4
+    },
+    {
+      "name": "Treasure Map",
+      "count": 4
+    },
+    {
+      "name": "Treno, Dark City",
+      "count": 4
+    },
+    {
+      "name": "Troop of Ponies",
+      "count": 4
+    },
+    {
+      "name": "Trusty Boomerang",
+      "count": 4
+    },
+    {
+      "name": "Turtle Blimp",
+      "count": 4
+    },
+    {
+      "name": "Turtle Lair",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

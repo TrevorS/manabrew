@@ -1,0 +1,55 @@
+{
+  "label": "Survey G047",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Turtle Van",
+      "count": 4
+    },
+    {
+      "name": "Ugin, Eye of the Storms",
+      "count": 4
+    },
+    {
+      "name": "Ultima, Origin of Oblivion",
+      "count": 4
+    },
+    {
+      "name": "Ultron Drone",
+      "count": 4
+    },
+    {
+      "name": "Ultron, Artificial Malevolence",
+      "count": 4
+    },
+    {
+      "name": "Uncharted Haven",
+      "count": 4
+    },
+    {
+      "name": "Undercity Sewers",
+      "count": 4
+    },
+    {
+      "name": "Underground Mortuary",
+      "count": 4
+    },
+    {
+      "name": "University Campus",
+      "count": 4
+    },
+    {
+      "name": "Urban Retreat",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

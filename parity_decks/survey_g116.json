@@ -1,0 +1,51 @@
+{
+  "label": "Survey G116",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Warehouse Tabby",
+      "count": 4
+    },
+    {
+      "name": "Whiplash, Vengeful Engineer",
+      "count": 4
+    },
+    {
+      "name": "Wick's Patrol",
+      "count": 4
+    },
+    {
+      "name": "Wick, the Whorled Mind",
+      "count": 4
+    },
+    {
+      "name": "Wicked Visitor",
+      "count": 4
+    },
+    {
+      "name": "Wickerfolk Indomitable",
+      "count": 4
+    },
+    {
+      "name": "Widow's Bite",
+      "count": 4
+    },
+    {
+      "name": "Winter's Intervention",
+      "count": 4
+    },
+    {
+      "name": "Withering Curse",
+      "count": 4
+    },
+    {
+      "name": "Withering Torment",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

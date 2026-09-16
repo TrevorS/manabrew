@@ -1,0 +1,59 @@
+{
+  "label": "Survey G367",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Beluna Grandsquall",
+      "count": 4
+    },
+    {
+      "name": "Dragonback Assault",
+      "count": 4
+    },
+    {
+      "name": "Dragonclaw Strike",
+      "count": 4
+    },
+    {
+      "name": "Eshki Dragonclaw",
+      "count": 4
+    },
+    {
+      "name": "Iroh, Grand Lotus",
+      "count": 4
+    },
+    {
+      "name": "Karakyk Guardian",
+      "count": 4
+    },
+    {
+      "name": "Loot, the Key to Everything",
+      "count": 4
+    },
+    {
+      "name": "Loot, the Pathfinder",
+      "count": 4
+    },
+    {
+      "name": "Mammoth Bellow",
+      "count": 4
+    },
+    {
+      "name": "Riku of Many Paths",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 7
+    },
+    {
+      "name": "Mountain",
+      "count": 7
+    },
+    {
+      "name": "Forest",
+      "count": 6
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "label": "Survey G195",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Traveling Chocobo",
+      "count": 4
+    },
+    {
+      "name": "Treeguard Duo",
+      "count": 4
+    },
+    {
+      "name": "Treetop Sentries",
+      "count": 4
+    },
+    {
+      "name": "Treetop Snarespinner",
+      "count": 4
+    },
+    {
+      "name": "Troll Negotiations",
+      "count": 4
+    },
+    {
+      "name": "Troublemaker Ouphe",
+      "count": 4
+    },
+    {
+      "name": "True Ancestry",
+      "count": 4
+    },
+    {
+      "name": "Trystan, Callous Cultivator",
+      "count": 4
+    },
+    {
+      "name": "Tumbleweed Rising",
+      "count": 4
+    },
+    {
+      "name": "Tunnel Tipster",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

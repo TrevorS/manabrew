@@ -1,0 +1,51 @@
+{
+  "label": "Survey G400",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Kinsbaile Aspirant",
+      "count": 4
+    },
+    {
+      "name": "Kinscaer Sentry",
+      "count": 4
+    },
+    {
+      "name": "Kithkeeper",
+      "count": 4
+    },
+    {
+      "name": "Knight Luminary",
+      "count": 4
+    },
+    {
+      "name": "Knight of Doves",
+      "count": 4
+    },
+    {
+      "name": "Koya, Death from Above",
+      "count": 4
+    },
+    {
+      "name": "Kree Commandos",
+      "count": 4
+    },
+    {
+      "name": "Krovod Haunch",
+      "count": 4
+    },
+    {
+      "name": "Kutzil's Flanker",
+      "count": 4
+    },
+    {
+      "name": "Kyoshi Warriors",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "label": "Survey G000",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "A.I.M. Labs",
+      "count": 4
+    },
+    {
+      "name": "A.I.M. Synthoids",
+      "count": 4
+    },
+    {
+      "name": "Aang's Journey",
+      "count": 4
+    },
+    {
+      "name": "Abandoned Air Temple",
+      "count": 4
+    },
+    {
+      "name": "Abandoned Campground",
+      "count": 4
+    },
+    {
+      "name": "Abraded Bluffs",
+      "count": 4
+    },
+    {
+      "name": "Abzan Monument",
+      "count": 4
+    },
+    {
+      "name": "Adagia, Windswept Bastion",
+      "count": 4
+    },
+    {
+      "name": "Adventurer's Airship",
+      "count": 4
+    },
+    {
+      "name": "Adventurer's Inn",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

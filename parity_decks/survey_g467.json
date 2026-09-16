@@ -1,0 +1,55 @@
+{
+  "label": "Survey G467",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Riptide Gearhulk",
+      "count": 4
+    },
+    {
+      "name": "SP//dr, Piloted by Peni",
+      "count": 4
+    },
+    {
+      "name": "Seedpod Squire",
+      "count": 4
+    },
+    {
+      "name": "Sharae of Numbing Depths",
+      "count": 4
+    },
+    {
+      "name": "Skyward Spider",
+      "count": 4
+    },
+    {
+      "name": "Sokka, Lateral Strategist",
+      "count": 4
+    },
+    {
+      "name": "Space-Time Anomaly",
+      "count": 4
+    },
+    {
+      "name": "Spider-Woman, Secret Agent",
+      "count": 4
+    },
+    {
+      "name": "Spider-Woman, Stunning Savior",
+      "count": 4
+    },
+    {
+      "name": "Station Monitor",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

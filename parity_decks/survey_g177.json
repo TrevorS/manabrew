@@ -1,0 +1,51 @@
+{
+  "label": "Survey G177",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Primordial Pachyderm",
+      "count": 4
+    },
+    {
+      "name": "Prishe's Wanderings",
+      "count": 4
+    },
+    {
+      "name": "Prismabasher",
+      "count": 4
+    },
+    {
+      "name": "Prismatic Undercurrents",
+      "count": 4
+    },
+    {
+      "name": "Professional Wrestler",
+      "count": 4
+    },
+    {
+      "name": "Pugnacious Hammerskull",
+      "count": 4
+    },
+    {
+      "name": "Pull Through the Weft",
+      "count": 4
+    },
+    {
+      "name": "Pummeler for Hire",
+      "count": 4
+    },
+    {
+      "name": "Punishing Punch",
+      "count": 4
+    },
+    {
+      "name": "Quakestrider Ceratops",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

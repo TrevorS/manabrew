@@ -1,0 +1,51 @@
+{
+  "label": "Survey G076",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Graveshifter",
+      "count": 4
+    },
+    {
+      "name": "Gravkill",
+      "count": 4
+    },
+    {
+      "name": "Gravpack Monoist",
+      "count": 4
+    },
+    {
+      "name": "Great Fierce Bee",
+      "count": 4
+    },
+    {
+      "name": "Great Ugly-Looking Goblin",
+      "count": 4
+    },
+    {
+      "name": "Greed's Gambit",
+      "count": 4
+    },
+    {
+      "name": "Greedy Freebooter",
+      "count": 4
+    },
+    {
+      "name": "Grievous Wound",
+      "count": 4
+    },
+    {
+      "name": "Grim Bauble",
+      "count": 4
+    },
+    {
+      "name": "Grim Javelineer",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

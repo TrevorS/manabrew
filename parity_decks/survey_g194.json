@@ -1,0 +1,51 @@
+{
+  "label": "Survey G194",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Topiary Lecturer",
+      "count": 4
+    },
+    {
+      "name": "Topiary Panther",
+      "count": 4
+    },
+    {
+      "name": "Torgal, A Fine Hound",
+      "count": 4
+    },
+    {
+      "name": "Tough Cookie",
+      "count": 4
+    },
+    {
+      "name": "Town Greeter",
+      "count": 4
+    },
+    {
+      "name": "Trade Route Envoy",
+      "count": 4
+    },
+    {
+      "name": "Training Regimen",
+      "count": 4
+    },
+    {
+      "name": "Transdimensional Bovine",
+      "count": 4
+    },
+    {
+      "name": "Trash the Town",
+      "count": 4
+    },
+    {
+      "name": "Traveling Botanist",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

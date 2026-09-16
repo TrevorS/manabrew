@@ -1,0 +1,55 @@
+{
+  "label": "Survey G010",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Dependable Quinjet",
+      "count": 4
+    },
+    {
+      "name": "Diary of Dreams",
+      "count": 4
+    },
+    {
+      "name": "Digsite Conservator",
+      "count": 4
+    },
+    {
+      "name": "Dimension X",
+      "count": 4
+    },
+    {
+      "name": "Dismal Backwater",
+      "count": 4
+    },
+    {
+      "name": "Disruptor Wanderglyph",
+      "count": 4
+    },
+    {
+      "name": "Dissection Tools",
+      "count": 4
+    },
+    {
+      "name": "Doc Ock's Tentacles",
+      "count": 4
+    },
+    {
+      "name": "Dragonfire Blade",
+      "count": 4
+    },
+    {
+      "name": "Dragonstorm Globe",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

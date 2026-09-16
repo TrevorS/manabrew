@@ -1,0 +1,51 @@
+{
+  "label": "Survey G066",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Death in the Family",
+      "count": 4
+    },
+    {
+      "name": "Deathcap Marionette",
+      "count": 4
+    },
+    {
+      "name": "Deathless Pilot",
+      "count": 4
+    },
+    {
+      "name": "Decode Transmissions",
+      "count": 4
+    },
+    {
+      "name": "Decorum Dissertation",
+      "count": 4
+    },
+    {
+      "name": "Decoy Ploy",
+      "count": 4
+    },
+    {
+      "name": "Deep Goblin Skulltaker",
+      "count": 4
+    },
+    {
+      "name": "Deep-Cavern Bat",
+      "count": 4
+    },
+    {
+      "name": "Defossilize",
+      "count": 4
+    },
+    {
+      "name": "Delta Bloodflies",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

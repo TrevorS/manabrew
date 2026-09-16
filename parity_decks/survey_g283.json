@@ -1,0 +1,51 @@
+{
+  "label": "Survey G283",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Confusticate and Bebother",
+      "count": 4
+    },
+    {
+      "name": "Conspiracy Unraveler",
+      "count": 4
+    },
+    {
+      "name": "Constrictor Sage",
+      "count": 4
+    },
+    {
+      "name": "Consult the Star Charts",
+      "count": 4
+    },
+    {
+      "name": "Council of Echoes",
+      "count": 4
+    },
+    {
+      "name": "Coveted Falcon",
+      "count": 4
+    },
+    {
+      "name": "Crashing Wave",
+      "count": 4
+    },
+    {
+      "name": "Creeping Peeper",
+      "count": 4
+    },
+    {
+      "name": "Crimestopper Sprite",
+      "count": 4
+    },
+    {
+      "name": "Crustacean Commando",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 20
+    }
+  ]
+}

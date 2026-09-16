@@ -1,0 +1,51 @@
+{
+  "label": "Survey G422",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Spotcycle Scouter",
+      "count": 4
+    },
+    {
+      "name": "Spring-Loaded Sawblades",
+      "count": 4
+    },
+    {
+      "name": "Squad Rallier",
+      "count": 4
+    },
+    {
+      "name": "Squire's Lightblade",
+      "count": 4
+    },
+    {
+      "name": "Stagecoach Security",
+      "count": 4
+    },
+    {
+      "name": "Stand Up for Yourself",
+      "count": 4
+    },
+    {
+      "name": "Star Charter",
+      "count": 4
+    },
+    {
+      "name": "Starfall Invocation",
+      "count": 4
+    },
+    {
+      "name": "Starfield Shepherd",
+      "count": 4
+    },
+    {
+      "name": "Starfighter Pilot",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "label": "Survey G137",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Ancient Cornucopia",
+      "count": 4
+    },
+    {
+      "name": "Ankle Biter",
+      "count": 4
+    },
+    {
+      "name": "Ant-Man's Army",
+      "count": 4
+    },
+    {
+      "name": "Anthropede",
+      "count": 4
+    },
+    {
+      "name": "Apothecary Stomper",
+      "count": 4
+    },
+    {
+      "name": "Archdruid's Charm",
+      "count": 4
+    },
+    {
+      "name": "Armored Kincaller",
+      "count": 4
+    },
+    {
+      "name": "Assert Perfection",
+      "count": 4
+    },
+    {
+      "name": "Atmospheric Greenhouse",
+      "count": 4
+    },
+    {
+      "name": "Attercop",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

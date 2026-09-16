@@ -1,0 +1,55 @@
+{
+  "label": "Survey G123",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Lathril, Blade of the Elves",
+      "count": 4
+    },
+    {
+      "name": "Lluwen, Exchange Student",
+      "count": 4
+    },
+    {
+      "name": "Lluwen, Imperfect Naturalist",
+      "count": 4
+    },
+    {
+      "name": "Long Feng, Grand Secretariat",
+      "count": 4
+    },
+    {
+      "name": "Mind Roots",
+      "count": 4
+    },
+    {
+      "name": "Morcant's Loyalist",
+      "count": 4
+    },
+    {
+      "name": "Old-Growth Educator",
+      "count": 4
+    },
+    {
+      "name": "Pest Mascot",
+      "count": 4
+    },
+    {
+      "name": "Pillage the Bog",
+      "count": 4
+    },
+    {
+      "name": "Pizza Face, Gastromancer",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 10
+    },
+    {
+      "name": "Forest",
+      "count": 10
+    }
+  ]
+}

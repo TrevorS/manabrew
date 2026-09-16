@@ -1,0 +1,51 @@
+{
+  "label": "Survey G166",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Leaping Ambush",
+      "count": 4
+    },
+    {
+      "name": "Leatherhead, Swamp Stalker",
+      "count": 4
+    },
+    {
+      "name": "Leaves from the Vine",
+      "count": 4
+    },
+    {
+      "name": "Leyline of Mutation",
+      "count": 4
+    },
+    {
+      "name": "Little Bear",
+      "count": 4
+    },
+    {
+      "name": "Lizard, Connors's Curse",
+      "count": 4
+    },
+    {
+      "name": "Llanowar Elves",
+      "count": 4
+    },
+    {
+      "name": "Loading Zone",
+      "count": 4
+    },
+    {
+      "name": "Longstalk Brawl",
+      "count": 4
+    },
+    {
+      "name": "Loot, Exuberant Explorer",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

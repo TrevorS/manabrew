@@ -1,0 +1,51 @@
+{
+  "label": "Survey G266",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "War Squeak",
+      "count": 4
+    },
+    {
+      "name": "Warmaker Gunship",
+      "count": 4
+    },
+    {
+      "name": "Warren Torchmaster",
+      "count": 4
+    },
+    {
+      "name": "Warrior's Sword",
+      "count": 4
+    },
+    {
+      "name": "Wartime Protestors",
+      "count": 4
+    },
+    {
+      "name": "Weapons Manufacturing",
+      "count": 4
+    },
+    {
+      "name": "Weftstalker Ardent",
+      "count": 4
+    },
+    {
+      "name": "Whiskerquill Scribe",
+      "count": 4
+    },
+    {
+      "name": "Wild Ride",
+      "count": 4
+    },
+    {
+      "name": "Wildfire Howl",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

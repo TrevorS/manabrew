@@ -1,0 +1,55 @@
+{
+  "label": "Survey G124",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Professor Dellian Fel",
+      "count": 4
+    },
+    {
+      "name": "Putrid Pals",
+      "count": 4
+    },
+    {
+      "name": "Rakish Scoundrel",
+      "count": 4
+    },
+    {
+      "name": "Root Manipulation",
+      "count": 4
+    },
+    {
+      "name": "Seedship Broodtender",
+      "count": 4
+    },
+    {
+      "name": "Squirming Emergence",
+      "count": 4
+    },
+    {
+      "name": "Stalwart Successor",
+      "count": 4
+    },
+    {
+      "name": "Stoic Grove-Guide",
+      "count": 4
+    },
+    {
+      "name": "Tainted Treats",
+      "count": 4
+    },
+    {
+      "name": "Teacher's Pest",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 10
+    },
+    {
+      "name": "Forest",
+      "count": 10
+    }
+  ]
+}

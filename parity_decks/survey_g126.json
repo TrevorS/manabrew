@@ -1,0 +1,55 @@
+{
+  "label": "Survey G126",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Trystan's Command",
+      "count": 4
+    },
+    {
+      "name": "Urgent Necropsy",
+      "count": 4
+    },
+    {
+      "name": "Vicious Rivalry",
+      "count": 4
+    },
+    {
+      "name": "Vinereap Mentor",
+      "count": 4
+    },
+    {
+      "name": "Vraska Joins Up",
+      "count": 4
+    },
+    {
+      "name": "Vraska, the Silencer",
+      "count": 4
+    },
+    {
+      "name": "Wardens of the Cycle",
+      "count": 4
+    },
+    {
+      "name": "Witherbloom Charm",
+      "count": 4
+    },
+    {
+      "name": "Witherbloom, the Balancer",
+      "count": 4
+    },
+    {
+      "name": "Ygra, Eater of All",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 10
+    },
+    {
+      "name": "Forest",
+      "count": 10
+    }
+  ]
+}

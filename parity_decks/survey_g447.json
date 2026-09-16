@@ -1,0 +1,27 @@
+{
+  "label": "Survey G447",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Thunder of Unity",
+      "count": 4
+    },
+    {
+      "name": "Zurgo, Thunder's Decree",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 7
+    },
+    {
+      "name": "Swamp",
+      "count": 7
+    },
+    {
+      "name": "Mountain",
+      "count": 6
+    }
+  ]
+}

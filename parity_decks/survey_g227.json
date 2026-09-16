@@ -1,0 +1,51 @@
+{
+  "label": "Survey G227",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Harried Dronesmith",
+      "count": 4
+    },
+    {
+      "name": "Harried Spearguard",
+      "count": 4
+    },
+    {
+      "name": "Haste Magic",
+      "count": 4
+    },
+    {
+      "name": "Hawkeye's Bow",
+      "count": 4
+    },
+    {
+      "name": "Hawkeye, Master Marksman",
+      "count": 4
+    },
+    {
+      "name": "Hawkeye, Young Avenger",
+      "count": 4
+    },
+    {
+      "name": "Hazoret, Godseeker",
+      "count": 4
+    },
+    {
+      "name": "Heartfire Immolator",
+      "count": 4
+    },
+    {
+      "name": "Hearth Elemental",
+      "count": 4
+    },
+    {
+      "name": "Hearthborn Battler",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

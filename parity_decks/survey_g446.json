@@ -1,0 +1,59 @@
+{
+  "label": "Survey G446",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "All-Out Assault",
+      "count": 4
+    },
+    {
+      "name": "Bone-Cairn Butcher",
+      "count": 4
+    },
+    {
+      "name": "Defibrillating Current",
+      "count": 4
+    },
+    {
+      "name": "Fire Lord Zuko",
+      "count": 4
+    },
+    {
+      "name": "Inevitable Defeat",
+      "count": 4
+    },
+    {
+      "name": "Mardu Siegebreaker",
+      "count": 4
+    },
+    {
+      "name": "Neriv, Heart of the Storm",
+      "count": 4
+    },
+    {
+      "name": "Reigning Victor",
+      "count": 4
+    },
+    {
+      "name": "Sonic Shrieker",
+      "count": 4
+    },
+    {
+      "name": "Thanos, the Mad Titan",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 7
+    },
+    {
+      "name": "Swamp",
+      "count": 7
+    },
+    {
+      "name": "Mountain",
+      "count": 6
+    }
+  ]
+}

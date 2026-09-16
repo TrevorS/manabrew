@@ -1,0 +1,51 @@
+{
+  "label": "Survey G086",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Meathook Massacre II",
+      "count": 4
+    },
+    {
+      "name": "Melancholic Poet",
+      "count": 4
+    },
+    {
+      "name": "Mephitic Draught",
+      "count": 4
+    },
+    {
+      "name": "Merchant of Many Hats",
+      "count": 4
+    },
+    {
+      "name": "Merciless Enforcers",
+      "count": 4
+    },
+    {
+      "name": "Miasma Demon",
+      "count": 4
+    },
+    {
+      "name": "Midnight Snack",
+      "count": 4
+    },
+    {
+      "name": "Mintstrosity",
+      "count": 4
+    },
+    {
+      "name": "Momentum Breaker",
+      "count": 4
+    },
+    {
+      "name": "Monoist Circuit-Feeder",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

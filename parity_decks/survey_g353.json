@@ -1,0 +1,55 @@
+{
+  "label": "Survey G353",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Genghis Frog",
+      "count": 4
+    },
+    {
+      "name": "Geometer's Arthropod",
+      "count": 4
+    },
+    {
+      "name": "Glacierwood Siege",
+      "count": 4
+    },
+    {
+      "name": "Glister Bairn",
+      "count": 4
+    },
+    {
+      "name": "Growing Dread",
+      "count": 4
+    },
+    {
+      "name": "Growth Curve",
+      "count": 4
+    },
+    {
+      "name": "Guru Pathik",
+      "count": 4
+    },
+    {
+      "name": "Hermitic Herbalist",
+      "count": 4
+    },
+    {
+      "name": "Ignis Scientia",
+      "count": 4
+    },
+    {
+      "name": "Jackal, Genius Geneticist",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 10
+    },
+    {
+      "name": "Forest",
+      "count": 10
+    }
+  ]
+}

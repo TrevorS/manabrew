@@ -1,0 +1,51 @@
+{
+  "label": "Survey G106",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Stromkirk Bloodthief",
+      "count": 4
+    },
+    {
+      "name": "Sugar Rush",
+      "count": 4
+    },
+    {
+      "name": "Summon: Anima",
+      "count": 4
+    },
+    {
+      "name": "Summon: Primal Odin",
+      "count": 4
+    },
+    {
+      "name": "Sunset Saboteur",
+      "count": 4
+    },
+    {
+      "name": "Super Shredder",
+      "count": 4
+    },
+    {
+      "name": "Super-Skrull",
+      "count": 4
+    },
+    {
+      "name": "Supper for Spiders",
+      "count": 4
+    },
+    {
+      "name": "Susurian Dirgecraft",
+      "count": 4
+    },
+    {
+      "name": "Susurian Voidborn",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

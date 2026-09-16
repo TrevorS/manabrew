@@ -1,0 +1,51 @@
+{
+  "label": "Survey G248",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Return the Favor",
+      "count": 4
+    },
+    {
+      "name": "Reverberating Summons",
+      "count": 4
+    },
+    {
+      "name": "Rig for War",
+      "count": 4
+    },
+    {
+      "name": "Ripchain Razorkin",
+      "count": 4
+    },
+    {
+      "name": "Rite of the Dragoncaller",
+      "count": 4
+    },
+    {
+      "name": "Road Rage",
+      "count": 4
+    },
+    {
+      "name": "Rock Soldiers",
+      "count": 4
+    },
+    {
+      "name": "Rodeo Pyromancers",
+      "count": 4
+    },
+    {
+      "name": "Romantic Rendezvous",
+      "count": 4
+    },
+    {
+      "name": "Rotisserie Elemental",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

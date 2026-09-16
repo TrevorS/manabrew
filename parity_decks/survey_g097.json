@@ -1,0 +1,51 @@
+{
+  "label": "Survey G097",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Risky Research",
+      "count": 4
+    },
+    {
+      "name": "Risky Shortcut",
+      "count": 4
+    },
+    {
+      "name": "Robot Domination",
+      "count": 4
+    },
+    {
+      "name": "Ronin, Shadow Stalker",
+      "count": 4
+    },
+    {
+      "name": "Rooftop Assassin",
+      "count": 4
+    },
+    {
+      "name": "Rot Farm Mortipede",
+      "count": 4
+    },
+    {
+      "name": "Rot-Curse Rakshasa",
+      "count": 4
+    },
+    {
+      "name": "Rottenmouth Viper",
+      "count": 4
+    },
+    {
+      "name": "Rowan's Grim Search",
+      "count": 4
+    },
+    {
+      "name": "Roxxon Brutes",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

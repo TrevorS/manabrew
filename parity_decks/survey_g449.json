@@ -1,0 +1,55 @@
+{
+  "label": "Survey G449",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Dyadrine, Synthesis Amalgam",
+      "count": 4
+    },
+    {
+      "name": "Earth King's Lieutenant",
+      "count": 4
+    },
+    {
+      "name": "Earth Kingdom Soldier",
+      "count": 4
+    },
+    {
+      "name": "Eclipsed Kithkin",
+      "count": 4
+    },
+    {
+      "name": "Figure of Fable",
+      "count": 4
+    },
+    {
+      "name": "Finneas, Ace Archer",
+      "count": 4
+    },
+    {
+      "name": "Gallant Citizen",
+      "count": 4
+    },
+    {
+      "name": "Garnet, Princess of Alexandria",
+      "count": 4
+    },
+    {
+      "name": "Good-Fortune Unicorn",
+      "count": 4
+    },
+    {
+      "name": "Haliya, Ascendant Cadet",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Forest",
+      "count": 10
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "label": "Survey G067",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Demon Wall",
+      "count": 4
+    },
+    {
+      "name": "Demonic Counsel",
+      "count": 4
+    },
+    {
+      "name": "Demonic Junker",
+      "count": 4
+    },
+    {
+      "name": "Depressurize",
+      "count": 4
+    },
+    {
+      "name": "Desert's Due",
+      "count": 4
+    },
+    {
+      "name": "Desolation Prowler",
+      "count": 4
+    },
+    {
+      "name": "Desperate Bloodseeker",
+      "count": 4
+    },
+    {
+      "name": "Desperate Measures",
+      "count": 4
+    },
+    {
+      "name": "Devouring Sugarmaw",
+      "count": 4
+    },
+    {
+      "name": "Diregraf Ghoul",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

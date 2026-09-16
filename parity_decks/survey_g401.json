@@ -1,0 +1,51 @@
+{
+  "label": "Survey G401",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "K\u00edli the Resourceful",
+      "count": 4
+    },
+    {
+      "name": "Lake-town Lookout",
+      "count": 4
+    },
+    {
+      "name": "Lake-town Toymaker",
+      "count": 4
+    },
+    {
+      "name": "Lassoed by the Law",
+      "count": 4
+    },
+    {
+      "name": "Leader's Talent",
+      "count": 4
+    },
+    {
+      "name": "Leonardo's Technique",
+      "count": 4
+    },
+    {
+      "name": "Leonardo, Big Brother",
+      "count": 4
+    },
+    {
+      "name": "Leonardo, Cutting Edge",
+      "count": 4
+    },
+    {
+      "name": "Leonardo, Leader in Blue",
+      "count": 4
+    },
+    {
+      "name": "Leonardo, Sewer Samurai",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "label": "Survey G037",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Skybox Ferry",
+      "count": 4
+    },
+    {
+      "name": "Skycoach Waypoint",
+      "count": 4
+    },
+    {
+      "name": "Solemn Simulacrum",
+      "count": 4
+    },
+    {
+      "name": "Sorcerous Spyglass",
+      "count": 4
+    },
+    {
+      "name": "Soul-Guide Lantern",
+      "count": 4
+    },
+    {
+      "name": "Soulstone Sanctuary",
+      "count": 4
+    },
+    {
+      "name": "Soured Springs",
+      "count": 4
+    },
+    {
+      "name": "Spectacle Summit",
+      "count": 4
+    },
+    {
+      "name": "Spider-Bot",
+      "count": 4
+    },
+    {
+      "name": "Spider-Mobile",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

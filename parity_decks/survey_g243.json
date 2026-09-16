@@ -1,0 +1,51 @@
+{
+  "label": "Survey G243",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Prickly Pair",
+      "count": 4
+    },
+    {
+      "name": "Prompto Argentum",
+      "count": 4
+    },
+    {
+      "name": "Prowcatcher Specialist",
+      "count": 4
+    },
+    {
+      "name": "Purple Dragon Punks",
+      "count": 4
+    },
+    {
+      "name": "Push the Limit",
+      "count": 4
+    },
+    {
+      "name": "Pyroclasm",
+      "count": 4
+    },
+    {
+      "name": "Pyrotechnic Performer",
+      "count": 4
+    },
+    {
+      "name": "Quaketusk Boar",
+      "count": 4
+    },
+    {
+      "name": "Queen Brahne",
+      "count": 4
+    },
+    {
+      "name": "Quick Draw",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "label": "Survey G107",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Swampsnare Trap",
+      "count": 4
+    },
+    {
+      "name": "Swarm Culler",
+      "count": 4
+    },
+    {
+      "name": "Swarm, Being of Bees",
+      "count": 4
+    },
+    {
+      "name": "Sweettooth Witch",
+      "count": 4
+    },
+    {
+      "name": "Swordsman, Sharp Scoundrel",
+      "count": 4
+    },
+    {
+      "name": "Synapse Necromage",
+      "count": 4
+    },
+    {
+      "name": "Syphon Fuel",
+      "count": 4
+    },
+    {
+      "name": "Taken by Nightmares",
+      "count": 4
+    },
+    {
+      "name": "Tangled Colony",
+      "count": 4
+    },
+    {
+      "name": "Tarrian's Journal",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

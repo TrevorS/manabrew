@@ -1,0 +1,55 @@
+{
+  "label": "Survey G448",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Anthem of Champions",
+      "count": 4
+    },
+    {
+      "name": "Baseball Bat",
+      "count": 4
+    },
+    {
+      "name": "Black Panther, Vanguard",
+      "count": 4
+    },
+    {
+      "name": "Brightglass Gearhulk",
+      "count": 4
+    },
+    {
+      "name": "Brigid's Command",
+      "count": 4
+    },
+    {
+      "name": "Buried in the Garden",
+      "count": 4
+    },
+    {
+      "name": "Burrowguard Mentor",
+      "count": 4
+    },
+    {
+      "name": "Caradora, Heart of Alacria",
+      "count": 4
+    },
+    {
+      "name": "Congregation Gryff",
+      "count": 4
+    },
+    {
+      "name": "Crowd-Control Warden",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Forest",
+      "count": 10
+    }
+  ]
+}

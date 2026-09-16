@@ -1,0 +1,51 @@
+{
+  "label": "Survey G077",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Grim Reaper, Lethal Legionnaire",
+      "count": 4
+    },
+    {
+      "name": "Grub, Storied Matriarch",
+      "count": 4
+    },
+    {
+      "name": "Gumdrop Poisoner",
+      "count": 4
+    },
+    {
+      "name": "Gurmag Rakshasa",
+      "count": 4
+    },
+    {
+      "name": "Gutless Plunderer",
+      "count": 4
+    },
+    {
+      "name": "Gutsplitter Gang",
+      "count": 4
+    },
+    {
+      "name": "Gwenom, Remorseless",
+      "count": 4
+    },
+    {
+      "name": "HYDRA Infiltration",
+      "count": 4
+    },
+    {
+      "name": "HYDRA Troopers",
+      "count": 4
+    },
+    {
+      "name": "Harvester of Misery",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

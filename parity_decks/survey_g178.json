@@ -1,0 +1,51 @@
+{
+  "label": "Survey G178",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Quarrel",
+      "count": 4
+    },
+    {
+      "name": "Questing Druid",
+      "count": 4
+    },
+    {
+      "name": "Quilled Greatwurm",
+      "count": 4
+    },
+    {
+      "name": "Quina, Qu Gourmet",
+      "count": 4
+    },
+    {
+      "name": "Radagast of Rhosgobel",
+      "count": 4
+    },
+    {
+      "name": "Radioactive Spider",
+      "count": 4
+    },
+    {
+      "name": "Ragamuffin Raptor",
+      "count": 4
+    },
+    {
+      "name": "Railway Brawler",
+      "count": 4
+    },
+    {
+      "name": "Rainveil Rejuvenator",
+      "count": 4
+    },
+    {
+      "name": "Rambling Possum",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

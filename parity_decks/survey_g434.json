@@ -1,0 +1,51 @@
+{
+  "label": "Survey G434",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Wedgelight Rammer",
+      "count": 4
+    },
+    {
+      "name": "Weftblade Enhancer",
+      "count": 4
+    },
+    {
+      "name": "Werefox Bodyguard",
+      "count": 4
+    },
+    {
+      "name": "Whiskervale Forerunner",
+      "count": 4
+    },
+    {
+      "name": "White Auracite",
+      "count": 4
+    },
+    {
+      "name": "White Mage's Staff",
+      "count": 4
+    },
+    {
+      "name": "White Widow, Free Agent",
+      "count": 4
+    },
+    {
+      "name": "Wild Pack Squad",
+      "count": 4
+    },
+    {
+      "name": "Winnowing",
+      "count": 4
+    },
+    {
+      "name": "With Great Power . . .",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

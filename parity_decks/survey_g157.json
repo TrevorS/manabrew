@@ -1,0 +1,51 @@
+{
+  "label": "Survey G157",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Gingerbread Hunter",
+      "count": 4
+    },
+    {
+      "name": "Glacier Godmaw",
+      "count": 4
+    },
+    {
+      "name": "Glimpse the Core",
+      "count": 4
+    },
+    {
+      "name": "Glint Weaver",
+      "count": 4
+    },
+    {
+      "name": "Glorious Decay",
+      "count": 4
+    },
+    {
+      "name": "Glowcap Lantern",
+      "count": 4
+    },
+    {
+      "name": "Gnarlid Colony",
+      "count": 4
+    },
+    {
+      "name": "Go Nuts!",
+      "count": 4
+    },
+    {
+      "name": "Gold Rush",
+      "count": 4
+    },
+    {
+      "name": "Goldvein Hydra",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

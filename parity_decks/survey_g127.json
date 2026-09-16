@@ -1,0 +1,55 @@
+{
+  "label": "Survey G127",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Akul the Unrepentant",
+      "count": 4
+    },
+    {
+      "name": "Alesha, Who Laughs at Fate",
+      "count": 4
+    },
+    {
+      "name": "Apocalypse Runner",
+      "count": 4
+    },
+    {
+      "name": "Ares, God of War",
+      "count": 4
+    },
+    {
+      "name": "At Knifepoint",
+      "count": 4
+    },
+    {
+      "name": "Avengers: Under Siege",
+      "count": 4
+    },
+    {
+      "name": "Black Waltz No. 3",
+      "count": 4
+    },
+    {
+      "name": "Blood Spatter Analysis",
+      "count": 4
+    },
+    {
+      "name": "Boggart Cursecrafter",
+      "count": 4
+    },
+    {
+      "name": "Bolg of the North",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 10
+    },
+    {
+      "name": "Mountain",
+      "count": 10
+    }
+  ]
+}

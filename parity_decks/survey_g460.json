@@ -1,0 +1,55 @@
+{
+  "label": "Survey G460",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Suspend Aggression",
+      "count": 4
+    },
+    {
+      "name": "Swiftblade Vindicator",
+      "count": 4
+    },
+    {
+      "name": "Taii Wakeen, Perfect Shot",
+      "count": 4
+    },
+    {
+      "name": "The Jolly Balloon Man",
+      "count": 4
+    },
+    {
+      "name": "The Neutrinos",
+      "count": 4
+    },
+    {
+      "name": "The Super Hero Civil War",
+      "count": 4
+    },
+    {
+      "name": "Thor Odinson",
+      "count": 4
+    },
+    {
+      "name": "Thorin Oakenshield",
+      "count": 4
+    },
+    {
+      "name": "Veteran Guardmouse",
+      "count": 4
+    },
+    {
+      "name": "Wandering Musicians",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Mountain",
+      "count": 10
+    }
+  ]
+}

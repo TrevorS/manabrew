@@ -1,0 +1,51 @@
+{
+  "label": "Survey G184",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Season of Gathering",
+      "count": 4
+    },
+    {
+      "name": "Seedship Agrarian",
+      "count": 4
+    },
+    {
+      "name": "Seedship Impact",
+      "count": 4
+    },
+    {
+      "name": "Seeker of Sunlight",
+      "count": 4
+    },
+    {
+      "name": "Seismic Sense",
+      "count": 4
+    },
+    {
+      "name": "Selfless Safewright",
+      "count": 4
+    },
+    {
+      "name": "Sentinel of Lost Lore",
+      "count": 4
+    },
+    {
+      "name": "Sentinel of the Nameless City",
+      "count": 4
+    },
+    {
+      "name": "Serpent Specialist",
+      "count": 4
+    },
+    {
+      "name": "Shang-Chi, Master of Kung Fu",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

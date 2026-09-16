@@ -1,0 +1,51 @@
+{
+  "label": "Survey G057",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Bitterbloom Bearer",
+      "count": 4
+    },
+    {
+      "name": "Black Cat, Cunning Thief",
+      "count": 4
+    },
+    {
+      "name": "Black Mage's Rod",
+      "count": 4
+    },
+    {
+      "name": "Black Widow, Super Spy",
+      "count": 4
+    },
+    {
+      "name": "Blacksnag Buzzard",
+      "count": 4
+    },
+    {
+      "name": "Blade of the Swarm",
+      "count": 4
+    },
+    {
+      "name": "Blasphemous Edict",
+      "count": 4
+    },
+    {
+      "name": "Blight Rot",
+      "count": 4
+    },
+    {
+      "name": "Blighted Blackthorn",
+      "count": 4
+    },
+    {
+      "name": "Blood Hustler",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

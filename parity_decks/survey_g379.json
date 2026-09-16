@@ -1,0 +1,51 @@
+{
+  "label": "Survey G379",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Case of the Gateway Express",
+      "count": 4
+    },
+    {
+      "name": "Case of the Pilfered Proof",
+      "count": 4
+    },
+    {
+      "name": "Case of the Uneaten Feast",
+      "count": 4
+    },
+    {
+      "name": "Cat Collector",
+      "count": 4
+    },
+    {
+      "name": "Cathar Commando",
+      "count": 4
+    },
+    {
+      "name": "Celebrate the Mountain-king",
+      "count": 4
+    },
+    {
+      "name": "Celestial Armor",
+      "count": 4
+    },
+    {
+      "name": "Champion of the Clachan",
+      "count": 4
+    },
+    {
+      "name": "Charmed Clothier",
+      "count": 4
+    },
+    {
+      "name": "Cheeky House-Mouse",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

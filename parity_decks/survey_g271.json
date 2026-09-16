@@ -1,0 +1,55 @@
+{
+  "label": "Survey G271",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Jolene, Plundering Pugilist",
+      "count": 4
+    },
+    {
+      "name": "Junkblade Bruiser",
+      "count": 4
+    },
+    {
+      "name": "Kraven, Proud Predator",
+      "count": 4
+    },
+    {
+      "name": "Muerra, Trash Tactician",
+      "count": 4
+    },
+    {
+      "name": "Noggle Robber",
+      "count": 4
+    },
+    {
+      "name": "Palani's Hatcher",
+      "count": 4
+    },
+    {
+      "name": "Peer Past the Veil",
+      "count": 4
+    },
+    {
+      "name": "Pyrewood Gearhulk",
+      "count": 4
+    },
+    {
+      "name": "Raiding Schemes",
+      "count": 4
+    },
+    {
+      "name": "Raph & Mikey, Troublemakers",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 10
+    },
+    {
+      "name": "Forest",
+      "count": 10
+    }
+  ]
+}

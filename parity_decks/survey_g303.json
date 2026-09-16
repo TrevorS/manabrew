@@ -1,0 +1,51 @@
+{
+  "label": "Survey G303",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Kaito, Cunning Infiltrator",
+      "count": 4
+    },
+    {
+      "name": "Kang the Conqueror",
+      "count": 4
+    },
+    {
+      "name": "Katara, Bending Prodigy",
+      "count": 4
+    },
+    {
+      "name": "Keen Buccaneer",
+      "count": 4
+    },
+    {
+      "name": "Kid Loki",
+      "count": 4
+    },
+    {
+      "name": "Kiora, the Rising Tide",
+      "count": 4
+    },
+    {
+      "name": "Kishla Trawlers",
+      "count": 4
+    },
+    {
+      "name": "Kitesail Larcenist",
+      "count": 4
+    },
+    {
+      "name": "Kitnap",
+      "count": 4
+    },
+    {
+      "name": "Kitsa, Otterball Elite",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 20
+    }
+  ]
+}

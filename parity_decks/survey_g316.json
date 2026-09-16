@@ -1,0 +1,51 @@
+{
+  "label": "Survey G316",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Procrastinate",
+      "count": 4
+    },
+    {
+      "name": "Projektor Inspector",
+      "count": 4
+    },
+    {
+      "name": "Pym Particles",
+      "count": 4
+    },
+    {
+      "name": "Qiqirn Merchant",
+      "count": 4
+    },
+    {
+      "name": "Quantum Riddler",
+      "count": 4
+    },
+    {
+      "name": "Quick Study",
+      "count": 4
+    },
+    {
+      "name": "Quistis Trepe",
+      "count": 4
+    },
+    {
+      "name": "Rangers' Refueler",
+      "count": 4
+    },
+    {
+      "name": "Ravenhill Flock",
+      "count": 4
+    },
+    {
+      "name": "Ray Fillet, Man Ray",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 20
+    }
+  ]
+}

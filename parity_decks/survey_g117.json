@@ -1,0 +1,51 @@
+{
+  "label": "Survey G117",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Wolfbat",
+      "count": 4
+    },
+    {
+      "name": "Worthy Cost",
+      "count": 4
+    },
+    {
+      "name": "Wreckage Wickerfolk",
+      "count": 4
+    },
+    {
+      "name": "Wretched Doll",
+      "count": 4
+    },
+    {
+      "name": "Xu-Ifit, Osteoharmonist",
+      "count": 4
+    },
+    {
+      "name": "Yathan Tombguard",
+      "count": 4
+    },
+    {
+      "name": "Yellowjacket, Heartless Marauder",
+      "count": 4
+    },
+    {
+      "name": "Zenos yae Galvus",
+      "count": 4
+    },
+    {
+      "name": "Zero Point Ballad",
+      "count": 4
+    },
+    {
+      "name": "Zodiark, Umbral God",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

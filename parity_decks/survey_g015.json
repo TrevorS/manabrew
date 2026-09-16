@@ -1,0 +1,55 @@
+{
+  "label": "Survey G015",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Fountainport",
+      "count": 4
+    },
+    {
+      "name": "Fountainport Bell",
+      "count": 4
+    },
+    {
+      "name": "Friendly Teddy",
+      "count": 4
+    },
+    {
+      "name": "Frontier Bivouac",
+      "count": 4
+    },
+    {
+      "name": "Gathering Place",
+      "count": 4
+    },
+    {
+      "name": "Gathering Stone",
+      "count": 4
+    },
+    {
+      "name": "Genji Glove",
+      "count": 4
+    },
+    {
+      "name": "Ghost Vacuum",
+      "count": 4
+    },
+    {
+      "name": "Giant's Boulder",
+      "count": 4
+    },
+    {
+      "name": "Gingerbrute",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

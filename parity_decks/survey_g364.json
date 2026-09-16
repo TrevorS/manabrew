@@ -1,0 +1,55 @@
+{
+  "label": "Survey G364",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Shantotto, Tactician Magician",
+      "count": 4
+    },
+    {
+      "name": "Slick Sequence",
+      "count": 4
+    },
+    {
+      "name": "Sokka, Bold Boomeranger",
+      "count": 4
+    },
+    {
+      "name": "Spectacular Skywhale",
+      "count": 4
+    },
+    {
+      "name": "Speedball, New Warrior",
+      "count": 4
+    },
+    {
+      "name": "Spider-Man 2099",
+      "count": 4
+    },
+    {
+      "name": "Splatter Technique",
+      "count": 4
+    },
+    {
+      "name": "Stadium Tidalmage",
+      "count": 4
+    },
+    {
+      "name": "Stormcatch Mentor",
+      "count": 4
+    },
+    {
+      "name": "Stress Dream",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 10
+    },
+    {
+      "name": "Mountain",
+      "count": 10
+    }
+  ]
+}

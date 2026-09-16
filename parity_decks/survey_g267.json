@@ -1,0 +1,51 @@
+{
+  "label": "Survey G267",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Wingnut, Bat on the Belfry",
+      "count": 4
+    },
+    {
+      "name": "Wisecrack",
+      "count": 4
+    },
+    {
+      "name": "Witch's Mark",
+      "count": 4
+    },
+    {
+      "name": "Witchstalker Frenzy",
+      "count": 4
+    },
+    {
+      "name": "Wonder Man, Hollywood Hero",
+      "count": 4
+    },
+    {
+      "name": "Yuyan Archers",
+      "count": 4
+    },
+    {
+      "name": "Zealous Lorecaster",
+      "count": 4
+    },
+    {
+      "name": "Zell Dincht",
+      "count": 4
+    },
+    {
+      "name": "Zhao, the Moon Slayer",
+      "count": 4
+    },
+    {
+      "name": "Zog, Triceraton Castaway",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

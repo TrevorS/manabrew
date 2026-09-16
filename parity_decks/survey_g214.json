@@ -1,0 +1,51 @@
+{
+  "label": "Survey G214",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Devastating Onslaught",
+      "count": 4
+    },
+    {
+      "name": "Devoted Duelist",
+      "count": 4
+    },
+    {
+      "name": "Diamond Pick-Axe",
+      "count": 4
+    },
+    {
+      "name": "Dinotomaton",
+      "count": 4
+    },
+    {
+      "name": "Dire Flail",
+      "count": 4
+    },
+    {
+      "name": "Discerning Peddler",
+      "count": 4
+    },
+    {
+      "name": "Diversion Specialist",
+      "count": 4
+    },
+    {
+      "name": "Dori, Bearer of Friends",
+      "count": 4
+    },
+    {
+      "name": "Dowsing Device",
+      "count": 4
+    },
+    {
+      "name": "Dracogenesis",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

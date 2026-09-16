@@ -1,0 +1,55 @@
+{
+  "label": "Survey G017",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Gongaga, Reactor Town",
+      "count": 4
+    },
+    {
+      "name": "Gravestone Strider",
+      "count": 4
+    },
+    {
+      "name": "Great Arashin City",
+      "count": 4
+    },
+    {
+      "name": "Great Hall of the Biblioplex",
+      "count": 4
+    },
+    {
+      "name": "Guadosalam, Farplane Gateway",
+      "count": 4
+    },
+    {
+      "name": "Guidelight Matrix",
+      "count": 4
+    },
+    {
+      "name": "H.E.R.B.I.E. Scout Unit",
+      "count": 4
+    },
+    {
+      "name": "Hallowed Fountain",
+      "count": 4
+    },
+    {
+      "name": "Haunted Screen",
+      "count": 4
+    },
+    {
+      "name": "Hedge Maze",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

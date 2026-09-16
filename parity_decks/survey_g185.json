@@ -1,0 +1,51 @@
+{
+  "label": "Survey G185",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Shared Roots",
+      "count": 4
+    },
+    {
+      "name": "Sharp-Eyed Rookie",
+      "count": 4
+    },
+    {
+      "name": "Shattered Wings",
+      "count": 4
+    },
+    {
+      "name": "She-Hulk, Jade Defender",
+      "count": 4
+    },
+    {
+      "name": "Shimmerwilds Growth",
+      "count": 4
+    },
+    {
+      "name": "Shopkeeper's Bane",
+      "count": 4
+    },
+    {
+      "name": "Sidequest: Raise a Chocobo",
+      "count": 4
+    },
+    {
+      "name": "Silken Strength",
+      "count": 4
+    },
+    {
+      "name": "Skybeast Tracker",
+      "count": 4
+    },
+    {
+      "name": "Skystinger",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

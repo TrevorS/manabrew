@@ -1,0 +1,51 @@
+{
+  "label": "Survey G391",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Flock Impostor",
+      "count": 4
+    },
+    {
+      "name": "Flowerfoot Swordmaster",
+      "count": 4
+    },
+    {
+      "name": "Focus Fire",
+      "count": 4
+    },
+    {
+      "name": "Fortress Kin-Guard",
+      "count": 4
+    },
+    {
+      "name": "Fortune, Loyal Steed",
+      "count": 4
+    },
+    {
+      "name": "Forum Familiar",
+      "count": 4
+    },
+    {
+      "name": "Friendly Ghost",
+      "count": 4
+    },
+    {
+      "name": "Friendly Neighborhood",
+      "count": 4
+    },
+    {
+      "name": "From Father to Son",
+      "count": 4
+    },
+    {
+      "name": "Frontier Seeker",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

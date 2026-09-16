@@ -1,0 +1,51 @@
+{
+  "label": "Survey G237",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Marauding Mako",
+      "count": 4
+    },
+    {
+      "name": "Masked Meower",
+      "count": 4
+    },
+    {
+      "name": "Maximum Carnage",
+      "count": 4
+    },
+    {
+      "name": "Meek Attack",
+      "count": 4
+    },
+    {
+      "name": "Melded Moxite",
+      "count": 4
+    },
+    {
+      "name": "Memorial Team Leader",
+      "count": 4
+    },
+    {
+      "name": "Memorial Vault",
+      "count": 4
+    },
+    {
+      "name": "Memory Vessel",
+      "count": 4
+    },
+    {
+      "name": "Merry Bards",
+      "count": 4
+    },
+    {
+      "name": "Meticulous Artisan",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

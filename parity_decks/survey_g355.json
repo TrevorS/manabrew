@@ -1,0 +1,55 @@
+{
+  "label": "Survey G355",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Nicanzil, Current Conductor",
+      "count": 4
+    },
+    {
+      "name": "Oblivious Bookworm",
+      "count": 4
+    },
+    {
+      "name": "Oko, the Ringleader",
+      "count": 4
+    },
+    {
+      "name": "Omega, Heartless Evolution",
+      "count": 4
+    },
+    {
+      "name": "Paradox Surveyor",
+      "count": 4
+    },
+    {
+      "name": "Platypus-Bear",
+      "count": 4
+    },
+    {
+      "name": "Pond Prophet",
+      "count": 4
+    },
+    {
+      "name": "Proctor's Gaze",
+      "count": 4
+    },
+    {
+      "name": "Pterafractyl",
+      "count": 4
+    },
+    {
+      "name": "Punk Frogs",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 10
+    },
+    {
+      "name": "Forest",
+      "count": 10
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "label": "Survey G021",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Jeskai Monument",
+      "count": 4
+    },
+    {
+      "name": "Jidoor, Aristocratic Capital",
+      "count": 4
+    },
+    {
+      "name": "Juggernaut",
+      "count": 4
+    },
+    {
+      "name": "Jungle Hollow",
+      "count": 4
+    },
+    {
+      "name": "Kavaron, Memorial World",
+      "count": 4
+    },
+    {
+      "name": "Key to the Side-Door",
+      "count": 4
+    },
+    {
+      "name": "Keys to the House",
+      "count": 4
+    },
+    {
+      "name": "Kishla Village",
+      "count": 4
+    },
+    {
+      "name": "Krang, Utrom Warlord",
+      "count": 4
+    },
+    {
+      "name": "Kyoshi Battle Fan",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

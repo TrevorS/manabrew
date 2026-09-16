@@ -1,0 +1,51 @@
+{
+  "label": "Survey G317",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Razzle-Dazzler",
+      "count": 4
+    },
+    {
+      "name": "Reasonable Doubt",
+      "count": 4
+    },
+    {
+      "name": "Reenact the Crime",
+      "count": 4
+    },
+    {
+      "name": "Refute",
+      "count": 4
+    },
+    {
+      "name": "Relic's Roar",
+      "count": 4
+    },
+    {
+      "name": "Relm's Sketching",
+      "count": 4
+    },
+    {
+      "name": "Renet, Temporal Apprentice",
+      "count": 4
+    },
+    {
+      "name": "Repurposing Bay",
+      "count": 4
+    },
+    {
+      "name": "Retrieve the Esper",
+      "count": 4
+    },
+    {
+      "name": "Retro-Mutation",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 20
+    }
+  ]
+}

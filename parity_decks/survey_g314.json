@@ -1,0 +1,51 @@
+{
+  "label": "Survey G314",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Otter-Penguin",
+      "count": 4
+    },
+    {
+      "name": "Otterball Antics",
+      "count": 4
+    },
+    {
+      "name": "Out Cold",
+      "count": 4
+    },
+    {
+      "name": "Out of Air",
+      "count": 4
+    },
+    {
+      "name": "Outlaw Stitcher",
+      "count": 4
+    },
+    {
+      "name": "Overlord of the Floodpits",
+      "count": 4
+    },
+    {
+      "name": "Paranormal Analyst",
+      "count": 4
+    },
+    {
+      "name": "Pearl of Wisdom",
+      "count": 4
+    },
+    {
+      "name": "Peerless Ropemaster",
+      "count": 4
+    },
+    {
+      "name": "Pensive Professor",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 20
+    }
+  ]
+}

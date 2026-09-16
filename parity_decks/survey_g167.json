@@ -1,0 +1,51 @@
+{
+  "label": "Survey G167",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Loporrit Scout",
+      "count": 4
+    },
+    {
+      "name": "Loxodon Eavesdropper",
+      "count": 4
+    },
+    {
+      "name": "Loxodon Surveyor",
+      "count": 4
+    },
+    {
+      "name": "Lumaret's Favor",
+      "count": 4
+    },
+    {
+      "name": "Lumbering Worldwagon",
+      "count": 4
+    },
+    {
+      "name": "Luminollusk",
+      "count": 4
+    },
+    {
+      "name": "Lumra, Bellow of the Woods",
+      "count": 4
+    },
+    {
+      "name": "Lurking Lizards",
+      "count": 4
+    },
+    {
+      "name": "Lys Alana Dignitary",
+      "count": 4
+    },
+    {
+      "name": "Lys Alana Informant",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

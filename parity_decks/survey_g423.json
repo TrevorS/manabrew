@@ -1,0 +1,51 @@
+{
+  "label": "Survey G423",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Starling, Aerial Ally",
+      "count": 4
+    },
+    {
+      "name": "Starport Security",
+      "count": 4
+    },
+    {
+      "name": "Starry-Eyed Skyrider",
+      "count": 4
+    },
+    {
+      "name": "Static Snare",
+      "count": 4
+    },
+    {
+      "name": "Steer Clear",
+      "count": 4
+    },
+    {
+      "name": "Sterling Keykeeper",
+      "count": 4
+    },
+    {
+      "name": "Sterling Supplier",
+      "count": 4
+    },
+    {
+      "name": "Stiltzkin, Moogle Merchant",
+      "count": 4
+    },
+    {
+      "name": "Stirring Hopesinger",
+      "count": 4
+    },
+    {
+      "name": "Stockpiling Celebrant",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

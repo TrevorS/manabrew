@@ -1,0 +1,55 @@
+{
+  "label": "Survey G018",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Heirloom Epic",
+      "count": 4
+    },
+    {
+      "name": "Hell's Kitchen",
+      "count": 4
+    },
+    {
+      "name": "Henchbots",
+      "count": 4
+    },
+    {
+      "name": "Heraldic Banner",
+      "count": 4
+    },
+    {
+      "name": "Hidden Cataract",
+      "count": 4
+    },
+    {
+      "name": "Hidden Courtyard",
+      "count": 4
+    },
+    {
+      "name": "Hidden Grotto",
+      "count": 4
+    },
+    {
+      "name": "Hidden Lair",
+      "count": 4
+    },
+    {
+      "name": "Hidden Necropolis",
+      "count": 4
+    },
+    {
+      "name": "Hidden Nursery",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

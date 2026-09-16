@@ -1,0 +1,55 @@
+{
+  "label": "Survey G122",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Honest Rutstein",
+      "count": 4
+    },
+    {
+      "name": "Host of the Hereafter",
+      "count": 4
+    },
+    {
+      "name": "Ice Cream Kitty",
+      "count": 4
+    },
+    {
+      "name": "Insidious Roots",
+      "count": 4
+    },
+    {
+      "name": "Izoni, Center of the Web",
+      "count": 4
+    },
+    {
+      "name": "Jenova, Ancient Calamity",
+      "count": 4
+    },
+    {
+      "name": "Killmonger, Scourge of Wakanda",
+      "count": 4
+    },
+    {
+      "name": "Kraul Whipcracker",
+      "count": 4
+    },
+    {
+      "name": "Kraven the Hunter",
+      "count": 4
+    },
+    {
+      "name": "Large Bear",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 10
+    },
+    {
+      "name": "Forest",
+      "count": 10
+    }
+  ]
+}

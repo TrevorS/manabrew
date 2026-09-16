@@ -1,0 +1,55 @@
+{
+  "label": "Survey G352",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Cuboid Colony",
+      "count": 4
+    },
+    {
+      "name": "Deepfathom Echo",
+      "count": 4
+    },
+    {
+      "name": "Doc Aurlock, Grizzled Genius",
+      "count": 4
+    },
+    {
+      "name": "Doppelgang",
+      "count": 4
+    },
+    {
+      "name": "Dreamdew Entrancer",
+      "count": 4
+    },
+    {
+      "name": "Embrace the Paradox",
+      "count": 4
+    },
+    {
+      "name": "Evidence Examiner",
+      "count": 4
+    },
+    {
+      "name": "Fractal Mascot",
+      "count": 4
+    },
+    {
+      "name": "Fractal Tender",
+      "count": 4
+    },
+    {
+      "name": "Genemorph Imago",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 10
+    },
+    {
+      "name": "Forest",
+      "count": 10
+    }
+  ]
+}

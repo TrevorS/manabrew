@@ -1,0 +1,51 @@
+{
+  "label": "Survey G136",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Airship Crash",
+      "count": 4
+    },
+    {
+      "name": "Airtight Alibi",
+      "count": 4
+    },
+    {
+      "name": "Alacrian Jaguar",
+      "count": 4
+    },
+    {
+      "name": "Allies at Last",
+      "count": 4
+    },
+    {
+      "name": "Aloe Alchemist",
+      "count": 4
+    },
+    {
+      "name": "Altanak, the Thrice-Called",
+      "count": 4
+    },
+    {
+      "name": "Ambitious Augmenter",
+      "count": 4
+    },
+    {
+      "name": "Ambush Wolf",
+      "count": 4
+    },
+    {
+      "name": "Analyze the Pollen",
+      "count": 4
+    },
+    {
+      "name": "Ancient Adamantoise",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "label": "Survey G380",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "City Pigeon",
+      "count": 4
+    },
+    {
+      "name": "Clachan Festival",
+      "count": 4
+    },
+    {
+      "name": "Claim Jumper",
+      "count": 4
+    },
+    {
+      "name": "Clarion Conqueror",
+      "count": 4
+    },
+    {
+      "name": "Claws Out",
+      "count": 4
+    },
+    {
+      "name": "Clay-Fired Bricks",
+      "count": 4
+    },
+    {
+      "name": "Cloud, Midgar Mercenary",
+      "count": 4
+    },
+    {
+      "name": "Cloudbound Moogle",
+      "count": 4
+    },
+    {
+      "name": "Cloudspire Captain",
+      "count": 4
+    },
+    {
+      "name": "Coeurl",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "label": "Survey G035",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Savage Mansion",
+      "count": 4
+    },
+    {
+      "name": "Saw",
+      "count": 4
+    },
+    {
+      "name": "Scampering Surveyor",
+      "count": 4
+    },
+    {
+      "name": "Scarecrow Guide",
+      "count": 4
+    },
+    {
+      "name": "Scene of the Crime",
+      "count": 4
+    },
+    {
+      "name": "Scoured Barrens",
+      "count": 4
+    },
+    {
+      "name": "Scrap Compactor",
+      "count": 4
+    },
+    {
+      "name": "Scrawling Crawler",
+      "count": 4
+    },
+    {
+      "name": "Secluded Courtyard",
+      "count": 4
+    },
+    {
+      "name": "Secluded Starforge",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

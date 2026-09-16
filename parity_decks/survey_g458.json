@@ -1,0 +1,55 @@
+{
+  "label": "Survey G458",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Lightning, Army of One",
+      "count": 4
+    },
+    {
+      "name": "Lorehold Charm",
+      "count": 4
+    },
+    {
+      "name": "Lorehold, the Historian",
+      "count": 4
+    },
+    {
+      "name": "Mabel, Heir to Cragflame",
+      "count": 4
+    },
+    {
+      "name": "Mechanized Ninja Cavalry",
+      "count": 4
+    },
+    {
+      "name": "Meddling Youths",
+      "count": 4
+    },
+    {
+      "name": "Midnight Mayhem",
+      "count": 4
+    },
+    {
+      "name": "Molten Note",
+      "count": 4
+    },
+    {
+      "name": "Nori, Teller of Tales",
+      "count": 4
+    },
+    {
+      "name": "Practiced Scrollsmith",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Mountain",
+      "count": 10
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "label": "Survey G096",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Resentful Revelation",
+      "count": 4
+    },
+    {
+      "name": "Resurrected Cultist",
+      "count": 4
+    },
+    {
+      "name": "Retched Wretch",
+      "count": 4
+    },
+    {
+      "name": "Revenge of the Rats",
+      "count": 4
+    },
+    {
+      "name": "Reverent Howl",
+      "count": 4
+    },
+    {
+      "name": "Rhovanion Rampager",
+      "count": 4
+    },
+    {
+      "name": "Rictus Robber",
+      "count": 4
+    },
+    {
+      "name": "Ripclaw Wrangler",
+      "count": 4
+    },
+    {
+      "name": "Rise of the Dark Realms",
+      "count": 4
+    },
+    {
+      "name": "Risen Necroregent",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

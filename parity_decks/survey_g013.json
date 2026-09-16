@@ -1,0 +1,55 @@
+{
+  "label": "Survey G013",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Excalibur II",
+      "count": 4
+    },
+    {
+      "name": "Extinguisher Battleship",
+      "count": 4
+    },
+    {
+      "name": "Fabled Passage",
+      "count": 4
+    },
+    {
+      "name": "Festering Gulch",
+      "count": 4
+    },
+    {
+      "name": "Fields of Strife",
+      "count": 4
+    },
+    {
+      "name": "Firdoch Core",
+      "count": 4
+    },
+    {
+      "name": "Fire Nation Palace",
+      "count": 4
+    },
+    {
+      "name": "Fire Nation Warship",
+      "count": 4
+    },
+    {
+      "name": "Fishing Pole",
+      "count": 4
+    },
+    {
+      "name": "Fisk Tower",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

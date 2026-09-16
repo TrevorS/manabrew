@@ -1,0 +1,51 @@
+{
+  "label": "Survey G242",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Picnic Ruiner",
+      "count": 4
+    },
+    {
+      "name": "Piggy Bank",
+      "count": 4
+    },
+    {
+      "name": "Pigment Wrangler",
+      "count": 4
+    },
+    {
+      "name": "Pinecone Strike",
+      "count": 4
+    },
+    {
+      "name": "Plasma Bolt",
+      "count": 4
+    },
+    {
+      "name": "Playful Shove",
+      "count": 4
+    },
+    {
+      "name": "Plundering Pirate",
+      "count": 4
+    },
+    {
+      "name": "Poetic Ingenuity",
+      "count": 4
+    },
+    {
+      "name": "Possibility Technician",
+      "count": 4
+    },
+    {
+      "name": "Price of Freedom",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

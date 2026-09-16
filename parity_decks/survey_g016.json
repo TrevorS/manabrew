@@ -1,0 +1,55 @@
+{
+  "label": "Survey G016",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Glamdring, Foe-hammer",
+      "count": 4
+    },
+    {
+      "name": "Gleaming Barrier",
+      "count": 4
+    },
+    {
+      "name": "Gleaming Bastion",
+      "count": 4
+    },
+    {
+      "name": "Glimmerlight",
+      "count": 4
+    },
+    {
+      "name": "Gloomlake Verge",
+      "count": 4
+    },
+    {
+      "name": "Goblin-town",
+      "count": 4
+    },
+    {
+      "name": "Godless Shrine",
+      "count": 4
+    },
+    {
+      "name": "Gohn, Town of Ruin",
+      "count": 4
+    },
+    {
+      "name": "Gold Pan",
+      "count": 4
+    },
+    {
+      "name": "Goldvein Pick",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

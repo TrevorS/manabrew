@@ -1,0 +1,55 @@
+{
+  "label": "Survey G466",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Kykar, Zephyr Awakener",
+      "count": 4
+    },
+    {
+      "name": "Master's Guide-Mural",
+      "count": 4
+    },
+    {
+      "name": "Mendicant Core, Guidelight",
+      "count": 4
+    },
+    {
+      "name": "Merrow Skyswimmer",
+      "count": 4
+    },
+    {
+      "name": "Niko, Light of Hope",
+      "count": 4
+    },
+    {
+      "name": "No More Lies",
+      "count": 4
+    },
+    {
+      "name": "Officious Interrogation",
+      "count": 4
+    },
+    {
+      "name": "Patient Instructor",
+      "count": 4
+    },
+    {
+      "name": "Plumecreed Mentor",
+      "count": 4
+    },
+    {
+      "name": "Private Eye",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

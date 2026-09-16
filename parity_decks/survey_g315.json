@@ -1,0 +1,51 @@
+{
+  "label": "Survey G315",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Pestered Wellguard",
+      "count": 4
+    },
+    {
+      "name": "Phantom Interference",
+      "count": 4
+    },
+    {
+      "name": "Picklock Prankster",
+      "count": 4
+    },
+    {
+      "name": "Piranha Fly",
+      "count": 4
+    },
+    {
+      "name": "Pirate Hat",
+      "count": 4
+    },
+    {
+      "name": "Plan the Heist",
+      "count": 4
+    },
+    {
+      "name": "Plumecreed Escort",
+      "count": 4
+    },
+    {
+      "name": "Plunder the Trollshaws",
+      "count": 4
+    },
+    {
+      "name": "Portent of Calamity",
+      "count": 4
+    },
+    {
+      "name": "Possession Engine",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 20
+    }
+  ]
+}

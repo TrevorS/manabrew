@@ -1,0 +1,23 @@
+{
+  "label": "Survey G473",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Sokka, Tenacious Tactician",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 7
+    },
+    {
+      "name": "Island",
+      "count": 7
+    },
+    {
+      "name": "Mountain",
+      "count": 6
+    }
+  ]
+}

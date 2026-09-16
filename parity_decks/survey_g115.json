@@ -1,0 +1,51 @@
+{
+  "label": "Survey G115",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Virtue of Persistence",
+      "count": 4
+    },
+    {
+      "name": "Virus Beetle",
+      "count": 4
+    },
+    {
+      "name": "Visage of Dread",
+      "count": 4
+    },
+    {
+      "name": "Visions of Villainy",
+      "count": 4
+    },
+    {
+      "name": "Vito's Inquisitor",
+      "count": 4
+    },
+    {
+      "name": "Voidforged Titan",
+      "count": 4
+    },
+    {
+      "name": "Voracious Vermin",
+      "count": 4
+    },
+    {
+      "name": "Vote Out",
+      "count": 4
+    },
+    {
+      "name": "Wail of War",
+      "count": 4
+    },
+    {
+      "name": "Wander Off",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

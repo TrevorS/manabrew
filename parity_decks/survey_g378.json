@@ -1,0 +1,51 @@
+{
+  "label": "Survey G378",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Burdened Stoneback",
+      "count": 4
+    },
+    {
+      "name": "Call a Surprise Witness",
+      "count": 4
+    },
+    {
+      "name": "Canyon Vaulter",
+      "count": 4
+    },
+    {
+      "name": "Captain America, Super-Soldier",
+      "count": 4
+    },
+    {
+      "name": "Captain America, Wings of Freedom",
+      "count": 4
+    },
+    {
+      "name": "Captain Mar-Vell, Space-Born",
+      "count": 4
+    },
+    {
+      "name": "Captain Marvel, Earth's Protector",
+      "count": 4
+    },
+    {
+      "name": "Caretaker's Talent",
+      "count": 4
+    },
+    {
+      "name": "Carrot Cake",
+      "count": 4
+    },
+    {
+      "name": "Case File Auditor",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

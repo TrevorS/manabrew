@@ -1,0 +1,51 @@
+{
+  "label": "Survey G404",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Magitek Infantry",
+      "count": 4
+    },
+    {
+      "name": "Magnificent End",
+      "count": 4
+    },
+    {
+      "name": "Make Your Move",
+      "count": 4
+    },
+    {
+      "name": "Makeshift Binding",
+      "count": 4
+    },
+    {
+      "name": "Malamet War Scribe",
+      "count": 4
+    },
+    {
+      "name": "Mardu Devotee",
+      "count": 4
+    },
+    {
+      "name": "Market Gnome",
+      "count": 4
+    },
+    {
+      "name": "Marketwatch Phantom",
+      "count": 4
+    },
+    {
+      "name": "Master Piandao",
+      "count": 4
+    },
+    {
+      "name": "Meanders Guide",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

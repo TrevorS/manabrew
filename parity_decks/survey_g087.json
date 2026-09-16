@@ -1,0 +1,51 @@
+{
+  "label": "Survey G087",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Monoist Sentry",
+      "count": 4
+    },
+    {
+      "name": "Moonglove Extractor",
+      "count": 4
+    },
+    {
+      "name": "Moonshadow",
+      "count": 4
+    },
+    {
+      "name": "Moonstone Harbinger",
+      "count": 4
+    },
+    {
+      "name": "Moonstone, Harsh Mistress",
+      "count": 4
+    },
+    {
+      "name": "Morlun, Devourer of Spiders",
+      "count": 4
+    },
+    {
+      "name": "Mornsong Aria",
+      "count": 4
+    },
+    {
+      "name": "Moseo, Vein's New Dean",
+      "count": 4
+    },
+    {
+      "name": "Mourner's Surprise",
+      "count": 4
+    },
+    {
+      "name": "Mudbutton Cursetosser",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

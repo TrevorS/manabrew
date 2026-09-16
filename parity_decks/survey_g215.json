@@ -1,0 +1,51 @@
+{
+  "label": "Survey G215",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Draconautics Engineer",
+      "count": 4
+    },
+    {
+      "name": "Dracosaur Auxiliary",
+      "count": 4
+    },
+    {
+      "name": "Dragon Trainer",
+      "count": 4
+    },
+    {
+      "name": "Dragonhawk, Fate's Tempest",
+      "count": 4
+    },
+    {
+      "name": "Drakuseth, Maw of Flames",
+      "count": 4
+    },
+    {
+      "name": "Dreadmaw's Ire",
+      "count": 4
+    },
+    {
+      "name": "Drill Too Deep",
+      "count": 4
+    },
+    {
+      "name": "Duel Tactics",
+      "count": 4
+    },
+    {
+      "name": "Dwarven Mauler",
+      "count": 4
+    },
+    {
+      "name": "Dynamite Diver",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "label": "Survey G368",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Roar of Endless Song",
+      "count": 4
+    },
+    {
+      "name": "Songcrafter Mage",
+      "count": 4
+    },
+    {
+      "name": "Temur Battlecrier",
+      "count": 4
+    },
+    {
+      "name": "Temur Tawnyback",
+      "count": 4
+    },
+    {
+      "name": "Ureni, the Song Unending",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 7
+    },
+    {
+      "name": "Mountain",
+      "count": 7
+    },
+    {
+      "name": "Forest",
+      "count": 6
+    }
+  ]
+}

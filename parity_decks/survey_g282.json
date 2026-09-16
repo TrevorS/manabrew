@@ -1,0 +1,51 @@
+{
+  "label": "Survey G282",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Chart a Course",
+      "count": 4
+    },
+    {
+      "name": "Chase Inspiration",
+      "count": 4
+    },
+    {
+      "name": "Clammy Prowler",
+      "count": 4
+    },
+    {
+      "name": "Clinquant Skymage",
+      "count": 4
+    },
+    {
+      "name": "Cloudsculpt Technician",
+      "count": 4
+    },
+    {
+      "name": "Codecracker Hound",
+      "count": 4
+    },
+    {
+      "name": "Cogwork Wrestler",
+      "count": 4
+    },
+    {
+      "name": "Cold Case Cracker",
+      "count": 4
+    },
+    {
+      "name": "Combat Tutorial",
+      "count": 4
+    },
+    {
+      "name": "Confounding Riddle",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 20
+    }
+  ]
+}

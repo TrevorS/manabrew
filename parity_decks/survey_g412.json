@@ -1,0 +1,51 @@
+{
+  "label": "Survey G412",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Primary Research",
+      "count": 4
+    },
+    {
+      "name": "Prosperity Tycoon",
+      "count": 4
+    },
+    {
+      "name": "Protective Parents",
+      "count": 4
+    },
+    {
+      "name": "Protective Response",
+      "count": 4
+    },
+    {
+      "name": "Pulsar Squadron Ace",
+      "count": 4
+    },
+    {
+      "name": "Pyrrhic Strike",
+      "count": 4
+    },
+    {
+      "name": "Quake, Agent of S.H.I.E.L.D.",
+      "count": 4
+    },
+    {
+      "name": "Quicksand Whirlpool",
+      "count": 4
+    },
+    {
+      "name": "Quill-Blade Laureate",
+      "count": 4
+    },
+    {
+      "name": "Quintessential Katana",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

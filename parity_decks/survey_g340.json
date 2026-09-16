@@ -1,0 +1,51 @@
+{
+  "label": "Survey G340",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Whoosh!",
+      "count": 4
+    },
+    {
+      "name": "Wiccan, Rising Magician",
+      "count": 4
+    },
+    {
+      "name": "Wild Unraveling",
+      "count": 4
+    },
+    {
+      "name": "Wingblade Disciple",
+      "count": 4
+    },
+    {
+      "name": "Wingspan Stride",
+      "count": 4
+    },
+    {
+      "name": "Winternight Stories",
+      "count": 4
+    },
+    {
+      "name": "Wisdom of Ages",
+      "count": 4
+    },
+    {
+      "name": "Wishing Well",
+      "count": 4
+    },
+    {
+      "name": "Witness Protection",
+      "count": 4
+    },
+    {
+      "name": "Wizard's Staff",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 20
+    }
+  ]
+}

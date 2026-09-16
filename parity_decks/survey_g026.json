@@ -1,0 +1,55 @@
+{
+  "label": "Survey G026",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Mirrormind Crown",
+      "count": 4
+    },
+    {
+      "name": "Mistrise Village",
+      "count": 4
+    },
+    {
+      "name": "Misty Palms Oasis",
+      "count": 4
+    },
+    {
+      "name": "Mobile Homestead",
+      "count": 4
+    },
+    {
+      "name": "Monk's Fist",
+      "count": 4
+    },
+    {
+      "name": "Monument to Endurance",
+      "count": 4
+    },
+    {
+      "name": "Mox Jasper",
+      "count": 4
+    },
+    {
+      "name": "Mudflat Village",
+      "count": 4
+    },
+    {
+      "name": "Multiversal Passage",
+      "count": 4
+    },
+    {
+      "name": "Muraganda Raceway",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

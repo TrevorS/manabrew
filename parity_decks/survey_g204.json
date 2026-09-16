@@ -1,0 +1,51 @@
+{
+  "label": "Survey G204",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Bellowing Bruiser",
+      "count": 4
+    },
+    {
+      "name": "Bespoke Battlegarb",
+      "count": 4
+    },
+    {
+      "name": "Betrayer's Bargain",
+      "count": 4
+    },
+    {
+      "name": "Blacksmith's Talent",
+      "count": 4
+    },
+    {
+      "name": "Blazing Bomb",
+      "count": 4
+    },
+    {
+      "name": "Blazing Crescendo",
+      "count": 4
+    },
+    {
+      "name": "Blazing Firesinger",
+      "count": 4
+    },
+    {
+      "name": "Blooming Blast",
+      "count": 4
+    },
+    {
+      "name": "Boar-q-pine",
+      "count": 4
+    },
+    {
+      "name": "Boilerbilges Ripper",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

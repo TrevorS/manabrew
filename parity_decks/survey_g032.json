@@ -1,0 +1,55 @@
+{
+  "label": "Survey G032",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Redrock Sentinel",
+      "count": 4
+    },
+    {
+      "name": "Reef Roads",
+      "count": 4
+    },
+    {
+      "name": "Relentless X-ATM092",
+      "count": 4
+    },
+    {
+      "name": "Restless Anchorage",
+      "count": 4
+    },
+    {
+      "name": "Restless Bivouac",
+      "count": 4
+    },
+    {
+      "name": "Restless Cottage",
+      "count": 4
+    },
+    {
+      "name": "Restless Fortress",
+      "count": 4
+    },
+    {
+      "name": "Restless Prairie",
+      "count": 4
+    },
+    {
+      "name": "Restless Reef",
+      "count": 4
+    },
+    {
+      "name": "Restless Ridgeline",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "label": "Survey G354",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Kellan, Inquisitive Prodigy",
+      "count": 4
+    },
+    {
+      "name": "Kishla Skimmer",
+      "count": 4
+    },
+    {
+      "name": "Koma, World-Eater",
+      "count": 4
+    },
+    {
+      "name": "Lessons from Life",
+      "count": 4
+    },
+    {
+      "name": "Lilysplash Mentor",
+      "count": 4
+    },
+    {
+      "name": "Make Your Own Luck",
+      "count": 4
+    },
+    {
+      "name": "Mikey & Don, Party Planners",
+      "count": 4
+    },
+    {
+      "name": "Mind into Matter",
+      "count": 4
+    },
+    {
+      "name": "Mirkwood Nurturer",
+      "count": 4
+    },
+    {
+      "name": "Moon Girl and Devil Dinosaur",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 10
+    },
+    {
+      "name": "Forest",
+      "count": 10
+    }
+  ]
+}

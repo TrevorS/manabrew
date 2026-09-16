@@ -1,0 +1,51 @@
+{
+  "label": "Survey G236",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Maelstrom Artisan",
+      "count": 4
+    },
+    {
+      "name": "Magda, the Hoardmaster",
+      "count": 4
+    },
+    {
+      "name": "Magebane Lizard",
+      "count": 4
+    },
+    {
+      "name": "Magmablood Archaic",
+      "count": 4
+    },
+    {
+      "name": "Magmakin Artillerist",
+      "count": 4
+    },
+    {
+      "name": "Magmatic Galleon",
+      "count": 4
+    },
+    {
+      "name": "Magmatic Hellkite",
+      "count": 4
+    },
+    {
+      "name": "Mai, Jaded Edge",
+      "count": 4
+    },
+    {
+      "name": "Manhole Missile",
+      "count": 4
+    },
+    {
+      "name": "Manifold Mouse",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "label": "Survey G347",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Vren, the Relentless",
+      "count": 4
+    },
+    {
+      "name": "Vulture, Scheming Scavenger",
+      "count": 4
+    },
+    {
+      "name": "Wail of the Forgotten",
+      "count": 4
+    },
+    {
+      "name": "Winter, Cursed Rider",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 10
+    },
+    {
+      "name": "Swamp",
+      "count": 10
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "label": "Survey G156",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Germinating Wurm",
+      "count": 4
+    },
+    {
+      "name": "Germination Practicum",
+      "count": 4
+    },
+    {
+      "name": "Get a Leg Up",
+      "count": 4
+    },
+    {
+      "name": "Ghalta, Primal Hunger",
+      "count": 4
+    },
+    {
+      "name": "Ghalta, Stampede Tyrant",
+      "count": 4
+    },
+    {
+      "name": "Giant Beaver",
+      "count": 4
+    },
+    {
+      "name": "Giant Growth",
+      "count": 4
+    },
+    {
+      "name": "Gigantic Big Bear",
+      "count": 4
+    },
+    {
+      "name": "Gigantoad",
+      "count": 4
+    },
+    {
+      "name": "Gilt-Leaf's Embrace",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "label": "Survey G369",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "A Tale for the Ages",
+      "count": 4
+    },
+    {
+      "name": "Aang's Iceberg",
+      "count": 4
+    },
+    {
+      "name": "Aang, the Last Airbender",
+      "count": 4
+    },
+    {
+      "name": "Absolving Lammasu",
+      "count": 4
+    },
+    {
+      "name": "Acrobatic Cheerleader",
+      "count": 4
+    },
+    {
+      "name": "Acrobatic Leap",
+      "count": 4
+    },
+    {
+      "name": "Action News Crew",
+      "count": 4
+    },
+    {
+      "name": "Adaptive Gemguard",
+      "count": 4
+    },
+    {
+      "name": "Adelbert Steiner",
+      "count": 4
+    },
+    {
+      "name": "Adept Watershaper",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

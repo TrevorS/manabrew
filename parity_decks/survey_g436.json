@@ -1,0 +1,55 @@
+{
+  "label": "Survey G436",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Abigale, Eloquent First-Year",
+      "count": 4
+    },
+    {
+      "name": "Abigale, Poet Laureate",
+      "count": 4
+    },
+    {
+      "name": "Amalia Benavides Aguirre",
+      "count": 4
+    },
+    {
+      "name": "Baron Bertram Graywater",
+      "count": 4
+    },
+    {
+      "name": "Barrensteppe Siege",
+      "count": 4
+    },
+    {
+      "name": "Bartolom\u00e9 del Presidio",
+      "count": 4
+    },
+    {
+      "name": "Black Widow, Double Agent",
+      "count": 4
+    },
+    {
+      "name": "Cloak and Dagger, Entwined",
+      "count": 4
+    },
+    {
+      "name": "Conciliator's Duelist",
+      "count": 4
+    },
+    {
+      "name": "Dark Leo & Shredder",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Swamp",
+      "count": 10
+    }
+  ]
+}

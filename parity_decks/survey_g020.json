@@ -1,0 +1,55 @@
+{
+  "label": "Survey G020",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Instant Ramen",
+      "count": 4
+    },
+    {
+      "name": "Interdimensional Web Watch",
+      "count": 4
+    },
+    {
+      "name": "Iron Giant",
+      "count": 4
+    },
+    {
+      "name": "Iron Hills",
+      "count": 4
+    },
+    {
+      "name": "Iron Man Armor",
+      "count": 4
+    },
+    {
+      "name": "Iron Spider, Stark Upgrade",
+      "count": 4
+    },
+    {
+      "name": "Ishgard, the Holy See",
+      "count": 4
+    },
+    {
+      "name": "Jade-Cast Sentinel",
+      "count": 4
+    },
+    {
+      "name": "Jagged Barrens",
+      "count": 4
+    },
+    {
+      "name": "Jasmine Dragon Tea Shop",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

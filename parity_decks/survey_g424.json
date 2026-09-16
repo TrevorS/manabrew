@@ -1,0 +1,51 @@
+{
+  "label": "Survey G424",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Stone Docent",
+      "count": 4
+    },
+    {
+      "name": "Stone by Sunlight",
+      "count": 4
+    },
+    {
+      "name": "Stormbeacon Blade",
+      "count": 4
+    },
+    {
+      "name": "Stormplain Detainment",
+      "count": 4
+    },
+    {
+      "name": "Stroke of Midnight",
+      "count": 4
+    },
+    {
+      "name": "Sudden Strike",
+      "count": 4
+    },
+    {
+      "name": "Suki, Courageous Rescuer",
+      "count": 4
+    },
+    {
+      "name": "Summon: Choco/Mog",
+      "count": 4
+    },
+    {
+      "name": "Summon: Knights of Round",
+      "count": 4
+    },
+    {
+      "name": "Summon: Primal Garuda",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

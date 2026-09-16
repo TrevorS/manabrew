@@ -1,0 +1,51 @@
+{
+  "label": "Survey G249",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Rough Rhino Cavalry",
+      "count": 4
+    },
+    {
+      "name": "Roughshod Duo",
+      "count": 4
+    },
+    {
+      "name": "Roving Actuator",
+      "count": 4
+    },
+    {
+      "name": "Rubble Rouser",
+      "count": 4
+    },
+    {
+      "name": "Rubblebelt Braggart",
+      "count": 4
+    },
+    {
+      "name": "Ruinous Rampage",
+      "count": 4
+    },
+    {
+      "name": "Rumbling Rockslide",
+      "count": 4
+    },
+    {
+      "name": "Runescale Stormbrood",
+      "count": 4
+    },
+    {
+      "name": "Rust Harvester",
+      "count": 4
+    },
+    {
+      "name": "Sabotender",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

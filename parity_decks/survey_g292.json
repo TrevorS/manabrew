@@ -1,0 +1,51 @@
+{
+  "label": "Survey G292",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Failed Fording",
+      "count": 4
+    },
+    {
+      "name": "Falcon's Wing Harness",
+      "count": 4
+    },
+    {
+      "name": "Falcon, Winged Wonder",
+      "count": 4
+    },
+    {
+      "name": "Farsight Ritual",
+      "count": 4
+    },
+    {
+      "name": "Fateful Discovery",
+      "count": 4
+    },
+    {
+      "name": "Fblthp, Lost on the Range",
+      "count": 4
+    },
+    {
+      "name": "Fear of Failed Tests",
+      "count": 4
+    },
+    {
+      "name": "Fear of Falling",
+      "count": 4
+    },
+    {
+      "name": "Fear of Impostors",
+      "count": 4
+    },
+    {
+      "name": "Fear of Isolation",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 20
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "label": "Survey G258",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Sunspine Lynx",
+      "count": 4
+    },
+    {
+      "name": "Super Speed",
+      "count": 4
+    },
+    {
+      "name": "Superior Foes of Spider-Man",
+      "count": 4
+    },
+    {
+      "name": "Suplex",
+      "count": 4
+    },
+    {
+      "name": "Sure Strike",
+      "count": 4
+    },
+    {
+      "name": "Suspicious Detonation",
+      "count": 4
+    },
+    {
+      "name": "Systems Override",
+      "count": 4
+    },
+    {
+      "name": "Tablet of Discovery",
+      "count": 4
+    },
+    {
+      "name": "Tackle Artist",
+      "count": 4
+    },
+    {
+      "name": "Take Out the Trash",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 20
+    }
+  ]
+}

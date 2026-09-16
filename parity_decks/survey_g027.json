@@ -1,0 +1,55 @@
+{
+  "label": "Survey G027",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Murky Sewer",
+      "count": 4
+    },
+    {
+      "name": "Mutant Town",
+      "count": 4
+    },
+    {
+      "name": "My Precious",
+      "count": 4
+    },
+    {
+      "name": "Mystic Monastery",
+      "count": 4
+    },
+    {
+      "name": "Neglected Manor",
+      "count": 4
+    },
+    {
+      "name": "News Helicopter",
+      "count": 4
+    },
+    {
+      "name": "Nexus of Becoming",
+      "count": 4
+    },
+    {
+      "name": "Night Market",
+      "count": 4
+    },
+    {
+      "name": "Nomad Outpost",
+      "count": 4
+    },
+    {
+      "name": "North Pole Gates",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

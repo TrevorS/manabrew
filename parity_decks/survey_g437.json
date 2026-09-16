@@ -1,0 +1,55 @@
+{
+  "label": "Survey G437",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Dune Drifter",
+      "count": 4
+    },
+    {
+      "name": "Elenda, Saint of Dusk",
+      "count": 4
+    },
+    {
+      "name": "Embalmed Ascendant",
+      "count": 4
+    },
+    {
+      "name": "Emptiness",
+      "count": 4
+    },
+    {
+      "name": "Eriette of the Charmed Apple",
+      "count": 4
+    },
+    {
+      "name": "Fiendish Panda",
+      "count": 4
+    },
+    {
+      "name": "Fix What's Broken",
+      "count": 4
+    },
+    {
+      "name": "Foot Elite",
+      "count": 4
+    },
+    {
+      "name": "Foot Ninjas",
+      "count": 4
+    },
+    {
+      "name": "Hardened Tactician",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Swamp",
+      "count": 10
+    }
+  ]
+}

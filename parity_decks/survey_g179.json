@@ -1,0 +1,51 @@
+{
+  "label": "Survey G179",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Rapid Rescue",
+      "count": 4
+    },
+    {
+      "name": "Raucous Audience",
+      "count": 4
+    },
+    {
+      "name": "Raucous Entertainer",
+      "count": 4
+    },
+    {
+      "name": "Reach for the Sky",
+      "count": 4
+    },
+    {
+      "name": "Reach the Horizon",
+      "count": 4
+    },
+    {
+      "name": "Rebellious Captives",
+      "count": 4
+    },
+    {
+      "name": "Reclamation Sage",
+      "count": 4
+    },
+    {
+      "name": "Redtooth Genealogist",
+      "count": 4
+    },
+    {
+      "name": "Redtooth Vanguard",
+      "count": 4
+    },
+    {
+      "name": "Regal Imperiosaur",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

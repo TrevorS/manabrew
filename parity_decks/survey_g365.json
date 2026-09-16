@@ -1,0 +1,55 @@
+{
+  "label": "Survey G365",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Tellah, Great Sage",
+      "count": 4
+    },
+    {
+      "name": "Tempest Angler",
+      "count": 4
+    },
+    {
+      "name": "The Apprentice's Folly",
+      "count": 4
+    },
+    {
+      "name": "The Belligerent",
+      "count": 4
+    },
+    {
+      "name": "The Emperor of Palamecia",
+      "count": 4
+    },
+    {
+      "name": "Thousand-Year Storm",
+      "count": 4
+    },
+    {
+      "name": "Traumatic Critique",
+      "count": 4
+    },
+    {
+      "name": "Twinflame Travelers",
+      "count": 4
+    },
+    {
+      "name": "Vibrant Outburst",
+      "count": 4
+    },
+    {
+      "name": "Vision Quest",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 10
+    },
+    {
+      "name": "Mountain",
+      "count": 10
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "label": "Survey G176",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Pitiless Fists",
+      "count": 4
+    },
+    {
+      "name": "Planar Engineering",
+      "count": 4
+    },
+    {
+      "name": "Plow Through",
+      "count": 4
+    },
+    {
+      "name": "Point the Way",
+      "count": 4
+    },
+    {
+      "name": "Poison Dart Frog",
+      "count": 4
+    },
+    {
+      "name": "Polliwallop",
+      "count": 4
+    },
+    {
+      "name": "Pompous Gadabout",
+      "count": 4
+    },
+    {
+      "name": "Pothole Mole",
+      "count": 4
+    },
+    {
+      "name": "Powerful Broker",
+      "count": 4
+    },
+    {
+      "name": "Preposterous Proportions",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

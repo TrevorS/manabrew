@@ -1,0 +1,55 @@
+{
+  "label": "Survey G034",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Rooftop Percher",
+      "count": 4
+    },
+    {
+      "name": "Rover Blades",
+      "count": 4
+    },
+    {
+      "name": "Rugged Highlands",
+      "count": 4
+    },
+    {
+      "name": "Rumble Arena",
+      "count": 4
+    },
+    {
+      "name": "Runaway Boulder",
+      "count": 4
+    },
+    {
+      "name": "S.H.I.E.L.D. Helicarrier",
+      "count": 4
+    },
+    {
+      "name": "Sacred Foundry",
+      "count": 4
+    },
+    {
+      "name": "Sandsteppe Citadel",
+      "count": 4
+    },
+    {
+      "name": "Sandstorm Verge",
+      "count": 4
+    },
+    {
+      "name": "Sanitation Automaton",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

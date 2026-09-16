@@ -1,0 +1,51 @@
+{
+  "label": "Survey G425",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Summoned Dromedary",
+      "count": 4
+    },
+    {
+      "name": "Sun-Blessed Healer",
+      "count": 4
+    },
+    {
+      "name": "Sun-Dappled Celebrant",
+      "count": 4
+    },
+    {
+      "name": "Sundial, Dawn Tyrant",
+      "count": 4
+    },
+    {
+      "name": "Sunpearl Kirin",
+      "count": 4
+    },
+    {
+      "name": "Sunstar Chaplain",
+      "count": 4
+    },
+    {
+      "name": "Sunstar Expansionist",
+      "count": 4
+    },
+    {
+      "name": "Sunstar Lightsmith",
+      "count": 4
+    },
+    {
+      "name": "Super Villain Lockup",
+      "count": 4
+    },
+    {
+      "name": "Super-Soldier Serum",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "label": "Survey G331",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Temporal Cleansing",
+      "count": 4
+    },
+    {
+      "name": "Temur Devotee",
+      "count": 4
+    },
+    {
+      "name": "Tenacious Tomeseeker",
+      "count": 4
+    },
+    {
+      "name": "Teo, Spirited Glider",
+      "count": 4
+    },
+    {
+      "name": "Tester of the Tangential",
+      "count": 4
+    },
+    {
+      "name": "Textbook Tabulator",
+      "count": 4
+    },
+    {
+      "name": "The Clone Saga",
+      "count": 4
+    },
+    {
+      "name": "The Enigma Jewel",
+      "count": 4
+    },
+    {
+      "name": "The Everflowing Well",
+      "count": 4
+    },
+    {
+      "name": "The Key to the Vault",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 20
+    }
+  ]
+}

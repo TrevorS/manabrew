@@ -1,0 +1,55 @@
+{
+  "label": "Survey G270",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Break Out",
+      "count": 4
+    },
+    {
+      "name": "Bumi, Unleashed",
+      "count": 4
+    },
+    {
+      "name": "Cactusfolk Sureshot",
+      "count": 4
+    },
+    {
+      "name": "Cheering Crowd",
+      "count": 4
+    },
+    {
+      "name": "Earth Rumble Wrestlers",
+      "count": 4
+    },
+    {
+      "name": "Gangly Stompling",
+      "count": 4
+    },
+    {
+      "name": "Gladiolus Amicitia",
+      "count": 4
+    },
+    {
+      "name": "Hugs, Grisly Guardian",
+      "count": 4
+    },
+    {
+      "name": "Hulk, Gamma Goliath",
+      "count": 4
+    },
+    {
+      "name": "Itzquinth, Firstborn of Gishath",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 10
+    },
+    {
+      "name": "Forest",
+      "count": 10
+    }
+  ]
+}

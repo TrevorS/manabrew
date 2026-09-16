@@ -1,0 +1,43 @@
+{
+  "label": "Survey G435",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Wojek Investigator",
+      "count": 4
+    },
+    {
+      "name": "Woodland Acolyte",
+      "count": 4
+    },
+    {
+      "name": "Wrench",
+      "count": 4
+    },
+    {
+      "name": "Yip Yip!",
+      "count": 4
+    },
+    {
+      "name": "You're Not Alone",
+      "count": 4
+    },
+    {
+      "name": "Youthful Valkyrie",
+      "count": 4
+    },
+    {
+      "name": "Zack Fair",
+      "count": 4
+    },
+    {
+      "name": "Zealous Display",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

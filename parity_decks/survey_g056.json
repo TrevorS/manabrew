@@ -1,0 +1,51 @@
+{
+  "label": "Survey G056",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Beamsaw Prospector",
+      "count": 4
+    },
+    {
+      "name": "Bebop, Warthog Warrior",
+      "count": 4
+    },
+    {
+      "name": "Beetle-Headed Merchants",
+      "count": 4
+    },
+    {
+      "name": "Behold the Sinister Six!",
+      "count": 4
+    },
+    {
+      "name": "Beseech the Mirror",
+      "count": 4
+    },
+    {
+      "name": "Bilbo's Deadly Slice",
+      "count": 4
+    },
+    {
+      "name": "Bile-Vial Boggart",
+      "count": 4
+    },
+    {
+      "name": "Billowing Shriekmass",
+      "count": 4
+    },
+    {
+      "name": "Binding Negotiation",
+      "count": 4
+    },
+    {
+      "name": "Bitter Triumph",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 20
+    }
+  ]
+}

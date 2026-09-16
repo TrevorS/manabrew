@@ -1,0 +1,51 @@
+{
+  "label": "Survey G413",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Rabaroo Troop",
+      "count": 4
+    },
+    {
+      "name": "Rabbit Response",
+      "count": 4
+    },
+    {
+      "name": "Radiant Strike",
+      "count": 4
+    },
+    {
+      "name": "Raft Security Officer",
+      "count": 4
+    },
+    {
+      "name": "Raise the Past",
+      "count": 4
+    },
+    {
+      "name": "Rally the Monastery",
+      "count": 4
+    },
+    {
+      "name": "Rapier Wit",
+      "count": 4
+    },
+    {
+      "name": "Rayblade Trooper",
+      "count": 4
+    },
+    {
+      "name": "Razor Rings",
+      "count": 4
+    },
+    {
+      "name": "Rebellious Strike",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

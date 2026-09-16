@@ -1,0 +1,55 @@
+{
+  "label": "Survey G036",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Secret Tunnel",
+      "count": 4
+    },
+    {
+      "name": "Serpent's Pass",
+      "count": 4
+    },
+    {
+      "name": "Shadowy Backstreet",
+      "count": 4
+    },
+    {
+      "name": "Sharlayan, Nation of Scholars",
+      "count": 4
+    },
+    {
+      "name": "Shattered Sanctum",
+      "count": 4
+    },
+    {
+      "name": "Short Bow",
+      "count": 4
+    },
+    {
+      "name": "Silver Deputy",
+      "count": 4
+    },
+    {
+      "name": "Sinister Hideout",
+      "count": 4
+    },
+    {
+      "name": "Sire of Seven Deaths",
+      "count": 4
+    },
+    {
+      "name": "Skateboard",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

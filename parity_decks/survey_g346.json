@@ -1,0 +1,55 @@
+{
+  "label": "Survey G346",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Skullsnap Nuisance",
+      "count": 4
+    },
+    {
+      "name": "Superior Spider-Man",
+      "count": 4
+    },
+    {
+      "name": "Symbiote Spider-Man",
+      "count": 4
+    },
+    {
+      "name": "Talion, the Kindly Lord",
+      "count": 4
+    },
+    {
+      "name": "Taskmaster, Mercenary Mimic",
+      "count": 4
+    },
+    {
+      "name": "The Ancient One",
+      "count": 4
+    },
+    {
+      "name": "Tidecaller Mentor",
+      "count": 4
+    },
+    {
+      "name": "Uchbenbak, the Great Mistake",
+      "count": 4
+    },
+    {
+      "name": "Ultimecia, Time Sorceress",
+      "count": 4
+    },
+    {
+      "name": "Voracious Tome-Skimmer",
+      "count": 4
+    },
+    {
+      "name": "Island",
+      "count": 10
+    },
+    {
+      "name": "Swamp",
+      "count": 10
+    }
+  ]
+}

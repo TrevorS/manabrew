@@ -1,0 +1,51 @@
+{
+  "label": "Survey G381",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Collector's Cage",
+      "count": 4
+    },
+    {
+      "name": "Colleen Wing, Street Samurai",
+      "count": 4
+    },
+    {
+      "name": "Collision Course",
+      "count": 4
+    },
+    {
+      "name": "Compassionate Healer",
+      "count": 4
+    },
+    {
+      "name": "Cooped Up",
+      "count": 4
+    },
+    {
+      "name": "Coordinated Maneuver",
+      "count": 4
+    },
+    {
+      "name": "Cosmium Blast",
+      "count": 4
+    },
+    {
+      "name": "Cosmogrand Zenith",
+      "count": 4
+    },
+    {
+      "name": "Costume Closet",
+      "count": 4
+    },
+    {
+      "name": "Crib Swap",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}

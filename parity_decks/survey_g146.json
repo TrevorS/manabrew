@@ -1,0 +1,51 @@
+{
+  "label": "Survey G146",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Colossadactyl",
+      "count": 4
+    },
+    {
+      "name": "Colossal Rattlewurm",
+      "count": 4
+    },
+    {
+      "name": "Comforting Counsel",
+      "count": 4
+    },
+    {
+      "name": "Commune with Beavers",
+      "count": 4
+    },
+    {
+      "name": "Commune with Nature",
+      "count": 4
+    },
+    {
+      "name": "Coordinated Clobbering",
+      "count": 4
+    },
+    {
+      "name": "Cosmium Confluence",
+      "count": 4
+    },
+    {
+      "name": "Courier of Comestibles",
+      "count": 4
+    },
+    {
+      "name": "Cowabunga!",
+      "count": 4
+    },
+    {
+      "name": "Craterhoof Behemoth",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

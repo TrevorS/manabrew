@@ -1,0 +1,55 @@
+{
+  "label": "Survey G019",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Hidden Volcano",
+      "count": 4
+    },
+    {
+      "name": "Hobbit Hole",
+      "count": 4
+    },
+    {
+      "name": "Hot Dog Cart",
+      "count": 4
+    },
+    {
+      "name": "Hoverstone Pilgrim",
+      "count": 4
+    },
+    {
+      "name": "Hunter's Blowgun",
+      "count": 4
+    },
+    {
+      "name": "Hushwood Verge",
+      "count": 4
+    },
+    {
+      "name": "Hylda's Crown of Winter",
+      "count": 4
+    },
+    {
+      "name": "Illegitimate Business",
+      "count": 4
+    },
+    {
+      "name": "Insomnia, Crown City",
+      "count": 4
+    },
+    {
+      "name": "Inspiring Vantage",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 10
+    },
+    {
+      "name": "Island",
+      "count": 10
+    }
+  ]
+}

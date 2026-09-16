@@ -1,0 +1,51 @@
+{
+  "label": "Survey G147",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Crossroads Watcher",
+      "count": 4
+    },
+    {
+      "name": "Cryptid Inspector",
+      "count": 4
+    },
+    {
+      "name": "Culvert Ambusher",
+      "count": 4
+    },
+    {
+      "name": "Curious Forager",
+      "count": 4
+    },
+    {
+      "name": "Curse of the Werefox",
+      "count": 4
+    },
+    {
+      "name": "Cycle of Renewal",
+      "count": 4
+    },
+    {
+      "name": "Damage Control Crew",
+      "count": 4
+    },
+    {
+      "name": "Dance of the Tumbleweeds",
+      "count": 4
+    },
+    {
+      "name": "Dancing from Dark to Dawn",
+      "count": 4
+    },
+    {
+      "name": "Dawn's Light Archer",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 20
+    }
+  ]
+}

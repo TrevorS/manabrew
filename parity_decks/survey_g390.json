@@ -1,0 +1,51 @@
+{
+  "label": "Survey G390",
+  "desc": "Standard survey sample deck",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Fear of Abduction",
+      "count": 4
+    },
+    {
+      "name": "Fear of Immobility",
+      "count": 4
+    },
+    {
+      "name": "Fear of Surveillance",
+      "count": 4
+    },
+    {
+      "name": "Feather of Flight",
+      "count": 4
+    },
+    {
+      "name": "Featherbrained Filcher",
+      "count": 4
+    },
+    {
+      "name": "Felidar Savior",
+      "count": 4
+    },
+    {
+      "name": "Final Showdown",
+      "count": 4
+    },
+    {
+      "name": "Flash Thompson, Spider-Fan",
+      "count": 4
+    },
+    {
+      "name": "Fleeting Flight",
+      "count": 4
+    },
+    {
+      "name": "Flight-Deck Coordinator",
+      "count": 4
+    },
+    {
+      "name": "Plains",
+      "count": 20
+    }
+  ]
+}
