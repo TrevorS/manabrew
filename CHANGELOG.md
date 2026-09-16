@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.44.2](https://github.com/witchesofthehill/manabrew/compare/v3.44.1...v3.44.2) (2026-09-16)
+
+### Fixes
+
+* planeswalkers blocking ([#939](https://github.com/witchesofthehill/manabrew/issues/939)) ([9e4bc0b](https://github.com/witchesofthehill/manabrew/commit/9e4bc0b6f7b352402e5b684acb3e6b94a087e2a9))
+
 ## [3.44.1](https://github.com/witchesofthehill/manabrew/compare/v3.44.0...v3.44.1) (2026-09-15)
 
 ### Fixes
