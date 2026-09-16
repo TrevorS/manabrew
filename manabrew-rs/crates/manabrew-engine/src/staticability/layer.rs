@@ -280,6 +280,15 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         let static_ability_count = game.card(source_id).static_abilities.len();
 
         for sa_idx in 0..static_ability_count {
+            // `check_conditions` rejects on `zones_check` first, so test the zone
+            // against a borrow before paying for a full Card clone. Most cards in
+            // a game are in a library or graveyard and fail here.
+            {
+                let card = game.card(source_id);
+                if !card.static_abilities[sa_idx].zones_check(card.zone) {
+                    continue;
+                }
+            }
             let source_card = game.card(source_id).clone();
             let sa = game.card(source_id).static_abilities[sa_idx].clone();
 
