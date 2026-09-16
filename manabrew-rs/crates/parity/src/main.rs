@@ -252,6 +252,10 @@ struct Cli {
     #[arg(long, value_delimiter = ',')]
     decks: Option<Vec<String>>,
 
+    /// File of explicit "deck1<TAB>deck2" matchups for matrix mode
+    #[arg(long)]
+    matchups: Option<PathBuf>,
+
     /// Run fuzz random deck testing
     #[arg(long)]
     fuzz: bool,
@@ -920,16 +924,66 @@ fn run_single_matchup_rust_only(config: &RunConfig, data: &LoadedData) -> Matchu
     ParityRuntime::new(data).run_rust_only(config)
 }
 
+fn load_matchup_file(path: &std::path::Path) -> Vec<(String, String)> {
+    let contents = match std::fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!(
+                "[parity] Failed to read matchup file '{}': {e}",
+                path.display()
+            );
+            std::process::exit(1);
+        }
+    };
+    let mut pairs = Vec::new();
+    for (line_num, line) in contents.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        match line.split_once('\t') {
+            Some((d1, d2)) => pairs.push((d1.trim().to_string(), d2.trim().to_string())),
+            None => {
+                eprintln!(
+                    "[parity] Line {}: expected 'deck1<TAB>deck2', got '{}'",
+                    line_num + 1,
+                    line
+                );
+                std::process::exit(1);
+            }
+        }
+    }
+    if pairs.is_empty() {
+        eprintln!(
+            "[parity] Matchup file '{}' contains no matchups",
+            path.display()
+        );
+        std::process::exit(1);
+    }
+    pairs
+}
+
 fn run_matrix_mode(cli: &Cli) {
     let ignores = load_parity_ignores();
     let decks_dirs = deck_search_dirs(cli.decks_dir.as_deref());
     let seeds = cli.seeds.clone().unwrap_or_else(|| vec![42, 100, 999]);
-    let deck_names: Vec<String> = filter_decks(
-        cli.decks
-            .clone()
-            .unwrap_or_else(|| available_presets(&decks_dirs)),
-        &cli.exclude_prefix,
-    );
+    let matchup_pairs = cli.matchups.as_deref().map(load_matchup_file);
+    let deck_names: Vec<String> = match matchup_pairs {
+        Some(ref pairs) => {
+            let mut names = std::collections::BTreeSet::new();
+            for (d1, d2) in pairs {
+                names.insert(d1.clone());
+                names.insert(d2.clone());
+            }
+            names.into_iter().collect()
+        }
+        None => filter_decks(
+            cli.decks
+                .clone()
+                .unwrap_or_else(|| available_presets(&decks_dirs)),
+            &cli.exclude_prefix,
+        ),
+    };
 
     // Validate deck names
     let valid = available_presets(&decks_dirs);
@@ -941,14 +995,20 @@ fn run_matrix_mode(cli: &Cli) {
     }
 
     // Build ordered pairs (d1, d2) where d1 != d2
-    let mut pairs: Vec<(&str, &str)> = Vec::new();
-    for d1 in &deck_names {
-        for d2 in &deck_names {
-            if d1 != d2 {
-                pairs.push((d1, d2));
+    let pairs: Vec<(String, String)> = match matchup_pairs {
+        Some(pairs) => pairs,
+        None => {
+            let mut out = Vec::new();
+            for d1 in &deck_names {
+                for d2 in &deck_names {
+                    if d1 != d2 {
+                        out.push((d1.clone(), d2.clone()));
+                    }
+                }
             }
+            out
         }
-    }
+    };
 
     let total = pairs.len() * seeds.len();
     if cli.is_verbose() {
@@ -971,7 +1031,7 @@ fn run_matrix_mode(cli: &Cli) {
     // Build flat list of (d1, d2, seed) jobs for parallel execution
     let all_jobs: Vec<(&str, &str, u64)> = pairs
         .iter()
-        .flat_map(|&(d1, d2)| seeds.iter().map(move |&s| (d1, d2, s)))
+        .flat_map(|(d1, d2)| seeds.iter().map(move |&s| (d1.as_str(), d2.as_str(), s)))
         .collect();
     let mut skipped_results = Vec::new();
     let mut jobs = Vec::new();
