@@ -71,6 +71,8 @@ enum EffectKind {
         static_id: i64,
     },
     GrantKeyword(String),
+    /// Set the card's name (`SetName$`). Mirrors Java layer 3.
+    SetName(String),
     /// Grant an activated ability (from AddAbility$). The string is the ability text.
     GrantAbility {
         text: String,
@@ -198,6 +200,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             card.static_set_toughness = None;
         }
         card.granted_keywords.clear();
+        card.remove_changed_name();
         card.granted_svars.clear();
         // Restore the pre-layer type line before applying AddType$ statics.
         if let Some(type_line) = card.static_type_line_base.take() {
@@ -386,6 +389,23 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                                 layer: Layer::Ability,
                                 target,
                                 kind: EffectKind::GrantKeyword(kw.to_string()),
+                            });
+                        }
+                    }
+
+                    if let Some(name) = sa.ir.set_name_text.as_deref() {
+                        let resolved = if name == "ChosenName" {
+                            source_card.get_s_var("ChosenName").map(str::to_string)
+                        } else if name.is_empty() {
+                            None
+                        } else {
+                            Some(name.to_string())
+                        };
+                        if let Some(resolved) = resolved {
+                            pending.push(PendingEffect {
+                                layer: Layer::Text,
+                                target,
+                                kind: EffectKind::SetName(resolved),
                             });
                         }
                     }
@@ -587,6 +607,9 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                     timestamp,
                     static_id,
                 );
+            }
+            EffectKind::SetName(name) => {
+                game.cards[effect.target.index()].add_changed_name(&name);
             }
             EffectKind::GrantKeyword(kw) => {
                 let card = &mut game.cards[effect.target.index()];
