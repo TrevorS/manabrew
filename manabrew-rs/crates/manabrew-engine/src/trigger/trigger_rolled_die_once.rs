@@ -91,14 +91,10 @@ impl TriggerBehavior for TriggerRolledDieOnce {
     ) -> String {
         format!(
             "Player: {}, Result: {}",
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Player)
-                .map(|s| s.as_str())
-                .unwrap_or(""),
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Result)
-                .map(|s| s.as_str())
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Player)
+                .unwrap_or_default(),
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Result)
+                .unwrap_or_default()
         )
     }
 }

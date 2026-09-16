@@ -71,10 +71,8 @@ impl TriggerBehavior for TriggerPayCumulativeUpkeep {
     ) -> String {
         format!(
             "Mana: {}",
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::PayingMana)
-                .map(|s| s.as_str())
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::PayingMana)
+                .unwrap_or_default()
         )
     }
 }

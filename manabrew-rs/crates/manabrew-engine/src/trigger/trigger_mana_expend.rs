@@ -56,14 +56,10 @@ impl TriggerBehavior for TriggerManaExpend {
     fn get_important_stack_objects(&self, _trigger: &Trigger, sa: &SpellAbility) -> String {
         format!(
             "{} expended {} mana",
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Player)
-                .map(|s| s.as_str())
-                .unwrap_or(""),
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Amount)
-                .map(|s| s.as_str())
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Player)
+                .unwrap_or_default(),
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Amount)
+                .unwrap_or_default()
         )
     }
 }

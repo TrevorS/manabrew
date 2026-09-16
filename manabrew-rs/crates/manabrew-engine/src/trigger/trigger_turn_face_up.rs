@@ -52,10 +52,8 @@ impl TriggerBehavior for TriggerTurnFaceUp {
     fn get_important_stack_objects(&self, _trigger: &Trigger, sa: &SpellAbility) -> String {
         format!(
             "TurnFaceUp: {}",
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Card)
-                .map(|s| s.as_str())
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Card)
+                .unwrap_or_default()
         )
     }
 }

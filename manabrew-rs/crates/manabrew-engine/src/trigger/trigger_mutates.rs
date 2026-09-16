@@ -60,10 +60,8 @@ impl TriggerBehavior for TriggerMutates {
     ) -> String {
         format!(
             "Mutates: {}",
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Card)
-                .map(|s| s.as_str())
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Card)
+                .unwrap_or_default()
         )
     }
 }

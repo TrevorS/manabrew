@@ -67,10 +67,8 @@ impl TriggerBehavior for TriggerMilledAll {
     ) -> String {
         format!(
             "Amount: {}",
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Amount)
-                .map(|s| s.as_str())
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Amount)
+                .unwrap_or_default()
         )
     }
 }

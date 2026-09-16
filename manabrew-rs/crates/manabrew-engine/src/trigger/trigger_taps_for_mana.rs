@@ -83,14 +83,10 @@ impl TriggerBehavior for TriggerTapsForMana {
     fn get_important_stack_objects(&self, _trigger: &Trigger, sa: &SpellAbility) -> String {
         format!(
             "TappedForMana: {} Produced: {}",
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Card)
-                .map(|s| s.as_str())
-                .unwrap_or(""),
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Produced)
-                .map(|s| s.as_str())
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Card)
+                .unwrap_or_default(),
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Produced)
+                .unwrap_or_default()
         )
     }
 }

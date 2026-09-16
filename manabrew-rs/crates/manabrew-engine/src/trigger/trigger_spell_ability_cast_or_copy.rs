@@ -131,14 +131,10 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
         // TODO: include SpellAbility in output once SpellAbility triggering object is ported
         format!(
             "Card: {}, Activator: {}, SpellAbility: ",
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Card)
-                .map(|s| s.as_str())
-                .unwrap_or(""),
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Activator)
-                .map(|s| s.as_str())
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Card)
+                .unwrap_or_default(),
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Activator)
+                .unwrap_or_default()
         )
     }
 }

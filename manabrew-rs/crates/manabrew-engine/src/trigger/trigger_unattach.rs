@@ -57,14 +57,10 @@ impl TriggerBehavior for TriggerUnattach {
     fn get_important_stack_objects(&self, _trigger: &Trigger, sa: &SpellAbility) -> String {
         format!(
             "Object: {}, Attachment: {}",
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Object)
-                .map(|s| s.as_str())
-                .unwrap_or(""),
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::AttachSource)
-                .map(|s| s.as_str())
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Object)
+                .unwrap_or_default(),
+            sa.get_triggering_object_text(crate::ability::AbilityKey::AttachSource)
+                .unwrap_or_default()
         )
     }
 }

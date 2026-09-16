@@ -52,10 +52,8 @@ impl TriggerBehavior for TriggerTapAll {
     fn get_important_stack_objects(&self, _trigger: &Trigger, sa: &SpellAbility) -> String {
         format!(
             "Tapped: {}",
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Cards)
-                .map(|s| s.as_str())
-                .unwrap_or("")
+            sa.get_triggering_object_text(crate::ability::AbilityKey::Cards)
+                .unwrap_or_default()
         )
     }
 }
