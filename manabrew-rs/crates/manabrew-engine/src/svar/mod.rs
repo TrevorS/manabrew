@@ -547,6 +547,16 @@ thread_local! {
     static SVAR_RESOLUTION_DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
+struct SvarResolutionDepthGuard {
+    previous: usize,
+}
+
+impl Drop for SvarResolutionDepthGuard {
+    fn drop(&mut self) {
+        SVAR_RESOLUTION_DEPTH.with(|d| d.set(self.previous));
+    }
+}
+
 pub(crate) fn resolve_svar_expression(
     expr: &str,
     game: &GameState,
@@ -560,9 +570,8 @@ pub(crate) fn resolve_svar_expression(
         return 0;
     }
     SVAR_RESOLUTION_DEPTH.with(|d| d.set(depth + 1));
-    let value = resolve_svar_expression_inner(expr, game, source_id, controller, sa);
-    SVAR_RESOLUTION_DEPTH.with(|d| d.set(depth));
-    value
+    let _depth_guard = SvarResolutionDepthGuard { previous: depth };
+    resolve_svar_expression_inner(expr, game, source_id, controller, sa)
 }
 
 fn resolve_svar_expression_inner(

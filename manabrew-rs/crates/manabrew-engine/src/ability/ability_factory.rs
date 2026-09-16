@@ -158,6 +158,16 @@ thread_local! {
     static SUB_ABILITY_CHAIN_DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
+struct SubAbilityChainDepthGuard {
+    previous: usize,
+}
+
+impl Drop for SubAbilityChainDepthGuard {
+    fn drop(&mut self) {
+        SUB_ABILITY_CHAIN_DEPTH.with(|d| d.set(self.previous));
+    }
+}
+
 const RESTRICTION_KEYS: &[&str] = &[
     "Activation",
     "ActivationZone",
@@ -507,9 +517,8 @@ fn build_spell_ability_of_type_with_params(
                 .map(str::to_string)
                 .map(|sub_text| {
                     SUB_ABILITY_CHAIN_DEPTH.with(|d| d.set(depth + 1));
-                    let sub = Box::new(build_spell_ability_from_host_card(host, &sub_text, player));
-                    SUB_ABILITY_CHAIN_DEPTH.with(|d| d.set(depth));
-                    sub
+                    let _depth_guard = SubAbilityChainDepthGuard { previous: depth };
+                    Box::new(build_spell_ability_from_host_card(host, &sub_text, player))
                 })
         }
     } else {
