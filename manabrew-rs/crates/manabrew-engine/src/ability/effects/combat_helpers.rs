@@ -105,12 +105,8 @@ pub(super) fn resolve_attack_defenders(
 
     if defenders.is_empty() {
         defenders.extend(
-            sa.trigger_objects
-                .get(&crate::ability::AbilityKey::Attacked)
+            sa.get_triggering_cards(crate::ability::AbilityKey::Attacked)
                 .into_iter()
-                .flat_map(|value| value.split(','))
-                .filter_map(|part| part.trim().parse::<u32>().ok())
-                .map(CardId)
                 .map(DefenderId::Permanent),
         );
     }

@@ -118,12 +118,11 @@ impl TriggerBehavior for TriggerCounterAddedOnce {
         sa: &SpellAbility,
     ) -> String {
         let target = sa
-            .trigger_objects
-            .get(&crate::ability::AbilityKey::Card)
-            .or(sa.trigger_objects.get(&crate::ability::AbilityKey::Player));
+            .get_triggering_object_text(crate::ability::AbilityKey::Card)
+            .or_else(|| sa.get_triggering_object_text(crate::ability::AbilityKey::Player));
         format!(
             "AddedOnce: {}, Amount: {}",
-            target.cloned().unwrap_or_default(),
+            target.unwrap_or_default(),
             sa.get_triggering_object_text(crate::ability::AbilityKey::Amount)
                 .unwrap_or_default()
         )

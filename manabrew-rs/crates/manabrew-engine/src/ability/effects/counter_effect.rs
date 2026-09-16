@@ -161,12 +161,7 @@ fn counter_target_stack_entry_id(ctx: &EffectContext, sa: &SpellAbility) -> Opti
         .filter_map(|defined_sa| defined_sa.source)
         .collect();
     if defined == "TriggeredSpellAbility" || defined == "TriggeredSourceSA" {
-        if let Some(source) = sa
-            .trigger_objects
-            .get(&crate::ability::AbilityKey::Source)
-            .and_then(|value| value.parse::<u32>().ok())
-            .map(crate::ids::CardId)
-        {
+        if let Some(source) = sa.get_triggering_card(crate::ability::AbilityKey::Source) {
             if !candidate_sources.contains(&source) {
                 candidate_sources.push(source);
             }

@@ -203,10 +203,7 @@ impl GameLoop {
                     .unwrap_or_default();
                 if let Some(triggered_card_id) = entry
                     .spell_ability
-                    .trigger_objects
-                    .get(&crate::ability::AbilityKey::Card)
-                    .and_then(|s| s.parse::<u32>().ok())
-                    .map(crate::ids::CardId)
+                    .get_triggering_card(crate::ability::AbilityKey::Card)
                 {
                     let triggered_name = game.card(triggered_card_id).card_name.clone();
                     if !triggered_name.is_empty() && !description.contains(&triggered_name) {
