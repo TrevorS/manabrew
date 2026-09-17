@@ -461,6 +461,11 @@ impl GameState {
             table.put(Some(src_zone), Some(dest_zone), card_id);
         }
 
+        if src_zone == ZoneType::Battlefield {
+            let left_at = self.cards[card_id.index()].zone_timestamp;
+            self.cards[card_id.index()].lki_zone_timestamp = Some(left_at);
+        }
+
         // Assign a zone timestamp so same-player triggers are ordered by
         // zone entry order (matching Java's Zone.cardList insertion order).
         if dest_zone != ZoneType::Stack {

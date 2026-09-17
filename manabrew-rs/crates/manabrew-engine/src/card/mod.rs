@@ -623,6 +623,8 @@ pub struct Card {
     /// Last-known information: toughness when this card last left the battlefield.
     /// `None` means LKI was never captured; `Some(0)` means toughness was 0.
     pub lki_toughness: Option<i32>,
+    #[serde(default)]
+    pub lki_zone_timestamp: Option<u64>,
     /// Last-known information: counters when this card last left the battlefield.
     /// Used by `TriggeredCard$CardCounters.TYPE` (e.g. Servant of the Scale death trigger).
     pub lki_counters: Option<std::collections::BTreeMap<CounterType, i32>>,
@@ -921,6 +923,7 @@ impl Card {
             total_damage_done_this_turn: 0,
             lki_power: None,
             lki_toughness: None,
+            lki_zone_timestamp: None,
             lki_counters: None,
             damage_history: damage_history::DamageHistory::default(),
             must_block_cards: Vec::new(),

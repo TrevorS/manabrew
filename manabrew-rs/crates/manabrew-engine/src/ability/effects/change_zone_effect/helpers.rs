@@ -378,6 +378,7 @@ pub(super) fn apply_post_move(
                     remembered_cards: Vec::new(),
                     remembered_players: Vec::new(),
                     remembered_lki_cards: Vec::new(),
+                    target_card_zone_timestamp: None,
                     sort_after_active: false,
                     trigger_order: None,
                 });

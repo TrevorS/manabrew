@@ -46,6 +46,11 @@ pub struct DelayedTrigger {
     /// Optional target card for the delayed trigger (e.g. the creature to bounce for Dash
     /// or sacrifice for Blitz at end of turn).
     pub target_card: Option<CardId>,
+    /// The battlefield object `target_card` was when the trigger was made. Forge
+    /// remembers the `Card` and matches it with `equalsWithGameTimestamp`, so a card
+    /// that left the battlefield and came back is a different object. `None`: match
+    /// on the card id alone.
+    pub target_card_zone_timestamp: Option<u64>,
     /// Sum of integer values remembered by the delayed trigger at creation.
     pub remembered_amount: i32,
     /// Cards remembered by the delayed trigger (e.g. `RememberObjects$ Remembered`
@@ -718,6 +723,19 @@ impl TriggerHandler {
                     .perform_test(&tmp_trigger, event_payload, game)
                 {
                     continue;
+                }
+                if let (Some(made_at), Some(target)) =
+                    (delayed.target_card_zone_timestamp, delayed.target_card)
+                {
+                    let card = game.card(target);
+                    let leaving_object = if card.zone == ZoneType::Battlefield {
+                        Some(card.zone_timestamp)
+                    } else {
+                        card.lki_zone_timestamp
+                    };
+                    if event_payload.card == Some(target) && leaving_object != Some(made_at) {
+                        continue;
+                    }
                 }
                 let mut sa = build_spell_ability(
                     game,
