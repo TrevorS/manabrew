@@ -687,6 +687,23 @@ pub fn resolve_defined_players_with_sa(
             push_unique_player(&mut players, defending);
             players
         }
+        // `Player.<Property>`: every player in turn order, filtered by the restriction
+        // (the tail of `AbilityUtils.getDefinedPlayers`).
+        _ if defined.starts_with("Player.")
+            && key.parse::<DefinedPlayerToken>().is_err()
+            && sa.source.is_some() =>
+        {
+            let selector = crate::parsing::cached_compiled_selector(defined);
+            let source_id = sa.source.expect("checked above");
+            game.alive_players()
+                .into_iter()
+                .filter(|&pid| {
+                    crate::player::player_property::is_valid(
+                        pid, &selector, game, source_id, controller, sa,
+                    )
+                })
+                .collect()
+        }
         _ => resolve_defined_players(key, controller, game),
     }
 }

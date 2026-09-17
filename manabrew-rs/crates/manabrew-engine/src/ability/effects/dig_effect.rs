@@ -1,9 +1,6 @@
 use forge_foundation::ZoneType;
 
-use super::{
-    emit_zone_trigger, matches_change_type, resolve_defined_player, resolve_numeric_svar,
-    EffectContext,
-};
+use super::{emit_zone_trigger, matches_change_type, resolve_numeric_svar, EffectContext};
 use crate::agent::{notify_all_agents, GameLogEvent};
 use crate::card::card_zone_table::CardZoneTable;
 use crate::parsing::keys;
@@ -20,6 +17,20 @@ use crate::parsing::keys;
 /// `DigEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(DigEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
+    let dig_players = match sa.target_chosen.target_player {
+        Some(target_player) if sa.defined().is_none() => vec![target_player],
+        _ => crate::ability::spell_ability_effect::get_defined_players_or_targeted(ctx.game, sa),
+    };
+    for dig_player in dig_players {
+        resolve_for_player(ctx, sa, dig_player);
+    }
+}
+
+fn resolve_for_player(
+    ctx: &mut EffectContext,
+    sa: &crate::spellability::SpellAbility,
+    dig_player: crate::ids::PlayerId,
+) {
     let dig_num = resolve_numeric_svar(ctx.game, sa, "DigNum", 1).max(0) as usize;
     let optional = sa.ir.optional;
     let skip_reorder = sa.ir.skip_reorder;
@@ -61,16 +72,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .as_deref()
         .map(|s| s.to_string())
         .unwrap_or_default();
-
-    // Determine the player whose library we dig through.
-    let dig_player = sa
-        .target_chosen
-        .target_player
-        .or_else(|| {
-            sa.defined()
-                .and_then(|d| resolve_defined_player(d, sa.activating_player, ctx.game))
-        })
-        .unwrap_or(sa.activating_player);
 
     let lib_len = ctx.game.cards_in_zone(ZoneType::Library, dig_player).len();
     if lib_len == 0 {
