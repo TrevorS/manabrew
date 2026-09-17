@@ -244,16 +244,34 @@ impl GameLoop {
         Some((card_id, play_name))
     }
 
+    /// Keep in sync with the `BecomesTarget` block of `MagicStack.add`: every distinct
+    /// target of the ability and its sub-abilities (`getAllTargetChoices`) fires
+    /// `BecomesTarget`, then `BecomesTargetOnce` fires once for the lot.
     pub(crate) fn emit_becomes_target_triggers(
         &mut self,
         game: &mut GameState,
         cause_player: PlayerId,
         cause_card: CardId,
-        source_sa: Option<&SpellAbility>,
-        target_card: Option<CardId>,
-        target_player: Option<PlayerId>,
+        source_sa: &SpellAbility,
     ) {
-        if let Some(target_id) = target_card {
+        let mut target_cards: Vec<CardId> = Vec::new();
+        let mut target_players: Vec<PlayerId> = Vec::new();
+        let mut node = Some(source_sa);
+        while let Some(sa) = node {
+            for target_id in sa.target_chosen.all_target_cards() {
+                if !target_cards.contains(&target_id) {
+                    target_cards.push(target_id);
+                }
+            }
+            for target_id in sa.target_chosen.all_target_players() {
+                if !target_players.contains(&target_id) {
+                    target_players.push(target_id);
+                }
+            }
+            node = sa.get_sub_ability();
+        }
+
+        for &target_id in &target_cards {
             let first_time = !game.card(target_id).has_become_target_this_turn();
             game.card_mut(target_id).add_target_from_this_turn();
             self.trigger_handler.run_trigger(
@@ -264,29 +282,14 @@ impl GameLoop {
                     cards: Some(vec![target_id]),
                     cause_player: Some(cause_player),
                     cause_card: Some(cause_card),
-                    source_sa: source_sa.cloned(),
-                    first_time: Some(first_time),
-                    ..Default::default()
-                },
-                false,
-            );
-            self.trigger_handler.run_trigger(
-                TriggerType::BecomesTargetOnce,
-                RunParams {
-                    card: Some(target_id),
-                    target_card: Some(target_id),
-                    cards: Some(vec![target_id]),
-                    cause_player: Some(cause_player),
-                    cause_card: Some(cause_card),
-                    source_sa: source_sa.cloned(),
+                    source_sa: Some(source_sa.clone()),
                     first_time: Some(first_time),
                     ..Default::default()
                 },
                 false,
             );
         }
-
-        if let Some(target_id) = target_player {
+        for &target_id in &target_players {
             self.trigger_handler.run_trigger(
                 TriggerType::BecomesTarget,
                 RunParams {
@@ -294,33 +297,36 @@ impl GameLoop {
                     target_player: Some(target_id),
                     cause_player: Some(cause_player),
                     cause_card: Some(cause_card),
-                    source_sa: source_sa.cloned(),
+                    source_sa: Some(source_sa.clone()),
                     ..Default::default()
                 },
                 false,
             );
+        }
+        if !target_cards.is_empty() || !target_players.is_empty() {
             self.trigger_handler.run_trigger(
                 TriggerType::BecomesTargetOnce,
                 RunParams {
-                    player: Some(target_id),
-                    target_player: Some(target_id),
+                    card: target_cards.first().copied(),
+                    target_card: target_cards.first().copied(),
+                    cards: (!target_cards.is_empty()).then(|| target_cards.clone()),
+                    player: target_players.first().copied(),
+                    target_player: target_players.first().copied(),
                     cause_player: Some(cause_player),
                     cause_card: Some(cause_card),
-                    source_sa: source_sa.cloned(),
+                    source_sa: Some(source_sa.clone()),
                     ..Default::default()
                 },
                 false,
             );
         }
 
-        if let Some(sa) = source_sa {
-            crate::ability::effects::commit_crime_for_sa(
-                &mut self.trigger_handler,
-                game,
-                cause_player,
-                sa,
-            );
-        }
+        crate::ability::effects::commit_crime_for_sa(
+            &mut self.trigger_handler,
+            game,
+            cause_player,
+            source_sa,
+        );
     }
 
     pub(crate) fn push_spell_ability_to_stack(
@@ -481,9 +487,7 @@ impl GameLoop {
                 game,
                 player,
                 trigger_ctx.source_card,
-                Some(sa_for_trigger),
-                sa_for_trigger.target_chosen.target_card,
-                sa_for_trigger.target_chosen.target_player,
+                sa_for_trigger,
             );
         }
     }
@@ -2695,9 +2699,7 @@ impl GameLoop {
                             game,
                             player,
                             cascade_card_id,
-                            Some(&sa_for_target),
-                            sa_for_target.target_chosen.target_card,
-                            sa_for_target.target_chosen.target_player,
+                            &sa_for_target,
                         );
                     }
                 }
