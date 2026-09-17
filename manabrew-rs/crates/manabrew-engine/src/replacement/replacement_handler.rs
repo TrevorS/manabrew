@@ -1054,7 +1054,13 @@ fn collect_effects(
     for (i, card) in game.cards.iter().enumerate() {
         let card_id = CardId(i as u32);
 
-        for (effect_idx_in_card, re) in card.replacement_effects.iter().enumerate() {
+        let rules_effects = card.rules_replacement_effects();
+        for (effect_idx_in_card, re) in card
+            .replacement_effects
+            .iter()
+            .chain(rules_effects.iter())
+            .enumerate()
+        {
             let current_idx = effect_idx_in_card;
             // Layer filter.
             if re.layer != layer {

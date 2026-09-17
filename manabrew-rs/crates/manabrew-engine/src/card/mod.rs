@@ -1549,6 +1549,22 @@ impl Card {
         self.counters.values().copied().sum()
     }
 
+    /// Keep in sync with the rules-host block of `Card.getReplacementEffects`. Stun
+    /// counters are handled in `GameState::untap`; shield counters are not ported.
+    pub fn rules_replacement_effects(&self) -> Vec<crate::replacement::ReplacementEffect> {
+        if self.counters.is_empty()
+            || self.counter_count(&CounterType::Named("FINALITY".to_string())) <= 0
+        {
+            return Vec::new();
+        }
+        let raw = "R$ Event$ Moved | ActiveZones$ Battlefield | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Secondary$ True | NewDestination$ Exile | Description$ If CARDNAME would die, exile it instead.";
+        let Some(mut replacement) = crate::replacement::parse_replacement_effect(raw) else {
+            return Vec::new();
+        };
+        replacement.set_host_card(self);
+        vec![replacement]
+    }
+
     pub fn add_counter(&mut self, ct: &CounterType, count: i32) {
         let entry = self.counters.entry(ct.clone()).or_insert(0);
         *entry += count;
