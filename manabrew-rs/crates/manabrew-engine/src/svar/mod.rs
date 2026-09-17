@@ -1491,11 +1491,7 @@ fn evaluate_cost_amount_count_expr(
                 )
             })
             .collect();
-        return match aggregator {
-            "" | "Amount" => matches.len() as i32,
-            "GreatestCardManaCost" => matches.iter().map(|c| c.mana_cost.cmc()).max().unwrap_or(0),
-            _ => 0,
-        };
+        return count_valid_aggregate(game, &matches, aggregator);
     }
     if let Some(n) = expr
         .strip_prefix("Count$")
@@ -1504,6 +1500,30 @@ fn evaluate_cost_amount_count_expr(
         return n;
     }
     crate::ability::effects::resolve_count_svar(expr, game, source.id, source.controller)
+}
+
+/// The part of `AbilityUtils.handlePaid` that a `Count$Valid... $<what>` suffix reaches.
+fn count_valid_aggregate(
+    game: &GameState,
+    matches: &[&crate::card::Card],
+    aggregator: &str,
+) -> i32 {
+    match aggregator {
+        "" | "Amount" => matches.len() as i32,
+        "GreatestCardManaCost" => matches.iter().map(|c| c.mana_cost.cmc()).max().unwrap_or(0),
+        "CardTypes" | "CardTypesPermanent" => {
+            let ids: Vec<CardId> = matches.iter().map(|c| c.id).collect();
+            crate::ability::ability_utils::count_card_types_from_list(
+                game,
+                &ids,
+                aggregator == "CardTypesPermanent",
+            )
+        }
+        other => {
+            crate::census::unhandled("count_valid_aggregate", other);
+            0
+        }
+    }
 }
 
 pub fn resolve_count_svar_for_sa(
@@ -1760,13 +1780,7 @@ pub fn resolve_count_svar_for_sa(
                         )
                     })
                     .collect();
-                let count = match aggregator {
-                    "" | "Amount" => matches.len() as i32,
-                    "GreatestCardManaCost" => {
-                        matches.iter().map(|c| c.mana_cost.cmc()).max().unwrap_or(0)
-                    }
-                    _ => 0,
-                };
+                let count = count_valid_aggregate(game, &matches, aggregator);
                 return do_x_math(count, operators, game, source_id, controller, sa);
             }
         }
