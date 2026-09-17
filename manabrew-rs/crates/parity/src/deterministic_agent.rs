@@ -463,18 +463,45 @@ impl DeterministicAgent {
         let base: String = match play.mode {
             PlayCardMode::Normal => self
                 .play_option_face_name(play)
+                .or_else(|| self.secondary_face_texts(play).map(|(front, _)| front))
                 .unwrap_or_else(|| "0".to_string()),
             PlayCardMode::BackFaceLand => "1".to_string(),
             PlayCardMode::RoomRightSplit => self
                 .play_option_face_name(play)
                 .unwrap_or_else(|| "2".to_string()),
-            PlayCardMode::Secondary => "1".to_string(),
+            PlayCardMode::Secondary => self
+                .secondary_face_texts(play)
+                .map(|(_, secondary)| secondary)
+                .unwrap_or_else(|| "1".to_string()),
             PlayCardMode::Alternative(AlternativeCost::Warp) => "Warp".to_string(),
             PlayCardMode::StaticAlternative => "StaticAlternative".to_string(),
             // Other modes already have unique variant strings, so fallback rarely matters.
             _ => String::new(),
         };
         format!("{base}{idx_suffix}")
+    }
+
+    /// The two `toUnsuppressedString()` texts Java compares for a card with a Secondary
+    /// face (Adventure, Omen): the permanent spell reads `Name - Type ...`, the secondary
+    /// spell reads its `SpellDescription$` with `CARDNAME` as the secondary face's name
+    /// (`CardTraitBase.getHostName`). Which sorts first depends on the card.
+    fn secondary_face_texts(&self, play: PlayOption) -> Option<(String, String)> {
+        let snap = self.last_game_snapshot.as_ref()?;
+        let card = snap.cards.iter().find(|c| c.id == play.card_id)?;
+        let other = card.other_part.as_ref()?;
+        if other.state_name != forge_foundation::CardStateName::Secondary {
+            return None;
+        }
+        let description = other.abilities.first()?.split('|').find_map(|param| {
+            param
+                .trim()
+                .strip_prefix("SpellDescription$")
+                .map(str::trim)
+        })?;
+        Some((
+            format!("{} - ", card.card_name),
+            description.replace("CARDNAME", &other.name),
+        ))
     }
 
     /// For a playable on a split card (`"Front // Back"` `full_name`), return
