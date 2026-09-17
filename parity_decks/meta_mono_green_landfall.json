@@ -1,0 +1,83 @@
+{
+  "label": "Meta Mono-Green Landfall",
+  "desc": "Standard meta deck, SCG CON Baltimore RCQ 2026-09-13",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Ba Sing Se",
+      "count": 3
+    },
+    {
+      "name": "Bushwhack",
+      "count": 1
+    },
+    {
+      "name": "Earthbender Ascension",
+      "count": 4
+    },
+    {
+      "name": "Elven Passage",
+      "count": 2
+    },
+    {
+      "name": "Escape Tunnel",
+      "count": 2
+    },
+    {
+      "name": "Esper Origins",
+      "count": 4
+    },
+    {
+      "name": "Fabled Passage",
+      "count": 4
+    },
+    {
+      "name": "Forest",
+      "count": 14
+    },
+    {
+      "name": "Glimpse the Core",
+      "count": 2
+    },
+    {
+      "name": "Icetill Explorer",
+      "count": 4
+    },
+    {
+      "name": "Keen-Eyed Curator",
+      "count": 1
+    },
+    {
+      "name": "Llanowar Elves",
+      "count": 4
+    },
+    {
+      "name": "Lumbering Worldwagon",
+      "count": 1
+    },
+    {
+      "name": "Meltstrider's Resolve",
+      "count": 1
+    },
+    {
+      "name": "Mightform Harmonizer",
+      "count": 4
+    },
+    {
+      "name": "Promising Vein",
+      "count": 1
+    },
+    {
+      "name": "Sapling Nursery",
+      "count": 3
+    },
+    {
+      "name": "Sazh's Chocobo",
+      "count": 4
+    },
+    {
+      "name": "Surrak, Elusive Hunter",
+      "count": 1
+    }
+  ]
+}

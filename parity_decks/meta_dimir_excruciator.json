@@ -1,0 +1,87 @@
+{
+  "label": "Meta Dimir Excruciator",
+  "desc": "Standard meta deck, SCG CON Baltimore RCQ 2026-09-13",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Bitter Triumph",
+      "count": 3
+    },
+    {
+      "name": "Cavern of Souls",
+      "count": 2
+    },
+    {
+      "name": "Day of Black Sun",
+      "count": 2
+    },
+    {
+      "name": "Deadly Cover-Up",
+      "count": 1
+    },
+    {
+      "name": "Deceit",
+      "count": 4
+    },
+    {
+      "name": "Doomsday Excruciator",
+      "count": 3
+    },
+    {
+      "name": "Duress",
+      "count": 3
+    },
+    {
+      "name": "Emeritus of Ideation",
+      "count": 2
+    },
+    {
+      "name": "Gloomlake Verge",
+      "count": 4
+    },
+    {
+      "name": "Harvester of Misery",
+      "count": 1
+    },
+    {
+      "name": "Malboro",
+      "count": 1
+    },
+    {
+      "name": "Requiting Hex",
+      "count": 4
+    },
+    {
+      "name": "Restless Reef",
+      "count": 4
+    },
+    {
+      "name": "Stock Up",
+      "count": 4
+    },
+    {
+      "name": "Strategic Betrayal",
+      "count": 1
+    },
+    {
+      "name": "Superior Spider-Man",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 9
+    },
+    {
+      "name": "Undercity Sewers",
+      "count": 2
+    },
+    {
+      "name": "Watery Grave",
+      "count": 4
+    },
+    {
+      "name": "Winternight Stories",
+      "count": 2
+    }
+  ]
+}

@@ -1,0 +1,111 @@
+{
+  "label": "Meta 4c Control",
+  "desc": "Standard meta deck, SCG CON Baltimore RCQ 2026-09-13",
+  "format": "standard",
+  "cards": [
+    {
+      "name": "Bleachbone Verge",
+      "count": 3
+    },
+    {
+      "name": "Blood Crypt",
+      "count": 4
+    },
+    {
+      "name": "Consult the Star Charts",
+      "count": 2
+    },
+    {
+      "name": "Deadly Cover-Up",
+      "count": 2
+    },
+    {
+      "name": "Duress",
+      "count": 2
+    },
+    {
+      "name": "Fire Magic",
+      "count": 1
+    },
+    {
+      "name": "Firebending Lesson",
+      "count": 2
+    },
+    {
+      "name": "Flashback",
+      "count": 2
+    },
+    {
+      "name": "Great Hall of the Biblioplex",
+      "count": 4
+    },
+    {
+      "name": "Inevitable Defeat",
+      "count": 3
+    },
+    {
+      "name": "Island",
+      "count": 1
+    },
+    {
+      "name": "Jeskai Revelation",
+      "count": 4
+    },
+    {
+      "name": "Nowhere to Run",
+      "count": 2
+    },
+    {
+      "name": "Plains",
+      "count": 1
+    },
+    {
+      "name": "Riverpyre Verge",
+      "count": 3
+    },
+    {
+      "name": "Sacred Foundry",
+      "count": 2
+    },
+    {
+      "name": "Sear",
+      "count": 2
+    },
+    {
+      "name": "Shattered Sanctum",
+      "count": 2
+    },
+    {
+      "name": "Shoot the Sheriff",
+      "count": 2
+    },
+    {
+      "name": "Starting Town",
+      "count": 2
+    },
+    {
+      "name": "Steam Vents",
+      "count": 1
+    },
+    {
+      "name": "Stock Up",
+      "count": 4
+    },
+    {
+      "name": "Swamp",
+      "count": 1
+    },
+    {
+      "name": "Tablet of Discovery",
+      "count": 4
+    },
+    {
+      "name": "Together as One",
+      "count": 2
+    },
+    {
+      "name": "Undercity Sewers",
+      "count": 2
+    }
+  ]
+}
