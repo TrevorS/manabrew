@@ -991,6 +991,9 @@ pub(super) fn choose_cards_for_effect<T: Responder>(
     min: usize,
     max: usize,
 ) -> Vec<CardId> {
+    if valid.is_empty() {
+        return Vec::new();
+    }
     let cards = zone_cards_for(agent, valid);
     agent.send_prompt(
         PromptInput::ChooseCards(manabrew_protocol::prompts::choose_cards::ChooseCardsInput {
@@ -1071,6 +1074,9 @@ pub(super) fn choose_cards_for_zone_change<T: Responder>(
     max: usize,
     select_prompt: &str,
 ) -> Vec<CardId> {
+    if valid.is_empty() {
+        return Vec::new();
+    }
     let view = agent.view();
 
     let all_cards: Vec<&CardDto> = view.all_zone_cards().collect();

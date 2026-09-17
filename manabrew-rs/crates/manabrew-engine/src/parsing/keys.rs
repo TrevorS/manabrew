@@ -101,6 +101,7 @@ pub const TRIGGERS_WHEN_SPENT: &str = "TriggersWhenSpent";
 // ── Numeric params ─────────────────────────────────────────────────────
 
 pub const AMOUNT: &str = "Amount";
+pub const MIN_AMOUNT: &str = "MinAmount";
 pub const ADDITIONAL: &str = "Additional";
 pub const CONNIVE_NUM: &str = "ConniveNum";
 pub const HIT_COUNT: &str = "HitCount";

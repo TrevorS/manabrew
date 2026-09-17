@@ -31,6 +31,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .as_deref()
         .and_then(|s| s.parse().ok())
         .unwrap_or(1);
+    let min_amount: usize = sa
+        .ir
+        .min_amount
+        .as_deref()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(amount);
+    if amount == 0 {
+        return;
+    }
 
     let zone = sa.ir.choice_zone.unwrap_or(ZoneType::Battlefield);
 
@@ -56,14 +65,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
-    if valid.is_empty() {
-        return;
-    }
-
     // Ask the controlling player to choose
     ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
-    let chosen =
-        ctx.agents[controller.index()].choose_cards_for_effect(controller, &valid, 1, amount);
+    let chosen = ctx.agents[controller.index()]
+        .choose_cards_for_effect(controller, &valid, min_amount, amount);
 
     // Store on source card
     ctx.game
