@@ -173,10 +173,18 @@ fn snapshot_player(
         .collect();
     hand.sort();
 
+    // A face-down exiled card (`ExileFaceDown$`, Foretell) has an empty `getName()` in Java.
     let mut exile: Vec<String> = game
         .cards_in_zone(ZoneType::Exile, pid)
         .iter()
-        .map(|&cid| game.card(cid).full_name.clone())
+        .map(|&cid| {
+            let card = game.card(cid);
+            if card.face_down {
+                String::new()
+            } else {
+                card.full_name.clone()
+            }
+        })
         .collect();
     exile.sort();
 
