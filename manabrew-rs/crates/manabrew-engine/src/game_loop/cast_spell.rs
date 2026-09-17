@@ -482,14 +482,7 @@ impl GameLoop {
                 .run_trigger(TriggerType::Elementalbend, bend_params, false);
         }
 
-        if trigger_ctx.cast_trigger != TriggerType::AbilityCast {
-            self.emit_becomes_target_triggers(
-                game,
-                player,
-                trigger_ctx.source_card,
-                sa_for_trigger,
-            );
-        }
+        self.emit_becomes_target_triggers(game, player, trigger_ctx.source_card, sa_for_trigger);
     }
 
     /// Orchestrates the full non-land SpellAbility entrypoint after the action

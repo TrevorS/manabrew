@@ -805,12 +805,6 @@ impl GameLoop {
         if !targets_ok {
             return false;
         }
-        crate::ability::effects::emit_targeting_triggers_for_sa(
-            &mut self.trigger_handler,
-            game,
-            card_id,
-            &sa,
-        );
 
         // PowerUp: reduce cost by card's mana cost if it entered the battlefield this turn
         let adjusted_cost = if ab.power_up && game.card(card_id).entered_battlefield_this_turn {
@@ -865,12 +859,6 @@ impl GameLoop {
         if !targets_ok {
             return false;
         }
-        crate::ability::effects::emit_targeting_triggers_for_sa(
-            &mut self.trigger_handler,
-            game,
-            card_id,
-            &sa,
-        );
         let adjusted_cost = sa.pay_costs.clone().unwrap_or_else(|| ab.cost.clone());
         self.finish_activated_ability_on_stack(game, agents, player, card_id, ab, sa, adjusted_cost)
     }
