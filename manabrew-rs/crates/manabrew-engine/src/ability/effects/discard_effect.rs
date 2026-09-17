@@ -130,7 +130,21 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         // (DiscardEffect.java:154-174).
         if mode == DiscardMode::Hand {
             let remember_discarded = sa.ir.remember_discarded;
-            for card_id in hand.iter().copied() {
+            let ordered = if hand.len() > 1 {
+                let reordered = ctx.agents[target_player.index()].choose_reorder_library(
+                    ctx.game,
+                    target_player,
+                    &hand,
+                );
+                if reordered.len() == hand.len() {
+                    reordered
+                } else {
+                    hand.clone()
+                }
+            } else {
+                hand.clone()
+            };
+            for card_id in ordered {
                 if ctx.game.card(card_id).zone == ZoneType::Hand {
                     if remember_discarded {
                         if let Some(sid) = sa.source {
