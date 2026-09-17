@@ -107,7 +107,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
                 // Keep in sync with Card.turnFaceUp: the replacement runs on the face-up card.
                 let mut faceup_event = ReplacementEvent::TurnFaceUp { card: source_id };
-                apply_replacements(ctx.game, &mut faceup_event);
+                crate::replacement::replacement_handler::apply_replacements_with_agents(
+                    ctx.game,
+                    ctx.agents,
+                    &mut faceup_event,
+                );
 
                 // Fire TurnFaceUp trigger
                 ctx.trigger_handler.run_trigger(

@@ -1301,7 +1301,9 @@ fn execute_effect(
         }
         ReplacementType::Tap => replace_tap::execute(effect, event, game, card_id),
         ReplacementType::Transform => replace_transform::execute(effect, event, game, card_id),
-        ReplacementType::TurnFaceUp => replace_turn_face_up::execute(effect, event, game, card_id),
+        ReplacementType::TurnFaceUp => {
+            replace_turn_face_up::execute(effect, event, game, card_id, agents, runtime)
+        }
         ReplacementType::Untap => replace_untap::execute(effect, event, game, card_id),
         ReplacementType::Other(_) => ReplacementResult::NotReplaced,
     }

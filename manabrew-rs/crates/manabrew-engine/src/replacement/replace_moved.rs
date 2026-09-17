@@ -197,7 +197,7 @@ pub fn execute(
     ReplacementResult::Replaced
 }
 
-fn execute_replace_with(
+pub(super) fn execute_replace_with(
     effect: &ReplacementEffect,
     replace_with: &str,
     game: &mut GameState,
