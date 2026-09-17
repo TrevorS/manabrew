@@ -105,6 +105,7 @@ pub struct DeterministicAgent {
     parity_map: Arc<ParityCardMap>,
     parity_observer: Option<Arc<crate::runner::ParityObserver>>,
     choosing_targets: bool,
+    target_loop_drew_continue: bool,
 }
 
 struct GameSnapshot {
@@ -167,6 +168,7 @@ impl DeterministicAgent {
             parity_map,
             parity_observer,
             choosing_targets: false,
+            target_loop_drew_continue: false,
         }
     }
 
@@ -193,6 +195,7 @@ impl DeterministicAgent {
             }
             if chosen.len() >= min {
                 choice_space::pick_bool(&mut rng);
+                self.target_loop_drew_continue = true;
                 break;
             }
         }
@@ -892,9 +895,27 @@ impl PlayerAgent for DeterministicAgent {
             }
         }
         self.choosing_targets = true;
+        self.target_loop_drew_continue = false;
         let result =
             manabrew_engine::spellability::choose_targets_by_kind(self, sa, game, mana_pools);
         self.choosing_targets = false;
+        // `DeterministicController.chooseTargetsFor` draws a stop-or-continue bool after a
+        // pick that meets the minimum while another target could still be added, and its
+        // loop then ends either way. Kinds that do not go through
+        // `choose_targets_like_java` take one target and owe the same draw.
+        if !self.target_loop_drew_continue {
+            if let Some(tr) = sa.target_restrictions.as_ref() {
+                let chosen = sa.target_chosen.all_target_cards().len() as i32
+                    + sa.target_chosen.all_target_players().len() as i32
+                    + i32::from(sa.target_chosen.target_stack_entry.is_some());
+                if chosen > 0
+                    && chosen >= tr.get_min_targets(game, sa)
+                    && chosen < tr.get_max_targets(game, sa)
+                {
+                    choice_space::pick_bool(&mut self.rng.borrow_mut());
+                }
+            }
+        }
 
         // Log the actual targets chosen for parity debugging.
         let mut target_names = Vec::new();
