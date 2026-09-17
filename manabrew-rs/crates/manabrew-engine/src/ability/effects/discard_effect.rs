@@ -163,6 +163,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             continue;
         }
 
+        let unless_type_choice = mode == DiscardMode::TgtChoose && sa.ir.unless_type.is_some();
+        let max = if any_number {
+            hand.len()
+        } else {
+            num.min(hand.len())
+        };
+        if max == 0 && chooser_style_optional && !unless_type_choice {
+            continue;
+        }
+
         let to_discard = match mode {
             DiscardMode::Random => {
                 ctx.agents[target_player.index()].choose_random_discard(target_player, &hand, num)
