@@ -297,7 +297,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 let card = game.card(source_id);
                 let zones_ok = match &granted {
                     Some(sa) => sa.zones_check(card.zone),
-                    None => card.static_abilities[sa_idx].zones_check(card.zone),
+                    None => !card.face_down && card.static_abilities[sa_idx].zones_check(card.zone),
                 };
                 if !zones_ok {
                     continue;

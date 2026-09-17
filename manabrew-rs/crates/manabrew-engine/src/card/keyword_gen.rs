@@ -276,13 +276,15 @@ impl Card {
             });
         }
 
-        // Morph / Megamorph: mark card as castable face-down for {3}.
+        // Morph / Megamorph / Disguise: mark card as castable face-down for {3}.
         // The actual casting logic is in game_action_util (playable check + cost handling).
         if self
             .keywords
             .iter_strings()
             .chain(self.granted_keywords.iter_strings())
-            .any(|k| k.starts_with("Morph:") || k.starts_with("Megamorph:"))
+            .any(|k| {
+                k.starts_with("Morph:") || k.starts_with("Megamorph:") || k.starts_with("Disguise:")
+            })
         {
             self.has_morph = true;
         }

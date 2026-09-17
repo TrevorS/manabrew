@@ -278,7 +278,7 @@ pub struct Card {
     pub last_mana_produced: Option<Vec<u16>>,
     pub flipped: bool,
     pub face_down: bool,
-    /// True if this card has Morph or Megamorph and can be cast face-down for {3}.
+    /// True if this card has Morph, Megamorph or Disguise and can be cast face-down for {3}.
     pub has_morph: bool,
     /// True if this card was discarded (CR 400.7k, for TrackDiscarded$ effects).
     pub discarded: bool,

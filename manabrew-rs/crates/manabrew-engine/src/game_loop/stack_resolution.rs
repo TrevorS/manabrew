@@ -638,8 +638,13 @@ impl GameLoop {
                     // Add "turn face up" activated ability (morph cost → SetState TurnFaceUp).
                     // This is a game rule, not a card ability — face-down morph creatures
                     // can always be turned face up by paying the morph cost.
-                    let morph_cost = c
-                        .get_keyword_cost(if is_mega { "Megamorph" } else { "Morph" })
+                    let disguise_cost = c.get_keyword_cost("Disguise");
+                    if disguise_cost.is_some() && !c.has_keyword("Ward:2") {
+                        c.add_intrinsic_keyword("Ward:2");
+                        c.set_s_var("FaceDownKeyword", "Ward:2");
+                    }
+                    let morph_cost = disguise_cost
+                        .or_else(|| c.get_keyword_cost(if is_mega { "Megamorph" } else { "Morph" }))
                         .unwrap_or_else(|| "3".to_string());
                     let mega_param = if is_mega { " | Mega$ True" } else { "" };
                     let ab_text =
