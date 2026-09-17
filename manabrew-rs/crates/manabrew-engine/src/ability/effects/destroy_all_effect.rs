@@ -34,11 +34,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let zone_cards = ctx.game.cards_in_zone(ZoneType::Battlefield, pid).to_vec();
         for cid in zone_cards {
             if matches_valid_cards_for_sa(ctx.game, sa, ctx.game.card(cid), valid_cards, "Creature")
+                && ctx.game.card(cid).can_be_destroyed()
             {
                 to_destroy.push(cid);
             }
         }
     }
+    let to_destroy = ctx.game.order_cards_by_their_owners(
+        to_destroy,
+        ZoneType::Graveyard,
+        &mut Some(&mut *ctx.agents),
+    );
 
     // Pass 2 — destroy each card, respecting Indestructible
     for card_id in to_destroy {
