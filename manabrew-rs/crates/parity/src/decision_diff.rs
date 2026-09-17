@@ -109,11 +109,22 @@ pub fn is_java_pick_row(record: &CallbackRecord) -> bool {
     JAVA_PICK_ROW_CALLBACKS.contains(&record.name.as_str()) && !record.args.is_empty()
 }
 
+/// `ReplacementHandler.run` asks the controller to pick a replacement effect
+/// even when exactly one applies. That row offers no choice and draws no RNG,
+/// and the engines reach it for different sets of rules (Rust applies
+/// `K:etbCounter` and the stun untap rule inline), so it is left out of the
+/// compared sequence. A pick among two or more stays in.
+pub fn is_forced_replacement_choice(record: &CallbackRecord) -> bool {
+    record.name == "choose_single_replacement_effect"
+        && matches!(record.args.as_slice(), [only] if only.choices == Some(1))
+}
+
 fn compared(log: &[ParityLogEntry], java: bool) -> Vec<&CallbackRecord> {
     log.iter()
         .filter_map(ParityLogEntry::as_callback)
         .filter(|record| COMPARED_CALLBACKS.contains(&record.name.as_str()))
         .filter(|record| !(java && is_java_pick_row(record)))
+        .filter(|record| !is_forced_replacement_choice(record))
         .collect()
 }
 
@@ -122,8 +133,19 @@ fn describe(record: &CallbackRecord) -> String {
     format!("P{} {} -> {outcome}", record.player, record.name)
 }
 
+/// Keep in sync with `HarnessCostPlumbing.visit(CostDiscard)`: Java asks for a
+/// discard paid as a cost through `chooseCardsForEffect`, Rust through
+/// `choose_discard`. Both agents sort the pool the same way and make the same
+/// `pick_many_unique` draw, so the two names are one decision.
+pub fn canonical_name(name: &str) -> &str {
+    match name {
+        "choose_discard" => "choose_cards_for_effect",
+        other => other,
+    }
+}
+
 fn same_decision(rust: &CallbackRecord, java: &CallbackRecord) -> bool {
-    if rust.player != java.player || rust.name != java.name {
+    if rust.player != java.player || canonical_name(&rust.name) != canonical_name(&java.name) {
         return false;
     }
     if OUTCOME_COMPARED.contains(&rust.name.as_str())

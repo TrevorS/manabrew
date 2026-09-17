@@ -154,7 +154,9 @@ fn build_matchup_result(
     }
 }
 
-use crate::decision_diff::{is_java_pick_row, COMPARED_CALLBACKS};
+use crate::decision_diff::{
+    canonical_name, is_forced_replacement_choice, is_java_pick_row, COMPARED_CALLBACKS,
+};
 
 fn compare_callbacks(
     rust_log: &[ParityLogEntry],
@@ -171,7 +173,8 @@ fn compare_callbacks(
                 ParityLogEntry::Callback(record)
                     if record.snapshot_index == snapshot_index
                         && COMPARED_CALLBACKS.contains(&record.name.as_str())
-                        && !(java && is_java_pick_row(record)) =>
+                        && !(java && is_java_pick_row(record))
+                        && !is_forced_replacement_choice(record) =>
                 {
                     Some(record)
                 }
@@ -191,7 +194,7 @@ fn compare_callbacks(
         for position in 0..length {
             let (rust_record, java_record) = (rust.get(position), java.get(position));
             let same = matches!((rust_record, java_record), (Some(r), Some(j))
-                if r.player == j.player && r.name == j.name);
+                if r.player == j.player && canonical_name(&r.name) == canonical_name(&j.name));
             if !same {
                 let anchor = rust_record
                     .or(java_record)
