@@ -2842,6 +2842,7 @@ fn check_condition_value(game: &GameState, condition: Option<&str>, source: &Car
         "EnduringStory" => game.player_has_enduring_story(controller),
         "Monarch" => game.monarch == Some(controller),
         "Night" => game.is_night,
+        "MaxSpeed" => crate::player::max_speed(game, controller),
         "FatefulHour" => game.player(controller).life <= 5,
         other => {
             crate::census::unhandled("condition-assumed-true", other);
