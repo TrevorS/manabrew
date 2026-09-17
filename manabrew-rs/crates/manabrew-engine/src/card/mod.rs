@@ -340,6 +340,8 @@ pub struct Card {
     pub changed_base_power: Option<Option<i32>>,
     #[serde(skip)]
     pub changed_base_toughness: Option<Option<i32>>,
+    #[serde(skip)]
+    pub changed_keywords_base: Option<crate::keyword::keyword_collection::KeywordCollection>,
     /// Keywords granted temporarily by pump effects (`KW$` parameter) until end of turn.
     /// Cleared during step_cleanup alongside power_modifier / toughness_modifier.
     pub pump_keywords: crate::keyword::keyword_collection::KeywordCollection,
@@ -813,6 +815,7 @@ impl Card {
             changed_type_line_base: None,
             changed_base_power: None,
             changed_base_toughness: None,
+            changed_keywords_base: None,
             pump_keywords: crate::keyword::keyword_collection::KeywordCollection::new(),
             pump_trigger_count: 0,
             abilities,
@@ -2516,6 +2519,9 @@ impl Card {
         if self.changed_base_toughness.is_none() {
             self.changed_base_toughness = Some(self.base_toughness);
         }
+        if self.changed_keywords_base.is_none() {
+            self.changed_keywords_base = Some(self.keywords.clone());
+        }
     }
 
     pub fn restore_changed_characteristics_baseline(&mut self) {
@@ -2527,6 +2533,9 @@ impl Card {
         }
         if let Some(toughness) = self.changed_base_toughness.take() {
             self.base_toughness = toughness;
+        }
+        if let Some(keywords) = self.changed_keywords_base.take() {
+            self.keywords = keywords;
         }
     }
 
