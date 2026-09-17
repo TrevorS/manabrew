@@ -950,6 +950,21 @@ impl TriggerHandler {
                 sa.trigger_source = Some(delayed.source_card);
                 sa.trigger_source_zone_timestamp =
                     Some(game.card(delayed.source_card).zone_timestamp);
+                sa.trigger_remembered_amount = delayed.remembered_amount;
+                sa.trigger_remembered.extend(
+                    delayed
+                        .remembered_cards
+                        .iter()
+                        .copied()
+                        .map(crate::event::AbilityValue::Card),
+                );
+                sa.trigger_remembered.extend(
+                    delayed
+                        .remembered_players
+                        .iter()
+                        .copied()
+                        .map(crate::event::AbilityValue::Player),
+                );
                 if !delayed.remembered_lki_cards.is_empty() {
                     sa.trigger_remembered.extend(
                         delayed

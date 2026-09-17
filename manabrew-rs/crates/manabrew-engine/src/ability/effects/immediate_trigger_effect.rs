@@ -13,13 +13,17 @@ use crate::trigger::TriggerType;
 /// `ImmediateTriggerEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(ImmediateTriggerEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
+    let mut remembered_cards = Vec::new();
+    let mut remembered_players = Vec::new();
     if let Some(remember_def) = sa.ir.remember_objects.as_deref() {
-        if let Some(source_id) = sa.source {
-            if remember_def.eq_ignore_ascii_case("Targeted") {
-                if let Some(target) = sa.target_chosen.target_card {
-                    ctx.game.card_mut(source_id).add_remembered_card(target);
-                }
+        for defined in remember_def.split(" & ") {
+            let (players, mut cards) =
+                crate::ability::ability_utils::get_defined_entities(defined, sa, ctx.game);
+            if cards.is_empty() && defined == "Targeted" {
+                cards.extend(ctx.parent_target_card);
             }
+            remembered_players.extend(players);
+            remembered_cards.extend(cards);
         }
     }
 
@@ -42,8 +46,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     created_phase: ctx.game.turn.phase,
                     target_card: None,
                     remembered_amount: 0,
-                    remembered_cards: Vec::new(),
-                    remembered_players: Vec::new(),
+                    remembered_cards,
+                    remembered_players,
                     remembered_lki_cards: Vec::new(),
                     target_card_zone_timestamp: None,
                     sort_after_active: false,
