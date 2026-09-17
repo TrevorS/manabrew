@@ -1401,6 +1401,14 @@ fn calculate_available_mana_excluding_with_reserved_impl(
                     // only count mana abilities whose non-mana costs are currently payable
                     // (e.g. Gilded Goose needs a Food to produce mana).
                     && crate::cost::can_pay_ignoring_mana(&ab.cost, game, card_id, player)
+                    // `ComputerUtilMana.groupSourcesByManaColor`, "don't kill yourself":
+                    // `checkLifeCost(ai, abCost, sourceCard, 1, m)`.
+                    && !ab.cost.parts.iter().any(|p| match p {
+                        CostPart::PayLife(amount) => {
+                            game.player(player).life - amount.resolve(game, card_id, player) < 1
+                        }
+                        _ => false,
+                    })
                     && crate::game_loop::GameLoop::mana_ability_available_for_payment_with_reserved(
                         game,
                         player,

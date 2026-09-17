@@ -2097,6 +2097,19 @@ fn group_sources_by_mana_color(
             {
                 continue;
             }
+            // `ComputerUtilMana.groupSourcesByManaColor`, "don't kill yourself":
+            // `checkLifeCost(ai, abCost, sourceCard, 1, m)`. The castability probe only;
+            // the harness `AutoPay` has no such check.
+            if filter_reflected_replacements
+                && ab.cost.parts.iter().any(|part| match part {
+                    CostPart::PayLife(amount) => {
+                        game.player(player).life - amount.resolve(game, card_id, player) < 1
+                    }
+                    _ => false,
+                })
+            {
+                continue;
+            }
             // Handle ManaReflected abilities (e.g. The Grey Havens).
             // Java has two paths here:
             // - `ComputerUtilMana.groupSourcesByManaColor` predicts
