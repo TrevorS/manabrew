@@ -221,7 +221,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if let Some(kws_str) = sa.ir.add_kws.as_deref() {
         let keywords: Vec<String> = kws_str.split(" & ").map(|s| s.to_string()).collect();
         for kw in keywords {
-            ctx.game.card_mut(target_card).add_granted_keyword(&kw);
+            ctx.game.card_mut(target_card).add_pump_keyword(&kw);
         }
     }
 }
