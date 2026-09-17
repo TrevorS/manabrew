@@ -104,6 +104,7 @@ pub struct DeterministicAgent {
     prefer_actions: bool,
     parity_map: Arc<ParityCardMap>,
     parity_observer: Option<Arc<crate::runner::ParityObserver>>,
+    choosing_targets: bool,
 }
 
 struct GameSnapshot {
@@ -165,7 +166,37 @@ impl DeterministicAgent {
             prefer_actions,
             parity_map,
             parity_observer,
+            choosing_targets: false,
         }
+    }
+
+    /// Keep in sync with `DeterministicController.chooseTargetsFor`: pick one
+    /// candidate at a time until the minimum is met; once it is met and more
+    /// targets are still allowed, draw one boolean and stop either way (the
+    /// Java loop ends as soon as the target count is valid).
+    fn choose_targets_like_java(
+        &mut self,
+        mut remaining: Vec<CardId>,
+        min: usize,
+        max: usize,
+    ) -> Vec<CardId> {
+        let mut chosen = Vec::new();
+        let mut rng = self.rng.borrow_mut();
+        while chosen.len() < min && !remaining.is_empty() {
+            let Some(pick) = choice_space::pick_one(&remaining, &mut rng) else {
+                break;
+            };
+            remaining.retain(|&cid| cid != pick);
+            chosen.push(pick);
+            if chosen.len() >= max {
+                break;
+            }
+            if chosen.len() >= min {
+                choice_space::pick_bool(&mut rng);
+                break;
+            }
+        }
+        chosen
     }
 
     pub(crate) fn should_skip_priority_action_space(&self) -> bool {
@@ -860,8 +891,10 @@ impl PlayerAgent for DeterministicAgent {
                 return true;
             }
         }
+        self.choosing_targets = true;
         let result =
             manabrew_engine::spellability::choose_targets_by_kind(self, sa, game, mana_pools);
+        self.choosing_targets = false;
 
         // Log the actual targets chosen for parity debugging.
         let mut target_names = Vec::new();
@@ -1715,6 +1748,9 @@ impl PlayerAgent for DeterministicAgent {
                 .cmp(&self.card_name(*b))
                 .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
         });
+        if self.choosing_targets {
+            return self.choose_targets_like_java(sorted, min, max);
+        }
         gui_repro::pick_many_unique(&sorted, min, max, &mut self.rng.borrow_mut())
     }
 
