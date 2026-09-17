@@ -67,9 +67,38 @@ pub const COMPARED_CALLBACKS: &[&str] = &[
     "specify_mana_combo",
 ];
 
-/// Callbacks whose outcome text is rendered identically by both engines, so a
-/// different outcome is a different option set or a different pick.
+/// Callbacks whose outcome names the cards on offer in the same order on both
+/// sides, so a different card sequence is a different option set or pick.
 const OUTCOME_COMPARED: &[&str] = &["$ACTION_SPACE", "choose_action"];
+
+/// The `name@id` of every option in an action-space or chosen-action outcome,
+/// in order; an option without a card (`PASS`, `PassPriority`) is kept whole.
+///
+/// The action kind and `ability_index` are left out because the engines render
+/// them differently: Java prints any ability that is not an activated ability
+/// (Plot's special action) as `CastSpell`, and its `ability_index` counts the
+/// abilities currently possible while Rust's counts the card's ability list.
+fn action_cards(outcome: &str) -> Vec<&str> {
+    outcome
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .split(" | ")
+        .map(|option| {
+            let Some(start) = option.find("card: ") else {
+                return option.trim();
+            };
+            let card = &option[start + "card: ".len()..];
+            let Some(at) = card.find('@') else {
+                return option.trim();
+            };
+            let digits = card[at + 1..]
+                .bytes()
+                .take_while(u8::is_ascii_digit)
+                .count();
+            &card[..at + 1 + digits]
+        })
+        .collect()
+}
 
 /// Keep in sync with `DeterministicController`: `confirmAction`,
 /// `confirmPayment` and `chooseBinary` write two rows under one name, the pick
@@ -97,7 +126,9 @@ fn same_decision(rust: &CallbackRecord, java: &CallbackRecord) -> bool {
     if rust.player != java.player || rust.name != java.name {
         return false;
     }
-    if OUTCOME_COMPARED.contains(&rust.name.as_str()) && rust.outcome != java.outcome {
+    if OUTCOME_COMPARED.contains(&rust.name.as_str())
+        && action_cards(&rust.outcome) != action_cards(&java.outcome)
+    {
         return false;
     }
     true
