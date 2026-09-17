@@ -2085,24 +2085,6 @@ fn group_sources_by_mana_color(
     payment_ctx: Option<&crate::mana::ManaPaymentContext>,
     filter_reflected_replacements: bool,
 ) -> IndexMap<i32, Vec<ManaAbilityRef>> {
-    group_sources_by_mana_color_inner(
-        game,
-        player,
-        reserved_sacrifices,
-        payment_ctx,
-        filter_reflected_replacements,
-        false,
-    )
-}
-
-fn group_sources_by_mana_color_inner(
-    game: &GameState,
-    player: PlayerId,
-    reserved_sacrifices: &[CardId],
-    payment_ctx: Option<&crate::mana::ManaPaymentContext>,
-    filter_reflected_replacements: bool,
-    skip_self_restriction: bool,
-) -> IndexMap<i32, Vec<ManaAbilityRef>> {
     let mut mana_map: IndexMap<i32, Vec<ManaAbilityRef>> = IndexMap::new();
     let mut source_order = 0usize;
 
@@ -2111,15 +2093,8 @@ fn group_sources_by_mana_color_inner(
         let mut explicit_mana_added = false;
 
         for ab in &card.activated_abilities {
-            if !is_payable_mana_ability_with_self_check(
-                game,
-                player,
-                card_id,
-                ab,
-                reserved_sacrifices,
-                payment_ctx,
-                !skip_self_restriction,
-            ) {
+            if !is_payable_mana_ability(game, player, card_id, ab, reserved_sacrifices, payment_ctx)
+            {
                 continue;
             }
             // Handle ManaReflected abilities (e.g. The Grey Havens).
@@ -2486,7 +2461,7 @@ pub fn can_pay_spell_mana_cost_for_action_space(
         guard += 1;
 
         let mana_ability_map =
-            group_sources_by_mana_color_inner(game, player, &[], Some(payment_ctx), true, true);
+            group_sources_by_mana_color(game, player, &[], Some(payment_ctx), true);
         if mana_ability_map.is_empty() {
             break;
         }
@@ -2696,26 +2671,6 @@ fn is_payable_mana_ability(
     reserved_sacrifices: &[CardId],
     payment_ctx: Option<&crate::mana::ManaPaymentContext>,
 ) -> bool {
-    is_payable_mana_ability_with_self_check(
-        game,
-        player,
-        card_id,
-        ab,
-        reserved_sacrifices,
-        payment_ctx,
-        true,
-    )
-}
-
-fn is_payable_mana_ability_with_self_check(
-    game: &GameState,
-    player: PlayerId,
-    card_id: CardId,
-    ab: &crate::ability::activated::ActivatedAbility,
-    reserved_sacrifices: &[CardId],
-    payment_ctx: Option<&crate::mana::ManaPaymentContext>,
-    apply_self_check: bool,
-) -> bool {
     if !ab.is_mana_ability {
         return false;
     }
@@ -2758,22 +2713,6 @@ fn is_payable_mana_ability_with_self_check(
             };
             if !crate::mana::mana_meets_restriction(&resolved, ctx) {
                 return false;
-            }
-            // ActionSpace.java:277 (permissive) vs AutoPay.canPayShard:273
-            // (strict self-check). Action-space probes use the permissive form.
-            if apply_self_check {
-                let self_ctx = crate::mana::ManaPaymentContext {
-                    is_spell: false,
-                    is_activated_ability: true,
-                    sa_on_stack: false,
-                    type_line: Some(card.type_line.clone()),
-                    card_name: Some(card.card_name.clone()),
-                    card_color: Some(card.color),
-                    chosen_types_by_source: ctx.chosen_types_by_source.clone(),
-                };
-                if !crate::mana::mana_meets_restriction(&resolved, &self_ctx) {
-                    return false;
-                }
             }
         }
     }
