@@ -208,7 +208,7 @@ fn mode_specific_matches(
     }
 }
 
-fn matches_valid_card(valid: &CompiledSelector, card: &Card, source: &Card) -> bool {
+pub(crate) fn matches_valid_card(valid: &CompiledSelector, card: &Card, source: &Card) -> bool {
     valid_filter::matches_valid_card_selector(valid, card, source)
 }
 
@@ -230,7 +230,7 @@ fn matches_valid_player(
     valid_filter::matches_valid_player_selector(valid, player, source_controller)
 }
 
-fn trigger_matches(
+pub(crate) fn trigger_matches(
     valid_trigger: &str,
     game: &GameState,
     trigger_host: CardId,
@@ -251,6 +251,7 @@ fn trigger_matches(
                 trimmed.starts_with("AB$") || trimmed.starts_with("DB$")
             }
             "trigger" => true,
+            "triggered.ward" => regtrig.execute == "TrigWard",
             "triggered.chapternotlore" => {
                 regtrig.is_chapter()
                     && regtrig.get_chapter()

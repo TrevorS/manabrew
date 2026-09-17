@@ -1395,6 +1395,28 @@ impl TriggerHandler {
                     continue;
                 }
 
+                // `StaticAbilityDisableTriggers.isDisabled` starts with the trigger's host
+                // (ValidCard$) and the trigger itself (ValidTrigger$).
+                if let Some(valid_card) = sa.ir.valid_card.as_ref() {
+                    if !crate::staticability::static_ability_disable_triggers::matches_valid_card(
+                        valid_card,
+                        game.card(host_card),
+                        card,
+                    ) {
+                        continue;
+                    }
+                }
+                if let Some(valid_trigger) = sa.ir.valid_trigger.as_deref() {
+                    if !crate::staticability::static_ability_disable_triggers::trigger_matches(
+                        valid_trigger,
+                        game,
+                        host_card,
+                        trigger,
+                    ) {
+                        continue;
+                    }
+                }
+
                 // ValidCause$ — must match the card changing zones
                 if let Some(valid_cause) = sa.ir.valid_cause.as_ref() {
                     let context = valid_filter::MatchContext::from_source(card)
