@@ -888,6 +888,12 @@ fn resolve_unless_payers(sa: &SpellAbility, game: &GameState) -> Vec<PlayerId> {
         } else if let Some(cid) = sa.target_chosen.target_card {
             // Card target: controller of the targeted card.
             vec![game.card(cid).controller]
+        } else if let Some(entry) = sa
+            .target_chosen
+            .target_stack_entry
+            .and_then(|id| game.stack.find_by_id(id))
+        {
+            vec![entry.spell_ability.activating_player]
         } else {
             vec![game.opponent_of(sa.activating_player)]
         }
