@@ -605,6 +605,12 @@ impl GameState {
                 // Haste`) do not persist into the new object the card
                 // becomes when it changes zones (CR 400.7).
                 if let Some(state) = card.animate_state.take() {
+                    card.restore_animate_snapshot(
+                        state.original_type_line,
+                        state.original_base_power,
+                        state.original_base_toughness,
+                        state.original_color,
+                    );
                     if let Some(orig_kws) = state.original_keywords {
                         card.keywords = orig_kws;
                         card.update_keywords();
