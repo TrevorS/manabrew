@@ -878,10 +878,28 @@ pub fn get_sacrifice_targets_for_cost(
     type_filter: &str,
     ability: Option<&SpellAbility>,
 ) -> Vec<CardId> {
+    let source = ability.and_then(|sa| sa.source);
     get_sacrifice_targets(game, player, type_filter)
         .into_iter()
+        .filter(|&cid| !is_excluded_as_source(game, cid, source, type_filter))
         .filter(|&cid| !cant_sacrifice(&game.cards, game.card(cid), ability, true))
         .collect()
+}
+
+pub fn is_excluded_as_source(
+    game: &GameState,
+    card_id: CardId,
+    source: Option<CardId>,
+    type_filter: &str,
+) -> bool {
+    if source != Some(card_id) {
+        return false;
+    }
+    !type_filter.split(';').any(|alternative| {
+        let alternative = alternative.trim();
+        !alternative.split(['.', '+']).skip(1).any(|q| q == "Other")
+            && matches_change_type(game.card(card_id), alternative, &[])
+    })
 }
 
 /// Find valid exile/return targets in a given zone for a player, filtered by type.

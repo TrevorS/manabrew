@@ -109,6 +109,9 @@ impl GameLoop {
                         type_filter,
                         None,
                     );
+                    targets.retain(|&cid| {
+                        !crate::cost::is_excluded_as_source(game, cid, Some(card_id), type_filter)
+                    });
                     if !allow_reserved_source_reuse {
                         targets.retain(|cid| !reserved_sacrifices.contains(cid));
                     }
