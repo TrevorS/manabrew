@@ -2306,7 +2306,7 @@ pub fn get_defined_entities(
     let d = if defined.is_empty() { "Self" } else { defined };
     (
         resolve_defined_players_with_sa(d, sa, sa.activating_player, game),
-        get_defined_cards(game, sa.source, d, Some(sa.activating_player)),
+        crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(game, sa, d),
     )
 }
 

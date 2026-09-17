@@ -294,7 +294,11 @@ fn resolve_defined_cards_for_sa_ref(
 /// Resolve a `Defined$` string to card IDs in the context of a spell ability.
 /// Handles SA-specific defined values like "Targeted", "ParentTarget",
 /// "TriggeredCard", etc., in addition to the base AbilityUtils definitions.
-fn resolve_defined_cards_for_sa(game: &GameState, sa: &SpellAbility, defined: &str) -> Vec<CardId> {
+pub(crate) fn resolve_defined_cards_for_sa(
+    game: &GameState,
+    sa: &SpellAbility,
+    defined: &str,
+) -> Vec<CardId> {
     let defined_ref = DefinedRef::parse(defined);
     resolve_defined_cards_for_sa_ref_inner(game, sa, &defined_ref)
 }

@@ -9,7 +9,6 @@ use crate::HashMap;
 use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 
 use super::{emit_zone_trigger, EffectContext};
-use crate::agent::types::GameEntity;
 use crate::card::card_zone_table::CardZoneTable;
 use crate::card::Card;
 use crate::event::RunParams;
@@ -477,28 +476,12 @@ pub trait TokenEffectBase {
         let attached_to = sa.ir.attached_to.as_deref()?;
         let (players, cards) =
             crate::ability::ability_utils::get_defined_entities(attached_to, sa, ctx.game);
-        let mut entities = Vec::with_capacity(players.len() + cards.len());
-        entities.extend(players.into_iter().map(GameEntity::Player));
-        entities.extend(
-            cards
-                .into_iter()
-                .filter(|&card_id| ctx.game.card(card_id).zone == ZoneType::Battlefield)
-                .map(GameEntity::Card),
-        );
-        if entities.is_empty() {
-            return None;
+        if let Some(&player_id) = players.first() {
+            return Some(TokenAttachmentTarget::Player(player_id));
         }
-
-        ctx.agents[sa.activating_player.index()].snapshot_state(ctx.game, ctx.mana_pools);
-        let chosen = ctx.agents[sa.activating_player.index()].choose_single_entity_for_effect(
-            sa.activating_player,
-            &entities,
-            false,
-        )?;
-        match chosen {
-            GameEntity::Card(card_id) => Some(TokenAttachmentTarget::Card(card_id)),
-            GameEntity::Player(player_id) => Some(TokenAttachmentTarget::Player(player_id)),
-        }
+        cards
+            .first()
+            .map(|&card_id| TokenAttachmentTarget::Card(card_id))
     }
 
     fn attach_token_to(
