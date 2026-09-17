@@ -3415,6 +3415,13 @@ impl Card {
     pub fn shares_controller_with(&self, other: &Card) -> bool {
         self.controller == other.controller
     }
+    pub fn is_adventure_card(&self) -> bool {
+        self.other_part.as_ref().is_some_and(|other| {
+            other.state_name == CardStateName::Secondary
+                && (other.type_line.has_subtype("Adventure")
+                    || self.type_line.has_subtype("Adventure"))
+        })
+    }
     pub fn has_a_basic_land_type(&self) -> bool {
         self.type_line.has_subtype("Plains")
             || self.type_line.has_subtype("Island")

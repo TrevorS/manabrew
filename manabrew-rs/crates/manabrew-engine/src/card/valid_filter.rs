@@ -1474,6 +1474,7 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         "legendary" => card.type_line.is_legendary(),
         "basic" => card.type_line.is_basic(),
         "hasabasiclandtype" => card.has_a_basic_land_type(),
+        "adventurecard" => card.is_adventure_card(),
         "snow" => card.type_line.is_snow(),
         "kicked" => card.kicked,
         "teamwork" => card.cast_sa.as_ref().is_some_and(|cast_sa| {
@@ -2197,6 +2198,11 @@ fn matches_type_and_qualifier_parts(
                 }
                 "hasabasiclandtype" => {
                     if !card.has_a_basic_land_type() {
+                        return false;
+                    }
+                }
+                "adventurecard" => {
+                    if !card.is_adventure_card() {
                         return false;
                     }
                 }
