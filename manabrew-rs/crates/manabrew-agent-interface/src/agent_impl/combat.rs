@@ -173,6 +173,9 @@ pub(super) fn choose_combat_damage_assignment<T: Responder>(
     total_damage: i32,
     attacker_has_deathtouch: bool,
 ) -> Vec<(Option<CardId>, i32)> {
+    if total_damage <= 0 {
+        return Vec::new();
+    }
     let attacker_id = card_id_str(attacker);
     let blocker_ids: Vec<String> = blockers_in_order.iter().map(|&b| card_id_str(b)).collect();
     let defender_id = defender.map(|d| match d {

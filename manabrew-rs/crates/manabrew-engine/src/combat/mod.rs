@@ -608,43 +608,41 @@ impl CombatState {
                 } else {
                     game.card(blocker_id).power()
                 };
-                if blocker_power > 0 {
-                    if !computed_blocker_allocations.contains(&blocker_id) {
-                        let per_attacker = compute_blocker_damage_allocations(
-                            self,
-                            game,
-                            agents,
-                            first_strike_only,
-                            blocker_id,
-                            blocker_power,
-                        );
-                        for (target_attacker, dmg) in per_attacker {
-                            blocker_damage_allocations.insert((blocker_id, target_attacker), dmg);
-                        }
-                        computed_blocker_allocations.insert(blocker_id);
-                    }
-                    let assigned_to_this_attacker = blocker_damage_allocations
-                        .get(&(blocker_id, attacker_id))
-                        .copied()
-                        .unwrap_or(0);
-                    if assigned_to_this_attacker <= 0 {
-                        continue;
-                    }
-                    let blocker_has_infect = blocker_card.has_infect();
-                    let blocker_has_wither = blocker_card.has_wither()
-                        || crate::staticability::static_ability_wither_damage::is_wither_damage(
-                            &game.cards,
-                            blocker_card,
-                        );
-                    blocked.blocker_damage_infos.push(BlockerDamageInfo {
+                if !computed_blocker_allocations.contains(&blocker_id) {
+                    let per_attacker = compute_blocker_damage_allocations(
+                        self,
+                        game,
+                        agents,
+                        first_strike_only,
                         blocker_id,
-                        power: assigned_to_this_attacker,
-                        has_deathtouch: blocker_card.has_deathtouch(),
-                        has_lifelink: blocker_card.has_lifelink(),
-                        has_wither_or_infect: blocker_has_wither || blocker_has_infect,
-                        controller: blocker_card.controller,
-                    });
+                        blocker_power,
+                    );
+                    for (target_attacker, dmg) in per_attacker {
+                        blocker_damage_allocations.insert((blocker_id, target_attacker), dmg);
+                    }
+                    computed_blocker_allocations.insert(blocker_id);
                 }
+                let assigned_to_this_attacker = blocker_damage_allocations
+                    .get(&(blocker_id, attacker_id))
+                    .copied()
+                    .unwrap_or(0);
+                if assigned_to_this_attacker <= 0 {
+                    continue;
+                }
+                let blocker_has_infect = blocker_card.has_infect();
+                let blocker_has_wither = blocker_card.has_wither()
+                    || crate::staticability::static_ability_wither_damage::is_wither_damage(
+                        &game.cards,
+                        blocker_card,
+                    );
+                blocked.blocker_damage_infos.push(BlockerDamageInfo {
+                    blocker_id,
+                    power: assigned_to_this_attacker,
+                    has_deathtouch: blocker_card.has_deathtouch(),
+                    has_lifelink: blocker_card.has_lifelink(),
+                    has_wither_or_infect: blocker_has_wither || blocker_has_infect,
+                    controller: blocker_card.controller,
+                });
             }
         }
 
@@ -1566,10 +1564,6 @@ fn compute_blocker_damage_allocations(
     blocker_id: CardId,
     blocker_power: i32,
 ) -> Vec<(CardId, i32)> {
-    if blocker_power <= 0 {
-        return Vec::new();
-    }
-
     let blocker = game.card(blocker_id);
     let has_fs = blocker.has_first_strike();
     let has_ds = blocker.has_double_strike();
@@ -1594,9 +1588,9 @@ fn compute_blocker_damage_allocations(
     // Java's `Combat.assignBlockersDamage` (Combat.java:705-757) always
     // calls `assigningPlayer.getController().assignCombatDamage(...)` for
     // every blocker with a non-empty attacker list, regardless of attacker
-    // count. Mirror that — the deterministic agent's single-attacker pick
-    // still belongs in the parity callback ledger so RNG and trace stay
-    // aligned with Java.
+    // count and of `getNetCombatDamage()`. Mirror that — the deterministic
+    // agent's single-attacker pick still belongs in the parity callback
+    // ledger so RNG and trace stay aligned with Java.
     let controller = blocker.controller;
     let assignments = agents[controller.index()].assign_combat_damage(
         game,
