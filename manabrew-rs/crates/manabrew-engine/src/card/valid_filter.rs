@@ -714,7 +714,7 @@ fn matches_card_type_predicate(card_type: &CardSelectorType, card: &Card) -> boo
         CardSelectorType::Enchantment => card.type_line.is_enchantment(),
         CardSelectorType::Planeswalker => card.type_line.is_planeswalker(),
         CardSelectorType::Permanent => card.is_permanent(),
-        CardSelectorType::Spell => true,
+        CardSelectorType::Spell => card.is_spell_or_on_stack(),
         CardSelectorType::NonLand => !card.is_land(),
         CardSelectorType::NonCreature => !card.is_creature(),
         CardSelectorType::Named(name) => card.card_name.eq_ignore_ascii_case(name),
@@ -1991,7 +1991,7 @@ fn matches_type_and_qualifier_parts(
         "nonland" | "nonLand" | "NonLand" => !card.is_land(),
         "noncreature" | "nonCreature" | "NonCreature" => !card.is_creature(),
         "Permanent" => card.is_permanent(),
-        "Spell" => true, // used in some contexts
+        "Spell" => card.is_spell_or_on_stack(),
         named if named.to_ascii_lowercase().starts_with("named") => {
             card.card_name.eq_ignore_ascii_case(named[5..].trim())
         }

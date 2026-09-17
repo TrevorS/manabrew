@@ -3424,6 +3424,15 @@ impl Card {
     pub fn shares_controller_with(&self, other: &Card) -> bool {
         self.controller == other.controller
     }
+    /// `Card.isSpell()` (instant, sorcery, or an Aura off the battlefield), widened to any
+    /// card on the stack: Forge matches a spell on the stack as a `SpellAbility`, this
+    /// engine matches its card.
+    pub fn is_spell_or_on_stack(&self) -> bool {
+        self.zone == ZoneType::Stack
+            || self.type_line.is_instant()
+            || self.type_line.is_sorcery()
+            || (self.type_line.has_subtype("Aura") && self.zone != ZoneType::Battlefield)
+    }
     pub fn is_adventure_card(&self) -> bool {
         self.other_part.as_ref().is_some_and(|other| {
             other.state_name == CardStateName::Secondary
