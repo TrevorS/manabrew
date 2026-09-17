@@ -22,6 +22,8 @@ pub struct PlayerState {
     pub life_gained_times_this_turn: i32,
     pub life_lost_this_turn: i32,
     pub life_lost_last_turn: i32,
+    #[serde(default)]
+    pub simultaneous_damage: i32,
 
     pub poison_counters: i32,
 
@@ -165,6 +167,7 @@ impl PlayerState {
             life_gained_times_this_turn: 0,
             life_lost_this_turn: 0,
             life_lost_last_turn: 0,
+            simultaneous_damage: 0,
             poison_counters: 0,
             lands_played_this_turn: 0,
             lands_played_last_turn: 0,
@@ -356,6 +359,7 @@ impl PlayerState {
         self.life_gained_times_this_turn = 0;
         self.life_lost_this_turn = 0;
         self.life_lost_last_turn = 0;
+        self.simultaneous_damage = 0;
         self.poison_counters = 0;
         self.lands_played_this_turn = 0;
         self.lands_played_last_turn = 0;

@@ -945,6 +945,22 @@ impl GameState {
         0
     }
 
+    pub fn process_damage(&mut self, trigger_handler: &mut TriggerHandler) -> Vec<(PlayerId, i32)> {
+        let mut life_lost_all_damage_map = Vec::new();
+        for player in self.player_order.clone() {
+            let lost = crate::player::process_damage(self, trigger_handler, player);
+            if lost > 0 {
+                life_lost_all_damage_map.push((player, lost));
+            }
+        }
+        life_lost_all_damage_map
+    }
+
+    pub fn lose_life_simultaneously(&mut self, trigger_handler: &mut TriggerHandler) {
+        let life_lost_all_damage_map = self.process_damage(trigger_handler);
+        run_life_lost_all(trigger_handler, &life_lost_all_damage_map);
+    }
+
     /// Check and apply state-based actions. Returns true if any were applied.
     pub fn check_state_based_actions(&mut self) -> bool {
         self.check_state_based_actions_with_triggers(None, None)
@@ -1279,7 +1295,7 @@ impl GameState {
                     .iter()
                     .any(|&cid| self.card(cid).has_keyword("Start your engines"))
             {
-                self.increase_player_speed(pid, None);
+                self.increase_player_speed(pid, trigger_handler.as_deref_mut());
                 any_changes = true;
             }
         }
@@ -1874,6 +1890,23 @@ impl GameState {
     /// Mirrors Java's `Game.getStack().remove(sa)`.
     pub fn remove_from_stack(&mut self, entry_id: u32) -> bool {
         self.stack.remove_by_id(entry_id).is_some()
+    }
+}
+
+pub fn run_life_lost_all(
+    trigger_handler: &mut TriggerHandler,
+    life_lost_all_damage_map: &[(PlayerId, i32)],
+) {
+    for &(player, lost) in life_lost_all_damage_map {
+        trigger_handler.run_trigger(
+            TriggerType::LifeLostAll,
+            RunParams {
+                player: Some(player),
+                life_amount: Some(lost),
+                ..Default::default()
+            },
+            false,
+        );
     }
 }
 

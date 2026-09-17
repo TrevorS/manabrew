@@ -838,9 +838,15 @@ impl GameLoop {
     /// Fire DamageDone and LifeGained triggers from combat damage events.
     /// DamageDone fires per source-target pair; DamageDoneOnce fires once per
     /// target with aggregated damage (mirrors Java CardDamageMap.triggerDamageOnce).
-    pub(crate) fn fire_combat_damage_triggers(&mut self, events: &[combat::CombatDamageEvent]) {
+    pub(crate) fn fire_combat_damage_triggers(
+        &mut self,
+        game: &mut GameState,
+        events: &[combat::CombatDamageEvent],
+    ) {
         use crate::card::card_damage_map::{CardDamageMap, DamageTarget};
         use crate::ids::{CardId, PlayerId};
+
+        let life_lost_all_damage_map = game.process_damage(&mut self.trigger_handler);
 
         // Per-event: fire DamageDone and LifeGained
         for event in events {
@@ -871,6 +877,8 @@ impl GameLoop {
                 }
             }
         }
+
+        crate::action::run_life_lost_all(&mut self.trigger_handler, &life_lost_all_damage_map);
 
         // Aggregate damage by target, then fire DamageDoneOnce once per target.
         // Mirrors Java's CardDamageMap.triggerDamageOnce() which batches damage

@@ -87,13 +87,15 @@ where
     }
     let mut next_trigger_id = 0;
     if let Some(trigger) = parse_trigger(raw, &mut next_trigger_id) {
-        changed |= effect.add_trigger(trigger);
+        changed |= add_trigger(effect, trigger);
     }
     changed
 }
 
 pub fn add_trigger(effect: &mut Card, trigger: Trigger) -> bool {
-    effect.add_trigger(trigger)
+    let changed = effect.add_trigger(trigger);
+    effect.base_trigger_count = effect.triggers.len();
+    changed
 }
 
 pub fn add_replacement_effect(effect: &mut Card, raw: &str) -> bool {

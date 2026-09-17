@@ -716,8 +716,25 @@ pub fn static_replace_damage(_game: &GameState, _player: PlayerId, amount: i32) 
     amount.max(0)
 }
 
-pub fn process_damage(game: &mut GameState, player: PlayerId, amount: i32) -> i32 {
-    add_damage_after_prevention(game, player, amount)
+pub fn process_damage(
+    game: &mut GameState,
+    trigger_handler: &mut TriggerHandler,
+    player: PlayerId,
+) -> i32 {
+    let lost = std::mem::take(&mut game.player_mut(player).simultaneous_damage);
+    if lost > 0 {
+        trigger_handler.run_trigger(
+            crate::trigger::TriggerType::LifeLost,
+            crate::event::RunParams {
+                player: Some(player),
+                life_amount: Some(lost),
+                first_time: Some(game.player(player).life_lost_this_turn == lost),
+                ..Default::default()
+            },
+            false,
+        );
+    }
+    lost
 }
 
 pub fn can_receive_counters(game: &GameState, player: PlayerId, amount: i32) -> bool {

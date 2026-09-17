@@ -55,6 +55,7 @@ macro_rules! effect_dispatch {
                     eprintln!("{}", err);
                 }
             }
+            ctx.game.lose_life_simultaneously(ctx.trigger_handler);
         }
     };
 

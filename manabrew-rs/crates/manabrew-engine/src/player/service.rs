@@ -469,6 +469,7 @@ impl GameState {
             return 0;
         }
         self.player_mut(player).deal_damage(final_amount);
+        self.player_mut(player).simultaneous_damage += final_amount;
         final_amount
     }
 

@@ -921,6 +921,7 @@ impl GameLoop {
                         },
                         false,
                     );
+                    game.lose_life_simultaneously(&mut self.trigger_handler);
                 }
                 CostPart::Draw(amount) => {
                     for _ in 0..amount.resolve(game, card_id, player) {
@@ -1651,6 +1652,7 @@ impl GameLoop {
                         },
                         false,
                     );
+                    game.lose_life_simultaneously(&mut self.trigger_handler);
                 }
                 CostPart::Draw(amount) => {
                     for _ in 0..amount.resolve(game, card_id, player) {
