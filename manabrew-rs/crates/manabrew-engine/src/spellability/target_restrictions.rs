@@ -596,7 +596,13 @@ pub fn has_candidates_in_spell_ability_chain(
     while let Some(node) = current {
         if let Some(tr) = node.target_restrictions.as_ref() {
             let min_targets = tr.get_min_targets(game, node);
-            if min_targets > 0 && !tr.has_candidates(game, player, node.source) {
+            let has_candidates = match tr.target_kind {
+                TargetKind::CardInZone { .. } if node.is_spell => {
+                    !crate::card::card_util::get_valid_cards_to_target(game, node).is_empty()
+                }
+                _ => tr.has_candidates(game, player, node.source),
+            };
+            if min_targets > 0 && !has_candidates {
                 return false;
             }
         }
@@ -625,6 +631,10 @@ pub fn can_be_targeted_by_sa(
 ) -> bool {
     let _perf_scope =
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::Target);
+    // CR 115.5, the head of `SpellAbility.canTarget`: a spell is an illegal target for itself.
+    if source_sa.is_spell && source_sa.source == Some(target_id) {
+        return false;
+    }
     can_be_targeted_by_internal(
         game,
         target_id,

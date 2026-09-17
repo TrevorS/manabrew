@@ -1019,6 +1019,23 @@ impl GameLoop {
             if must_be_instant && !has_flash_permission(card_id) {
                 continue;
             }
+            if card.get_flashback_cost().is_none()
+                && card.get_harmonize_cost().is_none()
+                && card.get_escape_cost().is_none()
+            {
+                continue;
+            }
+            let cast_sa =
+                crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
+            if let Some(ref tr) = cast_sa.target_restrictions {
+                if tr.get_min_targets(game, &cast_sa) > 0
+                    && !target_restrictions::has_candidates_in_spell_ability_chain(
+                        game, player, &cast_sa,
+                    )
+                {
+                    continue;
+                }
+            }
             let available_mana =
                 self.available_mana_for_spell_card(game, player, card_id, &chosen_types_by_source);
             let sp_additional_ok = if let Some(sc) = card.action_spell_cost.as_ref() {
