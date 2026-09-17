@@ -102,10 +102,6 @@ pub(super) fn resolve_multi_search(
     _is_optional: bool,
 ) -> Vec<CardId> {
     let max = change_num.min(candidates.len());
-    if max == 0 {
-        return Vec::new();
-    }
-
     let diff_names = sa.ir.different_names;
     let diff_cmc = sa.ir.different_cmc;
     let diff_power = sa.ir.different_power;
@@ -135,8 +131,22 @@ pub(super) fn resolve_multi_search(
         );
     }
 
-    // Standard multi-select — iterative single-card selection to match Java's
-    // DeterministicCostDecision flow which asks one card at a time.
+    if sa.defined().is_none() || sa.ir.choose_from_defined_cards {
+        let multi_min = if sa.ir.mandatory { max } else { 0 };
+        ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        let mut selected = ctx.agents[chooser.index()].choose_cards_for_zone_change(
+            ctx.game,
+            chooser,
+            candidates,
+            multi_min,
+            change_num,
+            sa.select_prompt().unwrap_or("Select cards for zone change"),
+        );
+        selected.retain(|cid| candidates.contains(cid));
+        selected.truncate(change_num);
+        return selected;
+    }
+
     let mut selected = Vec::new();
     let mut remaining: Vec<CardId> = candidates.to_vec();
     for _ in 0..max {
