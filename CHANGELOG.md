@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.44.5](https://github.com/witchesofthehill/manabrew/compare/v3.44.4...v3.44.5) (2026-09-17)
+
+### Fixes
+
+* **ui:** highlight hidden-zone stack targets ([#942](https://github.com/witchesofthehill/manabrew/issues/942)) ([002f194](https://github.com/witchesofthehill/manabrew/commit/002f19405404edfca044f77d0ebfff8e33b2b1e5))
+
 ## [3.44.4](https://github.com/witchesofthehill/manabrew/compare/v3.44.3...v3.44.4) (2026-09-17)
 
 ### Fixes
