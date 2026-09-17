@@ -565,7 +565,7 @@ mod tests {
         );
         assert!(
             crate::staticability::static_ability_cast_with_flash::any_with_flash(
-                &ctx.game.cards,
+                ctx.game,
                 &fake_creature,
                 p0,
                 &spell_abilities

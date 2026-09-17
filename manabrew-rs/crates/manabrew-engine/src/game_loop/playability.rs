@@ -120,9 +120,7 @@ impl GameLoop {
                 || card.has_keyword("Flash")
                 || card.get_offering_type().is_some()
                 || crate::staticability::static_ability_cast_with_flash::any_with_flash_for_card(
-                    &game.cards,
-                    card,
-                    player,
+                    game, card, player,
                 )
         };
         let can_may_play_from_static = |card_id: CardId| {

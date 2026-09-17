@@ -1672,7 +1672,7 @@ impl SpellAbility {
                 return true;
             }
             return crate::staticability::static_ability_cast_with_flash::any_with_flash_for_card(
-                &game.cards,
+                game,
                 card,
                 self.activating_player,
             );

@@ -1,18 +1,19 @@
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::ids::PlayerId;
 use crate::parsing::{keys, raw_get};
 use crate::staticability::StaticMode;
 
 pub fn any_with_flash(
-    cards: &[Card],
+    game: &GameState,
     spell_card: &Card,
     caster: PlayerId,
     spell_abilities: &[String],
 ) -> bool {
     // Java includes both global static sources and the card itself.
-    for source in cards.iter().filter(|c| {
+    for source in game.cards.iter().filter(|c| {
         c.zone == ZoneType::Battlefield || c.zone == ZoneType::Command || c.id == spell_card.id
     }) {
         for st_ab in source
@@ -20,6 +21,9 @@ pub fn any_with_flash(
             .iter()
             .filter(|sa| sa.check_mode(&StaticMode::CastWithFlash))
         {
+            if !st_ab.check_conditions(source, game) {
+                continue;
+            }
             if !matches_valid_card(st_ab.ir.valid_card.as_ref(), spell_card, source) {
                 continue;
             }
@@ -47,8 +51,8 @@ pub fn any_with_flash(
     false
 }
 
-pub fn any_with_flash_for_card(cards: &[Card], spell_card: &Card, caster: PlayerId) -> bool {
-    for source in cards.iter().filter(|c| {
+pub fn any_with_flash_for_card(game: &GameState, spell_card: &Card, caster: PlayerId) -> bool {
+    for source in game.cards.iter().filter(|c| {
         c.zone == ZoneType::Battlefield || c.zone == ZoneType::Command || c.id == spell_card.id
     }) {
         for st_ab in source
@@ -56,6 +60,9 @@ pub fn any_with_flash_for_card(cards: &[Card], spell_card: &Card, caster: Player
             .iter()
             .filter(|sa| sa.check_mode(&StaticMode::CastWithFlash))
         {
+            if !st_ab.check_conditions(source, game) {
+                continue;
+            }
             if !matches_valid_card(st_ab.ir.valid_card.as_ref(), spell_card, source) {
                 continue;
             }
@@ -86,12 +93,12 @@ pub fn any_with_flash_for_card(cards: &[Card], spell_card: &Card, caster: Player
 }
 
 pub fn any_with_flash_needs_info(
-    cards: &[Card],
+    game: &GameState,
     spell_card: &Card,
     caster: PlayerId,
     spell_abilities: &[String],
 ) -> bool {
-    any_with_flash(cards, spell_card, caster, spell_abilities)
+    any_with_flash(game, spell_card, caster, spell_abilities)
 }
 
 pub fn apply_with_flash_needs_info(
