@@ -1018,9 +1018,7 @@ impl GameLoop {
                 let alt_cost_str = may_play_alt_cost(card_id);
                 let mut cast_sa =
                     crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
-                if alt_cost_str.is_some() {
-                    cast_sa.restriction.variables.set_zone(ZoneType::Exile);
-                }
+                cast_sa.restriction.variables.set_zone(ZoneType::Exile);
                 if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_in_context(
                     &game.cards,
                     &cast_sa,
