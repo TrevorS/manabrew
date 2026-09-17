@@ -578,6 +578,9 @@ impl GameState {
                 // object with no cast history. Mirrors Java's
                 // changeZone-creates-new-Card behaviour.
                 card.cast_from = None;
+                // `Card.ExiledWithSource` compares the host's game timestamp
+                // (`equalsWithGameTimestamp`), so the new object has exiled nothing.
+                card.imprinted_cards.clear();
                 card.reset_crewed();
                 card.reset_saddled();
                 if !keep_counters {
