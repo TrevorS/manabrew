@@ -1410,9 +1410,29 @@ impl GameLoop {
                 return None;
             }};
         }
+        macro_rules! notify_payment_failed {
+            () => {{
+                let notification =
+                    crate::agent::notification::GameNotification::SpellPaymentFailed {
+                        player,
+                        card_id,
+                    };
+                for agent in agents.iter_mut() {
+                    agent.notify(notification.clone());
+                }
+            }};
+        }
+        macro_rules! rollback_failed_payment {
+            () => {{
+                self.restore_snapshot(game, &cast_rollback_snapshot);
+                notify_payment_failed!();
+                return None;
+            }};
+        }
         macro_rules! rollback_cast_preserving_taps {
             ($tapped_cards:expr) => {{
                 self.restore_snapshot(game, &cast_rollback_snapshot);
+                notify_payment_failed!();
                 for tapped_id in $tapped_cards {
                     if game.card_is_in_zone(tapped_id, ZoneType::Battlefield) {
                         game.card_mut(tapped_id).set_tapped(true);
@@ -1560,7 +1580,7 @@ impl GameLoop {
             false,
             false,
         ) {
-            rollback_cast!();
+            rollback_failed_payment!();
         }
         let total_cost = crate::mana::apply_player_life_payment_keywords(
             game,
@@ -1573,7 +1593,7 @@ impl GameLoop {
         let prechosen_spell_sacrifices = if let Some(ref sc) = spell_cost {
             match self.prechoose_additional_cost_sacrifices(game, agents, player, sc, Some(&sa)) {
                 Some(picks) => Some(picks),
-                None => rollback_cast!(),
+                None => rollback_failed_payment!(),
             }
         } else {
             None
@@ -1581,7 +1601,7 @@ impl GameLoop {
         let prechosen_spell_discards = if let Some(ref sc) = spell_cost {
             match self.prechoose_additional_cost_discards(game, agents, player, card_id, sc) {
                 Some(picks) => Some(picks),
-                None => rollback_cast!(),
+                None => rollback_failed_payment!(),
             }
         } else {
             None
@@ -1589,7 +1609,7 @@ impl GameLoop {
         let prechosen_static_alt_sacrifices = if let Some(ref cost) = static_alt_cost {
             match self.prechoose_additional_cost_sacrifices(game, agents, player, cost, Some(&sa)) {
                 Some(picks) => Some(picks),
-                None => rollback_cast!(),
+                None => rollback_failed_payment!(),
             }
         } else {
             None
@@ -1597,7 +1617,7 @@ impl GameLoop {
         let prechosen_static_alt_discards = if let Some(ref cost) = static_alt_cost {
             match self.prechoose_additional_cost_discards(game, agents, player, card_id, cost) {
                 Some(picks) => Some(picks),
-                None => rollback_cast!(),
+                None => rollback_failed_payment!(),
             }
         } else {
             None
@@ -1615,14 +1635,14 @@ impl GameLoop {
                         crate::cost::get_tap_type_targets(game, player, type_filter, card_id);
                     let needed = (amount.resolve(game, card_id, player)).max(0) as usize;
                     if valid.len() < needed {
-                        rollback_cast!();
+                        rollback_failed_payment!();
                     }
                     let chosen = agents[player.index()]
                         .choose_cards_for_effect(player, &valid, needed, needed);
                     if chosen.len() < needed
                         || !chosen.iter().take(needed).all(|cid| valid.contains(cid))
                     {
-                        rollback_cast!();
+                        rollback_failed_payment!();
                     }
                     picks.extend(chosen.into_iter().take(needed));
                 }
@@ -2104,7 +2124,7 @@ impl GameLoop {
                 prechosen_spell_discards.as_deref(),
                 None,
             ) {
-                rollback_cast!();
+                rollback_failed_payment!();
             }
             if has_waterbend {
                 for cid in untapped_before
@@ -2131,7 +2151,7 @@ impl GameLoop {
                 None,
                 prechosen_harmonize_taps.as_deref(),
             ) {
-                rollback_cast!();
+                rollback_failed_payment!();
             }
         }
         if let Some(ref cost) = static_alt_cost {
@@ -2166,7 +2186,7 @@ impl GameLoop {
                 prechosen_static_alt_discards.as_deref(),
                 None,
             ) {
-                rollback_cast!();
+                rollback_failed_payment!();
             }
             if has_waterbend {
                 for cid in untapped_before
@@ -2211,7 +2231,7 @@ impl GameLoop {
                 None,
                 None,
             ) {
-                rollback_cast!();
+                rollback_failed_payment!();
             }
             if has_waterbend {
                 for cid in untapped_before
@@ -2240,7 +2260,7 @@ impl GameLoop {
                     None,
                     None,
                 ) {
-                    rollback_cast!();
+                    rollback_failed_payment!();
                 }
             }
         }
@@ -2279,7 +2299,7 @@ impl GameLoop {
                 None,
                 None,
             ) {
-                rollback_cast!();
+                rollback_failed_payment!();
             }
             if has_waterbend {
                 for cid in untapped_before
@@ -2317,7 +2337,7 @@ impl GameLoop {
                 None,
                 None,
             ) {
-                rollback_cast!();
+                rollback_failed_payment!();
             }
         }
 

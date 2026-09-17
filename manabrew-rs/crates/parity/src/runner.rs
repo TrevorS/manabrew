@@ -650,6 +650,13 @@ impl PlayerAgent for CapturingAgent {
                 }
                 self.failed_payment_cards_this_turn.insert(*card_id);
             }
+            // `HarnessPlayPlumbing` marks the host when `payWithControllerDecision` fails at
+            // any cost part, not only at the mana.
+            GameNotification::SpellPaymentFailed { player, card_id }
+                if *player == self.player_id =>
+            {
+                self.failed_payment_cards_this_turn.insert(*card_id);
+            }
             _ => {}
         }
         self.inner.notify(event.clone());

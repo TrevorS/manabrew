@@ -36,6 +36,12 @@ pub enum GameNotification {
         card_id: CardId,
         ability_index: usize,
     },
+    /// A spell's cost payment failed at any part (additional costs, tap costs, mana) and
+    /// the cast was rolled back. Not sent when targeting or an announcement fails.
+    SpellPaymentFailed {
+        player: PlayerId,
+        card_id: CardId,
+    },
     /// Dice were rolled. Display-only — sent for UI animation/feedback.
     /// Mirrors Java's `PlayerController.notifyOfRoll`.
     DiceRolled {

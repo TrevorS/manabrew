@@ -1534,7 +1534,8 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
                 );
             }
             GameNotification::ManaPaymentResolved { .. } => {}
-            GameNotification::ActivatedAbilityPaymentFailed { .. } => {
+            GameNotification::ActivatedAbilityPaymentFailed { .. }
+            | GameNotification::SpellPaymentFailed { .. } => {
                 self.emit_state();
             }
         }
