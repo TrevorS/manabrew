@@ -69,9 +69,9 @@ pub struct DelayedTrigger {
     pub remembered_lki_cards: Vec<CardId>,
     /// When true, this delayed trigger should sort AFTER same-event active
     /// triggers (resolve FIRST on the LIFO stack). Used to mirror Java's
-    /// trigger-ID-based ordering for granted-evoke sacrifice triggers, whose
-    /// trigger ID is assigned after the card's intrinsic T: triggers and thus
-    /// lands on top of the stack.
+    /// trigger-ID-based ordering for Evoke sacrifice triggers, whose trigger
+    /// ID is assigned after the card's intrinsic T: triggers and thus lands
+    /// on top of the stack.
     pub sort_after_active: bool,
     /// Java delayed triggers are real Trigger instances and receive a trigger
     /// id when parsed. Assign the equivalent order at registration so
@@ -692,14 +692,12 @@ impl TriggerHandler {
 
             // Check delayed triggers (one-shot, removed after firing).
             //
-            // Java places same-event delayed triggers such as Evoke's sacrifice
-            // below normal ETB triggers by default, so the normal ETB resolves
-            // first. Since the stack is LIFO and pending triggers are pushed in
-            // list order, insert delayed matches before active matches for this
-            // event. Delayed triggers marked `sort_after_active` (granted-evoke
-            // sac) instead push AFTER active triggers and resolve first, mirroring
-            // Java's trigger-ID ascending sort when the granted keyword's trigger
-            // ID is higher than the card's intrinsic T: triggers.
+            // Java orders one card's simultaneous triggers by trigger id. The stack is
+            // LIFO and pending triggers are pushed in list order, so a delayed match is
+            // inserted before the active matches for this event unless it is marked
+            // `sort_after_active`: then its id is higher than the card's `T:` triggers
+            // (Evoke's sacrifice on a card rebuilt from its script, or a granted Evoke),
+            // it is pushed after them and resolves first.
             let delayed_insert_at = event_entries_start;
             let mut delayed_insert_offset = 0usize;
             let mut fired_indices = Vec::new();

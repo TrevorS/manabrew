@@ -1136,6 +1136,13 @@ impl GameLoop {
         player: PlayerId,
         evoke_keyword_count: usize,
     ) {
+        // `CardCopyService.copyCard` rebuilds a card with a paper card from its script, which
+        // makes the `T:` triggers before the keyword triggers; a token or a copied permanent
+        // goes through `copyStats`, which copies the keywords first.
+        let keyword_triggers_first = {
+            let card = game.card(card_id);
+            card.is_token || card.copied_permanent.is_some()
+        };
         for i in 0..evoke_keyword_count {
             self.trigger_handler.register_delayed_trigger(
                 crate::trigger::handler::DelayedTrigger {
@@ -1156,7 +1163,7 @@ impl GameLoop {
                     remembered_players: Vec::new(),
                     remembered_lki_cards: Vec::new(),
                     target_card_zone_timestamp: None,
-                    sort_after_active: i > 0,
+                    sort_after_active: i > 0 || !keyword_triggers_first,
                     trigger_order: None,
                 },
             );
