@@ -277,23 +277,34 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     let mut cant_attack_targets: Vec<CardId> = Vec::new();
     let mut cant_block_targets: Vec<CardId> = Vec::new();
     let mut granted_player_rules: Vec<(CardId, StaticAbility)> = Vec::new();
+    let mut granted_statics: Vec<(CardId, StaticAbility)> = Vec::new();
 
-    let source_ids: Vec<CardId> = game.cards.iter().map(|card| card.id).collect();
-    for source_id in source_ids {
-        let static_ability_count = game.card(source_id).static_abilities.len();
-
-        for sa_idx in 0..static_ability_count {
+    let mut statics: std::collections::VecDeque<(CardId, usize, Option<StaticAbility>)> = game
+        .cards
+        .iter()
+        .flat_map(|card| {
+            (0..card.static_abilities.len()).map(move |sa_idx| (card.id, sa_idx, None))
+        })
+        .collect();
+    while let Some((source_id, sa_idx, granted)) = statics.pop_front() {
+        {
+            let is_granted = granted.is_some();
+            let pending_before = pending.len();
             // `check_conditions` rejects on `zones_check` first, so test the zone
             // against a borrow before paying for a full Card clone. Most cards in
             // a game are in a library or graveyard and fail here.
-            {
+            let sa = {
                 let card = game.card(source_id);
-                if !card.static_abilities[sa_idx].zones_check(card.zone) {
+                let zones_ok = match &granted {
+                    Some(sa) => sa.zones_check(card.zone),
+                    None => card.static_abilities[sa_idx].zones_check(card.zone),
+                };
+                if !zones_ok {
                     continue;
                 }
-            }
+                granted.unwrap_or_else(|| card.static_abilities[sa_idx].clone())
+            };
             let source_card = game.card(source_id).clone();
-            let sa = game.card(source_id).static_abilities[sa_idx].clone();
 
             // Full static-ability condition gate (IsPresent$, CheckSVar$, Condition$, etc.).
             // Mirrors Java static ability checks before applying continuous effects.
@@ -475,7 +486,11 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                                 if let Some(granted) =
                                     crate::staticability::parse_static_ability(&static_text)
                                 {
-                                    granted_player_rules.push((target, granted));
+                                    if granted.check_mode(&StaticMode::Continuous) {
+                                        granted_statics.push((target, granted));
+                                    } else {
+                                        granted_player_rules.push((target, granted));
+                                    }
                                 }
                             }
                         }
@@ -555,6 +570,20 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         apply_to_target(card.id);
                     }
                 }
+            }
+
+            // Keep in sync with GameAction.checkStaticAbilities: a static granted in the
+            // ability layer starts applying there, so its earlier layers never apply.
+            if is_granted {
+                let kept: Vec<PendingEffect> = pending
+                    .drain(pending_before..)
+                    .filter(|effect| effect.layer >= Layer::Ability)
+                    .collect();
+                pending.extend(kept);
+            }
+            for (offset, (target, granted)) in granted_statics.drain(..).enumerate().rev() {
+                let granted_idx = game.card(target).static_abilities.len() + offset;
+                statics.push_front((target, granted_idx, Some(granted)));
             }
         }
     }
