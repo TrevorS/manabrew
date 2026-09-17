@@ -1497,14 +1497,13 @@ fn evaluate_cost_amount_count_expr(
             _ => 0,
         };
     }
-    if expr.contains("Graveyard") && expr.contains("YouCtrl") {
-        return game
-            .cards_in_zone(ZoneType::Graveyard, source.controller)
-            .len() as i32;
-    }
-    expr.strip_prefix("Count$")
+    if let Some(n) = expr
+        .strip_prefix("Count$")
         .and_then(|s| s.parse::<i32>().ok())
-        .unwrap_or(0)
+    {
+        return n;
+    }
+    crate::ability::effects::resolve_count_svar(expr, game, source.id, source.controller)
 }
 
 pub fn resolve_count_svar_for_sa(
