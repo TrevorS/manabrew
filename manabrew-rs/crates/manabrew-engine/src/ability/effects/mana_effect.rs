@@ -42,12 +42,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         Some(id) => id,
         None => return,
     };
-
-    let produced_ir = match sa.produced_ir() {
-        Some(ir) => ir,
-        None => return,
-    };
-    let produced = produced_ir.as_script_text();
+    if sa.produced_ir().is_none() {
+        return;
+    }
 
     // `Optional$` — activator confirms before producing (Java ManaEffect
     // optional-prompt branch).
@@ -64,6 +61,25 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             return;
         }
     }
+
+    for player in
+        crate::ability::spell_ability_effect::get_defined_players_or_targeted(ctx.game, sa)
+    {
+        produce_mana_for_player(ctx, sa, source_id, player);
+    }
+}
+
+fn produce_mana_for_player(
+    ctx: &mut EffectContext,
+    sa: &crate::spellability::SpellAbility,
+    source_id: crate::ids::CardId,
+    player: crate::ids::PlayerId,
+) {
+    let produced_ir = match sa.produced_ir() {
+        Some(ir) => ir,
+        None => return,
+    };
+    let produced = produced_ir.as_script_text();
 
     // `Chooser$` — delegate the color / combo choice to a specific player
     // (e.g. Mirari's Wake: owner chooses mana type but opponent votes).

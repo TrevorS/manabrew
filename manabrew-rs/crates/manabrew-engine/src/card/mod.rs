@@ -1542,6 +1542,10 @@ impl Card {
         *self.counters.get(ct).unwrap_or(&0)
     }
 
+    pub fn num_all_counters(&self) -> i32 {
+        self.counters.values().copied().sum()
+    }
+
     pub fn add_counter(&mut self, ct: &CounterType, count: i32) {
         let entry = self.counters.entry(ct.clone()).or_insert(0);
         *entry += count;

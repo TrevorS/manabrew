@@ -160,7 +160,7 @@ fn spell_ability_x_property(spell_ability: &SpellAbility, expr: &str, game: &Gam
         _ if value.starts_with("CardCounters.") => {
             let counter_name = value.strip_prefix("CardCounters.").unwrap_or("");
             if counter_name.eq_ignore_ascii_case("ALL") {
-                source.counters.values().copied().sum()
+                source.num_all_counters()
             } else {
                 source.counter_count(&crate::ability::ability_utils::parse_counter_type(
                     counter_name,
@@ -228,7 +228,7 @@ fn card_x_property(
         _ if value.starts_with("CardCounters.") => {
             let counter_name = value.strip_prefix("CardCounters.").unwrap_or("");
             if counter_name.eq_ignore_ascii_case("ALL") {
-                card.counters.values().copied().sum()
+                card.num_all_counters()
             } else {
                 card.counter_count(&crate::ability::ability_utils::parse_counter_type(
                     counter_name,
@@ -1463,6 +1463,9 @@ fn evaluate_cost_amount_count_expr(
             .unwrap_or(0);
     }
     if let Some(counter_name) = expr.strip_prefix("Count$CardCounters.") {
+        if counter_name == "ALL" {
+            return source.num_all_counters();
+        }
         let counter_type = crate::ability::ability_utils::parse_counter_type(counter_name);
         return source.counter_count(&counter_type);
     }
@@ -1959,6 +1962,9 @@ pub fn resolve_count_svar_for_sa(
     }
     // Count$CardCounters.TYPE
     if let Some(counter_type) = expr.strip_prefix("Count$CardCounters.") {
+        if counter_type == "ALL" {
+            return game.card(source_id).num_all_counters();
+        }
         let ct = crate::ability::effects::parse_counter_type(counter_type);
         return *game.card(source_id).counters.get(&ct).unwrap_or(&0);
     }

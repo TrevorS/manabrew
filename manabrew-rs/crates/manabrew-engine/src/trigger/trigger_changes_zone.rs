@@ -143,7 +143,11 @@ impl TriggerBehavior for TriggerChangesZone {
                     let Some(counter_name) = lhs.strip_prefix("Count$CardCounters.") else {
                         return false;
                     };
-                    moved.counter_count(&parse_counter_type(counter_name))
+                    if counter_name == "ALL" {
+                        moved.num_all_counters()
+                    } else {
+                        moved.counter_count(&parse_counter_type(counter_name))
+                    }
                 }
             };
             if !compare_expr(actual_value, rhs) {
