@@ -15,6 +15,12 @@ use crate::protocol::{
 
 /// Callbacks both engines log at the same points. Anything else is logged by
 /// one engine only and would misalign the sequences.
+///
+/// `pay_cost_to_prevent_effect` is left out on purpose: Java pays inside the
+/// controller call and logs the row after the nested payment prompts, with the
+/// payment result, and also logs `false` when the cost cannot be paid; Rust
+/// logs `can_pay` before it pays and asks nothing when it cannot. Neither side
+/// draws RNG for the row, and the nested prompts are compared on their own.
 pub const COMPARED_CALLBACKS: &[&str] = &[
     "$ACTION_SPACE",
     "assign_combat_damage",
@@ -62,7 +68,6 @@ pub const COMPARED_CALLBACKS: &[&str] = &[
     "flip_coin_call",
     "help_pay_assist",
     "pay_combat_cost",
-    "pay_cost_to_prevent_effect",
     "pay_mana_cost",
     "specify_mana_combo",
 ];
