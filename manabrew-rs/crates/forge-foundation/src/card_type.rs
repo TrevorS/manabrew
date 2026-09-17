@@ -257,6 +257,27 @@ impl CardTypeLine {
             .any(|s| s.eq_ignore_ascii_case(subtype))
     }
 
+    pub fn has_string_type(&self, t: &str) -> bool {
+        if t.is_empty() {
+            return false;
+        }
+        if self.has_subtype(t) {
+            return true;
+        }
+        let mut chars = t.chars();
+        let capitalized: String = chars
+            .next()
+            .map(|first| first.to_uppercase().chain(chars).collect())
+            .unwrap_or_default();
+        if let Some(core_type) = CoreType::from_name(&capitalized) {
+            return self.core_types.contains(&core_type);
+        }
+        if let Some(supertype) = Supertype::from_name(&capitalized) {
+            return self.supertypes.contains(&supertype);
+        }
+        false
+    }
+
     pub fn add_type(&mut self, t: &str) {
         if let Some(st) = Supertype::from_name(t) {
             self.supertypes.insert(st);

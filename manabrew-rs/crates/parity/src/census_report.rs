@@ -113,6 +113,18 @@ fn known_subtypes(type_lists: &str) -> BTreeSet<String> {
         .collect()
 }
 
+/// A core type or supertype: `CardTypeLine::has_string_type` answers these, so
+/// reaching the subtype tail with one is not a fallback.
+fn is_type_word(word: &str) -> bool {
+    let mut chars = word.chars();
+    let capitalized: String = chars
+        .next()
+        .map(|first| first.to_uppercase().chain(chars).collect())
+        .unwrap_or_default();
+    forge_foundation::CoreType::from_name(&capitalized).is_some()
+        || forge_foundation::Supertype::from_name(&capitalized).is_some()
+}
+
 /// `parity census-report <census.json> [--cards-file names.txt] [--top N]`
 pub fn run_cli(args: &[String], db: &CardDatabase) -> i32 {
     let Some(census_path) = args.get(1) else {
@@ -274,12 +286,13 @@ pub fn run_cli(args: &[String], db: &CardDatabase) -> i32 {
         .unhandled
         .iter()
         .filter(|u| {
-            !(u.kind.ends_with("-as-subtype") && subtypes.contains(&u.detail.to_lowercase()))
+            !(u.kind.ends_with("-as-subtype")
+                && (subtypes.contains(&u.detail.to_lowercase()) || is_type_word(&u.detail)))
         })
         .collect();
     fallbacks.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.detail.cmp(&b.detail)));
     println!(
-        "\npermissive fallbacks that fired, real subtypes excluded ({}):",
+        "\npermissive fallbacks that fired, real types and subtypes excluded ({}):",
         fallbacks.len()
     );
     for u in fallbacks.iter().take(top) {

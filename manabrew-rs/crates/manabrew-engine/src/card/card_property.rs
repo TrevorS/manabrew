@@ -168,7 +168,7 @@ fn matches_single_property(card: &Card, property: &str, source_controller: Playe
                         "token" => !card.is_token,
                         _ => {
                             crate::census::unhandled("property-as-subtype", &property[3..]);
-                            !card.has_subtype(&property[3..])
+                            !card.has_string_type(&property[3..])
                         }
                     }
                 }
@@ -180,7 +180,7 @@ fn matches_single_property(card: &Card, property: &str, source_controller: Playe
                 // Check if it's a creature subtype (Wall, Zombie, Elf, etc.).
                 // Mirrors Java's CardProperty.cardHasProperty() subtype matching.
                 crate::census::unhandled("property-as-subtype", property);
-                card.has_subtype(property)
+                card.has_string_type(property)
             }
         }
     }

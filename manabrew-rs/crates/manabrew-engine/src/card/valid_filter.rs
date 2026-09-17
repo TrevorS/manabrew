@@ -714,7 +714,7 @@ fn matches_card_type_predicate(card_type: &CardSelectorType, card: &Card) -> boo
                 card.is_outlaw()
             } else {
                 crate::census::unhandled("property-as-subtype", subtype);
-                card.has_subtype(subtype)
+                card.has_string_type(subtype)
             }
         }
     }
@@ -1740,7 +1740,7 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
                     card.color.is_colorless()
                 } else {
                     crate::census::unhandled("property-as-subtype", value);
-                    card.has_subtype(value)
+                    card.has_string_type(value)
                 }
             }
         }
@@ -2403,7 +2403,7 @@ fn matches_type_and_qualifier_parts(
                             // Mirrors card_has_property behavior: unrecognized qualifiers
                             // are checked against the card's type_line subtypes.
                             crate::census::unhandled("property-as-subtype", sub);
-                            if !card.has_subtype(sub) {
+                            if !card.has_string_type(sub) {
                                 return false;
                             }
                         }

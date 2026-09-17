@@ -111,7 +111,7 @@ python3 scripts/parity-ir-audit.py --cards-file standard_names.txt
 - script parameters with no matching string anywhere in the engine sources. These are certain gaps. The report refuses to run if it cannot find `"ValidTgts"` in the engine sources, so an empty list never means "looked in the wrong place".
 - parameters the engine knows, carried by abilities the run consulted, and never read through a tracked accessor. Candidates only: a builder that reads `Params::inner()` directly is not tracked.
 - APIs, trigger modes and replacement events the run never exercised, so it says nothing about them.
-- permissive fallbacks that fired (`property-as-subtype`, `condition-assumed-true`, `valid-player-matches-all`, `count-expression-as-zero`, `alter-attribute-ignored`, ...) with the offending string, real subtypes filtered out against `TypeLists.txt`.
+- permissive fallbacks that fired (`property-as-subtype`, `condition-assumed-true`, `valid-player-matches-all`, `count-expression-as-zero`, `alter-attribute-ignored`, ...) with the offending string, real subtypes filtered out against `TypeLists.txt` and core types and supertypes filtered out by name (`Card::has_string_type` answers those, as Forge's `CardType.hasStringType` does).
 
 `scripts/parity-ir-audit.py` covers the case the census cannot see: a parameter parsed into an `*Ir` field that no effect ever reads.
 

@@ -3320,6 +3320,9 @@ impl Card {
     pub fn has_subtype(&self, subtype: &str) -> bool {
         self.type_line.has_subtype(subtype) || self.has_creature_type(subtype)
     }
+    pub fn has_string_type(&self, t: &str) -> bool {
+        self.type_line.has_string_type(t) || self.has_creature_type(t)
+    }
     pub fn shares_color_with(&self, other: &Card) -> bool {
         (self.color.has_white() && other.color.has_white())
             || (self.color.has_blue() && other.color.has_blue())
