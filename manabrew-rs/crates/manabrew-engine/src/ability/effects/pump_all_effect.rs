@@ -78,10 +78,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         })
         .unwrap_or_default();
 
-    if att_bonus == 0 && def_bonus == 0 && keywords.is_empty() {
-        return;
-    }
-
     let valid_cards = sa.ir.valid_cards_selector.as_ref();
 
     // Determine the zone to look for cards in (default: Battlefield).
@@ -141,6 +137,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .add_pt_boost(att_bonus, def_bonus);
             for kw in &keywords {
                 ctx.game.card_mut(card_id).add_pump_keyword(kw);
+            }
+        }
+        if sa.ir.remember_pumped {
+            if let Some(source) = sa.source {
+                ctx.game.card_mut(source).add_remembered(card_id);
             }
         }
     }

@@ -220,6 +220,7 @@ pub const TGT_ZONE: &str = "TgtZone";
 pub const RESULT: &str = "Result";
 pub const PREVENT: &str = "Prevent";
 pub const REMEMBER_CHANGED: &str = "RememberChanged";
+pub const REMEMBER_PUMPED: &str = "RememberPumped";
 pub const REVEAL: &str = "Reveal";
 pub const SHUFFLE: &str = "Shuffle";
 pub const SKIP_UNTAP: &str = "SkipUntap";
