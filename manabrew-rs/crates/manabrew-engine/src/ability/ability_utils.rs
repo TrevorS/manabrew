@@ -1032,24 +1032,29 @@ pub fn matches_valid_cards_for_sa(
     selector: Option<&CompiledSelector>,
     default_filter: &str,
 ) -> bool {
-    match (selector, sa.source) {
-        (Some(selector), Some(source_id)) => valid_filter::matches_valid_card_selector_in_game(
-            selector,
-            card,
-            game.card(source_id),
-            game,
-        ),
-        (Some(selector), None) => {
-            matches_valid_cards_selector_opt(Some(selector), card, sa.activating_player)
+    let Some(source_id) = sa.source else {
+        return match selector {
+            Some(selector) => {
+                matches_valid_cards_selector_opt(Some(selector), card, sa.activating_player)
+            }
+            None => matches_valid_cards(card, default_filter, sa.activating_player),
+        };
+    };
+    let parsed;
+    let selector = match selector {
+        Some(selector) => selector,
+        None => {
+            parsed = cached_compiled_selector(default_filter);
+            &parsed
         }
-        (None, Some(source_id)) => valid_filter::matches_valid_card_selector_in_game(
-            &cached_compiled_selector(default_filter),
-            card,
-            game.card(source_id),
-            game,
-        ),
-        (None, None) => matches_valid_cards(card, default_filter, sa.activating_player),
-    }
+    };
+    let targeted_cards = sa.target_chosen.all_target_cards();
+    let targeted_players = sa.target_chosen.all_target_players();
+    let context = valid_filter::MatchContext::from_source(game.card(source_id))
+        .with_game(game)
+        .with_targets(&targeted_cards, &targeted_players)
+        .with_spell_ability(sa);
+    valid_filter::matches_valid_card_selector_with_context(selector, card, context)
 }
 
 pub fn matches_valid_cards_for_source(

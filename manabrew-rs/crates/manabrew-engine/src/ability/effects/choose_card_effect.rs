@@ -23,7 +23,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         None => return,
     };
 
-    let controller = sa.activating_player;
+    let tgt_players =
+        crate::ability::spell_ability_effect::get_defined_players_or_targeted(ctx.game, sa);
 
     let amount: usize = sa
         .ir
@@ -65,10 +66,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
-    // Ask the controlling player to choose
-    ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
-    let chosen = ctx.agents[controller.index()]
-        .choose_cards_for_effect(controller, &valid, min_amount, amount);
+    let mut chosen = Vec::new();
+    for p in tgt_players {
+        ctx.agents[p.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        chosen.extend(ctx.agents[p.index()].choose_cards_for_effect(p, &valid, min_amount, amount));
+    }
 
     // Store on source card
     ctx.game
