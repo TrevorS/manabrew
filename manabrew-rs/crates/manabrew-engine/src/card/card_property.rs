@@ -58,6 +58,7 @@ fn matches_single_property(card: &Card, property: &str, source_controller: Playe
         fc::NON_ARTIFACT => !card.type_line.is_artifact(),
         "tapped" => card.tapped,
         "untapped" => !card.tapped,
+        "hasABasicLandType" => card.has_a_basic_land_type(),
         _ => {
             let lower = property.to_ascii_lowercase();
             // Power comparisons (powerLE2, powerGE3, etc.)
