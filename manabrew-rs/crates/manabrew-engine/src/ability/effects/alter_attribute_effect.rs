@@ -102,7 +102,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     let val = if activate { "True" } else { "False" };
                     ctx.game.card_mut(card_id).set_s_var("IsCommander", val);
                 }
-                _ => {}
+                other => crate::census::unhandled("alter-attribute-ignored", other),
             }
 
             if sa.ir.remember_altered {

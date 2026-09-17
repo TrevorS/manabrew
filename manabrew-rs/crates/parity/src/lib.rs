@@ -17,11 +17,14 @@
 
 pub mod callback_fmt;
 pub mod card_pool;
+pub mod census_report;
 pub mod choice_space;
 pub mod combat_choice_space;
 pub mod comparator;
+pub mod decision_diff;
 pub mod deck_generator;
 pub mod deterministic_agent;
+pub mod gate;
 pub mod gui_repro;
 pub mod java_bridge;
 pub mod java_cache;
@@ -31,11 +34,15 @@ pub mod parity_compare;
 pub mod parity_id;
 pub mod parity_log;
 pub mod parity_order;
+pub mod probe;
 pub mod protocol;
 pub mod report;
 pub mod runner;
 pub mod runtime;
+pub mod script_index;
+pub mod script_query;
 pub mod snapshot;
+pub mod sweep;
 pub mod utils;
 
 pub mod infra;

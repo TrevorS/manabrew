@@ -1,8 +1,8 @@
 //! Report generation: JSON and human-readable text summaries of parity results.
 
 use crate::protocol::{
-    CardSnapshot, Divergence, FuzzReport, GameTrace, MatchupStatus, MatrixReport, ParityReport,
-    StateSnapshot,
+    CardSnapshot, Divergence, FuzzReport, GameTrace, MatchupResult, MatchupStatus, MatrixReport,
+    ParityReport, StateSnapshot, Verdict,
 };
 
 const ANSI_RESET: &str = "\x1b[0m";
@@ -80,6 +80,61 @@ pub fn format_text_with_snapshots(
         }
     }
 
+    out
+}
+
+const OTHER_DIVERGENCE_LIMIT: usize = 16;
+
+fn format_other_divergences(r: &MatchupResult) -> String {
+    let mut out = String::new();
+    let others = r.divergences.iter().skip(1);
+    let total = others.clone().count();
+    for div in others.take(OTHER_DIVERGENCE_LIMIT) {
+        let subject = div
+            .subject
+            .as_deref()
+            .map(|s| format!(" ({s})"))
+            .unwrap_or_default();
+        out.push_str(&format!(
+            "       also {}{subject}: Rust={} Java={}\n",
+            div.field, div.rust_value, div.java_value
+        ));
+    }
+    if total > OTHER_DIVERGENCE_LIMIT {
+        out.push_str(&format!(
+            "       ... {} more differing fields\n",
+            total - OTHER_DIVERGENCE_LIMIT
+        ));
+    }
+    if let Some(decision) = &r.decision {
+        out.push_str(&format!(
+            "     first differing decision [T{} {}] {}\n       Rust: {}\n       Java: {}\n",
+            decision.turn,
+            decision.phase,
+            decision.subject.as_deref().unwrap_or(""),
+            decision.rust_value,
+            decision.java_value
+        ));
+    }
+    if let Some(deep) = &r.localized {
+        out.push_str(&format!(
+            "     deep rerun first diverges at [T{} {}] {}: Rust={} Java={}\n",
+            deep.turn, deep.phase, deep.field, deep.rust_value, deep.java_value
+        ));
+        for line in &r.localized_detail {
+            out.push_str(&format!("       {line}\n"));
+        }
+    }
+    if r.verdict() != Verdict::Fail {
+        out.push_str(&format!(
+            "     verdict {}: {}\n",
+            r.verdict().as_str(),
+            r.skip_reason.as_deref().unwrap_or_default()
+        ));
+    }
+    if !out.is_empty() {
+        out.push('\n');
+    }
     out
 }
 
@@ -188,6 +243,7 @@ pub fn format_matrix_text(report: &MatrixReport) -> String {
                             div.rust_value,
                             div.java_value,
                         ));
+                        out.push_str(&format_other_divergences(r));
                         if let (Some(rs), Some(js)) = (&r.rust_snapshot, &r.java_snapshot) {
                             out.push_str(&format_snapshot_diff(rs, js, "     "));
                         }
@@ -706,6 +762,7 @@ mod tests {
                 field: "players[0].life".into(),
                 rust_value: "18".into(),
                 java_value: "20".into(),
+                subject: None,
             }],
             passed: false,
         };

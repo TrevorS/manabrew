@@ -121,7 +121,14 @@ fn snapshot_player(
                 keywords: card_keywords(card),
                 attached_to: card
                     .attached_to
-                    .map(|attached| game.card(attached).card_name.clone())
+                    .map(|attached| {
+                        let host = game.card(attached);
+                        if host.face_down {
+                            String::new()
+                        } else {
+                            host.card_name.clone()
+                        }
+                    })
                     .or_else(|| {
                         card.attached_to_player
                             .map(|player| format!("P{}", player.0))
@@ -249,6 +256,7 @@ fn card_keywords(card: &manabrew_engine::card::CardInstance) -> Vec<String> {
         .chain(card.pump_keywords.as_string_list())
         .filter(|keyword| {
             keyword.as_str() != manabrew_engine::card::KEYWORD_WARP_EXILED
+                && !keyword.starts_with("HIDDEN")
                 && !card
                     .cant_have_keywords
                     .contains(&keyword.to_ascii_lowercase())

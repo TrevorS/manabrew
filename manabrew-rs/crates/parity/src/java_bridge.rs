@@ -227,6 +227,11 @@ impl JavaBridge {
                 continue;
             }
 
+            if let Some(event) = parse_event_line(&line) {
+                log.push(ParityLogEntry::Event(event));
+                continue;
+            }
+
             if let Some(decision) = parse_decision_line(&line) {
                 log.push(ParityLogEntry::Decision(decision));
                 continue;
@@ -281,6 +286,7 @@ impl JavaBridge {
 // ---------------------------------------------------------------------------
 // JavaServer — long-lived server mode
 // ---------------------------------------------------------------------------
+#[derive(Clone)]
 pub struct JavaServerConfig {
     pub jar_path: PathBuf,
     pub forge_home: Option<String>,
@@ -533,6 +539,11 @@ impl JavaServer {
                 }
             }
 
+            if let Some(event) = parse_event_line(line) {
+                log.push(ParityLogEntry::Event(event));
+                continue;
+            }
+
             if let Some(decision) = parse_decision_line(line) {
                 log.push(ParityLogEntry::Decision(decision));
                 continue;
@@ -657,6 +668,11 @@ impl JavaServer {
             }
 
             if draining {
+                continue;
+            }
+
+            if let Some(event) = parse_event_line(line) {
+                log.push(ParityLogEntry::Event(event));
                 continue;
             }
 
@@ -788,6 +804,13 @@ struct CallbackEnvelope {
     callback_args: Vec<String>,
     #[serde(default)]
     timestamp_ms: u64,
+}
+
+fn parse_event_line(line: &str) -> Option<crate::protocol::EventRecord> {
+    if !line.starts_with("{\"entry_type\":\"event\"") {
+        return None;
+    }
+    serde_json::from_str(line).ok()
 }
 
 fn parse_decision_line(line: &str) -> Option<DecisionRecord> {

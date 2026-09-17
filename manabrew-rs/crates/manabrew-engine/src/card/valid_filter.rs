@@ -713,6 +713,7 @@ fn matches_card_type_predicate(card_type: &CardSelectorType, card: &Card) -> boo
             if subtype.eq_ignore_ascii_case("Outlaw") {
                 card.is_outlaw()
             } else {
+                crate::census::unhandled("property-as-subtype", subtype);
                 card.has_subtype(subtype)
             }
         }
@@ -1738,6 +1739,7 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
                 } else if color_name.eq_ignore_ascii_case("Colorless") {
                     card.color.is_colorless()
                 } else {
+                    crate::census::unhandled("property-as-subtype", value);
                     card.has_subtype(value)
                 }
             }
@@ -2400,6 +2402,7 @@ fn matches_type_and_qualifier_parts(
                             // Fall through: check as creature subtype (Wall, Zombie, etc.)
                             // Mirrors card_has_property behavior: unrecognized qualifiers
                             // are checked against the card's type_line subtypes.
+                            crate::census::unhandled("property-as-subtype", sub);
                             if !card.has_subtype(sub) {
                                 return false;
                             }
@@ -2628,7 +2631,10 @@ fn matches_single_valid_player(
         "opponent" | "oppctrl" | "opponentctrl" => player != source_controller,
         "any" | "each" | "player" | "player.ingame" => true,
         // "Active" / "NonActive" would need turn info — not currently supported
-        _ => true, // unknown filter, match all (permissive fallback)
+        _ => {
+            crate::census::unhandled("valid-player-matches-all", filter_lower.as_str());
+            true
+        }
     }
 }
 
@@ -2830,7 +2836,10 @@ fn check_condition_value(game: &GameState, condition: Option<&str>, source: &Car
         "Monarch" => game.monarch == Some(controller),
         "Night" => game.is_night,
         "FatefulHour" => game.player(controller).life <= 5,
-        _ => true, // unknown condition — permissive fallback
+        other => {
+            crate::census::unhandled("condition-assumed-true", other);
+            true
+        }
     }
 }
 

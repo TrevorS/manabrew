@@ -1,14 +1,15 @@
 //! File-system cache for Java harness output.
 //!
-//! Avoids spawning the Java harness for matchups whose output hasn't changed.
+//! Avoids running the Java harness for matchups whose output cannot have changed.
 //! Cache is keyed on:
-//! - A **source hash** covering all Java source files + deck definitions
+//! - A **source hash** covering the Java sources, the card and token scripts,
+//!   and the harness jar. When it changes the entire cache is wiped.
 //! - Per-matchup parameters (deck1, deck2, seed, max_turns, prefer_actions,
-//!   deep, variant, commanders)
+//!   deep, variant, commanders) plus the contents of the two decks, so editing
+//!   one deck only invalidates the matchups that use it.
 //!
-//! When the source hash changes the entire cache is wiped (cheap — just delete
-//! the directory).  Individual entries are stored as compressed JSON files so
-//! they are portable between local dev, CI artefacts and Docker volumes.
+//! Individual entries are stored as JSON files so they are portable between
+//! local dev, CI artefacts and Docker volumes.
 
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
@@ -16,8 +17,11 @@ use std::hash::{Hash, Hasher};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use rayon::prelude::*;
+
 use crate::java_bridge::JavaMatchupData;
 use crate::protocol::ParityLogEntry;
+use crate::runner::{deck_search_dirs, RunConfig};
 
 /// Lightweight wrapper that manages a directory of cached Java matchup outputs.
 pub struct JavaCache {
@@ -25,11 +29,12 @@ pub struct JavaCache {
     source_hash: String,
 }
 
-/// Parameters that uniquely identify a matchup (together with the source hash).
 #[derive(Hash)]
 struct MatchupKey<'a> {
     deck1: &'a str,
+    deck1_contents: u64,
     deck2: &'a str,
+    deck2_contents: u64,
     seed: u64,
     max_turns: u32,
     prefer_actions: bool,
@@ -64,17 +69,16 @@ struct Manifest {
 }
 
 const MANIFEST_FILE: &str = "manifest.json";
-const CACHE_VERSION: u32 = 7;
+pub const CACHE_VERSION: u32 = 9;
 
 impl JavaCache {
     /// Open (or create) a cache directory.
     ///
     /// `source_hash` is an opaque string that identifies the current Java
-    /// source + deck definitions.  When it changes the entire cache is wiped.
+    /// sources, card scripts and jar. When it changes the entire cache is wiped.
     pub fn open(cache_dir: &Path, source_hash: String) -> std::io::Result<Self> {
         fs::create_dir_all(cache_dir)?;
 
-        // Check manifest — if source hash differs, wipe everything.
         let manifest_path = cache_dir.join(MANIFEST_FILE);
         let needs_wipe = if manifest_path.exists() {
             match fs::read_to_string(&manifest_path) {
@@ -85,7 +89,6 @@ impl JavaCache {
                 Err(_) => true,
             }
         } else {
-            // No manifest — fresh cache, no wipe needed.
             false
         };
 
@@ -94,7 +97,6 @@ impl JavaCache {
                 "[java-cache] Source hash changed — wiping cache at {}",
                 cache_dir.display()
             );
-            // Remove all files except the directory itself
             for entry in fs::read_dir(cache_dir)? {
                 let entry = entry?;
                 let path = entry.path();
@@ -106,7 +108,6 @@ impl JavaCache {
             }
         }
 
-        // Write fresh manifest
         let manifest = Manifest {
             source_hash: source_hash.clone(),
             version: CACHE_VERSION,
@@ -120,27 +121,8 @@ impl JavaCache {
     }
 
     /// Look up a cached matchup.  Returns `None` on miss or corruption.
-    pub fn get(
-        &self,
-        deck1: &str,
-        deck2: &str,
-        seed: u64,
-        max_turns: u32,
-        prefer_actions: bool,
-        deep: bool,
-        variant: &str,
-        commanders: &[String],
-    ) -> Option<JavaMatchupData> {
-        let path = self.entry_path(
-            deck1,
-            deck2,
-            seed,
-            max_turns,
-            prefer_actions,
-            deep,
-            variant,
-            commanders,
-        );
+    pub fn get(&self, config: &RunConfig) -> Option<JavaMatchupData> {
+        let path = self.entry_path(config);
         let bytes = fs::read(&path).ok()?;
         let cached: CachedMatchup = match serde_json::from_slice(&bytes) {
             Ok(c) => c,
@@ -159,30 +141,9 @@ impl JavaCache {
 
     /// Store a matchup result.  Uses atomic write (temp + rename) to be safe
     /// under concurrent access from rayon threads.
-    pub fn put(
-        &self,
-        deck1: &str,
-        deck2: &str,
-        seed: u64,
-        max_turns: u32,
-        prefer_actions: bool,
-        deep: bool,
-        variant: &str,
-        commanders: &[String],
-        data: &JavaMatchupData,
-    ) -> std::io::Result<()> {
-        let path = self.entry_path(
-            deck1,
-            deck2,
-            seed,
-            max_turns,
-            prefer_actions,
-            deep,
-            variant,
-            commanders,
-        );
+    pub fn put(&self, config: &RunConfig, data: &JavaMatchupData) -> std::io::Result<()> {
+        let path = self.entry_path(config);
 
-        // Ensure shard directory exists
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -190,7 +151,6 @@ impl JavaCache {
         let cached = CachedMatchup::from(data);
         let json = serde_json::to_vec(&cached)?;
 
-        // Atomic write: write to temp file, then rename
         let tmp = path.with_extension("tmp");
         fs::write(&tmp, &json)?;
         fs::rename(&tmp, &path)?;
@@ -228,28 +188,19 @@ impl JavaCache {
         &self.source_hash
     }
 
-    // ── internal ──────────────────────────────────────────────────────
-
-    fn entry_path<'a>(
-        &self,
-        deck1: &'a str,
-        deck2: &'a str,
-        seed: u64,
-        max_turns: u32,
-        prefer_actions: bool,
-        deep: bool,
-        variant: &'a str,
-        commanders: &'a [String],
-    ) -> PathBuf {
+    fn entry_path(&self, config: &RunConfig) -> PathBuf {
+        let decks_dirs = deck_search_dirs(config.decks_dir.as_deref());
         let key = MatchupKey {
-            deck1,
-            deck2,
-            seed,
-            max_turns,
-            prefer_actions,
-            deep,
-            variant,
-            commanders,
+            deck1: &config.deck1,
+            deck1_contents: deck_contents_hash(&config.deck1, &decks_dirs),
+            deck2: &config.deck2,
+            deck2_contents: deck_contents_hash(&config.deck2, &decks_dirs),
+            seed: config.seed,
+            max_turns: config.max_turns,
+            prefer_actions: config.prefer_actions,
+            deep: config.deep,
+            variant: &config.variant,
+            commanders: &config.commanders,
         };
         let hash = {
             let mut h = DefaultHasher::new();
@@ -257,13 +208,25 @@ impl JavaCache {
             key.hash(&mut h);
             format!("{:016x}", h.finish())
         };
-        // Shard by first 2 hex chars to avoid giant flat directories
         let shard = &hash[..2];
         self.cache_dir.join(shard).join(format!("{hash}.json"))
     }
 }
 
-pub fn compute_source_hash(project_root: &Path) -> String {
+fn deck_contents_hash(spec: &str, decks_dirs: &[&str]) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    if let Some(path) = spec.strip_prefix("file:") {
+        fs::read(path).ok().hash(&mut hasher);
+    } else if !spec.starts_with("inline:") {
+        let found = decks_dirs
+            .iter()
+            .find_map(|dir| fs::read(Path::new(dir).join(format!("{spec}.json"))).ok());
+        found.hash(&mut hasher);
+    }
+    hasher.finish()
+}
+
+pub fn compute_source_hash(project_root: &Path, jar_path: Option<&Path>) -> String {
     let dirs_to_hash = [
         "forge-harness/src",
         "forge/forge-game/src",
@@ -271,29 +234,33 @@ pub fn compute_source_hash(project_root: &Path) -> String {
         "forge/forge-ai/src",
         "forge/forge-gui/res/cardsfolder",
         "forge/forge-gui/res/tokenscripts",
-        "public/preset_decks",
-        "parity_decks",
     ];
 
-    let mut entries: Vec<(String, Vec<u8>)> = Vec::new();
-
+    let mut files: Vec<(String, PathBuf)> = Vec::new();
     for dir in &dirs_to_hash {
         let full = project_root.join(dir);
         if !full.exists() {
             continue;
         }
-        collect_files(&full, &full, &mut entries);
+        collect_files(&full, &full, &mut files);
     }
+    files.sort();
 
-    // Stable sort by relative path for determinism
-    entries.sort_by(|a, b| a.0.cmp(&b.0));
+    let digests: Vec<u64> = files
+        .par_iter()
+        .map(|(rel_path, path)| {
+            let mut hasher = DefaultHasher::new();
+            rel_path.hash(&mut hasher);
+            fs::read(path).ok().hash(&mut hasher);
+            hasher.finish()
+        })
+        .collect();
 
     let mut hasher = DefaultHasher::new();
-    for (rel_path, content) in &entries {
-        rel_path.hash(&mut hasher);
-        content.hash(&mut hasher);
+    digests.hash(&mut hasher);
+    if let Some(jar) = jar_path {
+        compute_jar_hash(jar).ok().hash(&mut hasher);
     }
-
     format!("{:016x}", hasher.finish())
 }
 
@@ -311,7 +278,7 @@ pub fn compute_jar_hash(jar_path: &Path) -> std::io::Result<String> {
     Ok(format!("{:016x}", hasher.finish()))
 }
 
-fn collect_files(base: &Path, dir: &Path, out: &mut Vec<(String, Vec<u8>)>) {
+fn collect_files(base: &Path, dir: &Path, out: &mut Vec<(String, PathBuf)>) {
     let entries = match fs::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return,
@@ -321,17 +288,14 @@ fn collect_files(base: &Path, dir: &Path, out: &mut Vec<(String, Vec<u8>)>) {
         if path.is_dir() {
             collect_files(base, &path, out);
         } else if path.is_file() {
-            // Only hash source-like files
             let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
             if matches!(ext, "java" | "json" | "xml" | "properties" | "txt") {
-                if let Ok(content) = fs::read(&path) {
-                    let rel = path
-                        .strip_prefix(base)
-                        .unwrap_or(&path)
-                        .to_string_lossy()
-                        .to_string();
-                    out.push((rel, content));
-                }
+                let rel = path
+                    .strip_prefix(base)
+                    .unwrap_or(&path)
+                    .to_string_lossy()
+                    .to_string();
+                out.push((rel, path));
             }
         }
     }

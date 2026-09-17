@@ -166,7 +166,10 @@ fn matches_single_property(card: &Card, property: &str, source_controller: Playe
                         "artifact" => !card.type_line.is_artifact(),
                         "enchantment" => !card.type_line.is_enchantment(),
                         "token" => !card.is_token,
-                        _ => !card.has_subtype(&property[3..]),
+                        _ => {
+                            crate::census::unhandled("property-as-subtype", &property[3..]);
+                            !card.has_subtype(&property[3..])
+                        }
                     }
                 }
             } else if let Some(keyword) = property.strip_prefix("without") {
@@ -176,6 +179,7 @@ fn matches_single_property(card: &Card, property: &str, source_controller: Playe
             } else {
                 // Check if it's a creature subtype (Wall, Zombie, Elf, etc.).
                 // Mirrors Java's CardProperty.cardHasProperty() subtype matching.
+                crate::census::unhandled("property-as-subtype", property);
                 card.has_subtype(property)
             }
         }

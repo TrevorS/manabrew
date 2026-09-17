@@ -28,6 +28,7 @@ pub mod action;
 pub mod agent;
 pub mod card;
 pub mod card_trait_base;
+pub mod census;
 pub mod combat;
 pub mod core;
 pub mod cost;

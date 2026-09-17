@@ -147,6 +147,16 @@ pub struct ParsedParams<'a> {
     entries: ParamEntries<'a>,
 }
 
+pub type ParamReadHook = fn(&ParsedParams<'_>, &str);
+
+static PARAM_READ_HOOK: std::sync::OnceLock<ParamReadHook> = std::sync::OnceLock::new();
+
+/// Called with every key looked up through `get`, `semantic_get` and `has_any`.
+/// Lets the engine's census see reads that happen while an IR is built.
+pub fn set_param_read_hook(hook: ParamReadHook) {
+    let _ = PARAM_READ_HOOK.set(hook);
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedParamsReport<'a> {
     pub params: ParsedParams<'a>,
@@ -570,6 +580,9 @@ impl<'a> ParsedParams<'a> {
     }
 
     pub fn semantic_get(&self, key: &str) -> Option<SemanticParam<'a>> {
+        if let Some(hook) = PARAM_READ_HOOK.get() {
+            hook(self, key);
+        }
         self.entries
             .iter()
             .rfind(|entry| entry.key == key)
@@ -577,6 +590,9 @@ impl<'a> ParsedParams<'a> {
     }
 
     pub fn get(&self, key: &str) -> Option<&'a str> {
+        if let Some(hook) = PARAM_READ_HOOK.get() {
+            hook(self, key);
+        }
         self.entries
             .iter()
             .rfind(|entry| entry.key == key)
@@ -588,6 +604,11 @@ impl<'a> ParsedParams<'a> {
     }
 
     pub fn has_any(&self, keys: &[&str]) -> bool {
+        if let Some(hook) = PARAM_READ_HOOK.get() {
+            for key in keys {
+                hook(self, key);
+            }
+        }
         self.entries.iter().any(|entry| keys.contains(&entry.key))
     }
 

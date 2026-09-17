@@ -634,7 +634,10 @@ fn check_valid_spell(valid_spell: &str, spell_card: &Card) -> bool {
                     .skip(1)
                     .all(|attr| match attr.to_lowercase().as_str() {
                         "bargain" => spell_card.has_keyword("Bargain"),
-                        _ => true, // unknown attributes pass
+                        _ => {
+                            crate::census::unhandled("valid-spell-attribute-ignored", attr);
+                            true
+                        }
                     })
             }
             "Activated" | "Static" => {

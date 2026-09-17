@@ -560,6 +560,13 @@ public final class Main {
             }
         });
 
+        if (deep) {
+            game.subscribeToEvents(new forge.harness.common.EventRecorder(game, line -> {
+                protocolOut.println(line);
+                protocolOut.flush();
+            }));
+        }
+
         System.err.println("[harness] Starting game...");
         ParityLog.enable(agentRng);
         DecisionLog.setSink(line -> {

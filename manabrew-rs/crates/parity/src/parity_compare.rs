@@ -7,6 +7,7 @@ use crate::runner::RunConfig;
 
 struct CompareOutcome {
     first_divergence: Option<Divergence>,
+    divergences: Vec<Divergence>,
     compared_until: usize,
     diverge_rust_idx: Option<usize>,
     diverge_java_idx: Option<usize>,
@@ -29,6 +30,7 @@ pub fn compare_matchup(
             outcome.compared_until = divergence.snapshot_index + 1;
             outcome.diverge_rust_idx = Some(divergence.snapshot_index);
             outcome.diverge_java_idx = Some(divergence.snapshot_index);
+            outcome.divergences = vec![divergence.clone()];
             outcome.first_divergence = Some(divergence);
         }
     }
@@ -105,13 +107,13 @@ fn build_matchup_result(
     finished_turn: Option<u32>,
     outcome: CompareOutcome,
 ) -> MatchupResult {
-    let divergence_count = usize::from(outcome.first_divergence.is_some());
+    let divergence_count = outcome.divergences.len();
     let status = if outcome.first_divergence.is_none() {
         MatchupStatus::Pass
     } else {
         MatchupStatus::Fail
     };
-    let guard_abort_turn = guard_abort_turn(&rust_log).or_else(|| guard_abort_turn(&java_log));
+    let guard_abort = guard_abort(&rust_log).or_else(|| guard_abort(&java_log));
 
     MatchupResult {
         deck1: config.deck1.clone(),
@@ -139,8 +141,12 @@ fn build_matchup_result(
             java_snapshots.get(idx).cloned()
         }),
         first_divergence: outcome.first_divergence,
+        divergences: outcome.divergences,
+        localized: None,
+        localized_detail: vec![],
+        decision: crate::decision_diff::first_decision_divergence(&rust_log, &java_log),
         error_message: None,
-        skip_reason: guard_abort_turn.map(|turn| format!("ABORTED AT TURN {turn}")),
+        skip_reason: guard_abort.map(|(turn, reason)| format!("ABORTED AT TURN {turn}: {reason}")),
         covered_cards: vec![],
         rust_log,
         java_log,
@@ -148,57 +154,7 @@ fn build_matchup_result(
     }
 }
 
-const COMPARED_CALLBACKS: &[&str] = &[
-    "$ACTION_SPACE",
-    "assign_combat_damage",
-    "choose_action",
-    "choose_attackers",
-    "choose_binary",
-    "choose_blockers",
-    "choose_card_name",
-    "choose_cards_for_effect",
-    "choose_cards_for_zone_change",
-    "choose_cards_to_bottom",
-    "choose_color",
-    "choose_colors",
-    "choose_counter_type",
-    "choose_damage_assignment_order",
-    "choose_delve",
-    "choose_dice_to_reroll",
-    "choose_dig",
-    "choose_discard",
-    "choose_mode",
-    "choose_number",
-    "choose_number_for_keyword_cost",
-    "choose_number_from_list",
-    "choose_optional_trigger",
-    "choose_reorder_library",
-    "choose_roll_swap_value",
-    "choose_roll_to_ignore",
-    "choose_roll_to_modify",
-    "choose_roll_to_swap",
-    "choose_sacrifice",
-    "choose_scry",
-    "choose_single_card_for_zone_change",
-    "choose_single_entity_for_effect",
-    "choose_single_replacement_effect",
-    "choose_spell_abilities_for_effect",
-    "choose_surveil",
-    "choose_target_spell",
-    "choose_targets_for",
-    "choose_type",
-    "confirm_action",
-    "confirm_payment",
-    "confirm_replacement_effect",
-    "enlist_attackers",
-    "exert_attackers",
-    "flip_coin_call",
-    "help_pay_assist",
-    "pay_combat_cost",
-    "pay_cost_to_prevent_effect",
-    "pay_mana_cost",
-    "specify_mana_combo",
-];
+use crate::decision_diff::COMPARED_CALLBACKS;
 
 fn compare_callbacks(
     rust_log: &[ParityLogEntry],
@@ -245,6 +201,7 @@ fn compare_callbacks(
                     field: format!("callbacks[{position}]"),
                     rust_value: describe(rust_record),
                     java_value: describe(java_record),
+                    subject: None,
                 });
             }
         }
@@ -252,11 +209,12 @@ fn compare_callbacks(
     None
 }
 
-fn guard_abort_turn(log: &[ParityLogEntry]) -> Option<u32> {
+fn guard_abort(log: &[ParityLogEntry]) -> Option<(u32, String)> {
     log.iter().find_map(|entry| match entry {
-        ParityLogEntry::Decision(decision) if decision.kind == "$PARITY_GUARD" => {
-            Some(decision.turn)
-        }
+        ParityLogEntry::Decision(decision) if decision.kind == "$PARITY_GUARD" => Some((
+            decision.turn,
+            decision.choice.trim_start_matches("ABORTED: ").to_string(),
+        )),
         _ => None,
     })
 }
@@ -268,6 +226,7 @@ fn compare_snapshots(
     allow_incomplete_java_tail: bool,
 ) -> CompareOutcome {
     let mut first_divergence: Option<Divergence> = None;
+    let mut divergences: Vec<Divergence> = Vec::new();
     let mut compared_until = rust_snapshots.len().max(java_snapshots.len());
     let mut rust_idx = 0usize;
     let mut java_idx = 0usize;
@@ -314,7 +273,8 @@ fn compare_snapshots(
                         );
                     }
                 }
-                first_divergence = divs.into_iter().next();
+                first_divergence = divs.first().cloned();
+                divergences = divs;
                 compared_until = compared_index + 1;
                 diverge_rust_idx = Some(rust_idx);
                 diverge_java_idx = Some(java_idx);
@@ -332,7 +292,9 @@ fn compare_snapshots(
                     field: "snapshot.exists".into(),
                     rust_value: "present".into(),
                     java_value: "missing".into(),
+                    subject: None,
                 });
+                divergences = first_divergence.iter().cloned().collect();
                 compared_until = compared_index + 1;
                 diverge_rust_idx = Some(rust_idx);
                 break;
@@ -349,7 +311,9 @@ fn compare_snapshots(
                     field: "snapshot.exists".into(),
                     rust_value: "missing".into(),
                     java_value: "present".into(),
+                    subject: None,
                 });
+                divergences = first_divergence.iter().cloned().collect();
                 compared_until = compared_index + 1;
                 diverge_java_idx = Some(java_idx);
                 break;
@@ -363,6 +327,7 @@ fn compare_snapshots(
 
     CompareOutcome {
         first_divergence,
+        divergences,
         compared_until,
         diverge_rust_idx,
         diverge_java_idx,

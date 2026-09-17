@@ -393,7 +393,10 @@ fn check_single_restriction(restriction: &str, ctx: &ManaPaymentContext) -> bool
         }
         _ if restriction.starts_with("CantPayGenericCosts") => true, // handled separately in payment
         _ if restriction.starts_with("CantCast") => true, // zone restrictions handled elsewhere
-        _ => true,                                        // Unknown restriction — be permissive
+        _ => {
+            crate::census::unhandled("mana-restriction-ignored", restriction);
+            true
+        }
     }
 }
 

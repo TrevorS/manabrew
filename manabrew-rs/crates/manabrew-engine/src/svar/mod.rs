@@ -2442,6 +2442,7 @@ pub fn resolve_count_svar_for_sa(
     }
 
     expr.parse::<i32>().unwrap_or_else(|_| {
+        crate::census::unhandled("count-expression-as-zero", expr);
         eprintln!("Unrecognized Count expression, returning 0 for: {expr}");
         0
     })

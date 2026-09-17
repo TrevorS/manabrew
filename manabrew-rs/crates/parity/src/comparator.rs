@@ -224,6 +224,7 @@ fn compare_players(
             field: format!("{prefix}.library_top"),
             rust_value: format!("{:?}", rust.library_top),
             java_value: format!("{:?}", java.library_top),
+            subject: None,
         });
     }
 
@@ -298,8 +299,6 @@ fn compare_battlefield(
     rust: &[CardSnapshot],
     java: &[CardSnapshot],
 ) {
-    // Both are sorted by name. Walk in lockstep.
-    let max = rust.len().max(java.len());
     if rust.len() != java.len() {
         divs.push(divergence(
             index,
@@ -311,174 +310,167 @@ fn compare_battlefield(
         ));
     }
 
-    for i in 0..max {
-        let card_prefix = format!("{prefix}[{i}]");
-        match (rust.get(i), java.get(i)) {
-            (Some(rc), Some(jc)) => {
-                if rc.name != jc.name {
-                    divs.push(divergence(
-                        index,
-                        turn,
-                        phase,
-                        &format!("{card_prefix}.name"),
-                        &rc.name,
-                        &jc.name,
-                    ));
+    // Both lists are sorted by name. Pair cards by name so one extra permanent
+    // is reported once instead of shifting every later card onto a stranger.
+    let mut only_rust: Vec<&str> = Vec::new();
+    let mut only_java: Vec<&str> = Vec::new();
+    let mut pairs: Vec<(usize, &CardSnapshot, &CardSnapshot)> = Vec::new();
+    let (mut ri, mut ji) = (0usize, 0usize);
+    while ri < rust.len() || ji < java.len() {
+        match (rust.get(ri), java.get(ji)) {
+            (Some(rc), Some(jc)) => match rc.name.cmp(&jc.name) {
+                std::cmp::Ordering::Equal => {
+                    pairs.push((ri, rc, jc));
+                    ri += 1;
+                    ji += 1;
                 }
-                if rc.tapped != jc.tapped {
-                    divs.push(divergence(
-                        index,
-                        turn,
-                        phase,
-                        &format!("{card_prefix}.tapped"),
-                        &rc.tapped,
-                        &jc.tapped,
-                    ));
+                std::cmp::Ordering::Less => {
+                    only_rust.push(&rc.name);
+                    ri += 1;
                 }
-                if rc.power != jc.power {
-                    divs.push(divergence(
-                        index,
-                        turn,
-                        phase,
-                        &format!("{card_prefix}.power"),
-                        &format!("{:?}", rc.power),
-                        &format!("{:?}", jc.power),
-                    ));
+                std::cmp::Ordering::Greater => {
+                    only_java.push(&jc.name);
+                    ji += 1;
                 }
-                if rc.toughness != jc.toughness {
-                    divs.push(divergence(
-                        index,
-                        turn,
-                        phase,
-                        &format!("{card_prefix}.toughness"),
-                        &format!("{:?}", rc.toughness),
-                        &format!("{:?}", jc.toughness),
-                    ));
-                }
-                if rc.damage != jc.damage {
-                    divs.push(divergence(
-                        index,
-                        turn,
-                        phase,
-                        &format!("{card_prefix}.damage"),
-                        &rc.damage,
-                        &jc.damage,
-                    ));
-                }
-                // Only compare summoning_sick for creatures (power is Some).
-                // Non-creature permanents (lands, artifacts, enchantments) have
-                // summoning sickness tracked differently between the Java and
-                // Rust engines — Java may retain sickness=true for a land that
-                // entered the battlefield on a previous turn via MayPlay/
-                // graveyard play, while Rust clears it at the next new_turn().
-                // Since summoning sickness has no gameplay effect for non-
-                // creatures (CR 302.6), we skip the comparison to avoid false
-                // divergences.
-                let is_creature = rc.power.is_some() || jc.power.is_some();
-                if is_creature && rc.summoning_sick != jc.summoning_sick {
-                    divs.push(divergence(
-                        index,
-                        turn,
-                        phase,
-                        &format!("{card_prefix}.summoning_sick"),
-                        &rc.summoning_sick,
-                        &jc.summoning_sick,
-                    ));
-                }
-                if rc.counters != jc.counters {
-                    divs.push(divergence(
-                        index,
-                        turn,
-                        phase,
-                        &format!("{card_prefix}.counters"),
-                        &format!("{:?}", rc.counters),
-                        &format!("{:?}", jc.counters),
-                    ));
-                }
-                if rc.controller != jc.controller {
-                    divs.push(divergence(
-                        index,
-                        turn,
-                        phase,
-                        &format!("{card_prefix}.controller"),
-                        &rc.controller,
-                        &jc.controller,
-                    ));
-                }
-                if rc.types != jc.types {
-                    divs.push(divergence(
-                        index,
-                        turn,
-                        phase,
-                        &format!("{card_prefix}.types"),
-                        &format!("{:?}", rc.types),
-                        &format!("{:?}", jc.types),
-                    ));
-                }
-                if rc.keywords != jc.keywords {
-                    divs.push(divergence(
-                        index,
-                        turn,
-                        phase,
-                        &format!("{card_prefix}.keywords"),
-                        &format!("{:?}", rc.keywords),
-                        &format!("{:?}", jc.keywords),
-                    ));
-                }
-                if rc.attached_to != jc.attached_to {
-                    divs.push(divergence(
-                        index,
-                        turn,
-                        phase,
-                        &format!("{card_prefix}.attached_to"),
-                        &format!("{:?}", rc.attached_to),
-                        &format!("{:?}", jc.attached_to),
-                    ));
-                }
-                if rc.token != jc.token {
-                    divs.push(divergence(
-                        index,
-                        turn,
-                        phase,
-                        &format!("{card_prefix}.token"),
-                        &rc.token,
-                        &jc.token,
-                    ));
-                }
-                if rc.face_down != jc.face_down {
-                    divs.push(divergence(
-                        index,
-                        turn,
-                        phase,
-                        &format!("{card_prefix}.face_down"),
-                        &rc.face_down,
-                        &jc.face_down,
-                    ));
-                }
-            }
+            },
             (Some(rc), None) => {
-                divs.push(divergence(
-                    index,
-                    turn,
-                    phase,
-                    &format!("{card_prefix}.exists"),
-                    &rc.name,
-                    &"<missing>",
-                ));
+                only_rust.push(&rc.name);
+                ri += 1;
             }
             (None, Some(jc)) => {
-                divs.push(divergence(
-                    index,
-                    turn,
-                    phase,
-                    &format!("{card_prefix}.exists"),
-                    &"<missing>",
-                    &jc.name,
-                ));
+                only_java.push(&jc.name);
+                ji += 1;
             }
-            (None, None) => {}
+            (None, None) => break,
         }
     }
+    if !only_rust.is_empty() || !only_java.is_empty() {
+        divs.push(divergence(
+            index,
+            turn,
+            phase,
+            &format!("{prefix}.cards"),
+            &format!("only here: {only_rust:?}"),
+            &format!("only here: {only_java:?}"),
+        ));
+    }
+
+    for (i, rc, jc) in pairs {
+        let card_prefix = format!("{prefix}[{i}]");
+        let mut card_divs: Vec<Divergence> = Vec::new();
+        macro_rules! cmp_card {
+            ($field:ident) => {
+                if rc.$field != jc.$field {
+                    card_divs.push(divergence(
+                        index,
+                        turn,
+                        phase,
+                        &format!("{}.{}", card_prefix, stringify!($field)),
+                        &format!("{:?}", rc.$field),
+                        &format!("{:?}", jc.$field),
+                    ));
+                }
+            };
+        }
+        cmp_card!(tapped);
+        cmp_card!(power);
+        cmp_card!(toughness);
+        cmp_card!(damage);
+        // Only compare summoning_sick for creatures (power is Some).
+        // Non-creature permanents (lands, artifacts, enchantments) have
+        // summoning sickness tracked differently between the Java and
+        // Rust engines — Java may retain sickness=true for a land that
+        // entered the battlefield on a previous turn via MayPlay/
+        // graveyard play, while Rust clears it at the next new_turn().
+        // Since summoning sickness has no gameplay effect for non-
+        // creatures (CR 302.6), we skip the comparison to avoid false
+        // divergences.
+        if rc.power.is_some() || jc.power.is_some() {
+            cmp_card!(summoning_sick);
+        }
+        cmp_card!(counters);
+        cmp_card!(controller);
+        cmp_card!(types);
+        cmp_card!(keywords);
+        cmp_card!(attached_to);
+        cmp_card!(token);
+        cmp_card!(face_down);
+        for mut div in card_divs {
+            div.subject = Some(rc.name.clone());
+            divs.push(div);
+        }
+    }
+}
+
+/// Field names the comparator can report, with indices normalised to `[i]`.
+/// A gate baseline records this list, so a divergence on a field added later
+/// is labelled "newly compared" instead of "regressed". Keep in sync with
+/// `compare`, `compare_players` and `compare_battlefield`.
+pub const COMPARED_FIELDS: &[&str] = &[
+    "turn",
+    "phase",
+    "active_player",
+    "priority_player",
+    "game_over",
+    "winner",
+    "stack",
+    "monarch",
+    "initiative",
+    "day_night",
+    "players[i].exists",
+    "players[i].name",
+    "players[i].life",
+    "players[i].poison",
+    "players[i].lands_played",
+    "players[i].has_lost",
+    "players[i].has_won",
+    "players[i].library_size",
+    "players[i].speed",
+    "players[i].counters",
+    "players[i].mana_pool",
+    "players[i].library_top",
+    "players[i].graveyard",
+    "players[i].hand",
+    "players[i].exile",
+    "players[i].battlefield.count",
+    "players[i].battlefield.cards",
+    "players[i].battlefield[i].tapped",
+    "players[i].battlefield[i].power",
+    "players[i].battlefield[i].toughness",
+    "players[i].battlefield[i].damage",
+    "players[i].battlefield[i].summoning_sick",
+    "players[i].battlefield[i].counters",
+    "players[i].battlefield[i].controller",
+    "players[i].battlefield[i].types",
+    "players[i].battlefield[i].keywords",
+    "players[i].battlefield[i].attached_to",
+    "players[i].battlefield[i].token",
+    "players[i].battlefield[i].face_down",
+    "game_rng_calls",
+    "agent_rng_calls",
+    "snapshot.exists",
+];
+
+/// `players[1].battlefield[12].keywords` -> `players[i].battlefield[i].keywords`.
+pub fn normalize_field(field: &str) -> String {
+    let mut out = String::with_capacity(field.len());
+    let mut chars = field.chars().peekable();
+    while let Some(c) = chars.next() {
+        out.push(c);
+        if c == '[' {
+            let mut digits = String::new();
+            while let Some(d) = chars.peek().copied().filter(char::is_ascii_digit) {
+                digits.push(d);
+                chars.next();
+            }
+            if !digits.is_empty() && chars.peek() == Some(&']') {
+                out.push('i');
+            } else {
+                out.push_str(&digits);
+            }
+        }
+    }
+    out
 }
 
 fn divergence<R: std::fmt::Display, J: std::fmt::Display>(
@@ -496,5 +488,6 @@ fn divergence<R: std::fmt::Display, J: std::fmt::Display>(
         field: field.to_string(),
         rust_value: rust_value.to_string(),
         java_value: java_value.to_string(),
+        subject: None,
     }
 }

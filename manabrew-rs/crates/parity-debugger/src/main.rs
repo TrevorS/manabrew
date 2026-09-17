@@ -505,6 +505,7 @@ impl App {
             full_log: false,
             live_log: None,
             callback_compare: false,
+            localize: false,
         }
     }
 

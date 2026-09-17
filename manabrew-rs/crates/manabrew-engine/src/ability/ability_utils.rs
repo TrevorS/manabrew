@@ -1093,7 +1093,10 @@ fn matches_valid_cards_single(card: &Card, filter: &str, activating_player: Play
             .iter()
             .any(|t| t.name().eq_ignore_ascii_case(fc::SORCERY)),
         fc::PERMANENT | fc::CARD => true,
-        _ => true, // Unknown type — match everything
+        _ => {
+            crate::census::unhandled("valid-type-matches-all", type_part);
+            true
+        }
     };
     if !type_matches {
         return false;

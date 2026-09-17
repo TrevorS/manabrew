@@ -521,6 +521,7 @@ impl Params {
     /// Mirrors Java's `CardTraitBase.getParam(String)`.
     pub fn get<K: AsRef<str>>(&self, key: K) -> Option<&str> {
         crate::perf::increment_params_lookup();
+        crate::census::param_read(&self.0, key.as_ref());
         self.0.get(key.as_ref()).map(|s| s.as_str())
     }
 
@@ -528,6 +529,7 @@ impl Params {
     /// Mirrors Java's `CardTraitBase.getParamOrDefault(String, String)`.
     pub fn get_or_default<'a, K: AsRef<str>>(&'a self, key: K, default: &'a str) -> &'a str {
         crate::perf::increment_params_lookup();
+        crate::census::param_read(&self.0, key.as_ref());
         self.0
             .get(key.as_ref())
             .map(|s| s.as_str())
@@ -538,6 +540,7 @@ impl Params {
     /// Mirrors Java's `CardTraitBase.hasParam(String)`.
     pub fn has<K: AsRef<str>>(&self, key: K) -> bool {
         crate::perf::increment_params_lookup();
+        crate::census::param_read(&self.0, key.as_ref());
         self.0.contains_key(key.as_ref())
     }
 
@@ -566,6 +569,9 @@ impl Params {
     /// Intended for coarse hot-path gates before a caller decides whether to
     /// perform many instrumented typed lookups.
     pub fn contains_any_key(&self, keys: &[&str]) -> bool {
+        for key in keys {
+            crate::census::param_read(&self.0, key);
+        }
         keys.iter().any(|key| self.0.contains_key(*key))
     }
 
@@ -597,6 +603,7 @@ impl Params {
 
     /// Parse a parameter as i32, returning None if absent or non-numeric.
     pub fn as_i32<K: AsRef<str>>(&self, key: K) -> Option<i32> {
+        crate::census::param_read(&self.0, key.as_ref());
         crate::perf::increment_params_lookup();
         let key = key.as_ref();
         let result = self.0.get(key).and_then(|value| semantic_i32(key, value));
@@ -611,6 +618,7 @@ impl Params {
 
     /// Parse a parameter as usize, returning None if absent or non-numeric.
     pub fn as_usize<K: AsRef<str>>(&self, key: K) -> Option<usize> {
+        crate::census::param_read(&self.0, key.as_ref());
         crate::perf::increment_params_lookup();
         let key = key.as_ref();
         let result = self
@@ -629,6 +637,7 @@ impl Params {
 
     /// Parse a parameter as a single zone type.
     pub fn zone_type<K: AsRef<str>>(&self, key: K) -> Option<ZoneType> {
+        crate::census::param_read(&self.0, key.as_ref());
         crate::perf::increment_params_lookup();
         let key = key.as_ref();
         let result = self
@@ -669,6 +678,7 @@ impl Params {
     /// agrees with selector/reference usage while preserving the legacy raw
     /// string consumed by current matchers.
     pub fn selector_value<K: AsRef<str>>(&self, key: K) -> Option<&str> {
+        crate::census::param_read(&self.0, key.as_ref());
         crate::perf::increment_params_lookup();
         let key = key.as_ref();
         let value = self.0.get(key).map(String::as_str)?;
@@ -690,6 +700,7 @@ impl Params {
     }
 
     pub fn selector_untracked<K: AsRef<str>>(&self, key: K) -> Option<&CompiledSelector> {
+        crate::census::param_read(&self.0, key.as_ref());
         let key = key.as_ref();
         match self.1.get(key) {
             Some(CompiledParamValue::Selector(selector))
@@ -705,6 +716,7 @@ impl Params {
     /// the raw value as a selector for compatibility with less-specific
     /// historical keys like `ValidToken`.
     pub fn selector_cloned<K: AsRef<str>>(&self, key: K) -> Option<CompiledSelector> {
+        crate::census::param_read(&self.0, key.as_ref());
         crate::perf::increment_params_lookup();
         let key = key.as_ref();
         match self.1.get(key) {
@@ -721,6 +733,7 @@ impl Params {
     /// Get a reference-like parameter, asserting that semantic classification
     /// agrees with reference usage while preserving the legacy raw string.
     pub fn reference_value<K: AsRef<str>>(&self, key: K) -> Option<&str> {
+        crate::census::param_read(&self.0, key.as_ref());
         crate::perf::increment_params_lookup();
         let key = key.as_ref();
         let value = self.0.get(key).map(String::as_str)?;
@@ -736,6 +749,7 @@ impl Params {
 
     /// Get a compiled reference-like parameter.
     pub fn reference<K: AsRef<str>>(&self, key: K) -> Option<&CompiledSelector> {
+        crate::census::param_read(&self.0, key.as_ref());
         crate::perf::increment_params_lookup();
         let key = key.as_ref();
         match self.1.get(key) {
@@ -747,6 +761,7 @@ impl Params {
 
     /// Get a parameter value, cloning it into an owned String.
     pub fn get_cloned(&self, key: &str) -> Option<String> {
+        crate::census::param_read(&self.0, key);
         self.0.get(key).cloned()
     }
 
@@ -760,6 +775,7 @@ impl Params {
     /// This borrows the stored value and falls back to `SemanticParamValue::Raw`
     /// for keys that are intentionally not classified yet.
     pub fn semantic_value<K: AsRef<str>>(&self, key: K) -> Option<SemanticParamValue<'_>> {
+        crate::census::param_read(&self.0, key.as_ref());
         crate::perf::increment_params_lookup();
         let key = key.as_ref();
         self.0

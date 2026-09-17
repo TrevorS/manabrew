@@ -10,7 +10,7 @@ yarn parity <test-name>
 yarn parity:test -- --deck1 <deck> --deck2 <deck> --seed <N> --max-turns <N>
 ```
 
-The harness prints the first divergence: phase, active player, the field that disagrees, the Rust value, and the Java value. See `docs/PARITY_TESTING.md` for env vars (`FORGE_RNG_TRACE`, `FORGE_TRIGGER_TRACE`, `FORGE_LIFE_TRACE`).
+The harness prints the first divergent snapshot: turn, phase, the headline field with its Rust and Java values, then every other differing field. See `docs/PARITY_TESTING.md` for env vars (`FORGE_RNG_TRACE`, `FORGE_TRIGGER_TRACE`).
 
 ## 2. Locate the missing rule
 

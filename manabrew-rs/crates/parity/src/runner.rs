@@ -952,6 +952,7 @@ pub struct RunConfig {
     /// Write Rust-side parity entries as they are recorded.
     pub live_log: Option<PathBuf>,
     pub callback_compare: bool,
+    pub localize: bool,
 }
 
 pub struct LoadedData {
@@ -1389,6 +1390,7 @@ pub fn run_with_data_streaming(
     }
 
     crate::parity_log::clear_sink();
+    manabrew_engine::census::flush();
 
     let log: Vec<ParityLogEntry> = shared_log.lock().unwrap().clone();
     let covered_cards: Vec<String> = shared_covered_cards

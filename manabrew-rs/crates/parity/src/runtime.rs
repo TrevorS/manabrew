@@ -4,7 +4,7 @@
 //! do not grow separate execution semantics.
 
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Condvar, Mutex};
 use std::time::Instant;
 
 use crate::java_bridge::{
@@ -49,23 +49,113 @@ where
     })
 }
 
-/// A pool of JavaServer instances behind mutexes for parallel access.
+/// A pool of JavaServer instances. Servers start on first use, up to `capacity`,
+/// so a run served entirely from the Java cache never starts a JVM.
 pub struct JavaServerPool {
-    servers: Vec<Mutex<JavaServer>>,
+    state: Mutex<PoolState>,
+    available: Condvar,
+    config: JavaServerConfig,
+    capacity: usize,
+}
+
+struct PoolState {
+    idle: Vec<JavaServer>,
+    live: usize,
+}
+
+struct PooledServer<'a> {
+    pool: &'a JavaServerPool,
+    server: Option<JavaServer>,
+}
+
+impl Drop for PooledServer<'_> {
+    fn drop(&mut self) {
+        let Some(mut server) = self.server.take() else {
+            return;
+        };
+        let mut state = self.pool.state.lock().unwrap_or_else(|e| e.into_inner());
+        if server.is_alive() {
+            state.idle.push(server);
+        } else {
+            state.live -= 1;
+        }
+        drop(state);
+        self.pool.available.notify_one();
+    }
 }
 
 impl JavaServerPool {
-    /// Spawn N server instances.
+    pub fn lazy(capacity: usize, config: JavaServerConfig) -> Self {
+        Self {
+            state: Mutex::new(PoolState {
+                idle: Vec::new(),
+                live: 0,
+            }),
+            available: Condvar::new(),
+            config,
+            capacity: capacity.max(1),
+        }
+    }
+
+    /// Spawn N server instances up front.
     pub fn spawn(n: usize, config: &JavaServerConfig) -> Result<Self, JavaBridgeError> {
+        let pool = Self::lazy(n, config.clone());
         let mut servers = Vec::with_capacity(n);
         for i in 0..n {
             if config.verbose {
                 eprintln!("[parity] Spawning Java worker {}/{}", i + 1, n);
             }
-            let server = JavaServer::spawn(config)?;
-            servers.push(Mutex::new(server));
+            servers.push(JavaServer::spawn(config)?);
         }
-        Ok(Self { servers })
+        {
+            let mut state = pool.state.lock().unwrap_or_else(|e| e.into_inner());
+            state.live = servers.len();
+            state.idle = servers;
+        }
+        Ok(pool)
+    }
+
+    pub fn servers_started(&self) -> usize {
+        self.state.lock().unwrap_or_else(|e| e.into_inner()).live
+    }
+
+    fn checkout(&self) -> Result<PooledServer<'_>, JavaBridgeError> {
+        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        loop {
+            while let Some(mut server) = state.idle.pop() {
+                if server.is_alive() {
+                    return Ok(PooledServer {
+                        pool: self,
+                        server: Some(server),
+                    });
+                }
+                state.live -= 1;
+            }
+            if state.live < self.capacity {
+                state.live += 1;
+                drop(state);
+                if self.config.verbose {
+                    eprintln!("[parity] Spawning Java worker on demand");
+                }
+                return match JavaServer::spawn(&self.config) {
+                    Ok(server) => Ok(PooledServer {
+                        pool: self,
+                        server: Some(server),
+                    }),
+                    Err(err) => {
+                        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+                        state.live -= 1;
+                        drop(state);
+                        self.available.notify_one();
+                        Err(err)
+                    }
+                };
+            }
+            state = self
+                .available
+                .wait(state)
+                .unwrap_or_else(|e| e.into_inner());
+        }
     }
 
     /// Run a matchup on any available server with streaming snapshot comparison.
@@ -85,28 +175,8 @@ impl JavaServerPool {
     where
         F: FnMut(usize, &ParityLogEntry) -> bool,
     {
-        for server_mutex in &self.servers {
-            if let Ok(mut server) = server_mutex.try_lock() {
-                if !server.is_alive() {
-                    continue;
-                }
-                return server.run_matchup_streaming(
-                    deck1,
-                    deck2,
-                    seed,
-                    max_turns,
-                    prefer_actions,
-                    deep,
-                    variant,
-                    commanders,
-                    verbose_turns,
-                    on_snapshot,
-                );
-            }
-        }
-        let mut server = self.servers[0]
-            .lock()
-            .map_err(|e| JavaBridgeError::ProtocolError(format!("Mutex poisoned: {e}")))?;
+        let mut pooled = self.checkout()?;
+        let server = pooled.server.as_mut().expect("checked-out server");
         server.run_matchup_streaming(
             deck1,
             deck2,
@@ -150,16 +220,11 @@ impl JavaServerPool {
 
     /// Shutdown all servers in parallel.
     pub fn shutdown(self) {
-        let handles: Vec<_> = self
-            .servers
+        let state = self.state.into_inner().unwrap_or_else(|e| e.into_inner());
+        let handles: Vec<_> = state
+            .idle
             .into_iter()
-            .map(|server_mutex| {
-                std::thread::spawn(move || {
-                    if let Ok(server) = server_mutex.into_inner() {
-                        server.shutdown();
-                    }
-                })
-            })
+            .map(|server| std::thread::spawn(move || server.shutdown()))
             .collect();
         for h in handles {
             let _ = h.join();
@@ -171,6 +236,30 @@ pub struct RuntimeMatchup {
     pub result: MatchupResult,
     pub duration_ms: u64,
     pub cache_hit: bool,
+    pub stages: StageTimings,
+}
+
+#[derive(Clone, Copy, Default)]
+pub struct StageTimings {
+    pub rust_ms: u64,
+    pub java_ms: u64,
+    pub compare_ms: u64,
+}
+
+impl RuntimeMatchup {
+    fn finish(
+        result: MatchupResult,
+        start: Instant,
+        cache_hit: bool,
+        stages: StageTimings,
+    ) -> Self {
+        Self {
+            result,
+            duration_ms: start.elapsed().as_millis() as u64,
+            cache_hit,
+            stages,
+        }
+    }
 }
 
 pub struct ParityRuntime<'a> {
@@ -345,102 +434,112 @@ impl<'a> ParityRuntime<'a> {
         cache: Option<&JavaCache>,
     ) -> RuntimeMatchup {
         let start = Instant::now();
+        let mut stages = StageTimings::default();
 
-        if let Some(c) = cache {
-            if let Some(cached_java) = c.get(
-                &config.deck1,
-                &config.deck2,
-                config.seed,
-                config.max_turns,
-                config.prefer_actions,
-                config.deep,
-                &config.variant,
-                &config.commanders,
-            ) {
-                let rust_trace = match self.run_rust_trace(config) {
-                    Ok(t) => t,
-                    Err(e) => {
-                        return RuntimeMatchup {
-                            result: MatchupResult::error(config, format!("Rust engine error: {e}")),
-                            duration_ms: start.elapsed().as_millis() as u64,
-                            cache_hit: false,
-                        };
-                    }
-                };
-                let result = compare_and_attach_coverage(config, rust_trace, &cached_java);
-                return RuntimeMatchup {
-                    result,
-                    duration_ms: start.elapsed().as_millis() as u64,
-                    cache_hit: true,
-                };
-            }
+        if let Some(cached_java) = cache.and_then(|c| c.get(config)) {
+            let rust_start = Instant::now();
+            let rust_trace = self.run_rust_trace(config);
+            stages.rust_ms = rust_start.elapsed().as_millis() as u64;
+            let rust_trace = match rust_trace {
+                Ok(t) => t,
+                Err(e) => {
+                    let result = MatchupResult::error(config, format!("Rust engine error: {e}"));
+                    return RuntimeMatchup::finish(result, start, false, stages);
+                }
+            };
+            let compare_start = Instant::now();
+            let mut result = compare_and_attach_coverage(config, rust_trace, &cached_java);
+            stages.compare_ms = compare_start.elapsed().as_millis() as u64;
+            self.localize(config, pool, cache, &mut result);
+            return RuntimeMatchup::finish(result, start, true, stages);
         }
 
-        let (rust_result, java_result) = match run_parallel(
+        let (rust_timed, java_timed) = match run_parallel(
             "parity-rust",
-            || runner::run_with_data(config, self.data),
             || {
-                pool.run_matchup(
-                    &config.deck1,
-                    &config.deck2,
-                    config.seed,
-                    config.max_turns,
-                    config.prefer_actions,
-                    config.deep,
-                    &config.variant,
-                    &config.commanders,
-                    config.verbose.to_java_arg(),
-                )
-                .map_err(|err| err.to_string())
+                let rust_start = Instant::now();
+                let trace = runner::run_with_data(config, self.data);
+                Ok((trace, rust_start.elapsed().as_millis() as u64))
+            },
+            || {
+                let java_start = Instant::now();
+                let data = pool
+                    .run_matchup(
+                        &config.deck1,
+                        &config.deck2,
+                        config.seed,
+                        config.max_turns,
+                        config.prefer_actions,
+                        config.deep,
+                        &config.variant,
+                        &config.commanders,
+                        config.verbose.to_java_arg(),
+                    )
+                    .map_err(|err| err.to_string());
+                Ok((data, java_start.elapsed().as_millis() as u64))
             },
         ) {
             Ok(result) => result,
             Err(err) => {
-                return RuntimeMatchup {
-                    result: MatchupResult::error(config, err),
-                    duration_ms: start.elapsed().as_millis() as u64,
-                    cache_hit: false,
-                };
+                let result = MatchupResult::error(config, err);
+                return RuntimeMatchup::finish(result, start, false, stages);
+            }
+        };
+        let (rust_result, java_result) = match (rust_timed, java_timed) {
+            (Ok((rust_result, rust_ms)), Ok((java_result, java_ms))) => {
+                stages.rust_ms = rust_ms;
+                stages.java_ms = java_ms;
+                (rust_result, java_result)
+            }
+            (Err(err), _) | (_, Err(err)) => {
+                let result = MatchupResult::error(config, err);
+                return RuntimeMatchup::finish(result, start, false, stages);
             }
         };
 
-        let (result, java_data) = match compare_results_with_java_data(
-            config,
-            rust_result,
-            java_result,
-            "Java server error",
-        ) {
+        let compare_start = Instant::now();
+        let compared =
+            compare_results_with_java_data(config, rust_result, java_result, "Java server error");
+        stages.compare_ms = compare_start.elapsed().as_millis() as u64;
+        let (mut result, java_data) = match compared {
             Ok(value) => value,
-            Err(result) => {
-                return RuntimeMatchup {
-                    result,
-                    duration_ms: start.elapsed().as_millis() as u64,
-                    cache_hit: false,
-                };
-            }
+            Err(result) => return RuntimeMatchup::finish(result, start, false, stages),
         };
 
         if result.status != MatchupStatus::Error {
             if let Some(c) = cache {
-                let _ = c.put(
-                    &config.deck1,
-                    &config.deck2,
-                    config.seed,
-                    config.max_turns,
-                    config.prefer_actions,
-                    config.deep,
-                    &config.variant,
-                    &config.commanders,
-                    &java_data,
-                );
+                let _ = c.put(config, &java_data);
             }
         }
 
-        RuntimeMatchup {
-            result,
-            duration_ms: start.elapsed().as_millis() as u64,
-            cache_hit: false,
+        self.localize(config, pool, cache, &mut result);
+        RuntimeMatchup::finish(result, start, false, stages)
+    }
+
+    fn localize(
+        &self,
+        config: &RunConfig,
+        pool: &JavaServerPool,
+        cache: Option<&JavaCache>,
+        result: &mut MatchupResult,
+    ) {
+        if !config.localize || config.deep || result.status != MatchupStatus::Fail {
+            return;
         }
+        let deep_config = RunConfig {
+            deep: true,
+            localize: false,
+            ..config.clone()
+        };
+        let deep = self.run_cached(&deep_config, pool, cache).result;
+        if let Some(divergence) = &deep.first_divergence {
+            result.localized_detail = crate::decision_diff::describe_window(
+                &deep.rust_log,
+                &deep.java_log,
+                divergence.snapshot_index,
+            );
+        }
+        result.localized = deep.first_divergence;
     }
 }
 
@@ -458,6 +557,10 @@ fn build_rust_only_result(config: &RunConfig, trace: GameTrace) -> MatchupResult
         snapshots_compared: snapshots.len(),
         divergence_count: 0,
         first_divergence: None,
+        divergences: vec![],
+        localized: None,
+        localized_detail: vec![],
+        decision: None,
         error_message: None,
         skip_reason,
         rust_snapshot: None,
@@ -611,6 +714,7 @@ mod tests {
             full_log: false,
             live_log: None,
             callback_compare: false,
+            localize: false,
         }
     }
 

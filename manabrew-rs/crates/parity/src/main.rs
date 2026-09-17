@@ -37,7 +37,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 use clap::Parser;
 use rayon::prelude::*;
@@ -256,6 +256,58 @@ struct Cli {
     #[arg(long)]
     matchups: Option<PathBuf>,
 
+    /// Matrix mode: write one JSON line per matchup (verdict, turn, headline
+    /// field, every differing field) for `parity gate-diff`
+    #[arg(long)]
+    gate_out: Option<PathBuf>,
+
+    /// Label recorded in the gate file header, e.g. the commit the binary was built from
+    #[arg(long, default_value = "")]
+    build_label: String,
+
+    /// Rerun each failing matchup with --deep and report where that run first
+    /// diverges, which narrows a per-turn divergence to a phase
+    #[arg(long)]
+    localize: bool,
+
+    /// Probe one card against Java in a fixed shell (repeatable)
+    #[arg(long)]
+    probe: Vec<String>,
+
+    /// Probe every card named in this file, one name per line
+    #[arg(long)]
+    probe_file: Option<PathBuf>,
+
+    /// Write the per-card probe table here (TSV)
+    #[arg(long)]
+    probe_out: Option<PathBuf>,
+
+    /// Copies of the probed card in its deck
+    #[arg(long, default_value_t = 12)]
+    probe_copies: usize,
+
+    /// Basic lands in the probed card's deck, split across its colour identity
+    #[arg(long, default_value_t = 24)]
+    probe_lands: usize,
+
+    /// Inline spec of the cards that accompany the probed card
+    #[arg(long, default_value = parity::probe::DEFAULT_PARTNERS)]
+    probe_partners: String,
+
+    /// Inline spec of the deck the probed card plays against
+    #[arg(long, default_value = parity::probe::DEFAULT_OPPONENT)]
+    probe_opponent: String,
+
+    /// Shrink --deck1/--deck2 at --seed to the cards needed to keep the
+    /// matchup diverging
+    #[arg(long)]
+    shrink: bool,
+
+    /// Record which script parameters the engine read and which permissive
+    /// fallbacks fired during this run; read it with `parity census-report`
+    #[arg(long)]
+    census_out: Option<PathBuf>,
+
     /// Run fuzz random deck testing
     #[arg(long)]
     fuzz: bool,
@@ -393,6 +445,7 @@ fn build_config(cli: &Cli, deck1: &str, deck2: &str, seed: u64) -> RunConfig {
         full_log: cli.full_log,
         live_log: cli.live_log.clone(),
         callback_compare: cli.callback_compare,
+        localize: cli.localize,
     }
 }
 
@@ -428,6 +481,39 @@ fn resolve_github_repo(cli_val: Option<String>) -> Option<String> {
 fn main() {
     let _perf_summary = manabrew_engine::perf::SummaryGuard::new();
     let mut args: Vec<String> = std::env::args().collect();
+    if args.get(1).is_some_and(|arg| arg == "build-info") {
+        println!(
+            "{}",
+            serde_json::json!({
+                "build": build_identity(""),
+                "cache_version": java_cache::CACHE_VERSION,
+                "compared_fields": parity::comparator::COMPARED_FIELDS,
+            })
+        );
+        return;
+    }
+    if let Some(command) = args.get(1).map(String::as_str).filter(|arg| {
+        matches!(
+            *arg,
+            "census-report" | "query" | "coverage" | "sweep" | "sweep-deck"
+        )
+    }) {
+        let data = runner::load_data(None, false).unwrap_or_else(|e| {
+            eprintln!("[parity] Load error: {e}");
+            std::process::exit(2);
+        });
+        let code = match command {
+            "census-report" => parity::census_report::run_cli(&args[1..], &data.db),
+            "query" => parity::script_query::run_query_cli(&args[1..], &data.db),
+            "sweep" => parity::sweep::run_cli(&args[1..], &data),
+            "sweep-deck" => parity::sweep::run_deck_cli(&args[1..], &data),
+            _ => parity::script_query::run_coverage_cli(&args[1..], &data.db),
+        };
+        std::process::exit(code);
+    }
+    if args.get(1).is_some_and(|arg| arg == "gate-diff") {
+        std::process::exit(parity::gate::run_cli(&args[1..]));
+    }
     if args.get(1).is_some_and(|arg| arg == "ci-client") {
         args.remove(1);
         parity::infra::ci_client::run(&args);
@@ -435,6 +521,17 @@ fn main() {
     }
 
     let cli = Cli::parse();
+    if cli.census_out.is_some() {
+        manabrew_engine::census::enable();
+    }
+    if !cli.probe.is_empty() || cli.probe_file.is_some() {
+        run_probe_mode(&cli);
+        return;
+    }
+    if cli.shrink {
+        run_shrink_mode(&cli);
+        return;
+    }
     if cli.repeat_check {
         run_repeat_check(&cli);
         return;
@@ -963,6 +1060,183 @@ fn load_matchup_file(path: &std::path::Path) -> Vec<(String, String)> {
     pairs
 }
 
+struct JavaRuntime {
+    pool: ServerPool,
+    cache: Option<JavaCache>,
+}
+
+fn java_runtime_or_exit(cli: &Cli) -> JavaRuntime {
+    let Some(jar_path) = cli.java_jar.as_ref() else {
+        eprintln!("[parity] this mode compares against Java; pass --java-jar");
+        std::process::exit(2);
+    };
+    if !jar_path.exists() {
+        eprintln!("[parity] Java jar not found: {}", jar_path.display());
+        std::process::exit(2);
+    }
+    let workers = cli
+        .java_workers
+        .unwrap_or_else(|| max_workers_for_memory(&cli.java_heap));
+    let pool = ServerPool::lazy(
+        workers,
+        JavaServerConfig {
+            jar_path: jar_path.clone(),
+            forge_home: None,
+            decks_dir: cli.decks_dir.clone(),
+            verbose: cli.is_verbose(),
+            java_heap: cli.java_heap.clone(),
+        },
+    );
+    let cache = if cli.no_cache {
+        None
+    } else {
+        let project_root = std::env::current_dir().unwrap_or_default();
+        let source_hash = java_cache::compute_source_hash(&project_root, Some(jar_path));
+        JavaCache::open(std::path::Path::new(&cli.cache_dir), source_hash).ok()
+    };
+    JavaRuntime { pool, cache }
+}
+
+fn run_probe_mode(cli: &Cli) {
+    let mut cards = cli.probe.clone();
+    if let Some(path) = &cli.probe_file {
+        let text = std::fs::read_to_string(path).unwrap_or_else(|e| {
+            eprintln!("[parity] {}: {e}", path.display());
+            std::process::exit(2);
+        });
+        cards.extend(
+            text.lines()
+                .map(str::trim)
+                .filter(|line| !line.is_empty() && !line.starts_with('#'))
+                .map(str::to_string),
+        );
+    }
+    let parse = |label: &str, spec: &str| {
+        parity::deck_generator::parse_inline(spec).unwrap_or_else(|e| {
+            eprintln!("[parity] {label}: {e}");
+            std::process::exit(2);
+        })
+    };
+    let options = parity::probe::ProbeOptions {
+        seeds: cli.seeds.clone().unwrap_or_else(|| vec![42, 43, 44]),
+        copies: cli.probe_copies,
+        lands: cli.probe_lands,
+        partners: parse("--probe-partners", &cli.probe_partners),
+        opponent: parse("--probe-opponent", &cli.probe_opponent),
+    };
+
+    let data = load_data_or_exit(cli);
+    let java = java_runtime_or_exit(cli);
+    let rows = parity::probe::probe_cards(&data.db, &cards, &options, |deck1, deck2, seed| {
+        let config = build_config(cli, deck1, deck2, seed);
+        ParityRuntime::new(&data)
+            .run_cached(&config, &java.pool, java.cache.as_ref())
+            .result
+    });
+    java.pool.shutdown();
+    write_census_or_exit(cli);
+
+    if let Some(path) = &cli.probe_out {
+        if let Err(e) = parity::probe::write_tsv(path, &rows) {
+            eprintln!("[parity] Failed to write {}: {e}", path.display());
+            std::process::exit(2);
+        }
+    }
+    parity::probe::print_summary(&rows);
+    for row in rows
+        .iter()
+        .filter(|row| !matches!(row.summary(), "PASS" | "PASS_STATE"))
+    {
+        let detail = row
+            .runs
+            .iter()
+            .find(|run| run.verdict != parity::protocol::Verdict::Pass)
+            .map(|run| {
+                format!(
+                    "seed {} T{} {}{}: Rust={} Java={}",
+                    run.seed,
+                    run.turn.unwrap_or(0),
+                    run.field.as_deref().unwrap_or("?"),
+                    run.subject
+                        .as_deref()
+                        .map(|s| format!(" ({s})"))
+                        .unwrap_or_default(),
+                    run.rust.as_deref().unwrap_or(""),
+                    run.java.as_deref().unwrap_or(""),
+                )
+            })
+            .or_else(|| row.error.clone())
+            .unwrap_or_default();
+        println!("{:<12} {}  {detail}", row.summary(), row.card);
+    }
+    if rows.iter().any(|row| row.summary() == "DIVERGES") {
+        std::process::exit(1);
+    }
+}
+
+fn run_shrink_mode(cli: &Cli) {
+    let decks_dirs = deck_search_dirs(cli.decks_dir.as_deref());
+    let resolve = |spec: &str| {
+        parity::utils::decks::resolve_deck_spec(spec, &decks_dirs).unwrap_or_else(|e| {
+            eprintln!("[parity] {e}");
+            std::process::exit(2);
+        })
+    };
+    let (deck1, deck2) = (resolve(&cli.deck1), resolve(&cli.deck2));
+    let data = load_data_or_exit(cli);
+    let java = java_runtime_or_exit(cli);
+    let outcome = parity::probe::shrink(&deck1, &deck2, cli.seed, |d1, d2, seed| {
+        let config = build_config(cli, d1, d2, seed);
+        ParityRuntime::new(&data)
+            .run_cached(&config, &java.pool, java.cache.as_ref())
+            .result
+    });
+    java.pool.shutdown();
+    match outcome {
+        Err(e) => {
+            eprintln!("[parity] shrink: {e}");
+            std::process::exit(2);
+        }
+        Ok(result) => {
+            let inline = |deck: &parity::deck_generator::DeckSpec| {
+                format!("inline:{}", parity::deck_generator::format_inline(deck))
+            };
+            println!(
+                "still diverges after {} runs: {}",
+                result.runs, result.headline
+            );
+            println!(
+                "--deck1 \"{}\" --deck2 \"{}\" --seed {} --max-turns {}",
+                inline(&result.deck1),
+                inline(&result.deck2),
+                cli.seed,
+                cli.max_turns
+            );
+        }
+    }
+}
+
+fn write_census_or_exit(cli: &Cli) {
+    if let Some(path) = &cli.census_out {
+        if let Err(e) = parity::census_report::write_census(path) {
+            eprintln!("[parity] Failed to write {}: {e}", path.display());
+            std::process::exit(2);
+        }
+    }
+}
+
+fn build_identity(label: &str) -> String {
+    let exe_hash = std::env::current_exe()
+        .ok()
+        .and_then(|exe| java_cache::compute_jar_hash(&exe).ok())
+        .unwrap_or_else(|| "unknown".to_string());
+    if label.is_empty() {
+        format!("exe:{exe_hash}")
+    } else {
+        format!("{label} exe:{exe_hash}")
+    }
+}
+
 fn run_matrix_mode(cli: &Cli) {
     let ignores = load_parity_ignores();
     let decks_dirs = deck_search_dirs(cli.decks_dir.as_deref());
@@ -1046,7 +1320,6 @@ fn run_matrix_mode(cli: &Cli) {
 
     let completed = AtomicUsize::new(0);
 
-    // Spawn server pool if Java JAR is provided.
     // Default worker count is memory-aware: caps to what fits in RAM at the given heap size.
     let num_workers = cli.java_workers.unwrap_or_else(|| {
         if cli.java_jar.is_some() {
@@ -1056,38 +1329,26 @@ fn run_matrix_mode(cli: &Cli) {
         }
     });
 
-    let pool = if let Some(ref jar_path) = cli.java_jar {
-        let server_config = JavaServerConfig {
-            jar_path: jar_path.clone(),
-            forge_home: None,
-            decks_dir: cli.decks_dir.clone(),
-            verbose: cli.is_verbose(),
-            java_heap: cli.java_heap.clone(),
-        };
-        match ServerPool::spawn(num_workers.max(1), &server_config) {
-            Ok(pool) => Some(pool),
-            Err(e) => {
-                eprintln!("[parity] Failed to spawn Java server pool: {e}");
-                eprintln!("[parity] Falling back to one-shot mode");
-                None
-            }
+    let pool = cli.java_jar.as_ref().map(|jar_path| {
+        if !jar_path.exists() {
+            eprintln!("[parity] Java jar not found: {}", jar_path.display());
+            std::process::exit(1);
         }
-    } else {
-        None
-    };
+        ServerPool::lazy(
+            num_workers,
+            JavaServerConfig {
+                jar_path: jar_path.clone(),
+                forge_home: None,
+                decks_dir: cli.decks_dir.clone(),
+                verbose: cli.is_verbose(),
+                java_heap: cli.java_heap.clone(),
+            },
+        )
+    });
 
-    // Open Java output cache (unless --no-cache).
-    // Source hash covers all Java source + deck definitions — when any of
-    // these change the entire cache is wiped automatically.
     let java_cache: Option<JavaCache> = if !cli.no_cache && cli.java_jar.is_some() {
         let project_root = std::env::current_dir().unwrap_or_default();
-        let source_hash = if project_root.join("forge-harness/src").exists() {
-            java_cache::compute_source_hash(&project_root)
-        } else if let Some(ref jar) = cli.java_jar {
-            java_cache::compute_jar_hash(jar).unwrap_or_default()
-        } else {
-            String::new()
-        };
+        let source_hash = java_cache::compute_source_hash(&project_root, cli.java_jar.as_deref());
         match JavaCache::open(std::path::Path::new(&cli.cache_dir), source_hash) {
             Ok(c) => {
                 eprintln!(
@@ -1110,6 +1371,10 @@ fn run_matrix_mode(cli: &Cli) {
     // the same side-by-side scheduling as single-game CLI and debugger compare.
     let cache_hits = AtomicUsize::new(0);
     let cache_misses = AtomicUsize::new(0);
+    let rust_ms = AtomicU64::new(0);
+    let java_ms = AtomicU64::new(0);
+    let compare_ms = AtomicU64::new(0);
+    let matrix_start = std::time::Instant::now();
     let mut results: Vec<MatchupResult> = matrix_pool.install(|| {
         jobs.par_iter()
             .map(|&(d1, d2, seed)| {
@@ -1124,6 +1389,9 @@ fn run_matrix_mode(cli: &Cli) {
                             cache_misses.fetch_add(1, Ordering::Relaxed);
                         }
                     }
+                    rust_ms.fetch_add(matchup.stages.rust_ms, Ordering::Relaxed);
+                    java_ms.fetch_add(matchup.stages.java_ms, Ordering::Relaxed);
+                    compare_ms.fetch_add(matchup.stages.compare_ms, Ordering::Relaxed);
                     matchup.result
                 } else if let Some(ref jar_path) = cli.java_jar {
                     run_single_matchup_oneshot(&config, &data, jar_path)
@@ -1197,8 +1465,15 @@ fn run_matrix_mode(cli: &Cli) {
             .then_with(|| a.seed.cmp(&b.seed))
     });
 
-    // Shutdown pool
     if let Some(pool) = pool {
+        eprintln!(
+            "[parity] Stage totals: rust {}ms, java {}ms, compare {}ms, wall {}ms, {} Java worker(s) started",
+            rust_ms.load(Ordering::Relaxed),
+            java_ms.load(Ordering::Relaxed),
+            compare_ms.load(Ordering::Relaxed),
+            matrix_start.elapsed().as_millis(),
+            pool.servers_started()
+        );
         pool.shutdown();
     }
 
@@ -1234,6 +1509,15 @@ fn run_matrix_mode(cli: &Cli) {
         .iter()
         .filter(|r| r.status == MatchupStatus::Error)
         .count();
+
+    write_census_or_exit(cli);
+    if let Some(ref gate_path) = cli.gate_out {
+        let header = parity::gate::header(build_identity(&cli.build_label), cli.max_turns);
+        if let Err(e) = parity::gate::write_file(gate_path, &header, &results) {
+            eprintln!("[parity] Failed to write {}: {e}", gate_path.display());
+            std::process::exit(1);
+        }
+    }
 
     let matrix_report = MatrixReport {
         total_matchups: total,
@@ -1724,6 +2008,7 @@ fn run_fuzz_mode(cli: &Cli) {
             full_log: false,
             live_log: None,
             callback_compare: false,
+            localize: false,
         };
 
         let matchup_result = if let Some(ref mut srv) = server {
@@ -2404,11 +2689,7 @@ fn run_serve_mode(cli: &Cli) {
         None
     } else {
         let project_root = std::env::current_dir().unwrap_or_default();
-        let source_hash = if project_root.join("forge-harness/src").exists() {
-            java_cache::compute_source_hash(&project_root)
-        } else {
-            java_cache::compute_jar_hash(&jar_path).unwrap_or_default()
-        };
+        let source_hash = java_cache::compute_source_hash(&project_root, Some(&jar_path));
         match JavaCache::open(std::path::Path::new(&cli.cache_dir), source_hash) {
             Ok(c) => {
                 tracing::info!(
@@ -2591,6 +2872,7 @@ fn run_serve_mode(cli: &Cli) {
                         full_log: false,
                         live_log: None,
                         callback_compare: false,
+                        localize: false,
                     };
                     let m = run_matchup_cached(&config, data_ref, pool_ref, cache_ref);
                     if m.cache_hit {
@@ -2804,6 +3086,7 @@ fn run_serve_mode(cli: &Cli) {
             log_snapshots: false,
             live_log: None,
             callback_compare: false,
+            localize: false,
         };
 
         let served = run_matchup_cached(&config, &data, &server_pool, java_cache.as_ref());

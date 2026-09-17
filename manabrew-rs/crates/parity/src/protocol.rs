@@ -418,6 +418,41 @@ pub enum ParityLogEntry {
     Snapshot(StateSnapshot),
     Callback(CallbackRecord),
     Decision(DecisionRecord),
+    Event(EventRecord),
+}
+
+/// A Forge game event, as the Java harness saw it fire (deep runs only). Shown
+/// next to a divergence; never compared, the Rust engine has no such stream.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventRecord {
+    pub turn: u32,
+    pub phase: String,
+    pub kind: String,
+    pub text: String,
+}
+
+impl ParityLog for EventRecord {
+    fn turn(&self) -> u32 {
+        self.turn
+    }
+    fn phase(&self) -> &str {
+        &self.phase
+    }
+    fn player(&self) -> u32 {
+        0
+    }
+    fn kind(&self) -> &str {
+        &self.kind
+    }
+    fn choice(&self) -> &str {
+        &self.text
+    }
+    fn options(&self) -> &[ChoiceLogEntry] {
+        &[]
+    }
+    fn timestamp_ms(&self) -> u64 {
+        0
+    }
 }
 
 impl ParityLogEntry {
@@ -441,6 +476,13 @@ impl ParityLogEntry {
             _ => None,
         }
     }
+
+    pub fn as_event(&self) -> Option<&EventRecord> {
+        match self {
+            Self::Event(e) => Some(e),
+            _ => None,
+        }
+    }
 }
 
 impl ParityLog for ParityLogEntry {
@@ -449,6 +491,7 @@ impl ParityLog for ParityLogEntry {
             Self::Snapshot(s) => s.turn(),
             Self::Callback(c) => c.turn(),
             Self::Decision(d) => d.turn(),
+            Self::Event(e) => e.turn(),
         }
     }
     fn phase(&self) -> &str {
@@ -456,6 +499,7 @@ impl ParityLog for ParityLogEntry {
             Self::Snapshot(s) => s.phase(),
             Self::Callback(c) => c.phase(),
             Self::Decision(d) => d.phase(),
+            Self::Event(e) => e.phase(),
         }
     }
     fn player(&self) -> u32 {
@@ -463,6 +507,7 @@ impl ParityLog for ParityLogEntry {
             Self::Snapshot(s) => s.player(),
             Self::Callback(c) => c.player(),
             Self::Decision(d) => d.player(),
+            Self::Event(e) => e.player(),
         }
     }
     fn kind(&self) -> &str {
@@ -470,6 +515,7 @@ impl ParityLog for ParityLogEntry {
             Self::Snapshot(s) => s.kind(),
             Self::Callback(c) => c.kind(),
             Self::Decision(d) => d.kind(),
+            Self::Event(e) => e.kind(),
         }
     }
     fn choice(&self) -> &str {
@@ -477,6 +523,7 @@ impl ParityLog for ParityLogEntry {
             Self::Snapshot(s) => s.choice(),
             Self::Callback(c) => c.choice(),
             Self::Decision(d) => d.choice(),
+            Self::Event(e) => e.choice(),
         }
     }
     fn options(&self) -> &[ChoiceLogEntry] {
@@ -484,6 +531,7 @@ impl ParityLog for ParityLogEntry {
             Self::Snapshot(s) => s.options(),
             Self::Callback(c) => c.options(),
             Self::Decision(d) => d.options(),
+            Self::Event(e) => e.options(),
         }
     }
     fn callback_args(&self) -> &[String] {
@@ -491,6 +539,7 @@ impl ParityLog for ParityLogEntry {
             Self::Snapshot(s) => s.callback_args(),
             Self::Callback(c) => c.callback_args(),
             Self::Decision(d) => d.callback_args(),
+            Self::Event(e) => e.callback_args(),
         }
     }
     fn timestamp_ms(&self) -> u64 {
@@ -498,6 +547,7 @@ impl ParityLog for ParityLogEntry {
             Self::Snapshot(s) => s.timestamp_ms(),
             Self::Callback(c) => c.timestamp_ms(),
             Self::Decision(d) => d.timestamp_ms(),
+            Self::Event(e) => e.timestamp_ms(),
         }
     }
 }
@@ -513,6 +563,9 @@ pub struct Divergence {
     pub field: String,
     pub rust_value: String,
     pub java_value: String,
+    /// The card the field belongs to, for per-card battlefield fields.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject: Option<String>,
 }
 
 /// Full parity report comparing two engine runs.
@@ -538,6 +591,34 @@ pub enum MatchupStatus {
     Error,
 }
 
+/// What a matchup run amounts to, finer than [`MatchupStatus`]: a guard abort,
+/// a wall-clock stop and a Java heap failure are not engine divergences.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum Verdict {
+    Pass,
+    Fail,
+    Aborted,
+    Timeout,
+    Oom,
+    Error,
+    Skipped,
+}
+
+impl Verdict {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Verdict::Pass => "PASS",
+            Verdict::Fail => "FAIL",
+            Verdict::Aborted => "ABORTED",
+            Verdict::Timeout => "TIMEOUT",
+            Verdict::Oom => "OOM",
+            Verdict::Error => "ERROR",
+            Verdict::Skipped => "SKIPPED",
+        }
+    }
+}
+
 /// Result of a single deck-pair + seed matchup.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MatchupResult {
@@ -548,6 +629,20 @@ pub struct MatchupResult {
     pub snapshots_compared: usize,
     pub divergence_count: usize,
     pub first_divergence: Option<Divergence>,
+    /// Every differing field of the first divergent snapshot, headline first.
+    #[serde(default)]
+    pub divergences: Vec<Divergence>,
+    /// First divergence of a `--deep` rerun, which narrows a per-turn
+    /// divergence to a phase or priority window.
+    #[serde(default)]
+    pub localized: Option<Divergence>,
+    /// What each engine did in the window the deep rerun narrowed it to.
+    #[serde(default)]
+    pub localized_detail: Vec<String>,
+    /// The first decision the engines disagree on, which usually precedes the
+    /// state divergence and names its cause. `subject` is the last agreed one.
+    #[serde(default)]
+    pub decision: Option<Divergence>,
     pub error_message: Option<String>,
     pub skip_reason: Option<String>,
     /// The Rust snapshot at the point of divergence.
@@ -564,6 +659,32 @@ pub struct MatchupResult {
 }
 
 impl MatchupResult {
+    pub fn verdict(&self) -> Verdict {
+        match self.status {
+            MatchupStatus::Pass => Verdict::Pass,
+            MatchupStatus::Skipped => Verdict::Skipped,
+            MatchupStatus::Error => {
+                let message = self.error_message.as_deref().unwrap_or_default();
+                if message.contains("OutOfMemoryError") || message.contains("Java heap space") {
+                    Verdict::Oom
+                } else {
+                    Verdict::Error
+                }
+            }
+            MatchupStatus::Fail => {
+                let ran_out = self
+                    .first_divergence
+                    .as_ref()
+                    .is_some_and(|d| d.field == "snapshot.exists");
+                match self.skip_reason.as_deref() {
+                    Some(reason) if ran_out && reason.contains("wall clock") => Verdict::Timeout,
+                    Some(reason) if ran_out && reason.starts_with("ABORTED") => Verdict::Aborted,
+                    _ => Verdict::Fail,
+                }
+            }
+        }
+    }
+
     pub fn error(config: &super::runner::RunConfig, message: String) -> Self {
         Self {
             deck1: config.deck1.clone(),
@@ -573,6 +694,10 @@ impl MatchupResult {
             snapshots_compared: 0,
             divergence_count: 0,
             first_divergence: None,
+            divergences: vec![],
+            localized: None,
+            localized_detail: vec![],
+            decision: None,
             error_message: Some(message),
             skip_reason: None,
             rust_snapshot: None,
@@ -593,6 +718,10 @@ impl MatchupResult {
             snapshots_compared: 0,
             divergence_count: 0,
             first_divergence: None,
+            divergences: vec![],
+            localized: None,
+            localized_detail: vec![],
+            decision: None,
             error_message: None,
             skip_reason: Some(reason),
             rust_snapshot: None,
