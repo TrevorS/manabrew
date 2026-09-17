@@ -30,6 +30,35 @@ impl GameLoop {
         has_all_color_source || crate::mana::has_replacement_adjusted_available_mana(game, player)
     }
 
+    /// Mana a spell cast of this card could draw on: `RestrictValid$` sources that the
+    /// spell does not satisfy are left out, as `AbilityManaPart.meetsManaRestrictions` does.
+    fn available_mana_for_spell_card(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+        chosen_types_by_source: &crate::HashMap<CardId, String>,
+    ) -> crate::mana::ManaPool {
+        let card = game.card(card_id);
+        let payment_ctx = mana::ManaPaymentContext {
+            is_spell: true,
+            is_activated_ability: false,
+            sa_on_stack: false,
+            type_line: Some(card.type_line.clone()),
+            card_name: Some(card.card_name.clone()),
+            card_color: Some(card.color),
+            chosen_types_by_source: chosen_types_by_source.clone(),
+        };
+        mana::calculate_available_mana_with_context(
+            self.pool(player),
+            game,
+            player,
+            Some(card_id),
+            &[],
+            Some(&payment_ctx),
+        )
+    }
+
     fn can_play_secondary_spell(
         &self,
         game: &GameState,
@@ -923,12 +952,8 @@ impl GameLoop {
             if must_be_instant && !has_flash_permission(card_id) {
                 continue;
             }
-            let available_mana = mana::calculate_available_mana_for_casting_excluding(
-                self.pool(player),
-                game,
-                player,
-                Some(card_id),
-            );
+            let available_mana =
+                self.available_mana_for_spell_card(game, player, card_id, &chosen_types_by_source);
             let sp_additional_ok = if let Some(sc) = card.action_spell_cost.as_ref() {
                 crate::cost::can_pay_ignoring_mana_for_spell(sc, game, card_id, player)
             } else {
@@ -1043,11 +1068,11 @@ impl GameLoop {
                         continue;
                     }
                 }
-                let available_mana = mana::calculate_available_mana_for_casting_excluding(
-                    self.pool(player),
+                let available_mana = self.available_mana_for_spell_card(
                     game,
                     player,
-                    Some(card_id),
+                    card_id,
+                    &chosen_types_by_source,
                 );
                 let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
                     game,
@@ -1080,11 +1105,11 @@ impl GameLoop {
                     if must_be_instant && !has_flash_permission(card_id) {
                         continue;
                     }
-                    let available_mana = mana::calculate_available_mana_for_casting_excluding(
-                        self.pool(player),
+                    let available_mana = self.available_mana_for_spell_card(
                         game,
                         player,
-                        Some(card_id),
+                        card_id,
+                        &chosen_types_by_source,
                     );
                     let foretell_mc = forge_foundation::ManaCost::parse(&foretell_cost_str);
                     let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
@@ -1132,11 +1157,11 @@ impl GameLoop {
                 if must_be_instant && !has_flash_permission(card_id) {
                     continue;
                 }
-                let available_mana = mana::calculate_available_mana_for_casting_excluding(
-                    self.pool(player),
+                let available_mana = self.available_mana_for_spell_card(
                     game,
                     player,
-                    Some(card_id),
+                    card_id,
+                    &chosen_types_by_source,
                 );
                 let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
                     game,
