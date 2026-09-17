@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.45.0](https://github.com/witchesofthehill/manabrew/compare/v3.44.5...v3.45.0) (2026-09-17)
+
+### Features
+
+* **ai:** run local manabot over forge sab seats ([#943](https://github.com/witchesofthehill/manabrew/issues/943)) ([#946](https://github.com/witchesofthehill/manabrew/issues/946)) ([63d46d9](https://github.com/witchesofthehill/manabrew/commit/63d46d9e430a9aa268d87b90d4123f8f5462a935))
+
 ## [3.44.5](https://github.com/witchesofthehill/manabrew/compare/v3.44.4...v3.44.5) (2026-09-17)
 
 ### Fixes
