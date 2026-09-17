@@ -579,6 +579,7 @@ impl GameState {
                 // changeZone-creates-new-Card behaviour.
                 card.cast_from = None;
                 card.reset_crewed();
+                card.reset_saddled();
                 if !keep_counters {
                     card.counters.clear();
                 }

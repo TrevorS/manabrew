@@ -765,6 +765,7 @@ impl GameLoop {
                 game.cards[i].reset_regeneration_shields();
                 game.cards[i].reset_shield_count();
                 game.cards[i].reset_crewed();
+                game.cards[i].reset_saddled();
 
                 if game.cards[i].is_creature() {
                     let keep_damage =

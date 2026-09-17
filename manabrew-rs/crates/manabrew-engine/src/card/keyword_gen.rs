@@ -184,6 +184,23 @@ impl Card {
             }
         }
 
+        for kw in self
+            .keywords
+            .iter_strings()
+            .chain(self.granted_keywords.iter_strings())
+        {
+            if let Some(power) = crate::keyword::extract_keyword_cost_str(kw, "Saddle") {
+                let power = power.trim();
+                let ab_text = format!(
+                    "AB$ AlterAttribute | Cost$ tapXType<Any/Creature.Other+withTotalPowerGE{{{power}}}> | CostDesc$ Saddle {power} | Attributes$ Saddle | Secondary$ True | Defined$ Self | SorcerySpeed$ True | SpellDescription$ Saddle {power}"
+                );
+                let next_idx = self.activated_abilities.len();
+                if let Some(ab) = parse_activated_ability(&ab_text, next_idx) {
+                    self.activated_abilities.push(ab);
+                }
+            }
+        }
+
         // Station: K:Station:N → AB$ PutCounter (tap another creature to add charge counters).
         // Mirrors Java CardFactoryUtil lines 3587-3595.
         // The ability is sorcery-speed and puts charge counters equal to the tapped

@@ -3449,6 +3449,7 @@ impl Card {
         self.set_s_var("SaddledBy", format!("{}", card.0));
     }
     pub fn reset_saddled(&mut self) {
+        self.remove_s_var("Saddled");
         self.remove_s_var("SaddledBy");
     }
     pub fn can_specialize(&self) -> bool {
