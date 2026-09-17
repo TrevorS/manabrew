@@ -428,11 +428,16 @@ impl GameState {
             return;
         }
 
-        if src_zone == ZoneType::Stack
-            && !matches!(dest_zone, ZoneType::Stack | ZoneType::Battlefield)
-            && self.cards[card_id.index()].is_transformed
-        {
+        let leaves_as_new_object = (src_zone == ZoneType::Stack
+            && !matches!(dest_zone, ZoneType::Stack | ZoneType::Battlefield))
+            || (src_zone == ZoneType::Battlefield && dest_zone != ZoneType::Battlefield);
+        if leaves_as_new_object && self.cards[card_id.index()].is_transformed {
             self.cards[card_id.index()].transform();
+        }
+        if src_zone == ZoneType::Exile && dest_zone != ZoneType::Exile {
+            self.cards[card_id.index()]
+                .keywords
+                .remove(crate::card::KEYWORD_WARP_EXILED);
         }
 
         // Remove from source zone
