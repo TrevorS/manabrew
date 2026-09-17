@@ -487,6 +487,18 @@ pub fn resolve_defined_players_with_sa(
         }
         return players;
     }
+    if let Some(rest) = key.strip_prefix("OppNon") {
+        let excluded = resolve_defined_players_with_sa(rest, sa, controller, game);
+        return game
+            .player_order
+            .iter()
+            .copied()
+            .filter(|&pid| {
+                crate::player::player_predicates::is_opponent_of(game, controller, pid)
+                    && !excluded.contains(&pid)
+            })
+            .collect();
+    }
     if let Some(rest) = key.strip_prefix("Non") {
         let excluded = resolve_defined_players_with_sa(rest, sa, controller, game);
         return game
