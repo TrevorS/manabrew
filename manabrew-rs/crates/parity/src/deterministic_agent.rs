@@ -116,6 +116,7 @@ struct GameSnapshot {
     card_owner_controller: Vec<(CardId, (u32, u32))>,
     ability_is_mana: Vec<((CardId, usize), bool)>,
     ability_texts: Vec<((CardId, usize), String)>,
+    stack_sources: Vec<(u32, CardId)>,
     phase: PhaseType,
     stack_depth: usize,
 }
@@ -892,8 +893,14 @@ impl PlayerAgent for DeterministicAgent {
                 .flatten();
             game.cards.iter().map(Self::shallow_snapshot_card).collect()
         };
+        let stack_sources: Vec<(u32, CardId)> = game
+            .stack
+            .iter()
+            .filter_map(|entry| entry.spell_ability.source.map(|source| (entry.id, source)))
+            .collect();
         self.last_game_snapshot = Some(GameSnapshot {
             cards,
+            stack_sources,
             player_names,
             card_names,
             card_is_land,
@@ -1398,7 +1405,29 @@ impl PlayerAgent for DeterministicAgent {
         if valid.is_empty() {
             return None;
         }
-        let target = choice_space::pick_one(valid, &mut self.rng.borrow_mut())?;
+        // Java sorts every target candidate with `ParityOrder.targetSortKey`; a spell on
+        // the stack is its card there: name, owner and controller, parity id.
+        let source_of = |stack_id: u32| {
+            self.last_game_snapshot.as_ref().and_then(|snap| {
+                snap.stack_sources
+                    .iter()
+                    .find(|(id, _)| *id == stack_id)
+                    .map(|(_, source)| *source)
+            })
+        };
+        let sorted =
+            choice_space::sort_native(valid, |a, b| match (source_of(*a), source_of(*b)) {
+                (Some(ca), Some(cb)) => self
+                    .card_name(ca)
+                    .cmp(&self.card_name(cb))
+                    .then_with(|| {
+                        self.target_owner_controller_key(ca)
+                            .cmp(&self.target_owner_controller_key(cb))
+                    })
+                    .then_with(|| self.parity_map.id(ca).cmp(&self.parity_map.id(cb))),
+                _ => a.cmp(b),
+            });
+        let target = choice_space::pick_one(&sorted, &mut self.rng.borrow_mut())?;
         Some(target)
     }
 
