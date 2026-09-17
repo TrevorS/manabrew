@@ -167,6 +167,22 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             DiscardMode::Random => {
                 ctx.agents[target_player.index()].choose_random_discard(target_player, &hand, num)
             }
+            DiscardMode::TgtChoose if sa.ir.unless_type.is_some() => {
+                let unless_types: Vec<String> = sa
+                    .ir
+                    .unless_type
+                    .as_deref()
+                    .unwrap_or_default()
+                    .split(',')
+                    .map(|t| t.trim().to_string())
+                    .collect();
+                ctx.agents[target_player.index()].choose_cards_to_discard_unless_type(
+                    target_player,
+                    &hand,
+                    num,
+                    &unless_types,
+                )
+            }
             _ if any_number => ctx.agents[chooser.index()].choose_discard_any_number(
                 target_player,
                 &hand,

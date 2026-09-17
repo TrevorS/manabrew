@@ -411,6 +411,18 @@ pub trait PlayerAgent {
         hand.iter().copied().take(num).collect()
     }
 
+    /// Mirrors `PlayerController.chooseCardsToDiscardUnlessType`: discard `min` cards,
+    /// or a single card of one of `unless_types`. Default: `min` cards.
+    fn choose_cards_to_discard_unless_type(
+        &mut self,
+        player: PlayerId,
+        hand: &[CardId],
+        min: usize,
+        _unless_types: &[String],
+    ) -> Vec<CardId> {
+        self.choose_discard(player, hand, min)
+    }
+
     /// Choose any number of cards to discard (for `AnyNumber$ True` on
     /// SP$/DB$ Discard). The agent may pick 0..=hand.len() cards.
     /// Default: discard `min` cards (the minimum forced amount).

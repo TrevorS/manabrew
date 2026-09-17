@@ -476,6 +476,7 @@ pub const STRICT_AMOUNT: &str = "StrictAmount";
 // ── Unless params ───────────────────────────────────────────────────
 pub const UNLESS_SWITCHED: &str = "UnlessSwitched";
 pub const UNLESS_PAYER: &str = "UnlessPayer";
+pub const UNLESS_TYPE: &str = "UnlessType";
 
 // ── Condition params (extra) ────────────────────────────────────────
 pub const CONDITION_ZONE: &str = "ConditionZone";

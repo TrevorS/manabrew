@@ -884,6 +884,7 @@ impl PlayerAgent for CapturingAgent {
         fn choose_dig(&mut self, game: &GameState, player: PlayerId, valid: &[CardId], max: usize, optional: bool) -> Vec<CardId> => "choose_dig";
         fn choose_reorder_library(&mut self, game: &GameState, player: PlayerId, cards: &[CardId]) -> Vec<CardId> => "choose_reorder_library";
         fn choose_discard(&mut self, player: PlayerId, hand: &[CardId], num: usize) -> Vec<CardId> => "choose_discard";
+        fn choose_cards_to_discard_unless_type(&mut self, player: PlayerId, hand: &[CardId], min: usize, unless_types: &[String]) -> Vec<CardId> => "choose_discard_unless_type";
         fn choose_discard_any_number(&mut self, player: PlayerId, hand: &[CardId], min: usize, max: usize) -> Vec<CardId> => "choose_discard";
         fn choose_random_discard(&mut self, player: PlayerId, hand: &[CardId], num: usize) -> Vec<CardId> => "choose_random_discard";
         fn choose_cards_for_effect(&mut self, player: PlayerId, valid: &[CardId], min: usize, max: usize) -> Vec<CardId> => "choose_cards_for_effect";
