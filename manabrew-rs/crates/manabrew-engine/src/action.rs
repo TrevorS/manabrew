@@ -1176,9 +1176,10 @@ impl GameState {
         self.move_card_without_replacement(cid, final_dest, owner);
     }
 
-    fn order_cards_by_their_owners(
+    pub(crate) fn order_cards_by_their_owners(
         &self,
         list: Vec<CardId>,
+        dest: ZoneType,
         agents: &mut Option<&mut [Box<dyn PlayerAgent>]>,
     ) -> Vec<CardId> {
         if list.len() <= 1 {
@@ -1196,11 +1197,20 @@ impl GameState {
             let sub_list: Vec<CardId> = list
                 .iter()
                 .copied()
-                .filter(|&cid| self.card(cid).owner == pid)
+                .filter(|&cid| {
+                    let card = self.card(cid);
+                    let decider = if dest == ZoneType::Battlefield {
+                        card.controller
+                    } else {
+                        card.owner
+                    };
+                    decider == pid
+                })
                 .collect();
             match agents.as_deref_mut() {
-                Some(agents) if sub_list.len() > 1 => complete_list
-                    .extend(agents[pid.index()].choose_reorder_library(self, pid, &sub_list)),
+                Some(agents) if sub_list.len() > 1 => complete_list.extend(
+                    agents[pid.index()].order_move_to_zone_list(self, pid, &sub_list, dest),
+                ),
                 _ => complete_list.extend(sub_list),
             }
         }
@@ -1356,7 +1366,8 @@ impl GameState {
         }
 
         if no_reg_creats.len() > 1 {
-            no_reg_creats = self.order_cards_by_their_owners(no_reg_creats, &mut agents);
+            no_reg_creats =
+                self.order_cards_by_their_owners(no_reg_creats, ZoneType::Graveyard, &mut agents);
         }
         for cid in no_reg_creats {
             self.move_battlefield_card_to_graveyard_for_sba(cid, &mut trigger_handler, &mut agents);
@@ -1365,7 +1376,8 @@ impl GameState {
 
         if des_creats.len() > 1 {
             des_creats.retain(|&cid| !self.cards[cid.index()].has_keyword("Indestructible"));
-            des_creats = self.order_cards_by_their_owners(des_creats, &mut agents);
+            des_creats =
+                self.order_cards_by_their_owners(des_creats, ZoneType::Graveyard, &mut agents);
         }
         for cid in des_creats {
             if self.cards[cid.index()].has_keyword("Indestructible") {

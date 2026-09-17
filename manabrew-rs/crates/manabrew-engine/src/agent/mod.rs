@@ -391,6 +391,19 @@ pub trait PlayerAgent {
         cards.to_vec()
     }
 
+    /// Mirrors `PlayerController.orderMoveToZoneList`: order cards that move to
+    /// `destination` together. An interactive agent should answer without a prompt
+    /// where `PlayerControllerHuman` does (Hand, and Graveyard by default).
+    fn order_move_to_zone_list(
+        &mut self,
+        game: &GameState,
+        player: PlayerId,
+        cards: &[CardId],
+        _destination: forge_foundation::ZoneType,
+    ) -> Vec<CardId> {
+        self.choose_reorder_library(game, player, cards)
+    }
+
     /// Choose which cards to discard from hand (for SP$ Discard effects).
     /// `hand` is the full hand, `num` is how many must be discarded.
     /// Default: discard the first `num` cards.

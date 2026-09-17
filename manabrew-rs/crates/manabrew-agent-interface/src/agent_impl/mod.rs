@@ -1351,6 +1351,19 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
         library::choose_reorder_library(self, game, player, cards)
     }
 
+    fn order_move_to_zone_list(
+        &mut self,
+        game: &GameState,
+        player: PlayerId,
+        cards: &[CardId],
+        destination: ZoneType,
+    ) -> Vec<CardId> {
+        match destination {
+            ZoneType::Hand | ZoneType::Graveyard => cards.to_vec(),
+            _ => library::choose_reorder_library(self, game, player, cards),
+        }
+    }
+
     fn help_pay_assist(&mut self, player: PlayerId, card_name: &str, max_generic: u32) -> u32 {
         choices::help_pay_assist(self, player, card_name, max_generic)
     }

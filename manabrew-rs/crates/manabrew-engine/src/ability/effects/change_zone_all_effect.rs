@@ -217,6 +217,41 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             to_move = ordered;
         }
 
+        if !sa.ir.random_order && !sa.ir.shuffle {
+            let cards: Vec<CardId> = to_move.iter().map(|(cid, _)| *cid).collect();
+            let ordered = if dest_zone == ZoneType::Library && cards.len() >= 2 {
+                let orderer = sa
+                    .ir
+                    .defined_player_text
+                    .as_deref()
+                    .and_then(|defined| {
+                        crate::ability::ability_utils::resolve_defined_players_with_sa(
+                            defined,
+                            sa,
+                            sa.activating_player,
+                            ctx.game,
+                        )
+                        .first()
+                        .copied()
+                    })
+                    .unwrap_or(sa.activating_player);
+                ctx.agents[orderer.index()]
+                    .order_move_to_zone_list(ctx.game, orderer, &cards, dest_zone)
+            } else {
+                ctx.game
+                    .order_cards_by_their_owners(cards, dest_zone, &mut Some(&mut *ctx.agents))
+            };
+            let mut reordered = Vec::with_capacity(to_move.len());
+            for cid in ordered {
+                if let Some(&entry) = to_move.iter().find(|(card_id, _)| *card_id == cid) {
+                    reordered.push(entry);
+                }
+            }
+            if reordered.len() == to_move.len() {
+                to_move = reordered;
+            }
+        }
+
         let mut moved_to_library: Vec<(CardId, PlayerId)> = Vec::new();
         for (card_id, dest_owner) in to_move {
             if ctx.game.card(card_id).zone != origin_zone {
