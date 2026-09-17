@@ -10,6 +10,7 @@ Read first: `/AGENTS.md`, `docs/agents/ENGINE_BUGFIX_WORKFLOW.md`, `docs/PARITY_
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `regression.json`                                                   | The canonical regression suite. Each entry: deck1, deck2, seed, max_turns, games. `yarn parity <name>` looks up entries here.                    |
 | `parity_ignore.json`                                                | Known-divergent matchups to skip, with a written reason.                                                                                         |
+| `survey_matchups.tsv`, `survey_baseline.txt`                        | The Standard survey sample: 70 `deck1<TAB>deck2` matchups over `parity_decks/survey_g*.json`, and the result line each produced when the baseline was taken. `scripts/survey-gate.sh` diffs a fresh run against it. |
 | `src/runner.rs`, `src/scheduler.rs`                                 | Top-level orchestration.                                                                                                                         |
 | `src/deterministic_agent.rs`                                        | The reproducible agent both engines drive. Same logic, same RNG, same decisions.                                                                 |
 | `src/java_bridge.rs`, `src/java_cache.rs`, `src/java_random.rs`     | Java harness FFI — calls into `forge-harness/`.                                                                                                  |
@@ -43,6 +44,16 @@ yarn parity:test -- --deck1 <d1> --deck2 <d2> --seed <N> --max-turns 30 -v
 ```
 
 Trace flags: `FORGE_RNG_TRACE=1`, `FORGE_TRIGGER_TRACE=1`, `FORGE_LIFE_TRACE=1`. See `docs/PARITY_TESTING.md` for the full env-var list.
+
+The comparator reports only the first differing field of the first divergent snapshot, so a later field agreeing is not evidence. `PARITY_ALL_DIVERGENCES=1` prints every differing field of that snapshot as `[all-div]` lines. `--repeat-check` runs the Rust game twice on the same seed and reports the first differing log entry, which separates nondeterminism from a real divergence. `--callback-compare` also compares the agent callback sequence (acting player and prompt name, not the answer) inside each snapshot window. Game-state fields are compared before the RNG call counts, because the counts diverge whenever the engines make different decisions.
+
+### Gate a change on the Standard survey
+
+```bash
+yarn parity:survey       # scripts/survey-gate.sh; needs target/parity/parity and the harness jar
+```
+
+Runs `--matrix --matchups survey_matchups.tsv --seeds 42 --max-turns 20` and prints `SURVEY_SAME`, or `SURVEY_CHANGED` with the diff and exit 1. Each line is `deck1 deck2 PASS|FAIL`, followed by `FAILED AT TURN n` for a divergence or `ABORTED AT TURN n` when a parity guard (card-copy, decision, or wall-clock) stopped the game. A fix that moves a divergence later changes the turn without flipping the status; only closing the last gap changes the pass count. When a change is meant to alter the baseline, copy the `.observed` file the script writes next to `SURVEY_OUT` over `survey_baseline.txt` and commit both together. `PARITY_BIN`, `PARITY_JAR`, `JAVA_WORKERS`, and `JAVA_HEAP` override the defaults.
 
 The parity binary mmaps `src-tauri/resources/cardset.rkyv` at startup. `yarn parity` ensures it's present, but direct invocations (`cargo run -p parity …`, manual `./target/parity/parity …`, custom CI jobs) need to materialise it first — see `manabrew-engine/AGENTS.md` § "Cardset archive". A bare `cargo build` of this crate doesn't build it.
 

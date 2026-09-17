@@ -13,6 +13,7 @@ use crate::HashMap;
 use forge_foundation::PhaseType;
 use serde::{Deserialize, Serialize};
 
+use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 
 // Re-exports
@@ -26,16 +27,43 @@ pub use phase_handler::PhaseHandler;
 /// In Java, these are `Runnable`-like objects that modify game state.
 /// In Rust, we represent them as an enum of known command types,
 /// since we can't store closures in serializable state.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PhaseCommand {
-    /// Remove a continuous effect by its ID.
-    RemoveEffect(CardId),
-    /// Restore a card's controller to its owner.
-    RestoreController(CardId),
-    /// Remove granted keywords from a card.
-    RemoveGrantedKeywords(CardId),
-    /// Generic cleanup marker.
-    Cleanup(CardId),
+    AddController {
+        player: PlayerId,
+        controller: PlayerId,
+        combat: bool,
+    },
+    RemoveController {
+        player: PlayerId,
+        controller: PlayerId,
+    },
+}
+
+impl PhaseCommand {
+    pub fn run(self, game: &mut GameState) {
+        match self {
+            PhaseCommand::AddController {
+                player,
+                controller,
+                combat,
+            } => {
+                if crate::player::has_lost(game, controller) {
+                    return;
+                }
+                crate::player::add_controller(game, player, controller);
+                let release = PhaseCommand::RemoveController { player, controller };
+                if combat {
+                    game.end_of_combat.add_until(None, release);
+                } else {
+                    game.cleanup.add_until(None, release);
+                }
+            }
+            PhaseCommand::RemoveController { player, controller } => {
+                crate::player::remove_controller(game, player, controller);
+            }
+        }
+    }
 }
 
 /// Phase instance — stores commands that execute at phase boundaries.
@@ -43,7 +71,7 @@ pub enum PhaseCommand {
 /// Mirrors Java's `Phase` class. Each `Phase` in Java holds lists of
 /// `GameCommand` callbacks for "at <phase>", "until <phase>", and
 /// per-player "until <player's> next <phase>" effects.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Phase {
     #[allow(dead_code)]
     phase_type: Option<PhaseType>,
@@ -220,6 +248,21 @@ impl TurnState {
     /// Returns `Some((player, skip_untap))` if the advancing player needs
     /// their skip_next_untap flag set on PlayerState; `None` otherwise.
     /// Mirrors Java's `PhaseHandler.handleNextTurn()`.
+    pub fn next_turn_player(
+        &self,
+        extra_turns: &std::collections::VecDeque<ExtraTurn>,
+        player_order: &[PlayerId],
+    ) -> PlayerId {
+        if let Some(extra_turn) = extra_turns.front() {
+            return extra_turn.player;
+        }
+        let pos = player_order
+            .iter()
+            .position(|&p| p == self.active_player)
+            .unwrap_or(0);
+        player_order[(pos + 1) % player_order.len()]
+    }
+
     pub fn advance_turn(
         &mut self,
         extra_turns: &mut std::collections::VecDeque<ExtraTurn>,
@@ -289,8 +332,12 @@ mod tests {
     #[test]
     fn phase_commands() {
         let mut phase = Phase::new(PhaseType::Upkeep);
-        phase.add_at(PhaseCommand::Cleanup(CardId(1)));
-        phase.add_until(None, PhaseCommand::RemoveEffect(CardId(2)));
+        let command = PhaseCommand::RemoveController {
+            player: PlayerId(0),
+            controller: PlayerId(1),
+        };
+        phase.add_at(command.clone());
+        phase.add_until(None, command);
 
         let at_cmds = phase.execute_at();
         assert_eq!(at_cmds.len(), 1);
@@ -309,8 +356,12 @@ mod tests {
         let p0 = PlayerId(0);
         let p1 = PlayerId(1);
 
-        phase.add_until(Some(p0), PhaseCommand::Cleanup(CardId(1)));
-        phase.add_until(Some(p1), PhaseCommand::Cleanup(CardId(2)));
+        let command = PhaseCommand::RemoveController {
+            player: p0,
+            controller: p1,
+        };
+        phase.add_until(Some(p0), command.clone());
+        phase.add_until(Some(p1), command);
 
         let p0_cmds = phase.execute_until(Some(p0));
         assert_eq!(p0_cmds.len(), 1);

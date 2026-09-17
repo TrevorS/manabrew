@@ -590,6 +590,16 @@ impl GameLoop {
             // see the same snapshot Java emits when it re-enters onPhaseBegin(CLEANUP).
             if is_repeat {
                 self.notify_phase_changed(game, agents);
+            } else {
+                let next_player = game
+                    .turn
+                    .next_turn_player(&game.extra_turns, &game.player_order);
+                for command in game.cleanup.execute_until(None) {
+                    command.run(game);
+                }
+                for command in game.cleanup.execute_until(Some(next_player)) {
+                    command.run(game);
+                }
             }
 
             let active = game.active_player();
@@ -641,21 +651,14 @@ impl GameLoop {
             // onPhaseBegin(CLEANUP) every iteration.
             self.cleanup_damage_and_eot(game);
 
-            // CR 514.2/514.3a: "until end of turn" effects have just ended, so
-            // state-based actions are checked before the step concludes. An
-            // Equipment on a permanent that stopped being a creature unattaches
-            // here rather than at the next priority.
-            // TODO(parity): Java also repeats the cleanup step when an SBA is
-            // performed; this only applies them.
-            super::check_sba(game, &mut self.trigger_handler, agents);
-
-            // Static effects are recomputed after the cleanup SBA: an Equipment
-            // that just unattached must stop granting its keywords before the
-            // turn ends, and granted_keywords is only rebuilt by a layer pass.
+            let sba_performed = super::check_sba(game, &mut self.trigger_handler, agents);
             crate::staticability::layer::apply_continuous_effects(game);
 
             self.trigger_handler.flush_waiting_triggers(game);
-            if game.stack.is_empty() && self.trigger_handler.pre_matched_trigger_count() == 0 {
+            if !sba_performed
+                && game.stack.is_empty()
+                && self.trigger_handler.pre_matched_trigger_count() == 0
+            {
                 break;
             }
             self.step_with_priority(game, agents, false);

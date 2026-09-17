@@ -49,7 +49,10 @@ public final class SnapshotExtractor {
         snapshot.put("initiative", game.getHasInitiative() == null ? null : playerIndex(game, game.getHasInitiative()));
         snapshot.put("day_night", game.getDayTime() == null ? "none" : game.isNight() ? "night" : "day");
         java.util.Random gameRandom = forge.util.MyRandom.getRandom();
-        snapshot.put("game_rng_calls", gameRandom instanceof CountingRandom countingRandom ? countingRandom.getCallCount() : -1);
+        if (!(gameRandom instanceof CountingRandom countingRandom)) {
+            throw new IllegalStateException("game RNG is not a CountingRandom");
+        }
+        snapshot.put("game_rng_calls", countingRandom.getCallCount());
         snapshot.put("agent_rng_calls", ParityLog.rngCallCount());
 
         // players — use getRegisteredPlayers() to include lost players

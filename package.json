@@ -45,6 +45,7 @@
     "bench:pool": "python3 scripts/engine-bench/pool.py",
     "parity": "node scripts/parity.mjs",
     "parity:gui": "cargo run -p parity-debugger",
+    "parity:survey": "bash scripts/survey-gate.sh",
     "parity:test": "node scripts/harness.mjs ensure && cargo run --profile parity -p parity --bin parity -- --java-jar forge-harness/target/forge-harness-jar-with-dependencies.jar",
     "scan": "node scan_structure.cjs",
     "import-deck": "tsx scripts/import-deck.ts",

@@ -626,7 +626,7 @@ pub struct Card {
     pub damage_history: damage_history::DamageHistory,
     /// Specific cards this creature must block (set by effects like Lure variants).
     pub must_block_cards: Vec<CardId>,
-    pub etb_counters: BTreeMap<CounterType, i32>,
+    pub etb_counters: BTreeMap<Option<PlayerId>, BTreeMap<CounterType, i32>>,
     /// Bitmask of colors of mana spent to cast this spell (for Sunburst/Converge).
     /// Uses ManaAtom bit flags (W=1, U=2, B=4, R=8, G=16).
     pub colors_spent_to_cast: u16,
@@ -1902,6 +1902,10 @@ impl Card {
         !self.named_cards.is_empty()
     }
 
+    pub fn get_named_card(&self) -> Option<&str> {
+        self.named_cards.last().map(String::as_str)
+    }
+
     pub fn has_chosen_even_odd(&self) -> bool {
         self.chosen_even_odd.is_some()
     }
@@ -2189,8 +2193,18 @@ impl Card {
         self.attacked_this_turn = true;
     }
 
-    pub fn add_etb_counter(&mut self, counter_type: CounterType, amount: i32) {
-        *self.etb_counters.entry(counter_type).or_default() += amount;
+    pub fn add_etb_counter(
+        &mut self,
+        placer: Option<PlayerId>,
+        counter_type: CounterType,
+        amount: i32,
+    ) {
+        *self
+            .etb_counters
+            .entry(placer)
+            .or_default()
+            .entry(counter_type)
+            .or_default() += amount;
     }
 
     pub fn increment_commander_cast_count(&mut self) {
@@ -2696,9 +2710,11 @@ impl Card {
     }
 
     pub fn put_etb_counters(&mut self) {
-        for (counter_type, amount) in std::mem::take(&mut self.etb_counters) {
-            if amount > 0 {
-                self.add_counter(&counter_type, amount);
+        for counters in std::mem::take(&mut self.etb_counters).into_values() {
+            for (counter_type, amount) in counters {
+                if amount > 0 {
+                    self.add_counter(&counter_type, amount);
+                }
             }
         }
     }

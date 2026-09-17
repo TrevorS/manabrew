@@ -134,6 +134,28 @@ fn defined_players_for_property(
     ability_utils::resolve_defined_players_with_sa(property, sa, controller, game)
 }
 
+pub fn is_valid(
+    player: PlayerId,
+    restriction: &crate::parsing::CompiledSelector,
+    game: &GameState,
+    source_id: CardId,
+    source_controller: PlayerId,
+    sa: &SpellAbility,
+) -> bool {
+    restriction.alternatives.iter().any(|alternative| {
+        alternative
+            .parts
+            .iter()
+            .map(|part| part.value.as_str())
+            .filter(|part| {
+                !part.eq_ignore_ascii_case("Player") && !part.eq_ignore_ascii_case("Any")
+            })
+            .all(|property| {
+                player_has_property(player, property, game, source_id, source_controller, sa)
+            })
+    })
+}
+
 pub fn player_has_property(
     player: PlayerId,
     property: &str,

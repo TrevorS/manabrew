@@ -216,12 +216,18 @@ fn compute_cost_adjustment_inner(
             }
 
             // ── checkRequirement: Activator$ ─────────────────────────
-            if !valid_filter::matches_valid_player_opt(
-                st_ab.ir.activator_raw.as_deref(),
-                caster,
-                source.controller,
-            ) {
-                continue;
+            if let Some(activator) = st_ab.ir.activator.as_ref() {
+                let sa = SpellAbility::new_simple(Some(source.id), source.controller, "");
+                if !crate::player::player_property::is_valid(
+                    caster,
+                    activator,
+                    game,
+                    source.id,
+                    source.controller,
+                    &sa,
+                ) {
+                    continue;
+                }
             }
 
             // ── checkRequirement: ValidCard$ ─────────────────────────
@@ -418,12 +424,18 @@ pub fn compute_raise_cost_parts_with_targets(
                 }
             }
 
-            if !valid_filter::matches_valid_player_opt(
-                st_ab.ir.activator_raw.as_deref(),
-                caster,
-                source.controller,
-            ) {
-                continue;
+            if let Some(activator) = st_ab.ir.activator.as_ref() {
+                let sa = SpellAbility::new_simple(Some(source.id), source.controller, "");
+                if !crate::player::player_property::is_valid(
+                    caster,
+                    activator,
+                    game,
+                    source.id,
+                    source.controller,
+                    &sa,
+                ) {
+                    continue;
+                }
             }
 
             if !matches_valid_card(

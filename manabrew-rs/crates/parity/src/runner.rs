@@ -1183,9 +1183,11 @@ pub fn run_with_data_streaming(
     game_loop.set_abort_signal(Arc::clone(&abort_signal));
     let decisions = Arc::new(AtomicU32::new(0));
     let game_finished = Arc::new(AtomicBool::new(false));
+    let wall_clock_tripped = Arc::new(AtomicBool::new(false));
     {
         let abort_signal = Arc::clone(&abort_signal);
         let game_finished = Arc::clone(&game_finished);
+        let wall_clock_tripped = Arc::clone(&wall_clock_tripped);
         std::thread::spawn(move || {
             for _ in 0..GAME_WALL_CLOCK_LIMIT_SECS {
                 std::thread::sleep(std::time::Duration::from_secs(1));
@@ -1194,6 +1196,7 @@ pub fn run_with_data_streaming(
                 }
             }
             if !abort_signal.swap(true, Ordering::Relaxed) {
+                wall_clock_tripped.store(true, Ordering::Relaxed);
                 eprintln!(
                     "[parity-guard] game exceeded {GAME_WALL_CLOCK_LIMIT_SECS}s wall clock limit"
                 );
@@ -1369,6 +1372,21 @@ pub fn run_with_data_streaming(
         manabrew_engine::perf::record_turn_wall(_t_turn.elapsed());
     }
     game_finished.store(true, Ordering::Relaxed);
+    if wall_clock_tripped.load(Ordering::Relaxed) {
+        let game = runtime.game();
+        shared_log
+            .lock()
+            .unwrap()
+            .push(ParityLogEntry::Decision(DecisionRecord {
+                turn: game.turn.turn_number,
+                phase: format!("{:?}", game.turn.phase),
+                deciding_player: p0.0,
+                kind: "$PARITY_GUARD".to_string(),
+                options: vec![],
+                choice: format!("ABORTED: wall clock limit {GAME_WALL_CLOCK_LIMIT_SECS}s exceeded"),
+                timestamp_ms: current_timestamp_ms(),
+            }));
+    }
 
     crate::parity_log::clear_sink();
 

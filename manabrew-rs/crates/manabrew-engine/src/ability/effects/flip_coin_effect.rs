@@ -210,7 +210,6 @@ fn flip_coin(
             saw_false = true;
         }
     }
-    // TODO(parity): Java asks PlayerController.chooseFlipResult when the multiplied flips differ.
     let result = if saw_true && saw_false {
         choice
     } else {

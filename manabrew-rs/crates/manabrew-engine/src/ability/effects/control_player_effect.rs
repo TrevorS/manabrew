@@ -25,11 +25,19 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         vec![ctx.game.opponent_of(sa.activating_player)]
     };
 
+    let combat = sa.param_is_true(crate::parsing::keys::COMBAT);
     for target_player in targets {
-        // Set the controlled_by field on the target player
-        // This will be checked by the game loop to route decisions
-        // through the controller's agent instead of the target's agent
-        ctx.game
-            .player_set_controlled_by(target_player, Some(controller));
+        let command = crate::phase::PhaseCommand::AddController {
+            player: target_player,
+            controller,
+            combat,
+        };
+        if combat {
+            ctx.game
+                .begin_of_combat
+                .add_until(Some(target_player), command);
+        } else {
+            ctx.game.cleanup.add_until(Some(target_player), command);
+        }
     }
 }

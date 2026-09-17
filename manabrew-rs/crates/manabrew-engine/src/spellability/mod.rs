@@ -367,6 +367,7 @@ impl SpellAbility {
             keys::REMEMBER_AMASS => self.ir.remember_amass,
             keys::REMEMBER => self.ir.remember_flag,
             keys::REMOVE_FROM_COMBAT => self.ir.remove_from_combat,
+            keys::COMBAT => self.ir.combat,
             keys::RANDOM_TARGET => self.ir.random_target,
             keys::REMEMBER_CHOSEN => self.ir.remember_chosen,
             keys::REMEMBER_CLASHER => self.ir.remember_clasher,

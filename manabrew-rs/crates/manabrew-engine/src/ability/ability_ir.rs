@@ -323,6 +323,7 @@ pub struct SpellAbilityIr {
     pub condition_zone: Option<ZoneType>,
     pub optional_present: bool,
     pub remove_from_combat: bool,
+    pub combat: bool,
     pub num_att: Option<String>,
     pub num_def: Option<String>,
     pub types_text: Option<String>,
@@ -862,6 +863,7 @@ impl SpellAbilityIr {
             condition_zone: parsed_zone_type(params.get(keys::CONDITION_ZONE)),
             optional_present: params.has(keys::OPTIONAL),
             remove_from_combat: parsed_true(params.get(keys::REMOVE_FROM_COMBAT)),
+            combat: parsed_true(params.get(keys::COMBAT)),
             num_att: params.get(keys::NUM_ATT).map(str::to_string),
             num_def: params.get(keys::NUM_DEF).map(str::to_string),
             types_text: params

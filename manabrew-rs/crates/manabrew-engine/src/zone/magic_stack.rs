@@ -551,9 +551,11 @@ impl MagicStack {
 
     /// Check if a specific trigger id already exists in pending/active stack entries.
     /// Mirrors Java's `MagicStack.hasStateTrigger(triggerId)` behavior.
-    pub fn has_state_trigger_id(&self, trigger_id: u32) -> bool {
+    pub fn has_state_trigger_id(&self, host: CardId, trigger_id: u32) -> bool {
         let matches = |e: &StackEntry| {
-            e.spell_ability.is_trigger && e.spell_ability.source_trigger_id == Some(trigger_id)
+            e.spell_ability.is_trigger
+                && e.spell_ability.trigger_source == Some(host)
+                && e.spell_ability.source_trigger_id == Some(trigger_id)
         };
         self.entries.iter().any(matches)
             || self.frozen_stack.iter().any(matches)

@@ -2343,7 +2343,6 @@ pub fn resolve_count_svar_for_sa(
                         .with_game(game)
                         .with_targets(&targeted_cards, &targeted_players)
                         .with_spell_ability(sa);
-                // TODO(parity): Java filters the cast-time LKI copies, not the live cards.
                 some_cards = Some(
                     cards
                         .into_iter()
@@ -2381,7 +2380,6 @@ pub fn resolve_count_svar_for_sa(
         if sq[0].starts_with("ThisTurnActivated") {
             let working_copy: Vec<&str> = paidparts[0].split('_').collect();
             if let Some(&valid_filter) = working_copy.get(1) {
-                // TODO(parity): also count matching abilities on game.costPaymentStack.
                 let activated = crate::card::card_util::get_this_turn_activated(
                     game,
                     valid_filter,

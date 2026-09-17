@@ -12,6 +12,7 @@ use crate::card::Card;
 use crate::card::CounterType;
 use crate::ids::{CardId, PlayerId};
 use crate::phase::ExtraTurn;
+use crate::phase::Phase;
 use crate::phase::TurnState;
 use crate::player::PlayerState;
 use crate::spellability::MagicStack;
@@ -139,6 +140,9 @@ pub struct GameState {
 
     // Turn/phase state
     pub turn: TurnState,
+    pub begin_of_combat: Phase,
+    pub end_of_combat: Phase,
+    pub cleanup: Phase,
 
     // Player order (for turn sequence)
     pub player_order: Vec<PlayerId>,
@@ -250,6 +254,9 @@ impl GameState {
             is_night: false,
             day_night_started: false,
             turn: TurnState::new(player_order[0], player_order.len() as u32),
+            begin_of_combat: Phase::new(forge_foundation::PhaseType::CombatBegin),
+            end_of_combat: Phase::new(forge_foundation::PhaseType::CombatEnd),
+            cleanup: Phase::new(forge_foundation::PhaseType::Cleanup),
             player_order,
             game_over: false,
             winner: None,

@@ -179,7 +179,6 @@ pub fn execute(
             return ReplacementResult::NotReplaced;
         }
     } else if let Some(ability) = effect.base.get_overriding_ability() {
-        // TODO(parity): ETB overriding abilities (etbCounter, read ahead) are applied through move_card_internal's etb_counters instead.
         if destination != ZoneType::Battlefield
             && !execute_replacement_ability(effect, ability.clone(), game, event, agents, runtime)
         {

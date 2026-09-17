@@ -14,6 +14,9 @@ impl GameLoop {
 
         // Begin Combat
         self.set_phase(game, agents, PhaseType::CombatBegin);
+        for command in game.begin_of_combat.execute_until(Some(active)) {
+            command.run(game);
+        }
         self.emit_phase_trigger(game, PhaseType::CombatBegin);
         self.step_with_priority(game, agents, false);
         if game.game_over {
@@ -1062,6 +1065,9 @@ impl GameLoop {
 
         // End combat
         self.set_phase(game, agents, PhaseType::CombatEnd);
+        for command in game.end_of_combat.execute_until(None) {
+            command.run(game);
+        }
         self.emit_phase_trigger(game, PhaseType::CombatEnd);
         // Revert any `ControlGain$ LoseControl$ EndOfCombat` steals (Threaten-
         // style "attack and return").

@@ -277,7 +277,6 @@ fn build_spell_ability_for_host_cast(host: &Card, player: PlayerId) -> Option<Sp
         .find(|a| crate::parsing::raw_has_key(a, keys::SP))?;
     let mut sa =
         build_spell_ability_of_type(host, spell_ability_text, player, AbilityRecordType::Spell);
-    // Card-cast context: if SP$ omitted Cost$, default to card mana cost.
     if sa.pay_costs.is_none() {
         sa.pay_costs = Some(Cost {
             parts: vec![CostPart::Mana {
@@ -292,9 +291,6 @@ fn build_spell_ability_for_host_cast(host: &Card, player: PlayerId) -> Option<Sp
             mandatory: false,
         });
     }
-    // Aura enchantments with SP$ but no ValidTgts$: inject Enchant-derived targeting.
-    // Some aura cards have SP$ lines for ETB effects but rely on the Enchant keyword
-    // for targeting. Without this, the aura can target anything.
     if sa.target_restrictions.is_none() && host.type_line.has_subtype("Aura") {
         let enchant_type = host.get_keyword_cost("Enchant").unwrap_or_default();
         let params_str = crate::parsing::enchant_type_to_target_params(&enchant_type);

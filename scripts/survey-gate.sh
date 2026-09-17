@@ -17,6 +17,7 @@ sed 's/\x1b\[[0-9;]*m//g' "$OUT" |
   awk '$1 ~ /^survey_g/ {
     line = $1 " " $2 " " $4
     if (match($0, /FAILED AT TURN [0-9]+/)) line = line " " substr($0, RSTART, RLENGTH)
+    if (match($0, /ABORTED AT TURN [0-9]+/)) line = line " " substr($0, RSTART, RLENGTH)
     print line
   }' |
   sort >"$OUT.observed"

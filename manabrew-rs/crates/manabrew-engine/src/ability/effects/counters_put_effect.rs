@@ -188,7 +188,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let count = if sa.ir.etb {
         ctx.game
             .card_mut(card_id)
-            .add_etb_counter(counter_type.clone(), count);
+            .add_etb_counter(Some(placer), counter_type.clone(), count);
         count
     } else {
         ctx.add_counter(

@@ -71,7 +71,6 @@ enum EffectKind {
         static_id: i64,
     },
     GrantKeyword(String),
-    /// Set the card's name (`SetName$`). Mirrors Java layer 3.
     SetName(String),
     /// Grant an activated ability (from AddAbility$). The string is the ability text.
     GrantAbility {
@@ -80,7 +79,6 @@ enum EffectKind {
     },
     /// Add a type/subtype to the card (`AddType$`). Mirrors Java layer 4.
     AddType(String),
-    /// Remove all creature types (`RemoveCreatureTypes$`). Mirrors Java layer 4.
     RemoveCreatureTypes,
     /// Grant a triggered ability (from AddTrigger$). The string is the raw trigger text.
     GrantTrigger {
@@ -405,7 +403,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
 
                     if let Some(name) = sa.ir.set_name_text.as_deref() {
                         let resolved = if name == "ChosenName" {
-                            source_card.get_s_var("ChosenName").map(str::to_string)
+                            source_card.get_named_card().map(str::to_string)
                         } else if name.is_empty() {
                             None
                         } else {
@@ -651,21 +649,18 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             }
             EffectKind::RemoveCreatureTypes => {
                 let card = &mut game.cards[effect.target.index()];
-                if card
-                    .type_line
-                    .subtypes
-                    .iter()
-                    .any(|s| crate::game::TypeRegistry::creature_types()
+                if card.type_line.subtypes.iter().any(|s| {
+                    crate::game::TypeRegistry::creature_types()
                         .iter()
-                        .any(|ct| ct.eq_ignore_ascii_case(s)))
-                {
+                        .any(|ct| ct.eq_ignore_ascii_case(s))
+                }) {
                     if card.static_type_line_base.is_none() {
                         card.static_type_line_base = Some(card.type_line.clone());
                     }
                     card.type_line.subtypes.retain(|s| {
                         !crate::game::TypeRegistry::creature_types()
-                        .iter()
-                        .any(|ct| ct.eq_ignore_ascii_case(s))
+                            .iter()
+                            .any(|ct| ct.eq_ignore_ascii_case(s))
                     });
                     card.update_types();
                 }

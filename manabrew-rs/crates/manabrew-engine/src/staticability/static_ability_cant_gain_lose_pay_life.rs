@@ -134,26 +134,7 @@ fn matches_valid_player(
         return true;
     }
     let sa = SpellAbility::new_simple(Some(source_id), source_controller, "");
-    valid.alternatives.iter().any(|alternative| {
-        let mut checked_property = false;
-        let properties_match = alternative
-            .parts
-            .iter()
-            .map(|part| part.value.as_str())
-            .filter(|part| !part.eq_ignore_ascii_case("Player"))
-            .all(|property| {
-                checked_property = true;
-                crate::player::player_property::player_has_property(
-                    player,
-                    property,
-                    game,
-                    source_id,
-                    source_controller,
-                    &sa,
-                )
-            });
-        !checked_property || properties_match
-    })
+    crate::player::player_property::is_valid(player, valid, game, source_id, source_controller, &sa)
 }
 
 #[cfg(test)]

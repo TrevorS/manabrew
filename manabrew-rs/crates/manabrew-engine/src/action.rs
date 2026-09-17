@@ -1,4 +1,4 @@
-use forge_foundation::ZoneType;
+use forge_foundation::{CoreType, ZoneType};
 
 use crate::agent::PlayerAgent;
 use crate::card::{Card, CounterType};
@@ -244,7 +244,6 @@ impl GameState {
                 });
                 *etb_counters.entry(counter_type).or_default() += amount.max(0);
             }
-            let card_etb_counters = std::mem::take(&mut self.cards[card_id.index()].etb_counters);
             let card = &self.cards[card_id.index()];
             if card.type_line.has_subtype("Saga") && card.has_chapter() {
                 let amount = if card.has_keyword("Read ahead") {
@@ -276,9 +275,6 @@ impl GameState {
                 *etb_counters
                     .entry(crate::card::CounterType::Loyalty)
                     .or_default() += loyalty.max(0);
-            }
-            for (counter_type, amount) in &card_etb_counters {
-                *etb_counters.entry(counter_type.clone()).or_default() += (*amount).max(0);
             }
             let sunburst = card.sunburst_count();
             if sunburst > 0 && card.has_keyword("Sunburst") {
@@ -334,16 +330,22 @@ impl GameState {
                 ),
                 _ => (dest_zone, None, None, Vec::new()),
             };
-        let replaced_etb_counters = std::mem::take(&mut self.cards[card_id.index()].etb_counters);
-        let etb_counter_map = if replaced_etb_counters.is_empty() {
+        let etb_counter_map = if dest_zone != ZoneType::Battlefield {
             etb_counter_map
         } else {
-            let mut counter_map = etb_counter_map.unwrap_or_default();
-            counter_map.push(crate::replacement::replacement_handler::CounterMapValue {
-                source: Some(dest_owner),
-                counters: replaced_etb_counters,
-            });
-            Some(counter_map)
+            let staged_etb_counters = std::mem::take(&mut self.cards[card_id.index()].etb_counters);
+            if staged_etb_counters.is_empty() {
+                etb_counter_map
+            } else {
+                let mut counter_map = etb_counter_map.unwrap_or_default();
+                for (placer, counters) in staged_etb_counters {
+                    counter_map.push(crate::replacement::replacement_handler::CounterMapValue {
+                        source: placer.or(Some(dest_owner)),
+                        counters,
+                    });
+                }
+                Some(counter_map)
+            }
         };
         let replacement_marked_etb_tapped = dest_zone == ZoneType::Battlefield
             && self.card(card_id).tapped
@@ -401,9 +403,6 @@ impl GameState {
                     exile_effects.push(eff_id);
                 }
             }
-            // A token ceasing to exist leaves the battlefield, so anything
-            // attached to it becomes unattached. This branch returns before the
-            // generic leave-battlefield detach below, so it repeats it here.
             let attachments: Vec<CardId> = self.cards[card_id.index()].attachments.clone();
             for aura_id in attachments {
                 self.cards[aura_id.index()].attached_to = None;
@@ -515,7 +514,6 @@ impl GameState {
                         );
                     }
                 }
-                self.cards[card_id.index()].etb_counters.clear();
                 // Update LKI snapshot: card just entered the battlefield.
                 // Ensures it's available for later TriggeredCard$CardPower lookups
                 // even if it dies within the same resolution chain.
@@ -1611,31 +1609,26 @@ impl GameState {
             }
         }
 
-        // CR 704.5q: an Equipment attached to a permanent it can no longer be
-        // legally attached to becomes unattached. Unlike an Aura it stays on
-        // the battlefield. Java collects these in unAttachList and calls
-        // unattachFromEntity on each.
-        // TODO(parity): Java's unattachFromEntity also fires the Unattached
-        // trigger; detach does not.
         {
             let unattach_ids: Vec<CardId> = self
                 .cards
                 .iter()
-                .filter(|c| {
-                    c.zone == ZoneType::Battlefield && c.type_line.has_subtype("Equipment")
-                })
+                .filter(|c| c.zone == ZoneType::Battlefield && !c.type_line.has_subtype("Aura"))
                 .filter(|c| match c.attached_to {
                     Some(host_id) if host_id.index() < self.cards.len() => {
                         let host = &self.cards[host_id.index()];
-                        host.zone == ZoneType::Battlefield && !host.type_line.is_creature()
+                        host.zone == ZoneType::Battlefield
+                            && (c.is_creature()
+                                || c.type_line.core_types.contains(&CoreType::Battle)
+                                || !can_attachment_remain_attached(&self.cards, c, host, true))
                     }
                     _ => false,
                 })
                 .map(|c| c.id)
                 .collect();
 
-            for equipment_id in unattach_ids {
-                self.detach(equipment_id);
+            for attachment_id in unattach_ids {
+                self.detach(attachment_id);
                 any_changes = true;
             }
         }
@@ -1861,6 +1854,14 @@ fn can_attachment_remain_attached(
 ) -> bool {
     if target.zone != ZoneType::Battlefield {
         return true;
+    }
+    if attachment.type_line.has_subtype("Equipment") && !target.is_creature() {
+        return false;
+    }
+    if attachment.type_line.has_subtype("Fortification")
+        && (!target.is_land() || attachment.is_land())
+    {
+        return false;
     }
     if crate::staticability::static_ability_cant_attach::cant_attach(
         cards, attachment, target, check_sba,

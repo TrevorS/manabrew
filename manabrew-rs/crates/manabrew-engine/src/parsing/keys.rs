@@ -557,6 +557,7 @@ pub const REMEMBER_MANIFESTED: &str = "RememberManifested";
 pub const REMEMBER_SACRIFICED: &str = "RememberSacrificed";
 pub const REMEMBER_SEARCHED: &str = "RememberSearched";
 pub const REMOVE_FROM_COMBAT: &str = "RemoveFromCombat";
+pub const COMBAT: &str = "Combat";
 pub const SEARCHED: &str = "Searched";
 pub const SHARE_LAND_TYPE: &str = "ShareLandType";
 pub const SHUFFLE_CHANGED_PILE: &str = "ShuffleChangedPile";

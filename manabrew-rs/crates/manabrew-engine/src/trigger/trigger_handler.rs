@@ -1117,7 +1117,9 @@ impl TriggerHandler {
         // "At the beginning of your upkeep") must be registered as active
         // regardless of the current phase; the phase filter is evaluated at
         // match time inside can_run_trigger.
-        if trigger.kind == TriggerType::Always && game.stack.has_state_trigger_id(trigger.id) {
+        if trigger.kind == TriggerType::Always
+            && game.stack.has_state_trigger_id(card_id, trigger.id)
+        {
             return;
         }
         let already_registered = self
@@ -1475,7 +1477,7 @@ impl TriggerHandler {
         if self.is_trigger_suppressed(*mode) {
             return false;
         }
-        if *mode == TriggerType::Always && game.stack.has_state_trigger_id(trigger.id) {
+        if *mode == TriggerType::Always && game.stack.has_state_trigger_id(host_card, trigger.id) {
             return false;
         }
 
