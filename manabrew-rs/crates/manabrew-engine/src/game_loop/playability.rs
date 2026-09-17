@@ -59,6 +59,49 @@ impl GameLoop {
         )
     }
 
+    fn can_cast_may_play_spell(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+        zone: ZoneType,
+        alt_cost: Option<String>,
+        chosen_types_by_source: &crate::HashMap<CardId, String>,
+    ) -> bool {
+        let card = game.card(card_id);
+        let mut cast_sa =
+            crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
+        cast_sa.restriction.variables.set_zone(zone);
+        if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_in_context(
+            &game.cards,
+            &cast_sa,
+            &crate::staticability::static_ability_cant_be_cast::restriction_host(card),
+            player,
+            Some(game),
+        ) || !crate::spellability::spell::can_play(&cast_sa, game)
+        {
+            return false;
+        }
+        if let Some(ref tr) = cast_sa.target_restrictions {
+            if tr.get_min_targets(game, &cast_sa) > 0
+                && !target_restrictions::has_candidates_in_spell_ability_chain(
+                    game, player, &cast_sa,
+                )
+            {
+                return false;
+            }
+        }
+        let available_mana =
+            self.available_mana_for_spell_card(game, player, card_id, chosen_types_by_source);
+        let cost_adj =
+            crate::cost::cost_adjustment::compute_cost_adjustment(game, card, player, zone);
+        let alt_cost_mc = alt_cost
+            .as_ref()
+            .map(|s| forge_foundation::ManaCost::parse(s));
+        let base_cost = alt_cost_mc.as_ref().unwrap_or(&card.mana_cost);
+        available_mana.can_pay(&cost_adj.apply(base_cost))
+    }
+
     fn can_play_secondary_spell(
         &self,
         game: &GameState,
@@ -854,12 +897,36 @@ impl GameLoop {
         // Check graveyard for MayPlay$ static abilities (e.g. Walk-In Closet
         // "You may play lands from your graveyard"). Mirrors Java
         // GameActionUtil.canPlayCardMayPlay() for graveyard zone.
-        if !must_be_instant {
+        {
             let gy_cards: Vec<CardId> = game.cards_in_zone(ZoneType::Graveyard, player).to_vec();
             for &card_id in &gy_cards {
                 let card = game.card(card_id);
                 if !card.is_land() {
-                    continue; // For now, only handle land MayPlay from graveyard
+                    if !can_may_play_from_static(card_id)
+                        || (must_be_instant && !has_flash_permission(card_id))
+                    {
+                        continue;
+                    }
+                    if self.can_cast_may_play_spell(
+                        game,
+                        player,
+                        card_id,
+                        ZoneType::Graveyard,
+                        may_play_alt_cost(card_id),
+                        &chosen_types_by_source,
+                    ) {
+                        for _ in 0..count_may_play_grants(card_id).max(1) {
+                            playable.push(crate::agent::PlayOption {
+                                card_id,
+                                mode: crate::agent::PlayCardMode::Normal,
+                                alt_cost_index: 0,
+                            });
+                        }
+                    }
+                    continue;
+                }
+                if must_be_instant {
+                    continue;
                 }
                 let may_play_grants = game
                     .cards_in_zone(ZoneType::Battlefield, player)
@@ -1042,50 +1109,14 @@ impl GameLoop {
                 if must_be_instant && !has_flash_permission(card_id) {
                     continue;
                 }
-                let alt_cost_str = may_play_alt_cost(card_id);
-                let mut cast_sa =
-                    crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
-                cast_sa.restriction.variables.set_zone(ZoneType::Exile);
-                if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_in_context(
-                    &game.cards,
-                    &cast_sa,
-                    &crate::staticability::static_ability_cant_be_cast::restriction_host(card),
-                    player,
-                    Some(game),
-                ) {
-                    continue;
-                }
-                if !crate::spellability::spell::can_play(&cast_sa, game) {
-                    continue;
-                }
-                if let Some(ref tr) = cast_sa.target_restrictions {
-                    let min_targets = tr.get_min_targets(game, &cast_sa);
-                    if min_targets > 0
-                        && !target_restrictions::has_candidates_in_spell_ability_chain(
-                            game, player, &cast_sa,
-                        )
-                    {
-                        continue;
-                    }
-                }
-                let available_mana = self.available_mana_for_spell_card(
+                if self.can_cast_may_play_spell(
                     game,
                     player,
                     card_id,
-                    &chosen_types_by_source,
-                );
-                let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
-                    game,
-                    card,
-                    player,
                     ZoneType::Exile,
-                );
-                let alt_cost_mc = alt_cost_str
-                    .as_ref()
-                    .map(|s| forge_foundation::ManaCost::parse(s));
-                let base_cost = alt_cost_mc.as_ref().unwrap_or(&card.mana_cost);
-                let adjusted = cost_adj.apply(base_cost);
-                if available_mana.can_pay(&adjusted) {
+                    may_play_alt_cost(card_id),
+                    &chosen_types_by_source,
+                ) {
                     let grant_count = count_may_play_grants(card_id).max(1);
                     for _ in 0..grant_count {
                         playable.push(crate::agent::PlayOption {
