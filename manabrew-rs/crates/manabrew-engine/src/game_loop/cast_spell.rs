@@ -312,6 +312,15 @@ impl GameLoop {
                 false,
             );
         }
+
+        if let Some(sa) = source_sa {
+            crate::ability::effects::commit_crime_for_sa(
+                &mut self.trigger_handler,
+                game,
+                cause_player,
+                sa,
+            );
+        }
     }
 
     pub(crate) fn push_spell_ability_to_stack(

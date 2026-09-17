@@ -504,10 +504,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             };
 
             if is_cda {
-                // CDAs always affect only the source card itself.
-                if source_card.zone == ZoneType::Battlefield {
-                    apply_to_target(source_id);
-                }
+                apply_to_target(source_id);
             } else if affected_str.eq_ignore_ascii_case("Card.Self")
                 || affected_str.starts_with("Card.Self+")
             {

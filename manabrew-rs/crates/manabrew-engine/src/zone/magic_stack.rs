@@ -10,6 +10,44 @@ use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 use crate::spellability::SpellAbility;
 
+pub(crate) fn commit_crime_check(game: &GameState, p: PlayerId, sa: &SpellAbility) -> bool {
+    let mut sa_walk = Some(sa);
+    while let Some(current) = sa_walk {
+        let tc = &current.target_chosen;
+        if tc
+            .all_target_players()
+            .into_iter()
+            .any(|target| crate::player::player_predicates::is_opponent_of(game, target, p))
+        {
+            return true;
+        }
+        if let Some(entry) = tc
+            .target_stack_entry
+            .and_then(|id| game.stack.find_by_id(id))
+        {
+            if crate::player::player_predicates::is_opponent_of(
+                game,
+                entry.spell_ability.activating_player,
+                p,
+            ) {
+                return true;
+            }
+        }
+        for card_id in tc.all_target_cards() {
+            let c = game.card(card_id);
+            if matches!(
+                c.zone,
+                ZoneType::Battlefield | ZoneType::Graveyard | ZoneType::Stack
+            ) && crate::player::player_predicates::is_opponent_of(game, c.controller, p)
+            {
+                return true;
+            }
+        }
+        sa_walk = current.sub_ability.as_deref();
+    }
+    false
+}
+
 // ── StackEntry (mirrors Java's SpellAbilityStackInstance) ────────────
 
 /// An entry on the game stack (spell or ability waiting to resolve).

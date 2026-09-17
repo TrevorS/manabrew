@@ -72,4 +72,26 @@ pub(crate) fn emit_targeting_triggers_for_sa(
         };
         trigger_handler.run_trigger(TriggerType::BecomesTargetOnce, params, false);
     }
+
+    commit_crime_for_sa(trigger_handler, game, controller, trigger_sa);
+}
+
+pub(crate) fn commit_crime_for_sa(
+    trigger_handler: &mut TriggerHandler,
+    game: &mut GameState,
+    activator: crate::ids::PlayerId,
+    sa: &SpellAbility,
+) {
+    if !crate::zone::magic_stack::commit_crime_check(game, activator, sa) {
+        return;
+    }
+    crate::player::commit_crime(game, activator);
+    trigger_handler.run_trigger(
+        TriggerType::CommitCrime,
+        RunParams {
+            player: Some(activator),
+            ..Default::default()
+        },
+        false,
+    );
 }

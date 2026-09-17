@@ -703,6 +703,9 @@ impl StaticAbility {
     }
 
     pub fn zones_check(&self, source_zone: ZoneType) -> bool {
+        if self.ir.characteristic_defining {
+            return true;
+        }
         if !self.ir.has_zone_keys {
             return source_zone == ZoneType::Battlefield;
         }

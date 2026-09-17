@@ -235,7 +235,9 @@ pub(crate) use effect_resolver::{build_spell_ability_for_api, sub_ability_handle
 pub use effect_resolver::{
     resolve_effect, resolve_effect_chain, resolve_effect_chain_with_parent, IMPLEMENTED_API_TYPES,
 };
-pub(crate) use targeting_triggers::{emit_targeting_triggers, emit_targeting_triggers_for_sa};
+pub(crate) use targeting_triggers::{
+    commit_crime_for_sa, emit_targeting_triggers, emit_targeting_triggers_for_sa,
+};
 
 // Re-exports so effect files can use short paths like `super::parse_counter_type()`.
 pub use crate::mana::mana_atom_from_produced;
