@@ -345,6 +345,7 @@ fn should_confirm_effect_cost_part(mode: EffectCostPaymentMode, part: &CostPart)
                 CostPart::Draw(_) => true,
                 CostPart::Mill(_) => true,
                 CostPart::AddMana { .. } => true,
+                CostPart::Behold { .. } => true,
                 CostPart::Discard { type_filter, .. } => type_filter.eq_ignore_ascii_case("Hand"),
                 // Java parity: DeterministicCostPlumbing.visit(CostSacrifice) sets
                 //   shouldAsk = (payCostFromSource && !mandatory) || "OriginalHost"
@@ -401,6 +402,7 @@ fn try_pay_effect_cost(
                 | CostPart::Sacrifice { .. }
                 | CostPart::AddCounter { .. }
                 | CostPart::AddMana { .. }
+                | CostPart::Behold { exile: false, .. }
         ) {
             return false;
         }
@@ -627,6 +629,38 @@ fn try_pay_effect_cost(
                 }
             }
             CostPart::AddMana { .. } => {}
+            CostPart::Behold {
+                amount,
+                type_filter,
+                ..
+            } => {
+                let amount = amount.resolve(ctx.game, source, payer).max(0) as usize;
+                let pool: Vec<CardId> = ctx
+                    .game
+                    .cards_in_zone(ZoneType::Hand, payer)
+                    .iter()
+                    .chain(ctx.game.cards_in_zone(ZoneType::Battlefield, payer).iter())
+                    .copied()
+                    .filter(|&cid| {
+                        cid != source
+                            && (type_filter == "Card"
+                                || type_filter.is_empty()
+                                || crate::ability::effects::helpers::matches_change_type(
+                                    ctx.game.card(cid),
+                                    type_filter,
+                                    &[],
+                                ))
+                    })
+                    .collect();
+                if amount == 0 || pool.len() < amount {
+                    return false;
+                }
+                let chosen =
+                    ctx.agents[payer.index()].choose_cards_for_effect(payer, &pool, amount, amount);
+                if chosen.len() < amount {
+                    return false;
+                }
+            }
             _ => return false,
         }
     }
