@@ -155,7 +155,7 @@ fn build_matchup_result(
 }
 
 use crate::decision_diff::{
-    canonical_name, is_forced_replacement_choice, is_java_pick_row, COMPARED_CALLBACKS,
+    canonical_name, is_forced_choice, is_java_pick_row, COMPARED_CALLBACKS,
 };
 
 fn compare_callbacks(
@@ -174,7 +174,7 @@ fn compare_callbacks(
                     if record.snapshot_index == snapshot_index
                         && COMPARED_CALLBACKS.contains(&record.name.as_str())
                         && !(java && is_java_pick_row(record))
-                        && !is_forced_replacement_choice(record) =>
+                        && !is_forced_choice(record) =>
                 {
                     Some(record)
                 }

@@ -109,13 +109,17 @@ pub fn is_java_pick_row(record: &CallbackRecord) -> bool {
     JAVA_PICK_ROW_CALLBACKS.contains(&record.name.as_str()) && !record.args.is_empty()
 }
 
-/// `ReplacementHandler.run` asks the controller to pick a replacement effect
-/// even when exactly one applies. That row offers no choice and draws no RNG,
+/// Prompts Forge raises even when there is exactly one option: `ReplacementHandler.run`
+/// asks which replacement effect to apply, and `CountersPutEffect.chooseTypeFromList`
+/// asks which counter type. A one-option row offers no choice and draws no RNG,
 /// and the engines reach it for different sets of rules (Rust applies
 /// `K:etbCounter` and the stun untap rule inline), so it is left out of the
 /// compared sequence. A pick among two or more stays in.
-pub fn is_forced_replacement_choice(record: &CallbackRecord) -> bool {
-    record.name == "choose_single_replacement_effect"
+const FORCED_CHOICE_CALLBACKS: &[&str] =
+    &["choose_counter_type", "choose_single_replacement_effect"];
+
+pub fn is_forced_choice(record: &CallbackRecord) -> bool {
+    FORCED_CHOICE_CALLBACKS.contains(&record.name.as_str())
         && matches!(record.args.as_slice(), [only] if only.choices == Some(1))
 }
 
@@ -124,7 +128,7 @@ fn compared(log: &[ParityLogEntry], java: bool) -> Vec<&CallbackRecord> {
         .filter_map(ParityLogEntry::as_callback)
         .filter(|record| COMPARED_CALLBACKS.contains(&record.name.as_str()))
         .filter(|record| !(java && is_java_pick_row(record)))
-        .filter(|record| !is_forced_replacement_choice(record))
+        .filter(|record| !is_forced_choice(record))
         .collect()
 }
 
