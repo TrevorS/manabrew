@@ -571,3 +571,7 @@ pub const UNIMPRINT: &str = "Unimprint";
 pub const WITH_NOTED_COUNTERS: &str = "WithNotedCounters";
 pub const WITH_TOTAL_CMC: &str = "WithTotalCMC";
 pub const WITH_TOTAL_POWER: &str = "WithTotalPower";
+pub const NEW_NAME: &str = "NewName";
+pub const KEEP_NAME: &str = "KeepName";
+pub const REMEMBER_CLONE_ORIGIN: &str = "RememberCloneOrigin";
+pub const CHOICE_OPTIONAL: &str = "ChoiceOptional";

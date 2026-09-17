@@ -94,7 +94,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .set_clone_state(Some(state));
         }
         let target = &mut ctx.game.cards[clone_target_id.index()];
+        let host_svars = (clone_target_id == source_id).then(|| target.svars.clone());
         crate::card::card_copy_service::copy_copiable_characteristics(&src, target);
+        // Forge builds the sub-abilities and `Execute$` abilities of the cloning ability
+        // before the copy; this engine looks them up by name on the host when they resolve.
+        for (name, value) in host_svars.into_iter().flatten() {
+            target.svars.entry(name).or_insert(value);
+        }
         target.add_clone_state();
         target.activated_abilities = src.activated_abilities.clone();
         target.static_abilities = src.static_abilities.clone();
@@ -104,6 +110,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         target.base_trigger_count = target.triggers.len();
         target.set_perpetual(&src, false);
         target.reset_changed_card_traits_baseline_to_current();
+        if crate::parsing::raw_has_key(&sa.ability_text, crate::parsing::keys::KEEP_NAME) {
+            if let Some(state) = target.clone_state.as_ref() {
+                target.card_name = state.original_card_name.clone();
+            }
+        } else if let Some(new_name) =
+            crate::parsing::raw_get(&sa.ability_text, crate::parsing::keys::NEW_NAME)
+        {
+            target.card_name = new_name.to_string();
+        }
 
         // Step 4: Apply clone-state modifications from the cloning ability.
         if let Some(add_types) = sa.ir.add_types.as_deref() {
@@ -158,6 +173,18 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 ctx.game
                     .card_mut(clone_target_id)
                     .add_intrinsic_keyword(&kw);
+            }
+        }
+
+        {
+            let target = ctx.game.card_mut(clone_target_id);
+            target.remembered_cards.clear();
+            target.imprinted_cards.clear();
+            if crate::parsing::raw_has_key(
+                &sa.ability_text,
+                crate::parsing::keys::REMEMBER_CLONE_ORIGIN,
+            ) {
+                target.add_remembered(clone_source_id);
             }
         }
 
@@ -237,9 +264,21 @@ fn resolve_clone_source(
         }
 
         ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
-        let chosen =
-            ctx.agents[controller.index()].choose_cards_for_effect(controller, &valid, 1, 1);
-        return chosen.first().copied();
+        let choices: Vec<crate::agent::GameEntity> = valid
+            .iter()
+            .copied()
+            .map(crate::agent::GameEntity::Card)
+            .collect();
+        let choice_optional =
+            crate::parsing::raw_has_key(&sa.ability_text, crate::parsing::keys::CHOICE_OPTIONAL);
+        return match ctx.agents[controller.index()].choose_single_entity_for_effect(
+            controller,
+            &choices,
+            choice_optional,
+        ) {
+            Some(crate::agent::GameEntity::Card(card_id)) => Some(card_id),
+            _ => None,
+        };
     }
 
     None
