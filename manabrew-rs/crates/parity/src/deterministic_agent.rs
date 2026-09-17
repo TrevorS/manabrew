@@ -1244,11 +1244,19 @@ impl PlayerAgent for DeterministicAgent {
             // When BlockRestrict limit is reached, Java still iterates remaining
             // blockers with 0 legal options (consuming RNG for forced PASS).
             // Mirror this by continuing iteration but with empty legal attackers.
+            // Java builds its blocker list with `CombatChoiceSpace.legalBlockers`, which
+            // leaves out a creature that can block none of the attackers, so such a
+            // creature draws nothing. A listed blocker whose options run out later
+            // (block limit, max blockers per attacker) still draws its forced PASS.
+            let initial_attackers = self.legal_attackers_for_blocker(blocker, &sorted_attackers);
+            if initial_attackers.is_empty() {
+                continue;
+            }
             let at_limit = max_blockers.is_some_and(|max| pairs.len() >= max);
             let mut legal_attackers = if at_limit {
                 Vec::new() // no legal targets → forced PASS (consumes RNG)
             } else {
-                self.legal_attackers_for_blocker(blocker, &sorted_attackers)
+                initial_attackers
             };
             if let Some(ref snap) = self.last_game_snapshot {
                 legal_attackers.retain(|attacker| {
