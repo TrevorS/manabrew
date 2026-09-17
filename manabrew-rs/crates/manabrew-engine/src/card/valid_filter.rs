@@ -620,9 +620,7 @@ fn matches_card_predicate(
         }
         SelectorPredicate::Player | SelectorPredicate::PlayerController(_) => false,
         SelectorPredicate::RememberedCard => context.remembered_cards.contains(&card.id),
-        SelectorPredicate::TriggerRememberedCard => {
-            context.trigger_remembered_cards.contains(&card.id)
-        }
+        SelectorPredicate::TriggerRememberedCard => is_trigger_remembered(card, context),
         SelectorPredicate::EffectSource => context.source_card.effect_source == Some(card.id),
         SelectorPredicate::SourceColor(color) => matches_card_color(*color, card),
         SelectorPredicate::SourceColorless => card.color.is_colorless(),
@@ -691,6 +689,17 @@ fn color_from_name_no_alloc(value: &str) -> Option<Color> {
         _ if value.eq_ignore_ascii_case("green") => Some(Color::Green),
         _ => None,
     }
+}
+
+fn is_trigger_remembered(card: &Card, context: MatchContext<'_>) -> bool {
+    context.trigger_remembered_cards.contains(&card.id)
+        || context.spell_ability.is_some_and(|sa| {
+            sa.trigger_remembered.iter().any(|value| match value {
+                crate::event::AbilityValue::Card(id) => *id == card.id,
+                crate::event::AbilityValue::Cards(ids) => ids.contains(&card.id),
+                _ => false,
+            })
+        })
 }
 
 #[inline(always)]
@@ -1440,9 +1449,7 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         "youdontctrl" => card.controller != source.controller,
         "youdontown" => card.owner != source.controller,
         "isremembered" | "card.isremembered" => source.remembered_cards.contains(&card.id),
-        "istriggerremembered" | "card.istriggerremembered" => {
-            context.trigger_remembered_cards.contains(&card.id)
-        }
+        "istriggerremembered" | "card.istriggerremembered" => is_trigger_remembered(card, context),
         "effectsource" | "card.effectsource" => source.effect_source == Some(card.id),
         "oppctrl" | "opponentctrl" | "opponent" => card.controller != source.controller,
         "chosenctrl" => Some(card.controller) == source.chosen_player,
@@ -2084,7 +2091,7 @@ fn matches_type_and_qualifier_parts(
                     }
                 }
                 "istriggerremembered" => {
-                    if !context.trigger_remembered_cards.contains(&card.id) {
+                    if !is_trigger_remembered(card, context) {
                         return false;
                     }
                 }
