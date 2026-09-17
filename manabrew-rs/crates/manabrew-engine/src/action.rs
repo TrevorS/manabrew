@@ -1359,6 +1359,17 @@ impl GameState {
             }
         }
 
+        // `GameAction.checkStateEffects` runs `checkGameOverCondition` first and returns
+        // once the game is over, before any permanent is looked at.
+        let alive = self.alive_players();
+        if alive.len() <= 1 {
+            self.game_over = true;
+            if alive.len() == 1 {
+                self.winner = Some(alive[0]);
+            }
+            return !newly_lost_players.is_empty();
+        }
+
         // Check creatures with lethal damage or 0 toughness
         let battlefield_cards: Vec<CardId> = self
             .player_order
