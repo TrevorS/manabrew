@@ -553,7 +553,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                     }
                 }
             } else {
-                let filter = CardFilter::parse(affected_str);
+                let selector = crate::parsing::cached_compiled_selector(affected_str);
                 // AffectedZone$ overrides the default Battlefield filter (e.g.
                 // Ashling, the Limitless grants Evoke:4 to Elementals in Hand).
                 let affected_zones = if sa.ir.affected_zones.is_empty() {
@@ -566,7 +566,14 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         Some(zones) => zones.contains(&card.zone),
                         None => card.zone == ZoneType::Battlefield,
                     };
-                    if zone_matches && filter.matches_with_game(card, &source_card, game) {
+                    if zone_matches
+                        && crate::card::valid_filter::matches_valid_card_selector_in_game(
+                            &selector,
+                            card,
+                            &source_card,
+                            game,
+                        )
+                    {
                         apply_to_target(card.id);
                     }
                 }
