@@ -494,7 +494,7 @@ public final class ActionSpace {
         for (int i = 0; i < player.getManaPool().getAmountOfColor(MagicColor.GREEN); i++) {
             sourceMasks.add((int) ManaAtom.GREEN);
         }
-        for (int i = 0; i < player.getManaPool().getAmountOfColor(MagicColor.COLORLESS); i++) {
+        for (int i = 0; i < player.getManaPool().getAmountOfColor((byte) ManaAtom.COLORLESS); i++) {
             sourceMasks.add(0);
         }
     }

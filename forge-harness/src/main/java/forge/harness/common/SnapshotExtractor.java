@@ -105,7 +105,8 @@ public final class SnapshotExtractor {
         manaPool.add(p.getManaPool().getAmountOfColor(forge.card.MagicColor.BLACK));
         manaPool.add(p.getManaPool().getAmountOfColor(forge.card.MagicColor.RED));
         manaPool.add(p.getManaPool().getAmountOfColor(forge.card.MagicColor.GREEN));
-        manaPool.add(p.getManaPool().getAmountOfColor(forge.card.MagicColor.COLORLESS));
+        // ManaPool keys colorless by ManaAtom.COLORLESS (1 << 5), not MagicColor.COLORLESS (0).
+        manaPool.add(p.getManaPool().getAmountOfColor((byte) forge.card.mana.ManaAtom.COLORLESS));
         ps.put("mana_pool", manaPool);
 
         // Battlefield — full card snapshots sorted alphabetically
