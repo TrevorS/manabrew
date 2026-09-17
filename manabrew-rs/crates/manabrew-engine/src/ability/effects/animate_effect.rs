@@ -119,6 +119,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
 
+        if is_permanent_duration {
+            ctx.game
+                .card_mut(card_id)
+                .capture_changed_characteristics_baseline_if_needed();
+        }
+
         // Save original state (only if not already animated this turn)
         if !is_permanent_duration && !is_perpetual && ctx.game.card(card_id).animate_state.is_none()
         {
