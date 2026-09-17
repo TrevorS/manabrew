@@ -618,7 +618,7 @@ pub fn reset_ring_tempted_you(game: &mut GameState, player: PlayerId) {
 pub fn on_game_over(game: &mut GameState, player: PlayerId) {
     let face_down = reveal_face_down_cards(game, player);
     for card_id in face_down {
-        game.card_mut(card_id).face_down = false;
+        game.card_mut(card_id).turn_face_up();
     }
 }
 

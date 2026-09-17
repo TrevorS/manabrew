@@ -552,6 +552,8 @@ pub struct Card {
     pub animate_state: Option<AnimateState>,
     /// Saved state for temporary Clone effects — restored during step_cleanup.
     pub clone_state: Option<CloneState>,
+    #[serde(default)]
+    pub face_down_state: Option<CloneState>,
 
     // ── Issue #53: High-priority effect fields ──────────────────────────
     /// Type chosen by ChooseType effect (e.g. "Goblin", "Artifact").
@@ -882,6 +884,7 @@ impl Card {
             chosen_cards: Vec::new(),
             animate_state: None,
             clone_state: None,
+            face_down_state: None,
             chosen_type: None,
             chosen_type2: None,
             noted_types: Vec::new(),
@@ -2138,11 +2141,39 @@ impl Card {
     }
 
     pub fn force_turn_face_up(&mut self) {
-        self.face_down = false;
+        self.turn_face_up();
     }
 
     pub fn turn_face_up(&mut self) {
         self.face_down = false;
+        if let Some(state) = self.face_down_state.take() {
+            self.apply_clone_state(state);
+        }
+    }
+
+    /// Keep in sync with `CardUtil.getFaceDownCharacteristic`: a nameless, colourless
+    /// 2/2 creature with no cost and no abilities. `card_name` stays, because zone
+    /// changes and the card database look the card up by it; the parity snapshot
+    /// blanks the name of a face-down permanent itself.
+    pub fn set_original_state_as_face_down(&mut self) {
+        if self.face_down_state.is_some() {
+            return;
+        }
+        self.face_down_state = Some(self.capture_clone_state());
+        self.type_line = CardTypeLine::parse("Creature");
+        self.mana_cost = ManaCost::parse("no cost");
+        self.color = ColorSet::COLORLESS;
+        self.base_power = Some(2);
+        self.base_toughness = Some(2);
+        self.keywords = Default::default();
+        self.abilities.clear();
+        self.activated_abilities.clear();
+        self.triggers.clear();
+        self.static_abilities.clear();
+        self.replacement_effects.clear();
+        self.base_ability_count = 0;
+        self.base_trigger_count = 0;
+        self.refresh_action_specs();
     }
 
     pub fn set_face_down(&mut self, face_down: bool) {
@@ -2364,6 +2395,11 @@ impl Card {
     }
 
     pub fn restore_clone_snapshot(&mut self, state: CloneState) {
+        self.apply_clone_state(state);
+        self.remove_clone_state();
+    }
+
+    fn apply_clone_state(&mut self, state: CloneState) {
         self.card_name = state.original_card_name;
         self.oracle_text = state.original_oracle_text;
         self.type_line = state.original_type_line;
@@ -2383,7 +2419,6 @@ impl Card {
         self.parsed_svar_cache.clear();
         self.refresh_action_specs();
         self.ensure_crew_activated_ability();
-        self.remove_clone_state();
     }
 
     pub fn set_counters_map(&mut self, counters: BTreeMap<CounterType, i32>) {

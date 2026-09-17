@@ -96,9 +96,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 // Remove the synthetic morph turn-face-up ability
                 card.activated_abilities
                     .retain(|ab| !ab.ability_text.contains("Mode$ TurnFaceUp"));
-                if let Some(keyword) = card.svars.remove("FaceDownKeyword") {
-                    card.remove_intrinsic_keyword(&keyword);
-                }
 
                 // Megamorph: add a +1/+1 counter when turning face-up
                 if sa.param_is_true(keys::MEGA) {

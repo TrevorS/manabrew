@@ -46,7 +46,12 @@ pub struct FmtCtx<'a> {
 impl<'a> FmtCtx<'a> {
     /// Format a single card as `Name@parityId`.
     pub fn card(&self, cid: CardId) -> String {
-        let name = &self.game.card(cid).card_name;
+        let card = self.game.card(cid);
+        let name = if card.face_down {
+            ""
+        } else {
+            card.card_name.as_str()
+        };
         let pid = self.parity_map.id(cid);
         format!("{name}@{pid}")
     }

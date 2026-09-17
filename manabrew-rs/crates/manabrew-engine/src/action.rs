@@ -572,7 +572,7 @@ impl GameState {
                 card.summoning_sick = true;
                 card.monstrous = false;
                 card.controller = card.owner;
-                card.face_down = false;
+                card.turn_face_up();
                 card.is_bestowed = false;
                 // CR 400.7: a permanent that changes zones becomes a new
                 // object with no cast history. Mirrors Java's

@@ -631,21 +631,22 @@ impl GameLoop {
                 if alt_cost.is_some_and(|ac| ac.is_morph()) {
                     let is_mega = alt_cost == Some(crate::spellability::AlternativeCost::Megamorph);
                     let c = game.card_mut(card_id);
+                    let disguise_cost = c.get_keyword_cost("Disguise");
+                    let morph_cost = disguise_cost
+                        .clone()
+                        .or_else(|| c.get_keyword_cost(if is_mega { "Megamorph" } else { "Morph" }))
+                        .unwrap_or_else(|| "3".to_string());
                     c.set_face_down(true);
+                    c.set_original_state_as_face_down();
+                    if disguise_cost.is_some() {
+                        c.add_intrinsic_keyword("Ward:2");
+                    }
                     c.static_set_power = Some(crate::spellability::MORPH_PT);
                     c.static_set_toughness = Some(crate::spellability::MORPH_PT);
 
                     // Add "turn face up" activated ability (morph cost → SetState TurnFaceUp).
                     // This is a game rule, not a card ability — face-down morph creatures
                     // can always be turned face up by paying the morph cost.
-                    let disguise_cost = c.get_keyword_cost("Disguise");
-                    if disguise_cost.is_some() && !c.has_keyword("Ward:2") {
-                        c.add_intrinsic_keyword("Ward:2");
-                        c.set_s_var("FaceDownKeyword", "Ward:2");
-                    }
-                    let morph_cost = disguise_cost
-                        .or_else(|| c.get_keyword_cost(if is_mega { "Megamorph" } else { "Morph" }))
-                        .unwrap_or_else(|| "3".to_string());
                     let mega_param = if is_mega { " | Mega$ True" } else { "" };
                     let ab_text =
                         format!("AB$ SetState | Cost$ {morph_cost} | Mode$ TurnFaceUp{mega_param}");
@@ -654,6 +655,7 @@ impl GameLoop {
                         crate::ability::activated::parse_activated_ability(&ab_text, ab_index)
                     {
                         c.activated_abilities.push(parsed);
+                        c.base_ability_count = c.activated_abilities.len();
                     }
                 }
 
