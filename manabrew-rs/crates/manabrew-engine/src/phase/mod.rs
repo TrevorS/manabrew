@@ -186,6 +186,8 @@ pub struct TurnState {
     // Per-turn flags
     pub drawn_for_turn: bool,
     pub n_upkeeps_this_turn: i32,
+    #[serde(default)]
+    pub n_combats_this_turn: i32,
     pub n_end_of_turns_this_turn: i32,
 }
 
@@ -202,8 +204,13 @@ impl TurnState {
             combat_block_assignments: vec![],
             drawn_for_turn: false,
             n_upkeeps_this_turn: 0,
+            n_combats_this_turn: 0,
             n_end_of_turns_this_turn: 0,
         }
+    }
+
+    pub fn is_first_combat(&self) -> bool {
+        self.n_combats_this_turn == 1
     }
 
     /// Advance to the next phase. Returns true if the turn ended (wrapped to Untap).

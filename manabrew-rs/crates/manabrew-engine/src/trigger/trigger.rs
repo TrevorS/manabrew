@@ -435,7 +435,7 @@ impl Trigger {
         {
             return false;
         }
-        if self.ir.first_combat && phase != PhaseType::CombatBegin {
+        if self.ir.first_combat && !game.turn.is_first_combat() {
             return false;
         }
         if let Some(expected) = self.ir.turn_count {

@@ -14,6 +14,7 @@ impl GameLoop {
 
         // Begin Combat
         self.set_phase(game, agents, PhaseType::CombatBegin);
+        game.turn.n_combats_this_turn += 1;
         for command in game.begin_of_combat.execute_until(Some(active)) {
             command.run(game);
         }

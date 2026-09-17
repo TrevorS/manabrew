@@ -298,6 +298,7 @@ impl GameLoop {
                     PhaseType::EndOfTurn => game.turn.n_end_of_turns_this_turn += 1,
                     PhaseType::Cleanup => {
                         game.turn.n_upkeeps_this_turn = 0;
+                        game.turn.n_combats_this_turn = 0;
                         game.turn.n_end_of_turns_this_turn = 0;
                     }
                     _ => {}
