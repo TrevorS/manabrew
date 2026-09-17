@@ -1355,11 +1355,9 @@ impl GameLoop {
         // game state. This matches Java/MTG casting order: announce modes and
         // targets before paying costs, so mana payments can invalidate a chosen
         // target later (for example, sacrificing a Food token used as a target).
-        if is_flashback {
-            game.card_mut(card_id).cast_with_flashback = true;
-        } else if is_harmonize {
-            game.card_mut(card_id).cast_with_harmonize = true;
-        } else if is_overload {
+        game.card_mut(card_id).cast_with_flashback = is_flashback;
+        game.card_mut(card_id).cast_with_harmonize = is_harmonize;
+        if is_overload {
             sa.overloaded = true;
         } else if is_bestow && sa.target_restrictions.is_none() {
             sa.target_restrictions =
