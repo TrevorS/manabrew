@@ -83,14 +83,14 @@ impl GateRecord {
                 .as_ref()
                 .map(|d| format!("T{} {} {}", d.turn, d.phase, normalize_field(&d.field))),
             decision: result.decision.as_ref().map(|d| {
-                clip(&format!(
+                format!(
                     "T{} {}: Rust {} / Java {} ({})",
                     d.turn,
                     d.phase,
-                    d.rust_value,
-                    d.java_value,
-                    d.subject.as_deref().unwrap_or("first decision")
-                ))
+                    clip(&d.rust_value),
+                    clip(&d.java_value),
+                    clip(d.subject.as_deref().unwrap_or("first decision"))
+                )
             }),
         }
     }

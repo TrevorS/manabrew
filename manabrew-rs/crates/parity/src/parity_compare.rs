@@ -154,7 +154,7 @@ fn build_matchup_result(
     }
 }
 
-use crate::decision_diff::COMPARED_CALLBACKS;
+use crate::decision_diff::{is_java_pick_row, COMPARED_CALLBACKS};
 
 fn compare_callbacks(
     rust_log: &[ParityLogEntry],
@@ -164,12 +164,14 @@ fn compare_callbacks(
     fn window(
         log: &[ParityLogEntry],
         snapshot_index: usize,
+        java: bool,
     ) -> Vec<&crate::protocol::CallbackRecord> {
         log.iter()
             .filter_map(|entry| match entry {
                 ParityLogEntry::Callback(record)
                     if record.snapshot_index == snapshot_index
-                        && COMPARED_CALLBACKS.contains(&record.name.as_str()) =>
+                        && COMPARED_CALLBACKS.contains(&record.name.as_str())
+                        && !(java && is_java_pick_row(record)) =>
                 {
                     Some(record)
                 }
@@ -183,8 +185,8 @@ fn compare_callbacks(
             .unwrap_or_else(|| "missing".to_string())
     }
     for snapshot_index in 0..snapshot_windows {
-        let rust = window(rust_log, snapshot_index);
-        let java = window(java_log, snapshot_index);
+        let rust = window(rust_log, snapshot_index, false);
+        let java = window(java_log, snapshot_index, true);
         let length = rust.len().max(java.len());
         for position in 0..length {
             let (rust_record, java_record) = (rust.get(position), java.get(position));

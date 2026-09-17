@@ -977,7 +977,9 @@ fn run_single_matchup_pool(
     data: &LoadedData,
     pool: &ServerPool,
 ) -> MatchupResult {
-    ParityRuntime::new(data).run_with_pool(config, pool)
+    ParityRuntime::new(data)
+        .run_cached(config, pool, None)
+        .result
 }
 
 /// Serve-mode matchup result including timing and cache-hit marker.

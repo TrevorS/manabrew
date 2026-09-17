@@ -71,10 +71,20 @@ pub const COMPARED_CALLBACKS: &[&str] = &[
 /// different outcome is a different option set or a different pick.
 const OUTCOME_COMPARED: &[&str] = &["$ACTION_SPACE", "choose_action"];
 
-fn compared(log: &[ParityLogEntry]) -> Vec<&CallbackRecord> {
+/// Keep in sync with `DeterministicController`: `confirmAction`,
+/// `confirmPayment` and `chooseBinary` write two rows under one name, the pick
+/// (carrying the choice args) and then the description. Rust writes one.
+const JAVA_PICK_ROW_CALLBACKS: &[&str] = &["choose_binary", "confirm_action", "confirm_payment"];
+
+pub fn is_java_pick_row(record: &CallbackRecord) -> bool {
+    JAVA_PICK_ROW_CALLBACKS.contains(&record.name.as_str()) && !record.args.is_empty()
+}
+
+fn compared(log: &[ParityLogEntry], java: bool) -> Vec<&CallbackRecord> {
     log.iter()
         .filter_map(ParityLogEntry::as_callback)
         .filter(|record| COMPARED_CALLBACKS.contains(&record.name.as_str()))
+        .filter(|record| !(java && is_java_pick_row(record)))
         .collect()
 }
 
@@ -99,8 +109,8 @@ pub fn first_decision_divergence(
     rust_log: &[ParityLogEntry],
     java_log: &[ParityLogEntry],
 ) -> Option<Divergence> {
-    let rust = compared(rust_log);
-    let java = compared(java_log);
+    let rust = compared(rust_log, false);
+    let java = compared(java_log, true);
     let shared = rust.len().min(java.len());
     let position = (0..shared)
         .find(|&i| !same_decision(rust[i], java[i]))
@@ -269,15 +279,15 @@ pub fn describe_delta(before: &StateSnapshot, after: &StateSnapshot) -> Vec<Stri
 
 fn window_decisions(
     log: &[ParityLogEntry],
+    java: bool,
     from_snapshot: usize,
     to_snapshot: usize,
 ) -> Vec<String> {
-    log.iter()
-        .filter_map(ParityLogEntry::as_callback)
+    compared(log, java)
+        .into_iter()
         .filter(|record| {
             record.snapshot_index >= from_snapshot
                 && record.snapshot_index <= to_snapshot
-                && COMPARED_CALLBACKS.contains(&record.name.as_str())
                 && record.name != "$ACTION_SPACE"
         })
         .map(describe)
@@ -317,7 +327,7 @@ pub fn describe_window(
                 delta.join("; ")
             }
         ));
-        let decisions = window_decisions(log, previous, index);
+        let decisions = window_decisions(log, label == "Java", previous, index);
         if !decisions.is_empty() {
             out.push(format!(
                 "{label} decisions there: {}",
