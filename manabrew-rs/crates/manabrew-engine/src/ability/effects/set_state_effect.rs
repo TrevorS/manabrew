@@ -78,15 +78,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             card.set_flipped(!card.flipped);
         }
         Some(SpellAbilityMode::TurnFaceUp) => {
-            // Run TurnFaceUp replacement effects before turning face up.
-            let mut faceup_event = ReplacementEvent::TurnFaceUp { card: source_id };
-            let faceup_result = apply_replacements(ctx.game, &mut faceup_event);
-            if faceup_result == ReplacementResult::Skipped
-                || faceup_result == ReplacementResult::Replaced
-            {
+            if crate::replacement::replacement_handler::cant_happen_check(
+                ctx.game,
+                &ReplacementEvent::TurnFaceUp { card: source_id },
+            ) {
                 return;
             }
-
             let card = ctx.game.card_mut(source_id);
             if card.face_down {
                 card.set_face_down(false);
@@ -107,6 +104,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         crate::event::RunParams::default(),
                     );
                 }
+
+                // Keep in sync with Card.turnFaceUp: the replacement runs on the face-up card.
+                let mut faceup_event = ReplacementEvent::TurnFaceUp { card: source_id };
+                apply_replacements(ctx.game, &mut faceup_event);
 
                 // Fire TurnFaceUp trigger
                 ctx.trigger_handler.run_trigger(
