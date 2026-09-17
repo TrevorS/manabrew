@@ -24,6 +24,7 @@ pub mod comparator;
 pub mod decision_diff;
 pub mod deck_generator;
 pub mod deterministic_agent;
+pub mod explain;
 pub mod gate;
 pub mod gui_repro;
 pub mod java_bridge;

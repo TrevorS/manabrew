@@ -35,7 +35,8 @@ echo "survey-gate: $BIN ($SHA)" >&2
 
 # shellcheck disable=SC2086
 "$BIN" --java-jar "$JAR" --java-heap "${JAVA_HEAP:-2g}" \
-  --java-workers "${JAVA_WORKERS:-4}" --matrix --seeds 42 --max-turns 20 \
+  --java-workers "${JAVA_WORKERS:-4}" --matrix --seeds "${SURVEY_SEEDS:-42}" \
+  --max-turns "${SURVEY_MAX_TURNS:-20}" \
   --matchups "$MATCHUPS" --gate-out "$OUT.jsonl" --build-label "$SHA" \
   ${SURVEY_ARGS:-} >"$OUT" 2>&1 || true
 

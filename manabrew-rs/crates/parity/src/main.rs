@@ -514,6 +514,12 @@ fn main() {
     if args.get(1).is_some_and(|arg| arg == "gate-diff") {
         std::process::exit(parity::gate::run_cli(&args[1..]));
     }
+    if args.get(1).is_some_and(|arg| arg == "gate-summary") {
+        std::process::exit(parity::explain::run_gate_summary_cli(&args[1..]));
+    }
+    if args.get(1).is_some_and(|arg| arg == "explain") {
+        std::process::exit(parity::explain::run_explain_cli(&args[1..]));
+    }
     if args.get(1).is_some_and(|arg| arg == "ci-client") {
         args.remove(1);
         parity::infra::ci_client::run(&args);
