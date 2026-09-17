@@ -6,7 +6,8 @@ use crate::event::RunParams;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 use crate::replacement::replacement_handler::{
-    apply_replacements, apply_replacements_with_agents, ReplacementEvent, ReplacementRuntime,
+    apply_replacements, apply_replacements_with_agents, apply_replacements_with_agents_and_runtime,
+    ReplacementEvent, ReplacementRuntime,
 };
 use crate::replacement::GameLossReason;
 use crate::replacement::ReplacementResult;
@@ -31,7 +32,9 @@ impl GameState {
     /// replacement effects (Rest in Peace, Leyline of the Void) and redirects to the
     /// correct zone. Use `move_card_final` to skip the replacement check.
     pub fn move_card(&mut self, card_id: CardId, dest_zone: ZoneType, dest_owner: PlayerId) {
-        self.move_card_internal(card_id, dest_zone, dest_owner, None, None, true, false);
+        self.move_card_internal(
+            card_id, dest_zone, dest_owner, None, None, None, true, false,
+        );
     }
 
     pub fn move_card_with_agents(
@@ -46,6 +49,7 @@ impl GameState {
             dest_zone,
             dest_owner,
             Some(agents),
+            None,
             None,
             true,
             false,
@@ -65,7 +69,8 @@ impl GameState {
             dest_zone,
             dest_owner,
             Some(agents),
-            Some(runtime.trigger_handler),
+            None,
+            Some(runtime),
             true,
             false,
         );
@@ -77,7 +82,9 @@ impl GameState {
         dest_zone: ZoneType,
         dest_owner: PlayerId,
     ) {
-        self.move_card_internal(card_id, dest_zone, dest_owner, None, None, false, false);
+        self.move_card_internal(
+            card_id, dest_zone, dest_owner, None, None, None, false, false,
+        );
     }
 
     /// Discard a card. Mirrors Java's `Player.discard()`.
@@ -105,6 +112,7 @@ impl GameState {
             owner,
             agents,
             Some(trigger_handler),
+            None,
             true,
             true, // is_discard
         );
@@ -158,7 +166,8 @@ impl GameState {
         dest_zone: ZoneType,
         dest_owner: PlayerId,
         mut agents: Option<&mut [Box<dyn PlayerAgent>]>,
-        mut trigger_handler: Option<&mut TriggerHandler>,
+        trigger_handler: Option<&mut TriggerHandler>,
+        mut runtime: Option<&mut ReplacementRuntime<'_>>,
         apply_move_replacement: bool,
         is_discard: bool,
     ) {
@@ -308,12 +317,27 @@ impl GameState {
         };
         let tapped_before_replacement = self.card(card_id).tapped;
         if apply_move_replacement {
-            if let Some(agents) = agents.as_deref_mut() {
-                apply_replacements_with_agents(self, agents, &mut moved_event);
-            } else {
-                apply_replacements(self, &mut moved_event);
+            match (agents.as_deref_mut(), runtime.as_deref_mut()) {
+                (Some(agents), Some(runtime)) => {
+                    apply_replacements_with_agents_and_runtime(
+                        self,
+                        agents,
+                        runtime,
+                        &mut moved_event,
+                    );
+                }
+                (Some(agents), None) => {
+                    apply_replacements_with_agents(self, agents, &mut moved_event);
+                }
+                (None, _) => {
+                    apply_replacements(self, &mut moved_event);
+                }
             }
         }
+        let mut trigger_handler = match runtime {
+            Some(runtime) => Some(&mut *runtime.trigger_handler),
+            None => trigger_handler,
+        };
         let (dest_zone, etb_counter_map, counter_cause, after_replacement_static_abilities) =
             match moved_event {
                 ReplacementEvent::Moved {
