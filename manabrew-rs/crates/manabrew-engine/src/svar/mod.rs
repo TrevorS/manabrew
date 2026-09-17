@@ -1578,6 +1578,31 @@ pub fn resolve_count_svar_for_sa(
         return game.card(source_id).sunburst_count();
     }
 
+    // `Count$Adamant[_N].<Color>.<True>.<False>`: N (default 3) mana of that colour among
+    // the mana spent to cast the host (`AbilityUtils`, `getPayingMana`).
+    if let Some(rest) = expr.strip_prefix("Count$Adamant") {
+        let parts: Vec<&str> = rest.split('.').collect();
+        if let [head, color, when_true, when_false] = parts[..] {
+            let needed = head
+                .strip_prefix('_')
+                .and_then(|n| n.parse::<usize>().ok())
+                .unwrap_or(3);
+            let atom = forge_foundation::mana::ManaAtom::from_name(&color.to_ascii_lowercase());
+            let paid = game
+                .card(source_id)
+                .paying_mana_to_cast
+                .iter()
+                .filter(|&&mana| mana & atom != 0)
+                .count();
+            let branch = if paid >= needed {
+                when_true
+            } else {
+                when_false
+            };
+            return resolve_numeric_value(game, sa, branch, 0);
+        }
+    }
+
     if let Some(operators) = expr.strip_prefix("Count$FinalChapterNr") {
         let operators = operators.strip_prefix('/').unwrap_or(operators);
         return do_x_math(

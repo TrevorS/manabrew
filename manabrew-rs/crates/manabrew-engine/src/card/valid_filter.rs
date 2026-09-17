@@ -76,6 +76,9 @@ fn requirement_amount(
         .or_else(|| source.get_s_var(expr))
         .unwrap_or(expr)
         .trim();
+    // `CastSA>` evaluates against the host's cast ability in Forge; what the engine keeps
+    // of that ability (mana spent, X, kicker) lives on the card itself.
+    let raw_value = raw_value.strip_prefix("CastSA>").unwrap_or(raw_value);
 
     if let Ok(n) = raw_value.parse::<i32>() {
         return n;
