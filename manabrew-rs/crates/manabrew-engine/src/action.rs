@@ -1159,6 +1159,37 @@ impl GameState {
         self.move_card_without_replacement(cid, final_dest, owner);
     }
 
+    fn order_cards_by_their_owners(
+        &self,
+        list: Vec<CardId>,
+        agents: &mut Option<&mut [Box<dyn PlayerAgent>]>,
+    ) -> Vec<CardId> {
+        if list.len() <= 1 {
+            return list;
+        }
+        let active_player = self.active_player();
+        let start = self
+            .player_order
+            .iter()
+            .position(|&pid| pid == active_player)
+            .unwrap_or(0);
+        let mut complete_list = Vec::with_capacity(list.len());
+        for offset in 0..self.player_order.len() {
+            let pid = self.player_order[(start + offset) % self.player_order.len()];
+            let sub_list: Vec<CardId> = list
+                .iter()
+                .copied()
+                .filter(|&cid| self.card(cid).owner == pid)
+                .collect();
+            match agents.as_deref_mut() {
+                Some(agents) if sub_list.len() > 1 => complete_list
+                    .extend(agents[pid.index()].choose_reorder_library(self, pid, &sub_list)),
+                _ => complete_list.extend(sub_list),
+            }
+        }
+        complete_list
+    }
+
     fn check_state_based_actions_impl(
         &mut self,
         mut trigger_handler: Option<&mut TriggerHandler>,
@@ -1290,98 +1321,97 @@ impl GameState {
             .flat_map(|&pid| self.cards_in_zone(ZoneType::Battlefield, pid).to_vec())
             .collect();
 
+        let mut no_reg_creats: Vec<CardId> = Vec::new();
+        let mut des_creats: Vec<CardId> = Vec::new();
         for cid in battlefield_cards {
-            let (is_creature, zero_toughness, lethal, should_die) = {
-                let card = &self.cards[cid.index()];
-                let is_creature = card.is_creature();
-                let zero_toughness = card.toughness() <= 0;
-                let lethal = card.lethal_damage() || card.has_deathtouch_damage;
-                let should_die = zero_toughness || lethal;
-                (is_creature, zero_toughness, lethal, should_die)
-            };
-            if is_creature && should_die {
-                // Clear deathtouch flag regardless of outcome (mirrors Java
-                // GameAction.java line 1491: c.setHasBeenDealtDeathtouchDamage(false)).
-                self.cards[cid.index()].has_deathtouch_damage = false;
-                // CR 702.12: Indestructible prevents death from lethal damage and
-                // "destroy" effects, but NOT from toughness ≤ 0 (CR 704.5f vs 704.5g).
-                // This covers K:Indestructible from Forge card scripts (e.g. Darksteel Myr).
-                if lethal
-                    && !zero_toughness
-                    && self.cards[cid.index()].has_keyword("Indestructible")
-                {
-                    continue;
-                }
-                // CR 702.89: Umbra armor (Totem Armor) — if enchanted creature
-                // would be destroyed, instead remove all damage and destroy the aura.
-                let has_umbra = self.cards[cid.index()].attachments.iter().any(|&aid| {
-                    aid.index() < self.cards.len()
-                        && self.cards[aid.index()].zone == ZoneType::Battlefield
-                        && (self.cards[aid.index()].has_keyword("Umbra armor")
-                            || self.cards[aid.index()].has_keyword("Totem armor"))
-                });
-                if has_umbra && !zero_toughness {
-                    // Find the first umbra armor aura and destroy it instead
-                    let umbra_id =
-                        self.cards[cid.index()]
-                            .attachments
-                            .iter()
-                            .copied()
-                            .find(|&aid| {
-                                aid.index() < self.cards.len()
-                                    && self.cards[aid.index()].zone == ZoneType::Battlefield
-                                    && (self.cards[aid.index()].has_keyword("Umbra armor")
-                                        || self.cards[aid.index()].has_keyword("Totem armor"))
-                            });
-                    if let Some(umbra_id) = umbra_id {
-                        // Remove all damage from the creature
-                        self.cards[cid.index()].damage = 0;
-                        self.cards[cid.index()].has_deathtouch_damage = false;
-                        // Destroy the aura instead
-                        let umbra_owner = self.cards[umbra_id.index()].owner;
-                        let old_zone = self.cards[umbra_id.index()].zone;
-                        self.move_card(umbra_id, ZoneType::Graveyard, umbra_owner);
-                        if let Some(handler) = trigger_handler.as_deref_mut() {
-                            crate::ability::effects::emit_zone_trigger(
-                                handler,
-                                umbra_id,
-                                old_zone,
-                                ZoneType::Graveyard,
-                            );
-                        }
-                        any_changes = true;
-                        continue; // Creature survives
+            let card = &self.cards[cid.index()];
+            if !card.is_creature() {
+                continue;
+            }
+            if card.toughness() <= 0 {
+                no_reg_creats.push(cid);
+            } else if card.lethal_damage() || card.has_deathtouch_damage {
+                des_creats.push(cid);
+            } else {
+                continue;
+            }
+            self.cards[cid.index()].has_deathtouch_damage = false;
+        }
+
+        if no_reg_creats.len() > 1 {
+            no_reg_creats = self.order_cards_by_their_owners(no_reg_creats, &mut agents);
+        }
+        for cid in no_reg_creats {
+            self.move_battlefield_card_to_graveyard_for_sba(cid, &mut trigger_handler, &mut agents);
+            any_changes = true;
+        }
+
+        if des_creats.len() > 1 {
+            des_creats.retain(|&cid| !self.cards[cid.index()].has_keyword("Indestructible"));
+            des_creats = self.order_cards_by_their_owners(des_creats, &mut agents);
+        }
+        for cid in des_creats {
+            if self.cards[cid.index()].has_keyword("Indestructible") {
+                continue;
+            }
+            // CR 702.89: Umbra armor (Totem Armor) — if enchanted creature
+            // would be destroyed, instead remove all damage and destroy the aura.
+            let has_umbra = self.cards[cid.index()].attachments.iter().any(|&aid| {
+                aid.index() < self.cards.len()
+                    && self.cards[aid.index()].zone == ZoneType::Battlefield
+                    && (self.cards[aid.index()].has_keyword("Umbra armor")
+                        || self.cards[aid.index()].has_keyword("Totem armor"))
+            });
+            if has_umbra {
+                // Find the first umbra armor aura and destroy it instead
+                let umbra_id = self.cards[cid.index()]
+                    .attachments
+                    .iter()
+                    .copied()
+                    .find(|&aid| {
+                        aid.index() < self.cards.len()
+                            && self.cards[aid.index()].zone == ZoneType::Battlefield
+                            && (self.cards[aid.index()].has_keyword("Umbra armor")
+                                || self.cards[aid.index()].has_keyword("Totem armor"))
+                    });
+                if let Some(umbra_id) = umbra_id {
+                    // Remove all damage from the creature
+                    self.cards[cid.index()].damage = 0;
+                    self.cards[cid.index()].has_deathtouch_damage = false;
+                    // Destroy the aura instead
+                    let umbra_owner = self.cards[umbra_id.index()].owner;
+                    let old_zone = self.cards[umbra_id.index()].zone;
+                    self.move_card(umbra_id, ZoneType::Graveyard, umbra_owner);
+                    if let Some(handler) = trigger_handler.as_deref_mut() {
+                        crate::ability::effects::emit_zone_trigger(
+                            handler,
+                            umbra_id,
+                            old_zone,
+                            ZoneType::Graveyard,
+                        );
                     }
-                }
-
-                if zero_toughness {
-                    self.move_battlefield_card_to_graveyard_for_sba(
-                        cid,
-                        &mut trigger_handler,
-                        &mut agents,
-                    );
                     any_changes = true;
-                    continue;
+                    continue; // Creature survives
                 }
+            }
 
-                // Run Destroy replacement effects (R$-based indestructible, etc.).
-                // Mirrors Java GameAction.destroy() → ReplacementHandler.run(Destroy, …).
-                let mut destroy_event = ReplacementEvent::Destroy { target: cid };
-                let result = apply_replacements(self, &mut destroy_event);
-                if result != ReplacementResult::Replaced {
-                    self.move_battlefield_card_to_graveyard_for_sba(
-                        cid,
-                        &mut trigger_handler,
-                        &mut agents,
-                    );
-                    // Same-SBA-batch LTB lookback is derived per-event from
-                    // `pre_sba_battlefield` in `TriggerHandler::ltb_trigger_refs_for_event`.
-                    // No global registration needed.
-                    any_changes = true;
-                } else {
-                    // Indestructible — destruction was replaced; creature stays.
-                    // Damage is still marked but the creature does not die.
-                }
+            // Run Destroy replacement effects (R$-based indestructible, etc.).
+            // Mirrors Java GameAction.destroy() → ReplacementHandler.run(Destroy, …).
+            let mut destroy_event = ReplacementEvent::Destroy { target: cid };
+            let result = apply_replacements(self, &mut destroy_event);
+            if result != ReplacementResult::Replaced {
+                self.move_battlefield_card_to_graveyard_for_sba(
+                    cid,
+                    &mut trigger_handler,
+                    &mut agents,
+                );
+                // Same-SBA-batch LTB lookback is derived per-event from
+                // `pre_sba_battlefield` in `TriggerHandler::ltb_trigger_refs_for_event`.
+                // No global registration needed.
+                any_changes = true;
+            } else {
+                // Indestructible — destruction was replaced; creature stays.
+                // Damage is still marked but the creature does not die.
             }
         }
 
