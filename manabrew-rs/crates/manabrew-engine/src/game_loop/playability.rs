@@ -86,13 +86,17 @@ impl GameLoop {
             .add(&raise_mana);
         let payable = crate::mana::apply_player_life_payment_keywords(game, player, &base);
         let reduced = apply_cost_reductions(game, player, card_id, &host, &payable);
+        // `AbilityManaPart.meetsManaRestrictions` tests a `Spell.<Type>` restriction with
+        // `sa.getHostCard().hasProperty`, the card's current face, which in hand is still
+        // the front one. The payment itself runs with the card on the stack as this face.
+        let in_hand = game.card(card_id);
         let payment_ctx = mana::ManaPaymentContext {
             is_spell: true,
             is_activated_ability: false,
             sa_on_stack: false,
-            type_line: Some(host.type_line.clone()),
-            card_name: Some(host.card_name.clone()),
-            card_color: Some(host.color),
+            type_line: Some(in_hand.type_line.clone()),
+            card_name: Some(in_hand.card_name.clone()),
+            card_color: Some(in_hand.color),
             chosen_types_by_source: chosen_types_by_source.clone(),
         };
         crate::mana::can_pay_spell_mana_cost_for_action_space(
