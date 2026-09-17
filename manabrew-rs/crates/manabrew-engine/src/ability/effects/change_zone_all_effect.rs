@@ -3,9 +3,17 @@ use forge_foundation::ZoneType;
 use super::{emit_zone_trigger, matches_change_type, EffectContext};
 use crate::ids::{CardId, PlayerId};
 
+fn is_targeted_relation_term(term: &str) -> bool {
+    term.eq_ignore_ascii_case("NotDefinedTargeted")
+        || term.eq_ignore_ascii_case("TargetedCard.Self")
+        || term.starts_with("sharesNameWith")
+        || term.starts_with("ControlledBy")
+}
+
 fn matches_change_zone_all_filter(
     cid: CardId,
     game: &crate::game::GameState,
+    sa: Option<&crate::spellability::SpellAbility>,
     filter: &str,
     source_chosen_colors: &[String],
     effective_target: Option<CardId>,
@@ -19,6 +27,24 @@ fn matches_change_zone_all_filter(
         let clause = clause.trim();
         if clause.is_empty() {
             continue;
+        }
+
+        if let Some(sa) = sa {
+            if !clause
+                .split('+')
+                .any(|term| is_targeted_relation_term(term.trim()))
+            {
+                if crate::ability::ability_utils::matches_valid_cards_for_sa(
+                    game,
+                    sa,
+                    game.card(cid),
+                    None,
+                    clause,
+                ) {
+                    return true;
+                }
+                continue;
+            }
         }
 
         let mut clause_ok = true;
@@ -122,12 +148,14 @@ pub fn build_spell_ability(sa: &mut crate::spellability::SpellAbility) {
 /// `ChangeZoneAllEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(ChangeZoneAllEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let Some(origin_zone) = sa
-        .origin_zone()
-        .or_else(|| sa.origin().is_none().then_some(ZoneType::Battlefield))
-    else {
-        return;
+    let origin_zones = if sa.origin().is_none() {
+        vec![ZoneType::Battlefield]
+    } else {
+        sa.origin_zones()
     };
+    if origin_zones.is_empty() {
+        return;
+    }
     let Some(dest_zone) = sa
         .destination_zone()
         .or_else(|| sa.destination().is_none().then_some(ZoneType::Graveyard))
@@ -186,11 +214,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let mut to_move: Vec<(CardId, PlayerId)> = Vec::new();
 
         for &pid in &player_ids {
-            let zone_cards = ctx.game.cards_in_zone(origin_zone, pid).to_vec();
+            let zone_cards: Vec<CardId> = origin_zones
+                .iter()
+                .flat_map(|&zone| ctx.game.cards_in_zone(zone, pid).to_vec())
+                .collect();
             for cid in zone_cards {
                 if matches_change_zone_all_filter(
                     cid,
                     ctx.game,
+                    Some(sa),
                     &valid_cards_filter,
                     &source_chosen_colors,
                     effective_target,
@@ -254,7 +286,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         let mut moved_to_library: Vec<(CardId, PlayerId)> = Vec::new();
         for (card_id, dest_owner) in to_move {
-            if ctx.game.card(card_id).zone != origin_zone {
+            if !origin_zones.contains(&ctx.game.card(card_id).zone) {
                 continue; // already moved
             }
             let old_zone = ctx.game.card(card_id).zone;
@@ -346,6 +378,7 @@ mod tests {
         assert!(matches_change_zone_all_filter(
             t1,
             &game,
+            None,
             filter,
             &[],
             Some(t1)
@@ -353,6 +386,7 @@ mod tests {
         assert!(matches_change_zone_all_filter(
             t2,
             &game,
+            None,
             filter,
             &[],
             Some(t1)
@@ -360,6 +394,7 @@ mod tests {
         assert!(!matches_change_zone_all_filter(
             opp_land,
             &game,
+            None,
             filter,
             &[],
             Some(t1)
@@ -367,6 +402,7 @@ mod tests {
         assert!(!matches_change_zone_all_filter(
             my_land,
             &game,
+            None,
             filter,
             &[],
             Some(t1)
