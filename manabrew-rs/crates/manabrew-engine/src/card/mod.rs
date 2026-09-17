@@ -342,6 +342,8 @@ pub struct Card {
     pub changed_base_toughness: Option<Option<i32>>,
     #[serde(skip)]
     pub changed_keywords_base: Option<crate::keyword::keyword_collection::KeywordCollection>,
+    #[serde(skip)]
+    pub changed_trigger_count_base: Option<usize>,
     /// Keywords granted temporarily by pump effects (`KW$` parameter) until end of turn.
     /// Cleared during step_cleanup alongside power_modifier / toughness_modifier.
     pub pump_keywords: crate::keyword::keyword_collection::KeywordCollection,
@@ -816,6 +818,7 @@ impl Card {
             changed_base_power: None,
             changed_base_toughness: None,
             changed_keywords_base: None,
+            changed_trigger_count_base: None,
             pump_keywords: crate::keyword::keyword_collection::KeywordCollection::new(),
             pump_trigger_count: 0,
             abilities,
@@ -2522,6 +2525,20 @@ impl Card {
         if self.changed_keywords_base.is_none() {
             self.changed_keywords_base = Some(self.keywords.clone());
         }
+        if self.changed_trigger_count_base.is_none() {
+            self.changed_trigger_count_base = Some(self.base_trigger_count);
+        }
+    }
+
+    /// A trigger granted for as long as this object lasts (`Duration$ Permanent`). It sits
+    /// with the base triggers, so neither the cleanup step nor the layer reset drops it;
+    /// `restore_changed_characteristics_baseline` removes it when the card changes zones.
+    pub fn add_lasting_trigger(&mut self, mut trigger: Trigger) {
+        self.capture_changed_characteristics_baseline_if_needed();
+        trigger.bind_host_card_id(self.id);
+        let at = self.base_trigger_count.min(self.triggers.len());
+        self.triggers.insert(at, trigger);
+        self.base_trigger_count += 1;
     }
 
     pub fn restore_changed_characteristics_baseline(&mut self) {
@@ -2536,6 +2553,13 @@ impl Card {
         }
         if let Some(keywords) = self.changed_keywords_base.take() {
             self.keywords = keywords;
+        }
+        if let Some(count) = self.changed_trigger_count_base.take() {
+            if count < self.base_trigger_count {
+                let end = self.base_trigger_count.min(self.triggers.len());
+                self.triggers.drain(count.min(end)..end);
+                self.base_trigger_count = count;
+            }
         }
     }
 

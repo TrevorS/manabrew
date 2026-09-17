@@ -309,8 +309,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
             } else {
                 for trig in &parsed_triggers {
-                    ctx.game.card_mut(card_id).add_trigger(trig.clone());
-                    ctx.game.card_mut(card_id).increment_pump_trigger_count();
+                    if is_permanent_duration {
+                        ctx.game.card_mut(card_id).add_lasting_trigger(trig.clone());
+                    } else {
+                        ctx.game.card_mut(card_id).add_trigger(trig.clone());
+                        ctx.game.card_mut(card_id).increment_pump_trigger_count();
+                    }
                     // Copy the Execute SVar from source to target so trigger resolution
                     // can find it (e.g. SupernaturalStaminaTrigChangeZone)
                     if !trig.execute.is_empty() {
