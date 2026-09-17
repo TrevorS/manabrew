@@ -718,7 +718,9 @@ impl GameLoop {
                 }
             } else {
                 // Non-permanent spell: resolve effect, then route to destination zone
+                game.card_mut(card_id).cast_from = entry.cast_from_zone;
                 self.resolve_spell_effect(game, agents, &entry);
+                game.card_mut(card_id).cast_from = None;
                 crate::perf::increment(crate::perf::Metric::SpellAbilityClones, 3);
                 self.trigger_handler.run_trigger(
                     TriggerType::AbilityResolves,

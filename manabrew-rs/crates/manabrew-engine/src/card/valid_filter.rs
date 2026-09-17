@@ -40,7 +40,7 @@ use crate::parsing::compare::compare_expr;
 use crate::parsing::keys;
 use crate::parsing::{
     cached_compiled_selector, CardColorSelector, CardIdentitySelector, CardSelectorType,
-    CardStateSelector, CardSupertypeSelector, CompiledSelector, ContextPredicate,
+    CardStateSelector, CardSupertypeSelector, CastOrigin, CompiledSelector, ContextPredicate,
     ControllerSelector, NumericSelectorProperty, ParsedParams, RelationPredicate, Selector,
     SelectorCompareOperator, SelectorNumericOperand, SelectorPredicate, TargetRef,
 };
@@ -858,7 +858,20 @@ fn matches_context_predicate(
                 .get_blockers_for(card.id)
                 .contains(&context.source_card.id)
         }),
-        ContextPredicate::WasCastFrom(_) => false,
+        ContextPredicate::WasCastFrom(origin) => {
+            let suffix = match origin {
+                CastOrigin::Hand => "Hand",
+                CastOrigin::YourHand => "YourHand",
+                CastOrigin::YourHandByYou => "YourHandByYou",
+                CastOrigin::TheirHand => "TheirHand",
+                CastOrigin::Exile => "Exile",
+                CastOrigin::Graveyard => "Graveyard",
+                CastOrigin::YourGraveyard => "YourGraveyard",
+                CastOrigin::YourGraveyardByYou => "YourGraveyardByYou",
+                CastOrigin::YourLibrary => "YourLibrary",
+            };
+            matches_was_cast_from(suffix, card, context)
+        }
         ContextPredicate::EnteredThisTurnFrom(zone) => {
             matches_entered_this_turn_from(*zone, card, context)
         }
@@ -2310,6 +2323,11 @@ fn matches_type_and_qualifier_parts(
                     // card's controller at ETB time equals the caster for normal
                     // casts, which covers Sunderflock-style triggers.
                     if !card.was_cast() || card.controller != source.controller {
+                        return false;
+                    }
+                }
+                was_cast_from if was_cast_from.starts_with("wascastfrom") => {
+                    if !matches_was_cast_from(&raw[11..], card, context) {
                         return false;
                     }
                 }
