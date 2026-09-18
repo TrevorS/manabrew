@@ -127,31 +127,31 @@ fn matches_single_property(card: &Card, property: &str, source_controller: Playe
             // CMC comparisons
             if let Some(rest) = lower.strip_prefix("cmcge") {
                 if let Ok(n) = rest.parse::<i32>() {
-                    return card.mana_cost.cmc() >= n;
+                    return card.mana_value() >= n;
                 }
                 return false;
             }
             if let Some(rest) = lower.strip_prefix("cmcgt") {
                 if let Ok(n) = rest.parse::<i32>() {
-                    return card.mana_cost.cmc() > n;
+                    return card.mana_value() > n;
                 }
                 return false;
             }
             if let Some(rest) = lower.strip_prefix("cmcle") {
                 if let Ok(n) = rest.parse::<i32>() {
-                    return card.mana_cost.cmc() <= n;
+                    return card.mana_value() <= n;
                 }
                 return false;
             }
             if let Some(rest) = lower.strip_prefix("cmclt") {
                 if let Ok(n) = rest.parse::<i32>() {
-                    return card.mana_cost.cmc() < n;
+                    return card.mana_value() < n;
                 }
                 return false;
             }
             if let Some(rest) = lower.strip_prefix("cmceq") {
                 if let Ok(n) = rest.parse::<i32>() {
-                    return card.mana_cost.cmc() == n;
+                    return card.mana_value() == n;
                 }
                 return false;
             }

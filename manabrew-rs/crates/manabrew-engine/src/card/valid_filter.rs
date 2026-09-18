@@ -963,7 +963,7 @@ fn matches_relation_predicate(
         }
         RelationPredicate::SharesManaValueWith(target) => {
             relation_target_card_any(target, card, context, |target| {
-                card.mana_cost.cmc() == target.mana_cost.cmc()
+                card.mana_value() == target.mana_value()
             })
         }
         RelationPredicate::AttachedTo(target) => {
@@ -1331,7 +1331,7 @@ fn resolve_numeric_property(
 }
 
 fn effective_mana_value(card: &Card, context: MatchContext<'_>) -> i32 {
-    let mut mana_value = card.mana_cost.cmc();
+    let mut mana_value = card.mana_value();
     if let Some(sa) = context.spell_ability {
         if sa.source == Some(card.id) {
             mana_value += sa.x_mana_cost_paid as i32 * card.mana_cost.count_x() as i32;
@@ -1375,7 +1375,7 @@ fn resolve_selector_operand(
             if value == "TriggeredCard$CardManaCost" {
                 let game = context.game?;
                 let card = context.triggering_card?;
-                return Some(game.card(card).mana_cost.cmc());
+                return Some(game.card(card).mana_value());
             }
             if value == "TriggeredCard$CardPower" {
                 let game = context.game?;
@@ -2714,7 +2714,7 @@ fn check_cmc_condition_with_context(
 ) -> bool {
     let cmc = context
         .map(|ctx| effective_mana_value(card, ctx))
-        .unwrap_or_else(|| card.mana_cost.cmc());
+        .unwrap_or_else(|| card.mana_value());
     let lower = rest.to_ascii_lowercase();
     if lower.starts_with("eq") {
         if let Some(n) = parse_cmc_threshold(&rest[2..], context) {

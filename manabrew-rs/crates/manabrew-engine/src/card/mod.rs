@@ -1441,6 +1441,17 @@ impl Card {
 
     /// Converted mana cost (mana value).
     pub fn mana_value(&self) -> i32 {
+        // `Card.getCMC`: a transformed back face has the front face's mana value, and a copy
+        // of one has none.
+        if let Some(front) = self.other_part.as_ref() {
+            if self.is_transformed && front.state_name == CardStateName::Backside && !front.is_modal
+            {
+                if self.copied_permanent.is_some() {
+                    return 0;
+                }
+                return front.mana_cost.cmc();
+            }
+        }
         self.mana_cost.cmc()
     }
 
