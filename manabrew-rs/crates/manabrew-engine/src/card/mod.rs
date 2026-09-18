@@ -120,6 +120,52 @@ pub struct CardOtherPart {
     pub svars: BTreeMap<String, String>,
 }
 
+impl CardOtherPart {
+    /// The other face without its parsed traits, which no parity agent reads; see
+    /// `Card::clone_for_parity_snapshot`.
+    pub fn clone_for_parity_snapshot(&self) -> Self {
+        CardOtherPart {
+            name: self.name.clone(),
+            oracle_text: self.oracle_text.clone(),
+            is_modal: self.is_modal,
+            state_name: self.state_name,
+            type_line: self.type_line.clone(),
+            mana_cost: self.mana_cost.clone(),
+            color: self.color,
+            base_power: self.base_power,
+            base_toughness: self.base_toughness,
+            keywords: self.keywords.clone(),
+            abilities: self.abilities.clone(),
+            triggers: Vec::new(),
+            static_abilities: Vec::new(),
+            replacement_effects: Vec::new(),
+            svars: self.svars.clone(),
+        }
+    }
+
+    pub fn refresh_parity_snapshot(&self, out: &mut CardOtherPart) {
+        out.name.clone_from(&self.name);
+        out.oracle_text.clone_from(&self.oracle_text);
+        out.is_modal = self.is_modal;
+        out.state_name = self.state_name;
+        if out.type_line != self.type_line {
+            out.type_line.clone_from(&self.type_line);
+        }
+        out.mana_cost.clone_from(&self.mana_cost);
+        out.color = self.color;
+        out.base_power = self.base_power;
+        out.base_toughness = self.base_toughness;
+        out.keywords.clone_from(&self.keywords);
+        out.abilities.clone_from(&self.abilities);
+        out.triggers.clear();
+        out.static_abilities.clear();
+        out.replacement_effects.clear();
+        if out.svars != self.svars {
+            out.svars.clone_from(&self.svars);
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CardActionSpellSpec {
     pub ability_index: usize,
@@ -1056,15 +1102,18 @@ impl Card {
             base_trigger_count: self.base_trigger_count,
             changed_card_traits: self.changed_card_traits.clone(),
             changed_card_traits_by_text: self.changed_card_traits_by_text.clone(),
-            static_abilities: self
-                .static_abilities
-                .iter()
-                .map(|static_ability| {
-                    let mut static_ability = static_ability.clone();
-                    *static_ability.base = crate::card_trait_base::CardTraitBase::default();
-                    static_ability
-                })
-                .collect(),
+            static_abilities: if matches!(self.zone, ZoneType::Battlefield | ZoneType::Command) {
+                self.static_abilities
+                    .iter()
+                    .map(|static_ability| {
+                        let mut static_ability = static_ability.clone();
+                        *static_ability.base = crate::card_trait_base::CardTraitBase::default();
+                        static_ability
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            },
             has_deathtouch_damage: self.has_deathtouch_damage,
             cant_attack_static: self.cant_attack_static,
             cant_block_static: self.cant_block_static,
@@ -1111,7 +1160,10 @@ impl Card {
             exiled_by: self.exiled_by,
             original_controller_eot: self.original_controller_eot,
             is_transformed: self.is_transformed,
-            other_part: self.other_part.clone(),
+            other_part: self
+                .other_part
+                .as_ref()
+                .map(CardOtherPart::clone_for_parity_snapshot),
             set_code: self.set_code.clone(),
             card_number: self.card_number.clone(),
             paper_foil: self.paper_foil,
@@ -1286,9 +1338,13 @@ impl Card {
             .clone_from(&self.changed_card_traits);
         out.changed_card_traits_by_text
             .clone_from(&self.changed_card_traits_by_text);
-        out.static_abilities.clone_from(&self.static_abilities);
-        for static_ability in &mut out.static_abilities {
-            *static_ability.base = crate::card_trait_base::CardTraitBase::default();
+        if matches!(self.zone, ZoneType::Battlefield | ZoneType::Command) {
+            out.static_abilities.clone_from(&self.static_abilities);
+            for static_ability in &mut out.static_abilities {
+                *static_ability.base = crate::card_trait_base::CardTraitBase::default();
+            }
+        } else {
+            out.static_abilities.clear();
         }
         out.has_deathtouch_damage
             .clone_from(&self.has_deathtouch_damage);
@@ -1354,7 +1410,12 @@ impl Card {
         out.original_controller_eot
             .clone_from(&self.original_controller_eot);
         out.is_transformed.clone_from(&self.is_transformed);
-        out.other_part.clone_from(&self.other_part);
+        match (&mut out.other_part, &self.other_part) {
+            (Some(out_other), Some(other)) => other.refresh_parity_snapshot(out_other),
+            (out_other, other) => {
+                *out_other = other.as_ref().map(CardOtherPart::clone_for_parity_snapshot);
+            }
+        }
         out.set_code.clone_from(&self.set_code);
         out.card_number.clone_from(&self.card_number);
         out.paper_foil.clone_from(&self.paper_foil);
