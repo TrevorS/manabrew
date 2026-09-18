@@ -46,18 +46,21 @@ public final class HarnessPlayPlumbing {
     private final Player payer;
     private final HarnessCostPlumbing costPlumbing;
     private final boolean lifePaymentFallback;
+    private final boolean announceWaterbendX;
     private boolean needX = true;
 
     public HarnessPlayPlumbing(
             final HarnessPlayHooks hooks,
             final Player payer,
             final HarnessCostPlumbing costPlumbing,
-            final boolean lifePaymentFallback
+            final boolean lifePaymentFallback,
+            final boolean announceWaterbendX
     ) {
         this.hooks = hooks;
         this.payer = payer;
         this.costPlumbing = costPlumbing;
         this.lifePaymentFallback = lifePaymentFallback;
+        this.announceWaterbendX = announceWaterbendX;
     }
 
     private boolean canPayCostWithLifeFallback(final SpellAbility sa, final Player ai, final boolean effect) {
@@ -299,6 +302,8 @@ public final class HarnessPlayPlumbing {
                     }
                     ability.setXManaCostPaid(value);
                 }
+            } else if (!announceWaterbendX) {
+                ability.setXManaCostPaid(null);
             } else if (!announceAdjustedCostX(ability, controller)) {
                 return false;
             }

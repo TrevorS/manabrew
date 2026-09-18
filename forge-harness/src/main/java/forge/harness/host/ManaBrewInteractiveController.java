@@ -100,7 +100,7 @@ public final class ManaBrewInteractiveController extends PlayerController implem
         this.session = session;
         this.costPlumbing = new HarnessCostPlumbing(this, this, player, true);
         this.autoPay = new AutoPay(player, costPlumbing, true);
-        this.playPlumbing = new HarnessPlayPlumbing(this, player, costPlumbing, true);
+        this.playPlumbing = new HarnessPlayPlumbing(this, player, costPlumbing, true, true);
     }
 
     private int me() {
