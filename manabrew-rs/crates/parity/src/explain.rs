@@ -73,11 +73,12 @@ struct Draw<'a> {
 }
 
 impl Draw<'_> {
-    /// Both engines print a `choose_action` pick the same way, so the picked card is part
-    /// of the key there: the same index into a differently ordered list is a difference.
+    /// The picked card of a `choose_action` is part of the key, read as `decision_diff` reads
+    /// it (`name@id`, without the ability index the engines number differently): the same
+    /// index into a differently ordered list is a difference.
     fn key(&self) -> (&str, i64, &str, i64, i64, String) {
         let picked = if text(self.entry, "name") == "choose_action" {
-            text(self.entry, "outcome")
+            crate::decision_diff::action_cards(&text(self.entry, "outcome")).join(" | ")
         } else {
             String::new()
         };
@@ -134,14 +135,19 @@ fn print_draw_diff(result: &Value, context: usize) {
         .zip(java.iter())
         .position(|(r, j)| r.key() != j.key())
         .unwrap_or_else(|| rust.len().min(java.len()));
+    if first == rust.len() && first == java.len() {
+        println!(
+            "draws: rust {} java {}, no difference",
+            rust.len(),
+            java.len()
+        );
+        return;
+    }
     println!(
         "draws: rust {} java {}, first difference at #{first}",
         rust.len(),
         java.len()
     );
-    if first == rust.len() && first == java.len() {
-        return;
-    }
     for (tag, list) in [("R", &rust), ("J", &java)] {
         let from = first.saturating_sub(context);
         let to = (first + context + 1).min(list.len());

@@ -83,7 +83,7 @@ const OUTCOME_COMPARED: &[&str] = &["$ACTION_SPACE", "choose_action"];
 /// them differently: Java prints any ability that is not an activated ability
 /// (Plot's special action) as `CastSpell`, and its `ability_index` counts the
 /// abilities currently possible while Rust's counts the card's ability list.
-fn action_cards(outcome: &str) -> Vec<&str> {
+pub(crate) fn action_cards(outcome: &str) -> Vec<&str> {
     outcome
         .trim_start_matches('[')
         .trim_end_matches(']')
