@@ -1722,6 +1722,9 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
             card.card_name.eq_ignore_ascii_case(value[5..].trim())
         }
         _ if value.starts_with("counters_") => check_counter_condition(value, card),
+        _ if value.starts_with("countersReceivedThisTurn_") => {
+            check_counters_received_this_turn(value, card, context)
+        }
         _ => {
             if value_lower.starts_with("cmc") {
                 let original_rest = &value[3..];
@@ -2707,6 +2710,43 @@ fn check_counter_condition(condition: &str, card: &Card) -> bool {
         "EQ" => count == threshold,
         "NE" => count != threshold,
         _ => true,
+    }
+}
+
+/// `countersReceivedThisTurn_GE1_P1P1_You`: Java `CardProperty` asks
+/// `game.getCounterAddedThisTurn(type, validPlayer, "Card.StrictlySelf", card, ...)`.
+fn check_counters_received_this_turn(
+    condition: &str,
+    card: &Card,
+    context: MatchContext<'_>,
+) -> bool {
+    let parts: Vec<&str> = condition.split('_').collect();
+    let (Some(comparison), Some(counter_type), Some(valid_player), Some(game)) =
+        (parts.get(1), parts.get(2), parts.get(3), context.game)
+    else {
+        return false;
+    };
+    let Some((op, threshold)) = comparison
+        .get(..2)
+        .zip(comparison.get(2..).and_then(|n| n.parse::<i32>().ok()))
+    else {
+        return false;
+    };
+    let count = game.get_counter_added_this_turn(
+        Some(&crate::ability::effects::parse_counter_type(counter_type)),
+        valid_player,
+        "Card.Self",
+        card.id,
+        context.source_controller,
+    );
+    match op {
+        "GE" => count >= threshold,
+        "GT" => count > threshold,
+        "LE" => count <= threshold,
+        "LT" => count < threshold,
+        "EQ" => count == threshold,
+        "NE" => count != threshold,
+        _ => false,
     }
 }
 
