@@ -56,7 +56,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         else {
             return;
         };
-        let Some(card) = resolve_card_target(ctx.game, sa) else {
+        let Some(card) = resolve_card_targets(ctx.game, sa).first().copied() else {
             return;
         };
         let mut table = GameEntityCounterTable::default();
@@ -233,18 +233,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // Resolve target card: mirror Java's getDefinedEntitiesOrTargeted().
     // When the SA uses targeting (ValidTgts$), use the chosen target.
     // Otherwise fall back to the Defined$ parameter (default "Self").
-    let Some(card_id) = resolve_card_target(ctx.game, sa) else {
-        return;
-    };
-    put_counters_on_card(
-        ctx,
-        sa,
-        card_id,
-        &counter_type,
-        count,
-        placer,
-        source_controller,
-    );
+    for card_id in resolve_card_targets(ctx.game, sa) {
+        put_counters_on_card(
+            ctx,
+            sa,
+            card_id,
+            &counter_type,
+            count,
+            placer,
+            source_controller,
+        );
+    }
 }
 
 fn put_counters_on_card(
@@ -347,31 +346,37 @@ fn put_counters_on_card(
     }
 }
 
-fn resolve_card_target(
+fn resolve_card_targets(
     game: &crate::game::GameState,
     sa: &crate::spellability::SpellAbility,
-) -> Option<crate::ids::CardId> {
-    let card = if sa.target_restrictions.is_some() && sa.ir.defined.is_none() {
-        sa.target_chosen.target_card
-    } else {
-        match sa.defined_ref() {
-            Some(
-                DefinedRef::TriggeredTarget
-                | DefinedRef::TriggeredTargetLkiCopy
-                | DefinedRef::Targeted,
-            ) => sa.target_chosen.target_card,
-            _ => sa.source,
-        }
-    }?;
-    if matches!(sa.defined_ref(), None | Some(DefinedRef::SelfCard))
-        && sa.source == Some(card)
-        && sa
-            .source_zone_timestamp
-            .is_some_and(|created_at| game.card(card).zone_timestamp != created_at)
-    {
-        return None;
-    }
-    (sa.ir.etb || game.card(card).zone == ZoneType::Battlefield).then_some(card)
+) -> Vec<crate::ids::CardId> {
+    let cards: Vec<crate::ids::CardId> =
+        if sa.target_restrictions.is_some() && sa.ir.defined.is_none() {
+            sa.target_chosen.target_card.into_iter().collect()
+        } else {
+            match sa.defined_ref() {
+                Some(
+                    DefinedRef::TriggeredTarget
+                    | DefinedRef::TriggeredTargetLkiCopy
+                    | DefinedRef::Targeted,
+                ) => sa.target_chosen.target_card.into_iter().collect(),
+                None | Some(DefinedRef::SelfCard) => sa.source.into_iter().collect(),
+                Some(_) => {
+                    crate::ability::spell_ability_effect::get_defined_cards_or_targeted(game, sa)
+                }
+            }
+        };
+    cards
+        .into_iter()
+        .filter(|&card| {
+            let self_moved = matches!(sa.defined_ref(), None | Some(DefinedRef::SelfCard))
+                && sa.source == Some(card)
+                && sa
+                    .source_zone_timestamp
+                    .is_some_and(|created_at| game.card(card).zone_timestamp != created_at);
+            !self_moved && (sa.ir.etb || game.card(card).zone == ZoneType::Battlefield)
+        })
+        .collect()
 }
 
 /// True when CountersPutEffect.java:625-636 would route the CounterType
