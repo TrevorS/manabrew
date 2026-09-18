@@ -145,6 +145,8 @@ pub(super) fn can_search_library(ctx: &EffectContext, searcher: PlayerId) -> boo
 // ─── Destination Resolution ─────────────────────────────────────────────────
 
 /// Handle DestinationAlternative$ — player chooses between two destinations.
+/// Mirrors Java `ChangeZoneEffect.handleAltDest`: `AlternativeDecider$` names the player who
+/// chooses, and declining the first destination moves the card to the alternative one.
 pub(super) fn resolve_destination(
     ctx: &mut EffectContext,
     sa: &SpellAbility,
@@ -154,21 +156,34 @@ pub(super) fn resolve_destination(
     if let Some(alt_dest_str) = sa.destination_alternative() {
         if let Some(alt_zone) = parse_zone_type(alt_dest_str) {
             let alt_lib_pos = sa.library_position_alternative().unwrap_or("0").to_string();
-            let chooser = sa.activating_player;
-            ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
+            let decider = match crate::parsing::raw_get(&sa.ability_text, "AlternativeDecider") {
+                Some(defined) => crate::ability::ability_utils::resolve_defined_players_with_sa(
+                    defined,
+                    sa,
+                    sa.activating_player,
+                    ctx.game,
+                )
+                .first()
+                .copied(),
+                None => Some(sa.activating_player),
+            };
+            let Some(decider) = decider else {
+                return (dest_zone, lib_position);
+            };
+            ctx.agents[decider.index()].snapshot_state(ctx.game, ctx.mana_pools);
             let options = vec![format!("{:?}", dest_zone), format!("{:?}", alt_zone)];
-            let use_alt = ctx.agents[chooser.index()].confirm_action(
-                chooser,
+            let keep_first = ctx.agents[decider.index()].confirm_action(
+                decider,
                 Some("ChangeZoneToAltDestination"),
                 "Choose destination",
                 &options,
                 None,
                 None,
             );
-            return if use_alt {
-                (alt_zone, alt_lib_pos)
-            } else {
+            return if keep_first {
                 (dest_zone, lib_position)
+            } else {
+                (alt_zone, alt_lib_pos)
             };
         }
     }
