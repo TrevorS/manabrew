@@ -17,7 +17,7 @@ use manabrew_engine::player::actions::player_action::STATIC_ALTERNATIVE_ABILITY_
 use manabrew_engine::player::actions::{AbilityRef, PlayerAction};
 use manabrew_engine::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
 use manabrew_engine::spellability::AlternativeCost;
-use manabrew_engine::spellability::SpellAbility;
+use manabrew_engine::spellability::{MagicStack, SpellAbility, StackEntry};
 
 use crate::choice_space;
 use crate::combat_choice_space;
@@ -99,6 +99,9 @@ pub struct DeterministicAgent {
     pub verbose: VerboseMode,
     current_turn: u32,
     last_game_snapshot: Option<GameSnapshot>,
+    /// Players, cards, zones, stack and turn as of the last `snapshot_state`, refreshed in
+    /// place; `CapturingAgent` reads it too, so a decision refreshes one copy of the game.
+    snapshot_game: Option<GameState>,
     rng: Rc<RefCell<JavaRandom>>,
     game_rng: Rc<RefCell<JavaRandom>>,
     prefer_actions: bool,
@@ -109,7 +112,6 @@ pub struct DeterministicAgent {
 }
 
 struct GameSnapshot {
-    cards: Vec<Card>,
     player_names: Vec<(PlayerId, String)>,
     card_names: Vec<(CardId, String)>,
     card_is_land: Vec<(CardId, bool)>,
@@ -148,6 +150,63 @@ impl DeterministicAgent {
         snapshot.extend(cards[kept..].iter().map(Self::shallow_snapshot_card));
     }
 
+    pub(crate) fn shallow_stack_entry(entry: &StackEntry) -> StackEntry {
+        let mut spell_ability = SpellAbility::new_simple(
+            entry.spell_ability.source,
+            entry.spell_ability.activating_player,
+            &entry.spell_ability.ability_text,
+        );
+        spell_ability.id = entry.spell_ability.id;
+        StackEntry {
+            id: entry.id,
+            spell_ability,
+            is_pending_cast: entry.is_pending_cast,
+            is_creature_spell: entry.is_creature_spell,
+            is_permanent_spell: entry.is_permanent_spell,
+            cast_from_zone: entry.cast_from_zone,
+            optional_trigger_decider: entry.optional_trigger_decider,
+            optional_trigger_description: entry.optional_trigger_description.clone(),
+            optional_trigger_source_name: entry.optional_trigger_source_name.clone(),
+        }
+    }
+
+    fn shallow_game_state(previous: Option<GameState>, game: &GameState) -> GameState {
+        let mut sim = previous.unwrap_or_else(|| {
+            let player_names: Vec<String> = game.players.iter().map(|p| p.name.clone()).collect();
+            let player_name_refs: Vec<&str> = player_names.iter().map(String::as_str).collect();
+            let starting_life = game.players.first().map(|p| p.life).unwrap_or(20);
+            GameState::new(&player_name_refs, starting_life)
+        });
+        sim.players.clone_from(&game.players);
+        Self::refresh_snapshot_cards(&mut sim.cards, &game.cards);
+        sim.replace_zone_store(game.zone_store_snapshot());
+        let mut stack = MagicStack::new();
+        for entry in game.stack.iter() {
+            stack.push(Self::shallow_stack_entry(entry));
+        }
+        sim.stack = stack;
+        sim.turn = game.turn.clone();
+        sim.player_order = game.player_order.clone();
+        sim.game_over = game.game_over;
+        sim.winner = game.winner;
+        sim
+    }
+
+    pub(crate) fn snapshot_game(&self) -> Option<&GameState> {
+        self.snapshot_game.as_ref()
+    }
+
+    pub(crate) fn snapshot_game_mut(&mut self) -> Option<&mut GameState> {
+        self.snapshot_game.as_mut()
+    }
+
+    fn snapshot_cards(&self) -> &[Card] {
+        self.snapshot_game
+            .as_ref()
+            .map(|game| game.cards.as_slice())
+            .unwrap_or(&[])
+    }
+
     fn shallow_replacement_game(game: &GameState) -> GameState {
         let player_names: Vec<String> = game.players.iter().map(|p| p.name.clone()).collect();
         let player_name_refs: Vec<&str> = player_names.iter().map(String::as_str).collect();
@@ -174,6 +233,7 @@ impl DeterministicAgent {
             verbose,
             current_turn: 0,
             last_game_snapshot: None,
+            snapshot_game: None,
             rng,
             game_rng,
             prefer_actions,
@@ -498,8 +558,11 @@ impl DeterministicAgent {
     /// spell reads its `SpellDescription$` with `CARDNAME` as the secondary face's name
     /// (`CardTraitBase.getHostName`). Which sorts first depends on the card.
     fn secondary_face_texts(&self, play: PlayOption) -> Option<(String, String)> {
-        let snap = self.last_game_snapshot.as_ref()?;
-        let card = snap.cards.iter().find(|c| c.id == play.card_id)?;
+        self.last_game_snapshot.as_ref()?;
+        let card = self
+            .snapshot_cards()
+            .iter()
+            .find(|c| c.id == play.card_id)?;
         let other = card.other_part.as_ref()?;
         if other.state_name != forge_foundation::CardStateName::Secondary {
             return None;
@@ -521,8 +584,11 @@ impl DeterministicAgent {
     /// `RoomRightSplit`. Returns `None` for non-split cards or modes that
     /// don't pick a face.
     fn play_option_face_name(&self, play: PlayOption) -> Option<String> {
-        let snap = self.last_game_snapshot.as_ref()?;
-        let card = snap.cards.iter().find(|c| c.id == play.card_id)?;
+        self.last_game_snapshot.as_ref()?;
+        let card = self
+            .snapshot_cards()
+            .iter()
+            .find(|c| c.id == play.card_id)?;
         let (front, back) = card.full_name.split_once(" // ")?;
         Some(match play.mode {
             PlayCardMode::Normal => front.trim().to_string(),
@@ -544,7 +610,7 @@ impl DeterministicAgent {
                         .as_ref()
                         .map(|snap| {
                             parity_order::ability_declaration_sort_key(
-                                &snap.cards,
+                                self.snapshot_cards(),
                                 &snap.ability_texts,
                                 play.card_id,
                                 ability_idx,
@@ -574,7 +640,7 @@ impl DeterministicAgent {
                     .as_ref()
                     .map(|snap| {
                         parity_order::ability_declaration_sort_key(
-                            &snap.cards,
+                            self.snapshot_cards(),
                             &snap.ability_texts,
                             card_id,
                             ability_idx,
@@ -661,8 +727,8 @@ impl DeterministicAgent {
         Some(format!("[{}]", rendered.join(" | ")))
     }
 
-    fn snapshot_card<'a>(&self, snap: &'a GameSnapshot, id: CardId) -> Option<&'a Card> {
-        snap.cards.iter().find(|c| c.id == id)
+    fn snapshot_card(&self, _snap: &GameSnapshot, id: CardId) -> Option<&Card> {
+        self.snapshot_cards().iter().find(|c| c.id == id)
     }
 
     fn snapshot_can_creature_block(
@@ -706,7 +772,7 @@ impl DeterministicAgent {
             return false;
         }
 
-        for source in snap.cards.iter().filter(|c| {
+        for source in self.snapshot_cards().iter().filter(|c| {
             c.zone == forge_foundation::ZoneType::Battlefield
                 || c.zone == forge_foundation::ZoneType::Command
         }) {
@@ -761,7 +827,7 @@ impl DeterministicAgent {
             return usize::MAX;
         };
         let mut max = usize::MAX;
-        for source in snap.cards.iter().filter(|c| {
+        for source in self.snapshot_cards().iter().filter(|c| {
             c.zone == forge_foundation::ZoneType::Battlefield
                 || c.zone == forge_foundation::ZoneType::Command
         }) {
@@ -894,7 +960,7 @@ impl PlayerAgent for DeterministicAgent {
                 .collect();
             (ability_is_mana, ability_texts)
         };
-        let cards: Vec<Card> = {
+        {
             let _perf_scope = split_priority_snapshot
                 .then(|| {
                     manabrew_engine::perf::ParamsLookupScopeGuard::enter(
@@ -902,21 +968,14 @@ impl PlayerAgent for DeterministicAgent {
                     )
                 })
                 .flatten();
-            let mut cards = self
-                .last_game_snapshot
-                .take()
-                .map(|snapshot| snapshot.cards)
-                .unwrap_or_default();
-            Self::refresh_snapshot_cards(&mut cards, &game.cards);
-            cards
-        };
+            self.snapshot_game = Some(Self::shallow_game_state(self.snapshot_game.take(), game));
+        }
         let stack_sources: Vec<(u32, CardId)> = game
             .stack
             .iter()
             .filter_map(|entry| entry.spell_ability.source.map(|source| (entry.id, source)))
             .collect();
         self.last_game_snapshot = Some(GameSnapshot {
-            cards,
             stack_sources,
             player_names,
             card_names,

@@ -21,7 +21,6 @@ use manabrew_engine::game::{CardDatabaseRegistry, GameState};
 use manabrew_engine::game_loop::GameLoop;
 use manabrew_engine::game_runtime::GameRuntime;
 use manabrew_engine::ids::{CardId, PlayerId};
-use manabrew_engine::spellability::{MagicStack, SpellAbility, StackEntry};
 use memmap2::Mmap;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
@@ -196,7 +195,6 @@ struct CapturingAgent {
     decisions: Arc<AtomicU32>,
     current_turn: u32,
     current_phase: String,
-    last_game_state: Option<GameState>,
     pending_turn_snapshot: Option<crate::protocol::StateSnapshot>,
     last_mana_pools: Vec<manabrew_engine::mana::ManaPool>,
     agent_rng_ref: Rc<RefCell<JavaRandom>>,
@@ -209,51 +207,6 @@ struct CapturingAgent {
 }
 
 impl CapturingAgent {
-    fn shallow_stack_entry(entry: &StackEntry) -> StackEntry {
-        let mut spell_ability = SpellAbility::new_simple(
-            entry.spell_ability.source,
-            entry.spell_ability.activating_player,
-            &entry.spell_ability.ability_text,
-        );
-        spell_ability.id = entry.spell_ability.id;
-        StackEntry {
-            id: entry.id,
-            spell_ability,
-            is_pending_cast: entry.is_pending_cast,
-            is_creature_spell: entry.is_creature_spell,
-            is_permanent_spell: entry.is_permanent_spell,
-            cast_from_zone: entry.cast_from_zone,
-            optional_trigger_decider: entry.optional_trigger_decider,
-            optional_trigger_description: entry.optional_trigger_description.clone(),
-            optional_trigger_source_name: entry.optional_trigger_source_name.clone(),
-        }
-    }
-
-    fn shallow_game_state(previous: Option<GameState>, game: &GameState) -> GameState {
-        let mut sim = previous.unwrap_or_else(|| {
-            let player_names: Vec<String> = game.players.iter().map(|p| p.name.clone()).collect();
-            let player_name_refs: Vec<&str> = player_names.iter().map(String::as_str).collect();
-            let starting_life = game.players.first().map(|p| p.life).unwrap_or(20);
-            GameState::new(&player_name_refs, starting_life)
-        });
-        sim.players.clone_from(&game.players);
-        crate::deterministic_agent::DeterministicAgent::refresh_snapshot_cards(
-            &mut sim.cards,
-            &game.cards,
-        );
-        sim.replace_zone_store(game.zone_store_snapshot());
-        let mut stack = MagicStack::new();
-        for entry in game.stack.iter() {
-            stack.push(Self::shallow_stack_entry(entry));
-        }
-        sim.stack = stack;
-        sim.turn = game.turn.clone();
-        sim.player_order = game.player_order.clone();
-        sim.game_over = game.game_over;
-        sim.winner = game.winner;
-        sim
-    }
-
     fn new(
         player_id: PlayerId,
         verbose: VerboseMode,
@@ -301,7 +254,6 @@ impl CapturingAgent {
             decisions,
             current_turn: 0,
             current_phase: "Unknown".to_string(),
-            last_game_state: None,
             pending_turn_snapshot: None,
             last_mana_pools: Vec::new(),
             pending_pay_mana_cost_args: None,
@@ -319,7 +271,7 @@ impl CapturingAgent {
     /// Build a formatting context for the current game state.
     /// Returns `None` if no game state has been captured yet.
     fn fmt_ctx(&self) -> Option<FmtCtx<'_>> {
-        self.last_game_state.as_ref().map(|game| FmtCtx {
+        self.inner.snapshot_game().map(|game| FmtCtx {
             game,
             parity_map: &self.parity_map,
         })
@@ -329,7 +281,7 @@ impl CapturingAgent {
         if !self.callback_snapshots {
             return;
         }
-        let Some(ref game) = self.last_game_state else {
+        let Some(game) = self.inner.snapshot_game() else {
             return;
         };
         let snapshot = self.snapshot_with_rng_counts(game);
@@ -443,8 +395,8 @@ impl CapturingAgent {
                 .iter()
                 .map(|a| {
                     let name = self
-                        .last_game_state
-                        .as_ref()
+                        .inner
+                        .snapshot_game()
                         .map(|g| {
                             let c = g.card(a.card_id);
                             format!("{} zone={:?}", c.card_name, c.zone)
@@ -569,8 +521,8 @@ impl PlayerAgent for CapturingAgent {
                 if self.capture_snapshots {
                     let pending = self.pending_turn_snapshot.take();
                     if let Some(mut snap) = pending.or_else(|| {
-                        self.last_game_state
-                            .as_ref()
+                        self.inner
+                            .snapshot_game()
                             .map(|game| self.snapshot_with_rng_counts(game))
                     }) {
                         snap.phase = "Untap".to_string();
@@ -588,11 +540,11 @@ impl PlayerAgent for CapturingAgent {
             }
             GameNotification::PhaseChanged { phase } => {
                 self.current_phase = format!("{phase:?}");
-                if let Some(ref mut game) = self.last_game_state {
+                if let Some(game) = self.inner.snapshot_game_mut() {
                     game.turn.phase = *phase;
                 }
                 if self.deep && self.player_id.0 == 0 {
-                    if let Some(ref game) = self.last_game_state {
+                    if let Some(game) = self.inner.snapshot_game() {
                         self.parity_observer.push_entry(ParityLogEntry::Snapshot(
                             self.snapshot_with_rng_counts(game),
                         ));
@@ -601,11 +553,11 @@ impl PlayerAgent for CapturingAgent {
                 }
             }
             GameNotification::PriorityChanged { player } => {
-                if let Some(ref mut game) = self.last_game_state {
+                if let Some(game) = self.inner.snapshot_game_mut() {
                     game.turn.priority_player = *player;
                 }
                 if self.deep && self.player_id.0 == 0 {
-                    if let Some(ref game) = self.last_game_state {
+                    if let Some(game) = self.inner.snapshot_game() {
                         self.parity_observer.push_entry(ParityLogEntry::Snapshot(
                             self.snapshot_with_rng_counts(game),
                         ));
@@ -669,7 +621,6 @@ impl PlayerAgent for CapturingAgent {
         if self.capture_snapshots && game.turn.turn_number != self.current_turn {
             self.pending_turn_snapshot = Some(self.snapshot_with_rng_counts(game));
         }
-        self.last_game_state = Some(Self::shallow_game_state(self.last_game_state.take(), game));
         self.stop_if_card_copy_guard_tripped(game);
         self.stop_if_decision_guard_tripped(game);
     }
@@ -707,7 +658,7 @@ impl PlayerAgent for CapturingAgent {
         let action_space = filtered_action_space.as_ref();
         self.save_snapshot("choose_action");
         if std::env::var("FORGE_BF_TRACE").is_ok() && self.current_turn == 20 {
-            if let Some(ref g) = self.last_game_state {
+            if let Some(g) = self.inner.snapshot_game() {
                 let bf: Vec<String> = g
                     .cards
                     .iter()
