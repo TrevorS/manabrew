@@ -1007,7 +1007,9 @@ impl TriggerHandler {
                 } else {
                     game.card(delayed.source_card).zone_timestamp
                 };
-                let trigger_bucket = if delayed.sort_after_active { 2 } else { 0 };
+                // An immediate trigger is made while its ability resolves, so its Java trigger id
+                // is above the host's own triggers: same host timestamp, sorted after them.
+                let trigger_bucket = if delayed.sort_after_active { 2 } else { 3 };
                 entries.push((
                     pending,
                     delayed.controller,
