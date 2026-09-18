@@ -247,7 +247,8 @@ struct Cli {
     #[arg(long)]
     matrix: bool,
 
-    /// Comma-separated seeds for matrix mode (default: 42,100,999)
+    /// Comma-separated seeds for matrix mode (default: 42,100,999), or for --deck1/--deck2
+    /// in place of --seed and --games
     #[arg(long, value_delimiter = ',')]
     seeds: Option<Vec<u64>>,
 
@@ -605,7 +606,10 @@ fn run_multi_game_mode(cli: &Cli) {
     }
 
     let ignores = load_parity_ignores();
-    let seeds = game_seeds(cli.seed, cli.games);
+    let seeds = cli
+        .seeds
+        .clone()
+        .unwrap_or_else(|| game_seeds(cli.seed, cli.games));
     let data = load_data_or_exit(cli);
 
     let total = seeds.len();

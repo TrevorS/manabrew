@@ -5,6 +5,7 @@
 //   node scripts/parity-ab.mjs build <rev>
 //   node scripts/parity-ab.mjs ab <revA> <revB> [--matchups FILE] [--seeds 42] [--max-turns 20]
 //   node scripts/parity-ab.mjs bisect <good> <bad> [same options]
+//   node scripts/parity-ab.mjs bisect <good> <bad> --deck1 D1 --deck2 D2 --seeds 42 --max-turns 14
 //   node scripts/parity-ab.mjs baseline
 //
 // <rev> is anything `git rev-parse` accepts, or WORKTREE for the working tree
@@ -19,6 +20,9 @@
 //
 // `baseline` rewrites survey_baseline.jsonl from a clean build of HEAD and
 // refuses when the working tree has uncommitted engine or harness changes.
+//
+// --deck1/--deck2 (deck names or inline: specs) run that one matchup instead, a game per
+// seed through the binary's single-game mode, which every commit's binary has.
 //
 // Exit codes: 0 = no change, 1 = changes found, 2 = harness error.
 
@@ -65,6 +69,8 @@ function parseOptions(argv) {
     if (arg.startsWith("--")) options[arg.slice(2)] = argv[++i];
     else options.positional.push(arg);
   }
+  if (Boolean(options.deck1) !== Boolean(options.deck2)) die("--deck1 and --deck2 go together");
+  if (options.deck1 && options.matchups) die("--deck1/--deck2 replace --matchups");
   return options;
 }
 
@@ -168,10 +174,46 @@ function legacyGateFile(report, label, maxTurns) {
   return `${lines.join("\n")}\n`;
 }
 
-function runSurvey({ bin, label }, options) {
+function harnessJar(options) {
   const jar =
     options.jar ?? process.env.PARITY_JAR ?? "forge-harness/target/forge-harness-jar-with-dependencies.jar";
   if (!existsSync(resolve(ROOT, jar))) die(`no harness jar at ${jar} (set PARITY_JAR)`);
+  return jar;
+}
+
+function runRepro({ bin, label }, options, gateFile, cacheDir) {
+  const maxTurns = options["max-turns"] ?? "20";
+  const results = [];
+  console.error(`parity-ab: running ${label}`);
+  for (const seed of (options.seeds ?? "42").split(",")) {
+    const reportFile = join(BINS, "_runs", `${label}.seed${seed}.json`);
+    rmSync(reportFile, { force: true });
+    const args = [
+      "--java-jar", harnessJar(options),
+      "--java-heap", process.env.JAVA_HEAP ?? "2g",
+      "--deck1", options.deck1,
+      "--deck2", options.deck2,
+      "--seed", seed,
+      "--max-turns", maxTurns,
+      "--cache-dir", cacheDir,
+      "--format", "json",
+      "-o", reportFile,
+    ];
+    const result = spawnSync(bin, args, {
+      cwd: ROOT,
+      env: resolveEnv(),
+      stdio: ["ignore", "ignore", "pipe"],
+      encoding: "utf8",
+      maxBuffer: 1 << 28,
+    });
+    if (!existsSync(reportFile)) die(`${label} wrote no report for seed ${seed}:\n${result.stderr.slice(-2000)}`);
+    results.push(...JSON.parse(readFileSync(reportFile, "utf8")).results);
+  }
+  writeFileSync(gateFile, legacyGateFile({ results }, label, Number(maxTurns)));
+  return gateFile;
+}
+
+function runSurvey({ bin, label }, options) {
   const matchups = options.matchups ?? DEFAULT_MATCHUPS;
   const maxTurns = options["max-turns"] ?? "20";
   const info = buildInfo(bin);
@@ -180,6 +222,8 @@ function runSurvey({ bin, label }, options) {
   mkdirSync(outDir, { recursive: true });
   const gateFile = join(outDir, `${label}.jsonl`);
   rmSync(gateFile, { force: true });
+  if (options.deck1) return runRepro({ bin, label }, options, gateFile, cacheDir);
+  const jar = harnessJar(options);
 
   const args = [
     "--java-jar", jar,

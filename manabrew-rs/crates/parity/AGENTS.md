@@ -141,10 +141,11 @@ python3 scripts/parity-ir-audit.py --cards-file standard_names.txt
 ```bash
 yarn parity:ab ab <revA> <revB>          # WORKTREE stands for the working tree as it is
 yarn parity:ab bisect <good> <bad>
+yarn parity:ab bisect <good> <bad> --deck1 "inline:..." --deck2 <deck> --seeds 42 --max-turns 14
 yarn parity:ab baseline                   # refuses a dirty tree
 ```
 
-`scripts/parity-ab.mjs` builds each commit once into `target/parity-bins/<sha>/parity` from a detached checkout, so a binary labelled with a SHA is that SHA's source. Both sides run the survey matchups (`--matchups`, `--seeds`, `--max-turns` override) and the two gate files go through `gate-diff`. A binary that predates `--gate-out` is run with `--format json` and converted. Use this instead of reverting a change and rerunning by hand: a matchup that differs between a commit and its parent is attributable to that commit, and one that does not is not.
+`scripts/parity-ab.mjs` builds each commit once into `target/parity-bins/<sha>/parity` from a detached checkout, so a binary labelled with a SHA is that SHA's source. Both sides run the survey matchups (`--matchups`, `--seeds`, `--max-turns` override) and the two gate files go through `gate-diff`. A binary that predates `--gate-out` is run with `--format json` and converted. With `--deck1`/`--deck2` (deck names or `inline:` specs) each side runs that one matchup instead, a game per seed in single-game mode, which every commit's binary has, and is converted the same way; bisecting a repro over eight commits builds four. Use this instead of reverting a change and rerunning by hand: a matchup that differs between a commit and its parent is attributable to that commit, and one that does not is not.
 
 ### Java result cache
 
