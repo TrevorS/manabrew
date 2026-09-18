@@ -888,6 +888,41 @@ impl GameLoop {
 
         crate::action::run_life_lost_all(&mut self.trigger_handler, &life_lost_all_damage_map);
 
+        let mut by_source: indexmap::IndexMap<CardId, CardDamageMap> = indexmap::IndexMap::new();
+        for event in events {
+            if event.amount <= 0 {
+                continue;
+            }
+            let target = if let Some(cid) = event.target_card {
+                DamageTarget::Card(cid)
+            } else if let Some(pid) = event.target_player {
+                DamageTarget::Player(pid)
+            } else {
+                continue;
+            };
+            by_source
+                .entry(event.source)
+                .or_default()
+                .put(event.source, target, event.amount);
+        }
+        for (source, map) in by_source {
+            let total = map.total_amount();
+            if total <= 0 {
+                continue;
+            }
+            self.trigger_handler.run_trigger(
+                TriggerType::DamageDealtOnce,
+                RunParams {
+                    damage_source: Some(source),
+                    damage_amount: Some(total),
+                    damage_map: Some(map),
+                    is_combat_damage: Some(true),
+                    ..Default::default()
+                },
+                false,
+            );
+        }
+
         // Aggregate damage by target, then fire DamageDoneOnce once per target.
         // Mirrors Java's CardDamageMap.triggerDamageOnce() which batches damage
         // so Enrage (e.g. Raptor Hatchling) fires only once per damage step.
