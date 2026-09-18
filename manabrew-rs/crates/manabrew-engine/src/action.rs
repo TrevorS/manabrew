@@ -600,7 +600,6 @@ impl GameState {
                     card.set_type_line(type_line);
                 }
                 card.static_added_subtypes.clear();
-                card.restore_changed_characteristics_baseline();
                 card.cant_attack_static = false;
                 card.cant_block_static = false;
                 card.summoning_sick = true;
@@ -645,6 +644,9 @@ impl GameState {
                         card.update_keywords();
                     }
                 }
+                // After the until-end-of-turn snapshot: that snapshot can hold what a lasting
+                // change (Earthbend) made, and the baseline predates both.
+                card.restore_changed_characteristics_baseline();
                 if let Some(state) = card.clone_state.take() {
                     card.restore_clone_snapshot(state);
                 } else {
