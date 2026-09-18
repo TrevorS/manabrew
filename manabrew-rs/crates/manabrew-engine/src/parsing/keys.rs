@@ -19,6 +19,7 @@ pub const EVENT: &str = "Event";
 // ── Card/Target filters ────────────────────────────────────────────────
 
 pub const AFFECTED: &str = "Affected";
+pub const AFFECTED_DEFINED: &str = "AffectedDefined";
 pub const AFFECTED_ZONE: &str = "AffectedZone";
 pub const MAY_PLAY: &str = "MayPlay";
 pub const MAY_PLAY_ALT_MANA_COST: &str = "MayPlayAltManaCost";

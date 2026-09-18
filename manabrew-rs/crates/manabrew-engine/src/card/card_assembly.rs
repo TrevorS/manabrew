@@ -277,6 +277,7 @@ pub(crate) fn assemble_card(
     // Double-faced cards
     if rules.split_type.is_dual_faced()
         || rules.split_type.changed_state_name() == Some(CardStateName::Secondary)
+        || rules.split_type.changed_state_name() == Some(CardStateName::PreparedSpell)
     {
         if let Some(ref back_face) = rules.other_part {
             let mut back_trigger_id = 0u32;

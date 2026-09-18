@@ -510,6 +510,10 @@ pub fn matches_valid_card_selector_with_context(
     context: MatchContext<'_>,
 ) -> bool {
     crate::perf::increment(crate::perf::Metric::SelectorMatches, 1);
+    // `Card.isValid`: prepared spells in exile are filtered out for everything else.
+    if card.is_in_prepared_spell_state() && card.zone == forge_foundation::ZoneType::Exile {
+        return false;
+    }
     let result = matches_card_selector_ir(&selector.ir, card, context);
     #[cfg(debug_assertions)]
     report_selector_drift(

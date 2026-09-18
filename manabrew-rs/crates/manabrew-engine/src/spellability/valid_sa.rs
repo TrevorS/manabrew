@@ -101,6 +101,9 @@ fn matches_property_token_positive(
         "manaability" => sa.is_mana_ability || sa.api == Some(ApiType::Mana),
         "nonmanaability" => !(sa.is_mana_ability || sa.api == Some(ApiType::Mana)),
         "istargeting" => sa.target_restrictions.is_some(),
+        "isremembered" => sa
+            .source
+            .is_some_and(|card| source.remembered_cards.contains(&card)),
         "xcost" => sa.cost_has_x(),
         "singletarget" => sa.targets_single_target(),
         "crew" => is_crew(sa, ability_host),

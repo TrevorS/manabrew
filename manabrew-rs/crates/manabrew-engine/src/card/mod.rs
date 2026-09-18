@@ -625,6 +625,10 @@ pub struct Card {
     pub lki_toughness: Option<i32>,
     #[serde(default)]
     pub lki_zone_timestamp: Option<u64>,
+    /// Java `Card.preparedEffect`: the effect card that lets its controller cast the
+    /// prepared copy from exile.
+    #[serde(default)]
+    pub prepared_effect: Option<CardId>,
     /// Last-known information: counters when this card last left the battlefield.
     /// Used by `TriggeredCard$CardCounters.TYPE` (e.g. Servant of the Scale death trigger).
     pub lki_counters: Option<std::collections::BTreeMap<CounterType, i32>>,
@@ -924,6 +928,7 @@ impl Card {
             lki_power: None,
             lki_toughness: None,
             lki_zone_timestamp: None,
+            prepared_effect: None,
             lki_counters: None,
             damage_history: damage_history::DamageHistory::default(),
             must_block_cards: Vec::new(),
@@ -1440,6 +1445,26 @@ impl Card {
     }
 
     /// Converted mana cost (mana value).
+    pub fn is_prepared(&self) -> bool {
+        self.prepared_effect.is_some()
+    }
+
+    /// `getCurrentStateName() == CardStateName.PreparedSpell`: a prepared copy shows its
+    /// spell face, and the card's own face sits in `other_part`.
+    pub fn is_in_prepared_spell_state(&self) -> bool {
+        self.is_transformed
+            && self
+                .other_part
+                .as_ref()
+                .is_some_and(|other| other.state_name == CardStateName::PreparedSpell)
+    }
+
+    pub fn has_prepared_spell_state(&self) -> bool {
+        self.other_part
+            .as_ref()
+            .is_some_and(|other| other.state_name == CardStateName::PreparedSpell)
+    }
+
     pub fn mana_value(&self) -> i32 {
         // `Card.getCMC`: a transformed back face has the front face's mana value, and a copy
         // of one has none.

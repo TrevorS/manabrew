@@ -237,6 +237,7 @@ pub struct StaticAbilityIr {
     pub valid_player: Option<CompiledSelector>,
     pub affected: Option<CompiledSelector>,
     pub affected_text: Option<String>,
+    pub affected_defined: Option<String>,
     pub affected_zone: Option<ZoneType>,
     pub affected_zone_text: Option<String>,
     pub affected_zones: Vec<ZoneType>,
@@ -410,6 +411,7 @@ impl StaticAbilityIr {
             valid_player: params.selector_untracked(keys::VALID_PLAYER).cloned(),
             affected: params.selector_untracked(keys::AFFECTED).cloned(),
             affected_text: raw.get(keys::AFFECTED).map(String::to_string),
+            affected_defined: raw.get(keys::AFFECTED_DEFINED).map(String::to_string),
             affected_zone: raw
                 .get(keys::AFFECTED_ZONE)
                 .map(String::as_str)

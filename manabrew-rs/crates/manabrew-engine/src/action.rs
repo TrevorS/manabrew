@@ -37,6 +37,28 @@ impl GameState {
         );
     }
 
+    /// Mirrors Java `Card.setPrepared`: clearing it makes the prepared copy cease to exist if it
+    /// is still in exile and exiles the effect that lets it be cast.
+    pub(crate) fn set_prepared(&mut self, card_id: CardId, effect: Option<CardId>) {
+        if effect.is_none() {
+            if let Some(old) = self.card(card_id).prepared_effect {
+                if let Some(&prepared) = self.card(old).remembered_cards.first() {
+                    if self.card(prepared).zone == ZoneType::Exile {
+                        let owner = self.card(prepared).owner;
+                        self.remove_card_from_zone(ZoneType::Exile, owner, prepared);
+                        self.card_mut(prepared).zone = ZoneType::None;
+                    }
+                }
+                if self.card(old).zone == ZoneType::Command {
+                    let owner = self.card(old).owner;
+                    self.remove_card_from_zone(ZoneType::Command, owner, old);
+                    self.card_mut(old).zone = ZoneType::None;
+                }
+            }
+        }
+        self.card_mut(card_id).prepared_effect = effect;
+    }
+
     pub fn move_card_with_agents(
         &mut self,
         card_id: CardId,
@@ -388,6 +410,10 @@ impl GameState {
         // leaves the battlefield (a new cast produces a fresh instance).
         if host_left_battlefield {
             self.card_mut(card_id).cast_sa = None;
+            // `gameCard.addLeavesPlayCommand(() -> gameCard.setPrepared(null))`.
+            if self.card(card_id).is_prepared() {
+                self.set_prepared(card_id, None);
+            }
             // `ControlGain$ LoseControl$ LeavesPlay` — drop the scheduled
             // revert since the card is no longer on the battlefield.
             crate::ability::effects::control_gain_effect::leaves_play_hook(self, card_id);
