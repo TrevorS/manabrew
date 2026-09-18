@@ -76,6 +76,7 @@ enum EffectKind {
     GrantAbility {
         text: String,
         svars: BTreeMap<String, String>,
+        original_host: Option<CardId>,
     },
     /// Add a type/subtype to the card (`AddType$`). Mirrors Java layer 4.
     AddType(String),
@@ -452,6 +453,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                                 kind: EffectKind::GrantAbility {
                                     text: ab_text,
                                     svars: source_card.svars.clone(),
+                                    original_host: Some(source_id),
                                 },
                             });
                         }
@@ -504,6 +506,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                                 kind: EffectKind::GrantAbility {
                                     text: ab_text.to_string(),
                                     svars: BTreeMap::new(),
+                                    original_host: None,
                                 },
                             });
                         }
@@ -708,7 +711,11 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                     card.static_added_subtypes.push(t);
                 }
             }
-            EffectKind::GrantAbility { text, svars } => {
+            EffectKind::GrantAbility {
+                text,
+                svars,
+                original_host,
+            } => {
                 // Parse the ability text and add it to the target's activated abilities.
                 // This grants abilities like "{T}: Add one mana of any color."
                 game.cards[effect.target.index()]
@@ -716,9 +723,10 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                     .extend(svars);
                 let target_idx = effect.target.index();
                 let next_idx = game.cards[target_idx].activated_abilities.len();
-                if let Some(ab) =
+                if let Some(mut ab) =
                     crate::ability::activated::parse_activated_ability(&text, next_idx)
                 {
+                    ab.original_host = original_host;
                     game.cards[target_idx].activated_abilities.push(ab);
                 }
             }

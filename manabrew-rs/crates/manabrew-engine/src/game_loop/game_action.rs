@@ -771,6 +771,9 @@ impl GameLoop {
 
         // Build full SpellAbility chain (including SubAbility$ links) and choose targets.
         let mut sa = crate::spellability::build_spell_ability(game, card_id, &ability_text, player);
+        if let Some(original_host) = ab.original_host {
+            sa.set_original_host(original_host);
+        }
         sa.is_activated = true;
         let mut activation_cost = ab.cost.clone();
         if let Some(alternate) = ab.params.get(crate::parsing::keys::ALTERNATE_COST) {

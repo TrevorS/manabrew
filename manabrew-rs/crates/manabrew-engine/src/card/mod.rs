@@ -3340,7 +3340,10 @@ impl Card {
     }
 
     pub fn has_converge(&self) -> bool {
-        self.has_keyword("Converge")
+        self.get_s_var("X") == Some("Count$Converge")
+            || self.get_s_var("Y") == Some("Count$Converge")
+            || self.has_keyword("Sunburst")
+            || self.has_keyword("Modular:Sunburst")
     }
 
     pub fn can_receive_counters(&self, _counter: &CounterType) -> bool {

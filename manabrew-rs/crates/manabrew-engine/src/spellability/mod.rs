@@ -1522,6 +1522,15 @@ impl SpellAbility {
         self.set_host_card_id(card.id);
     }
 
+    /// `SpellAbility.setOriginalHost` for the whole chain, which `getRootAbility().getOriginalHost()`
+    /// reads from any sub-ability.
+    pub fn set_original_host(&mut self, card_id: CardId) {
+        self.original_host = Some(card_id);
+        if let Some(sub_ability) = self.sub_ability.as_deref_mut() {
+            sub_ability.set_original_host(card_id);
+        }
+    }
+
     pub fn set_host_card_id(&mut self, card_id: CardId) {
         self.source = Some(card_id);
         if self.original_host.is_none() {

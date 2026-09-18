@@ -1216,6 +1216,7 @@ pub enum DefinedRef {
     Explored,
     Discarded,
     Sacrificed,
+    OriginalHost,
     #[strum(default)]
     Unsupported(String),
 }

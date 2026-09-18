@@ -89,6 +89,9 @@ pub struct ActivatedAbility {
     pub is_mana_reflected: bool,
     /// Parsed pipe-delimited parameters.
     pub params: Params,
+    /// The card whose static granted this ability (`AddAbility$`); Java's `setOriginalHost`.
+    #[serde(default)]
+    pub original_host: Option<crate::ids::CardId>,
 }
 
 impl ActivatedAbility {
@@ -216,6 +219,7 @@ pub fn parse_activated_ability(raw: &str, index: usize) -> Option<ActivatedAbili
         is_unlock_door,
         is_mana_reflected,
         params,
+        original_host: None,
     })
 }
 

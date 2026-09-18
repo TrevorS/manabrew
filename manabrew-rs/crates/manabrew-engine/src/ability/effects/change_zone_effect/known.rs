@@ -126,6 +126,7 @@ pub(super) fn resolve_known_origin(
             DefinedRef::DelayTriggerRemembered
                 | DefinedRef::DelayTriggerRememberedLki
                 | DefinedRef::RememberedLki
+                | DefinedRef::OriginalHost
         )
     ) {
         let cards = if matches!(defined_ref, Some(DefinedRef::RememberedLki)) {
