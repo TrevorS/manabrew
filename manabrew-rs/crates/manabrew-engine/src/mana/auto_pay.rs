@@ -22,6 +22,7 @@ pub struct AutoPayResult {
     /// agent observe the same RNG-consumption pattern on the next priority
     /// loop iteration.
     pub cancelled: bool,
+    pub convoked: Vec<(CardId, bool)>,
 }
 
 /// Deterministic auto-pay entrypoint used by parity AI paths.
@@ -122,6 +123,7 @@ pub fn pay_mana_cost_auto_with_chooser(
         colors_spent: payment.colors_spent,
         paying_mana: payment.paying_mana,
         cancelled: false,
+        convoked: Vec::new(),
     })
 }
 
@@ -221,6 +223,7 @@ pub fn pay_mana_cost_auto_with_callback_and_reserved_sacrifices(
             colors_spent: 0,
             paying_mana: Vec::new(),
             cancelled: true,
+            convoked: Vec::new(),
         });
     }
     Some(AutoPayResult {
@@ -230,5 +233,6 @@ pub fn pay_mana_cost_auto_with_callback_and_reserved_sacrifices(
         colors_spent: trace.payment.colors_spent,
         paying_mana: trace.payment.paying_mana,
         cancelled: false,
+        convoked: trace.convoked,
     })
 }

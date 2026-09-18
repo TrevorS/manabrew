@@ -64,6 +64,7 @@ pub struct AutoTapPaymentTrace {
     pub choices: Vec<AutoTapChoice>,
     pub payment: ManaPaymentOutcome,
     pub paid: bool,
+    pub convoked: Vec<(CardId, bool)>,
 }
 
 #[derive(Debug, Clone)]
@@ -640,6 +641,7 @@ fn auto_tap_lands_internal_with_ctx(
             choices: tapped_choices,
             payment,
             paid: true,
+            convoked: Vec::new(),
         };
     }
 
@@ -794,6 +796,13 @@ fn auto_tap_lands_internal_with_ctx(
         }
     }
 
+    let mut convoked = Vec::new();
+    if !unpaid.is_paid() && payment_ctx.is_some_and(|ctx| ctx.is_spell) {
+        if let Some(spell) = current_spell {
+            convoked = pay_convoke_improvise(game, player, spell, &mut unpaid);
+        }
+    }
+
     // Phyrexian-life fallback: after the tap-and-pay loop finishes, any
     // remaining unpaid shards that are phyrexian can be paid with 2 life
     // each (CR 107.4f). Mirrors Java `ManaPool.payManaCost`'s phyrexian
@@ -821,7 +830,77 @@ fn auto_tap_lands_internal_with_ctx(
         choices: tapped_choices,
         payment,
         paid: unpaid.is_paid(),
+        convoked,
     }
+}
+
+/// The harness's `AutoPay.payConvokeImprovise`, run after the mana sources: untapped
+/// creatures (Convoke) and artifacts (Improvise) pay what is left, sorted by name. Java breaks
+/// a name tie with the parity id, which the engine does not have; the battlefield timestamp
+/// stands in for it, as it does for mana sources.
+fn pay_convoke_improvise(
+    game: &mut GameState,
+    player: PlayerId,
+    spell: CardId,
+    unpaid: &mut ManaCostBeingPaid,
+) -> Vec<(CardId, bool)> {
+    let convoke = game.card(spell).has_keyword("Convoke");
+    let improvise = game.card(spell).has_keyword("Improvise");
+    if !convoke && !improvise {
+        return Vec::new();
+    }
+    let name = |card: &crate::card::Card| {
+        if card.face_down {
+            String::new()
+        } else {
+            card.card_name.clone()
+        }
+    };
+    let mut sources: Vec<CardId> = game
+        .cards_in_zone(ZoneType::Battlefield, player)
+        .iter()
+        .copied()
+        .filter(|&cid| {
+            let card = game.card(cid);
+            !card.tapped
+                && ((convoke && card.is_creature()) || (improvise && card.type_line.is_artifact()))
+        })
+        .collect();
+    sources.sort_by(|&a, &b| {
+        name(game.card(a)).cmp(&name(game.card(b))).then_with(|| {
+            game.card(a)
+                .zone_timestamp
+                .cmp(&game.card(b).zone_timestamp)
+        })
+    });
+    let mut tapped = Vec::new();
+    for cid in sources {
+        if unpaid.is_paid() {
+            break;
+        }
+        let as_convoke = convoke && game.card(cid).is_creature();
+        let color = convoke_color(game.card(cid), unpaid, !as_convoke);
+        if unpaid.pay_mana_via_convoke(color).is_none() {
+            continue;
+        }
+        game.tap(cid);
+        tapped.push((cid, as_convoke));
+    }
+    tapped
+}
+
+fn convoke_color(card: &crate::card::Card, unpaid: &ManaCostBeingPaid, artifacts: bool) -> u16 {
+    if artifacts {
+        return ManaAtom::COLORLESS;
+    }
+    let mut colors = u16::from(card.color.mask());
+    if colors.count_ones() > 1 {
+        colors &= unpaid.get_unpaid_colors();
+    }
+    if colors.count_ones() > 1 {
+        return colors.isolate_lowest_one();
+    }
+    colors
 }
 
 fn produce_mana_for_auto_pay(

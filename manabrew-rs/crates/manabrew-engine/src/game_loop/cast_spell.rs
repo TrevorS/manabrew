@@ -1717,6 +1717,7 @@ impl GameLoop {
         let pool_size_before = self.pool(player).total_mana();
         let colors_spent_to_cast = std::cell::Cell::new(0u16);
         let paying_mana_to_cast = std::cell::RefCell::new(Vec::new());
+        let convoked_to_cast = std::cell::RefCell::new(Vec::new());
         let failed_non_undoable_choices: std::cell::RefCell<Vec<(CardId, usize, u16)>> =
             std::cell::RefCell::new(Vec::new());
 
@@ -1844,6 +1845,22 @@ impl GameLoop {
                                 false,
                             );
                         }
+                        for &(convoked_id, _) in &result.convoked {
+                            for mode in [TriggerType::Taps, TriggerType::TapAll] {
+                                slf.trigger_handler.run_trigger(
+                                    mode,
+                                    RunParams {
+                                        card: Some(convoked_id),
+                                        player: Some(session.player),
+                                        ..Default::default()
+                                    },
+                                    false,
+                                );
+                            }
+                        }
+                        convoked_to_cast
+                            .borrow_mut()
+                            .extend(result.convoked.iter().copied());
                         if result.life_paid > 0 {
                             slf.pay_life_cost(
                                 game,
@@ -1939,6 +1956,11 @@ impl GameLoop {
             .set_colors_spent_to_cast(colors_spent_to_cast.get());
         game.card_mut(card_id)
             .set_paying_mana_to_cast(paying_mana_to_cast.into_inner());
+        for (convoked_id, as_convoke) in convoked_to_cast.into_inner() {
+            if as_convoke {
+                sa.add_tapped_for_convoke(convoked_id);
+            }
+        }
 
         // Fire ManaExpend triggers (Expend mechanic — cumulative per-turn tracking)
         {

@@ -397,6 +397,12 @@ impl ManaCostBeingPaid {
         Some(shard)
     }
 
+    pub fn get_unpaid_colors(&self) -> u16 {
+        self.get_distinct_shards()
+            .into_iter()
+            .fold(0, |acc, shard| acc | u16::from(shard.color_mask()))
+    }
+
     /// Pay a shard via convoke (tapping a creature for a color).
     /// Mirrors Java's `ManaCostBeingPaid.payManaViaConvoke()`.
     pub fn pay_mana_via_convoke(&mut self, color: u16) -> Option<ManaCostShard> {
