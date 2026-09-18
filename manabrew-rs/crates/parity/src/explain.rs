@@ -3,8 +3,9 @@
 //! `explain` takes a `--format json` report and, for one game, prints the first RNG draw the
 //! two agents disagree on, the first target candidate list that differs, every snapshot field
 //! that differs at the divergence turn, the options that differ in the first unequal
-//! `$ACTION_SPACE` of the decision's phase, and the callbacks of that phase. `gate-summary`
-//! tallies one `--gate-out` file without a baseline.
+//! `$ACTION_SPACE` of the decision's phase, and the callbacks of that phase; with `--turn` or
+//! `--around` it prints a window of both logs instead. `gate-summary` tallies one `--gate-out`
+//! file without a baseline, and with `--group` clusters its failures.
 
 use std::collections::BTreeMap;
 
@@ -366,11 +367,72 @@ fn print_phase_rows(result: &Value, turn: i64, phase: &str, rows: usize) {
     }
 }
 
+struct Window<'a> {
+    turn: Option<i64>,
+    player: Option<i64>,
+    phase: Option<&'a str>,
+    around: Option<&'a str>,
+    before: usize,
+    rows: usize,
+    all: bool,
+}
+
+impl Window<'_> {
+    fn keeps(&self, entry: &Value) -> bool {
+        let name = text(entry, "name");
+        is_callback(entry)
+            && self.turn.is_none_or(|t| int(entry, "turn") == t)
+            && self.player.is_none_or(|p| int(entry, "player") == p)
+            && self.phase.is_none_or(|p| text(entry, "phase") == p)
+            && (self.all
+                || !(is_pass(entry)
+                    || name == "$ACTION_SPACE"
+                    || name == "choose_targets_for(inner)"
+                    || JAVA_ONLY_ROWS.contains(&name.as_str())))
+    }
+}
+
+fn print_window(result: &Value, window: &Window) {
+    for (tag, side) in [("R", "rust_log"), ("J", "java_log")] {
+        let rows: Vec<&Value> = log(result, side)
+            .iter()
+            .filter(|e| window.keeps(e))
+            .collect();
+        let start = match window.around {
+            Some(needle) => match rows.iter().position(|e| {
+                text(e, "name").contains(needle) || text(e, "outcome").contains(needle)
+            }) {
+                Some(i) => i.saturating_sub(window.before),
+                None => {
+                    println!("  {tag}: no row of {} mentions {needle:?}", rows.len());
+                    continue;
+                }
+            },
+            None => 0,
+        };
+        let end = (start + window.rows).min(rows.len());
+        println!("  {tag}: rows {start}..{end} of {}", rows.len());
+        for entry in &rows[start..end] {
+            println!(
+                "    {tag} T{} {} P{} {} -> {}",
+                int(entry, "turn"),
+                text(entry, "phase"),
+                int(entry, "player"),
+                text(entry, "name"),
+                clip(&text(entry, "outcome"), 160)
+            );
+        }
+    }
+}
+
 pub fn run_explain_cli(args: &[String]) -> i32 {
     let Some(path) = args.get(1).filter(|a| !a.starts_with("--")) else {
         eprintln!(
             "usage: parity explain <report.json> [--seed N] [--deck2 TEXT] [--index N] [--context N]\n\
-             <report.json> is what a run writes with `--format json -o <file>`."
+             \x20      [--turn N] [--player P] [--phase NAME] [--around TEXT] [--rows N] [--all]\n\
+             <report.json> is what a run writes with `--format json -o <file>`. --turn or --around\n\
+             prints both logs' callback rows instead: those of the turn, or from the first row\n\
+             that mentions TEXT (a card name, `name@id`, a callback name)."
         );
         return 2;
     };
@@ -395,6 +457,18 @@ pub fn run_explain_cli(args: &[String]) -> i32 {
     let context = option(args, "--context")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(3);
+    let window = Window {
+        turn: option(args, "--turn").and_then(|s| s.parse().ok()),
+        player: option(args, "--player").and_then(|s| s.parse().ok()),
+        phase: option(args, "--phase"),
+        around: option(args, "--around"),
+        before: context,
+        rows: option(args, "--rows")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(40),
+        all: args.iter().any(|a| a == "--all"),
+    };
+    let windowed = window.turn.is_some() || window.around.is_some();
 
     let chosen: Vec<&Value> = match index {
         Some(i) => results.get(i).into_iter().collect(),
@@ -443,6 +517,10 @@ pub fn run_explain_cli(args: &[String]) -> i32 {
                 clip(&text(d, "subject"), 200)
             );
         }
+        if windowed {
+            print_window(result, &window);
+            continue;
+        }
         print_draw_diff(result, context);
         print_candidate_diff(result);
         if let Some(d) = divergence {
@@ -457,9 +535,132 @@ pub fn run_explain_cli(args: &[String]) -> i32 {
     0
 }
 
+/// The names in a gate value printed as a list of strings; a clipped list loses its last name.
+fn list_names(value: &str) -> Option<BTreeMap<String, usize>> {
+    let inner = value.strip_prefix('[')?;
+    let clipped = inner.ends_with('\u{2026}');
+    let inner = inner.trim_end_matches('\u{2026}').trim_end_matches(']');
+    let mut parts: Vec<&str> = inner
+        .split("\", \"")
+        .map(|p| p.trim_matches('"'))
+        .filter(|p| !p.is_empty())
+        .collect();
+    if clipped {
+        parts.pop();
+    }
+    let mut out = BTreeMap::new();
+    for part in parts {
+        *out.entry(part.to_string()).or_default() += 1;
+    }
+    Some(out)
+}
+
+fn one_side_names(record: &Value) -> Vec<String> {
+    let mut out = Vec::new();
+    let subject = text(record, "subject");
+    if !subject.is_empty() {
+        out.push(subject);
+    }
+    if let (Some(r), Some(j)) = (
+        list_names(&text(record, "rust")),
+        list_names(&text(record, "java")),
+    ) {
+        out.extend(only_in(&r, &j));
+        out.extend(only_in(&j, &r));
+    }
+    out
+}
+
+fn decision_callbacks(decision: &str) -> String {
+    let callback = |part: &str| -> String {
+        let head = part.split(" -> ").next().unwrap_or(part);
+        if head.starts_with("no further decision") {
+            return "(none)".to_string();
+        }
+        head.split_whitespace().nth(1).unwrap_or(head).to_string()
+    };
+    let rest = decision.split_once(": Rust ").map_or(decision, |(_, r)| r);
+    let (rust, java) = rest.split_once(" / Java ").unwrap_or((rest, ""));
+    format!("Rust {} / Java {}", callback(rust), callback(java))
+}
+
+fn game_label(record: &Value) -> String {
+    let label = format!(
+        "{} vs {} seed {}",
+        text(record, "deck1"),
+        text(record, "deck2"),
+        int(record, "seed")
+    );
+    match int(record, "turn") {
+        -1 => label,
+        turn => format!("{label} T{turn}"),
+    }
+}
+
+fn print_groups(title: &str, groups: BTreeMap<String, (Vec<String>, BTreeMap<String, usize>)>) {
+    let games: usize = groups.values().map(|(g, _)| g.len()).sum();
+    println!("{title}: {games} game(s) in {} group(s)", groups.len());
+    let mut ordered: Vec<_> = groups.into_iter().collect();
+    ordered.sort_by(|a, b| b.1 .0.len().cmp(&a.1 .0.len()).then_with(|| a.0.cmp(&b.0)));
+    for (key, (games, names)) in ordered {
+        println!("  {:>3}  {key}", games.len());
+        if !names.is_empty() {
+            let mut counted: Vec<_> = names.into_iter().collect();
+            counted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+            let listed: Vec<String> = counted
+                .iter()
+                .take(12)
+                .map(|(name, n)| format!("{name} {n}"))
+                .collect();
+            println!("       one side only: {}", listed.join(", "));
+        }
+        for game in games.iter().take(5) {
+            println!("       {game}");
+        }
+        if games.len() > 5 {
+            println!("       +{} more", games.len() - 5);
+        }
+    }
+}
+
+fn print_grouped(records: &[Value]) {
+    let mut by_field: BTreeMap<String, (Vec<String>, BTreeMap<String, usize>)> = BTreeMap::new();
+    let mut by_decision: BTreeMap<String, (Vec<String>, BTreeMap<String, usize>)> = BTreeMap::new();
+    for record in records {
+        let verdict = text(record, "verdict");
+        if verdict != "PASS" {
+            let field = text(record, "field");
+            let key = if field.is_empty() {
+                format!("{verdict} {}", clip(&text(record, "detail"), 80))
+            } else {
+                format!("{verdict} {field}")
+            };
+            let group = by_field.entry(key).or_default();
+            group.0.push(game_label(record));
+            for name in one_side_names(record) {
+                *group.1.entry(name).or_default() += 1;
+            }
+        }
+        let decision = text(record, "decision");
+        if !decision.is_empty() {
+            by_decision
+                .entry(decision_callbacks(&decision))
+                .or_default()
+                .0
+                .push(format!(
+                    "{} {verdict}: {}",
+                    game_label(record),
+                    clip(decision.split(" (after ").next().unwrap_or(&decision), 150)
+                ));
+        }
+    }
+    print_groups("by first differing field", by_field);
+    print_groups("by first differing decision", by_decision);
+}
+
 pub fn run_gate_summary_cli(args: &[String]) -> i32 {
     let Some(path) = args.get(1).filter(|a| !a.starts_with("--")) else {
-        eprintln!("usage: parity gate-summary <gate.jsonl> [--decisions]");
+        eprintln!("usage: parity gate-summary <gate.jsonl> [--decisions] [--group]");
         return 2;
     };
     let raw = match std::fs::read_to_string(path) {
@@ -502,6 +703,10 @@ pub fn run_gate_summary_cli(args: &[String]) -> i32 {
         for ((deck1, deck2), (passed, total)) in &by_pairing {
             println!("  {deck1} vs {deck2}: {passed}/{total} PASS");
         }
+    }
+    if args.iter().any(|a| a == "--group") {
+        print_grouped(&records);
+        return i32::from(verdicts.keys().any(|v| v != "PASS"));
     }
     for record in &records {
         let verdict = text(record, "verdict");
