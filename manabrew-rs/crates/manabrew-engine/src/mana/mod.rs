@@ -1311,6 +1311,14 @@ fn calculate_available_mana_excluding_with_reserved_impl(
     include_hand_sources: bool,
     payment_ctx: Option<&ManaPaymentContext>,
 ) -> ManaPool {
+    let usable_pool;
+    let pool = match payment_ctx {
+        Some(ctx) => {
+            usable_pool = pool.usable_for(ctx);
+            &usable_pool
+        }
+        None => pool,
+    };
     let mut available = pool.clone();
     let battlefield = game.cards_in_zone(ZoneType::Battlefield, player);
     let hand_cards = if include_hand_sources {

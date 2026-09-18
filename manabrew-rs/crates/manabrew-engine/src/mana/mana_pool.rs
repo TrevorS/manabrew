@@ -109,6 +109,12 @@ impl ManaPool {
         }
     }
 
+    pub fn usable_for(&self, ctx: &ManaPaymentContext) -> ManaPool {
+        let mut pool = self.clone();
+        pool.mana.retain(|mana| mana_matches_context(mana, ctx));
+        pool
+    }
+
     /// Add mana with snow flag set (from a snow permanent source).
     pub fn add_snow(&mut self, atom: u16, amount: i32) {
         for _ in 0..amount {
