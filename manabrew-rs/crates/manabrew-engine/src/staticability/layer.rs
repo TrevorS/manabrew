@@ -459,6 +459,36 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         }
                     }
 
+                    if let Some(filter) = sa.ir.gains_abilities_of.as_deref() {
+                        let zones = if sa.ir.gains_abilities_of_zones.is_empty() {
+                            vec![ZoneType::Battlefield]
+                        } else {
+                            sa.ir.gains_abilities_of_zones.clone()
+                        };
+                        let selector = crate::parsing::cached_compiled_selector(filter);
+                        for gained in game.cards.iter().filter(|card| zones.contains(&card.zone)) {
+                            if !crate::card::valid_filter::matches_valid_card_selector_in_game(
+                                &selector,
+                                gained,
+                                &source_card,
+                                game,
+                            ) {
+                                continue;
+                            }
+                            for ab in &gained.activated_abilities {
+                                pending.push(PendingEffect {
+                                    layer: Layer::Ability,
+                                    target,
+                                    kind: EffectKind::GrantAbility {
+                                        text: ab.ability_text.clone(),
+                                        svars: gained.svars.clone(),
+                                        original_host: None,
+                                    },
+                                });
+                            }
+                        }
+                    }
+
                     if let Some(add_trigger) = sa.ir.add_trigger_text.as_deref() {
                         for svar_name in add_trigger
                             .split(" & ")

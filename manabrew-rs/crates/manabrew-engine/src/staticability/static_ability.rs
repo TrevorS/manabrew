@@ -282,6 +282,8 @@ pub struct StaticAbilityIr {
     pub remove_creature_types: bool,
     pub remove_all_abilities: bool,
     pub add_ability_text: Option<String>,
+    pub gains_abilities_of: Option<String>,
+    pub gains_abilities_of_zones: Vec<ZoneType>,
     pub add_trigger_text: Option<String>,
     pub add_static_ability_text: Option<String>,
     pub adjust_land_plays_text: Option<String>,
@@ -472,6 +474,10 @@ impl StaticAbilityIr {
                 .get(keys::REMOVE_ALL_ABILITIES)
                 .is_some_and(|value| value.eq_ignore_ascii_case("true")),
             add_ability_text: raw.get(keys::ADD_ABILITY).map(String::to_string),
+            gains_abilities_of: raw.get(keys::GAINS_ABILITIES_OF).map(String::to_string),
+            gains_abilities_of_zones: zone_list(
+                raw.get(keys::GAINS_ABILITIES_OF_ZONES).map(String::as_str),
+            ),
             add_trigger_text: raw.get(keys::ADD_TRIGGER).map(String::to_string),
             add_static_ability_text: raw.get("AddStaticAbility").map(String::to_string),
             adjust_land_plays_text: raw.get(keys::ADJUST_LAND_PLAYS).map(String::to_string),

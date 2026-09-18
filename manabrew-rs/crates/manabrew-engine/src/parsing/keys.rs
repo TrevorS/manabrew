@@ -167,6 +167,7 @@ pub const ADD_KWS: &str = "AddKWs";
 pub const CANT_HAVE_KEYWORD: &str = "CantHaveKeyword";
 pub const GAINS_ABILITIES_OF: &str = "GainsAbilitiesOf";
 pub const GAINS_ABILITIES_OF_DEFINED: &str = "GainsAbilitiesOfDefined";
+pub const GAINS_ABILITIES_OF_ZONES: &str = "GainsAbilitiesOfZones";
 pub const GAINS_TRIGGER_ABS_OF: &str = "GainsTriggerAbsOf";
 pub const PUMP_KEYWORDS: &str = "PumpKeywords";
 pub const GAINS: &str = "Gains";
