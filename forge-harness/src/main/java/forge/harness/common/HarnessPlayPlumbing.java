@@ -125,7 +125,7 @@ public final class HarnessPlayPlumbing {
             return true;
         }
         // Payment failed — rollback moveToStack if the card was moved.
-        GameActionUtil.rollbackAbility(sa, fromZone, zonePosition, pay, source);
+        GameActionUtil.rollbackAbility(sa, sa.isSpell() ? fromZone : null, zonePosition, pay, source);
         return false;
     }
 
@@ -227,7 +227,7 @@ public final class HarnessPlayPlumbing {
                 + sa.getHostCard() + " [" + sa.getHostCard().getZone() + "]");
         sa.setSkip(true);
         if (host != null && hz != null) {
-            GameActionUtil.rollbackAbility(sa, hz, zonePosition, pay, host);
+            GameActionUtil.rollbackAbility(sa, sa.isSpell() ? hz : null, zonePosition, pay, host);
             final Card rolledBackHost = sa.getHostCard();
             if (rolledBackHost != null) {
                 hooks.markFailedPaymentCard(rolledBackHost);
