@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.45.4](https://github.com/witchesofthehill/manabrew/compare/v3.45.3...v3.45.4) (2026-09-18)
+
+### Fixes
+
+* **website:** restore dark feature card gradient ([#955](https://github.com/witchesofthehill/manabrew/issues/955)) ([b2931d9](https://github.com/witchesofthehill/manabrew/commit/b2931d91724b0afb820ae5147a86ecb66f493c39))
+
 ## [3.45.3](https://github.com/witchesofthehill/manabrew/compare/v3.45.2...v3.45.3) (2026-09-18)
 
 ### Performance
