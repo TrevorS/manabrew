@@ -109,8 +109,18 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     ctx.game.card_mut(card_id).set_s_var("Harnessed", val);
                 }
                 "Plotted" => {
-                    let val = if activate { "True" } else { "False" };
-                    ctx.game.card_mut(card_id).set_s_var("Plotted", val);
+                    let turn = ctx.game.turn.turn_number;
+                    crate::card::set_plotted(ctx.game.card_mut(card_id), activate, turn);
+                    if activate {
+                        ctx.trigger_handler.run_trigger(
+                            TriggerType::BecomesPlotted,
+                            RunParams {
+                                card: Some(card_id),
+                                ..Default::default()
+                            },
+                            false,
+                        );
+                    }
                 }
                 "Solve" | "Solved" => {
                     let val = if activate { "True" } else { "False" };

@@ -85,6 +85,16 @@ pub fn make_plotted_keyword(turn: u32) -> String {
     format!("{KEYWORD_PLOTTED_PREFIX}{turn}")
 }
 
+/// `Card.setPlotted` without the trigger: the card is plotted as of `turn`, which the plotted
+/// cast compares with the current turn.
+pub fn set_plotted(card: &mut Card, plotted: bool, turn: u32) {
+    card.keywords
+        .retain(|kw| !kw.starts_with(KEYWORD_PLOTTED_PREFIX));
+    if plotted {
+        card.keywords.add(&make_plotted_keyword(turn));
+    }
+}
+
 /// Extract the turn number from a `"Plotted:{turn}"` keyword, if present.
 pub fn parse_plotted_turn(kw: &str) -> Option<u32> {
     kw.strip_prefix(KEYWORD_PLOTTED_PREFIX)

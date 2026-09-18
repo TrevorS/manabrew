@@ -1,5 +1,6 @@
 use super::EffectContext;
-use crate::card::make_plotted_keyword;
+use crate::event::RunParams;
+use crate::trigger::TriggerType;
 use forge_foundation::ZoneType;
 
 /// `AB$ Plot` — exile the source card from hand and mark it as plotted.
@@ -21,10 +22,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let turn = ctx.game.turn.turn_number;
 
     ctx.move_card(card_id, ZoneType::Exile, player);
-    ctx.game
-        .card_mut(card_id)
-        .keywords
-        .add(&make_plotted_keyword(turn));
+    crate::card::set_plotted(ctx.game.card_mut(card_id), true, turn);
+    ctx.trigger_handler.run_trigger(
+        TriggerType::BecomesPlotted,
+        RunParams {
+            card: Some(card_id),
+            ..Default::default()
+        },
+        false,
+    );
 
     crate::agent::notify_all_agents(
         ctx.agents,
