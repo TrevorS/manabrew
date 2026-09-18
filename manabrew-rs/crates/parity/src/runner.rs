@@ -209,10 +209,6 @@ struct CapturingAgent {
 }
 
 impl CapturingAgent {
-    fn shallow_snapshot_card(card: &manabrew_engine::card::Card) -> manabrew_engine::card::Card {
-        card.clone_for_parity_snapshot()
-    }
-
     fn shallow_stack_entry(entry: &StackEntry) -> StackEntry {
         let mut spell_ability = SpellAbility::new_simple(
             entry.spell_ability.source,
@@ -233,13 +229,18 @@ impl CapturingAgent {
         }
     }
 
-    fn shallow_game_state(game: &GameState) -> GameState {
-        let player_names: Vec<String> = game.players.iter().map(|p| p.name.clone()).collect();
-        let player_name_refs: Vec<&str> = player_names.iter().map(String::as_str).collect();
-        let starting_life = game.players.first().map(|p| p.life).unwrap_or(20);
-        let mut sim = GameState::new(&player_name_refs, starting_life);
-        sim.players = game.players.clone();
-        sim.cards = game.cards.iter().map(Self::shallow_snapshot_card).collect();
+    fn shallow_game_state(previous: Option<GameState>, game: &GameState) -> GameState {
+        let mut sim = previous.unwrap_or_else(|| {
+            let player_names: Vec<String> = game.players.iter().map(|p| p.name.clone()).collect();
+            let player_name_refs: Vec<&str> = player_names.iter().map(String::as_str).collect();
+            let starting_life = game.players.first().map(|p| p.life).unwrap_or(20);
+            GameState::new(&player_name_refs, starting_life)
+        });
+        sim.players.clone_from(&game.players);
+        crate::deterministic_agent::DeterministicAgent::refresh_snapshot_cards(
+            &mut sim.cards,
+            &game.cards,
+        );
         sim.replace_zone_store(game.zone_store_snapshot());
         let mut stack = MagicStack::new();
         for entry in game.stack.iter() {
@@ -668,7 +669,7 @@ impl PlayerAgent for CapturingAgent {
         if self.capture_snapshots && game.turn.turn_number != self.current_turn {
             self.pending_turn_snapshot = Some(self.snapshot_with_rng_counts(game));
         }
-        self.last_game_state = Some(Self::shallow_game_state(game));
+        self.last_game_state = Some(Self::shallow_game_state(self.last_game_state.take(), game));
         self.stop_if_card_copy_guard_tripped(game);
         self.stop_if_decision_guard_tripped(game);
     }

@@ -141,6 +141,12 @@ yarn parity:ab baseline                   # refuses a dirty tree
 
 `src/java_cache.rs` stores each matchup's full Java log under `.parity-cache/`, so a hit runs only the Rust game. The whole cache is wiped when the source hash changes: the harness and Forge Java sources, the card and token scripts, and the harness jar. Each entry is keyed on the matchup parameters plus the contents of its two decks, so editing or adding a deck invalidates only the matchups that use it. Java workers start on the first cache miss (`JavaServerPool::lazy`), up to `--java-workers`; a fully cached run starts none.
 
+### Measure the Rust side
+
+With the Java cache warm, a gate's time is the Rust games. `cargo bench -p parity --bench game` (`benches/game.rs`) runs one 30-turn game per first-matchup pairing through `run_with_data`, with the same agents, snapshots and log as a gate; `[profile.bench]` matches `parity-dev`, so it builds incrementally. Save a baseline before a speed change (`-- --save-baseline before`) and compare after (`-- --baseline before`). For where the time goes, macOS `sample <pid> 8` on a running `parity` process gives a call tree per thread.
+
+Every agent decision snapshots the game (`snapshot_state`). The agents keep their card snapshots between decisions and refresh them in place with `Card::refresh_parity_snapshot`; it and `Card::clone_for_parity_snapshot` list every `Card` field on purpose, so a new field fails to compile until it is added to both. Cloning every card for every decision was 86% of a game's time before this.
+
 ### Add a regression entry
 
 After fixing a bug, lock the fix in. Add to `regression.json`:

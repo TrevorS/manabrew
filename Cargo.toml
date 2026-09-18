@@ -61,5 +61,12 @@ codegen-units = 256
 incremental = true
 debug-assertions = true
 
+[profile.bench]
+opt-level = 2
+lto = false
+codegen-units = 256
+incremental = true
+debug-assertions = true
+
 [profile.release.package.wasm]
 opt-level = 3

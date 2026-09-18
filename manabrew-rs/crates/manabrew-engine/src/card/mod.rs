@@ -986,21 +986,485 @@ impl Card {
     }
 
     pub fn clone_for_parity_snapshot(&self) -> Self {
-        let mut out = self.clone();
+        // The traits are left out without being cloned first: this runs for every card
+        // before every parity decision. The literal is exhaustive on purpose, so a new
+        // field fails to compile here until it is copied.
+        Card {
+            id: self.id,
+            card_name: self.card_name.clone(),
+            full_name: self.full_name.clone(),
+            oracle_text: self.oracle_text.clone(),
+            owner: self.owner,
+            controller: self.controller,
+            zone: self.zone,
+            type_line: self.type_line.clone(),
+            mana_cost: self.mana_cost.clone(),
+            color: self.color,
+            color_identity: self.color_identity,
+            base_power: self.base_power,
+            base_toughness: self.base_toughness,
+            initial_loyalty: self.initial_loyalty.clone(),
+            power_modifier: self.power_modifier,
+            toughness_modifier: self.toughness_modifier,
+            perpetual_power_modifier: self.perpetual_power_modifier,
+            perpetual_toughness_modifier: self.perpetual_toughness_modifier,
+            perpetual: self.perpetual.clone(),
+            static_set_power: self.static_set_power,
+            static_set_toughness: self.static_set_toughness,
+            static_power_modifier: self.static_power_modifier,
+            static_toughness_modifier: self.static_toughness_modifier,
+            tapped: self.tapped,
+            last_mana_produced: self.last_mana_produced.clone(),
+            flipped: self.flipped,
+            face_down: self.face_down,
+            has_morph: self.has_morph,
+            discarded: self.discarded,
+            unearthed: self.unearthed,
+            class_level: self.class_level,
+            paired_with: self.paired_with,
+            manifested: self.manifested,
+            cloaked: self.cloaked,
+            foretold: self.foretold,
+            melded_with: self.melded_with.clone(),
+            foretold_cost_by_effect: self.foretold_cost_by_effect,
+            is_bestowed: self.is_bestowed,
+            summoning_sick: self.summoning_sick,
+            came_under_control_since_last_upkeep: self.came_under_control_since_last_upkeep,
+            exerted: self.exerted,
+            damage: self.damage,
+            cast_from: self.cast_from,
+            counters: self.counters.clone(),
+            keywords: self.keywords.clone(),
+            granted_keywords: self.granted_keywords.clone(),
+            granted_svars: self.granted_svars.clone(),
+            static_added_subtypes: self.static_added_subtypes.clone(),
+            static_type_line_base: self.static_type_line_base.clone(),
+            changed_type_line_base: self.changed_type_line_base.clone(),
+            changed_base_power: self.changed_base_power,
+            changed_base_toughness: self.changed_base_toughness,
+            changed_keywords_base: self.changed_keywords_base.clone(),
+            changed_trigger_count_base: self.changed_trigger_count_base,
+            pump_keywords: self.pump_keywords.clone(),
+            pump_trigger_count: self.pump_trigger_count,
+            abilities: Vec::new(),
+            action_spell_specs: self.action_spell_specs.clone(),
+            action_spell_cost: self.action_spell_cost.clone(),
+            ai_phyrexian_payment: self.ai_phyrexian_payment.clone(),
+            spree_min_mode_cost: self.spree_min_mode_cost,
+            activated_abilities: Vec::new(),
+            base_ability_count: self.base_ability_count,
+            base_trigger_count: self.base_trigger_count,
+            changed_card_traits: self.changed_card_traits.clone(),
+            changed_card_traits_by_text: self.changed_card_traits_by_text.clone(),
+            static_abilities: self
+                .static_abilities
+                .iter()
+                .map(|static_ability| {
+                    let mut static_ability = static_ability.clone();
+                    *static_ability.base = crate::card_trait_base::CardTraitBase::default();
+                    static_ability
+                })
+                .collect(),
+            has_deathtouch_damage: self.has_deathtouch_damage,
+            cant_attack_static: self.cant_attack_static,
+            cant_block_static: self.cant_block_static,
+            turn_in_zone: self.turn_in_zone,
+            entered_battlefield_this_turn: self.entered_battlefield_this_turn,
+            attacked_this_turn: self.attacked_this_turn,
+            started_turn_tapped: self.started_turn_tapped,
+            triggers: Vec::new(),
+            svars: self.svars.clone(),
+            parsed_svar_cache: self.parsed_svar_cache.clone(),
+            is_commander: self.is_commander,
+            move_to_command_zone: self.move_to_command_zone,
+            commander_cast_count: self.commander_cast_count,
+            is_token: self.is_token,
+            cast_with_flashback: self.cast_with_flashback,
+            cast_with_harmonize: self.cast_with_harmonize,
+            replacement_effects: Vec::new(),
+            attached_to: self.attached_to,
+            attached_to_player: self.attached_to_player,
+            attached_this_turn: self.attached_this_turn,
+            attachments: self.attachments.clone(),
+            remembered_cards: self.remembered_cards.clone(),
+            remembered_players: self.remembered_players.clone(),
+            imprinted_cards: self.imprinted_cards.clone(),
+            gain_control_targets: self.gain_control_targets.clone(),
+            until_leaves_battlefield: self.until_leaves_battlefield.clone(),
+            exiled_cards: self.exiled_cards.clone(),
+            paid_cost_exiled_cards: self.paid_cost_exiled_cards.clone(),
+            haunted_by: self.haunted_by.clone(),
+            haunting: self.haunting,
+            chosen_map: self.chosen_map.clone(),
+            remembered_cmc: self.remembered_cmc.clone(),
+            effect_source: self.effect_source,
+            clone_origin: self.clone_origin,
+            copied_permanent: self.copied_permanent,
+            cast_sa: None,
+            chosen_charm_modes: self.chosen_charm_modes.clone(),
+            remembered_lki_cards: self.remembered_lki_cards.clone(),
+            lose_control_condition: self.lose_control_condition,
+            temp_effect_until_eot: self.temp_effect_until_eot,
+            temp_effect_host: self.temp_effect_host,
+            forget_on_moved_origin: self.forget_on_moved_origin,
+            exile_when_no_remembered: self.exile_when_no_remembered,
+            exiled_by: self.exiled_by,
+            original_controller_eot: self.original_controller_eot,
+            is_transformed: self.is_transformed,
+            other_part: self.other_part.clone(),
+            set_code: self.set_code.clone(),
+            card_number: self.card_number.clone(),
+            paper_foil: self.paper_foil,
+            phased_out: self.phased_out,
+            regeneration_shields: self.regeneration_shields,
+            kicked: self.kicked,
+            monstrous: self.monstrous,
+            chosen_colors: self.chosen_colors.clone(),
+            chosen_cards: self.chosen_cards.clone(),
+            animate_state: self.animate_state.clone(),
+            clone_state: self.clone_state.clone(),
+            face_down_state: self.face_down_state.clone(),
+            chosen_type: self.chosen_type.clone(),
+            chosen_type2: self.chosen_type2.clone(),
+            noted_types: self.noted_types.clone(),
+            named_cards: self.named_cards.clone(),
+            chosen_number: self.chosen_number,
+            chosen_number_controller: self.chosen_number_controller,
+            chosen_number_revealed: self.chosen_number_revealed,
+            chosen_mode: self.chosen_mode.clone(),
+            chosen_player: self.chosen_player,
+            chosen_player_controller: self.chosen_player_controller,
+            chosen_type_controller: self.chosen_type_controller,
+            chosen_player_revealed: self.chosen_player_revealed,
+            chosen_type_revealed: self.chosen_type_revealed,
+            promised_gift: self.promised_gift,
+            attraction_lights: self.attraction_lights.clone(),
+            sector: self.sector.clone(),
+            chosen_sector: self.chosen_sector.clone(),
+            sprocket: self.sprocket,
+            chosen_even_odd: self.chosen_even_odd.clone(),
+            detained: self.detained,
+            attacking_player: self.attacking_player,
+            goaded_by: self.goaded_by,
+            damage_prevention: self.damage_prevention,
+            assigned_damage: self.assigned_damage,
+            must_block: self.must_block,
+            encoded_cards: self.encoded_cards.clone(),
+            damage_sources_this_turn: self.damage_sources_this_turn.clone(),
+            total_damage_done_this_turn: self.total_damage_done_this_turn,
+            lki_power: self.lki_power,
+            lki_toughness: self.lki_toughness,
+            lki_zone_timestamp: self.lki_zone_timestamp,
+            prepared_effect: self.prepared_effect,
+            lki_counters: self.lki_counters.clone(),
+            damage_history: self.damage_history.clone(),
+            must_block_cards: self.must_block_cards.clone(),
+            etb_counters: self.etb_counters.clone(),
+            colors_spent_to_cast: self.colors_spent_to_cast,
+            paying_mana_to_cast: self.paying_mana_to_cast.clone(),
+            chosen_modes: self.chosen_modes.clone(),
+            strive_extra_targets: self.strive_extra_targets,
+            became_target_this_turn: self.became_target_this_turn,
+            temp_controllers: self.temp_controllers.clone(),
+            may_look_at: self.may_look_at.clone(),
+            may_play: self.may_play.clone(),
+            can_block_additional: self.can_block_additional,
+            can_block_any: self.can_block_any,
+            cant_have_keywords: self.cant_have_keywords.clone(),
+            intensity: self.intensity,
+            surveilled: self.surveilled,
+            milled: self.milled,
+            visited_this_turn: self.visited_this_turn,
+            times_crewed_this_turn: self.times_crewed_this_turn,
+            crewed_by_this_turn: self.crewed_by_this_turn.clone(),
+            is_crewed: self.is_crewed,
+            ignore_legend_rule_flag: self.ignore_legend_rule_flag,
+            ability_activated_this_turn: self.ability_activated_this_turn,
+            ability_resolved_this_turn: self.ability_resolved_this_turn,
+            number_turn_activations: self.number_turn_activations.clone(),
+            number_game_activations: self.number_game_activations.clone(),
+            number_ability_resolved: self.number_ability_resolved.clone(),
+            planeswalker_abilities_activated: self.planeswalker_abilities_activated,
+            planeswalker_activation_limit_used: self.planeswalker_activation_limit_used,
+            chosen_modes_turn: self.chosen_modes_turn,
+            enlisted_this_combat: self.enlisted_this_combat,
+            activations_this_game: self.activations_this_game.clone(),
+            is_renowned: self.is_renowned,
+            zone_timestamp: self.zone_timestamp,
+            trait_base_activated_abilities: None,
+            trait_base_triggers: None,
+            trait_base_replacement_effects: None,
+            trait_base_static_abilities: None,
+            trait_base_keywords: None,
+        }
+    }
+
+    /// `clone_for_parity_snapshot` into an existing snapshot, reusing its allocations.
+    pub fn refresh_parity_snapshot(&self, out: &mut Card) {
+        out.id.clone_from(&self.id);
+        out.card_name.clone_from(&self.card_name);
+        out.full_name.clone_from(&self.full_name);
+        out.oracle_text.clone_from(&self.oracle_text);
+        out.owner.clone_from(&self.owner);
+        out.controller.clone_from(&self.controller);
+        out.zone.clone_from(&self.zone);
+        if out.type_line != self.type_line {
+            out.type_line.clone_from(&self.type_line);
+        }
+        out.mana_cost.clone_from(&self.mana_cost);
+        out.color.clone_from(&self.color);
+        out.color_identity.clone_from(&self.color_identity);
+        out.base_power.clone_from(&self.base_power);
+        out.base_toughness.clone_from(&self.base_toughness);
+        out.initial_loyalty.clone_from(&self.initial_loyalty);
+        out.power_modifier.clone_from(&self.power_modifier);
+        out.toughness_modifier.clone_from(&self.toughness_modifier);
+        out.perpetual_power_modifier
+            .clone_from(&self.perpetual_power_modifier);
+        out.perpetual_toughness_modifier
+            .clone_from(&self.perpetual_toughness_modifier);
+        out.perpetual.clone_from(&self.perpetual);
+        out.static_set_power.clone_from(&self.static_set_power);
+        out.static_set_toughness
+            .clone_from(&self.static_set_toughness);
+        out.static_power_modifier
+            .clone_from(&self.static_power_modifier);
+        out.static_toughness_modifier
+            .clone_from(&self.static_toughness_modifier);
+        out.tapped.clone_from(&self.tapped);
+        out.last_mana_produced.clone_from(&self.last_mana_produced);
+        out.flipped.clone_from(&self.flipped);
+        out.face_down.clone_from(&self.face_down);
+        out.has_morph.clone_from(&self.has_morph);
+        out.discarded.clone_from(&self.discarded);
+        out.unearthed.clone_from(&self.unearthed);
+        out.class_level.clone_from(&self.class_level);
+        out.paired_with.clone_from(&self.paired_with);
+        out.manifested.clone_from(&self.manifested);
+        out.cloaked.clone_from(&self.cloaked);
+        out.foretold.clone_from(&self.foretold);
+        out.melded_with.clone_from(&self.melded_with);
+        out.foretold_cost_by_effect
+            .clone_from(&self.foretold_cost_by_effect);
+        out.is_bestowed.clone_from(&self.is_bestowed);
+        out.summoning_sick.clone_from(&self.summoning_sick);
+        out.came_under_control_since_last_upkeep
+            .clone_from(&self.came_under_control_since_last_upkeep);
+        out.exerted.clone_from(&self.exerted);
+        out.damage.clone_from(&self.damage);
+        out.cast_from.clone_from(&self.cast_from);
+        out.counters.clone_from(&self.counters);
+        out.keywords.clone_from(&self.keywords);
+        out.granted_keywords.clone_from(&self.granted_keywords);
+        out.granted_svars.clone_from(&self.granted_svars);
+        out.static_added_subtypes
+            .clone_from(&self.static_added_subtypes);
+        out.static_type_line_base
+            .clone_from(&self.static_type_line_base);
+        out.changed_type_line_base
+            .clone_from(&self.changed_type_line_base);
+        out.changed_base_power.clone_from(&self.changed_base_power);
+        out.changed_base_toughness
+            .clone_from(&self.changed_base_toughness);
+        out.changed_keywords_base
+            .clone_from(&self.changed_keywords_base);
+        out.changed_trigger_count_base
+            .clone_from(&self.changed_trigger_count_base);
+        out.pump_keywords.clone_from(&self.pump_keywords);
+        out.pump_trigger_count.clone_from(&self.pump_trigger_count);
         out.abilities.clear();
+        out.action_spell_specs.clone_from(&self.action_spell_specs);
+        out.action_spell_cost.clone_from(&self.action_spell_cost);
+        out.ai_phyrexian_payment
+            .clone_from(&self.ai_phyrexian_payment);
+        out.spree_min_mode_cost
+            .clone_from(&self.spree_min_mode_cost);
         out.activated_abilities.clear();
-        out.triggers.clear();
+        out.base_ability_count.clone_from(&self.base_ability_count);
+        out.base_trigger_count.clone_from(&self.base_trigger_count);
+        out.changed_card_traits
+            .clone_from(&self.changed_card_traits);
+        out.changed_card_traits_by_text
+            .clone_from(&self.changed_card_traits_by_text);
+        out.static_abilities.clone_from(&self.static_abilities);
         for static_ability in &mut out.static_abilities {
             *static_ability.base = crate::card_trait_base::CardTraitBase::default();
         }
+        out.has_deathtouch_damage
+            .clone_from(&self.has_deathtouch_damage);
+        out.cant_attack_static.clone_from(&self.cant_attack_static);
+        out.cant_block_static.clone_from(&self.cant_block_static);
+        out.turn_in_zone.clone_from(&self.turn_in_zone);
+        out.entered_battlefield_this_turn
+            .clone_from(&self.entered_battlefield_this_turn);
+        out.attacked_this_turn.clone_from(&self.attacked_this_turn);
+        out.started_turn_tapped
+            .clone_from(&self.started_turn_tapped);
+        out.triggers.clear();
+        if out.svars != self.svars {
+            out.svars.clone_from(&self.svars);
+        }
+        out.parsed_svar_cache.clone_from(&self.parsed_svar_cache);
+        out.is_commander.clone_from(&self.is_commander);
+        out.move_to_command_zone
+            .clone_from(&self.move_to_command_zone);
+        out.commander_cast_count
+            .clone_from(&self.commander_cast_count);
+        out.is_token.clone_from(&self.is_token);
+        out.cast_with_flashback
+            .clone_from(&self.cast_with_flashback);
+        out.cast_with_harmonize
+            .clone_from(&self.cast_with_harmonize);
         out.replacement_effects.clear();
+        out.attached_to.clone_from(&self.attached_to);
+        out.attached_to_player.clone_from(&self.attached_to_player);
+        out.attached_this_turn.clone_from(&self.attached_this_turn);
+        out.attachments.clone_from(&self.attachments);
+        out.remembered_cards.clone_from(&self.remembered_cards);
+        out.remembered_players.clone_from(&self.remembered_players);
+        out.imprinted_cards.clone_from(&self.imprinted_cards);
+        out.gain_control_targets
+            .clone_from(&self.gain_control_targets);
+        out.until_leaves_battlefield
+            .clone_from(&self.until_leaves_battlefield);
+        out.exiled_cards.clone_from(&self.exiled_cards);
+        out.paid_cost_exiled_cards
+            .clone_from(&self.paid_cost_exiled_cards);
+        out.haunted_by.clone_from(&self.haunted_by);
+        out.haunting.clone_from(&self.haunting);
+        out.chosen_map.clone_from(&self.chosen_map);
+        out.remembered_cmc.clone_from(&self.remembered_cmc);
+        out.effect_source.clone_from(&self.effect_source);
+        out.clone_origin.clone_from(&self.clone_origin);
+        out.copied_permanent.clone_from(&self.copied_permanent);
         out.cast_sa = None;
+        out.chosen_charm_modes.clone_from(&self.chosen_charm_modes);
+        out.remembered_lki_cards
+            .clone_from(&self.remembered_lki_cards);
+        out.lose_control_condition
+            .clone_from(&self.lose_control_condition);
+        out.temp_effect_until_eot
+            .clone_from(&self.temp_effect_until_eot);
+        out.temp_effect_host.clone_from(&self.temp_effect_host);
+        out.forget_on_moved_origin
+            .clone_from(&self.forget_on_moved_origin);
+        out.exile_when_no_remembered
+            .clone_from(&self.exile_when_no_remembered);
+        out.exiled_by.clone_from(&self.exiled_by);
+        out.original_controller_eot
+            .clone_from(&self.original_controller_eot);
+        out.is_transformed.clone_from(&self.is_transformed);
+        out.other_part.clone_from(&self.other_part);
+        out.set_code.clone_from(&self.set_code);
+        out.card_number.clone_from(&self.card_number);
+        out.paper_foil.clone_from(&self.paper_foil);
+        out.phased_out.clone_from(&self.phased_out);
+        out.regeneration_shields
+            .clone_from(&self.regeneration_shields);
+        out.kicked.clone_from(&self.kicked);
+        out.monstrous.clone_from(&self.monstrous);
+        out.chosen_colors.clone_from(&self.chosen_colors);
+        out.chosen_cards.clone_from(&self.chosen_cards);
+        out.animate_state.clone_from(&self.animate_state);
+        out.clone_state.clone_from(&self.clone_state);
+        out.face_down_state.clone_from(&self.face_down_state);
+        out.chosen_type.clone_from(&self.chosen_type);
+        out.chosen_type2.clone_from(&self.chosen_type2);
+        out.noted_types.clone_from(&self.noted_types);
+        out.named_cards.clone_from(&self.named_cards);
+        out.chosen_number.clone_from(&self.chosen_number);
+        out.chosen_number_controller
+            .clone_from(&self.chosen_number_controller);
+        out.chosen_number_revealed
+            .clone_from(&self.chosen_number_revealed);
+        out.chosen_mode.clone_from(&self.chosen_mode);
+        out.chosen_player.clone_from(&self.chosen_player);
+        out.chosen_player_controller
+            .clone_from(&self.chosen_player_controller);
+        out.chosen_type_controller
+            .clone_from(&self.chosen_type_controller);
+        out.chosen_player_revealed
+            .clone_from(&self.chosen_player_revealed);
+        out.chosen_type_revealed
+            .clone_from(&self.chosen_type_revealed);
+        out.promised_gift.clone_from(&self.promised_gift);
+        out.attraction_lights.clone_from(&self.attraction_lights);
+        out.sector.clone_from(&self.sector);
+        out.chosen_sector.clone_from(&self.chosen_sector);
+        out.sprocket.clone_from(&self.sprocket);
+        out.chosen_even_odd.clone_from(&self.chosen_even_odd);
+        out.detained.clone_from(&self.detained);
+        out.attacking_player.clone_from(&self.attacking_player);
+        out.goaded_by.clone_from(&self.goaded_by);
+        out.damage_prevention.clone_from(&self.damage_prevention);
+        out.assigned_damage.clone_from(&self.assigned_damage);
+        out.must_block.clone_from(&self.must_block);
+        out.encoded_cards.clone_from(&self.encoded_cards);
+        out.damage_sources_this_turn
+            .clone_from(&self.damage_sources_this_turn);
+        out.total_damage_done_this_turn
+            .clone_from(&self.total_damage_done_this_turn);
+        out.lki_power.clone_from(&self.lki_power);
+        out.lki_toughness.clone_from(&self.lki_toughness);
+        out.lki_zone_timestamp.clone_from(&self.lki_zone_timestamp);
+        out.prepared_effect.clone_from(&self.prepared_effect);
+        out.lki_counters.clone_from(&self.lki_counters);
+        out.damage_history.clone_from(&self.damage_history);
+        out.must_block_cards.clone_from(&self.must_block_cards);
+        out.etb_counters.clone_from(&self.etb_counters);
+        out.colors_spent_to_cast
+            .clone_from(&self.colors_spent_to_cast);
+        out.paying_mana_to_cast
+            .clone_from(&self.paying_mana_to_cast);
+        out.chosen_modes.clone_from(&self.chosen_modes);
+        out.strive_extra_targets
+            .clone_from(&self.strive_extra_targets);
+        out.became_target_this_turn
+            .clone_from(&self.became_target_this_turn);
+        out.temp_controllers.clone_from(&self.temp_controllers);
+        out.may_look_at.clone_from(&self.may_look_at);
+        out.may_play.clone_from(&self.may_play);
+        out.can_block_additional
+            .clone_from(&self.can_block_additional);
+        out.can_block_any.clone_from(&self.can_block_any);
+        out.cant_have_keywords.clone_from(&self.cant_have_keywords);
+        out.intensity.clone_from(&self.intensity);
+        out.surveilled.clone_from(&self.surveilled);
+        out.milled.clone_from(&self.milled);
+        out.visited_this_turn.clone_from(&self.visited_this_turn);
+        out.times_crewed_this_turn
+            .clone_from(&self.times_crewed_this_turn);
+        out.crewed_by_this_turn
+            .clone_from(&self.crewed_by_this_turn);
+        out.is_crewed.clone_from(&self.is_crewed);
+        out.ignore_legend_rule_flag
+            .clone_from(&self.ignore_legend_rule_flag);
+        out.ability_activated_this_turn
+            .clone_from(&self.ability_activated_this_turn);
+        out.ability_resolved_this_turn
+            .clone_from(&self.ability_resolved_this_turn);
+        out.number_turn_activations
+            .clone_from(&self.number_turn_activations);
+        out.number_game_activations
+            .clone_from(&self.number_game_activations);
+        out.number_ability_resolved
+            .clone_from(&self.number_ability_resolved);
+        out.planeswalker_abilities_activated
+            .clone_from(&self.planeswalker_abilities_activated);
+        out.planeswalker_activation_limit_used
+            .clone_from(&self.planeswalker_activation_limit_used);
+        out.chosen_modes_turn.clone_from(&self.chosen_modes_turn);
+        out.enlisted_this_combat
+            .clone_from(&self.enlisted_this_combat);
+        out.activations_this_game
+            .clone_from(&self.activations_this_game);
+        out.is_renowned.clone_from(&self.is_renowned);
+        out.zone_timestamp.clone_from(&self.zone_timestamp);
         out.trait_base_activated_abilities = None;
         out.trait_base_triggers = None;
         out.trait_base_replacement_effects = None;
         out.trait_base_static_abilities = None;
         out.trait_base_keywords = None;
-        out
     }
 
     /// Construct a `Card` from a `CardRules` definition.

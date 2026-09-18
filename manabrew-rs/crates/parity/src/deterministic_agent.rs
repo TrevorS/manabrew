@@ -137,6 +137,17 @@ impl DeterministicAgent {
         game.cards.iter().map(Self::shallow_snapshot_card).collect()
     }
 
+    /// Refreshes a snapshot of `cards` kept from the last decision; most cards have not
+    /// changed, so this reuses their allocations instead of cloning every card again.
+    pub(crate) fn refresh_snapshot_cards(snapshot: &mut Vec<Card>, cards: &[Card]) {
+        snapshot.truncate(cards.len());
+        for (out, card) in snapshot.iter_mut().zip(cards) {
+            card.refresh_parity_snapshot(out);
+        }
+        let kept = snapshot.len();
+        snapshot.extend(cards[kept..].iter().map(Self::shallow_snapshot_card));
+    }
+
     fn shallow_replacement_game(game: &GameState) -> GameState {
         let player_names: Vec<String> = game.players.iter().map(|p| p.name.clone()).collect();
         let player_name_refs: Vec<&str> = player_names.iter().map(String::as_str).collect();
@@ -891,7 +902,13 @@ impl PlayerAgent for DeterministicAgent {
                     )
                 })
                 .flatten();
-            game.cards.iter().map(Self::shallow_snapshot_card).collect()
+            let mut cards = self
+                .last_game_snapshot
+                .take()
+                .map(|snapshot| snapshot.cards)
+                .unwrap_or_default();
+            Self::refresh_snapshot_cards(&mut cards, &game.cards);
+            cards
         };
         let stack_sources: Vec<(u32, CardId)> = game
             .stack
