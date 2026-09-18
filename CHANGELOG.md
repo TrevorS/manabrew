@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.45.3](https://github.com/witchesofthehill/manabrew/compare/v3.45.2...v3.45.3) (2026-09-18)
+
+### Performance
+
+* **forge-wasm:** describe the board to a bot seat only when it is prompted ([#953](https://github.com/witchesofthehill/manabrew/issues/953)) ([1d98d70](https://github.com/witchesofthehill/manabrew/commit/1d98d7074c9d036200b8d42af33ea3168786f007))
+
 ## [3.45.2](https://github.com/witchesofthehill/manabrew/compare/v3.45.1...v3.45.2) (2026-09-18)
 
 ## [3.45.1](https://github.com/witchesofthehill/manabrew/compare/v3.45.0...v3.45.1) (2026-09-18)
