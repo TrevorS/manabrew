@@ -347,11 +347,13 @@ pub fn resolve_effect_chain_with_parent(
                 || (parent_target_player.is_some() && sa.target_chosen.target_player.is_none()));
         let sa_ref = if needs_ctx_clone {
             sa_with_ctx = sa.clone();
-            if sa_with_ctx.target_chosen.target_card.is_none() {
-                sa_with_ctx.target_chosen.target_card = parent_target_card;
-            }
-            if sa_with_ctx.target_chosen.target_player.is_none() {
-                sa_with_ctx.target_chosen.target_player = parent_target_player;
+            if !sa_with_ctx.uses_targeting() {
+                if sa_with_ctx.target_chosen.target_card.is_none() {
+                    sa_with_ctx.target_chosen.target_card = parent_target_card;
+                }
+                if sa_with_ctx.target_chosen.target_player.is_none() {
+                    sa_with_ctx.target_chosen.target_player = parent_target_player;
+                }
             }
             &sa_with_ctx
         } else {

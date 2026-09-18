@@ -890,11 +890,13 @@ impl GameLoop {
                 if root_kicked && !sa_with_ctx.kicked {
                     sa_with_ctx.kicked = true;
                 }
-                if sa_with_ctx.target_chosen.target_card.is_none() {
-                    sa_with_ctx.target_chosen.target_card = parent_target_card;
-                }
-                if sa_with_ctx.target_chosen.target_player.is_none() {
-                    sa_with_ctx.target_chosen.target_player = parent_target_player;
+                if !sa_with_ctx.uses_targeting() {
+                    if sa_with_ctx.target_chosen.target_card.is_none() {
+                        sa_with_ctx.target_chosen.target_card = parent_target_card;
+                    }
+                    if sa_with_ctx.target_chosen.target_player.is_none() {
+                        sa_with_ctx.target_chosen.target_player = parent_target_player;
+                    }
                 }
                 if sa_with_ctx.target_chosen.target_stack_entry.is_none() {
                     sa_with_ctx.target_chosen.target_stack_entry = parent_target_stack_entry;
@@ -908,9 +910,12 @@ impl GameLoop {
                 sa
             };
             self.resolve_single_effect(game, agents, sa_ref, parent_target_card);
-            parent_target_card = sa_ref.target_chosen.target_card;
-            parent_target_player = sa_ref.target_chosen.target_player;
-            parent_target_stack_entry = sa_ref.target_chosen.target_stack_entry;
+            parent_target_card = sa_ref.target_chosen.target_card.or(parent_target_card);
+            parent_target_player = sa_ref.target_chosen.target_player.or(parent_target_player);
+            parent_target_stack_entry = sa_ref
+                .target_chosen
+                .target_stack_entry
+                .or(parent_target_stack_entry);
             inherited_trigger_index = sa_ref.trigger_index;
             current = sa.get_sub_ability();
         }

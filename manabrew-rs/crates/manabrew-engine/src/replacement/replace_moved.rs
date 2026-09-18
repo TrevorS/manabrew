@@ -262,7 +262,9 @@ fn execute_replacement_ability(
     let mut current_sa: Option<&crate::spellability::SpellAbility> = Some(&sa);
     while let Some(cur) = current_sa {
         let mut sa_with_ctx;
-        let sa_ref = if parent_target_player.is_some() && cur.target_chosen.target_player.is_none()
+        let sa_ref = if parent_target_player.is_some()
+            && cur.target_chosen.target_player.is_none()
+            && !cur.uses_targeting()
         {
             sa_with_ctx = cur.clone();
             sa_with_ctx.target_chosen.target_player = parent_target_player;
@@ -323,8 +325,8 @@ fn execute_replacement_ability(
             rng: rng_ref,
         };
         effects::resolve_effect(&mut ctx, sa_ref);
-        parent_target_card = sa_ref.target_chosen.target_card;
-        parent_target_player = sa_ref.target_chosen.target_player;
+        parent_target_card = sa_ref.target_chosen.target_card.or(parent_target_card);
+        parent_target_player = sa_ref.target_chosen.target_player.or(parent_target_player);
         current_sa = cur.get_sub_ability();
     }
     true
