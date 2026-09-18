@@ -1,12 +1,16 @@
 use forge_foundation::ZoneType;
 
-use super::{parse_counter_type, resolve_defined_player, resolve_numeric_svar, EffectContext};
+use super::{
+    matches_valid_cards_for_sa, parse_counter_type, resolve_defined_player, resolve_numeric_svar,
+    EffectContext,
+};
 use crate::ability::ability_ir::DefinedRef;
 use crate::agent::GameEntity;
 use crate::event::RunParams;
 use crate::game_entity_counter_table::GameEntityCounterTable;
 use crate::parsing::keys;
 use crate::spellability::SpellAbility;
+use crate::svar::resolve_numeric_value;
 use crate::trigger::TriggerType;
 
 pub fn build_spell_ability(sa: &mut crate::spellability::SpellAbility) {
@@ -115,6 +119,98 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         count = sa.trigger_remembered_amount;
     }
 
+    if let Some(filter) = sa.ir.choices.clone() {
+        let chooser = match sa.ir.chooser.as_deref() {
+            Some(defined) => {
+                match crate::ability::ability_utils::resolve_defined_players_with_sa(
+                    defined,
+                    sa,
+                    source_controller,
+                    ctx.game,
+                )
+                .first()
+                {
+                    Some(&player) => player,
+                    None => return,
+                }
+            }
+            None => sa.activating_player,
+        };
+        let raw = &sa.ability_text;
+        let n = crate::parsing::raw_get(raw, "ChoiceAmount")
+            .map_or(1, |value| resolve_numeric_value(ctx.game, sa, value, 1));
+        let m = crate::parsing::raw_get(raw, "MinChoiceAmount")
+            .map_or(n, |value| resolve_numeric_value(ctx.game, sa, value, n));
+        if n <= 0 {
+            return;
+        }
+        let zone = sa.ir.choice_zone.unwrap_or(ZoneType::Battlefield);
+        let skip_receive = crate::parsing::raw_has_key(raw, "SkipReceiveCounters");
+        let mut valid = Vec::new();
+        for &pid in &ctx.game.player_order.clone() {
+            for cid in ctx.game.cards_in_zone(zone, pid).to_vec() {
+                if matches_valid_cards_for_sa(
+                    ctx.game,
+                    sa,
+                    ctx.game.card(cid),
+                    sa.ir.choices_selector.as_ref(),
+                    &filter,
+                ) && (skip_receive
+                    || crate::card::card_predicates::can_receive_counters(
+                        ctx.game,
+                        cid,
+                        &counter_type,
+                    ))
+                {
+                    valid.push(cid);
+                }
+            }
+        }
+        ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        let chosen = ctx.agents[chooser.index()].choose_cards_for_effect(
+            chooser,
+            &valid,
+            m.max(0) as usize,
+            n as usize,
+        );
+        let divided = crate::parsing::raw_has_key(raw, "DividedAsYouChoose")
+            && sa.target_restrictions.is_none();
+        let activator = sa.activating_player;
+        let mut counter_remain = count;
+        for (divrem, &card_id) in chosen.iter().enumerate() {
+            let mut amount = count;
+            if divided {
+                amount = if divrem + 1 == chosen.len() || counter_remain == 1 {
+                    counter_remain
+                } else {
+                    ctx.agents[activator.index()]
+                        .choose_number(
+                            activator,
+                            sa.source,
+                            "How many counters",
+                            None,
+                            1,
+                            counter_remain,
+                        )
+                        .unwrap_or(1)
+                };
+            }
+            put_counters_on_card(
+                ctx,
+                sa,
+                card_id,
+                &counter_type,
+                amount,
+                placer,
+                source_controller,
+            );
+            if divided {
+                counter_remain -= amount;
+            }
+        }
+        return;
+    }
+
     // Resolve the controller of this ability (for Defined$ You etc.)
     // Check for Defined$ — if targeting a player (e.g. Defined$ You for energy),
     // handle player-level counters like ENERGY instead of card counters.
@@ -140,7 +236,26 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let Some(card_id) = resolve_card_target(ctx.game, sa) else {
         return;
     };
+    put_counters_on_card(
+        ctx,
+        sa,
+        card_id,
+        &counter_type,
+        count,
+        placer,
+        source_controller,
+    );
+}
 
+fn put_counters_on_card(
+    ctx: &mut EffectContext,
+    sa: &SpellAbility,
+    card_id: crate::ids::CardId,
+    counter_type: &crate::card::CounterType,
+    count: i32,
+    placer: crate::ids::PlayerId,
+    source_controller: crate::ids::PlayerId,
+) {
     let is_adapt = sa.ir.adapt.is_some();
     if is_adapt {
         let current = ctx
@@ -171,16 +286,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
         &ctx.game.cards,
         ctx.game.card(card_id),
-        &counter_type,
+        counter_type,
     ) {
         return;
     }
     if let Some(max) = crate::staticability::static_ability_max_counter::max_counter(
         &ctx.game.cards,
         ctx.game.card(card_id),
-        &counter_type,
+        counter_type,
     ) {
-        let current = ctx.game.card(card_id).counter_count(&counter_type);
+        let current = ctx.game.card(card_id).counter_count(counter_type);
         if current >= max {
             return;
         }
@@ -193,7 +308,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     } else {
         ctx.add_counter(
             card_id,
-            &counter_type,
+            counter_type,
             count,
             sa,
             RunParams {
