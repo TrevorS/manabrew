@@ -1,19 +1,16 @@
 //! `parity explain` and `parity gate-summary`: read a finished run instead of rerunning it.
 //!
 //! `explain` takes a `--format json` report and, for one game, prints the first RNG draw the
-//! two agents disagree on, every snapshot field that differs at the divergence turn, the
-//! options that differ in the first unequal `$ACTION_SPACE` of the decision's phase, and the
-//! callbacks of that phase. `gate-summary` tallies one `--gate-out` file without a baseline.
+//! two agents disagree on, the first target candidate list that differs, every snapshot field
+//! that differs at the divergence turn, the options that differ in the first unequal
+//! `$ACTION_SPACE` of the decision's phase, and the callbacks of that phase. `gate-summary`
+//! tallies one `--gate-out` file without a baseline.
 
 use std::collections::BTreeMap;
 
 use serde_json::Value;
 
-const JAVA_ONLY_ROWS: [&str; 3] = [
-    "choose_starting_player",
-    "get_ability_to_play",
-    "choose_targets_for(candidates)",
-];
+const JAVA_ONLY_ROWS: [&str; 2] = ["choose_starting_player", "get_ability_to_play"];
 
 fn option<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
     args.iter()
@@ -53,6 +50,13 @@ fn log<'a>(result: &'a Value, side: &str) -> &'a [Value] {
 
 fn is_callback(entry: &Value) -> bool {
     entry.get("entry_type").and_then(Value::as_str) == Some("callback")
+}
+
+fn only_in(a: &BTreeMap<String, usize>, b: &BTreeMap<String, usize>) -> Vec<String> {
+    a.iter()
+        .filter(|(k, n)| b.get(*k).copied().unwrap_or(0) < **n)
+        .map(|(k, _)| k.clone())
+        .collect()
 }
 
 fn is_pass(entry: &Value) -> bool {
@@ -271,18 +275,12 @@ fn print_action_space_diff(result: &Value, turn: i64, phase: &str) {
         if r == j {
             continue;
         }
-        let only = |a: &BTreeMap<String, usize>, b: &BTreeMap<String, usize>| -> Vec<String> {
-            a.iter()
-                .filter(|(k, n)| b.get(*k).copied().unwrap_or(0) < **n)
-                .map(|(k, _)| k.clone())
-                .collect()
-        };
         println!(
             "action space #{i} of T{turn} {phase} (P{} / P{}): rust only {:?}, java only {:?}",
             r.0,
             j.0,
-            only(&r.1, &j.1),
-            only(&j.1, &r.1)
+            only_in(&r.1, &j.1),
+            only_in(&j.1, &r.1)
         );
         return;
     }
@@ -292,6 +290,54 @@ fn print_action_space_diff(result: &Value, turn: i64, phase: &str) {
         rust.len(),
         java.len()
     );
+}
+
+/// Java lists target candidates in game order and Rust by name, so each list is a multiset.
+fn target_candidates(entries: &[Value]) -> Vec<(&Value, BTreeMap<String, usize>)> {
+    entries
+        .iter()
+        .filter(|e| is_callback(e) && text(e, "name") == "choose_targets_for(candidates)")
+        .map(|e| {
+            let outcome = text(e, "outcome");
+            let mut names = BTreeMap::new();
+            for part in outcome
+                .trim_start_matches('[')
+                .trim_end_matches(']')
+                .split("), ")
+                .filter(|p| !p.is_empty())
+            {
+                let name = part.strip_suffix(')').unwrap_or(part);
+                *names.entry(format!("{name})")).or_default() += 1;
+            }
+            (e, names)
+        })
+        .collect()
+}
+
+fn print_candidate_diff(result: &Value) {
+    let rust = target_candidates(log(result, "rust_log"));
+    let java = target_candidates(log(result, "java_log"));
+    for (i, ((entry, r), (_, j))) in rust.iter().zip(java.iter()).enumerate() {
+        if r != j {
+            println!(
+                "target candidates #{i} (T{} {} P{}): rust only {:?}, java only {:?}",
+                int(entry, "turn"),
+                text(entry, "phase"),
+                int(entry, "player"),
+                only_in(r, j),
+                only_in(j, r)
+            );
+            return;
+        }
+    }
+    if rust.len() != java.len() {
+        println!(
+            "target candidates: rust {} list(s), java {}, the first {} agree",
+            rust.len(),
+            java.len(),
+            rust.len().min(java.len())
+        );
+    }
 }
 
 fn print_phase_rows(result: &Value, turn: i64, phase: &str, rows: usize) {
@@ -398,6 +444,7 @@ pub fn run_explain_cli(args: &[String]) -> i32 {
             );
         }
         print_draw_diff(result, context);
+        print_candidate_diff(result);
         if let Some(d) = divergence {
             print_snapshot_diff(result, int(d, "turn"));
         }

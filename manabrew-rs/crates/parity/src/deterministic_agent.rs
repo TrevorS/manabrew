@@ -861,6 +861,28 @@ impl DeterministicAgent {
         self.verbose.is_active(self.current_turn)
     }
 
+    /// Java's `choose_targets_for(candidates)` row. It must not assign a parity id.
+    fn log_target_candidates(&self, players: &[PlayerId], cards: &[CardId]) {
+        if !self.choosing_targets {
+            return;
+        }
+        let names: Vec<String> = players
+            .iter()
+            .map(|player| format!("Player({})", player.0))
+            .chain(cards.iter().map(|&card| {
+                let id = self
+                    .parity_map
+                    .peek(card)
+                    .map_or_else(|| "?".to_string(), |id| id.to_string());
+                format!("Card({}@{id})", self.card_name(card))
+            }))
+            .collect();
+        self.emit_callback(
+            "choose_targets_for(candidates)",
+            &format!("[{}]", names.join(", ")),
+        );
+    }
+
     fn emit_callback(&self, name: &str, outcome: &str) {
         if let Some(ref observer) = self.parity_observer {
             observer.on_callback(
@@ -1503,6 +1525,8 @@ impl PlayerAgent for DeterministicAgent {
                     .then_with(|| self.parity_map.id(ca).cmp(&self.parity_map.id(cb))),
                 _ => a.cmp(b),
             });
+        let spell_cards: Vec<CardId> = sorted.iter().filter_map(|&id| source_of(id)).collect();
+        self.log_target_candidates(&[], &spell_cards);
         let target = choice_space::pick_one(&sorted, &mut self.rng.borrow_mut())?;
         Some(target)
     }
@@ -1516,6 +1540,7 @@ impl PlayerAgent for DeterministicAgent {
         if valid.is_empty() {
             return None;
         }
+        self.log_target_candidates(valid, &[]);
         let target = choice_space::pick_one(valid, &mut self.rng.borrow_mut())?;
         Some(target)
     }
@@ -1540,6 +1565,7 @@ impl PlayerAgent for DeterministicAgent {
                 })
                 .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
         });
+        self.log_target_candidates(&[], &sorted);
         let target = choice_space::pick_one(&sorted, &mut self.rng.borrow_mut())?;
         Some(target)
     }
@@ -1563,6 +1589,7 @@ impl PlayerAgent for DeterministicAgent {
                 })
                 .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
         });
+        self.log_target_candidates(&[], &sorted);
         choice_space::pick_one(&sorted, &mut self.rng.borrow_mut())
     }
 
@@ -1595,6 +1622,23 @@ impl PlayerAgent for DeterministicAgent {
                 .then_with(|| self.parity_map.id(*ca).cmp(&self.parity_map.id(*cb))),
             _ => std::cmp::Ordering::Equal,
         });
+        let (candidate_players, candidate_cards): (Vec<PlayerId>, Vec<CardId>) = (
+            sorted
+                .iter()
+                .filter_map(|choice| match choice {
+                    TargetChoice::Player(player) => Some(*player),
+                    _ => None,
+                })
+                .collect(),
+            sorted
+                .iter()
+                .filter_map(|choice| match choice {
+                    TargetChoice::Card(card) => Some(*card),
+                    _ => None,
+                })
+                .collect(),
+        );
+        self.log_target_candidates(&candidate_players, &candidate_cards);
 
         let total = sorted.len();
 
@@ -1910,6 +1954,7 @@ impl PlayerAgent for DeterministicAgent {
                 .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
         });
         if self.choosing_targets {
+            self.log_target_candidates(&[], &sorted);
             return self.choose_targets_like_java(sorted, min, max);
         }
         gui_repro::pick_many_unique(&sorted, min, max, &mut self.rng.borrow_mut())

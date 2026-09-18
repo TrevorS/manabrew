@@ -173,6 +173,12 @@ impl ParityCardMap {
         }
     }
 
+    /// The parity ID of `cid` if it has one, without assigning one; for logging, where a
+    /// first touch would change the IDs of later cards.
+    pub fn peek(&self, cid: CardId) -> Option<u32> {
+        self.inner.lock().unwrap().by_card.get(&cid).copied()
+    }
+
     /// Return the stable parity ID for `cid`.  If this card has not been seen
     /// before (e.g. a token or copy created mid-game), a new sequential ID is
     /// assigned automatically.
