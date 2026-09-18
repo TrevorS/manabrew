@@ -105,6 +105,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         target.activated_abilities = src.activated_abilities.clone();
         target.static_abilities = src.static_abilities.clone();
         target.replacement_effects = src.replacement_effects.clone();
+        for static_ability in &mut target.static_abilities {
+            static_ability.base.set_host_card_id(clone_target_id);
+        }
+        for replacement_effect in &mut target.replacement_effects {
+            replacement_effect.base.set_host_card_id(clone_target_id);
+        }
         target.ensure_crew_activated_ability();
         target.base_ability_count = target.activated_abilities.len();
         target.base_trigger_count = target.triggers.len();
