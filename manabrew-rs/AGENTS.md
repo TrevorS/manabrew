@@ -79,7 +79,7 @@ Use this when a parity report points at a specific failure mode:
 | Spell resolves wrong                           | `ability/effects/<api>_effect.rs`                                                              |
 | Attack/block illegal or missing                | `combat/attack_constraints.rs`, `combat/attack_restriction*.rs`                                |
 | Zone change misroutes                          | `replacement/replace_moved.rs`, `ability/effects/change_zone_effect/`                          |
-| Wrong card available to play                   | `game_loop/playability.rs`, `card/card_play_option.rs`                                         |
+| Wrong card available to play                   | `game_loop/playability.rs`, `card/card_play_option.rs`; run with `FORGE_CARD_TRACE=<name>`     |
 
 ## Conventions
 

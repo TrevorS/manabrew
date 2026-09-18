@@ -178,7 +178,9 @@ impl GameLoop {
             }
             battlefield.extend(game.cards_in_zone(ZoneType::Battlefield, other_player));
         }
-        let can_activate = |card_id: CardId, ab: &crate::ability::ActivatedAbility| {
+        let activation_verdict = |card_id: CardId,
+                                  ab: &crate::ability::ActivatedAbility|
+         -> Result<(), &'static str> {
             // Per-game activation cap (e.g. "GameActivationLimit$ 1").
             if let Some(limit) = ab.game_activation_limit {
                 let used = game
@@ -188,7 +190,7 @@ impl GameLoop {
                     .copied()
                     .unwrap_or(0);
                 if used >= limit {
-                    return false;
+                    return Err("GameActivationLimit reached");
                 }
             }
             // PowerUp: once-per-game restriction
@@ -201,11 +203,11 @@ impl GameLoop {
                     .unwrap_or(0)
                     > 0
                 {
-                    return false;
+                    return Err("PowerUp or Exhaust already activated");
                 }
             }
             if ab.sorcery_speed && !can_play_sorcery {
-                return false;
+                return Err("sorcery speed");
             }
             // Activated abilities that require targets should only be offered
             // when at least one legal target candidate exists.
@@ -218,11 +220,11 @@ impl GameLoop {
                 game.card(card_id),
                 player,
             ) {
-                return false;
+                return Err("CantBeActivated static");
             }
             // Activated-ability legality checks (split second, suppression, detention, etc.).
             if !crate::spellability::ability_activated::can_play(&sa_for_target_check, game) {
-                return false;
+                return Err("ability_activated::can_play");
             }
             if !Self::can_activate_planeswalker_ability(
                 game,
@@ -230,7 +232,7 @@ impl GameLoop {
                 &sa_for_target_check,
                 can_play_sorcery,
             ) {
-                return false;
+                return Err("planeswalker activation rule");
             }
             if let Some(tr) = sa_for_target_check.target_restrictions.as_ref() {
                 let min_targets = tr.get_min_targets(game, &sa_for_target_check);
@@ -241,7 +243,7 @@ impl GameLoop {
                         &sa_for_target_check,
                     )
                 {
-                    return false;
+                    return Err("no target candidates");
                 }
             }
             let needs_mana = ab
@@ -293,9 +295,27 @@ impl GameLoop {
                 )
             };
             if !can_pay_cost {
-                return false;
+                return Err("cost cannot be paid");
             }
-            true
+            Ok(())
+        };
+        let can_activate = |card_id: CardId, ab: &crate::ability::ActivatedAbility| {
+            let verdict = activation_verdict(card_id, ab);
+            let card = game.card(card_id);
+            if Self::card_trace_matches(&card.card_name) {
+                eprintln!(
+                    "[card-trace] T{} P{} {}#{} {:?} ability {} ({}): {}",
+                    game.turn.turn_number,
+                    player.0,
+                    card.card_name,
+                    card_id.index(),
+                    card.zone,
+                    ab.ability_index,
+                    ab.cost_string().unwrap_or_default(),
+                    verdict.err().unwrap_or("offered"),
+                );
+            }
+            verdict.is_ok()
         };
 
         for card_id in battlefield {

@@ -32,15 +32,23 @@ impl GameLoop {
 
     /// Mana a spell cast of this card could draw on: `RestrictValid$` sources that the
     /// spell does not satisfy are left out, as `AbilityManaPart.meetsManaRestrictions` does.
-    fn available_mana_for_spell_card(
-        &self,
-        game: &GameState,
-        player: PlayerId,
-        card_id: CardId,
+    pub(super) fn card_trace_matches(name: &str) -> bool {
+        static FILTER: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+        FILTER
+            .get_or_init(|| {
+                std::env::var("FORGE_CARD_TRACE")
+                    .ok()
+                    .filter(|f| !f.is_empty())
+            })
+            .as_deref()
+            .is_some_and(|filter| name.eq_ignore_ascii_case(filter))
+    }
+
+    fn spell_payment_context(
+        card: &crate::card::Card,
         chosen_types_by_source: &crate::HashMap<CardId, String>,
-    ) -> crate::mana::ManaPool {
-        let card = game.card(card_id);
-        let payment_ctx = mana::ManaPaymentContext {
+    ) -> mana::ManaPaymentContext {
+        mana::ManaPaymentContext {
             is_spell: true,
             is_activated_ability: false,
             sa_on_stack: false,
@@ -48,7 +56,17 @@ impl GameLoop {
             card_name: Some(card.card_name.clone()),
             card_color: Some(card.color),
             chosen_types_by_source: chosen_types_by_source.clone(),
-        };
+        }
+    }
+
+    fn available_mana_for_spell_card(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+        chosen_types_by_source: &crate::HashMap<CardId, String>,
+    ) -> crate::mana::ManaPool {
+        let payment_ctx = Self::spell_payment_context(game.card(card_id), chosen_types_by_source);
         mana::calculate_available_mana_with_context(
             self.pool(player),
             game,
@@ -1281,7 +1299,129 @@ impl GameLoop {
             }
         }
 
+        self.trace_playability(game, player, must_be_instant, &playable);
         playable
+    }
+
+    /// The checks are recomputed for the normal cost; `offered` is what the action space holds.
+    fn trace_playability(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        must_be_instant: bool,
+        playable: &[crate::agent::PlayOption],
+    ) {
+        for zone in [
+            ZoneType::Hand,
+            ZoneType::Graveyard,
+            ZoneType::Exile,
+            ZoneType::Command,
+        ] {
+            for &card_id in game.cards_in_zone(zone, player) {
+                let card = game.card(card_id);
+                if !Self::card_trace_matches(&card.card_name) {
+                    continue;
+                }
+                let offered: Vec<crate::agent::PlayCardMode> = playable
+                    .iter()
+                    .filter(|option| option.card_id == card_id)
+                    .map(|option| option.mode)
+                    .collect();
+                let mut sa =
+                    crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
+                sa.restriction.variables.set_zone(zone);
+                let cant_be_cast =
+                    crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_in_context(
+                        &game.cards,
+                        &sa,
+                        &crate::staticability::static_ability_cant_be_cast::restriction_host(card),
+                        player,
+                        Some(game),
+                    );
+                let flash = card.type_line.is_instant()
+                    || card.has_keyword("Flash")
+                    || crate::staticability::static_ability_cast_with_flash::any_with_flash_for_card(
+                        game, card, player,
+                    );
+                let targets = sa.target_restrictions.as_ref().map(|tr| {
+                    (
+                        tr.get_min_targets(game, &sa),
+                        target_restrictions::has_candidates_in_spell_ability_chain(
+                            game, player, &sa,
+                        ),
+                    )
+                });
+                let raise = crate::cost::cost_adjustment::compute_raise_cost_parts(
+                    game, card, player, zone,
+                )
+                .as_ref()
+                .map(Self::mana_from_cost)
+                .unwrap_or_else(|| forge_foundation::ManaCost::generic(0));
+                let cost =
+                    crate::cost::cost_adjustment::compute_cost_adjustment(game, card, player, zone)
+                        .apply(&card.mana_cost.without_x())
+                        .add(&raise);
+                let reduced = apply_cost_reductions(
+                    game,
+                    player,
+                    card_id,
+                    card,
+                    &crate::mana::apply_player_life_payment_keywords(game, player, &cost),
+                );
+                let chosen: crate::HashMap<CardId, String> = game
+                    .cards
+                    .iter()
+                    .filter_map(|c| c.chosen_type.clone().map(|chosen| (c.id, chosen)))
+                    .collect();
+                let mana = self.available_mana_for_spell_card(game, player, card_id, &chosen);
+                let simulated = crate::mana::can_pay_spell_mana_cost_for_action_space(
+                    game,
+                    self.pool(player),
+                    player,
+                    card_id,
+                    &reduced,
+                    &Self::spell_payment_context(card, &chosen),
+                );
+                let may_play_from: Vec<&str> = game
+                    .cards_in_zone(ZoneType::Battlefield, player)
+                    .iter()
+                    .chain(game.cards_in_zone(ZoneType::Command, player))
+                    .flat_map(|&source_id| {
+                        let source = game.card(source_id);
+                        source
+                            .static_abilities
+                            .iter()
+                            .filter(move |st| {
+                                crate::staticability::static_ability_continuous::can_play_or_granted(
+                                    st, source, card, game,
+                                )
+                            })
+                            .map(move |_| source.card_name.as_str())
+                    })
+                    .collect();
+                eprintln!(
+                    "[card-trace] T{} P{} {}#{} {zone:?}: offered {offered:?} | cant_be_cast={cant_be_cast} \
+                     can_play={} instant_only={must_be_instant} flash={flash} | (min targets, candidates)={targets:?} \
+                     | cost {} -> {reduced} | mana {} from {:?} sources (W{} U{} B{} R{} G{} C{}) pool_pays={} \
+                     simulated_pays={simulated} | may_play from {may_play_from:?}",
+                    game.turn.turn_number,
+                    player.0,
+                    card.card_name,
+                    card_id.index(),
+                    crate::spellability::spell::can_play(&sa, game),
+                    card.mana_cost,
+                    mana.total_mana(),
+                    mana.total_sources,
+                    mana.white(),
+                    mana.blue(),
+                    mana.black(),
+                    mana.red(),
+                    mana.green(),
+                    mana.colorless(),
+                    mana.can_pay(&reduced),
+                );
+            }
+        }
     }
 }
 

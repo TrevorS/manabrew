@@ -131,6 +131,6 @@ Other useful trace env vars:
 | `FORGE_SORT_TRACE=1`        | Trace Java ordering/sorting decisions forwarded through the harness. |
 | `FORGE_STACK_TRACE=1`       | Trace Rust stack casting and resolution paths.                       |
 | `FORGE_PAYMENT_TRACE=1`     | Trace Rust mana payment decisions.                                   |
-| `FORGE_CARD_TRACE=<name>`   | Trace Rust card lookup/details for matching card names.              |
+| `FORGE_CARD_TRACE=<name>`   | Trace one Rust card: zone moves, and why it is or is not offered.    |
 | `FORGE_LIB_DUMP=1`          | Ask the Java harness to dump library details.                        |
 | `FORGE_TOKEN_DEBUG=1`       | Ask the Java harness to print token diagnostics.                     |
