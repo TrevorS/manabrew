@@ -1453,6 +1453,7 @@ pub(crate) fn reapply_non_undoable_payment_ability(
     player: PlayerId,
     card_id: CardId,
     ability_index: usize,
+    chosen_atom: u16,
 ) {
     let Some(ab) = game.card(card_id).activated_abilities.get(ability_index) else {
         return;
@@ -1480,9 +1481,7 @@ pub(crate) fn reapply_non_undoable_payment_ability(
         if has_tap_cost {
             game.tap(card_id);
         }
-        for &atom in &atoms {
-            pool.add(atom, amount.max(1));
-        }
+        produce_mana_for_auto_pay(game, pool, player, &ma, chosen_atom, &mut None);
     }
 }
 

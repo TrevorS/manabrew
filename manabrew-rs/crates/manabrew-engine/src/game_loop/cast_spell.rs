@@ -1703,7 +1703,7 @@ impl GameLoop {
         let pool_size_before = self.pool(player).total_mana();
         let colors_spent_to_cast = std::cell::Cell::new(0u16);
         let paying_mana_to_cast = std::cell::RefCell::new(Vec::new());
-        let failed_non_undoable_choices: std::cell::RefCell<Vec<(CardId, usize)>> =
+        let failed_non_undoable_choices: std::cell::RefCell<Vec<(CardId, usize, u16)>> =
             std::cell::RefCell::new(Vec::new());
 
         // Unified mana payment loop. Agents decide whether to pay manually or
@@ -1802,7 +1802,11 @@ impl GameLoop {
                                                 )
                                             })
                                         });
-                                    non_undoable.then_some((choice.card_id, idx))
+                                    non_undoable.then_some((
+                                        choice.card_id,
+                                        idx,
+                                        choice.chosen_atom,
+                                    ))
                                 }),
                             );
                             // Append the explicit failure here so the
@@ -1886,13 +1890,14 @@ impl GameLoop {
                 }
                 let non_undoable = std::mem::take(&mut *failed_non_undoable_choices.borrow_mut());
                 self.restore_snapshot(game, &cast_rollback_snapshot);
-                for (source_id, ability_index) in non_undoable {
+                for (source_id, ability_index, chosen_atom) in non_undoable {
                     crate::mana::computer_util_mana::reapply_non_undoable_payment_ability(
                         game,
                         self.pool_mut(player),
                         player,
                         source_id,
                         ability_index,
+                        chosen_atom,
                     );
                 }
                 return None;
