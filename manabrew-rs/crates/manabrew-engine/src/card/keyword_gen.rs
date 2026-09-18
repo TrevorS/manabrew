@@ -302,6 +302,19 @@ impl Card {
             }
         }
 
+        // Craft: K:Craft:{cost} → AB$ ChangeZone that exiles this artifact with the cost and
+        // returns it transformed. Mirrors Java CardFactoryUtil (`inst instanceof Craft`).
+        if let Some(craft) = self.get_keyword_cost("Craft") {
+            let cost = craft.split(':').next().unwrap_or_default().trim();
+            let ab_text = format!(
+                "AB$ ChangeZone | Cost$ Exile<1/CARDNAME> {cost} | Origin$ Exile | Destination$ Battlefield | Transformed$ True | Defined$ CorrectedSelf | SorcerySpeed$ True | SpellDescription$ Craft"
+            );
+            let next_idx = self.activated_abilities.len();
+            if let Some(ab) = parse_activated_ability(&ab_text, next_idx) {
+                self.activated_abilities.push(ab);
+            }
+        }
+
         // Class: K:Class:{level}:{cost}:{params} → AB$ ClassLevelUp.
         // Mirrors Java CardFactoryUtil lines 2789-2799.
         let class_keywords: Vec<String> = self

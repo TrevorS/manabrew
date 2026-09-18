@@ -115,7 +115,11 @@ fn unique_push_spell(spells: &mut Vec<SpellAbility>, spell: SpellAbility) {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum_macros::EnumString)]
 #[strum(ascii_case_insensitive)]
 pub enum DefinedCardToken {
-    #[strum(serialize = "Self", serialize = "CARDNAME")]
+    #[strum(
+        serialize = "Self",
+        serialize = "CARDNAME",
+        serialize = "CorrectedSelf"
+    )]
     SelfCard,
     #[strum(
         serialize = "Remembered",
