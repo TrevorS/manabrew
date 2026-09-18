@@ -246,7 +246,16 @@ fn options(outcome: &str) -> BTreeMap<String, usize> {
         let Some(rest) = part.split("card: ").nth(1) else {
             continue;
         };
-        let card = rest.split(',').next().unwrap_or(rest).trim();
+        let card = match rest.find('@') {
+            Some(at) => {
+                let digits = rest[at + 1..]
+                    .bytes()
+                    .take_while(u8::is_ascii_digit)
+                    .count();
+                &rest[..at + 1 + digits]
+            }
+            None => rest.split(',').next().unwrap_or(rest).trim(),
+        };
         let label = if part.contains("ability_index: ") {
             format!("{card} ability")
         } else {
