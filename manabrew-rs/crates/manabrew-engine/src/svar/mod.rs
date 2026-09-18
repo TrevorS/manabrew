@@ -1502,7 +1502,9 @@ fn evaluate_cost_amount_count_expr(
     crate::ability::effects::resolve_count_svar(expr, game, source.id, source.controller)
 }
 
-/// The part of `AbilityUtils.handlePaid` that a `Count$Valid... $<what>` suffix reaches.
+/// The part of `AbilityUtils.handlePaid` that a `Count$Valid... $<what>` suffix reaches; the tail
+/// is Java's Least/Greatest/Different/sum over `xCount(card, <what>)` for the card properties
+/// listed.
 fn count_valid_aggregate(
     game: &GameState,
     matches: &[&crate::card::Card],
@@ -1519,9 +1521,54 @@ fn count_valid_aggregate(
                 aggregator == "CardTypesPermanent",
             )
         }
+        "Colors" => matches
+            .iter()
+            .fold(0u8, |mask, card| mask | card.color.mask())
+            .count_ones() as i32,
+        "DifferentCardNames" => {
+            let mut names: Vec<&str> = Vec::new();
+            for card in matches.iter().filter(|card| !card.face_down) {
+                if !names.contains(&card.card_name.as_str()) {
+                    names.push(card.card_name.as_str());
+                }
+            }
+            names.len() as i32
+        }
         other => {
-            crate::census::unhandled("count_valid_aggregate", other);
-            0
+            let (fold, property): (fn(Vec<i32>) -> i32, &str) =
+                if let Some(rest) = other.strip_prefix("Least") {
+                    (|values| values.into_iter().min().unwrap_or(0), rest)
+                } else if let Some(rest) = other.strip_prefix("Greatest") {
+                    (|values| values.into_iter().max().unwrap_or(0), rest)
+                } else if let Some(rest) = other.strip_prefix("Different") {
+                    (
+                        |mut values| {
+                            values.sort_unstable();
+                            values.dedup();
+                            values.len() as i32
+                        },
+                        rest,
+                    )
+                } else {
+                    (|values| values.into_iter().sum(), other)
+                };
+            let values: Option<Vec<i32>> = matches
+                .iter()
+                .map(|card| match property {
+                    "CardPower" => Some(card.power()),
+                    "CardToughness" => Some(card.toughness()),
+                    "CardSumPT" => Some(card.power() + card.toughness()),
+                    "CardManaCost" => Some(card.mana_value()),
+                    _ => None,
+                })
+                .collect();
+            match values {
+                Some(values) => fold(values),
+                None => {
+                    crate::census::unhandled("count_valid_aggregate", other);
+                    0
+                }
+            }
         }
     }
 }
@@ -1766,9 +1813,16 @@ pub fn resolve_count_svar_for_sa(
     // - Count$ValidBattlefield Creature.YouCtrl
     if let Some(rest) = expr.strip_prefix("Count$Valid") {
         let (rest, operators) = rest.split_once('/').unwrap_or((rest, ""));
-        let mut parts = rest.trim_start().splitn(2, ' ');
-        let zone_part = parts.next().unwrap_or("").trim();
-        let restrictions = parts.next().unwrap_or("").trim();
+        let (zone_part, restrictions) = match rest.strip_prefix(' ') {
+            Some(restrictions) => ("", restrictions.trim()),
+            None => {
+                let mut parts = rest.splitn(2, ' ');
+                (
+                    parts.next().unwrap_or("").trim(),
+                    parts.next().unwrap_or("").trim(),
+                )
+            }
+        };
         let (restrictions, aggregator) = restrictions.split_once('$').unwrap_or((restrictions, ""));
         if !restrictions.is_empty() {
             let self_only = zone_part.ends_with("Self");
