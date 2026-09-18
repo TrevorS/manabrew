@@ -84,6 +84,44 @@ pub fn can_play_or_granted(
         .any(|granted| can_play(&granted, source, card, game))
 }
 
+/// Java `SpellAbilityRestriction.checkZoneRestrictions`: a grant made with
+/// `MayPlayDontGrantZonePermissions$` lets its owner cast the card from hand,
+/// and from another zone only when some other grant opens that zone.
+pub fn grants_zone_permissions(
+    st_ab: &StaticAbility,
+    source: &Card,
+    card: &Card,
+    game: &GameState,
+) -> bool {
+    if can_play(st_ab, source, card, game) {
+        return st_ab.ir.may_play_grants_zone_permissions;
+    }
+    can_play_or_granted(st_ab, source, card, game)
+}
+
+/// The `MayPlayAltManaCost$` of every grant that lets `player` cast `card`,
+/// in the order Java's `getMayPlaySpellOptions` walks `Card.mayPlay`.
+pub fn may_play_alt_costs(
+    game: &GameState,
+    player: crate::ids::PlayerId,
+    card: &Card,
+) -> Vec<String> {
+    game.cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
+        .iter()
+        .chain(
+            game.cards_in_zone(forge_foundation::ZoneType::Command, player)
+                .iter(),
+        )
+        .flat_map(|&source_id| {
+            let source = game.card(source_id);
+            source
+                .static_abilities
+                .iter()
+                .filter_map(move |st_ab| may_play_alt_mana_cost(st_ab, source, card, game))
+        })
+        .collect()
+}
+
 /// If a `MayPlay$ True` static on `source` grants `card` permission to be
 /// cast and also defines `MayPlayAltManaCost$`, return that alt cost string.
 /// Mirrors Java's `GameActionUtil.canPlayCardMayPlay` reading

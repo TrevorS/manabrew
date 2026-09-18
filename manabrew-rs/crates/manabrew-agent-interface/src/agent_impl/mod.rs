@@ -322,6 +322,10 @@ impl<R: Responder> PromptAgent<R> {
                 "Foretell (exile face-down)".to_string(),
             ),
             E::UnlockDoor => (PlayCardMode::UnlockDoor, "Unlock door".to_string()),
+            E::MayPlay(_) => (
+                PlayCardMode::StaticAlternative,
+                "Cast by paying its alternative cost".to_string(),
+            ),
             E::Alternative(alt) => (
                 PlayCardMode::Alternative {
                     cost: Self::alt_cost_kind(*alt),
@@ -342,6 +346,8 @@ impl<R: Responder> PromptAgent<R> {
             E::ForetellExile => "foretellExile".to_string(),
             E::UnlockDoor => "unlockDoor".to_string(),
             E::Alternative(alt) => format!("alternative:{}", format!("{alt:?}").to_lowercase()),
+            E::MayPlay(None) => "mayPlay".to_string(),
+            E::MayPlay(Some(alt)) => format!("mayPlay:{}", format!("{alt:?}").to_lowercase()),
         }
     }
 
@@ -356,6 +362,13 @@ impl<R: Responder> PromptAgent<R> {
             "unlockDoor" => Some(PlayCardMode::UnlockDoor),
             "roomRightSplit" => Some(PlayCardMode::RoomRightSplit),
             "secondary" => Some(PlayCardMode::Secondary),
+            "mayPlay" => Some(PlayCardMode::MayPlay(None)),
+            s if s.starts_with("mayPlay:") => {
+                match Self::parse_play_mode(&format!("alternative:{}", &s["mayPlay:".len()..]))? {
+                    PlayCardMode::Alternative(alt) => Some(PlayCardMode::MayPlay(Some(alt))),
+                    _ => None,
+                }
+            }
             s if s.starts_with("alternative:") => {
                 let alt = match &s["alternative:".len()..] {
                     "flashback" => A::Flashback,

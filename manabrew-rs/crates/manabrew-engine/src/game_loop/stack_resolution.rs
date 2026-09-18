@@ -385,7 +385,10 @@ impl GameLoop {
                         .unwrap_or_else(|| "3".to_string());
                     c.set_face_down(true);
                     c.set_original_state_as_face_down();
-                    if disguise_cost.is_some() {
+                    // Java's MayPlay copy rebuilds its params from `originalMapParams`
+                    // (`CardTraitBase.copyHelper`), dropping the `FaceDownKeyword$ Ward:2`
+                    // that `putParam` set on the Disguise cast.
+                    if disguise_cost.is_some() && !entry.spell_ability.cast_with_may_play {
                         c.add_intrinsic_keyword("Ward:2");
                     }
                     c.static_set_power = Some(crate::spellability::MORPH_PT);

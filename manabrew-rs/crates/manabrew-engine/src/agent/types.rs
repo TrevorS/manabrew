@@ -52,6 +52,9 @@ pub enum PlayCardMode {
     Alternative(AlternativeCost),
     /// Alternative cost granted by `Mode$ AlternativeCost` static abilities.
     StaticAlternative,
+    /// A `MayPlay$` grant's `MayPlayAltManaCost$` in place of the mana cost of the
+    /// option it copies (`None` for the card's spell); `alt_cost_index` picks the grant.
+    MayPlay(Option<AlternativeCost>),
     ForetellExile,
     /// Unlock a Room door on a permanent already on the battlefield.
     /// Mirrors Java's `StaticAbilityApiBased` for `ST$ UnlockDoor` which falls

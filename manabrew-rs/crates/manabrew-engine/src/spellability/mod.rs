@@ -171,6 +171,8 @@ pub struct SpellAbility {
     /// static AddKeyword): 0 = first payable Evoke, 1 = second, …
     #[serde(default)]
     pub alt_cost_index: u8,
+    #[serde(default)]
+    pub cast_with_may_play: bool,
     /// Number of Evoke keywords on the card at cast time (intrinsic + granted
     /// from hand — e.g. Ashling, the Limitless's `AddKeyword$ Evoke:4`).
     /// Java parity: `CardFactoryUtil` attaches one Evoke "sacrifice when it
@@ -616,6 +618,7 @@ impl SpellAbility {
             trigger_index: None,
             alt_cost: None,
             alt_cost_index: 0,
+            cast_with_may_play: false,
             evoke_keyword_count: 0,
             kicked: false,
             buyback_paid: false,

@@ -600,6 +600,19 @@ impl GameLoop {
                 );
                 static_alternative_cost_prepared = true;
             }
+            crate::agent::PlayCardMode::MayPlay(base) => {
+                let alt_cost = crate::staticability::static_ability_continuous::may_play_alt_costs(
+                    game,
+                    player,
+                    game.card(card_id),
+                )
+                .into_iter()
+                .nth(play.alt_cost_index as usize)?;
+                sa.alt_cost = base;
+                sa.cast_with_may_play = true;
+                sa.pay_costs = Some(parse_cost(&alt_cost));
+                static_alternative_cost_prepared = true;
+            }
             crate::agent::PlayCardMode::Alternative(alt_cost) => {
                 if alt_cost == crate::spellability::AlternativeCost::Suspend {
                     return None;

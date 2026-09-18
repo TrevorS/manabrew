@@ -510,6 +510,10 @@ impl DeterministicAgent {
             PlayCardMode::StaticAlternative => "StaticAlternative",
             PlayCardMode::ForetellExile => "ForetellExile",
             PlayCardMode::UnlockDoor => "0",
+            PlayCardMode::MayPlay(base) => Self::play_option_sort_text(PlayOption {
+                mode: base.map_or(PlayCardMode::Normal, PlayCardMode::Alternative),
+                ..play
+            }),
         }
     }
 
@@ -518,6 +522,18 @@ impl DeterministicAgent {
     /// When variant is the same (e.g., Normal and Warp both return "0"),
     /// this ensures a deterministic ordering.
     fn play_option_fallback(&self, play: PlayOption) -> String {
+        if let PlayCardMode::MayPlay(base) = play.mode {
+            let base_play = PlayOption {
+                mode: base.map_or(PlayCardMode::Normal, PlayCardMode::Alternative),
+                alt_cost_index: 0,
+                ..play
+            };
+            return format!(
+                "{} by:{:03}",
+                self.play_option_fallback(base_play),
+                play.alt_cost_index
+            );
+        }
         // Disambiguate multi-cost alt entries (e.g. intrinsic vs granted
         // Evoke) so the stable sort places them in a predictable order that
         // matches Java's SA text ordering.
@@ -1124,6 +1140,7 @@ impl PlayerAgent for DeterministicAgent {
                             PlayCardMode::StaticAlternative => "StaticAlternative",
                             PlayCardMode::ForetellExile => "ForetellExile",
                             PlayCardMode::Alternative(_) => "Alternative",
+                            PlayCardMode::MayPlay(_) => "MayPlay",
                         }
                     )
                 })
@@ -1174,6 +1191,7 @@ impl PlayerAgent for DeterministicAgent {
                             PlayCardMode::StaticAlternative => "StaticAlternative",
                             PlayCardMode::ForetellExile => "ForetellExile",
                             PlayCardMode::Alternative(_) => "Alternative",
+                            PlayCardMode::MayPlay(_) => "MayPlay",
                         }
                     ),
                     ActionChoice::Ability(card_id, ability_idx) => format!(

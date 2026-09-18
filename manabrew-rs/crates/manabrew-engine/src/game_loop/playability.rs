@@ -228,7 +228,7 @@ impl GameLoop {
                 .any(|&source_id| {
                     let source = game.card(source_id);
                     source.static_abilities.iter().any(|sa| {
-                        crate::staticability::static_ability_continuous::can_play_or_granted(
+                        crate::staticability::static_ability_continuous::grants_zone_permissions(
                             sa, source, card, game,
                         )
                     })
@@ -705,7 +705,43 @@ impl GameLoop {
                     false
                 };
 
+                let may_play_costs: Vec<crate::cost::Cost> =
+                    crate::staticability::static_ability_continuous::may_play_alt_costs(
+                        game, player, card,
+                    )
+                    .iter()
+                    .map(|cost| crate::cost::parse_cost(cost))
+                    .collect();
+                let may_play_payable =
+                    |cost: &crate::cost::Cost, mana: &forge_foundation::ManaCost| {
+                        available_mana.can_pay(mana)
+                            && crate::cost::can_pay_ignoring_mana_for_spell(
+                                cost, game, card_id, player,
+                            )
+                    };
+                let may_play_ok: Vec<u8> = may_play_costs
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, cost)| {
+                        let mana = cost_adj.apply(&Self::mana_from_cost(cost)).add(&raise_mana);
+                        may_play_payable(cost, &mana)
+                    })
+                    .map(|(idx, _)| idx as u8)
+                    .collect();
+                let may_play_morph_ok: Vec<u8> = if card.has_morph {
+                    may_play_costs
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, cost)| may_play_payable(cost, &Self::mana_from_cost(cost)))
+                        .map(|(idx, _)| idx as u8)
+                        .collect()
+                } else {
+                    Vec::new()
+                };
+
                 if !normal_ok
+                    && may_play_ok.is_empty()
+                    && may_play_morph_ok.is_empty()
                     && !room_right_split_ok
                     && !spectacle_ok
                     && !evoke_ok
@@ -777,6 +813,13 @@ impl GameLoop {
                                 card_id,
                                 mode: crate::agent::PlayCardMode::Normal,
                                 alt_cost_index: 0,
+                            });
+                        }
+                        for &alt_cost_index in &may_play_ok {
+                            playable.push(crate::agent::PlayOption {
+                                card_id,
+                                mode: crate::agent::PlayCardMode::MayPlay(None),
+                                alt_cost_index,
                             });
                         }
                         if room_right_split_ok {
@@ -890,6 +933,15 @@ impl GameLoop {
                                     crate::spellability::AlternativeCost::Morph,
                                 ),
                                 alt_cost_index: 0,
+                            });
+                        }
+                        for &alt_cost_index in &may_play_morph_ok {
+                            playable.push(crate::agent::PlayOption {
+                                card_id,
+                                mode: crate::agent::PlayCardMode::MayPlay(Some(
+                                    crate::spellability::AlternativeCost::Morph,
+                                )),
+                                alt_cost_index,
                             });
                         }
                         if bestow_ok {
