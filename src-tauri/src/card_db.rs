@@ -104,7 +104,10 @@ fn load_dbs_from_bytes(bytes: &[u8], source: &str) -> Result<(), String> {
         bundle.cards_result.loaded, bundle.cards_result.failed, source
     );
     if let Some(archive) = bundle.cards.archive() {
-        manabrew_engine::game::TypeRegistry::load(archive.type_lists.as_str());
+        manabrew_engine::game::TypeRegistry::load(
+            archive.type_lists.as_str(),
+            archive.editions.iter().map(|e| e.raw.as_str()),
+        );
     }
     let _ = CARD_DB.set(bundle.cards);
     Ok(())

@@ -185,7 +185,10 @@ fn ensure_dbs_loaded() {
             warn!(file, %error, "token parse error");
         }
         if let Some(archive) = bundle.cards.archive() {
-            TypeRegistry::load(archive.type_lists.as_str());
+            TypeRegistry::load(
+                archive.type_lists.as_str(),
+                archive.editions.iter().map(|e| e.raw.as_str()),
+            );
         }
         let card_db = Arc::new(bundle.cards);
         CardDatabaseRegistry::load(Arc::clone(&card_db));

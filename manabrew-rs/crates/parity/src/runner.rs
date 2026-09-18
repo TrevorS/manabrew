@@ -1071,7 +1071,10 @@ pub fn load_data(cards_dir: Option<&str>, verbose: bool) -> Result<LoadedData, S
         let archive = db
             .archive()
             .ok_or_else(|| "cardset archive missing type lists".to_string())?;
-        manabrew_engine::game::TypeRegistry::load(archive.type_lists.as_str());
+        manabrew_engine::game::TypeRegistry::load(
+            archive.type_lists.as_str(),
+            archive.editions.iter().map(|e| e.raw.as_str()),
+        );
         if verbose {
             eprintln!(
                 "[parity] Loaded {} creature types",

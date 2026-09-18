@@ -31,17 +31,25 @@ pub struct TypeRegistry;
 static CREATURE_TYPES: OnceLock<Vec<String>> = OnceLock::new();
 
 impl TypeRegistry {
-    /// Load creature types from the raw contents of `TypeLists.txt`.
+    /// Load creature types from the raw contents of `TypeLists.txt` and of every
+    /// edition file.
     ///
-    /// Parses the `[CreatureTypes]` section. Each line is either `TypeName` or
-    /// `TypeName:PluralName`; only the singular (left of `:`) is kept.
+    /// Parses each `[CreatureTypes]` section. Each line is either `TypeName` or
+    /// `TypeName:PluralName`; only the singular (left of `:`) is kept, and a type
+    /// already listed is skipped. Edition files add their own types (the Un-sets'
+    /// `[CreatureTypes]`), as `CardEdition.Reader` passes them to `parseTypes`.
     ///
     /// Mirrors Java's `FileSection.parseSections()` + `CardType.Helper.parseTypes()`.
     ///
     /// This must be called once before any game starts. Subsequent calls are
     /// silently ignored (first write wins).
-    pub fn load(type_lists_content: &str) {
-        let _ = CREATURE_TYPES.set(Self::parse_creature_types(type_lists_content));
+    pub fn load<'a>(type_lists_content: &str, edition_texts: impl IntoIterator<Item = &'a str>) {
+        let mut types = Vec::new();
+        Self::parse_creature_types(type_lists_content, &mut types);
+        for edition in edition_texts {
+            Self::parse_creature_types(edition, &mut types);
+        }
+        let _ = CREATURE_TYPES.set(types);
     }
 
     /// Return the loaded creature types.
@@ -67,9 +75,8 @@ impl TypeRegistry {
         })
     }
 
-    fn parse_creature_types(content: &str) -> Vec<String> {
+    fn parse_creature_types(content: &str, types: &mut Vec<String>) {
         let mut in_creature_section = false;
-        let mut types = Vec::new();
         for line in content.lines() {
             let line = line.trim();
             if line.is_empty() || line.starts_with('#') {
@@ -82,12 +89,11 @@ impl TypeRegistry {
             if in_creature_section {
                 // "TypeName" or "TypeName:PluralName" — keep singular only
                 let singular = line.split(':').next().unwrap_or(line);
-                if !singular.is_empty() {
+                if !singular.is_empty() && !types.iter().any(|ty| ty == singular) {
                     types.push(singular.to_string());
                 }
             }
         }
-        types
     }
 }
 

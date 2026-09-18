@@ -70,7 +70,10 @@ pub fn load_card_archive(bytes: &[u8]) -> Result<u64, JsError> {
     CardDatabaseRegistry::load(Arc::clone(CARD_DB.get().expect("just set")));
 
     if let Some(archive) = CARD_DB.get().and_then(|db| db.archive()) {
-        TypeRegistry::load(archive.type_lists.as_str());
+        TypeRegistry::load(
+            archive.type_lists.as_str(),
+            archive.editions.iter().map(|e| e.raw.as_str()),
+        );
 
         let editions: Vec<(&str, &str)> = archive
             .editions
