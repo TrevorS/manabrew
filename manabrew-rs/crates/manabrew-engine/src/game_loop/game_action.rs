@@ -252,11 +252,13 @@ impl GameLoop {
             let reserved_sacrifices =
                 Self::fixed_reserved_sacrifices_for_action(&sa_for_target_check, card_id);
             let mana_for_check = if needs_mana {
-                mana::calculate_available_mana_excluding(
+                mana::calculate_available_mana_with_context(
                     self.pool(player),
                     game,
                     player,
                     Some(card_id),
+                    &[],
+                    Some(&mana::payment_context_for_sa(game, &sa_for_target_check)),
                 )
             } else {
                 available_mana.clone()
