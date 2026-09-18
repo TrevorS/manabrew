@@ -6,6 +6,7 @@
 //! compute mana cost reductions, increases, set-cost floors (Trinisphere),
 //! and additional non-mana cost parts (e.g. sacrifice from `Cost$` params).
 
+use crate::spellability::OptionalCost;
 use forge_foundation::color::Color;
 use forge_foundation::mana::ManaCost;
 use forge_foundation::ZoneType;
@@ -146,7 +147,7 @@ pub fn compute_cost_adjustment(
     caster: PlayerId,
     cast_zone: ZoneType,
 ) -> CostAdjustment {
-    compute_cost_adjustment_inner(game, spell_card, caster, cast_zone, &[], true)
+    compute_cost_adjustment_inner(game, spell_card, caster, cast_zone, &[], &[], true)
 }
 
 /// Like `compute_cost_adjustment`, but also checks ValidTarget$ against chosen targets.
@@ -157,7 +158,7 @@ pub fn compute_cost_adjustment_with_targets(
     cast_zone: ZoneType,
     targets: &[CardId],
 ) -> CostAdjustment {
-    compute_cost_adjustment_inner(game, spell_card, caster, cast_zone, targets, true)
+    compute_cost_adjustment_inner(game, spell_card, caster, cast_zone, targets, &[], true)
 }
 
 /// Payment-time variant. Includes the spell card itself so self-reducing
@@ -172,8 +173,17 @@ pub fn compute_cost_adjustment_for_payment(
     caster: PlayerId,
     cast_zone: ZoneType,
     targets: &[CardId],
+    optional_costs: &[OptionalCost],
 ) -> CostAdjustment {
-    compute_cost_adjustment_inner(game, spell_card, caster, cast_zone, targets, true)
+    compute_cost_adjustment_inner(
+        game,
+        spell_card,
+        caster,
+        cast_zone,
+        targets,
+        optional_costs,
+        true,
+    )
 }
 
 fn compute_cost_adjustment_inner(
@@ -182,6 +192,7 @@ fn compute_cost_adjustment_inner(
     caster: PlayerId,
     _cast_zone: ZoneType,
     targets: &[CardId],
+    optional_costs: &[OptionalCost],
     include_spell_self: bool,
 ) -> CostAdjustment {
     let mut adj = CostAdjustment::default();
@@ -289,7 +300,7 @@ fn compute_cost_adjustment_inner(
 
             // ── checkRequirement: ValidSpell$ ────────────────────────
             if let Some(valid_spell) = st_ab.ir.valid_spell.as_deref() {
-                if !check_valid_spell(valid_spell, spell_card) {
+                if !check_valid_spell(valid_spell, optional_costs) {
                     continue;
                 }
             }
@@ -387,7 +398,7 @@ pub fn compute_raise_cost_parts(
     caster: PlayerId,
     cast_zone: ZoneType,
 ) -> Option<Cost> {
-    compute_raise_cost_parts_with_targets(game, spell_card, caster, cast_zone, &[])
+    compute_raise_cost_parts_with_targets(game, spell_card, caster, cast_zone, &[], &[])
 }
 
 /// Like `compute_raise_cost_parts`, but checks `ValidTarget$` against chosen targets.
@@ -397,6 +408,7 @@ pub fn compute_raise_cost_parts_with_targets(
     caster: PlayerId,
     cast_zone: ZoneType,
     targets: &[CardId],
+    optional_costs: &[OptionalCost],
 ) -> Option<Cost> {
     let mut merged_parts = Vec::new();
     let mut has_tap = false;
@@ -480,7 +492,7 @@ pub fn compute_raise_cost_parts_with_targets(
             }
 
             if let Some(valid_spell) = st_ab.ir.valid_spell.as_deref() {
-                if !check_valid_spell(valid_spell, spell_card) {
+                if !check_valid_spell(valid_spell, optional_costs) {
                     continue;
                 }
             }
@@ -619,9 +631,10 @@ fn substitute_part_amount(part: &CostPart, amount: i32) -> CostPart {
 
 // ── checkRequirement helpers (mirrors Java CostAdjustment.checkRequirement) ──
 
-/// Check a ValidSpell$ parameter.
+/// Check a ValidSpell$ parameter against the cast's chosen optional costs, which are empty
+/// before the cast (the action-space probe): `Bargain` is `sa.isBargained()`.
 /// Mirrors the `ValidSpell` check in Java's `CostAdjustment.checkRequirement`.
-fn check_valid_spell(valid_spell: &str, spell_card: &Card) -> bool {
+fn check_valid_spell(valid_spell: &str, optional_costs: &[OptionalCost]) -> bool {
     // Split comma-separated options — any match passes
     valid_spell.split(',').any(|option| {
         let parts: Vec<&str> = option.trim().split('.').collect();
@@ -633,7 +646,7 @@ fn check_valid_spell(valid_spell: &str, spell_card: &Card) -> bool {
                     .iter()
                     .skip(1)
                     .all(|attr| match attr.to_lowercase().as_str() {
-                        "bargain" => spell_card.has_keyword("Bargain"),
+                        "bargain" => optional_costs.contains(&OptionalCost::Bargain),
                         _ => {
                             crate::census::unhandled("valid-spell-attribute-ignored", attr);
                             true
@@ -783,6 +796,7 @@ pub fn adjust(
         payer,
         cast_zone,
         &target_cards,
+        &sa.optional_costs,
     )
     .apply(&cost.to_mana_cost());
     *cost = ManaCostBeingPaid::from_mana_cost(&adjusted);
@@ -793,6 +807,7 @@ pub fn adjust(
         payer,
         cast_zone,
         &target_cards,
+        &sa.optional_costs,
     ) {
         let raise_mana = mana_from_cost(&raise_cost);
         cost.add_mana_cost(&raise_mana);

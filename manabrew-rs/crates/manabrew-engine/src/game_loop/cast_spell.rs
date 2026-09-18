@@ -1310,6 +1310,7 @@ impl GameLoop {
                     player,
                     original_zone,
                     &[],
+                    &[],
                 );
             let max_x = {
                 let mut x: u32 = 0;
