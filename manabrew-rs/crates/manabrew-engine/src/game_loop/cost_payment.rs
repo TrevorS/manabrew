@@ -524,12 +524,22 @@ impl GameLoop {
                     let saved_matrix = crate::cost::cost_part_mana::save_matrix_before_payment(
                         &self.mana_pools[player.index()],
                     );
-                    let mana_cost = crate::cost::cost_part_mana::get_mana_cost_for(
+                    let mut mana_cost = crate::cost::cost_part_mana::get_mana_cost_for(
                         game,
                         card_id,
                         sa.as_deref(),
                         &part,
                     );
+                    let x_count = mana_cost.count_x();
+                    if x_count > 0 {
+                        let x_paid = sa.as_deref().map_or(0, |sa| sa.x_mana_cost_paid);
+                        mana_cost =
+                            mana_cost
+                                .without_x()
+                                .add(&forge_foundation::ManaCost::generic(
+                                    (x_paid as i32).saturating_mul(x_count as i32),
+                                ));
+                    }
                     let card_name = game.card(card_id).card_name.clone();
                     let cost_str = mana_cost.to_string();
                     let payable_mana_cost =
