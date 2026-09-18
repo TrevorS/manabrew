@@ -94,7 +94,8 @@ impl Draw<'_> {
 }
 
 /// Draws that consume RNG, in one vocabulary: Java logs one-option and zero-option picks
-/// and Rust logs a `pick_many_unique` summary row, and `pick_one` is Rust's `pick_index`.
+/// and Rust logs summary rows (`pick_many_unique`, and one named after the callback, as
+/// `choose_colors` does), and `pick_one` is Rust's `pick_index`.
 fn draws(entries: &[Value]) -> Vec<Draw<'_>> {
     let mut out = Vec::new();
     for entry in entries.iter().filter(|e| is_callback(e)) {
@@ -104,7 +105,7 @@ fn draws(entries: &[Value]) -> Vec<Draw<'_>> {
         for arg in args {
             let mut name = text(arg, "name");
             let choices = int(arg, "choices");
-            if name.starts_with("pick_many_unique") {
+            if name.starts_with("pick_many_unique") || name == text(entry, "name") {
                 continue;
             }
             if (name == "pick_one" || name == "pick_index") && choices <= 1 {
