@@ -618,134 +618,81 @@ fn run_multi_game_mode(cli: &Cli) {
             verbose: cli.is_verbose(),
             java_heap: cli.java_heap.clone(),
         };
-        match ServerPool::spawn(workers, &server_config) {
-            Ok(pool) => {
-                if cli.is_verbose() {
-                    eprintln!("[parity] Multi-game mode: {workers} Java worker(s), {total} games");
+        let pool = ServerPool::lazy(workers, server_config);
+        let java_cache = if cli.no_cache {
+            None
+        } else {
+            let project_root = std::env::current_dir().unwrap_or_default();
+            let source_hash =
+                java_cache::compute_source_hash(&project_root, cli.java_jar.as_deref());
+            JavaCache::open(Path::new(&cli.cache_dir), source_hash).ok()
+        };
+        if cli.is_verbose() {
+            eprintln!("[parity] Multi-game mode: {workers} Java worker(s), {total} games");
+        }
+        let completed = AtomicUsize::new(0);
+        let mut indexed: Vec<(usize, MatchupResult)> = seeds
+            .par_iter()
+            .enumerate()
+            .map(|(i, &seed)| {
+                let config = build_config(cli, &cli.deck1, &cli.deck2, seed);
+
+                if let Some(entry) = ignored_matchup(&config, &ignores) {
+                    let result = skipped_result(&config, &entry.reason);
+                    if cli.is_verbose() {
+                        let n = completed.fetch_add(1, Ordering::Relaxed) + 1;
+                        eprintln!(
+                            "[parity] [{}/{}] seed={} ... SKIPPED: {}",
+                            n, total, seed, entry.reason
+                        );
+                    }
+                    return (i, result);
                 }
-                let completed = AtomicUsize::new(0);
-                let mut indexed: Vec<(usize, MatchupResult)> = seeds
-                    .par_iter()
-                    .enumerate()
-                    .map(|(i, &seed)| {
-                        let config = build_config(cli, &cli.deck1, &cli.deck2, seed);
 
-                        if let Some(entry) = ignored_matchup(&config, &ignores) {
-                            let result = skipped_result(&config, &entry.reason);
-                            if cli.is_verbose() {
-                                let n = completed.fetch_add(1, Ordering::Relaxed) + 1;
-                                eprintln!(
-                                    "[parity] [{}/{}] seed={} ... SKIPPED: {}",
-                                    n, total, seed, entry.reason
-                                );
-                            }
-                            return (i, result);
-                        }
+                let result = run_single_matchup_pool(&config, &data, &pool, java_cache.as_ref());
 
-                        let result = run_single_matchup_pool(&config, &data, &pool);
-
-                        if cli.is_verbose() {
-                            let n = completed.fetch_add(1, Ordering::Relaxed) + 1;
-                            match result.status {
-                                MatchupStatus::Pass => {
-                                    eprintln!(
-                                        "[parity] [{}/{}] seed={} ... PASS ({} snapshots)",
-                                        n, total, seed, result.snapshots_compared
-                                    );
-                                }
-                                MatchupStatus::Skipped => {
-                                    eprintln!(
-                                        "[parity] [{}/{}] seed={} ... SKIPPED: {}",
-                                        n,
-                                        total,
-                                        seed,
-                                        result.skip_reason.as_deref().unwrap_or("ignored")
-                                    );
-                                }
-                                MatchupStatus::Fail => {
-                                    eprintln!(
-                                        "[parity] [{}/{}] seed={} ... FAIL ({} divergences)",
-                                        n, total, seed, result.divergence_count
-                                    );
-                                }
-                                MatchupStatus::Error => {
-                                    eprintln!(
-                                        "[parity] [{}/{}] seed={} ... ERROR: {}",
-                                        n,
-                                        total,
-                                        seed,
-                                        result.error_message.as_deref().unwrap_or("unknown")
-                                    );
-                                }
-                            }
-                        }
-                        (i, result)
-                    })
-                    .collect();
-                indexed.sort_by_key(|(i, _)| *i);
-                let results = indexed.into_iter().map(|(_, r)| r).collect();
-                pool.shutdown();
-                results
-            }
-            Err(e) => {
-                eprintln!("[parity] Failed to spawn Java server pool: {e}");
-                eprintln!("[parity] Falling back to one-shot mode");
-                let mut results: Vec<MatchupResult> = Vec::with_capacity(total);
-                for (i, seed) in seeds.iter().copied().enumerate() {
-                    let config = build_config(cli, &cli.deck1, &cli.deck2, seed);
-                    if let Some(entry) = ignored_matchup(&config, &ignores) {
-                        let result = skipped_result(&config, &entry.reason);
-                        if cli.is_verbose() {
-                            let n = i + 1;
+                if cli.is_verbose() {
+                    let n = completed.fetch_add(1, Ordering::Relaxed) + 1;
+                    match result.status {
+                        MatchupStatus::Pass => {
                             eprintln!(
-                                "[parity] [{}/{}] seed={} ... SKIPPED: {}",
-                                n, total, seed, entry.reason
+                                "[parity] [{}/{}] seed={} ... PASS ({} snapshots)",
+                                n, total, seed, result.snapshots_compared
                             );
                         }
-                        results.push(result);
-                        continue;
-                    }
-                    let result = run_single_matchup_oneshot(&config, &data, jar_path);
-                    if cli.is_verbose() {
-                        let n = i + 1;
-                        match result.status {
-                            MatchupStatus::Pass => {
-                                eprintln!(
-                                    "[parity] [{}/{}] seed={} ... PASS ({} snapshots)",
-                                    n, total, seed, result.snapshots_compared
-                                );
-                            }
-                            MatchupStatus::Skipped => {
-                                eprintln!(
-                                    "[parity] [{}/{}] seed={} ... SKIPPED: {}",
-                                    n,
-                                    total,
-                                    seed,
-                                    result.skip_reason.as_deref().unwrap_or("ignored")
-                                );
-                            }
-                            MatchupStatus::Fail => {
-                                eprintln!(
-                                    "[parity] [{}/{}] seed={} ... FAIL ({} divergences)",
-                                    n, total, seed, result.divergence_count
-                                );
-                            }
-                            MatchupStatus::Error => {
-                                eprintln!(
-                                    "[parity] [{}/{}] seed={} ... ERROR: {}",
-                                    n,
-                                    total,
-                                    seed,
-                                    result.error_message.as_deref().unwrap_or("unknown")
-                                );
-                            }
+                        MatchupStatus::Skipped => {
+                            eprintln!(
+                                "[parity] [{}/{}] seed={} ... SKIPPED: {}",
+                                n,
+                                total,
+                                seed,
+                                result.skip_reason.as_deref().unwrap_or("ignored")
+                            );
+                        }
+                        MatchupStatus::Fail => {
+                            eprintln!(
+                                "[parity] [{}/{}] seed={} ... FAIL ({} divergences)",
+                                n, total, seed, result.divergence_count
+                            );
+                        }
+                        MatchupStatus::Error => {
+                            eprintln!(
+                                "[parity] [{}/{}] seed={} ... ERROR: {}",
+                                n,
+                                total,
+                                seed,
+                                result.error_message.as_deref().unwrap_or("unknown")
+                            );
                         }
                     }
-                    results.push(result);
                 }
-                results
-            }
-        }
+                (i, result)
+            })
+            .collect();
+        indexed.sort_by_key(|(i, _)| *i);
+        let results = indexed.into_iter().map(|(_, r)| r).collect();
+        pool.shutdown();
+        results
     } else {
         let completed = AtomicUsize::new(0);
         let verbose = cli.is_verbose();
@@ -985,9 +932,10 @@ fn run_single_matchup_pool(
     config: &RunConfig,
     data: &LoadedData,
     pool: &ServerPool,
+    cache: Option<&JavaCache>,
 ) -> MatchupResult {
     ParityRuntime::new(data)
-        .run_cached(config, pool, None)
+        .run_cached(config, pool, cache)
         .result
 }
 
