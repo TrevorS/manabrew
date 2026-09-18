@@ -1,4 +1,5 @@
 //! `parity explain` and `parity gate-summary`: read a finished run instead of rerunning it.
+//! `parity why` reruns one game of it with the card trace on.
 //!
 //! `explain` takes a `--format json` report and, for one game, prints the first RNG draw the
 //! two agents disagree on, the first target candidate list that differs, every snapshot field
@@ -237,7 +238,8 @@ fn print_snapshot_diff(result: &Value, turn: i64) {
     }
 }
 
-/// `name@id` (plus `#ability_index`) of every option in one `$ACTION_SPACE` row.
+/// `name@id` of every option in one `$ACTION_SPACE` row, `name@id ability` for an activated
+/// ability. The ability index is left out: the engines number abilities differently.
 fn options(outcome: &str) -> BTreeMap<String, usize> {
     let mut out = BTreeMap::new();
     for part in outcome.split(" | ") {
@@ -245,37 +247,47 @@ fn options(outcome: &str) -> BTreeMap<String, usize> {
             continue;
         };
         let card = rest.split(',').next().unwrap_or(rest).trim();
-        let label = match part.split("ability_index: ").nth(1) {
-            Some(index) => format!(
-                "{card}#{}",
-                index.split([' ', '}']).next().unwrap_or_default()
-            ),
-            None => card.to_string(),
+        let label = if part.contains("ability_index: ") {
+            format!("{card} ability")
+        } else {
+            card.to_string()
         };
         *out.entry(label).or_default() += 1;
     }
     out
 }
 
+type ActionSpace = (i64, BTreeMap<String, usize>);
+
+fn action_spaces(result: &Value, side: &str, turn: i64, phase: &str) -> Vec<ActionSpace> {
+    log(result, side)
+        .iter()
+        .filter(|e| {
+            is_callback(e)
+                && int(e, "turn") == turn
+                && text(e, "phase") == phase
+                && text(e, "name") == "$ACTION_SPACE"
+        })
+        .map(|e| (int(e, "player"), options(&text(e, "outcome"))))
+        .collect()
+}
+
+/// The first `$ACTION_SPACE` of the phase whose options differ, with each side's player and options.
+fn first_unequal_action_space(
+    result: &Value,
+    turn: i64,
+    phase: &str,
+) -> Option<(usize, ActionSpace, ActionSpace)> {
+    action_spaces(result, "rust_log", turn, phase)
+        .into_iter()
+        .zip(action_spaces(result, "java_log", turn, phase))
+        .enumerate()
+        .find(|(_, (r, j))| r != j)
+        .map(|(i, (r, j))| (i, r, j))
+}
+
 fn print_action_space_diff(result: &Value, turn: i64, phase: &str) {
-    let spaces = |side: &str| -> Vec<(i64, BTreeMap<String, usize>)> {
-        log(result, side)
-            .iter()
-            .filter(|e| {
-                is_callback(e)
-                    && int(e, "turn") == turn
-                    && text(e, "phase") == phase
-                    && text(e, "name") == "$ACTION_SPACE"
-            })
-            .map(|e| (int(e, "player"), options(&text(e, "outcome"))))
-            .collect()
-    };
-    let rust = spaces("rust_log");
-    let java = spaces("java_log");
-    for (i, (r, j)) in rust.iter().zip(java.iter()).enumerate() {
-        if r == j {
-            continue;
-        }
+    if let Some((i, r, j)) = first_unequal_action_space(result, turn, phase) {
         println!(
             "action space #{i} of T{turn} {phase} (P{} / P{}): rust only {:?}, java only {:?}",
             r.0,
@@ -285,6 +297,8 @@ fn print_action_space_diff(result: &Value, turn: i64, phase: &str) {
         );
         return;
     }
+    let rust = action_spaces(result, "rust_log", turn, phase);
+    let java = action_spaces(result, "java_log", turn, phase);
     println!(
         "action spaces of T{turn} {phase}: no difference in the first {} (rust {}, java {})",
         rust.len().min(java.len()),
@@ -436,24 +450,13 @@ pub fn run_explain_cli(args: &[String]) -> i32 {
         );
         return 2;
     };
-    let report: Value = match std::fs::read_to_string(path)
-        .map_err(|e| e.to_string())
-        .and_then(|raw| serde_json::from_str(&raw).map_err(|e| e.to_string()))
-    {
-        Ok(v) => v,
+    let results = match read_results(path) {
+        Ok(results) => results,
         Err(e) => {
             eprintln!("explain: {path}: {e}");
             return 2;
         }
     };
-    let results = report
-        .get("results")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    let seed = option(args, "--seed").and_then(|s| s.parse::<i64>().ok());
-    let deck2 = option(args, "--deck2");
-    let index = option(args, "--index").and_then(|s| s.parse::<usize>().ok());
     let context = option(args, "--context")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(3);
@@ -470,19 +473,7 @@ pub fn run_explain_cli(args: &[String]) -> i32 {
     };
     let windowed = window.turn.is_some() || window.around.is_some();
 
-    let chosen: Vec<&Value> = match index {
-        Some(i) => results.get(i).into_iter().collect(),
-        None => results
-            .iter()
-            .filter(|r| seed.is_none_or(|s| int(r, "seed") == s))
-            .filter(|r| deck2.is_none_or(|d| text(r, "deck2").contains(d)))
-            .filter(|r| {
-                seed.is_some()
-                    || text(r, "status") != "pass"
-                    || !r.get("decision").is_none_or(Value::is_null)
-            })
-            .collect(),
-    };
+    let chosen = select_games(args, &results);
     if chosen.is_empty() {
         eprintln!("explain: no game in {path} matches");
         return 1;
@@ -533,6 +524,203 @@ pub fn run_explain_cli(args: &[String]) -> i32 {
         }
     }
     0
+}
+
+fn read_results(path: &str) -> Result<Vec<Value>, String> {
+    let report: Value = std::fs::read_to_string(path)
+        .map_err(|e| e.to_string())
+        .and_then(|raw| serde_json::from_str(&raw).map_err(|e| e.to_string()))?;
+    Ok(report
+        .get("results")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default())
+}
+
+/// `--index N`, or every game matching `--seed` and `--deck2`; without a seed, only games
+/// that failed or differ on a decision.
+fn select_games<'a>(args: &[String], results: &'a [Value]) -> Vec<&'a Value> {
+    let seed = option(args, "--seed").and_then(|s| s.parse::<i64>().ok());
+    let deck2 = option(args, "--deck2");
+    match option(args, "--index").and_then(|s| s.parse::<usize>().ok()) {
+        Some(i) => results.get(i).into_iter().collect(),
+        None => results
+            .iter()
+            .filter(|r| seed.is_none_or(|s| int(r, "seed") == s))
+            .filter(|r| deck2.is_none_or(|d| text(r, "deck2").contains(d)))
+            .filter(|r| {
+                seed.is_some()
+                    || text(r, "status") != "pass"
+                    || !r.get("decision").is_none_or(Value::is_null)
+            })
+            .collect(),
+    }
+}
+
+/// `parity why`: for the first action space of the decision's phase that the engines disagree
+/// on, rerun the game to that turn with `FORGE_CARD_TRACE` set to each card only one side
+/// offers, and print both engines' trace lines for that turn and player.
+pub fn run_why_cli(args: &[String]) -> i32 {
+    let Some(path) = args.get(1).filter(|a| !a.starts_with("--")) else {
+        eprintln!(
+            "usage: parity why <report.json> [--seed N] [--deck2 TEXT] [--index N] [--card NAME]\n\
+             \x20      [--steps] [--java-jar PATH] [-- RUN ARGS]\n\
+             Reruns each selected game to its decision turn with FORGE_CARD_TRACE set to every\n\
+             card that only one engine offers in the first differing action space (or --card),\n\
+             and prints the Rust and Java trace lines of that turn, phase and player; --steps adds\n\
+             the Rust mana probe's steps. RUN ARGS go to the rerun, e.g. `-- --mana-probe autopay`."
+        );
+        return 2;
+    };
+    let results = match read_results(path) {
+        Ok(results) => results,
+        Err(e) => {
+            eprintln!("why: {path}: {e}");
+            return 2;
+        }
+    };
+    let jar = option(args, "--java-jar")
+        .unwrap_or("forge-harness/target/forge-harness-jar-with-dependencies.jar");
+    let steps = args.iter().any(|a| a == "--steps");
+    let run_args: Vec<&str> = args
+        .iter()
+        .skip_while(|a| *a != "--")
+        .skip(1)
+        .map(String::as_str)
+        .collect();
+    let exe = match std::env::current_exe() {
+        Ok(exe) => exe,
+        Err(e) => {
+            eprintln!("why: {e}");
+            return 2;
+        }
+    };
+    let chosen = select_games(
+        &args[..args.iter().position(|a| a == "--").unwrap_or(args.len())],
+        &results,
+    );
+    if chosen.is_empty() {
+        eprintln!("why: no game in {path} matches");
+        return 1;
+    }
+    for result in chosen {
+        let (deck1, deck2, seed) = (
+            text(result, "deck1"),
+            text(result, "deck2"),
+            int(result, "seed"),
+        );
+        println!("== {deck1} vs {deck2} seed {seed}");
+        let Some(decision) = result.get("decision").filter(|v| !v.is_null()) else {
+            println!("no decision difference");
+            continue;
+        };
+        let (turn, phase) = (int(decision, "turn"), text(decision, "phase"));
+        let space = first_unequal_action_space(result, turn, &phase);
+        let labels: Vec<String> = space
+            .iter()
+            .flat_map(|(_, r, j)| only_in(&r.1, &j.1).into_iter().chain(only_in(&j.1, &r.1)))
+            .collect();
+        let mut cards: Vec<String> = match option(args, "--card") {
+            Some(card) => vec![card.to_string()],
+            None => labels
+                .iter()
+                .map(|label| label.split('@').next().unwrap_or_default().to_string())
+                .collect(),
+        };
+        cards.sort();
+        cards.dedup();
+        let player = match &space {
+            Some((_, r, _)) => r.0,
+            None => text(decision, "rust_value")
+                .strip_prefix('P')
+                .and_then(|rest| rest.split(' ').next())
+                .and_then(|p| p.parse().ok())
+                .unwrap_or(0),
+        };
+        if cards.is_empty() {
+            println!("no card is offered by one side only in T{turn} {phase}; pass --card NAME");
+            continue;
+        }
+        for card in cards {
+            let mut run: Vec<String> = [
+                "--java-jar",
+                jar,
+                "--deck1",
+                &deck1,
+                "--deck2",
+                &deck2,
+                "--seed",
+                &seed.to_string(),
+                "--max-turns",
+                &turn.to_string(),
+            ]
+            .iter()
+            .map(|a| a.to_string())
+            .collect();
+            run.extend(run_args.iter().map(|a| a.to_string()));
+            println!(
+                "-- T{turn} P{player} {card}: FORGE_CARD_TRACE=\"{card}\" parity {}",
+                run.join(" ")
+            );
+            let output = match std::process::Command::new(&exe)
+                .args(&run)
+                .env("FORGE_CARD_TRACE", &card)
+                .stdout(std::process::Stdio::null())
+                .output()
+            {
+                Ok(output) => output,
+                Err(e) => {
+                    eprintln!("why: {e}");
+                    return 2;
+                }
+            };
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let prefix = format!("T{turn} P{player} ");
+            let phase_key = phase_key(&phase);
+            let java_ids: Vec<String> = labels
+                .iter()
+                .filter(|label| label.split('@').next() == Some(card.as_str()))
+                .filter_map(|label| label.split('@').nth(1))
+                .map(|id| format!("@{} ", id.split(' ').next().unwrap_or(id)))
+                .collect();
+            for (tag, marker) in [("R", "[card-trace] "), ("J", "[card-trace-java] ")] {
+                let lines: Vec<&str> = stderr
+                    .lines()
+                    .filter_map(|line| line.split_once(marker).map(|(_, rest)| rest))
+                    .filter_map(|rest| rest.strip_prefix(&prefix))
+                    .filter(|rest| {
+                        rest.split(' ').next().map(self::phase_key) == Some(phase_key.clone())
+                    })
+                    .filter(|rest| steps || !rest.contains(" probe: "))
+                    .filter(|rest| {
+                        tag == "R"
+                            || java_ids.is_empty()
+                            || java_ids.iter().any(|id| rest.contains(id))
+                    })
+                    .collect();
+                if lines.is_empty() {
+                    println!("  {tag} no trace line for T{turn} P{player} {phase}");
+                }
+                let mut i = 0;
+                while i < lines.len() {
+                    let run_len = lines[i..].iter().take_while(|l| **l == lines[i]).count();
+                    let times = if run_len > 1 {
+                        format!(" (x{run_len})")
+                    } else {
+                        String::new()
+                    };
+                    println!("  {tag} {}{times}", clip(lines[i], 400));
+                    i += run_len;
+                }
+            }
+        }
+    }
+    0
+}
+
+/// `Main1` and Java's `MAIN1`, `CombatDeclareAttackers` and `COMBAT_DECLARE_ATTACKERS`, as one key.
+fn phase_key(phase: &str) -> String {
+    phase.replace('_', "").to_ascii_lowercase()
 }
 
 /// The names in a gate value printed as a list of strings; a clipped list loses its last name.

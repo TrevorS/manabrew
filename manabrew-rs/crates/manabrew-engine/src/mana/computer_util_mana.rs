@@ -2717,6 +2717,12 @@ fn can_pay_mana_cost(
     payment_ctx: &crate::mana::ManaPaymentContext,
 ) -> bool {
     let spell = game.card(current_spell);
+    let trace = crate::game_loop::GameLoop::card_trace_matches(&spell.card_name).then(|| {
+        format!(
+            "[card-trace] T{} P{} {:?} {}#{} probe:",
+            game.turn.turn_number, player.0, game.turn.phase, spell.card_name, current_spell.0
+        )
+    });
     let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
     adjust_mana_cost_to_avoid_neg_effects(&mut unpaid, spell);
     let mut simulated_pool = pool.clone();
@@ -2773,6 +2779,9 @@ fn can_pay_mana_cost(
             &sa_list,
             payment_ctx,
         ) else {
+            if let Some(prefix) = &trace {
+                eprintln!("{prefix} no source for {}", to_pay.short_string());
+            }
             let pays_life_for_black =
                 u16::from(to_pay.color_mask()) & ManaAtom::BLACK != 0 && life_instead_of_black;
             if (!to_pay.is_phyrexian() && !pays_life_for_black)
@@ -2835,14 +2844,28 @@ fn can_pay_mana_cost(
             }
         }
 
-        for atom in predict_mana(game, player, &sa_payment, &generated) {
+        let produced = predict_mana(game, player, &sa_payment, &generated);
+        for &atom in &produced {
             let _ = unpaid.ai_pay_mana(atom, atom as u8);
+        }
+        if let Some(prefix) = &trace {
+            eprintln!(
+                "{prefix} {} with {}#{} makes {} -> unpaid {}",
+                to_pay.short_string(),
+                game.card(sa_payment.card_id).card_name,
+                sa_payment.card_id.0,
+                atoms_as_mana_string(&produced),
+                unpaid.to_mana_cost()
+            );
         }
         for list in sources.values_mut() {
             list.retain(|ma| ma.card_id != sa_payment.card_id);
         }
     }
 
+    if let Some(prefix) = &trace {
+        eprintln!("{prefix} paid={}", unpaid.is_paid());
+    }
     unpaid.is_paid()
 }
 

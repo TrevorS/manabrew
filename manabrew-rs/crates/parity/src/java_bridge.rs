@@ -125,6 +125,9 @@ impl JavaBridge {
         if std::env::var("FORGE_SORT_TRACE").is_ok() {
             cmd.arg("-Dforge.parity.sort.trace=true");
         }
+        if let Ok(name) = std::env::var("FORGE_CARD_TRACE") {
+            cmd.arg(format!("-Dforge.parity.card.trace={name}"));
+        }
         if std::env::var("FORGE_LIB_DUMP").is_ok() {
             cmd.env("FORGE_LIB_DUMP", "1");
         }
@@ -193,6 +196,7 @@ impl JavaBridge {
                         || line.contains("[JAVA-STACK]")
                         || line.contains("[rng-java")
                         || line.contains("[java-target")
+                        || line.contains("[card-trace-java]")
                         || line.contains("[java-life]")
                         || line.contains("[det-java")
                         || line.contains("[parity-agent-java")
@@ -324,12 +328,14 @@ struct DoneSentinel {
 ///
 /// Avoids the ~2-3s JVM + FModel.initialize() cost per game by keeping the
 /// process alive and reusing the singleton across games.
+const STDERR_TAIL_LINES: usize = 5;
+
 pub struct JavaServer {
     child: Child,
     stdin: BufWriter<ChildStdin>,
     stdout: BufReader<ChildStdout>,
-    #[allow(dead_code)]
     stderr_handle: Option<std::thread::JoinHandle<()>>,
+    stderr_tail: std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<String>>>,
     verbose: bool,
 }
 
@@ -381,6 +387,9 @@ impl JavaServer {
         if std::env::var("FORGE_SORT_TRACE").is_ok() {
             cmd.arg("-Dforge.parity.sort.trace=true");
         }
+        if let Ok(name) = std::env::var("FORGE_CARD_TRACE") {
+            cmd.arg(format!("-Dforge.parity.card.trace={name}"));
+        }
         if std::env::var("FORGE_LIB_DUMP").is_ok() {
             cmd.env("FORGE_LIB_DUMP", "1");
         }
@@ -427,10 +436,19 @@ impl JavaServer {
 
         // Read stderr in a background thread for diagnostics
         let stderr = child.stderr.take();
+        let stderr_tail =
+            std::sync::Arc::new(std::sync::Mutex::new(std::collections::VecDeque::new()));
+        let tail = stderr_tail.clone();
         let stderr_handle = std::thread::spawn(move || {
             if let Some(stderr) = stderr {
                 let reader = BufReader::new(stderr);
                 for line in reader.lines().map_while(Result::ok) {
+                    if let Ok(mut tail) = tail.lock() {
+                        if tail.len() == STDERR_TAIL_LINES {
+                            tail.pop_front();
+                        }
+                        tail.push_back(line.clone());
+                    }
                     if verbose
                         || line.contains("Exception")
                         || line.contains("Error")
@@ -439,6 +457,7 @@ impl JavaServer {
                         || line.contains("[JAVA-STACK]")
                         || line.contains("[rng-java")
                         || line.contains("[java-target")
+                        || line.contains("[card-trace-java]")
                         || line.contains("[java-life]")
                         || line.contains("[det-java")
                         || line.contains("[parity-agent-java")
@@ -462,8 +481,43 @@ impl JavaServer {
             stdin: BufWriter::new(stdin),
             stdout: BufReader::new(stdout),
             stderr_handle: Some(stderr_handle),
+            stderr_tail,
             verbose,
         })
+    }
+
+    /// The server died: wait for it, and name its last stderr lines, which the filter above
+    /// may have dropped (a missing JVM prints "Unable to locate a Java Runtime").
+    fn crashed(&mut self, what: String) -> JavaBridgeError {
+        let _ = self.child.wait();
+        if let Some(handle) = self.stderr_handle.take() {
+            let _ = handle.join();
+        }
+        let tail: Vec<String> = self
+            .stderr_tail
+            .lock()
+            .map(|tail| tail.iter().cloned().collect())
+            .unwrap_or_default();
+        if tail.is_empty() {
+            JavaBridgeError::ProtocolError(what)
+        } else {
+            JavaBridgeError::ProtocolError(format!(
+                "{what}; last Java stderr: {}",
+                tail.join(" / ")
+            ))
+        }
+    }
+
+    fn send_request(&mut self, request_json: &str) -> Result<(), JavaBridgeError> {
+        let sent = self
+            .stdin
+            .write_all(request_json.as_bytes())
+            .and_then(|()| self.stdin.write_all(b"\n"))
+            .and_then(|()| self.stdin.flush());
+        match sent {
+            Ok(()) => Ok(()),
+            Err(e) => Err(self.crashed(format!("Failed to send the request: {e}"))),
+        }
     }
 
     /// Send a matchup request and read snapshots until the done sentinel.
@@ -497,15 +551,7 @@ impl JavaServer {
             JavaBridgeError::ProtocolError(format!("Failed to serialize request: {e}"))
         })?;
 
-        self.stdin.write_all(request_json.as_bytes()).map_err(|e| {
-            JavaBridgeError::ProtocolError(format!("Failed to write to stdin: {e}"))
-        })?;
-        self.stdin
-            .write_all(b"\n")
-            .map_err(|e| JavaBridgeError::ProtocolError(format!("Failed to write newline: {e}")))?;
-        self.stdin
-            .flush()
-            .map_err(|e| JavaBridgeError::ProtocolError(format!("Failed to flush stdin: {e}")))?;
+        self.send_request(&request_json)?;
 
         let mut log = Vec::new();
         let mut snapshot_count = 0usize;
@@ -518,9 +564,7 @@ impl JavaServer {
             })?;
 
             if bytes_read == 0 {
-                return Err(JavaBridgeError::ProtocolError(
-                    "Java server closed stdout (crashed?)".into(),
-                ));
+                return Err(self.crashed("Java server closed stdout (crashed?)".into()));
             }
 
             let line = line_buf.trim();
@@ -624,15 +668,7 @@ impl JavaServer {
             JavaBridgeError::ProtocolError(format!("Failed to serialize request: {e}"))
         })?;
 
-        self.stdin.write_all(request_json.as_bytes()).map_err(|e| {
-            JavaBridgeError::ProtocolError(format!("Failed to write to stdin: {e}"))
-        })?;
-        self.stdin
-            .write_all(b"\n")
-            .map_err(|e| JavaBridgeError::ProtocolError(format!("Failed to write newline: {e}")))?;
-        self.stdin
-            .flush()
-            .map_err(|e| JavaBridgeError::ProtocolError(format!("Failed to flush stdin: {e}")))?;
+        self.send_request(&request_json)?;
 
         let mut log = Vec::new();
         let mut snapshot_count = 0usize;
@@ -646,9 +682,7 @@ impl JavaServer {
             })?;
 
             if bytes_read == 0 {
-                return Err(JavaBridgeError::ProtocolError(
-                    "Java server closed stdout (crashed?)".into(),
-                ));
+                return Err(self.crashed("Java server closed stdout (crashed?)".into()));
             }
 
             let line = line_buf.trim();

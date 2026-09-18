@@ -47,6 +47,22 @@ import java.util.Set;
 public final class ActionSpace {
     private static final String SPEND_ONLY_COLORED_ON_X =
             "Spend only colored mana on X. No more than one mana of each color may be spent this way.";
+    private static final String CARD_TRACE = System.getProperty("forge.parity.card.trace", "");
+
+    private static boolean cardTraced(final Card card) {
+        return !CARD_TRACE.isEmpty() && card.getName().equalsIgnoreCase(CARD_TRACE);
+    }
+
+    private static void traceCard(final Player player, final Card card, final String label, final String verdict) {
+        final Game game = player.getGame();
+        final Zone zone = card.getZone();
+        System.err.println("[card-trace-java] T" + game.getPhaseHandler().getTurn()
+                + " P" + game.getPlayers().indexOf(player)
+                + " " + game.getPhaseHandler().getPhase()
+                + " " + card.getName() + "@" + ParityCardMap.parityId(card)
+                + " " + (zone == null ? "none" : zone.getZoneType())
+                + " " + label + ": " + verdict);
+    }
 
 
 
@@ -144,7 +160,11 @@ public final class ActionSpace {
         try {
         final List<SpellAbility> possible = new ArrayList<>();
         for (final Card c : candidates) {
-            for (final SpellAbility sa : c.getAllPossibleAbilities(player, true)) {
+            final List<SpellAbility> abilities = c.getAllPossibleAbilities(player, true);
+            if (abilities.isEmpty() && cardTraced(c)) {
+                traceCard(player, c, "-", "no ability passes getAllPossibleAbilities");
+            }
+            for (final SpellAbility sa : abilities) {
                 sa.setActivatingPlayer(player);
                 possible.add(sa);
                 spellHost(sa, game, spellHosts);
@@ -156,10 +176,15 @@ public final class ActionSpace {
             applyStackStatics(game, spellHosts.values());
         }
         for (final SpellAbility sa : possible) {
+            final boolean traced = cardTraced(sa.getHostCard());
             final Cost payCosts = sa.getPayCosts();
             if (payCosts != null && payCosts.hasManaCost()) {
                 final Card probeHost = stackStatics ? spellHosts.get(sa.getHostCard()) : null;
                 if (!canPayMana(sa, player, lifePaymentFallback, probeHost)) {
+                    if (traced) {
+                        traceCard(player, sa.getHostCard(), actionBaseLabel(sa),
+                                "mana " + payCosts.getTotalMana() + " cannot be paid (canPayManaCost)");
+                    }
                     continue;
                 }
             }
@@ -167,10 +192,19 @@ public final class ActionSpace {
                 continue;
             }
             if (!hasValidTargets(sa)) {
+                if (traced) {
+                    traceCard(player, sa.getHostCard(), actionBaseLabel(sa), "no valid targets");
+                }
                 continue;
             }
             if (!sa.checkRestrictions(spellHost(sa, game, spellHosts), player)) {
+                if (traced) {
+                    traceCard(player, sa.getHostCard(), actionBaseLabel(sa), "checkRestrictions false");
+                }
                 continue;
+            }
+            if (traced) {
+                traceCard(player, sa.getHostCard(), actionBaseLabel(sa), "offered");
             }
             actions.add(sa);
         }

@@ -33,9 +33,7 @@ impl GameLoop {
         has_all_color_source || crate::mana::has_replacement_adjusted_available_mana(game, player)
     }
 
-    /// Mana a spell cast of this card could draw on: `RestrictValid$` sources that the
-    /// spell does not satisfy are left out, as `AbilityManaPart.meetsManaRestrictions` does.
-    pub(super) fn card_trace_matches(name: &str) -> bool {
+    pub(crate) fn card_trace_matches(name: &str) -> bool {
         static FILTER: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
         FILTER
             .get_or_init(|| {
@@ -47,6 +45,8 @@ impl GameLoop {
             .is_some_and(|filter| name.eq_ignore_ascii_case(filter))
     }
 
+    /// Mana a spell cast of this card could draw on: `RestrictValid$` sources that the
+    /// spell does not satisfy are left out, as `AbilityManaPart.meetsManaRestrictions` does.
     fn spell_payment_context(
         card: &crate::card::Card,
         chosen_types_by_source: &crate::HashMap<CardId, String>,
@@ -1403,12 +1403,13 @@ impl GameLoop {
                     })
                     .collect();
                 eprintln!(
-                    "[card-trace] T{} P{} {}#{} {zone:?}: offered {offered:?} | cant_be_cast={cant_be_cast} \
+                    "[card-trace] T{} P{} {:?} {}#{} {zone:?}: offered {offered:?} | cant_be_cast={cant_be_cast} \
                      can_play={} instant_only={must_be_instant} flash={flash} | (min targets, candidates)={targets:?} \
                      | cost {} -> {reduced} | mana {} from {:?} sources (W{} U{} B{} R{} G{} C{}) pool_pays={} \
                      simulated_pays={simulated} | may_play from {may_play_from:?}",
                     game.turn.turn_number,
                     player.0,
+                    game.turn.phase,
                     card.card_name,
                     card_id.index(),
                     crate::spellability::spell::can_play(&sa, game),

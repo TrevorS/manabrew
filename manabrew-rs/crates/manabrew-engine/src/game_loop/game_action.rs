@@ -304,9 +304,10 @@ impl GameLoop {
             let card = game.card(card_id);
             if Self::card_trace_matches(&card.card_name) {
                 eprintln!(
-                    "[card-trace] T{} P{} {}#{} {:?} ability {} ({}): {}",
+                    "[card-trace] T{} P{} {:?} {}#{} {:?} ability {} ({}): {}",
                     game.turn.turn_number,
                     player.0,
+                    game.turn.phase,
                     card.card_name,
                     card_id.index(),
                     card.zone,

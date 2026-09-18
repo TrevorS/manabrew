@@ -433,6 +433,11 @@ impl Cli {
     /// True only for bare `--verbose` (all turns). Turn-specific `--verbose=25`
     /// should not trigger general progress chatter — only the agent's per-turn
     /// logging and the final diff.
+    /// A card trace needs the JVM to run, so it skips the cache.
+    fn java_cache_off(&self) -> bool {
+        self.no_cache || std::env::var_os("FORGE_CARD_TRACE").is_some()
+    }
+
     fn is_verbose(&self) -> bool {
         matches!(self.verbose, Some(ref s) if s.is_empty())
     }
@@ -548,6 +553,9 @@ fn main() {
     if args.get(1).is_some_and(|arg| arg == "explain") {
         std::process::exit(parity::explain::run_explain_cli(&args[1..]));
     }
+    if args.get(1).is_some_and(|arg| arg == "why") {
+        std::process::exit(parity::explain::run_why_cli(&args[1..]));
+    }
     if args.get(1).is_some_and(|arg| arg == "ci-client") {
         args.remove(1);
         parity::infra::ci_client::run(&args);
@@ -647,7 +655,7 @@ fn run_multi_game_mode(cli: &Cli) {
             java_heap: cli.java_heap.clone(),
         };
         let pool = ServerPool::lazy(workers, server_config);
-        let java_cache = if cli.no_cache {
+        let java_cache = if cli.java_cache_off() {
             None
         } else {
             let project_root = std::env::current_dir().unwrap_or_default();
@@ -1074,7 +1082,7 @@ fn java_runtime_or_exit(cli: &Cli) -> JavaRuntime {
             java_heap: cli.java_heap.clone(),
         },
     );
-    let cache = if cli.no_cache {
+    let cache = if cli.java_cache_off() {
         None
     } else {
         let project_root = std::env::current_dir().unwrap_or_default();
@@ -1333,7 +1341,7 @@ fn run_matrix_mode(cli: &Cli) {
         )
     });
 
-    let java_cache: Option<JavaCache> = if !cli.no_cache && cli.java_jar.is_some() {
+    let java_cache: Option<JavaCache> = if !cli.java_cache_off() && cli.java_jar.is_some() {
         let project_root = std::env::current_dir().unwrap_or_default();
         let source_hash = java_cache::compute_source_hash(&project_root, cli.java_jar.as_deref());
         match JavaCache::open(std::path::Path::new(&cli.cache_dir), source_hash) {
@@ -2673,7 +2681,7 @@ fn run_serve_mode(cli: &Cli) {
     // Open Java output cache so unchanged Java source short-circuits the Java
     // run entirely. Keyed on a hash of Java source + deck definitions — when
     // that changes the cache is wiped automatically.
-    let java_cache: Option<JavaCache> = if cli.no_cache {
+    let java_cache: Option<JavaCache> = if cli.java_cache_off() {
         None
     } else {
         let project_root = std::env::current_dir().unwrap_or_default();
