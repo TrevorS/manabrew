@@ -40,6 +40,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 use clap::Parser;
+use manabrew_engine::mana::ActionSpaceManaProbe;
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
 
@@ -274,6 +275,13 @@ struct Cli {
     #[arg(long)]
     localize: bool,
 
+    /// How the Rust action space tests a spell's mana cost: `forge` ports Forge's AI check
+    /// (`ComputerUtilMana.canPayManaCost`), which the Java harness uses; `autopay` simulates
+    /// the engine's own payment, as the app does, and finds payments the greedy Forge check
+    /// refuses
+    #[arg(long, value_enum, default_value = "forge")]
+    mana_probe: ManaProbeArg,
+
     /// Probe one card against Java in a fixed shell (repeatable)
     #[arg(long)]
     probe: Vec<String>,
@@ -430,6 +438,21 @@ impl Cli {
     }
 }
 
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+enum ManaProbeArg {
+    Forge,
+    Autopay,
+}
+
+impl From<ManaProbeArg> for ActionSpaceManaProbe {
+    fn from(arg: ManaProbeArg) -> Self {
+        match arg {
+            ManaProbeArg::Forge => ActionSpaceManaProbe::ComputerUtilMana,
+            ManaProbeArg::Autopay => ActionSpaceManaProbe::AutoPay,
+        }
+    }
+}
+
 fn build_config(cli: &Cli, deck1: &str, deck2: &str, seed: u64) -> RunConfig {
     RunConfig {
         deck1: deck1.to_string(),
@@ -450,6 +473,7 @@ fn build_config(cli: &Cli, deck1: &str, deck2: &str, seed: u64) -> RunConfig {
         live_log: cli.live_log.clone(),
         callback_compare: cli.callback_compare,
         localize: cli.localize,
+        mana_probe: cli.mana_probe.into(),
     }
 }
 
@@ -1972,6 +1996,7 @@ fn run_fuzz_mode(cli: &Cli) {
             live_log: None,
             callback_compare: false,
             localize: false,
+            mana_probe: cli.mana_probe.into(),
         };
 
         let matchup_result = if let Some(ref mut srv) = server {
@@ -2763,6 +2788,7 @@ fn run_serve_mode(cli: &Cli) {
     let cli_verbose = cli.verbose_mode();
     let cli_prefer_actions = cli.prefer_actions;
     let cli_java_heap = cli.java_heap.clone();
+    let cli_mana_probe: ActionSpaceManaProbe = cli.mana_probe.into();
     let cfg = Arc::clone(&dashboard_config);
 
     let mut completed = 0usize;
@@ -2836,6 +2862,7 @@ fn run_serve_mode(cli: &Cli) {
                         live_log: None,
                         callback_compare: false,
                         localize: false,
+                        mana_probe: cli_mana_probe,
                     };
                     let m = run_matchup_cached(&config, data_ref, pool_ref, cache_ref);
                     if m.cache_hit {
@@ -3050,6 +3077,7 @@ fn run_serve_mode(cli: &Cli) {
             live_log: None,
             callback_compare: false,
             localize: false,
+            mana_probe: cli_mana_probe,
         };
 
         let served = run_matchup_cached(&config, &data, &server_pool, java_cache.as_ref());

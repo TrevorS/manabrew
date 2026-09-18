@@ -506,6 +506,7 @@ impl App {
             live_log: None,
             callback_compare: false,
             localize: false,
+            mana_probe: parity::runner::ActionSpaceManaProbe::ComputerUtilMana,
         }
     }
 

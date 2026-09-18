@@ -567,6 +567,7 @@ impl ManaPool {
         // A hybrid {B/R} becomes one requirement with (BLACK | RED) — any source
         // producing B or R can satisfy it. Generic shards are handled separately.
         let mut requirements: Vec<u16> = Vec::new();
+        let mut or_2_generic: Vec<u16> = Vec::new();
         for shard in cost.shards() {
             if shard.is_x() {
                 continue;
@@ -580,14 +581,21 @@ impl ManaPool {
                     | ManaAtom::RED
                     | ManaAtom::GREEN
                     | ManaAtom::COLORLESS);
-            if color_mask != 0 {
+            if color_mask == 0 {
+                continue;
+            }
+            if shard.is_or_2_generic() {
+                or_2_generic.push(color_mask);
+            } else {
                 requirements.push(color_mask);
             }
         }
-        let generic_count = cost.generic_cost() + extra_generic;
+        let mut generic_count = cost.generic_cost() + extra_generic;
 
         // Quick total check
-        if (sources.len() as i32) < (requirements.len() as i32) + generic_count {
+        if (sources.len() as i32)
+            < (requirements.len() as i32) + (or_2_generic.len() as i32) + generic_count
+        {
             return false;
         }
 
@@ -621,6 +629,19 @@ impl ManaPool {
             match best_idx {
                 Some(idx) => committed[idx] = true,
                 None => return false,
+            }
+        }
+
+        for mask in &or_2_generic {
+            let colored = sources
+                .iter()
+                .enumerate()
+                .filter(|&(i, &src)| !committed[i] && (src & mask) != 0)
+                .min_by_key(|&(_, &src)| (src.count_ones(), src))
+                .map(|(i, _)| i);
+            match colored {
+                Some(idx) => committed[idx] = true,
+                None => generic_count += 2,
             }
         }
 

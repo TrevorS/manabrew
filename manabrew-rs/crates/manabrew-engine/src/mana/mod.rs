@@ -21,6 +21,17 @@ pub use auto_pay::{
     AutoPayResult,
 };
 
+/// How the action space decides whether a spell's mana cost can be paid. `ComputerUtilMana`
+/// is Forge's AI check, which the parity harness uses: it pays greedily and refuses some
+/// costs that can be paid, such as `{2/G}{2/U}{2/R}` from two Forests and two Islands.
+/// `AutoPay` simulates the engine's own payment and finds those.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ActionSpaceManaProbe {
+    #[default]
+    AutoPay,
+    ComputerUtilMana,
+}
+
 pub fn apply_player_life_payment_keywords(
     game: &GameState,
     player: PlayerId,

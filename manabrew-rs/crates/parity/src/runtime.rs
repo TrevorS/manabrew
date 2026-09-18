@@ -715,6 +715,7 @@ mod tests {
             live_log: None,
             callback_compare: false,
             localize: false,
+            mana_probe: Default::default(),
         }
     }
 

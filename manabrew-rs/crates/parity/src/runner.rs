@@ -21,6 +21,7 @@ use manabrew_engine::game::{CardDatabaseRegistry, GameState};
 use manabrew_engine::game_loop::GameLoop;
 use manabrew_engine::game_runtime::GameRuntime;
 use manabrew_engine::ids::{CardId, PlayerId};
+pub use manabrew_engine::mana::ActionSpaceManaProbe;
 use memmap2::Mmap;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
@@ -913,6 +914,7 @@ pub struct RunConfig {
     pub live_log: Option<PathBuf>,
     pub callback_compare: bool,
     pub localize: bool,
+    pub mana_probe: ActionSpaceManaProbe,
 }
 
 pub struct LoadedData {
@@ -1070,6 +1072,7 @@ pub fn run_with_data_streaming(
     let p0 = PlayerId(0);
     let p1 = PlayerId(1);
     let mut game = GameState::new(&["Player1", "Player2"], starting_life);
+    game.action_space_mana_probe = config.mana_probe;
 
     let _t_build = Instant::now();
     build_deck_from_spec(

@@ -455,8 +455,10 @@ impl ManaCost {
                     // hybrid {B/R}, not separate {B}{R} (which would be "B R").
                     let whole = ManaCostShard::parse_non_generic(token);
                     if let Some(shard) = whole {
-                        if shard.is_multi_color() || shard.is_phyrexian() {
-                            // Hybrid shard (e.g. "BR" → BlackRed) or phyrexian (e.g. "GP" → GreenPhyrexian)
+                        if shard.is_multi_color() || shard.is_phyrexian() || shard.is_or_2_generic()
+                        {
+                            // Hybrid shard (e.g. "BR" → BlackRed), phyrexian (e.g. "GP" →
+                            // GreenPhyrexian) or two-brid (e.g. "2G" → Green2)
                             shards.push(shard);
                         } else {
                             // Mono-color or other — fall back to per-character

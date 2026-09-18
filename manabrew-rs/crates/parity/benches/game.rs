@@ -2,6 +2,7 @@
 //! snapshots and the callback log, no Java. `cargo bench -p parity --bench game`.
 
 use criterion::{criterion_group, criterion_main, Criterion};
+use manabrew_engine::mana::ActionSpaceManaProbe;
 use parity::deterministic_agent::VerboseMode;
 use parity::runner::{load_data, run_with_data, RunConfig};
 
@@ -29,6 +30,7 @@ fn config(deck1: &str, deck2: &str, seed: u64) -> RunConfig {
         live_log: None,
         callback_compare: false,
         localize: false,
+        mana_probe: ActionSpaceManaProbe::ComputerUtilMana,
     }
 }
 

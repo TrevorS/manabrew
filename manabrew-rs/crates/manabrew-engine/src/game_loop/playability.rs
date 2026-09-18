@@ -18,6 +18,9 @@ impl GameLoop {
         player: PlayerId,
         available_mana: &crate::mana::mana_pool::ManaPool,
     ) -> bool {
+        if game.action_space_mana_probe == crate::mana::ActionSpaceManaProbe::ComputerUtilMana {
+            return false;
+        }
         let has_all_color_source = available_mana
             .source_colors
             .as_ref()

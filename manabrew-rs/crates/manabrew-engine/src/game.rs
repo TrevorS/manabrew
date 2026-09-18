@@ -181,6 +181,9 @@ pub struct GameState {
     // Extra combat phases to insert after current combat (issue #22, AddPhase effect).
     pub extra_combat_phases: u32,
 
+    #[serde(default)]
+    pub action_space_mana_probe: crate::mana::ActionSpaceManaProbe,
+
     // Next card ID counter
     next_card_id: u32,
 
@@ -273,6 +276,7 @@ impl GameState {
             end_turn_requested: false,
             end_combat_requested: false,
             extra_combat_phases: 0,
+            action_space_mana_probe: crate::mana::ActionSpaceManaProbe::default(),
             next_card_id: 0,
             next_zone_timestamp: 0,
             next_effect_timestamp: 1,

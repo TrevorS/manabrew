@@ -1960,120 +1960,211 @@ fn group_and_order_to_pay_shards(
     res
 }
 
-#[allow(dead_code)]
+/// `ComputerUtilMana.sortManaAbilities`. Sources are ranked by `scoreManaProducingCard`, equal
+/// scores in the order the cards are first met; for a generic-like shard, of two equal-score
+/// cards the one that makes a colour the hand needs most goes later.
 fn sort_mana_abilities(
     game: &GameState,
     player: PlayerId,
-    current_spell: Option<CardId>,
-    mana_ability_map: &mut IndexMap<ManaCostShard, Vec<ManaAbilityRef>>,
-    colors_most_common: &[u16],
+    current_spell: CardId,
+    sources_for_shards: &mut IndexMap<ManaCostShard, Vec<ManaAbilityRef>>,
+    mana_ability_map: &IndexMap<i32, Vec<ManaAbilityRef>>,
 ) {
     let mut mana_card_score: HashMap<CardId, i32> = HashMap::default();
     let mut ordered_cards: Vec<CardId> = Vec::new();
-
-    for abilities in mana_ability_map.values() {
+    for abilities in sources_for_shards.values() {
         for ability in abilities {
-            if mana_card_score.contains_key(&ability.card_id) {
-                continue;
+            if let std::collections::hash_map::Entry::Vacant(entry) =
+                mana_card_score.entry(ability.card_id)
+            {
+                entry.insert(score_mana_producing_card(game, ability.card_id, player));
+                ordered_cards.push(ability.card_id);
             }
-            let score = score_mana_producing_card(game, ability.card_id, player);
-            mana_card_score.insert(ability.card_id, score);
-            ordered_cards.push(ability.card_id);
         }
     }
+    ordered_cards.sort_by_key(|card| mana_card_score[card]);
 
-    ordered_cards.sort_by_key(|cid| mana_card_score.get(cid).copied().unwrap_or(0));
+    let colors_most_common = if sources_for_shards.keys().any(|shard| shard.is_generic()) {
+        colors_most_common_in_hand(game, player, current_spell)
+    } else {
+        Vec::new()
+    };
+    let position = |card: CardId| ordered_cards.iter().position(|&c| c == card);
+    let produces = |color: u16, card: CardId| {
+        mana_ability_map
+            .get(&(color as i32))
+            .is_some_and(|list| list.iter().any(|ma| ma.card_id == card))
+    };
+    let mana_pref = ai_mana_pref(game.card(current_spell));
 
-    let shards: Vec<ManaCostShard> = mana_ability_map.keys().copied().collect();
-    for shard in shards {
-        let Some(existing) = mana_ability_map.get(&shard).cloned() else {
-            continue;
-        };
-        let mut new_abilities = existing.clone();
-        let existing_index: HashMap<(CardId, Option<usize>), usize> = existing
-            .iter()
-            .enumerate()
-            .map(|(i, a)| ((a.card_id, a.ability_index), i))
-            .collect();
-
-        let cmp = |a: &ManaAbilityRef, b: &ManaAbilityRef| -> std::cmp::Ordering {
-            let idx_a = ordered_cards
-                .iter()
-                .position(|&c| c == a.card_id)
-                .unwrap_or(usize::MAX);
-            let idx_b = ordered_cards
-                .iter()
-                .position(|&c| c == b.card_id)
-                .unwrap_or(usize::MAX);
-            let mut pre_order = (idx_a as isize) - (idx_b as isize);
-
-            if pre_order != 0 {
-                if shard.is_generic()
-                    && mana_card_score.get(&a.card_id) == mana_card_score.get(&b.card_id)
+    for (shard, abilities) in sources_for_shards.iter_mut() {
+        let shard_mana = shard.short_string();
+        abilities.sort_by(|a, b| {
+            let pre_order = position(a.card_id).cmp(&position(b.card_id));
+            if pre_order.is_ne() {
+                if shard.is_generic() && mana_card_score[&a.card_id] == mana_card_score[&b.card_id]
                 {
-                    for &col in colors_most_common {
-                        let a_can = a.atoms.contains(&col);
-                        let b_can = b.atoms.contains(&col);
-                        if a_can && !b_can {
-                            return std::cmp::Ordering::Greater;
-                        }
-                        if !a_can && b_can {
-                            return std::cmp::Ordering::Less;
+                    for &color in &colors_most_common {
+                        match (produces(color, a.card_id), produces(color, b.card_id)) {
+                            (true, false) => return std::cmp::Ordering::Greater,
+                            (false, true) => return std::cmp::Ordering::Less,
+                            _ => {}
                         }
                     }
                 }
-
-                let a_pos = existing_index
-                    .get(&(a.card_id, a.ability_index))
-                    .copied()
-                    .unwrap_or(usize::MAX);
-                let b_pos = existing_index
-                    .get(&(b.card_id, b.ability_index))
-                    .copied()
-                    .unwrap_or(usize::MAX);
-                pre_order += (a_pos as isize) - (b_pos as isize);
-
-                return pre_order.cmp(&0);
+                return pre_order;
             }
-
-            let shard_mana = shard.short_string();
-            let pay_with_a = a.mana_text.contains(shard_mana);
-            let pay_with_b = b.mana_text.contains(shard_mana);
-            if pay_with_a && !pay_with_b {
-                return std::cmp::Ordering::Less;
+            match (
+                a.mana_text.contains(shard_mana),
+                b.mana_text.contains(shard_mana),
+            ) {
+                (true, false) => std::cmp::Ordering::Less,
+                (false, true) => std::cmp::Ordering::Greater,
+                _ => mana_ability_score(game, a).cmp(&mana_ability_score(game, b)),
             }
-            if pay_with_b && !pay_with_a {
-                return std::cmp::Ordering::Greater;
-            }
+        });
 
-            a.ability_index
-                .cmp(&b.ability_index)
-                .then(a.source_order.cmp(&b.source_order))
+        let Some(pref) = mana_pref.as_deref() else {
+            continue;
         };
-        for i in 1..new_abilities.len() {
-            let pivot = new_abilities[i].clone();
-            // Binary search: find leftmost position where pivot should go.
-            let mut lo = 0usize;
-            let mut hi = i;
-            while lo < hi {
-                let mid = (lo + hi) / 2;
-                if cmp(&pivot, &new_abilities[mid]).is_lt() {
-                    hi = mid;
-                } else {
-                    lo = mid + 1;
-                }
+        let mut info = pref.split(':');
+        let preferred = info.next().unwrap_or("");
+        let amount = info.next().and_then(|n| n.parse().ok()).unwrap_or(3usize);
+        if preferred.is_empty() {
+            continue;
+        }
+        let contains = |ma: &ManaAbilityRef| ma.mana_text.contains(preferred);
+        let mut pref_sorted = abilities.clone();
+        java_list_sort(&mut pref_sorted, |a, b| {
+            if contains(a) {
+                -1
+            } else if contains(b) {
+                1
+            } else {
+                0
             }
-            // Shift [lo..i) right by one, then place pivot at lo.
-            if lo < i {
-                for j in (lo..i).rev() {
-                    new_abilities.swap(j, j + 1);
-                }
-                new_abilities[lo] = pivot;
+        });
+        let mut other_sorted = abilities.clone();
+        java_list_sort(&mut other_sorted, |a, b| {
+            if contains(a) {
+                1
+            } else if contains(b) {
+                -1
+            } else {
+                0
+            }
+        });
+        let same = |a: &ManaAbilityRef, b: &ManaAbilityRef| {
+            a.card_id == b.card_id && a.ability_index == b.ability_index
+        };
+        let mut final_abilities: Vec<ManaAbilityRef> =
+            pref_sorted.into_iter().take(amount).collect();
+        for ab in other_sorted {
+            if !final_abilities.iter().any(|f| same(f, &ab)) {
+                final_abilities.push(ab);
             }
         }
+        *abilities = final_abilities;
+    }
+}
 
-        let _ = current_spell;
-        mana_ability_map.insert(shard, new_abilities);
+/// `AIManaPref$` on the spell, else the host's `AIManaPref` SVar.
+fn ai_mana_pref(spell: &crate::card::Card) -> Option<String> {
+    spell
+        .abilities
+        .iter()
+        .filter(|raw| raw.contains("AIManaPref"))
+        .find_map(|raw| {
+            let params = crate::parsing::ParsedParams::parse(raw);
+            params.get("SP")?;
+            params.get("AIManaPref").map(str::to_string)
+        })
+        .or_else(|| spell.get_s_var("AIManaPref").map(str::to_string))
+}
+
+/// `AiDeckStatistics.fromCards(hand).maxPips` for the hand without the spell: the colours
+/// with at least one pip, most pips first.
+fn colors_most_common_in_hand(
+    game: &GameState,
+    player: PlayerId,
+    current_spell: CardId,
+) -> Vec<u16> {
+    let mut max_pips = [0i32; 5];
+    for &card_id in game.cards_in_zone(ZoneType::Hand, player) {
+        let card = game.card(card_id);
+        if card_id == current_spell || card.type_line.is_land() {
+            continue;
+        }
+        let mut pips = [0i32; 5];
+        for shard in card.mana_cost.shards() {
+            for (i, color) in WUBRG.iter().enumerate() {
+                if u16::from(shard.color_mask()) & color != 0 {
+                    pips[i] += 1;
+                }
+            }
+        }
+        for i in 0..5 {
+            max_pips[i] = max_pips[i].max(pips[i]);
+        }
+    }
+    let mut order: Vec<usize> = (0..5).collect();
+    order.sort_by(|&a, &b| max_pips[b].cmp(&max_pips[a]));
+    order
+        .into_iter()
+        .filter(|&i| max_pips[i] > 0)
+        .map(|i| WUBRG[i])
+        .collect()
+}
+
+fn mana_ability_score(game: &GameState, ma: &ManaAbilityRef) -> i32 {
+    let ability = ma.ability_index.and_then(|idx| {
+        game.card(ma.card_id)
+            .activated_abilities
+            .iter()
+            .find(|ab| ab.ability_index == idx)
+    });
+    match ability {
+        Some(ab) => score_mana_ability(game, ma.card_id, ab, None),
+        None => score_implicit_land_mana_ability(
+            ma.atoms.first().copied().unwrap_or(ManaAtom::COLORLESS),
+        ),
+    }
+}
+
+/// Java's `List.sort` for fewer than 32 elements: `TimSort.countRunAndMakeAscending`, then
+/// `binarySort`. The AI's preference comparators are not total orders, so the result depends
+/// on those steps; longer lists fall back to a stable sort.
+fn java_list_sort<T>(list: &mut [T], compare: impl Fn(&T, &T) -> i32) {
+    let n = list.len();
+    if n < 2 {
+        return;
+    }
+    if n >= 32 {
+        list.sort_by(|a, b| compare(a, b).cmp(&0));
+        return;
+    }
+    let mut run_hi = 2;
+    if compare(&list[1], &list[0]) < 0 {
+        while run_hi < n && compare(&list[run_hi], &list[run_hi - 1]) < 0 {
+            run_hi += 1;
+        }
+        list[..run_hi].reverse();
+    } else {
+        while run_hi < n && compare(&list[run_hi], &list[run_hi - 1]) >= 0 {
+            run_hi += 1;
+        }
+    }
+    for start in run_hi..n {
+        let (mut left, mut right) = (0, start);
+        while left < right {
+            let mid = (left + right) / 2;
+            if compare(&list[start], &list[mid]) < 0 {
+                right = mid;
+            } else {
+                left = mid + 1;
+            }
+        }
+        list[left..=start].rotate_right(1);
     }
 }
 
@@ -2084,10 +2175,28 @@ fn group_sources_by_mana_color(
     payment_ctx: Option<&crate::mana::ManaPaymentContext>,
     filter_reflected_replacements: bool,
 ) -> IndexMap<i32, Vec<ManaAbilityRef>> {
+    group_mana_sources_by_color(
+        game,
+        player,
+        &get_available_mana_sources(game, player, reserved_sacrifices),
+        reserved_sacrifices,
+        payment_ctx,
+        filter_reflected_replacements,
+    )
+}
+
+fn group_mana_sources_by_color(
+    game: &GameState,
+    player: PlayerId,
+    sources: &[CardId],
+    reserved_sacrifices: &[CardId],
+    payment_ctx: Option<&crate::mana::ManaPaymentContext>,
+    filter_reflected_replacements: bool,
+) -> IndexMap<i32, Vec<ManaAbilityRef>> {
     let mut mana_map: IndexMap<i32, Vec<ManaAbilityRef>> = IndexMap::new();
     let mut source_order = 0usize;
 
-    for card_id in get_available_mana_sources(game, player, reserved_sacrifices) {
+    for &card_id in sources {
         let card = game.card(card_id);
         let mut explicit_mana_added = false;
 
@@ -2460,6 +2569,9 @@ pub fn can_pay_spell_mana_cost_for_action_space(
     cost: &forge_foundation::ManaCost,
     payment_ctx: &crate::mana::ManaPaymentContext,
 ) -> bool {
+    if game.action_space_mana_probe == super::ActionSpaceManaProbe::ComputerUtilMana {
+        return can_pay_mana_cost(game, pool, player, current_spell, cost, payment_ctx);
+    }
     let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
     let mut simulated_pool = pool.clone();
     simulated_pool.pay_unpaid_for_spell_incremental(&mut unpaid, payment_ctx, false);
@@ -2583,6 +2695,691 @@ pub fn can_pay_spell_mana_cost_for_action_space(
     unpaid.is_paid()
         || (unpaid.contains_only_phyrexian_mana()
             && game.player(player).life > required_phyrexian_life(&unpaid))
+}
+
+const WUBRG: [u16; 5] = [
+    ManaAtom::WHITE,
+    ManaAtom::BLUE,
+    ManaAtom::BLACK,
+    ManaAtom::RED,
+    ManaAtom::GREEN,
+];
+
+/// `ComputerUtilMana.canPayManaCost`: `payManaCost` with `test` set. Each chosen source's mana
+/// is predicted and paid straight into the cost, and the source is then dropped from every
+/// shard's list; nothing is tapped.
+fn can_pay_mana_cost(
+    game: &GameState,
+    pool: &ManaPool,
+    player: PlayerId,
+    current_spell: CardId,
+    cost: &ManaCost,
+    payment_ctx: &crate::mana::ManaPaymentContext,
+) -> bool {
+    let spell = game.card(current_spell);
+    let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
+    adjust_mana_cost_to_avoid_neg_effects(&mut unpaid, spell);
+    let mut simulated_pool = pool.clone();
+    simulated_pool.pay_unpaid_for_spell_incremental(&mut unpaid, payment_ctx, false);
+    if unpaid.is_paid() {
+        return true;
+    }
+
+    let pure_phyrexian = unpaid.contains_only_phyrexian_mana();
+    let mut has_converge = spell.has_converge();
+    let mut sources_for_shards =
+        get_sources_for_shards(game, player, current_spell, &unpaid, has_converge);
+    let life_instead_of_black = crate::player::has_keyword(game, player, "PayLifeInsteadOf:B");
+    let mut phy_life_to_pay = 2;
+    let mut test_energy_pool = game.player(player).energy_counters;
+
+    while !unpaid.is_paid() {
+        simulated_pool.pay_unpaid_for_spell_incremental(&mut unpaid, payment_ctx, false);
+        if unpaid.is_paid() {
+            break;
+        }
+        if sources_for_shards.is_none() && !pure_phyrexian {
+            break;
+        }
+        let sources = sources_for_shards.get_or_insert_with(IndexMap::new);
+        let Some(mut to_pay) = get_next_shard_to_pay(&unpaid, sources) else {
+            break;
+        };
+
+        let mut sa_list = Vec::new();
+        if has_converge && matches!(to_pay, ManaCostShard::Generic | ManaCostShard::X) {
+            for color in converge_colors(&unpaid) {
+                let shard = mono_color_shard(color);
+                if let Some(list) = sources.get(&shard).filter(|list| !list.is_empty()) {
+                    sa_list = list.clone();
+                    to_pay = shard;
+                    break;
+                }
+            }
+            if sa_list.is_empty() {
+                sa_list = sources.get(&to_pay).cloned().unwrap_or_default();
+                has_converge = false;
+            }
+        } else {
+            sa_list = sources.get(&to_pay).cloned().unwrap_or_default();
+        }
+
+        let Some((sa_payment, generated)) = choose_mana_ability_to_pay(
+            game,
+            player,
+            current_spell,
+            &unpaid,
+            to_pay,
+            &sa_list,
+            payment_ctx,
+        ) else {
+            let pays_life_for_black =
+                u16::from(to_pay.color_mask()) & ManaAtom::BLACK != 0 && life_instead_of_black;
+            if (!to_pay.is_phyrexian() && !pays_life_for_black)
+                || !crate::player::can_pay_life(game, player, phy_life_to_pay)
+                || (game.player(player).life <= phy_life_to_pay
+                    && !crate::player::cant_lose_for_zero_or_less_life(game, player))
+            {
+                break;
+            }
+            phy_life_to_pay += 2;
+            match spell.ai_phyrexian_payment.as_deref() {
+                Some("Never") => break,
+                Some(policy) => {
+                    if let Some(damage) = policy
+                        .strip_prefix("OnFatalDamage.")
+                        .and_then(|n| n.parse::<i32>().ok())
+                    {
+                        if game
+                            .player_order
+                            .iter()
+                            .filter(|&&p| p != player)
+                            .all(|&p| game.player(p).life > damage)
+                        {
+                            break;
+                        }
+                    }
+                }
+                None => {}
+            }
+            if to_pay.is_phyrexian() {
+                unpaid.pay_phyrexian();
+            } else if pays_life_for_black {
+                unpaid.decrease_shard(ManaCostShard::Black, 1);
+            }
+            continue;
+        };
+
+        let energy = sa_payment.ability_index.map_or(0, |idx| {
+            game.card(sa_payment.card_id)
+                .activated_abilities
+                .iter()
+                .find(|ab| ab.ability_index == idx)
+                .map_or(0, |ab| {
+                    ab.cost
+                        .parts
+                        .iter()
+                        .map(|part| match part {
+                            CostPart::PayEnergy(amount) => {
+                                amount.resolve(game, sa_payment.card_id, player)
+                            }
+                            _ => 0,
+                        })
+                        .sum()
+                })
+        });
+        if energy > 0 {
+            test_energy_pool -= energy;
+            if test_energy_pool < 0 {
+                break;
+            }
+        }
+
+        for atom in predict_mana(game, player, &sa_payment, &generated) {
+            let _ = unpaid.ai_pay_mana(atom, atom as u8);
+        }
+        for list in sources.values_mut() {
+            list.retain(|ma| ma.card_id != sa_payment.card_id);
+        }
+    }
+
+    unpaid.is_paid()
+}
+
+/// `ComputerUtilMana.adjustManaCostToAvoidNegEffects`.
+fn adjust_mana_cost_to_avoid_neg_effects(
+    unpaid: &mut ManaCostBeingPaid,
+    spell: &crate::card::Card,
+) {
+    let Some(needed) = spell.get_s_var("ManaNeededToAvoidNegativeEffect") else {
+        return;
+    };
+    for part in needed.split(',').filter(|part| !part.is_empty()) {
+        let color = ManaAtom::from_name(part);
+        if !unpaid.needs_color(color) && unpaid.get_generic_mana_amount() > 0 {
+            unpaid.increase_shard(mono_color_shard(color), 1);
+            unpaid.decrease_generic_mana(1);
+        }
+    }
+}
+
+/// `cost.getUnpaidColors() + cost.getColorsPaid() ^ COLORS_SUPERPOSITION`, in WUBRG order.
+fn converge_colors(unpaid: &ManaCostBeingPaid) -> Vec<u16> {
+    let unpaid_colors = unpaid
+        .get_distinct_shards()
+        .into_iter()
+        .fold(0i32, |acc, shard| acc | i32::from(shard.color_mask()));
+    let mask = (unpaid_colors + i32::from(unpaid.sunburst_map))
+        ^ i32::from(ManaAtom::COLORS_SUPERPOSITION);
+    WUBRG
+        .into_iter()
+        .filter(|&color| mask & i32::from(color) != 0)
+        .collect()
+}
+
+fn mono_color_shard(color: u16) -> ManaCostShard {
+    match color {
+        ManaAtom::WHITE => ManaCostShard::White,
+        ManaAtom::BLUE => ManaCostShard::Blue,
+        ManaAtom::BLACK => ManaCostShard::Black,
+        ManaAtom::RED => ManaCostShard::Red,
+        ManaAtom::GREEN => ManaCostShard::Green,
+        _ => ManaCostShard::Colorless,
+    }
+}
+
+/// `ManaPool.canPayForShardWithColor` without a colour conversion.
+fn pool_can_pay_for_shard_with_color(shard: ManaCostShard, color: u16) -> bool {
+    if shard.is_colorless() && color == ManaAtom::GENERIC {
+        return false;
+    }
+    let can_be_paid_with = |color: u16| {
+        shard.is_or_2_generic()
+            || shard.shard() & (ManaAtom::COLORS_SUPERPOSITION | ManaAtom::COLORLESS) == 0
+            || shard.shard() & color != 0
+    };
+    can_be_paid_with(color) || can_be_paid_with(0)
+}
+
+/// `ComputerUtilMana.getSourcesForShards`.
+fn get_sources_for_shards(
+    game: &GameState,
+    player: PlayerId,
+    current_spell: CardId,
+    unpaid: &ManaCostBeingPaid,
+    has_converge: bool,
+) -> Option<IndexMap<ManaCostShard, Vec<ManaAbilityRef>>> {
+    let sources = get_ai_available_mana_sources(game, player);
+    let mut mana_ability_map = group_mana_sources_by_color(game, player, &sources, &[], None, true);
+    if mana_ability_map.is_empty() {
+        return None;
+    }
+    // `groupSourcesByManaColor` fills an `ArrayListMultimap`, whose keys iterate in the
+    // bucket order of a 32-slot `HashMap`.
+    mana_ability_map.sort_by(|a, _, b, _| (a & 31).cmp(&(b & 31)));
+
+    let mut sources_for_shards = group_and_order_to_pay_shards(&mana_ability_map, unpaid);
+    if has_converge {
+        for color in converge_colors(unpaid) {
+            let shard = mono_color_shard(color);
+            if sources_for_shards.contains_key(&shard)
+                || !pool_can_pay_for_shard_with_color(shard, color)
+            {
+                continue;
+            }
+            if let Some(list) = mana_ability_map.get(&(color as i32)) {
+                sources_for_shards.insert(shard, list.clone());
+            }
+        }
+    }
+    sources_for_shards.sort_keys();
+    sort_mana_abilities(
+        game,
+        player,
+        current_spell,
+        &mut sources_for_shards,
+        &mana_ability_map,
+    );
+    Some(sources_for_shards)
+}
+
+/// `ComputerUtilMana.getAvailableManaSources` with `checkPlayable`: lands that make only
+/// colourless mana first, then sources by how many mana abilities they have, any-colour
+/// sources, creatures and sources whose abilities use something up, and last those that
+/// sacrifice something else.
+fn get_ai_available_mana_sources(game: &GameState, player: PlayerId) -> Vec<CardId> {
+    let mut colorless = Vec::new();
+    let mut by_ability_count: [Vec<CardId>; 5] = Default::default();
+    let mut any_color = Vec::new();
+    let mut other = Vec::new();
+    let mut use_last = Vec::new();
+
+    for card_id in get_available_mana_sources(game, player, &[]) {
+        let card = game.card(card_id);
+        let enchanted = card
+            .attachments
+            .iter()
+            .any(|&a| game.card(a).type_line.has_subtype("Aura"));
+        if card.is_creature() || enchanted {
+            other.push(card_id);
+            continue;
+        }
+
+        let abilities: Vec<_> = card
+            .activated_abilities
+            .iter()
+            .filter(|ab| {
+                ab.is_mana_ability
+                    && !ab
+                        .cost
+                        .parts
+                        .iter()
+                        .any(|part| matches!(part, CostPart::Mana { .. }))
+            })
+            .collect();
+        let mut usable = 0usize;
+        let mut needs_limited_resources = false;
+        let mut unpreferred_cost = false;
+        let mut produces_any_color = false;
+        let first_is_colorless = if abilities.is_empty() {
+            let mut atoms = all_basic_subtype_atoms(card);
+            if atoms.is_empty() {
+                atoms.extend(basic_land_mana_atom(card));
+            }
+            usable = atoms.len();
+            atoms.first() == Some(&ManaAtom::COLORLESS)
+        } else {
+            abilities[0]
+                .produced_ir
+                .as_ref()
+                .is_some_and(|produced| produced.as_script_text() == "C")
+        };
+        for ab in &abilities {
+            if ab
+                .produced_ir
+                .as_ref()
+                .is_some_and(crate::ability::ProducedMana::is_any_like)
+            {
+                produces_any_color = true;
+            }
+            if !can_pay_ignoring_mana(&ab.cost, game, card_id, player) {
+                continue;
+            }
+            if !is_reusable_resource(&ab.cost.parts) {
+                if ab.cost.parts.iter().any(|part| {
+                    matches!(part, CostPart::Sacrifice { type_filter, .. } if type_filter != "CARDNAME")
+                }) {
+                    unpreferred_cost = true;
+                }
+                needs_limited_resources = !unpreferred_cost;
+            }
+            if ab.sub_ability.is_some()
+                && card.card_name != "Pristine Talisman"
+                && card.card_name != "Zhur-Taa Druid"
+            {
+                needs_limited_resources = true;
+            }
+            usable += 1;
+        }
+
+        if unpreferred_cost {
+            use_last.push(card_id);
+        } else if needs_limited_resources {
+            other.push(card_id);
+        } else if produces_any_color {
+            any_color.push(card_id);
+        } else if usable == 1 && first_is_colorless {
+            colorless.push(card_id);
+        } else {
+            by_ability_count[usable.clamp(1, 5) - 1].push(card_id);
+        }
+    }
+
+    for list in [&mut other, &mut use_last] {
+        list.sort_by_key(|&card| {
+            std::cmp::Reverse(crate::agent::creature_evaluator::evaluate_creature(
+                game.card(card),
+            ))
+        });
+        list.reverse();
+    }
+    let mut sorted = colorless;
+    for list in by_ability_count {
+        sorted.extend(list);
+    }
+    sorted.extend(any_color);
+    sorted.extend(other);
+    sorted.extend(use_last);
+    sorted
+}
+
+/// `Cost.isReusuableResource`.
+fn is_reusable_resource(parts: &[CostPart]) -> bool {
+    parts.iter().all(|part| match part {
+        CostPart::Tap
+        | CostPart::Untap
+        | CostPart::Mana { .. }
+        | CostPart::TapType { .. }
+        | CostPart::UntapType { .. }
+        | CostPart::Reveal { .. }
+        | CostPart::Unattach { .. }
+        | CostPart::FlipCoin(_)
+        | CostPart::RollDice { .. } => true,
+        CostPart::AddCounter { counter_type, .. } => {
+            *counter_type != crate::card::CounterType::M1M1
+        }
+        _ => false,
+    })
+}
+
+/// `ComputerUtilMana.chooseManaAbility` for a harness player, which is not an AI controller:
+/// the first source in the list that `canPayShardWithSpellAbility` accepts, with the mana it
+/// would make.
+fn choose_mana_ability_to_pay(
+    game: &GameState,
+    player: PlayerId,
+    current_spell: CardId,
+    unpaid: &ManaCostBeingPaid,
+    to_pay: ManaCostShard,
+    ma_list: &[ManaAbilityRef],
+    payment_ctx: &crate::mana::ManaPaymentContext,
+) -> Option<(ManaAbilityRef, Vec<u16>)> {
+    let spell = game.card(current_spell);
+    let ma_list = order_by_ai_mana_preference(game, spell, ma_list);
+    for ma in &ma_list {
+        if ma.card_id == current_spell || ma.amount <= 0 {
+            continue;
+        }
+        let mut payment_choice = ma;
+        let source = game.card(ma.card_id);
+        if source.card_name == "Cavern of Souls"
+            && source
+                .chosen_type
+                .as_deref()
+                .is_some_and(|chosen| spell.type_line.has_subtype(chosen))
+        {
+            if to_pay == ManaCostShard::Colorless && unpaid.get_generic_mana_amount() > 0 {
+                continue;
+            }
+            if matches!(to_pay, ManaCostShard::Generic | ManaCostShard::X) {
+                if let Some(no_counter) = ma_list.iter().find(|ab| {
+                    ab.produced_ir
+                        .as_ref()
+                        .is_some_and(crate::ability::ProducedMana::is_any_like)
+                        && mana_ability_of(game, ab).is_some_and(|a| a.adds_no_counter)
+                        && !game.card(ab.card_id).tapped
+                }) {
+                    payment_choice = no_counter;
+                }
+            }
+        }
+        let Some(generated) = can_pay_shard_with_spell_ability(
+            game,
+            player,
+            to_pay,
+            payment_choice,
+            unpaid,
+            payment_ctx,
+        ) else {
+            continue;
+        };
+        if !can_pay_non_tap_mana_ability_costs(
+            game,
+            player,
+            payment_choice,
+            Some(current_spell),
+            false,
+            &[],
+        ) {
+            continue;
+        }
+        return Some((payment_choice.clone(), generated));
+    }
+    None
+}
+
+fn mana_ability_of<'a>(
+    game: &'a GameState,
+    ma: &ManaAbilityRef,
+) -> Option<&'a crate::ability::activated::ActivatedAbility> {
+    let idx = ma.ability_index?;
+    game.card(ma.card_id)
+        .activated_abilities
+        .iter()
+        .find(|ab| ab.ability_index == idx)
+}
+
+/// The start of `chooseManaAbility`: an `AIPreference:ManaFrom$<type>` SVar on the spell
+/// reorders its sources.
+fn order_by_ai_mana_preference(
+    game: &GameState,
+    spell: &crate::card::Card,
+    ma_list: &[ManaAbilityRef],
+) -> Vec<ManaAbilityRef> {
+    let Some(source_type) = spell
+        .get_s_var("AIPreference")
+        .filter(|condition| condition.starts_with("ManaFrom"))
+        .and_then(|condition| condition.split('$').nth(1))
+    else {
+        return ma_list.to_vec();
+    };
+    let is_snow = |ma: &ManaAbilityRef| game.card(ma.card_id).type_line.is_snow();
+    let is_treasure = |ma: &ManaAbilityRef| game.card(ma.card_id).type_line.has_subtype("Treasure");
+    let front = |pred: &dyn Fn(&ManaAbilityRef) -> bool| {
+        let mut sorted = ma_list.to_vec();
+        java_list_sort(&mut sorted, |a, b| if pred(a) && !pred(b) { -1 } else { 1 });
+        sorted
+    };
+    match source_type {
+        "Snow" => front(&is_snow),
+        "Treasure" => {
+            let sorted = front(&is_treasure);
+            let Some(first) = sorted.first().filter(|first| is_treasure(first)) else {
+                return ma_list.to_vec();
+            };
+            let mut updated = vec![first.clone()];
+            let mut removed = false;
+            for ma in ma_list {
+                if !removed
+                    && ma.card_id == first.card_id
+                    && ma.ability_index == first.ability_index
+                {
+                    removed = true;
+                    continue;
+                }
+                updated.push(ma.clone());
+            }
+            updated
+        }
+        "TreasureMax" => front(&is_treasure),
+        "NotSameCard" => ma_list
+            .iter()
+            .filter(|ma| game.card(ma.card_id).card_name != spell.card_name)
+            .cloned()
+            .collect(),
+        _ => ma_list.to_vec(),
+    }
+}
+
+/// `ComputerUtilMana.canPayShardWithSpellAbility`, returning the mana the source would make
+/// (`GameActionUtil.generatedTotalMana`): for a combo, reflected or any-colour source, the
+/// colours it picks as its express choice.
+fn can_pay_shard_with_spell_ability(
+    game: &GameState,
+    player: PlayerId,
+    to_pay: ManaCostShard,
+    ma: &ManaAbilityRef,
+    unpaid: &ManaCostBeingPaid,
+    payment_ctx: &crate::mana::ManaPaymentContext,
+) -> Option<Vec<u16>> {
+    if to_pay.is_snow() && !game.card(ma.card_id).type_line.is_snow() {
+        return None;
+    }
+    let ability = mana_ability_of(game, ma);
+    if let Some(ab) = ability {
+        if !is_payable_mana_ability(game, player, ma.card_id, ab, &[], Some(payment_ctx)) {
+            return None;
+        }
+    }
+    let amount = auto_pay_base_amount(game, player, ma).max(1) as usize;
+    let colored_x_ok = |atom: u16| {
+        to_pay != ManaCostShard::ColoredX
+            || unpaid.can_colored_x_shard_be_paid_by_color(atom_short(atom))
+    };
+
+    if matches!(ma.produced_ir, Some(crate::ability::ProducedMana::Combo(_))) {
+        for &atom in &ma.atoms {
+            if colored_x_ok(atom) && pool_can_pay_for_shard_with_color(to_pay, atom) {
+                let shared = WUBRG.into_iter().find(|&color| {
+                    u16::from(to_pay.color_mask()) & color != 0 && ma.atoms.contains(&color)
+                });
+                return Some(set_combo_mana_choice(game, player, ma, unpaid, shared));
+            }
+        }
+        return None;
+    }
+
+    if ability.is_some_and(|ab| ab.is_mana_reflected) {
+        for color in WUBRG.into_iter().chain([ManaAtom::COLORLESS]) {
+            if colored_x_ok(color)
+                && pool_can_pay_for_shard_with_color(to_pay, color)
+                && ma.atoms.contains(&color)
+            {
+                return Some(vec![color; amount]);
+            }
+        }
+        return None;
+    }
+
+    if to_pay == ManaCostShard::ColoredX && !ma.atoms.iter().any(|&atom| colored_x_ok(atom)) {
+        return None;
+    }
+
+    if ma
+        .produced_ir
+        .as_ref()
+        .is_some_and(crate::ability::ProducedMana::is_any_like)
+    {
+        let color = if to_pay.is_or_2_generic() {
+            u16::from(to_pay.color_mask())
+        } else {
+            WUBRG
+                .into_iter()
+                .find(|&color| pool_can_pay_for_shard_with_color(to_pay, color))
+                .unwrap_or(0)
+        };
+        return Some(vec![color; amount]);
+    }
+
+    if let Some(fixed) = fixed_output_atoms_for_payment(game, player, ma) {
+        let repeats = (ma.amount.max(1) as usize)
+            .checked_div(fixed.len().max(1))
+            .unwrap_or(1)
+            .max(1);
+        return Some(fixed.repeat(repeats));
+    }
+    Some(vec![choose_atom_for_shard(ma, to_pay)?; amount])
+}
+
+/// `ComputerUtilMana.setComboManaChoice`. Its colour-needed loop tests `choice`, which is
+/// still empty there, so a `Different` combo never picks in that loop.
+fn set_combo_mana_choice(
+    game: &GameState,
+    player: PlayerId,
+    ma: &ManaAbilityRef,
+    unpaid: &ManaCostBeingPaid,
+    mut express_choice: Option<u16>,
+) -> Vec<u16> {
+    let amount = auto_pay_base_amount(game, player, ma).max(1);
+    let different = ma.mana_text.contains("Different");
+    let satisfies = |choices: &[u16], color: u16| !different || !choices.contains(&color);
+    let any_part_payable = |cost: &ManaCostBeingPaid, color: u16| {
+        cost.get_distinct_shards()
+            .into_iter()
+            .any(|shard| pool_can_pay_for_shard_with_color(shard, color))
+    };
+    let mut test_cost = unpaid.clone();
+    let mut choices: Vec<u16> = Vec::new();
+    for _ in 0..amount {
+        if let Some(choice) = express_choice.take() {
+            if ma.atoms.contains(&choice)
+                && satisfies(&choices, choice)
+                && any_part_payable(&test_cost, choice)
+            {
+                choices.push(choice);
+                let _ = test_cost.ai_pay_mana(choice, choice as u8);
+                continue;
+            }
+        }
+        if !test_cost.is_paid() && !different {
+            if let Some(&color) = ma.atoms.iter().find(|&&color| test_cost.needs_color(color)) {
+                let _ = test_cost.ai_pay_mana(color, color as u8);
+                choices.push(color);
+                continue;
+            }
+        }
+        let common = most_prominent_color(game, player);
+        let choice = if satisfies(&choices, common) && ma.atoms.contains(&common) {
+            Some(common)
+        } else {
+            ma.atoms
+                .iter()
+                .copied()
+                .find(|&color| satisfies(&choices, color))
+        };
+        choices.extend(choice);
+    }
+    choices
+}
+
+/// `ComputerUtilCard.getMostProminentColor(hand)`: the first of the colours most cards in hand
+/// have, white when there is none.
+fn most_prominent_color(game: &GameState, player: PlayerId) -> u16 {
+    let mut counts = [0i32; 5];
+    for &card_id in game.cards_in_zone(ZoneType::Hand, player) {
+        let color = u16::from(game.card(card_id).color.mask());
+        for (i, &atom) in WUBRG.iter().enumerate() {
+            if color & atom != 0 {
+                counts[i] += 1;
+            }
+        }
+    }
+    let max = counts.iter().copied().max().unwrap_or(0);
+    WUBRG[counts.iter().position(|&n| n == max).unwrap_or(0)]
+}
+
+/// `ComputerUtilMana.predictMana`: the generated mana after `ProduceMana` replacements, and
+/// what `TapsForMana` triggers add.
+fn predict_mana(
+    game: &GameState,
+    player: PlayerId,
+    ma: &ManaAbilityRef,
+    generated: &[u16],
+) -> Vec<u16> {
+    let adjusted: Vec<u16> = generated
+        .iter()
+        .flat_map(|&atom| {
+            super::replacement_adjusted_atoms_for_availability(game, player, ma.card_id, atom)
+        })
+        .collect();
+    let mut produced = if adjusted.is_empty() {
+        generated.to_vec()
+    } else {
+        adjusted
+    };
+    if produced.is_empty() {
+        return produced;
+    }
+    let triggered = add_taps_for_mana_trigger_mana_impl(
+        game,
+        &mut ManaPool::new(),
+        player,
+        ma,
+        &atoms_as_mana_string(&produced),
+        false,
+    );
+    produced.extend(triggered);
+    produced
 }
 
 fn replacement_adjusted_atoms_for_payment(
