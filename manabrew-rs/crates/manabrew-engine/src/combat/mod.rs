@@ -292,6 +292,49 @@ impl CombatState {
         false
     }
 
+    /// Java `Combat.assignCombatDamage`'s answer, which decides whether a damage step gives
+    /// priority: an attacker that deals damage in the step with combat damage above zero, or a
+    /// blocker that deals damage in the step and still blocks an attacker, assigns, whether or
+    /// not any damage results (a blocked attacker whose blockers are gone assigns nothing).
+    pub fn assigns_combat_damage(&self, game: &GameState, first_strike_only: bool) -> bool {
+        let deals_in_step = |card: &crate::card::Card| {
+            if first_strike_only {
+                card.has_first_strike() || card.has_double_strike()
+            } else {
+                !card.has_first_strike() || card.has_double_strike()
+            }
+        };
+        let attackers: Vec<CardId> = self
+            .attackers
+            .iter()
+            .map(|&(attacker, _)| attacker)
+            .filter(|&attacker| game.card_is_in_zone(attacker, ZoneType::Battlefield))
+            .collect();
+        let attacker_assigns = attackers.iter().any(|&attacker| {
+            let card = game.card(attacker);
+            let damage = if crate::staticability::static_ability_assign_no_combat_damage::assign_no_combat_damage(
+                &game.cards,
+                card,
+            ) {
+                0
+            } else if crate::staticability::static_ability_combat_damage_toughness::combat_damage_uses_toughness(
+                &game.cards,
+                card,
+            ) {
+                card.toughness()
+            } else {
+                card.power()
+            };
+            deals_in_step(card) && damage > 0
+        });
+        attacker_assigns
+            || self.blockers.iter().any(|&(blocker, attacker)| {
+                game.card_is_in_zone(blocker, ZoneType::Battlefield)
+                    && attackers.contains(&attacker)
+                    && deals_in_step(game.card(blocker))
+            })
+    }
+
     /// Resolve one step of combat damage.
     /// If `first_strike_only` is true, only first-strike and double-strike creatures deal damage.
     /// If false, only non-first-strike and double-strike creatures deal damage.

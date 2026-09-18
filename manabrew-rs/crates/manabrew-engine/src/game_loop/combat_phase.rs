@@ -961,6 +961,7 @@ impl GameLoop {
             // Mirrors Java's Game.copyLastState() called before damage resolution.
             game.copy_last_state();
 
+            let fs_damage_assigned = self.combat.assigns_combat_damage(game, true);
             let fs_unblocked_choices = self.choose_assign_as_unblocked(game, agents, true);
             let combat::CombatDamageResolution {
                 events: fs_events,
@@ -976,7 +977,6 @@ impl GameLoop {
                         .record_damage(event.amount, true);
                 }
             }
-            let fs_damage_assigned = !fs_events.is_empty();
             self.fire_combat_damage_triggers(game, &fs_events);
             fs_counter_table.replace_counter_effect(
                 game,
@@ -1020,6 +1020,7 @@ impl GameLoop {
             // Mirrors Java's Game.copyLastState() called before damage resolution.
             game.copy_last_state();
 
+            let damage_assigned = self.combat.assigns_combat_damage(game, false);
             let unblocked_choices = self.choose_assign_as_unblocked(game, agents, false);
             let combat::CombatDamageResolution {
                 events: dmg_events,
@@ -1035,10 +1036,9 @@ impl GameLoop {
                         .record_damage(event.amount, true);
                 }
             }
-            // Java parity: skip priority when no damage was actually assigned
+            // Java parity: skip priority when no damage was assigned
             // (e.g. 0-power attackers). Mirrors PhaseHandler.java lines 335-343
             // where assignCombatDamage returns false → givePriorityToPlayer = false.
-            let damage_assigned = !dmg_events.is_empty();
             if damage_assigned {
                 self.notify_state_changed(game, agents);
             }
