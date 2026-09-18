@@ -117,12 +117,7 @@ impl TriggerIr {
             game_activation_limit: params
                 .get(keys::GAME_ACTIVATION_LIMIT)
                 .and_then(|v| v.parse().ok()),
-            valid_phases: params.get(keys::PHASE).map(|phase_text| {
-                phase_text
-                    .split(',')
-                    .filter_map(|token| PhaseType::from_script_name(token.trim()))
-                    .collect::<Vec<_>>()
-            }),
+            valid_phases: params.get(keys::PHASE).map(PhaseType::parse_range),
             activator_this_turn_cast: params
                 .get(keys::ACTIVATOR_THIS_TURN_CAST)
                 .map(str::to_string),
