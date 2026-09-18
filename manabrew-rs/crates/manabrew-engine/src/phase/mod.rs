@@ -38,6 +38,8 @@ pub enum PhaseCommand {
         player: PlayerId,
         controller: PlayerId,
     },
+    /// `GameAction.exileEffect`: the effect card leaves the command zone.
+    ExileEffect { effect: CardId },
 }
 
 impl PhaseCommand {
@@ -61,6 +63,18 @@ impl PhaseCommand {
             }
             PhaseCommand::RemoveController { player, controller } => {
                 crate::player::remove_controller(game, player, controller);
+            }
+            PhaseCommand::ExileEffect { effect } => {
+                if game.card(effect).zone == forge_foundation::ZoneType::Command {
+                    let controller = game.card(effect).controller;
+                    game.remove_card_from_zone(
+                        forge_foundation::ZoneType::Command,
+                        controller,
+                        effect,
+                    );
+                    game.card_mut(effect)
+                        .set_zone(forge_foundation::ZoneType::None);
+                }
             }
         }
     }
@@ -157,7 +171,7 @@ impl Phase {
     /// Mirrors Java's `Phase.registerUntilEndCommand()`.
     pub fn register_until_end_command(&mut self, player: PlayerId) {
         if let Some(cmds) = self.register_map.remove(&player) {
-            self.until_end_map.insert(player, cmds);
+            self.until_end_map.entry(player).or_default().extend(cmds);
         }
     }
 

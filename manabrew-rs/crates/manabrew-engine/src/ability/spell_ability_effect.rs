@@ -513,6 +513,30 @@ pub fn handle_exiled_with(game: &mut GameState, sa: &SpellAbility, exiled_card_i
     game.card_mut(source_id).add_imprinted_card(exiled_card_id);
 }
 
+/// Mirrors Java's `SpellAbilityEffect.addUntilCommand` for the durations that end at the
+/// controller's next turn. Returns false for any other duration.
+pub fn add_until_command(
+    game: &mut GameState,
+    duration: Option<&crate::spellability::AbilityDuration>,
+    controller: crate::ids::PlayerId,
+    until: crate::phase::PhaseCommand,
+) -> bool {
+    match duration {
+        Some(crate::spellability::AbilityDuration::UntilYourNextTurn) => {
+            game.cleanup.add_until(Some(controller), until);
+        }
+        Some(crate::spellability::AbilityDuration::UntilTheEndOfYourNextTurn) => {
+            if game.active_player() == controller {
+                game.end_of_turn.register_until_end(controller, until);
+            } else {
+                game.end_of_turn.add_until_end(controller, until);
+            }
+        }
+        _ => return false,
+    }
+    true
+}
+
 /// Execute the "exile with" command — exile a card and track the exile source.
 /// Mirrors Java's `SpellAbilityEffect.exileEffectCommand(Game, SpellAbility, Card)`.
 ///

@@ -702,6 +702,14 @@ impl GameLoop {
                 game.card_mut(effect_id).set_zone(ZoneType::None);
             }
         }
+        for command in game.end_of_turn.execute_until(None) {
+            command.run(game);
+        }
+        let active = game.active_player();
+        for command in game.end_of_turn.execute_until_end_of_phase(active) {
+            command.run(game);
+        }
+        game.end_of_turn.register_until_end_command(active);
 
         // Return stolen creatures (LoseControl$ EOT) to their original controllers
         let stolen: Vec<(CardId, crate::ids::PlayerId)> = game

@@ -148,6 +148,8 @@ pub struct GameState {
     pub turn: TurnState,
     pub begin_of_combat: Phase,
     pub end_of_combat: Phase,
+    #[serde(default)]
+    pub end_of_turn: Phase,
     pub cleanup: Phase,
 
     // Player order (for turn sequence)
@@ -265,6 +267,7 @@ impl GameState {
             turn: TurnState::new(player_order[0], player_order.len() as u32),
             begin_of_combat: Phase::new(forge_foundation::PhaseType::CombatBegin),
             end_of_combat: Phase::new(forge_foundation::PhaseType::CombatEnd),
+            end_of_turn: Phase::new(forge_foundation::PhaseType::EndOfTurn),
             cleanup: Phase::new(forge_foundation::PhaseType::Cleanup),
             player_order,
             game_over: false,

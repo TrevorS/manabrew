@@ -207,6 +207,12 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
         }
 
         let effect_id = ctx.game.create_card(effect);
+        crate::ability::spell_ability_effect::add_until_command(
+            ctx.game,
+            duration,
+            owner,
+            crate::phase::PhaseCommand::ExileEffect { effect: effect_id },
+        );
         ctx.move_card(effect_id, ZoneType::Command, owner);
     }
 
@@ -447,7 +453,9 @@ fn apply_duration_flags(effect: &mut Card, duration: Option<&AbilityDuration>, s
     let d = match duration {
         Some(AbilityDuration::UntilHostLeavesPlay) => EffectDuration::UntilHostLeavesPlay,
         Some(AbilityDuration::UntilHostLeavesPlayOrEot) => EffectDuration::UntilHostLeavesPlayOrEOT,
-        Some(AbilityDuration::Permanent) => EffectDuration::Permanent,
+        Some(AbilityDuration::Permanent)
+        | Some(AbilityDuration::UntilYourNextTurn)
+        | Some(AbilityDuration::UntilTheEndOfYourNextTurn) => EffectDuration::Permanent,
         Some(AbilityDuration::Unsupported(raw)) if raw.eq_ignore_ascii_case("Permanent") => {
             EffectDuration::Permanent
         }
