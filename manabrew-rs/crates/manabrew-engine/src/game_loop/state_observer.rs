@@ -109,21 +109,15 @@ impl GameLoop {
             hasher.write(entry.spell_ability.ability_text.as_bytes());
         }
 
-        let mut zone_rows: Vec<String> = game
-            .iter_zones()
-            .map(|(k, z)| {
-                let ids = z
-                    .cards
-                    .iter()
-                    .map(|c| c.0.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                format!("{:?}:{}:{ids}", k.zone_type, k.owner.0)
-            })
-            .collect();
-        zone_rows.sort_unstable();
-        for row in zone_rows {
-            hasher.write(row.as_bytes());
+        let mut zones: Vec<_> = game.iter_zones().collect();
+        zones.sort_unstable_by_key(|(key, _)| (key.zone_type as u8, key.owner.0));
+        for (key, zone) in zones {
+            hasher.write_u8(key.zone_type as u8);
+            hasher.write_u32(key.owner.0);
+            hasher.write_usize(zone.cards.len());
+            for card in &zone.cards {
+                hasher.write_u32(card.0);
+            }
         }
 
         hasher.write_u32(
