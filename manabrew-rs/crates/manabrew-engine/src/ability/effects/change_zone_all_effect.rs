@@ -301,6 +301,19 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 if let Some(src_id) = exile_source {
                     ctx.game.card_mut(card_id).set_exiled_by(Some(src_id));
                 }
+                // `moveTo(ZoneType.Exile, ...)` goes through `GameAction.exile`.
+                if ctx.game.card(card_id).zone == ZoneType::Exile {
+                    ctx.trigger_handler.run_trigger(
+                        crate::trigger::TriggerType::Exiled,
+                        crate::event::RunParams {
+                            card: Some(card_id),
+                            origin: Some(old_zone),
+                            destination: Some(dest_zone),
+                            ..Default::default()
+                        },
+                        false,
+                    );
+                }
             }
             if dest_zone == ZoneType::Battlefield {
                 if tapped {
