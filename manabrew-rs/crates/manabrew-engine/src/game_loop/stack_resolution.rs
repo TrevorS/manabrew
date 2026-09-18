@@ -863,6 +863,7 @@ impl GameLoop {
         let mut parent_target_stack_entry: Option<u32> = None;
         let mut inherited_trigger_index = entry.spell_ability.trigger_index;
         let root_kicked = entry.spell_ability.kicked;
+        let root_x_paid = entry.spell_ability.x_mana_cost_paid;
         let mut current = Some(&entry.spell_ability);
         let mut is_first = true;
         while let Some(sa) = current {
@@ -879,6 +880,7 @@ impl GameLoop {
             // Propagate kicked flag from root SA to sub-abilities for condition checks
             let mut sa_with_ctx;
             let needs_ctx_clone = (root_kicked && !sa.kicked)
+                || sa.x_mana_cost_paid != root_x_paid
                 || (parent_target_card.is_some() && sa.target_chosen.target_card.is_none())
                 || (parent_target_player.is_some() && sa.target_chosen.target_player.is_none())
                 || (parent_target_stack_entry.is_some()
@@ -890,6 +892,7 @@ impl GameLoop {
                 if root_kicked && !sa_with_ctx.kicked {
                     sa_with_ctx.kicked = true;
                 }
+                sa_with_ctx.x_mana_cost_paid = root_x_paid;
                 if !sa_with_ctx.uses_targeting() {
                     if sa_with_ctx.target_chosen.target_card.is_none() {
                         sa_with_ctx.target_chosen.target_card = parent_target_card;
