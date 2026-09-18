@@ -609,6 +609,23 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         game.cards[target.index()].cant_block_static = true;
     }
 
+    for card in &game.cards {
+        for (counter, &amount) in &card.counters {
+            if amount <= 0 {
+                continue;
+            }
+            if let Some(keyword) =
+                crate::card::counter_keyword_type::CounterKeywordType::keyword(counter)
+            {
+                pending.push(PendingEffect {
+                    layer: Layer::Ability,
+                    target: card.id,
+                    kind: EffectKind::GrantKeyword(keyword.to_string()),
+                });
+            }
+        }
+    }
+
     // ── 4. Sort by layer then apply ──────────────────────────────────────
     // CR 613.1: apply layers 1→7c in order. Within the same layer, timestamp
     // ordering is preserved by the stable sort (sources were collected in

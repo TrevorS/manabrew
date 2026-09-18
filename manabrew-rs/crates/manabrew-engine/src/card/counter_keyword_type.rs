@@ -37,25 +37,39 @@ impl CounterKeywordType {
         }
     }
 
+    /// The keyword a keyword counter grants. `parse_counter_type` upper-cases the name, so the
+    /// list is matched without case.
+    pub fn keyword(counter: &CounterType) -> Option<&'static str> {
+        let CounterType::Named(name) = counter else {
+            return None;
+        };
+        KEYWORD_COUNTERS
+            .iter()
+            .copied()
+            .find(|keyword| keyword.eq_ignore_ascii_case(name))
+    }
+
     fn is_keyword_counter(keyword: &str) -> bool {
-        matches!(
-            keyword,
-            "Flying"
-                | "First Strike"
-                | "Double Strike"
-                | "Deathtouch"
-                | "Decayed"
-                | "Exalted"
-                | "Haste"
-                | "Hexproof"
-                | "Indestructible"
-                | "Lifelink"
-                | "Menace"
-                | "Reach"
-                | "Shadow"
-                | "Trample"
-                | "Vigilance"
-        ) || keyword.starts_with("Hexproof:")
+        KEYWORD_COUNTERS.contains(&keyword)
+            || keyword.starts_with("Hexproof:")
             || keyword.starts_with("Trample:")
     }
 }
+
+const KEYWORD_COUNTERS: [&str; 15] = [
+    "Flying",
+    "First Strike",
+    "Double Strike",
+    "Deathtouch",
+    "Decayed",
+    "Exalted",
+    "Haste",
+    "Hexproof",
+    "Indestructible",
+    "Lifelink",
+    "Menace",
+    "Reach",
+    "Shadow",
+    "Trample",
+    "Vigilance",
+];
