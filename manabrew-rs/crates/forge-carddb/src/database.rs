@@ -156,7 +156,8 @@ impl CardDatabase {
             parser.parse(lines, Some(name_lower))
         };
         match parsed {
-            Ok(card) => {
+            Ok(mut card) => {
+                self.supply_placeholder_faces(&mut card);
                 let leaked: &'static CardRules = Box::leak(Box::new(card));
                 self.cache_insert(name_lower.to_string(), leaked);
                 Some(leaked)
@@ -168,6 +169,30 @@ impl CardDatabase {
                 None
             }
         }
+    }
+
+    /// Mirrors Java's `CardRules.supplyPlaceholderFaces`: a `CopyFaceFrom:` face is the named
+    /// card's main face.
+    fn supply_placeholder_faces(&self, card: &mut CardRules) {
+        if card.placeholder_faces.is_empty() {
+            return;
+        }
+        for (idx, name) in std::mem::take(&mut card.placeholder_faces) {
+            let Some(source) = self.get_by_card_name(&name) else {
+                continue;
+            };
+            let face = source.main_part.clone();
+            match idx {
+                0 => card.main_part = face,
+                1 => card.other_part = Some(face),
+                _ => continue,
+            }
+        }
+        let mut mask = CardRules::calculate_color_identity(&card.main_part);
+        if let Some(other) = card.other_part.as_ref() {
+            mask |= CardRules::calculate_color_identity(other);
+        }
+        card.color_identity = forge_foundation::ColorSet::from_mask(mask);
     }
 
     pub fn iter(&self) -> Vec<(String, &'static CardRules)> {

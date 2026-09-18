@@ -16,6 +16,7 @@ pub struct CardScriptParser {
     partner_with: Option<String>,
     normalized_name: String,
     tokens: Vec<String>,
+    placeholder_faces: Vec<(usize, String)>,
 }
 
 impl CardScriptParser {
@@ -28,6 +29,7 @@ impl CardScriptParser {
             partner_with: None,
             normalized_name: String::new(),
             tokens: Vec::new(),
+            placeholder_faces: Vec::new(),
         }
     }
 
@@ -39,6 +41,7 @@ impl CardScriptParser {
         self.partner_with = None;
         self.normalized_name.clear();
         self.tokens.clear();
+        self.placeholder_faces.clear();
     }
 
     /// Parse all lines from a card script and produce a CardRules.
@@ -104,7 +107,10 @@ impl CardScriptParser {
                 }
             }
             Some(b'C') => {
-                if key == "Colors" {
+                if key == "CopyFaceFrom" {
+                    self.placeholder_faces
+                        .push((face_idx, value_str.to_string()));
+                } else if key == "Colors" {
                     self.ensure_face(face_idx);
                     if let Some(face) = &mut self.faces[face_idx] {
                         let mut mask = 0u8;
@@ -289,9 +295,14 @@ impl CardScriptParser {
 
     /// Build the final CardRules from parsed data.
     pub fn build(&mut self) -> Result<CardRules, String> {
-        let main = self.faces[0]
-            .take()
-            .ok_or_else(|| "Card has no main face (missing Name: line)".to_string())?;
+        let placeholder_faces = std::mem::take(&mut self.placeholder_faces);
+        let main = match self.faces[0].take() {
+            Some(face) => face,
+            None if placeholder_faces.iter().any(|(idx, _)| *idx == 0) => {
+                CardFace::new(String::new())
+            }
+            None => return Err("Card has no main face (missing Name: line)".to_string()),
+        };
 
         let other = self.faces[1].take();
 
@@ -332,6 +343,7 @@ impl CardScriptParser {
             meld_with: self.meld_with.take(),
             partner_with: self.partner_with.take(),
             tokens: std::mem::take(&mut self.tokens),
+            placeholder_faces,
         })
     }
 }

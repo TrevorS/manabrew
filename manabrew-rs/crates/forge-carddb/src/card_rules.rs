@@ -18,6 +18,10 @@ pub struct CardRules {
     pub partner_with: Option<String>,
     #[serde(default)]
     pub tokens: Vec<String>,
+    /// `CopyFaceFrom:` faces still to fill, as (face index, card name). Mirrors Java's
+    /// `CardRules.placeholderFaces`, filled by `CardDatabase` once the named card is parsed.
+    #[serde(default)]
+    pub placeholder_faces: Vec<(usize, String)>,
 }
 
 impl CardRules {
