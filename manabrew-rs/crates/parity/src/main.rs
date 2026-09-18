@@ -43,6 +43,9 @@ use clap::Parser;
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
 
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use parity::card_pool::CardPool;
 use parity::deck_generator;
 use parity::deterministic_agent::VerboseMode;

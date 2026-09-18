@@ -25,6 +25,7 @@ clap = { version = "4", features = ["derive", "env"] }
 rayon = "1.10"
 terminal_size = "0.4"
 memmap2 = "0.9"
+mimalloc = { version = "0.1", default-features = false }
 
 # Continuous parity (behind feature flags)
 rusqlite = { version = "0.31", features = ["bundled"], optional = true }
