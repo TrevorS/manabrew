@@ -249,9 +249,33 @@ pub(super) fn resolve_random_selection(
     count: usize,
 ) -> Vec<CardId> {
     let mut pool = candidates.to_vec();
-    ctx.rng.shuffle_cards(&mut pool);
-    pool.truncate(count);
-    pool
+    let java_order = |cid: &CardId| {
+        let card = ctx.game.card(*cid);
+        let player = ctx
+            .game
+            .players
+            .iter()
+            .position(|p| p.id == card.controller)
+            .unwrap_or(0);
+        let position = ctx
+            .game
+            .cards_in_zone(card.zone, card.controller)
+            .iter()
+            .position(|c| c == cid)
+            .unwrap_or(0);
+        (player, std::cmp::Reverse(position))
+    };
+    pool.sort_by_key(java_order);
+    let mut chosen = Vec::new();
+    while chosen.len() < count && !pool.is_empty() {
+        let index = if pool.len() == 1 {
+            0
+        } else {
+            ctx.rng.next_int(pool.len() as i32) as usize
+        };
+        chosen.push(pool.remove(index));
+    }
+    chosen
 }
 
 pub(super) fn resolve_defined_players_for_hidden_origin(
