@@ -42,35 +42,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     let clone_targets: Vec<crate::ids::CardId> =
         if let Some(defined) = sa.ir.clone_target.as_deref() {
-            let targets: Vec<crate::ids::CardId> = match defined {
-                "Self" => vec![source_id],
-                "ParentTarget" => ctx.parent_target_card.into_iter().collect(),
-                "Remembered" => ctx.game.card(source_id).remembered_cards.clone(),
-                _ if defined.starts_with("Valid ") => {
-                    let filter = defined.strip_prefix("Valid ").unwrap_or("").trim();
-                    let mut out = Vec::new();
-                    for &pid in &ctx.game.player_order {
-                        for &cid in ctx.game.cards_in_zone(ZoneType::Battlefield, pid) {
-                            if matches_valid_cards_for_sa(
-                                ctx.game,
-                                sa,
-                                ctx.game.card(cid),
-                                None,
-                                filter,
-                            ) {
-                                out.push(cid);
-                            }
-                        }
-                    }
-                    out
-                }
-                _ => crate::ability::ability_utils::get_defined_cards(
-                    ctx.game,
-                    Some(source_id),
-                    defined,
-                    Some(controller),
-                ),
-            };
+            let mut targets = crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                ctx.game, sa, defined,
+            );
+            if targets.is_empty() && defined == "ParentTarget" {
+                targets.extend(ctx.parent_target_card);
+            }
             if targets.is_empty() {
                 return;
             }
@@ -100,10 +77,18 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .card_mut(clone_target_id)
                 .set_clone_state(Some(state));
         }
+        // A card copying itself keeps its replacement ids, or the Moved replacement that
+        // started the copy would no longer count as run and would fire again.
         let replacement_ids: Vec<i32> = src
             .replacement_effects
             .iter()
-            .map(|_| ctx.game.next_copied_replacement_id())
+            .map(|re| {
+                if clone_target_id == clone_source_id {
+                    crate::core::Identifiable::id(&re.base.card_trait_base)
+                } else {
+                    ctx.game.next_copied_replacement_id()
+                }
+            })
             .collect();
         let target = &mut ctx.game.cards[clone_target_id.index()];
         let host_svars = (clone_target_id == source_id).then(|| target.svars.clone());
@@ -262,27 +247,7 @@ fn resolve_clone_source(
     sa: &SpellAbility,
     controller: crate::ids::PlayerId,
 ) -> Option<crate::ids::CardId> {
-    // Check explicit target first
-    if let Some(target) = sa.target_chosen.target_card {
-        return Some(target);
-    }
-
-    // Check Defined$
-    if let Some(defined) = sa.defined() {
-        match defined {
-            "Remembered" => {
-                if let Some(src) = sa.source {
-                    return ctx.game.card(src).remembered_cards.first().copied();
-                }
-            }
-            "ParentTarget" => {
-                return ctx.parent_target_card;
-            }
-            _ => {}
-        }
-    }
-
-    // Check Choices — player selects from valid cards
+    // Java `CloneEffect` asks Choices$ first, then Defined$, then the target.
     if let Some(filter) = sa.ir.choices.as_deref().map(str::to_string) {
         let filter_selector = sa.ir.choices_selector.as_ref();
         let zone = sa.ir.choice_zone.unwrap_or(ZoneType::Battlefield);
@@ -319,6 +284,24 @@ fn resolve_clone_source(
             Some(crate::agent::GameEntity::Card(card_id)) => Some(card_id),
             _ => None,
         };
+    }
+
+    if let Some(defined) = sa.defined() {
+        let mut sources = crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+            ctx.game, sa, defined,
+        );
+        if sources.is_empty() {
+            if let Some(parent) = ctx.parent_target_card {
+                if defined == "ParentTarget" {
+                    sources.push(parent);
+                }
+            }
+        }
+        return sources.first().copied();
+    }
+
+    if sa.uses_targeting() {
+        return sa.target_chosen.target_card;
     }
 
     None
