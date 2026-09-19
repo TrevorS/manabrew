@@ -2358,6 +2358,10 @@ fn matches_type_and_qualifier_parts(
                         if !check_counter_condition(sub, card) {
                             return false;
                         }
+                    } else if sub.starts_with("countersReceivedThisTurn_") {
+                        if !check_counters_received_this_turn(sub, card, context) {
+                            return false;
+                        }
                     } else if sub_lower.starts_with("cmc") {
                         // CMC comparisons: cmcEQ1, cmcLE3, cmcGE5
                         let original_rest = &sub[3..];

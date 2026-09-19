@@ -2429,32 +2429,33 @@ impl GameLoop {
         amount: i32,
         from: ZoneType,
     ) {
+        if amount <= 0 {
+            return;
+        }
+        let amount = amount as usize;
         let base_filter = crate::cost::normalize_exile_base_filter(type_filter);
-        for _ in 0..amount {
-            let mut valid = cost::get_zone_targets(game, player, from, &base_filter);
-            valid.retain(|&cid| can_exile_for_cost(game, cid));
-            if from == ZoneType::Hand
-                && game.card(source).zone == ZoneType::Hand
-                && game.card(source).owner == player
-            {
-                valid.retain(|&cid| cid != source);
-            }
-            if valid.is_empty() {
-                break;
-            }
-            let chosen =
-                self.choose_cost_card_from_zone(game, agents, player, &valid, from, source);
-            if let Some(chosen) = chosen {
-                let owner = game.card(chosen).owner;
-                self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
-                self.record_paid_cost_exile(game, source, chosen);
-                crate::ability::effects::emit_zone_trigger(
-                    &mut self.trigger_handler,
-                    chosen,
-                    from,
-                    ZoneType::Exile,
-                );
-            }
+        let mut valid = cost::get_zone_targets(game, player, from, &base_filter);
+        valid.retain(|&cid| can_exile_for_cost(game, cid));
+        if from == ZoneType::Hand
+            && game.card(source).zone == ZoneType::Hand
+            && game.card(source).owner == player
+        {
+            valid.retain(|&cid| cid != source);
+        }
+        if valid.len() < amount {
+            return;
+        }
+        let chosen = agents[player.index()].choose_cards_for_effect(player, &valid, amount, amount);
+        for chosen in chosen {
+            let owner = game.card(chosen).owner;
+            self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
+            self.record_paid_cost_exile(game, source, chosen);
+            crate::ability::effects::emit_zone_trigger(
+                &mut self.trigger_handler,
+                chosen,
+                from,
+                ZoneType::Exile,
+            );
         }
     }
 
