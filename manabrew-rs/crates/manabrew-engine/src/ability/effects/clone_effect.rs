@@ -129,14 +129,23 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         target.base_trigger_count = target.triggers.len();
         target.set_perpetual(&src, false);
         target.reset_changed_card_traits_baseline_to_current();
-        if crate::parsing::raw_has_key(&sa.ability_text, crate::parsing::keys::KEEP_NAME) {
-            if let Some(state) = target.clone_state.as_ref() {
-                target.card_name = state.original_card_name.clone();
+        let copied_name =
+            if crate::parsing::raw_has_key(&sa.ability_text, crate::parsing::keys::KEEP_NAME) {
+                target
+                    .clone_state
+                    .as_ref()
+                    .map(|state| state.original_card_name.clone())
+            } else {
+                crate::parsing::raw_get(&sa.ability_text, crate::parsing::keys::NEW_NAME)
+                    .map(str::to_string)
+            };
+        if let Some(name) = copied_name {
+            if src.has_prepared_spell_state() {
+                if let Some(other) = target.other_part.as_mut() {
+                    other.name = name.clone();
+                }
             }
-        } else if let Some(new_name) =
-            crate::parsing::raw_get(&sa.ability_text, crate::parsing::keys::NEW_NAME)
-        {
-            target.card_name = new_name.to_string();
+            target.card_name = name;
         }
 
         // Step 4: Apply clone-state modifications from the cloning ability.

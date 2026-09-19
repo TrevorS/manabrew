@@ -259,6 +259,8 @@ pub struct CloneState {
     /// Intrinsic trigger count *before* the clone, for the same reason.
     #[serde(default)]
     pub original_base_trigger_count: usize,
+    #[serde(default)]
+    pub original_other_part: Option<CardOtherPart>,
 }
 
 /// A card instance in a game. This is the mutable game-state representation,
@@ -3002,6 +3004,7 @@ impl Card {
             original_replacement_effects: self.replacement_effects.clone(),
             original_base_ability_count: self.base_ability_count,
             original_base_trigger_count: self.base_trigger_count,
+            original_other_part: self.other_part.clone(),
         }
     }
 
@@ -3027,6 +3030,7 @@ impl Card {
         self.replacement_effects = state.original_replacement_effects;
         self.base_ability_count = state.original_base_ability_count;
         self.base_trigger_count = state.original_base_trigger_count;
+        self.other_part = state.original_other_part;
         self.parsed_svar_cache.clear();
         self.refresh_action_specs();
         self.ensure_crew_activated_ability();
