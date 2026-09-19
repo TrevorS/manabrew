@@ -657,6 +657,7 @@ fn auto_tap_lands_internal_with_ctx(
         );
         payment.colors_spent |= spent.colors_spent;
         payment.paying_mana.extend(spent.paying_mana);
+        payment.paying_sources.extend(spent.paying_sources);
     } else if let Some(ctx) = payment_ctx {
         pay_cost_from_pool(&mut unpaid, &pool.filtered_for_context(ctx));
     } else {
@@ -743,6 +744,7 @@ fn auto_tap_lands_internal_with_ctx(
                 );
                 payment.colors_spent |= spent.colors_spent;
                 payment.paying_mana.extend(spent.paying_mana);
+                payment.paying_sources.extend(spent.paying_sources);
             } else {
                 for &atom in &trigger_atoms {
                     let _ = unpaid.try_pay_mana(atom, atom as u8);
@@ -811,6 +813,7 @@ fn auto_tap_lands_internal_with_ctx(
                     );
                     payment.colors_spent |= spent.colors_spent;
                     payment.paying_mana.extend(spent.paying_mana);
+                    payment.paying_sources.extend(spent.paying_sources);
                 }
             } else if !is_empty_combo_color_identity {
                 let _ = unpaid.try_pay_mana(chosen_atom, chosen_atom as u8);

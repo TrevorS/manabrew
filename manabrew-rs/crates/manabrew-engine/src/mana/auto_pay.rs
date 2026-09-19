@@ -14,6 +14,7 @@ pub struct AutoPayResult {
     pub life_paid: i32,
     pub colors_spent: u16,
     pub paying_mana: Vec<u16>,
+    pub paying_sources: Vec<Option<CardId>>,
     /// True when auto-tap produced taps but the resulting pool couldn't
     /// satisfy the full cost — i.e. the cast must cancel. Java's
     /// `AutoPay.payManaCostWithTrace` records the partial taps before
@@ -122,6 +123,7 @@ pub fn pay_mana_cost_auto_with_chooser(
         life_paid: payment.life_paid,
         colors_spent: payment.colors_spent,
         paying_mana: payment.paying_mana,
+        paying_sources: payment.paying_sources,
         cancelled: false,
         convoked: Vec::new(),
     })
@@ -207,6 +209,10 @@ pub fn pay_mana_cost_auto_with_callback_and_reserved_sacrifices(
             .payment
             .paying_mana
             .extend(tapped_tax.payment.paying_mana);
+        trace
+            .payment
+            .paying_sources
+            .extend(tapped_tax.payment.paying_sources);
         trace.paid = trace.paid && tapped_tax.paid;
     }
     let choices = trace.choices;
@@ -222,6 +228,7 @@ pub fn pay_mana_cost_auto_with_callback_and_reserved_sacrifices(
             life_paid: 0,
             colors_spent: 0,
             paying_mana: Vec::new(),
+            paying_sources: Vec::new(),
             cancelled: true,
             convoked: Vec::new(),
         });
@@ -232,6 +239,7 @@ pub fn pay_mana_cost_auto_with_callback_and_reserved_sacrifices(
         life_paid,
         colors_spent: trace.payment.colors_spent,
         paying_mana: trace.payment.paying_mana,
+        paying_sources: trace.payment.paying_sources,
         cancelled: false,
         convoked: trace.convoked,
     })

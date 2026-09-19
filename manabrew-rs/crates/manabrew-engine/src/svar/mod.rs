@@ -1664,6 +1664,27 @@ pub fn resolve_count_svar_for_sa(
         };
         return do_x_math(x, operators, game, source_id, controller, sa);
     }
+    if let Some(rest) = expr.strip_prefix("Count$CastTotalManaSpent ") {
+        let (valid, operators) = rest.split_once('/').unwrap_or((rest, ""));
+        let host = game.card(source_id);
+        let spent = host
+            .paying_sources_to_cast
+            .iter()
+            .flatten()
+            .filter(|&&mana_source| {
+                valid.split(',').any(|restriction| {
+                    crate::card::valid_filter::matches_valid(
+                        restriction,
+                        Some(game.card(mana_source)),
+                        None,
+                        host,
+                        controller,
+                    )
+                })
+            })
+            .count() as i32;
+        return do_x_math(spent, operators, game, source_id, controller, sa);
+    }
     if let Some(operators) = expr.strip_prefix("Count$CastTotalManaSpent") {
         let operators = operators.strip_prefix('/').unwrap_or(operators);
         return do_x_math(

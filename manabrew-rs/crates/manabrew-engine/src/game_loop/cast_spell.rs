@@ -1762,6 +1762,7 @@ impl GameLoop {
         let pool_size_before = self.pool(player).total_mana();
         let colors_spent_to_cast = std::cell::Cell::new(0u16);
         let paying_mana_to_cast = std::cell::RefCell::new(Vec::new());
+        let paying_sources_to_cast = std::cell::RefCell::new(Vec::new());
         let convoked_to_cast = std::cell::RefCell::new(Vec::new());
         let failed_non_undoable_choices: std::cell::RefCell<Vec<(CardId, usize, u16)>> =
             std::cell::RefCell::new(Vec::new());
@@ -1879,6 +1880,9 @@ impl GameLoop {
                         paying_mana_to_cast
                             .borrow_mut()
                             .extend(result.paying_mana.iter().copied());
+                        paying_sources_to_cast
+                            .borrow_mut()
+                            .extend(result.paying_sources.iter().copied());
                         for &tapped_id in &result.tapped {
                             slf.trigger_handler.run_trigger(
                                 TriggerType::Taps,
@@ -1945,6 +1949,9 @@ impl GameLoop {
                         paying_mana_to_cast
                             .borrow_mut()
                             .extend(payment.paying_mana.iter().copied());
+                        paying_sources_to_cast
+                            .borrow_mut()
+                            .extend(payment.paying_sources.iter().copied());
                         if payment.life_paid > 0 {
                             slf.pay_life_cost(game, player, card_id, payment.life_paid);
                         }
@@ -2002,6 +2009,7 @@ impl GameLoop {
             .set_colors_spent_to_cast(colors_spent_to_cast.get());
         game.card_mut(card_id)
             .set_paying_mana_to_cast(paying_mana_to_cast.into_inner());
+        game.card_mut(card_id).paying_sources_to_cast = paying_sources_to_cast.into_inner();
         for (convoked_id, as_convoke) in convoked_to_cast.into_inner() {
             if as_convoke {
                 sa.add_tapped_for_convoke(convoked_id);

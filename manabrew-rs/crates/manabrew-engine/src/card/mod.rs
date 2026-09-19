@@ -705,6 +705,8 @@ pub struct Card {
     /// Exact mana atoms spent to cast this spell, in payment order.
     /// Mirrors Java's castSA.getPayingMana() use sites such as Adamant.
     pub paying_mana_to_cast: Vec<u16>,
+    #[serde(default)]
+    pub paying_sources_to_cast: Vec<Option<CardId>>,
     /// Pre-selected charm/mode indices (for Spree — modes chosen before payment).
     /// If `Some`, charm_effect should use these instead of asking the player again.
     pub chosen_modes: Option<Vec<usize>>,
@@ -996,6 +998,7 @@ impl Card {
             etb_counters: BTreeMap::new(),
             colors_spent_to_cast: 0,
             paying_mana_to_cast: Vec::new(),
+            paying_sources_to_cast: Vec::new(),
             chosen_modes: None,
             strive_extra_targets: 0,
             became_target_this_turn: false,
@@ -1230,6 +1233,7 @@ impl Card {
             etb_counters: self.etb_counters.clone(),
             colors_spent_to_cast: self.colors_spent_to_cast,
             paying_mana_to_cast: self.paying_mana_to_cast.clone(),
+            paying_sources_to_cast: self.paying_sources_to_cast.clone(),
             chosen_modes: self.chosen_modes.clone(),
             strive_extra_targets: self.strive_extra_targets,
             became_target_this_turn: self.became_target_this_turn,
