@@ -89,7 +89,24 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
     }
-    let rest: Vec<_> = revealed
+    if crate::parsing::raw_has_key(&sa.ability_text, "OptionalFoundMove") {
+        let mut kept = Vec::new();
+        for &cid in &found {
+            ctx.agents[target_player.index()].snapshot_state(ctx.game, ctx.mana_pools);
+            if ctx.agents[target_player.index()].confirm_action(
+                target_player,
+                None,
+                &format!("Do you want to put that card to {found_dest:?}?"),
+                &[],
+                sa.source,
+                sa.api,
+            ) {
+                kept.push(cid);
+            }
+        }
+        found = kept;
+    }
+    let mut rest: Vec<_> = revealed
         .iter()
         .copied()
         .filter(|cid| !found.contains(cid))
@@ -127,6 +144,32 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             let _ = super::add_to_combat(ctx, sa, id, keys::ATTACKING);
         }
         emit_zone_trigger(ctx.trigger_handler, id, ZoneType::Library, found_dest);
+    }
+
+    let shuffle = crate::parsing::raw_has_key(&sa.ability_text, "Shuffle");
+    let random_order = crate::parsing::raw_has_key(&sa.ability_text, "RevealRandomOrder");
+    if random_order && rest.len() > 1 {
+        for i in (1..rest.len()).rev() {
+            let j = ctx.rng.next_int((i + 1) as i32) as usize;
+            rest.swap(i, j);
+        }
+    }
+    let known_dest = !matches!(revealed_dest, ZoneType::Library | ZoneType::Hand);
+    let sequential = revealed_dest == found_dest;
+    if !sequential
+        && (known_dest || (revealed_dest == ZoneType::Library && !shuffle && !random_order))
+        && rest.len() >= 2
+    {
+        ctx.agents[target_player.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        let ordered = ctx.agents[target_player.index()].order_move_to_zone_list(
+            ctx.game,
+            target_player,
+            &rest,
+            revealed_dest,
+        );
+        if ordered.len() == rest.len() && rest.iter().all(|id| ordered.contains(id)) {
+            rest = ordered;
+        }
     }
 
     // Move rest to revealed destination
