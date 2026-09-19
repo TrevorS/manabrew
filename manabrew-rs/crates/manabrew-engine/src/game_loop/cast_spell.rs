@@ -488,6 +488,16 @@ impl GameLoop {
     /// Orchestrates the full non-land SpellAbility entrypoint after the action
     /// has already been chosen. Card spells and activated abilities both route
     /// through here; only lands stay outside this boundary.
+    fn trace_cast_rollback(game: &GameState, card_id: CardId, line: u32) {
+        let name = &game.card(card_id).card_name;
+        if Self::card_trace_matches(name) {
+            eprintln!(
+                "[card-trace] T{} cast of {name} rolled back at cast_spell.rs:{line}",
+                game.turn.turn_number
+            );
+        }
+    }
+
     pub(crate) fn play_spell_ability(
         &mut self,
         game: &mut GameState,
@@ -1418,6 +1428,7 @@ impl GameLoop {
 
         macro_rules! rollback_cast {
             () => {{
+                Self::trace_cast_rollback(game, card_id, line!());
                 self.restore_snapshot(game, &cast_rollback_snapshot);
                 return None;
             }};
@@ -1436,6 +1447,7 @@ impl GameLoop {
         }
         macro_rules! rollback_failed_payment {
             () => {{
+                Self::trace_cast_rollback(game, card_id, line!());
                 self.restore_snapshot(game, &cast_rollback_snapshot);
                 notify_payment_failed!();
                 return None;
@@ -1443,6 +1455,7 @@ impl GameLoop {
         }
         macro_rules! rollback_cast_preserving_taps {
             ($tapped_cards:expr) => {{
+                Self::trace_cast_rollback(game, card_id, line!());
                 self.restore_snapshot(game, &cast_rollback_snapshot);
                 notify_payment_failed!();
                 for tapped_id in $tapped_cards {
@@ -1926,6 +1939,7 @@ impl GameLoop {
                     rollback_cast_preserving_taps!(tapped_after_failed_mana_payment);
                 }
                 let non_undoable = std::mem::take(&mut *failed_non_undoable_choices.borrow_mut());
+                Self::trace_cast_rollback(game, card_id, line!());
                 self.restore_snapshot(game, &cast_rollback_snapshot);
                 for (source_id, ability_index, chosen_atom) in non_undoable {
                     crate::mana::computer_util_mana::reapply_non_undoable_payment_ability(
