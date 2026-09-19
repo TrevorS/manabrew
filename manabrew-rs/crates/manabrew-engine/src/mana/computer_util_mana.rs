@@ -734,7 +734,7 @@ fn auto_tap_lands_internal_with_ctx(
             let produced =
                 produce_mana_for_auto_pay(game, pool, player, &sa_payment, chosen_atom, callback);
             let trigger_atoms =
-                add_taps_for_mana_trigger_mana(game, pool, player, &sa_payment, &produced);
+                add_taps_for_mana_trigger_mana(game, pool, player, &sa_payment, &produced, to_pay);
             if consume_incrementally {
                 let spent = pool.pay_unpaid_for_spell_incremental(
                     &mut unpaid,
@@ -785,8 +785,14 @@ fn auto_tap_lands_internal_with_ctx(
                     chosen_atom,
                     callback,
                 );
-                trigger_atoms_for_non_incremental =
-                    add_taps_for_mana_trigger_mana(game, pool, player, &sa_payment, &produced);
+                trigger_atoms_for_non_incremental = add_taps_for_mana_trigger_mana(
+                    game,
+                    pool,
+                    player,
+                    &sa_payment,
+                    &produced,
+                    to_pay,
+                );
             }
 
             tapped_choices.push(AutoTapChoice {
@@ -1005,8 +1011,9 @@ fn add_taps_for_mana_trigger_mana(
     player: PlayerId,
     sa_payment: &ManaAbilityRef,
     produced: &str,
+    to_pay: ManaCostShard,
 ) -> Vec<u16> {
-    add_taps_for_mana_trigger_mana_impl(game, pool, player, sa_payment, produced, true)
+    add_taps_for_mana_trigger_mana_impl(game, pool, player, sa_payment, produced, true, to_pay)
 }
 
 fn add_taps_for_mana_trigger_mana_impl(
@@ -1016,6 +1023,7 @@ fn add_taps_for_mana_trigger_mana_impl(
     sa_payment: &ManaAbilityRef,
     produced: &str,
     require_tap: bool,
+    to_pay: ManaCostShard,
 ) -> Vec<u16> {
     // TapsForMana fires only when the mana ability has a Tap cost
     // (`AbilityManaPart.tapsForMana`). Implicit basic-land taps have no parsed
@@ -1056,22 +1064,33 @@ fn add_taps_for_mana_trigger_mana_impl(
     for host_id in hosts {
         let host = game.card(host_id);
         for trigger in &host.triggers {
-            if trigger.kind != crate::trigger::TriggerType::TapsForMana {
-                continue;
-            }
-            if !trigger.get_mode().perform_test(trigger, &params, game) {
+            if trigger.kind != crate::trigger::TriggerType::TapsForMana
+                || !trigger.get_active_zone().contains(&host.zone)
+                || !trigger.requirements_check(game, host_id)
+                || !trigger.check_activation_limit(game, host_id)
+                || !trigger.get_mode().perform_test(trigger, &params, game)
+                || !trigger.meets_requirements_on_triggered_objects(game, &params, host_id)
+            {
                 continue;
             }
             let Some(sa) = trigger.ensure_ability(game, host_id, player) else {
                 continue;
             };
-            let Some(produced_ir) = sa.produced_ir() else {
-                continue;
-            };
-            let amount = sa.amount_of_mana_generated().max(1);
-            let atoms = produced_ir.to_atoms(&host.chosen_colors);
-            let Some(atom) = atoms.first().copied() else {
-                continue;
+            let (atom, amount) = if sa.api == Some(crate::ability::api_type::ApiType::ManaReflected)
+            {
+                let Some(atom) = predict_reflected_mana(&sa, produced, to_pay) else {
+                    continue;
+                };
+                (atom, 1)
+            } else {
+                let Some(produced_ir) = sa.produced_ir() else {
+                    continue;
+                };
+                let atoms = produced_ir.to_atoms(&host.chosen_colors);
+                let Some(atom) = atoms.first().copied() else {
+                    continue;
+                };
+                (atom, sa.amount_of_mana_generated().max(1))
             };
             let Some(letter) = ManaPool::atom_to_letter(atom).chars().next() else {
                 continue;
@@ -1104,6 +1123,41 @@ fn add_taps_for_mana_trigger_mana_impl(
         }
     }
     produced_atoms
+}
+
+fn predict_reflected_mana(
+    sa: &crate::spellability::SpellAbility,
+    produced: &str,
+    to_pay: ManaCostShard,
+) -> Option<u16> {
+    let is_type = sa.ir.color_or_type.as_deref() == Some("Type");
+    if sa.ir.reflect_property.as_deref() != Some("Produced") || produced.is_empty() {
+        return None;
+    }
+    if to_pay == ManaCostShard::Colorless && is_type && produced.contains('C') {
+        return Some(ManaAtom::COLORLESS);
+    }
+    if produced.len() == 1 {
+        return (is_type || produced != "C").then(|| ManaAtom::from_name(&produced.to_lowercase()));
+    }
+    let shard = to_pay.shard();
+    let can_be_paid_with = |color: u16| {
+        to_pay.is_or_2_generic()
+            || (ManaAtom::COLORS_SUPERPOSITION | ManaAtom::COLORLESS) & shard == 0
+            || shard & color != 0
+    };
+    let mana: Vec<u16> = produced
+        .split(' ')
+        .map(|s| ManaAtom::from_name(&s.to_lowercase()))
+        .collect();
+    mana.iter()
+        .copied()
+        .find(|&atom| is_type || atom != ManaAtom::COLORLESS && can_be_paid_with(atom))
+        .or_else(|| {
+            mana.iter()
+                .copied()
+                .find(|&atom| is_type || atom != ManaAtom::COLORLESS)
+        })
 }
 
 fn auto_pay_base_mana_string(
@@ -2842,6 +2896,7 @@ pub fn can_pay_spell_mana_cost_for_action_space(
             &sa_payment,
             &produced,
             false,
+            to_pay,
         );
         simulated_pool.pay_unpaid_for_spell_incremental(&mut unpaid, payment_ctx, false);
 
@@ -3000,7 +3055,7 @@ fn can_pay_mana_cost(
             }
         }
 
-        let produced = predict_mana(game, player, &sa_payment, &generated);
+        let produced = predict_mana(game, player, &sa_payment, &generated, to_pay);
         for &atom in &produced {
             let _ = unpaid.ai_pay_mana(atom, atom as u8);
         }
@@ -3534,6 +3589,7 @@ fn predict_mana(
     player: PlayerId,
     ma: &ManaAbilityRef,
     generated: &[u16],
+    to_pay: ManaCostShard,
 ) -> Vec<u16> {
     let adjusted: Vec<u16> = generated
         .iter()
@@ -3556,6 +3612,7 @@ fn predict_mana(
         ma,
         &atoms_as_mana_string(&produced),
         false,
+        to_pay,
     );
     produced.extend(triggered);
     produced
