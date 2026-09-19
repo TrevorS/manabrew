@@ -99,6 +99,23 @@ pub fn grants_zone_permissions(
     can_play_or_granted(st_ab, source, card, game)
 }
 
+/// Java `Card.mayPlay(player)` is not empty: a `MayPlay$` grant that `player` controls covers `card`.
+pub fn player_may_play(game: &GameState, player: crate::ids::PlayerId, card: &Card) -> bool {
+    game.cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
+        .iter()
+        .chain(
+            game.cards_in_zone(forge_foundation::ZoneType::Command, player)
+                .iter(),
+        )
+        .any(|&source_id| {
+            let source = game.card(source_id);
+            source
+                .static_abilities
+                .iter()
+                .any(|st_ab| can_play_or_granted(st_ab, source, card, game))
+        })
+}
+
 /// The `MayPlayAltManaCost$` of every grant that lets `player` cast `card`,
 /// in the order Java's `getMayPlaySpellOptions` walks `Card.mayPlay`.
 pub fn may_play_alt_costs(

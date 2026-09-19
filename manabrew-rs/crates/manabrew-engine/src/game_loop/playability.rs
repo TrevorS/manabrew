@@ -1187,10 +1187,18 @@ impl GameLoop {
         }
 
         // Check exile for Foretold cards (face-down in exile with foretell cost).
-        let exile: Vec<CardId> = game.cards_in_zone(ZoneType::Exile, player).to_vec();
+        let mut exile: Vec<CardId> = game.cards_in_zone(ZoneType::Exile, player).to_vec();
+        for &other in &game.player_order {
+            if other != player {
+                exile.extend_from_slice(game.cards_in_zone(ZoneType::Exile, other));
+            }
+        }
         for card_id in exile {
             let card = game.card(card_id);
             let can_may_play = can_may_play_from_static(card_id);
+            if !can_may_play && card.owner != player {
+                continue;
+            }
             if can_may_play {
                 if card.is_land() {
                     let land_sa = SpellAbility::new_land(Some(card_id), player);
