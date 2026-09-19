@@ -80,7 +80,7 @@ pub struct PlayerState {
     pub foretold_this_turn: i32,
     pub investigated_this_turn: i32,
     pub ventured_this_turn: i32,
-    pub sacrificed_this_turn: i32,
+    pub sacrificed_this_turn: Vec<crate::card::Card>,
     pub library_searched_this_turn: i32,
 
     pub controlled_by: Option<PlayerId>,
@@ -206,7 +206,7 @@ impl PlayerState {
             foretold_this_turn: 0,
             investigated_this_turn: 0,
             ventured_this_turn: 0,
-            sacrificed_this_turn: 0,
+            sacrificed_this_turn: Vec::new(),
             library_searched_this_turn: 0,
             controlled_by: None,
             team_number: -1,
@@ -393,7 +393,7 @@ impl PlayerState {
         self.foretold_this_turn = 0;
         self.investigated_this_turn = 0;
         self.ventured_this_turn = 0;
-        self.sacrificed_this_turn = 0;
+        self.sacrificed_this_turn.clear();
         self.library_searched_this_turn = 0;
         self.controlled_by = None;
         self.unlimited_land_plays = false;
@@ -481,7 +481,7 @@ impl PlayerState {
         self.foretold_this_turn = 0;
         self.investigated_this_turn = 0;
         self.ventured_this_turn = 0;
-        self.sacrificed_this_turn = 0;
+        self.sacrificed_this_turn.clear();
         self.library_searched_this_turn = 0;
         self.discarded_this_turn = 0;
         self.explored_this_turn = 0;

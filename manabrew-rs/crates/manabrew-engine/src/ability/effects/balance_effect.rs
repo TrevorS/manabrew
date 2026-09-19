@@ -91,6 +91,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     {
                         if ctx.game.card(card_id).zone == ZoneType::Battlefield {
                             let owner = ctx.game.card(card_id).owner;
+                            let sacrificer = ctx.game.card(card_id).controller;
+                            crate::player::add_sacrificed_this_turn(ctx.game, sacrificer, card_id);
                             ctx.trigger_handler.run_trigger(
                                 TriggerType::Sacrificed,
                                 RunParams {

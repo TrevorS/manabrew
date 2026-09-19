@@ -658,6 +658,27 @@ fn player_x_property(
     let operators = parts.get(1).copied().unwrap_or("");
 
     let base = match value {
+        _ if value.starts_with("SacrificedThisTurn") => {
+            let sacrificed = &game.player(player).sacrificed_this_turn;
+            match value.split_once(' ') {
+                Some((_, restrictions)) => {
+                    let selector = crate::parsing::cached_compiled_selector(restrictions);
+                    let context =
+                        crate::card::valid_filter::MatchContext::from_source(game.card(source_id))
+                            .with_game(game)
+                            .with_source_controller(player);
+                    sacrificed
+                        .iter()
+                        .filter(|card| {
+                            crate::card::valid_filter::matches_valid_card_selector_with_context(
+                                &selector, card, context,
+                            )
+                        })
+                        .count() as i32
+                }
+                None => sacrificed.len() as i32,
+            }
+        }
         _ if value.starts_with("Valid") => {
             let (zones, restrictions) = if let Some(rest) = value.strip_prefix("Valid ") {
                 (vec![forge_foundation::ZoneType::Battlefield], rest)

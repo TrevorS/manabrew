@@ -64,6 +64,8 @@ pub(crate) fn perform_sacrifice(
         }
         game.last_sacrificed_card = Some(card_id);
 
+        let sacrificer = game.card(card_id).controller;
+        crate::player::add_sacrificed_this_turn(game, sacrificer, card_id);
         trigger_handler.run_trigger(
             TriggerType::Sacrificed,
             RunParams {

@@ -1048,6 +1048,12 @@ fn pay_roll_cost(
                                 card.set_lki_power_toughness(Some(lki_power), Some(lki_toughness));
                             }
                             game.last_sacrificed_card = Some(sacrificed_id);
+                            let sacrificer = game.card(sacrificed_id).controller;
+                            crate::player::add_sacrificed_this_turn(
+                                game,
+                                sacrificer,
+                                sacrificed_id,
+                            );
                             trigger_handler.run_trigger(
                                 TriggerType::Sacrificed,
                                 RunParams {

@@ -174,6 +174,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             card.clear_pump_triggers();
         }
         // Fire Sacrificed trigger
+        let sacrificer = ctx.game.card(card_id).controller;
+        crate::player::add_sacrificed_this_turn(ctx.game, sacrificer, card_id);
         ctx.trigger_handler.run_trigger(
             TriggerType::Sacrificed,
             RunParams {

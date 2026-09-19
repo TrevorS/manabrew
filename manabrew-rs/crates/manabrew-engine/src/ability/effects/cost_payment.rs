@@ -609,6 +609,8 @@ fn try_pay_effect_cost(
                         ctx.agents[payer.index()].choose_sacrifice(payer, &valid, sa.source)
                     {
                         let owner = ctx.game.card(chosen).owner;
+                        let sacrificer = ctx.game.card(chosen).controller;
+                        crate::player::add_sacrificed_this_turn(ctx.game, sacrificer, chosen);
                         ctx.trigger_handler.run_trigger(
                             TriggerType::Sacrificed,
                             RunParams {

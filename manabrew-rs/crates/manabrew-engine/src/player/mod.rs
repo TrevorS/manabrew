@@ -682,12 +682,13 @@ pub fn reset_investigated_this_turn(game: &mut GameState, player: PlayerId) {
     game.player_mut(player).investigated_this_turn = 0;
 }
 
-pub fn add_sacrificed_this_turn(game: &mut GameState, player: PlayerId, amount: i32) {
-    game.player_mut(player).sacrificed_this_turn += amount.max(0);
+pub fn add_sacrificed_this_turn(game: &mut GameState, player: PlayerId, card_id: CardId) {
+    let lki = crate::card::card_copy_service::get_lki_copy(game.card(card_id));
+    game.player_mut(player).sacrificed_this_turn.push(lki);
 }
 
 pub fn reset_sacrificed_this_turn(game: &mut GameState, player: PlayerId) {
-    game.player_mut(player).sacrificed_this_turn = 0;
+    game.player_mut(player).sacrificed_this_turn.clear();
 }
 
 pub fn reset_spell_cast_since_beg_of_your_last_turn(game: &mut GameState, player: PlayerId) {
