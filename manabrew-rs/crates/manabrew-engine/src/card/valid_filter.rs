@@ -1269,7 +1269,13 @@ fn matches_player_target(player: PlayerId, target: &TargetRef, context: MatchCon
 
 fn triggered_defending_player(context: MatchContext<'_>) -> Option<PlayerId> {
     context
-        .triggering_player
+        .spell_ability
+        .and_then(|sa| {
+            sa.get_triggering_players(crate::ability::AbilityKey::DefendingPlayer)
+                .first()
+                .copied()
+        })
+        .or(context.triggering_player)
         .or_else(|| context.combat.and_then(|combat| combat.defending_player))
 }
 
