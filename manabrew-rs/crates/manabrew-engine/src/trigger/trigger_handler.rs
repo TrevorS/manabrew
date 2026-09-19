@@ -279,6 +279,15 @@ impl TriggerHandler {
         })
     }
 
+    /// Java `TriggerHandler.runStateTrigger`: `Always` triggers are matched when the state is
+    /// checked, before the state-based actions change it, not with the other waiting events.
+    pub fn run_state_trigger(&mut self, game: &GameState) {
+        let waiting = std::mem::take(&mut self.waiting_triggers);
+        self.run_trigger(TriggerType::Always, RunParams::default(), false);
+        self.flush_waiting_triggers(game);
+        self.waiting_triggers = waiting;
+    }
+
     pub fn flush_waiting_triggers(&mut self, game: &GameState) {
         if self.waiting_triggers.is_empty() && self.delayed_triggers.is_empty() {
             return;
@@ -1822,6 +1831,7 @@ fn trace_inactive_triggers(game: &GameState, mode: TriggerType, refs: &[(CardId,
         }
         for (index, trigger) in card.triggers.iter().enumerate() {
             if trigger.mode.trigger_type() == mode
+                && trigger.get_active_zone().contains(&card.zone)
                 && !refs
                     .iter()
                     .any(|&(id, trigger_index, _)| id == card.id && trigger_index == index)
