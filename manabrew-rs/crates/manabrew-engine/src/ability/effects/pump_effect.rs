@@ -148,6 +148,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         keywords.push(format!("CanBlock:{amt}"));
     }
 
+    if let (Some(remember), Some(host)) = (
+        crate::parsing::raw_get(&sa.ability_text, crate::parsing::keys::REMEMBER_OBJECTS),
+        sa.source,
+    ) {
+        let (players, cards) =
+            crate::ability::ability_utils::get_defined_entities(remember, sa, ctx.game);
+        let host = ctx.game.card_mut(host);
+        host.add_remembered_players(players);
+        host.add_remembered_cards(cards);
+    }
+
     let is_perpetual = sa.ir.perpetual_duration;
     let is_permanent = matches!(
         sa.ir.duration,
