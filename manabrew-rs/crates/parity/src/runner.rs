@@ -852,6 +852,7 @@ impl PlayerAgent for CapturingAgent {
         fn choose_cards_for_zone_change(&mut self, game: &GameState, player: PlayerId, valid: &[CardId], min: usize, max: usize, select_prompt: &str) -> Vec<CardId> => "choose_cards_for_zone_change";
         fn choose_target_spell(&mut self, player: PlayerId, valid: &[u32], source: Option<CardId>) -> Option<u32> => "choose_target_spell";
         fn choose_mode(&mut self, player: PlayerId, descriptions: &[String], min: usize, max: usize, source_card_id: Option<CardId>) -> Vec<usize> => "choose_mode";
+        fn choose_keyword_for_pump(&mut self, player: PlayerId, options: &[String], source_card_id: Option<CardId>) -> Option<usize> => "choose_keyword_for_pump";
         fn choose_spell_abilities_for_effect(&mut self, player: PlayerId, abilities: &[manabrew_engine::spellability::SpellAbility], num: usize) -> Vec<usize> => "choose_spell_abilities_for_effect";
         fn choose_single_entity_for_effect(&mut self, player: PlayerId, valid: &[GameEntity], is_optional: bool) -> Option<GameEntity> => "choose_single_entity_for_effect";
         fn get_ability_to_play(&mut self, player: PlayerId, abilities: &[manabrew_engine::spellability::SpellAbility]) -> Option<usize> => "get_ability_to_play";

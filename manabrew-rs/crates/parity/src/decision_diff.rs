@@ -40,6 +40,7 @@ pub const COMPARED_CALLBACKS: &[&str] = &[
     "choose_dice_to_reroll",
     "choose_dig",
     "choose_discard",
+    "choose_keyword_for_pump",
     "choose_mode",
     "choose_number",
     "choose_number_for_keyword_cost",

@@ -481,6 +481,17 @@ pub trait PlayerAgent {
         (0..min.min(descriptions.len())).collect()
     }
 
+    fn choose_keyword_for_pump(
+        &mut self,
+        player: PlayerId,
+        options: &[String],
+        source_card_id: Option<CardId>,
+    ) -> Option<usize> {
+        self.choose_mode(player, options, 1, 1, source_card_id)
+            .first()
+            .copied()
+    }
+
     fn choose_spell_abilities_for_effect(
         &mut self,
         _player: PlayerId,

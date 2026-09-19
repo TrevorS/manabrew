@@ -117,8 +117,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .unwrap_or_default();
 
     // `KWChoice$` — activator picks one keyword from a comma-separated list
-    // (Java L297–L302). Reuses `choose_mode` which maps to a pick-one dialog
-    // in concrete agents.
+    // (Java L297–L302, `chooseKeywordForPump`).
     if let Some(kw_choice) = sa.ir.kw_choice.as_deref() {
         let options: Vec<String> = kw_choice
             .split(',')
@@ -127,9 +126,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .collect();
         if !options.is_empty() {
             let activator = sa.activating_player;
-            let picks =
-                ctx.agents[activator.index()].choose_mode(activator, &options, 1, 1, sa.source);
-            if let Some(&idx) = picks.first() {
+            if let Some(idx) = ctx.agents[activator.index()]
+                .choose_keyword_for_pump(activator, &options, sa.source)
+            {
                 if let Some(kw) = options.get(idx) {
                     keywords.push(kw.clone());
                 }

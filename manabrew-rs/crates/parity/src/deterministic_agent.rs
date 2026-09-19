@@ -2088,6 +2088,16 @@ impl PlayerAgent for DeterministicAgent {
         self.choose_cards_for_effect(player, &sorted, min, max)
     }
 
+    fn choose_keyword_for_pump(
+        &mut self,
+        _player: PlayerId,
+        options: &[String],
+        _source_card_id: Option<CardId>,
+    ) -> Option<usize> {
+        let indices: Vec<usize> = (0..options.len()).collect();
+        choice_space::pick_one(&indices, &mut self.rng.borrow_mut())
+    }
+
     fn choose_mode(
         &mut self,
         _player: PlayerId,
