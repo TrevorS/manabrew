@@ -205,9 +205,15 @@ impl TargetRestrictions {
                 if any_target_allows_players(&self.valid_tgts) && !game.alive_players().is_empty() {
                     return true;
                 }
-                get_all_candidates_any_filtered_for_restrictions(game, self, player, source_card)
-                    .into_iter()
-                    .any(|cid| can_be_targeted_by(game, cid, player, source_card))
+                get_all_candidates_any_filtered_for_restrictions(
+                    game,
+                    self,
+                    player,
+                    source_card,
+                    None,
+                )
+                .into_iter()
+                .any(|cid| can_be_targeted_by(game, cid, player, source_card))
             }
             TargetKind::Creature(ref filter) => {
                 get_all_candidates_creature_filtered_for_restrictions(
@@ -216,6 +222,7 @@ impl TargetRestrictions {
                     filter.as_deref(),
                     player,
                     source_card,
+                    None,
                 )
                 .into_iter()
                 .filter(|&cid| !is_other_filter_self_hit(filter.as_deref(), source_card, cid))
@@ -228,6 +235,7 @@ impl TargetRestrictions {
                     filter.as_deref(),
                     player,
                     source_card,
+                    None,
                 )
                 .into_iter()
                 .filter(|&cid| !is_other_filter_self_hit(filter.as_deref(), source_card, cid))
@@ -761,6 +769,7 @@ pub fn get_all_candidates_creature_filtered_for_restrictions(
     filter: Option<&str>,
     source_controller: PlayerId,
     source_card: Option<CardId>,
+    ability: Option<&SpellAbility>,
 ) -> Vec<CardId> {
     let all = get_all_candidates_creatures(game);
     filter_card_candidates_for_restrictions(
@@ -770,6 +779,7 @@ pub fn get_all_candidates_creature_filtered_for_restrictions(
         filter,
         source_controller,
         source_card,
+        ability,
     )
 }
 
@@ -812,6 +822,7 @@ pub fn get_all_battlefield_permanents_filtered_for_restrictions(
     filter: Option<&str>,
     source_controller: PlayerId,
     source_card: Option<CardId>,
+    ability: Option<&SpellAbility>,
 ) -> Vec<CardId> {
     let all = get_all_battlefield_permanents(game);
     filter_card_candidates_for_restrictions(
@@ -821,6 +832,7 @@ pub fn get_all_battlefield_permanents_filtered_for_restrictions(
         filter,
         source_controller,
         source_card,
+        ability,
     )
 }
 
@@ -831,6 +843,7 @@ fn filter_card_candidates_for_restrictions(
     filter: Option<&str>,
     source_controller: PlayerId,
     source_card: Option<CardId>,
+    ability: Option<&SpellAbility>,
 ) -> Vec<CardId> {
     let Some(source_id) = source_card else {
         return match filter {
@@ -849,14 +862,25 @@ fn filter_card_candidates_for_restrictions(
         .into_iter()
         .filter(|&cid| !is_other_filter_self_hit(filter, source_card, cid))
         .filter(|&cid| {
-            valid_filter::matches_valid_card_selector_in_game(
+            valid_filter::matches_valid_card_selector_with_context(
                 &selector,
                 game.card(cid),
-                source,
-                game,
+                candidate_match_context(game, source, ability),
             )
         })
         .collect()
+}
+
+fn candidate_match_context<'a>(
+    game: &'a GameState,
+    source: &'a crate::card::Card,
+    ability: Option<&'a SpellAbility>,
+) -> valid_filter::MatchContext<'a> {
+    let context = valid_filter::MatchContext::from_source(source).with_game(game);
+    match ability {
+        Some(sa) => context.with_spell_ability(sa),
+        None => context,
+    }
 }
 
 // ── Zone-aware targeting for cards like Raise Dead ───────────────────
@@ -1020,7 +1044,8 @@ pub fn get_valid_cards_in_zone_for_sa(
                 game.card(cid),
                 valid_filter::MatchContext::from_source(source)
                     .with_game(game)
-                    .with_triggering(triggering_card, triggering_player),
+                    .with_triggering(triggering_card, triggering_player)
+                    .with_spell_ability(ability),
             )
         })
         .collect()
@@ -1155,6 +1180,7 @@ pub fn get_all_candidates_any_filtered_for_restrictions(
     restrictions: &TargetRestrictions,
     source_controller: PlayerId,
     source_card: Option<CardId>,
+    ability: Option<&SpellAbility>,
 ) -> Vec<CardId> {
     if restrictions
         .valid_tgts
@@ -1183,11 +1209,10 @@ pub fn get_all_candidates_any_filtered_for_restrictions(
     candidates
         .into_iter()
         .filter(|&cid| {
-            valid_filter::matches_valid_card_selector_in_game(
+            valid_filter::matches_valid_card_selector_with_context(
                 &selector,
                 game.card(cid),
-                source,
-                game,
+                candidate_match_context(game, source, ability),
             )
         })
         .collect()

@@ -593,6 +593,7 @@ pub fn get_valid_cards_to_target(game: &GameState, ability: &SpellAbility) -> Ve
                             filter.as_deref(),
                             player,
                             ability.source,
+                            Some(ability),
                         )
                     }
                     target_restrictions::TargetKind::Permanent(filter) => {
@@ -602,6 +603,7 @@ pub fn get_valid_cards_to_target(game: &GameState, ability: &SpellAbility) -> Ve
                             filter.as_deref(),
                             player,
                             ability.source,
+                            Some(ability),
                         )
                     }
                     target_restrictions::TargetKind::Any => {
@@ -610,6 +612,7 @@ pub fn get_valid_cards_to_target(game: &GameState, ability: &SpellAbility) -> Ve
                             tgt,
                             player,
                             ability.source,
+                            Some(ability),
                         )
                     }
                     _ => Vec::new(),

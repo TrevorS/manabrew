@@ -1955,6 +1955,7 @@ pub fn choose_targets_by_kind(
 
     if !matches!(tr.target_kind, TargetKind::CardInZone { .. })
         && !tr.has_candidates(game, player, sa.source)
+        && card_util::get_valid_cards_to_target(game, sa).is_empty()
     {
         return min_targets <= 0;
     }

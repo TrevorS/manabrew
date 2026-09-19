@@ -1099,6 +1099,13 @@ fn relation_target_player_any(
             false
         }
         TargetRef::TriggeredTarget => {
+            let triggered_players = context
+                .spell_ability
+                .map(|sa| sa.get_triggering_players(crate::ability::AbilityKey::Target))
+                .unwrap_or_default();
+            if !triggered_players.is_empty() {
+                return triggered_players.into_iter().any(predicate);
+            }
             context.triggering_player.is_some_and(&mut predicate)
                 || context
                     .triggering_card
@@ -1374,7 +1381,7 @@ fn resolve_selector_operand(
         SelectorNumericOperand::Literal(value) => Some(*value),
         SelectorNumericOperand::Symbol(symbol) => {
             if symbol.eq_ignore_ascii_case("X") {
-                if let Some(sa) = context.spell_ability {
+                if let Some(sa) = context.spell_ability.filter(|_| x_is_paid_x(context)) {
                     return Some(sa.x_mana_cost_paid as i32);
                 }
             }
@@ -2811,6 +2818,13 @@ fn check_cmc_condition_with_context(
     true // fallback: unknown format passes
 }
 
+fn x_is_paid_x(context: MatchContext<'_>) -> bool {
+    context
+        .source_card
+        .get_s_var("X")
+        .is_none_or(|raw| raw.trim() == "Count$xPaid")
+}
+
 fn parse_cmc_threshold(value: &str, context: Option<MatchContext<'_>>) -> Option<i32> {
     if let Ok(n) = value.parse::<i32>() {
         return Some(n);
@@ -2820,7 +2834,7 @@ fn parse_cmc_threshold(value: &str, context: Option<MatchContext<'_>>) -> Option
     // from the live spell ability (Java passes the casting SA into
     // calculateAmount), not the host SVar evaluated without it.
     if value.eq_ignore_ascii_case("X") {
-        if let Some(sa) = context.spell_ability {
+        if let Some(sa) = context.spell_ability.filter(|_| x_is_paid_x(context)) {
             return Some(sa.x_mana_cost_paid as i32);
         }
     }
