@@ -735,6 +735,12 @@ pub fn apply_cost_reductions(
             .filter(|&&cid| cid != card_id)
             .count() as i32;
         cost.reduce_generic(gy_count)
+    } else if (card.has_keyword("Convoke") || card.has_keyword("Improvise"))
+        && game.action_space_mana_probe == crate::mana::ActionSpaceManaProbe::ComputerUtilMana
+    {
+        crate::mana::computer_util_mana::adjust_cost_by_convoke_or_improvise(
+            game, player, card_id, cost,
+        )
     } else if card.has_keyword("Convoke") {
         let creature_count = game
             .cards_in_zone(ZoneType::Battlefield, player)

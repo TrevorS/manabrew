@@ -844,6 +844,43 @@ fn pay_convoke_improvise(
     spell: CardId,
     unpaid: &mut ManaCostBeingPaid,
 ) -> Vec<(CardId, bool)> {
+    let mut tapped = Vec::new();
+    for (cid, as_convoke) in convoke_improvise_sources(game, player, spell) {
+        if unpaid.is_paid() {
+            break;
+        }
+        let color = convoke_color(game.card(cid), unpaid, !as_convoke);
+        if unpaid.pay_mana_via_convoke(color).is_none() {
+            continue;
+        }
+        game.tap(cid);
+        tapped.push((cid, as_convoke));
+    }
+    tapped
+}
+
+/// `CostAdjustment.adjustCostByConvokeOrImprovise` in test mode, with the harness's
+/// `chooseCardsForConvokeOrImprovise` while probing: before any mana source, each untapped
+/// creature (Convoke) or artifact (Improvise), by name, pays one shard of its colour.
+pub fn adjust_cost_by_convoke_or_improvise(
+    game: &GameState,
+    player: PlayerId,
+    spell: CardId,
+    cost: &forge_foundation::ManaCost,
+) -> forge_foundation::ManaCost {
+    let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
+    for (cid, as_convoke) in convoke_improvise_sources(game, player, spell) {
+        let color = convoke_color(game.card(cid), &unpaid, !as_convoke);
+        let _ = unpaid.pay_mana_via_convoke(color);
+    }
+    unpaid.to_mana_cost()
+}
+
+fn convoke_improvise_sources(
+    game: &GameState,
+    player: PlayerId,
+    spell: CardId,
+) -> Vec<(CardId, bool)> {
     let convoke = game.card(spell).has_keyword("Convoke");
     let improvise = game.card(spell).has_keyword("Improvise");
     if !convoke && !improvise {
@@ -873,20 +910,10 @@ fn pay_convoke_improvise(
                 .cmp(&game.card(b).zone_timestamp)
         })
     });
-    let mut tapped = Vec::new();
-    for cid in sources {
-        if unpaid.is_paid() {
-            break;
-        }
-        let as_convoke = convoke && game.card(cid).is_creature();
-        let color = convoke_color(game.card(cid), unpaid, !as_convoke);
-        if unpaid.pay_mana_via_convoke(color).is_none() {
-            continue;
-        }
-        game.tap(cid);
-        tapped.push((cid, as_convoke));
-    }
-    tapped
+    sources
+        .into_iter()
+        .map(|cid| (cid, convoke && game.card(cid).is_creature()))
+        .collect()
 }
 
 fn convoke_color(card: &crate::card::Card, unpaid: &ManaCostBeingPaid, artifacts: bool) -> u16 {
