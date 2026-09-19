@@ -834,6 +834,10 @@ public final class HarnessCostPlumbing {
         @Override
         public PaymentDecision visit(final CostTapType cost) {
             String type = cost.getType();
+            if ("OriginalHost".equals(type)) {
+                final Card host = ability.getOriginalHost();
+                return host != null && host.canTap() ? PaymentDecision.card(host) : null;
+            }
             boolean sameType = false;
             if (type.contains(".sharesCreatureTypeWith")) {
                 sameType = true;
