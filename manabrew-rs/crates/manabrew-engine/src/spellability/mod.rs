@@ -2115,6 +2115,7 @@ pub fn choose_targets_by_kind(
             let valid = if let Some(ref restrictions) = sa.target_restrictions {
                 target_restrictions::filter_spells_for_target_restrictions(
                     game,
+                    player,
                     &valid,
                     restrictions,
                 )

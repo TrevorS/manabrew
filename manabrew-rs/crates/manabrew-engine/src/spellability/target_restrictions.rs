@@ -250,10 +250,13 @@ impl TargetRestrictions {
                 source_card,
             )
             .is_empty(),
-            TargetKind::Spell => {
-                !filter_spells_for_target_restrictions(game, &get_all_candidates_spells(game), self)
-                    .is_empty()
-            }
+            TargetKind::Spell => !filter_spells_for_target_restrictions(
+                game,
+                player,
+                &get_all_candidates_spells(game),
+                self,
+            )
+            .is_empty(),
         }
     }
 
@@ -400,19 +403,20 @@ fn parse_literal_target_count(expr: &str) -> Option<i32> {
 }
 
 /// Check if there are valid spells on the stack matching the TargetType$ filter.
-pub fn has_valid_spell_with_filter(game: &GameState, filter: &str) -> bool {
-    !filter_spells_by_type(game, &get_all_candidates_spells(game), filter).is_empty()
+pub fn has_valid_spell_with_filter(game: &GameState, player: PlayerId, filter: &str) -> bool {
+    !filter_spells_by_type(game, player, &get_all_candidates_spells(game), filter).is_empty()
 }
 
 /// Filter stack entries using the full `TargetRestrictions` for spell targets.
 pub fn filter_spells_for_target_restrictions(
     game: &GameState,
+    targeting_player: PlayerId,
     candidates: &[u32],
     restrictions: &TargetRestrictions,
 ) -> Vec<u32> {
     let mut filtered = candidates.to_vec();
     if let Some(ref filter) = restrictions.target_type_filter {
-        filtered = filter_spells_by_type(game, &filtered, filter);
+        filtered = filter_spells_by_type(game, targeting_player, &filtered, filter);
     }
     if !restrictions.valid_tgts.is_empty()
         && !restrictions
@@ -421,7 +425,7 @@ pub fn filter_spells_for_target_restrictions(
             .all(|clause| clause.eq_ignore_ascii_case("Card"))
     {
         let valid_filter = restrictions.valid_tgts.join(",");
-        filtered = filter_spells_by_type(game, &filtered, &valid_filter);
+        filtered = filter_spells_by_type(game, targeting_player, &filtered, &valid_filter);
     }
     filtered
 }
@@ -431,14 +435,19 @@ pub fn filter_spells_for_target_restrictions(
 /// `valid_sa::matches_valid_sa`, mirroring Java's `SpellAbility.isValid`.
 /// Per-clause fallback then checks the entry's source-card properties so
 /// ValidTgts tokens like `Card` and `OppCtrl` still match.
-pub fn filter_spells_by_type(game: &GameState, candidates: &[u32], filter: &str) -> Vec<u32> {
+pub fn filter_spells_by_type(
+    game: &GameState,
+    targeting_player: PlayerId,
+    candidates: &[u32],
+    filter: &str,
+) -> Vec<u32> {
     candidates
         .iter()
         .filter(|&&id| {
             let Some(entry) = game.stack.iter().find(|entry| entry.id == id) else {
                 return false;
             };
-            stack_entry_matches_filter(game, &entry.spell_ability, filter)
+            stack_entry_matches_filter(game, targeting_player, &entry.spell_ability, filter)
         })
         .copied()
         .collect()
@@ -446,6 +455,7 @@ pub fn filter_spells_by_type(game: &GameState, candidates: &[u32], filter: &str)
 
 fn stack_entry_matches_filter(
     game: &GameState,
+    targeting_player: PlayerId,
     sa: &crate::spellability::SpellAbility,
     filter: &str,
 ) -> bool {
@@ -471,7 +481,7 @@ fn stack_entry_matches_filter(
             if clause == crate::card::filter_constants::CARD {
                 return true;
             }
-            card_property::card_has_property(source, clause, sa.activating_player)
+            card_property::card_has_property(source, clause, targeting_player)
         })
 }
 
