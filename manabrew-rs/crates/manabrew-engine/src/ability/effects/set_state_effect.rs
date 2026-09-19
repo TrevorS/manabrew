@@ -19,12 +19,27 @@ use crate::spellability::SpellAbilityMode;
 #[manabrew_engine_macros::spell_effect(SetStateEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let mode = sa.ir.mode.as_ref();
+    for card_id in crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa) {
+        let face_mode = matches!(
+            mode,
+            Some(SpellAbilityMode::TurnFaceUp) | Some(SpellAbilityMode::TurnFaceDown)
+        );
+        if !face_mode
+            && ctx.game.card(card_id).zone != forge_foundation::ZoneType::Battlefield
+            && !crate::parsing::raw_has_key(&sa.ability_text, "ETB")
+        {
+            continue;
+        }
+        set_state_for_card(ctx, sa, card_id, mode);
+    }
+}
 
-    let source_id = match sa.source {
-        Some(id) => id,
-        None => return,
-    };
-
+fn set_state_for_card(
+    ctx: &mut EffectContext,
+    sa: &crate::spellability::SpellAbility,
+    card_id: CardId,
+    mode: Option<&SpellAbilityMode>,
+) {
     match mode {
         Some(SpellAbilityMode::Transform) => {
             // Evaluate optional condition.
@@ -35,7 +50,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     let cond_present = sa.ir.condition_present.clone().unwrap_or_default();
                     let cond_compare = sa.ir.condition_compare.clone().unwrap_or_default();
 
-                    let remembered: Vec<CardId> = ctx.game.card(source_id).remembered_cards.clone();
+                    let remembered: Vec<CardId> = ctx.game.card(card_id).remembered_cards.clone();
                     let match_count = remembered
                         .iter()
                         .filter(|&&cid| matches_type_filter(ctx, cid, &cond_present))
@@ -48,7 +63,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
 
             // Run Transform replacement effects before transforming.
-            let mut transform_event = ReplacementEvent::Transform { card: source_id };
+            let mut transform_event = ReplacementEvent::Transform { card: card_id };
             let transform_result = apply_replacements(ctx.game, &mut transform_event);
             if transform_result == ReplacementResult::Skipped
                 || transform_result == ReplacementResult::Replaced
@@ -57,13 +72,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
 
             // Perform the transform.
-            ctx.game.card_mut(source_id).transform();
+            ctx.game.card_mut(card_id).transform();
 
             // Fire Transformed trigger
             ctx.trigger_handler.run_trigger(
                 crate::trigger::TriggerType::Transformed,
                 crate::event::RunParams {
-                    card: Some(source_id),
+                    card: Some(card_id),
                     ..Default::default()
                 },
                 false,
@@ -74,17 +89,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
         Some(SpellAbilityMode::Flip) => {
             // Toggle the flipped state.
-            let card = ctx.game.card_mut(source_id);
+            let card = ctx.game.card_mut(card_id);
             card.set_flipped(!card.flipped);
         }
         Some(SpellAbilityMode::TurnFaceUp) => {
             if crate::replacement::replacement_handler::cant_happen_check(
                 ctx.game,
-                &ReplacementEvent::TurnFaceUp { card: source_id },
+                &ReplacementEvent::TurnFaceUp { card: card_id },
             ) {
                 return;
             }
-            let card = ctx.game.card_mut(source_id);
+            let card = ctx.game.card_mut(card_id);
             if card.face_down {
                 card.set_face_down(false);
                 // Restore original P/T by clearing the face-down overrides
@@ -97,7 +112,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 // Megamorph: add a +1/+1 counter when turning face-up
                 if sa.param_is_true(keys::MEGA) {
                     ctx.add_counter(
-                        source_id,
+                        card_id,
                         &crate::card::CounterType::P1P1,
                         1,
                         sa,
@@ -106,7 +121,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
 
                 // Keep in sync with Card.turnFaceUp: the replacement runs on the face-up card.
-                let mut faceup_event = ReplacementEvent::TurnFaceUp { card: source_id };
+                let mut faceup_event = ReplacementEvent::TurnFaceUp { card: card_id };
                 crate::replacement::replacement_handler::apply_replacements_with_agents(
                     ctx.game,
                     ctx.agents,
@@ -117,7 +132,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 ctx.trigger_handler.run_trigger(
                     crate::trigger::TriggerType::TurnFaceUp,
                     crate::event::RunParams {
-                        card: Some(source_id),
+                        card: Some(card_id),
                         ..Default::default()
                     },
                     false,
@@ -128,7 +143,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
         Some(SpellAbilityMode::TurnFaceDown) => {
-            let card = ctx.game.card_mut(source_id);
+            let card = ctx.game.card_mut(card_id);
             if !card.face_down {
                 card.set_face_down(true);
             }
