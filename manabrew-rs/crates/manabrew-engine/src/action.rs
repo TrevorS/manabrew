@@ -691,7 +691,7 @@ impl GameState {
                 // change (Earthbend) made, and the baseline predates both.
                 card.restore_changed_characteristics_baseline();
                 if let Some(state) = card.clone_state.take() {
-                    card.restore_clone_snapshot(state);
+                    card.restore_clone_snapshot_keeping_svars(state);
                 } else {
                     card.remove_clone_states();
                 }

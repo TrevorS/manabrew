@@ -3013,6 +3013,17 @@ impl Card {
         self.remove_clone_state();
     }
 
+    /// Forge builds a triggered ability's sub-abilities when the trigger is created, so one
+    /// already on the stack still resolves after its copied host leaves the battlefield; this
+    /// engine looks them up on the host, so the copied SVars stay behind the restored ones.
+    pub fn restore_clone_snapshot_keeping_svars(&mut self, state: CloneState) {
+        let copied_svars = std::mem::take(&mut self.svars);
+        self.restore_clone_snapshot(state);
+        for (name, value) in copied_svars {
+            self.svars.entry(name).or_insert(value);
+        }
+    }
+
     fn apply_clone_state(&mut self, state: CloneState) {
         self.card_name = state.original_card_name;
         self.oracle_text = state.original_oracle_text;
