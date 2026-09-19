@@ -893,9 +893,7 @@ fn matches_context_predicate(
                 && relation_target_player_any(target, context, |player| card.controller == player)
         }
         ContextPredicate::TopLibrary => false,
-        ContextPredicate::ExiledWithSource => {
-            context.source_card.imprinted_cards.contains(&card.id)
-        }
+        ContextPredicate::ExiledWithSource => context.source_card.exiled_cards.contains(&card.id),
         ContextPredicate::RememberedPlayerCtrl => {
             context.remembered_players.contains(&card.controller)
         }

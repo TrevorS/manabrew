@@ -529,7 +529,7 @@ pub fn run(ctx: &mut super::effects::EffectContext, sa: &SpellAbility) {
 /// Mirrors Java's `SpellAbilityEffect.handleExiledWith(SpellAbility, Card)`.
 ///
 /// Sets the `exiled_with` field on the exiled card and adds it to the
-/// source card's imprinted list.
+/// source card's exiled list.
 pub fn handle_exiled_with(game: &mut GameState, sa: &SpellAbility, exiled_card_id: CardId) {
     let source_id = match sa.source {
         Some(id) => id,
@@ -537,7 +537,7 @@ pub fn handle_exiled_with(game: &mut GameState, sa: &SpellAbility, exiled_card_i
     };
 
     game.card_mut(exiled_card_id).set_exiled_by(Some(source_id));
-    game.card_mut(source_id).add_imprinted_card(exiled_card_id);
+    game.card_mut(source_id).add_exiled_card(exiled_card_id);
 }
 
 /// Mirrors Java's `SpellAbilityEffect.addUntilCommand` for the durations that end at the

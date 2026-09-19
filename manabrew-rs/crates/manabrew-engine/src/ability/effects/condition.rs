@@ -212,28 +212,17 @@ pub(super) fn check_condition_present(
 
     // ── ConditionDefined$ — check specific defined cards, not a zone ──
     if let Some(cond_defined) = sa.ir.condition_defined.as_ref() {
-        let defined_cards: Vec<CardId> = match cond_defined.refs.first() {
-            Some(crate::ability::ability_ir::DefinedRef::Targeted) => {
-                sa.target_chosen.target_card.into_iter().collect()
-            }
-            Some(crate::ability::ability_ir::DefinedRef::SelfCard) => {
-                sa.source.into_iter().collect()
-            }
-            Some(crate::ability::ability_ir::DefinedRef::Remembered) => sa
-                .source
-                .map(|sid| game.card(sid).remembered_cards.clone())
-                .unwrap_or_default(),
-            Some(other) => match other.as_legacy_str() {
-                "Targeted" => sa.target_chosen.target_card.into_iter().collect(),
-                "Self" => sa.source.into_iter().collect(),
-                "Remembered" => sa
-                    .source
-                    .map(|sid| game.card(sid).remembered_cards.clone())
-                    .unwrap_or_default(),
-                _ => Vec::new(),
-            },
-            None => Vec::new(),
-        };
+        let defined_cards: Vec<CardId> = cond_defined
+            .refs
+            .iter()
+            .flat_map(|defined| {
+                crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                    game,
+                    sa,
+                    defined.as_legacy_str(),
+                )
+            })
+            .collect();
 
         // ConditionDefined$ cards are explicitly defined — don't exclude self.
         // Self-exclusion only makes sense for the zone-scan path below.

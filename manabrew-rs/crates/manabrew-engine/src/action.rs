@@ -660,6 +660,7 @@ impl GameState {
                 // `Card.ExiledWithSource` compares the host's game timestamp
                 // (`equalsWithGameTimestamp`), so the new object has exiled nothing.
                 card.imprinted_cards.clear();
+                card.exiled_cards.clear();
                 card.reset_crewed();
                 card.reset_saddled();
                 if !keep_counters {
@@ -1176,6 +1177,7 @@ impl GameState {
                 }
                 let other_card = &mut self.cards[other.index()];
                 other_card.imprinted_cards.retain(|&r| r != cid);
+                other_card.exiled_cards.retain(|&r| r != cid);
                 other_card.remembered_cards.retain(|&r| r != cid);
                 other_card.attachments.retain(|&r| r != cid);
                 other_card.gain_control_targets.retain(|&r| r != cid);

@@ -480,7 +480,7 @@ pub(super) fn apply_post_move(
                 // Mirrors Java `SpellAbilityEffect.handleExiledWith` — feeds
                 // `Card.ExiledWithSource` / `Defined$ ExiledWith` selectors.
                 if source_active {
-                    ctx.game.card_mut(sid).add_imprinted_card(card_id);
+                    ctx.game.card_mut(sid).add_exiled_card(card_id);
                 }
             }
         }
