@@ -22,6 +22,7 @@ pub const AFFECTED: &str = "Affected";
 pub const AFFECTED_DEFINED: &str = "AffectedDefined";
 pub const AFFECTED_ZONE: &str = "AffectedZone";
 pub const MAY_PLAY: &str = "MayPlay";
+pub const MAY_PLAY_PLAYER: &str = "MayPlayPlayer";
 pub const MAY_PLAY_ALT_MANA_COST: &str = "MayPlayAltManaCost";
 pub const MAY_PLAY_DONT_GRANT_ZONE_PERMISSIONS: &str = "MayPlayDontGrantZonePermissions";
 pub const VALID: &str = "Valid";

@@ -99,21 +99,53 @@ pub fn grants_zone_permissions(
     can_play_or_granted(st_ab, source, card, game)
 }
 
-/// Java `Card.mayPlay(player)` is not empty: a `MayPlay$` grant that `player` controls covers `card`.
-pub fn player_may_play(game: &GameState, player: crate::ids::PlayerId, card: &Card) -> bool {
-    game.cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
+/// Keep in sync with `StaticAbilityContinuous`: a `MayPlay$` grant is for the player
+/// `MayPlayPlayer$` names, defined from the affected card, and otherwise for the static's controller.
+pub fn may_play_player(
+    st_ab: &StaticAbility,
+    source: &Card,
+    card: &Card,
+    game: &GameState,
+) -> crate::ids::PlayerId {
+    match st_ab.ir.may_play_player.as_deref() {
+        Some("CardOwner") => card.owner,
+        Some("ActivePlayer" | "Player.Active") => game.active_player(),
+        Some("Player") => game.player_order[0],
+        _ => source.controller,
+    }
+}
+
+/// The statics on any battlefield or command zone whose `MayPlay$` grant for `card` would be
+/// `player`'s, in player order.
+pub fn may_play_grants<'a>(
+    game: &'a GameState,
+    player: crate::ids::PlayerId,
+    card: &'a Card,
+) -> impl Iterator<Item = (&'a Card, &'a StaticAbility)> + 'a {
+    game.player_order
         .iter()
-        .chain(
-            game.cards_in_zone(forge_foundation::ZoneType::Command, player)
-                .iter(),
-        )
-        .any(|&source_id| {
+        .flat_map(move |&pid| {
+            game.cards_in_zone(forge_foundation::ZoneType::Battlefield, pid)
+                .iter()
+                .chain(
+                    game.cards_in_zone(forge_foundation::ZoneType::Command, pid)
+                        .iter(),
+                )
+        })
+        .flat_map(move |&source_id| {
             let source = game.card(source_id);
             source
                 .static_abilities
                 .iter()
-                .any(|st_ab| can_play_or_granted(st_ab, source, card, game))
+                .map(move |st_ab| (source, st_ab))
         })
+        .filter(move |(source, st_ab)| may_play_player(st_ab, source, card, game) == player)
+}
+
+/// Java `Card.mayPlay(player)` is not empty: a `MayPlay$` grant for `player` covers `card`.
+pub fn player_may_play(game: &GameState, player: crate::ids::PlayerId, card: &Card) -> bool {
+    may_play_grants(game, player, card)
+        .any(|(source, st_ab)| can_play_or_granted(st_ab, source, card, game))
 }
 
 /// The `MayPlayAltManaCost$` of every grant that lets `player` cast `card`,
@@ -123,19 +155,8 @@ pub fn may_play_alt_costs(
     player: crate::ids::PlayerId,
     card: &Card,
 ) -> Vec<String> {
-    game.cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
-        .iter()
-        .chain(
-            game.cards_in_zone(forge_foundation::ZoneType::Command, player)
-                .iter(),
-        )
-        .flat_map(|&source_id| {
-            let source = game.card(source_id);
-            source
-                .static_abilities
-                .iter()
-                .filter_map(move |st_ab| may_play_alt_mana_cost(st_ab, source, card, game))
-        })
+    may_play_grants(game, player, card)
+        .filter_map(|(source, st_ab)| may_play_alt_mana_cost(st_ab, source, card, game))
         .collect()
 }
 

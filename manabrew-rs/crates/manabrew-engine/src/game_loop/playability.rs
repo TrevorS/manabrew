@@ -234,32 +234,22 @@ impl GameLoop {
         };
         let can_may_play_from_static = |card_id: CardId| {
             let card = game.card(card_id);
-            game.cards_in_zone(ZoneType::Battlefield, player)
-                .iter()
-                .chain(game.cards_in_zone(ZoneType::Command, player).iter())
-                .any(|&source_id| {
-                    let source = game.card(source_id);
-                    source.static_abilities.iter().any(|sa| {
-                        crate::staticability::static_ability_continuous::grants_zone_permissions(
-                            sa, source, card, game,
-                        )
-                    })
+            crate::staticability::static_ability_continuous::may_play_grants(game, player, card)
+                .any(|(source, sa)| {
+                    crate::staticability::static_ability_continuous::grants_zone_permissions(
+                        sa, source, card, game,
+                    )
                 })
         };
         // First MayPlay alt-cost (e.g. Airbend's `MayPlayAltManaCost$ 2`)
         // granted to `card_id`. Returns the cost string if any.
         let may_play_alt_cost = |card_id: CardId| -> Option<String> {
             let card = game.card(card_id);
-            game.cards_in_zone(ZoneType::Battlefield, player)
-                .iter()
-                .chain(game.cards_in_zone(ZoneType::Command, player).iter())
-                .find_map(|&source_id| {
-                    let source = game.card(source_id);
-                    source.static_abilities.iter().find_map(|sa| {
-                        crate::staticability::static_ability_continuous::may_play_alt_mana_cost(
-                            sa, source, card, game,
-                        )
-                    })
+            crate::staticability::static_ability_continuous::may_play_grants(game, player, card)
+                .find_map(|(source, sa)| {
+                    crate::staticability::static_ability_continuous::may_play_alt_mana_cost(
+                        sa, source, card, game,
+                    )
                 })
         };
         // Count distinct MayPlay statics that grant permission to cast
@@ -270,22 +260,13 @@ impl GameLoop {
         // multiple airbend Effects each remembering it).
         let count_may_play_grants = |card_id: CardId| -> usize {
             let card = game.card(card_id);
-            game.cards_in_zone(ZoneType::Battlefield, player)
-                .iter()
-                .chain(game.cards_in_zone(ZoneType::Command, player).iter())
-                .map(|&source_id| {
-                    let source = game.card(source_id);
-                    source
-                        .static_abilities
-                        .iter()
-                        .filter(|sa| {
-                            crate::staticability::static_ability_continuous::can_play_or_granted(
-                                sa, source, card, game,
-                            )
-                        })
-                        .count()
+            crate::staticability::static_ability_continuous::may_play_grants(game, player, card)
+                .filter(|(source, sa)| {
+                    crate::staticability::static_ability_continuous::can_play_or_granted(
+                        sa, source, card, game,
+                    )
                 })
-                .sum()
+                .count()
         };
         let chosen_types_by_source: crate::HashMap<CardId, String> = game
             .cards
@@ -1014,23 +995,16 @@ impl GameLoop {
                 if must_be_instant {
                     continue;
                 }
-                let may_play_grants = game
-                    .cards_in_zone(ZoneType::Battlefield, player)
-                    .iter()
-                    .chain(game.cards_in_zone(ZoneType::Command, player).iter())
-                    .map(|&source_id| {
-                        let source = game.card(source_id);
-                        source
-                            .static_abilities
-                            .iter()
-                            .filter(|sa| {
-                                crate::staticability::static_ability_continuous::can_play_or_granted(
-                                    sa, source, card, game,
-                                )
-                            })
-                            .count()
+                let may_play_grants =
+                    crate::staticability::static_ability_continuous::may_play_grants(
+                        game, player, card,
+                    )
+                    .filter(|(source, sa)| {
+                        crate::staticability::static_ability_continuous::can_play_or_granted(
+                            sa, source, card, game,
+                        )
                     })
-                    .sum::<usize>();
+                    .count();
                 if may_play_grants > 0
                     && crate::spellability::land_ability::can_play(
                         &SpellAbility::new_land(Some(card_id), player),
@@ -1459,22 +1433,16 @@ impl GameLoop {
                     &reduced,
                     &Self::spell_payment_context(card, &chosen),
                 );
-                let may_play_from: Vec<&str> = game
-                    .cards_in_zone(ZoneType::Battlefield, player)
-                    .iter()
-                    .chain(game.cards_in_zone(ZoneType::Command, player))
-                    .flat_map(|&source_id| {
-                        let source = game.card(source_id);
-                        source
-                            .static_abilities
-                            .iter()
-                            .filter(move |st| {
-                                crate::staticability::static_ability_continuous::can_play_or_granted(
-                                    st, source, card, game,
-                                )
-                            })
-                            .map(move |_| source.card_name.as_str())
+                let may_play_from: Vec<&str> =
+                    crate::staticability::static_ability_continuous::may_play_grants(
+                        game, player, card,
+                    )
+                    .filter(|(source, st)| {
+                        crate::staticability::static_ability_continuous::can_play_or_granted(
+                            st, source, card, game,
+                        )
                     })
+                    .map(|(source, _)| source.card_name.as_str())
                     .collect();
                 eprintln!(
                     "[card-trace] T{} P{} {:?} {}#{} {zone:?}: offered {offered:?} | cant_be_cast={cant_be_cast} \
