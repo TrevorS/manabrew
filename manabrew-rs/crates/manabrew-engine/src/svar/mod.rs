@@ -1573,6 +1573,25 @@ fn count_valid_aggregate(
     }
 }
 
+/// CR 107.3k as `AbilityUtils.xCount` applies it: an enters-the-battlefield trigger reads X from
+/// the card, which keeps the X paid for the spell that became it.
+fn enters_trigger_x_paid(game: &GameState, sa: &SpellAbility, card_id: CardId) -> Option<i32> {
+    let host = sa.trigger_source.unwrap_or(card_id);
+    let trigger = game.card(host).triggers.get(sa.trigger_index?)?;
+    (trigger.mode.trigger_type() == crate::trigger::TriggerType::ChangesZone
+        && trigger
+            .ir
+            .destination_zones
+            .contains(&forge_foundation::ZoneType::Battlefield))
+    .then(|| {
+        game.card(card_id)
+            .svars
+            .get("XPaid")
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(0)
+    })
+}
+
 pub fn resolve_count_svar_for_sa(
     expr: &str,
     game: &GameState,
@@ -1587,14 +1606,12 @@ pub fn resolve_count_svar_for_sa(
         .or_else(|| expr.strip_prefix("Count$XPaid"))
     {
         let operators = rest.strip_prefix('/').unwrap_or(rest);
-        return do_x_math(
-            sa.x_mana_cost_paid as i32,
-            operators,
-            game,
-            source_id,
-            controller,
-            sa,
-        );
+        let x = if sa.x_mana_cost_paid == 0 {
+            enters_trigger_x_paid(game, sa, source_id).unwrap_or(0)
+        } else {
+            sa.x_mana_cost_paid as i32
+        };
+        return do_x_math(x, operators, game, source_id, controller, sa);
     }
     if let Some(operators) = expr.strip_prefix("Count$CastTotalManaSpent") {
         let operators = operators.strip_prefix('/').unwrap_or(operators);
