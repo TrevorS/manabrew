@@ -1633,6 +1633,7 @@ mod tests {
                 amount,
                 type_filter,
                 min_total_power,
+                ..
             } => {
                 assert_eq!(amount.as_literal(), Some(2));
                 assert_eq!(type_filter, "Creature");
@@ -1651,6 +1652,7 @@ mod tests {
                 amount,
                 type_filter,
                 min_total_power,
+                ..
             } => {
                 assert_eq!(amount.as_literal(), Some(1)); // "Any" defaults to 1
                 assert_eq!(type_filter, "Creature.Other");
