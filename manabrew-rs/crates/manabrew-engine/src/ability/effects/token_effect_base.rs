@@ -110,6 +110,7 @@ pub trait TokenEffectBase {
                 result.set_is_token(true);
                 result.set_s_var("TokenScript", script);
                 result.set_s_var("TokenSpawningAbility", sa.ability_text.clone());
+                self.apply_token_power_toughness(ctx, sa, &mut result);
                 token_table.put(owner, result, final_amount);
             }
         }
@@ -130,7 +131,26 @@ pub trait TokenEffectBase {
         result.set_is_token(true);
         result.set_s_var("TokenScript", script);
         result.set_s_var("TokenSpawningAbility", sa.ability_text.clone());
+        self.apply_token_power_toughness(ctx, sa, &mut result);
         self.make_token_table_internal(owner, result, final_amount)
+    }
+
+    fn apply_token_power_toughness(
+        &self,
+        ctx: &EffectContext,
+        sa: &SpellAbility,
+        result: &mut Card,
+    ) {
+        if let Some(power) = sa.ir.token_power_text.as_deref() {
+            result.set_base_power(Some(crate::svar::resolve_numeric_value(
+                ctx.game, sa, power, 0,
+            )));
+        }
+        if let Some(toughness) = sa.ir.token_toughness_text.as_deref() {
+            result.set_base_toughness(Some(crate::svar::resolve_numeric_value(
+                ctx.game, sa, toughness, 0,
+            )));
+        }
     }
 
     fn make_token_table_internal(
