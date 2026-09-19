@@ -1,97 +1,124 @@
 use forge_foundation::ZoneType;
 
-use super::{matches_valid_cards_for_sa, resolve_numeric_svar, EffectContext};
-use crate::card::card_damage_map::DamageTarget;
+use super::{matches_valid_cards_for_sa, EffectContext};
+use crate::card::card_damage_map::{CardDamageMap, DamageTarget};
 use crate::ids::CardId;
+use crate::parsing::Params;
 
-/// `SP$ EachDamage` — each matching creature/player deals damage.
-///
 /// Mirrors Java's `DamageEachEffect.java`.
-/// - `ValidCards$` — which creatures deal damage.
-/// - `NumDmg$` — how much damage each deals (default: power of the creature).
-/// - `DefinedPlayers$` — if set, damage is dealt to matching players.
-///
-/// # Card script examples
-/// ```text
-/// A:SP$ EachDamage | ValidCards$ Creature.YouCtrl | NumDmg$ X
-/// ```
-/// Struct form of this effect so it can participate in the
-/// `SpellAbilityEffect` trait hierarchy — mirrors Java's
-/// `DamageEachEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(DamageEachEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let use_damage_map = ctx.game.pending_damage_map.is_some() || sa.ir.damage_map;
-    if sa.ir.damage_map {
-        ctx.game.ensure_pending_damage_maps();
-    }
+    let Some(host) = sa.source else {
+        return;
+    };
+    let params = Params::from_raw(&sa.ability_text);
+    let num = params.get("NumDmg").unwrap_or("X").to_string();
 
-    let valid_cards = sa.ir.valid_cards_selector.as_ref();
-    let fixed_dmg = sa
-        .ir
-        .num_dmg_present
-        .then(|| {
-            let v = resolve_numeric_svar(ctx.game, sa, "NumDmg", -1);
-            if v == -1 {
-                None
-            } else {
-                Some(v)
-            }
-        })
-        .flatten();
+    let sources: Vec<CardId> = if let Some(defined) = params.get("DefinedDamagers") {
+        crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(ctx.game, sa, defined)
+    } else {
+        let battlefield: Vec<CardId> = ctx
+            .game
+            .player_order
+            .clone()
+            .iter()
+            .flat_map(|&pid| ctx.game.cards_in_zone(ZoneType::Battlefield, pid).to_vec())
+            .collect();
+        match params.get("ValidCards") {
+            Some(valid) => battlefield
+                .into_iter()
+                .filter(|&cid| {
+                    matches_valid_cards_for_sa(
+                        ctx.game,
+                        sa,
+                        ctx.game.card(cid),
+                        sa.ir.valid_cards_selector.as_ref(),
+                        valid,
+                    )
+                })
+                .collect(),
+            None => battlefield,
+        }
+    };
 
-    let player_ids = ctx.game.player_order.clone();
-    let mut damagers: Vec<CardId> = Vec::new();
+    let amount = |ctx: &EffectContext, source: CardId| -> i32 {
+        let expr = ctx
+            .game
+            .card(host)
+            .get_s_var(&num)
+            .unwrap_or(&num)
+            .to_string();
+        let mut source_sa = sa.clone();
+        source_sa.source = Some(source);
+        crate::svar::resolve_numeric_value(ctx.game, &source_sa, &expr, 0)
+    };
 
-    for &pid in &player_ids {
-        let zone_cards = ctx.game.cards_in_zone(ZoneType::Battlefield, pid).to_vec();
-        for cid in zone_cards {
-            if matches_valid_cards_for_sa(ctx.game, sa, ctx.game.card(cid), valid_cards, "Creature")
-            {
-                damagers.push(cid);
+    let mut entries: Vec<(CardId, DamageTarget, i32)> = Vec::new();
+    if params.has("EachToItself") {
+        for &source in &sources {
+            entries.push((source, DamageTarget::Card(source), amount(ctx, source)));
+        }
+    } else if let Some(defined) = params.get("ToEachOther") {
+        let targets = crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+            ctx.game, sa, defined,
+        );
+        for &damager in &targets {
+            for &c in &targets {
+                if c != damager {
+                    entries.push((damager, DamageTarget::Card(c), amount(ctx, damager)));
+                }
             }
         }
-    }
-
-    // Determine damage target: opponent by default
-    let target_player = sa
-        .target_chosen
-        .target_player
-        .unwrap_or_else(|| ctx.game.opponent_of(sa.activating_player));
-
-    for card_id in damagers {
-        if ctx.game.card(card_id).zone != ZoneType::Battlefield {
-            continue;
-        }
-        let dmg = fixed_dmg.unwrap_or_else(|| ctx.game.card(card_id).power().max(0));
-        if dmg <= 0 {
-            continue;
-        }
-
-        if use_damage_map {
-            if let Some(map) = ctx.game.pending_damage_map.as_mut() {
-                map.put(card_id, DamageTarget::Player(target_player), dmg);
-            }
+    } else {
+        let mut targets: Vec<DamageTarget> = Vec::new();
+        if sa.uses_targeting() {
+            targets.extend(
+                sa.target_chosen
+                    .all_target_cards()
+                    .into_iter()
+                    .map(DamageTarget::Card),
+            );
+            targets.extend(
+                sa.target_chosen
+                    .all_target_players()
+                    .into_iter()
+                    .map(DamageTarget::Player),
+            );
         } else {
-            // Deal damage to the target player
-            let dealt = ctx.game.deal_damage_to_player(target_player, dmg);
-            ctx.game.record_player_damage_assignment(
-                Some(card_id),
-                Some(target_player),
-                dealt,
-                false,
-            );
-
-            ctx.trigger_handler.run_trigger(
-                crate::trigger::TriggerType::DamageDone,
-                crate::event::RunParams {
-                    damage_source: Some(card_id),
-                    damage_target_player: Some(target_player),
-                    damage_amount: Some(dmg),
-                    is_combat_damage: Some(false),
-                    ..Default::default()
-                },
-                false,
-            );
+            for defined in params.get("Defined").unwrap_or("Self").split(" & ") {
+                let (players, cards) =
+                    crate::ability::ability_utils::get_defined_entities(defined, sa, ctx.game);
+                targets.extend(players.into_iter().map(DamageTarget::Player));
+                targets.extend(cards.into_iter().map(DamageTarget::Card));
+            }
+        }
+        for target in targets {
+            if let DamageTarget::Card(c) = target {
+                let card = ctx.game.card(c);
+                if card.zone != ZoneType::Battlefield || card.phased_out {
+                    continue;
+                }
+            }
+            for &source in &sources {
+                entries.push((source, target, amount(ctx, source)));
+            }
         }
     }
+
+    if ctx.game.pending_damage_map.is_some() {
+        if let Some(map) = ctx.game.pending_damage_map.as_mut() {
+            for (source, target, dmg) in entries {
+                map.put(source, target, dmg);
+            }
+        }
+        return;
+    }
+    let mut map = CardDamageMap::default();
+    for (source, target, dmg) in entries {
+        map.put(source, target, dmg);
+    }
+    let mut deal_sa = sa.clone();
+    deal_sa.damage_map = Some(map);
+    deal_sa.prevent_map = Some(CardDamageMap::default());
+    super::damage_resolve_effect::DamageResolveEffect::resolve(ctx, &deal_sa);
 }
