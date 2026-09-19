@@ -1044,7 +1044,16 @@ fn add_taps_for_mana_trigger_mana_impl(
         produced: Some(produced.to_string()),
         ..Default::default()
     };
-    for &host_id in game.cards_in_zone(ZoneType::Battlefield, player) {
+    let hosts: Vec<CardId> = game
+        .player_order
+        .iter()
+        .flat_map(|&pid| {
+            game.cards_in_zone(ZoneType::Battlefield, pid)
+                .iter()
+                .copied()
+        })
+        .collect();
+    for host_id in hosts {
         let host = game.card(host_id);
         for trigger in &host.triggers {
             if trigger.kind != crate::trigger::TriggerType::TapsForMana {
