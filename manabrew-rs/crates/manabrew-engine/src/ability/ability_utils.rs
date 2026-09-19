@@ -584,6 +584,11 @@ pub fn resolve_defined_players_with_sa(
             .and_then(|source| game.card(source).chosen_player)
             .into_iter()
             .collect(),
+        "TargetedAndYou" => {
+            let mut players = sa.target_chosen.all_target_players();
+            push_unique_player(&mut players, controller);
+            players
+        }
         "TargetedOrController" => {
             let mut players = sa.target_chosen.all_target_players();
             for player in targeted_controller_players(sa, game) {
@@ -732,6 +737,21 @@ pub fn resolve_defined_players_with_sa(
             let selector = crate::parsing::cached_compiled_selector(defined);
             let source_id = sa.source.expect("checked above");
             game.alive_players()
+                .into_iter()
+                .filter(|&pid| {
+                    crate::player::player_property::is_valid(
+                        pid, &selector, game, source_id, controller, sa,
+                    )
+                })
+                .collect()
+        }
+        // Java splits a defined at its first `.` and filters the result with the rest
+        // (`AbilityUtils.getDefinedPlayers`, `incR = changedDef.split("\\.", 2)`).
+        _ if key.contains('.') && sa.source.is_some() => {
+            let (head, props) = key.split_once('.').expect("checked above");
+            let selector = crate::parsing::cached_compiled_selector(&format!("Player.{props}"));
+            let source_id = sa.source.expect("checked above");
+            resolve_defined_players_with_sa(head, sa, controller, game)
                 .into_iter()
                 .filter(|&pid| {
                     crate::player::player_property::is_valid(
