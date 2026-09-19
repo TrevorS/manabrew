@@ -90,6 +90,7 @@ pub(super) fn manifest_single_card(
     ctx.game.card_mut(card_id).set_face_down(true);
     ctx.game.card_mut(card_id).set_original_state_as_face_down();
     ctx.game.card_mut(card_id).set_manifested(true);
+    crate::card::card_factory_util::ability_turn_face_up(ctx.game.card_mut(card_id), "ManifestUp");
 
     // Move to battlefield under the player's control
     ctx.game.card_mut(card_id).set_controller(player);

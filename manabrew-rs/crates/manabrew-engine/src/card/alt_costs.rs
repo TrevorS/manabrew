@@ -170,7 +170,7 @@ impl Card {
     }
 }
 
-fn mana_cost_script_string(mc: &forge_foundation::ManaCost) -> String {
+pub(super) fn mana_cost_script_string(mc: &forge_foundation::ManaCost) -> String {
     let mut tokens: Vec<String> = Vec::new();
     for shard in mc.shards() {
         if *shard == forge_foundation::ManaCostShard::X {

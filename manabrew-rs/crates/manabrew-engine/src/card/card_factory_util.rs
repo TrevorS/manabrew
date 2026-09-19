@@ -51,12 +51,30 @@ pub fn ability_disguise_up(card: &Card, cost_str: &str, _intrinsic: bool) -> Spe
     )
 }
 
-pub fn ability_turn_face_up(card: &Card, key: &str, desc: &str) -> SpellAbility {
-    SpellAbility::new_simple(
-        Some(card.id),
-        card.controller,
-        &format!("TurnFaceUp:{key}:{desc}"),
-    )
+pub fn ability_turn_face_up(card: &mut Card, key: &str) {
+    let Some(state) = card.face_down_state.as_ref() else {
+        return;
+    };
+    if !state.original_type_line.is_creature() || state.original_mana_cost.is_no_cost() {
+        return;
+    }
+    let mut cost = super::alt_costs::mana_cost_script_string(&state.original_mana_cost);
+    if cost.is_empty() {
+        cost.push('0');
+    }
+    let text = format!("AB$ SetState | Cost$ {cost} | Mode$ TurnFaceUp | {key}$ True");
+    if card
+        .activated_abilities
+        .iter()
+        .any(|ab| ab.ability_text == text)
+    {
+        return;
+    }
+    let index = card.activated_abilities.len();
+    if let Some(parsed) = crate::ability::activated::parse_activated_ability(&text, index) {
+        card.activated_abilities.push(parsed);
+        card.base_ability_count = card.activated_abilities.len();
+    }
 }
 
 pub fn handle_hidden_agenda(_player: crate::ids::PlayerId, _card: &mut Card) -> bool {

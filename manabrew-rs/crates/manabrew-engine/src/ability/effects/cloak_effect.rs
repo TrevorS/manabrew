@@ -42,6 +42,7 @@ fn cloak_for_player(ctx: &mut EffectContext, sa: &SpellAbility, player: PlayerId
         ctx.game.card_mut(card_id).set_face_down(true);
         ctx.game.card_mut(card_id).set_original_state_as_face_down();
         ctx.game.card_mut(card_id).set_cloaked(true);
+        crate::card::card_factory_util::ability_turn_face_up(ctx.game.card_mut(card_id), "CloakUp");
         ctx.game
             .card_mut(card_id)
             .add_intrinsic_keyword_with_triggers("Ward:2");
