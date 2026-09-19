@@ -10,19 +10,33 @@ use crate::trigger::TriggerType;
 /// `DestroyEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(DestroyEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let mut targets = Vec::new();
-    if let Some(target_card) = sa.target_chosen.target_card {
-        targets.push(target_card);
-    }
-    targets.extend(card_util::get_radiance(ctx.game, sa).iter().copied());
-    targets.sort_unstable_by_key(|cid| cid.0);
-    targets.dedup();
-
     let no_regen = sa.ir.no_regen;
     let remember_destroyed = sa.ir.remember_destroyed;
     let always_remember = sa.ir.always_remember;
 
-    for target_card in targets {
+    if remember_destroyed {
+        if let Some(sid) = sa.source {
+            ctx.game.card_mut(sid).clear_remembered();
+        }
+    }
+
+    let untargeted: Vec<_> = card_util::get_radiance(ctx.game, sa)
+        .iter()
+        .copied()
+        .collect();
+    let tgt_cards = crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa);
+    let tgt_cards = ctx.game.order_cards_by_their_owners(
+        tgt_cards,
+        ZoneType::Graveyard,
+        &mut Some(&mut *ctx.agents),
+    );
+    let untargeted = ctx.game.order_cards_by_their_owners(
+        untargeted,
+        ZoneType::Graveyard,
+        &mut Some(&mut *ctx.agents),
+    );
+
+    for target_card in tgt_cards.into_iter().chain(untargeted) {
         if ctx.game.card(target_card).zone == ZoneType::Battlefield {
             let is_indestructible = ctx.game.card(target_card).has_indestructible();
             let has_regen_shield = ctx.game.card(target_card).regeneration_shields > 0;
