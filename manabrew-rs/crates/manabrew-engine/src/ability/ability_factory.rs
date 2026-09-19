@@ -193,6 +193,8 @@ const RESTRICTION_KEYS: &[&str] = &[
     "PresentDefined",
     "ClassLevel",
     "ActivateCardsInHand",
+    "CheckSVar",
+    "SVarCompare",
 ];
 
 const CONDITION_KEYS: &[&str] = &[

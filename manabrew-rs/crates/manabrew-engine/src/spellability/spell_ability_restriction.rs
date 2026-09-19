@@ -166,6 +166,16 @@ impl SpellAbilityRestriction {
             }
         }
 
+        if let Some(svar) = get("CheckSVar") {
+            self.variables.sets_var_to_check(svar);
+        }
+        if let Some(compare) = get("SVarCompare") {
+            if compare.len() >= 2 {
+                self.variables.sets_var_operator(&compare[..2]);
+                self.variables.sets_var_operand(&compare[2..]);
+            }
+        }
+
         // Parse cards in hand requirement
         if let Some(count_str) = get("ActivateCardsInHand") {
             if let Ok(count) = count_str.parse::<i32>() {
@@ -258,6 +268,18 @@ impl SpellAbilityRestriction {
 
         if !self.check_presence_restriction(game, card_id, player, sa) {
             return false;
+        }
+
+        if let Some(svar) = self.variables.gets_var_to_check() {
+            let compare = format!(
+                "{}{}",
+                self.variables.gets_var_operator().unwrap_or("GE"),
+                self.variables.gets_var_operand().unwrap_or("1")
+            );
+            if !crate::card::valid_filter::check_svar_requirement(game, card, card, svar, &compare)
+            {
+                return false;
+            }
         }
 
         if let Some(class_level) = self.variables.class_level() {
