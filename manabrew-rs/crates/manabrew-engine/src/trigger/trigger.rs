@@ -38,6 +38,8 @@ pub struct Trigger {
     pub trigger_remembered: Vec<AbilityValue>,
     #[serde(default)]
     pub spawning_ability: Option<SpellAbility>,
+    #[serde(default)]
+    pub original_host: Option<crate::ids::CardId>,
 }
 
 impl PartialEq for Trigger {
@@ -1034,6 +1036,9 @@ impl Trigger {
         sa.source_trigger_id = Some(self.id);
         sa.trigger_index = Some(trigger_index);
         sa.trigger_remembered = self.trigger_remembered.clone();
+        if let Some(original_host) = self.original_host {
+            sa.set_original_host(original_host);
+        }
         self.set_triggering_objects(&mut sa, params, game, host_card, host_controller);
         self.configure_triggered_spell_ability(&mut sa, params, game, &svar_text);
         sa
@@ -1413,6 +1418,7 @@ pub fn parse_trigger(raw: &str, next_id: &mut u32) -> Option<Trigger> {
         static_trigger,
         trigger_remembered: Vec::new(),
         spawning_ability: None,
+        original_host: None,
     })
 }
 

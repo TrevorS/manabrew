@@ -636,6 +636,7 @@ impl GameLoop {
                         static_trigger: false,
                         trigger_remembered: Vec::new(),
                         spawning_ability: None,
+                        original_host: None,
                     };
                     game.card_mut(card_id).add_lasting_trigger(dies_trigger);
                     game.card_mut(card_id)

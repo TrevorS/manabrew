@@ -118,6 +118,7 @@ impl DelayedTrigger {
                 .map(crate::event::AbilityValue::Card)
                 .collect(),
             spawning_ability: None,
+            original_host: None,
         }
     }
 }

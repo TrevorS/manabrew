@@ -88,6 +88,7 @@ enum EffectKind {
     GrantTrigger {
         text: String,
         svars: BTreeMap<String, String>,
+        original_host: Option<CardId>,
     },
 }
 
@@ -528,6 +529,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                                     kind: EffectKind::GrantTrigger {
                                         text: trig_text,
                                         svars: source_card.svars.clone(),
+                                        original_host: Some(source_id),
                                     },
                                 });
                             }
@@ -856,7 +858,11 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                     game.cards[target_idx].activated_abilities.push(ab);
                 }
             }
-            EffectKind::GrantTrigger { text, svars } => {
+            EffectKind::GrantTrigger {
+                text,
+                svars,
+                original_host,
+            } => {
                 game.cards[effect.target.index()]
                     .granted_svars
                     .extend(svars);
@@ -868,7 +874,8 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                     .unwrap_or(0)
                     .saturating_add(1);
                 let mut next_id_mut = next_id;
-                if let Some(trig) = crate::trigger::parse_trigger(&text, &mut next_id_mut) {
+                if let Some(mut trig) = crate::trigger::parse_trigger(&text, &mut next_id_mut) {
+                    trig.original_host = original_host;
                     game.cards[effect.target.index()].add_trigger(trig);
                 }
             }

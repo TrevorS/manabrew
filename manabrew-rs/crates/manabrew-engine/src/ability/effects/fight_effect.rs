@@ -1,18 +1,12 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
-use crate::ability::ability_ir::DefinedRef;
 use crate::card::card_damage_map::DamageTarget;
 use crate::event::RunParams;
+use crate::ids::CardId;
 use crate::trigger::TriggerType;
 
 /// SP$/DB$ Fight — two creatures deal damage to each other equal to their power.
-///
-/// When `Defined$ ParentTarget` is set (the common pattern for DB$ Fight used by
-/// cards like Prey Upon), the first fighter is the parent SA's chosen target card
-/// (`ctx.parent_target_card`) and this SA's `target_chosen.target_card` is the
-/// second fighter. For a direct SP$ Fight without Defined$, `sa.source` is used
-/// as the first fighter.
 ///
 /// Mirrors Java's `FightEffect.resolve()`.
 /// Struct form of this effect so it can participate in the
@@ -25,36 +19,18 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         ctx.game.ensure_pending_damage_maps();
     }
 
-    // The explicitly targeted card is always the "other" fighter (opponent's creature).
-    let target = match sa.target_chosen.target_card {
-        Some(c) => c,
-        None => return,
-    };
-
-    // Determine the "source" fighter based on Defined$ ParentTarget vs direct source.
-    // Prey Upon: `DB$ Fight | Defined$ ParentTarget` — controlled creature from parent SA.
-    let is_defined_parent = matches!(sa.defined_ref(), Some(DefinedRef::ParentTarget));
-    let source = if is_defined_parent {
-        match ctx.parent_target_card {
-            Some(c) => c,
-            None => return,
-        }
+    let mut sa_with_parent;
+    let sa = if sa.parent_targeting_card.is_none() && ctx.parent_target_card.is_some() {
+        sa_with_parent = sa.clone();
+        sa_with_parent.parent_targeting_card = ctx.parent_target_card;
+        &sa_with_parent
     } else {
-        // Direct SP$ Fight: the source card itself should be a creature (rare pattern).
-        match sa.source {
-            Some(s) => s,
-            None => return,
-        }
+        sa
     };
-
-    // Both must be creatures on the battlefield
-    if ctx.game.card(source).zone != ZoneType::Battlefield
-        || !ctx.game.card(source).is_creature()
-        || ctx.game.card(target).zone != ZoneType::Battlefield
-        || !ctx.game.card(target).is_creature()
-    {
+    let fighters = get_fighters(ctx.game, sa);
+    let [source, target] = fighters[..] else {
         return;
-    }
+    };
 
     if sa.ir.optional {
         let decider = sa
@@ -141,4 +117,39 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     );
 
     let _ = crate::ability::spell_ability_effect::replace_dying(ctx.game, sa);
+}
+
+fn get_fighters(
+    game: &crate::game::GameState,
+    sa: &crate::spellability::SpellAbility,
+) -> Vec<CardId> {
+    let tgts: Vec<CardId> = if sa.uses_targeting() {
+        sa.target_chosen.target_card.into_iter().collect()
+    } else {
+        Vec::new()
+    };
+    let mut fighter1 = tgts.first().copied();
+    let mut fighter2 = None;
+    if sa.ir.defined.is_some() {
+        let defined: Vec<CardId> =
+            crate::ability::spell_ability_effect::get_defined_cards_or_targeted(game, sa)
+                .into_iter()
+                .filter(|&cid| {
+                    let card = game.card(cid);
+                    card.zone == ZoneType::Battlefield && !card.phased_out && card.is_creature()
+                })
+                .collect();
+        if !defined.is_empty() {
+            if defined.len() > 1 && fighter1.is_none() {
+                fighter1 = Some(defined[0]);
+                fighter2 = Some(defined[1]);
+            } else {
+                fighter2 = fighter1;
+                fighter1 = Some(defined[0]);
+            }
+        }
+    } else if tgts.len() > 1 {
+        fighter2 = Some(tgts[1]);
+    }
+    fighter1.into_iter().chain(fighter2).collect()
 }
