@@ -108,9 +108,12 @@ parity query --mode ChangesZone --param ValidCard --value Creature.Other --show 
 parity query --keyword Web-slinging
 parity coverage --matchups manabrew-rs/crates/parity/survey_matchups.tsv --cards-file standard_names.txt
 parity coverage --decks red_burn,green_stompy --cards-file standard_names.txt
+parity card "Crystal Fragments" "Bonesplitter"
 ```
 
 `query` (`src/script_query.rs`) filters the parsed script lines of every card (or of `--cards-file`) by API, trigger or static `--mode`, replacement `--event`, `--param`, `--value` substring, `--keyword` and `--kind`, prints matching cards with their lines, and says which engine files contain the parameter or API as a string literal. Use it instead of grepping `cardsfolder`: `$` and `|` in a pattern make a text search match nothing without saying so. Each answer carries its own control: the number of cards scanned, how many carry `ValidTgts$` (zero aborts with an error), and how many match the API filter alone, so a zero for the full query means the parameter is absent and not that the search failed.
+
+`parity card <name>...` (`src/card_dump.rs`) prints what `Card::from_rules` builds from a script: type line and cost, keywords, every activated ability with its index, API and activation zone, triggers, statics, replacement effects, SVar names, and the other face. Use it when an engine never offers or never fires something the script has: a keyword with no ability behind it shows up here without running a game.
 
 `parity selector-audit` (`src/selector_audit.rs`) compiles `Card.<name>` for every name Java's `CardProperty` tests with `property.equals`, and lists the ones the engine's selector compiler lowers to a subtype, with how many card scripts use each. A property lowered that way never matches (it is looked up as a type), where Java checks it first and falls back to types only at the end. Teach the compiler (`parsing::lower_selector_part`) or the legacy matcher the property, then rerun the audit.
 

@@ -533,7 +533,7 @@ fn main() {
     if let Some(command) = args.get(1).map(String::as_str).filter(|arg| {
         matches!(
             *arg,
-            "census-report" | "query" | "coverage" | "sweep" | "sweep-deck"
+            "card" | "census-report" | "query" | "coverage" | "sweep" | "sweep-deck"
         )
     }) {
         let data = runner::load_data(None, false).unwrap_or_else(|e| {
@@ -541,6 +541,7 @@ fn main() {
             std::process::exit(2);
         });
         let code = match command {
+            "card" => parity::card_dump::run_cli(&args[1..], &data.db),
             "census-report" => parity::census_report::run_cli(&args[1..], &data.db),
             "query" => parity::script_query::run_query_cli(&args[1..], &data.db),
             "sweep" => parity::sweep::run_cli(&args[1..], &data),
