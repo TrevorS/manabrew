@@ -719,8 +719,9 @@ public final class HarnessCostPlumbing {
             if (amount <= 0) {
                 return null;
             }
-            CardCollectionView list = player.getCardsIn(ZoneType.Battlefield);
-            list = CardLists.getValidCards(list, cost.getType().split(";"), player, source, ability);
+            final CardCollectionView list = cost.payCostFromSource()
+                    ? new CardCollection(ability.getHostCard())
+                    : CardLists.getValidCards(player.getCardsIn(ZoneType.Battlefield), cost.getType().split(";"), player, source, ability);
             if (list.isEmpty()) {
                 return null;
             }
