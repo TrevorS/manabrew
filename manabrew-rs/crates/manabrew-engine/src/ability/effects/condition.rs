@@ -101,6 +101,18 @@ pub(super) fn check_condition(game: &GameState, sa: &SpellAbility) -> bool {
         if cond == "EnduringStory" && !game.player_has_enduring_story(activator) {
             return false;
         }
+        let paid = |cost| sa.optional_costs.contains(&cost);
+        use crate::spellability::OptionalCost;
+        let optional_cost_missing = match cond {
+            "Kicked 1" => !paid(OptionalCost::Kicker1),
+            "Kicked 2" => !paid(OptionalCost::Kicker2),
+            "Bargain" => !paid(OptionalCost::Bargain),
+            "Teamwork" => !paid(OptionalCost::Teamwork),
+            _ => false,
+        };
+        if optional_cost_missing {
+            return false;
+        }
     }
     // Check ConditionCheckSVar$ Kicked (SVar-based kicked gate)
     if let Some(cond) = sa.ir.condition_check_svar.as_deref() {
