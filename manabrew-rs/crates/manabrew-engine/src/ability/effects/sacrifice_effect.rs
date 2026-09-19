@@ -324,8 +324,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .ir
         .amount
         .as_deref()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(1);
+        .map(|raw| super::resolve_numeric_value(ctx.game, sa, raw, 1))
+        .unwrap_or(1)
+        .max(0) as usize;
 
     // Detect Exploit keyword sacrifice — fires TriggerType::Exploited after each sacrifice.
     let is_exploit = sa.ir.exploit;
