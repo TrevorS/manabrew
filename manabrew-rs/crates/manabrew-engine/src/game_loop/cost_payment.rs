@@ -1023,7 +1023,6 @@ impl GameLoop {
                 } => {
                     self.pay_remove_any_counter_cost(
                         game,
-                        agents,
                         player,
                         card_id,
                         type_filter,
@@ -1755,7 +1754,6 @@ impl GameLoop {
                 } => {
                     self.pay_remove_any_counter_cost(
                         game,
-                        agents,
                         player,
                         card_id,
                         type_filter,
@@ -3526,62 +3524,41 @@ impl GameLoop {
     pub(crate) fn pay_remove_any_counter_cost(
         &mut self,
         game: &mut GameState,
-        agents: &mut [Box<dyn PlayerAgent>],
         player: PlayerId,
         source: CardId,
         type_filter: &str,
         amount: i32,
         counter_type: Option<&crate::card::CounterType>,
     ) {
-        for _ in 0..amount {
-            // Build candidates that have at least one counter of the required type.
-            let candidates: Vec<CardId> = game
-                .cards_in_zone(ZoneType::Battlefield, player)
-                .to_vec()
-                .into_iter()
-                .filter(|&cid| {
-                    let matches_type = type_filter == "Permanent"
-                        || type_filter.is_empty()
-                        || crate::ability::effects::matches_change_type(
-                            game.card(cid),
-                            type_filter,
-                            &[],
-                        );
-                    if !matches_type {
-                        return false;
-                    }
-                    if let Some(ct) = counter_type {
-                        game.card(cid).counter_count(ct) > 0
-                    } else {
-                        !game.card(cid).counters.is_empty()
-                    }
-                })
-                .collect();
-            if candidates.is_empty() {
-                break;
-            }
-            // Let the agent choose which permanent to remove a counter from.
-            let chosen = agents[player.index()]
-                .choose_sacrifice(player, &candidates, Some(source))
-                .unwrap_or(candidates[0]);
-            let ct_to_remove = if let Some(ct) = counter_type {
-                ct.clone()
-            } else {
-                // Pick first available counter type on the chosen card.
-                game.card(chosen).counters.keys().next().unwrap().clone()
+        let mut remaining = amount;
+        for card_id in
+            crate::cost::cost_remove_any_counter::valid_cards(game, player, source, type_filter)
+        {
+            let types: Vec<crate::card::CounterType> = match counter_type {
+                Some(ct) => vec![ct.clone()],
+                None => game.card(card_id).counters.keys().cloned().collect(),
             };
-            game.card_mut(chosen).remove_counter(&ct_to_remove, 1);
-            self.trigger_handler.run_trigger(
-                TriggerType::CounterRemoved,
-                RunParams {
-                    card: Some(chosen),
-                    player: Some(player),
-                    counter_type: Some(format!("{ct_to_remove:?}")),
-                    counter_amount: Some(1),
-                    ..Default::default()
-                },
-                false,
-            );
+            for ct in types {
+                let remove = remaining.min(game.card(card_id).counter_count(&ct));
+                for _ in 0..remove {
+                    game.card_mut(card_id).remove_counter(&ct, 1);
+                    self.trigger_handler.run_trigger(
+                        TriggerType::CounterRemoved,
+                        RunParams {
+                            card: Some(card_id),
+                            player: Some(player),
+                            counter_type: Some(format!("{ct:?}")),
+                            counter_amount: Some(1),
+                            ..Default::default()
+                        },
+                        false,
+                    );
+                }
+                remaining -= remove.max(0);
+                if remaining <= 0 {
+                    return;
+                }
+            }
         }
     }
 

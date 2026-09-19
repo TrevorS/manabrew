@@ -19,6 +19,36 @@ pub fn payment_order(part: &super::CostPart) -> i32 {
     part.payment_order()
 }
 
+/// `CostRemoveAnyCounter.getMaxAmountX`: the source alone for `CARDNAME` (`payCostFromSource`),
+/// otherwise the battlefield cards valid for the type with the source as context.
+pub fn valid_cards(
+    game: &crate::game::GameState,
+    player: crate::ids::PlayerId,
+    source: CardId,
+    type_filter: &str,
+) -> Vec<CardId> {
+    if type_filter == "CARDNAME" {
+        return vec![source];
+    }
+    game.cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
+        .iter()
+        .copied()
+        .filter(|&cid| {
+            type_filter == "Permanent"
+                || type_filter.is_empty()
+                || type_filter.split(';').any(|filter| {
+                    crate::ability::ability_utils::matches_valid_cards_for_source(
+                        game,
+                        source,
+                        game.card(cid),
+                        None,
+                        filter.trim(),
+                    )
+                })
+        })
+        .collect()
+}
+
 pub fn can_pay(
     game: &crate::game::GameState,
     _available_mana: &crate::mana::ManaPool,
@@ -35,14 +65,8 @@ pub fn can_pay(
     else {
         return false;
     };
-    let total: i32 = game
-        .cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
+    let total: i32 = valid_cards(game, player, source, type_filter)
         .iter()
-        .filter(|&&cid| {
-            type_filter == "Permanent"
-                || type_filter.is_empty()
-                || crate::ability::effects::matches_change_type(game.card(cid), type_filter, &[])
-        })
         .map(|&cid| {
             let c = game.card(cid);
             match counter_type {
