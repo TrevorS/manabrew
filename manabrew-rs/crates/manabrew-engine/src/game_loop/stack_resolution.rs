@@ -409,6 +409,7 @@ impl GameLoop {
                     }
                 }
 
+                game.ensure_pending_change_zone_table();
                 if origin != ZoneType::Battlefield {
                     self.move_card_with_runtime(
                         game,
@@ -589,6 +590,13 @@ impl GameLoop {
                     origin,
                     ZoneType::Battlefield,
                 );
+                if let Some(table) = game.pending_change_zone_table.take() {
+                    table.trigger_changes_zone_all(
+                        &mut self.trigger_handler,
+                        game,
+                        Some(&entry.spell_ability),
+                    );
+                }
 
                 // -- Post-ETB effects for alternative costs --
 

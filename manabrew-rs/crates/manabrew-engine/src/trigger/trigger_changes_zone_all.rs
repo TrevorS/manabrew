@@ -38,6 +38,52 @@ impl TriggerChangesZoneAll {
             valid_amount,
         })
     }
+
+    fn filter_cards(
+        &self,
+        trigger: &super::trigger::Trigger,
+        table: Option<&crate::card::card_zone_table::CardZoneTable>,
+        params: &RunParams,
+        game: &GameState,
+    ) -> Vec<CardId> {
+        let host_card = trigger.base.card_trait_base.host_card_id();
+        let host_controller = trigger.base.card_trait_base.host_controller(game);
+        if let Some(table) = table {
+            let origins = self.origin.map(|zone| vec![zone]);
+            let destinations = self.destination.map(|zone| vec![zone]);
+            table.filter_cards(
+                game,
+                origins.as_deref(),
+                destinations.as_deref(),
+                self.valid_card.as_ref(),
+                host_card,
+                host_controller,
+            )
+        } else {
+            let Some(zone_changes) = params.zone_changes.as_ref() else {
+                return Vec::new();
+            };
+            zone_changes
+                .iter()
+                .filter(|zc| self.origin.is_none_or(|expected| zc.origin == expected))
+                .filter(|zc| {
+                    self.destination
+                        .is_none_or(|expected| zc.destination == expected)
+                })
+                .filter_map(|zc| {
+                    if trigger.matches_optional_valid_card_filter(
+                        &self.valid_card,
+                        Some(zc.card),
+                        game,
+                    ) {
+                        Some(zc.card)
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        }
+    }
 }
 
 #[typetag::serde]
@@ -72,41 +118,7 @@ impl TriggerBehavior for TriggerChangesZoneAll {
             }
         }
 
-        let matching: Vec<CardId> = if let Some(table) = table.as_ref() {
-            let origins = self.origin.map(|zone| vec![zone]);
-            let destinations = self.destination.map(|zone| vec![zone]);
-            table.filter_cards(
-                game,
-                origins.as_deref(),
-                destinations.as_deref(),
-                self.valid_card.as_ref(),
-                host_card,
-                host_controller,
-            )
-        } else {
-            let Some(zone_changes) = params.zone_changes.as_ref() else {
-                return false;
-            };
-            zone_changes
-                .iter()
-                .filter(|zc| self.origin.is_none_or(|expected| zc.origin == expected))
-                .filter(|zc| {
-                    self.destination
-                        .is_none_or(|expected| zc.destination == expected)
-                })
-                .filter_map(|zc| {
-                    if trigger.matches_optional_valid_card_filter(
-                        &self.valid_card,
-                        Some(zc.card),
-                        game,
-                    ) {
-                        Some(zc.card)
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        };
+        let matching = self.filter_cards(trigger, table.as_ref(), params, game);
 
         if matching.is_empty() {
             return false;
@@ -167,27 +179,22 @@ impl TriggerBehavior for TriggerChangesZoneAll {
 
     fn set_triggering_objects(
         &self,
-        _trigger: &super::trigger::Trigger,
+        trigger: &super::trigger::Trigger,
         sa: &mut SpellAbility,
         params: &RunParams,
-        _game: &GameState,
+        game: &GameState,
     ) {
-        // TODO: Java calls this.filterCards(table) to filter by ValidCards param,
-        // but we don't have access to the trigger params here. Passing through all cards.
-        if let Some(cards) = params.cards.as_ref() {
-            sa.set_triggering_value(
-                crate::ability::AbilityKey::Cards,
-                crate::event::AbilityValue::Cards(cards.clone()),
-            );
-            sa.set_triggering_object(crate::ability::AbilityKey::Amount, cards.len().to_string());
-            // Also set trigger_remembered_amount so TriggerCount$Amount SVars
-            // (e.g. Woodland Champion's CounterNum$ X where X = TriggerCount$Amount)
-            // resolve to the correct count instead of defaulting to 1.
-            sa.trigger_remembered_amount = cards.len() as i32;
-        }
-        // TODO: Java also sets Cause from runParams via
-        // sa.setTriggeringObjectsFrom(runParams, AbilityKey.Cause)
-        // Skipping Cause for now since SpellAbility is complex and stored as object in Java
+        let table = match params.get_value(AbilityKey::Cards) {
+            Some(AbilityValue::CardZoneTable(table)) => Some(table),
+            _ => None,
+        };
+        let cards = self.filter_cards(trigger, table.as_ref(), params, game);
+        sa.set_triggering_object(crate::ability::AbilityKey::Amount, cards.len().to_string());
+        sa.trigger_remembered_amount = cards.len() as i32;
+        sa.set_triggering_value(
+            crate::ability::AbilityKey::Cards,
+            crate::event::AbilityValue::Cards(cards),
+        );
     }
 
     fn origin_zone(&self) -> Option<forge_foundation::ZoneType> {

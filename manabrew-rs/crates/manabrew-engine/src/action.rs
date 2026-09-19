@@ -1310,7 +1310,6 @@ impl GameState {
 
         let mut any_changes = false;
         let mut newly_lost_players: Vec<PlayerId> = Vec::new();
-        let mut sacrifice_list: Vec<CardId> = Vec::new();
 
         // Check players with 0 or less life
         for pid in self.player_order.clone() {
@@ -1425,6 +1424,56 @@ impl GameState {
             return !newly_lost_players.is_empty();
         }
 
+        for pass in 0..9 {
+            if pass > 0 {
+                apply_continuous_effects(self);
+                self.pre_sba_battlefield = self
+                    .cards
+                    .iter()
+                    .filter(|c| c.zone == ZoneType::Battlefield)
+                    .map(|c| c.id)
+                    .collect();
+            }
+            let outer_table = self
+                .pending_change_zone_table
+                .replace(crate::card::card_zone_table::CardZoneTable::default());
+            let changed = self.state_based_actions_pass(
+                &mut trigger_handler,
+                &mut legend_keep_fn,
+                &mut agents,
+            );
+            let table = std::mem::replace(&mut self.pending_change_zone_table, outer_table);
+            if let (Some(handler), Some(table)) = (trigger_handler.as_deref_mut(), table) {
+                table.trigger_changes_zone_all(handler, self, None);
+                handler.flush_waiting_triggers(self);
+            }
+            if !changed {
+                break;
+            }
+            any_changes = true;
+        }
+
+        // Check game over
+        let alive = self.alive_players();
+        if alive.len() <= 1 {
+            self.game_over = true;
+            if alive.len() == 1 {
+                self.winner = Some(alive[0]);
+            }
+        }
+
+        any_changes
+    }
+
+    fn state_based_actions_pass(
+        &mut self,
+        trigger_handler: &mut Option<&mut TriggerHandler>,
+        legend_keep_fn: &mut Option<&mut dyn FnMut(PlayerId, &[CardId]) -> CardId>,
+        agents: &mut Option<&mut [Box<dyn PlayerAgent>]>,
+    ) -> bool {
+        let mut any_changes = false;
+        let mut sacrifice_list: Vec<CardId> = Vec::new();
+
         // Check creatures with lethal damage or 0 toughness
         let battlefield_cards: Vec<CardId> = self
             .player_order
@@ -1452,17 +1501,16 @@ impl GameState {
 
         if no_reg_creats.len() > 1 {
             no_reg_creats =
-                self.order_cards_by_their_owners(no_reg_creats, ZoneType::Graveyard, &mut agents);
+                self.order_cards_by_their_owners(no_reg_creats, ZoneType::Graveyard, agents);
         }
         for cid in no_reg_creats {
-            self.move_battlefield_card_to_graveyard_for_sba(cid, &mut trigger_handler, &mut agents);
+            self.move_battlefield_card_to_graveyard_for_sba(cid, trigger_handler, agents);
             any_changes = true;
         }
 
         if des_creats.len() > 1 {
             des_creats.retain(|&cid| !self.cards[cid.index()].has_keyword("Indestructible"));
-            des_creats =
-                self.order_cards_by_their_owners(des_creats, ZoneType::Graveyard, &mut agents);
+            des_creats = self.order_cards_by_their_owners(des_creats, ZoneType::Graveyard, agents);
         }
         for cid in des_creats {
             if self.cards[cid.index()].has_keyword("Indestructible") {
@@ -1514,11 +1562,7 @@ impl GameState {
             let mut destroy_event = ReplacementEvent::Destroy { target: cid };
             let result = apply_replacements(self, &mut destroy_event);
             if result != ReplacementResult::Replaced {
-                self.move_battlefield_card_to_graveyard_for_sba(
-                    cid,
-                    &mut trigger_handler,
-                    &mut agents,
-                );
+                self.move_battlefield_card_to_graveyard_for_sba(cid, trigger_handler, agents);
                 // Same-SBA-batch LTB lookback is derived per-event from
                 // `pre_sba_battlefield` in `TriggerHandler::ltb_trigger_refs_for_event`.
                 // No global registration needed.
@@ -1545,7 +1589,7 @@ impl GameState {
                 continue;
             }
 
-            self.move_battlefield_card_to_graveyard_for_sba(cid, &mut trigger_handler, &mut agents);
+            self.move_battlefield_card_to_graveyard_for_sba(cid, trigger_handler, agents);
             any_changes = true;
         }
 
@@ -1653,7 +1697,7 @@ impl GameState {
                 }
                 // Choose which to keep: delegate to callback (mirrors Java's
                 // chooseSingleEntityForEffect), or default to first in zone order.
-                let keep = if let Some(ref mut chooser) = legend_keep_fn {
+                let keep = if let Some(chooser) = legend_keep_fn.as_deref_mut() {
                     chooser(pid, &ids)
                 } else if let Some(agents) = agents.as_deref_mut() {
                     agents[pid.index()].choose_legend_keep(pid, &ids)
@@ -1774,15 +1818,6 @@ impl GameState {
             for attachment_id in unattach_ids {
                 self.detach(attachment_id);
                 any_changes = true;
-            }
-        }
-
-        // Check game over
-        let alive = self.alive_players();
-        if alive.len() <= 1 {
-            self.game_over = true;
-            if alive.len() == 1 {
-                self.winner = Some(alive[0]);
             }
         }
 

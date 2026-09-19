@@ -1589,6 +1589,16 @@ impl TriggerHandler {
             // batches do not fire for later deaths. Mirrors Java's
             // lastStateBattlefield boundary.
             ZoneType::Battlefield
+        } else if *mode == TriggerType::ChangesZoneAll
+            && trigger.get_active_zone().contains(&ZoneType::Battlefield)
+            && card.zone != ZoneType::Battlefield
+            && self.looks_back_in_time(trigger)
+            && params
+                .change_zone_table
+                .as_ref()
+                .is_some_and(|table| table.last_state_battlefield().contains(&host_card))
+        {
+            ZoneType::Battlefield
         } else if (*mode == TriggerType::DamageDone || *mode == TriggerType::DamageDoneOnce)
             && params.damage_target_card == Some(host_card)
             && trigger.get_active_zone().contains(&ZoneType::Battlefield)
