@@ -1,23 +1,30 @@
 //! `parity card <name>...`: what the engine builds from a card script, face by face.
 
-use forge_carddb::CardDatabase;
 use manabrew_engine::card::Card;
 use manabrew_engine::ids::PlayerId;
 
-pub fn run_cli(args: &[String], db: &CardDatabase) -> i32 {
+use crate::runner::LoadedData;
+
+pub fn run_cli(args: &[String], data: &LoadedData) -> i32 {
     let names: Vec<&String> = args.iter().skip(1).collect();
     if names.is_empty() {
-        eprintln!("usage: parity card <name>...");
+        eprintln!("usage: parity card <card name or token script>...");
         return 2;
     }
     let mut code = 0;
     for name in names {
-        let Some(rules) = db.get_by_card_name(name) else {
-            eprintln!("card: {name}: not in the database");
+        if let Some(rules) = data.db.get_by_card_name(name) {
+            print_card(&Card::from_rules(rules, PlayerId(0)));
+        } else if let Some((_, template)) = data
+            .token_templates
+            .iter()
+            .find(|(script, _)| script.eq_ignore_ascii_case(name))
+        {
+            print_card(template);
+        } else {
+            eprintln!("card: {name}: neither a card nor a token script");
             code = 1;
-            continue;
-        };
-        print_card(&Card::from_rules(rules, PlayerId(0)));
+        }
     }
     code
 }

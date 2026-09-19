@@ -541,7 +541,7 @@ fn main() {
             std::process::exit(2);
         });
         let code = match command {
-            "card" => parity::card_dump::run_cli(&args[1..], &data.db),
+            "card" => parity::card_dump::run_cli(&args[1..], &data),
             "census-report" => parity::census_report::run_cli(&args[1..], &data.db),
             "query" => parity::script_query::run_query_cli(&args[1..], &data.db),
             "sweep" => parity::sweep::run_cli(&args[1..], &data),

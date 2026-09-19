@@ -297,12 +297,17 @@ fn first_unequal_action_space(
     turn: i64,
     phase: &str,
 ) -> Option<(usize, ActionSpace, ActionSpace)> {
-    action_spaces(result, "rust_log", turn, phase)
-        .into_iter()
-        .zip(action_spaces(result, "java_log", turn, phase))
-        .enumerate()
-        .find(|(_, (r, j))| r != j)
-        .map(|(i, (r, j))| (i, r, j))
+    let rust = action_spaces(result, "rust_log", turn, phase);
+    let java = action_spaces(result, "java_log", turn, phase);
+    if let Some(i) = (0..rust.len().min(java.len())).find(|&i| rust[i] != java[i]) {
+        return Some((i, rust[i].clone(), java[i].clone()));
+    }
+    let i = rust.len().min(java.len());
+    match (rust.get(i), java.get(i)) {
+        (Some(r), None) => Some((i, r.clone(), (r.0, BTreeMap::new()))),
+        (None, Some(j)) => Some((i, (j.0, BTreeMap::new()), j.clone())),
+        _ => None,
+    }
 }
 
 fn print_action_space_diff(result: &Value, turn: i64, phase: &str) {
