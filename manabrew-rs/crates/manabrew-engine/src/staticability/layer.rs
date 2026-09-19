@@ -1190,8 +1190,17 @@ fn resolve_add_pt_value(game: &GameState, source_id: CardId, val_str: Option<&st
         return n;
     }
 
-    // It's an SVar reference — look it up on the source card
     let source = game.card(source_id);
+    if val_str.trim().starts_with("Count$") {
+        return crate::ability::effects::resolve_count_svar(
+            val_str.trim(),
+            game,
+            source_id,
+            source.controller,
+        );
+    }
+
+    // It's an SVar reference — look it up on the source card
     if let Some(svar_expr) = source.svars.get(val_str.trim()) {
         if svar_expr.starts_with("Count$") {
             return crate::ability::effects::resolve_count_svar(
@@ -1220,8 +1229,17 @@ fn resolve_set_pt_value(game: &GameState, source_id: CardId, val_str: Option<&st
         return Some(n);
     }
 
-    // It's an SVar reference — look it up on the source card
     let source = game.card(source_id);
+    if val_str.trim().starts_with("Count$") {
+        return Some(crate::ability::effects::resolve_count_svar(
+            val_str.trim(),
+            game,
+            source_id,
+            source.controller,
+        ));
+    }
+
+    // It's an SVar reference — look it up on the source card
     if let Some(svar_expr) = source.svars.get(val_str.trim()) {
         if svar_expr.starts_with("Count$") {
             return Some(crate::ability::effects::resolve_count_svar(
