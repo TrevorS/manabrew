@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.46.1](https://github.com/witchesofthehill/manabrew/compare/v3.46.0...v3.46.1) (2026-09-19)
+
+### Performance
+
+* **ai:** manabot plays to beat forge ai ([#954](https://github.com/witchesofthehill/manabrew/issues/954)) ([d637ef2](https://github.com/witchesofthehill/manabrew/commit/d637ef2b73d7e1b997af0b90c995054a963727a9))
+
 ## [3.46.0](https://github.com/witchesofthehill/manabrew/compare/v3.45.4...v3.46.0) (2026-09-19)
 
 ### Features
