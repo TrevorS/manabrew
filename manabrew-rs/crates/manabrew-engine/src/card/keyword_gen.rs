@@ -87,6 +87,122 @@ impl Card {
     /// Generate activated abilities from keywords (e.g. Cycling → AB$ Draw).
     /// Mirrors Java's `CardFactoryUtil.setupKeywordedAbilities()`.
     pub(super) fn generate_keyword_abilities(&mut self) {
+        self.generate_keyword_activated_abilities();
+
+        // Enlist: K:Enlist -> intrinsic optional attack cost static ability.
+        if self
+            .keywords
+            .iter_strings()
+            .chain(self.granted_keywords.iter_strings())
+            .any(|k| k.eq_ignore_ascii_case("Enlist"))
+        {
+            let raw = "S:Mode$ OptionalAttackCost | ValidCard$ Card.Self | Cost$ Enlist<1/CARDNAME/creature> | Secondary$ True | Trigger$ TrigEnlist";
+            if let Some(sa) = parse_static_ability(raw) {
+                self.add_static_ability(sa);
+            }
+            self.svars.entry("TrigEnlist".to_string()).or_insert_with(|| {
+                "DB$ Pump | NumAtt$ TriggerRemembered$CardPower | SpellDescription$ When you do, add its power to this creature's until end of turn.".to_string()
+            });
+        }
+
+        // Morph / Megamorph / Disguise: mark card as castable face-down for {3}.
+        // The actual casting logic is in game_action_util (playable check + cost handling).
+        if self
+            .keywords
+            .iter_strings()
+            .chain(self.granted_keywords.iter_strings())
+            .any(|k| {
+                k.starts_with("Morph:") || k.starts_with("Megamorph:") || k.starts_with("Disguise:")
+            })
+        {
+            self.has_morph = true;
+        }
+
+        // Class: K:Class:{level}:{cost}:{params} → AB$ ClassLevelUp.
+        // Mirrors Java CardFactoryUtil lines 2789-2799.
+        let class_keywords: Vec<String> = self
+            .keywords
+            .iter_strings()
+            .chain(self.granted_keywords.iter_strings())
+            .filter(|kw| kw.starts_with("Class:"))
+            .map(|kw| kw.to_string())
+            .collect();
+        for kw in class_keywords {
+            if let Some(rest) = kw.strip_prefix("Class:") {
+                let mut parts = rest.splitn(3, ':');
+                let level = parts.next().unwrap_or_default().trim();
+                let cost = parts.next().unwrap_or_default().trim();
+                let params = parts.next().unwrap_or_default().trim();
+
+                let Ok(level_num) = level.parse::<i32>() else {
+                    continue;
+                };
+                if cost.is_empty() {
+                    continue;
+                }
+
+                if !params.is_empty() {
+                    let parsed = Params::from_raw(params);
+                    let mut desc_parts: Vec<String> = Vec::new();
+
+                    if let Some(add_trigger) = parsed.get("AddTrigger") {
+                        for svar_name in add_trigger
+                            .split(" & ")
+                            .map(str::trim)
+                            .filter(|s| !s.is_empty())
+                        {
+                            if let Some(svar_params) = self.parsed_svar_params(svar_name) {
+                                if let Some(desc) = svar_params.get(keys::TRIGGER_DESCRIPTION) {
+                                    desc_parts.push(desc.to_string());
+                                }
+                            }
+                        }
+                    }
+
+                    if let Some(add_static) = parsed.get("AddStaticAbility") {
+                        for svar_name in add_static
+                            .split(" & ")
+                            .map(str::trim)
+                            .filter(|s| !s.is_empty())
+                        {
+                            if let Some(svar_params) = self.parsed_svar_params(svar_name) {
+                                if let Some(desc) = svar_params.get(keys::DESCRIPTION) {
+                                    desc_parts.push(desc.to_string());
+                                }
+                            }
+                        }
+                    }
+
+                    if let Some(add_replacement) = parsed.get("AddReplacementEffect") {
+                        for svar_name in add_replacement
+                            .split(" & ")
+                            .map(str::trim)
+                            .filter(|s| !s.is_empty())
+                        {
+                            if let Some(svar_params) = self.parsed_svar_params(svar_name) {
+                                if let Some(desc) = svar_params.get(keys::DESCRIPTION) {
+                                    desc_parts.push(desc.to_string());
+                                }
+                            }
+                        }
+                    }
+
+                    let mut effect = format!(
+                        "Mode$ Continuous | Affected$ Card.Self | ClassLevel$ {level_num} | {params}"
+                    );
+                    if !desc_parts.is_empty() {
+                        effect.push_str(" | Description$ ");
+                        effect.push_str(&desc_parts.join("\r\n"));
+                    }
+                    if let Some(st) = parse_static_ability(&effect) {
+                        self.add_static_ability(st);
+                    }
+                }
+            }
+        }
+    }
+
+    pub(crate) fn generate_keyword_activated_abilities(&mut self) {
         // Cycling: K:Cycling:{cost} → AB$ Draw | Cost$ {cost} Discard<1/CARDNAME> | ActivationZone$ Hand
         if let Some(cycling_cost) = self.get_keyword_cost("Cycling") {
             let ab_text = format!(
@@ -260,35 +376,6 @@ impl Card {
             }
         }
 
-        // Enlist: K:Enlist -> intrinsic optional attack cost static ability.
-        if self
-            .keywords
-            .iter_strings()
-            .chain(self.granted_keywords.iter_strings())
-            .any(|k| k.eq_ignore_ascii_case("Enlist"))
-        {
-            let raw = "S:Mode$ OptionalAttackCost | ValidCard$ Card.Self | Cost$ Enlist<1/CARDNAME/creature> | Secondary$ True | Trigger$ TrigEnlist";
-            if let Some(sa) = parse_static_ability(raw) {
-                self.add_static_ability(sa);
-            }
-            self.svars.entry("TrigEnlist".to_string()).or_insert_with(|| {
-                "DB$ Pump | NumAtt$ TriggerRemembered$CardPower | SpellDescription$ When you do, add its power to this creature's until end of turn.".to_string()
-            });
-        }
-
-        // Morph / Megamorph / Disguise: mark card as castable face-down for {3}.
-        // The actual casting logic is in game_action_util (playable check + cost handling).
-        if self
-            .keywords
-            .iter_strings()
-            .chain(self.granted_keywords.iter_strings())
-            .any(|k| {
-                k.starts_with("Morph:") || k.starts_with("Megamorph:") || k.starts_with("Disguise:")
-            })
-        {
-            self.has_morph = true;
-        }
-
         // Plot: K:Plot:{cost} → AB$ Plot | Cost$ {cost} | ActivationZone$ Hand | SorcerySpeed$ True
         // Mirrors Java CardFactoryUtil lines 3398-3449.
         // Exiles the card from hand; plotted cards can later be cast for free.
@@ -315,8 +402,6 @@ impl Card {
             }
         }
 
-        // Class: K:Class:{level}:{cost}:{params} → AB$ ClassLevelUp.
-        // Mirrors Java CardFactoryUtil lines 2789-2799.
         let class_keywords: Vec<String> = self
             .keywords
             .iter_strings()
@@ -329,7 +414,6 @@ impl Card {
                 let mut parts = rest.splitn(3, ':');
                 let level = parts.next().unwrap_or_default().trim();
                 let cost = parts.next().unwrap_or_default().trim();
-                let params = parts.next().unwrap_or_default().trim();
 
                 let Ok(level_num) = level.parse::<i32>() else {
                     continue;
@@ -347,64 +431,6 @@ impl Card {
                 let next_idx = self.activated_abilities.len();
                 if let Some(ab) = parse_activated_ability(&ab_text, next_idx) {
                     self.activated_abilities.push(ab);
-                }
-
-                if !params.is_empty() {
-                    let parsed = Params::from_raw(params);
-                    let mut desc_parts: Vec<String> = Vec::new();
-
-                    if let Some(add_trigger) = parsed.get("AddTrigger") {
-                        for svar_name in add_trigger
-                            .split(" & ")
-                            .map(str::trim)
-                            .filter(|s| !s.is_empty())
-                        {
-                            if let Some(svar_params) = self.parsed_svar_params(svar_name) {
-                                if let Some(desc) = svar_params.get(keys::TRIGGER_DESCRIPTION) {
-                                    desc_parts.push(desc.to_string());
-                                }
-                            }
-                        }
-                    }
-
-                    if let Some(add_static) = parsed.get("AddStaticAbility") {
-                        for svar_name in add_static
-                            .split(" & ")
-                            .map(str::trim)
-                            .filter(|s| !s.is_empty())
-                        {
-                            if let Some(svar_params) = self.parsed_svar_params(svar_name) {
-                                if let Some(desc) = svar_params.get(keys::DESCRIPTION) {
-                                    desc_parts.push(desc.to_string());
-                                }
-                            }
-                        }
-                    }
-
-                    if let Some(add_replacement) = parsed.get("AddReplacementEffect") {
-                        for svar_name in add_replacement
-                            .split(" & ")
-                            .map(str::trim)
-                            .filter(|s| !s.is_empty())
-                        {
-                            if let Some(svar_params) = self.parsed_svar_params(svar_name) {
-                                if let Some(desc) = svar_params.get(keys::DESCRIPTION) {
-                                    desc_parts.push(desc.to_string());
-                                }
-                            }
-                        }
-                    }
-
-                    let mut effect = format!(
-                        "Mode$ Continuous | Affected$ Card.Self | ClassLevel$ {level_num} | {params}"
-                    );
-                    if !desc_parts.is_empty() {
-                        effect.push_str(" | Description$ ");
-                        effect.push_str(&desc_parts.join("\r\n"));
-                    }
-                    if let Some(st) = parse_static_ability(&effect) {
-                        self.add_static_ability(st);
-                    }
                 }
             }
         }

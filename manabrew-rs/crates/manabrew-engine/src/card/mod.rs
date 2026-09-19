@@ -4454,6 +4454,7 @@ impl Card {
                     parse_or_warn(parse_activated_ability(raw, i), "ActivatedAbility", raw)
                 })
                 .collect();
+            self.generate_keyword_activated_abilities();
             self.base_ability_count = self.activated_abilities.len();
             self.base_trigger_count = self.triggers.len();
             self.parsed_svar_cache.clear();
