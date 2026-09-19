@@ -1,10 +1,7 @@
 use forge_foundation::ZoneType;
 
-use super::{
-    emit_zone_trigger, matches_change_type, resolve_defined_player, resolve_numeric_svar,
-    EffectContext,
-};
-use crate::parsing::keys;
+use super::{emit_zone_trigger, resolve_defined_player, resolve_numeric_svar, EffectContext};
+use crate::ids::CardId;
 
 /// Mirrors Java's `DigEffect.java`.
 ///
@@ -20,23 +17,6 @@ use crate::parsing::keys;
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let dig_num = resolve_numeric_svar(ctx.game, sa, "DigNum", 1).max(0) as usize;
     let optional = sa.ir.optional;
-    let change_all = sa
-        .ir
-        .change_num_text
-        .as_deref()
-        .map(|s| s.eq_ignore_ascii_case("All"))
-        .unwrap_or(false);
-    let any_number = sa
-        .ir
-        .change_num_text
-        .as_deref()
-        .map(|s| s.eq_ignore_ascii_case("Any"))
-        .unwrap_or(false);
-    let change_num = if change_all || any_number {
-        dig_num
-    } else {
-        resolve_numeric_svar(ctx.game, sa, keys::CHANGE_NUM, 1).max(0) as usize
-    };
 
     let dest_zone1 = sa.destination_zone().unwrap_or(ZoneType::Hand);
     let lib_position1: i32 = sa
@@ -84,16 +64,26 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // Reverse to expose the same chooser order Java uses.
     top_n.reverse();
 
-    // Filter valid choices by ChangeValid$ (e.g. "Creature").
-    let valid: Vec<_> = if change_valid.is_empty() {
-        top_n.clone()
-    } else {
-        top_n
-            .iter()
-            .copied()
-            .filter(|&id| matches_change_type(ctx.game.card(id), &change_valid, &[]))
-            .collect()
-    };
+    let pools: Vec<Vec<CardId>> = java_hash_map_order(change_valid.split(','))
+        .into_iter()
+        .filter_map(|valid| {
+            let list: Vec<CardId> = top_n
+                .iter()
+                .copied()
+                .filter(|&id| {
+                    super::helpers::matches_valid_cards_for_sa(
+                        ctx.game,
+                        sa,
+                        ctx.game.card(id),
+                        None,
+                        valid,
+                    )
+                })
+                .collect();
+            (!list.is_empty()).then_some(list)
+        })
+        .collect();
+    let valid: Vec<CardId> = pools.iter().flatten().copied().collect();
 
     // Java DigEffect only prompts for optional skip when PromptToSkipOptionalAbility is set.
     // Otherwise Optional$ True is modeled by allowing 0 selected cards in choose_dig.
@@ -124,21 +114,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
-    // Ask the chooser (activating player) which cards to take.
-    let max_take = change_num.min(valid.len());
-    let chosen = ctx.agents[sa.activating_player.index()].choose_dig(
-        ctx.game,
-        sa.activating_player,
-        &valid,
-        max_take,
-        optional || any_number,
-    );
-
-    let chosen: Vec<_> = chosen
-        .into_iter()
-        .filter(|id| valid.contains(id))
-        .take(max_take)
-        .collect();
+    let chosen: Vec<CardId> = if pools.is_empty() {
+        Vec::new()
+    } else {
+        ctx.agents[dig_player.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        ctx.agents[dig_player.index()]
+            .choose_cards_for_effect_multiple(dig_player, &pools, optional)
+            .into_iter()
+            .filter(|id| valid.contains(id))
+            .collect()
+    };
 
     let rest: Vec<_> = top_n
         .iter()
@@ -200,6 +185,24 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             emit_zone_trigger(ctx.trigger_handler, id, ZoneType::Library, dest_zone2);
         }
     }
+}
+
+/// Keep in sync with Java's `HashMap<String, _>` iteration: 16 buckets by the spread
+/// `String.hashCode`, insertion order within a bucket.
+fn java_hash_map_order<'a>(keys: impl Iterator<Item = &'a str>) -> Vec<&'a str> {
+    let mut keyed: Vec<(usize, usize, &str)> = Vec::new();
+    for key in keys {
+        if keyed.iter().any(|(_, _, k)| *k == key) {
+            continue;
+        }
+        let h = key
+            .encode_utf16()
+            .fold(0i32, |h, c| h.wrapping_mul(31).wrapping_add(c as i32));
+        let spread = (h ^ ((h as u32) >> 16) as i32) as u32;
+        keyed.push(((spread & 15) as usize, keyed.len(), key));
+    }
+    keyed.sort_by_key(|(bucket, order, _)| (*bucket, *order));
+    keyed.into_iter().map(|(_, _, key)| key).collect()
 }
 
 #[cfg(test)]

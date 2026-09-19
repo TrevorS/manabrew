@@ -379,6 +379,21 @@ pub trait PlayerAgent {
         valid.iter().copied().take(max).collect()
     }
 
+    fn choose_cards_for_effect_multiple(
+        &mut self,
+        _player: PlayerId,
+        pools: &[Vec<CardId>],
+        _optional: bool,
+    ) -> Vec<CardId> {
+        let mut chosen: Vec<CardId> = Vec::new();
+        for pool in pools {
+            if let Some(&card) = pool.iter().find(|card| !chosen.contains(card)) {
+                chosen.push(card);
+            }
+        }
+        chosen
+    }
+
     /// Choose an ordering for the top N cards being put back on the library (Ponder/Reorder).
     /// Returns the cards in desired order: index 0 will be placed deepest, last will be on top.
     /// Default: keep original order.

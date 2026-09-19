@@ -1911,6 +1911,34 @@ impl PlayerAgent for DeterministicAgent {
         gui_repro::pick_many_unique(&sorted, min, max, &mut self.rng.borrow_mut())
     }
 
+    fn choose_cards_for_effect_multiple(
+        &mut self,
+        _player: PlayerId,
+        pools: &[Vec<CardId>],
+        _optional: bool,
+    ) -> Vec<CardId> {
+        let mut chosen: Vec<CardId> = Vec::new();
+        for pool in pools {
+            let remaining: Vec<CardId> = pool
+                .iter()
+                .copied()
+                .filter(|card| !chosen.contains(card))
+                .collect();
+            if remaining.is_empty() {
+                continue;
+            }
+            let sorted = choice_space::sort_native(&remaining, |a, b| {
+                self.card_name(*a)
+                    .cmp(&self.card_name(*b))
+                    .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+            });
+            if let Some(pick) = choice_space::pick_one(&sorted, &mut self.rng.borrow_mut()) {
+                chosen.push(pick);
+            }
+        }
+        chosen
+    }
+
     fn choose_land_or_spell(&mut self, _player: PlayerId) -> Option<bool> {
         // TODO: engine does not currently expose a typed choice list here.
         None

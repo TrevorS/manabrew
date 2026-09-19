@@ -430,6 +430,7 @@ impl_slice_len!(
     SpellAbility,
     ManaPool,
     (CardId, usize),
+    Vec<CardId>,
     manabrew_engine::card::CounterType,
     manabrew_engine::agent::ManaAbilityOption
 );
