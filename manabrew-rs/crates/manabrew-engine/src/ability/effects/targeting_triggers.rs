@@ -32,7 +32,9 @@ pub(crate) fn emit_targeting_triggers_for_sa(
     // SpellAbilityStackInstance.java:165).
     for target_id in trigger_sa.target_chosen.all_target_cards() {
         let first_time = !game.card(target_id).has_become_target_this_turn();
-        game.card_mut(target_id).add_target_from_this_turn();
+        let valiant = game.card(target_id).is_valiant(controller);
+        game.card_mut(target_id)
+            .add_target_from_this_turn(controller);
         let params = RunParams {
             card: Some(target_id),
             target_card: Some(target_id),
@@ -41,6 +43,7 @@ pub(crate) fn emit_targeting_triggers_for_sa(
             cause_card: Some(card_id),
             source_sa: Some(trigger_sa.clone()),
             first_time: Some(first_time),
+            valiant: Some(valiant),
             ..Default::default()
         };
         trigger_handler.run_trigger(TriggerType::BecomesTarget, params, false);

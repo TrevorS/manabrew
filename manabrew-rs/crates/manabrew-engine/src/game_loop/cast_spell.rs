@@ -273,7 +273,9 @@ impl GameLoop {
 
         for &target_id in &target_cards {
             let first_time = !game.card(target_id).has_become_target_this_turn();
-            game.card_mut(target_id).add_target_from_this_turn();
+            let valiant = game.card(target_id).is_valiant(cause_player);
+            game.card_mut(target_id)
+                .add_target_from_this_turn(cause_player);
             self.trigger_handler.run_trigger(
                 TriggerType::BecomesTarget,
                 RunParams {
@@ -284,6 +286,7 @@ impl GameLoop {
                     cause_card: Some(cause_card),
                     source_sa: Some(source_sa.clone()),
                     first_time: Some(first_time),
+                    valiant: Some(valiant),
                     ..Default::default()
                 },
                 false,

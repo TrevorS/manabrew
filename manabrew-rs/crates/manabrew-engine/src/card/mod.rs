@@ -717,7 +717,7 @@ pub struct Card {
     /// Number of extra targets paid for via Strive (0 = no extra targets).
     pub strive_extra_targets: u32,
     /// Tracks if this card became a target this turn.
-    pub became_target_this_turn: bool,
+    pub targeted_from_this_turn: Vec<PlayerId>,
     /// Temporary controllers layered on this card.
     pub temp_controllers: Vec<PlayerId>,
     /// Players that may look at this card.
@@ -1007,7 +1007,7 @@ impl Card {
             paying_sources_to_cast: Vec::new(),
             chosen_modes: None,
             strive_extra_targets: 0,
-            became_target_this_turn: false,
+            targeted_from_this_turn: Vec::new(),
             temp_controllers: Vec::new(),
             may_look_at: Vec::new(),
             may_play: Vec::new(),
@@ -1244,7 +1244,7 @@ impl Card {
             paying_sources_to_cast: self.paying_sources_to_cast.clone(),
             chosen_modes: self.chosen_modes.clone(),
             strive_extra_targets: self.strive_extra_targets,
-            became_target_this_turn: self.became_target_this_turn,
+            targeted_from_this_turn: self.targeted_from_this_turn.clone(),
             temp_controllers: self.temp_controllers.clone(),
             may_look_at: self.may_look_at.clone(),
             may_play: self.may_play.clone(),
@@ -1514,8 +1514,8 @@ impl Card {
         out.chosen_modes.clone_from(&self.chosen_modes);
         out.strive_extra_targets
             .clone_from(&self.strive_extra_targets);
-        out.became_target_this_turn
-            .clone_from(&self.became_target_this_turn);
+        out.targeted_from_this_turn
+            .clone_from(&self.targeted_from_this_turn);
         out.temp_controllers.clone_from(&self.temp_controllers);
         out.may_look_at.clone_from(&self.may_look_at);
         out.may_play.clone_from(&self.may_play);
@@ -3679,11 +3679,15 @@ impl Card {
     }
 
     pub fn has_become_target_this_turn(&self) -> bool {
-        self.became_target_this_turn
+        !self.targeted_from_this_turn.is_empty()
     }
 
-    pub fn add_target_from_this_turn(&mut self) {
-        self.became_target_this_turn = true;
+    pub fn add_target_from_this_turn(&mut self, player: PlayerId) {
+        self.targeted_from_this_turn.push(player);
+    }
+
+    pub fn is_valiant(&self, player: PlayerId) -> bool {
+        self.controller == player && !self.targeted_from_this_turn.contains(&player)
     }
 
     pub fn has_started_the_turn_untapped(&self) -> bool {
@@ -4291,7 +4295,7 @@ impl Card {
         }
     }
     pub fn on_cleanup_phase(&mut self) {
-        self.became_target_this_turn = false;
+        self.targeted_from_this_turn.clear();
         self.visited_this_turn = false;
         self.damage_prevention = 0;
     }
