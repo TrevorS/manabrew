@@ -100,6 +100,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .card_mut(clone_target_id)
                 .set_clone_state(Some(state));
         }
+        let replacement_ids: Vec<i32> = src
+            .replacement_effects
+            .iter()
+            .map(|_| ctx.game.next_copied_replacement_id())
+            .collect();
         let target = &mut ctx.game.cards[clone_target_id.index()];
         let host_svars = (clone_target_id == source_id).then(|| target.svars.clone());
         crate::card::card_copy_service::copy_copiable_characteristics(&src, target);
@@ -115,8 +120,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         for static_ability in &mut target.static_abilities {
             static_ability.base.set_host_card_id(clone_target_id);
         }
-        for replacement_effect in &mut target.replacement_effects {
+        for (replacement_effect, id) in target.replacement_effects.iter_mut().zip(replacement_ids) {
             replacement_effect.base.set_host_card_id(clone_target_id);
+            replacement_effect.base.card_trait_base.set_id(id);
         }
         target.ensure_crew_activated_ability();
         target.base_ability_count = target.activated_abilities.len();

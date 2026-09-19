@@ -273,7 +273,7 @@ pub struct ReplacementRuntime<'a> {
 pub struct ReplacementHandler {
     /// Tracks (card_id, layer, effect_index) tuples that have already been applied
     /// during this handler invocation, to prevent infinite re-application.
-    has_run: HashSet<(CardId, ReplacementLayer, usize)>,
+    has_run: HashSet<(CardId, ReplacementLayer, usize, i32)>,
 }
 
 impl Default for ReplacementHandler {
@@ -357,9 +357,13 @@ impl ReplacementHandler {
         loop {
             let eligible: Vec<_> = effects
                 .iter()
-                .filter(|(card_id, _re, effect_idx)| {
-                    !self.has_run.contains(&(*card_id, layer, *effect_idx))
-                        && !declined_effects.contains(&(*card_id, *effect_idx))
+                .filter(|(card_id, re, effect_idx)| {
+                    !self.has_run.contains(&(
+                        *card_id,
+                        layer,
+                        *effect_idx,
+                        crate::core::Identifiable::id(&re.base.card_trait_base),
+                    )) && !declined_effects.contains(&(*card_id, *effect_idx))
                 })
                 .cloned()
                 .collect();
@@ -393,7 +397,9 @@ impl ReplacementHandler {
             };
 
             let (source_card_id, ref effect, effect_idx) = eligible[chosen_idx];
-            self.has_run.insert((source_card_id, layer, effect_idx));
+            let effect_id = crate::core::Identifiable::id(&effect.base.card_trait_base);
+            self.has_run
+                .insert((source_card_id, layer, effect_idx, effect_id));
             let result = execute_effect(
                 game,
                 source_card_id,
@@ -403,7 +409,8 @@ impl ReplacementHandler {
                 runtime.as_deref_mut(),
             );
             if result == ReplacementResult::NotReplaced {
-                self.has_run.remove(&(source_card_id, layer, effect_idx));
+                self.has_run
+                    .remove(&(source_card_id, layer, effect_idx, effect_id));
                 declined_effects.insert((source_card_id, effect_idx));
                 continue;
             }

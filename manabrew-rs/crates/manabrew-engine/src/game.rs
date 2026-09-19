@@ -150,6 +150,8 @@ pub struct GameState {
     pub end_of_combat: Phase,
     #[serde(default)]
     pub end_of_turn: Phase,
+    #[serde(default)]
+    pub last_copied_replacement_id: i32,
     pub cleanup: Phase,
 
     // Player order (for turn sequence)
@@ -268,6 +270,7 @@ impl GameState {
             begin_of_combat: Phase::new(forge_foundation::PhaseType::CombatBegin),
             end_of_combat: Phase::new(forge_foundation::PhaseType::CombatEnd),
             end_of_turn: Phase::new(forge_foundation::PhaseType::EndOfTurn),
+            last_copied_replacement_id: 1 << 24,
             cleanup: Phase::new(forge_foundation::PhaseType::Cleanup),
             player_order,
             game_over: false,
@@ -746,6 +749,13 @@ impl GameState {
     }
 
     /// Return the next monotonic effect timestamp.
+    /// A copied replacement effect is a new object in Java, so it can apply to an event the
+    /// original already replaced; the fresh id keeps `ReplacementHandler.has_run` from matching it.
+    pub fn next_copied_replacement_id(&mut self) -> i32 {
+        self.last_copied_replacement_id += 1;
+        self.last_copied_replacement_id
+    }
+
     pub fn next_effect_timestamp(&mut self) -> i64 {
         let ts = self.next_effect_timestamp;
         self.next_effect_timestamp = self.next_effect_timestamp.saturating_add(1);
