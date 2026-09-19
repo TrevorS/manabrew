@@ -11,6 +11,7 @@ use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 
 use super::token_effect_base::{TokenEffectBase, TOKEN_EFFECT_BASE};
 use super::{parse_counter_type, EffectContext};
+use crate::agent::GameEntity;
 use crate::card::card_zone_table::CardZoneTable;
 use crate::card::Card;
 use crate::ids::CardId;
@@ -60,20 +61,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         return;
     }
 
-    // Step 3: Choose an Army (auto-select if only one)
-    let target = if armies.len() == 1 {
-        armies[0]
-    } else {
-        ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
-        ctx.agents[controller.index()]
-            .choose_single_card_for_zone_change(
-                ctx.game,
-                controller,
-                &armies,
-                "Choose an Army",
-                false,
-            )
-            .unwrap_or(armies[0])
+    ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
+    let entities: Vec<GameEntity> = armies.iter().copied().map(GameEntity::Card).collect();
+    let target = match ctx.agents[controller.index()]
+        .choose_single_entity_for_effect(controller, &entities, false)
+    {
+        Some(GameEntity::Card(card)) => card,
+        _ => armies[0],
     };
 
     // RememberAmass$
