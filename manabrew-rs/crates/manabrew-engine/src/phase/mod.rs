@@ -46,6 +46,10 @@ pub enum PhaseCommand {
         card: CardId,
         keyword: String,
     },
+    RemoveGoad {
+        card: CardId,
+        player: PlayerId,
+    },
 }
 
 impl PhaseCommand {
@@ -72,6 +76,9 @@ impl PhaseCommand {
             }
             PhaseCommand::RemoveKeyword { card, keyword } => {
                 game.card_mut(card).remove_changed_card_keywords(&keyword);
+            }
+            PhaseCommand::RemoveGoad { card, player } => {
+                game.card_mut(card).remove_goad(player);
             }
             PhaseCommand::ExileEffect { effect } => {
                 if game.card(effect).zone == forge_foundation::ZoneType::Command {

@@ -20,30 +20,15 @@ use super::EffectContext;
 /// `RegenerateEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(RegenerateEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    // Targeted: use the chosen target card.
-    if let Some(target_card) = sa.target_chosen.target_card {
-        if ctx.game.card(target_card).zone == ZoneType::Battlefield
-            && ctx.game.card(target_card).is_creature()
+    for card in crate::ability::spell_ability_effect::get_defined_cards_or_targeted(ctx.game, sa) {
+        if ctx.game.card(card).zone == ZoneType::Battlefield
+            && ctx.game.card(card).is_creature()
             && !crate::staticability::static_ability_cant_regenerate::cant_regenerate(
                 &ctx.game.cards,
-                ctx.game.card(target_card),
+                ctx.game.card(card),
             )
         {
-            ctx.game.card_mut(target_card).regeneration_shields += 1;
-        }
-        return;
-    }
-
-    // Defined$ Self — regenerate the source card.
-    if let Some(source) = sa.source {
-        if ctx.game.card(source).zone == ZoneType::Battlefield
-            && ctx.game.card(source).is_creature()
-            && !crate::staticability::static_ability_cant_regenerate::cant_regenerate(
-                &ctx.game.cards,
-                ctx.game.card(source),
-            )
-        {
-            ctx.game.card_mut(source).regeneration_shields += 1;
+            ctx.game.card_mut(card).regeneration_shields += 1;
         }
     }
 }
