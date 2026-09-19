@@ -17,6 +17,11 @@ pub fn can_pay(
         return false;
     };
     let pool_total = available_mana.map_or(0, |p| p.total_mana());
+    // ComputerUtilMana.calculateManaCost clears maxWaterbend in test mode for a payer whose
+    // controller is not the AI, so Forge's castability check never counts the taps.
+    if game.action_space_mana_probe == crate::mana::ActionSpaceManaProbe::ComputerUtilMana {
+        return pool_total >= amount.resolve(game, source, player);
+    }
     let tappable_count = game
         .cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
         .iter()
