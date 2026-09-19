@@ -389,7 +389,7 @@ impl GameLoop {
                     // (`CardTraitBase.copyHelper`), dropping the `FaceDownKeyword$ Ward:2`
                     // that `putParam` set on the Disguise cast.
                     if disguise_cost.is_some() && !entry.spell_ability.cast_with_may_play {
-                        c.add_intrinsic_keyword("Ward:2");
+                        c.add_intrinsic_keyword_with_triggers("Ward:2");
                     }
                     c.static_set_power = Some(crate::spellability::MORPH_PT);
                     c.static_set_toughness = Some(crate::spellability::MORPH_PT);

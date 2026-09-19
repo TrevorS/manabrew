@@ -465,6 +465,17 @@ impl Card {
         }
     }
 
+    pub(crate) fn add_intrinsic_keyword_with_triggers(&mut self, kw: &str) {
+        if !self.add_intrinsic_keyword(kw) {
+            return;
+        }
+        let mut next_id = self.triggers.iter().map(|t| t.id + 1).max().unwrap_or(0);
+        self.generate_keyword_trigger_combat(kw, &mut next_id);
+        self.generate_keyword_trigger_zone(kw, &mut next_id);
+        self.generate_keyword_trigger_misc(kw, &mut next_id);
+        self.base_trigger_count = self.triggers.len();
+    }
+
     /// Generate triggered abilities from keywords (e.g. Prowess, Bushido, Annihilator, etc.).
     /// Mirrors Java's `CardFactoryUtil.setupKeywordedTriggers()`.
     pub fn generate_keyword_triggers(&mut self) {
