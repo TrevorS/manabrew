@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.46.0](https://github.com/witchesofthehill/manabrew/compare/v3.45.4...v3.46.0) (2026-09-19)
+
+### Features
+
+* **i18n:** add ingame localization and Scryfall locales ([#901](https://github.com/witchesofthehill/manabrew/issues/901)) ([48d16ea](https://github.com/witchesofthehill/manabrew/commit/48d16eaaca724f732a090d9a738852fce2c00339))
+
 ## [3.45.4](https://github.com/witchesofthehill/manabrew/compare/v3.45.3...v3.45.4) (2026-09-18)
 
 ### Fixes
