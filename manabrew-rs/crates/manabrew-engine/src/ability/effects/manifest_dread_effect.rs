@@ -60,8 +60,8 @@ fn manifest_dread_once(ctx: &mut EffectContext, _sa: &SpellAbility, player: Play
     // Manifest the chosen card
     let old_zone = ctx.game.card(chosen).zone;
     ctx.game.card_mut(chosen).set_face_down(true);
+    ctx.game.card_mut(chosen).set_original_state_as_face_down();
     ctx.game.card_mut(chosen).set_manifested(true);
-    ctx.game.card_mut(chosen).set_base_pt(Some(2), Some(2));
     ctx.game.card_mut(chosen).set_controller(player);
     ctx.move_card(chosen, ZoneType::Battlefield, player);
     ctx.trigger_handler

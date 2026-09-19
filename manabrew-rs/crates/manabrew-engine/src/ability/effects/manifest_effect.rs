@@ -88,10 +88,8 @@ fn manifest_single_card(
 
     // Turn face down
     ctx.game.card_mut(card_id).set_face_down(true);
+    ctx.game.card_mut(card_id).set_original_state_as_face_down();
     ctx.game.card_mut(card_id).set_manifested(true);
-
-    // Set as 2/2 creature while face-down
-    ctx.game.card_mut(card_id).set_base_pt(Some(2), Some(2));
 
     // Move to battlefield under the player's control
     ctx.game.card_mut(card_id).set_controller(player);

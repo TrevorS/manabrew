@@ -40,10 +40,11 @@ fn cloak_for_player(ctx: &mut EffectContext, sa: &SpellAbility, player: PlayerId
         let old_zone = ctx.game.card(card_id).zone;
 
         ctx.game.card_mut(card_id).set_face_down(true);
+        ctx.game.card_mut(card_id).set_original_state_as_face_down();
         ctx.game.card_mut(card_id).set_cloaked(true);
-        ctx.game.card_mut(card_id).set_base_pt(Some(2), Some(2));
-        // Ward {2} while cloaked
-        ctx.game.card_mut(card_id).add_pump_keyword("Ward:2");
+        ctx.game
+            .card_mut(card_id)
+            .add_intrinsic_keyword_with_triggers("Ward:2");
         ctx.game.card_mut(card_id).set_controller(player);
 
         if sa.is_tapped() {
