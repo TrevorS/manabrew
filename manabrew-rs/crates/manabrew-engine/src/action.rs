@@ -1973,6 +1973,9 @@ impl GameState {
             self.add_card_to_zone(zone, new_controller, card_id);
         }
         self.cards[card_id.index()].controller = new_controller;
+        if zone == ZoneType::Battlefield {
+            self.cards[card_id.index()].summoning_sick = true;
+        }
     }
 
     /// Attach `aura_id` to `target_id`.
