@@ -2279,7 +2279,17 @@ fn group_mana_sources_by_color(
         let card = game.card(card_id);
         let mut explicit_mana_added = false;
 
+        // The probe walks `ComputerUtilMana.getAIPlayableMana`, which puts each reusable ability
+        // at the front of the list; the harness `AutoPay` reads `getManaAbilities()` in order.
+        let mut abilities: Vec<&crate::ability::activated::ActivatedAbility> = Vec::new();
         for ab in &card.activated_abilities {
+            if filter_reflected_replacements && is_reusable_resource(&ab.cost.parts) {
+                abilities.insert(0, ab);
+            } else {
+                abilities.push(ab);
+            }
+        }
+        for ab in abilities {
             if !is_payable_mana_ability(game, player, card_id, ab, reserved_sacrifices, payment_ctx)
             {
                 continue;
