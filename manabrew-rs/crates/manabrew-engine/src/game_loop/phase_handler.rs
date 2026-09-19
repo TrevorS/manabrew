@@ -652,7 +652,10 @@ impl GameLoop {
             // onPhaseBegin(CLEANUP) every iteration.
             self.cleanup_damage_and_eot(game);
 
-            let sba_performed = super::check_sba(game, &mut self.trigger_handler, agents);
+            let sba_performed = {
+                let (sba_handler, mut sba_parts) = self.sba_runtime();
+                super::check_sba(game, sba_handler, &mut sba_parts, agents)
+            };
             crate::staticability::layer::apply_continuous_effects(game);
 
             self.trigger_handler.flush_waiting_triggers(game);

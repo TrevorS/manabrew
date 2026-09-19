@@ -131,15 +131,7 @@ pub fn execute(
         } => (*card, *destination),
         _ => return ReplacementResult::NotReplaced,
     };
-    // Check NewDestination$ first (explicit redirect), then ReplaceWith$ (common alias).
-    // Rest in Peace uses "ReplaceWith$ Exile", while other cards use "NewDestination$ Exile".
-    let redirect = effect
-        .ir
-        .new_destination_text
-        .as_deref()
-        .or(effect.replace_with());
-
-    if let Some(new_dest) = redirect {
+    if let Some(new_dest) = effect.ir.new_destination_text.as_deref() {
         let new_zone = match new_dest.trim() {
             "Exile" => Some(ZoneType::Exile),
             "Graveyard" => Some(ZoneType::Graveyard),
@@ -164,7 +156,6 @@ pub fn execute(
             return ReplacementResult::Updated;
         }
     }
-    // If the redirect value wasn't a zone name, try executing it as an SVar spell ability.
     if let Some(replace_with_key) = effect.replace_with() {
         let succeeded = execute_replace_with(
             effect,

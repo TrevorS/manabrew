@@ -567,7 +567,10 @@ impl GameLoop {
 
         // Apply continuous effects and SBA after the immediate resolution.
         crate::staticability::layer::apply_continuous_effects(game);
-        super::check_sba(game, &mut self.trigger_handler, agents);
+        {
+            let (sba_handler, mut sba_parts) = self.sba_runtime();
+            super::check_sba(game, sba_handler, &mut sba_parts, agents)
+        };
         self.process_triggers(game, agents);
         true
     }

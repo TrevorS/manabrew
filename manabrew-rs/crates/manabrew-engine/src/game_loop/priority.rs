@@ -67,7 +67,10 @@ impl GameLoop {
             }
 
             loop {
-                let sba_changed = super::check_sba(game, &mut self.trigger_handler, agents);
+                let sba_changed = {
+                    let (sba_handler, mut sba_parts) = self.sba_runtime();
+                    super::check_sba(game, sba_handler, &mut sba_parts, agents)
+                };
                 if game.game_over {
                     return;
                 }

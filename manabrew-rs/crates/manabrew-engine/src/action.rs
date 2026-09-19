@@ -339,21 +339,23 @@ impl GameState {
         };
         let tapped_before_replacement = self.card(card_id).tapped;
         if apply_move_replacement {
-            match (agents.as_deref_mut(), runtime.as_deref_mut()) {
-                (Some(agents), Some(runtime)) => {
-                    apply_replacements_with_agents_and_runtime(
-                        self,
-                        agents,
-                        runtime,
-                        &mut moved_event,
-                    );
-                }
+            let result = match (agents.as_deref_mut(), runtime.as_deref_mut()) {
+                (Some(agents), Some(runtime)) => apply_replacements_with_agents_and_runtime(
+                    self,
+                    agents,
+                    runtime,
+                    &mut moved_event,
+                ),
                 (Some(agents), None) => {
-                    apply_replacements_with_agents(self, agents, &mut moved_event);
+                    apply_replacements_with_agents(self, agents, &mut moved_event)
                 }
-                (None, _) => {
-                    apply_replacements(self, &mut moved_event);
-                }
+                (None, _) => apply_replacements(self, &mut moved_event),
+            };
+            if !matches!(
+                result,
+                ReplacementResult::NotReplaced | ReplacementResult::Updated
+            ) {
+                return;
             }
         }
         let mut trigger_handler = match runtime {
@@ -1212,6 +1214,7 @@ impl GameState {
         cid: CardId,
         trigger_handler: &mut Option<&mut TriggerHandler>,
         agents: &mut Option<&mut [Box<dyn PlayerAgent>]>,
+        parts: &mut Option<&mut SbaReplacementParts<'_>>,
     ) {
         let owner = self.card(cid).owner;
         let mut moved_event = ReplacementEvent::Moved {
@@ -1226,10 +1229,36 @@ impl GameState {
             stack_sa: None,
             fizzle: None,
         };
-        if let Some(agents) = agents.as_deref_mut() {
-            apply_replacements_with_agents(self, agents, &mut moved_event);
-        } else {
-            apply_replacements(self, &mut moved_event);
+        let result = match (
+            agents.as_deref_mut(),
+            trigger_handler.as_deref_mut(),
+            parts.as_deref_mut(),
+        ) {
+            (Some(agents), Some(handler), Some(parts)) => {
+                let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
+                    trigger_handler: handler,
+                    token_templates: parts.token_templates,
+                    token_art_variants: parts.token_art_variants,
+                    token_fallback: parts.token_fallback,
+                    edition_dates: parts.edition_dates,
+                    mana_pools: &mut *parts.mana_pools,
+                    rng: &mut *parts.rng,
+                };
+                crate::replacement::replacement_handler::apply_replacements_with_agents_and_runtime(
+                    self,
+                    agents,
+                    &mut runtime,
+                    &mut moved_event,
+                )
+            }
+            (Some(agents), _, _) => apply_replacements_with_agents(self, agents, &mut moved_event),
+            _ => apply_replacements(self, &mut moved_event),
+        };
+        if !matches!(
+            result,
+            ReplacementResult::NotReplaced | ReplacementResult::Updated
+        ) {
+            return;
         }
         let final_dest = if let ReplacementEvent::Moved { destination, .. } = moved_event {
             destination
@@ -1306,11 +1335,35 @@ impl GameState {
         complete_list
     }
 
+    pub(crate) fn check_state_based_actions_with_runtime(
+        &mut self,
+        trigger_handler: &mut TriggerHandler,
+        parts: &mut SbaReplacementParts<'_>,
+        agents: &mut [Box<dyn PlayerAgent>],
+    ) -> bool {
+        self.check_state_based_actions_with_parts(
+            Some(trigger_handler),
+            None,
+            Some(agents),
+            Some(parts),
+        )
+    }
+
     fn check_state_based_actions_impl(
+        &mut self,
+        trigger_handler: Option<&mut TriggerHandler>,
+        legend_keep_fn: Option<&mut dyn FnMut(PlayerId, &[CardId]) -> CardId>,
+        agents: Option<&mut [Box<dyn PlayerAgent>]>,
+    ) -> bool {
+        self.check_state_based_actions_with_parts(trigger_handler, legend_keep_fn, agents, None)
+    }
+
+    fn check_state_based_actions_with_parts(
         &mut self,
         mut trigger_handler: Option<&mut TriggerHandler>,
         mut legend_keep_fn: Option<&mut dyn FnMut(PlayerId, &[CardId]) -> CardId>,
         mut agents: Option<&mut [Box<dyn PlayerAgent>]>,
+        mut parts: Option<&mut SbaReplacementParts<'_>>,
     ) -> bool {
         // Capture battlefield state before SBA processing. Used by DisableTriggers
         // (Hushbringer) to check LKI — if a creature with DisableTriggers dies in
@@ -1457,6 +1510,7 @@ impl GameState {
                 &mut trigger_handler,
                 &mut legend_keep_fn,
                 &mut agents,
+                &mut parts,
             );
             let table = std::mem::replace(&mut self.pending_change_zone_table, outer_table);
             if let (Some(handler), Some(table)) = (trigger_handler.as_deref_mut(), table) {
@@ -1486,6 +1540,7 @@ impl GameState {
         trigger_handler: &mut Option<&mut TriggerHandler>,
         legend_keep_fn: &mut Option<&mut dyn FnMut(PlayerId, &[CardId]) -> CardId>,
         agents: &mut Option<&mut [Box<dyn PlayerAgent>]>,
+        parts: &mut Option<&mut SbaReplacementParts<'_>>,
     ) -> bool {
         let mut any_changes = false;
         let mut sacrifice_list: Vec<CardId> = Vec::new();
@@ -1520,7 +1575,7 @@ impl GameState {
                 self.order_cards_by_their_owners(no_reg_creats, ZoneType::Graveyard, agents);
         }
         for cid in no_reg_creats {
-            self.move_battlefield_card_to_graveyard_for_sba(cid, trigger_handler, agents);
+            self.move_battlefield_card_to_graveyard_for_sba(cid, trigger_handler, agents, parts);
             any_changes = true;
         }
 
@@ -1578,7 +1633,12 @@ impl GameState {
             let mut destroy_event = ReplacementEvent::Destroy { target: cid };
             let result = apply_replacements(self, &mut destroy_event);
             if result != ReplacementResult::Replaced {
-                self.move_battlefield_card_to_graveyard_for_sba(cid, trigger_handler, agents);
+                self.move_battlefield_card_to_graveyard_for_sba(
+                    cid,
+                    trigger_handler,
+                    agents,
+                    parts,
+                );
                 // Same-SBA-batch LTB lookback is derived per-event from
                 // `pre_sba_battlefield` in `TriggerHandler::ltb_trigger_refs_for_event`.
                 // No global registration needed.
@@ -1605,7 +1665,7 @@ impl GameState {
                 continue;
             }
 
-            self.move_battlefield_card_to_graveyard_for_sba(cid, trigger_handler, agents);
+            self.move_battlefield_card_to_graveyard_for_sba(cid, trigger_handler, agents, parts);
             any_changes = true;
         }
 
@@ -1724,7 +1784,12 @@ impl GameState {
                     if cid == keep {
                         continue;
                     }
-                    self.move_battlefield_card_to_graveyard_for_sba(cid, trigger_handler, agents);
+                    self.move_battlefield_card_to_graveyard_for_sba(
+                        cid,
+                        trigger_handler,
+                        agents,
+                        parts,
+                    );
                     any_changes = true;
                 }
             }
@@ -2075,6 +2140,15 @@ fn can_attachment_remain_attached(
     !crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
         cards, target, attachment,
     )
+}
+
+pub(crate) struct SbaReplacementParts<'a> {
+    pub token_templates: &'a crate::HashMap<String, crate::card::Card>,
+    pub token_art_variants: &'a crate::HashMap<(String, String), usize>,
+    pub token_fallback: &'a crate::HashMap<String, String>,
+    pub edition_dates: &'a crate::HashMap<String, String>,
+    pub mana_pools: &'a mut Vec<crate::mana::ManaPool>,
+    pub rng: &'a mut dyn crate::game_rng::GameRng,
 }
 
 #[cfg(test)]

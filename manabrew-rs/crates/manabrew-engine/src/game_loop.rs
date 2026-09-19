@@ -225,6 +225,22 @@ impl GameLoop {
         &mut self.mana_pools[pid.index()]
     }
 
+    pub(crate) fn sba_runtime(
+        &mut self,
+    ) -> (&mut TriggerHandler, crate::action::SbaReplacementParts<'_>) {
+        (
+            &mut self.trigger_handler,
+            crate::action::SbaReplacementParts {
+                token_templates: &self.token_templates,
+                token_art_variants: &self.token_art_variants,
+                token_fallback: &self.token_fallback,
+                edition_dates: &self.edition_dates,
+                mana_pools: &mut self.mana_pools,
+                rng: &mut *self.game_rng,
+            },
+        )
+    }
+
     pub(crate) fn replacement_runtime(
         &mut self,
     ) -> crate::replacement::replacement_handler::ReplacementRuntime<'_> {
@@ -792,12 +808,13 @@ impl GameLoop {
 fn check_sba(
     game: &mut GameState,
     trigger_handler: &mut TriggerHandler,
+    parts: &mut crate::action::SbaReplacementParts<'_>,
     agents: &mut [Box<dyn PlayerAgent>],
 ) -> bool {
     let _perf_scope =
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::PrioritySba);
     trigger_handler.run_state_trigger(game);
-    let result = game.check_state_based_actions_with_trigger_agents(Some(trigger_handler), agents);
+    let result = game.check_state_based_actions_with_runtime(trigger_handler, parts, agents);
     if result {
         // Flush triggers fired during SBA before re-registering. This preserves
         // triggers from Animate effects (pump_trigger_count) that were active
