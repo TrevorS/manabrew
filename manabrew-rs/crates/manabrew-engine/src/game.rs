@@ -29,6 +29,7 @@ use crate::zone::{CostPaymentStack, Zone, ZoneKey, ZoneStore};
 pub struct TypeRegistry;
 
 static CREATURE_TYPES: OnceLock<Vec<String>> = OnceLock::new();
+static SUBTYPE_SECTIONS: OnceLock<BTreeMap<String, Vec<String>>> = OnceLock::new();
 
 impl TypeRegistry {
     /// Load creature types from the raw contents of `TypeLists.txt` and of every
@@ -50,6 +51,50 @@ impl TypeRegistry {
             Self::parse_creature_types(edition, &mut types);
         }
         let _ = CREATURE_TYPES.set(types);
+        let _ = SUBTYPE_SECTIONS.set(Self::parse_subtype_sections(type_lists_content));
+    }
+
+    /// Whether `subtype` is listed under `[section]` of `TypeLists.txt` (`LandTypes`,
+    /// `ArtifactTypes`, ...). False before [`TypeRegistry::load`].
+    pub fn is_subtype_in(section: &str, subtype: &str) -> bool {
+        SUBTYPE_SECTIONS
+            .get()
+            .and_then(|sections| sections.get(section))
+            .is_some_and(|types| types.iter().any(|ty| ty.eq_ignore_ascii_case(subtype)))
+    }
+
+    pub fn subtype_sections_loaded() -> bool {
+        SUBTYPE_SECTIONS.get().is_some()
+    }
+
+    /// Java `CardType.isALandType`: a basic land type or another land type.
+    pub fn is_land_type(subtype: &str) -> bool {
+        Self::is_subtype_in("BasicTypes", subtype) || Self::is_subtype_in("LandTypes", subtype)
+    }
+
+    fn parse_subtype_sections(content: &str) -> BTreeMap<String, Vec<String>> {
+        let mut sections: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let mut current: Option<String> = None;
+        for line in content.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            if line.starts_with('[') && line.ends_with(']') {
+                current = Some(line[1..line.len() - 1].to_string());
+                continue;
+            }
+            if let Some(section) = &current {
+                let singular = line.split(':').next().unwrap_or(line);
+                if !singular.is_empty() {
+                    sections
+                        .entry(section.clone())
+                        .or_default()
+                        .push(singular.to_string());
+                }
+            }
+        }
+        sections
     }
 
     /// Return the loaded creature types.

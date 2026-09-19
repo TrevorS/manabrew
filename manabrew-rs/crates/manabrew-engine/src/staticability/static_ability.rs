@@ -279,6 +279,9 @@ pub struct StaticAbilityIr {
     pub set_toughness_text: Option<String>,
     pub add_keyword_text: Option<String>,
     pub set_name_text: Option<String>,
+    pub remove_card_types: bool,
+    pub remove_land_types: bool,
+    pub remove_artifact_types: bool,
     pub remove_creature_types: bool,
     pub remove_all_abilities: bool,
     pub add_ability_text: Option<String>,
@@ -469,6 +472,9 @@ impl StaticAbilityIr {
             set_toughness_text: raw.get(keys::SET_TOUGHNESS).map(String::to_string),
             add_keyword_text: raw.get(keys::ADD_KEYWORD).map(String::to_string),
             set_name_text: raw.get(keys::SET_NAME).map(String::to_string),
+            remove_card_types: raw.contains_key(keys::REMOVE_CARD_TYPES),
+            remove_land_types: raw.contains_key(keys::REMOVE_LAND_TYPES),
+            remove_artifact_types: raw.contains_key(keys::REMOVE_ARTIFACT_TYPES),
             remove_creature_types: raw.contains_key(keys::REMOVE_CREATURE_TYPES),
             remove_all_abilities: raw
                 .get(keys::REMOVE_ALL_ABILITIES)

@@ -80,7 +80,10 @@ enum EffectKind {
     },
     /// Add a type/subtype to the card (`AddType$`). Mirrors Java layer 4.
     AddType(String),
+    RemoveCardTypes,
     RemoveCreatureTypes,
+    RemoveLandTypes,
+    RemoveArtifactTypes,
     /// Grant a triggered ability (from AddTrigger$). The string is the raw trigger text.
     GrantTrigger {
         text: String,
@@ -361,11 +364,35 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         });
                     }
 
+                    if sa.ir.remove_card_types {
+                        pending.push(PendingEffect {
+                            layer: Layer::Type,
+                            target,
+                            kind: EffectKind::RemoveCardTypes,
+                        });
+                    }
+
+                    if sa.ir.remove_land_types {
+                        pending.push(PendingEffect {
+                            layer: Layer::Type,
+                            target,
+                            kind: EffectKind::RemoveLandTypes,
+                        });
+                    }
+
                     if sa.ir.remove_creature_types {
                         pending.push(PendingEffect {
                             layer: Layer::Type,
                             target,
                             kind: EffectKind::RemoveCreatureTypes,
+                        });
+                    }
+
+                    if sa.ir.remove_artifact_types {
+                        pending.push(PendingEffect {
+                            layer: Layer::Type,
+                            target,
+                            kind: EffectKind::RemoveArtifactTypes,
                         });
                     }
 
@@ -682,6 +709,14 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     // card-declaration order, which approximates timestamp order).
     pending.sort_by_key(|e| e.layer);
 
+    let mut type_changed: Vec<CardId> = pending
+        .iter()
+        .filter(|e| e.layer == Layer::Type)
+        .map(|e| e.target)
+        .collect();
+    type_changed.sort_unstable_by_key(|id| id.0);
+    type_changed.dedup();
+
     for effect in pending {
         match effect.kind {
             EffectKind::SetController { controller } => {
@@ -750,6 +785,30 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                     );
                 }
             }
+            EffectKind::RemoveCardTypes => {
+                let card = &mut game.cards[effect.target.index()];
+                if card.static_type_line_base.is_none() {
+                    card.static_type_line_base = Some(card.type_line.clone());
+                }
+                card.type_line
+                    .core_types
+                    .retain(|t| matches!(t, CoreType::Instant | CoreType::Sorcery));
+                card.update_types();
+            }
+            EffectKind::RemoveLandTypes | EffectKind::RemoveArtifactTypes => {
+                let is_removed: fn(&str) -> bool = match effect.kind {
+                    EffectKind::RemoveLandTypes => crate::game::TypeRegistry::is_land_type,
+                    _ => |s| crate::game::TypeRegistry::is_subtype_in("ArtifactTypes", s),
+                };
+                let card = &mut game.cards[effect.target.index()];
+                if card.type_line.subtypes.iter().any(|s| is_removed(s)) {
+                    if card.static_type_line_base.is_none() {
+                        card.static_type_line_base = Some(card.type_line.clone());
+                    }
+                    card.type_line.subtypes.retain(|s| !is_removed(s));
+                    card.update_types();
+                }
+            }
             EffectKind::RemoveCreatureTypes => {
                 let card = &mut game.cards[effect.target.index()];
                 if card.type_line.subtypes.iter().any(|s| {
@@ -813,6 +872,18 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                     game.cards[effect.target.index()].add_trigger(trig);
                 }
             }
+        }
+    }
+
+    for target in type_changed {
+        let card = &mut game.cards[target.index()];
+        let mut sanitized = card.type_line.clone();
+        if sanitize_subtypes(&mut sanitized) {
+            if card.static_type_line_base.is_none() {
+                card.static_type_line_base = Some(card.type_line.clone());
+            }
+            card.type_line = sanitized;
+            card.update_types();
         }
     }
 
@@ -1697,4 +1768,36 @@ mod tests {
             "Card with ReplaceWith$ ETBTapped replacement should enter tapped"
         );
     }
+}
+
+/// Keep in sync with `CardType.sanisfySubtypes`: after type changes, a subtype stays only
+/// while the card has a card type it belongs to. Returns whether anything was removed.
+fn sanitize_subtypes(type_line: &mut CardTypeLine) -> bool {
+    use crate::game::TypeRegistry;
+    if type_line.subtypes.is_empty() || !TypeRegistry::subtype_sections_loaded() {
+        return false;
+    }
+    let has = |t: CoreType| type_line.core_types.contains(&t);
+    let creature = has(CoreType::Creature) || has(CoreType::Kindred);
+    let land = has(CoreType::Land);
+    let artifact = has(CoreType::Artifact);
+    let enchantment = has(CoreType::Enchantment);
+    let spell = has(CoreType::Instant) || has(CoreType::Sorcery);
+    let walker = has(CoreType::Planeswalker);
+    let dungeon = has(CoreType::Dungeon);
+    let battle = has(CoreType::Battle);
+    let plane = has(CoreType::Plane);
+    let before = type_line.subtypes.len();
+    type_line.subtypes.retain(|s| {
+        (creature && TypeRegistry::is_creature_type(s))
+            || (land && TypeRegistry::is_land_type(s))
+            || (artifact && TypeRegistry::is_subtype_in("ArtifactTypes", s))
+            || (enchantment && TypeRegistry::is_subtype_in("EnchantmentTypes", s))
+            || (spell && TypeRegistry::is_subtype_in("SpellTypes", s))
+            || (walker && TypeRegistry::is_subtype_in("WalkerTypes", s))
+            || (dungeon && TypeRegistry::is_subtype_in("DungeonTypes", s))
+            || (battle && TypeRegistry::is_subtype_in("BattleTypes", s))
+            || (plane && TypeRegistry::is_subtype_in("PlanarTypes", s))
+    });
+    type_line.subtypes.len() != before
 }
