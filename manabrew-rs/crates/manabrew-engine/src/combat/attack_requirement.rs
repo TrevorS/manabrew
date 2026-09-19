@@ -89,10 +89,18 @@ pub fn compute_attack_requirements_with_defenders(
     for &attacker_id in available {
         let card = &cards[attacker_id.index()];
 
-        let must_from_static = static_ability_must_attack::must_attack(cards, card);
+        let must_entities =
+            static_ability_must_attack::entities_must_attack(cards, card, card.controller);
+        let must_from_static = must_entities
+            .iter()
+            .any(|e| matches!(e, static_ability_must_attack::MustAttackEntity::Any));
+        let must_static_player = must_entities.iter().find_map(|e| match e {
+            static_ability_must_attack::MustAttackEntity::Player(pid) => Some(*pid),
+            static_ability_must_attack::MustAttackEntity::Any => None,
+        });
         let goaded = card.goaded_by;
 
-        let must_attack_any = must_from_static || goaded.is_some();
+        let must_attack_any = must_from_static || must_static_player.is_some() || goaded.is_some();
 
         // Build defender_specific map: each defender gets credit for
         // generic "must attack anything" requirements.
@@ -101,6 +109,9 @@ pub fn compute_attack_requirements_with_defenders(
             n_attack_anything += 1;
         }
         if must_from_static {
+            n_attack_anything += 1;
+        }
+        if must_static_player.is_some() {
             n_attack_anything += 1;
         }
 
@@ -114,7 +125,9 @@ pub fn compute_attack_requirements_with_defenders(
             .iter()
             .find_map(|d| d.as_player())
             .unwrap_or(PlayerId(0));
-        let must_attack_defender = if goaded.is_some() && goaded != Some(defending) {
+        let must_attack_defender = if let Some(pid) = must_static_player {
+            Some(pid)
+        } else if goaded.is_some() && goaded != Some(defending) {
             Some(defending)
         } else {
             None
