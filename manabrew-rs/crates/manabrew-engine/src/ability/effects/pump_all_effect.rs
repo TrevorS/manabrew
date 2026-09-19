@@ -156,6 +156,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
     }
+
+    let _ = crate::ability::spell_ability_effect::replace_dying(ctx.game, sa);
 }
 
 #[cfg(test)]

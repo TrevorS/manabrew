@@ -257,6 +257,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             pumped_targets,
         );
     }
+
+    let _ = crate::ability::spell_ability_effect::replace_dying(ctx.game, sa);
 }
 
 fn apply_pump_to_card(
