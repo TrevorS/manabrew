@@ -19,7 +19,7 @@ pub struct ManifestParams {
 
 /// Parse common manifest parameters from a spell ability.
 pub fn parse_manifest_params(ctx: &EffectContext, sa: &SpellAbility) -> ManifestParams {
-    let amount = super::resolve_numeric_svar(ctx.game, sa, "Amount", 1).max(1) as usize;
+    let amount = super::resolve_numeric_svar(ctx.game, sa, "Amount", 1).max(0) as usize;
     let from_library = sa
         .ir
         .defined_text
