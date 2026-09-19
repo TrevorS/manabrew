@@ -1051,6 +1051,7 @@ impl GameLoop {
                     TriggerType::SpellCast,
                     RunParams {
                         spell_card: Some(card_id),
+                        activator: Some(active),
                         spell_controller: Some(active),
                         ..Default::default()
                     },

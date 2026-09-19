@@ -15,6 +15,8 @@ pub struct TriggerSpellAbilityCastOrCopy {
     pub valid_activating_player: Option<crate::parsing::CompiledSelector>,
     #[serde(default)]
     pub valid_sa: Option<String>,
+    #[serde(default)]
+    pub valid_sa_on_card: Option<String>,
 }
 
 impl TriggerSpellAbilityCastOrCopy {
@@ -22,6 +24,7 @@ impl TriggerSpellAbilityCastOrCopy {
         let valid_card = params.selector_cloned(keys::VALID_CARD);
         let valid_activating_player = params.selector_cloned(keys::VALID_ACTIVATING_PLAYER);
         let valid_sa = params.get_cloned(keys::VALID_SA);
+        let valid_sa_on_card = params.get_cloned(keys::VALID_SA_ON_CARD);
         let trigger_type = match mode_str {
             "SpellCast" => TriggerType::SpellCast,
             "AbilityCast" => TriggerType::AbilityCast,
@@ -40,6 +43,7 @@ impl TriggerSpellAbilityCastOrCopy {
             valid_card,
             valid_activating_player,
             valid_sa,
+            valid_sa_on_card,
         })
     }
 }
@@ -82,11 +86,19 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
                     )
                 })
         });
+        let valid_sa_on_card_matches = self.valid_sa_on_card.as_deref().is_none_or(|filter| {
+            let sa = params.source_sa.as_ref().or(params.spell_ability.as_ref());
+            match (sa, params.spell_card) {
+                (Some(sa), Some(cast)) => matches_valid_sa_on_card(filter, sa, cast, trigger, game),
+                _ => false,
+            }
+        });
         valid_card_matches
             && valid_sa_matches
+            && valid_sa_on_card_matches
             && trigger.matches_optional_valid_player_filter(
                 &self.valid_activating_player,
-                params.spell_controller,
+                params.activator.or(params.spell_controller),
                 game,
             )
     }
@@ -137,4 +149,57 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
                 .unwrap_or_default()
         )
     }
+}
+
+/// Keep in sync with `SpellAbilityProperty.hasProperty`: a property it does not know falls back to
+/// the cast card's own (`sa.getHostCard().hasProperty`).
+fn matches_valid_sa_on_card(
+    filter: &str,
+    sa: &SpellAbility,
+    cast: crate::ids::CardId,
+    trigger: &Trigger,
+    game: &GameState,
+) -> bool {
+    let cast_card = game.card(cast);
+    filter.split(',').map(str::trim).any(|restriction| {
+        let (base, properties) = restriction.split_once('.').unwrap_or((restriction, ""));
+        if !crate::spellability::matches_valid_sa(base, sa, cast_card, Some(cast_card)) {
+            return false;
+        }
+        properties
+            .split('+')
+            .map(str::trim)
+            .filter(|property| !property.is_empty())
+            .all(|property| {
+                if let Some(rest) = property.strip_prefix("ManaSpent ") {
+                    let (comparator, amount) = rest.split_at(2.min(rest.len()));
+                    let host = trigger.base.card_trait_base.host_card(game);
+                    let expr = host.get_s_var(amount).unwrap_or(amount).to_string();
+                    let cast_sa = SpellAbility::new_simple(Some(cast), cast_card.controller, "");
+                    let y = crate::svar::resolve_numeric_value(game, &cast_sa, &expr, 0);
+                    let spent = cast_card.paying_mana_to_cast.len() as i32;
+                    crate::parsing::compare::compare_expr(spent, &format!("{comparator}{y}"))
+                } else if property.eq_ignore_ascii_case("YouCtrl")
+                    || property.eq_ignore_ascii_case("OppCtrl")
+                {
+                    let restriction = format!("{base}.{property}");
+                    crate::spellability::matches_valid_sa(
+                        &restriction,
+                        sa,
+                        cast_card,
+                        Some(cast_card),
+                    )
+                } else {
+                    let selector =
+                        crate::parsing::CompiledSelector::parse(&format!("Card.{property}"));
+                    crate::card::valid_filter::matches_valid_card_selector_with_context(
+                        &selector,
+                        cast_card,
+                        crate::card::valid_filter::MatchContext::from_source(cast_card)
+                            .with_game(game)
+                            .with_spell_ability(sa),
+                    )
+                }
+            })
+    })
 }

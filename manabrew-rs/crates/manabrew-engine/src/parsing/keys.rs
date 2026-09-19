@@ -48,6 +48,7 @@ pub const VALID_MODE: &str = "ValidMode";
 pub const VALID_PLAYER: &str = "ValidPlayer";
 pub const VALID_RESULT: &str = "ValidResult";
 pub const VALID_SA: &str = "ValidSA";
+pub const VALID_SA_ON_CARD: &str = "ValidSAonCard";
 pub const VALID_SIDES: &str = "ValidSides";
 pub const VALID_SOURCE: &str = "ValidSource";
 pub const VALID_SPELL: &str = "ValidSpell";

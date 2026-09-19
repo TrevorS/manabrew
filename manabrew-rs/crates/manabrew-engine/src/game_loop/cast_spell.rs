@@ -439,6 +439,7 @@ impl GameLoop {
         let run_params = match trigger_ctx.cast_trigger {
             TriggerType::SpellCast => RunParams {
                 spell_card: Some(trigger_ctx.source_card),
+                activator: Some(player),
                 spell_controller: Some(player),
                 spell_ability: Some(sa_for_trigger.clone()),
                 source_sa: Some(sa_for_trigger.clone()),
@@ -2813,6 +2814,7 @@ impl GameLoop {
                         TriggerType::SpellCast,
                         RunParams {
                             spell_card: Some(cascade_card_id),
+                            activator: Some(player),
                             spell_controller: Some(player),
                             ..Default::default()
                         },
