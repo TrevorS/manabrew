@@ -78,7 +78,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     } else {
         "OtherwiseSubAbility"
     };
-    if let Some(sub_sa) = sa.get_additional_ability(sub_key).cloned() {
+    if let Some(sub_sa) = sa.additional_ability(ctx.game, sub_key) {
         super::resolve_effect(ctx, &sub_sa);
     }
 }

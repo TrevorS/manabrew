@@ -1021,6 +1021,24 @@ impl SpellAbility {
             .and_then(|parsed| self.trigger_spell_abilities.get(&parsed))
     }
 
+    /// Java `SpellAbility.getAdditionalAbility`: the ability set for `key`, or the one built
+    /// from the host SVar that the `key` parameter names.
+    pub fn additional_ability(&self, game: &GameState, key: &str) -> Option<SpellAbility> {
+        if let Some(ability) = self.get_additional_ability(key) {
+            return Some(ability.clone());
+        }
+        let params = crate::parsing::Params::from_raw(&self.ability_text);
+        let svar_name = params.get(key)?;
+        let source = self.source?;
+        let text = game.card(source).get_s_var(svar_name)?.to_string();
+        Some(build_spell_ability(
+            game,
+            source,
+            &text,
+            self.activating_player,
+        ))
+    }
+
     /// Set an additional ability by key.
     /// Mirrors Java's `SpellAbility.setAdditionalAbility(String, SpellAbility)`.
     pub fn set_additional_ability<K: TriggerKeyInput>(&mut self, key: K, ability: SpellAbility) {

@@ -123,7 +123,7 @@ fn resolve_counted_sub(
     key: &str,
     count_svar: Option<(&str, i32)>,
 ) {
-    if let Some(sub) = sa.get_additional_ability(key).cloned() {
+    if let Some(sub) = sa.additional_ability(ctx.game, key) {
         if let Some((name, count)) = count_svar {
             ctx.game
                 .card_mut(host)
@@ -142,7 +142,7 @@ fn resolve_with_remembered_players(
     players: &[PlayerId],
     count_svar: &str,
 ) {
-    let Some(sub) = sa.get_additional_ability(key).cloned() else {
+    let Some(sub) = sa.additional_ability(ctx.game, key) else {
         return;
     };
     let card = ctx.game.card_mut(host);
