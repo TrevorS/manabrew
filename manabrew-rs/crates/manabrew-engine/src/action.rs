@@ -1004,7 +1004,7 @@ impl GameState {
         amount: i32,
         source: Option<CardId>,
         is_combat: bool,
-        agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
+        mut agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
     ) -> i32 {
         if amount <= 0 {
             return 0;
@@ -1023,7 +1023,7 @@ impl GameState {
             source,
             is_combat,
         };
-        if let Some(agents) = agents {
+        if let Some(agents) = agents.as_deref_mut() {
             apply_replacements_with_agents(self, agents, &mut event);
         } else {
             apply_replacements(self, &mut event);
@@ -1034,7 +1034,7 @@ impl GameState {
         } = event
         {
             if final_amount > 0 {
-                return self.player_deal_damage(target, final_amount);
+                return self.player_deal_damage_with_agents(target, final_amount, agents);
             }
         }
         0

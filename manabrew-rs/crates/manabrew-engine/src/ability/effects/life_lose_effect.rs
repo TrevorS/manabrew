@@ -2,7 +2,7 @@ use super::{resolve_numeric_svar, EffectContext};
 use crate::ability::ability_ir::EffectIr;
 use crate::event::RunParams;
 use crate::ids::PlayerId;
-use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
+use crate::replacement::replacement_handler::{apply_replacements_with_agents, ReplacementEvent};
 use crate::replacement::ReplacementResult;
 use crate::spellability::SpellAbility;
 use crate::trigger::TriggerType;
@@ -63,7 +63,7 @@ fn lose_life(ctx: &mut EffectContext, sa: &SpellAbility, target: PlayerId, amoun
         amount,
         is_damage: false,
     };
-    let result = apply_replacements(ctx.game, &mut event);
+    let result = apply_replacements_with_agents(ctx.game, ctx.agents, &mut event);
     if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
         return 0;
     }

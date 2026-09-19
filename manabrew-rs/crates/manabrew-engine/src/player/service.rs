@@ -443,6 +443,15 @@ impl GameState {
     }
 
     pub fn player_deal_damage(&mut self, player: PlayerId, amount: i32) -> i32 {
+        self.player_deal_damage_with_agents(player, amount, None)
+    }
+
+    pub fn player_deal_damage_with_agents(
+        &mut self,
+        player: PlayerId,
+        amount: i32,
+        agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
+    ) -> i32 {
         if amount <= 0 {
             return 0;
         }
@@ -456,7 +465,10 @@ impl GameState {
             amount,
             is_damage: true,
         };
-        let result = apply_replacements(self, &mut event);
+        let result = match agents {
+            Some(agents) => apply_replacements_with_agents(self, agents, &mut event),
+            None => apply_replacements(self, &mut event),
+        };
         if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
             return 0;
         }
