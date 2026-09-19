@@ -154,12 +154,13 @@ pub(super) fn resolve_hidden_origin(
                     )
                 });
             }
-            // For Defined card moves, suppress the post-move library shuffle.
-            // Java's changeHiddenOriginResolve checks `!defined` before shuffling
-            // (line 1509), so Defined moves never trigger a search shuffle.
-            // The shuffle is handled separately by a SubAbility$ DBShuffle if needed.
+            // Java's changeHiddenOriginResolve skips the post-move search shuffle for
+            // Defined$ cards unless Shuffle$ True, but still shuffles before a
+            // Library to Library move.
             let mut sa_no_shuffle = sa.clone();
-            sa_no_shuffle.ir.no_shuffle = true;
+            if dest_zone != ZoneType::Library && !sa.is_shuffle() {
+                sa_no_shuffle.ir.no_shuffle = true;
+            }
             move_cards(
                 ctx,
                 &sa_no_shuffle,
