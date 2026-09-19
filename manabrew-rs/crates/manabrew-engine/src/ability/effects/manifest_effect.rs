@@ -78,7 +78,7 @@ fn manifest_for_player(
 }
 
 /// Manifest a single card: turn face-down, put on battlefield as 2/2.
-fn manifest_single_card(
+pub(super) fn manifest_single_card(
     ctx: &mut EffectContext,
     sa: &SpellAbility,
     card_id: CardId,
