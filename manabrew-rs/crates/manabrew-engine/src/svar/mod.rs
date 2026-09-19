@@ -450,12 +450,14 @@ fn resolve_lowered_svar_expression(
             Some(do_x_math(value, operators, game, source_id, controller, sa))
         }
         ScriptSVarNumericExpression::Remembered { property } => {
-            Some(crate::ability::ability_utils::handle_paid(
+            let (property, operators) = property.split_once('/').unwrap_or((property, ""));
+            let value = crate::ability::ability_utils::handle_paid(
                 game,
                 &game.card(source_id).remembered_cards,
                 property,
                 source_id,
-            ))
+            );
+            Some(do_x_math(value, operators, game, source_id, controller, sa))
         }
         ScriptSVarNumericExpression::RememberedSize { operators } => Some(do_x_math(
             game.card(source_id).remembered_cards.len() as i32,
@@ -603,12 +605,14 @@ fn resolve_svar_expression_inner(
         return resolve_player_count_svar(expr, game, source_id, controller, sa);
     }
     if let Some(property) = expr.strip_prefix("Remembered$") {
-        return crate::ability::ability_utils::handle_paid(
+        let (property, operators) = property.split_once('/').unwrap_or((property, ""));
+        let value = crate::ability::ability_utils::handle_paid(
             game,
             &game.card(source_id).remembered_cards,
             property,
             source_id,
         );
+        return do_x_math(value, operators, game, source_id, controller, sa);
     }
     if let Some(rest) = expr.strip_prefix("RememberedSize") {
         return do_x_math(
@@ -1592,6 +1596,16 @@ fn enters_trigger_x_paid(game: &GameState, sa: &SpellAbility, card_id: CardId) -
     })
 }
 
+fn enters_replacement_x_paid(game: &GameState, sa: &SpellAbility, card_id: CardId) -> Option<i32> {
+    sa.ir.etb.then(|| {
+        game.card(card_id)
+            .svars
+            .get("XPaid")
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(0)
+    })
+}
+
 pub fn resolve_count_svar_for_sa(
     expr: &str,
     game: &GameState,
@@ -1607,7 +1621,9 @@ pub fn resolve_count_svar_for_sa(
     {
         let operators = rest.strip_prefix('/').unwrap_or(rest);
         let x = if sa.x_mana_cost_paid == 0 {
-            enters_trigger_x_paid(game, sa, source_id).unwrap_or(0)
+            enters_trigger_x_paid(game, sa, source_id)
+                .or_else(|| enters_replacement_x_paid(game, sa, source_id))
+                .unwrap_or(0)
         } else {
             sa.x_mana_cost_paid as i32
         };
