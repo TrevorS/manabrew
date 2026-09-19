@@ -1725,6 +1725,8 @@ impl GameLoop {
                 card_name: Some(card.card_name.clone()),
                 card_color: Some(card.color),
                 chosen_types_by_source,
+                is_cast_face_down: card.face_down,
+                ..Default::default()
             }
         };
 

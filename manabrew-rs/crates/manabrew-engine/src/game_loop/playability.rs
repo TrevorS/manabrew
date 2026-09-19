@@ -66,6 +66,7 @@ impl GameLoop {
             card_name: Some(card.card_name.clone()),
             card_color: Some(card.color),
             chosen_types_by_source: chosen_types_by_source.clone(),
+            ..Default::default()
         }
     }
 
@@ -201,6 +202,7 @@ impl GameLoop {
             card_name: Some(in_hand.card_name.clone()),
             card_color: Some(in_hand.color),
             chosen_types_by_source: chosen_types_by_source.clone(),
+            ..Default::default()
         };
         crate::mana::can_pay_spell_mana_cost_for_action_space(
             game,
@@ -403,6 +405,7 @@ impl GameLoop {
                     card_name: Some(card.card_name.clone()),
                     card_color: Some(card.color),
                     chosen_types_by_source: chosen_types_by_source.clone(),
+                    ..Default::default()
                 };
                 let available_mana = mana::calculate_available_mana_with_context(
                     self.pool(player),
@@ -1353,6 +1356,7 @@ impl GameLoop {
                         .iter()
                         .filter_map(|c| c.chosen_type.clone().map(|chosen| (c.id, chosen)))
                         .collect(),
+                    ..Default::default()
                 };
                 let available_mana = mana::calculate_available_mana_with_context(
                     self.pool(player),

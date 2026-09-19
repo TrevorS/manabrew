@@ -280,18 +280,22 @@ pub struct ManaPaymentContext {
     pub card_color: Option<forge_foundation::ColorSet>,
     /// Chosen creature/card types keyed by mana source card ID (e.g. Cavern of Souls).
     pub chosen_types_by_source: crate::HashMap<CardId, String>,
+    pub is_turn_face_up: bool,
+    pub turn_face_up_key: Option<&'static str>,
+    pub is_cast_face_down: bool,
 }
 
 pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymentContext {
-    let (type_line, card_name, card_color) = if let Some(source) = sa.source {
+    let (type_line, card_name, card_color, face_down) = if let Some(source) = sa.source {
         let card = game.card(source);
         (
             Some(card.type_line.clone()),
             Some(card.card_name.clone()),
             Some(card.color),
+            card.face_down,
         )
     } else {
-        (None, None, None)
+        (None, None, None, false)
     };
 
     ManaPaymentContext {
@@ -310,6 +314,11 @@ pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymen
             .iter()
             .filter_map(|c| c.chosen_type.clone().map(|chosen| (c.id, chosen)))
             .collect(),
+        is_turn_face_up: sa.ability_text.contains("Mode$ TurnFaceUp"),
+        turn_face_up_key: ["MorphUp", "DisguiseUp", "ManifestUp", "CloakUp"]
+            .into_iter()
+            .find(|key| sa.ability_text.contains(&format!("{key}$ True"))),
+        is_cast_face_down: sa.is_spell && face_down,
     }
 }
 
@@ -338,6 +347,9 @@ fn check_single_restriction(restriction: &str, ctx: &ManaPaymentContext) -> bool
                 return false;
             }
             let type_check = &restriction[6..]; // After "Spell."
+            if let Some(card_type) = type_check.strip_prefix("isCastFaceDown") {
+                return ctx.is_cast_face_down && matches!(card_type, "" | "+Creature");
+            }
             if let Some(ref tl) = ctx.type_line {
                 match type_check {
                     "Creature" => tl.is_creature(),
@@ -402,6 +414,27 @@ fn check_single_restriction(restriction: &str, ctx: &ManaPaymentContext) -> bool
                     }
                 }
             }
+        }
+        _ if restriction.starts_with("Static.") => {
+            let (property, card_type) = match restriction[7..].split_once('+') {
+                Some((property, card_type)) => (property, Some(card_type)),
+                None => (&restriction[7..], None),
+            };
+            let matches = match property {
+                "isTurnFaceUp" => ctx.is_turn_face_up,
+                "MorphUp" | "DisguiseUp" | "ManifestUp" | "CloakUp" => {
+                    ctx.turn_face_up_key == Some(property)
+                }
+                _ => {
+                    crate::census::unhandled("mana-restriction-ignored", restriction);
+                    return true;
+                }
+            };
+            matches
+                && card_type.is_none_or(|card_type| {
+                    card_type == "Creature"
+                        && ctx.type_line.as_ref().is_some_and(|tl| tl.is_creature())
+                })
         }
         _ if restriction.starts_with("CantPayGenericCosts") => true, // handled separately in payment
         _ if restriction.starts_with("CantCast") => true, // zone restrictions handled elsewhere
@@ -2045,6 +2078,7 @@ mod tests {
             card_name: Some("Unstoppable Slasher".to_string()),
             card_color: None,
             chosen_types_by_source,
+            ..Default::default()
         };
 
         assert!(pool.can_pay_for_spell(&ManaCost::parse("B"), &ctx));

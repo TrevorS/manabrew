@@ -398,8 +398,14 @@ impl GameLoop {
                     // This is a game rule, not a card ability — face-down morph creatures
                     // can always be turned face up by paying the morph cost.
                     let mega_param = if is_mega { " | Mega$ True" } else { "" };
-                    let ab_text =
-                        format!("AB$ SetState | Cost$ {morph_cost} | Mode$ TurnFaceUp{mega_param}");
+                    let up_key = if disguise_cost.is_some() {
+                        "DisguiseUp"
+                    } else {
+                        "MorphUp"
+                    };
+                    let ab_text = format!(
+                        "AB$ SetState | Cost$ {morph_cost} | Mode$ TurnFaceUp | {up_key}$ True{mega_param}"
+                    );
                     let ab_index = c.activated_abilities.len();
                     if let Some(parsed) =
                         crate::ability::activated::parse_activated_ability(&ab_text, ab_index)
