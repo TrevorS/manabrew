@@ -1240,14 +1240,14 @@ impl GameState {
         // Emit trigger BEFORE move_card so LKI state is still available for
         // trigger matching. Persist/Undying and Modular inspect the dying card.
         if let Some(handler) = trigger_handler.as_deref_mut() {
-            let lki_p1p1 = *self
-                .card(cid)
-                .counters
-                .get(&CounterType::P1P1)
-                .unwrap_or(&0);
-            let lki_power = self.card(cid).power();
-            let lki_toughness = self.card(cid).toughness();
-            let lki_counters = self.card(cid).counters.clone();
+            let (lki_power, lki_toughness, lki_counters) = match self.get_lki_snapshot(cid) {
+                Some(lki) => (lki.power, lki.toughness, lki.counters.clone()),
+                None => {
+                    let card = self.card(cid);
+                    (card.power(), card.toughness(), card.counters.clone())
+                }
+            };
+            let lki_p1p1 = *lki_counters.get(&CounterType::P1P1).unwrap_or(&0);
             self.card_mut(cid).lki_counters = Some(lki_counters);
             self.card_mut(cid)
                 .set_lki_power_toughness(Some(lki_power), Some(lki_toughness));
@@ -1322,6 +1322,7 @@ impl GameState {
             .filter(|c| c.zone == ZoneType::Battlefield)
             .map(|c| c.id)
             .collect();
+        self.copy_last_state();
 
         let mut any_changes = false;
         let mut newly_lost_players: Vec<PlayerId> = Vec::new();
@@ -1748,8 +1749,10 @@ impl GameState {
         // its owner's graveyard.
         {
             let aura_ids: Vec<CardId> = self
-                .cards
+                .player_order
                 .iter()
+                .flat_map(|&pid| self.cards_in_zone(ZoneType::Battlefield, pid))
+                .map(|&cid| &self.cards[cid.index()])
                 .filter(|c| {
                     c.zone == ZoneType::Battlefield
                         && c.type_line.has_subtype("Aura")
@@ -1795,6 +1798,7 @@ impl GameState {
                 })
                 .map(|c| c.id)
                 .collect();
+            let aura_ids = self.order_cards_by_their_owners(aura_ids, ZoneType::Graveyard, agents);
 
             for aura_id in aura_ids {
                 let owner = self.card(aura_id).owner;
