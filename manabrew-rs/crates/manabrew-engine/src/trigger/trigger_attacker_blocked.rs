@@ -13,12 +13,18 @@ use super::trigger::TriggerBehavior;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TriggerAttackerBlocked {
     pub valid_card: Option<crate::parsing::CompiledSelector>,
+    #[serde(default)]
+    pub valid_blocker: Option<crate::parsing::CompiledSelector>,
+    #[serde(default)]
+    pub valid_blocker_amount: Option<String>,
 }
 
 impl TriggerAttackerBlocked {
     pub fn parse(params: &Params) -> Box<dyn TriggerBehavior> {
         Box::new(Self {
             valid_card: params.selector_cloned(keys::VALID_CARD),
+            valid_blocker: params.selector_cloned(keys::VALID_BLOCKER),
+            valid_blocker_amount: params.get("ValidBlockerAmount").map(str::to_string),
         })
     }
 }
@@ -35,7 +41,29 @@ impl TriggerBehavior for TriggerAttackerBlocked {
         params: &RunParams,
         game: &GameState,
     ) -> bool {
-        trigger.matches_optional_valid_card_filter(&self.valid_card, params.attacker, game)
+        if !trigger.matches_optional_valid_card_filter(&self.valid_card, params.attacker, game) {
+            return false;
+        }
+        if self.valid_blocker.is_some() {
+            let blockers = params
+                .blocker_ids
+                .as_deref()
+                .unwrap_or_default()
+                .iter()
+                .filter(|&&blocker| {
+                    trigger.matches_optional_valid_card_filter(
+                        &self.valid_blocker,
+                        Some(blocker),
+                        game,
+                    )
+                })
+                .count() as i32;
+            let amount = self.valid_blocker_amount.as_deref().unwrap_or("GE1");
+            if !crate::parsing::compare::compare_expr(blockers, amount) {
+                return false;
+            }
+        }
+        true
     }
 
     fn set_triggering_objects(

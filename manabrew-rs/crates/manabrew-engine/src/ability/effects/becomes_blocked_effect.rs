@@ -32,7 +32,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         ctx.trigger_handler.run_trigger(
             TriggerType::AttackerBlocked,
             RunParams {
+                attacker: Some(*card_id),
                 card: Some(*card_id),
+                blocker_ids: Some(Vec::new()),
                 player: Some(sa.activating_player),
                 ..Default::default()
             },

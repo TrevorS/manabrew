@@ -881,6 +881,7 @@ impl GameLoop {
                         RunParams {
                             attacker: Some(attacker_id),
                             card: Some(attacker_id),
+                            blocker_ids: Some(blockers_for.clone()),
                             defending_player: Some(defender_id.controlling_player(game)),
                             ..Default::default()
                         },
