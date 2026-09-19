@@ -37,7 +37,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // (via make_choices_precast), then the stack resolver walks the full
     // sub-ability chain. If sub-abilities are already present, just return —
     // the stack's resolve_ability loop will walk and resolve each sub-ability.
-    if sa.sub_ability.is_some() {
+    if sa.sub_ability.is_some() || sa.charm_modes_chosen {
         return;
     }
 
@@ -392,6 +392,7 @@ pub fn make_choices_precast_with_count(
         append_subability(sa, mode_sa);
     }
 
+    sa.charm_modes_chosen = true;
     Some(selected_mode_count)
 }
 

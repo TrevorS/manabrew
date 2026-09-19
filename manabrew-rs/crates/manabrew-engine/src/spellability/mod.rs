@@ -274,6 +274,8 @@ pub struct SpellAbility {
     /// Java parity: additional ability lists used by mode/charm-style abilities.
     #[serde(default)]
     pub additional_ability_lists: HashMap<String, Vec<SpellAbility>>,
+    #[serde(default)]
+    pub charm_modes_chosen: bool,
     /// Java parity: replacing-objects payload.
     #[serde(default)]
     pub replacing_objects: HashMap<AbilityKey, AbilityValue>,
@@ -650,6 +652,7 @@ impl SpellAbility {
             trigger_objects: HashMap::default(),
             trigger_spell_abilities: HashMap::default(),
             additional_ability_lists: HashMap::default(),
+            charm_modes_chosen: false,
             replacing_objects: HashMap::default(),
             trigger_remembered: Vec::new(),
             restriction: SpellAbilityRestriction::default(),
