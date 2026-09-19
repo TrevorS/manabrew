@@ -179,6 +179,16 @@ pub fn get_target_entities(game: &GameState, sa: &SpellAbility) -> (Vec<PlayerId
     let Some(Some(defined)) = ir_defined_param(sa, "Defined") else {
         return (Vec::new(), Vec::new());
     };
+    get_defined_entities(game, sa, defined)
+}
+
+/// Mirrors Java's `AbilityUtils.getDefinedEntities`: the players and cards a `Defined$`-style
+/// expression names, each ` & `-separated part in turn.
+pub fn get_defined_entities(
+    game: &GameState,
+    sa: &SpellAbility,
+    defined: &DefinedExpr,
+) -> (Vec<PlayerId>, Vec<CardId>) {
     let mut players = Vec::new();
     let mut cards = Vec::new();
     for d in &defined.refs {

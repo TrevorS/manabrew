@@ -20,7 +20,7 @@ use crate::spellability::{build_spell_ability_from_host_card, SpellAbility};
 use crate::staticability::parse_static_ability;
 use crate::trigger::trigger::parse_trigger;
 
-use super::{resolve_defined_player, resolve_defined_players, EffectContext};
+use super::EffectContext;
 use crate::ability::ability_utils;
 use crate::ability::spell_ability_effect::{check_valid_duration, SpellAbilityEffect};
 use crate::spellability::AbilityDuration;
@@ -60,7 +60,12 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
 
     let effect_name = resolve_effect_name(sa, &host_name);
     let effect_owner_defined = sa.ir.effect_owner_text.as_deref().unwrap_or("You");
-    let mut owners = resolve_defined_players(effect_owner_defined, sa.activating_player, ctx.game);
+    let mut owners = crate::ability::ability_utils::resolve_defined_players_with_sa(
+        effect_owner_defined,
+        sa,
+        sa.activating_player,
+        ctx.game,
+    );
 
     // `Unique$` — drop owners that already have an effect with this name in command.
     if sa.ir.unique {
@@ -282,7 +287,11 @@ fn populate_remember_lists(
     out_lki_cards: &mut Vec<Card>,
 ) {
     if let Some(remember) = sa.ir.remember_objects.as_deref() {
-        for token in remember.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+        for token in remember
+            .split(" & ")
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
             match token {
                 "Remembered" => {
                     out_cards.extend(host_remembered_cards.iter().copied());
@@ -297,28 +306,15 @@ fn populate_remember_lists(
                         ));
                     }
                 }
-                "Targeted" => {
-                    if let Some(cid) = sa.target_chosen.target_card.or(ctx.parent_target_card) {
-                        out_cards.push(cid);
-                    }
-                }
-                "TargetedPlayer" => {
-                    if let Some(pid) = sa.target_chosen.target_player {
-                        out_players.push(pid);
-                    }
-                }
                 other => {
-                    // Try player resolution first, then fall through to defined-cards.
-                    if let Some(pid) = resolve_defined_player(other, sa.activating_player, ctx.game)
-                    {
-                        out_players.push(pid);
-                    } else {
-                        out_cards.extend(
-                            crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
-                                ctx.game, sa, other,
-                            ),
+                    let (players, cards) =
+                        crate::ability::spell_ability_effect::get_defined_entities(
+                            ctx.game,
+                            sa,
+                            &crate::ability::ability_ir::DefinedExpr::parse(other),
                         );
-                    }
+                    out_players.extend(players);
+                    out_cards.extend(cards);
                 }
             }
         }
