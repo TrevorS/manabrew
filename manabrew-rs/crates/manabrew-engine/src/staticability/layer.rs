@@ -627,8 +627,22 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         }
     }
 
-    for (source_id, granted) in granted_player_rules {
-        apply_player_rules_effects(game, source_id, &granted);
+    let mut granted_by_target: indexmap::IndexMap<CardId, Vec<StaticAbility>> =
+        indexmap::IndexMap::new();
+    for (target, mut granted) in granted_player_rules {
+        apply_player_rules_effects(game, target, &granted);
+        granted.base.set_host_card_id(target);
+        granted_by_target.entry(target).or_default().push(granted);
+    }
+    for (target, static_abilities) in granted_by_target {
+        game.cards[target.index()].add_changed_card_traits(
+            crate::card::card_trait_changes::CardTraitChanges {
+                static_abilities,
+                ..Default::default()
+            },
+            0,
+            -1,
+        );
     }
 
     for target in cant_attack_targets {
