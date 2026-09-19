@@ -75,7 +75,9 @@ fn check_repeat_conditions(ctx: &mut EffectContext, sa: &SpellAbility) -> bool {
     if sa.ir.repeat_check_svar {
         let svar_value = super::resolve_numeric_svar(ctx.game, sa, "RepeatCheckSVar", 0);
         let compare = sa.ir.repeat_svar_compare.as_deref().unwrap_or("GE1");
-        if !compare_expr(svar_value, compare) {
+        let (operator, operand) = compare.split_at(2.min(compare.len()));
+        let operand_value = crate::svar::resolve_numeric_value(ctx.game, sa, operand, 0);
+        if !compare_expr(svar_value, &format!("{operator}{operand_value}")) {
             return false;
         }
     }
