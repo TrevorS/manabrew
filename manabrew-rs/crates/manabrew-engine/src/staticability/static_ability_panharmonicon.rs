@@ -26,6 +26,9 @@ pub fn extra_triggers(
             .iter()
             .filter(|sa| sa.check_mode(&crate::staticability::StaticMode::Panharmonicon))
         {
+            if !st_ab.check_conditions(source, game) {
+                continue;
+            }
             if let Some(valid_card) = st_ab.ir.valid_card.as_ref() {
                 if !matches_valid_card(valid_card, trig_host, source) {
                     continue;
