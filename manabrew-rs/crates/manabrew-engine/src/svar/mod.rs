@@ -284,7 +284,7 @@ fn resolve_card_list_property(
     sa: &SpellAbility,
 ) -> Option<i32> {
     let cards = resolve_defined_cards_for_svar(defined, game, source_id, sa);
-    if cards.is_empty() {
+    if cards.is_empty() && defined != "AllTargeted" {
         return None;
     }
     if let Some(rest) = property.strip_prefix("Valid ") {
@@ -317,6 +317,17 @@ fn resolve_defined_cards_for_svar(
     source_id: CardId,
     sa: &SpellAbility,
 ) -> Vec<CardId> {
+    if defined == "AllTargeted" {
+        let mut all = Vec::new();
+        let mut current = Some(sa);
+        while let Some(node) = current {
+            if node.uses_targeting() {
+                all.extend(node.target_chosen.all_target_cards());
+            }
+            current = node.sub_ability.as_deref();
+        }
+        return all;
+    }
     let defined_ref = DefinedRef::parse(defined);
     match defined_ref {
         DefinedRef::Targeted | DefinedRef::TargetedCard | DefinedRef::ThisTargetedCard => {
@@ -1760,6 +1771,29 @@ pub fn resolve_count_svar_for_sa(
 
     if expr == "Count$YourSpeed" {
         return game.player(controller).speed;
+    }
+
+    if let Some(rest) = expr.strip_prefix("Count$Domain") {
+        let (needed, operators) = match rest.strip_prefix("ActivePlayer") {
+            Some(operators) => (game.active_player(), operators),
+            None => (controller, rest),
+        };
+        let lands: Vec<CardId> = game
+            .cards_in_zone(ZoneType::Battlefield, needed)
+            .iter()
+            .copied()
+            .filter(|&cid| game.card(cid).is_land() && !game.card(cid).phased_out)
+            .collect();
+        let n = ["Plains", "Island", "Swamp", "Mountain", "Forest"]
+            .iter()
+            .filter(|basic| {
+                lands
+                    .iter()
+                    .any(|&cid| game.card(cid).type_line.has_subtype(basic))
+            })
+            .count() as i32;
+        let operators = operators.strip_prefix('/').unwrap_or(operators);
+        return do_x_math(n, operators, game, source_id, controller, sa);
     }
 
     if let Some(operators) = expr.strip_prefix("Count$YourLifeTotal") {
