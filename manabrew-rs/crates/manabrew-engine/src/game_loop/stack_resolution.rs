@@ -415,6 +415,11 @@ impl GameLoop {
                     }
                 }
 
+                if entry.spell_ability.target_chosen.target_card.is_some()
+                    || entry.spell_ability.target_chosen.target_player.is_some()
+                {
+                    Self::attach_aura_on_resolution(game, agents, &entry, card_id);
+                }
                 game.ensure_pending_change_zone_table();
                 if origin != ZoneType::Battlefield {
                     self.move_card_with_runtime(
@@ -438,111 +443,7 @@ impl GameLoop {
                 // can include a *second* legendary creature (e.g. a mirror-match
                 // Ashling controlled by the opponent), and the agent ends up
                 // attaching the Aura to the wrong card.
-                if game.card(card_id).type_line.has_subtype("Aura")
-                    && game.card(card_id).attached_to.is_none()
-                    && game.card(card_id).attached_to_player.is_none()
-                {
-                    let enchant_type = game
-                        .card(card_id)
-                        .keywords
-                        .iter_strings()
-                        .find_map(|kw| crate::keyword::extract_keyword_cost_str(kw, "Enchant"))
-                        .unwrap_or_default()
-                        .to_string();
-                    let normalized = enchant_type
-                        .split_once(':')
-                        .map(|(k, _)| k)
-                        .unwrap_or(&enchant_type);
-                    let can_target_player =
-                        normalized.starts_with("Player") || normalized.starts_with("Opponent");
-
-                    let mut candidates: Vec<crate::agent::types::GameEntity> = Vec::new();
-                    if let Some(target_card) = entry.spell_ability.target_chosen.target_card {
-                        // Cast Aura: only the chosen target is a valid attach
-                        // target at resolution time. Skip the full enumeration
-                        // and offer just that card.
-                        if crate::parsing::enchant_type_matches_card(
-                            &enchant_type,
-                            game.card(target_card),
-                            Some(game.card(card_id)),
-                        ) && !crate::staticability::static_ability_cant_attach::cant_attach(
-                            &game.cards,
-                            game.card(card_id),
-                            game.card(target_card),
-                            false,
-                        ) {
-                            candidates.push(crate::agent::types::GameEntity::Card(target_card));
-                        }
-                    } else if let Some(target_player) =
-                        entry.spell_ability.target_chosen.target_player
-                    {
-                        if Self::is_player_target_valid(target_player, game) {
-                            candidates.push(crate::agent::types::GameEntity::Player(target_player));
-                        }
-                    } else if can_target_player {
-                        for i in 0..game.players.len() {
-                            let p = crate::ids::PlayerId(i as u32);
-                            if Self::is_player_target_valid(p, game) {
-                                candidates.push(crate::agent::types::GameEntity::Player(p));
-                            }
-                        }
-                    } else {
-                        let battlefield: Vec<CardId> =
-                            game.cards_in_all_zones(ZoneType::Battlefield).collect();
-                        for cid in battlefield {
-                            if !crate::parsing::enchant_type_matches_card(
-                                &enchant_type,
-                                game.card(cid),
-                                Some(game.card(card_id)),
-                            ) {
-                                continue;
-                            }
-                            if crate::staticability::static_ability_cant_attach::cant_attach(
-                                &game.cards,
-                                game.card(card_id),
-                                game.card(cid),
-                                false,
-                            ) {
-                                continue;
-                            }
-                            candidates.push(crate::agent::types::GameEntity::Card(cid));
-                        }
-                    }
-
-                    if !candidates.is_empty() {
-                        let chooser = entry.spell_ability.activating_player;
-                        let chosen = agents[chooser.index()].choose_single_entity_for_effect(
-                            chooser,
-                            &candidates,
-                            false,
-                        );
-                        let attached = matches!(
-                            chosen,
-                            Some(crate::agent::types::GameEntity::Card(_))
-                                | Some(crate::agent::types::GameEntity::Player(_))
-                        );
-                        match chosen {
-                            Some(crate::agent::types::GameEntity::Card(c)) => {
-                                game.attach_to(card_id, c);
-                            }
-                            Some(crate::agent::types::GameEntity::Player(p)) => {
-                                game.attach_to_player(card_id, p);
-                            }
-                            None => {}
-                        }
-                        // Refresh continuous effects so any abilities the Aura
-                        // grants its newly enchanted host (e.g. Leyline
-                        // Immersion's `AddAbility$ AddMana` granting `{T}: Add
-                        // five mana of any combination of colors`) become
-                        // visible immediately. Without this, downstream
-                        // playability checks in the same priority loop see
-                        // the host without the granted ability and may filter
-                        // out spells the player should be able to cast.
-                        if attached {
-                            crate::staticability::layer::apply_continuous_effects(game);
-                        }
-                    }
-                }
+                Self::attach_aura_on_resolution(game, agents, &entry, card_id);
 
                 // Evoke: register a one-shot ETB trigger that sacrifices this creature.
                 // This mirrors Forge Java semantics where Evoke uses a ChangesZone trigger
@@ -1004,6 +905,117 @@ impl GameLoop {
     /// Walks the SpellAbility chain. If every targeting node has only invalid
     /// targets, the whole spell/ability is countered by game rules.
     /// Returns `false` if no node uses targeting at all.
+    fn attach_aura_on_resolution(
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        entry: &StackEntry,
+        card_id: CardId,
+    ) {
+        if game.card(card_id).type_line.has_subtype("Aura")
+            && game.card(card_id).attached_to.is_none()
+            && game.card(card_id).attached_to_player.is_none()
+        {
+            let enchant_type = game
+                .card(card_id)
+                .keywords
+                .iter_strings()
+                .find_map(|kw| crate::keyword::extract_keyword_cost_str(kw, "Enchant"))
+                .unwrap_or_default()
+                .to_string();
+            let normalized = enchant_type
+                .split_once(':')
+                .map(|(k, _)| k)
+                .unwrap_or(&enchant_type);
+            let can_target_player =
+                normalized.starts_with("Player") || normalized.starts_with("Opponent");
+
+            let mut candidates: Vec<crate::agent::types::GameEntity> = Vec::new();
+            if let Some(target_card) = entry.spell_ability.target_chosen.target_card {
+                // Cast Aura: only the chosen target is a valid attach
+                // target at resolution time. Skip the full enumeration
+                // and offer just that card.
+                if crate::parsing::enchant_type_matches_card(
+                    &enchant_type,
+                    game.card(target_card),
+                    Some(game.card(card_id)),
+                ) && !crate::staticability::static_ability_cant_attach::cant_attach(
+                    &game.cards,
+                    game.card(card_id),
+                    game.card(target_card),
+                    false,
+                ) {
+                    candidates.push(crate::agent::types::GameEntity::Card(target_card));
+                }
+            } else if let Some(target_player) = entry.spell_ability.target_chosen.target_player {
+                if Self::is_player_target_valid(target_player, game) {
+                    candidates.push(crate::agent::types::GameEntity::Player(target_player));
+                }
+            } else if can_target_player {
+                for i in 0..game.players.len() {
+                    let p = crate::ids::PlayerId(i as u32);
+                    if Self::is_player_target_valid(p, game) {
+                        candidates.push(crate::agent::types::GameEntity::Player(p));
+                    }
+                }
+            } else {
+                let battlefield: Vec<CardId> =
+                    game.cards_in_all_zones(ZoneType::Battlefield).collect();
+                for cid in battlefield {
+                    if !crate::parsing::enchant_type_matches_card(
+                        &enchant_type,
+                        game.card(cid),
+                        Some(game.card(card_id)),
+                    ) {
+                        continue;
+                    }
+                    if crate::staticability::static_ability_cant_attach::cant_attach(
+                        &game.cards,
+                        game.card(card_id),
+                        game.card(cid),
+                        false,
+                    ) {
+                        continue;
+                    }
+                    candidates.push(crate::agent::types::GameEntity::Card(cid));
+                }
+            }
+
+            if !candidates.is_empty() {
+                let chooser = entry.spell_ability.activating_player;
+                let chosen = agents[chooser.index()].choose_single_entity_for_effect(
+                    chooser,
+                    &candidates,
+                    false,
+                );
+                let attached = matches!(
+                    chosen,
+                    Some(crate::agent::types::GameEntity::Card(_))
+                        | Some(crate::agent::types::GameEntity::Player(_))
+                );
+                match chosen {
+                    Some(crate::agent::types::GameEntity::Card(c)) => {
+                        game.attach_to(card_id, c);
+                    }
+                    Some(crate::agent::types::GameEntity::Player(p)) => {
+                        game.attach_to_player(card_id, p);
+                    }
+                    None => {}
+                }
+                // Refresh continuous effects so any abilities the Aura
+                // grants its newly enchanted host (e.g. Leyline
+                // Immersion's `AddAbility$ AddMana` granting `{T}: Add
+                // five mana of any combination of colors`) become
+                // visible immediately. Without this, downstream
+                // playability checks in the same priority loop see
+                // the host without the granted ability and may filter
+                // out spells the player should be able to cast.
+                if attached {
+                    crate::staticability::layer::apply_continuous_effects(game);
+                }
+            }
+        }
+    }
+
     fn has_fizzled(sa: &mut SpellAbility, game: &GameState) -> bool {
         let result = Self::has_fizzled_inner(sa, game, None);
         // Java: `return fizzle != null && fizzle;`
