@@ -3470,6 +3470,7 @@ impl Card {
                 self.activated_abilities.push(parsed);
             }
         }
+        self.generate_keyword_activated_abilities();
     }
 
     pub fn refresh_action_specs(&mut self) {
