@@ -551,6 +551,9 @@ impl TriggerHandler {
                 (is_static, idx)
             });
 
+            if crate::game_loop::GameLoop::card_trace_enabled() {
+                trace_inactive_triggers(game, event.mode, &trigger_refs);
+            }
             let event_entries_start = entries.len();
 
             // Check each active trigger plus any Java-style LTB look-back triggers.
@@ -1490,11 +1493,45 @@ impl TriggerHandler {
         mode: &TriggerType,
         params: &RunParams,
     ) -> bool {
+        let result = self.trigger_run_check(
+            game,
+            host_card,
+            trigger_index,
+            host_controller,
+            mode,
+            params,
+        );
+        if result != Err("mode")
+            && crate::game_loop::GameLoop::card_trace_matches(&game.card(host_card).card_name)
+        {
+            eprintln!(
+                "[trigger-trace] T{} {:?} {}#{} trigger {} on {:?}: {}",
+                game.turn.turn_number,
+                game.turn.phase,
+                game.card(host_card).card_name,
+                host_card.0,
+                trigger_index,
+                mode,
+                result.err().unwrap_or("runs")
+            );
+        }
+        result.is_ok()
+    }
+
+    fn trigger_run_check(
+        &self,
+        game: &GameState,
+        host_card: CardId,
+        trigger_index: usize,
+        host_controller: PlayerId,
+        mode: &TriggerType,
+        params: &RunParams,
+    ) -> Result<(), &'static str> {
         let _perf_scope =
             crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::Trigger);
         let card = game.card(host_card);
         if trigger_index >= card.triggers.len() {
-            return false;
+            return Err("no such trigger");
         }
         let trigger = &card.triggers[trigger_index];
 
@@ -1525,26 +1562,26 @@ impl TriggerHandler {
         };
         let mode_matches = normalize(trigger_type) == normalize(*mode);
         if !mode_matches {
-            return false;
+            return Err("mode");
         }
 
         // Check suppression
         if self.is_trigger_suppressed(*mode) {
-            return false;
+            return Err("mode suppressed");
         }
         if *mode == TriggerType::Always && game.stack.has_state_trigger_id(host_card, trigger.id) {
-            return false;
+            return Err("state trigger already on the stack");
         }
 
         // Common trigger phase/requirement/limit checks (Java Trigger base behavior).
         if !trigger.phases_check(game, host_card, params.phase) {
-            return false;
+            return Err("phases");
         }
         if !trigger.requirements_check(game, host_card) {
-            return false;
+            return Err("requirements");
         }
         if !trigger.check_activation_limit(game, host_card) {
-            return false;
+            return Err("activation limit");
         }
 
         // DisableTriggers static ability check (e.g. Hushbringer).
@@ -1554,7 +1591,7 @@ impl TriggerHandler {
             TriggerType::ChangesZone | TriggerType::ChangesZoneAll
         ) && Self::is_trigger_disabled_by_static(game, host_card, trigger_index, params)
         {
-            return false;
+            return Err("disabled by a static");
         }
 
         // Check active zones.
@@ -1629,21 +1666,21 @@ impl TriggerHandler {
             card.zone
         };
         if !trigger.get_active_zone().contains(&zone_for_active_check) {
-            return false;
+            return Err("zone");
         }
 
         // Phased-out hosts do not see events (CR 702.26.5). Mirrors Java
         // `TriggerReplacementBase.zonesCheck` which gates on `!isPhasedOut()`.
         if card.phased_out {
-            return false;
+            return Err("phased out");
         }
 
         // performTest
         if !trigger.mode.perform_test(trigger, params, game) {
-            return false;
+            return Err("perform_test");
         }
         if !trigger.meets_requirements_on_triggered_objects(game, params, host_card) {
-            return false;
+            return Err("triggered objects");
         }
 
         // ── ActivatorThisTurnCast$ condition ──────────────────────────
@@ -1654,11 +1691,11 @@ impl TriggerHandler {
             let caster = params.spell_controller.unwrap_or(host_controller);
             let count = game.player(caster).spells_cast_this_turn;
             if !compare_expr(count, cond.trim()) {
-                return false;
+                return Err("ActivatorThisTurnCast");
             }
         }
 
-        true
+        Ok(())
     }
 
     pub fn suppress_mode(&mut self, mode: TriggerType) {
@@ -1775,5 +1812,31 @@ mod tests {
                 .get_triggering_player(crate::ability::AbilityKey::TriggeredPlayer),
             Some(PlayerId(0))
         );
+    }
+}
+
+fn trace_inactive_triggers(game: &GameState, mode: TriggerType, refs: &[(CardId, usize, usize)]) {
+    for card in &game.cards {
+        if !crate::game_loop::GameLoop::card_trace_matches(&card.card_name) {
+            continue;
+        }
+        for (index, trigger) in card.triggers.iter().enumerate() {
+            if trigger.mode.trigger_type() == mode
+                && !refs
+                    .iter()
+                    .any(|&(id, trigger_index, _)| id == card.id && trigger_index == index)
+            {
+                eprintln!(
+                    "[trigger-trace] T{} {:?} {}#{} trigger {} on {:?}: not active (in {:?})",
+                    game.turn.turn_number,
+                    game.turn.phase,
+                    card.card_name,
+                    card.id.0,
+                    index,
+                    mode,
+                    card.zone
+                );
+            }
+        }
     }
 }

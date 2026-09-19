@@ -33,7 +33,11 @@ impl GameLoop {
         has_all_color_source || crate::mana::has_replacement_adjusted_available_mana(game, player)
     }
 
-    pub(crate) fn card_trace_matches(name: &str) -> bool {
+    pub(crate) fn card_trace_enabled() -> bool {
+        Self::card_trace_filter().is_some()
+    }
+
+    fn card_trace_filter() -> Option<&'static str> {
         static FILTER: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
         FILTER
             .get_or_init(|| {
@@ -42,7 +46,10 @@ impl GameLoop {
                     .filter(|f| !f.is_empty())
             })
             .as_deref()
-            .is_some_and(|filter| name.eq_ignore_ascii_case(filter))
+    }
+
+    pub(crate) fn card_trace_matches(name: &str) -> bool {
+        Self::card_trace_filter().is_some_and(|filter| name.eq_ignore_ascii_case(filter))
     }
 
     /// Mana a spell cast of this card could draw on: `RestrictValid$` sources that the

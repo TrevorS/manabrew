@@ -294,6 +294,11 @@ struct Cli {
     #[arg(long)]
     probe_out: Option<PathBuf>,
 
+    /// Write a JSON report (as `--format json -o` does) for every probe seed that does not pass
+    /// into this folder, named `<card>-<seed>.json`, ready for `explain` and `why`
+    #[arg(long)]
+    probe_reports: Option<PathBuf>,
+
     /// Copies of the probed card in its deck
     #[arg(long, default_value_t = 12)]
     probe_copies: usize,
@@ -1092,6 +1097,46 @@ fn java_runtime_or_exit(cli: &Cli) -> JavaRuntime {
     JavaRuntime { pool, cache }
 }
 
+fn write_probe_report(
+    cli: &Cli,
+    dir: &std::path::Path,
+    deck1: &str,
+    deck2: &str,
+    seed: u64,
+    result: &MatchupResult,
+) {
+    let card = deck1
+        .trim_start_matches("inline:")
+        .split('*')
+        .next()
+        .unwrap_or("card");
+    let slug: String = card
+        .chars()
+        .flat_map(|c| {
+            if c.is_alphanumeric() {
+                c.to_lowercase().collect::<Vec<_>>()
+            } else {
+                vec!['-']
+            }
+        })
+        .collect();
+    let report = MatrixReport {
+        total_matchups: 1,
+        passed: 0,
+        skipped: 0,
+        failed: usize::from(result.status == MatchupStatus::Fail),
+        errors: usize::from(result.status == MatchupStatus::Error),
+        seeds: vec![seed],
+        decks: vec![deck1.to_string(), deck2.to_string()],
+        max_turns: cli.max_turns,
+        results: vec![result.clone()],
+    };
+    let path = dir.join(format!("{slug}-{seed}.json"));
+    if let Err(e) = std::fs::write(&path, report::format_matrix_json(&report)) {
+        eprintln!("[parity] {}: {e}", path.display());
+    }
+}
+
 fn run_probe_mode(cli: &Cli) {
     let mut cards = cli.probe.clone();
     if let Some(path) = &cli.probe_file {
@@ -1122,11 +1167,23 @@ fn run_probe_mode(cli: &Cli) {
 
     let data = load_data_or_exit(cli);
     let java = java_runtime_or_exit(cli);
+    if let Some(dir) = &cli.probe_reports {
+        if let Err(e) = std::fs::create_dir_all(dir) {
+            eprintln!("[parity] {}: {e}", dir.display());
+            std::process::exit(2);
+        }
+    }
     let rows = parity::probe::probe_cards(&data.db, &cards, &options, |deck1, deck2, seed| {
         let config = build_config(cli, deck1, deck2, seed);
-        ParityRuntime::new(&data)
+        let result = ParityRuntime::new(&data)
             .run_cached(&config, &java.pool, java.cache.as_ref())
-            .result
+            .result;
+        if let Some(dir) = &cli.probe_reports {
+            if result.status != MatchupStatus::Pass {
+                write_probe_report(cli, dir, deck1, deck2, seed, &result);
+            }
+        }
+        result
     });
     java.pool.shutdown();
     write_census_or_exit(cli);
