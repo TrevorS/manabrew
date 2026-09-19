@@ -758,6 +758,47 @@ impl GameLoop {
         true
     }
 
+    /// Keep in sync with `DeterministicController.playChosenSpellAbility`: the harness sets X to
+    /// the most it can pay (`ComputerUtilCost.setMaxXValue`) before playing a chosen action.
+    fn preset_max_x_for_activation(
+        &self,
+        game: &mut GameState,
+        player: PlayerId,
+        card_id: CardId,
+        ab: &crate::ability::activated::ActivatedAbility,
+        sa: &mut crate::spellability::SpellAbility,
+        cost: &crate::cost::Cost,
+    ) -> bool {
+        let Some(mana_cost) = cost.parts.iter().find_map(|part| match part {
+            crate::cost::CostPart::Mana { cost, .. } => Some(cost.clone()),
+            _ => None,
+        }) else {
+            return false;
+        };
+        let x_count = mana_cost.count_x() as u32;
+        if x_count == 0 {
+            return false;
+        }
+        let mut non_x_cost = mana_cost.without_x();
+        if ab.power_up && game.card(card_id).entered_battlefield_this_turn {
+            non_x_cost = non_x_cost.reduce_generic(game.card(card_id).mana_cost.cmc());
+        }
+        let available_mana = mana::calculate_available_mana(self.pool(player), game, player);
+        let mut x: u32 = 0;
+        while x < 99
+            && available_mana.can_pay(&non_x_cost.add(&forge_foundation::ManaCost::generic(
+                ((x + 1) * x_count) as i32,
+            )))
+        {
+            x += 1;
+        }
+        sa.x_mana_cost_paid = x;
+        game.card_mut(card_id)
+            .svars
+            .insert("XPaid".to_string(), x.to_string());
+        true
+    }
+
     /// Activate a non-mana ability: choose targets, pay costs, put on stack.
     pub(crate) fn play_activated_ability_on_stack(
         &mut self,
@@ -814,7 +855,8 @@ impl GameLoop {
         {
             return false;
         }
-        let mut need_x = true;
+        let mut need_x =
+            !self.preset_max_x_for_activation(game, player, card_id, ab, &mut sa, &activation_cost);
         if !self.announce_values_like_x(
             game,
             agents,
@@ -868,7 +910,8 @@ impl GameLoop {
             return false;
         }
         let announce_cost = sa.pay_costs.clone().unwrap_or_else(|| ab.cost.clone());
-        let mut need_x = true;
+        let mut need_x =
+            !self.preset_max_x_for_activation(game, player, card_id, ab, &mut sa, &announce_cost);
         if !self.announce_values_like_x(
             game,
             agents,
