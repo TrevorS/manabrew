@@ -501,6 +501,9 @@ impl GameState {
         if leaves_as_new_object && self.cards[card_id.index()].is_transformed {
             self.cards[card_id.index()].transform();
         }
+        if leaves_as_new_object {
+            self.cards[card_id.index()].cast_from = None;
+        }
         if src_zone == ZoneType::Exile && dest_zone != ZoneType::Exile {
             self.cards[card_id.index()]
                 .keywords
