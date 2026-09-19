@@ -81,18 +81,11 @@ pub(super) fn resolve_known_origin(
                 })
                 .collect()
         } else {
-            let targeted_cards: Vec<CardId> = sa
-                .target_chosen
+            sa.target_chosen
                 .all_target_cards()
                 .into_iter()
                 .filter(|&cid| ctx.game.card(cid).zone == origin_zone)
-                .collect();
-
-            if !targeted_cards.is_empty() || sa.defined_player().is_none() {
-                targeted_cards
-            } else {
-                resolve_defined_player_choice(ctx, sa, origin_zone)
-            }
+                .collect()
         }
     } else if matches!(
         defined_ref,
