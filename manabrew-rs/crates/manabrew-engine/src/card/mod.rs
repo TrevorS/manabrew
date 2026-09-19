@@ -561,6 +561,8 @@ pub struct Card {
     pub temp_effect_host: Option<CardId>,
     /// Forget remembered cards when they move from this origin zone.
     pub forget_on_moved_origin: Option<ZoneType>,
+    #[serde(default)]
+    pub exile_on_moved_origins: Vec<ZoneType>,
     /// Exile this effect when remembered cards become empty after forget logic.
     pub exile_when_no_remembered: bool,
     /// When this card is in exile, the card that caused it to be exiled here.
@@ -936,6 +938,7 @@ impl Card {
             temp_effect_until_eot: false,
             temp_effect_host: None,
             forget_on_moved_origin: None,
+            exile_on_moved_origins: Vec::new(),
             exile_when_no_remembered: false,
             exiled_by: None,
             original_controller_eot: None,
@@ -1166,6 +1169,7 @@ impl Card {
             temp_effect_until_eot: self.temp_effect_until_eot,
             temp_effect_host: self.temp_effect_host,
             forget_on_moved_origin: self.forget_on_moved_origin,
+            exile_on_moved_origins: self.exile_on_moved_origins.clone(),
             exile_when_no_remembered: self.exile_when_no_remembered,
             exiled_by: self.exiled_by,
             original_controller_eot: self.original_controller_eot,
@@ -1414,6 +1418,8 @@ impl Card {
         out.temp_effect_host.clone_from(&self.temp_effect_host);
         out.forget_on_moved_origin
             .clone_from(&self.forget_on_moved_origin);
+        out.exile_on_moved_origins
+            .clone_from(&self.exile_on_moved_origins);
         out.exile_when_no_remembered
             .clone_from(&self.exile_when_no_remembered);
         out.exiled_by.clone_from(&self.exiled_by);

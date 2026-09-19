@@ -168,6 +168,7 @@ pub struct SpellAbilityIr {
     pub boon: bool,
     pub unique: bool,
     pub exile_on_moved: bool,
+    pub exile_on_moved_zones: Vec<ZoneType>,
     pub forget_on_phased_in: bool,
     pub forget_counter: bool,
     pub radiance: bool,
@@ -685,6 +686,15 @@ impl SpellAbilityIr {
             boon: params.has("Boon"),
             unique: params.has("Unique"),
             exile_on_moved: params.has("ExileOnMoved"),
+            exile_on_moved_zones: params
+                .get("ExileOnMoved")
+                .map(|zones| {
+                    zones
+                        .split(',')
+                        .filter_map(|zone| parsed_zone_type(Some(zone.trim())))
+                        .collect()
+                })
+                .unwrap_or_default(),
             forget_on_phased_in: params.has("ForgetOnPhasedIn"),
             forget_counter: params.has("ForgetCounter"),
             radiance: params.has("Radiance"),

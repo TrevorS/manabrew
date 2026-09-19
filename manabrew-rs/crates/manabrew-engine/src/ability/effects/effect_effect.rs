@@ -481,6 +481,8 @@ fn apply_forget_on_moved_flags(effect: &mut Card, sa: &SpellAbility) {
         effect.set_forget_on_moved_origin(Some(zone));
         // Java forget flow exiles effect when no remembered objects remain.
         effect.set_exile_when_no_remembered(true);
+    } else if sa.ir.exile_on_moved {
+        effect.exile_on_moved_origins = sa.ir.exile_on_moved_zones.clone();
     }
 }
 

@@ -431,6 +431,21 @@ impl GameState {
             })
             .map(|c| c.id)
             .collect();
+        let exile_on_moved_effects: Vec<CardId> = self
+            .cards
+            .iter()
+            .filter(|c| {
+                c.zone == ZoneType::Command
+                    && c.exile_on_moved_origins.contains(&src_zone)
+                    && c.remembered_cards.contains(&card_id)
+            })
+            .map(|c| c.id)
+            .collect();
+        for eff_id in exile_on_moved_effects {
+            let controller = self.card(eff_id).controller;
+            self.remove_card_from_zone(ZoneType::Command, controller, eff_id);
+            self.cards[eff_id.index()].zone = ZoneType::None;
+        }
 
         if src_zone == ZoneType::Battlefield && dest_zone != ZoneType::Battlefield {
             self.add_left_battlefield_this_turn(card_id);
