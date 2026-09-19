@@ -559,6 +559,21 @@ impl Card {
             }
         }
 
+        if let Some(n_str) = crate::keyword::extract_keyword_cost_str(kw, "Mobilize") {
+            let raw = format!(
+                "Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigMobilize | TriggerDescription$ Mobilize {n_str}"
+            );
+            if let Some(mut trig) = parse_trigger(&raw, next_id) {
+                trig.execute = "TrigMobilize".to_string();
+                self.add_trigger(trig);
+            }
+            self.svars
+                .entry("TrigMobilize".to_string())
+                .or_insert_with(|| {
+                    format!("DB$ Token | TokenAmount$ {n_str} | TokenScript$ r_1_1_warrior | TokenTapped$ True | TokenAttacking$ True | AtEOT$ Sacrifice")
+                });
+        }
+
         if let Some(n_str) = crate::keyword::extract_keyword_cost_str(kw, "Afflict") {
             if n_str.parse::<i32>().is_ok() {
                 let raw = format!(
