@@ -1724,21 +1724,7 @@ impl GameState {
                     if cid == keep {
                         continue;
                     }
-                    let owner = self.card(cid).owner;
-                    let old_zone = self.card(cid).zone;
-                    if let Some(agents) = agents.as_deref_mut() {
-                        self.move_card_with_agents(cid, ZoneType::Graveyard, owner, agents);
-                    } else {
-                        self.move_card(cid, ZoneType::Graveyard, owner);
-                    }
-                    if let Some(handler) = trigger_handler.as_deref_mut() {
-                        crate::ability::effects::emit_zone_trigger(
-                            handler,
-                            cid,
-                            old_zone,
-                            ZoneType::Graveyard,
-                        );
-                    }
+                    self.move_battlefield_card_to_graveyard_for_sba(cid, trigger_handler, agents);
                     any_changes = true;
                 }
             }
