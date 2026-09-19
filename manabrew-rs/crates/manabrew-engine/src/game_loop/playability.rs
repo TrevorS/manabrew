@@ -351,12 +351,31 @@ impl GameLoop {
                     continue;
                 }
 
-                if must_be_instant && !has_flash_permission(card_id) {
+                let sneak_window = game.turn.phase
+                    == forge_foundation::PhaseType::CombatDeclareBlockers
+                    && card.get_sneak_cost().is_some()
+                    && self
+                        .combat
+                        .get_unblocked_attackers()
+                        .iter()
+                        .any(|&attacker| {
+                            let attacker = game.card(attacker);
+                            attacker.zone == ZoneType::Battlefield && attacker.controller == player
+                        });
+                let normal_timing = !must_be_instant || has_flash_permission(card_id);
+                if !normal_timing && !sneak_window {
                     continue;
                 }
 
                 // Spell-level checks: not on battlefield, no split second
-                if !crate::spellability::spell::can_play(&cast_sa, game) {
+                let timing_sa = if normal_timing {
+                    cast_sa.clone()
+                } else {
+                    let mut sneak_sa = cast_sa.clone();
+                    sneak_sa.restriction.variables.set_instant_speed(true);
+                    sneak_sa
+                };
+                if !crate::spellability::spell::can_play(&timing_sa, game) {
                     continue;
                 }
 
@@ -566,6 +585,26 @@ impl GameLoop {
                     false
                 };
 
+                let sneak_ok = sneak_window
+                    && card.get_sneak_cost().is_some_and(|sneak_cost_str| {
+                        let adjusted = cost_adj
+                            .apply(&forge_foundation::ManaCost::parse(&sneak_cost_str))
+                            .add(&raise_mana);
+                        available_mana.can_pay(&adjusted)
+                    });
+                if !normal_timing {
+                    if sneak_ok {
+                        playable.push(crate::agent::PlayOption {
+                            card_id,
+                            mode: crate::agent::PlayCardMode::Alternative(
+                                crate::spellability::AlternativeCost::Sneak,
+                            ),
+                            alt_cost_index: 0,
+                        });
+                    }
+                    continue;
+                }
+
                 // Overload: alt cost
                 let overload_ok = if let Some(ovl_cost_str) = card.get_overload_cost() {
                     let adjusted = cost_adj
@@ -741,6 +780,7 @@ impl GameLoop {
                     && !evoke_ok
                     && !dash_ok
                     && !blitz_ok
+                    && !sneak_ok
                     && !overload_ok
                     && !static_alt_ok
                     && !suspend_ok
@@ -875,6 +915,15 @@ impl GameLoop {
                                 card_id,
                                 mode: crate::agent::PlayCardMode::Alternative(
                                     crate::spellability::AlternativeCost::Blitz,
+                                ),
+                                alt_cost_index: 0,
+                            });
+                        }
+                        if sneak_ok {
+                            playable.push(crate::agent::PlayOption {
+                                card_id,
+                                mode: crate::agent::PlayCardMode::Alternative(
+                                    crate::spellability::AlternativeCost::Sneak,
                                 ),
                                 alt_cost_index: 0,
                             });

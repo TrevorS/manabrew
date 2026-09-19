@@ -1325,6 +1325,13 @@ pub fn matches_change_type(
                     return false;
                 }
             }
+            "unblocked" => {
+                if card.attacking_player.is_none()
+                    || card.damage_history.creature_got_blocked_this_combat
+                {
+                    return false;
+                }
+            }
             "Red" => {
                 if !card.color.has_red() {
                     return false;

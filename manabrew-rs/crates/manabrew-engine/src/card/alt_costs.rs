@@ -63,6 +63,11 @@ impl Card {
         self.get_keyword_cost("Warp")
     }
 
+    pub fn get_sneak_cost(&self) -> Option<String> {
+        self.get_keyword_cost("Sneak")
+            .map(|cost| cost.split(':').next().unwrap_or("").trim().to_string())
+    }
+
     /// Get multikicker cost (e.g. "Multikicker:1 G" → Some("1 G")).
     pub fn get_multikicker_cost(&self) -> Option<String> {
         self.get_keyword_cost("Multikicker")

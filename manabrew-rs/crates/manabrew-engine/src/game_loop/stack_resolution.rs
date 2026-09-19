@@ -606,6 +606,35 @@ impl GameLoop {
 
                 // -- Post-ETB effects for alternative costs --
 
+                if alt_cost == Some(crate::spellability::AlternativeCost::Sneak) {
+                    game.card_mut(card_id).set_tapped(true);
+                }
+                if alt_cost == Some(crate::spellability::AlternativeCost::Sneak)
+                    && game.card(card_id).is_creature()
+                {
+                    let returned = entry
+                        .spell_ability
+                        .paid_hash
+                        .get(crate::cost::cost_return::HASH_LKI)
+                        .and_then(|ids| ids.first())
+                        .and_then(|id| id.parse::<u32>().ok())
+                        .map(CardId);
+                    let defender = returned.and_then(|returned| {
+                        self.combat.get_defender_by_attacker(returned).or_else(|| {
+                            self.combat
+                                .get_combat_lki(returned)
+                                .and_then(|lki| lki.defender)
+                        })
+                    });
+                    if let Some(defender) = defender {
+                        self.combat.add_attacker(card_id, defender);
+                        let defending_player = defender.controlling_player(game);
+                        let card = game.card_mut(card_id);
+                        card.set_attacking_player(defending_player);
+                        card.mark_attacked_this_turn();
+                    }
+                }
+
                 // Dash: grant haste, register delayed trigger to return to hand at EOT
                 if alt_cost == Some(crate::spellability::AlternativeCost::Dash) {
                     game.card_mut(card_id).pump_keywords.add("Haste");

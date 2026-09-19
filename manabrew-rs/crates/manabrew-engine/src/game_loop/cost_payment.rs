@@ -1593,6 +1593,7 @@ impl GameLoop {
                     amount,
                     type_filter,
                 } => {
+                    let mut returned = Vec::new();
                     if type_filter != "CARDNAME"
                         && !self.pay_return_cost_internal(
                             game,
@@ -1604,10 +1605,18 @@ impl GameLoop {
                             sa.as_deref(),
                             prechosen_sacrifices,
                             &mut pre_sac_idx,
+                            &mut returned,
                         )
                     {
                         payment_ok = false;
                         break;
+                    }
+                    if let Some(sa) = sa.as_deref_mut() {
+                        for card in &returned {
+                            let id = card.0.to_string();
+                            sa.add_cost_to_hash_list(crate::cost::cost_return::HASH_CARDS, &id);
+                            sa.add_cost_to_hash_list(crate::cost::cost_return::HASH_LKI, &id);
+                        }
                     }
                 }
                 CostPart::TapType {
@@ -3322,6 +3331,7 @@ impl GameLoop {
         sa: Option<&SpellAbility>,
         prechosen_returns: Option<&[CardId]>,
         pre_return_idx: &mut usize,
+        returned: &mut Vec<CardId>,
     ) -> bool {
         for _ in 0..amount {
             let valid = cost::get_sacrifice_targets_for_cost(game, player, type_filter, sa);
@@ -3357,6 +3367,7 @@ impl GameLoop {
                 from_zone,
                 ZoneType::Hand,
             );
+            returned.push(chosen);
         }
         true
     }

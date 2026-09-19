@@ -629,6 +629,9 @@ impl GameLoop {
                     return None;
                 }
                 sa.alt_cost = Some(alt_cost);
+                if alt_cost == crate::spellability::AlternativeCost::Sneak {
+                    sa.restriction.variables.set_instant_speed(true);
+                }
                 // Capture Evoke keyword count from the card WHILE STILL IN ITS
                 // ORIGINAL ZONE (usually hand). Zone-gated statics like Ashling,
                 // the Limitless's `AddKeyword$ Evoke:4 | AffectedZone$ Hand` grant
@@ -782,6 +785,7 @@ impl GameLoop {
         let is_plot_cast = sa.alt_cost == Some(crate::spellability::AlternativeCost::Plot);
         let is_bestow = sa.alt_cost == Some(crate::spellability::AlternativeCost::Bestow);
         let is_warp = sa.alt_cost == Some(crate::spellability::AlternativeCost::Warp);
+        let is_sneak = sa.alt_cost == Some(crate::spellability::AlternativeCost::Sneak);
         let is_morph_facedown = sa.alt_cost.map(|alt| alt.is_morph()).unwrap_or(false);
         let is_static_alternative = static_alternative_cost_prepared;
 
@@ -853,6 +857,10 @@ impl GameLoop {
                 card.get_bestow_cost()
             } else if is_warp {
                 card.get_warp_cost()
+            } else if is_sneak {
+                card.get_sneak_cost().map(|cost| {
+                    format!("{cost} Return<1/Creature.attacking+unblocked/unblocked attacker>")
+                })
             } else {
                 None
             };
@@ -1675,6 +1683,14 @@ impl GameLoop {
         } else {
             None
         };
+        let prechosen_keyword_alt_sacrifices = if let Some(ref cost) = keyword_alt_total_cost {
+            match self.prechoose_additional_cost_sacrifices(game, agents, player, cost, Some(&sa)) {
+                Some(picks) => Some(picks),
+                None => rollback_failed_payment!(),
+            }
+        } else {
+            None
+        };
         let prechosen_harmonize_taps = if let Some(ref cost) = harmonize_tap_cost {
             let mut picks = Vec::new();
             for part in &cost.parts {
@@ -2448,7 +2464,7 @@ impl GameLoop {
                 None,
                 kw_cost.mandatory,
                 Some(&mut sa),
-                None,
+                prechosen_keyword_alt_sacrifices.as_deref(),
                 None,
                 None,
             ) {
