@@ -102,6 +102,38 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
+    for defined in sa
+        .ir
+        .remember_objects
+        .as_deref()
+        .unwrap_or("")
+        .split(" & ")
+        .map(str::trim)
+        .filter(|defined| {
+            !defined.is_empty()
+                && !matches!(
+                    *defined,
+                    "Remembered"
+                        | "RememberedLKI"
+                        | "RememberedController"
+                        | "TriggeredAttackerLKICopy"
+                )
+        })
+    {
+        let (players, cards) =
+            crate::ability::ability_utils::get_defined_entities(defined, sa, ctx.game);
+        for player in players {
+            if !remembered_players.contains(&player) {
+                remembered_players.push(player);
+            }
+        }
+        for card in cards {
+            if !remembered_cards.contains(&card) {
+                remembered_cards.push(card);
+            }
+        }
+    }
+
     let delayed = crate::trigger::handler::DelayedTrigger {
         mode,
         trigger_mode: parsed.mode,
