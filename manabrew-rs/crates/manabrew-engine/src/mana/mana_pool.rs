@@ -347,7 +347,7 @@ impl ManaPool {
     }
 
     /// Create a clone with restricted mana filtered out based on context.
-    fn filtered_for_context(&self, ctx: &ManaPaymentContext) -> ManaPool {
+    pub(crate) fn filtered_for_context(&self, ctx: &ManaPaymentContext) -> ManaPool {
         let mut pool = self.clone();
         pool.mana.retain(|m| mana_matches_context(m, ctx));
         pool

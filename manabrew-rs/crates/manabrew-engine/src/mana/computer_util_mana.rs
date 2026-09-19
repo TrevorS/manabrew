@@ -530,6 +530,33 @@ pub fn auto_tap_lands_allow_reserved_source_reuse_trace_with_callbacks_and_reser
     )
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn auto_tap_lands_allow_reserved_source_reuse_trace_with_callbacks_reserved_and_ctx(
+    game: &mut GameState,
+    pool: &mut ManaPool,
+    player: PlayerId,
+    cost: &ManaCost,
+    current_spell: Option<CardId>,
+    reserved_sacrifices: &[CardId],
+    callback: ManaPayCallbackFn<'_>,
+    payment_ctx: &crate::mana::ManaPaymentContext,
+) -> Vec<AutoTapChoice> {
+    auto_tap_lands_internal_with_ctx(
+        game,
+        pool,
+        player,
+        cost,
+        current_spell,
+        true,
+        reserved_sacrifices,
+        &mut Some(callback),
+        Some(payment_ctx),
+        false,
+        false,
+    )
+    .choices
+}
+
 pub fn auto_tap_lands_allow_reserved_source_reuse_with_callbacks_and_reserved_sacrifices(
     game: &mut GameState,
     pool: &mut ManaPool,
@@ -630,6 +657,8 @@ fn auto_tap_lands_internal_with_ctx(
         );
         payment.colors_spent |= spent.colors_spent;
         payment.paying_mana.extend(spent.paying_mana);
+    } else if let Some(ctx) = payment_ctx {
+        pay_cost_from_pool(&mut unpaid, &pool.filtered_for_context(ctx));
     } else {
         pay_cost_from_pool(&mut unpaid, pool);
     }

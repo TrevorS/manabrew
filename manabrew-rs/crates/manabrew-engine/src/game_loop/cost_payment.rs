@@ -558,6 +558,19 @@ impl GameLoop {
                         ),
                         reserved_sacrifices: &reserved_sacrifices,
                     };
+                    let payment_ctx = sa
+                        .as_deref()
+                        .map(|sa| crate::mana::payment_context_for_sa(game, sa));
+                    let pay_from_pool = |pool: &mut crate::mana::ManaPool,
+                                         cost: &forge_foundation::ManaCost,
+                                         life| {
+                        match payment_ctx.as_ref() {
+                            Some(ctx) => pool.try_pay_for_spell_converted_with_phyrexian_life(
+                                cost, ctx, false, life,
+                            ),
+                            None => pool.try_pay_with_phyrexian_life_unrestricted(cost, life),
+                        }
+                    };
                     let mana_payment = self.pay_mana_cost_session(
                         game,
                         agents,
@@ -592,15 +605,27 @@ impl GameLoop {
                                 } else {
                                     None
                                 };
-                                mana::auto_tap_lands_allow_reserved_source_reuse_trace_with_callbacks_and_reserved_sacrifices(
-                                    game,
-                                    &mut slf.mana_pools[session.player.index()],
-                                    session.player,
-                                    session.mana_cost,
-                                    exclude_source,
-                                    session.reserved_sacrifices,
-                                    &mut callback,
-                                )
+                                match payment_ctx.as_ref() {
+                                    Some(ctx) => mana::auto_tap_lands_allow_reserved_source_reuse_trace_with_callbacks_reserved_and_ctx(
+                                        game,
+                                        &mut slf.mana_pools[session.player.index()],
+                                        session.player,
+                                        session.mana_cost,
+                                        exclude_source,
+                                        session.reserved_sacrifices,
+                                        &mut callback,
+                                        ctx,
+                                    ),
+                                    None => mana::auto_tap_lands_allow_reserved_source_reuse_trace_with_callbacks_and_reserved_sacrifices(
+                                        game,
+                                        &mut slf.mana_pools[session.player.index()],
+                                        session.player,
+                                        session.mana_cost,
+                                        exclude_source,
+                                        session.reserved_sacrifices,
+                                        &mut callback,
+                                    ),
+                                }
                             };
                             slf.resolve_auto_tapped_mana_sub_abilities(
                                 game,
@@ -608,12 +633,11 @@ impl GameLoop {
                                 session.player,
                                 &trace,
                             );
-                            if let Some(life_to_pay) = slf.mana_pools[session.player.index()]
-                                .try_pay_with_phyrexian_life_unrestricted(
-                                    session.mana_cost,
-                                    game.player(session.player).life,
-                                )
-                            {
+                            if let Some(life_to_pay) = pay_from_pool(
+                                &mut slf.mana_pools[session.player.index()],
+                                session.mana_cost,
+                                game.player(session.player).life,
+                            ) {
                                 let trace: Vec<ManaCostAction> = trace
                                     .iter()
                                     .map(|choice| ManaCostAction::TapForMana {
@@ -643,18 +667,17 @@ impl GameLoop {
                         },
                         |slf, game, player| {
                             let mut test_pool = slf.mana_pools[player.index()].clone();
-                            if let Some(test_life_to_pay) = test_pool
-                                .try_pay_with_phyrexian_life_unrestricted(
+                            if let Some(test_life_to_pay) = pay_from_pool(
+                                &mut test_pool,
+                                &payable_mana_cost,
+                                game.player(player).life,
+                            ) {
+                                let life_to_pay = pay_from_pool(
+                                    &mut slf.mana_pools[player.index()],
                                     &payable_mana_cost,
                                     game.player(player).life,
                                 )
-                            {
-                                let life_to_pay = slf.mana_pools[player.index()]
-                                    .try_pay_with_phyrexian_life_unrestricted(
-                                        &payable_mana_cost,
-                                        game.player(player).life,
-                                    )
-                                    .expect("tested phyrexian payment should still be legal");
+                                .expect("tested phyrexian payment should still be legal");
                                 if life_to_pay != test_life_to_pay {
                                     return false;
                                 }
