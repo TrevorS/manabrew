@@ -247,27 +247,31 @@ impl Card {
             }
         }
 
-        // Equip: K:Equip:{cost}[...]
-        // Forge keyword payload can include optional suffix data; we only need
-        // the activation cost + default target filter to mirror Java baseline.
         for equip_raw in self
             .keywords
             .iter_strings()
             .chain(self.granted_keywords.iter_strings())
             .filter_map(|kw| crate::keyword::extract_keyword_cost_str(kw, "Equip"))
         {
-            let payload = equip_raw.split(":::").next().unwrap_or(equip_raw).trim();
-            let mut parts = payload.split(':');
-            let equip_cost = parts.next().unwrap_or(payload).trim();
-            let target_filter = parts
-                .next()
-                .map(str::trim)
+            let payload = equip_raw
+                .find(":Flavor ")
+                .map_or(equip_raw, |idx| &equip_raw[..idx]);
+            let k: Vec<&str> = payload.split(':').collect();
+            let equip_cost = k[0].trim();
+            let target_filter = k
+                .get(1)
+                .map(|s| s.trim())
                 .filter(|s| !s.is_empty())
                 .unwrap_or("Creature.YouCtrl");
+            let extra = k.get(3).copied().unwrap_or("");
             if !equip_cost.is_empty() {
-                let ab_text = format!(
+                let mut ab_text = format!(
                     "AB$ Attach | Cost$ {equip_cost} | ValidTgts$ {target_filter} | SorcerySpeed$ True | SpellDescription$ Equip {equip_cost}"
                 );
+                if !extra.is_empty() {
+                    ab_text.push_str(" | ");
+                    ab_text.push_str(extra);
+                }
                 let next_idx = self.activated_abilities.len();
                 if let Some(ab) = parse_activated_ability(&ab_text, next_idx) {
                     self.activated_abilities.push(ab);
