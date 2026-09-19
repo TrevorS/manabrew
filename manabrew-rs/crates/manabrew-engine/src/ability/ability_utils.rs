@@ -873,6 +873,15 @@ pub fn resolve_defined_players(
         }
         return players;
     }
+    let head = defined.split('.').next().unwrap_or(defined);
+    if matches!(
+        head,
+        "Self" | "TargetedCard" | "ThisTargetedCard" | "Convoked" | "TargetedSource"
+    ) || head.starts_with("Valid")
+        || head.starts_with("CardUID_")
+    {
+        return Vec::new();
+    }
     if let Some(rest) = defined.strip_prefix("Non") {
         let excluded = resolve_defined_players(rest, controller, game);
         return game
