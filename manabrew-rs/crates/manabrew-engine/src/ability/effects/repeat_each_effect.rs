@@ -1,6 +1,6 @@
 use forge_foundation::ZoneType;
 
-use super::{matches_valid_cards_for_sa, resolve_defined_players, EffectContext};
+use super::{matches_valid_cards_for_sa, EffectContext};
 use crate::spellability::{build_spell_ability, SpellAbility};
 
 /// `SP$ RepeatEach` — loop a sub-ability over cards or players.
@@ -9,8 +9,8 @@ use crate::spellability::{build_spell_ability, SpellAbility};
 ///
 /// # Params
 /// - `RepeatSubAbility` — SVar name on source card for the sub-ability to resolve each iteration
-/// - `RepeatCards` — if present, iterate over matching cards (filter string)
-/// - `RepeatPlayers` — if present, iterate over matching players
+/// - `RepeatCards` / `DefinedCards` — iterate over matching or defined cards
+/// - `RepeatPlayers` — iterate over the defined players
 /// - `Zone` — zone to search for RepeatCards (default Battlefield)
 /// Struct form of this effect so it can participate in the
 /// `SpellAbilityEffect` trait hierarchy — mirrors Java's
@@ -50,54 +50,123 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         None => return,
     };
 
-    // Determine iteration mode: cards or players
+    let raw = sa.ability_text.as_str();
+    let mut repeat_cards: Vec<crate::ids::CardId> = Vec::new();
     if let Some(repeat_cards_filter) = sa.ir.repeat_cards_text.as_deref() {
         let repeat_cards_selector = sa.ir.repeat_cards_selector.as_ref();
-        // Card iteration path
         let zone = sa.ir.zone.unwrap_or(ZoneType::Battlefield);
-
-        // Collect matching cards
-        let matching: Vec<crate::ids::CardId> = {
-            let mut result = Vec::new();
-            for &pid in &ctx.game.player_order.clone() {
-                let zone_cards = ctx.game.cards_in_zone(zone, pid).to_vec();
-                for cid in zone_cards {
-                    if matches_valid_cards_for_sa(
-                        ctx.game,
-                        sa,
-                        ctx.game.card(cid),
-                        repeat_cards_selector,
-                        repeat_cards_filter,
-                    ) {
-                        result.push(cid);
-                    }
+        for &pid in &ctx.game.player_order.clone() {
+            for cid in ctx.game.cards_in_zone(zone, pid).to_vec() {
+                if matches_valid_cards_for_sa(
+                    ctx.game,
+                    sa,
+                    ctx.game.card(cid),
+                    repeat_cards_selector,
+                    repeat_cards_filter,
+                ) {
+                    repeat_cards.push(cid);
                 }
             }
-            result
-        };
+        }
+    } else if let Some(defined) = crate::parsing::raw_get(raw, "DefinedCards") {
+        let expr = crate::ability::ability_ir::DefinedExpr::parse(defined);
+        for d in &expr.refs {
+            repeat_cards.extend(
+                crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                    ctx.game,
+                    sa,
+                    d.as_legacy_str(),
+                ),
+            );
+        }
+    }
 
-        // Iterate: remember card → resolve sub-SA → un-remember
-        for card_id in matching {
-            ctx.game.card_mut(source_id).clear_remembered();
-            ctx.game.card_mut(source_id).add_remembered_card(card_id);
+    if crate::parsing::raw_has_key(raw, "ClearRemembered") {
+        ctx.game.card_mut(source_id).clear_remembered();
+    }
 
-            // Build and resolve sub-ability
+    if !repeat_cards.is_empty() {
+        if let Some(order) = crate::parsing::raw_get(raw, "ChooseOrder") {
+            if repeat_cards.len() > 1 {
+                let chooser = if order == "True" {
+                    controller
+                } else {
+                    crate::ability::ability_utils::resolve_defined_players_with_sa(
+                        order, sa, controller, ctx.game,
+                    )
+                    .first()
+                    .copied()
+                    .unwrap_or(controller)
+                };
+                ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
+                let ordered = ctx.agents[chooser.index()].order_move_to_zone_list(
+                    ctx.game,
+                    chooser,
+                    &repeat_cards,
+                    ZoneType::None,
+                );
+                if ordered.len() == repeat_cards.len()
+                    && repeat_cards.iter().all(|id| ordered.contains(id))
+                {
+                    repeat_cards = ordered;
+                }
+            }
+        }
+        let use_imprinted = crate::parsing::raw_has_key(raw, "UseImprinted");
+        for card_id in repeat_cards {
+            if use_imprinted {
+                ctx.game.card_mut(source_id).add_imprinted_card(card_id);
+            } else {
+                ctx.game.card_mut(source_id).add_remembered_card(card_id);
+            }
             let sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, controller);
             resolve_sub_chain(ctx, sub_sa);
-
+            if use_imprinted {
+                ctx.game.card_mut(source_id).remove_imprinted_card(card_id);
+            } else {
+                ctx.game.card_mut(source_id).remove_remembered(card_id);
+            }
             if ctx.game.game_over {
                 break;
             }
         }
+    }
 
-        // Clean up remembered cards
-        ctx.game.card_mut(source_id).clear_remembered();
-    } else if let Some(repeat_players) = sa.ir.repeat_players.as_deref() {
-        // Player iteration path
-        let players = resolve_defined_players(repeat_players, controller, ctx.game);
-
-        for pid in players {
+    if let Some(repeat_players) = sa.ir.repeat_players.as_deref() {
+        let mut players = Vec::new();
+        for d in &crate::ability::ability_ir::DefinedExpr::parse(repeat_players).refs {
+            for pid in crate::ability::ability_utils::resolve_defined_players_with_sa(
+                d.as_legacy_str(),
+                sa,
+                controller,
+                ctx.game,
+            ) {
+                if !players.contains(&pid) {
+                    players.push(pid);
+                }
+            }
+        }
+        if crate::parsing::raw_has_key(raw, "ClearRememberedBeforeLoop") {
             ctx.game.card_mut(source_id).clear_remembered();
+        }
+        let optional = crate::parsing::raw_has_key(raw, "RepeatOptionalForEachPlayer");
+        let message = crate::parsing::raw_get(raw, "RepeatOptionalMessage").unwrap_or_default();
+        for pid in players {
+            if optional {
+                ctx.agents[pid.index()].snapshot_state(ctx.game, ctx.mana_pools);
+                if !ctx.agents[pid.index()].confirm_action(
+                    pid,
+                    None,
+                    message,
+                    &[],
+                    sa.source,
+                    sa.api,
+                ) {
+                    continue;
+                }
+            }
+            let temp_remembered =
+                std::mem::take(&mut ctx.game.card_mut(source_id).remembered_players);
             ctx.game.card_mut(source_id).add_remembered_player(pid);
 
             // Java `RepeatEachEffect` keeps sa.getActivatingPlayer() across
@@ -105,12 +174,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             let sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, controller);
             resolve_sub_chain(ctx, sub_sa);
 
+            let host = ctx.game.card_mut(source_id);
+            host.remembered_players.retain(|&p| p != pid);
+            for p in temp_remembered {
+                host.add_remembered_player(p);
+            }
             if ctx.game.game_over {
                 break;
             }
         }
-
-        ctx.game.card_mut(source_id).clear_remembered();
     }
 
     if use_damage_map {

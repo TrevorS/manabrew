@@ -10,6 +10,9 @@ pub fn is_opponent_of(game: &GameState, player: PlayerId, other: PlayerId) -> bo
 }
 
 pub fn same_team(game: &GameState, player: PlayerId, other: PlayerId) -> bool {
+    if player == other {
+        return true;
+    }
     let a = game.player(player).team_number;
     let b = game.player(other).team_number;
     a >= 0 && a == b
