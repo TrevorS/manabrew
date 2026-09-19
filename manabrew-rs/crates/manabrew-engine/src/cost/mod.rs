@@ -305,6 +305,7 @@ pub enum CostPart {
         amount: AmountSpec,
         type_filter: String,
         min_total_power: Option<i32>,
+        can_tap_source: bool,
     },
     /// Untap permanents as cost. Mirrors CostUntap.
     Untap,
@@ -727,6 +728,9 @@ pub fn parse_cost(raw: &str) -> Cost {
         {
             *can_untap_source = !has_untap;
         }
+        if let CostPart::TapType { can_tap_source, .. } = part {
+            *can_tap_source = !has_tap;
+        }
     }
 
     // If we have mana tokens, combine them into a ManaCost
@@ -936,29 +940,37 @@ pub fn get_exiled_targets(game: &GameState, type_filter: &str) -> Vec<CardId> {
         .collect()
 }
 
-/// Find valid tap-type targets (untapped permanents matching filter, excluding source).
+/// Find valid tap-type targets: untapped permanents matching the filter, the source only when the
+/// cost does not also tap it (Java `CostTapType.canTapSource`).
 pub fn get_tap_type_targets(
     game: &GameState,
     player: PlayerId,
     type_filter: &str,
-    exclude: CardId,
+    source: CardId,
+    can_tap_source: bool,
 ) -> Vec<CardId> {
     game.cards_in_zone(ZoneType::Battlefield, player)
         .to_vec()
         .into_iter()
         .filter(|&cid| {
-            if cid == exclude {
+            if cid == source && !can_tap_source {
                 return false;
             }
             let card = game.card(cid);
             if card.tapped {
                 return false;
             }
-            if type_filter == "Card" || type_filter.is_empty() {
-                true
-            } else {
-                matches_change_type(card, type_filter, &[])
-            }
+            type_filter == "Card"
+                || type_filter.is_empty()
+                || type_filter.split(';').any(|filter| {
+                    crate::ability::ability_utils::matches_valid_cards_for_source(
+                        game,
+                        source,
+                        card,
+                        None,
+                        filter.trim(),
+                    )
+                })
         })
         .collect()
 }

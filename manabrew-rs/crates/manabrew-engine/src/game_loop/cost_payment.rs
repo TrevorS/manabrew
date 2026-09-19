@@ -878,6 +878,7 @@ impl GameLoop {
                     amount,
                     type_filter,
                     min_total_power,
+                    can_tap_source,
                 } => {
                     if !self.pay_tap_type_cost(
                         game,
@@ -887,6 +888,7 @@ impl GameLoop {
                         type_filter,
                         amount.resolve(game, card_id, player),
                         *min_total_power,
+                        *can_tap_source,
                         sa.as_deref_mut(),
                     ) {
                         payment_ok = false;
@@ -1574,6 +1576,7 @@ impl GameLoop {
                     amount,
                     type_filter,
                     min_total_power,
+                    can_tap_source,
                 } => {
                     if let Some(prechosen) = prechosen_tap_type {
                         let needed = (amount.resolve(game, card_id, player)).max(0) as usize;
@@ -1618,6 +1621,7 @@ impl GameLoop {
                         type_filter,
                         amount.resolve(game, card_id, player),
                         *min_total_power,
+                        *can_tap_source,
                         sa.as_deref_mut(),
                     ) {
                         payment_ok = false;
@@ -3321,11 +3325,13 @@ impl GameLoop {
         type_filter: &str,
         amount: i32,
         min_total_power: Option<i32>,
+        can_tap_source: bool,
         sa: Option<&mut SpellAbility>,
     ) -> bool {
         let mut tapped_cards = Vec::new();
         if let Some(power_threshold) = min_total_power {
-            let valid = cost::get_tap_type_targets(game, player, type_filter, source);
+            let valid =
+                cost::get_tap_type_targets(game, player, type_filter, source, can_tap_source);
             if !valid.is_empty() {
                 let card_powers: Vec<(CardId, i32)> = valid
                     .iter()
@@ -3387,7 +3393,8 @@ impl GameLoop {
                 }
             }
         } else {
-            let valid = cost::get_tap_type_targets(game, player, type_filter, source);
+            let valid =
+                cost::get_tap_type_targets(game, player, type_filter, source, can_tap_source);
             if valid.len() < amount.max(0) as usize {
                 return false;
             }

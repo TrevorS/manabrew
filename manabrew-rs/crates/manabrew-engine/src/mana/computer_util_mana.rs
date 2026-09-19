@@ -1851,11 +1851,13 @@ fn choose_tap_type_targets_for_mana_ability_with_callback(
         amount,
         type_filter,
         min_total_power,
+        can_tap_source,
     } = part
     else {
         return Vec::new();
     };
-    let mut targets = crate::cost::get_tap_type_targets(game, player, type_filter, source_id);
+    let mut targets =
+        crate::cost::get_tap_type_targets(game, player, type_filter, source_id, *can_tap_source);
     targets.retain(|cid| !reserved_sacrifices.contains(cid));
     if !allow_reserved_source_reuse {
         if let Some(reserved) = reserved_source {

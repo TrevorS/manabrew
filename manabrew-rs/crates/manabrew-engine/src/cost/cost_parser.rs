@@ -329,6 +329,7 @@ fn parse_tap_type(inner: &str) -> Option<CostPart> {
         amount,
         type_filter: final_filter,
         min_total_power,
+        can_tap_source: true,
     })
 }
 

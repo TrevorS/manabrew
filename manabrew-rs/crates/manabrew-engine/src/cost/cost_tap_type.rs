@@ -56,11 +56,12 @@ pub fn can_pay(
         amount,
         type_filter,
         min_total_power,
+        can_tap_source,
     } = part
     else {
         return false;
     };
-    let targets = super::get_tap_type_targets(game, player, type_filter, source);
+    let targets = super::get_tap_type_targets(game, player, type_filter, source, *can_tap_source);
     if let Some(power_threshold) = min_total_power {
         let total_power: i32 = targets
             .iter()

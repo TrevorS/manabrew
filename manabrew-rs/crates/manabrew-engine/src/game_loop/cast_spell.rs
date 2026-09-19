@@ -1641,10 +1641,16 @@ impl GameLoop {
                     amount,
                     type_filter,
                     min_total_power: None,
+                    can_tap_source,
                 } = part
                 {
-                    let valid =
-                        crate::cost::get_tap_type_targets(game, player, type_filter, card_id);
+                    let valid = crate::cost::get_tap_type_targets(
+                        game,
+                        player,
+                        type_filter,
+                        card_id,
+                        *can_tap_source,
+                    );
                     let needed = (amount.resolve(game, card_id, player)).max(0) as usize;
                     if valid.len() < needed {
                         rollback_failed_payment!();
