@@ -44,31 +44,64 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         return;
     }
 
-    let original = if let Some(defined) = sa.defined() {
-        crate::ability::ability_utils::get_defined_spell_abilities(defined, sa, ctx.game)
+    // Java `getTargetSpells`: the targeted spells when the ability targets, else Defined$.
+    let originals: Vec<crate::spellability::SpellAbility> = if sa.uses_targeting() {
+        sa.target_chosen
+            .target_stack_entry
+            .and_then(|id| ctx.game.stack.iter().find(|entry| entry.id == id))
+            .map(|entry| entry.spell_ability.clone())
             .into_iter()
-            .next()
+            .collect()
+    } else if let Some(defined) = sa.defined() {
+        crate::ability::ability_utils::get_defined_spell_abilities(defined, sa, ctx.game)
     } else {
         let stack_entries: Vec<_> = ctx.game.stack.iter().collect();
-        stack_entries.iter().rev().find_map(|entry| {
-            if Some(entry.id) != sa.ir.stack_id {
-                Some(entry.spell_ability.clone())
-            } else {
-                None
-            }
+        stack_entries
+            .iter()
+            .rev()
+            .find_map(|entry| {
+                if Some(entry.id) != sa.ir.stack_id {
+                    Some(entry.spell_ability.clone())
+                } else {
+                    None
+                }
+            })
+            .into_iter()
+            .collect()
+    };
+    let originals: Vec<_> = originals
+        .into_iter()
+        .filter(|spell| {
+            !crate::card::card_factory::spell_ability_cant_be_copied(&ctx.game.cards, spell)
         })
-    };
-
-    let original = match original {
-        Some(spell) => spell,
-        None => return,
-    };
-    if crate::card::card_factory::spell_ability_cant_be_copied(&ctx.game.cards, &original) {
+        .collect();
+    let amount = super::resolve_numeric_svar(ctx.game, sa, "Amount", 1);
+    if originals.is_empty() || amount <= 0 {
         return;
     }
+    let controllers = match crate::parsing::raw_get(&sa.ability_text, "Controller") {
+        Some(defined) => crate::ability::ability_utils::resolve_defined_players_with_sa(
+            defined, sa, controller, ctx.game,
+        ),
+        None => vec![controller],
+    };
 
+    for controller in controllers {
+        for original in &originals {
+            for _ in 0..amount {
+                push_copy(ctx, original, controller);
+            }
+        }
+    }
+}
+
+fn push_copy(
+    ctx: &mut EffectContext,
+    original: &crate::spellability::SpellAbility,
+    controller: crate::ids::PlayerId,
+) {
     // Clone the spell ability with same targets using CardFactory parity helper.
-    let copy = crate::card::card_factory::copy_spell_ability(&original, controller);
+    let copy = crate::card::card_factory::copy_spell_ability(original, controller);
 
     // Push the copy onto the stack (it will resolve like a normal spell)
     let copy_entry = crate::spellability::StackEntry {
