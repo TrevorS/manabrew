@@ -167,6 +167,84 @@ fn get_cards(
     }
 }
 
+/// Mirrors Java's `SpellAbilityEffect.getTargetEntities(sa)`: the targets when the ability
+/// targets, otherwise the `Defined$` players and cards (`AbilityUtils.getDefinedEntities`).
+pub fn get_target_entities(game: &GameState, sa: &SpellAbility) -> (Vec<PlayerId>, Vec<CardId>) {
+    if sa.uses_targeting() {
+        return (
+            sa.target_chosen.all_target_players(),
+            sa.target_chosen.target_card.into_iter().collect(),
+        );
+    }
+    let Some(Some(defined)) = ir_defined_param(sa, "Defined") else {
+        return (Vec::new(), Vec::new());
+    };
+    let mut players = Vec::new();
+    let mut cards = Vec::new();
+    for d in &defined.refs {
+        let found = resolve_defined_cards_for_sa_ref(game, sa, d);
+        if defined_ref_names_players(d) || found.is_empty() && !defined_ref_names_cards_only(d) {
+            for player in ability_utils::resolve_defined_players_with_sa(
+                d.as_legacy_str(),
+                sa,
+                sa.activating_player,
+                game,
+            ) {
+                if !players.contains(&player) {
+                    players.push(player);
+                }
+            }
+        }
+        cards.extend(found);
+    }
+    (players, cards)
+}
+
+fn defined_ref_names_players(defined: &DefinedRef) -> bool {
+    matches!(
+        defined,
+        DefinedRef::You
+            | DefinedRef::Opponent
+            | DefinedRef::Player
+            | DefinedRef::Players
+            | DefinedRef::TargetedPlayer
+            | DefinedRef::ThisTargetedPlayer
+            | DefinedRef::TargetedOrController
+            | DefinedRef::TargetedController
+            | DefinedRef::ThisTargetedController
+            | DefinedRef::ParentTargetedController
+            | DefinedRef::TargetedOwner
+            | DefinedRef::ThisTargetedOwner
+            | DefinedRef::TriggeredPlayer
+            | DefinedRef::TriggeredTargetController
+            | DefinedRef::TriggeredTargetsController
+            | DefinedRef::TriggeredAttackerController
+            | DefinedRef::TriggeredBlockerController
+            | DefinedRef::DefendingPlayer
+            | DefinedRef::TriggeredDefendingPlayer
+            | DefinedRef::Remembered
+            | DefinedRef::DelayTriggerRemembered
+            | DefinedRef::TriggerRemembered
+    )
+}
+
+fn defined_ref_names_cards_only(defined: &DefinedRef) -> bool {
+    match defined {
+        DefinedRef::Unsupported(raw) => {
+            raw.starts_with("Valid") || raw.contains('.') && !raw.starts_with("Player")
+        }
+        _ => {
+            !matches!(
+                defined,
+                DefinedRef::Targeted
+                    | DefinedRef::ParentTarget
+                    | DefinedRef::TriggeredTarget
+                    | DefinedRef::TriggeredTargets
+            ) && !defined_ref_names_players(defined)
+        }
+    }
+}
+
 /// Get target players for a spell ability.
 /// If the SA uses targeting, returns the chosen target player(s).
 /// Otherwise, resolves the `Defined$` parameter (defaulting to "You").
@@ -339,7 +417,9 @@ fn resolve_defined_cards_for_sa_ref_inner(
             .source
             .map(|source| game.card(source).exiled_cards.clone())
             .unwrap_or_default(),
-        DefinedRef::TriggeredTargetLkiCopy => triggered_target_lki_cards(sa),
+        DefinedRef::TriggeredTarget
+        | DefinedRef::TriggeredTargets
+        | DefinedRef::TriggeredTargetLkiCopy => triggered_target_lki_cards(sa),
         DefinedRef::DelayTriggerRememberedLki | DefinedRef::DelayTriggerRemembered => {
             let mut cards = Vec::new();
             for value in &sa.trigger_remembered {

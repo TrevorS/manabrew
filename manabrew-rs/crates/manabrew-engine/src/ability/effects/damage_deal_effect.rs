@@ -19,24 +19,95 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         ctx.game.ensure_pending_damage_maps();
     }
 
-    // For triggered abilities, resolve Defined$ for target. Some effects use
-    // bare `Player` to mean "each player", so collect all defined players here
-    // and fan out below instead of forcing everything through a single target.
-    let target_players: Vec<_> = if let Some(target_player) = sa.target_chosen.target_player {
-        vec![target_player]
-    } else if let Some(defined) = sa.defined() {
-        crate::ability::ability_utils::resolve_defined_players_with_sa(
-            defined,
-            sa,
-            sa.activating_player,
-            ctx.game,
-        )
-    } else {
-        Vec::new()
-    };
+    let sources: Vec<crate::ids::CardId> =
+        match crate::parsing::raw_get(&sa.ability_text, "DamageSource") {
+            Some(defined) => crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                ctx.game, sa, defined,
+            ),
+            None => sa.source.into_iter().collect(),
+        };
+    if sources.is_empty() {
+        return;
+    }
 
+    let (target_players, mut target_cards) =
+        crate::ability::spell_ability_effect::get_target_entities(ctx.game, sa);
+    for cid in card_util::get_radiance(ctx.game, sa).iter().copied() {
+        if !target_cards.contains(&cid) {
+            target_cards.push(cid);
+        }
+    }
+
+    let mut stored_excess = 0;
+    for source in sources {
+        stored_excess += deal_damage_from_source(
+            ctx,
+            sa,
+            source,
+            damage,
+            use_damage_map,
+            &target_players,
+            &target_cards,
+        );
+    }
+    if let (Some(excess_svar), Some(host)) = (
+        crate::parsing::raw_get(&sa.ability_text, "ExcessSVar"),
+        sa.source,
+    ) {
+        ctx.game
+            .card_mut(host)
+            .set_s_var(excess_svar, stored_excess.to_string());
+    }
+
+    let _ = crate::ability::spell_ability_effect::replace_dying(ctx.game, sa);
+}
+
+fn excess_damage_value(
+    game: &crate::game::GameState,
+    card_id: crate::ids::CardId,
+    source: crate::ids::CardId,
+) -> i32 {
+    let card = game.card(card_id);
+    if card.is_creature() && game.card(source).has_deathtouch() {
+        return 1.min((card.toughness() - card.damage).max(0));
+    }
+    if card.is_creature() {
+        return (card.toughness() - card.damage).max(0);
+    }
+    if card.type_line.is_planeswalker() {
+        return card
+            .counters
+            .get(&crate::card::CounterType::Loyalty)
+            .copied()
+            .unwrap_or(0);
+    }
+    0
+}
+
+fn excess_svar_condition(
+    game: &crate::game::GameState,
+    sa: &SpellAbility,
+    card_id: crate::ids::CardId,
+) -> bool {
+    match crate::parsing::raw_get(&sa.ability_text, "ExcessSVarCondition") {
+        Some(valid) => super::matches_valid_cards_for_sa(game, sa, game.card(card_id), None, valid),
+        None => true,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn deal_damage_from_source(
+    ctx: &mut EffectContext,
+    sa: &SpellAbility,
+    source: crate::ids::CardId,
+    damage: i32,
+    use_damage_map: bool,
+    target_players: &[crate::ids::PlayerId],
+    target_cards: &[crate::ids::CardId],
+) -> i32 {
+    let mut stored_excess = 0;
     // Check source card for Infect/Wither keywords
-    let (source_has_infect_keyword, source_has_wither) = if let Some(src_id) = sa.source {
+    let (source_has_infect_keyword, source_has_wither) = if let Some(src_id) = Some(source) {
         let src = ctx.game.card(src_id);
         (
             src.has_infect(),
@@ -83,7 +154,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 continue;
             }
             // Track damage source for DamagedBy trigger filters
-            if let Some(src_id) = sa.source {
+            if let Some(src_id) = Some(source) {
                 if !ctx
                     .game
                     .card(cid)
@@ -95,7 +166,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
             if source_has_infect_keyword || source_has_wither {
                 if use_damage_map {
-                    if let Some(src_id) = sa.source {
+                    if let Some(src_id) = Some(source) {
                         if let Some(map) = ctx.game.pending_damage_map.as_mut() {
                             map.put(src_id, DamageTarget::Card(cid), damage);
                         }
@@ -113,7 +184,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         &crate::card::CounterType::M1M1,
                         damage,
                         crate::event::RunParams {
-                            source_player: sa.source.map(|src_id| ctx.game.card(src_id).controller),
+                            source_player: Some(source).map(|src_id| ctx.game.card(src_id).controller),
                             cause: Some(sa.clone()),
                             ..Default::default()
                         },
@@ -121,20 +192,20 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     );
                 }
             } else if use_damage_map {
-                if let Some(src_id) = sa.source {
+                if let Some(src_id) = Some(source) {
                     if let Some(map) = ctx.game.pending_damage_map.as_mut() {
                         map.put(src_id, DamageTarget::Card(cid), damage);
                     }
                 }
             } else {
                 ctx.game
-                    .deal_damage_to_card_from(cid, damage, sa.source, false);
+                    .deal_damage_to_card_from(cid, damage, Some(source), false);
             }
             if !use_damage_map {
                 ctx.trigger_handler.run_trigger(
                     crate::trigger::TriggerType::DamageDone,
                     crate::event::RunParams {
-                        damage_source: sa.source,
+                        damage_source: Some(source),
                         damage_target_card: Some(cid),
                         damage_amount: Some(damage),
                         is_combat_damage: Some(false),
@@ -144,12 +215,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 );
             }
         }
-        let _ = crate::ability::spell_ability_effect::replace_dying(ctx.game, sa);
-        return;
+        return 0;
     }
 
-    for target_player in target_players {
-        let source_has_infect = if let Some(src_id) = sa.source {
+    for &target_player in target_players {
+        let source_has_infect = if let Some(src_id) = Some(source) {
             let src = ctx.game.card(src_id);
             source_has_infect_keyword
                 || crate::staticability::static_ability_infect_damage::is_infect_damage(
@@ -164,7 +234,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if source_has_infect {
             // Infect: deal damage to players as poison counters
             if use_damage_map {
-                if let Some(src_id) = sa.source {
+                if let Some(src_id) = Some(source) {
                     if let Some(map) = ctx.game.pending_damage_map.as_mut() {
                         map.put(src_id, DamageTarget::Player(target_player), damage);
                     }
@@ -176,13 +246,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     damage,
                     sa,
                     crate::event::RunParams {
-                        source_player: sa.source.map(|source| ctx.game.card(source).controller),
+                        source_player: Some(source).map(|source| ctx.game.card(source).controller),
                         ..Default::default()
                     },
                 );
             }
         } else if use_damage_map {
-            if let Some(src_id) = sa.source {
+            if let Some(src_id) = Some(source) {
                 if let Some(map) = ctx.game.pending_damage_map.as_mut() {
                     map.put(src_id, DamageTarget::Player(target_player), damage);
                 }
@@ -190,14 +260,18 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         } else {
             let dealt =
                 ctx.game
-                    .deal_damage_to_player_from(target_player, damage, sa.source, false);
-            ctx.game
-                .record_player_damage_assignment(sa.source, Some(target_player), dealt, false);
+                    .deal_damage_to_player_from(target_player, damage, Some(source), false);
+            ctx.game.record_player_damage_assignment(
+                Some(source),
+                Some(target_player),
+                dealt,
+                false,
+            );
         }
 
         // Record damage dealt by source for TotalDamageDoneByThisTurn SVar
         if !use_damage_map {
-            if let Some(src_id) = sa.source {
+            if let Some(src_id) = Some(source) {
                 if damage > 0 {
                     ctx.game.card_mut(src_id).total_damage_done_this_turn += damage;
                     ctx.game
@@ -213,7 +287,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ctx.trigger_handler.run_trigger(
                 crate::trigger::TriggerType::DamageDone,
                 crate::event::RunParams {
-                    damage_source: sa.source,
+                    damage_source: Some(source),
                     damage_target_player: Some(target_player),
                     damage_amount: Some(damage),
                     is_combat_damage: Some(false),
@@ -234,25 +308,23 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ctx.trigger_handler.flush_waiting_triggers(ctx.game);
         }
     }
-    let mut target_cards = sa.target_chosen.target_card.into_iter().collect::<Vec<_>>();
-    target_cards.extend(card_util::get_radiance(ctx.game, sa).iter().copied());
-    target_cards.sort_unstable_by_key(|cid| cid.0);
-    target_cards.dedup();
-    for target_card in target_cards {
-        if ctx.game.card(target_card).zone == ZoneType::Battlefield {
+    for &target_card in target_cards {
+        if ctx.game.card(target_card).zone == ZoneType::Battlefield
+            && !ctx.game.card(target_card).phased_out
+        {
             // Protection: prevents all damage from matching sources
-            if let Some(src_id) = sa.source {
+            if let Some(src_id) = Some(source) {
                 if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
                     &ctx.game.cards,
                     ctx.game.card(target_card),
                     ctx.game.card(src_id),
                 ) {
-                    return;
+                    continue;
                 }
             }
 
             // Track damage source for DamagedBy trigger filters
-            if let Some(src_id) = sa.source {
+            if let Some(src_id) = Some(source) {
                 if !ctx
                     .game
                     .card(target_card)
@@ -268,7 +340,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             if source_has_infect_keyword || source_has_wither {
                 // Infect/Wither: damage to creatures as -1/-1 counters
                 if use_damage_map {
-                    if let Some(src_id) = sa.source {
+                    if let Some(src_id) = Some(source) {
                         if let Some(map) = ctx.game.pending_damage_map.as_mut() {
                             map.put(src_id, DamageTarget::Card(target_card), damage);
                         }
@@ -286,7 +358,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         &crate::card::CounterType::M1M1,
                         damage,
                         crate::event::RunParams {
-                            source_player: sa.source.map(|src_id| ctx.game.card(src_id).controller),
+                            source_player: Some(source).map(|src_id| ctx.game.card(src_id).controller),
                             cause: Some(sa.clone()),
                             ..Default::default()
                         },
@@ -294,19 +366,23 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     );
                 }
             } else if use_damage_map {
-                if let Some(src_id) = sa.source {
+                if let Some(src_id) = Some(source) {
                     if let Some(map) = ctx.game.pending_damage_map.as_mut() {
                         map.put(src_id, DamageTarget::Card(target_card), damage);
                     }
                 }
             } else {
+                let lethal = excess_damage_value(ctx.game, target_card, source);
                 ctx.game
-                    .deal_damage_to_card_from(target_card, damage, sa.source, false);
+                    .deal_damage_to_card_from(target_card, damage, Some(source), false);
+                if damage > lethal && excess_svar_condition(ctx.game, sa, target_card) {
+                    stored_excess += damage - lethal;
+                }
             }
 
             // Record damage dealt by source for TotalDamageDoneByThisTurn SVar
             if !use_damage_map {
-                if let Some(src_id) = sa.source {
+                if let Some(src_id) = Some(source) {
                     if damage > 0 {
                         ctx.game.card_mut(src_id).total_damage_done_this_turn += damage;
                         ctx.game
@@ -322,7 +398,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 ctx.trigger_handler.run_trigger(
                     crate::trigger::TriggerType::DamageDone,
                     crate::event::RunParams {
-                        damage_source: sa.source,
+                        damage_source: Some(source),
                         damage_target_card: Some(target_card),
                         damage_amount: Some(damage),
                         is_combat_damage: Some(false),
@@ -353,7 +429,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
 
             if sa.ir.remember_damaged_creature {
-                if let Some(src_id) = sa.source {
+                if let Some(src_id) = Some(source) {
                     let src = ctx.game.card_mut(src_id);
                     src.add_remembered_card(target_card);
                 }
@@ -361,7 +437,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
-    let _ = crate::ability::spell_ability_effect::replace_dying(ctx.game, sa);
+    stored_excess
 }
 
 /// Resolve the NumDmg$ parameter, supporting both integer literals and SVar
