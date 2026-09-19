@@ -174,6 +174,8 @@ fn matches_single_property(card: &Card, property: &str, source_controller: Playe
                         }
                     }
                 }
+            } else if property == "hasAbility Activated" {
+                !card.activated_abilities.is_empty()
             } else if let Some(keyword) = property.strip_prefix("without") {
                 !card.has_keyword(keyword)
             } else if let Some(keyword) = property.strip_prefix("with") {

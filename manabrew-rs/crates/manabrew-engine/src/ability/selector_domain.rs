@@ -3,10 +3,13 @@ use crate::card::Card;
 
 pub(crate) fn matches_selector_domain_predicate(
     raw: &str,
-    _card: &Card,
+    card: &Card,
     _context: MatchContext<'_>,
 ) -> Option<bool> {
     let lower = raw.trim().to_ascii_lowercase();
+    if lower == "hasability activated" {
+        return Some(!card.activated_abilities.is_empty());
+    }
     if lower.starts_with("castsa ")
         || lower == "canenchantsource"
         || lower.starts_with("hasability ")
