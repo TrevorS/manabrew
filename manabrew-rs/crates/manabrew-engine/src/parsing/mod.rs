@@ -931,11 +931,25 @@ fn lower_compiled_selector(alternatives: &[CompiledSelectorAlternative]) -> Sele
         alternatives: alternatives
             .iter()
             .map(|alternative| {
-                let mut predicates: Vec<_> = alternative
-                    .parts
+                let mut values: Vec<String> = Vec::new();
+                for part in &alternative.parts {
+                    let nested = part.separator == Some('.')
+                        && values.len() > 1
+                        && values.last().is_some_and(|last| {
+                            last.to_ascii_lowercase().starts_with("attachedto ")
+                        });
+                    match values.last_mut() {
+                        Some(last) if nested => {
+                            last.push('.');
+                            last.push_str(&part.value);
+                        }
+                        _ => values.push(part.value.clone()),
+                    }
+                }
+                let mut predicates: Vec<_> = values
                     .iter()
                     .enumerate()
-                    .map(|(idx, part)| lower_selector_part(&part.value, idx == 0))
+                    .map(|(idx, value)| lower_selector_part(value, idx == 0))
                     .collect();
                 predicates.sort_by_key(selector_predicate_order);
                 SelectorAlt { predicates }

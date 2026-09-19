@@ -1623,8 +1623,20 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
             matches_controlled_by_reference(value["ControlledBy ".len()..].trim(), card, context)
         }
         attached if attached.starts_with("attachedto ") => {
-            let relation = raw_attached_to_relation(value["AttachedTo ".len()..].trim());
-            relation.is_some_and(|relation| matches_relation_predicate(&relation, card, context))
+            let restriction = value["AttachedTo ".len()..].trim();
+            match raw_attached_to_relation(restriction) {
+                Some(relation) => matches_relation_predicate(&relation, card, context),
+                None => context
+                    .game
+                    .zip(card.attached_to)
+                    .is_some_and(|(game, host)| {
+                        matches_valid_card_selector_with_context(
+                            &crate::parsing::cached_compiled_selector(restriction),
+                            game.card(host),
+                            context,
+                        )
+                    }),
+            }
         }
         owned if owned.starts_with("ownedby ") => raw_target_ref(&value["OwnedBy ".len()..])
             .is_some_and(|target| {
