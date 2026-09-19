@@ -379,6 +379,16 @@ pub trait PlayerAgent {
         valid.iter().copied().take(max).collect()
     }
 
+    fn choose_cards_pile(
+        &mut self,
+        _player: PlayerId,
+        _pile1: &[CardId],
+        _pile2: &[CardId],
+        _face_down: &str,
+    ) -> bool {
+        true
+    }
+
     fn choose_cards_for_effect_multiple(
         &mut self,
         _player: PlayerId,

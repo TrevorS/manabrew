@@ -1,100 +1,153 @@
 use forge_foundation::ZoneType;
 
-use super::{emit_zone_trigger, resolve_numeric_svar, EffectContext};
-use crate::ids::CardId;
-use crate::parsing::keys;
+use super::helpers::matches_valid_cards_for_sa;
+use super::EffectContext;
+use crate::agent::GameEntity;
+use crate::ids::{CardId, PlayerId};
+use crate::parsing::Params;
+use crate::spellability::SpellAbility;
 
-/// `SP$ TwoPiles` — divide cards into two piles and an opponent chooses one.
+/// `SP$ TwoPiles` — a separator divides cards into two piles and a chooser picks one.
 ///
-/// Mirrors Java's `TwoPilesEffect.java` (simplified — auto-divides).
-/// - `NumCards$` — number of cards to reveal from library (default 5).
-/// - `Zone1$` — destination for the chosen pile (default Hand).
-/// - `Zone2$` — destination for the unchosen pile (default Graveyard).
-///
-/// # Card script examples
-/// ```text
-/// A:SP$ TwoPiles | NumCards$ 5 | Zone1$ Hand | Zone2$ Graveyard
-/// A:SP$ TwoPiles | NumCards$ 3 | Zone1$ Hand | Zone2$ Library
-/// ```
-/// Struct form of this effect so it can participate in the
-/// `SpellAbilityEffect` trait hierarchy — mirrors Java's
-/// `TwoPilesEffect` class extending `SpellAbilityEffect`.
+/// Mirrors Java's `TwoPilesEffect.java`.
 #[manabrew_engine_macros::spell_effect(TwoPilesEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let controller = sa.activating_player;
-    let num_cards = resolve_numeric_svar(ctx.game, sa, keys::NUM_CARDS, 5).max(0) as usize;
-
-    let zone1 = sa.ir.zone1.unwrap_or(ZoneType::Hand);
-    let zone2 = sa.ir.zone2.unwrap_or(ZoneType::Graveyard);
-
-    // Get top N cards from library
-    let lib = ctx
-        .game
-        .cards_in_zone(ZoneType::Library, controller)
-        .to_vec();
-    if lib.is_empty() {
+    let Some(source) = sa.source else {
         return;
-    }
+    };
+    let params = Params::from_raw(&sa.ability_text);
+    let is_left_right_pile = params.has("LeftRightPile");
+    let zone = params.get("Zone").and_then(ZoneType::from_str_compat);
+    let valid = params.get("ValidCards").unwrap_or("Card").to_string();
+    let face_down = params.get("FaceDown").unwrap_or("False").to_string();
+    let target_players = crate::ability::spell_ability_effect::get_target_players(ctx.game, sa);
 
-    let count = num_cards.min(lib.len());
-    // Library is bottom-to-top, so take from the end
-    let revealed: Vec<CardId> = lib[lib.len() - count..].to_vec();
-
-    if revealed.is_empty() {
+    let separator = choose_defined_player(ctx, sa, params.get("Separator"))
+        .unwrap_or(ctx.game.card(source).controller);
+    let Some(chooser) = choose_defined_player(ctx, sa, params.get("Chooser"))
+        .or_else(|| target_players.first().copied())
+    else {
         return;
-    }
-
-    // Controller divides into two piles — simplified: they choose cards for pile 1
-    // via choose_cards_for_effect (min 0, max count-1 to ensure both piles have at least 1 if count>1)
-    let min_pile1 = if count > 1 { 1 } else { 0 };
-    let max_pile1 = if count > 1 { count - 1 } else { count };
-
-    let pile1: Vec<CardId> = ctx.agents[controller.index()]
-        .choose_cards_for_effect(controller, &revealed, min_pile1, max_pile1);
-    let pile2: Vec<CardId> = revealed
-        .iter()
-        .filter(|c| !pile1.contains(c))
-        .copied()
-        .collect();
-
-    // Opponent chooses which pile goes to zone1
-    let opponent = ctx.game.opponent_of(controller);
-    let pile1_names: Vec<String> = pile1
-        .iter()
-        .map(|&cid| ctx.game.card(cid).card_name.clone())
-        .collect();
-    let pile2_names: Vec<String> = pile2
-        .iter()
-        .map(|&cid| ctx.game.card(cid).card_name.clone())
-        .collect();
-
-    let prompt = format!(
-        "Choose a pile: Pile 1 ({}) or Pile 2 ({})?",
-        pile1_names.join(", "),
-        pile2_names.join(", "),
-    );
-    let choose_pile1 =
-        ctx.agents[opponent.index()].choose_optional_trigger(opponent, &prompt, sa.source, sa.api);
-
-    let (chosen_pile, unchosen_pile) = if choose_pile1 {
-        (pile1, pile2)
-    } else {
-        (pile2, pile1)
     };
 
-    // Move chosen pile to zone1
-    for cid in chosen_pile {
-        if ctx.game.card(cid).zone == ZoneType::Library {
-            ctx.move_card(cid, zone1, controller);
-            emit_zone_trigger(ctx.trigger_handler, cid, ZoneType::Library, zone1);
+    for player in target_players {
+        if !ctx.game.player(player).is_alive() {
+            continue;
+        }
+        let (pile1, pile2) = if let Some(defined) = params.get("DefinedPiles") {
+            let (first, second) = defined.split_once(',').unwrap_or((defined, ""));
+            (
+                crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                    ctx.game, sa, first,
+                ),
+                crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                    ctx.game, sa, second,
+                ),
+            )
+        } else {
+            let pool0: Vec<CardId> = if let Some(defined) = params.get("DefinedCards") {
+                crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                    ctx.game, sa, defined,
+                )
+            } else {
+                zone.map(|zone| ctx.game.cards_in_zone(zone, player).to_vec())
+                    .unwrap_or_default()
+            };
+            let pool: Vec<CardId> = pool0
+                .into_iter()
+                .filter(|&cid| {
+                    matches_valid_cards_for_sa(ctx.game, sa, ctx.game.card(cid), None, &valid)
+                })
+                .collect();
+            if pool.is_empty() {
+                return;
+            }
+            ctx.agents[separator.index()].snapshot_state(ctx.game, ctx.mana_pools);
+            let pile1 = ctx.agents[separator.index()].choose_cards_for_effect(
+                separator,
+                &pool,
+                0,
+                pool.len(),
+            );
+            let pile2: Vec<CardId> = pool.into_iter().filter(|c| !pile1.contains(c)).collect();
+            (pile1, pile2)
+        };
+
+        let pile1_chosen = is_left_right_pile || {
+            ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
+            ctx.agents[chooser.index()].choose_cards_pile(chooser, &pile1, &pile2, &face_down)
+        };
+        let (chosen_pile, unchosen_pile) = if pile1_chosen {
+            (pile1, pile2)
+        } else {
+            (pile2, pile1)
+        };
+
+        if params.has("RememberChosen") {
+            ctx.game
+                .card_mut(source)
+                .add_remembered_cards(chosen_pile.iter().copied());
+        }
+        if params.has("ChosenPile") {
+            resolve_pile(ctx, sa, source, "ChosenPile", &chosen_pile);
+        }
+        if params.has("UnchosenPile") {
+            resolve_pile(ctx, sa, source, "UnchosenPile", &unchosen_pile);
         }
     }
 
-    // Move unchosen pile to zone2
-    for cid in unchosen_pile {
-        if ctx.game.card(cid).zone == ZoneType::Library {
-            ctx.move_card(cid, zone2, controller);
-            emit_zone_trigger(ctx.trigger_handler, cid, ZoneType::Library, zone2);
+    if !params.has("KeepRemembered") && !params.has("RememberChosen") {
+        ctx.game.card_mut(source).clear_remembered();
+    }
+}
+
+fn choose_defined_player(
+    ctx: &mut EffectContext,
+    sa: &SpellAbility,
+    defined: Option<&str>,
+) -> Option<PlayerId> {
+    let choices = crate::ability::ability_utils::resolve_defined_players_with_sa(
+        defined?,
+        sa,
+        sa.activating_player,
+        ctx.game,
+    );
+    if choices.is_empty() {
+        return None;
+    }
+    let entities: Vec<GameEntity> = choices.into_iter().map(GameEntity::Player).collect();
+    let activator = sa.activating_player;
+    ctx.agents[activator.index()].snapshot_state(ctx.game, ctx.mana_pools);
+    match ctx.agents[activator.index()].choose_single_entity_for_effect(activator, &entities, false)
+    {
+        Some(GameEntity::Player(pid)) => Some(pid),
+        _ => None,
+    }
+}
+
+fn resolve_pile(
+    ctx: &mut EffectContext,
+    sa: &SpellAbility,
+    source: CardId,
+    key: &str,
+    pile: &[CardId],
+) {
+    let card = ctx.game.card_mut(source);
+    let temp_cards = std::mem::take(&mut card.remembered_cards);
+    let temp_players = std::mem::take(&mut card.remembered_players);
+    card.add_remembered_cards(pile.iter().copied());
+    if let Some(sub) = sa.additional_ability(ctx.game, key) {
+        let mut current = Some(sub);
+        while let Some(cur) = current {
+            super::resolve_effect(ctx, &cur);
+            current = cur.sub_ability.map(|b| *b);
+            if ctx.game.game_over {
+                break;
+            }
         }
     }
+    let card = ctx.game.card_mut(source);
+    card.remembered_cards.retain(|c| !pile.contains(c));
+    card.remembered_cards.extend(temp_cards);
+    card.remembered_players.extend(temp_players);
 }
