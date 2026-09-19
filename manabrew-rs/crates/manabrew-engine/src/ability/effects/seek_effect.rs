@@ -14,7 +14,6 @@ use crate::ids::CardId;
 /// `SeekEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(SeekEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let controller = sa.activating_player;
     let seek_num = super::resolve_numeric_svar(ctx.game, sa, "Num", 1).max(0) as usize;
     if seek_num == 0 {
         return;
@@ -24,11 +23,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let types_str = sa.ir.types_text.as_deref().unwrap_or("Card").to_string();
     let seek_types: Vec<&str> = types_str.split(',').map(str::trim).collect();
 
-    let players = if let Some(def) = sa.defined_player() {
-        super::resolve_defined_players(def, controller, ctx.game)
-    } else {
-        vec![controller]
-    };
+    let players = crate::ability::spell_ability_effect::get_target_players(ctx.game, sa);
 
     for pid in players {
         let mut sought: Vec<CardId> = Vec::new();

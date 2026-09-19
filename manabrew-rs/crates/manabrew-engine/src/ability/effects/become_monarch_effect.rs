@@ -1,4 +1,4 @@
-use super::{resolve_defined_player, EffectContext};
+use super::EffectContext;
 
 /// Resolve `SP$ BecomeMonarch` — make a player the monarch.
 ///
@@ -15,18 +15,14 @@ use super::{resolve_defined_player, EffectContext};
 /// `BecomeMonarchEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(BecomeMonarchEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let controller = sa.activating_player;
+    for target in crate::ability::spell_ability_effect::get_target_players(ctx.game, sa) {
+        if !ctx.game.player(target).is_alive() {
+            continue;
+        }
 
-    let defined = sa.defined().unwrap_or("You");
-
-    let target = resolve_defined_player(defined, controller, ctx.game).unwrap_or(controller);
-
-    if !ctx.game.player(target).is_alive() {
-        return;
+        ctx.game
+            .player_set_monarch(target, Some(ctx.trigger_handler));
     }
-
-    ctx.game
-        .player_set_monarch(target, Some(ctx.trigger_handler));
 }
 
 #[cfg(test)]

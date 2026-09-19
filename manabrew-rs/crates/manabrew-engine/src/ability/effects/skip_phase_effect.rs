@@ -1,4 +1,4 @@
-use super::{resolve_defined_players, EffectContext};
+use super::EffectContext;
 
 /// Create a skip-phase effect for use by static or replacement abilities.
 /// Mirrors Java's `SkipPhaseEffect.createSkipPhaseEffect(...)`.
@@ -47,8 +47,6 @@ pub fn run(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 /// `SkipPhaseEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(SkipPhaseEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let controller = sa.activating_player;
-
     let phase = sa
         .ir
         .phase_text
@@ -56,9 +54,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .or(sa.ir.step_text.as_deref())
         .unwrap_or("");
 
-    let defined = sa.defined().unwrap_or("You");
-
-    let targets = resolve_defined_players(defined, controller, ctx.game);
+    let targets = crate::ability::spell_ability_effect::get_target_players(ctx.game, sa);
     for target in targets {
         if !ctx.game.player(target).is_alive() {
             continue;

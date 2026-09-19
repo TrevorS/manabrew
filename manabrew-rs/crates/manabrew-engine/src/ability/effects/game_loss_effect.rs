@@ -1,4 +1,4 @@
-use super::{resolve_defined_player, EffectContext};
+use super::EffectContext;
 use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
 use crate::replacement::GameLossReason;
 use crate::replacement::ReplacementResult;
@@ -17,35 +17,31 @@ use crate::replacement::ReplacementResult;
 /// `GameLossEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(GameLossEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let controller = sa.activating_player;
+    for loser in crate::ability::spell_ability_effect::get_target_players(ctx.game, sa) {
+        if !ctx.game.player(loser).is_alive() {
+            continue;
+        }
 
-    let defined = sa.defined().unwrap_or("You");
+        // Run GameLoss replacement effects (e.g. Platinum Angel).
+        let mut event = ReplacementEvent::GameLoss {
+            player: loser,
+            reason: GameLossReason::SpellEffect,
+        };
+        let result = apply_replacements(ctx.game, &mut event);
+        if result == ReplacementResult::Replaced {
+            continue;
+        }
 
-    let loser = resolve_defined_player(defined, controller, ctx.game).unwrap_or(controller);
+        ctx.game
+            .player_mark_lost(loser, crate::replacement::GameLossReason::SpellEffect);
 
-    if !ctx.game.player(loser).is_alive() {
-        return;
-    }
-
-    // Run GameLoss replacement effects (e.g. Platinum Angel).
-    let mut event = ReplacementEvent::GameLoss {
-        player: loser,
-        reason: GameLossReason::SpellEffect,
-    };
-    let result = apply_replacements(ctx.game, &mut event);
-    if result == ReplacementResult::Replaced {
-        return;
-    }
-
-    ctx.game
-        .player_mark_lost(loser, crate::replacement::GameLossReason::SpellEffect);
-
-    // SBA will determine if the game is over and set the winner
-    let alive = ctx.game.alive_players();
-    if alive.len() <= 1 {
-        ctx.game.game_over = true;
-        if alive.len() == 1 {
-            ctx.game.winner = Some(alive[0]);
+        // SBA will determine if the game is over and set the winner
+        let alive = ctx.game.alive_players();
+        if alive.len() <= 1 {
+            ctx.game.game_over = true;
+            if alive.len() == 1 {
+                ctx.game.winner = Some(alive[0]);
+            }
         }
     }
 }

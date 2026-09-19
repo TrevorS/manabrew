@@ -1,4 +1,4 @@
-use super::{resolve_defined_players, resolve_numeric_svar, EffectContext};
+use super::{resolve_numeric_svar, EffectContext};
 use crate::ability::ability_ir::EffectIr;
 use crate::event::RunParams;
 use crate::spellability::SpellAbility;
@@ -20,13 +20,9 @@ use crate::trigger::TriggerType;
 /// `LifeSetEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(LifeSetEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let controller = sa.activating_player;
-
     let amount = resolve_life_set_amount(ctx, sa);
 
-    let defined = sa.defined().unwrap_or("You");
-
-    let targets = resolve_defined_players(defined, controller, ctx.game);
+    let targets = crate::ability::spell_ability_effect::get_target_players(ctx.game, sa);
 
     for target in targets {
         if !ctx.game.player(target).is_alive() {

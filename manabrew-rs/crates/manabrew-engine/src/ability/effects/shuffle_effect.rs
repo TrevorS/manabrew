@@ -1,4 +1,4 @@
-use super::{resolve_defined_players, EffectContext};
+use super::EffectContext;
 use crate::event::RunParams;
 use crate::trigger::TriggerType;
 
@@ -17,8 +17,7 @@ use crate::trigger::TriggerType;
 /// `ShuffleEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(ShuffleEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let defined = sa.defined().unwrap_or("You");
-    let players = resolve_defined_players(defined, sa.activating_player, ctx.game);
+    let players = crate::ability::spell_ability_effect::get_target_players(ctx.game, sa);
     let optional = sa.ir.optional;
     let _source_name = sa.source.map(|cid| ctx.game.card(cid).card_name.clone());
 

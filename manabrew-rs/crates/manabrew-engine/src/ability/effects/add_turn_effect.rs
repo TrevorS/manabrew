@@ -1,4 +1,4 @@
-use super::{resolve_defined_player, resolve_numeric_svar, EffectContext};
+use super::{resolve_numeric_svar, EffectContext};
 use crate::parsing::keys;
 use crate::phase::ExtraTurn;
 use crate::spellability::SpellAbility;
@@ -21,23 +21,19 @@ use crate::spellability::SpellAbility;
 /// `AddTurnEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(AddTurnEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let controller = sa.activating_player;
-
     let num_turns = resolve_numeric_svar(ctx.game, sa, keys::NUM_TURNS, 1);
     let skip_untap = sa.ir.skip_untap;
 
-    let defined = sa.defined().unwrap_or("You");
+    for target in crate::ability::spell_ability_effect::get_target_players(ctx.game, sa) {
+        if !ctx.game.player(target).is_alive() {
+            continue;
+        }
 
-    let target = resolve_defined_player(defined, controller, ctx.game).unwrap_or(controller);
-
-    if !ctx.game.player(target).is_alive() {
-        return;
-    }
-
-    for _ in 0..num_turns {
-        let mut et = ExtraTurn::new(target);
-        et.set_skip_untap(skip_untap);
-        ctx.game.extra_turns.push_back(et);
+        for _ in 0..num_turns {
+            let mut et = ExtraTurn::new(target);
+            et.set_skip_untap(skip_untap);
+            ctx.game.extra_turns.push_back(et);
+        }
     }
 }
 
