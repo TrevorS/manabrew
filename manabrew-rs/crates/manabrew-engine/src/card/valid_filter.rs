@@ -2100,6 +2100,14 @@ fn matches_type_and_qualifier_parts(
                 }
                 continue;
             }
+            if let Some(result) = crate::ability::selector_domain::matches_selector_domain_predicate(
+                raw, card, context,
+            ) {
+                if !result {
+                    return false;
+                }
+                continue;
+            }
             match sub_lower.as_str() {
                 "outlaw" => {
                     if !card.is_outlaw() {
