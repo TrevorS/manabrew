@@ -239,6 +239,16 @@ fn resolve_for_player(
                 }
             }
         }
+        if dest_zone1 == ZoneType::Exile && !ctx.game.card(id).is_token {
+            if let Some(source_id) = sa.source {
+                if matches!(
+                    ctx.game.card(source_id).zone,
+                    ZoneType::Battlefield | ZoneType::Stack | ZoneType::Command
+                ) {
+                    ctx.game.card_mut(source_id).add_exiled_card(id);
+                }
+            }
+        }
         if sa.is_exile_face_down() {
             ctx.game.card_mut(id).set_face_down(true);
         }

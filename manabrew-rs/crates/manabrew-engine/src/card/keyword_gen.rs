@@ -757,6 +757,32 @@ impl Card {
                 });
         }
 
+        if let Some(n_str) = crate::keyword::extract_keyword_cost_str(kw, "Hideaway") {
+            let raw = format!(
+                "Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Secondary$ True | Execute$ TrigHideaway | TriggerDescription$ Hideaway {n_str}"
+            );
+            if let Some(mut trig) = parse_trigger(&raw, next_id) {
+                trig.execute = "TrigHideaway".to_string();
+                self.add_trigger(trig);
+            }
+            self.svars.entry("TrigHideaway".to_string()).or_insert_with(|| {
+                format!("DB$ Dig | Defined$ You | DigNum$ {n_str} | DestinationZone$ Exile | ExileFaceDown$ True | RememberChanged$ True | RestRandomOrder$ True | SubAbility$ DBHideawayEffect")
+            });
+            self.svars
+                .entry("DBHideawayEffect".to_string())
+                .or_insert_with(|| {
+                    "DB$ Effect | StaticAbilities$ STHideawayEffectLookAtCard | ForgetOnMoved$ Exile | RememberObjects$ Remembered | Duration$ Permanent | SubAbility$ DBHideawayCleanup".to_string()
+                });
+            self.svars
+                .entry("STHideawayEffectLookAtCard".to_string())
+                .or_insert_with(|| {
+                    "Mode$ Continuous | Affected$ Card.IsRemembered | MayLookAt$ EffectSourceController | EffectZone$ Command | AffectedZone$ Exile | Description$ Any player who has controlled the permanent that exiled this card may look at this card in the exile zone.".to_string()
+                });
+            self.svars
+                .entry("DBHideawayCleanup".to_string())
+                .or_insert_with(|| "DB$ Cleanup | ClearRemembered$ True".to_string());
+        }
+
         if kw == "Exploit" {
             let raw = "Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigExploit | TriggerDescription$ Exploit";
             if let Some(mut trig) = parse_trigger(raw, next_id) {
