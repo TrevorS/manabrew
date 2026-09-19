@@ -2488,9 +2488,10 @@ pub fn matches_valid_player(filter: &str, player: PlayerId, source_controller: P
 
     // Handle comma-separated alternatives
     if filter.contains(',') {
-        return filter
-            .split(',')
-            .any(|part| matches_single_valid_player(part.trim(), player, source_controller));
+        return filter.split(',').any(|part| {
+            filter_head_can_match_player(part)
+                && matches_single_valid_player(part.trim(), player, source_controller)
+        });
     }
 
     matches_single_valid_player(filter, player, source_controller)
