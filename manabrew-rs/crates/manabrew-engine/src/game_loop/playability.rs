@@ -154,7 +154,10 @@ impl GameLoop {
         ) || !crate::spellability::spell::can_play(&sa, game)
             || !target_restrictions::has_candidates_in_spell_ability_chain(game, player, &sa)
             || sa.target_restrictions.as_ref().is_some_and(|tr| {
-                tr.get_min_targets(game, &sa)
+                !matches!(
+                    tr.target_kind,
+                    crate::spellability::TargetKind::Player | crate::spellability::TargetKind::Any
+                ) && tr.get_min_targets(game, &sa)
                     > crate::card::card_util::get_valid_cards_to_target(game, &sa).len() as i32
             })
         {
