@@ -403,6 +403,7 @@ fn try_pay_effect_cost(
                 | CostPart::AddCounter { .. }
                 | CostPart::AddMana { .. }
                 | CostPart::Behold { exile: false, .. }
+                | CostPart::Exile { .. }
         ) {
             return false;
         }
@@ -631,6 +632,46 @@ fn try_pay_effect_cost(
                 }
             }
             CostPart::AddMana { .. } => {}
+            CostPart::Exile {
+                amount,
+                type_filter,
+                from,
+            } => {
+                if type_filter == "CARDNAME" {
+                    let owner = ctx.game.card(source).owner;
+                    let origin = ctx.game.card(source).zone;
+                    ctx.move_card(source, ZoneType::Exile, owner);
+                    emit_zone_trigger(ctx.trigger_handler, source, origin, ZoneType::Exile);
+                    continue;
+                }
+                let amount = amount.resolve(ctx.game, source, payer).max(0) as usize;
+                if amount == 0 {
+                    continue;
+                }
+                let base_filter = crate::cost::normalize_exile_base_filter(type_filter);
+                let valid: Vec<CardId> =
+                    crate::cost::get_zone_targets(ctx.game, payer, *from, &base_filter, source)
+                        .into_iter()
+                        .filter(|&cid| {
+                            !crate::staticability::static_ability_cant_exile::cant_exile(
+                                &ctx.game.cards,
+                                ctx.game.card(cid),
+                                None,
+                                true,
+                            )
+                        })
+                        .collect();
+                if valid.len() < amount {
+                    return false;
+                }
+                let chosen = ctx.agents[payer.index()]
+                    .choose_cards_for_effect(payer, &valid, amount, amount);
+                for cid in chosen {
+                    let owner = ctx.game.card(cid).owner;
+                    ctx.move_card(cid, ZoneType::Exile, owner);
+                    emit_zone_trigger(ctx.trigger_handler, cid, *from, ZoneType::Exile);
+                }
+            }
             CostPart::Behold {
                 amount,
                 type_filter,
