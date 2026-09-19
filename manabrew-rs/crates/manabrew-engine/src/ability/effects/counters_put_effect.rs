@@ -110,6 +110,20 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .clone()
             .unwrap_or_else(|| parse_counter_type(counter_type_str))
     };
+    if sa.ir.optional {
+        let activator = sa.activating_player;
+        ctx.agents[activator.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        if !ctx.agents[activator.index()].confirm_action(
+            activator,
+            None,
+            "Do you want to put the counter?",
+            &[],
+            sa.source,
+            sa.api,
+        ) {
+            return;
+        }
+    }
     // Support SVar references for CounterNum (e.g. Count$Kicked.4.0 for kicker cards)
     let mut count = resolve_numeric_svar(ctx.game, sa, keys::COUNTER_NUM, 1);
     // Modular death triggers: override the static Modular N with the
