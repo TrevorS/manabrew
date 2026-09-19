@@ -19,31 +19,44 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         return; // CR 701.63b
     }
 
-    let targets: Vec<CardId> = if let Some(target) = sa.target_chosen.target_card {
-        vec![target]
-    } else if let Some(source) = sa.source {
-        ctx.game.card(source).remembered_cards.clone()
-    } else {
-        return;
-    };
+    let targets: Vec<CardId> = crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa);
+    let targets =
+        ctx.game
+            .order_cards_by_their_owners(targets, ZoneType::Battlefield, &mut Some(ctx.agents));
 
     let mut token_table = super::token_effect_base::TokenCreateTable::default();
     for card_id in targets {
-        if ctx.game.card(card_id).zone != ZoneType::Battlefield {
-            continue;
-        }
-
+        let controller = ctx.game.card(card_id).controller;
         let counter_type = super::parse_counter_type("P1P1");
-        if crate::card::card_predicates::can_receive_counters(ctx.game, card_id, &counter_type) {
-            // Rust agents do not expose Java's Endure confirm prompt yet; preserve
-            // the current auto-counter behavior when the target can receive counters.
+        let add_counters = ctx.game.card(card_id).zone == ZoneType::Battlefield
+            && crate::card::card_predicates::can_receive_counters(ctx.game, card_id, &counter_type)
+            && {
+                ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
+                let message = format!(
+                    "Put {amount} +1/+1 counter(s) on {} (or create a {amount}/{amount} Spirit)?",
+                    ctx.game.card(card_id).card_name
+                );
+                ctx.agents[controller.index()].confirm_action(
+                    controller,
+                    None,
+                    &message,
+                    &[],
+                    Some(card_id),
+                    Some(crate::ability::api_type::ApiType::Endure),
+                )
+            };
+        if add_counters {
             ctx.game
                 .card_mut(card_id)
                 .add_counter(&counter_type, amount);
         } else {
-            let controller = ctx.game.card(card_id).controller;
             let mut token =
                 TOKEN_EFFECT_BASE.require_token_template(ctx.token_templates, "w_x_x_spirit");
+            token.set_owner(controller);
+            token.set_controller(controller);
+            token.set_is_token(true);
+            token.set_s_var("TokenScript", "w_x_x_spirit");
+            token.set_s_var("TokenSpawningAbility", sa.ability_text.clone());
             token.set_base_power(Some(amount));
             token.set_base_toughness(Some(amount));
             token_table.put(controller, token, 1);
