@@ -82,8 +82,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let activate = sa.ir.alter_attribute_activate;
     let attributes = &sa.ir.alter_attribute_attributes;
 
-    let targets: Vec<CardId> = if let Some(target) = sa.target_chosen.target_card {
-        vec![target]
+    let targets: Vec<CardId> = if sa.uses_targeting() {
+        sa.target_chosen.all_target_cards()
     } else if let Some(source) = sa.source {
         match sa.defined() {
             Some(defined) if !matches!(sa.defined_ref(), Some(DefinedRef::SelfCard)) => {
