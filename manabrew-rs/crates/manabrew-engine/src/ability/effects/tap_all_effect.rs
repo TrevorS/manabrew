@@ -20,7 +20,11 @@ use crate::ids::CardId;
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let valid_cards = sa.ir.valid_cards_selector.as_ref();
 
-    let player_ids = ctx.game.player_order.clone();
+    let player_ids = if sa.uses_targeting() || sa.defined().is_some() {
+        crate::ability::spell_ability_effect::get_target_players(ctx.game, sa)
+    } else {
+        ctx.game.player_order.clone()
+    };
     let mut to_tap: Vec<CardId> = Vec::new();
     for &pid in &player_ids {
         let zone_cards = ctx.game.cards_in_zone(ZoneType::Battlefield, pid).to_vec();

@@ -31,9 +31,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         return;
     }
 
-    let activating_player = sa.activating_player;
     let valid_cards_filter = sa.ir.valid_cards_selector.as_ref();
-    let valid_players = sa.ir.valid_players_selector.as_ref();
+    let valid_players = crate::parsing::raw_get(&sa.ability_text, "ValidPlayers").map(|defined| {
+        crate::ability::ability_utils::resolve_defined_players_with_sa(
+            defined,
+            sa,
+            sa.activating_player,
+            ctx.game,
+        )
+    });
     let use_damage_map = ctx.game.pending_damage_map.is_some() || sa.ir.damage_map;
     if sa.ir.damage_map {
         ctx.game.ensure_pending_damage_maps();
@@ -156,10 +162,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     // Deal damage to each matching player if ValidPlayers$ is set
     if let Some(valid_players) = valid_players {
-        for pid in player_ids {
-            if !valid_filter::matches_valid_player_selector(valid_players, pid, activating_player) {
-                continue;
-            }
+        for pid in valid_players {
             let source_has_infect = if let Some(src_id) = source {
                 let src = ctx.game.card(src_id);
                 source_has_infect_keyword
