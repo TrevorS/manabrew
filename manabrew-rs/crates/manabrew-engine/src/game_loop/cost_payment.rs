@@ -3163,10 +3163,16 @@ impl GameLoop {
                     )
             })
             .collect();
-        if let Some(chosen) = agents[player.index()]
-            .choose_cards_for_effect(player, &valid, 1, 1)
-            .into_iter()
-            .next()
+        if valid.is_empty() {
+            return;
+        }
+        let choices: Vec<crate::agent::GameEntity> = valid
+            .iter()
+            .copied()
+            .map(crate::agent::GameEntity::Card)
+            .collect();
+        if let Some(crate::agent::GameEntity::Card(chosen)) =
+            agents[player.index()].choose_single_entity_for_effect(player, &choices, false)
         {
             let mut table = crate::game_entity_counter_table::GameEntityCounterTable::default();
             table.put(
