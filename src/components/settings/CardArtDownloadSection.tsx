@@ -20,7 +20,6 @@ import {
 } from "@/api/cardArtCache";
 import { useOwnedDecks } from "@/hooks/useOwnedDecks";
 import { usePreferencesStore } from "@/stores/usePreferencesStore";
-
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const units = ["KB", "MB", "GB"];
@@ -32,7 +31,6 @@ function formatBytes(bytes: number): string {
   }
   return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`;
 }
-
 export function CardArtDownloadSection() {
   const decks = useOwnedDecks();
   const style = usePreferencesStore((state) => state.battlefieldCardStyle);
@@ -41,43 +39,37 @@ export function CardArtDownloadSection() {
   const [busy, setBusy] = useState<"decks" | "all" | "clearing" | null>(null);
   const [progress, setProgress] = useState<BulkProgress | null>(null);
   const [available, setAvailable] = useState(false);
-
   const variants = variantsForStyles(everyStyle ? ALL_BATTLEFIELD_STYLES : [style]);
-
   const refresh = useCallback(() => {
     cardArtCacheStats()
       .then(setStats)
       .catch(() => setStats(null));
   }, []);
-
   useEffect(refresh, [refresh]);
-
   useEffect(() => {
     const unlisten = listen<BulkProgress>("card-art:progress", (event) =>
       setProgress(event.payload),
     );
     return () => void unlisten.then((off) => off());
   }, []);
-
   useEffect(() => {
     void cardArtCacheAvailable().then(setAvailable);
   }, []);
-
   if (!available) return null;
-
   async function downloadDecks() {
     setBusy("decks");
     try {
       const urls = [...new Set(decks.flatMap((saved) => deckArtUrls(saved.deck, variants)))];
       if (urls.length === 0) {
-        toast.info("No decks to download art for yet.");
+        toast.info(`No decks to download art for yet.`);
         return;
       }
       const result = await preseedCardArt(urls);
+      const downloaded = result.fetched + result.alreadyCached;
+      const summary =
+        downloaded === 1 ? `Art ready for one image` : `Art ready for ${downloaded} images`;
       toast.success(
-        `Art ready for ${result.fetched + result.alreadyCached} image${
-          result.fetched + result.alreadyCached === 1 ? "" : "s"
-        }${result.failed > 0 ? `, ${result.failed} could not be fetched` : ""}`,
+        result.failed > 0 ? `${summary}, ${result.failed} could not be fetched` : summary,
       );
       refresh();
     } catch (error) {
@@ -86,16 +78,13 @@ export function CardArtDownloadSection() {
       setBusy(null);
     }
   }
-
   async function downloadEverything() {
     setBusy("all");
     setProgress(null);
     try {
       const result = await downloadAllCardArt(variants);
-      toast.success(
-        `Downloaded ${result.fetched}, already had ${result.alreadyCached}` +
-          (result.failed > 0 ? `, ${result.failed} failed` : ""),
-      );
+      const summary = `Downloaded ${result.fetched}, already had ${result.alreadyCached}`;
+      toast.success(result.failed > 0 ? `${summary}, ${result.failed} failed` : summary);
       refresh();
     } catch (error) {
       toast.error(`Could not download every card: ${String(error)}`);
@@ -104,7 +93,6 @@ export function CardArtDownloadSection() {
       setProgress(null);
     }
   }
-
   async function clear(includeDownloaded: boolean) {
     setBusy("clearing");
     try {
@@ -116,9 +104,7 @@ export function CardArtDownloadSection() {
       setBusy(null);
     }
   }
-
   const deckCards = new Set(decks.flatMap((saved) => saved.deck.cards.map((c) => c.identity.name)));
-
   return (
     <div className="rounded-lg border bg-card/40 p-4 space-y-3 max-w-xl">
       <Label>Card Art On This Machine</Label>
@@ -142,7 +128,7 @@ export function CardArtDownloadSection() {
       <p className="text-xs text-muted-foreground">
         {stats
           ? `On disk: ${stats.files} image${stats.files === 1 ? "" : "s"}, ${formatBytes(stats.bytes)} — ${stats.pinnedFiles} of them downloaded on purpose (${formatBytes(stats.pinnedBytes)}).`
-          : "Reading the cache…"}
+          : `Reading the cache\u2026`}
       </p>
       {progress && (
         <p className="text-xs text-muted-foreground">
@@ -152,7 +138,7 @@ export function CardArtDownloadSection() {
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" onClick={() => void downloadDecks()} disabled={busy !== null}>
           {busy === "decks"
-            ? "Downloading…"
+            ? `Downloading\u2026`
             : `My decks (${decks.length}) · ~${formatBytes(estimateBytes(variants, deckCards.size))}`}
         </Button>
         {busy === "all" ? (

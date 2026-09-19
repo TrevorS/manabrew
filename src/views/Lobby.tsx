@@ -39,9 +39,7 @@ import { toast } from "sonner";
 import { Settings, Users } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { findLanRelay, findOrHostLanRelay, isUnreachable, type LanTarget } from "@/lib/lanRelay";
-
 const START_GAME_ACK_TIMEOUT_MS = 5000;
-
 function awaitGameStartedAck(roomId: string): Promise<void> {
   const events = getPlatform().events;
   return new Promise((resolve, reject) => {
@@ -69,13 +67,11 @@ function awaitGameStartedAck(roomId: string): Promise<void> {
     );
   });
 }
-
 interface SelectedAiDeck {
   name: string;
   deck: Deck;
   commanderName?: string;
 }
-
 export default function Lobby() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -164,26 +160,22 @@ export default function Lobby() {
   const [startingGame, setStartingGame] = useState(false);
   const [roomPasswords, setRoomPasswords] = useState<Record<string, string>>({});
   const [confirmLeaveHostedGame, setConfirmLeaveHostedGame] = useState(false);
-
   useEffect(() => {
     if (currentRoom) {
       setPlayersDrawerOpen(false);
       setSettingUp(false);
     }
   }, [currentRoom]);
-
   useEffect(() => {
     return getPlatform().events.on<BotFailedPayload>("server:bot_failed", (payload) => {
       setMySpawnedBots((prev) => prev.filter((name) => name !== payload.username));
       toast.error(`Bot couldn't join the table: ${payload.reason}`);
     });
   }, []);
-
   useEffect(() => {
     if (!initialPreferredSavedDeckId && !initialPreferredHubDeckId) return;
     navigate(location.pathname, { replace: true, state: null });
   }, [initialPreferredHubDeckId, initialPreferredSavedDeckId, location.pathname, navigate]);
-
   // Leaving tears down the embedded Forge node (stopRoom), which kills the
   // game for everyone still playing — by design. Make the host confirm it.
   const handleLeaveRoom = () => {
@@ -193,7 +185,6 @@ export default function Lobby() {
     }
     void leaveRoom();
   };
-
   const draftMode = useMultiplayerDraftStore((s) => s.mode);
   const draftSessionId = useMultiplayerDraftStore((s) => s.sessionId);
   useEffect(() => {
@@ -201,14 +192,12 @@ export default function Lobby() {
       navigate(`${ROUTES.DRAFT}/multiplayer`);
     }
   }, [draftMode, draftSessionId, navigate]);
-
   const sealedMode = useMultiplayerSealedStore((s) => s.mode);
   useEffect(() => {
     if (sealedMode === "building") {
       navigate(`${ROUTES.SEALED}/multiplayer`);
     }
   }, [sealedMode, navigate]);
-
   // Nobody answered where we were told to look. Somebody on this network may be
   // hosting, and if not, we can. Either way what comes back is an ordinary
   // relay and the rest of the lobby never learns which one it got.
@@ -223,7 +212,6 @@ export default function Lobby() {
       connect(target.host, target.port, name, target.password, true);
     });
   }, [connected, connecting, error, connect]);
-
   // A relay answering on this network is this network's lobby, so it wins. Only
   // a `relay` record counts: that is a machine somebody set up to be the lobby,
   // where a `room` is one table on a desktop and belongs to the fallback above.
@@ -258,7 +246,6 @@ export default function Lobby() {
     prefs.serverPassword,
     accountHandle,
   ]);
-
   // Poll lobby data every 5s while connected
   useEffect(() => {
     if (!connected) return;
@@ -268,7 +255,6 @@ export default function Lobby() {
     }, 5000);
     return () => clearInterval(id);
   }, [connected, listRooms, listPlayers]);
-
   useEffect(() => {
     if (!gameStarted || playerOrder.length === 0) return;
     if (!currentRoom) return;
@@ -323,7 +309,6 @@ export default function Lobby() {
     startingLife,
     username,
   ]);
-
   async function refreshLobbyData() {
     if (!connected || refreshingLobby) return;
     setRefreshingLobby(true);
@@ -333,7 +318,6 @@ export default function Lobby() {
       setRefreshingLobby(false);
     }
   }
-
   async function handleJoinRoom(roomId: string, password?: string, format?: GameFormat) {
     await joinRoom(roomId, password);
     if (password) {
@@ -341,7 +325,6 @@ export default function Lobby() {
     }
     if (format) await setFormat(format);
   }
-
   async function handleDeckSelection(
     deckName: string,
     deck: Deck,
@@ -365,19 +348,17 @@ export default function Lobby() {
       toast.error(`Failed to set deck: ${String(error)}`);
     }
   }
-
   function handleAddAiBot() {
     const room = currentRoom;
     if (!room || !username) return;
     if (room.players.length >= room.max_players) {
-      toast.error("The room is full.");
+      toast.error(`The room is full.`);
       return;
     }
     const botName = `${stripUsernameTag(username)}-bot-${Date.now().toString(36)}`;
     setBotDeckTarget(botName);
     setAiDeckDialogOpen(true);
   }
-
   async function handleStartGame() {
     const room = currentRoom;
     if (!room || startingGame) return;
@@ -393,13 +374,12 @@ export default function Lobby() {
       setStartingGame(false);
     }
   }
-
   async function handleStartDraft() {
     const room = currentRoom;
     if (!room || !username) return;
     const config: DraftConfig | undefined = room.draft_config;
     if (!config) {
-      toast.error("This room has no draft config — recreate it as a Draft room.");
+      toast.error(`This room has no draft config \u2014 recreate it as a Draft room.`);
       return;
     }
     setStartingLimited(true);
@@ -443,12 +423,11 @@ export default function Lobby() {
       setStartingLimited(false);
     }
   }
-
   async function handleStartSealed() {
     const room = currentRoom;
     if (!room || !username) return;
     if (!room.sealed_config) {
-      toast.error("This room has no sealed config — recreate it as a Sealed room.");
+      toast.error(`This room has no sealed config \u2014 recreate it as a Sealed room.`);
       return;
     }
     setStartingLimited(true);
@@ -465,7 +444,6 @@ export default function Lobby() {
       setStartingLimited(false);
     }
   }
-
   async function spawnBot(botName: string, deck: SelectedAiDeck) {
     const room = currentRoom;
     if (!room || !username || !getPlatform().server) return;
@@ -480,27 +458,24 @@ export default function Lobby() {
       });
       setMySpawnedBots((prev) => [...prev, botName]);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to spawn bot.");
+      toast.error(error instanceof Error ? error.message : `Failed to spawn bot.`);
     }
   }
-
   async function handleRemoveBot(botName: string) {
     try {
       await getPlatform().server!.removeAiBot(botName);
       setMySpawnedBots((prev) => prev.filter((u) => u !== botName));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to remove bot.");
+      toast.error(error instanceof Error ? error.message : `Failed to remove bot.`);
     }
   }
-
   async function handleSetMaxPlayers(maxPlayers: number) {
     try {
       await setMaxPlayers(maxPlayers);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to change player count.");
+      toast.error(error instanceof Error ? error.message : `Failed to change player count.`);
     }
   }
-
   return (
     <div className="flex h-full w-full min-h-0">
       <div className="flex min-w-0 flex-1 flex-col">
@@ -528,9 +503,9 @@ export default function Lobby() {
                 variant="ghost"
                 className="md:hidden"
                 onClick={() => setPlayersDrawerOpen(true)}
-                title="Show players and chat"
+                title={`Show players and chat`}
               >
-                <Users /> {chatEnabled ? "Players & chat" : "Players"}
+                <Users /> {chatEnabled ? `Players & chat` : `Players`}
                 <span
                   className={cn(
                     "rounded-full px-1.5 py-0.5 text-[10px]",
