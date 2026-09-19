@@ -879,6 +879,8 @@ impl GameLoop {
         let mut inherited_trigger_index = entry.spell_ability.trigger_index;
         let root_kicked = entry.spell_ability.kicked;
         let root_x_paid = entry.spell_ability.x_mana_cost_paid;
+        let root_trigger_objects = entry.spell_ability.trigger_objects.clone();
+        let root_trigger_source = entry.spell_ability.trigger_source;
         let mut current = Some(&entry.spell_ability);
         let mut is_first = true;
         while let Some(sa) = current {
@@ -901,7 +903,9 @@ impl GameLoop {
                 || (parent_target_stack_entry.is_some()
                     && sa.target_chosen.target_stack_entry.is_none())
                 || (inherited_trigger_index.is_some() && sa.trigger_index.is_none())
-                || sa.parent_targeting_card != parent_target_card;
+                || sa.parent_targeting_card != parent_target_card
+                || (sa.trigger_objects.is_empty() && !root_trigger_objects.is_empty())
+                || (sa.trigger_source.is_none() && root_trigger_source.is_some());
             let sa_ref = if needs_ctx_clone {
                 sa_with_ctx = sa.clone();
                 if root_kicked && !sa_with_ctx.kicked {
@@ -923,6 +927,12 @@ impl GameLoop {
                     sa_with_ctx.trigger_index = inherited_trigger_index;
                 }
                 sa_with_ctx.parent_targeting_card = parent_target_card;
+                if sa_with_ctx.trigger_objects.is_empty() {
+                    sa_with_ctx.trigger_objects = root_trigger_objects.clone();
+                }
+                if sa_with_ctx.trigger_source.is_none() {
+                    sa_with_ctx.trigger_source = root_trigger_source;
+                }
                 &sa_with_ctx
             } else {
                 sa
