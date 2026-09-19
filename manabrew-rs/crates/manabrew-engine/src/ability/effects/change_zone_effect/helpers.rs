@@ -156,6 +156,23 @@ pub(super) fn resolve_destination(
     if let Some(alt_dest_str) = sa.destination_alternative() {
         if let Some(alt_zone) = parse_zone_type(alt_dest_str) {
             let alt_lib_pos = sa.library_position_alternative().unwrap_or("0").to_string();
+            if let Some(svar) = crate::parsing::raw_get(&sa.ability_text, "DestAltSVar") {
+                let (svar, mandatory) = match svar.strip_prefix("MANDATORY ") {
+                    Some(rest) => (rest, true),
+                    None => (svar, false),
+                };
+                let comparator = crate::parsing::raw_get(&sa.ability_text, "DestAltSVarCompare")
+                    .unwrap_or("GE1");
+                let (op, rhs) = comparator.split_at(comparator.len().min(2));
+                let x = crate::svar::resolve_numeric_value(ctx.game, sa, svar, 0);
+                let rhs = crate::svar::resolve_numeric_value(ctx.game, sa, rhs, 0);
+                if !crate::parsing::compare::compare_expr(x, &format!("{op}{rhs}")) {
+                    return (dest_zone, lib_position);
+                }
+                if mandatory {
+                    return (alt_zone, alt_lib_pos);
+                }
+            }
             let decider = match crate::parsing::raw_get(&sa.ability_text, "AlternativeDecider") {
                 Some(defined) => crate::ability::ability_utils::resolve_defined_players_with_sa(
                     defined,
