@@ -1395,7 +1395,7 @@ pub fn matches_change_type(
             "YouCtrl" | "YouControl" | "You" | "YouOwn" | "OppCtrl" | "OpponentCtrl" | "OppOwn"
             | "OpponentOwn" | "Opponent" => {}
             // Token / nonToken qualifiers.
-            "Token" => {
+            "Token" | "token" => {
                 if !card.is_token {
                     return false;
                 }
