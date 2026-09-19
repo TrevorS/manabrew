@@ -2,10 +2,8 @@ use forge_foundation::ZoneType;
 
 use super::{parse_counter_type, EffectContext};
 use crate::event::RunParams;
-use crate::ids::CardId;
 use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
 use crate::replacement::ReplacementResult;
-use crate::spellability::SpellAbility;
 use crate::trigger::TriggerType;
 
 /// Resolve `DB$ RemoveCounter` / `AB$ RemoveCounter` / `SP$ RemoveCounter`.
@@ -62,73 +60,50 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .unwrap_or(1)
     };
 
-    // Resolve target card.
-    let target_card = resolve_target_card(ctx, sa);
-    let Some(card_id) = target_card else {
-        return;
-    };
+    // Java `CountersRemoveEffect` removes counters from every getTargetCards card.
+    for card_id in crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa) {
+        if ctx.game.card(card_id).zone != ZoneType::Battlefield {
+            continue;
+        }
 
-    // Verify card is on the battlefield.
-    if ctx.game.card(card_id).zone != ZoneType::Battlefield {
-        return;
-    }
+        // Run RemoveCounter replacement effects before removing.
+        let mut event = ReplacementEvent::RemoveCounter {
+            target: card_id,
+            counter_type: counter_type.clone(),
+            count: requested_count,
+        };
+        let result = apply_replacements(ctx.game, &mut event);
+        if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
+            continue;
+        }
+        let requested_count = if let ReplacementEvent::RemoveCounter { count, .. } = event {
+            count
+        } else {
+            requested_count
+        };
 
-    // Run RemoveCounter replacement effects before removing.
-    let mut event = ReplacementEvent::RemoveCounter {
-        target: card_id,
-        counter_type: counter_type.clone(),
-        count: requested_count,
-    };
-    let result = apply_replacements(ctx.game, &mut event);
-    if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
-        return;
-    }
-    let requested_count = if let ReplacementEvent::RemoveCounter { count, .. } = event {
-        count
-    } else {
-        requested_count
-    };
+        // Compute actual removal count (can't remove more than present).
+        let current = ctx.game.card(card_id).counter_count(&counter_type);
+        let actual = requested_count.min(current);
+        if actual <= 0 {
+            continue;
+        }
 
-    // Compute actual removal count (can't remove more than present).
-    let current = ctx.game.card(card_id).counter_count(&counter_type);
-    let actual = requested_count.min(current);
-    if actual <= 0 {
-        return;
-    }
+        // Remove counters.
+        ctx.game
+            .card_mut(card_id)
+            .remove_counter(&counter_type, actual);
 
-    // Remove counters.
-    ctx.game
-        .card_mut(card_id)
-        .remove_counter(&counter_type, actual);
-
-    // Fire CounterRemoved trigger.
-    ctx.trigger_handler.run_trigger(
-        TriggerType::CounterRemoved,
-        RunParams {
-            card: Some(card_id),
-            counter_type: Some(format!("{counter_type:?}")),
-            counter_amount: Some(actual),
-            ..Default::default()
-        },
-        false,
-    );
-}
-
-/// Resolve the target card for counter removal.
-/// Checks `Defined$ Self`, `Defined$ Targeted` / `Defined$ ParentTarget`,
-/// and targeting (target_chosen.target_card).
-fn resolve_target_card(ctx: &EffectContext, sa: &SpellAbility) -> Option<CardId> {
-    // Explicit targeting takes priority.
-    if let Some(card_id) = sa.target_chosen.target_card {
-        return Some(card_id);
-    }
-
-    let defined = sa.defined().unwrap_or("Self");
-
-    match defined {
-        "Self" => sa.source,
-        "ParentTarget" => ctx.parent_target_card,
-        "Targeted" => sa.target_chosen.target_card,
-        _ => sa.source, // fallback to source
+        // Fire CounterRemoved trigger.
+        ctx.trigger_handler.run_trigger(
+            TriggerType::CounterRemoved,
+            RunParams {
+                card: Some(card_id),
+                counter_type: Some(format!("{counter_type:?}")),
+                counter_amount: Some(actual),
+                ..Default::default()
+            },
+            false,
+        );
     }
 }

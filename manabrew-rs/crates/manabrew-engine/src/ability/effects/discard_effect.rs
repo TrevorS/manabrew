@@ -15,6 +15,7 @@ pub enum DiscardMode {
     RevealYouChoose,
     Random,
     Hand,
+    Defined,
 }
 
 impl DiscardMode {
@@ -26,6 +27,7 @@ impl DiscardMode {
             "RevealYouChoose" => Some(Self::RevealYouChoose),
             "Random" => Some(Self::Random),
             "Hand" => Some(Self::Hand),
+            "Defined" => Some(Self::Defined),
             _ => None,
         }
     }
@@ -124,6 +126,38 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             if !accepted {
                 continue;
             }
+        }
+
+        // Mode$ Defined — discard the DefinedCards$ (DiscardEffect.java:142-153).
+        if mode == DiscardMode::Defined {
+            let defined =
+                crate::parsing::raw_get(&sa.ability_text, "DefinedCards").unwrap_or_default();
+            let cards = crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                ctx.game, sa, defined,
+            );
+            let cards = ctx.game.order_cards_by_their_owners(
+                cards,
+                ZoneType::Graveyard,
+                &mut Some(&mut *ctx.agents),
+            );
+            for card_id in cards {
+                if ctx.game.card(card_id).zone == ZoneType::Hand {
+                    if sa.ir.remember_discarded {
+                        if let Some(sid) = sa.source {
+                            ctx.game.card_mut(sid).add_remembered_card(card_id);
+                        }
+                    }
+                    let owner = ctx.game.card(card_id).owner;
+                    ctx.game.discard_card(
+                        card_id,
+                        owner,
+                        Some(sa),
+                        Some(ctx.agents),
+                        ctx.trigger_handler,
+                    );
+                }
+            }
+            continue;
         }
 
         // Mode$ Hand — discard the whole hand, no chooser
