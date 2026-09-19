@@ -36,7 +36,7 @@ pub(super) fn resolve_hidden_origin(
     let change_num =
         crate::svar::resolve_numeric_svar(ctx.game, sa, crate::parsing::keys::CHANGE_NUM, 1).max(0)
             as usize;
-    let origin_zones = {
+    let mut origin_zones = {
         let origins = sa.origin_zones();
         if origins.is_empty() {
             vec![origin_zone]
@@ -52,7 +52,7 @@ pub(super) fn resolve_hidden_origin(
     //     null (CR 701.18b lets the controller find no cards even on a non-
     //     mandatory search). The chooser callback is still emitted in that case.
     let optional_confirm = sa.is_optional();
-    let chooser_optional = !sa.is_mandatory();
+    let mut chooser_optional = !sa.is_mandatory();
 
     // ── Defined$ handling (mirrors Java lines 999-1011) ──────────────────
     // When Defined$ is set to a known card reference (Remembered, Imprinted,
@@ -363,6 +363,59 @@ pub(super) fn resolve_hidden_origin(
     } else {
         chooser
     };
+
+    if !sa.ir.origin_alternative_zones.is_empty() {
+        let mut alt = sa.ir.origin_alternative_zones.clone();
+        let alt_fetch_list: Vec<_> = alt
+            .iter()
+            .flat_map(|&z| ctx.game.cards_in_zone(z, search_player).to_vec())
+            .filter(|&cid| matches_with_context(ctx, sa, cid, sa.change_type_selector()))
+            .collect();
+        ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        let message = format!(
+            "Search library? {} card(s) match in the other zones",
+            alt_fetch_list.len()
+        );
+        if !ctx.agents[chooser.index()].confirm_action(
+            chooser,
+            Some("ChangeZoneFromAltSource"),
+            &message,
+            &[],
+            sa.source,
+            Some(crate::ability::api_type::ApiType::ChangeZone),
+        ) {
+            origin_zones.clear();
+        }
+        while !alt.is_empty() && origin_zones.len() + alt.len() != 1 {
+            let z = alt.remove(0);
+            let message = format!(
+                "Search {}'s {}?",
+                ctx.game.player(search_player).name,
+                z.to_string().to_lowercase()
+            );
+            if ctx.agents[chooser.index()].confirm_action(
+                chooser,
+                Some("ChangeZoneFromAltSource"),
+                &message,
+                &[],
+                sa.source,
+                Some(crate::ability::api_type::ApiType::ChangeZone),
+            ) {
+                origin_zones.push(z);
+            }
+        }
+        if origin_zones.is_empty() {
+            origin_zones = alt;
+        }
+        if origin_zones.iter().any(|z| {
+            z.is_known()
+                && alt_fetch_list
+                    .iter()
+                    .any(|&cid| ctx.game.card(cid).zone == *z)
+        }) {
+            chooser_optional = false;
+        }
+    }
 
     if optional_confirm {
         let _source_name = sa.source.map(|cid| ctx.game.card(cid).card_name.as_str());

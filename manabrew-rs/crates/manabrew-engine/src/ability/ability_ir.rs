@@ -134,6 +134,7 @@ pub struct SpellAbilityIr {
     pub origin_text: Option<String>,
     pub origin_zone: Option<ZoneType>,
     pub origin_zones: Vec<ZoneType>,
+    pub origin_alternative_zones: Vec<ZoneType>,
     pub destination_text: Option<String>,
     pub destination_zone: Option<ZoneType>,
     pub destination_zone_2: Option<ZoneType>,
@@ -643,6 +644,7 @@ impl SpellAbilityIr {
             origin_text: params.get(keys::ORIGIN).map(str::to_string),
             origin_zone: parsed_zone_type(params.get(keys::ORIGIN)),
             origin_zones: parsed_zone_types(params.get(keys::ORIGIN)),
+            origin_alternative_zones: parsed_zone_types(params.get(keys::ORIGIN_ALTERNATIVE)),
             destination_text: params
                 .get(keys::DESTINATION_ZONE)
                 .or_else(|| params.get(keys::DESTINATION))

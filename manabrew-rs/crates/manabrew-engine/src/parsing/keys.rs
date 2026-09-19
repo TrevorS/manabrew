@@ -68,6 +68,7 @@ pub const TARGETING_PLAYER: &str = "TargetingPlayer";
 
 pub const ACTIVE_ZONES: &str = "ActiveZones";
 pub const ORIGIN: &str = "Origin";
+pub const ORIGIN_ALTERNATIVE: &str = "OriginAlternative";
 pub const DESTINATION: &str = "Destination";
 pub const DESTINATION_ALTERNATIVE: &str = "DestinationAlternative";
 pub const NEW_DESTINATION: &str = "NewDestination";
