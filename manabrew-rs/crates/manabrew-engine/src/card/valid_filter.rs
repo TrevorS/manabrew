@@ -776,10 +776,16 @@ fn matches_card_state(state: CardStateSelector, card: &Card, context: MatchConte
         CardStateSelector::Attached => {
             card.attached_to.is_some() || card.attached_to_player.is_some()
         }
-        CardStateSelector::Equipped => card.attached_to.is_some() && card.type_line.is_artifact(),
-        CardStateSelector::Enchanted => {
-            card.attached_to.is_some() && card.type_line.is_enchantment()
-        }
+        CardStateSelector::Equipped => context.game.is_some_and(|game| {
+            card.attachments
+                .iter()
+                .any(|&id| game.card(id).type_line.has_subtype("Equipment"))
+        }),
+        CardStateSelector::Enchanted => context.game.is_some_and(|game| {
+            card.attachments
+                .iter()
+                .any(|&id| game.card(id).type_line.has_subtype("Aura"))
+        }),
         CardStateSelector::HasCounters => card.counters.values().any(|count| *count > 0),
         CardStateSelector::IsImprinted => context.source_card.imprinted_cards.contains(&card.id),
         CardStateSelector::Chosen => {
