@@ -836,18 +836,39 @@ impl GameLoop {
                 .fold(forge_foundation::ManaCost::zero(), |acc, mc| acc.add(&mc))
         });
 
+        let keyword_alt_total_cost = {
+            let card = game.card(card_id);
+            let cost_str = if is_spectacle {
+                card.get_spectacle_cost()
+            } else if is_overload {
+                card.get_overload_cost()
+            } else if is_dash {
+                card.get_dash_cost()
+            } else if is_blitz {
+                card.get_blitz_cost()
+            } else if is_emerge {
+                card.get_emerge_cost()
+            } else if is_bestow {
+                card.get_bestow_cost()
+            } else if is_warp {
+                card.get_warp_cost()
+            } else {
+                None
+            };
+            cost_str.map(|c| crate::cost::parse_cost(&c))
+        };
+
         // Determine the mana cost to use
         // Note: All unwrap_or_default() below are safe because each is_* flag
         // is only true if the corresponding get_*_cost() returned Some earlier.
-        let mana_cost = if is_foretell {
+        let mana_cost = if let Some(ref kw_cost) = keyword_alt_total_cost {
+            Self::mana_from_cost(kw_cost)
+        } else if is_foretell {
             let foretell_cost_str = game.card(card_id).get_foretell_cost().unwrap_or_default();
             game.card_mut(card_id).set_face_down(false); // reveal it
             forge_foundation::ManaCost::parse(&foretell_cost_str)
         } else if is_flashback {
             flashback_mana_cost.unwrap_or_else(forge_foundation::ManaCost::zero)
-        } else if is_spectacle {
-            let spec_cost_str = game.card(card_id).get_spectacle_cost().unwrap_or_default();
-            forge_foundation::ManaCost::parse(&spec_cost_str)
         } else if is_evoke {
             // Select the specific Evoke cost chosen at action-space enumeration
             // (intrinsic vs granted by Ashling-style AddKeyword static). Without
@@ -872,29 +893,11 @@ impl GameLoop {
         } else if is_harmonize {
             let harmonize_cost_str = game.card(card_id).get_harmonize_cost().unwrap_or_default();
             forge_foundation::ManaCost::parse(&harmonize_cost_str)
-        } else if is_overload {
-            let overload_cost_str = game.card(card_id).get_overload_cost().unwrap_or_default();
-            forge_foundation::ManaCost::parse(&overload_cost_str)
-        } else if is_dash {
-            let dash_cost_str = game.card(card_id).get_dash_cost().unwrap_or_default();
-            forge_foundation::ManaCost::parse(&dash_cost_str)
-        } else if is_blitz {
-            let blitz_cost_str = game.card(card_id).get_blitz_cost().unwrap_or_default();
-            forge_foundation::ManaCost::parse(&blitz_cost_str)
-        } else if is_emerge {
-            let emerge_cost_str = game.card(card_id).get_emerge_cost().unwrap_or_default();
-            forge_foundation::ManaCost::parse(&emerge_cost_str)
         } else if is_plot_cast {
             // Plot: cast from exile for free (already paid plot cost).
             forge_foundation::ManaCost::generic(0)
         } else if is_static_alternative {
             Self::mana_from_cost(static_alt_cost.as_ref()?)
-        } else if is_bestow {
-            let bestow_cost_str = game.card(card_id).get_bestow_cost().unwrap_or_default();
-            forge_foundation::ManaCost::parse(&bestow_cost_str)
-        } else if is_warp {
-            let warp_cost_str = game.card(card_id).get_warp_cost().unwrap_or_default();
-            forge_foundation::ManaCost::parse(&warp_cost_str)
         } else if is_morph_facedown {
             forge_foundation::ManaCost::generic(crate::spellability::MORPH_GENERIC_COST)
         } else if original_zone == ZoneType::Exile {
@@ -2408,6 +2411,24 @@ impl GameLoop {
                 &evoke_cost,
                 None,
                 evoke_cost.mandatory,
+                Some(&mut sa),
+                None,
+                None,
+                None,
+            ) {
+                rollback_failed_payment!();
+            }
+        }
+
+        if let Some(ref kw_cost) = keyword_alt_total_cost {
+            if !self.pay_additional_costs(
+                game,
+                agents,
+                player,
+                card_id,
+                kw_cost,
+                None,
+                kw_cost.mandatory,
                 Some(&mut sa),
                 None,
                 None,
