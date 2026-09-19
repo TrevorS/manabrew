@@ -147,7 +147,7 @@ pub fn compute_cost_adjustment(
     caster: PlayerId,
     cast_zone: ZoneType,
 ) -> CostAdjustment {
-    compute_cost_adjustment_inner(game, spell_card, caster, cast_zone, &[], &[], true)
+    compute_cost_adjustment_inner(game, spell_card, caster, cast_zone, &[], &[], true, None)
 }
 
 /// Like `compute_cost_adjustment`, but also checks ValidTarget$ against chosen targets.
@@ -158,7 +158,16 @@ pub fn compute_cost_adjustment_with_targets(
     cast_zone: ZoneType,
     targets: &[CardId],
 ) -> CostAdjustment {
-    compute_cost_adjustment_inner(game, spell_card, caster, cast_zone, targets, &[], true)
+    compute_cost_adjustment_inner(
+        game,
+        spell_card,
+        caster,
+        cast_zone,
+        targets,
+        &[],
+        true,
+        None,
+    )
 }
 
 /// Payment-time variant. Includes the spell card itself so self-reducing
@@ -183,9 +192,93 @@ pub fn compute_cost_adjustment_for_payment(
         targets,
         optional_costs,
         true,
+        None,
     )
 }
 
+/// Mirrors Java `CostAdjustment.adjust(ManaCostBeingPaid, ...)` for an activated ability: the
+/// ability's `ReduceCost$`, PowerUp, then the `ReduceCost`/`RaiseCost`/`SetCost` statics whose
+/// `checkRequirement` accepts the ability.
+pub fn adjust_ability_mana_cost(
+    game: &GameState,
+    sa: &SpellAbility,
+    ability: &crate::ability::activated::ActivatedAbility,
+    activator: PlayerId,
+    targets: &[CardId],
+    mana_cost: &ManaCost,
+) -> ManaCost {
+    let Some(host_id) = sa.source else {
+        return mana_cost.clone();
+    };
+    let host = game.card(host_id);
+    let mut cost = ManaCostBeingPaid::from_mana_cost(mana_cost);
+    let mut sum_generic = 0;
+    if let Some(cst) = ability.params.get("ReduceCost") {
+        let amt = ability.params.get("ReduceAmount").unwrap_or(cst);
+        let num = crate::svar::resolve_numeric_value(game, sa, amt, 0);
+        if ability.params.has("ReduceAmount") && num > 0 {
+            let repeated = vec![cst; num as usize].join(" ");
+            cost.subtract_mana_cost(&ManaCost::parse(&repeated));
+        } else {
+            sum_generic += num;
+        }
+    }
+    if ability.power_up && host.entered_battlefield_this_turn {
+        cost.subtract_mana_cost(&host.mana_cost);
+    }
+    cost.decrease_generic_mana(sum_generic);
+    let adjusted = cost.to_mana_cost();
+    compute_cost_adjustment_inner(
+        game,
+        host,
+        activator,
+        host.zone,
+        targets,
+        &[],
+        true,
+        Some(ability),
+    )
+    .apply(&adjusted)
+}
+
+fn check_valid_ability(
+    valid_spell: &str,
+    ability: &crate::ability::activated::ActivatedAbility,
+    activator: PlayerId,
+    controller: PlayerId,
+) -> bool {
+    valid_spell.split(',').any(|option| {
+        let mut parts = option.trim().split('.');
+        if parts.next() != Some("Activated") {
+            return false;
+        }
+        parts.all(|attr| {
+            let (negate, attr) = attr.strip_prefix('!').map_or((false, attr), |a| (true, a));
+            let value = match attr {
+                "ManaAbility" => ability.is_mana_ability,
+                "Equip" => {
+                    ability.ability_api == Some(crate::ability::api_type::ApiType::Attach)
+                        && ability
+                            .spell_description
+                            .as_deref()
+                            .is_some_and(|d| d.starts_with("Equip"))
+                }
+                "PowerUp" => ability.power_up,
+                "Exhaust" => ability.exhaust,
+                "Loyalty" => ability.params.has("Planeswalker"),
+                "Boast" => ability.params.has("Boast"),
+                "YouCtrl" => activator == controller,
+                _ => {
+                    crate::census::unhandled("valid-ability-attribute-ignored", attr);
+                    return false;
+                }
+            };
+            value != negate
+        })
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
 fn compute_cost_adjustment_inner(
     game: &GameState,
     spell_card: &Card,
@@ -194,6 +287,7 @@ fn compute_cost_adjustment_inner(
     targets: &[CardId],
     optional_costs: &[OptionalCost],
     include_spell_self: bool,
+    ability: Option<&crate::ability::activated::ActivatedAbility>,
 ) -> CostAdjustment {
     let mut adj = CostAdjustment::default();
 
@@ -220,8 +314,8 @@ fn compute_cost_adjustment_inner(
 
             // ── checkRequirement: Type$ filter ───────────────────────
             if let Some(type_filter) = st_ab.ir.type_filter.as_deref() {
-                match type_filter.to_ascii_lowercase().as_str() {
-                    "spell" => { /* casting a spell — ok */ }
+                match (type_filter.to_ascii_lowercase().as_str(), ability) {
+                    ("spell", None) | ("ability", Some(_)) => {}
                     _ => continue,
                 }
             }
@@ -300,7 +394,11 @@ fn compute_cost_adjustment_inner(
 
             // ── checkRequirement: ValidSpell$ ────────────────────────
             if let Some(valid_spell) = st_ab.ir.valid_spell.as_deref() {
-                if !check_valid_spell(valid_spell, optional_costs) {
+                let valid = match ability {
+                    Some(ab) => check_valid_ability(valid_spell, ab, caster, source.controller),
+                    None => check_valid_spell(valid_spell, optional_costs),
+                };
+                if !valid {
                     continue;
                 }
             }

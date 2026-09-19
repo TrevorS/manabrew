@@ -570,6 +570,9 @@ impl GameLoop {
                     let cost_str = mana_cost.to_string();
                     let payable_mana_cost =
                         crate::mana::apply_player_life_payment_keywords(game, player, &mana_cost);
+                    if payable_mana_cost.is_zero() {
+                        continue;
+                    }
                     let session = ManaPaymentSession {
                         player,
                         card_id,

@@ -324,7 +324,7 @@ public final class ActionSpace {
             final Player player,
             final Set<Card> reservedSacrifices
     ) {
-        final ManaCost manaCost = sa.getPayCosts().getTotalMana();
+        final ManaCost manaCost = probeManaCost(sa.getPayCosts(), sa, player, false).toManaCost();
         return canPayManaCostFromCurrentSources(manaCost, sa, player, reservedSacrifices);
     }
 

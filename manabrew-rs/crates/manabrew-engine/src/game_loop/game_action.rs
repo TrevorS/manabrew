@@ -120,6 +120,28 @@ pub(crate) fn fire_sacrificed_once_for_batch(
 }
 
 impl GameLoop {
+    fn adjusted_activation_cost(
+        game: &GameState,
+        sa: &SpellAbility,
+        ab: &crate::ability::activated::ActivatedAbility,
+        player: PlayerId,
+        mut cost: crate::cost::Cost,
+    ) -> crate::cost::Cost {
+        let targets = sa.get_targets().all_target_cards();
+        for part in &mut cost.parts {
+            if let crate::cost::CostPart::Mana {
+                cost: ref mut mc, ..
+            } = part
+            {
+                *mc = crate::cost::cost_adjustment::adjust_ability_mana_cost(
+                    game, sa, ab, player, &targets, mc,
+                );
+                break;
+            }
+        }
+        cost
+    }
+
     fn fixed_reserved_sacrifices_for_action(sa: &SpellAbility, source: CardId) -> Vec<CardId> {
         let mut reserved = Vec::new();
         let Some(pay_costs) = sa.pay_costs.as_ref() else {
@@ -258,6 +280,13 @@ impl GameLoop {
                 .any(|p| matches!(p, crate::cost::CostPart::Mana { .. }));
             let reserved_sacrifices =
                 Self::fixed_reserved_sacrifices_for_action(&sa_for_target_check, card_id);
+            let ab_cost = Self::adjusted_activation_cost(
+                game,
+                &sa_for_target_check,
+                ab,
+                player,
+                ab.cost.clone(),
+            );
             let mana_for_check = if needs_mana {
                 mana::calculate_available_mana_with_context(
                     self.pool(player),
@@ -272,7 +301,7 @@ impl GameLoop {
             };
             let can_pay_cost = if reserved_sacrifices.is_empty() {
                 crate::cost::can_pay_with_ability(
-                    &ab.cost,
+                    &ab_cost,
                     game,
                     &mana_for_check,
                     card_id,
@@ -281,7 +310,7 @@ impl GameLoop {
                 )
             } else {
                 crate::cost::can_pay_ignoring_mana_with_ability(
-                    &ab.cost,
+                    &ab_cost,
                     game,
                     card_id,
                     player,
@@ -291,7 +320,7 @@ impl GameLoop {
                     self.pool(player),
                     player,
                     card_id,
-                    &ab.cost,
+                    &ab_cost,
                     &reserved_sacrifices,
                     Some(&crate::mana::payment_context_for_sa(
                         game,
@@ -787,10 +816,14 @@ impl GameLoop {
         if x_count == 0 {
             return false;
         }
-        let mut non_x_cost = mana_cost.without_x();
-        if ab.power_up && game.card(card_id).entered_battlefield_this_turn {
-            non_x_cost = non_x_cost.reduce_generic(game.card(card_id).mana_cost.cmc());
-        }
+        let non_x_cost = crate::cost::cost_adjustment::adjust_ability_mana_cost(
+            game,
+            sa,
+            ab,
+            player,
+            &[],
+            &mana_cost.without_x(),
+        );
         let available_mana = mana::calculate_available_mana(self.pool(player), game, player);
         let mut x: u32 = 0;
         while x < 99
@@ -882,24 +915,7 @@ impl GameLoop {
             return false;
         }
 
-        // PowerUp: reduce cost by card's mana cost if it entered the battlefield this turn
-        let adjusted_cost = if ab.power_up && game.card(card_id).entered_battlefield_this_turn {
-            let mut cost = activation_cost;
-            // Subtract the card's mana cost from the ability's mana cost
-            let card_mc = game.card(card_id).mana_cost.clone();
-            for part in &mut cost.parts {
-                if let crate::cost::CostPart::Mana {
-                    cost: ref mut mc, ..
-                } = part
-                {
-                    *mc = mc.reduce_generic(card_mc.cmc());
-                    break;
-                }
-            }
-            cost
-        } else {
-            activation_cost
-        };
+        let adjusted_cost = Self::adjusted_activation_cost(game, &sa, ab, player, activation_cost);
         self.finish_activated_ability_on_stack(game, agents, player, card_id, ab, sa, adjusted_cost)
     }
 

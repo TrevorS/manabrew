@@ -1824,17 +1824,16 @@ public class DeterministicController extends PlayerController implements Harness
         if (sa != null && sa.getManaCostBeingPaid() != null) {
             payableCost = new ManaCostBeingPaid(sa.getManaCostBeingPaid()).toManaCost();
         } else if (sa != null
-                && sa.isSpell()
                 && sa.getHostCard() != null
                 && payableCost != null
                 && !payableCost.isNoCost()) {
-            // Mirror the GUI flow: InputPayMana calls setManaCostBeingPaid with the
-            // reduced cost before handing payment to the controller. The deterministic
-            // harness skips that setup, so we must run CostAdjustment.adjust here for
-            // every spell — not just Affinity — otherwise self-reducing statics
-            // (Sunderflock's GreatestCardManaCost, Animar counters, ...) are ignored
-            // at payment time and the AI cancels casts that canPayManaCost said it
-            // could afford.
+            // Mirror the GUI flow: PlaySpellAbility.payManaCost runs CostAdjustment.adjust
+            // before handing payment to the controller, for spells and abilities alike.
+            // The deterministic harness skips that setup, so we must run it here —
+            // otherwise self-reducing statics (Sunderflock's GreatestCardManaCost, Animar
+            // counters, a PowerUp ability of a creature that entered this turn, ...) are
+            // ignored at payment time and the AI cancels what canPayManaCost said it could
+            // afford.
             final ManaCostBeingPaid adjusted = new ManaCostBeingPaid(payableCost);
             final Player payer = sa.getActivatingPlayer() != null ? sa.getActivatingPlayer() : player;
             if (CostAdjustment.adjust(adjusted, sa, payer, null, true, effect)) {
