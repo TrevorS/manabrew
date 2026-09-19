@@ -399,6 +399,23 @@ fn resolve_defined_cards_for_sa_ref_inner(
                 .map(|key| sa.get_triggering_cards(key))
                 .unwrap_or_default()
         }
+        DefinedRef::Unsupported(raw) if !raw.starts_with("Valid") && raw.contains('.') => {
+            let (head, valids) = raw.split_once('.').unwrap_or((raw, ""));
+            resolve_defined_cards_for_sa_ref_inner(game, sa, &DefinedRef::parse(head))
+                .into_iter()
+                .filter(|&card_id| {
+                    valids.split(',').any(|valid| {
+                        ability_utils::matches_valid_cards_for_sa(
+                            game,
+                            sa,
+                            game.card(card_id),
+                            None,
+                            &format!("Card.{valid}"),
+                        )
+                    })
+                })
+                .collect()
+        }
         DefinedRef::Unsupported(raw) if raw.starts_with("Valid") => {
             ability_utils::get_defined_valid_cards(
                 game,
