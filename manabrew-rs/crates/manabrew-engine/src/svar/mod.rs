@@ -1596,6 +1596,20 @@ fn enters_trigger_x_paid(game: &GameState, sa: &SpellAbility, card_id: CardId) -
     })
 }
 
+fn leaves_battlefield_trigger(game: &GameState, sa: &SpellAbility, card_id: CardId) -> bool {
+    let host = sa.trigger_source.unwrap_or(card_id);
+    sa.trigger_index
+        .and_then(|index| game.card(host).triggers.get(index))
+        .is_some_and(|trigger| {
+            trigger.mode.trigger_type() == crate::trigger::TriggerType::ChangesZone
+                && trigger
+                    .ir
+                    .origin_zones
+                    .contains(&forge_foundation::ZoneType::Battlefield)
+        })
+        && game.card(host).zone != forge_foundation::ZoneType::Battlefield
+}
+
 fn enters_replacement_x_paid(game: &GameState, sa: &SpellAbility, card_id: CardId) -> Option<i32> {
     sa.ir.etb.then(|| {
         game.card(card_id)
@@ -2098,6 +2112,9 @@ pub fn resolve_count_svar_for_sa(
             return game.card(source_id).num_all_counters();
         }
         let ct = crate::ability::effects::parse_counter_type(counter_type);
+        if leaves_battlefield_trigger(game, sa, source_id) {
+            return crate::lki::resolve_lki_counter_count(game, source_id, &ct);
+        }
         return *game.card(source_id).counters.get(&ct).unwrap_or(&0);
     }
 
