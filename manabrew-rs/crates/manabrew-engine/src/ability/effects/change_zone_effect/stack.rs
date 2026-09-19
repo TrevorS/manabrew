@@ -18,10 +18,6 @@ pub(super) fn resolve_stack_removal(
 ) {
     let target_card = if sa.uses_targeting() {
         sa.target_chosen.target_card
-    } else if sa.defined().is_some() {
-        crate::ability::spell_ability_effect::get_defined_cards_or_targeted(ctx.game, sa)
-            .into_iter()
-            .find(|&cid| ctx.game.card(cid).zone == ZoneType::Stack)
     } else if let Some(src) = sa
         .trigger_source
         .filter(|&cid| ctx.game.card(cid).zone == ZoneType::Stack)
@@ -47,19 +43,6 @@ pub(super) fn resolve_stack_removal(
         return;
     }
 
-    let spell_entry = ctx
-        .game
-        .stack
-        .iter()
-        .find(|entry| {
-            entry.spell_ability.is_spell
-                && !entry.spell_ability.is_copy
-                && entry.spell_ability.source == Some(card_id)
-        })
-        .map(|entry| entry.id);
-    if let Some(entry_id) = spell_entry {
-        ctx.game.stack.remove_by_id(entry_id);
-    }
     let old_zone = ctx.game.card(card_id).zone;
     let dest_owner = ctx.game.card(card_id).owner;
     ctx.move_card(card_id, dest_zone, dest_owner);
