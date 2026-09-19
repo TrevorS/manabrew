@@ -151,6 +151,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }));
         }
 
+        if sa.ir.animate_remove_creature_types {
+            let card = ctx.game.card_mut(card_id);
+            card.type_line.subtypes.retain(|s| {
+                !crate::game::TypeRegistry::creature_types()
+                    .iter()
+                    .any(|ct| ct.eq_ignore_ascii_case(s))
+            });
+            card.update_types();
+        }
+
         // Apply type changes
         if let Some(ref types) = types_str {
             if overwrite_types {
