@@ -1741,6 +1741,13 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         "issaddled" => matches_card_state(CardStateSelector::Saddled, card, context),
         "issuspected" => card.has_s_var("Suspected"),
         "issolved" => card.is_solved(),
+        "sneaked" => {
+            card.cast_sa.as_ref().is_some_and(|cast| {
+                cast.alt_cost == Some(crate::spellability::AlternativeCost::Sneak)
+            }) && !context
+                .spell_ability
+                .is_some_and(|sa| crate::ability::ability_utils::is_unlinked_from_cast_sa(sa, card))
+        }
         "mayplaysource" => matches_card_state(CardStateSelector::MayPlaySource, card, context),
         "exiledwithsource" => {
             matches_context_predicate(&ContextPredicate::ExiledWithSource, card, context)
@@ -2366,6 +2373,7 @@ fn matches_type_and_qualifier_parts(
                 | "issaddled"
                 | "issuspected"
                 | "issolved"
+                | "sneaked"
                 | "mayplaysource"
                 | "suspended"
                 | "singletarget"
