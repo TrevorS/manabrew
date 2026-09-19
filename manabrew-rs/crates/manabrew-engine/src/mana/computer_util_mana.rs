@@ -1286,25 +1286,20 @@ fn collect_sorted_candidates_with_pref(
     // Deduplicate by (card_id, ability_index) — same ability may appear under multiple color keys.
     let mut seen = crate::HashSet::default();
     out.retain(|ma| seen.insert((ma.card_id, ma.ability_index, ma.source_order)));
-    // Sort by score, then by zone_timestamp (battlefield entry order) to match
-    // Java's card iteration which uses timestamp order, not CardId order.
+    // Sort by score, then by the source's place in the battlefield list, as
+    // Java's AutoPay does (`score * 1000 + sourceOrder`).
     out.sort_by(|a, b| {
         let score_a = autopay_source_score(game, player, a);
         let score_b = autopay_source_score(game, player, b);
         (score_a * 1000).cmp(&(score_b * 1000)).then_with(|| {
-            let ts_a = game.card(a.card_id).zone_timestamp;
-            let ts_b = game.card(b.card_id).zone_timestamp;
-            ts_a.cmp(&ts_b)
-                .then_with(|| {
-                    // Probe-only tiebreak: prefer the higher-amount ability of
-                    // the same source so the greedy picker doesn't shadow it.
-                    if prefer_higher_amount && a.card_id == b.card_id {
-                        b.amount.cmp(&a.amount)
-                    } else {
-                        std::cmp::Ordering::Equal
-                    }
-                })
-                .then_with(|| a.source_order.cmp(&b.source_order))
+            // Probe-only tiebreak: prefer the higher-amount ability of
+            // the same source so the greedy picker doesn't shadow it.
+            if prefer_higher_amount && a.card_id == b.card_id {
+                b.amount.cmp(&a.amount)
+            } else {
+                std::cmp::Ordering::Equal
+            }
+            .then_with(|| a.source_order.cmp(&b.source_order))
         })
     });
     out
