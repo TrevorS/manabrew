@@ -2091,19 +2091,16 @@ pub fn resolve_count_svar_for_sa(
             let cond_parts: Vec<&str> = parts[1].splitn(3, '.').collect();
             if cond_parts.len() == 3 {
                 // Resolve the referenced SVar
-                let svar_val = if let Some(svar_expr) = game.card(source_id).get_s_var(svar_name) {
-                    if svar_expr.starts_with("Count$") || svar_expr.starts_with("PlayerCount") {
+                let amount = |raw: &str| match game.card(source_id).get_s_var(raw) {
+                    Some(svar_expr) => {
                         resolve_svar_expression(svar_expr, game, source_id, controller, sa)
-                    } else {
-                        svar_expr.parse::<i32>().unwrap_or(0)
                     }
-                } else {
-                    svar_name.parse::<i32>().unwrap_or(0)
+                    None => resolve_svar_expression(raw, game, source_id, controller, sa),
                 };
-
-                // Parse operator + threshold from cond_parts[0], e.g. "GE1"
+                let svar_val = amount(svar_name);
                 let cond = cond_parts[0];
-                let result = compare_expr(svar_val, cond);
+                let (op, rhs) = cond.split_at(cond.len().min(2));
+                let result = compare_expr(svar_val, &format!("{op}{}", amount(rhs)));
 
                 let resolve_branch = |raw: &str| {
                     raw.parse::<i32>().unwrap_or_else(|_| {
