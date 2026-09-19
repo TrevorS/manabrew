@@ -1,4 +1,4 @@
-{"compared_fields":["turn","phase","active_player","priority_player","game_over","winner","stack","monarch","initiative","day_night","players[i].exists","players[i].name","players[i].life","players[i].poison","players[i].lands_played","players[i].has_lost","players[i].has_won","players[i].library_size","players[i].speed","players[i].counters","players[i].mana_pool","players[i].library_top","players[i].graveyard","players[i].hand","players[i].exile","players[i].battlefield.count","players[i].battlefield.cards","players[i].battlefield[i].tapped","players[i].battlefield[i].power","players[i].battlefield[i].toughness","players[i].battlefield[i].damage","players[i].battlefield[i].summoning_sick","players[i].battlefield[i].counters","players[i].battlefield[i].controller","players[i].battlefield[i].types","players[i].battlefield[i].keywords","players[i].battlefield[i].attached_to","players[i].battlefield[i].token","players[i].battlefield[i].face_down","game_rng_calls","agent_rng_calls","snapshot.exists"],"build":"3eca7722b exe:26adb2822523b6e4","max_turns":30}
+{"compared_fields":["turn","phase","active_player","priority_player","game_over","winner","stack","monarch","initiative","day_night","players[i].exists","players[i].name","players[i].life","players[i].poison","players[i].lands_played","players[i].has_lost","players[i].has_won","players[i].library_size","players[i].speed","players[i].counters","players[i].mana_pool","players[i].library_top","players[i].graveyard","players[i].hand","players[i].exile","players[i].battlefield.count","players[i].battlefield.cards","players[i].battlefield[i].tapped","players[i].battlefield[i].power","players[i].battlefield[i].toughness","players[i].battlefield[i].damage","players[i].battlefield[i].summoning_sick","players[i].battlefield[i].counters","players[i].battlefield[i].controller","players[i].battlefield[i].types","players[i].battlefield[i].keywords","players[i].battlefield[i].attached_to","players[i].battlefield[i].token","players[i].battlefield[i].face_down","game_rng_calls","agent_rng_calls","snapshot.exists"],"build":"933b73bc4 exe:c1188d31d615362f","max_turns":30}
 {"deck1":"meta_4c_control","deck2":"meta_4c_control","seed":1,"verdict":"PASS"}
 {"deck1":"meta_4c_control","deck2":"meta_4c_control","seed":2,"verdict":"PASS"}
 {"deck1":"meta_4c_control","deck2":"meta_4c_control","seed":3,"verdict":"PASS"}
@@ -66,7 +66,7 @@
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":5,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":6,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":7,"verdict":"PASS"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":8,"verdict":"PASS","decision":"T9 Main1: Rust P0 choose_action -> PassPriority / Java P0 choose_single_entity_for_effect -> null (after P0 confirm_replacement_effect -> true)"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":8,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":9,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":10,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":11,"verdict":"PASS"}
@@ -85,7 +85,7 @@
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":24,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":25,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":26,"verdict":"PASS"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":27,"verdict":"PASS","decision":"T11 Main1: Rust P0 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Gloomlake Verge@10, mode: Normal }) | #1 CastSpell(PlayOption { card: Gloomlake Verge@7, mode: Normal }) | #2 CastSpell(PlayOption { card: Swamp@2, mode: Normal }) | P / Java P0 choose_single_entity_for_effect -> null (after P0 confirm_replacement_effect -> true)"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":27,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":28,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":29,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":30,"verdict":"PASS"}
@@ -104,7 +104,7 @@
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":43,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":44,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":45,"verdict":"FAIL","turn":19,"phase":"Untap","field":"players[i].graveyard","rust":"[\"Consult the Star Charts\", \"Duress\", \"Duress\", \"Firebending Lesson\", \"Flashback\", \"Great Hall of the Biblioplex\", \"Inevitable Defeat\", \"Inevitable Defeat\", \"Shoot the Sheriff\", \"Stock Up\", \"Stock Up\"]","java":"[\"Consult the Star Charts\", \"Duress\", \"Duress\", \"Firebending Lesson\", \"Great Hall of the Biblioplex\", \"Inevitable Defeat\", \"Inevitable Defeat\", \"Shoot the Sheriff\", \"Stock Up\", \"Stock Up\"]","fields":["players[i].graveyard","players[i].hand","players[i].battlefield.cards","agent_rng_calls"],"decision":"T18 Draw: Rust P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Flashback@90, mode: Normal }) | PASS] / Java P1 choose_action -> PassPriority (after P0 choose_action -> PassPriority)"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":46,"verdict":"PASS","decision":"T9 Main1: Rust P0 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Gloomlake Verge@11, mode: Normal }) | PASS] / Java P0 choose_single_entity_for_effect -> null (after P0 confirm_replacement_effect -> true)"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":46,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":47,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":48,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":49,"verdict":"PASS"}
@@ -129,9 +129,9 @@
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":8,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":9,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":10,"verdict":"PASS"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":11,"verdict":"PASS","decision":"T9 Main1: Rust P0 choose_action -> PassPriority / Java P0 choose_single_entity_for_effect -> null (after P0 confirm_replacement_effect -> true)"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":11,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":12,"verdict":"PASS"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":13,"verdict":"PASS","decision":"T14 Main1: Rust P1 choose_action -> PassPriority / Java P1 choose_single_entity_for_effect -> null (after P1 confirm_replacement_effect -> true)"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":13,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":14,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":15,"verdict":"PASS","decision":"T10 Main1: Rust P1 choose_action -> PassPriority / Java P1 choose_discard -> [Harvester of Misery@11] (after P0 choose_action -> PassPriority)"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":16,"verdict":"PASS"}
@@ -461,7 +461,7 @@
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":40,"verdict":"PASS"}
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":41,"verdict":"PASS"}
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":42,"verdict":"PASS"}
-{"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":43,"verdict":"PASS","decision":"T22 Main1: Rust P1 choose_action -> PassPriority / Java P1 choose_single_entity_for_effect -> null (after P1 confirm_replacement_effect -> true)"}
+{"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":43,"verdict":"PASS"}
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":44,"verdict":"PASS"}
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":45,"verdict":"PASS"}
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":46,"verdict":"PASS"}
