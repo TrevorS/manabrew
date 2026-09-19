@@ -396,6 +396,7 @@ pub(super) fn apply_post_move(
                     target_card_zone_timestamp: None,
                     sort_after_active: false,
                     trigger_order: None,
+                    source_timestamp: None,
                 });
         }
         if sa.ir.attacking || sa.ir.attacking_text.is_some() {

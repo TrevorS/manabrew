@@ -52,6 +52,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     target_card_zone_timestamp: None,
                     sort_after_active: false,
                     trigger_order: None,
+                    source_timestamp: None,
                 };
                 ctx.trigger_handler.register_delayed_trigger(delayed);
             }

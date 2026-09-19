@@ -848,6 +848,7 @@ pub fn register_at_eot(
         .parse::<AtEotAction>()
         .unwrap_or_default();
     let execute_svar = action.execute_svar().to_string();
+    let source_card = sa.source.unwrap_or(remembered[0]);
     trigger_handler.register_delayed_trigger(crate::trigger::handler::DelayedTrigger {
         mode: crate::trigger::TriggerType::Phase,
         trigger_mode: Box::new(crate::trigger::trigger_phase::TriggerPhase {
@@ -857,7 +858,7 @@ pub fn register_at_eot(
         params: crate::parsing::Params::default(),
         execute_svar,
         controller: sa.activating_player,
-        source_card: sa.source.unwrap_or(remembered[0]),
+        source_card,
         created_turn: game.turn.turn_number,
         created_phase: game.turn.phase,
         target_card: None,
@@ -868,6 +869,7 @@ pub fn register_at_eot(
         target_card_zone_timestamp: None,
         sort_after_active: false,
         trigger_order: None,
+        source_timestamp: Some(game.card(source_card).zone_timestamp),
     });
 }
 

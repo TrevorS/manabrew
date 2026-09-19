@@ -119,6 +119,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         target_card_zone_timestamp: None,
         sort_after_active: false,
         trigger_order: None,
+        source_timestamp: None,
     };
     if sa.ir.this_turn {
         ctx.trigger_handler

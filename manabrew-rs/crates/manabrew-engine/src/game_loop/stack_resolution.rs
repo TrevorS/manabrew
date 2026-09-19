@@ -626,6 +626,7 @@ impl GameLoop {
                             target_card_zone_timestamp: None,
                             sort_after_active: false,
                 trigger_order: None,
+                source_timestamp: None,
                         },
                     );
                 }
@@ -660,6 +661,7 @@ impl GameLoop {
                             target_card_zone_timestamp: None,
                             sort_after_active: false,
                 trigger_order: None,
+                source_timestamp: None,
                         },
                     );
                 }
@@ -727,6 +729,7 @@ impl GameLoop {
                             target_card_zone_timestamp: None,
                             sort_after_active: false,
                             trigger_order: None,
+                            source_timestamp: None,
                         },
                     );
                 }
@@ -808,6 +811,7 @@ impl GameLoop {
                                 target_card_zone_timestamp: None,
                                 sort_after_active: false,
                                 trigger_order: None,
+                                source_timestamp: None,
                             },
                         );
                         ZoneType::Exile
@@ -1184,6 +1188,7 @@ impl GameLoop {
                     target_card_zone_timestamp: None,
                     sort_after_active: i > 0 || !keyword_triggers_first,
                     trigger_order: None,
+                    source_timestamp: None,
                 },
             );
         }

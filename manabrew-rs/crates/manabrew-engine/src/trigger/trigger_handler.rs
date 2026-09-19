@@ -77,9 +77,20 @@ pub struct DelayedTrigger {
     /// id when parsed. Assign the equivalent order at registration so
     /// simultaneous delayed triggers do not tie on host timestamp.
     pub trigger_order: Option<u32>,
+    /// Forge hosts a `registerDelayedTrigger` trigger on an LKI copy of the source, so it sorts
+    /// by the source's timestamp when it was registered.
+    pub source_timestamp: Option<u64>,
 }
 
 impl DelayedTrigger {
+    fn host_timestamp(&self, game: &crate::game::GameState) -> u64 {
+        match self.source_timestamp {
+            Some(ts) => ts,
+            None if self.mode == TriggerType::Phase => 0,
+            None => game.card(self.source_card).zone_timestamp,
+        }
+    }
+
     /// Build a temporary `Trigger` wrapper for calling `TriggerBehavior` trait methods
     /// that require a `&Trigger` reference (Java's `this`).
     pub fn as_trigger(&self, _game: &crate::game::GameState) -> crate::trigger::Trigger {
@@ -817,11 +828,7 @@ impl TriggerHandler {
                     decider: delayed.controller,
                     description: String::new(),
                 };
-                let delayed_ts = if delayed.mode == TriggerType::Phase {
-                    0
-                } else {
-                    game.card(delayed.source_card).zone_timestamp
-                };
+                let delayed_ts = delayed.host_timestamp(game);
                 let delayed_bucket = if delayed.sort_after_active { 2 } else { 0 };
                 let delayed_order = delayed.trigger_order.unwrap_or(0);
                 // Java parity: Panharmonicon-class statics (e.g. Yarok, Roaming Throne)
@@ -1014,11 +1021,7 @@ impl TriggerHandler {
                     decider: delayed.controller,
                     description: String::new(),
                 };
-                let ts = if delayed.mode == TriggerType::Phase {
-                    0
-                } else {
-                    game.card(delayed.source_card).zone_timestamp
-                };
+                let ts = delayed.host_timestamp(game);
                 // An immediate trigger is made while its ability resolves, so its Java trigger id
                 // is above the host's own triggers: same host timestamp, sorted after them.
                 let trigger_bucket = if delayed.sort_after_active { 2 } else { 3 };

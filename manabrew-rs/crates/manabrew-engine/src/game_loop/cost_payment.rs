@@ -3023,6 +3023,7 @@ impl GameLoop {
                     target_card_zone_timestamp: None,
                     sort_after_active: true,
                     trigger_order: None,
+                    source_timestamp: None,
                 },
             );
             self.trigger_handler.run_trigger(
