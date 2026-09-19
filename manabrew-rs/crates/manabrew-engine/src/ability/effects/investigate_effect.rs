@@ -17,13 +17,7 @@ use crate::spellability::SpellAbility;
 #[manabrew_engine_macros::spell_effect(InvestigateEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let amount = super::resolve_numeric_svar(ctx.game, sa, "Num", 1).max(0) as usize;
-    let controller = sa.activating_player;
-
-    let players = if let Some(def) = sa.defined_player() {
-        super::resolve_defined_players(def, controller, ctx.game)
-    } else {
-        vec![controller]
-    };
+    let players = crate::ability::spell_ability_effect::get_target_players(ctx.game, sa);
 
     let mut created_tokens: Vec<CardId> = Vec::new();
     let mut trigger_list = CardZoneTable::default();
