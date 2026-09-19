@@ -28,7 +28,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             let mut ids = Vec::new();
             for value in &sa.trigger_remembered {
                 if let AbilityValue::Card(cid) = value {
-                    ids.push(*cid);
+                    if !ids.contains(cid) {
+                        ids.push(*cid);
+                    }
                 }
             }
             Some(ids)
@@ -123,6 +125,20 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
     }
+    if let Some(controller_text) = sa.ir.controller_text.as_deref() {
+        let controllers = crate::ability::ability_utils::resolve_defined_players_with_sa(
+            controller_text,
+            sa,
+            sa.activating_player,
+            ctx.game,
+        );
+        to_sacrifice.retain(|&cid| controllers.contains(&ctx.game.card(cid).controller));
+    }
+    let to_sacrifice = ctx.game.order_cards_by_their_owners(
+        to_sacrifice,
+        ZoneType::Graveyard,
+        &mut Some(&mut *ctx.agents),
+    );
 
     // Track per-controller batches to fire SacrificedOnce once per controller after
     // the whole sweep (mirrors Java GameAction.sacrifice line 2133-2138).
