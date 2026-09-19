@@ -111,8 +111,9 @@ pub(super) fn resolve_hidden_origin(
         ) {
             sa.get_triggering_cards(crate::ability::AbilityKey::RememberedLKI)
         } else {
-            // Unknown defined type — fall through to search
-            Vec::new()
+            crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                ctx.game, sa, &defined,
+            )
         };
 
         // Filter to only cards still in the expected origin zone
