@@ -1,9 +1,8 @@
 use forge_foundation::ZoneType;
 
 use super::{emit_zone_trigger_with_lki_counters, matches_change_type, EffectContext};
-use crate::ability::ability_ir::DefinedRef;
 use crate::card::valid_filter;
-use crate::event::{AbilityValue, RunParams};
+use crate::event::RunParams;
 use crate::ids::CardId;
 use crate::trigger::TriggerType;
 
@@ -19,24 +18,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // `DelayTriggerRememberedLKI` targets the token created by the parent
     // trigger), sacrifice only those cards instead of every matching
     // permanent on the battlefield.
-    let defined_cards: Option<Vec<CardId>> = match sa.defined_ref() {
-        Some(
-            DefinedRef::DelayTriggerRememberedLki
-            | DefinedRef::DelayTriggerRemembered
-            | DefinedRef::Remembered,
-        ) => {
-            let mut ids = Vec::new();
-            for value in &sa.trigger_remembered {
-                if let AbilityValue::Card(cid) = value {
-                    if !ids.contains(cid) {
-                        ids.push(*cid);
-                    }
-                }
-            }
-            Some(ids)
-        }
-        _ => None,
-    };
+    let defined_cards: Option<Vec<CardId>> = sa.defined().map(|defined| {
+        crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(ctx.game, sa, defined)
+    });
 
     // UnlessCost$ X | UnlessPayer$ You — offer the payer a chance to pay a
     // cost to prevent the sacrifice entirely. Java's deterministic AI pays
