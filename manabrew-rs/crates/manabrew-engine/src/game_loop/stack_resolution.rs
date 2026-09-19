@@ -701,7 +701,7 @@ impl GameLoop {
                         trigger_remembered: Vec::new(),
                         spawning_ability: None,
                     };
-                    game.card_mut(card_id).add_trigger(dies_trigger);
+                    game.card_mut(card_id).add_lasting_trigger(dies_trigger);
                     game.card_mut(card_id)
                         .set_s_var("BlitzDiesDraw", "DB$ Draw | NumCards$ 1 | Defined$ You");
                     self.trigger_handler.unregister_active_triggers(card_id);
