@@ -723,6 +723,25 @@ impl Card {
     }
 
     fn generate_keyword_trigger_zone_battlefield(&mut self, kw: &str, next_id: &mut u32) {
+        if let Some(cost) = crate::keyword::extract_keyword_cost_str(kw, "Offspring") {
+            let raw = format!(
+                "Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | CheckSVar$ Offspring | Secondary$ True | Execute$ TrigOffspring | TriggerDescription$ Offspring {cost}"
+            );
+            if let Some(mut trig) = parse_trigger(&raw, next_id) {
+                trig.execute = "TrigOffspring".to_string();
+                self.add_trigger(trig);
+            }
+            self.svars
+                .entry("Offspring".to_string())
+                .or_insert_with(|| "Count$OptionalKeywordAmount".to_string());
+            self.svars
+                .entry("TrigOffspring".to_string())
+                .or_insert_with(|| {
+                    "DB$ CopyPermanent | Defined$ TriggeredCardLKICopy | SetPower$ 1 | SetToughness$ 1"
+                        .to_string()
+                });
+        }
+
         if kw == "Exploit" {
             let raw = "Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigExploit | TriggerDescription$ Exploit";
             if let Some(mut trig) = parse_trigger(raw, next_id) {

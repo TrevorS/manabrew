@@ -1628,6 +1628,13 @@ pub fn resolve_count_svar_for_sa(
     if expr == "Count$TriggerRememberAmount" {
         return sa.trigger_remembered_amount;
     }
+    if expr == "Count$OptionalKeywordAmount" {
+        return game
+            .card(source_id)
+            .cast_sa
+            .as_ref()
+            .map_or(0, |cast| cast.optional_keyword_amounts.values().sum());
+    }
     if expr == "Count$ChosenNumber" {
         return game.card(source_id).chosen_number.unwrap_or(0);
     }

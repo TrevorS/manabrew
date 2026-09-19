@@ -194,8 +194,20 @@ pub(crate) fn assemble_card(
     {
         mark_triggers_card_state(&mut components.triggers, &card, CardStateName::LeftSplit);
     }
+    let keyword_trigger_count = card.triggers.len();
     for trig in components.triggers {
         card.add_trigger(trig);
+    }
+    card.triggers.rotate_left(keyword_trigger_count);
+    let script_trigger_count = card.triggers.len() - keyword_trigger_count;
+    let mut next_trigger_id = card.triggers[..script_trigger_count]
+        .iter()
+        .map(|trig| trig.id + 1)
+        .max()
+        .unwrap_or(0);
+    for trig in &mut card.triggers[script_trigger_count..] {
+        trig.id = next_trigger_id;
+        next_trigger_id += 1;
     }
     add_saga_abilities(&mut card);
     card.generate_keyword_paradigm();

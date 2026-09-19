@@ -1592,6 +1592,23 @@ impl GameLoop {
         } else {
             None
         };
+        if sa.is_spell && !sa.is_copy {
+            if let Some(offspring_cost) = game.card(card_id).get_keyword_cost("Offspring") {
+                agents[player.index()].snapshot_state(game, &self.mana_pools);
+                if agents[player.index()].choose_number_for_keyword_cost(
+                    player,
+                    1,
+                    &format!("Pay for Offspring? {offspring_cost}"),
+                    Some(card_id),
+                ) == 1
+                {
+                    payable_base_cost =
+                        payable_base_cost.add(&forge_foundation::ManaCost::parse(&offspring_cost));
+                    sa.optional_keyword_amounts
+                        .insert("Offspring".to_string(), 1);
+                }
+            }
+        }
         let mut total_unpaid = ManaCostBeingPaid::from_mana_cost(&payable_base_cost);
         if !crate::cost::cost_adjustment::adjust(
             game,
