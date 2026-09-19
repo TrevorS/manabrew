@@ -2327,6 +2327,11 @@ fn matches_type_and_qualifier_parts(
                         return false;
                     }
                 }
+                "inzonestack" => {
+                    if card.zone != forge_foundation::ZoneType::Stack {
+                        return false;
+                    }
+                }
                 "inzonegraveyard" => {
                     if card.zone != forge_foundation::ZoneType::Graveyard {
                         return false;

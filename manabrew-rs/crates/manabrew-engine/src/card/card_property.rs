@@ -174,6 +174,11 @@ fn matches_single_property(card: &Card, property: &str, source_controller: Playe
                         }
                     }
                 }
+            } else if let Some(zone) = property
+                .strip_prefix("inZone")
+                .and_then(crate::zone::zone_type::smart_value_of)
+            {
+                card.zone == zone
             } else if property == "hasAbility Activated" {
                 !card.activated_abilities.is_empty()
             } else if let Some(keyword) = property.strip_prefix("without") {
