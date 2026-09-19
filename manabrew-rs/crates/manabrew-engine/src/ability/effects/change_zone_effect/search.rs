@@ -270,7 +270,7 @@ pub(super) fn resolve_defined_players_for_hidden_origin(
         vec![ctx.game.opponent_of(controller)]
     } else {
         let players = resolve_defined_players_with_sa(def, sa, controller, ctx.game);
-        if players.is_empty() {
+        if players.is_empty() && sa.defined_player().is_none() {
             vec![controller]
         } else {
             players
