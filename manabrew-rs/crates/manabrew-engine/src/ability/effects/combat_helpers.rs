@@ -5,8 +5,9 @@
 
 use forge_foundation::CoreType;
 
+use crate::agent::GameEntity;
 use crate::combat::DefenderId;
-use crate::ids::{CardId, PlayerId};
+use crate::ids::CardId;
 use crate::spellability::SpellAbility;
 
 use super::effect_context::EffectContext;
@@ -14,37 +15,24 @@ use super::effect_context::EffectContext;
 pub(super) fn choose_defender(
     ctx: &mut EffectContext,
     sa: &SpellAbility,
-    controller: PlayerId,
     defenders: &[DefenderId],
 ) -> Option<DefenderId> {
     if defenders.is_empty() {
         return None;
     }
-    if defenders.len() == 1 {
-        return Some(defenders[0]);
-    }
-
-    let valid_players: Vec<PlayerId> = defenders.iter().filter_map(|d| d.as_player()).collect();
-    let valid_cards: Vec<CardId> = defenders
+    let chooser = sa.activating_player;
+    let choices: Vec<GameEntity> = defenders
         .iter()
-        .filter_map(|d| match d {
-            DefenderId::Permanent(cid) => Some(*cid),
-            DefenderId::Player(_) => None,
+        .map(|defender| match defender {
+            DefenderId::Player(pid) => GameEntity::Player(*pid),
+            DefenderId::Permanent(cid) => GameEntity::Card(*cid),
         })
         .collect();
-    ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
-    Some(
-        match ctx.agents[controller.index()].choose_target_any(
-            controller,
-            &valid_players,
-            &valid_cards,
-            Some(sa),
-        ) {
-            crate::agent::TargetChoice::Player(pid) => DefenderId::Player(pid),
-            crate::agent::TargetChoice::Card(cid) => DefenderId::Permanent(cid),
-            _ => defenders[0],
-        },
-    )
+    ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
+    match ctx.agents[chooser.index()].choose_single_entity_for_effect(chooser, &choices, false)? {
+        GameEntity::Player(pid) => Some(DefenderId::Player(pid)),
+        GameEntity::Card(cid) => Some(DefenderId::Permanent(cid)),
+    }
 }
 
 pub(super) fn resolve_attack_defenders(
@@ -136,20 +124,22 @@ pub(crate) fn add_to_combat(
     let Some(attacking) = attacking else {
         return false;
     };
+    if ctx
+        .combat
+        .as_deref()
+        .and_then(|combat| combat.attacking_player)
+        != Some(controller)
+    {
+        return false;
+    }
     let defenders = resolve_attack_defenders(ctx, sa, card_id, attacking);
-    let Some(defender) = choose_defender(ctx, sa, controller, &defenders) else {
+    let Some(defender) = choose_defender(ctx, sa, &defenders) else {
         return false;
     };
 
     let Some(combat) = ctx.combat.as_deref_mut() else {
         return false;
     };
-    let Some(attacking_player) = combat.attacking_player else {
-        return false;
-    };
-    if attacking_player != controller {
-        return false;
-    }
 
     if combat
         .attackers
