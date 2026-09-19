@@ -1,6 +1,6 @@
 use forge_foundation::ZoneType;
 
-use super::{emit_zone_trigger, matches_change_type, resolve_numeric_svar, EffectContext};
+use super::{emit_zone_trigger, resolve_numeric_svar, EffectContext};
 use crate::agent::{notify_all_agents, GameLogEvent};
 use crate::card::card_zone_table::CardZoneTable;
 use crate::parsing::keys;
@@ -96,7 +96,15 @@ fn resolve_for_player(
         top_n
             .iter()
             .copied()
-            .filter(|&id| matches_change_type(ctx.game.card(id), &change_valid, &[]))
+            .filter(|&id| {
+                crate::ability::ability_utils::matches_valid_cards_for_sa(
+                    ctx.game,
+                    sa,
+                    ctx.game.card(id),
+                    None,
+                    &change_valid,
+                )
+            })
             .collect()
     };
 
