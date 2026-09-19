@@ -149,6 +149,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
 
     let is_perpetual = sa.ir.perpetual_duration;
+    let is_permanent = matches!(
+        sa.ir.duration,
+        Some(crate::spellability::AbilityDuration::Permanent)
+    );
     let resolve_ts = if is_perpetual {
         Some(ctx.game.next_effect_timestamp())
     } else {
@@ -182,7 +186,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             let target = ctx.game.card(cid);
             let att = att_bonus.resolve(target.power());
             let def = def_bonus.resolve(target.toughness());
-            apply_pump_to_card(ctx, cid, att, def, &keywords, is_perpetual, resolve_ts);
+            apply_pump_to_card(
+                ctx,
+                cid,
+                att,
+                def,
+                &keywords,
+                is_perpetual,
+                is_permanent,
+                resolve_ts,
+            );
         }
         return;
     }
@@ -215,6 +228,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             def,
             &keywords,
             is_perpetual,
+            is_permanent,
             resolve_ts,
         );
         pumped_targets.push(target_card);
@@ -268,6 +282,7 @@ fn apply_pump_to_card(
     def: i32,
     keywords: &[String],
     is_perpetual: bool,
+    is_permanent: bool,
     resolve_ts: Option<i64>,
 ) {
     if is_perpetual {
@@ -287,6 +302,15 @@ fn apply_pump_to_card(
                 remove_all: false,
             }
             .apply_effect(card);
+        }
+    } else if is_permanent {
+        let card = ctx.game.card_mut(card_id);
+        card.add_pt_boost(att, def);
+        if !keywords.is_empty() {
+            card.capture_changed_characteristics_baseline_if_needed();
+        }
+        for kw in keywords {
+            card.add_changed_card_keywords(kw);
         }
     } else {
         ctx.game.card_mut(card_id).add_pt_boost(att, def);

@@ -607,15 +607,20 @@ pub fn add_color(card: &mut Card, color: ColorSet) {
 }
 
 pub fn has_keyword(card: &Card, keyword: &str) -> bool {
+    let keyword = keyword.strip_prefix("HIDDEN ").unwrap_or(keyword);
     if card
         .cant_have_keywords
         .contains(&keyword.to_ascii_lowercase())
     {
         return false;
     }
-    card.keywords.contains_string_ignore_case(keyword)
-        || card.granted_keywords.contains_string_ignore_case(keyword)
-        || card.pump_keywords.contains_string_ignore_case(keyword)
+    card.keywords.contains_string_or_hidden_ignore_case(keyword)
+        || card
+            .granted_keywords
+            .contains_string_or_hidden_ignore_case(keyword)
+        || card
+            .pump_keywords
+            .contains_string_or_hidden_ignore_case(keyword)
 }
 
 pub fn has_intrinsic_keyword(card: &Card, keyword: &str) -> bool {

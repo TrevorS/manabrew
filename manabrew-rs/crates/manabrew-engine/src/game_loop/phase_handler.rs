@@ -371,9 +371,12 @@ impl GameLoop {
         let cards: Vec<crate::ids::CardId> =
             game.cards_in_zone(ZoneType::Battlefield, active).to_vec();
         let mut untap_map: Vec<(crate::ids::PlayerId, Vec<crate::ids::CardId>)> = Vec::new();
-        for cid in cards {
+        let next_untap_keyword = "This card doesn't untap during your next untap step.";
+        for &cid in &cards {
             if game.card(cid).exerted {
                 game.card_mut(cid).clear_exerted();
+            } else if game.card(cid).has_keyword(next_untap_keyword) {
+                continue;
             } else {
                 let optional_keyword =
                     "You may choose not to untap CARDNAME during your untap step.";
@@ -434,6 +437,13 @@ impl GameLoop {
                     None => untap_map.push((controller, vec![cid])),
                 }
             }
+        }
+
+        let hidden_next_untap_keyword = format!("HIDDEN {next_untap_keyword}");
+        for &cid in &cards {
+            let card = game.card_mut(cid);
+            card.pump_keywords.remove(&hidden_next_untap_keyword);
+            card.remove_changed_card_keywords(&hidden_next_untap_keyword);
         }
 
         self.trigger_handler.run_trigger(

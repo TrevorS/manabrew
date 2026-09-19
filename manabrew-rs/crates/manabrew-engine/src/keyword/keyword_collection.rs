@@ -157,6 +157,18 @@ impl KeywordCollection {
         })
     }
 
+    pub fn contains_string_or_hidden_ignore_case(&self, keyword: &str) -> bool {
+        self.map.values().any(|list| {
+            list.iter().any(|inst| {
+                let original = inst.original.as_str();
+                original.eq_ignore_ascii_case(keyword)
+                    || original
+                        .strip_prefix("HIDDEN ")
+                        .is_some_and(|hidden| hidden.eq_ignore_ascii_case(keyword))
+            })
+        })
+    }
+
     /// Check if any keyword's original string starts with the given prefix.
     pub fn any_starts_with(&self, prefix: &str) -> bool {
         self.map
