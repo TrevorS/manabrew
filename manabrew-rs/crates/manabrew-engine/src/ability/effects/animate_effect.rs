@@ -101,8 +101,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let eot_targets = target_ids.clone();
 
     for card_id in target_ids {
-        // Only animate cards on the battlefield
-        if ctx.game.card(card_id).zone != ZoneType::Battlefield {
+        let card = ctx.game.card(card_id);
+        if card.phased_out || !matches!(card.zone, ZoneType::Battlefield | ZoneType::Stack) {
             continue;
         }
 
@@ -399,40 +399,19 @@ fn resolve_animate_targets(
     sa: &SpellAbility,
     _controller: crate::ids::PlayerId,
 ) -> Vec<crate::ids::CardId> {
-    // Check for explicit target
-    if let Some(target) = sa.target_chosen.target_card {
-        return vec![target];
+    let mut targets = crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa);
+    if targets.is_empty() && matches!(sa.defined_ref(), Some(DefinedRef::ParentTarget)) {
+        targets.extend(ctx.parent_target_card);
     }
-
-    // Check Defined$ param
-    if let Some(defined) = sa.defined_ref() {
-        match defined {
-            DefinedRef::SelfCard => {
-                if let Some(src) = sa.source {
-                    return vec![src];
-                }
-            }
-            DefinedRef::ParentTarget => {
-                if let Some(pt) = ctx.parent_target_card {
-                    return vec![pt];
-                }
-            }
-            DefinedRef::Remembered => {
-                if let Some(src) = sa.source {
-                    return ctx.game.card(src).remembered_cards.clone();
-                }
-            }
-            DefinedRef::Targeted | DefinedRef::TargetedCard | DefinedRef::ThisTargetedCard => {
-                return sa.target_chosen.target_card.into_iter().collect();
-            }
-            _ => {}
+    if let Some(stack_id) = sa.target_chosen.target_stack_entry {
+        if let Some(source) = ctx
+            .game
+            .stack
+            .find_by_id(stack_id)
+            .and_then(|entry| entry.spell_ability.source)
+        {
+            targets.push(source);
         }
     }
-
-    // Default: animate source card itself
-    if let Some(src) = sa.source {
-        vec![src]
-    } else {
-        vec![]
-    }
+    targets
 }
