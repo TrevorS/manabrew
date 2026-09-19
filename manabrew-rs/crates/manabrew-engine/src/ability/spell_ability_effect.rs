@@ -326,6 +326,15 @@ fn resolve_defined_cards_for_sa_ref_inner(
             sa.target_chosen.target_card.into_iter().collect()
         }
         DefinedRef::OriginalHost => sa.original_host.into_iter().collect(),
+        DefinedRef::ParentTarget => sa
+            .parent_targeting_card
+            .or(if sa.uses_targeting() {
+                None
+            } else {
+                sa.target_chosen.target_card
+            })
+            .into_iter()
+            .collect(),
         DefinedRef::ExiledWith => sa
             .source
             .map(|source| game.card(source).exiled_cards.clone())
