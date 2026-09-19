@@ -131,6 +131,6 @@ fn register_return_trigger(
             target_card_zone_timestamp: Some(ctx.game.card(card_id).zone_timestamp),
             sort_after_active: false,
             trigger_order: None,
-            source_timestamp: None,
+            source_timestamp: Some(ctx.game.card(source_card).zone_timestamp),
         });
 }
