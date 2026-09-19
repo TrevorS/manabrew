@@ -1,4 +1,4 @@
-use super::{resolve_defined_player, resolve_numeric_svar, EffectContext};
+use super::{resolve_numeric_svar, EffectContext};
 use crate::ability::ability_ir::EffectIr;
 use crate::spellability::SpellAbility;
 
@@ -22,62 +22,21 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         return;
     }
 
-    let controller = sa.activating_player;
-
-    // If targeting was used (ValidTgts$ Player), use the chosen target.
-    if let Some(target_player) = sa.target_chosen.target_player {
-        if ctx.game.player(target_player).is_alive()
-            && !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_player(
+    for target_player in crate::ability::spell_ability_effect::get_target_players(ctx.game, sa) {
+        if !ctx.game.player(target_player).is_alive()
+            || crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_player(
                 &ctx.game.cards,
                 target_player,
                 &crate::card::CounterType::Poison,
-            ) {
-                if amount > 0 {
-                    ctx.game.player_add_poison(target_player, amount);
-                } else {
-                    ctx.game.player_remove_poison(target_player, -amount);
-                }
-            }
-        return;
-    }
-
-    // Resolve Defined$ parameter.
-    let defined = sa.defined().unwrap_or("Opponent");
-
-    // Special case: "Player" means ALL alive players (distinct from
-    // resolve_defined_player which returns a single player).
-    if defined == "Player" {
-        let alive: Vec<_> = ctx.game.alive_players().into_iter().collect();
-        for pid in alive {
-            if !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_player(
-                &ctx.game.cards,
-                pid,
-                &crate::card::CounterType::Poison,
-            ) {
-                if amount > 0 {
-                    ctx.game.player_add_poison(pid, amount);
-                } else {
-                    ctx.game.player_remove_poison(pid, -amount);
-                }
-            }
+            )
+        {
+            continue;
         }
-        return;
-    }
-
-    // Single player: You, Opponent, TriggeredTarget, etc.
-    if let Some(pid) = resolve_defined_player(defined, controller, ctx.game) {
-        if ctx.game.player(pid).is_alive()
-            && !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_player(
-                &ctx.game.cards,
-                pid,
-                &crate::card::CounterType::Poison,
-            ) {
-                if amount > 0 {
-                    ctx.game.player_add_poison(pid, amount);
-                } else {
-                    ctx.game.player_remove_poison(pid, -amount);
-                }
-            }
+        if amount > 0 {
+            ctx.game.player_add_poison(target_player, amount);
+        } else {
+            ctx.game.player_remove_poison(target_player, -amount);
+        }
     }
 }
 

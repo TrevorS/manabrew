@@ -235,7 +235,7 @@ effect_dispatch! {
     // ── Aliases: variants whose script names map via smart_value_of ────
     ApiType::ExchangeControlVariant => control_gain_variant_effect::ControlGainVariantEffect,
     ApiType::ExchangeZone => change_zone_effect::ChangeZoneEffect,
-    ApiType::Regeneration => regenerate_effect::RegenerateEffect,
+    ApiType::Regeneration => regeneration_effect::RegenerationEffect,
 
     // ── Niche/format-specific effects ─────────────────────────────────
     ApiType::Abandon => abandon_effect::AbandonEffect,
