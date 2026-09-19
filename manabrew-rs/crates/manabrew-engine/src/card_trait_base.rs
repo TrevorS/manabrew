@@ -301,7 +301,9 @@ impl CardTraitBase {
                 valid_filter::matches_valid_card_selector(selector, card, src_card)
             }
             MatchValidTarget::Player(player) => {
-                valid_filter::matches_valid_player_selector(selector, *player, src_player)
+                valid_filter::matches_valid_player_selector_with_source(
+                    selector, *player, src_player, src_card,
+                )
             }
             MatchValidTarget::GameObj(obj) => {
                 let owned: Vec<String> = selector

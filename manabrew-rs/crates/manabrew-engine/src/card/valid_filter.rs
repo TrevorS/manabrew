@@ -2554,6 +2554,31 @@ pub fn matches_valid_player_selector(
     result
 }
 
+/// Player properties that read the source card (`IsRemembered`, `Chosen`) answered from it;
+/// the rest as `matches_valid_player_selector`.
+pub fn matches_valid_player_selector_with_source(
+    selector: &CompiledSelector,
+    player: PlayerId,
+    source_controller: PlayerId,
+    source: &Card,
+) -> bool {
+    if selector.ir.alternatives.is_empty() {
+        return true;
+    }
+    selector.ir.alternatives.iter().any(|alternative| {
+        alternative
+            .predicates
+            .iter()
+            .all(|predicate| match predicate {
+                SelectorPredicate::RememberedCard => source.remembered_players.contains(&player),
+                SelectorPredicate::CardState(CardStateSelector::Chosen) => {
+                    source.chosen_player == Some(player)
+                }
+                _ => matches_player_predicate(predicate, player, source_controller),
+            })
+    })
+}
+
 fn matches_player_selector_ir(
     selector: &Selector,
     player: PlayerId,

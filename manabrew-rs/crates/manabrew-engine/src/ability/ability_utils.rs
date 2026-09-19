@@ -544,6 +544,7 @@ pub fn resolve_defined_players_with_sa(
             players
         }
         _ if key.starts_with("Remembered") => remembered_players_for_def(key, sa, game),
+        "IsRemembered" => remembered_players_for_def("Remembered", sa, game),
         "TriggeredPlayer" | "Targeted" | "TargetedPlayer" => {
             let mut players = Vec::new();
             for player in sa.target_chosen.all_target_players() {
@@ -556,6 +557,11 @@ pub fn resolve_defined_players_with_sa(
         }
         "ParentTarget" => sa.target_chosen.all_target_players(),
         "ThisTargetedPlayer" => sa.target_chosen.all_target_players(),
+        "ChosenPlayer" => sa
+            .source
+            .and_then(|source| game.card(source).chosen_player)
+            .into_iter()
+            .collect(),
         "TargetedOrController" => {
             let mut players = sa.target_chosen.all_target_players();
             for player in targeted_controller_players(sa, game) {
