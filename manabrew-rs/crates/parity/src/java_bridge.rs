@@ -330,6 +330,51 @@ struct DoneSentinel {
 /// process alive and reusing the singleton across games.
 const STDERR_TAIL_LINES: usize = 5;
 
+/// Kills the Java worker when one game runs longer than `PARITY_JAVA_GAME_TIMEOUT_SECS`
+/// (default 300, 0 turns it off), so a Forge game that never ends fails as a crashed worker
+/// and the pool spawns a new one.
+struct GameWatchdog {
+    done: Option<std::sync::mpsc::Sender<()>>,
+    handle: Option<std::thread::JoinHandle<()>>,
+}
+
+impl GameWatchdog {
+    fn start(pid: u32) -> Self {
+        let secs = std::env::var("PARITY_JAVA_GAME_TIMEOUT_SECS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(300);
+        if secs == 0 {
+            return Self {
+                done: None,
+                handle: None,
+            };
+        }
+        let (done, rx) = std::sync::mpsc::channel::<()>();
+        let handle = std::thread::spawn(move || {
+            if let Err(std::sync::mpsc::RecvTimeoutError::Timeout) =
+                rx.recv_timeout(std::time::Duration::from_secs(secs))
+            {
+                eprintln!("[parity] Java game ran past {secs}s, killing worker {pid}");
+                let _ = Command::new("kill").arg("-9").arg(pid.to_string()).status();
+            }
+        });
+        Self {
+            done: Some(done),
+            handle: Some(handle),
+        }
+    }
+}
+
+impl Drop for GameWatchdog {
+    fn drop(&mut self) {
+        drop(self.done.take());
+        if let Some(handle) = self.handle.take() {
+            let _ = handle.join();
+        }
+    }
+}
+
 pub struct JavaServer {
     child: Child,
     stdin: BufWriter<ChildStdin>,
@@ -552,6 +597,7 @@ impl JavaServer {
         })?;
 
         self.send_request(&request_json)?;
+        let _watchdog = GameWatchdog::start(self.child.id());
 
         let mut log = Vec::new();
         let mut snapshot_count = 0usize;
@@ -669,6 +715,7 @@ impl JavaServer {
         })?;
 
         self.send_request(&request_json)?;
+        let _watchdog = GameWatchdog::start(self.child.id());
 
         let mut log = Vec::new();
         let mut snapshot_count = 0usize;

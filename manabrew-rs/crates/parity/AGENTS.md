@@ -160,7 +160,7 @@ yarn parity:ab baseline                   # refuses a dirty tree
 
 ### Java result cache
 
-`src/java_cache.rs` stores each matchup's full Java log under `.parity-cache/`, so a hit runs only the Rust game. The whole cache is wiped when the source hash changes: the harness and Forge Java sources, the card and token scripts, and the harness jar. Each entry is keyed on the matchup parameters plus the contents of its two decks, so editing or adding a deck invalidates only the matchups that use it. Java workers start on the first cache miss (`JavaServerPool::lazy`), up to `--java-workers`; a fully cached run starts none.
+`src/java_cache.rs` stores each matchup's full Java log under `.parity-cache/`, so a hit runs only the Rust game. The whole cache is wiped when the source hash changes: the harness and Forge Java sources, the card and token scripts, and the harness jar. Each entry is keyed on the matchup parameters plus the contents of its two decks, so editing or adding a deck invalidates only the matchups that use it. Java workers start on the first cache miss (`JavaServerPool::lazy`), up to `--java-workers`; a fully cached run starts none. A Java game that runs longer than `PARITY_JAVA_GAME_TIMEOUT_SECS` (default 300, `0` turns it off) has its worker killed (`GameWatchdog` in `java_bridge.rs`); the matchup fails as a crashed worker and the pool spawns a new one, so one Forge game that never ends (Stream of Thought on seeds 42 and 43) no longer stalls a probe or a gate.
 
 ### Measure the Rust side
 
