@@ -34,6 +34,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
             if sa.ir.defined_text.is_none()
                 && sa.ir.choices.is_none()
+                && sa.ir.defined_name_text.is_none()
                 && ctx.game.card(original_id).zone != ZoneType::Battlefield
             {
                 continue;
@@ -236,6 +237,26 @@ fn resolve_originals(
             )
             .into_iter()
             .collect();
+    }
+
+    if let Some(defined_name) = sa.ir.defined_name_text.as_deref() {
+        let name = match (defined_name, sa.source) {
+            ("NamedCard", Some(source)) => ctx
+                .game
+                .card(source)
+                .get_named_card()
+                .filter(|named| !named.is_empty())
+                .unwrap_or(defined_name)
+                .to_string(),
+            _ => defined_name.to_string(),
+        };
+        let Some(rules) =
+            crate::game::CardDatabaseRegistry::get().and_then(|db| db.get_by_card_name(&name))
+        else {
+            return Vec::new();
+        };
+        let card = crate::card::card_factory::from_rules(rules, controller);
+        return vec![ctx.game.create_card(card)];
     }
 
     if let Some(defined) = sa.defined() {
