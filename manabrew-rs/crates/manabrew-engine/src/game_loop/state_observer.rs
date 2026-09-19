@@ -176,7 +176,7 @@ impl GameLoop {
         for pidx in 0..num_players {
             let player_id = crate::ids::PlayerId(pidx as u32);
             let keep_colors = compute_unspent_mana_colors(game, player_id);
-            let cleared = self.mana_pools[pidx].clear_pool_with_keep(phase, keep_colors);
+            let cleared = self.mana_pools[pidx].clear_pool_with_keep(game.turn.phase, keep_colors);
             // Mana burn: if player has ManaBurn static, lose life equal to cleared mana
             if cleared > 0 && has_mana_burn(game, player_id) {
                 game.player_lose_life(player_id, cleared as i32);

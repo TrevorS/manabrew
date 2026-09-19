@@ -172,7 +172,7 @@ pub struct Mana {
     pub color: u16,
     pub source_card: Option<CardId>,
     pub is_snow: bool,
-    /// Mana that persists across all phase transitions (Omnath, Kruphix).
+    /// Mana kept until cleanup (`PersistentMana$`).
     pub is_persistent: bool,
     /// Mana that persists through combat phases but empties at end of combat.
     pub is_combat_mana: bool,

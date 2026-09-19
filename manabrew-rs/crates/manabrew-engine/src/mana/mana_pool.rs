@@ -287,29 +287,23 @@ impl ManaPool {
         self.mana.clear();
     }
 
-    /// Clear mana pool at phase transitions, retaining persistent and combat mana.
+    /// Clear mana pool at the end of `ending_phase`, retaining persistent and combat mana.
     /// Mirrors Java's PhaseHandler.onPhaseEnd() → clearPool(true) (MTG rule 500.4).
-    pub fn clear_pool(&mut self, phase: PhaseType) -> usize {
-        self.clear_pool_with_keep(phase, 0)
+    pub fn clear_pool(&mut self, ending_phase: PhaseType) -> usize {
+        self.clear_pool_with_keep(ending_phase, 0)
     }
 
-    /// Clear the mana pool, retaining persistent mana, combat mana (if in combat),
-    /// and mana of colors specified by `keep_colors` bitmask (from UnspentMana statics).
+    /// Clear the mana pool at the end of `ending_phase`, retaining persistent mana until
+    /// cleanup, combat mana until the end of combat, and mana of colors specified by
+    /// `keep_colors` bitmask (from UnspentMana statics).
     /// Returns the number of mana cleared (for mana burn calculation).
-    pub fn clear_pool_with_keep(&mut self, phase: PhaseType, keep_colors: u16) -> usize {
+    pub fn clear_pool_with_keep(&mut self, ending_phase: PhaseType, keep_colors: u16) -> usize {
         let before = self.mana.len();
-        let in_combat = matches!(
-            phase,
-            PhaseType::CombatBegin
-                | PhaseType::CombatDeclareAttackers
-                | PhaseType::CombatDeclareBlockers
-                | PhaseType::CombatFirstStrikeDamage
-                | PhaseType::CombatDamage
-                | PhaseType::CombatEnd
-        );
+        let cleanup = ending_phase == PhaseType::Cleanup;
+        let combat_end = ending_phase == PhaseType::CombatEnd;
         self.mana.retain(|m| {
-            m.is_persistent
-                || (m.is_combat_mana && in_combat)
+            (!cleanup && m.is_persistent)
+                || (!cleanup && !combat_end && m.is_combat_mana)
                 || (keep_colors != 0 && (m.color & keep_colors) != 0)
         });
         before - self.mana.len()

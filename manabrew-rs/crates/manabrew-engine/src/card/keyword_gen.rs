@@ -589,6 +589,23 @@ impl Card {
                 });
         }
 
+        if let Some(details) = crate::keyword::extract_keyword_cost_str(kw, "Firebending") {
+            let mut parts = details.splitn(2, ':');
+            let n_str = parts.next().unwrap_or_default();
+            let desc = format!("Firebending {n_str}{}", parts.next().unwrap_or_default());
+            let raw =
+                format!("Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigFirebending | TriggerDescription$ {desc}");
+            if let Some(mut trig) = parse_trigger(&raw, next_id) {
+                trig.execute = "TrigFirebending".to_string();
+                self.add_trigger(trig);
+            }
+            self.svars
+                .entry("TrigFirebending".to_string())
+                .or_insert_with(|| {
+                    format!("DB$ Mana | Defined$ You | CombatMana$ True | Produced$ R | Amount$ {n_str}")
+                });
+        }
+
         if let Some(n_str) = crate::keyword::extract_keyword_cost_str(kw, "Afflict") {
             if n_str.parse::<i32>().is_ok() {
                 let raw = format!(

@@ -110,6 +110,14 @@ fn produce_mana_for_player(
     let adds_counters = sa.ir.adds_counters.clone();
     let adds_counters_valid = sa.ir.adds_counters_valid.clone();
     let triggers_when_spent = sa.ir.triggers_when_spent.clone();
+    let is_persistent = sa
+        .mana_part
+        .as_ref()
+        .is_some_and(|part| part.is_persistent_mana());
+    let is_combat_mana = sa
+        .mana_part
+        .as_ref()
+        .is_some_and(|part| part.is_combat_mana());
     let Some(produced_ir) = sa.produced_ir().cloned() else {
         return;
     };
@@ -133,6 +141,8 @@ fn produce_mana_for_player(
                 m.adds_counters = adds_counters.clone();
                 m.adds_counters_valid = adds_counters_valid.clone();
                 m.triggers_when_spent = triggers_when_spent.clone();
+                m.is_persistent = is_persistent;
+                m.is_combat_mana = is_combat_mana;
                 ctx.mana_pools[player.index()].add_mana(m);
             }
         }
@@ -301,6 +311,8 @@ fn produce_mana_for_player(
             m.adds_counters = adds_counters.clone();
             m.adds_counters_valid = adds_counters_valid.clone();
             m.triggers_when_spent = triggers_when_spent.clone();
+            m.is_persistent = is_persistent;
+            m.is_combat_mana = is_combat_mana;
             ctx.mana_pools[player.index()].add_mana(m);
         }
     }
