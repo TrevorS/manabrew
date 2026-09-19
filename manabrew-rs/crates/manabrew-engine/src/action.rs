@@ -797,6 +797,9 @@ impl GameState {
         }
 
         apply_continuous_effects(self);
+        if let Some(handler) = trigger_handler {
+            handler.register_active_trigger(self, card_id);
+        }
         debug_assert!(self.card_zone_location_matches_card(card_id));
     }
 
