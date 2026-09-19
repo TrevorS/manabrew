@@ -13,14 +13,21 @@ use super::trigger::TriggerBehavior;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TriggerAttackerBlockedByCreature {
     pub valid_card: Option<crate::parsing::CompiledSelector>,
-    pub valid_blocked: Option<crate::parsing::CompiledSelector>,
+    #[serde(default)]
+    pub valid_card_text: Option<String>,
+    #[serde(default)]
+    pub valid_blocker: Option<crate::parsing::CompiledSelector>,
+    #[serde(default)]
+    pub valid_blocker_text: Option<String>,
 }
 
 impl TriggerAttackerBlockedByCreature {
     pub fn parse(params: &Params) -> Box<dyn TriggerBehavior> {
         Box::new(Self {
             valid_card: params.selector_cloned(keys::VALID_CARD),
-            valid_blocked: params.selector_cloned(keys::VALID_BLOCKED),
+            valid_card_text: params.get_cloned(keys::VALID_CARD),
+            valid_blocker: params.selector_cloned(keys::VALID_BLOCKER),
+            valid_blocker_text: params.get_cloned(keys::VALID_BLOCKER),
         })
     }
 }
@@ -37,12 +44,21 @@ impl TriggerBehavior for TriggerAttackerBlockedByCreature {
         params: &RunParams,
         game: &GameState,
     ) -> bool {
-        trigger.matches_optional_valid_card_filter(&self.valid_card, params.blocker, game)
-            && trigger.matches_optional_valid_card_filter(
-                &self.valid_blocked,
-                params.blocked_attacker,
-                game,
-            )
+        let (Some(attacker), Some(blocker)) = (params.attacker, params.blocker) else {
+            return false;
+        };
+        let power = |card| game.card(card).power();
+        let valid_card = if self.valid_card_text.as_deref() == Some("LessPowerThanBlocker") {
+            power(attacker) < power(blocker)
+        } else {
+            trigger.matches_optional_valid_card_filter(&self.valid_card, Some(attacker), game)
+        };
+        let valid_blocker = if self.valid_blocker_text.as_deref() == Some("LessPowerThanAttacker") {
+            power(blocker) < power(attacker)
+        } else {
+            trigger.matches_optional_valid_card_filter(&self.valid_blocker, Some(blocker), game)
+        };
+        valid_card && valid_blocker
     }
 
     fn set_triggering_objects(
