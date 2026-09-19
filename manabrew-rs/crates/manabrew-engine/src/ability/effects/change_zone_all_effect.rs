@@ -299,6 +299,29 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             let old_zone = ctx.game.card(card_id).zone;
             ctx.game.setup_static_effect(card_id, sa);
             ctx.move_card(card_id, dest_zone, dest_owner);
+            if sa.is_remember_changed() && ctx.game.card(card_id).zone != old_zone {
+                let remembers = match crate::parsing::raw_get(
+                    &sa.ability_text,
+                    crate::parsing::keys::REMEMBER_CHANGED,
+                ) {
+                    Some(filter) if !filter.eq_ignore_ascii_case("True") => {
+                        sa.source.is_some_and(|sid| {
+                            crate::card::valid_filter::matches_valid_card_selector_in_game(
+                                &crate::parsing::cached_compiled_selector(filter),
+                                ctx.game.card(card_id),
+                                ctx.game.card(sid),
+                                ctx.game,
+                            )
+                        })
+                    }
+                    _ => true,
+                };
+                if remembers {
+                    if let Some(sid) = sa.source {
+                        ctx.game.card_mut(sid).add_remembered_card(card_id);
+                    }
+                }
+            }
             if dest_zone == ZoneType::Library {
                 moved_to_library.push((card_id, dest_owner));
             }
