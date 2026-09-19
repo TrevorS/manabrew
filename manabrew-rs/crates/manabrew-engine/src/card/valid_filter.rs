@@ -1748,6 +1748,9 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
                 .spell_ability
                 .is_some_and(|sa| crate::ability::ability_utils::is_unlinked_from_cast_sa(sa, card))
         }
+        mode if mode.starts_with("chosenmode") => {
+            card.chosen_mode.as_deref().unwrap_or("") == &value["ChosenMode".len()..]
+        }
         "mayplaysource" => matches_card_state(CardStateSelector::MayPlaySource, card, context),
         "exiledwithsource" => {
             matches_context_predicate(&ContextPredicate::ExiledWithSource, card, context)
@@ -2396,6 +2399,11 @@ fn matches_type_and_qualifier_parts(
                     // card's controller at ETB time equals the caster for normal
                     // casts, which covers Sunderflock-style triggers.
                     if !card.was_cast() || card.controller != source.controller {
+                        return false;
+                    }
+                }
+                mode if mode.starts_with("chosenmode") => {
+                    if !legacy_matches_card_atom(raw, card, context) {
                         return false;
                     }
                 }

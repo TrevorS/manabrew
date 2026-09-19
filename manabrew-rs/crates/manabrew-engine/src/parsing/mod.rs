@@ -1162,6 +1162,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
                 .unwrap_or_else(|| SelectorPredicate::Raw(normalized.to_string()))
         }
         "chosentype" => SelectorPredicate::ChosenType,
+        mode if mode.starts_with("chosenmode") => SelectorPredicate::Raw(normalized.to_string()),
         "rememberedplayerctrl" => {
             SelectorPredicate::Context(ContextPredicate::RememberedPlayerCtrl)
         }
