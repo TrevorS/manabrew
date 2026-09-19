@@ -379,6 +379,10 @@ pub trait PlayerAgent {
         valid.iter().copied().take(max).collect()
     }
 
+    fn vote(&mut self, _player: PlayerId, _options: &[String], _optional: bool) -> Option<usize> {
+        Some(0)
+    }
+
     fn choose_cards_pile(
         &mut self,
         _player: PlayerId,

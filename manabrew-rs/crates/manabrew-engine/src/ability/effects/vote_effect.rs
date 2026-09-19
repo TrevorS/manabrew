@@ -1,94 +1,124 @@
 //! Vote effect — Council's Dilemma and Will of the Council voting.
 //!
 //! Ported from Java's `VoteEffect.java`.
-//! Each player votes from a set of choices. The option(s) with the most votes
-//! determine which sub-ability resolves. Handles ties, secret votes, and
-//! additional vote amounts.
 
+use forge_foundation::ZoneType;
+
+use super::helpers::matches_valid_cards_for_sa;
 use super::EffectContext;
 use crate::event::RunParams;
-use crate::ids::PlayerId;
-use crate::parsing::keys;
+use crate::ids::{CardId, PlayerId};
+use crate::parsing::Params;
+use crate::spellability::SpellAbility;
 use crate::trigger::TriggerType;
+
+#[derive(Clone, PartialEq)]
+enum VoteOption {
+    Ability(usize),
+    Card(CardId),
+    Player(PlayerId),
+}
 
 /// Struct form of this effect so it can participate in the
 /// `SpellAbilityEffect` trait hierarchy — mirrors Java's
 /// `VoteEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(VoteEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let controller = sa.activating_player;
-
-    // Get voting players (usually all players, starting with activator)
-    let mut voters: Vec<PlayerId> = if let Some(def) = sa.defined_player() {
-        super::resolve_defined_players(def, controller, ctx.game)
-    } else {
-        ctx.game.player_order.clone()
+    let Some(host) = sa.source else {
+        return;
     };
+    let params = Params::from_raw(&sa.ability_text);
+    let activator = sa.activating_player;
+    let mut voters =
+        crate::ability::spell_ability_effect::get_defined_players_or_targeted(ctx.game, sa);
+    let other = params.get("VotePlayer") == Some("Other");
 
-    // Rotate so activator votes first
-    if let Some(pos) = voters.iter().position(|&p| p == controller) {
+    let mut choice_abilities: Vec<SpellAbility> = Vec::new();
+    let mut vote_type: Vec<VoteOption> = Vec::new();
+    if let Some(choices) = params.get("Choices") {
+        for name in choices.split(',').map(str::trim) {
+            if let Some(text) = ctx.game.card(host).get_s_var(name).map(str::to_string) {
+                vote_type.push(VoteOption::Ability(choice_abilities.len()));
+                choice_abilities.push(crate::spellability::build_spell_ability(
+                    ctx.game, host, &text, activator,
+                ));
+            }
+        }
+    } else if let Some(valid) = params.get("VoteCard") {
+        let zone = params
+            .get("Zone")
+            .and_then(ZoneType::from_str_compat)
+            .unwrap_or(ZoneType::Battlefield);
+        for player in ctx.game.players.iter().map(|p| p.id).collect::<Vec<_>>() {
+            for &cid in ctx.game.cards_in_zone(zone, player) {
+                if matches_valid_cards_for_sa(ctx.game, sa, ctx.game.card(cid), None, valid) {
+                    vote_type.push(VoteOption::Card(cid));
+                }
+            }
+        }
+    } else if let Some(defined) = params.get("VotePlayer") {
+        let defined = if other { "Player" } else { defined };
+        vote_type.extend(
+            crate::ability::ability_utils::resolve_defined_players_with_sa(
+                defined, sa, activator, ctx.game,
+            )
+            .into_iter()
+            .map(VoteOption::Player),
+        );
+    }
+    if vote_type.is_empty() {
+        return;
+    }
+
+    if let Some(pos) = voters.iter().position(|&p| p == activator) {
         voters.rotate_left(pos);
     }
 
-    // Get vote choices (from Choices$ param or VoteMessage$)
-    let choices: Vec<String> = if let Some(choices_str) = sa.ir.choices.as_deref() {
-        choices_str
-            .split(',')
-            .map(|s| s.trim().to_string())
-            .collect()
-    } else if let Some(msg) = sa.ir.vote_message_text.as_deref() {
-        // Parse choice names from message — usually "A or B"
-        msg.split(" or ").map(|s| s.trim().to_string()).collect()
-    } else {
-        return;
-    };
-
-    if choices.is_empty() {
-        return;
-    }
-
-    // Collect votes
-    let mut vote_counts: indexmap::IndexMap<String, Vec<PlayerId>> = indexmap::IndexMap::new();
-    for choice in &choices {
-        vote_counts.insert(choice.clone(), Vec::new());
-    }
-
-    for &voter in &voters {
-        if ctx.game.player(voter).has_lost {
+    let mut votes: Vec<(VoteOption, Vec<PlayerId>)> = Vec::new();
+    for voter in voters {
+        if !ctx.game.player(voter).is_alive() {
             continue;
         }
-
-        // Ask each player to vote
+        let mut options = vote_type.clone();
+        if other {
+            options.retain(|o| *o != VoteOption::Player(voter));
+            if options.is_empty() {
+                continue;
+            }
+        }
         ctx.agents[voter.index()].snapshot_state(ctx.game, ctx.mana_pools);
-        let chosen = ctx.agents[voter.index()].confirm_action(
-            voter,
-            Some("Vote"),
-            &format!("Vote: {}", choices.join(" or ")),
-            &choices,
-            sa.source,
-            sa.api,
-        );
-
-        // confirm_action returns bool — map to first or second choice
-        let choice_idx = if chosen { 0 } else { 1.min(choices.len() - 1) };
-        let chosen_str = &choices[choice_idx];
-
-        if let Some(voters_list) = vote_counts.get_mut(chosen_str) {
-            voters_list.push(voter);
+        let extra = ctx.agents[voter.index()]
+            .choose_number(
+                voter,
+                sa.source,
+                "How many additional votes do you want?",
+                None,
+                0,
+                0,
+            )
+            .unwrap_or(0);
+        let labels: Vec<String> = options
+            .iter()
+            .map(|o| option_label(ctx, &choice_abilities, o))
+            .collect();
+        for _ in 0..(1 + extra) {
+            let Some(index) = ctx.agents[voter.index()].vote(voter, &labels, params.has("UpTo"))
+            else {
+                continue;
+            };
+            let Some(option) = options.get(index).cloned() else {
+                continue;
+            };
+            match votes.iter_mut().find(|(o, _)| *o == option) {
+                Some((_, list)) => list.push(voter),
+                None => votes.push((option, vec![voter])),
+            }
         }
     }
 
-    // Determine winner(s) — most votes
-    let max_votes = vote_counts.values().map(|v| v.len()).max().unwrap_or(0);
-    let winners: Vec<String> = vote_counts
+    let all_votes: Vec<(String, Vec<PlayerId>)> = votes
         .iter()
-        .filter(|(_, v)| v.len() == max_votes)
-        .map(|(k, _)| k.clone())
-        .collect();
-
-    let all_votes = vote_counts
-        .iter()
-        .map(|(choice, voters)| (choice.clone(), voters.clone()))
+        .map(|(o, v)| (option_label(ctx, &choice_abilities, o), v.clone()))
         .collect();
     ctx.trigger_handler.run_trigger(
         TriggerType::Vote,
@@ -99,30 +129,130 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         false,
     );
 
-    // Store vote results for sub-abilities
-    if sa.param_is_true(keys::STORE_VOTE_NUM) {
-        if let Some(source_id) = sa.source {
-            for (choice, voters_list) in &vote_counts {
-                let svar_name = format!("VoteNum{choice}");
-                let svar_val = format!("Number${}", voters_list.len());
-                ctx.game.card_mut(source_id).set_s_var(svar_name, svar_val);
+    if params.has("EachVote") {
+        for (option, voters) in &votes {
+            let VoteOption::Ability(index) = option else {
+                continue;
+            };
+            for &player in voters {
+                ctx.game.card_mut(host).add_remembered_player(player);
+                resolve_chain(ctx, choice_abilities[*index].clone());
+                ctx.game
+                    .card_mut(host)
+                    .remembered_players
+                    .retain(|p| *p != player);
             }
         }
+        return;
     }
 
-    // RememberVotedObjects$
-    if sa.param_is_true(keys::REMEMBER_VOTED_OBJECTS) {
-        // Remember the winning choice indices (simplified)
-        if let Some(source_id) = sa.source {
-            for winner in &winners {
-                if let Some(idx) = choices.iter().position(|c| c == winner) {
-                    ctx.game.card_mut(source_id).add_remembered_cmc(idx as i32);
+    let store_vote_num = params.has("StoreVoteNum");
+    let has_choices = params.has("Choices");
+    let mut sub_abilities: Vec<(SpellAbility, Option<usize>)> = Vec::new();
+    if store_vote_num && has_choices {
+        for option in &vote_type {
+            let VoteOption::Ability(index) = option else {
+                continue;
+            };
+            let count = votes
+                .iter()
+                .find(|(o, _)| o == option)
+                .map_or(0, |(_, v)| v.len());
+            sub_abilities.push((choice_abilities[*index].clone(), Some(count)));
+        }
+    } else {
+        let most = most_votes(&votes);
+        if most.len() > 1 && params.has("VoteTiedAbility") {
+            if let Some(sub) = sa.additional_ability(ctx.game, "VoteTiedAbility") {
+                sub_abilities.push((sub, None));
+            }
+        } else if params.has("VoteSubAbility") {
+            let card = ctx.game.card_mut(host);
+            for option in &most {
+                match option {
+                    VoteOption::Card(cid) => card.add_remembered_card(*cid),
+                    VoteOption::Player(pid) => card.add_remembered_player(*pid),
+                    VoteOption::Ability(_) => {}
+                }
+            }
+            if let Some(sub) = sa.additional_ability(ctx.game, "VoteSubAbility") {
+                sub_abilities.push((sub, None));
+            }
+        } else if has_choices {
+            for option in &most {
+                if let VoteOption::Ability(index) = option {
+                    sub_abilities.push((choice_abilities[*index].clone(), None));
                 }
             }
         }
     }
 
-    // The winning sub-ability is resolved by the parent SA's sub-ability chain.
-    // In Java, VoteSubAbility or the Choice abilities are resolved here.
-    // In Rust, the sub-ability system handles this via the spell resolution pipeline.
+    if store_vote_num && !has_choices {
+        for option in &vote_type {
+            let count = votes
+                .iter()
+                .find(|(o, _)| o == option)
+                .map_or(0, |(_, v)| v.len());
+            let label = option_label(ctx, &choice_abilities, option);
+            ctx.game
+                .card_mut(host)
+                .set_s_var(format!("VoteNum{label}"), format!("Number${count}"));
+        }
+    } else {
+        for (sub, vote_num) in sub_abilities {
+            if let Some(count) = vote_num {
+                ctx.game
+                    .card_mut(host)
+                    .set_s_var("VoteNum".to_string(), format!("Number${count}"));
+            }
+            resolve_chain(ctx, sub);
+        }
+    }
+    if params.has("VoteSubAbility") {
+        ctx.game.card_mut(host).clear_remembered();
+    }
+    if params.has("RememberVotedObjects") {
+        let card = ctx.game.card_mut(host);
+        for (option, _) in &votes {
+            match option {
+                VoteOption::Card(cid) => card.add_remembered_card(*cid),
+                VoteOption::Player(pid) => card.add_remembered_player(*pid),
+                VoteOption::Ability(_) => {}
+            }
+        }
+    }
+}
+
+fn most_votes(votes: &[(VoteOption, Vec<PlayerId>)]) -> Vec<VoteOption> {
+    let mut most = Vec::new();
+    let mut amount = 0;
+    for (option, voters) in votes {
+        if voters.len() == amount {
+            most.push(option.clone());
+        } else if voters.len() > amount {
+            amount = voters.len();
+            most.clear();
+            most.push(option.clone());
+        }
+    }
+    most
+}
+
+fn option_label(ctx: &EffectContext, choices: &[SpellAbility], option: &VoteOption) -> String {
+    match option {
+        VoteOption::Ability(index) => choices[*index].description.clone(),
+        VoteOption::Card(cid) => ctx.game.card(*cid).card_name.clone(),
+        VoteOption::Player(pid) => ctx.game.player(*pid).name.clone(),
+    }
+}
+
+fn resolve_chain(ctx: &mut EffectContext, initial: SpellAbility) {
+    let mut current = Some(initial);
+    while let Some(cur) = current {
+        super::resolve_effect(ctx, &cur);
+        current = cur.sub_ability.map(|b| *b);
+        if ctx.game.game_over {
+            break;
+        }
+    }
 }

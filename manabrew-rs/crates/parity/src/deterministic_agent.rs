@@ -1911,6 +1911,14 @@ impl PlayerAgent for DeterministicAgent {
         gui_repro::pick_many_unique(&sorted, min, max, &mut self.rng.borrow_mut())
     }
 
+    fn vote(&mut self, _player: PlayerId, options: &[String], optional: bool) -> Option<usize> {
+        let mut rng = self.rng.borrow_mut();
+        if optional && choice_space::pick_bool(&mut rng) {
+            return None;
+        }
+        Some(choice_space::pick_index(options.len(), &mut rng))
+    }
+
     fn choose_cards_pile(
         &mut self,
         _player: PlayerId,
