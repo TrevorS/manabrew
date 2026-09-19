@@ -810,6 +810,27 @@ impl Card {
                 .or_insert_with(|| "DB$ Cleanup | ClearRemembered$ True".to_string());
         }
 
+        if kw == "Job select" {
+            let raw = "Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | TriggerDescription$ Job select";
+            if let Some(mut trig) = parse_trigger(raw, next_id) {
+                trig.execute = "TrigJobSelect".to_string();
+                self.add_trigger(trig);
+            }
+            self.svars
+                .entry("TrigJobSelect".to_string())
+                .or_insert_with(|| {
+                    "DB$ Token | TokenScript$ c_1_1_hero | TokenOwner$ You | RememberTokens$ True | SubAbility$ DBJobSelectAttach".to_string()
+                });
+            self.svars
+                .entry("DBJobSelectAttach".to_string())
+                .or_insert_with(|| {
+                    "DB$ Attach | Defined$ Remembered | SubAbility$ DBJobSelectCleanup".to_string()
+                });
+            self.svars
+                .entry("DBJobSelectCleanup".to_string())
+                .or_insert_with(|| "DB$ Cleanup | ClearRemembered$ True".to_string());
+        }
+
         if let Some(n_str) = crate::keyword::extract_keyword_cost_str(kw, "Bloodthirst") {
             if n_str.parse::<i32>().is_ok() {
                 let raw = format!(
