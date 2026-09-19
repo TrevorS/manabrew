@@ -160,25 +160,134 @@ mod tests {
 /// `ControlGainEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(ControlGainEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let target_card = match sa.target_chosen.target_card {
-        Some(c) => c,
-        None => return,
+    let Some(source) = sa.source else {
+        return;
+    };
+    let activator = sa.activating_player;
+    let remember = crate::parsing::raw_has_key(&sa.ability_text, "RememberControlled");
+    let forget = crate::parsing::raw_has_key(&sa.ability_text, "ForgetControlled");
+    let lose: Vec<&str> = crate::parsing::raw_get(&sa.ability_text, "LoseControl")
+        .map(|raw| raw.split(',').map(str::trim).collect())
+        .unwrap_or_default();
+
+    let controllers = match crate::parsing::raw_get(&sa.ability_text, "NewController") {
+        Some(defined) => crate::ability::ability_utils::resolve_defined_players_with_sa(
+            defined, sa, activator, ctx.game,
+        ),
+        None if sa.uses_targeting() => sa.target_chosen.all_target_players(),
+        None => vec![activator],
+    };
+    let new_controller = controllers.first().copied().unwrap_or(activator);
+
+    let battlefield: Vec<crate::ids::CardId> = ctx
+        .game
+        .player_order
+        .iter()
+        .flat_map(|&pid| {
+            ctx.game
+                .cards_in_zone(ZoneType::Battlefield, pid)
+                .iter()
+                .copied()
+        })
+        .collect();
+    let tgt_cards = if let Some(choices) = crate::parsing::raw_get(&sa.ability_text, "Choices") {
+        let chooser = crate::parsing::raw_get(&sa.ability_text, "Chooser")
+            .and_then(|defined| {
+                crate::ability::ability_utils::resolve_defined_players_with_sa(
+                    defined, sa, activator, ctx.game,
+                )
+                .into_iter()
+                .next()
+            })
+            .unwrap_or(activator);
+        let selector = crate::parsing::cached_compiled_selector(choices);
+        let valid: Vec<_> = battlefield
+            .into_iter()
+            .filter(|&cid| {
+                crate::ability::ability_utils::matches_valid_cards_for_sa(
+                    ctx.game,
+                    sa,
+                    ctx.game.card(cid),
+                    Some(&selector),
+                    choices,
+                )
+            })
+            .collect();
+        if valid.is_empty() {
+            return;
+        }
+        ctx.agents[chooser.index()].choose_cards_for_effect(chooser, &valid, 1, 1)
+    } else if let Some(all_valid) = sa.ir.all_valid_selector.as_ref() {
+        battlefield
+            .into_iter()
+            .filter(|&cid| {
+                crate::ability::ability_utils::matches_valid_cards_for_sa(
+                    ctx.game,
+                    sa,
+                    ctx.game.card(cid),
+                    Some(all_valid),
+                    "",
+                )
+            })
+            .collect()
+    } else {
+        crate::ability::spell_ability_effect::get_defined_cards_or_targeted(ctx.game, sa)
     };
 
-    // Verify target is still on the battlefield
-    if ctx.game.card(target_card).zone != ZoneType::Battlefield {
+    if lose.contains(&"LeavesPlay") && ctx.game.card(source).zone != ZoneType::Battlefield {
+        return;
+    }
+    if lose.contains(&"LoseControl") && ctx.game.card(source).controller != activator {
+        return;
+    }
+    if lose.contains(&"Untap") && !ctx.game.card(source).tapped {
         return;
     }
 
-    let new_controller = sa.activating_player;
+    for target_card in tgt_cards {
+        gain_control_of(
+            ctx,
+            sa,
+            source,
+            target_card,
+            new_controller,
+            remember,
+            forget,
+        );
+    }
+}
 
-    // Check if the card can be controlled by the new controller
-    if !ctx
-        .game
-        .card(target_card)
-        .can_be_controlled_by(new_controller)
+fn gain_control_of(
+    ctx: &mut EffectContext,
+    sa: &crate::spellability::SpellAbility,
+    source: crate::ids::CardId,
+    target_card: crate::ids::CardId,
+    new_controller: crate::ids::PlayerId,
+    remember: bool,
+    forget: bool,
+) {
+    if ctx.game.card(target_card).zone != ZoneType::Battlefield
+        || !ctx
+            .game
+            .card(target_card)
+            .can_be_controlled_by(new_controller)
+        || ctx.game.card(target_card).phased_out
     {
         return;
+    }
+    if sa.ir.optional {
+        let activator = sa.activating_player;
+        ctx.agents[activator.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        if !ctx.agents[activator.index()].confirm_action(
+            activator,
+            None,
+            "Do you want to gain control of that card?",
+            &[],
+            sa.source,
+            sa.api,
+        ) {
+            return;
+        }
     }
 
     // Change controller
@@ -223,5 +332,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         for kw in keywords {
             ctx.game.card_mut(target_card).add_pump_keyword(&kw);
         }
+    }
+
+    if remember {
+        ctx.game.card_mut(source).add_remembered_card(target_card);
+    }
+    if forget {
+        ctx.game.card_mut(source).remove_remembered(target_card);
     }
 }
