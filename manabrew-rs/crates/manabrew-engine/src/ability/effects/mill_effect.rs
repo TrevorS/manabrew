@@ -20,7 +20,7 @@ use crate::trigger::TriggerType;
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let num = resolve_mill_amount(ctx, sa).max(0) as usize;
 
-    let millers: Vec<crate::ids::PlayerId> = if let Some(tp) = sa.target_chosen.target_player {
+    let mut millers: Vec<crate::ids::PlayerId> = if let Some(tp) = sa.target_chosen.target_player {
         vec![tp]
     } else if let Some(d) = sa.defined() {
         let players = crate::ability::ability_utils::resolve_defined_players_with_sa(
@@ -39,6 +39,23 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     } else {
         vec![sa.activating_player]
     };
+
+    if sa.ir.optional {
+        millers.retain(|&player| {
+            if num > ctx.game.cards_in_zone(ZoneType::Library, player).len() {
+                return false;
+            }
+            ctx.agents[player.index()].snapshot_state(ctx.game, ctx.mana_pools);
+            ctx.agents[player.index()].confirm_action(
+                player,
+                None,
+                &format!("Do you want to mill {num} cards?"),
+                &[],
+                sa.source,
+                sa.api,
+            )
+        });
+    }
 
     let mut all_milled: Vec<crate::ids::CardId> = Vec::new();
     for target in millers {
