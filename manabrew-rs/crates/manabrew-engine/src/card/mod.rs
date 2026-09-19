@@ -2018,7 +2018,16 @@ impl Card {
                 return front.mana_cost.cmc();
             }
         }
-        self.mana_cost.cmc()
+        let x_paid = if self.zone == ZoneType::Stack && self.mana_cost.count_x() > 0 {
+            self.svars
+                .get("XPaid")
+                .and_then(|value| value.parse::<i32>().ok())
+                .unwrap_or(0)
+                * self.mana_cost.count_x() as i32
+        } else {
+            0
+        };
+        self.mana_cost.cmc() + x_paid
     }
 
     /// Check "Protection from <quality>" (e.g. "Protection from red").
