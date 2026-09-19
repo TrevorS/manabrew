@@ -78,39 +78,59 @@ pub(crate) fn add_counter_with_context(
 }
 
 impl EffectContext<'_> {
-    /// Get the number of art variants for a token in a given edition,
-    /// following TokenFallbackCode chains. Returns 1 if not found.
-    /// When edition_code is empty, scans all editions and returns the first
-    /// match (mirrors Java's `fallbackToken` which iterates all editions).
-    pub fn token_art_variant_count(&self, token_script: &str, edition_code: &str) -> usize {
-        let script_lower = token_script.to_lowercase();
-        if !edition_code.is_empty() {
-            let key = (script_lower.clone(), edition_code.to_uppercase());
-            if let Some(&count) = self.token_art_variants.get(&key) {
-                return count;
-            }
-            if let Some(fallback) = self.token_fallback.get(&edition_code.to_uppercase()) {
-                return self.token_art_variant_count(token_script, fallback);
-            }
+    fn token_set(&self, token_script: &str, edition_code: &str) -> Option<String> {
+        let code = edition_code.to_uppercase();
+        if self
+            .token_art_variants
+            .contains_key(&(token_script.to_lowercase(), code.clone()))
+        {
+            return Some(code);
         }
-        // Fallback: host edition doesn't have this token. Java's
-        // `fallbackToken` iterates editions in a specific order that's
-        // hard to reproduce exactly. In practice Java almost always
-        // resolves to an edition with 1 art variant for common tokens.
-        // Default to 1 to match the typical Java behavior.
-        1
+        let fallback = self.token_fallback.get(&code)?;
+        self.token_set(token_script, fallback)
     }
 
-    pub fn sync_token_art_rng(&mut self, token_script: &str, sa: &SpellAbility) {
+    fn get_token(&self, token_script: &str, edition_code: &str) -> (String, usize) {
+        let script = token_script.to_lowercase();
+        let code = edition_code.to_uppercase();
+        if let Some(&count) = self.token_art_variants.get(&(script.clone(), code.clone())) {
+            return (code, count);
+        }
+        self.fallback_token(&script).unwrap_or((code, 1))
+    }
+
+    /// Keep in sync with `TokenDb.getTokenFromEditions` with no edition filter: editions
+    /// iterate in case-insensitive code order and the first that has the token wins.
+    fn fallback_token(&self, script: &str) -> Option<(String, usize)> {
+        self.token_art_variants
+            .iter()
+            .filter(|((name, _), _)| name == script)
+            .min_by_key(|((_, code), _)| code.to_lowercase())
+            .map(|((_, code), &count)| (code.clone(), count))
+    }
+
+    pub fn sync_token_art_rng(&mut self, token_script: &str, sa: &SpellAbility) -> String {
         let host_edition = sa
-            .source
-            .and_then(|cid| self.game.card(cid).set_code.as_deref())
-            .unwrap_or("");
-        let art_count = self.token_art_variant_count(token_script, host_edition);
+            .original_host
+            .or(sa.source)
+            .and_then(|cid| self.game.card(cid).set_code.clone())
+            .unwrap_or_default();
+        let pinned = self.game.token_edition_pins.get(token_script).cloned();
+        let edition = pinned.clone().unwrap_or_else(|| {
+            self.token_set(token_script, &host_edition)
+                .unwrap_or(host_edition)
+        });
+        let (token_edition, art_count) = self.get_token(token_script, &edition);
         if art_count > 1 {
             self.rng.next_int(art_count as i32);
         }
+        if pinned.is_none() {
+            self.game
+                .token_edition_pins
+                .insert(token_script.to_string(), token_edition.clone());
+        }
         self.rng.next_int(1);
+        token_edition
     }
 
     pub fn move_card(&mut self, card_id: CardId, dest_zone: ZoneType, dest_owner: PlayerId) {

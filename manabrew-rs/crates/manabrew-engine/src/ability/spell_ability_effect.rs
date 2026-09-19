@@ -496,6 +496,7 @@ pub fn create_effect(game: &mut GameState, sa: &SpellAbility, name: &str, _image
     // Java passes `image` for UI; Rust tracks provenance via `effect_source` instead.
     if let Some(source_id) = sa.source {
         game.card_mut(effect_id).effect_source = Some(source_id);
+        game.card_mut(effect_id).set_code = game.card(source_id).set_code.clone();
         let source_svars = game.card(source_id).svars.clone();
         game.card_mut(effect_id).set_svars_map(source_svars);
     }

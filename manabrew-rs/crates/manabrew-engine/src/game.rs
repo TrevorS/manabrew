@@ -260,12 +260,8 @@ pub struct GameState {
     #[serde(skip)]
     pub replacements_running: crate::HashSet<(CardId, usize, i32)>,
 
-    /// Token scripts that have already consumed game-RNG for art selection.
-    /// Java's `TokenDb` caches prototypes globally, consuming RNG only on
-    /// first creation. Subsequent creations of the same token type reuse the
-    /// cached prototype without RNG. This set mirrors that behavior.
     #[serde(skip)]
-    pub synced_token_scripts: std::collections::BTreeSet<String>,
+    pub token_edition_pins: std::collections::BTreeMap<String, String>,
 
     /// Periodic LKI snapshot of battlefield cards.
     /// Mirrors Java's `Game.lastStateBattlefield`.
@@ -339,7 +335,7 @@ impl GameState {
             pending_prevent_map: None,
             pending_change_zone_table: None,
             replacements_running: crate::HashSet::default(),
-            synced_token_scripts: std::collections::BTreeSet::new(),
+            token_edition_pins: std::collections::BTreeMap::new(),
             last_state_battlefield: Vec::new(),
             pre_sba_battlefield: Vec::new(),
             last_sacrificed_card: None,

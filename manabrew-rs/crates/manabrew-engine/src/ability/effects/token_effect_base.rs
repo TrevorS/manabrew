@@ -229,10 +229,10 @@ pub trait TokenEffectBase {
         let pump_keywords = self.pump_keywords(sa);
         let mut result = TokenCreateResult::default();
 
-        for cell in token_table.cells().iter().cloned() {
+        for mut cell in token_table.cells().iter().cloned() {
             let script = cell.prototype.get_s_var("TokenScript").map(str::to_owned);
             if let Some(script) = script.as_deref() {
-                ctx.sync_token_art_rng(script, sa);
+                cell.prototype.set_code = Some(ctx.sync_token_art_rng(script, sa));
             }
 
             let controller = cell.prototype.controller;
