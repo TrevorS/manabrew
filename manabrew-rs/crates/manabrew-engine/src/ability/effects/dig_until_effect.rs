@@ -1,9 +1,6 @@
 use forge_foundation::ZoneType;
 
-use super::{
-    emit_zone_trigger, matches_change_type, resolve_defined_player, resolve_numeric_svar,
-    EffectContext,
-};
+use super::{emit_zone_trigger, matches_change_type, resolve_numeric_svar, EffectContext};
 use crate::card::valid_filter;
 use crate::parsing::keys;
 
@@ -33,156 +30,152 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let found_dest = sa.ir.found_destination_zone.unwrap_or(ZoneType::Hand);
     let revealed_dest = sa.ir.revealed_destination_zone.unwrap_or(ZoneType::Library);
 
-    let target_player = sa
-        .target_chosen
-        .target_player
-        .or_else(|| {
-            sa.defined()
-                .and_then(|d| resolve_defined_player(d, sa.activating_player, ctx.game))
-        })
-        .unwrap_or(sa.activating_player);
-
-    let lib_len = ctx
-        .game
-        .cards_in_zone(ZoneType::Library, target_player)
-        .len();
-    if lib_len == 0 {
-        return;
-    }
-
-    let mut found = Vec::new();
-    let mut revealed = Vec::new();
-
-    // Walk from top of library down
-    let lib_cards: Vec<_> = ctx
-        .game
-        .cards_in_zone(ZoneType::Library, target_player)
-        .to_vec();
-    // Library is stored bottom→top, so iterate from end (top) backwards
-    for &cid in lib_cards.iter().rev() {
-        if found.len() >= amount {
-            break;
+    for target_player in crate::ability::spell_ability_effect::get_target_players(ctx.game, sa) {
+        let lib_len = ctx
+            .game
+            .cards_in_zone(ZoneType::Library, target_player)
+            .len();
+        if lib_len == 0 {
+            return;
         }
-        revealed.push(cid);
-        let card = ctx.game.card(cid);
-        let matches = match (valid_selector, sa.source) {
-            (Some(selector), Some(source_id)) => valid_filter::matches_valid_card_selector_in_game(
-                selector,
-                card,
-                ctx.game.card(source_id),
-                ctx.game,
-            ),
-            _ => matches_change_type(card, valid_filter, &[]),
-        };
-        if matches {
-            found.push(cid);
-            if let Some(source_id) = sa.source {
-                if crate::parsing::raw_has_key(&sa.ability_text, keys::FORGET_OTHER_REMEMBERED) {
-                    ctx.game.card_mut(source_id).clear_remembered();
+
+        let mut found = Vec::new();
+        let mut revealed = Vec::new();
+
+        // Walk from top of library down
+        let lib_cards: Vec<_> = ctx
+            .game
+            .cards_in_zone(ZoneType::Library, target_player)
+            .to_vec();
+        // Library is stored bottom→top, so iterate from end (top) backwards
+        for &cid in lib_cards.iter().rev() {
+            if found.len() >= amount {
+                break;
+            }
+            revealed.push(cid);
+            let card = ctx.game.card(cid);
+            let matches = match (valid_selector, sa.source) {
+                (Some(selector), Some(source_id)) => {
+                    valid_filter::matches_valid_card_selector_in_game(
+                        selector,
+                        card,
+                        ctx.game.card(source_id),
+                        ctx.game,
+                    )
                 }
-                if sa.ir.remember_found {
-                    ctx.game.card_mut(source_id).add_remembered_card(cid);
-                }
-                if sa.ir.imprint_found {
-                    ctx.game.card_mut(source_id).add_imprinted_card(cid);
+                _ => matches_change_type(card, valid_filter, &[]),
+            };
+            if matches {
+                found.push(cid);
+                if let Some(source_id) = sa.source {
+                    if crate::parsing::raw_has_key(&sa.ability_text, keys::FORGET_OTHER_REMEMBERED)
+                    {
+                        ctx.game.card_mut(source_id).clear_remembered();
+                    }
+                    if sa.ir.remember_found {
+                        ctx.game.card_mut(source_id).add_remembered_card(cid);
+                    }
+                    if sa.ir.imprint_found {
+                        ctx.game.card_mut(source_id).add_imprinted_card(cid);
+                    }
                 }
             }
         }
-    }
-    if crate::parsing::raw_has_key(&sa.ability_text, "OptionalFoundMove") {
-        let mut kept = Vec::new();
-        for &cid in &found {
+        if crate::parsing::raw_has_key(&sa.ability_text, "OptionalFoundMove") {
+            let mut kept = Vec::new();
+            for &cid in &found {
+                ctx.agents[target_player.index()].snapshot_state(ctx.game, ctx.mana_pools);
+                if ctx.agents[target_player.index()].confirm_action(
+                    target_player,
+                    None,
+                    &format!("Do you want to put that card to {found_dest:?}?"),
+                    &[],
+                    sa.source,
+                    sa.api,
+                ) {
+                    kept.push(cid);
+                }
+            }
+            found = kept;
+        }
+        let mut rest: Vec<_> = revealed
+            .iter()
+            .copied()
+            .filter(|cid| !found.contains(cid))
+            .collect();
+        if let Some(source_id) = sa.source {
+            if sa.ir.imprint_revealed {
+                ctx.game
+                    .card_mut(source_id)
+                    .add_imprinted_cards(rest.iter().copied());
+            }
+            if sa.ir.remember_revealed {
+                ctx.game
+                    .card_mut(source_id)
+                    .add_remembered_cards(rest.iter().copied());
+            }
+        }
+
+        // Remove found + rest cards from library
+        let removed: Vec<_> = revealed.to_vec();
+        for card_id in removed {
+            ctx.game
+                .remove_card_from_zone(ZoneType::Library, target_player, card_id);
+        }
+
+        // Move found cards to destination
+        for &id in &found {
+            let owner = ctx.game.card(id).owner;
+            let dest_owner = if found_dest == ZoneType::Battlefield {
+                sa.activating_player
+            } else {
+                owner
+            };
+            ctx.move_card(id, found_dest, dest_owner);
+            if found_dest == ZoneType::Battlefield {
+                let _ = super::add_to_combat(ctx, sa, id, keys::ATTACKING);
+            }
+            emit_zone_trigger(ctx.trigger_handler, id, ZoneType::Library, found_dest);
+        }
+
+        let shuffle = crate::parsing::raw_has_key(&sa.ability_text, "Shuffle");
+        let random_order = crate::parsing::raw_has_key(&sa.ability_text, "RevealRandomOrder");
+        if random_order && rest.len() > 1 {
+            for i in (1..rest.len()).rev() {
+                let j = ctx.rng.next_int((i + 1) as i32) as usize;
+                rest.swap(i, j);
+            }
+        }
+        let known_dest = !matches!(revealed_dest, ZoneType::Library | ZoneType::Hand);
+        let sequential = revealed_dest == found_dest;
+        if !sequential
+            && (known_dest || (revealed_dest == ZoneType::Library && !shuffle && !random_order))
+            && rest.len() >= 2
+        {
             ctx.agents[target_player.index()].snapshot_state(ctx.game, ctx.mana_pools);
-            if ctx.agents[target_player.index()].confirm_action(
+            let ordered = ctx.agents[target_player.index()].order_move_to_zone_list(
+                ctx.game,
                 target_player,
-                None,
-                &format!("Do you want to put that card to {found_dest:?}?"),
-                &[],
-                sa.source,
-                sa.api,
-            ) {
-                kept.push(cid);
+                &rest,
+                revealed_dest,
+            );
+            if ordered.len() == rest.len() && rest.iter().all(|id| ordered.contains(id)) {
+                rest = ordered;
             }
         }
-        found = kept;
-    }
-    let mut rest: Vec<_> = revealed
-        .iter()
-        .copied()
-        .filter(|cid| !found.contains(cid))
-        .collect();
-    if let Some(source_id) = sa.source {
-        if sa.ir.imprint_revealed {
-            ctx.game
-                .card_mut(source_id)
-                .add_imprinted_cards(rest.iter().copied());
-        }
-        if sa.ir.remember_revealed {
-            ctx.game
-                .card_mut(source_id)
-                .add_remembered_cards(rest.iter().copied());
-        }
-    }
 
-    // Remove found + rest cards from library
-    let removed: Vec<_> = revealed.to_vec();
-    for card_id in removed {
-        ctx.game
-            .remove_card_from_zone(ZoneType::Library, target_player, card_id);
-    }
-
-    // Move found cards to destination
-    for &id in &found {
-        let owner = ctx.game.card(id).owner;
-        let dest_owner = if found_dest == ZoneType::Battlefield {
-            sa.activating_player
-        } else {
-            owner
-        };
-        ctx.move_card(id, found_dest, dest_owner);
-        if found_dest == ZoneType::Battlefield {
-            let _ = super::add_to_combat(ctx, sa, id, keys::ATTACKING);
-        }
-        emit_zone_trigger(ctx.trigger_handler, id, ZoneType::Library, found_dest);
-    }
-
-    let shuffle = crate::parsing::raw_has_key(&sa.ability_text, "Shuffle");
-    let random_order = crate::parsing::raw_has_key(&sa.ability_text, "RevealRandomOrder");
-    if random_order && rest.len() > 1 {
-        for i in (1..rest.len()).rev() {
-            let j = ctx.rng.next_int((i + 1) as i32) as usize;
-            rest.swap(i, j);
-        }
-    }
-    let known_dest = !matches!(revealed_dest, ZoneType::Library | ZoneType::Hand);
-    let sequential = revealed_dest == found_dest;
-    if !sequential
-        && (known_dest || (revealed_dest == ZoneType::Library && !shuffle && !random_order))
-        && rest.len() >= 2
-    {
-        ctx.agents[target_player.index()].snapshot_state(ctx.game, ctx.mana_pools);
-        let ordered = ctx.agents[target_player.index()].order_move_to_zone_list(
-            ctx.game,
-            target_player,
-            &rest,
-            revealed_dest,
-        );
-        if ordered.len() == rest.len() && rest.iter().all(|id| ordered.contains(id)) {
-            rest = ordered;
-        }
-    }
-
-    // Move rest to revealed destination
-    for &id in &rest {
-        let owner = ctx.game.card(id).owner;
-        if revealed_dest == ZoneType::Library {
-            // Put on bottom
-            ctx.game
-                .add_card_to_zone_bottom(ZoneType::Library, owner, id);
-            ctx.game.card_mut(id).set_zone(ZoneType::Library);
-        } else {
-            ctx.move_card(id, revealed_dest, owner);
-            emit_zone_trigger(ctx.trigger_handler, id, ZoneType::Library, revealed_dest);
+        // Move rest to revealed destination
+        for &id in &rest {
+            let owner = ctx.game.card(id).owner;
+            if revealed_dest == ZoneType::Library {
+                // Put on bottom
+                ctx.game
+                    .add_card_to_zone_bottom(ZoneType::Library, owner, id);
+                ctx.game.card_mut(id).set_zone(ZoneType::Library);
+            } else {
+                ctx.move_card(id, revealed_dest, owner);
+                emit_zone_trigger(ctx.trigger_handler, id, ZoneType::Library, revealed_dest);
+            }
         }
     }
 }

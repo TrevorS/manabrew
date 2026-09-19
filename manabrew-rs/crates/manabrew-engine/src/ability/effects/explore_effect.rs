@@ -1,7 +1,6 @@
 use forge_foundation::ZoneType;
 
 use super::{emit_zone_trigger, EffectContext};
-use crate::ability::ability_ir::DefinedRef;
 use crate::card::CounterType;
 use crate::event::RunParams;
 use crate::parsing::keys;
@@ -28,21 +27,24 @@ use crate::trigger::TriggerType;
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let controller = sa.activating_player;
 
-    // Determine the exploring creature
-    let explorer = sa
-        .target_chosen
-        .target_card
-        .or_else(|| match sa.defined_ref() {
-            Some(DefinedRef::SelfCard) => sa.source,
-            Some(DefinedRef::ParentTarget) => ctx.parent_target_card,
-            _ => sa.source,
-        });
+    let mut explorers = crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa);
+    if explorers.is_empty() {
+        explorers.extend(ctx.parent_target_card);
+    }
+    for explorer_id in explorers {
+        if ctx.game.card(explorer_id).zone != ZoneType::Battlefield {
+            continue;
+        }
+        explore_one(ctx, sa, controller, explorer_id);
+    }
+}
 
-    let explorer_id = match explorer {
-        Some(id) if ctx.game.card(id).zone == ZoneType::Battlefield => id,
-        _ => return,
-    };
-
+fn explore_one(
+    ctx: &mut EffectContext,
+    sa: &crate::spellability::SpellAbility,
+    controller: crate::ids::PlayerId,
+    explorer_id: crate::ids::CardId,
+) {
     // Run Explore replacement effects before exploring.
     let mut event = ReplacementEvent::Explore { card: explorer_id };
     let result = apply_replacements(ctx.game, &mut event);

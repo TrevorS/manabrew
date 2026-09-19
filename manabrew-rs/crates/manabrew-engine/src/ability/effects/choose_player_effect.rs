@@ -1,4 +1,4 @@
-use super::{resolve_defined_players, EffectContext};
+use super::EffectContext;
 use crate::agent::GameEntity;
 use crate::parsing::keys;
 
@@ -17,8 +17,7 @@ use crate::parsing::keys;
 #[manabrew_engine_macros::spell_effect(ChoosePlayerEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let controller = sa.activating_player;
-    let defined = sa.defined().unwrap_or("You");
-    let choosers = resolve_defined_players(defined, controller, ctx.game);
+    let choosers = crate::ability::spell_ability_effect::get_target_players(ctx.game, sa);
 
     let valid_players: Vec<_> = if let Some(choices) = sa.ir.choices.as_deref() {
         crate::ability::ability_utils::resolve_defined_players_with_sa(

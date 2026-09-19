@@ -1,6 +1,6 @@
 use forge_foundation::ZoneType;
 
-use super::{resolve_defined_player, resolve_numeric_svar, EffectContext};
+use super::{resolve_numeric_svar, EffectContext};
 use crate::event::RunParams;
 use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
 use crate::replacement::ReplacementResult;
@@ -18,81 +18,78 @@ use crate::trigger::TriggerType;
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let num = resolve_numeric_svar(ctx.game, sa, "ScryNum", 1).max(0) as usize;
 
-    let target = sa
-        .defined()
-        .and_then(|d| resolve_defined_player(d, sa.activating_player, ctx.game))
-        .unwrap_or(sa.activating_player);
-
-    // Run Scry replacement effects before scrying.
-    let mut event = ReplacementEvent::Scry {
-        player: target,
-        count: num as i32,
-    };
-    let result = apply_replacements(ctx.game, &mut event);
-    if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
-        return;
-    }
-    let num = if let ReplacementEvent::Scry { count, .. } = event {
-        count.max(0) as usize
-    } else {
-        num
-    };
-
-    if sa.ir.optional {
-        let _source_name = sa.source.map(|cid| ctx.game.card(cid).card_name.as_str());
-        let accepted = ctx.agents[target.index()].confirm_action(
-            target,
-            None,
-            "Do you want to scry?",
-            &[],
-            sa.source,
-            Some(crate::ability::api_type::ApiType::Scry),
-        );
-        if !accepted {
+    for target in crate::ability::spell_ability_effect::get_target_players(ctx.game, sa) {
+        // Run Scry replacement effects before scrying.
+        let mut event = ReplacementEvent::Scry {
+            player: target,
+            count: num as i32,
+        };
+        let result = apply_replacements(ctx.game, &mut event);
+        if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
             return;
         }
+        let num = if let ReplacementEvent::Scry { count, .. } = event {
+            count.max(0) as usize
+        } else {
+            num
+        };
+
+        if sa.ir.optional {
+            let _source_name = sa.source.map(|cid| ctx.game.card(cid).card_name.as_str());
+            let accepted = ctx.agents[target.index()].confirm_action(
+                target,
+                None,
+                "Do you want to scry?",
+                &[],
+                sa.source,
+                Some(crate::ability::api_type::ApiType::Scry),
+            );
+            if !accepted {
+                return;
+            }
+        }
+
+        let lib_len = ctx.game.cards_in_zone(ZoneType::Library, target).len();
+        if lib_len == 0 || num == 0 {
+            return;
+        }
+
+        let count = num.min(lib_len);
+
+        // Take top N cards off the library (index 0 = bottom, last = top).
+        let mut top_n = ctx
+            .game
+            .take_top_cards_from_zone(ZoneType::Library, target, count);
+        // Reverse to match Java's iteration order (top-to-bottom).
+        // Java's `getCardsIn(Library, n)` returns cards starting from index 0 (top)
+        // downward, so the deterministic agent must consume RNG in the same order.
+        top_n.reverse();
+
+        // Ask the agent to distribute the cards: piles[0] = top, piles[1] = bottom.
+        let piles = ctx.agents[target.index()].choose_scry(ctx.game, target, sa.source, &top_n);
+        let (top, bottom) = super::split_scry_piles(&top_n, &piles);
+
+        // Bottom cards go under the library (preserve their order).
+        for &id in &bottom {
+            ctx.game
+                .add_card_to_zone_bottom(ZoneType::Library, target, id);
+        }
+        // Top pile is ordered top-to-bottom (first = top of library); iterate in
+        // reverse so the last append leaves the intended card on top.
+        for &id in top.iter().rev() {
+            ctx.game.add_card_to_zone(ZoneType::Library, target, id);
+        }
+
+        // Fire Scry trigger
+        ctx.trigger_handler.run_trigger(
+            TriggerType::Scry,
+            RunParams {
+                player: Some(target),
+                ..Default::default()
+            },
+            false,
+        );
     }
-
-    let lib_len = ctx.game.cards_in_zone(ZoneType::Library, target).len();
-    if lib_len == 0 || num == 0 {
-        return;
-    }
-
-    let count = num.min(lib_len);
-
-    // Take top N cards off the library (index 0 = bottom, last = top).
-    let mut top_n = ctx
-        .game
-        .take_top_cards_from_zone(ZoneType::Library, target, count);
-    // Reverse to match Java's iteration order (top-to-bottom).
-    // Java's `getCardsIn(Library, n)` returns cards starting from index 0 (top)
-    // downward, so the deterministic agent must consume RNG in the same order.
-    top_n.reverse();
-
-    // Ask the agent to distribute the cards: piles[0] = top, piles[1] = bottom.
-    let piles = ctx.agents[target.index()].choose_scry(ctx.game, target, sa.source, &top_n);
-    let (top, bottom) = super::split_scry_piles(&top_n, &piles);
-
-    // Bottom cards go under the library (preserve their order).
-    for &id in &bottom {
-        ctx.game
-            .add_card_to_zone_bottom(ZoneType::Library, target, id);
-    }
-    // Top pile is ordered top-to-bottom (first = top of library); iterate in
-    // reverse so the last append leaves the intended card on top.
-    for &id in top.iter().rev() {
-        ctx.game.add_card_to_zone(ZoneType::Library, target, id);
-    }
-
-    // Fire Scry trigger
-    ctx.trigger_handler.run_trigger(
-        TriggerType::Scry,
-        RunParams {
-            player: Some(target),
-            ..Default::default()
-        },
-        false,
-    );
 }
 
 #[cfg(test)]
