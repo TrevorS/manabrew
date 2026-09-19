@@ -155,33 +155,55 @@ pub fn get_defined_cards(
     if let Ok(token) = defined.parse::<DefinedCardToken>() {
         return resolve_defined_card_token(token, game, host_card, activating_player);
     }
-    // Prefix-based tokens.
-    if let Some(rest) = defined.strip_prefix("ValidGraveyard") {
-        let filter = rest.trim();
-        let player = activating_player.unwrap_or_else(|| {
-            host_card
-                .map(|c| game.card(c).controller)
-                .unwrap_or(PlayerId(0))
-        });
-        return game
-            .cards_in_zone(ZoneType::Graveyard, player)
-            .iter()
-            .copied()
-            .filter(|&cid| {
-                if filter.is_empty() {
-                    true
-                } else if let Some(source_id) = host_card {
-                    matches_valid_cards_for_source(game, source_id, game.card(cid), None, filter)
-                } else {
-                    matches_valid_cards(game.card(cid), filter, player)
-                }
-            })
-            .collect();
+    if let Some(cards) = get_defined_valid_cards(game, host_card, defined, activating_player, None)
+    {
+        return cards;
     }
     // `Discarded` / `Sacrificed` live on the SA (`discarded_cost_cards` +
     // per-cost paid slots), not the host card, so they're resolved by the
     // SA-aware path `spell_ability_effect::resolve_defined_cards_for_sa`.
     Vec::new()
+}
+
+pub(crate) fn get_defined_valid_cards(
+    game: &GameState,
+    host_card: Option<CardId>,
+    defined: &str,
+    activating_player: Option<PlayerId>,
+    sa: Option<&SpellAbility>,
+) -> Option<Vec<CardId>> {
+    let rest = defined.strip_prefix("Valid")?;
+    let (zones, filter): (Vec<ZoneType>, &str) = if let Some(filter) = rest.strip_prefix(' ') {
+        (vec![ZoneType::Battlefield], filter)
+    } else if let Some(filter) = rest.strip_prefix("All ") {
+        (crate::zone::zone_store::STORED_ZONE_TYPES.to_vec(), filter)
+    } else {
+        let (zone, filter) = rest.split_once(' ')?;
+        (vec![crate::zone::zone_type::smart_value_of(zone)?], filter)
+    };
+    let player = activating_player
+        .or_else(|| host_card.map(|c| game.card(c).controller))
+        .unwrap_or(PlayerId(0));
+    Some(
+        game.player_order
+            .iter()
+            .flat_map(|&pid| {
+                zones
+                    .iter()
+                    .flat_map(move |&zone| game.cards_in_zone(zone, pid).iter().copied())
+            })
+            .filter(|&cid| {
+                let card = game.card(cid);
+                match (sa, host_card) {
+                    (Some(sa), _) => matches_valid_cards_for_sa(game, sa, card, None, filter),
+                    (None, Some(source_id)) => {
+                        matches_valid_cards_for_source(game, source_id, card, None, filter)
+                    }
+                    (None, None) => matches_valid_cards(card, filter, player),
+                }
+            })
+            .collect(),
+    )
 }
 
 fn find_effect_root(game: &GameState, start_card: CardId) -> Option<CardId> {

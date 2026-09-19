@@ -386,6 +386,16 @@ fn resolve_defined_cards_for_sa_ref_inner(
                 .map(|key| sa.get_triggering_cards(key))
                 .unwrap_or_default()
         }
+        DefinedRef::Unsupported(raw) if raw.starts_with("Valid") => {
+            ability_utils::get_defined_valid_cards(
+                game,
+                sa.source,
+                raw,
+                Some(sa.activating_player),
+                Some(sa),
+            )
+            .unwrap_or_default()
+        }
         _ => ability_utils::get_defined_cards(
             game,
             sa.source,

@@ -16,11 +16,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let multiplier = super::resolve_numeric_svar(ctx.game, sa, "Multiplier", 2).max(0);
     let counter_type_filter = sa.ir.counter_type.clone();
 
-    let targets: Vec<crate::ids::CardId> = if sa.uses_targeting() {
-        sa.target_chosen.target_card.into_iter().collect()
-    } else {
-        sa.source.into_iter().collect()
-    };
+    let targets = crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa);
 
     let mut table = GameEntityCounterTable::default();
     for card_id in targets {
