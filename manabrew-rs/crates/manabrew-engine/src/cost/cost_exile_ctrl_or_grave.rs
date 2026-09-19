@@ -36,7 +36,7 @@ pub fn can_pay(
     };
     let resolved_amount = amount.resolve(game, source, player);
     let base_filter = super::normalize_exile_base_filter(type_filter);
-    let bf = super::get_zone_targets(game, player, ZoneType::Battlefield, &base_filter)
+    let bf = super::get_zone_targets(game, player, ZoneType::Battlefield, &base_filter, source)
         .into_iter()
         .filter(|&cid| {
             !crate::staticability::static_ability_cant_exile::cant_exile(
@@ -47,7 +47,7 @@ pub fn can_pay(
             )
         })
         .count();
-    let gy = super::get_zone_targets(game, player, ZoneType::Graveyard, &base_filter)
+    let gy = super::get_zone_targets(game, player, ZoneType::Graveyard, &base_filter, source)
         .into_iter()
         .filter(|&cid| {
             !crate::staticability::static_ability_cant_exile::cant_exile(

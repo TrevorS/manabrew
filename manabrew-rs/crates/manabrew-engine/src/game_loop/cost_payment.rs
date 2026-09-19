@@ -2426,7 +2426,7 @@ impl GameLoop {
         }
         let amount = amount as usize;
         let base_filter = crate::cost::normalize_exile_base_filter(type_filter);
-        let mut valid = cost::get_zone_targets(game, player, from, &base_filter);
+        let mut valid = cost::get_zone_targets(game, player, from, &base_filter, source);
         valid.retain(|&cid| can_exile_for_cost(game, cid));
         if from == ZoneType::Hand
             && game.card(source).zone == ZoneType::Hand
@@ -2864,7 +2864,7 @@ impl GameLoop {
                     })
                     .collect()
             } else {
-                crate::cost::get_zone_targets(game, player, from, type_filter)
+                crate::cost::get_zone_targets(game, player, from, type_filter, source)
             };
             if valid.is_empty() {
                 return false;
@@ -3194,13 +3194,19 @@ impl GameLoop {
     ) {
         let base_filter = crate::cost::normalize_exile_base_filter(type_filter);
         for _ in 0..amount {
-            let mut valid: Vec<CardId> =
-                crate::cost::get_zone_targets(game, player, ZoneType::Battlefield, &base_filter);
+            let mut valid: Vec<CardId> = crate::cost::get_zone_targets(
+                game,
+                player,
+                ZoneType::Battlefield,
+                &base_filter,
+                source,
+            );
             valid.extend(crate::cost::get_zone_targets(
                 game,
                 player,
                 ZoneType::Graveyard,
                 &base_filter,
+                source,
             ));
             valid.retain(|&cid| can_exile_for_cost(game, cid));
             if valid.is_empty() {

@@ -92,7 +92,7 @@ pub fn can_pay(
         }
         return by_controller.values().any(|&v| v >= resolved_amount);
     }
-    let count = super::get_zone_targets(game, player, *from, type_filter).len() as i32;
+    let count = super::get_zone_targets(game, player, *from, type_filter, source).len() as i32;
     count >= resolved_amount
 }
 

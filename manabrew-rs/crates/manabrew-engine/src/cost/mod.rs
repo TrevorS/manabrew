@@ -912,16 +912,28 @@ pub fn get_zone_targets(
     player: PlayerId,
     zone: ZoneType,
     type_filter: &str,
+    source: CardId,
 ) -> Vec<CardId> {
+    if type_filter == "Card" || type_filter.is_empty() {
+        return game.cards_in_zone(zone, player).to_vec();
+    }
+    let selectors: Vec<_> = type_filter
+        .split(';')
+        .map(crate::parsing::cached_compiled_selector)
+        .collect();
+    let source_card = game.card(source);
     game.cards_in_zone(zone, player)
-        .to_vec()
-        .into_iter()
+        .iter()
+        .copied()
         .filter(|&cid| {
-            if type_filter == "Card" || type_filter.is_empty() {
-                true
-            } else {
-                matches_change_type(game.card(cid), type_filter, &[])
-            }
+            selectors.iter().any(|selector| {
+                crate::card::valid_filter::matches_valid_card_selector_in_game(
+                    selector,
+                    game.card(cid),
+                    source_card,
+                    game,
+                )
+            })
         })
         .collect()
 }

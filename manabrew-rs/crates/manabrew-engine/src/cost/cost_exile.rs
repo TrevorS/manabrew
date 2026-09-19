@@ -68,7 +68,7 @@ pub fn can_pay(
 
             let base_filter = super::normalize_exile_base_filter(type_filter);
             let candidates: Vec<crate::ids::CardId> =
-                super::get_zone_targets(game, player, *from, &base_filter)
+                super::get_zone_targets(game, player, *from, &base_filter, source)
                     .into_iter()
                     .filter(|&cid| {
                         !crate::staticability::static_ability_cant_exile::cant_exile(

@@ -249,7 +249,9 @@ pub fn get_max_amount_x(
         }
         CostPart::Exile {
             type_filter, from, ..
-        } => Some(crate::cost::get_zone_targets(game, player, *from, type_filter).len() as i32),
+        } => Some(
+            crate::cost::get_zone_targets(game, player, *from, type_filter, source).len() as i32,
+        ),
         _ => None,
     }
 }
