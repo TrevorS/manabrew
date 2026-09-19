@@ -376,6 +376,8 @@ impl SpellAbility {
             keys::REMEMBER_CHOSEN => self.ir.remember_chosen,
             keys::REMEMBER_CLASHER => self.ir.remember_clasher,
             keys::REMEMBER_CLOAKED => self.ir.remember_cloaked,
+            keys::REMEMBER_ATTACHED => self.ir.remember_attached,
+            keys::MOVE => self.ir.move_attachment,
             keys::REMEMBER_DISCOVERED => self.ir.remember_discovered,
             keys::REMEMBER_DRAFTED => self.ir.remember_drafted,
             keys::REMEMBER_EXCHANGED => self.ir.remember_exchanged,
