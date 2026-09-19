@@ -2106,6 +2106,12 @@ impl Card {
                         return true;
                     }
                 }
+                "each color" => {
+                    if !source.color.is_colorless() {
+                        return true;
+                    }
+                }
+                "everything" => return true,
                 "artifacts" => {
                     if source.type_line.is_artifact() {
                         return true;

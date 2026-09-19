@@ -39,7 +39,13 @@ pub enum PhaseCommand {
         controller: PlayerId,
     },
     /// `GameAction.exileEffect`: the effect card leaves the command zone.
-    ExileEffect { effect: CardId },
+    ExileEffect {
+        effect: CardId,
+    },
+    RemoveKeyword {
+        card: CardId,
+        keyword: String,
+    },
 }
 
 impl PhaseCommand {
@@ -63,6 +69,9 @@ impl PhaseCommand {
             }
             PhaseCommand::RemoveController { player, controller } => {
                 crate::player::remove_controller(game, player, controller);
+            }
+            PhaseCommand::RemoveKeyword { card, keyword } => {
+                game.card_mut(card).remove_changed_card_keywords(&keyword);
             }
             PhaseCommand::ExileEffect { effect } => {
                 if game.card(effect).zone == forge_foundation::ZoneType::Command {

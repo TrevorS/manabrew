@@ -195,6 +195,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 is_perpetual,
                 is_permanent,
                 resolve_ts,
+                sa,
             );
         }
         return;
@@ -230,6 +231,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             is_perpetual,
             is_permanent,
             resolve_ts,
+            sa,
         );
         pumped_targets.push(target_card);
     }
@@ -284,7 +286,15 @@ fn apply_pump_to_card(
     is_perpetual: bool,
     is_permanent: bool,
     resolve_ts: Option<i64>,
+    sa: &crate::spellability::SpellAbility,
 ) {
+    let until_next_turn = matches!(
+        sa.ir.duration,
+        Some(
+            crate::spellability::AbilityDuration::UntilYourNextTurn
+                | crate::spellability::AbilityDuration::UntilTheEndOfYourNextTurn
+        )
+    );
     if is_perpetual {
         let ts = resolve_ts.expect("perpetual resolve timestamp must exist");
         let card = ctx.game.card_mut(card_id);
@@ -311,6 +321,25 @@ fn apply_pump_to_card(
         }
         for kw in keywords {
             card.add_changed_card_keywords(kw);
+        }
+    } else if until_next_turn {
+        ctx.game.card_mut(card_id).add_pt_boost(att, def);
+        if !keywords.is_empty() {
+            ctx.game
+                .card_mut(card_id)
+                .capture_changed_characteristics_baseline_if_needed();
+        }
+        for kw in keywords {
+            ctx.game.card_mut(card_id).add_changed_card_keywords(kw);
+            crate::ability::spell_ability_effect::add_until_command(
+                ctx.game,
+                sa.ir.duration.as_ref(),
+                sa.activating_player,
+                crate::phase::PhaseCommand::RemoveKeyword {
+                    card: card_id,
+                    keyword: kw.clone(),
+                },
+            );
         }
     } else {
         ctx.game.card_mut(card_id).add_pt_boost(att, def);
