@@ -305,17 +305,16 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 }
                 granted.unwrap_or_else(|| card.static_abilities[sa_idx].clone())
             };
-            let source_card = game.card(source_id).clone();
-
             // Full static-ability condition gate (IsPresent$, CheckSVar$, Condition$, etc.).
             // Mirrors Java static ability checks before applying continuous effects.
-            if !sa.check_conditions(&source_card, game) {
+            if !sa.check_conditions(game.card(source_id), game) {
                 continue;
             }
 
             if sa.check_mode(&StaticMode::Continuous) {
                 apply_player_rules_effects(game, source_id, &sa);
             }
+            let source_card = game.card(source_id);
 
             // CharacteristicDefining statics always affect only the host card.
             // Mirrors Java StaticAbilityContinuous.getAffectedCards() line 1036.
@@ -470,7 +469,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                             if !crate::card::valid_filter::matches_valid_card_selector_in_game(
                                 &selector,
                                 gained,
-                                &source_card,
+                                source_card,
                                 game,
                             ) {
                                 continue;
@@ -528,7 +527,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         }
                     }
 
-                    for subtype in resolve_added_basic_land_types(&source_card, add_type) {
+                    for subtype in resolve_added_basic_land_types(source_card, add_type) {
                         if let Some(ab_text) = basic_land_mana_ability_text(&subtype) {
                             pending.push(PendingEffect {
                                 layer: Layer::Ability,
@@ -565,8 +564,8 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 if source_card.zone == ZoneType::Battlefield
                     && crate::card::valid_filter::matches_valid_card(
                         affected_str,
-                        &source_card,
-                        &source_card,
+                        source_card,
+                        source_card,
                     )
                 {
                     apply_to_target(source_id);
@@ -603,7 +602,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         && crate::card::valid_filter::matches_valid_card_selector_in_game(
                             &selector,
                             card,
-                            &source_card,
+                            source_card,
                             game,
                         )
                     {
