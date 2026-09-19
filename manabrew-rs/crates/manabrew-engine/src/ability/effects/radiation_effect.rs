@@ -8,11 +8,9 @@ use super::EffectContext;
 #[manabrew_engine_macros::spell_effect(RadiationEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let amount = super::resolve_numeric_svar(ctx.game, sa, "Num", 1).max(0);
-    let target = sa
-        .target_chosen
-        .target_player
-        .unwrap_or(sa.activating_player);
-    ctx.game.player_add_radiation(target, amount);
-    ctx.game
-        .player_register_radiation_effect(target, ctx.trigger_handler);
+    for target in crate::ability::spell_ability_effect::get_target_players(ctx.game, sa) {
+        ctx.game.player_add_radiation(target, amount);
+        ctx.game
+            .player_register_radiation_effect(target, ctx.trigger_handler);
+    }
 }

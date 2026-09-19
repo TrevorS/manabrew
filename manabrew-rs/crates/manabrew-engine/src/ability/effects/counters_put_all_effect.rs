@@ -33,7 +33,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let valid_cards = sa.ir.valid_cards_selector.as_ref();
     let zone = sa.ir.valid_zone.unwrap_or(ZoneType::Battlefield);
 
-    let player_ids = ctx.game.player_order.clone();
+    let player_ids = match sa
+        .target_chosen
+        .target_player
+        .filter(|_| sa.uses_targeting())
+    {
+        Some(pid) => vec![pid],
+        None => ctx.game.player_order.clone(),
+    };
     let mut targets: Vec<CardId> = Vec::new();
 
     for &pid in &player_ids {

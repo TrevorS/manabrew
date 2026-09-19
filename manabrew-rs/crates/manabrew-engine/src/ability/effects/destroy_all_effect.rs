@@ -27,8 +27,16 @@ use crate::trigger::TriggerType;
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let valid_cards = sa.ir.valid_cards_selector.as_ref();
 
-    // Pass 1 — collect matching battlefield cards
-    let player_ids = ctx.game.player_order.clone();
+    // Pass 1 — collect matching battlefield cards; a targeted player narrows it to theirs
+    // (Java `CardLists.filterControlledBy`).
+    let player_ids = match sa
+        .target_chosen
+        .target_player
+        .filter(|_| sa.uses_targeting())
+    {
+        Some(pid) => vec![pid],
+        None => ctx.game.player_order.clone(),
+    };
     let mut to_destroy: Vec<CardId> = Vec::new();
     for &pid in &player_ids {
         let zone_cards = ctx.game.cards_in_zone(ZoneType::Battlefield, pid).to_vec();
