@@ -5,7 +5,10 @@ use crate::parsing::CompiledSelector;
 use crate::staticability::StaticMode;
 
 pub fn blocks_each_combat_if_able(cards: &[Card], creature: &Card) -> bool {
-    for source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {
+    for source in cards
+        .iter()
+        .filter(|c| c.zone == ZoneType::Battlefield || c.zone == ZoneType::Command)
+    {
         for st_ab in source
             .static_abilities
             .iter()
