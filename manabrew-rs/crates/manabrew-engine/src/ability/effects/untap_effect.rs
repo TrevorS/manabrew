@@ -43,9 +43,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
 }
 
-/// Resolve target cards for untap: explicit target, or `Defined$ Self`,
-/// `Defined$ ParentTarget`, or `Defined$ Remembered` (cards remembered by the
-/// source — e.g. Fabled Passage's conditional untap of the fetched land).
+/// Java `getDefinedCardsOrTargeted(sa)`; `Defined$ ParentTarget` reads the chain's parent target.
 fn resolve_untap_targets(ctx: &EffectContext, sa: &SpellAbility) -> Vec<CardId> {
     if let Some(c) = sa.target_chosen.target_card {
         return vec![c];
@@ -56,13 +54,8 @@ fn resolve_untap_targets(ctx: &EffectContext, sa: &SpellAbility) -> Vec<CardId> 
         .as_ref()
         .and_then(|defined| defined.refs.first())
     {
-        None | Some(DefinedRef::SelfCard) => sa.source.into_iter().collect(),
         Some(DefinedRef::ParentTarget) => ctx.parent_target_card.into_iter().collect(),
-        Some(DefinedRef::Remembered) => sa
-            .source
-            .map(|sid| ctx.game.card(sid).remembered_cards.clone())
-            .unwrap_or_default(),
-        _ => Vec::new(),
+        _ => crate::ability::spell_ability_effect::get_defined_cards_or_targeted(ctx.game, sa),
     }
 }
 
