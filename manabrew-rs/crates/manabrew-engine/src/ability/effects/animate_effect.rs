@@ -33,6 +33,13 @@ use forge_foundation::ManaCost;
 /// `AnimateEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(AnimateEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
+    if !crate::ability::spell_ability_effect::check_valid_duration(
+        ctx.game,
+        sa,
+        sa.ir.duration.as_ref(),
+    ) {
+        return;
+    }
     let controller = sa.activating_player;
 
     // Determine target card

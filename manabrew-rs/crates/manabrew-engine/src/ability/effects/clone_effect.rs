@@ -19,6 +19,13 @@ use crate::spellability::SpellAbility;
 /// `CloneEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(CloneEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
+    if !crate::ability::spell_ability_effect::check_valid_duration(
+        ctx.game,
+        sa,
+        sa.ir.duration.as_ref(),
+    ) {
+        return;
+    }
     let source_id = match sa.source {
         Some(id) => id,
         None => return,

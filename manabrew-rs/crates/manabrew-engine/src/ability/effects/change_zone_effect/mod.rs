@@ -24,6 +24,13 @@ use crate::spellability::SpellAbility;
 /// `SpellAbilityEffect` trait hierarchy alongside the single-file effects.
 #[manabrew_engine_macros::spell_effect(ChangeZoneEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
+    if !crate::ability::spell_ability_effect::check_valid_duration(
+        ctx.game,
+        sa,
+        sa.ir.duration.as_ref(),
+    ) {
+        return;
+    }
     resolve(ctx, sa);
 }
 

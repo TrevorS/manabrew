@@ -59,6 +59,13 @@ pub fn run(
 /// `PumpEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(PumpEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
+    if !crate::ability::spell_ability_effect::check_valid_duration(
+        ctx.game,
+        sa,
+        sa.ir.duration.as_ref(),
+    ) {
+        return;
+    }
     let mut pumped_targets: Vec<crate::ids::CardId> = Vec::new();
 
     // `Optional$` — activator confirms before any pump applies (Java L283–L292).

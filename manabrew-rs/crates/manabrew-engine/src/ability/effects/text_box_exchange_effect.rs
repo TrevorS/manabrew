@@ -33,6 +33,13 @@ pub fn run(
 /// `TextBoxExchangeEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(TextBoxExchangeEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
+    if !crate::ability::spell_ability_effect::check_valid_duration(
+        ctx.game,
+        sa,
+        sa.ir.duration.as_ref(),
+    ) {
+        return;
+    }
     let source = sa.source;
     let target = sa.target_chosen.target_card;
 

@@ -49,6 +49,13 @@ pub fn run(
 /// `PumpAllEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(PumpAllEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
+    if !crate::ability::spell_ability_effect::check_valid_duration(
+        ctx.game,
+        sa,
+        sa.ir.duration.as_ref(),
+    ) {
+        return;
+    }
     // parse_param strips leading '+' sign via Rust's i32::from_str which accepts it.
     // Fall back to SVar resolution for Count$Kicked etc.
     let att_bonus = sa
