@@ -112,6 +112,8 @@ parity coverage --decks red_burn,green_stompy --cards-file standard_names.txt
 
 `query` (`src/script_query.rs`) filters the parsed script lines of every card (or of `--cards-file`) by API, trigger or static `--mode`, replacement `--event`, `--param`, `--value` substring, `--keyword` and `--kind`, prints matching cards with their lines, and says which engine files contain the parameter or API as a string literal. Use it instead of grepping `cardsfolder`: `$` and `|` in a pattern make a text search match nothing without saying so. Each answer carries its own control: the number of cards scanned, how many carry `ValidTgts$` (zero aborts with an error), and how many match the API filter alone, so a zero for the full query means the parameter is absent and not that the search failed.
 
+`parity selector-audit` (`src/selector_audit.rs`) compiles `Card.<name>` for every name Java's `CardProperty` tests with `property.equals`, and lists the ones the engine's selector compiler lowers to a subtype, with how many card scripts use each. A property lowered that way never matches (it is looked up as a type), where Java checks it first and falls back to types only at the end. Teach the compiler (`parsing::lower_selector_part`) or the legacy matcher the property, then rerun the audit.
+
 `coverage` lists the APIs, trigger modes, replacement events and keywords of the pool that no deck in a gate carries. A gate result says nothing about those, whatever it prints.
 
 ### Sweep a card list for panics, loops and hangs

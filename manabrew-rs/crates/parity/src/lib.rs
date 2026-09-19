@@ -42,6 +42,7 @@ pub mod runner;
 pub mod runtime;
 pub mod script_index;
 pub mod script_query;
+pub mod selector_audit;
 pub mod snapshot;
 pub mod sweep;
 pub mod utils;
