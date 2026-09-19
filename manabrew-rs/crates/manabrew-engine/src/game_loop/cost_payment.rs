@@ -715,22 +715,12 @@ impl GameLoop {
                     amount,
                 } => {
                     if type_filter == "CARDNAME" {
-                        let owner = game.card(card_id).owner;
-                        self.trigger_handler.run_trigger(
-                            TriggerType::Discarded,
-                            RunParams {
-                                card: Some(card_id),
-                                player: Some(player),
-                                ..Default::default()
-                            },
-                            false,
-                        );
-                        self.move_card_with_runtime(
-                            game,
+                        game.discard_card(
                             card_id,
-                            ZoneType::Graveyard,
-                            owner,
-                            agents,
+                            player,
+                            None,
+                            Some(agents),
+                            &mut self.trigger_handler,
                         );
                     } else if !pre_picked_discards.is_empty() {
                         // Use pre-picked cards from visit phase
