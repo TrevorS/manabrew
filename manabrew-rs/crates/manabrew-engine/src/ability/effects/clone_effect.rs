@@ -287,10 +287,6 @@ fn resolve_clone_source(
             }
         }
 
-        if valid.is_empty() {
-            return None;
-        }
-
         ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
         let choices: Vec<crate::agent::GameEntity> = valid
             .iter()
