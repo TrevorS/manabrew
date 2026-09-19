@@ -1413,6 +1413,12 @@ impl GameLoop {
         if sa.is_spell && !game.card_is_in_zone(card_id, ZoneType::Stack) {
             self.move_card_with_runtime(game, card_id, ZoneType::Stack, player, agents);
         }
+        if sa.is_spell
+            && game.card(card_id).face_down
+            && !sa.alt_cost.is_some_and(|alt| alt.is_morph())
+        {
+            game.card_mut(card_id).turn_face_up();
+        }
         let pending_stack_id = if sa.is_spell {
             Some(game.stack.begin_pending_cast(StackEntry {
                 id: 0,
