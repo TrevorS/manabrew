@@ -450,7 +450,10 @@ pub enum EffectDuration {
 
 fn apply_duration_flags(effect: &mut Card, duration: Option<&AbilityDuration>, source_id: CardId) {
     let d = match duration {
-        Some(AbilityDuration::UntilHostLeavesPlay) => EffectDuration::UntilHostLeavesPlay,
+        Some(AbilityDuration::UntilHostLeavesPlay)
+        | Some(AbilityDuration::AsLongAsControl)
+        | Some(AbilityDuration::AsLongAsInPlay)
+        | Some(AbilityDuration::UntilLoseControlOfHost) => EffectDuration::UntilHostLeavesPlay,
         Some(AbilityDuration::UntilHostLeavesPlayOrEot) => EffectDuration::UntilHostLeavesPlayOrEOT,
         Some(AbilityDuration::Permanent)
         | Some(AbilityDuration::UntilYourNextTurn)
