@@ -583,11 +583,15 @@ impl Trigger {
         match (filter.as_ref(), player_id) {
             (None, _) => true,
             (Some(_), None) => false,
-            (Some(selector), Some(player_id)) => self.matches_compiled_valid(
-                &MatchValidTarget::Player(player_id),
-                selector,
-                Some(self.base.card_trait_base.host_card(game)),
-            ),
+            (Some(selector), Some(player_id)) => {
+                let src = self.base.card_trait_base.host_card(game);
+                let controller = self.resolve_source_player(src);
+                let sa =
+                    crate::spellability::SpellAbility::new_simple(Some(src.id), controller, "");
+                crate::player::player_property::is_valid(
+                    player_id, selector, game, src.id, controller, &sa,
+                )
+            }
         }
     }
 
