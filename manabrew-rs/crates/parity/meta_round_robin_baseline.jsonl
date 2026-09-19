@@ -1,4 +1,4 @@
-{"compared_fields":["turn","phase","active_player","priority_player","game_over","winner","stack","monarch","initiative","day_night","players[i].exists","players[i].name","players[i].life","players[i].poison","players[i].lands_played","players[i].has_lost","players[i].has_won","players[i].library_size","players[i].speed","players[i].counters","players[i].mana_pool","players[i].library_top","players[i].graveyard","players[i].hand","players[i].exile","players[i].battlefield.count","players[i].battlefield.cards","players[i].battlefield[i].tapped","players[i].battlefield[i].power","players[i].battlefield[i].toughness","players[i].battlefield[i].damage","players[i].battlefield[i].summoning_sick","players[i].battlefield[i].counters","players[i].battlefield[i].controller","players[i].battlefield[i].types","players[i].battlefield[i].keywords","players[i].battlefield[i].attached_to","players[i].battlefield[i].token","players[i].battlefield[i].face_down","game_rng_calls","agent_rng_calls","snapshot.exists"],"build":"024c2584d exe:488411bfb5aeed4f","max_turns":30}
+{"compared_fields":["turn","phase","active_player","priority_player","game_over","winner","stack","monarch","initiative","day_night","players[i].exists","players[i].name","players[i].life","players[i].poison","players[i].lands_played","players[i].has_lost","players[i].has_won","players[i].library_size","players[i].speed","players[i].counters","players[i].mana_pool","players[i].library_top","players[i].graveyard","players[i].hand","players[i].exile","players[i].battlefield.count","players[i].battlefield.cards","players[i].battlefield[i].tapped","players[i].battlefield[i].power","players[i].battlefield[i].toughness","players[i].battlefield[i].damage","players[i].battlefield[i].summoning_sick","players[i].battlefield[i].counters","players[i].battlefield[i].controller","players[i].battlefield[i].types","players[i].battlefield[i].keywords","players[i].battlefield[i].attached_to","players[i].battlefield[i].token","players[i].battlefield[i].face_down","game_rng_calls","agent_rng_calls","snapshot.exists"],"build":"886e94c7e exe:2653bbf17a99e3d7","max_turns":30}
 {"deck1":"meta_4c_control","deck2":"meta_4c_control","seed":1,"verdict":"PASS"}
 {"deck1":"meta_4c_control","deck2":"meta_4c_control","seed":2,"verdict":"PASS"}
 {"deck1":"meta_4c_control","deck2":"meta_4c_control","seed":3,"verdict":"PASS"}
@@ -78,11 +78,11 @@
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":17,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":18,"verdict":"FAIL","turn":29,"phase":"Untap","field":"players[i].graveyard","rust":"[\"Bitter Triumph\", \"Day of Black Sun\", \"Day of Black Sun\", \"Deadly Cover-Up\", \"Deceit\", \"Deceit\", \"Deceit\", \"Duress\", \"Emeritus of Ideation\", \"Requiting Hex\", \"Requiting Hex\", \"Requiting Hex\", \"Stock Up\", \"Superior Spider-Man\", \"Superior Sp…","java":"[\"Bitter Triumph\", \"Day of Black Sun\", \"Day of Black Sun\", \"Deadly Cover-Up\", \"Deceit\", \"Deceit\", \"Deceit\", \"Duress\", \"Emeritus of Ideation\", \"Requiting Hex\", \"Requiting Hex\", \"Requiting Hex\", \"Stock Up\", \"Superior Spider-Man\", \"Swamp\", \"Un…","fields":["players[i].graveyard","players[i].battlefield.count","players[i].battlefield.cards","players[i].battlefield[i].tapped","agent_rng_calls"],"decision":"T28 EndOfTurn: Rust P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Firebending Lesson@95, mode: Normal }) | PASS] / Java P1 choose_action -> PassPriority (after P0 choose_action -> PassPriority)"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":19,"verdict":"PASS"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":20,"verdict":"PASS","decision":"T19 CombatDeclareAttackers: Rust P0 choose_cards_for_effect -> [Requiting Hex@11] / Java P0 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Ancestral Recall@124, mode: Normal }) | PASS] (after P0 choose_cards_for_effect -> [Bitter Triumph@6])"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":20,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":21,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":22,"verdict":"PASS"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":23,"verdict":"PASS","decision":"T25 CombatDeclareAttackers: Rust P0 choose_cards_for_effect -> [Stock Up@56] / Java P0 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Ancestral Recall@122, mode: Normal }) | PASS] (after P0 choose_cards_for_effect -> [Stock Up@39])"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":24,"verdict":"PASS","decision":"T17 CombatDeclareAttackers: Rust P0 choose_cards_for_effect -> [Deceit@2] / Java P0 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Ancestral Recall@124, mode: Normal }) | PASS] (after P0 choose_cards_for_effect -> [Superior Spider-Man@13])"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":23,"verdict":"PASS"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":24,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":25,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":26,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":27,"verdict":"PASS","decision":"T11 Main1: Rust P0 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Gloomlake Verge@10, mode: Normal }) | #1 CastSpell(PlayOption { card: Gloomlake Verge@7, mode: Normal }) | #2 CastSpell(PlayOption { card: Swamp@2, mode: Normal }) | P / Java P0 choose_single_entity_for_effect -> null (after P0 confirm_replacement_effect -> true)"}
@@ -115,7 +115,7 @@
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":54,"verdict":"FAIL","turn":21,"phase":"Untap","field":"agent_rng_calls","rust":"80","java":"78","fields":["agent_rng_calls"],"decision":"T20 EndOfTurn: Rust P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Fire Magic@91, mode: Normal }) | PASS] / Java P1 choose_action -> PassPriority (after P0 choose_action -> PassPriority)"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":55,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":56,"verdict":"PASS"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":57,"verdict":"FAIL","turn":30,"phase":"Untap","field":"snapshot.exists","rust":"present","java":"missing","fields":["snapshot.exists"],"decision":"T29 CombatDeclareAttackers: Rust P0 choose_cards_for_effect -> [Deceit@10] / Java P0 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Ancestral Recall@126, mode: Normal }) | PASS] (after P0 choose_cards_for_effect -> [Watery Grave@21])"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":57,"verdict":"FAIL","turn":30,"phase":"Untap","field":"snapshot.exists","rust":"present","java":"missing","fields":["snapshot.exists"],"decision":"T29 CombatDeclareAttackers: Rust P0 choose_action -> PassPriority / Java P0 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Ancestral Recall@126, mode: Normal }) | PASS] (after P0 choose_cards_for_effect -> [Watery Grave@21, Deceit@10, Duress@6, Undercity Sewers@19, Emeritus of Ideation@7, Strategic Betrayal@15, Restless Reef@9, Bitter Triumph@22])"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":58,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":59,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_4c_control","seed":60,"verdict":"PASS"}
@@ -124,7 +124,7 @@
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":3,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":4,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":5,"verdict":"PASS"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":6,"verdict":"PASS","decision":"T22 CombatDeclareAttackers: Rust P1 choose_cards_for_effect -> [Restless Reef@64] / Java P1 choose_action -> PassPriority (after P1 choose_cards_for_effect -> [Duress@61])"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":6,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":7,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":8,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":9,"verdict":"PASS"}
@@ -137,13 +137,13 @@
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":16,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":17,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":18,"verdict":"PASS"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":19,"verdict":"PASS","decision":"T30 CombatDeclareAttackers: Rust P1 choose_cards_for_effect -> [Duress@87] / Java P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Ancestral Recall@122, mode: Normal }) | PASS] (after P1 choose_cards_for_effect -> [Bitter Triumph@78])"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":19,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":20,"verdict":"PASS"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":21,"verdict":"FAIL","turn":23,"phase":"Untap","field":"players[i].exile","rust":"[\"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"Bitter Triumph\", \"Deceit\", \"Duress\", \"Requiting Hex\", \"Restless Reef\", \"Stock Up\", \"Strategic Betrayal\", \"Superior Spi…","java":"[\"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"Ancestral Recall\", \"Bitter Triumph\", \"Deceit\", \"Duress\", \"Requiting Hex\", \"Restless Reef\", \"Stock Up\", \"Strategic Betr…","fields":["players[i].exile"],"decision":"T22 CombatDeclareAttackers: Rust P1 choose_cards_for_effect -> [Strategic Betrayal@83] / Java P1 choose_action -> PassPriority (after P1 choose_cards_for_effect -> [Stock Up@61])"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":21,"verdict":"FAIL","turn":23,"phase":"Untap","field":"players[i].exile","rust":"[\"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"Bitter Triumph\", \"Deceit\", \"Duress\", \"Requiting Hex\", \"Restless Reef\", \"Stock Up\", \"Strategic Betrayal\", \"Superior Spi…","java":"[\"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"Ancestral Recall\", \"Bitter Triumph\", \"Deceit\", \"Duress\", \"Requiting Hex\", \"Restless Reef\", \"Stock Up\", \"Strategic Betr…","fields":["players[i].exile"],"decision":"T24 Upkeep: Rust P1 choose_action -> PassPriority / Java P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Ancestral Recall@122, mode: Normal }) | PASS] (after P1 choose_action -> PassPriority)"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":22,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":23,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":24,"verdict":"PASS"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":25,"verdict":"PASS","decision":"T23 CombatDeclareAttackers: Rust P0 choose_cards_for_effect -> [Harvester of Misery@10] / Java P0 choose_action -> PassPriority (after P0 choose_cards_for_effect -> [Deceit@4])"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":25,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":26,"verdict":"FAIL","turn":12,"phase":"Untap","field":"players[i].battlefield[i].tapped","subject":"Restless Reef","rust":"false","java":"true","fields":["players[i].battlefield[i].tapped","players[i].library_size","players[i].library_top","players[i].hand","agent_rng_calls"],"decision":"T11 Main1: Rust P0 choose_action -> PassPriority / Java P0 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Superior Spider-Man@121, mode: Normal }) | PASS] (after P0 choose_single_entity_for_effect -> Some(Card(Emeritus of Ideation@2)))"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":27,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":28,"verdict":"PASS"}
@@ -158,11 +158,11 @@
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":37,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":38,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":39,"verdict":"PASS"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":40,"verdict":"PASS","decision":"T26 CombatDeclareAttackers: Rust P1 choose_cards_for_effect -> [Swamp@87] / Java P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Ancestral Recall@122, mode: Normal }) | PASS] (after P1 choose_cards_for_effect -> [Stock Up@71])"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":41,"verdict":"PASS","decision":"T21 CombatDeclareAttackers: Rust P0 choose_cards_for_effect -> [Swamp@5] / Java P0 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Ancestral Recall@122, mode: Normal }) | PASS] (after P0 choose_cards_for_effect -> [Deceit@42])"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":40,"verdict":"PASS"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":41,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":42,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":43,"verdict":"PASS"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":44,"verdict":"PASS","decision":"T20 CombatDeclareAttackers: Rust P1 choose_cards_for_effect -> [Requiting Hex@65] / Java P1 choose_action -> PassPriority (after P1 choose_cards_for_effect -> [Harvester of Misery@62])"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":44,"verdict":"PASS","decision":"T30 Main2: Rust P1 choose_action -> PassPriority / Java P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Superior Spider-Man@124, mode: Normal }) | PASS] (after P1 choose_single_entity_for_effect -> Some(Card(Emeritus of Ideation@67)))"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":45,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":46,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":47,"verdict":"PASS"}
@@ -175,7 +175,7 @@
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":54,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":55,"verdict":"PASS","decision":"T30 Main1: Rust P1 choose_action -> PassPriority / Java P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Superior Spider-Man@122, mode: Normal }) | PASS] (after P1 choose_single_entity_for_effect -> Some(Card(Emeritus of Ideation@11)))"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":56,"verdict":"PASS"}
-{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":57,"verdict":"PASS","decision":"T23 CombatDeclareAttackers: Rust P0 choose_cards_for_effect -> [Watery Grave@21] / Java P0 choose_action -> PassPriority (after P0 choose_cards_for_effect -> [Duress@6])"}
+{"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":57,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":58,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":59,"verdict":"PASS"}
 {"deck1":"meta_dimir_excruciator","deck2":"meta_dimir_excruciator","seed":60,"verdict":"PASS"}
@@ -241,8 +241,8 @@
 {"deck1":"meta_izzet_spellementals","deck2":"meta_4c_control","seed":60,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_dimir_excruciator","seed":1,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_dimir_excruciator","seed":2,"verdict":"PASS"}
-{"deck1":"meta_izzet_spellementals","deck2":"meta_dimir_excruciator","seed":3,"verdict":"FAIL","turn":21,"phase":"Untap","field":"players[i].exile","rust":"[\"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"Bitter Triumph\", \"Deceit\", \"Gloomlake Verge\", \"Harvester of Misery\", \"Requiting Hex\", \"Restless Reef\", \"Stock Up\", \"Stock …","java":"[\"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"Ancestral Recall\", \"Bitter Triumph\", \"Deceit\", \"Gloomlake Verge\", \"Harvester of Misery\", \"Requiting Hex\", \"Restless Reef\",…","fields":["players[i].exile"],"decision":"T20 CombatDeclareAttackers: Rust P1 choose_cards_for_effect -> [Stock Up@119] / Java P1 choose_action -> PassPriority (after P1 choose_cards_for_effect -> [Stock Up@77])"}
-{"deck1":"meta_izzet_spellementals","deck2":"meta_dimir_excruciator","seed":4,"verdict":"PASS","decision":"T20 CombatDeclareAttackers: Rust P1 choose_cards_for_effect -> [Requiting Hex@63] / Java P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Ancestral Recall@122, mode: Normal }) | PASS] (after P1 choose_cards_for_effect -> [Winternight Stories@79])"}
+{"deck1":"meta_izzet_spellementals","deck2":"meta_dimir_excruciator","seed":3,"verdict":"FAIL","turn":21,"phase":"Untap","field":"players[i].exile","rust":"[\"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"Bitter Triumph\", \"Deceit\", \"Gloomlake Verge\", \"Harvester of Misery\", \"Requiting Hex\", \"Restless Reef\", \"Stock Up\", \"Stock …","java":"[\"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"\", \"Ancestral Recall\", \"Bitter Triumph\", \"Deceit\", \"Gloomlake Verge\", \"Harvester of Misery\", \"Requiting Hex\", \"Restless Reef\",…","fields":["players[i].exile"]}
+{"deck1":"meta_izzet_spellementals","deck2":"meta_dimir_excruciator","seed":4,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_dimir_excruciator","seed":5,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_dimir_excruciator","seed":6,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_dimir_excruciator","seed":7,"verdict":"PASS"}
@@ -422,7 +422,7 @@
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":1,"verdict":"PASS"}
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":2,"verdict":"PASS"}
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":3,"verdict":"PASS"}
-{"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":4,"verdict":"PASS","decision":"T16 CombatDeclareAttackers: Rust P1 choose_cards_for_effect -> [Doomsday Excruciator@83] / Java P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Ancestral Recall@122, mode: Normal }) | PASS] (after P1 choose_cards_for_effect -> [Watery Grave@84])"}
+{"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":4,"verdict":"PASS"}
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":5,"verdict":"PASS"}
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":6,"verdict":"PASS"}
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":7,"verdict":"PASS"}
@@ -442,7 +442,7 @@
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":21,"verdict":"PASS"}
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":22,"verdict":"PASS"}
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":23,"verdict":"PASS"}
-{"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":24,"verdict":"PASS","decision":"T22 CombatDeclareAttackers: Rust P1 choose_cards_for_effect -> [Stock Up@69] / Java P1 choose_action -> PassPriority (after P1 choose_cards_for_effect -> [Bitter Triumph@68])"}
+{"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":24,"verdict":"PASS"}
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":25,"verdict":"PASS"}
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":26,"verdict":"PASS"}
 {"deck1":"meta_mono_green_landfall","deck2":"meta_dimir_excruciator","seed":27,"verdict":"PASS"}
