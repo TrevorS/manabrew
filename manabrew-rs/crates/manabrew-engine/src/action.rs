@@ -1081,6 +1081,39 @@ impl GameState {
         self.check_state_based_actions_impl(trigger_handler, None, Some(agents))
     }
 
+    fn state_based_action_role(&mut self, card_id: CardId) -> bool {
+        let roles: Vec<CardId> = self
+            .card(card_id)
+            .attachments
+            .iter()
+            .copied()
+            .filter(|&attached| self.card(attached).type_line.has_subtype("Role"))
+            .collect();
+        if roles.is_empty() {
+            return false;
+        }
+        let mut check_again = false;
+        for pid in self.player_order.clone() {
+            let mut roles_by_player: Vec<CardId> = roles
+                .iter()
+                .copied()
+                .filter(|&role| self.card(role).controller == pid)
+                .collect();
+            if roles_by_player.len() <= 1 {
+                continue;
+            }
+            roles_by_player.sort_by(|&a, &b| {
+                crate::card::card_predicates::compare_by_game_timestamp(self, a, b)
+            });
+            roles_by_player.pop();
+            for role in roles_by_player {
+                self.detach(role);
+            }
+            check_again = true;
+        }
+        check_again
+    }
+
     fn state_based_action_saga(
         &self,
         cid: CardId,
@@ -1798,6 +1831,16 @@ impl GameState {
                     any_changes = true;
                 }
             }
+        }
+
+        let role_hosts: Vec<CardId> = self
+            .player_order
+            .clone()
+            .iter()
+            .flat_map(|&pid| self.cards_in_zone(ZoneType::Battlefield, pid).to_vec())
+            .collect();
+        for cid in role_hosts {
+            any_changes |= self.state_based_action_role(cid);
         }
 
         // CR 704.5n: Aura SBA — an Aura on the battlefield that is not attached
