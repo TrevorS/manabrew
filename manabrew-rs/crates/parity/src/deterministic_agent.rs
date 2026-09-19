@@ -1919,6 +1919,21 @@ impl PlayerAgent for DeterministicAgent {
         Some(choice_space::pick_index(options.len(), &mut rng))
     }
 
+    fn choose_cards_to_reveal(
+        &mut self,
+        _player: PlayerId,
+        valid: &[CardId],
+        min: usize,
+        max: usize,
+    ) -> Vec<CardId> {
+        let sorted = choice_space::sort_native(valid, |a, b| {
+            self.card_name(*a)
+                .cmp(&self.card_name(*b))
+                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+        });
+        choice_space::pick_many_unique(&sorted, min, max, &mut self.rng.borrow_mut())
+    }
+
     fn choose_cards_pile(
         &mut self,
         _player: PlayerId,

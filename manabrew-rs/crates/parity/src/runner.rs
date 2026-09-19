@@ -845,6 +845,7 @@ impl PlayerAgent for CapturingAgent {
         fn choose_cards_for_effect_multiple(&mut self, player: PlayerId, pools: &[Vec<CardId>], optional: bool) -> Vec<CardId> => "choose_cards_for_effect_multiple";
         fn choose_cards_pile(&mut self, player: PlayerId, pile1: &[CardId], pile2: &[CardId], face_down: &str) -> bool => "choose_cards_pile";
         fn vote(&mut self, player: PlayerId, options: &[String], optional: bool) -> Option<usize> => "vote";
+        fn choose_cards_to_reveal(&mut self, player: PlayerId, valid: &[CardId], min: usize, max: usize) -> Vec<CardId> => "choose_cards_to_reveal";
         fn choose_reorder_library(&mut self, game: &GameState, player: PlayerId, cards: &[CardId]) -> Vec<CardId> => "choose_reorder_library";
         fn choose_discard(&mut self, player: PlayerId, hand: &[CardId], num: usize) -> Vec<CardId> => "choose_discard";
         fn choose_cards_to_discard_unless_type(&mut self, player: PlayerId, hand: &[CardId], min: usize, unless_types: &[String]) -> Vec<CardId> => "choose_discard_unless_type";

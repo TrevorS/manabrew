@@ -383,6 +383,16 @@ pub trait PlayerAgent {
         Some(0)
     }
 
+    fn choose_cards_to_reveal(
+        &mut self,
+        _player: PlayerId,
+        valid: &[CardId],
+        min: usize,
+        _max: usize,
+    ) -> Vec<CardId> {
+        valid.iter().copied().take(min).collect()
+    }
+
     fn choose_cards_pile(
         &mut self,
         _player: PlayerId,
