@@ -1749,6 +1749,21 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         mode if mode.starts_with("chosenmode") => {
             card.chosen_mode.as_deref().unwrap_or("") == &value["ChosenMode".len()..]
         }
+        not_defined
+            if not_defined.starts_with("notdefined") && not_defined != "notdefinedtargeted" =>
+        {
+            match (context.game, context.spell_ability) {
+                (Some(game), Some(sa)) => {
+                    !crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                        game,
+                        sa,
+                        &value["NotDefined".len()..],
+                    )
+                    .contains(&card.id)
+                }
+                _ => true,
+            }
+        }
         "mayplaysource" => matches_card_state(CardStateSelector::MayPlaySource, card, context),
         "exiledwithsource" => {
             matches_context_predicate(&ContextPredicate::ExiledWithSource, card, context)
@@ -2405,7 +2420,9 @@ fn matches_type_and_qualifier_parts(
                         return false;
                     }
                 }
-                mode if mode.starts_with("chosenmode") => {
+                mode if mode.starts_with("chosenmode")
+                    || (mode.starts_with("notdefined") && mode != "notdefinedtargeted") =>
+                {
                     if !legacy_matches_card_atom(raw, card, context) {
                         return false;
                     }

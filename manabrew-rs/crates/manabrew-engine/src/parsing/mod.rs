@@ -1171,6 +1171,9 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "defenderctrl" => SelectorPredicate::Context(ContextPredicate::DefenderCtrl),
         "enchantedcontroller" => SelectorPredicate::Context(ContextPredicate::EnchantedController),
         "notdefinedtargeted" => SelectorPredicate::Context(ContextPredicate::NotDefinedTargeted),
+        not_defined if not_defined.starts_with("notdefined") => {
+            SelectorPredicate::Raw(normalized.to_string())
+        }
         controlled if controlled.starts_with("controlledby ") => SelectorPredicate::Context(
             ContextPredicate::ControlledBy(normalized["ControlledBy ".len()..].trim().to_string()),
         ),
