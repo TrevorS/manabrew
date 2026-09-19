@@ -242,12 +242,7 @@ fn resolve_target_cards(ctx: &EffectContext, sa: &SpellAbility) -> Vec<CardId> {
         } else {
             defined.as_str()
         };
-        crate::ability::ability_utils::get_defined_cards(
-            ctx.game,
-            sa.source,
-            defined,
-            Some(sa.activating_player),
-        )
+        crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(ctx.game, sa, defined)
     }
 }
 

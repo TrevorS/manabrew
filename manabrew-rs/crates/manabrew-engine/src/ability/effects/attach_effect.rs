@@ -125,38 +125,23 @@ fn defined_entities_or_targeted(
     sa: &SpellAbility,
     source: CardId,
 ) -> Vec<GameEntity> {
-    let mut targets: Vec<GameEntity> = Vec::new();
-    if let Some(target_card) = sa.target_chosen.target_card {
-        targets.push(GameEntity::Card(target_card));
-    }
-    if let Some(target_player) = sa.target_chosen.target_player {
-        targets.push(GameEntity::Player(target_player));
-    }
-    if targets.is_empty() {
-        if let Some(defined) = sa.defined() {
-            targets.extend(
-                crate::ability::ability_utils::get_defined_cards(
-                    ctx.game,
-                    Some(source),
-                    defined,
-                    Some(sa.activating_player),
-                )
-                .into_iter()
-                .map(GameEntity::Card),
-            );
-            targets.extend(
-                crate::ability::ability_utils::resolve_defined_players_with_sa(
-                    defined,
-                    sa,
-                    sa.activating_player,
-                    ctx.game,
-                )
-                .into_iter()
-                .map(GameEntity::Player),
-            );
+    let _ = source;
+    if sa.defined().is_none() {
+        let mut targets: Vec<GameEntity> = Vec::new();
+        if let Some(target_card) = sa.target_chosen.target_card {
+            targets.push(GameEntity::Card(target_card));
         }
+        if let Some(target_player) = sa.target_chosen.target_player {
+            targets.push(GameEntity::Player(target_player));
+        }
+        return targets;
     }
-    targets
+    let (players, cards) = crate::ability::spell_ability_effect::get_target_entities(ctx.game, sa);
+    cards
+        .into_iter()
+        .map(GameEntity::Card)
+        .chain(players.into_iter().map(GameEntity::Player))
+        .collect()
 }
 
 fn choose_single_entity(
