@@ -768,6 +768,13 @@ impl TriggerHandler {
                 sa.trigger_source = Some(delayed.source_card);
                 sa.trigger_source_zone_timestamp =
                     Some(game.card(delayed.source_card).zone_timestamp);
+                tmp_trigger.set_triggering_objects(
+                    &mut sa,
+                    event_payload,
+                    game,
+                    delayed.source_card,
+                    delayed.controller,
+                );
                 sa.trigger_remembered_amount = delayed.remembered_amount;
                 // Propagate remembered cards (e.g. `RememberObjects$ Remembered`
                 // captured at registration) so the executed ability can target
