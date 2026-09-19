@@ -794,7 +794,14 @@ pub fn adjust(
         return true;
     };
     let cast_zone = game.card(card_id).zone;
-    let target_cards = sa.get_targets().all_target_cards();
+    let mut target_cards = sa.get_targets().all_target_cards();
+    if let Some(entry) = sa
+        .target_chosen
+        .target_stack_entry
+        .and_then(|id| game.stack.iter().find(|entry| entry.id == id))
+    {
+        target_cards.extend(entry.spell_ability.source);
+    }
 
     let adjusted = compute_cost_adjustment_for_payment(
         game,
