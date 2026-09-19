@@ -367,6 +367,7 @@ fn resolve_defined_cards_for_sa_ref_inner(
                 cards
             }
         }
+        DefinedRef::TriggeredSource => sa.get_triggering_cards(AbilityKey::Source),
         DefinedRef::TriggeredAttackers => sa.get_triggering_cards(AbilityKey::Attackers),
         DefinedRef::TriggeredAttacker => sa.get_triggering_cards(AbilityKey::Attacker),
         DefinedRef::TriggeredBlocker => sa.get_triggering_cards(AbilityKey::Blocker),
@@ -378,13 +379,10 @@ fn resolve_defined_cards_for_sa_ref_inner(
         DefinedRef::Discarded => sa.discarded_cost_cards.clone(),
         DefinedRef::Sacrificed => game.last_sacrificed_card.into_iter().collect(),
         DefinedRef::Unsupported(raw)
-            if raw
-                .strip_prefix("Triggered")
-                .and_then(crate::ability::ability_key::from_string)
+            if triggered_card_key(raw)
                 .is_some_and(|key| sa.get_triggering_value(key).is_some()) =>
         {
-            raw.strip_prefix("Triggered")
-                .and_then(crate::ability::ability_key::from_string)
+            triggered_card_key(raw)
                 .map(|key| sa.get_triggering_cards(key))
                 .unwrap_or_default()
         }
@@ -395,6 +393,12 @@ fn resolve_defined_cards_for_sa_ref_inner(
             Some(sa.activating_player),
         ),
     }
+}
+
+fn triggered_card_key(defined: &str) -> Option<AbilityKey> {
+    let key = defined.strip_prefix("Triggered")?;
+    let key = key.split_once("LKICopy").map_or(key, |(key, _)| key);
+    crate::ability::ability_key::from_string(key)
 }
 
 fn triggered_target_lki_cards(sa: &SpellAbility) -> Vec<CardId> {

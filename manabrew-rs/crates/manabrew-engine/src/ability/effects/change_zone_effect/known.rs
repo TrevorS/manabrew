@@ -160,15 +160,10 @@ pub(super) fn resolve_known_origin(
     } else if matches!(defined_ref, Some(DefinedRef::Remembered)) {
         resolve_remembered(ctx, sa, origin_zone)
     } else if !defined.is_empty() {
-        crate::ability::ability_utils::get_defined_cards(
-            ctx.game,
-            sa.source,
-            &defined,
-            Some(controller),
-        )
-        .into_iter()
-        .filter(|&cid| ctx.game.card(cid).zone == origin_zone)
-        .collect()
+        crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(ctx.game, sa, &defined)
+            .into_iter()
+            .filter(|&cid| ctx.game.card(cid).zone == origin_zone)
+            .collect()
     } else if sa.defined_player().is_some() {
         resolve_defined_player_choice(ctx, sa, origin_zone)
     } else {
