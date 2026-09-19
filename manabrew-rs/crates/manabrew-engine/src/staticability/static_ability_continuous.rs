@@ -25,7 +25,7 @@ pub fn resolve(st_ab: &StaticAbility, source: &Card, game: &GameState) {
 }
 
 pub fn can_play(st_ab: &StaticAbility, source: &Card, card: &Card, game: &GameState) -> bool {
-    if !st_ab.ir.may_play {
+    if !st_ab.ir.may_play || !st_ab.check_conditions(source, game) {
         return false;
     }
     // Check AffectedZone$ — the zone where the affected cards must be.

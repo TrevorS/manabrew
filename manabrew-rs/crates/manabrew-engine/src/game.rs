@@ -524,7 +524,7 @@ impl GameState {
             .collect();
         self.counter_added_this_turn
             .iter()
-            .filter(|((entity, timestamp, entry_type, putter), _)| {
+            .filter(|((entity, _, entry_type, putter), _)| {
                 counter_type.is_none_or(|ct| ct == entry_type)
                     && putter.is_some_and(|putter| {
                         valid_player.split(',').any(|valid| {
@@ -536,17 +536,14 @@ impl GameState {
                         })
                     })
                     && match entity {
-                        GameEntity::Card(card) => {
-                            *timestamp == self.counter_entity_timestamp(*entity)
-                                && card_selectors.iter().any(|selector| {
-                                    crate::card::valid_filter::matches_valid_card_selector_in_game(
-                                        selector,
-                                        self.card(*card),
-                                        source_card,
-                                        self,
-                                    )
-                                })
-                        }
+                        GameEntity::Card(card) => card_selectors.iter().any(|selector| {
+                            crate::card::valid_filter::matches_valid_card_selector_in_game(
+                                selector,
+                                self.card(*card),
+                                source_card,
+                                self,
+                            )
+                        }),
                         GameEntity::Player(_) => false,
                     }
             })
