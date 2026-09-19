@@ -1,6 +1,7 @@
-use super::{resolve_defined_player_with_sa, resolve_numeric_svar, EffectContext};
+use super::{resolve_numeric_svar, EffectContext};
 use crate::ability::ability_ir::EffectIr;
 use crate::event::RunParams;
+use crate::ids::PlayerId;
 use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
 use crate::replacement::ReplacementResult;
 use crate::spellability::SpellAbility;
@@ -12,20 +13,48 @@ use crate::trigger::TriggerType;
 #[manabrew_engine_macros::spell_effect(LifeLoseEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let amount = resolve_life_amount(ctx, sa);
-    // Mirror Java getTargetPlayers(): targeted player first, then Defined, then activator.
-    let target = sa
-        .target_chosen
-        .target_player
-        .or_else(|| {
-            sa.defined().and_then(|defined| {
-                resolve_defined_player_with_sa(defined, sa, sa.activating_player, ctx.game)
-            })
-        })
-        .unwrap_or(sa.activating_player);
+    let mut life_lost = 0;
+    let mut loss_map = Vec::new();
+    for target in crate::ability::spell_ability_effect::get_target_players(ctx.game, sa) {
+        if crate::player::has_lost(ctx.game, target) {
+            continue;
+        }
+        let lost = lose_life(ctx, sa, target, amount);
+        if lost > 0 {
+            loss_map.push((target, lost));
+        }
+        life_lost += lost;
+    }
+
+    // Set AFLifeLost SVar on source card so chained sub-abilities (e.g. GainLife) can read it.
+    // Mirrors Java's `sa.setSVar("AFLifeLost", "Number$" + lifeLost)`.
+    if let Some(source_id) = sa.source {
+        ctx.game
+            .card_mut(source_id)
+            .svars
+            .insert("AFLifeLost".to_string(), format!("Number${life_lost}"));
+    }
+
+    for (target, lost) in loss_map {
+        ctx.trigger_handler.run_trigger(
+            TriggerType::LifeLostAll,
+            RunParams {
+                player: Some(target),
+                life_amount: Some(lost),
+                source_card: sa.source,
+                source_sa: Some(sa.clone()),
+                ..Default::default()
+            },
+            false,
+        );
+    }
+}
+
+fn lose_life(ctx: &mut EffectContext, sa: &SpellAbility, target: PlayerId, amount: i32) -> i32 {
     if crate::staticability::static_ability_cant_gain_lose_pay_life::cant_lose_life(
         ctx.game, target,
     ) {
-        return;
+        return 0;
     }
 
     // Run LifeReduced replacement effects before losing life.
@@ -36,7 +65,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     };
     let result = apply_replacements(ctx.game, &mut event);
     if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
-        return;
+        return 0;
     }
     let amount = if let ReplacementEvent::LifeReduced {
         amount: final_amount,
@@ -48,21 +77,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         amount
     };
     if amount <= 0 {
-        return;
+        return 0;
     }
 
     ctx.game.player_lose_life(target, amount);
 
-    // Set AFLifeLost SVar on source card so chained sub-abilities (e.g. GainLife) can read it.
-    // Mirrors Java's `sa.setSVar("AFLifeLost", "Number$" + lifeLost)`.
-    if let Some(source_id) = sa.source {
-        ctx.game
-            .card_mut(source_id)
-            .svars
-            .insert("AFLifeLost".to_string(), format!("Number${amount}"));
-    }
-
-    // Per-player `LifeLost` trigger.
     ctx.trigger_handler.run_trigger(
         TriggerType::LifeLost,
         RunParams {
@@ -75,22 +94,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         },
         false,
     );
-
-    // Java fires one aggregated `LifeLostAll` per effect; the Rust engine's
-    // `LifeLose` only processes one target per call, so the aggregate map has
-    // a single entry. Fire here so trigger-on-opponent-life-loss cards (e.g.
-    // the Speed mechanic) see the event.
-    ctx.trigger_handler.run_trigger(
-        TriggerType::LifeLostAll,
-        RunParams {
-            player: Some(target),
-            life_amount: Some(amount),
-            source_card: sa.source,
-            source_sa: Some(sa.clone()),
-            ..Default::default()
-        },
-        false,
-    );
+    amount
 }
 
 fn resolve_life_amount(ctx: &EffectContext, sa: &SpellAbility) -> i32 {
