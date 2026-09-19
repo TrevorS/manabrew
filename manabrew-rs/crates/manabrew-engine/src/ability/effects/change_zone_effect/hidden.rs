@@ -448,7 +448,21 @@ pub(super) fn resolve_hidden_origin(
         }
     }
 
-    let mut zone_cards = collect_search_zone_cards(ctx, &origin_zones, search_player);
+    let mut zone_cards = if sa.defined_player().is_none()
+        && !origin_zones
+            .iter()
+            .any(|zone| matches!(zone, ZoneType::Library | ZoneType::Hand))
+    {
+        let mut all_cards = Vec::new();
+        for &zone in &origin_zones {
+            for player in &ctx.game.players {
+                all_cards.extend_from_slice(ctx.game.cards_in_zone(zone, player.id));
+            }
+        }
+        all_cards
+    } else {
+        collect_search_zone_cards(ctx, &origin_zones, search_player)
+    };
 
     // Aven Mindcensor restriction
     if origin_zones.contains(&ZoneType::Library) {
