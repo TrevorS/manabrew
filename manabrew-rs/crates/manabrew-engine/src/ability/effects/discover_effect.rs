@@ -70,32 +70,15 @@ fn discover_for_player(ctx: &mut EffectContext, sa: &SpellAbility, player: Playe
 
     // Cast or put in hand — full pipeline via cast_from_effect
     if let Some(card_id) = found {
-        let has_spells = !cast_from_effect::get_basic_spells(ctx, card_id).is_empty();
-
-        if has_spells {
-            let cast = cast_from_effect::offer_cast_or_alternative(
-                ctx,
-                card_id,
-                player,
-                "Cast without paying its mana cost",
-                "Put into your hand",
-            );
-
-            if cast {
-                let ok =
-                    cast_from_effect::cast_card_from_effect(ctx, card_id, player, true, "Discover");
-                if !ok {
-                    // Failed to cast — put in hand instead
-                    let old = ctx.game.card(card_id).zone;
-                    ctx.move_card(card_id, ZoneType::Hand, player);
-                    emit_zone_trigger(ctx.trigger_handler, card_id, old, ZoneType::Hand);
-                }
-            } else {
-                let old = ctx.game.card(card_id).zone;
-                ctx.move_card(card_id, ZoneType::Hand, player);
-                emit_zone_trigger(ctx.trigger_handler, card_id, old, ZoneType::Hand);
-            }
-        } else {
+        let cast = cast_from_effect::offer_cast_or_alternative(
+            ctx,
+            card_id,
+            player,
+            "Cast without paying its mana cost",
+            "Put into your hand",
+        );
+        if !cast || !cast_from_effect::cast_card_from_effect(ctx, card_id, player, true, "Discover")
+        {
             let old = ctx.game.card(card_id).zone;
             ctx.move_card(card_id, ZoneType::Hand, player);
             emit_zone_trigger(ctx.trigger_handler, card_id, old, ZoneType::Hand);

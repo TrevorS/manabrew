@@ -14,7 +14,7 @@ use super::EffectContext;
 use crate::agent::GameLogEvent;
 use crate::event::RunParams;
 use crate::ids::{CardId, PlayerId};
-use crate::spellability::{build_spell_ability, SpellAbility, StackEntry};
+use crate::spellability::{SpellAbility, StackEntry};
 use crate::trigger::TriggerType;
 
 /// Cast a card from a play effect, optionally without paying its mana cost.
@@ -37,14 +37,9 @@ pub fn cast_card_from_effect(
     without_mana_cost: bool,
     label: &str,
 ) -> bool {
-    // Build spell ability from the card's first ability
-    let abilities = ctx.game.card(card_id).abilities.clone();
-    let ability_text = match abilities.first() {
-        Some(text) => text.clone(),
-        None => return false,
-    };
-
-    let mut spell_sa = build_spell_ability(ctx.game, card_id, &ability_text, controller);
+    let mut spell_sa = crate::ability::ability_factory::build_spell_ability_for_card_cast(
+        ctx.game, card_id, controller,
+    );
     spell_sa.is_spell = true;
 
     // Remove zone restriction — allow casting from exile/library/etc.
