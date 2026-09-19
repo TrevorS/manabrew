@@ -1,8 +1,9 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
-use crate::ability::ability_ir::DefinedRef;
-use crate::event::{AbilityValue, RunParams};
+use crate::event::RunParams;
+use crate::ids::CardId;
+use crate::staticability::static_ability_cant_phase::{cant_phase_in, cant_phase_out};
 use crate::trigger::TriggerType;
 
 /// Resolve `SP$ Phases` — phase permanents in or out.
@@ -14,53 +15,107 @@ use crate::trigger::TriggerType;
 /// # Card script examples
 /// ```text
 /// A:SP$ Phases | ValidTgts$ Creature | TgtPrompt$ Select target creature
-/// A:SP$ Phases | Defined$ Self | PhaseInOrOut$ Out
+/// A:SP$ Phases | Defined$ Self | PhaseInOrOut$ True
 /// ```
 /// Struct form of this effect so it can participate in the
 /// `SpellAbilityEffect` trait hierarchy — mirrors Java's
 /// `PhasesEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(PhasesEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let phase_mode = sa.ir.phase_in_or_out_text.as_deref().unwrap_or("Out");
+    let activator = sa.activating_player;
+    let raw = sa.ability_text.as_str();
+    let phase_in_or_out = sa.ir.phase_in_or_out_text.is_some();
 
-    // Defined$ DelayTriggerRememberedLKI / Remembered — phase the cards
-    // remembered by the parent delayed trigger (e.g. Teferi's Veil's
-    // "creature phases out at end of combat" queues the attacker's LKI).
-    if let Some(
-        DefinedRef::DelayTriggerRememberedLki
-        | DefinedRef::DelayTriggerRemembered
-        | DefinedRef::Remembered,
-    ) = sa.defined_ref()
-    {
-        let ids: Vec<crate::ids::CardId> = sa
-            .trigger_remembered
+    let mut tgt_cards: Vec<CardId> = if let Some(all_valid) = sa.ir.all_valid_selector.as_ref() {
+        ctx.game
+            .player_order
             .iter()
-            .filter_map(|v| match v {
-                AbilityValue::Card(cid) => Some(*cid),
-                _ => None,
+            .flat_map(|&pid| {
+                ctx.game
+                    .cards_in_zone(ZoneType::Battlefield, pid)
+                    .iter()
+                    .copied()
+            })
+            .filter(|&cid| {
+                (phase_in_or_out || !ctx.game.card(cid).phased_out)
+                    && crate::ability::ability_utils::matches_valid_cards_for_sa(
+                        ctx.game,
+                        sa,
+                        ctx.game.card(cid),
+                        Some(all_valid),
+                        "",
+                    )
+            })
+            .collect()
+    } else {
+        crate::ability::spell_ability_effect::get_defined_cards_or_targeted(ctx.game, sa)
+    };
+    if crate::parsing::raw_has_key(raw, "AnyNumber") {
+        let max = tgt_cards.len();
+        tgt_cards =
+            ctx.agents[activator.index()].choose_cards_for_effect(activator, &tgt_cards, 0, max);
+    }
+
+    let mut phased_out = Vec::new();
+    if phase_in_or_out {
+        let to_phase: Vec<CardId> = tgt_cards
+            .iter()
+            .copied()
+            .filter(|&cid| {
+                let card = ctx.game.card(cid);
+                !(card.phased_out && cant_phase_in(&ctx.game.cards, card))
+                    && !(!card.phased_out && cant_phase_out(&ctx.game.cards, card))
             })
             .collect();
-        for cid in ids {
-            if ctx.game.card(cid).zone == ZoneType::Battlefield {
-                apply_phase(ctx, cid, phase_mode);
+        for cid in to_phase {
+            if ctx.game.card(cid).zone != ZoneType::Battlefield {
+                continue;
+            }
+            if ctx.game.card(cid).phased_out {
+                apply_phase(ctx, cid, "In");
+                if crate::parsing::raw_has_key(raw, "Tapped") {
+                    ctx.game.card_mut(cid).tapped = true;
+                } else if crate::parsing::raw_has_key(raw, "Untapped") {
+                    ctx.game.card_mut(cid).tapped = false;
+                }
+            } else {
+                apply_phase(ctx, cid, "Out");
+                phased_out.push(cid);
             }
         }
-        return;
-    }
-
-    // Targeted: use the chosen target card.
-    if let Some(target_card) = sa.target_chosen.target_card {
-        if ctx.game.card(target_card).zone == ZoneType::Battlefield {
-            apply_phase(ctx, target_card, phase_mode);
+    } else {
+        for &cid in &tgt_cards {
+            if ctx.game.card(cid).zone != ZoneType::Battlefield
+                || ctx.game.card(cid).phased_out
+                || cant_phase_out(&ctx.game.cards, ctx.game.card(cid))
+            {
+                continue;
+            }
+            apply_phase(ctx, cid, "Out");
+            if crate::parsing::raw_has_key(raw, "RememberAffected") {
+                if let Some(source) = sa.source {
+                    ctx.game.card_mut(source).add_remembered_card(cid);
+                }
+            }
+            phased_out.push(cid);
         }
-        return;
     }
-
-    // Defined$ Self — phase the source card.
-    if let Some(source) = sa.source {
-        if ctx.game.card(source).zone == ZoneType::Battlefield {
-            apply_phase(ctx, source, phase_mode);
+    if crate::parsing::raw_has_key(raw, "RememberValids") {
+        if let Some(source) = sa.source {
+            ctx.game
+                .card_mut(source)
+                .add_remembered_cards(tgt_cards.iter().copied());
         }
+    }
+    if !phased_out.is_empty() {
+        ctx.trigger_handler.run_trigger(
+            TriggerType::PhaseOutAll,
+            RunParams {
+                cards: Some(phased_out),
+                ..Default::default()
+            },
+            false,
+        );
     }
 }
 
@@ -134,7 +189,11 @@ mod tests {
         game.move_card(c1, ZoneType::Battlefield, p0);
         assert!(!game.card(c1).phased_out);
 
-        let mut sa = SpellAbility::new_simple(None, p0, "SP$ Phases | PhaseInOrOut$ Out");
+        let mut sa = SpellAbility::new_simple(
+            None,
+            p0,
+            "SP$ Phases | ValidTgts$ Creature | PhaseInOrOut$ True",
+        );
         sa.target_chosen.target_card = Some(c1);
 
         let mut th = TriggerHandler::new();
@@ -172,7 +231,11 @@ mod tests {
         game.move_card(c1, ZoneType::Battlefield, p0);
         game.card_mut(c1).set_phased_out(true);
 
-        let mut sa = SpellAbility::new_simple(None, p0, "SP$ Phases | PhaseInOrOut$ In");
+        let mut sa = SpellAbility::new_simple(
+            None,
+            p0,
+            "SP$ Phases | ValidTgts$ Creature | PhaseInOrOut$ True",
+        );
         sa.target_chosen.target_card = Some(c1);
 
         let mut th = TriggerHandler::new();
