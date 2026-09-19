@@ -41,8 +41,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     // Use shared base-class parsing for common animate params
     let anim_params = parse_animate_params(sa);
-    let power_str = anim_params.power.map(|p| p.to_string());
-    let toughness_str = anim_params.toughness.map(|t| t.to_string());
+    let power_str = sa
+        .ir
+        .animate_power_text
+        .as_deref()
+        .map(|raw| super::resolve_numeric_value(ctx.game, sa, raw, 0).to_string());
+    let toughness_str = sa
+        .ir
+        .animate_toughness_text
+        .as_deref()
+        .map(|raw| super::resolve_numeric_value(ctx.game, sa, raw, 0).to_string());
     let types_str = if anim_params.add_types.is_empty() {
         None
     } else {
