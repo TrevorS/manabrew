@@ -18,6 +18,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .map(|raw| super::resolve_numeric_value(ctx.game, sa, raw, 1))
         .unwrap_or(1)
         .max(0) as usize;
+    if amount < 1 {
+        return;
+    }
 
     let token_owners = resolve_token_owners(ctx, sa);
     if token_owners.is_empty() {
