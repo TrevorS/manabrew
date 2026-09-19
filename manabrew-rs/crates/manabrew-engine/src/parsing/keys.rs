@@ -327,6 +327,7 @@ pub const CHOICES: &str = "Choices";
 pub const CHOICE_ZONE: &str = "ChoiceZone";
 pub const CHOOSER: &str = "Chooser";
 pub const CHOOSE_FROM_DEFINED_CARDS: &str = "ChooseFromDefinedCards";
+pub const DEFINED_CARDS: &str = "DefinedCards";
 pub const CHOOSE_FROM_LIST: &str = "ChooseFromList";
 pub const FOR_EACH: &str = "ForEach";
 pub const PILES: &str = "Piles";

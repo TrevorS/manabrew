@@ -127,6 +127,7 @@ pub enum DefinedCardToken {
         serialize = "RememberedLKI"
     )]
     Remembered,
+    ChosenCard,
     #[strum(
         serialize = "Enchanted",
         serialize = "Equipped",
@@ -206,6 +207,9 @@ fn resolve_defined_card_token(
             .collect(),
         DefinedCardToken::Remembered => host_card
             .map(|src| game.card(src).remembered_cards.clone())
+            .unwrap_or_default(),
+        DefinedCardToken::ChosenCard => host_card
+            .map(|src| game.card(src).chosen_cards.clone())
             .unwrap_or_default(),
         DefinedCardToken::Attached => host_card
             .and_then(|src| game.card(src).attached_to)

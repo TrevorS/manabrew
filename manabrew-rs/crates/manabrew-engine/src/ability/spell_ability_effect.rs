@@ -377,6 +377,17 @@ fn resolve_defined_cards_for_sa_ref_inner(
         // `GameState.last_sacrificed_card`.
         DefinedRef::Discarded => sa.discarded_cost_cards.clone(),
         DefinedRef::Sacrificed => game.last_sacrificed_card.into_iter().collect(),
+        DefinedRef::Unsupported(raw)
+            if raw
+                .strip_prefix("Triggered")
+                .and_then(crate::ability::ability_key::from_string)
+                .is_some_and(|key| sa.get_triggering_value(key).is_some()) =>
+        {
+            raw.strip_prefix("Triggered")
+                .and_then(crate::ability::ability_key::from_string)
+                .map(|key| sa.get_triggering_cards(key))
+                .unwrap_or_default()
+        }
         _ => ability_utils::get_defined_cards(
             game,
             sa.source,

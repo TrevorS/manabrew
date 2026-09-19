@@ -65,6 +65,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
     }
+    if let Some(defined) = sa.ir.defined_cards.as_deref() {
+        valid = crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+            ctx.game, sa, defined,
+        );
+    }
 
     let mut chosen = Vec::new();
     for p in tgt_players {
