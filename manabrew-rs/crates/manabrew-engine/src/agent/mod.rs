@@ -450,6 +450,25 @@ pub trait PlayerAgent {
         hand.iter().copied().take(num).collect()
     }
 
+    /// Choose one target among cards and spells or abilities on the stack (`stack` holds each
+    /// entry id with its host card). The default offers the cards only.
+    fn choose_target_card_or_stack(
+        &mut self,
+        player: PlayerId,
+        cards: &[CardId],
+        stack: &[(u32, CardId)],
+        sa: Option<&SpellAbility>,
+    ) -> CardOrStackTarget {
+        if cards.is_empty() {
+            let ids: Vec<u32> = stack.iter().map(|(id, _)| *id).collect();
+            return self
+                .choose_target_spell(player, &ids, sa.and_then(|sa| sa.source))
+                .map_or(CardOrStackTarget::None, CardOrStackTarget::Stack);
+        }
+        self.choose_target_card(player, cards, sa)
+            .map_or(CardOrStackTarget::None, CardOrStackTarget::Card)
+    }
+
     /// Choose a target spell on the stack (for SP$ Counter effects).
     /// `valid` is a slice of stack entry IDs.
     /// Default: target the first (topmost) spell.

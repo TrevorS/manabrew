@@ -62,6 +62,13 @@ pub enum PlayCardMode {
     UnlockDoor,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CardOrStackTarget {
+    Card(CardId),
+    Stack(u32),
+    None,
+}
+
 /// A target choice that can be a player, a card, or nothing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TargetChoice {

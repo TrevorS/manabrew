@@ -1964,6 +1964,46 @@ pub fn choose_targets_by_kind(
     sa.target_chosen.target_card_zone_timestamp = None;
     sa.target_chosen.divided_map.clear();
 
+    if max_targets == 1
+        && tr.tgt_zone.len() > 1
+        && tr.tgt_zone.contains(&forge_foundation::ZoneType::Stack)
+    {
+        let cards: Vec<CardId> = card_util::get_valid_cards_to_target(game, sa)
+            .into_iter()
+            .filter(|&cid| game.card(cid).zone != forge_foundation::ZoneType::Stack)
+            .filter(|&cid| target_allowed_by_defined_controller(game, sa, cid))
+            .collect();
+        let stack = target_restrictions::get_stack_target_candidates(game, sa);
+        agent.snapshot_state(game, mana_pools);
+        match agent.choose_target_card_or_stack(player, &cards, &stack, Some(&*sa)) {
+            crate::agent::CardOrStackTarget::Card(cid) => {
+                sa.target_chosen.target_card = Some(cid);
+                sa.target_chosen.target_card_zone_timestamp = Some(game.card(cid).zone_timestamp);
+            }
+            crate::agent::CardOrStackTarget::Stack(id) => {
+                let entry = game.stack.iter().find(|entry| entry.id == id);
+                match entry.and_then(|entry| {
+                    entry
+                        .spell_ability
+                        .is_spell
+                        .then_some(entry.spell_ability.source)
+                        .flatten()
+                }) {
+                    Some(spell_card) => {
+                        sa.target_chosen.target_card = Some(spell_card);
+                        sa.target_chosen.target_card_zone_timestamp =
+                            Some(game.card(spell_card).zone_timestamp);
+                    }
+                    None => sa.target_chosen.target_stack_entry = Some(id),
+                }
+            }
+            crate::agent::CardOrStackTarget::None => {}
+        }
+        let chosen_targets = i32::from(sa.target_chosen.target_card.is_some())
+            + i32::from(sa.target_chosen.target_stack_entry.is_some());
+        return chosen_targets >= min_targets;
+    }
+
     match &tr.target_kind {
         TargetKind::None => {}
         TargetKind::Player => {

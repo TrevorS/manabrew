@@ -1518,6 +1518,41 @@ impl PlayerAgent for DeterministicAgent {
         out
     }
 
+    fn choose_target_card_or_stack(
+        &mut self,
+        _player: PlayerId,
+        cards: &[CardId],
+        stack: &[(u32, CardId)],
+        _sa: Option<&manabrew_engine::spellability::SpellAbility>,
+    ) -> manabrew_engine::agent::CardOrStackTarget {
+        use manabrew_engine::agent::CardOrStackTarget;
+        // `chooseTargetsFor` lists the cards, then the stack candidates, and sorts them with
+        // `ParityOrder.targetSortKey` on each one's card (a stack item's host), a stable sort.
+        let mut entries: Vec<(CardOrStackTarget, CardId)> = cards
+            .iter()
+            .map(|&cid| (CardOrStackTarget::Card(cid), cid))
+            .chain(
+                stack
+                    .iter()
+                    .map(|&(id, host)| (CardOrStackTarget::Stack(id), host)),
+            )
+            .collect();
+        entries.sort_by(|(_, a), (_, b)| {
+            self.card_name(*a)
+                .cmp(&self.card_name(*b))
+                .then_with(|| {
+                    self.target_owner_controller_key(*a)
+                        .cmp(&self.target_owner_controller_key(*b))
+                })
+                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+        });
+        let hosts: Vec<CardId> = entries.iter().map(|(_, host)| *host).collect();
+        self.log_target_candidates(&[], &hosts);
+        let choices: Vec<CardOrStackTarget> = entries.iter().map(|(choice, _)| *choice).collect();
+        choice_space::pick_one(&choices, &mut self.rng.borrow_mut())
+            .unwrap_or(CardOrStackTarget::None)
+    }
+
     fn choose_target_spell(
         &mut self,
         _player: PlayerId,

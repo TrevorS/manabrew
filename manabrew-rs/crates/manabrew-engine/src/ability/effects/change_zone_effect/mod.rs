@@ -38,10 +38,11 @@ fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
 /// Mirrors Java `ChangeZoneEffect.buildSpellAbility` — calls
 /// `adjustChangeZoneTarget` to set the target zone to the origin zone.
 pub fn build_spell_ability(sa: &mut SpellAbility) {
-    if let Some(zone) = sa.origin_zone() {
+    let origins = sa.origin_zones();
+    if !origins.is_empty() {
         if let Some(ref mut tr) = sa.target_restrictions {
             if !tr.can_tgt_player() {
-                tr.tgt_zone = vec![zone];
+                tr.tgt_zone = origins;
             }
         }
     }

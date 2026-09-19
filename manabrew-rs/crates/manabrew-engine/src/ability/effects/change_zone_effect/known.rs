@@ -40,7 +40,13 @@ pub(super) fn resolve_known_origin(
     }
 
     // Stack removal path (Java lines 488-500)
-    if origin_zone == ZoneType::Stack {
+    if origin_zone == ZoneType::Stack
+        || (sa.origin_zones().contains(&ZoneType::Stack)
+            && sa
+                .target_chosen
+                .target_card
+                .is_some_and(|cid| ctx.game.card(cid).zone == ZoneType::Stack))
+    {
         resolve_stack_removal(ctx, sa, dest_zone, &lib_position, controller);
         return;
     }

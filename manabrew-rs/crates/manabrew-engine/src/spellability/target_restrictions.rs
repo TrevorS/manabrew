@@ -110,9 +110,11 @@ impl TargetRestrictions {
             target_type_filter,
             min_targets,
             max_targets,
-            tgt_zone: effective_zone
-                .map(|zone| vec![zone])
-                .unwrap_or_else(|| vec![ZoneType::Battlefield]),
+            tgt_zone: parsed_zone_list(parsed.get(keys::TGT_ZONE)).unwrap_or_else(|| {
+                effective_zone
+                    .map(|zone| vec![zone])
+                    .unwrap_or_else(|| vec![ZoneType::Battlefield])
+            }),
         })
     }
 
@@ -179,9 +181,11 @@ impl TargetRestrictions {
             target_type_filter,
             min_targets,
             max_targets,
-            tgt_zone: effective_zone
-                .map(|zone| vec![zone])
-                .unwrap_or_else(|| vec![ZoneType::Battlefield]),
+            tgt_zone: parsed_zone_list(params.get(keys::TGT_ZONE)).unwrap_or_else(|| {
+                effective_zone
+                    .map(|zone| vec![zone])
+                    .unwrap_or_else(|| vec![ZoneType::Battlefield])
+            }),
         })
     }
 
@@ -333,6 +337,42 @@ impl TargetRestrictions {
         }
         self.valid_tgts_selector = cached_compiled_selector(&self.valid_tgts.join(","));
     }
+}
+
+/// The harness's `ActionSpace.getStackTargetCandidates`: each spell or ability on the stack that
+/// `sa` can target, which `canTargetSpellAbility` decides by testing its host card against
+/// `ValidTgts$`, so an activated ability of a permanent qualifies wherever the permanent would.
+pub fn get_stack_target_candidates(game: &GameState, sa: &SpellAbility) -> Vec<(u32, CardId)> {
+    let Some(tr) = sa.target_restrictions.as_ref() else {
+        return Vec::new();
+    };
+    if !tr.tgt_zone.contains(&ZoneType::Stack) {
+        return Vec::new();
+    }
+    let default_filter = tr.valid_tgts.first().map(String::as_str).unwrap_or("Card");
+    game.stack
+        .iter()
+        .filter(|entry| !entry.is_pending_cast)
+        .filter_map(|entry| {
+            let host = entry.spell_ability.source?;
+            crate::ability::ability_utils::matches_valid_cards_for_sa(
+                game,
+                sa,
+                game.card(host),
+                Some(&tr.valid_tgts_selector),
+                default_filter,
+            )
+            .then_some((entry.id, host))
+        })
+        .collect()
+}
+
+fn parsed_zone_list(value: Option<&str>) -> Option<Vec<ZoneType>> {
+    let zones: Vec<ZoneType> = value?
+        .split(',')
+        .filter_map(|zone| parsed_zone_type(Some(zone)))
+        .collect();
+    (zones.len() > 1).then_some(zones)
 }
 
 fn parsed_zone_type(value: Option<&str>) -> Option<ZoneType> {
