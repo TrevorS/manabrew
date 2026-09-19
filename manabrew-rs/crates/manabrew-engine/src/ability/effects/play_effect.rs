@@ -234,6 +234,8 @@ fn resolve_target_cards(ctx: &EffectContext, sa: &SpellAbility) -> Vec<CardId> {
             .map(CardId)
             .into_iter()
             .collect()
+    } else if sa.uses_targeting() {
+        sa.target_chosen.all_target_cards()
     } else {
         let defined = if defined.is_empty() {
             "Self"
