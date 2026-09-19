@@ -211,6 +211,9 @@ pub fn cant_block(game: &GameState, cards: &[Card], blocker: &Card) -> bool {
     if blocker.detained {
         return true;
     }
+    if blocker.is_creature() && blocker.has_s_var("Suspected") {
+        return true;
+    }
 
     // Java builds a list from STATIC_ABILITIES_SOURCE_ZONES + the blocker itself (for LKI)
     for source in cards
