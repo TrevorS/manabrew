@@ -1047,7 +1047,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "opponent" | "oppctrl" | "opponentctrl" => {
             SelectorPredicate::CardController(ControllerSelector::Opponent)
         }
-        "chosenctrl" | "hasabasiclandtype" | "adventurecard" | "issuspected" => {
+        "chosenctrl" | "hasabasiclandtype" | "adventurecard" | "issuspected" | "issolved" => {
             SelectorPredicate::Raw(normalized.to_string())
         }
         "youown" => SelectorPredicate::CardOwner(ControllerSelector::You),

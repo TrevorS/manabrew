@@ -268,6 +268,10 @@ impl SpellAbilityRestriction {
             return false;
         }
 
+        if self.variables.solved() && !game.card(card_id).is_solved() {
+            return false;
+        }
+
         if !self.check_presence_restriction(game, card_id, player, sa) {
             return false;
         }

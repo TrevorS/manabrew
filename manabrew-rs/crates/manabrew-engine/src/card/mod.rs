@@ -4276,6 +4276,9 @@ impl Card {
         // effects don't go through the cast pipeline and leave this `None`.
         self.cast_from.is_some()
     }
+    pub fn is_solved(&self) -> bool {
+        self.get_s_var("Solved") == Some("True")
+    }
     pub fn on_end_of_combat(&mut self, active: PlayerId) {
         if self.controller == active {
             self.chosen_modes_your_last_combat = std::mem::take(&mut self.chosen_modes_your_combat);
