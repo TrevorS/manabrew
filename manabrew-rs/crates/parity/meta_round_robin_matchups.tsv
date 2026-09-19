@@ -1,0 +1,10 @@
+# The rest of the round robin over the four meta decks: every pairing meta_matchups.tsv leaves out
+# deck1	deck2
+meta_mono_green_landfall	meta_dimir_excruciator
+meta_mono_green_landfall	meta_4c_control
+meta_izzet_spellementals	meta_izzet_spellementals
+meta_izzet_spellementals	meta_dimir_excruciator
+meta_izzet_spellementals	meta_4c_control
+meta_dimir_excruciator	meta_dimir_excruciator
+meta_dimir_excruciator	meta_4c_control
+meta_4c_control	meta_4c_control
