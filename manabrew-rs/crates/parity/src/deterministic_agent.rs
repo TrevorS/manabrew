@@ -144,6 +144,12 @@ impl DeterministicAgent {
     pub(crate) fn refresh_snapshot_cards(snapshot: &mut Vec<Card>, cards: &[Card]) {
         snapshot.truncate(cards.len());
         for (out, card) in snapshot.iter_mut().zip(cards) {
+            if out.id == card.id
+                && out.zone == forge_foundation::ZoneType::Library
+                && card.zone == forge_foundation::ZoneType::Library
+            {
+                continue;
+            }
             card.refresh_parity_snapshot(out);
         }
         let kept = snapshot.len();
