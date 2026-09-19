@@ -580,7 +580,14 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 // attached to. (e.g. Short Sword: "Creature.EquippedBy",
                 // Control Magic: "Card.EnchantedBy")
                 if let Some(cid) = source_card.attached_to {
-                    if game.card(cid).zone == ZoneType::Battlefield {
+                    if game.card(cid).zone == ZoneType::Battlefield
+                        && crate::card::valid_filter::matches_valid_card_selector_in_game(
+                            &crate::parsing::cached_compiled_selector(affected_str),
+                            game.card(cid),
+                            source_card,
+                            game,
+                        )
+                    {
                         apply_to_target(cid);
                     }
                 }
