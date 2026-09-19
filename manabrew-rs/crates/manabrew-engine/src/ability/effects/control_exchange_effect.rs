@@ -6,7 +6,6 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
-use crate::ability::ability_ir::DefinedRef;
 use crate::ids::CardId;
 use crate::parsing::keys;
 
@@ -15,38 +14,48 @@ use crate::parsing::keys;
 /// `ControlExchangeEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(ControlExchangeEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let mut object1: Option<CardId> = None;
-    let mut object2: Option<CardId> = None;
+    let tgts: Vec<CardId> = if sa.uses_targeting() {
+        sa.target_chosen.all_target_cards()
+    } else {
+        Vec::new()
+    };
+    let mut object1 = tgts.first().copied();
+    let mut object2 = None;
 
-    // Get targets
-    if sa.uses_targeting() {
-        object1 = sa.target_chosen.target_card;
-    }
-
-    // Get defined cards
     if let Some(defined) = sa.defined() {
-        if matches!(sa.defined_ref(), Some(DefinedRef::SelfCard)) {
-            object2 = sa.source;
-        } else if let Some(uid_str) = defined.strip_prefix("CardUID_") {
-            object2 = uid_str.parse::<u32>().ok().map(crate::ids::CardId);
+        let cards: Vec<CardId> = if let Some(uid_str) = defined.strip_prefix("CardUID_") {
+            uid_str
+                .parse::<u32>()
+                .ok()
+                .map(CardId)
+                .into_iter()
+                .collect()
+        } else {
+            crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                ctx.game, sa, defined,
+            )
+        };
+        object2 = cards.first().copied();
+        if cards.len() > 1 && !sa.uses_targeting() {
+            object1 = cards.get(1).copied();
         }
-    } else if object1.is_some() {
-        // Second target if two targets
-        // For simplicity, use target_player's permanent — full impl would handle multi-target
-        object2 = sa.source;
+    } else if tgts.len() > 1 {
+        object2 = tgts.get(1).copied();
     }
 
     let (Some(card1), Some(card2)) = (object1, object2) else {
         return;
     };
 
-    // Verify both on battlefield and not phased out
     let c1 = ctx.game.card(card1);
     let c2 = ctx.game.card(card2);
     if c1.zone != ZoneType::Battlefield || c2.zone != ZoneType::Battlefield {
         return;
     }
     if c1.phased_out || c2.phased_out {
+        return;
+    }
+    if !c2.can_be_controlled_by(c1.controller) || !c1.can_be_controlled_by(c2.controller) {
         return;
     }
 
@@ -73,8 +82,23 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let player1 = ctx.game.card(card1).controller;
     let player2 = ctx.game.card(card2).controller;
 
-    ctx.game.card_mut(card1).set_controller(player2);
-    ctx.game.card_mut(card2).set_controller(player1);
+    for (card, new_controller, old_controller) in
+        [(card2, player1, player2), (card1, player2, player1)]
+    {
+        ctx.game.change_controller(card, new_controller);
+        if old_controller != new_controller {
+            ctx.trigger_handler.run_trigger(
+                crate::trigger::TriggerType::ChangesController,
+                crate::event::RunParams {
+                    card: Some(card),
+                    player: Some(new_controller),
+                    original_controller: Some(old_controller),
+                    ..Default::default()
+                },
+                false,
+            );
+        }
+    }
 
     // RememberExchanged$
     if sa.param_is_true(keys::REMEMBER_EXCHANGED) {
