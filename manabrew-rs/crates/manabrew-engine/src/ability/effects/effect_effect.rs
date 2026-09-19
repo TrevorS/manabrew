@@ -312,13 +312,11 @@ fn populate_remember_lists(
                     {
                         out_players.push(pid);
                     } else {
-                        let defined_cards = ability_utils::get_defined_cards(
-                            ctx.game,
-                            sa.source,
-                            other,
-                            Some(sa.activating_player),
+                        out_cards.extend(
+                            crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                                ctx.game, sa, other,
+                            ),
                         );
-                        out_cards.extend(defined_cards);
                     }
                 }
             }
