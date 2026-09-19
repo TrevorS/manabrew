@@ -191,6 +191,22 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
 
+        if sa.is_activated
+            && crate::parsing::raw_has_key(
+                &sa.ability_text,
+                crate::parsing::keys::GAIN_THIS_ABILITY,
+            )
+        {
+            let target = ctx.game.card_mut(clone_target_id);
+            let index = target.activated_abilities.len();
+            if let Some(ability) =
+                crate::ability::activated::parse_activated_ability(&sa.ability_text, index)
+            {
+                target.activated_abilities.push(ability);
+                target.base_ability_count = target.activated_abilities.len();
+            }
+        }
+
         if let Some(animation) = active_animation {
             reapply_active_animation(ctx.game.card_mut(clone_target_id), &animation);
         }
