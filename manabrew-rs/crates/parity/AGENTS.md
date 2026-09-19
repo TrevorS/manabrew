@@ -115,6 +115,8 @@ parity card "Crystal Fragments" "Bonesplitter"
 
 `parity card <name>...` (`src/card_dump.rs`) prints what `Card::from_rules` builds from a script: type line and cost, keywords, every activated ability with its index, API and activation zone, triggers, statics, replacement effects, SVar names, and the other face. Use it when an engine never offers or never fires something the script has: a keyword with no ability behind it shows up here without running a game.
 
+`parity selector <text>...` prints the compiled selector IR for a `Valid$`-style string, so a property that was dropped, merged or lowered to a subtype is visible without a game.
+
 `parity selector-audit` (`src/selector_audit.rs`) compiles `Card.<name>` for every name Java's `CardProperty` tests with `property.equals`, and lists the ones the engine's selector compiler lowers to a subtype, with how many card scripts use each. A property lowered that way never matches (it is looked up as a type), where Java checks it first and falls back to types only at the end. Teach the compiler (`parsing::lower_selector_part`) or the legacy matcher the property, then rerun the audit.
 
 `coverage` lists the APIs, trigger modes, replacement events and keywords of the pool that no deck in a gate carries. A gate result says nothing about those, whatever it prints.

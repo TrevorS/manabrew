@@ -553,6 +553,9 @@ fn main() {
     if args.get(1).is_some_and(|arg| arg == "selector-audit") {
         std::process::exit(parity::selector_audit::run_cli(&args[1..]));
     }
+    if args.get(1).is_some_and(|arg| arg == "selector") {
+        std::process::exit(parity::selector_audit::run_print_cli(&args[1..]));
+    }
     if args.get(1).is_some_and(|arg| arg == "gate-diff") {
         std::process::exit(parity::gate::run_cli(&args[1..]));
     }

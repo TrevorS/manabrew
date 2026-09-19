@@ -57,6 +57,18 @@ pub fn run_cli(args: &[String]) -> i32 {
     0
 }
 
+pub fn run_print_cli(args: &[String]) -> i32 {
+    if args.len() < 2 {
+        eprintln!("usage: parity selector <selector>...");
+        return 2;
+    }
+    for text in &args[1..] {
+        let selector = manabrew_engine::parsing::cached_compiled_selector(text);
+        println!("{text}\n{:#?}", selector.ir);
+    }
+    0
+}
+
 fn java_property_names(source: &str) -> Vec<String> {
     let mut names = Vec::new();
     for pattern in ["property.equals(\"", "property.equalsIgnoreCase(\""] {
