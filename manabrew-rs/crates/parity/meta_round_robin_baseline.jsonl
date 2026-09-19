@@ -1,4 +1,4 @@
-{"compared_fields":["turn","phase","active_player","priority_player","game_over","winner","stack","monarch","initiative","day_night","players[i].exists","players[i].name","players[i].life","players[i].poison","players[i].lands_played","players[i].has_lost","players[i].has_won","players[i].library_size","players[i].speed","players[i].counters","players[i].mana_pool","players[i].library_top","players[i].graveyard","players[i].hand","players[i].exile","players[i].battlefield.count","players[i].battlefield.cards","players[i].battlefield[i].tapped","players[i].battlefield[i].power","players[i].battlefield[i].toughness","players[i].battlefield[i].damage","players[i].battlefield[i].summoning_sick","players[i].battlefield[i].counters","players[i].battlefield[i].controller","players[i].battlefield[i].types","players[i].battlefield[i].keywords","players[i].battlefield[i].attached_to","players[i].battlefield[i].token","players[i].battlefield[i].face_down","game_rng_calls","agent_rng_calls","snapshot.exists"],"build":"95e6bbdb2 exe:48d63fcb447b0b30","max_turns":30}
+{"compared_fields":["turn","phase","active_player","priority_player","game_over","winner","stack","monarch","initiative","day_night","players[i].exists","players[i].name","players[i].life","players[i].poison","players[i].lands_played","players[i].has_lost","players[i].has_won","players[i].library_size","players[i].speed","players[i].counters","players[i].mana_pool","players[i].library_top","players[i].graveyard","players[i].hand","players[i].exile","players[i].battlefield.count","players[i].battlefield.cards","players[i].battlefield[i].tapped","players[i].battlefield[i].power","players[i].battlefield[i].toughness","players[i].battlefield[i].damage","players[i].battlefield[i].summoning_sick","players[i].battlefield[i].counters","players[i].battlefield[i].controller","players[i].battlefield[i].types","players[i].battlefield[i].keywords","players[i].battlefield[i].attached_to","players[i].battlefield[i].token","players[i].battlefield[i].face_down","game_rng_calls","agent_rng_calls","snapshot.exists"],"build":"0713ed0a8 exe:af02840382d2f3e0","max_turns":30}
 {"deck1":"meta_4c_control","deck2":"meta_4c_control","seed":1,"verdict":"PASS"}
 {"deck1":"meta_4c_control","deck2":"meta_4c_control","seed":2,"verdict":"PASS"}
 {"deck1":"meta_4c_control","deck2":"meta_4c_control","seed":3,"verdict":"PASS"}
@@ -302,14 +302,14 @@
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":1,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":2,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":3,"verdict":"PASS"}
-{"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":4,"verdict":"FAIL","turn":11,"phase":"Untap","field":"players[i].graveyard","rust":"[\"Burst Lightning\", \"Impractical Joke\", \"Island\", \"Prismari Charm\", \"Riverpyre Verge\", \"Spell Snare\", \"Spell Snare\", \"Steam Vents\", \"Sunderflock\", \"Traumatic Critique\"]","java":"[\"Burst Lightning\", \"Impractical Joke\", \"Island\", \"Prismari Charm\", \"Riverpyre Verge\", \"Spell Snare\", \"Steam Vents\", \"Sunderflock\", \"Traumatic Critique\"]","fields":["players[i].graveyard","players[i].hand","players[i].battlefield[i].tapped","players[i].library_size","players[i].library_top","players[i].graveyard","players[i].hand"],"decision":"T10 Draw: Rust P0 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Spell Snare@16, mode: Normal }) | PASS] / Java P0 choose_action -> PassPriority (after P1 choose_action -> PassPriority)"}
+{"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":4,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":5,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":6,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":7,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":8,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":9,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":10,"verdict":"PASS"}
-{"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":11,"verdict":"FAIL","turn":16,"phase":"Untap","field":"players[i].hand","rust":"[]","java":"[\"Island\"]","fields":["players[i].hand","players[i].battlefield.count","players[i].battlefield.cards","players[i].battlefield[i].tapped","players[i].graveyard","players[i].battlefield.count","players[i].battlefield.cards","agent_rng_calls"],"decision":"T15 Draw: Rust P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Spell Snare@82, mode: Normal }) | PASS] / Java P1 choose_action -> PassPriority (after P0 choose_action -> PassPriority)"}
+{"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":11,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":12,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":13,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":14,"verdict":"PASS"}
@@ -319,13 +319,13 @@
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":18,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":19,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":20,"verdict":"PASS"}
-{"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":21,"verdict":"FAIL","turn":22,"phase":"Untap","field":"players[i].library_size","rust":"33","java":"31","fields":["players[i].library_size","players[i].library_top","players[i].graveyard","players[i].hand","players[i].graveyard","players[i].hand","players[i].battlefield[i].tapped"],"decision":"T21 CombatBegin: Rust P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Spell Snare@82, mode: Normal }) | PASS] / Java P1 choose_action -> PassPriority (after P0 choose_action -> PassPriority)"}
+{"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":21,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":22,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":23,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":24,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":25,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":26,"verdict":"PASS"}
-{"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":27,"verdict":"FAIL","turn":26,"phase":"Untap","field":"players[i].graveyard","rust":"[\"Burst Lightning\", \"Eddymurk Crab\", \"Eddymurk Crab\", \"Get Out\", \"Get Out\", \"Hearth Elemental\", \"Impractical Joke\", \"Impractical Joke\", \"Island\", \"Opt\", \"Opt\", \"Opt\", \"Prismari Charm\", \"Prismari Charm\", \"Sleight of Hand\", \"Sleight of Hand\",…","java":"[\"Burst Lightning\", \"Eddymurk Crab\", \"Eddymurk Crab\", \"Get Out\", \"Get Out\", \"Hearth Elemental\", \"Impractical Joke\", \"Impractical Joke\", \"Island\", \"Opt\", \"Opt\", \"Opt\", \"Prismari Charm\", \"Prismari Charm\", \"Riverpyre Verge\", \"Sleight of Hand\",…","fields":["players[i].graveyard","players[i].hand","players[i].battlefield.count","players[i].battlefield.cards","players[i].battlefield[i].tapped"],"decision":"T25 Draw: Rust P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Spell Snare@93, mode: Normal }) | PASS] / Java P1 choose_action -> PassPriority (after P0 choose_action -> PassPriority)"}
+{"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":27,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":28,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":29,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":30,"verdict":"PASS"}
@@ -341,7 +341,7 @@
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":40,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":41,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":42,"verdict":"PASS"}
-{"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":43,"verdict":"FAIL","turn":13,"phase":"Untap","field":"players[i].graveyard","rust":"[\"Burst Lightning\", \"Hearth Elemental\", \"Hearth Elemental\", \"Opt\", \"Prismari Charm\", \"Prismari Charm\", \"Spell Snare\", \"Thundering Falls\", \"Winternight Stories\"]","java":"[\"Burst Lightning\", \"Hearth Elemental\", \"Hearth Elemental\", \"Opt\", \"Prismari Charm\", \"Prismari Charm\", \"Thundering Falls\", \"Winternight Stories\"]","fields":["players[i].graveyard","players[i].hand","players[i].battlefield[i].tapped","players[i].library_size","players[i].library_top","players[i].graveyard","players[i].hand"],"decision":"T12 Upkeep: Rust P0 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Spell Snare@6, mode: Normal }) | PASS] / Java P0 choose_action -> PassPriority (after P1 choose_action -> PassPriority)"}
+{"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":43,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":44,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":45,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":46,"verdict":"PASS"}
@@ -351,7 +351,7 @@
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":50,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":51,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":52,"verdict":"PASS"}
-{"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":53,"verdict":"FAIL","turn":30,"phase":"Untap","field":"players[i].library_size","rust":"28","java":"26","fields":["players[i].library_size","players[i].library_top","players[i].graveyard","players[i].hand","players[i].battlefield.count","players[i].battlefield.cards","players[i].graveyard","players[i].hand","players[i].battlefield[i].tapped","agent_rng_calls"],"decision":"T29 Draw: Rust P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Spell Snare@95, mode: Normal }) | PASS] / Java P1 choose_action -> PassPriority (after P0 choose_action -> PassPriority)"}
+{"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":53,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":54,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":55,"verdict":"PASS"}
 {"deck1":"meta_izzet_spellementals","deck2":"meta_izzet_spellementals","seed":56,"verdict":"PASS"}
