@@ -20,8 +20,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let primary_def = sa.ir.defined.as_ref().and_then(|d| d.refs.first());
     let targets: Vec<CardId> = match primary_def {
         None => {
-            if let Some(target) = sa.target_chosen.target_card {
-                vec![target]
+            if sa.uses_targeting() {
+                sa.target_chosen.target_card.into_iter().collect()
             } else if let Some(source) = sa.source {
                 vec![source]
             } else {
