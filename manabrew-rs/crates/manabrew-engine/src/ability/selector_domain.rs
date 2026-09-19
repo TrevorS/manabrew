@@ -4,11 +4,19 @@ use crate::card::Card;
 pub(crate) fn matches_selector_domain_predicate(
     raw: &str,
     card: &Card,
-    _context: MatchContext<'_>,
+    context: MatchContext<'_>,
 ) -> Option<bool> {
     let lower = raw.trim().to_ascii_lowercase();
     if lower == "hasability activated" {
         return Some(!card.activated_abilities.is_empty());
+    }
+    if lower == "saddledthisturn" {
+        return Some(
+            context
+                .source_card
+                .saddled_by_this_turn()
+                .contains(&card.id),
+        );
     }
     if lower.starts_with("castsa ")
         || lower == "canenchantsource"

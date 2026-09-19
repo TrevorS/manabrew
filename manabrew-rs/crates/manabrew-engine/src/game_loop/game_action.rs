@@ -1100,6 +1100,11 @@ impl GameLoop {
                 waterbend_cards: Vec::new(),
             },
         );
+        if is_mount_saddle {
+            for &crew_card in &tapped_crews {
+                game.card_mut(card_id).add_saddled_by_this_turn(crew_card);
+            }
+        }
         if is_vehicle_crew || is_mount_saddle || is_station {
             for crew_card in &tapped_crews {
                 let run_params = RunParams {

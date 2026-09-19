@@ -152,13 +152,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     }
                 }
                 "Saddle" | "Saddled" => {
-                    let first_time = !ctx.game.card(card_id).has_s_var("SaddledBy");
+                    let first_time = ctx.game.card(card_id).get_s_var("Saddled") != Some("True");
                     let val = if activate { "True" } else { "False" };
                     ctx.game.card_mut(card_id).set_s_var("Saddled", val);
                     if activate {
-                        if let Some(source) = sa.source {
-                            ctx.game.card_mut(card_id).add_saddled_by_this_turn(source);
-                        }
                         ctx.trigger_handler.run_trigger(
                             TriggerType::BecomesSaddled,
                             RunParams {

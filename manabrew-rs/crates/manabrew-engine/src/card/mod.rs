@@ -4154,7 +4154,21 @@ impl Card {
         self.remove_s_var("RingBearer");
     }
     pub fn add_saddled_by_this_turn(&mut self, card: CardId) {
-        self.set_s_var("SaddledBy", format!("{}", card.0));
+        let list = match self.get_s_var("SaddledBy") {
+            Some(existing) => format!("{existing},{}", card.0),
+            None => card.0.to_string(),
+        };
+        self.set_s_var("SaddledBy", list);
+    }
+    pub fn saddled_by_this_turn(&self) -> Vec<CardId> {
+        self.get_s_var("SaddledBy")
+            .map(|list| {
+                list.split(',')
+                    .filter_map(|id| id.parse().ok())
+                    .map(CardId)
+                    .collect()
+            })
+            .unwrap_or_default()
     }
     pub fn reset_saddled(&mut self) {
         self.remove_s_var("Saddled");

@@ -1145,6 +1145,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "historic" => SelectorPredicate::CardState(CardStateSelector::Historic),
         "modified" => SelectorPredicate::CardState(CardStateSelector::Modified),
         "issaddled" => SelectorPredicate::CardState(CardStateSelector::Saddled),
+        "saddledthisturn" => SelectorPredicate::Raw(normalized.to_string()),
         "mayplaysource" => SelectorPredicate::CardState(CardStateSelector::MayPlaySource),
         "exiledwithsource" => SelectorPredicate::Context(ContextPredicate::ExiledWithSource),
         "toplibrary" => SelectorPredicate::Context(ContextPredicate::TopLibrary),

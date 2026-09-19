@@ -823,7 +823,7 @@ fn matches_card_state(state: CardStateSelector, card: &Card, context: MatchConte
                 || card.static_power_modifier != 0
                 || card.static_toughness_modifier != 0
         }
-        CardStateSelector::Saddled => card.get_s_var("SaddledBy").is_some(),
+        CardStateSelector::Saddled => card.get_s_var("Saddled") == Some("True"),
         CardStateSelector::MayPlaySource => card.may_play(context.source_controller),
         CardStateSelector::Suspended => card.has_keyword("Suspend") && card.zone == ZoneType::Exile,
         CardStateSelector::SingleTarget => false,
