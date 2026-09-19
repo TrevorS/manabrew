@@ -61,7 +61,14 @@ pub fn can_pay(
     else {
         return false;
     };
-    let targets = super::get_tap_type_targets(game, player, type_filter, source, *can_tap_source);
+    let targets = super::get_tap_type_targets_for_cost(
+        game,
+        player,
+        type_filter,
+        source,
+        *can_tap_source,
+        ability,
+    );
     if let Some(power_threshold) = min_total_power {
         let total_power: i32 = targets
             .iter()

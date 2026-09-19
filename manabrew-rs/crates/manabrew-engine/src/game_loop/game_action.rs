@@ -213,8 +213,11 @@ impl GameLoop {
             }
             // Activated abilities that require targets should only be offered
             // when at least one legal target candidate exists.
-            let sa_for_target_check =
+            let mut sa_for_target_check =
                 crate::spellability::build_spell_ability(game, card_id, &ab.ability_text, player);
+            if let Some(original_host) = ab.original_host {
+                sa_for_target_check.set_original_host(original_host);
+            }
             if crate::staticability::static_ability_cant_be_cast::cant_be_activated_ability(
                 game,
                 &game.cards,

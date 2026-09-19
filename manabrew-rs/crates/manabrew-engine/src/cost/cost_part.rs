@@ -218,8 +218,15 @@ pub fn get_max_amount_x(
             can_tap_source,
             ..
         } => Some(
-            crate::cost::get_tap_type_targets(game, player, type_filter, source, *can_tap_source)
-                .len() as i32,
+            crate::cost::get_tap_type_targets_for_cost(
+                game,
+                player,
+                type_filter,
+                source,
+                *can_tap_source,
+                Some(ability),
+            )
+            .len() as i32,
         ),
         CostPart::Reveal {
             type_filter, from, ..

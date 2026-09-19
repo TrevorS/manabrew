@@ -433,6 +433,32 @@ impl GameLoop {
                         break;
                     }
                 }
+                CostPart::Sacrifice { type_filter, .. } if type_filter == "OriginalHost" => {
+                    if !self.confirm_cost_part_payment(
+                        game,
+                        agents,
+                        player,
+                        card_id,
+                        &part,
+                        api,
+                        mandatory,
+                        &context,
+                        sa.as_deref(),
+                    ) {
+                        payment_ok = false;
+                        break;
+                    }
+                    let Some(host) = sa
+                        .as_deref()
+                        .and_then(|s| s.original_host)
+                        .filter(|host| !reserved_sacrifices.contains(host))
+                    else {
+                        payment_ok = false;
+                        break;
+                    };
+                    pre_picked_sacrifices.push(host);
+                    reserved_sacrifices.push(host);
+                }
                 CostPart::Sacrifice {
                     type_filter,
                     amount,
@@ -3354,8 +3380,14 @@ impl GameLoop {
     ) -> bool {
         let mut tapped_cards = Vec::new();
         if let Some(power_threshold) = min_total_power {
-            let valid =
-                cost::get_tap_type_targets(game, player, type_filter, source, can_tap_source);
+            let valid = cost::get_tap_type_targets_for_cost(
+                game,
+                player,
+                type_filter,
+                source,
+                can_tap_source,
+                sa.as_deref(),
+            );
             if !valid.is_empty() {
                 let card_powers: Vec<(CardId, i32)> = valid
                     .iter()
@@ -3417,17 +3449,27 @@ impl GameLoop {
                 }
             }
         } else {
-            let valid =
-                cost::get_tap_type_targets(game, player, type_filter, source, can_tap_source);
+            let valid = cost::get_tap_type_targets_for_cost(
+                game,
+                player,
+                type_filter,
+                source,
+                can_tap_source,
+                sa.as_deref(),
+            );
             if valid.len() < amount.max(0) as usize {
                 return false;
             }
-            let chosen_cards = agents[player.index()].choose_cards_for_effect(
-                player,
-                &valid,
-                amount.max(0) as usize,
-                amount.max(0) as usize,
-            );
+            let chosen_cards = if type_filter == "OriginalHost" {
+                valid.clone()
+            } else {
+                agents[player.index()].choose_cards_for_effect(
+                    player,
+                    &valid,
+                    amount.max(0) as usize,
+                    amount.max(0) as usize,
+                )
+            };
             if chosen_cards.len() < amount.max(0) as usize {
                 return false;
             }

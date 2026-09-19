@@ -882,6 +882,16 @@ pub fn get_sacrifice_targets_for_cost(
     type_filter: &str,
     ability: Option<&SpellAbility>,
 ) -> Vec<CardId> {
+    if type_filter == "OriginalHost" {
+        return ability
+            .and_then(|sa| sa.original_host)
+            .filter(|&host| {
+                game.card(host).attached_to.is_some()
+                    && !cant_sacrifice(&game.cards, game.card(host), ability, true)
+            })
+            .into_iter()
+            .collect();
+    }
     let source = ability.and_then(|sa| sa.source);
     get_sacrifice_targets(game, player, type_filter)
         .into_iter()
@@ -954,6 +964,26 @@ pub fn get_exiled_targets(game: &GameState, type_filter: &str) -> Vec<CardId> {
 
 /// Find valid tap-type targets: untapped permanents matching the filter, the source only when the
 /// cost does not also tap it (Java `CostTapType.canTapSource`).
+/// `get_tap_type_targets` for a cost, where `OriginalHost` names the card that granted the
+/// ability (`CostTapType.canPay`).
+pub fn get_tap_type_targets_for_cost(
+    game: &GameState,
+    player: PlayerId,
+    type_filter: &str,
+    source: CardId,
+    can_tap_source: bool,
+    ability: Option<&SpellAbility>,
+) -> Vec<CardId> {
+    if type_filter == "OriginalHost" {
+        return ability
+            .and_then(|sa| sa.original_host)
+            .filter(|&host| !game.card(host).tapped)
+            .into_iter()
+            .collect();
+    }
+    get_tap_type_targets(game, player, type_filter, source, can_tap_source)
+}
+
 pub fn get_tap_type_targets(
     game: &GameState,
     player: PlayerId,
