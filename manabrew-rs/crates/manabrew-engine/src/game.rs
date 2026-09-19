@@ -210,6 +210,10 @@ pub struct GameState {
     /// Used across sub-ability chains and consumed by `ChangeZoneResolve`.
     #[serde(skip)]
     pub pending_change_zone_table: Option<CardZoneTable>,
+    /// Keep in sync with `ReplacementEffect.hasRun`: a replacement is skipped by any event
+    /// raised while its own replacement runs.
+    #[serde(skip)]
+    pub replacements_running: crate::HashSet<(CardId, usize, i32)>,
 
     /// Token scripts that have already consumed game-RNG for art selection.
     /// Java's `TokenDb` caches prototypes globally, consuming RNG only on
@@ -289,6 +293,7 @@ impl GameState {
             pending_damage_map: None,
             pending_prevent_map: None,
             pending_change_zone_table: None,
+            replacements_running: crate::HashSet::default(),
             synced_token_scripts: std::collections::BTreeSet::new(),
             last_state_battlefield: Vec::new(),
             pre_sba_battlefield: Vec::new(),

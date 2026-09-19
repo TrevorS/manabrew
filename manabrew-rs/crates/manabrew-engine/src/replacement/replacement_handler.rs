@@ -364,6 +364,11 @@ impl ReplacementHandler {
                         *effect_idx,
                         crate::core::Identifiable::id(&re.base.card_trait_base),
                     )) && !declined_effects.contains(&(*card_id, *effect_idx))
+                        && !game.replacements_running.contains(&(
+                            *card_id,
+                            *effect_idx,
+                            crate::core::Identifiable::id(&re.base.card_trait_base),
+                        ))
                 })
                 .cloned()
                 .collect();
@@ -400,6 +405,8 @@ impl ReplacementHandler {
             let effect_id = crate::core::Identifiable::id(&effect.base.card_trait_base);
             self.has_run
                 .insert((source_card_id, layer, effect_idx, effect_id));
+            let running = (source_card_id, effect_idx, effect_id);
+            let newly_running = game.replacements_running.insert(running);
             let result = execute_effect(
                 game,
                 source_card_id,
@@ -408,6 +415,9 @@ impl ReplacementHandler {
                 agents.as_deref_mut(),
                 runtime.as_deref_mut(),
             );
+            if newly_running {
+                game.replacements_running.remove(&running);
+            }
             if result == ReplacementResult::NotReplaced {
                 self.has_run
                     .remove(&(source_card_id, layer, effect_idx, effect_id));
