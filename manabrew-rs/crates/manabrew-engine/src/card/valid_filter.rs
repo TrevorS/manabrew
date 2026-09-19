@@ -934,6 +934,14 @@ fn matches_controlled_by_reference(
         context.targeted_players.contains(&card.controller)
     } else if let Some(target) = raw_target_ref(reference) {
         relation_target_player_any(&target, context, |player| card.controller == player)
+    } else if let (Some(game), Some(sa)) = (context.game, context.spell_ability) {
+        crate::ability::ability_utils::resolve_defined_players_with_sa(
+            reference,
+            sa,
+            context.source_controller,
+            game,
+        )
+        .contains(&card.controller)
     } else {
         false
     }
