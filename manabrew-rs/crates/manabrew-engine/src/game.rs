@@ -738,22 +738,6 @@ impl GameState {
         player
     }
 
-    /// Return the turn number of `player`'s most recent combat phase, if
-    /// known. Used by `Charm$ ChoiceRestriction$ YourLastCombat`.
-    ///
-    /// The Rust engine doesn't yet persist last-combat timestamps per player,
-    /// so this is a best-effort: it returns the current turn number iff that
-    /// turn's active player is `player` and we're past the combat phase.
-    /// Cards that rely on cross-turn last-combat tracking will treat the
-    /// restriction as always satisfied (safer than never).
-    pub fn last_combat_turn_of(&self, player: PlayerId) -> Option<i32> {
-        if self.turn.active_player == player {
-            Some(self.turn.turn_number as i32)
-        } else {
-            None
-        }
-    }
-
     pub fn opponent_of(&self, player: PlayerId) -> PlayerId {
         for &pid in &self.player_order {
             if pid != player && self.player(pid).is_alive() {

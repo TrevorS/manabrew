@@ -1,7 +1,7 @@
 use super::{resolve_numeric_svar, EffectContext};
 use crate::agent::PlayerAgent;
 use crate::game::GameState;
-use crate::ids::PlayerId;
+use crate::ids::{CardId, PlayerId};
 use crate::parsing::keys;
 use crate::parsing::Params;
 use crate::spellability::{build_spell_ability, SpellAbility};
@@ -82,33 +82,19 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         })
         .collect();
 
-    // `ChoiceRestriction$` — drop modes already chosen on this source within
-    // the restriction scope. Java tracks per-source history on
-    // `Card.chosenModesThisGame` etc.; Rust stores a {mode_svar → turn_number}
-    // map on the Card keyed by the scope enum below.
     let restriction = sa
         .ir
         .choice_restriction_text
         .as_deref()
         .and_then(|s| s.parse::<ChoiceRestriction>().ok());
     let current_turn = ctx.game.turn.turn_number as i32;
-    let last_combat_turn = ctx
-        .game
-        .last_combat_turn_of(sa.activating_player)
-        .unwrap_or(i32::MIN);
-    let is_restricted_index = |mode_svar: &str| -> bool {
-        let Some(scope) = restriction else {
-            return false;
-        };
-        let history = &ctx.game.card(source_id).chosen_charm_modes;
-        let Some(&turn) = history.get(mode_svar) else {
-            return false;
-        };
-        match scope {
-            ChoiceRestriction::ThisGame => true,
-            ChoiceRestriction::ThisTurn => turn == current_turn,
-            ChoiceRestriction::YourLastCombat => turn >= last_combat_turn,
-        }
+    let is_restricted_index = |mode_svar: &str| {
+        is_restricted_mode(
+            ctx.game.card(source_id),
+            restriction,
+            mode_svar,
+            current_turn,
+        )
     };
 
     // Filter modes to only those with valid targets (matching Java's CharmEffect
@@ -187,10 +173,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // vs dedup mode.
     for &idx in &chosen_indices {
         if let Some(svar_name) = mode_svars.get(idx).copied() {
-            ctx.game
-                .card_mut(source_id)
-                .chosen_charm_modes
-                .insert(svar_name.to_string(), current_turn);
+            add_chosen_mode(ctx.game, source_id, svar_name, current_turn);
         }
     }
 
@@ -280,20 +263,8 @@ pub fn make_choices_precast_with_count(
         .as_deref()
         .and_then(|s| s.parse::<ChoiceRestriction>().ok());
     let current_turn = game.turn.turn_number as i32;
-    let last_combat_turn = game.last_combat_turn_of(player).unwrap_or(i32::MIN);
-    let is_restricted_index = |mode_svar: &str| -> bool {
-        let Some(scope) = restriction else {
-            return false;
-        };
-        let history = &game.card(source_id).chosen_charm_modes;
-        let Some(&turn) = history.get(mode_svar) else {
-            return false;
-        };
-        match scope {
-            ChoiceRestriction::ThisGame => true,
-            ChoiceRestriction::ThisTurn => turn == current_turn,
-            ChoiceRestriction::YourLastCombat => turn >= last_combat_turn,
-        }
+    let is_restricted_index = |mode_svar: &str| {
+        is_restricted_mode(game.card(source_id), restriction, mode_svar, current_turn)
     };
 
     let valid_mode_indices: Vec<usize> = mode_texts
@@ -372,9 +343,7 @@ pub fn make_choices_precast_with_count(
     // built SA, so we have to do it here too.
     for &idx in &chosen_indices {
         if let Some(svar_name) = mode_svars.get(idx).copied() {
-            game.card_mut(source_id)
-                .chosen_charm_modes
-                .insert(svar_name.to_string(), current_turn);
+            add_chosen_mode(game, source_id, svar_name, current_turn);
         }
     }
 
@@ -561,6 +530,35 @@ pub fn chain_abilities(
 /// calling `chooseModeForAbility`. Modes without targeting requirements are
 /// always valid. Modes requiring specific targets are valid only if at least
 /// one legal candidate exists.
+fn is_restricted_mode(
+    card: &crate::card::Card,
+    restriction: Option<ChoiceRestriction>,
+    mode_svar: &str,
+    current_turn: i32,
+) -> bool {
+    match restriction {
+        None => false,
+        Some(ChoiceRestriction::ThisGame) => card.chosen_charm_modes.contains_key(mode_svar),
+        Some(ChoiceRestriction::ThisTurn) => {
+            card.chosen_charm_modes.get(mode_svar) == Some(&current_turn)
+        }
+        Some(ChoiceRestriction::YourLastCombat) => card
+            .chosen_modes_your_last_combat
+            .iter()
+            .any(|m| m == mode_svar),
+    }
+}
+
+fn add_chosen_mode(game: &mut GameState, source_id: CardId, mode_svar: &str, current_turn: i32) {
+    let in_combat = game.turn.is_combat();
+    let card = game.card_mut(source_id);
+    card.chosen_charm_modes
+        .insert(mode_svar.to_string(), current_turn);
+    if in_combat {
+        card.chosen_modes_your_combat.push(mode_svar.to_string());
+    }
+}
+
 fn mode_has_valid_targets(
     ctx: &EffectContext,
     mode_text: &str,

@@ -1067,6 +1067,12 @@ impl GameLoop {
 
         // End combat
         self.set_phase(game, agents, PhaseType::CombatEnd);
+        let active = game.active_player();
+        for card in game.cards.iter_mut() {
+            if card.zone == ZoneType::Battlefield {
+                card.on_end_of_combat(active);
+            }
+        }
         for command in game.end_of_combat.execute_until(None) {
             command.run(game);
         }

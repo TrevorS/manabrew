@@ -544,6 +544,10 @@ pub struct Card {
     /// Mirrors the per-card mode history Java keeps on `Card`.
     #[serde(default)]
     pub chosen_charm_modes: HashMap<String, i32>,
+    #[serde(default)]
+    pub chosen_modes_your_combat: Vec<String>,
+    #[serde(default)]
+    pub chosen_modes_your_last_combat: Vec<String>,
     /// LKI (last-known-information) snapshots of cards remembered by this
     /// card via `RememberLKI$`. Each entry is a frozen copy taken at remember
     /// time via `CardCopyService::get_lki_copy`. Callers that care about
@@ -937,6 +941,8 @@ impl Card {
             copied_permanent: None,
             cast_sa: None,
             chosen_charm_modes: HashMap::default(),
+            chosen_modes_your_combat: Vec::new(),
+            chosen_modes_your_last_combat: Vec::new(),
             remembered_lki_cards: Vec::new(),
             lose_control_condition: None,
             temp_effect_until_eot: false,
@@ -1169,6 +1175,8 @@ impl Card {
             copied_permanent: self.copied_permanent,
             cast_sa: None,
             chosen_charm_modes: self.chosen_charm_modes.clone(),
+            chosen_modes_your_combat: self.chosen_modes_your_combat.clone(),
+            chosen_modes_your_last_combat: self.chosen_modes_your_last_combat.clone(),
             remembered_lki_cards: self.remembered_lki_cards.clone(),
             lose_control_condition: self.lose_control_condition,
             temp_effect_until_eot: self.temp_effect_until_eot,
@@ -1415,6 +1423,10 @@ impl Card {
         out.copied_permanent.clone_from(&self.copied_permanent);
         out.cast_sa = None;
         out.chosen_charm_modes.clone_from(&self.chosen_charm_modes);
+        out.chosen_modes_your_combat
+            .clone_from(&self.chosen_modes_your_combat);
+        out.chosen_modes_your_last_combat
+            .clone_from(&self.chosen_modes_your_last_combat);
         out.remembered_lki_cards
             .clone_from(&self.remembered_lki_cards);
         out.lose_control_condition
@@ -4264,8 +4276,10 @@ impl Card {
         // effects don't go through the cast pipeline and leave this `None`.
         self.cast_from.is_some()
     }
-    pub fn on_end_of_combat(&mut self) {
-        self.assigned_damage = 0;
+    pub fn on_end_of_combat(&mut self, active: PlayerId) {
+        if self.controller == active {
+            self.chosen_modes_your_last_combat = std::mem::take(&mut self.chosen_modes_your_combat);
+        }
     }
     pub fn on_cleanup_phase(&mut self) {
         self.became_target_this_turn = false;
