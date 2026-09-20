@@ -78,6 +78,46 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         );
         return;
     }
+    if crate::parsing::raw_has_key(&sa.ability_text, "EachExistingCounter") {
+        let count = resolve_numeric_svar(ctx.game, sa, keys::COUNTER_NUM, 1);
+        for player in sa.target_chosen.all_target_players() {
+            for counter_type in player_counter_kinds(ctx.game, player) {
+                ctx.add_player_counter(
+                    player,
+                    &counter_type,
+                    count,
+                    sa,
+                    RunParams {
+                        source_player: Some(placer),
+                        ..Default::default()
+                    },
+                );
+            }
+        }
+        for card_id in resolve_card_targets(ctx.game, sa) {
+            let existing: Vec<crate::card::CounterType> =
+                ctx.game.card(card_id).counters.keys().cloned().collect();
+            for counter_type in existing {
+                if crate::card::card_predicates::can_receive_counters(
+                    ctx.game,
+                    card_id,
+                    &counter_type,
+                ) {
+                    put_counters_on_card(
+                        ctx,
+                        sa,
+                        card_id,
+                        &counter_type,
+                        count,
+                        placer,
+                        source_controller,
+                    );
+                }
+            }
+        }
+        return;
+    }
+
     if let Some(defined) = crate::parsing::raw_get(&sa.ability_text, "EachFromSource") {
         let sources = crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
             ctx.game, sa, defined,
@@ -423,6 +463,26 @@ fn resolve_card_targets(
             !self_moved && (sa.ir.etb || game.card(card).zone == ZoneType::Battlefield)
         })
         .collect()
+}
+
+/// The counter kinds a player can already have. Java reads `Player.getCounters()`; this engine
+/// keeps them as separate fields, so the equivalent is the ones currently above zero.
+fn player_counter_kinds(
+    game: &crate::game::GameState,
+    player: crate::ids::PlayerId,
+) -> Vec<crate::card::CounterType> {
+    let state = &game.players[player.index()];
+    let mut kinds = Vec::new();
+    for (amount, name) in [
+        (state.poison_counters, "POISON"),
+        (state.energy_counters, "ENERGY"),
+        (state.radiation_counters, "RAD"),
+    ] {
+        if amount > 0 {
+            kinds.push(parse_counter_type(name));
+        }
+    }
+    kinds
 }
 
 /// True when CountersPutEffect.java:625-636 would route the CounterType
