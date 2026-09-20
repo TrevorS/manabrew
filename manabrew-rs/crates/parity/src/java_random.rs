@@ -98,15 +98,7 @@ pub struct JavaGameRng(pub Rc<RefCell<JavaRandom>>);
 
 impl GameRng for JavaGameRng {
     fn shuffle_cards(&mut self, cards: &mut [CardId]) {
-        // Rust stores libraries with last-element-is-top (pop() = draw).
-        // Java stores them with index-0-is-top.
-        // Fisher-Yates is order-dependent, so we must:
-        //   1. Convert to Java orientation (reverse)
-        //   2. Shuffle (producing Java-compatible result)
-        //   3. Convert back to Rust orientation (reverse)
-        cards.reverse();
         self.0.borrow_mut().shuffle(cards);
-        cards.reverse();
     }
 
     fn next_int(&mut self, bound: i32) -> i32 {

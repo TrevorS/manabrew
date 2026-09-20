@@ -158,7 +158,9 @@ impl Zone {
     /// All game randomness must flow through the game's RNG for
     /// deterministic replay and parity testing.
     pub fn shuffle(&mut self, rng: &mut dyn crate::game_rng::GameRng) {
+        self.cards.reverse();
         rng.shuffle_cards(&mut self.cards);
+        self.cards.reverse();
     }
 
     // ── Battlefield-specific methods ────────────────────────────────

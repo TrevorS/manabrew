@@ -22,7 +22,11 @@ use crate::ids::CardId;
 /// while normal gameplay uses the default thread-local RNG.
 pub trait GameRng {
     /// Shuffle a slice of CardIds in-place.
-    /// Must match `java.util.Collections.shuffle(list, rng)` for parity.
+    /// Must match `java.util.Collections.shuffle(list, rng)` for parity, so the slice has to be in
+    /// the order Java's own list is in. Fisher-Yates walks from the end, so reversing the slice
+    /// first draws the same numbers onto different positions. A caller holding a library, which
+    /// Rust stores last-element-is-top against Java's index-0-is-top, converts around this call;
+    /// `Zone::shuffle` is the only one that does.
     fn shuffle_cards(&mut self, cards: &mut [CardId]);
 
     /// Return a random integer in `[0, bound)`.
