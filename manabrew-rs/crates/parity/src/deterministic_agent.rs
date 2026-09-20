@@ -275,10 +275,11 @@ impl DeterministicAgent {
         }
     }
 
-    /// Keep in sync with `DeterministicController.chooseTargetsFor`: pick one
-    /// candidate at a time until the minimum is met; once it is met and more
-    /// targets are still allowed, draw one boolean and stop either way (the
-    /// Java loop ends as soon as the target count is valid).
+    /// Keep in sync with `DeterministicController.chooseTargetsFor`: pick one candidate at a
+    /// time; stop when no more targets may be added, and once the minimum is met draw one
+    /// boolean per extra pick, continuing while it is true. Java's loop is
+    /// `if (isMinTargetChosen() && !ChoiceSpace.pickBool(rng)) break;` — a true keeps going, so
+    /// it can take more than the minimum.
     fn choose_targets_like_java(
         &mut self,
         mut remaining: Vec<CardId>,
@@ -287,7 +288,7 @@ impl DeterministicAgent {
     ) -> Vec<CardId> {
         let mut chosen = Vec::new();
         let mut rng = self.rng.borrow_mut();
-        while chosen.len() < min && !remaining.is_empty() {
+        while chosen.len() < max && !remaining.is_empty() {
             let Some(pick) = choice_space::pick_one(&remaining, &mut rng) else {
                 break;
             };
@@ -297,9 +298,10 @@ impl DeterministicAgent {
                 break;
             }
             if chosen.len() >= min {
-                choice_space::pick_bool(&mut rng);
                 self.target_loop_drew_continue = true;
-                break;
+                if !choice_space::pick_bool(&mut rng) {
+                    break;
+                }
             }
         }
         chosen
