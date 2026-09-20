@@ -25,7 +25,8 @@ pub fn get_available_attackers(game: &GameState, player: PlayerId) -> Vec<CardId
                 && (card.has_haste() || !card.summoning_sick)
                 && card.zone == ZoneType::Battlefield
                 && card.has_defender()
-                && crate::staticability::static_ability_can_attack_defender::can_attack_defender(
+                && crate::staticability::static_ability_cant_attack_block::can_attack_defender(
+                    game,
                     &game.cards,
                     card,
                     defending,
@@ -60,7 +61,8 @@ pub fn can_attack_defender(game: &GameState, attacker_id: CardId, defender: Defe
 
     // Check per-defender CantAttack static abilities
     if let DefenderId::Player(pid) = defender {
-        if !crate::staticability::static_ability_can_attack_defender::can_attack_defender(
+        if !crate::staticability::static_ability_cant_attack_block::can_attack_defender(
+            game,
             &game.cards,
             card,
             pid,
@@ -397,7 +399,8 @@ pub fn can_attack_next_turn(game: &GameState, attacker_id: CardId, defender: Def
         return false;
     }
     if let DefenderId::Player(pid) = defender {
-        if !crate::staticability::static_ability_can_attack_defender::can_attack_defender(
+        if !crate::staticability::static_ability_cant_attack_block::can_attack_defender(
+            game,
             &game.cards,
             card,
             pid,

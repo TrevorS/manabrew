@@ -7,7 +7,6 @@ pub mod static_ability_assign_combat_damage_as_unblocked;
 pub mod static_ability_assign_no_combat_damage;
 pub mod static_ability_attack_restrict;
 pub mod static_ability_block_restrict;
-pub mod static_ability_can_attack_defender;
 pub mod static_ability_cant_attach;
 pub mod static_ability_cant_attack_block;
 pub mod static_ability_cant_be_cast;
