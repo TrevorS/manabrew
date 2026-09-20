@@ -623,6 +623,12 @@ fn matches_card_predicate(
         SelectorPredicate::Renowned => card.is_renowned,
         SelectorPredicate::Foretold => card.foretold,
         SelectorPredicate::Goaded => card.goaded_by.is_some(),
+        SelectorPredicate::DoubleFaced => card.is_double_faced(),
+        SelectorPredicate::Transformed => card.is_transformed,
+        SelectorPredicate::CanProduceMana => {
+            card.activated_abilities.iter().any(|a| a.is_mana_ability)
+        }
+        SelectorPredicate::NoAbilities => card.has_no_abilities(),
         SelectorPredicate::CardSupertype(supertype) => {
             matches_card_supertype_predicate(*supertype, card)
         }
@@ -2678,6 +2684,10 @@ fn matches_player_predicate(
         | SelectorPredicate::Renowned
         | SelectorPredicate::Foretold
         | SelectorPredicate::Goaded
+        | SelectorPredicate::DoubleFaced
+        | SelectorPredicate::Transformed
+        | SelectorPredicate::CanProduceMana
+        | SelectorPredicate::NoAbilities
         | SelectorPredicate::Token(_)
         | SelectorPredicate::Color(_)
         | SelectorPredicate::Multicolor
