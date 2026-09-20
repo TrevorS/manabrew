@@ -123,6 +123,31 @@ struct GameSnapshot {
     stack_depth: usize,
 }
 
+/// Refill a snapshot lookup table in place, keeping the `Vec` and each `String` buffer, so a
+/// decision that changes nothing allocates nothing.
+fn refill_named<'a, K>(dst: &mut Vec<(K, String)>, src: impl Iterator<Item = (K, &'a str)>) {
+    let mut len = 0;
+    for (key, value) in src {
+        match dst.get_mut(len) {
+            Some(slot) => {
+                slot.0 = key;
+                if slot.1 != value {
+                    slot.1.clear();
+                    slot.1.push_str(value);
+                }
+            }
+            None => dst.push((key, value.to_string())),
+        }
+        len += 1;
+    }
+    dst.truncate(len);
+}
+
+fn refill<T>(dst: &mut Vec<T>, src: impl Iterator<Item = T>) {
+    dst.clear();
+    dst.extend(src);
+}
+
 #[derive(Clone, Copy)]
 enum ActionChoice {
     Card(PlayOption),
@@ -942,12 +967,34 @@ impl PlayerAgent for DeterministicAgent {
             self.parity_map.sync_with_game(game);
         }
 
-        let player_names: Vec<(PlayerId, String)> = game
-            .players
-            .iter()
-            .map(|player| (player.id, player.name.clone()))
-            .collect();
-        let (card_names, card_is_land, card_owner_controller) = {
+        let (
+            mut player_names,
+            mut card_names,
+            mut card_is_land,
+            mut card_owner_controller,
+            mut ability_is_mana,
+            mut ability_texts,
+            mut stack_sources,
+        ) = match self.last_game_snapshot.take() {
+            Some(prev) => (
+                prev.player_names,
+                prev.card_names,
+                prev.card_is_land,
+                prev.card_owner_controller,
+                prev.ability_is_mana,
+                prev.ability_texts,
+                prev.stack_sources,
+            ),
+            None => Default::default(),
+        };
+
+        refill_named(
+            &mut player_names,
+            game.players
+                .iter()
+                .map(|player| (player.id, player.name.as_str())),
+        );
+        {
             let _perf_scope = split_priority_snapshot
                 .then(|| {
                     manabrew_engine::perf::ParamsLookupScopeGuard::enter(
@@ -955,28 +1002,29 @@ impl PlayerAgent for DeterministicAgent {
                     )
                 })
                 .flatten();
-            let card_names: Vec<(CardId, String)> = game
-                .cards
-                .iter()
-                .map(|c| {
+            refill_named(
+                &mut card_names,
+                game.cards.iter().map(|c| {
                     let name = if c.face_down {
-                        String::new()
+                        ""
                     } else {
-                        c.card_name.clone()
+                        c.card_name.as_str()
                     };
                     (c.id, name)
-                })
-                .collect();
-            let card_is_land: Vec<(CardId, bool)> =
-                game.cards.iter().map(|c| (c.id, c.is_land())).collect();
-            let card_owner_controller: Vec<(CardId, (u32, u32))> = game
-                .cards
-                .iter()
-                .map(|c| (c.id, (c.owner.0, c.controller.0)))
-                .collect();
-            (card_names, card_is_land, card_owner_controller)
+                }),
+            );
+            refill(
+                &mut card_is_land,
+                game.cards.iter().map(|c| (c.id, c.is_land())),
+            );
+            refill(
+                &mut card_owner_controller,
+                game.cards
+                    .iter()
+                    .map(|c| (c.id, (c.owner.0, c.controller.0))),
+            );
         };
-        let (ability_is_mana, ability_texts) = {
+        {
             let _perf_scope = split_priority_snapshot
                 .then(|| {
                     manabrew_engine::perf::ParamsLookupScopeGuard::enter(
@@ -984,25 +1032,22 @@ impl PlayerAgent for DeterministicAgent {
                     )
                 })
                 .flatten();
-            let ability_is_mana: Vec<((CardId, usize), bool)> = game
-                .cards
-                .iter()
-                .flat_map(|c| {
+            refill(
+                &mut ability_is_mana,
+                game.cards.iter().flat_map(|c| {
                     c.activated_abilities
                         .iter()
                         .map(move |ab| ((c.id, ab.ability_index), ab.is_mana_ability))
-                })
-                .collect();
-            let ability_texts: Vec<((CardId, usize), String)> = game
-                .cards
-                .iter()
-                .flat_map(|c| {
+                }),
+            );
+            refill_named(
+                &mut ability_texts,
+                game.cards.iter().flat_map(|c| {
                     c.activated_abilities
                         .iter()
-                        .map(move |ab| ((c.id, ab.ability_index), ab.ability_text.clone()))
-                })
-                .collect();
-            (ability_is_mana, ability_texts)
+                        .map(move |ab| ((c.id, ab.ability_index), ab.ability_text.as_str()))
+                }),
+            );
         };
         {
             let _perf_scope = split_priority_snapshot
@@ -1014,11 +1059,12 @@ impl PlayerAgent for DeterministicAgent {
                 .flatten();
             self.snapshot_game = Some(Self::shallow_game_state(self.snapshot_game.take(), game));
         }
-        let stack_sources: Vec<(u32, CardId)> = game
-            .stack
-            .iter()
-            .filter_map(|entry| entry.spell_ability.source.map(|source| (entry.id, source)))
-            .collect();
+        refill(
+            &mut stack_sources,
+            game.stack
+                .iter()
+                .filter_map(|entry| entry.spell_ability.source.map(|source| (entry.id, source))),
+        );
         self.last_game_snapshot = Some(GameSnapshot {
             stack_sources,
             player_names,
