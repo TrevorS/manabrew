@@ -136,6 +136,10 @@ pub enum DefinedCardToken {
     Attached,
     EnchantedBy,
     Imprinted,
+    /// Java reads the imprinted cards without `getCardState`; one `Card` per id here, so it
+    /// resolves to the same list as `Imprinted`.
+    #[strum(serialize = "ImprintedLKI")]
+    ImprintedLki,
     #[strum(serialize = "TopOfLibrary", serialize = "OfLibrary")]
     TopOfLibrary,
     TopOfGraveyard,
@@ -249,7 +253,7 @@ fn resolve_defined_card_token(
                     .collect::<Vec<_>>()
             })
             .collect(),
-        DefinedCardToken::Imprinted => host_card
+        DefinedCardToken::Imprinted | DefinedCardToken::ImprintedLki => host_card
             .map(|src| game.card(src).imprinted_cards.clone())
             .unwrap_or_default(),
         DefinedCardToken::TopOfLibrary => activating_player
