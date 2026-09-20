@@ -219,8 +219,7 @@ fn produce_mana_for_player(
         return;
     }
     let is_combo = produced_ir.is_choice_like();
-    if amount > 1 && is_combo {
-        // Multi-amount combo: let agent choose color distribution.
+    if is_combo {
         // Java's `ManaEffect` calls `chooseColor` once per output unit, then
         // emits a `specifyManaCombo` summary. Mirror that here so the parity
         // trace and the per-mana RNG draws line up.
@@ -251,25 +250,34 @@ fn produce_mana_for_player(
                 })
                 .collect()
         };
+        let all_colorless = available.iter().all(|c| c == "C");
         let mut per_unit: Vec<String> = Vec::with_capacity(amount as usize);
         for _ in 0..amount {
-            let pick = ctx.agents[chooser.index()]
-                .choose_color(chooser, &available)
-                .or_else(|| available.first().cloned())
-                .unwrap_or_else(|| "C".to_string());
+            let pick = if all_colorless {
+                available
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| "C".to_string())
+            } else {
+                ctx.agents[chooser.index()]
+                    .choose_color(chooser, &available)
+                    .or_else(|| available.first().cloned())
+                    .unwrap_or_else(|| "C".to_string())
+            };
             per_unit.push(pick);
         }
         // Emit a summary `specify_mana_combo` callback so the parity trace
         // matches Java's harness logging pattern. The agent's pick here is
         // ignored; the per-unit `choose_color` results above are authoritative.
-        let _card_name = ctx.game.card(source_id).card_name.clone();
-        let _summary = ctx.agents[chooser.index()].specify_mana_combo(
-            chooser,
-            &per_unit,
-            amount as usize,
-            Some(source_id),
-            None,
-        );
+        if amount > 1 {
+            let _summary = ctx.agents[chooser.index()].specify_mana_combo(
+                chooser,
+                &per_unit,
+                amount as usize,
+                Some(source_id),
+                None,
+            );
+        }
         final_mana = per_unit.join(" ");
     } else if amount > 1 {
         let base = final_mana.clone();
