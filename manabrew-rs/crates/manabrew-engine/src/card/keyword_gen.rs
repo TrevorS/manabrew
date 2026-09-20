@@ -105,6 +105,18 @@ impl Card {
             });
         }
 
+        if self
+            .keywords
+            .iter_strings()
+            .chain(self.granted_keywords.iter_strings())
+            .any(|k| k == "Decayed")
+        {
+            let raw = "S:Mode$ CantBlock | ValidCard$ Creature.Self | Secondary$ True | Description$ CARDNAME can't block.";
+            if let Some(sa) = parse_static_ability(raw) {
+                self.add_static_ability(sa);
+            }
+        }
+
         // Morph / Megamorph / Disguise: mark card as castable face-down for {3}.
         // The actual casting logic is in game_action_util (playable check + cost handling).
         if self
@@ -502,6 +514,22 @@ impl Card {
             self.svars
                 .entry("TrigProwess".to_string())
                 .or_insert_with(|| "DB$ Pump | Defined$ Self | NumAtt$ 1 | NumDef$ 1".to_string());
+        }
+
+        if kw == "Decayed" {
+            let raw = "Mode$ Attacks | ValidCard$ Card.Self | Secondary$ True | Execute$ TrigDecayed | TriggerDescription$ When a creature with decayed attacks, sacrifice it at end of combat.";
+            if let Some(mut trig) = parse_trigger(raw, next_id) {
+                trig.execute = "TrigDecayed".to_string();
+                self.add_trigger(trig);
+            }
+            self.svars
+                .entry("TrigDecayed".to_string())
+                .or_insert_with(|| {
+                    "DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | Execute$ TrigDecayedSac | TriggerDescription$ At end of combat, sacrifice CARDNAME.".to_string()
+                });
+            self.svars
+                .entry("TrigDecayedSac".to_string())
+                .or_insert_with(|| "DB$ Sacrifice | Defined$ Self".to_string());
         }
 
         if kw == "Storied" && self.is_permanent() {
