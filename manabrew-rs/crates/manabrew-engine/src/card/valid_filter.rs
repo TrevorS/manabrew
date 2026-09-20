@@ -619,6 +619,10 @@ fn matches_card_predicate(
         SelectorPredicate::Commander => card.is_commander,
         SelectorPredicate::Legendary => card.type_line.is_legendary(),
         SelectorPredicate::Kicked => card.kicked,
+        SelectorPredicate::Monstrous => card.monstrous,
+        SelectorPredicate::Renowned => card.is_renowned,
+        SelectorPredicate::Foretold => card.foretold,
+        SelectorPredicate::Goaded => card.goaded_by.is_some(),
         SelectorPredicate::CardSupertype(supertype) => {
             matches_card_supertype_predicate(*supertype, card)
         }
@@ -2670,6 +2674,10 @@ fn matches_player_predicate(
         | SelectorPredicate::Commander
         | SelectorPredicate::Legendary
         | SelectorPredicate::Kicked
+        | SelectorPredicate::Monstrous
+        | SelectorPredicate::Renowned
+        | SelectorPredicate::Foretold
+        | SelectorPredicate::Goaded
         | SelectorPredicate::Token(_)
         | SelectorPredicate::Color(_)
         | SelectorPredicate::Multicolor

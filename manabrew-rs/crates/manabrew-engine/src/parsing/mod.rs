@@ -239,6 +239,10 @@ pub enum SelectorPredicate {
     Commander,
     Legendary,
     Kicked,
+    Monstrous,
+    Renowned,
+    Foretold,
+    Goaded,
     Token(bool),
     Color(CardColorSelector),
     Multicolor,
@@ -975,7 +979,11 @@ fn selector_predicate_order(predicate: &SelectorPredicate) -> u8 {
         | SelectorPredicate::Colorless
         | SelectorPredicate::Commander
         | SelectorPredicate::Legendary
-        | SelectorPredicate::Kicked => 0,
+        | SelectorPredicate::Kicked
+        | SelectorPredicate::Monstrous
+        | SelectorPredicate::Renowned
+        | SelectorPredicate::Foretold
+        | SelectorPredicate::Goaded => 0,
         SelectorPredicate::CardIdentity(_) | SelectorPredicate::PlayerController(_) => 1,
         SelectorPredicate::NumericComparison { .. }
         | SelectorPredicate::NumericParity { .. }
@@ -1080,6 +1088,10 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "basic" => SelectorPredicate::CardSupertype(CardSupertypeSelector::Basic),
         "snow" => SelectorPredicate::CardSupertype(CardSupertypeSelector::Snow),
         "kicked" => SelectorPredicate::Kicked,
+        "ismonstrous" => SelectorPredicate::Monstrous,
+        "isrenowned" => SelectorPredicate::Renowned,
+        "foretold" => SelectorPredicate::Foretold,
+        "isgoaded" => SelectorPredicate::Goaded,
         "token" => SelectorPredicate::Token(true),
         "nontoken" => SelectorPredicate::Token(false),
         "creature" => SelectorPredicate::CardType(CardSelectorType::Creature),
