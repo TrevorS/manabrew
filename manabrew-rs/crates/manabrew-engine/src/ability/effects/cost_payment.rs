@@ -724,6 +724,17 @@ fn try_pay_effect_cost(
 /// Returns `None` when a `DefinedCost_*` reference resolves to nothing (Java
 /// returns `null`, which short-circuits the unless-cost branch).
 fn calculate_unless_cost(game: &GameState, sa: &SpellAbility, unless_cost: &str) -> Option<Cost> {
+    // Java leaves `UnlessCost$ X` symbolic and lets `ManaCostBeingPaid` read the X the spell
+    // was cast for; there is no such late binding here, so it is substituted up front.
+    if unless_cost == "X" {
+        let x_paid = sa
+            .source
+            .and_then(|card_id| game.card(card_id).svars.get("XPaid"))
+            .and_then(|value| value.parse::<i32>().ok())
+            .unwrap_or(0);
+        return Some(parse_cost(&x_paid.to_string()));
+    }
+
     if unless_cost == "ChosenNumber" {
         let n = sa
             .source
