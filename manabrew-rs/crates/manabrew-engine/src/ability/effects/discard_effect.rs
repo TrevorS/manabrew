@@ -64,6 +64,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     let target_players = get_target_players(ctx.game, sa);
     let first_target = target_players.first().copied();
+    // Java fills `discardedMap` with every player that got as far as discarding and hands its
+    // key set to `RememberDiscardingPlayers$`; the players are collected here instead.
+    let mut discarding_players: Vec<crate::ids::PlayerId> = Vec::new();
 
     for target_player in target_players.iter().copied() {
         let mut hand: Vec<_> = ctx
@@ -168,6 +171,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     );
                 }
             }
+            discarding_players.push(target_player);
             continue;
         }
 
@@ -205,9 +209,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     );
                 }
             }
+            discarding_players.push(target_player);
             continue;
         }
 
+        discarding_players.push(target_player);
         let unless_type_choice = mode == DiscardMode::TgtChoose && sa.ir.unless_type.is_some();
         let max = if any_number {
             hand.len()
@@ -287,6 +293,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     ctx.trigger_handler,
                 );
             }
+        }
+    }
+
+    if crate::parsing::raw_has_key(&sa.ability_text, "RememberDiscardingPlayers") {
+        if let Some(source_id) = sa.source {
+            ctx.game
+                .card_mut(source_id)
+                .add_remembered_players(discarding_players);
         }
     }
 }
