@@ -51,6 +51,7 @@ pub const VALID_RESULT: &str = "ValidResult";
 pub const VALID_SA: &str = "ValidSA";
 pub const VALID_SA_ON_CARD: &str = "ValidSAonCard";
 pub const VALID_SIDES: &str = "ValidSides";
+pub const TARGETS_VALID: &str = "TargetsValid";
 pub const VALID_SOURCE: &str = "ValidSource";
 pub const VALID_SPELL: &str = "ValidSpell";
 pub const VALID_TARGET: &str = "ValidTarget";

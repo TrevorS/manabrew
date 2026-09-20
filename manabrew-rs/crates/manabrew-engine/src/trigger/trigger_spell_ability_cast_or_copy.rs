@@ -17,6 +17,8 @@ pub struct TriggerSpellAbilityCastOrCopy {
     pub valid_sa: Option<String>,
     #[serde(default)]
     pub valid_sa_on_card: Option<String>,
+    #[serde(default)]
+    pub targets_valid: Option<crate::parsing::CompiledSelector>,
 }
 
 impl TriggerSpellAbilityCastOrCopy {
@@ -25,6 +27,7 @@ impl TriggerSpellAbilityCastOrCopy {
         let valid_activating_player = params.selector_cloned(keys::VALID_ACTIVATING_PLAYER);
         let valid_sa = params.get_cloned(keys::VALID_SA);
         let valid_sa_on_card = params.get_cloned(keys::VALID_SA_ON_CARD);
+        let targets_valid = params.selector_cloned(keys::TARGETS_VALID);
         let trigger_type = match mode_str {
             "SpellCast" => TriggerType::SpellCast,
             "AbilityCast" => TriggerType::AbilityCast,
@@ -44,6 +47,7 @@ impl TriggerSpellAbilityCastOrCopy {
             valid_activating_player,
             valid_sa,
             valid_sa_on_card,
+            targets_valid,
         })
     }
 }
@@ -93,9 +97,51 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
                 _ => false,
             }
         });
+        let targets_valid_matches = self.targets_valid.as_ref().is_none_or(|filter| {
+            let Some(spell) = params.source_sa.as_ref().or(params.spell_ability.as_ref()) else {
+                return false;
+            };
+            let raw = filter.as_raw();
+            let host = game.card(trigger.host_card_id());
+            let host_controller = trigger.base.card_trait_base.host_controller(game);
+            let mut node = Some(spell);
+            while let Some(sa) = node {
+                if sa.uses_targeting() {
+                    let card_matches = sa.target_chosen.target_card.is_some_and(|card_id| {
+                        crate::card::valid_filter::matches_valid(
+                            &raw,
+                            Some(game.card(card_id)),
+                            None,
+                            host,
+                            host_controller,
+                        )
+                    });
+                    let player_matches =
+                        sa.target_chosen
+                            .all_target_players()
+                            .into_iter()
+                            .any(|player| {
+                                crate::card::valid_filter::matches_valid(
+                                    &raw,
+                                    None,
+                                    Some(player),
+                                    host,
+                                    host_controller,
+                                )
+                            });
+                    if card_matches || player_matches {
+                        return true;
+                    }
+                }
+                node = sa.sub_ability.as_deref();
+            }
+            false
+        });
+
         valid_card_matches
             && valid_sa_matches
             && valid_sa_on_card_matches
+            && targets_valid_matches
             && trigger.matches_optional_valid_player_filter(
                 &self.valid_activating_player,
                 params.activator.or(params.spell_controller),
