@@ -679,6 +679,15 @@ pub fn add_until_command(
                 game.end_of_turn.add_until_end(controller, until);
             }
         }
+        Some(crate::spellability::AbilityDuration::UntilEndOfCombat) => {
+            game.end_of_combat.add_until(None, until);
+        }
+        Some(crate::spellability::AbilityDuration::UntilNextEndStep) => {
+            game.end_of_turn.add_at(until);
+        }
+        Some(crate::spellability::AbilityDuration::UntilYourNextEndStep) => {
+            game.end_of_turn.add_until(Some(controller), until);
+        }
         _ => return false,
     }
     true
