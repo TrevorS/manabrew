@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.47.0](https://github.com/witchesofthehill/manabrew/compare/v3.46.1...v3.47.0) (2026-09-20)
+
+### Features
+
+* **telemetry:** split engine think by who owned the wait ([#961](https://github.com/witchesofthehill/manabrew/issues/961)) ([a77fece](https://github.com/witchesofthehill/manabrew/commit/a77fece1cf9553c3f6dd58f553e408d0f0076487))
+
 ## [3.46.1](https://github.com/witchesofthehill/manabrew/compare/v3.46.0...v3.46.1) (2026-09-19)
 
 ### Performance
