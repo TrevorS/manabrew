@@ -80,6 +80,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         if unlocked {
+            if let Some(state) = sa
+                .ir
+                .card_state_name
+                .as_deref()
+                .and_then(forge_foundation::CardStateName::from_str_compat)
+            {
+                ctx.game.card_mut(card_id).unlock_room_door(state);
+                ctx.trigger_handler
+                    .register_active_trigger(ctx.game, card_id);
+            }
             ctx.trigger_handler.run_trigger(
                 TriggerType::UnlockDoor,
                 RunParams {

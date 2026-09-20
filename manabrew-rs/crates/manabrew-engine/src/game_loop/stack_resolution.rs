@@ -491,18 +491,27 @@ impl GameLoop {
                     );
                 }
 
-                // Register triggers for the new permanent
-                self.trigger_handler.register_active_trigger(game, card_id);
-
-                if game.card(card_id).type_line.has_subtype("Room")
-                    && game.card(card_id).has_s_var("RoomRightSplitCost")
-                {
-                    let card_state_name = entry
+                let room_door = (game.card(card_id).type_line.has_subtype("Room")
+                    && game.card(card_id).has_s_var("RoomRightSplitCost"))
+                .then(|| {
+                    entry
                         .spell_ability
                         .ir
                         .card_state_name
                         .clone()
-                        .or_else(|| Some("LeftSplit".to_string()));
+                        .unwrap_or_else(|| "LeftSplit".to_string())
+                });
+                if let Some(door) = room_door.as_deref() {
+                    if let Some(state) = forge_foundation::CardStateName::from_str_compat(door) {
+                        game.card_mut(card_id).unlock_room_door(state);
+                    }
+                }
+
+                // Register triggers for the new permanent
+                self.trigger_handler.register_active_trigger(game, card_id);
+
+                if let Some(door) = room_door {
+                    let card_state_name = Some(door);
                     self.trigger_handler.run_trigger(
                         TriggerType::UnlockDoor,
                         RunParams {

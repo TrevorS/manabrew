@@ -4268,6 +4268,33 @@ impl Card {
     pub fn update_replacement_effects(&mut self) {
         self.recompute_changed_card_traits();
     }
+    /// Which of a Room's doors are open. Forge keeps the open door as the card's current
+    /// state and registers only that state's triggers; this port holds both faces' traits on
+    /// one card, so the open doors are listed here and the traits are filtered by them.
+    pub fn room_door_unlocked(&self, state: forge_foundation::CardStateName) -> bool {
+        let Some(doors) = self.svars.get("UnlockedDoors") else {
+            return true;
+        };
+        doors
+            .split(',')
+            .filter_map(forge_foundation::CardStateName::from_str_compat)
+            .any(|door| door == state)
+    }
+
+    pub fn unlock_room_door(&mut self, state: forge_foundation::CardStateName) {
+        if self.room_door_unlocked(state) && self.svars.contains_key("UnlockedDoors") {
+            return;
+        }
+        let name = format!("{state:?}");
+        match self.svars.get("UnlockedDoors") {
+            Some(doors) if !doors.is_empty() => {
+                let merged = format!("{doors},{name}");
+                self.set_s_var("UnlockedDoors", &merged);
+            }
+            _ => self.set_s_var("UnlockedDoors", &name),
+        }
+    }
+
     pub fn get_unlocked_room_count(&self) -> i32 {
         if let Some(count) = self
             .svars

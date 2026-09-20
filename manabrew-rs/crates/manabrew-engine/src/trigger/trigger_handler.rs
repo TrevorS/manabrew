@@ -1169,6 +1169,16 @@ impl TriggerHandler {
         if !trigger.get_active_zone().contains(&card.zone) {
             return;
         }
+        if let Some(state) = trigger.base.card_trait_base.get_card_state_name() {
+            if matches!(
+                state,
+                forge_foundation::CardStateName::LeftSplit
+                    | forge_foundation::CardStateName::RightSplit
+            ) && !card.room_door_unlocked(state)
+            {
+                return;
+            }
+        }
         // NOTE: Do NOT call phases_check here.  Phase-gated triggers (e.g.
         // "At the beginning of your upkeep") must be registered as active
         // regardless of the current phase; the phase filter is evaluated at
