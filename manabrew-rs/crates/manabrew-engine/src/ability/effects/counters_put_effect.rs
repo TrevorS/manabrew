@@ -78,6 +78,38 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         );
         return;
     }
+    if let Some(defined) = crate::parsing::raw_get(&sa.ability_text, "EachFromSource") {
+        let sources = crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+            ctx.game, sa, defined,
+        );
+        let explicit = crate::parsing::raw_has_key(&sa.ability_text, "CounterNum");
+        let count = resolve_numeric_svar(ctx.game, sa, keys::COUNTER_NUM, 1);
+        for card_id in resolve_card_targets(ctx.game, sa) {
+            for source_card in &sources {
+                let counters: Vec<(crate::card::CounterType, i32)> = ctx
+                    .game
+                    .card(*source_card)
+                    .counters
+                    .iter()
+                    .map(|(ct, n)| (ct.clone(), *n))
+                    .collect();
+                for (counter_type, on_source) in counters {
+                    let amount = if explicit { count } else { on_source };
+                    put_counters_on_card(
+                        ctx,
+                        sa,
+                        card_id,
+                        &counter_type,
+                        amount,
+                        placer,
+                        source_controller,
+                    );
+                }
+            }
+        }
+        return;
+    }
+
     let counter_type_str = sa.ir.counter_type_text.as_deref().unwrap_or("P1P1");
     // Mirror Java CountersPutEffect.java:625-636 — when none of the multi-type
     // dispatch params are present, route the type through the player controller's
