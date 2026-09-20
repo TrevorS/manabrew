@@ -26,6 +26,24 @@ impl GameLoop {
         })
     }
 
+    /// Java `WrappedAbility.resolve`: a trigger whose intervening-if has stopped holding does
+    /// nothing when it resolves, unless it is an Always trigger or asks for `NoResolvingCheck$`.
+    fn trigger_requirements_still_met(game: &GameState, sa: &SpellAbility) -> bool {
+        let Some(index) = sa.trigger_index else {
+            return true;
+        };
+        let Some(host) = sa.trigger_source.or(sa.source) else {
+            return true;
+        };
+        let Some(trigger) = game.card(host).triggers.get(index) else {
+            return true;
+        };
+        if trigger.kind == crate::trigger::TriggerType::Always || trigger.ir.no_resolving_check {
+            return true;
+        }
+        trigger.requirements_check(game, host)
+    }
+
     fn effect_kind_for_sa(sa: &SpellAbility) -> String {
         if let Some(api) = sa.api {
             return api.name().to_string();
@@ -187,6 +205,13 @@ impl GameLoop {
                     }
                 }
             }
+            apply_continuous_effects(game);
+            return;
+        }
+
+        if entry.spell_ability.is_trigger
+            && !Self::trigger_requirements_still_met(game, &entry.spell_ability)
+        {
             apply_continuous_effects(game);
             return;
         }
