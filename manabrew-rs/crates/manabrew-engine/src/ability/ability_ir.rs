@@ -1249,8 +1249,27 @@ pub enum DefinedRef {
 
 impl DefinedRef {
     pub fn parse(raw: &str) -> Self {
-        raw.parse()
-            .unwrap_or_else(|_| Self::Unsupported(raw.to_string()))
+        let parsed: Self = raw
+            .parse()
+            .unwrap_or_else(|_| Self::Unsupported(raw.to_string()));
+        if parsed.is_supported() {
+            return parsed;
+        }
+        // Java reads any `Triggered<X>LKICopy` from the same triggering object as
+        // `Triggered<X>` (`AbilityUtils.getDefinedCards`, the `Triggered` branch). One `Card`
+        // per id here, so the LKI copy is that card.
+        if let Some(stripped) = raw
+            .strip_suffix("LKICopy")
+            .filter(|stripped| stripped.starts_with("Triggered"))
+        {
+            let fallback: Self = stripped
+                .parse()
+                .unwrap_or_else(|_| Self::Unsupported(stripped.to_string()));
+            if fallback.is_supported() {
+                return fallback;
+            }
+        }
+        parsed
     }
 
     pub fn is_supported(&self) -> bool {
