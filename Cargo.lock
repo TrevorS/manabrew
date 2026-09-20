@@ -4295,7 +4295,7 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "loadgen"
-version = "0.2.27"
+version = "0.2.28"
 dependencies = [
  "futures-util",
  "manabot",
@@ -4379,7 +4379,7 @@ dependencies = [
 
 [[package]]
 name = "manabot"
-version = "0.13.3"
+version = "0.13.4"
 dependencies = [
  "bitflags 2.11.0",
  "futures-util",
@@ -4397,7 +4397,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew"
-version = "3.47.1"
+version = "3.47.2"
 dependencies = [
  "flate2",
  "forge-carddb",
@@ -7086,7 +7086,7 @@ dependencies = [
 
 [[package]]
 name = "self-hosted-node"
-version = "0.34.1"
+version = "0.34.2"
 dependencies = [
  "forge-carddb",
  "forge-foundation",
@@ -9264,7 +9264,7 @@ dependencies = [
 
 [[package]]
 name = "wasm"
-version = "0.10.4"
+version = "0.10.5"
 dependencies = [
  "console_error_panic_hook",
  "forge-carddb",
