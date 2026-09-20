@@ -17,6 +17,8 @@ use std::sync::{Mutex, OnceLock};
 use forge_foundation::ZoneType;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::spellability::AlternativeCost;
+
 pub use amount::AmountExpr;
 pub use card_script::{
     parse_semantic_param_value, ParamDiagnostic, ParamDiagnosticKind, ParamEntry, ParsedCardScript,
@@ -247,7 +249,7 @@ pub enum SelectorPredicate {
     Transformed,
     CanProduceMana,
     NoAbilities,
-    Escaped,
+    CastWith(AlternativeCost),
     Token(bool),
     Color(CardColorSelector),
     Multicolor,
@@ -993,7 +995,7 @@ fn selector_predicate_order(predicate: &SelectorPredicate) -> u8 {
         | SelectorPredicate::Transformed
         | SelectorPredicate::CanProduceMana
         | SelectorPredicate::NoAbilities
-        | SelectorPredicate::Escaped => 0,
+        | SelectorPredicate::CastWith(_) => 0,
         SelectorPredicate::CardIdentity(_) | SelectorPredicate::PlayerController(_) => 1,
         SelectorPredicate::NumericComparison { .. }
         | SelectorPredicate::NumericParity { .. }
@@ -1106,7 +1108,15 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "transformed" => SelectorPredicate::Transformed,
         "canproducemana" => SelectorPredicate::CanProduceMana,
         "noabilities" => SelectorPredicate::NoAbilities,
-        "escaped" => SelectorPredicate::Escaped,
+        "escaped" => SelectorPredicate::CastWith(AlternativeCost::Escape),
+        "prowled" => SelectorPredicate::CastWith(AlternativeCost::Prowl),
+        "spectacle" => SelectorPredicate::CastWith(AlternativeCost::Spectacle),
+        "surged" => SelectorPredicate::CastWith(AlternativeCost::Surge),
+        "blitzed" => SelectorPredicate::CastWith(AlternativeCost::Blitz),
+        "dashed" => SelectorPredicate::CastWith(AlternativeCost::Dash),
+        "evoked" => SelectorPredicate::CastWith(AlternativeCost::Evoke),
+        "impended" => SelectorPredicate::CastWith(AlternativeCost::Impending),
+        "webslinged" => SelectorPredicate::CastWith(AlternativeCost::WebSlinging),
         "token" => SelectorPredicate::Token(true),
         "nontoken" => SelectorPredicate::Token(false),
         "creature" => SelectorPredicate::CardType(CardSelectorType::Creature),
