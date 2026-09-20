@@ -810,6 +810,9 @@ pub fn count_affinity_permanents(
                 "Enchantment" => c.type_line.is_enchantment(),
                 "Land" => c.is_land(),
                 "Planeswalker" => c.type_line.is_planeswalker(),
+                // Java counts through `Count$Valid <type>.YouCtrl`, so a category the valid
+                // filter answers is not a subtype lookup: Outlaw is five creature types.
+                "Outlaw" => c.is_outlaw(),
                 other => c.type_line.has_subtype(other),
             }
         })
