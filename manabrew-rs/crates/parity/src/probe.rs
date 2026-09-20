@@ -80,13 +80,32 @@ pub struct ProbeRun {
     pub decision: Option<String>,
 }
 
+/// Every name the probed card can be logged under: the name asked for, plus the real name
+/// behind a `Variant:UniversesWithin:FlavorName:` alias and each face of a split card.
+pub fn coverage_names(db: &CardDatabase, card: &str) -> Vec<String> {
+    let mut names = vec![card.to_string()];
+    if let Some(rules) = db.get_by_card_name(card) {
+        names.push(rules.name());
+        names.push(rules.main_part.name.clone());
+        if let Some(other) = &rules.other_part {
+            names.push(other.name.clone());
+        }
+    }
+    names.sort();
+    names.dedup();
+    names
+}
+
 impl ProbeRun {
-    fn from_result(card: &str, seed: u64, result: &MatchupResult) -> Self {
+    fn from_result(names: &[String], seed: u64, result: &MatchupResult) -> Self {
         let headline = result.first_divergence.as_ref();
         Self {
             seed,
             verdict: result.verdict(),
-            used: result.covered_cards.iter().any(|c| c == card),
+            used: result
+                .covered_cards
+                .iter()
+                .any(|c| names.iter().any(|name| name == c)),
             turn: headline.map(|d| d.turn),
             field: headline.map(|d| normalize_field(&d.field)),
             subject: headline.and_then(|d| d.subject.clone()),
@@ -160,17 +179,20 @@ where
                     error: Some(error),
                     runs: vec![],
                 },
-                Ok(deck) => ProbeRow {
-                    card: card.clone(),
-                    error: None,
-                    runs: options
-                        .seeds
-                        .par_iter()
-                        .map(|&seed| {
-                            ProbeRun::from_result(card, seed, &run(&deck, &opponent, seed))
-                        })
-                        .collect(),
-                },
+                Ok(deck) => {
+                    let names = coverage_names(db, card);
+                    ProbeRow {
+                        card: card.clone(),
+                        error: None,
+                        runs: options
+                            .seeds
+                            .par_iter()
+                            .map(|&seed| {
+                                ProbeRun::from_result(&names, seed, &run(&deck, &opponent, seed))
+                            })
+                            .collect(),
+                    }
+                }
             };
             let n = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
             eprintln!(

@@ -1392,6 +1392,15 @@ fn extract_coverage_card(message: &str) -> Option<&str> {
     message
         .strip_prefix("Played land: ")
         .or_else(|| message.strip_prefix("Cast: "))
+        .or_else(|| {
+            message
+                .strip_prefix("Activated ability: ")
+                .and_then(|rest| rest.split("| source=").nth(1))
+        })
+        .map(|name| match name.find(" [") {
+            Some(at) => &name[..at],
+            None => name,
+        })
         .map(str::trim)
         .filter(|s| !s.is_empty())
 }
