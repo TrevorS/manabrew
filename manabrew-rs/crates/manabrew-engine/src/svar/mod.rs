@@ -328,6 +328,14 @@ fn resolve_defined_cards_for_svar(
         }
         return all;
     }
+    // Java `AbilityUtils.calculateAmount`: `TriggerObjects<Key>` is the whole triggering-object
+    // list under that key, where `Triggered<Key>` is the single object.
+    if let Some(key) = defined.strip_prefix("TriggerObjects") {
+        return crate::ability::ability_key::from_string(key)
+            .map(|key| sa.get_triggering_cards(key))
+            .unwrap_or_default();
+    }
+
     let defined_ref = DefinedRef::parse(defined);
     match defined_ref {
         DefinedRef::Targeted | DefinedRef::TargetedCard | DefinedRef::ThisTargetedCard => {
