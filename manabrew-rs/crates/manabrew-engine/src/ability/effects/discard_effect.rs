@@ -98,6 +98,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             target_player
         };
 
+        if let Some(raw_amount) = crate::parsing::raw_get(&sa.ability_text, "RevealNumber") {
+            let amount = super::resolve_numeric_value(ctx.game, sa, raw_amount, 0).max(0) as usize;
+            ctx.agents[target_player.index()].snapshot_state(ctx.game, ctx.mana_pools);
+            hand = ctx.agents[target_player.index()].choose_cards_to_reveal(
+                target_player,
+                &hand,
+                amount,
+                amount,
+            );
+        }
+
         // Reveal* modes broadcast the discarder's hand before the pick
         // (DiscardEffect.java:244 `game.getAction().reveal(...)`).
         if mode.reveals_hand() && !hand.is_empty() {

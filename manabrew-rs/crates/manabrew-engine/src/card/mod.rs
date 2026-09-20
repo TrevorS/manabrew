@@ -49,6 +49,7 @@ pub const KEYWORD_PLOTTED_PREFIX: &str = "Plotted:";
 /// These cards can be cast from exile on a later turn for their normal mana cost.
 pub const KEYWORD_WARP_EXILED: &str = "WarpExiled";
 pub const OUTLAW_TYPES: [&str; 5] = ["Assassin", "Mercenary", "Pirate", "Rogue", "Warlock"];
+pub const PARTY_TYPES: [&str; 4] = ["Cleric", "Rogue", "Warrior", "Wizard"];
 
 use crate::{HashMap, HashSet};
 use std::collections::BTreeMap;

@@ -1796,6 +1796,69 @@ pub fn resolve_count_svar_for_sa(
         return do_x_math(n, operators, game, source_id, controller, sa);
     }
 
+    if let Some(operators) = expr.strip_prefix("Count$Party") {
+        let mut chosen_party: Vec<&str> = Vec::new();
+        let mut wildcard = 0usize;
+        let mut multityped: Vec<(&str, CardId)> = Vec::new();
+        let mut chosen_multi: Vec<CardId> = Vec::new();
+        for &cid in game.cards_in_zone(ZoneType::Battlefield, controller) {
+            let card = game.card(cid);
+            if !card.is_creature() {
+                continue;
+            }
+            let creature_types: Vec<&str> = crate::card::PARTY_TYPES
+                .iter()
+                .copied()
+                .filter(|party_type| card.has_creature_type(party_type))
+                .collect();
+            match creature_types.len() {
+                0 => continue,
+                4 => wildcard += 1,
+                1 => {
+                    if !chosen_party.contains(&creature_types[0]) {
+                        chosen_party.push(creature_types[0]);
+                    }
+                }
+                _ => {
+                    for creature_type in creature_types {
+                        multityped.push((creature_type, cid));
+                    }
+                }
+            }
+            if chosen_party.len() + wildcard >= 4 {
+                break;
+            }
+        }
+
+        if chosen_party.len() + wildcard < 4 {
+            multityped.retain(|(creature_type, _)| !chosen_party.contains(creature_type));
+            let mut groups: Vec<(&str, Vec<CardId>)> = Vec::new();
+            for (creature_type, cid) in multityped {
+                match groups.iter_mut().find(|(key, _)| *key == creature_type) {
+                    Some((_, members)) => members.push(cid),
+                    None => groups.push((creature_type, vec![cid])),
+                }
+            }
+            groups.sort_by_key(|(creature_type, members)| (members.len(), *creature_type));
+            for (creature_type, members) in groups {
+                if let Some(&pick) = members.iter().find(|cid| !chosen_multi.contains(cid)) {
+                    chosen_party.push(creature_type);
+                    chosen_multi.push(pick);
+                }
+            }
+        }
+
+        let operators = operators.strip_prefix('/').unwrap_or(operators);
+        return do_x_math(
+            (chosen_party.len() + wildcard).min(4) as i32,
+            operators,
+            game,
+            source_id,
+            controller,
+            sa,
+        );
+    }
+
     if let Some(operators) = expr.strip_prefix("Count$YourLifeTotal") {
         let operators = operators.strip_prefix('/').unwrap_or(operators);
         return do_x_math(
