@@ -1021,6 +1021,10 @@ pub(crate) fn replacement_adjusted_atoms_for_availability(
 ) -> Vec<u16> {
     use crate::replacement::replacement_handler::ReplacementEvent;
 
+    if !has_active_produce_mana_replacement(game) {
+        return vec![atom];
+    }
+
     let mut event = ReplacementEvent::ProduceMana {
         source,
         activator: player,
@@ -1195,6 +1199,16 @@ pub(crate) fn reflected_atoms_for_availability(
     java_replacement_filtered_atoms_for_availability(game, player, source, ab, &reflected)
 }
 
+fn has_active_produce_mana_replacement(game: &GameState) -> bool {
+    use crate::replacement::ReplacementType;
+
+    game.cards.iter().any(|card| {
+        card.replacement_effects.iter().any(|effect| {
+            effect.event == ReplacementType::ProduceMana && effect.active_in_zone(card.zone)
+        })
+    })
+}
+
 fn apply_produce_mana_replacements_for_availability(
     game: &GameState,
     event: &mut crate::replacement::replacement_handler::ReplacementEvent,
@@ -1202,6 +1216,10 @@ fn apply_produce_mana_replacements_for_availability(
     use crate::replacement::{
         replace_produce_mana, ReplacementLayer, ReplacementResult, ReplacementType,
     };
+
+    if !has_active_produce_mana_replacement(game) {
+        return false;
+    }
 
     let mut has_run: crate::HashSet<(CardId, usize)> = crate::HashSet::default();
     let mut updated = false;
@@ -1219,10 +1237,10 @@ fn apply_produce_mana_replacements_for_availability(
             'cards: for (i, card) in game.cards.iter().enumerate() {
                 let card_id = CardId(i as u32);
                 for (effect_idx, effect) in card.replacement_effects.iter().enumerate() {
-                    if has_run.contains(&(card_id, effect_idx))
-                        || effect.event != ReplacementType::ProduceMana
+                    if effect.event != ReplacementType::ProduceMana
                         || effect.layer != layer
                         || !effect.active_in_zone(card.zone)
+                        || has_run.contains(&(card_id, effect_idx))
                         || !effect.requirements_check(game, card)
                         || !replace_produce_mana::can_replace(effect, event, game, card)
                     {
