@@ -146,10 +146,33 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 rest.swap(i, j);
             }
         }
-        let known_dest = !matches!(revealed_dest, ZoneType::Library | ZoneType::Hand);
         let sequential = revealed_dest == found_dest;
+        // The dig took every revealed card off the library up front, where Java only looks at
+        // them, so "don't move them" has to put them back in the order they were seen.
+        if crate::parsing::raw_has_key(&sa.ability_text, "NoMoveRevealed") {
+            for &id in rest.iter().rev() {
+                let owner = ctx.game.card(id).owner;
+                ctx.game.add_card_to_zone(ZoneType::Library, owner, id);
+                ctx.game.card_mut(id).set_zone(ZoneType::Library);
+            }
+            continue;
+        }
+
+        let mut final_dest = revealed_dest;
+        let mut final_pos = library_position(ctx, sa, "RevealedLibraryPosition");
+        if !sequential && found.len() < amount {
+            if let Some(none_found) =
+                crate::parsing::raw_get(&sa.ability_text, "NoneFoundDestination")
+                    .and_then(|raw| ZoneType::from_str_compat(raw.trim()))
+            {
+                final_dest = none_found;
+                final_pos = library_position(ctx, sa, "NoneFoundLibraryPosition");
+            }
+        }
+
+        let known_dest = !matches!(final_dest, ZoneType::Library | ZoneType::Hand);
         if !sequential
-            && (known_dest || (revealed_dest == ZoneType::Library && !shuffle && !random_order))
+            && (known_dest || (final_dest == ZoneType::Library && !shuffle && !random_order))
             && rest.len() >= 2
         {
             ctx.agents[target_player.index()].snapshot_state(ctx.game, ctx.mana_pools);
@@ -157,25 +180,33 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 ctx.game,
                 target_player,
                 &rest,
-                revealed_dest,
+                final_dest,
             );
             if ordered.len() == rest.len() && rest.iter().all(|id| ordered.contains(id)) {
                 rest = ordered;
             }
         }
 
-        // Move rest to revealed destination
         for &id in &rest {
             let owner = ctx.game.card(id).owner;
-            if revealed_dest == ZoneType::Library {
-                // Put on bottom
-                ctx.game
-                    .add_card_to_zone_bottom(ZoneType::Library, owner, id);
+            if final_dest == ZoneType::Library {
+                if final_pos < 0 {
+                    ctx.game
+                        .add_card_to_zone_bottom(ZoneType::Library, owner, id);
+                } else {
+                    ctx.game.add_card_to_zone(ZoneType::Library, owner, id);
+                }
                 ctx.game.card_mut(id).set_zone(ZoneType::Library);
             } else {
-                ctx.move_card(id, revealed_dest, owner);
-                emit_zone_trigger(ctx.trigger_handler, id, ZoneType::Library, revealed_dest);
+                ctx.move_card(id, final_dest, owner);
+                emit_zone_trigger(ctx.trigger_handler, id, ZoneType::Library, final_dest);
             }
         }
     }
+}
+
+fn library_position(ctx: &EffectContext, sa: &crate::spellability::SpellAbility, key: &str) -> i32 {
+    crate::parsing::raw_get(&sa.ability_text, key)
+        .map(|raw| super::resolve_numeric_value(ctx.game, sa, raw, 0))
+        .unwrap_or(0)
 }
