@@ -789,6 +789,8 @@ impl GameLoop {
         let is_bestow = sa.alt_cost == Some(crate::spellability::AlternativeCost::Bestow);
         let is_warp = sa.alt_cost == Some(crate::spellability::AlternativeCost::Warp);
         let is_sneak = sa.alt_cost == Some(crate::spellability::AlternativeCost::Sneak);
+        let is_web_slinging =
+            sa.alt_cost == Some(crate::spellability::AlternativeCost::WebSlinging);
         let is_morph_facedown = sa.alt_cost.map(|alt| alt.is_morph()).unwrap_or(false);
         let is_static_alternative = static_alternative_cost_prepared;
 
@@ -864,6 +866,9 @@ impl GameLoop {
                 card.get_sneak_cost().map(|cost| {
                     format!("{cost} Return<1/Creature.attacking+unblocked/unblocked attacker>")
                 })
+            } else if is_web_slinging {
+                card.get_web_slinging_cost()
+                    .map(|cost| format!("{cost} Return<1/Creature.tapped/tapped creature>"))
             } else {
                 None
             };

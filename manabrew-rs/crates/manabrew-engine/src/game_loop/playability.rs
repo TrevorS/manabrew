@@ -585,6 +585,18 @@ impl GameLoop {
                     false
                 };
 
+                // Web-slinging: alt cost, and the Return part needs a tapped creature
+                let web_slinging_ok = card.get_web_slinging_cost().is_some_and(|web_cost_str| {
+                    let adjusted = cost_adj
+                        .apply(&forge_foundation::ManaCost::parse(&web_cost_str))
+                        .add(&raise_mana);
+                    available_mana.can_pay(&adjusted)
+                        && game
+                            .cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
+                            .iter()
+                            .any(|id| game.card(*id).tapped && game.card(*id).is_creature())
+                });
+
                 let sneak_ok = sneak_window
                     && card.get_sneak_cost().is_some_and(|sneak_cost_str| {
                         let adjusted = cost_adj
@@ -781,6 +793,7 @@ impl GameLoop {
                     && !dash_ok
                     && !blitz_ok
                     && !sneak_ok
+                    && !web_slinging_ok
                     && !overload_ok
                     && !static_alt_ok
                     && !suspend_ok
@@ -924,6 +937,15 @@ impl GameLoop {
                                 card_id,
                                 mode: crate::agent::PlayCardMode::Alternative(
                                     crate::spellability::AlternativeCost::Sneak,
+                                ),
+                                alt_cost_index: 0,
+                            });
+                        }
+                        if web_slinging_ok {
+                            playable.push(crate::agent::PlayOption {
+                                card_id,
+                                mode: crate::agent::PlayCardMode::Alternative(
+                                    crate::spellability::AlternativeCost::WebSlinging,
                                 ),
                                 alt_cost_index: 0,
                             });

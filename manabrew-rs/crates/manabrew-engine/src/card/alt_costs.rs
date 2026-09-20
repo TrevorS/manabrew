@@ -68,6 +68,12 @@ impl Card {
             .map(|cost| cost.split(':').next().unwrap_or("").trim().to_string())
     }
 
+    /// Get web-slinging cost (e.g. "Web-slinging:2 G" → Some("2 G")).
+    pub fn get_web_slinging_cost(&self) -> Option<String> {
+        self.get_keyword_cost("Web-slinging")
+            .map(|cost| cost.split(':').next().unwrap_or("").trim().to_string())
+    }
+
     /// Get multikicker cost (e.g. "Multikicker:1 G" → Some("1 G")).
     pub fn get_multikicker_cost(&self) -> Option<String> {
         self.get_keyword_cost("Multikicker")
