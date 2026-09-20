@@ -629,6 +629,10 @@ fn matches_card_predicate(
             card.activated_abilities.iter().any(|a| a.is_mana_ability)
         }
         SelectorPredicate::NoAbilities => card.has_no_abilities(),
+        SelectorPredicate::Escaped => card
+            .cast_sa
+            .as_ref()
+            .is_some_and(|sa| sa.alt_cost == Some(crate::spellability::AlternativeCost::Escape)),
         SelectorPredicate::CardSupertype(supertype) => {
             matches_card_supertype_predicate(*supertype, card)
         }
@@ -2688,6 +2692,7 @@ fn matches_player_predicate(
         | SelectorPredicate::Transformed
         | SelectorPredicate::CanProduceMana
         | SelectorPredicate::NoAbilities
+        | SelectorPredicate::Escaped
         | SelectorPredicate::Token(_)
         | SelectorPredicate::Color(_)
         | SelectorPredicate::Multicolor

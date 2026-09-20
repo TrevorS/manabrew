@@ -247,6 +247,7 @@ pub enum SelectorPredicate {
     Transformed,
     CanProduceMana,
     NoAbilities,
+    Escaped,
     Token(bool),
     Color(CardColorSelector),
     Multicolor,
@@ -991,7 +992,8 @@ fn selector_predicate_order(predicate: &SelectorPredicate) -> u8 {
         | SelectorPredicate::DoubleFaced
         | SelectorPredicate::Transformed
         | SelectorPredicate::CanProduceMana
-        | SelectorPredicate::NoAbilities => 0,
+        | SelectorPredicate::NoAbilities
+        | SelectorPredicate::Escaped => 0,
         SelectorPredicate::CardIdentity(_) | SelectorPredicate::PlayerController(_) => 1,
         SelectorPredicate::NumericComparison { .. }
         | SelectorPredicate::NumericParity { .. }
@@ -1104,6 +1106,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "transformed" => SelectorPredicate::Transformed,
         "canproducemana" => SelectorPredicate::CanProduceMana,
         "noabilities" => SelectorPredicate::NoAbilities,
+        "escaped" => SelectorPredicate::Escaped,
         "token" => SelectorPredicate::Token(true),
         "nontoken" => SelectorPredicate::Token(false),
         "creature" => SelectorPredicate::CardType(CardSelectorType::Creature),
