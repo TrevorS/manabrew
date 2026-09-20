@@ -95,6 +95,16 @@ impl ProducedMana {
         }
     }
 
+    /// Java `AbilityManaPart.isComboMana`: the produced string starts with `Combo`. A plain `Any`
+    /// is not combo mana — it is one colour for the whole amount, not a colour per unit.
+    pub fn is_combo_mana(&self) -> bool {
+        match self {
+            Self::Combo(_) => true,
+            Self::Raw(raw) => raw.trim_start().starts_with("Combo"),
+            _ => false,
+        }
+    }
+
     pub fn is_choice_like(&self) -> bool {
         match self {
             Self::Any | Self::Combo(_) => true,

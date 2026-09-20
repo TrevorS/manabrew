@@ -218,8 +218,7 @@ fn produce_mana_for_player(
     if amount <= 0 {
         return;
     }
-    let is_combo = produced_ir.is_choice_like();
-    if is_combo {
+    if produced_ir.is_combo_mana() {
         // Java's `ManaEffect` calls `chooseColor` once per output unit, then
         // emits a `specifyManaCombo` summary. Mirror that here so the parity
         // trace and the per-mana RNG draws line up.
@@ -279,6 +278,13 @@ fn produce_mana_for_player(
             );
         }
         final_mana = per_unit.join(" ");
+    } else if produced_ir.is_any_like() {
+        // Java's isAnyMana branch: one colour for the whole amount, not one per unit.
+        let available = ["W", "U", "B", "R", "G"].map(String::from).to_vec();
+        let pick = ctx.agents[chooser.index()]
+            .choose_color(chooser, &available)
+            .unwrap_or_else(|| "W".to_string());
+        final_mana = vec![pick; amount as usize].join(" ");
     } else if amount > 1 {
         let base = final_mana.clone();
         for _ in 1..amount {
