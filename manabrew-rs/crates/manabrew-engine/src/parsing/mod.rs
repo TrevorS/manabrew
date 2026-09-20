@@ -17,7 +17,7 @@ use std::sync::{Mutex, OnceLock};
 use forge_foundation::ZoneType;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::spellability::AlternativeCost;
+use crate::spellability::{AlternativeCost, OptionalCost};
 
 pub use amount::AmountExpr;
 pub use card_script::{
@@ -250,6 +250,7 @@ pub enum SelectorPredicate {
     CanProduceMana,
     NoAbilities,
     CastWith(AlternativeCost),
+    CastWithOptional(OptionalCost),
     Token(bool),
     Color(CardColorSelector),
     Multicolor,
@@ -995,7 +996,8 @@ fn selector_predicate_order(predicate: &SelectorPredicate) -> u8 {
         | SelectorPredicate::Transformed
         | SelectorPredicate::CanProduceMana
         | SelectorPredicate::NoAbilities
-        | SelectorPredicate::CastWith(_) => 0,
+        | SelectorPredicate::CastWith(_)
+        | SelectorPredicate::CastWithOptional(_) => 0,
         SelectorPredicate::CardIdentity(_) | SelectorPredicate::PlayerController(_) => 1,
         SelectorPredicate::NumericComparison { .. }
         | SelectorPredicate::NumericParity { .. }
@@ -1117,6 +1119,8 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "evoked" => SelectorPredicate::CastWith(AlternativeCost::Evoke),
         "impended" => SelectorPredicate::CastWith(AlternativeCost::Impending),
         "webslinged" => SelectorPredicate::CastWith(AlternativeCost::WebSlinging),
+        "teamwork" => SelectorPredicate::CastWithOptional(OptionalCost::Teamwork),
+        "bargained" => SelectorPredicate::CastWithOptional(OptionalCost::Bargain),
         "token" => SelectorPredicate::Token(true),
         "nontoken" => SelectorPredicate::Token(false),
         "creature" => SelectorPredicate::CardType(CardSelectorType::Creature),

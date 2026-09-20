@@ -633,6 +633,10 @@ fn matches_card_predicate(
             .cast_sa
             .as_ref()
             .is_some_and(|sa| sa.alt_cost == Some(*alt_cost)),
+        SelectorPredicate::CastWithOptional(optional_cost) => card
+            .cast_sa
+            .as_ref()
+            .is_some_and(|sa| sa.optional_costs.contains(optional_cost)),
         SelectorPredicate::CardSupertype(supertype) => {
             matches_card_supertype_predicate(*supertype, card)
         }
@@ -2693,6 +2697,7 @@ fn matches_player_predicate(
         | SelectorPredicate::CanProduceMana
         | SelectorPredicate::NoAbilities
         | SelectorPredicate::CastWith(_)
+        | SelectorPredicate::CastWithOptional(_)
         | SelectorPredicate::Token(_)
         | SelectorPredicate::Color(_)
         | SelectorPredicate::Multicolor
