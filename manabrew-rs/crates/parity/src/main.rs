@@ -337,7 +337,8 @@ struct Cli {
     #[arg(long, default_value_t = 42)]
     master_seed: u64,
 
-    /// Number of Java server worker processes (default: 1 for fuzz/single, num_cpus for matrix)
+    /// Number of Java server worker processes (default: 1 for a single matchup, otherwise the
+    /// most that fit in RAM at --java-heap, capped at 8)
     #[arg(long)]
     java_workers: Option<usize>,
 
