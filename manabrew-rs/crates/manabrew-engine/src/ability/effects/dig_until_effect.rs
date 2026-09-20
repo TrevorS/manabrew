@@ -133,6 +133,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 owner
             };
             ctx.move_card(id, found_dest, dest_owner);
+            if sa.ir.tapped && found_dest == ZoneType::Battlefield {
+                ctx.game.card_mut(id).tapped = true;
+            }
             if found_dest == ZoneType::Battlefield {
                 let _ = super::add_to_combat(ctx, sa, id, keys::ATTACKING);
             }
