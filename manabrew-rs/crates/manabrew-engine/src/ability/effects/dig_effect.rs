@@ -181,6 +181,30 @@ fn resolve_for_player(
         .filter(|id| !chosen.contains(id))
         .collect();
 
+    // `DestZone2Optional$ True` — the player says whether the rest go to the second zone
+    // (Java `DigEffect.java` line 436).
+    if !rest.is_empty() && crate::parsing::raw_has_key(&sa.ability_text, "DestZone2Optional") {
+        let decider = sa.activating_player;
+        ctx.agents[decider.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        if !ctx.agents[decider.index()].confirm_action(
+            decider,
+            None,
+            &format!("Do you want to put that card into {dest_zone2:?}?"),
+            &[],
+            sa.source,
+            sa.api,
+        ) {
+            // The dig already took these off the library, so declining puts them back on top
+            // in their original order; Java never moved them.
+            let mut back = std::mem::take(&mut rest);
+            back.reverse();
+            for card_id in back {
+                ctx.game
+                    .add_card_to_zone(ZoneType::Library, dig_player, card_id);
+            }
+        }
+    }
+
     // `RestRandomOrder$ True` — Java Forge (`DigEffect.java` line 437) calls
     // `Collections.shuffle(afterOrder, MyRandom.getRandom())` on the leftover
     // list before moving each card to `dest_zone2`. We must consume the same
