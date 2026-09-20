@@ -1669,6 +1669,34 @@ pub fn resolve_count_svar_for_sa(
 ) -> i32 {
     use forge_foundation::ZoneType;
 
+    // Java `AbilityUtils.calculateAmount` walks the root ability and its sub-abilities and
+    // counts every target of every node that targets; `Distinct` dedupes them. Java counts
+    // targeted players too; only the cards are counted here.
+    if let Some(rest) = expr.strip_prefix("TargetedObjects") {
+        let distinct = rest.starts_with("Distinct");
+        let rest = rest.strip_prefix("Distinct").unwrap_or(rest);
+        if let Some(tail) = rest.strip_prefix('$') {
+            let (property, operators) = tail.split_once('/').unwrap_or((tail, ""));
+            let mut cards: Vec<CardId> = Vec::new();
+            let mut current = Some(sa);
+            while let Some(node) = current {
+                if node.uses_targeting() {
+                    for card_id in node.target_chosen.all_target_cards() {
+                        if !distinct || !cards.contains(&card_id) {
+                            cards.push(card_id);
+                        }
+                    }
+                }
+                current = node.sub_ability.as_deref();
+            }
+            let total = cards
+                .iter()
+                .map(|&card_id| card_x_property(card_id, property, game, source_id, controller, sa))
+                .sum();
+            return do_x_math(total, operators, game, source_id, controller, sa);
+        }
+    }
+
     if let Some(rest) = expr
         .strip_prefix("Count$xPaid")
         .or_else(|| expr.strip_prefix("Count$XPaid"))
