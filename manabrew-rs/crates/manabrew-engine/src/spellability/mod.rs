@@ -138,6 +138,11 @@ pub struct SpellAbility {
     /// Linked sub-ability chain. Mirrors Java's `subAbility` field
     /// (AbilitySub extends SpellAbility).
     pub sub_ability: Option<Box<SpellAbility>>,
+    /// What the ancestors of this node already target. Java reads it back up the
+    /// parent chain in `getUniqueTargets`; there is no parent link here, so
+    /// `setup_targets` writes it on the way down.
+    #[serde(skip)]
+    pub unique_targets: Vec<crate::agent::GameEntity>,
     /// Java parity: payload carried by `WrappedAbility`.
     #[serde(default)]
     pub wrapped_ability: Option<Box<SpellAbility>>,
@@ -549,16 +554,23 @@ impl SpellAbility {
             }
         }
 
+        let mut ancestor_targets = Vec::new();
+        if self.uses_targeting() {
+            collect_target_entities(&self.target_chosen, &mut ancestor_targets);
+        }
+
         // Walk sub-ability chain
         let mut current = self.sub_ability.as_deref_mut();
         while let Some(sa) = current {
             if sa.uses_targeting() {
                 sa.clear_targets();
+                sa.unique_targets = ancestor_targets.clone();
                 sa.targeting_player = choose_targeting_player(sa, game, agents);
                 let player = sa.targeting_player.unwrap_or(sa.activating_player);
                 if !agents[player.index()].choose_targets_for(sa, game, mana_pools) {
                     return false;
                 }
+                collect_target_entities(&sa.target_chosen, &mut ancestor_targets);
             }
             current = sa.sub_ability.as_deref_mut();
         }
@@ -610,6 +622,7 @@ impl SpellAbility {
             parent_targeting_card: None,
             pay_costs: cost,
             sub_ability: None,
+            unique_targets: Vec::new(),
             wrapped_ability: None,
             is_spell: false,
             is_trigger: false,
@@ -1241,6 +1254,7 @@ impl SpellAbility {
     pub fn can_target(&self, card: CardId, game: &GameState) -> bool {
         if let Some(ref tr) = self.target_restrictions {
             tr.has_candidates(game, self.activating_player, self.source)
+                && card_allowed_by_unique(self, card)
                 && self
                     .ir
                     .targets_with_defined_controller_text
@@ -1992,6 +2006,7 @@ pub fn choose_targets_by_kind(
             .into_iter()
             .filter(|&cid| game.card(cid).zone != forge_foundation::ZoneType::Stack)
             .filter(|&cid| target_allowed_by_defined_controller(game, sa, cid))
+            .filter(|&cid| card_allowed_by_unique(sa, cid))
             .collect();
         let stack = target_restrictions::get_stack_target_candidates(game, sa);
         agent.snapshot_state(game, mana_pools);
@@ -2036,6 +2051,7 @@ pub fn choose_targets_by_kind(
                 .alive_players()
                 .into_iter()
                 .filter(|&pid| !is_opponent_only || pid != player)
+                .filter(|&pid| target_allowed_by_unique(sa, crate::agent::GameEntity::Player(pid)))
                 .collect();
             if max_targets > 1 {
                 let mut chosen = Vec::new();
@@ -2061,11 +2077,19 @@ pub fn choose_targets_by_kind(
         TargetKind::Any => {
             let valid_players: Vec<PlayerId> =
                 if target_restrictions::any_target_allows_players(&tr.valid_tgts) {
-                    game.alive_players().into_iter().collect()
+                    game.alive_players()
+                        .into_iter()
+                        .filter(|&pid| {
+                            target_allowed_by_unique(sa, crate::agent::GameEntity::Player(pid))
+                        })
+                        .collect()
                 } else {
                     Vec::new()
                 };
-            let valid_cards: Vec<CardId> = card_util::get_valid_cards_to_target(game, sa);
+            let valid_cards: Vec<CardId> = card_util::get_valid_cards_to_target(game, sa)
+                .into_iter()
+                .filter(|&cid| card_allowed_by_unique(sa, cid))
+                .collect();
             agent.snapshot_state(game, mana_pools);
             match agent.choose_target_any(player, &valid_players, &valid_cards, Some(&*sa)) {
                 crate::agent::TargetChoice::Player(pid) => {
@@ -2083,6 +2107,8 @@ pub fn choose_targets_by_kind(
             let valid: Vec<CardId> = card_util::get_valid_cards_to_target(game, sa)
                 .into_iter()
                 .filter(|&cid| target_allowed_by_defined_controller(game, sa, cid))
+                .filter(|&cid| card_allowed_by_unique(sa, cid))
+                .filter(|&cid| card_allowed_by_unique(sa, cid))
                 .collect();
             agent.snapshot_state(game, mana_pools);
             if max_targets > 1 {
@@ -2112,6 +2138,8 @@ pub fn choose_targets_by_kind(
             let valid: Vec<CardId> = card_util::get_valid_cards_to_target(game, sa)
                 .into_iter()
                 .filter(|&cid| target_allowed_by_defined_controller(game, sa, cid))
+                .filter(|&cid| card_allowed_by_unique(sa, cid))
+                .filter(|&cid| card_allowed_by_unique(sa, cid))
                 .collect();
             agent.snapshot_state(game, mana_pools);
             if max_targets > 1 {
@@ -2141,6 +2169,8 @@ pub fn choose_targets_by_kind(
             let valid: Vec<CardId> = card_util::get_valid_cards_to_target(game, sa)
                 .into_iter()
                 .filter(|&cid| target_allowed_by_defined_controller(game, sa, cid))
+                .filter(|&cid| card_allowed_by_unique(sa, cid))
+                .filter(|&cid| card_allowed_by_unique(sa, cid))
                 .collect();
             if valid.is_empty() {
                 return min_targets <= 0;
@@ -2192,6 +2222,26 @@ pub fn choose_targets_by_kind(
         + sa.target_chosen.all_target_players().len() as i32
         + i32::from(sa.target_chosen.target_stack_entry.is_some());
     chosen_targets >= min_targets
+}
+
+fn collect_target_entities(chosen: &TargetChoices, out: &mut Vec<crate::agent::GameEntity>) {
+    for card in chosen.all_target_cards() {
+        out.push(crate::agent::GameEntity::Card(card));
+    }
+    for player in chosen.all_target_players() {
+        out.push(crate::agent::GameEntity::Player(player));
+    }
+}
+
+fn target_allowed_by_unique(sa: &SpellAbility, entity: crate::agent::GameEntity) -> bool {
+    !sa.target_restrictions
+        .as_ref()
+        .is_some_and(|tr| tr.unique_targets)
+        || !sa.unique_targets.contains(&entity)
+}
+
+fn card_allowed_by_unique(sa: &SpellAbility, card_id: CardId) -> bool {
+    target_allowed_by_unique(sa, crate::agent::GameEntity::Card(card_id))
 }
 
 fn target_allowed_by_defined_controller(

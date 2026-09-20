@@ -59,6 +59,9 @@ pub struct TargetRestrictions {
     pub max_targets: String,
     /// Zones to search for targets (default [Battlefield])
     pub tgt_zone: Vec<ZoneType>,
+    /// `TargetUnique$` — this ability may not target what an ancestor already targets.
+    #[serde(default)]
+    pub unique_targets: bool,
 }
 
 impl TargetRestrictions {
@@ -115,6 +118,7 @@ impl TargetRestrictions {
                     .map(|zone| vec![zone])
                     .unwrap_or_else(|| vec![ZoneType::Battlefield])
             }),
+            unique_targets: parsed.get(keys::TARGET_UNIQUE).is_some(),
         })
     }
 
@@ -186,6 +190,7 @@ impl TargetRestrictions {
                     .map(|zone| vec![zone])
                     .unwrap_or_else(|| vec![ZoneType::Battlefield])
             }),
+            unique_targets: params.has(keys::TARGET_UNIQUE),
         })
     }
 
