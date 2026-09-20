@@ -173,6 +173,9 @@ pub fn may_play_alt_mana_cost(
     if !can_play(st_ab, source, card, game) {
         return None;
     }
+    if st_ab.ir.may_play_without_mana_cost {
+        return Some("0".to_string());
+    }
     st_ab.ir.may_play_alt_mana_cost.clone()
 }
 

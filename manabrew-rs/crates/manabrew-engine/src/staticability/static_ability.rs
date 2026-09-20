@@ -247,6 +247,9 @@ pub struct StaticAbilityIr {
     /// When `may_play` is true and this is set, the granted cast option pays
     /// this cost in place of the card's mana cost.
     pub may_play_alt_mana_cost: Option<String>,
+    /// `MayPlayWithoutManaCost$`. Java builds a separate `copyWithNoManaCost` option for it;
+    /// here it rides the alt-cost path as a zero cost, so the two stay one code path.
+    pub may_play_without_mana_cost: bool,
     pub may_play_grants_zone_permissions: bool,
     pub may_play_player: Option<String>,
     pub counter_type_text: Option<String>,
@@ -431,6 +434,7 @@ impl StaticAbilityIr {
                 .get(keys::MAY_PLAY)
                 .is_some_and(|value| value.eq_ignore_ascii_case("True")),
             may_play_alt_mana_cost: raw.get(keys::MAY_PLAY_ALT_MANA_COST).map(String::to_string),
+            may_play_without_mana_cost: raw.contains_key(keys::MAY_PLAY_WITHOUT_MANA_COST),
             may_play_grants_zone_permissions: !raw
                 .contains_key(keys::MAY_PLAY_DONT_GRANT_ZONE_PERMISSIONS),
             may_play_player: raw.get(keys::MAY_PLAY_PLAYER).map(String::to_string),

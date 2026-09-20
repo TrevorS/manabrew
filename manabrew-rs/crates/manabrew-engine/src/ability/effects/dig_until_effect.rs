@@ -10,7 +10,8 @@ use crate::parsing::keys;
 /// - `Amount$` — how many matching cards to find (default 1).
 /// - `Valid$` — filter for matching cards (e.g. "Land", "Creature").
 /// - `FoundDestination$` — where found cards go (default Hand).
-/// - `RevealedDestination$` — where non-matching cards go (default Library bottom).
+/// - `RevealedDestination$` — where non-matching cards go (default Library).
+/// - `RevealedLibraryPosition$` — top (0, the default) or bottom (negative).
 ///
 /// # Card script examples
 /// ```text
