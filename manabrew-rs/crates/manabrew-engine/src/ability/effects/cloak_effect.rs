@@ -21,7 +21,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let controller = sa.activating_player;
 
     let players = if let Some(def) = sa.defined_player() {
-        super::resolve_defined_players(def, controller, ctx.game)
+        crate::ability::ability_utils::resolve_defined_players_with_sa(
+            def, sa, controller, ctx.game,
+        )
     } else {
         vec![controller]
     };
@@ -32,9 +34,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 }
 
 fn cloak_for_player(ctx: &mut EffectContext, sa: &SpellAbility, player: PlayerId, amount: usize) {
-    // Default: top N cards of library
-    let lib = ctx.game.cards_in_zone(ZoneType::Library, player).to_vec();
-    let cards: Vec<CardId> = lib.into_iter().rev().take(amount).collect();
+    // `Defined$ TopOfLibrary` (the default) takes the top cards; anything else is a card list,
+    // as Java's `ManifestBaseEffect` does.
+    let cards: Vec<CardId> = if sa.defined().is_none_or(|d| d == "TopOfLibrary") {
+        let lib = ctx.game.cards_in_zone(ZoneType::Library, player).to_vec();
+        lib.into_iter().rev().take(amount).collect()
+    } else {
+        crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa)
+    };
 
     for card_id in cards {
         let old_zone = ctx.game.card(card_id).zone;

@@ -67,8 +67,8 @@ fn manifest_for_player(
             "Choose cards to manifest",
         )
     } else {
-        // Targeted or self
-        sa.target_chosen.target_card.into_iter().collect()
+        // Java `ManifestBaseEffect` falls through to getTargetCards.
+        crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa)
     };
 
     // Manifest each card one at a time (CR 701.34d)
