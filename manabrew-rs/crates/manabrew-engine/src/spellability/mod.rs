@@ -1251,10 +1251,78 @@ impl SpellAbility {
 
     /// Check if this ability can target a specific card.
     /// Mirrors Java's `SpellAbility.canTarget(Card)`.
+    /// The `TargetRestrictions` relational block of Java `SpellAbility.canTarget`
+    /// (`SpellAbility.java:1496-1592`): every rule compares the candidate against the targets
+    /// already chosen, and every one skips the candidate itself, so a target that is already
+    /// chosen stays a legal candidate.
+    pub fn relational_target_ok(&self, candidate: CardId, game: &GameState) -> bool {
+        let Some(tr) = self.target_restrictions.as_ref() else {
+            return true;
+        };
+        let chosen = self.target_chosen.all_target_cards();
+        let others = || chosen.iter().copied().filter(move |&c| c != candidate);
+        let cand = game.card(candidate);
+
+        if let Some(max_text) = tr.max_total_cmc.as_deref() {
+            let max = crate::svar::resolve_numeric_value(game, self, max_text, 0);
+            let mut total: i32 = chosen.iter().map(|&c| game.card(c).mana_cost.cmc()).sum();
+            if !chosen.contains(&candidate) {
+                total += cand.mana_cost.cmc();
+            }
+            if total > max {
+                return false;
+            }
+        }
+        if let Some(max_text) = tr.max_total_power.as_deref() {
+            let max = crate::svar::resolve_numeric_value(game, self, max_text, 0);
+            let mut total: i32 = chosen.iter().map(|&c| game.card(c).power()).sum();
+            if !chosen.contains(&candidate) {
+                total += cand.power();
+            }
+            if total > max {
+                return false;
+            }
+        }
+        if tr.equal_toughness && others().any(|c| game.card(c).toughness() != cand.toughness()) {
+            return false;
+        }
+        if tr.different_cmc
+            && others().any(|c| game.card(c).mana_cost.cmc() == cand.mana_cost.cmc())
+        {
+            return false;
+        }
+        if tr.different_names && others().any(|c| game.card(c).shares_name_with(cand)) {
+            return false;
+        }
+        if tr.same_controller && others().any(|c| game.card(c).controller != cand.controller) {
+            return false;
+        }
+        if (tr.different_controllers || tr.for_each_player)
+            && others().any(|c| game.card(c).controller == cand.controller)
+        {
+            return false;
+        }
+        if tr.without_same_creature_type
+            && others().any(|c| game.card(c).shares_creature_type_with(cand))
+        {
+            return false;
+        }
+        if tr.with_same_creature_type
+            && others().any(|c| !game.card(c).shares_creature_type_with(cand))
+        {
+            return false;
+        }
+        if tr.with_same_card_type && others().any(|c| !game.card(c).shares_card_type_with(cand)) {
+            return false;
+        }
+        true
+    }
+
     pub fn can_target(&self, card: CardId, game: &GameState) -> bool {
         if let Some(ref tr) = self.target_restrictions {
             tr.has_candidates(game, self.activating_player, self.source)
                 && card_allowed_by_unique(self, card)
+                && self.relational_target_ok(card, game)
                 && self
                     .ir
                     .targets_with_defined_controller_text
@@ -2112,11 +2180,12 @@ pub fn choose_targets_by_kind(
                 .collect();
             agent.snapshot_state(game, mana_pools);
             if max_targets > 1 {
-                let chosen = agent.choose_cards_for_effect(
+                let chosen = agent.choose_target_cards(
                     player,
                     &valid,
                     min_targets.max(0) as usize,
                     max_targets as usize,
+                    &*sa,
                 );
                 if let Some(&first) = chosen.first() {
                     sa.target_chosen.target_card = Some(first);
@@ -2143,11 +2212,12 @@ pub fn choose_targets_by_kind(
                 .collect();
             agent.snapshot_state(game, mana_pools);
             if max_targets > 1 {
-                let chosen = agent.choose_cards_for_effect(
+                let chosen = agent.choose_target_cards(
                     player,
                     &valid,
                     min_targets.max(0) as usize,
                     max_targets as usize,
+                    &*sa,
                 );
                 if let Some(&first) = chosen.first() {
                     sa.target_chosen.target_card = Some(first);
@@ -2177,11 +2247,12 @@ pub fn choose_targets_by_kind(
             }
             agent.snapshot_state(game, mana_pools);
             if max_targets > 1 {
-                let chosen = agent.choose_cards_for_effect(
+                let chosen = agent.choose_target_cards(
                     player,
                     &valid,
                     min_targets.max(0) as usize,
                     max_targets as usize,
+                    &*sa,
                 );
                 if let Some(&first) = chosen.first() {
                     sa.target_chosen.target_card = Some(first);

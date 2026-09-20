@@ -307,6 +307,43 @@ impl DeterministicAgent {
         chosen
     }
 
+    /// The loop above, with Java's re-filter: `chooseTargetsFor` rebuilds its candidate list
+    /// every iteration and keeps only what `SpellAbility.canTarget` still accepts, so the
+    /// relational restrictions see the targets chosen so far.
+    fn choose_targets_relational(
+        &mut self,
+        mut remaining: Vec<CardId>,
+        min: usize,
+        max: usize,
+        sa: &manabrew_engine::spellability::SpellAbility,
+    ) -> Vec<CardId> {
+        let Some(game) = self.snapshot_game.as_ref() else {
+            return self.choose_targets_like_java(remaining, min, max);
+        };
+        let mut probe = sa.clone();
+        let mut chosen: Vec<CardId> = Vec::new();
+        let mut rng = self.rng.borrow_mut();
+        while chosen.len() < max && !remaining.is_empty() {
+            let Some(pick) = choice_space::pick_one(&remaining, &mut rng) else {
+                break;
+            };
+            remaining.retain(|&cid| cid != pick);
+            chosen.push(pick);
+            probe.target_chosen.add(Some(pick), None);
+            if chosen.len() >= max {
+                break;
+            }
+            remaining.retain(|&cid| probe.relational_target_ok(cid, game));
+            if chosen.len() >= min {
+                self.target_loop_drew_continue = true;
+                if !choice_space::pick_bool(&mut rng) {
+                    break;
+                }
+            }
+        }
+        chosen
+    }
+
     pub(crate) fn should_skip_priority_action_space(&self) -> bool {
         self.last_game_snapshot
             .as_ref()
@@ -2126,6 +2163,29 @@ impl PlayerAgent for DeterministicAgent {
             return self.choose_targets_like_java(sorted, min, max);
         }
         gui_repro::pick_many_unique(&sorted, min, max, &mut self.rng.borrow_mut())
+    }
+
+    fn choose_target_cards(
+        &mut self,
+        player: PlayerId,
+        valid: &[CardId],
+        min: usize,
+        max: usize,
+        sa: &manabrew_engine::spellability::SpellAbility,
+    ) -> Vec<CardId> {
+        if valid.is_empty() {
+            return vec![];
+        }
+        let sorted = choice_space::sort_native(valid, |a, b| {
+            self.card_name(*a)
+                .cmp(&self.card_name(*b))
+                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+        });
+        if self.choosing_targets {
+            self.log_target_candidates(&[], &sorted);
+            return self.choose_targets_relational(sorted, min, max, sa);
+        }
+        self.choose_cards_for_effect(player, valid, min, max)
     }
 
     fn choose_tap_type_for_cost(

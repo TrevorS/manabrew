@@ -62,6 +62,30 @@ pub struct TargetRestrictions {
     /// `TargetUnique$` — this ability may not target what an ancestor already targets.
     #[serde(default)]
     pub unique_targets: bool,
+    /// Java `TargetRestrictions` relational flags, read by `SpellAbility.canTarget` between
+    /// picks: every one compares a candidate against the targets already chosen.
+    #[serde(default)]
+    pub same_controller: bool,
+    #[serde(default)]
+    pub different_controllers: bool,
+    #[serde(default)]
+    pub for_each_player: bool,
+    #[serde(default)]
+    pub different_names: bool,
+    #[serde(default)]
+    pub with_same_creature_type: bool,
+    #[serde(default)]
+    pub without_same_creature_type: bool,
+    #[serde(default)]
+    pub with_same_card_type: bool,
+    #[serde(default)]
+    pub different_cmc: bool,
+    #[serde(default)]
+    pub equal_toughness: bool,
+    #[serde(default)]
+    pub max_total_cmc: Option<String>,
+    #[serde(default)]
+    pub max_total_power: Option<String>,
 }
 
 impl TargetRestrictions {
@@ -119,6 +143,17 @@ impl TargetRestrictions {
                     .unwrap_or_else(|| vec![ZoneType::Battlefield])
             }),
             unique_targets: parsed.get(keys::TARGET_UNIQUE).is_some(),
+            same_controller: parsed.get("TargetsWithSameController").is_some(),
+            different_controllers: parsed.get("TargetsWithDifferentControllers").is_some(),
+            for_each_player: parsed.get("TargetsForEachPlayer").is_some(),
+            different_names: parsed.get("TargetsWithDifferentNames").is_some(),
+            with_same_creature_type: parsed.get("TargetsWithSameCreatureType").is_some(),
+            without_same_creature_type: parsed.get("TargetsWithoutSameCreatureType").is_some(),
+            with_same_card_type: parsed.get("TargetsWithSharedCardType").is_some(),
+            different_cmc: parsed.get("TargetsWithDifferentCMC").is_some(),
+            equal_toughness: parsed.get("TargetsWithEqualToughness").is_some(),
+            max_total_cmc: parsed.get("MaxTotalTargetCMC").map(str::to_string),
+            max_total_power: parsed.get("MaxTotalTargetPower").map(str::to_string),
         })
     }
 
@@ -191,6 +226,17 @@ impl TargetRestrictions {
                     .unwrap_or_else(|| vec![ZoneType::Battlefield])
             }),
             unique_targets: params.has(keys::TARGET_UNIQUE),
+            same_controller: params.has("TargetsWithSameController"),
+            different_controllers: params.has("TargetsWithDifferentControllers"),
+            for_each_player: params.has("TargetsForEachPlayer"),
+            different_names: params.has("TargetsWithDifferentNames"),
+            with_same_creature_type: params.has("TargetsWithSameCreatureType"),
+            without_same_creature_type: params.has("TargetsWithoutSameCreatureType"),
+            with_same_card_type: params.has("TargetsWithSharedCardType"),
+            different_cmc: params.has("TargetsWithDifferentCMC"),
+            equal_toughness: params.has("TargetsWithEqualToughness"),
+            max_total_cmc: params.get("MaxTotalTargetCMC").map(str::to_string),
+            max_total_power: params.get("MaxTotalTargetPower").map(str::to_string),
         })
     }
 

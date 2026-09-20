@@ -773,6 +773,20 @@ pub trait PlayerAgent {
         valid.iter().copied().take(max).collect()
     }
 
+    /// Choose several targets for one ability. Separate from `choose_cards_for_effect` because
+    /// Java re-filters the candidates through `SpellAbility.canTarget` after every pick, so the
+    /// relational restrictions can see the targets already chosen.
+    fn choose_target_cards(
+        &mut self,
+        player: PlayerId,
+        valid: &[CardId],
+        min: usize,
+        max: usize,
+        _sa: &crate::spellability::SpellAbility,
+    ) -> Vec<CardId> {
+        self.choose_cards_for_effect(player, valid, min, max)
+    }
+
     /// Choose cards to tap for a `tapXType` cost that has a total-power floor
     /// such as Crew. `card_powers` carries the effective tap-power value for
     /// each candidate under the active ability; `card_sort_powers` carries the
