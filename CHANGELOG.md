@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.47.1](https://github.com/witchesofthehill/manabrew/compare/v3.47.0...v3.47.1) (2026-09-20)
+
+### Performance
+
+* **client:** stop serialising every game state for the bug-report log ([#962](https://github.com/witchesofthehill/manabrew/issues/962)) ([b3dd1e6](https://github.com/witchesofthehill/manabrew/commit/b3dd1e6288d8533bbd4fe89a49bcf8f1cedfa96f))
+* **harness:** sync the parity card map once per snapshot ([#963](https://github.com/witchesofthehill/manabrew/issues/963)) ([5f34876](https://github.com/witchesofthehill/manabrew/commit/5f348763bd031a4d22f578940b8afb25a6ca9f66))
+
 ## [3.47.0](https://github.com/witchesofthehill/manabrew/compare/v3.46.1...v3.47.0) (2026-09-20)
 
 ### Features
