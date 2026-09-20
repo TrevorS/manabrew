@@ -7,6 +7,8 @@ use forge_cardset_archive::ArchivedCardArchive;
 use crate::card_rules::CardRules;
 use crate::parser::CardScriptParser;
 
+const FLAVOR_NAME_FIELD: &str = "FlavorName:";
+
 pub struct CardDatabase {
     cards: Mutex<HashMap<String, &'static CardRules>>,
     archive: Option<&'static ArchivedCardArchive>,
@@ -341,6 +343,7 @@ impl CardDatabase {
         for edition in archive.editions.iter() {
             cards.extract_flavor_aliases_from_edition_contents(edition.raw.as_str());
         }
+        cards.extract_flavor_aliases_from_card_scripts();
         let cards_result = LoadResult {
             loaded: archive.cards.len(),
             failed: 0,
@@ -424,6 +427,32 @@ impl CardDatabase {
             normalized_alias.to_ascii_lowercase(),
             canonical_name.to_string(),
         );
+    }
+
+    /// The lazy archive path never runs `register_flavor_aliases_for_card`, so a card reached only
+    /// by `lazy_parse_by_lower` would have no alias until something else parsed it by its real name.
+    fn extract_flavor_aliases_from_card_scripts(&mut self) {
+        let Some(archive) = self.archive else {
+            return;
+        };
+        for card in archive.cards.iter() {
+            let raw = card.raw.as_str();
+            if !raw.contains(FLAVOR_NAME_FIELD) {
+                continue;
+            }
+            let Some(canonical) = raw
+                .lines()
+                .find_map(|line| line.strip_prefix("Name:"))
+                .map(|name| name.trim().to_string())
+            else {
+                continue;
+            };
+            for line in raw.lines() {
+                if let Some(alias) = line.trim().split_once(FLAVOR_NAME_FIELD) {
+                    self.register_flavor_alias(alias.1.trim(), &canonical);
+                }
+            }
+        }
     }
 
     fn register_flavor_aliases_for_card(&mut self, card: &CardRules) {
