@@ -89,14 +89,14 @@ pub(super) fn resolve_stack_removal(
     }
 
     // Counters
-    if let Some(ct) = sa.with_counters_type_enum() {
+    for ct in sa.with_counters_types() {
         let amount = crate::svar::resolve_numeric_svar(
             ctx.game,
             sa,
             crate::parsing::keys::WITH_COUNTERS_AMOUNT,
             1,
         );
-        ctx.add_counter(card_id, ct, amount, sa, crate::event::RunParams::default());
+        ctx.add_counter(card_id, &ct, amount, sa, crate::event::RunParams::default());
     }
 
     // Remember/Imprint

@@ -419,18 +419,18 @@ pub(super) fn apply_post_move(
         if sa.ir.attacking || sa.ir.attacking_text.is_some() {
             let _ = super::super::add_to_combat(ctx, sa, card_id, keys::ATTACKING);
         }
-        if let Some(counter_type) = sa.with_counters_type_enum() {
+        for counter_type in sa.with_counters_types() {
             // WithCountersAmount$ goes through the AddCounter replacement chain.
             let amount =
                 crate::svar::resolve_numeric_svar(ctx.game, sa, keys::WITH_COUNTERS_AMOUNT, 1);
             if !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
                 &ctx.game.cards,
                 &ctx.game.cards[card_id.index()],
-                counter_type,
+                &counter_type,
             ) {
                 ctx.add_counter(
                     card_id,
-                    counter_type,
+                    &counter_type,
                     amount,
                     sa,
                     crate::event::RunParams {

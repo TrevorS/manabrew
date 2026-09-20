@@ -252,4 +252,20 @@ impl SpellAbility {
     pub fn with_counters_type_enum(&self) -> Option<&CounterType> {
         self.ir.with_counters_type.as_ref()
     }
+
+    /// Java `ChangeZoneEffect` splits `WithCountersType$` on commas and puts one counter of
+    /// each named type, so `Hexproof,Indestructible` is two counters and not one named pair.
+    pub fn with_counters_types(&self) -> Vec<CounterType> {
+        self.ir
+            .with_counters_type_text
+            .as_deref()
+            .map(|text| {
+                text.split(',')
+                    .map(str::trim)
+                    .filter(|part| !part.is_empty())
+                    .map(crate::card::counter_type::parse_counter_type)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
 }
