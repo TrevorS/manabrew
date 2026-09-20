@@ -1669,6 +1669,12 @@ pub fn resolve_count_svar_for_sa(
 ) -> i32 {
     use forge_foundation::ZoneType;
 
+    // Callers reach this evaluator with expressions that never had a `Count$` prefix, so the
+    // delegation in `resolve_svar_expression_inner` does not see them.
+    if expr.starts_with("PlayerCount") {
+        return resolve_player_count_svar(expr, game, source_id, controller, sa);
+    }
+
     // Java `AbilityUtils.calculateAmount` walks the root ability and its sub-abilities and
     // counts every target of every node that targets; `Distinct` dedupes them. Java counts
     // targeted players too; only the cards are counted here.
