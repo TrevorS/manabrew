@@ -866,6 +866,19 @@ fn matches_context_predicate(
         ContextPredicate::Attacking(target) => {
             matches_attacking_predicate(target.as_ref(), card, context)
         }
+        ContextPredicate::AttackingAlone => {
+            matches_attacking_predicate(None, card, context)
+                && context.game.is_some_and(|game| {
+                    game.cards
+                        .iter()
+                        .filter(|other| {
+                            other.zone == forge_foundation::ZoneType::Battlefield
+                                && other.attacking_player.is_some()
+                        })
+                        .count()
+                        == 1
+                })
+        }
         ContextPredicate::Blocking(target) => {
             matches_blocking_predicate(target.as_ref(), card, context)
         }
@@ -1573,6 +1586,9 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         "greensource" => matches_card_color(CardColorSelector::Green, card),
         "colorlesssource" => card.color.is_colorless(),
         "chosencolorsource" => matches_chosen_color_source(card, context),
+        "attackingalone" => {
+            matches_context_predicate(&ContextPredicate::AttackingAlone, card, context)
+        }
         "attacking" => matches_context_predicate(&ContextPredicate::Attacking(None), card, context),
         "attackingyou" => matches_context_predicate(
             &ContextPredicate::Attacking(Some(TargetRef::Source)),

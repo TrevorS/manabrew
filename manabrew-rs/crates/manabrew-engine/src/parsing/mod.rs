@@ -346,6 +346,7 @@ pub enum CardColorSelector {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ContextPredicate {
     Attacking(Option<TargetRef>),
+    AttackingAlone,
     Blocking(Option<TargetRef>),
     BlockedByValidThisTurn(TargetRef),
     BlockedByValidThisTurnType(CardSelectorType),
@@ -1165,6 +1166,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "greensource" => SelectorPredicate::SourceColor(CardColorSelector::Green),
         "colorlesssource" => SelectorPredicate::SourceColorless,
         "chosencolorsource" => SelectorPredicate::ChosenColorSource,
+        "attackingalone" => SelectorPredicate::Context(ContextPredicate::AttackingAlone),
         "attacking" => SelectorPredicate::Context(ContextPredicate::Attacking(None)),
         "attackingyou" => {
             SelectorPredicate::Context(ContextPredicate::Attacking(Some(TargetRef::Source)))
