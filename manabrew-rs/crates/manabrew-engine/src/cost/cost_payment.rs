@@ -335,6 +335,7 @@ fn refund_cost_part(game: &mut GameState, source: CardId, player: PlayerId, part
         CostPart::AddCounter {
             amount,
             counter_type,
+            ..
         } => {
             crate::cost::cost_put_counter::refund(
                 game,

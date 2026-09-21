@@ -524,6 +524,7 @@ fn try_pay_effect_cost(
             CostPart::AddCounter {
                 amount,
                 counter_type,
+                ..
             } => {
                 let amount_n = amount.resolve(ctx.game, source, payer);
                 crate::ability::effects::effect_context::add_counter_with_context(

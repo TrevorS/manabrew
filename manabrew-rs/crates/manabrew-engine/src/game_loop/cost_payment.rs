@@ -854,13 +854,24 @@ impl GameLoop {
                 CostPart::AddCounter {
                     amount,
                     counter_type,
+                    type_filter,
                 } => {
                     let amount_n = amount.resolve(game, card_id, player);
+                    // Java `CostPutCounter` puts the counters on the source only for
+                    // CARDNAME; any other type is a valid string over the battlefield.
+                    let Some(counter_target) = crate::cost::cost_put_counter::counter_target(
+                        game,
+                        card_id,
+                        sa.as_deref(),
+                        type_filter,
+                    ) else {
+                        continue;
+                    };
                     crate::ability::effects::effect_context::add_counter_with_context(
                         game,
                         Some(&mut self.trigger_handler),
                         Some(agents),
-                        card_id,
+                        counter_target,
                         counter_type,
                         amount_n,
                         RunParams {
@@ -1544,14 +1555,22 @@ impl GameLoop {
                 CostPart::AddCounter {
                     amount,
                     counter_type,
+                    type_filter,
                 } => {
                     let amount_n = amount.resolve(game, card_id, player);
-                    if game.card(card_id).zone == ZoneType::Battlefield {
+                    let counter_target = crate::cost::cost_put_counter::counter_target(
+                        game,
+                        card_id,
+                        sa.as_deref(),
+                        type_filter,
+                    )
+                    .unwrap_or(card_id);
+                    if game.card(counter_target).zone == ZoneType::Battlefield {
                         crate::ability::effects::effect_context::add_counter_with_context(
                             game,
                             Some(&mut self.trigger_handler),
                             Some(agents),
-                            card_id,
+                            counter_target,
                             counter_type,
                             amount_n,
                             RunParams {

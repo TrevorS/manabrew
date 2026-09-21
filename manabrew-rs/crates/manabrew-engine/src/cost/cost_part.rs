@@ -104,6 +104,7 @@ pub fn refund(game: &mut GameState, source: CardId, player: PlayerId, part: &Cos
         CostPart::AddCounter {
             amount,
             counter_type,
+            ..
         } => {
             let n = resolve(amount, game);
             crate::cost::cost_put_counter::refund(game, source, n, counter_type);

@@ -190,9 +190,11 @@ fn parse_add_counter(inner: &str) -> Option<CostPart> {
         .map(|s| AmountSpec::parse_or(s, 1))
         .unwrap_or(AmountSpec::Literal(1));
     let counter_type_str = it.next().unwrap_or("LOYALTY");
+    let type_filter = it.next().unwrap_or("CARDNAME").to_string();
     Some(CostPart::AddCounter {
         amount,
         counter_type: parse_counter_type(counter_type_str),
+        type_filter,
     })
 }
 

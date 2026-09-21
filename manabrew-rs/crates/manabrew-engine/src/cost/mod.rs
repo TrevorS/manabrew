@@ -272,10 +272,12 @@ pub enum CostPart {
         counter_type: CounterType,
         type_filter: String,
     },
-    /// Add counters to the source permanent (e.g. AddCounter<1/LOYALTY>). Mirrors CostPutCounter.
+    /// Add counters to a permanent (e.g. AddCounter<1/LOYALTY>). Mirrors CostPutCounter;
+    /// `type_filter` is CARDNAME for the source, otherwise a valid string to choose from.
     AddCounter {
         amount: AmountSpec,
         counter_type: CounterType,
+        type_filter: String,
     },
     /// Exile cards from a specific zone (own zone) as cost. Mirrors CostExile.
     Exile {
