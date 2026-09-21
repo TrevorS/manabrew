@@ -1501,6 +1501,13 @@ pub fn matches_change_type(
                     return false;
                 }
             }
+            // Java `CardProperty:437` asks `source.hasCardAttachment(card)`; this matcher
+            // takes no source, so it answers the weaker "attached to anything".
+            "Attached" => {
+                if card.attached_to.is_none() && card.attached_to_player.is_none() {
+                    return false;
+                }
+            }
             "tapped" => {
                 if !card.tapped {
                     return false;
