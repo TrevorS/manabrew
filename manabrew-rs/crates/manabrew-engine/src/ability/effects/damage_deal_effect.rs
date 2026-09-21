@@ -375,8 +375,12 @@ fn deal_damage_from_source(
                 }
             } else {
                 let lethal = excess_damage_value(ctx.game, target_card, source);
+                let before = ctx.game.card(target_card).damage;
                 ctx.game
                     .deal_damage_to_card_from(target_card, damage, Some(source), false);
+                // What landed, not what was asked for: protection and prevention shields make
+                // this smaller, and Java sums `addDamageAfterPrevention`'s return the same way.
+                lifelink_dealt += (ctx.game.card(target_card).damage - before).max(0);
                 if damage > lethal && excess_svar_condition(ctx.game, sa, target_card) {
                     stored_excess += damage - lethal;
                 }
