@@ -75,9 +75,13 @@ fn evaluate_branch_condition(ctx: &EffectContext, sa: &SpellAbility) -> bool {
     let Some(source_id) = sa.source else {
         return false;
     };
-    let Some(expr) = ctx.game.card(source_id).get_s_var(condition_svar) else {
-        return false;
-    };
+    // Java reads it with `AbilityUtils.calculateAmount(host, branchSVar, sa)`, which takes an SVar
+    // name or the expression itself; only the `Remembered$Valid` form below needs a named SVar.
+    let expr = ctx
+        .game
+        .card(source_id)
+        .get_s_var(condition_svar)
+        .unwrap_or("");
 
     if let Some(valid_filter) = expr.strip_prefix("Remembered$Valid ") {
         let remembered = ctx.game.card(source_id).remembered_cards.clone();
