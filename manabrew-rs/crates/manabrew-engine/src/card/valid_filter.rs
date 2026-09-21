@@ -1441,6 +1441,19 @@ fn resolve_selector_operand(
                 let card = context.triggering_card?;
                 return Some(crate::lki::resolve_lki_toughness(game, card));
             }
+            // These read the source card alone, so they answer without a game. The
+            // selectors the parity agent evaluates off a `GameSnapshot` have no
+            // `GameState`, and an unresolved operand makes `matches_numeric_comparison`
+            // match every card.
+            if value == "Count$CardPower" {
+                return Some(context.source_card.power());
+            }
+            if value == "Count$CardToughness" {
+                return Some(context.source_card.toughness());
+            }
+            if value == "Count$ChosenNumber" {
+                return context.source_card.chosen_number;
+            }
             if value.starts_with("Count$") || value.starts_with("PlayerCount") {
                 let game = context.game?;
                 let sa = crate::spellability::SpellAbility::new_empty(
