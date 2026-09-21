@@ -1188,39 +1188,49 @@ pub fn get_etb_unless_reveal_cost(card: &crate::card::Card) -> Option<(i32, Stri
 /// or an SVar reference (e.g. "X" → Count$Valid Enchantment.YouCtrl).
 fn resolve_add_pt_value(game: &GameState, source_id: CardId, val_str: Option<&str>) -> i32 {
     let val_str = match val_str {
-        Some(val_str) => val_str,
+        Some(val_str) => val_str.trim(),
         None => return 0,
     };
 
     // Try direct integer parse first
-    if let Ok(n) = val_str.trim().parse::<i32>() {
+    if let Ok(n) = val_str.parse::<i32>() {
         return n;
     }
 
-    let source = game.card(source_id);
-    if val_str.trim().starts_with("Count$") {
-        return crate::ability::effects::resolve_count_svar(
-            val_str.trim(),
-            game,
-            source_id,
-            source.controller,
-        );
-    }
+    // Java `AbilityUtils.calculateAmount` strips a leading sign and multiplies the
+    // resolved amount by it, so `AddPower$ -X` negates the SVar rather than naming one.
+    let (sign, val_str) = match val_str.strip_prefix('-') {
+        Some(rest) => (-1, rest.trim()),
+        None => (1, val_str.strip_prefix('+').unwrap_or(val_str).trim()),
+    };
 
-    // It's an SVar reference — look it up on the source card
-    if let Some(svar_expr) = source.svars.get(val_str.trim()) {
-        if svar_expr.starts_with("Count$") {
-            return crate::ability::effects::resolve_count_svar(
-                svar_expr,
+    let source = game.card(source_id);
+    if val_str.starts_with("Count$") {
+        return sign
+            * crate::ability::effects::resolve_count_svar(
+                val_str,
                 game,
                 source_id,
                 source.controller,
             );
+    }
+
+    // It's an SVar reference — look it up on the source card
+    if let Some(svar_expr) = source.svars.get(val_str) {
+        if svar_expr.starts_with("Count$") {
+            return sign
+                * crate::ability::effects::resolve_count_svar(
+                    svar_expr,
+                    game,
+                    source_id,
+                    source.controller,
+                );
         }
-        return crate::ability::effects::evaluate_svar(
-            svar_expr,
-            &crate::spellability::SpellAbility::new_empty(Some(source_id), source.controller),
-        );
+        return sign
+            * crate::ability::effects::evaluate_svar(
+                svar_expr,
+                &crate::spellability::SpellAbility::new_empty(Some(source_id), source.controller),
+            );
     }
 
     0
