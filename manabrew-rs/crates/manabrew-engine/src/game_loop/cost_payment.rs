@@ -1035,6 +1035,7 @@ impl GameLoop {
                         type_filter,
                         resolved_amount,
                         from,
+                        sa.as_deref_mut(),
                     );
                 }
                 CostPart::Exert {
@@ -1784,6 +1785,7 @@ impl GameLoop {
                         type_filter,
                         resolved_amount,
                         from,
+                        sa.as_deref_mut(),
                     );
                 }
                 CostPart::Exert {
@@ -2780,6 +2782,7 @@ impl GameLoop {
         type_filter: &str,
         amount: i32,
         from: &crate::cost::RevealFrom,
+        sa: Option<&mut SpellAbility>,
     ) {
         if amount <= 0 {
             return;
@@ -2877,6 +2880,16 @@ impl GameLoop {
 
         if revealed.is_empty() {
             return;
+        }
+
+        // Java `CostReveal.getHashForLKIList` is "Revealed", which is what an SVar
+        // like `Revealed$CardPower` reads back after the cost is paid.
+        if let Some(sa) = sa {
+            for cid in &revealed {
+                let value = cid.to_string();
+                sa.add_cost_to_hash_list(crate::cost::cost_reveal::HASH_LKI, &value);
+                sa.add_cost_to_hash_list(crate::cost::cost_reveal::HASH_CARDS, &value);
+            }
         }
 
         let names = revealed

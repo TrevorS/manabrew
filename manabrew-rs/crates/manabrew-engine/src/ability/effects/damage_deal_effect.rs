@@ -577,6 +577,22 @@ fn evaluate_svar_expr(ctx: &EffectContext, sa: &SpellAbility, expr: &str) -> i32
             );
         }
     }
+    // Any `<PaidKey>$<property>` the cost payment actually recorded goes to the shared
+    // resolver, which is where Java's `handlePaid` lives; this local evaluator only
+    // knows the two Sacrificed forms below.
+    if let Some((key, _)) = expr.split_once('$') {
+        if sa.paid_hash.contains_key(key) {
+            if let Some(source_id) = sa.source {
+                return crate::svar::resolve_svar_expression(
+                    expr,
+                    ctx.game,
+                    source_id,
+                    sa.activating_player,
+                    sa,
+                );
+            }
+        }
+    }
     // Sacrificed$CardPower / Sacrificed$CardToughness — LKI from cost payment.
     // Used by Rite of Consumption: SVar:X:Sacrificed$CardPower
     if expr == "Sacrificed$CardPower" || expr == "Sacrificed$CardToughness" {
