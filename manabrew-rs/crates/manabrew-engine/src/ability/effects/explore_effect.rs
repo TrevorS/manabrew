@@ -45,18 +45,16 @@ fn explore_one(
     controller: crate::ids::PlayerId,
     explorer_id: crate::ids::CardId,
 ) {
-    // Run Explore replacement effects before exploring.
-    let mut event = ReplacementEvent::Explore { card: explorer_id };
-    let result = apply_replacements(ctx.game, &mut event);
-    if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
-        return;
-    }
-
-    // Parse Num parameter for multiple explores (e.g. Jadelight Ranger explores twice).
-    // Mirrors Java's `AbilityUtils.calculateAmount(host, sa.getParamOrDefault("Num", "1"), sa)`.
-    let amount = super::resolve_numeric_svar(ctx.game, sa, keys::NUM, 1).max(1);
+    // Java `ExploreEffect.resolve` reads the count first and runs the Explore
+    // replacement once per explore, so `Num$ 0` explores no times at all.
+    let amount = super::resolve_numeric_svar(ctx.game, sa, keys::NUM, 1);
 
     for _ in 0..amount {
+        let mut event = ReplacementEvent::Explore { card: explorer_id };
+        let result = apply_replacements(ctx.game, &mut event);
+        if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
+            continue;
+        }
         // Re-check explorer is still on battlefield (may have been removed by a trigger)
         if ctx.game.card(explorer_id).zone != ZoneType::Battlefield {
             return;
