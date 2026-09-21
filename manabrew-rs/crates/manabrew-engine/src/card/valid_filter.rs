@@ -831,7 +831,10 @@ fn matches_card_state(state: CardStateSelector, card: &Card, context: MatchConte
             .iter()
             .filter_map(|color| color_from_name_no_alloc(color))
             .any(|color| card.color.has_color(color)),
-        CardStateSelector::EnteredThisTurn => card.entered_this_turn(),
+        CardStateSelector::EnteredThisTurn => match context.game {
+            Some(game) => card.entered_current_zone_this_turn(game.turn.turn_number),
+            None => card.entered_this_turn(),
+        },
         CardStateSelector::WasDealtDamageThisTurn => !card.damage_sources_this_turn.is_empty(),
         CardStateSelector::Historic => {
             card.type_line.is_artifact()
@@ -1756,8 +1759,9 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         }
         "namedcard" => matches_card_state(CardStateSelector::NamedCard, card, context),
         "chosencolor" => matches_card_state(CardStateSelector::ChosenColor, card, context),
-        "thisturnentered" | "thisturnenteredfrom_battlefield" => {
-            matches_card_state(CardStateSelector::EnteredThisTurn, card, context)
+        "thisturnentered" => matches_card_state(CardStateSelector::EnteredThisTurn, card, context),
+        "thisturnenteredfrom_battlefield" => {
+            matches_entered_this_turn_from(ZoneType::Battlefield, card, context)
         }
         entered if entered.starts_with("enteredunder ") => {
             raw_target_ref(&value["EnteredUnder ".len()..]).is_some_and(|target| {
