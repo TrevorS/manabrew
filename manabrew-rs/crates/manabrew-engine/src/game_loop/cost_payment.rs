@@ -1334,6 +1334,7 @@ impl GameLoop {
                         type_filter,
                         resolved_amount,
                         *exile,
+                        None,
                     );
                 }
                 CostPart::Blight(amount) => {
@@ -1388,6 +1389,7 @@ impl GameLoop {
         prechosen_sacrifices: Option<&[CardId]>,
         prechosen_discards: Option<&[CardId]>,
         prechosen_tap_type: Option<&[CardId]>,
+        prechosen_beholds: Option<&[CardId]>,
     ) -> bool {
         let payment_snapshot = self.make_snapshot(game, true);
         game.card_mut(card_id).paid_cost_exiled_cards.clear();
@@ -1395,6 +1397,7 @@ impl GameLoop {
         let mut pre_sac_idx = 0usize;
         let mut pre_discard_idx = 0usize;
         let mut pre_tap_idx = 0usize;
+        let mut pre_behold_idx = 0usize;
         for part in spell_cost.parts.clone() {
             // Java deterministic parity does not route confirm-payment prompts
             // through RNG while paying spell costs; confirmPayment() returns true
@@ -2075,6 +2078,13 @@ impl GameLoop {
                     exile,
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
+                    let prechosen = prechosen_beholds.map(|picks| {
+                        let take =
+                            (resolved_amount.max(0) as usize).min(picks.len() - pre_behold_idx);
+                        let slice = &picks[pre_behold_idx..pre_behold_idx + take];
+                        pre_behold_idx += take;
+                        slice.to_vec()
+                    });
                     self.pay_behold_cost(
                         game,
                         agents,
@@ -2083,6 +2093,7 @@ impl GameLoop {
                         type_filter,
                         resolved_amount,
                         *exile,
+                        prechosen.as_deref(),
                     );
                 }
                 CostPart::Blight(amount) => {
@@ -2196,6 +2207,35 @@ impl GameLoop {
                     }
                 }
                 _ => {}
+            }
+        }
+        Some(picked)
+    }
+
+    pub(crate) fn prechoose_additional_cost_beholds(
+        game: &GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        source: CardId,
+        spell_cost: &crate::cost::Cost,
+    ) -> Option<Vec<CardId>> {
+        let mut picked: Vec<CardId> = Vec::new();
+        for part in spell_cost.parts.clone() {
+            if let CostPart::Behold {
+                type_filter,
+                amount,
+                ..
+            } = part
+            {
+                let resolved = amount.resolve(game, source, player);
+                picked.extend(Self::choose_behold_cards(
+                    game,
+                    agents,
+                    player,
+                    source,
+                    &type_filter,
+                    resolved,
+                ));
             }
         }
         Some(picked)
@@ -3137,7 +3177,23 @@ impl GameLoop {
         type_filter: &str,
         amount: i32,
         exile: bool,
+        prechosen: Option<&[CardId]>,
     ) {
+        let chosen_cards = match prechosen {
+            Some(picks) => picks.to_vec(),
+            None => Self::choose_behold_cards(game, agents, player, source, type_filter, amount),
+        };
+        self.apply_behold_cost(game, agents, source, exile, chosen_cards);
+    }
+
+    pub(crate) fn choose_behold_cards(
+        game: &GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        source: CardId,
+        type_filter: &str,
+        amount: i32,
+    ) -> Vec<CardId> {
         let build_pool = |game: &GameState| -> Vec<CardId> {
             let mut valid: Vec<CardId> = game
                 .cards_in_zone(ZoneType::Hand, player)
@@ -3160,16 +3216,16 @@ impl GameLoop {
             valid
         };
 
-        let chosen_cards = if type_filter.ends_with("ChosenType") {
+        if type_filter.ends_with("ChosenType") {
             // Java two-phase approach: pick 1 first, then pick `amount` from
             // cards sharing a creature type with the first pick.
             let pool = build_pool(game);
             if pool.is_empty() {
-                return;
+                return Vec::new();
             }
             let first_pick = agents[player.index()].choose_cards_for_effect(player, &pool, 1, 1);
             if first_pick.is_empty() {
-                return;
+                return Vec::new();
             }
             let first = first_pick[0];
             let same_type: Vec<CardId> = pool
@@ -3177,7 +3233,7 @@ impl GameLoop {
                 .filter(|&cid| shares_creature_type(game, first, cid))
                 .collect();
             if (same_type.len() as i32) < amount {
-                return;
+                return Vec::new();
             }
             agents[player.index()].choose_cards_for_effect(
                 player,
@@ -3189,7 +3245,7 @@ impl GameLoop {
             // Non-ChosenType: pick `amount` cards at once.
             let pool = build_pool(game);
             if pool.is_empty() {
-                return;
+                return Vec::new();
             }
             agents[player.index()].choose_cards_for_effect(
                 player,
@@ -3197,8 +3253,17 @@ impl GameLoop {
                 amount as usize,
                 amount as usize,
             )
-        };
+        }
+    }
 
+    fn apply_behold_cost(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        source: CardId,
+        exile: bool,
+        chosen_cards: Vec<CardId>,
+    ) {
         for chosen in chosen_cards {
             if exile {
                 let origin = game.card(chosen).zone;
