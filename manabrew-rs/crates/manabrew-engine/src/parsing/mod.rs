@@ -361,6 +361,7 @@ pub enum ContextPredicate {
     EnteredUnder(TargetRef),
     TopLibrary,
     ExiledWithSource,
+    ExiledWithEffectSource,
     RememberedPlayerCtrl,
     TargetedPlayerCtrl,
     /// Java `CardProperty` "targetedBy": the root ability is targeting this card.
@@ -1205,6 +1206,9 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "saddledthisturn" => SelectorPredicate::Raw(normalized.to_string()),
         "mayplaysource" => SelectorPredicate::CardState(CardStateSelector::MayPlaySource),
         "exiledwithsource" => SelectorPredicate::Context(ContextPredicate::ExiledWithSource),
+        "exiledwitheffectsource" => {
+            SelectorPredicate::Context(ContextPredicate::ExiledWithEffectSource)
+        }
         "toplibrary" => SelectorPredicate::Context(ContextPredicate::TopLibrary),
         "suspended" => SelectorPredicate::CardState(CardStateSelector::Suspended),
         "singletarget" => SelectorPredicate::CardState(CardStateSelector::SingleTarget),

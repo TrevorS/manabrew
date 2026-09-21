@@ -933,6 +933,12 @@ fn matches_context_predicate(
         }
         ContextPredicate::TopLibrary => false,
         ContextPredicate::ExiledWithSource => context.source_card.exiled_cards.contains(&card.id),
+        // Java `CardProperty:413` compares against the effect's source, not the effect card.
+        ContextPredicate::ExiledWithEffectSource => context
+            .source_card
+            .effect_source
+            .zip(context.game)
+            .is_some_and(|(host, game)| game.card(host).exiled_cards.contains(&card.id)),
         ContextPredicate::RememberedPlayerCtrl => {
             context.remembered_players.contains(&card.controller)
         }
