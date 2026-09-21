@@ -19,12 +19,23 @@ use crate::staticability::StaticMode;
 /// ```text
 /// S:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You | Cost$ 2
 /// ```
-pub fn get_attack_cost(cards: &[Card], attacker: &Card, defender: DefenderId) -> i32 {
+pub fn get_attack_cost(
+    game: &crate::game::GameState,
+    attacker: &Card,
+    defender: DefenderId,
+) -> i32 {
+    let cards = &game.cards;
     let mut total_cost = 0;
 
     for source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {
         for sa in &source.static_abilities {
             if !sa.check_mode(&StaticMode::CantAttackUnless) {
+                continue;
+            }
+
+            // Java `StaticAbility.getAttackCost:310` bails on checkConditions, which is
+            // what makes Archangel of Tithes stop taxing once it is tapped (IsPresent$).
+            if !sa.check_conditions(source, game) {
                 continue;
             }
 
@@ -52,8 +63,28 @@ pub fn get_attack_cost(cards: &[Card], attacker: &Card, defender: DefenderId) ->
                             continue;
                         }
                     }
-                    _ => {
-                        // Applies to any attack
+                    // Java `matchesValidParam("Target", target)` is a valid string, not a
+                    // fixed word, so `You,Planeswalker.YouCtrl` only covers those defenders.
+                    other => {
+                        let matched = match defender {
+                            DefenderId::Player(pid) => valid_filter::matches_valid(
+                                other,
+                                None,
+                                Some(pid),
+                                source,
+                                source.controller,
+                            ),
+                            DefenderId::Permanent(cid) => valid_filter::matches_valid(
+                                other,
+                                Some(&cards[cid.index()]),
+                                None,
+                                source,
+                                source.controller,
+                            ),
+                        };
+                        if !matched {
+                            continue;
+                        }
                     }
                 }
             }

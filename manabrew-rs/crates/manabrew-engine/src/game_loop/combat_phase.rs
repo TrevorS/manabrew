@@ -315,11 +315,8 @@ impl GameLoop {
         {
             let mut cost_failures = Vec::new();
             for &(attacker_id, defender) in &chosen_attackers {
-                let cost = combat::attack_cost::get_attack_cost(
-                    &game.cards,
-                    game.card(attacker_id),
-                    defender,
-                );
+                let cost =
+                    combat::attack_cost::get_attack_cost(game, game.card(attacker_id), defender);
                 if cost > 0 {
                     let controller = game.card(attacker_id).controller;
                     let attacker_name = game.card(attacker_id).card_name.clone();

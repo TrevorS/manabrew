@@ -430,7 +430,7 @@ pub fn check_propaganda_effects(
     defender: DefenderId,
 ) -> bool {
     let attacker = game.card(attacker_id);
-    let cost = super::attack_cost::get_attack_cost(&game.cards, attacker, defender);
+    let cost = super::attack_cost::get_attack_cost(game, attacker, defender);
     cost == 0
 }
 
