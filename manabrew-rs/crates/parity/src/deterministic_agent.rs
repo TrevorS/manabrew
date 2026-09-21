@@ -893,6 +893,11 @@ impl DeterministicAgent {
                 if !sa.check_mode(&manabrew_engine::staticability::StaticMode::CantBlockBy) {
                     continue;
                 }
+                if let Some(game) = self.snapshot_game() {
+                    if !sa.check_conditions(source, game) {
+                        continue;
+                    }
+                }
 
                 if let Some(valid_attacker) = sa.ir.valid_attacker.as_ref() {
                     if !manabrew_engine::card::valid_filter::matches_valid_card_selector(

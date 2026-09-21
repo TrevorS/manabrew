@@ -820,6 +820,16 @@ impl StaticAbility {
             }
         }
 
+        // Java `CardTraitBase.meetsCommonRequirements` gates every trait on `CheckSVar$`, not just
+        // the infect-damage static that reads it with a hypothetical life total.
+        if let Some(check_name) = self.ir.check_svar_text.as_deref() {
+            let compare = self.ir.svar_compare_text.as_deref().unwrap_or("GE1");
+            if !crate::card::valid_filter::check_svar_requirement(
+                game, source, source, check_name, compare,
+            ) {
+                return false;
+            }
+        }
         if let Some(check_name) = self.ir.check_third_svar.as_deref() {
             let compare = self.ir.third_svar_compare.as_deref().unwrap_or("GE1");
             if !crate::card::valid_filter::check_svar_requirement(
