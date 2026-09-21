@@ -231,6 +231,21 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         }
     }
 
+    // Decayed: Java `CardFactoryUtil:3870` hangs a `Mode$ CantBlock | ValidCard$ Creature.Self`
+    // static off the keyword instance, so a keyword gained from a decayed counter carries it.
+    // `keyword_gen` only builds that static for a printed keyword.
+    for card in game.cards.iter_mut() {
+        let decayed = card.has_keyword("Decayed")
+            || card.counters.iter().any(|(counter, &amount)| {
+                amount > 0
+                    && crate::card::counter_keyword_type::CounterKeywordType::keyword(counter)
+                        == Some("Decayed")
+            });
+        if card.zone == ZoneType::Battlefield && card.is_creature() && decayed {
+            card.cant_block_static = true;
+        }
+    }
+
     // Impending: Java `CardFactoryUtil:3937` gives the card a
     // `RemoveType$ Creature` static affecting `Card.Self+impended+counters_GE1_TIME`,
     // so a permanent cast for its impending cost is not a creature until the last

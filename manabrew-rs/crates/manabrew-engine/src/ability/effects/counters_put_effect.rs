@@ -438,14 +438,14 @@ fn resolve_card_targets(
 ) -> Vec<crate::ids::CardId> {
     let cards: Vec<crate::ids::CardId> =
         if sa.target_restrictions.is_some() && sa.ir.defined.is_none() {
-            sa.target_chosen.target_card.into_iter().collect()
+            sa.target_chosen.all_target_cards()
         } else {
             match sa.defined_ref() {
                 Some(
                     DefinedRef::TriggeredTarget
                     | DefinedRef::TriggeredTargetLkiCopy
                     | DefinedRef::Targeted,
-                ) => sa.target_chosen.target_card.into_iter().collect(),
+                ) => sa.target_chosen.all_target_cards(),
                 None | Some(DefinedRef::SelfCard) => sa.source.into_iter().collect(),
                 Some(_) => {
                     crate::ability::spell_ability_effect::get_defined_cards_or_targeted(game, sa)
