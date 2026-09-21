@@ -285,6 +285,46 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         );
     }
 
+    // NoteCardsFor$ / ClearNotedCardsFor$ (PumpEffect.java:404-417). The note is written on
+    // the pump's target players, keyed by the label, and read back by the NotedFor player
+    // property.
+    let note_key = crate::parsing::raw_get(&sa.ability_text, "NoteCardsFor");
+    let clear_keys = crate::parsing::raw_get(&sa.ability_text, "ClearNotedCardsFor");
+    if note_key.is_some() || clear_keys.is_some() {
+        let note_players: Vec<crate::ids::PlayerId> =
+            if let Some(tp) = sa.target_chosen.target_player {
+                vec![tp]
+            } else if let Some(d) = sa.defined() {
+                crate::ability::ability_utils::resolve_defined_players_with_sa(
+                    d,
+                    sa,
+                    sa.activating_player,
+                    ctx.game,
+                )
+            } else {
+                Vec::new()
+            };
+        if let Some(key) = note_key {
+            let noted = crate::parsing::raw_get(&sa.ability_text, "NoteCards").unwrap_or("Self");
+            let cards = crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                ctx.game, sa, noted,
+            );
+            for card_id in cards {
+                let note = format!("Id:{}", card_id.0);
+                for &player in &note_players {
+                    crate::player::add_note_for_name(ctx.game, player, key, note.clone());
+                }
+            }
+        }
+        if let Some(keys) = clear_keys {
+            for key in keys.split(',').map(str::trim).filter(|k| !k.is_empty()) {
+                for &player in &note_players {
+                    crate::player::clear_notes_for_name(ctx.game, player, key);
+                }
+            }
+        }
+    }
+
     let _ = crate::ability::spell_ability_effect::replace_dying(ctx.game, sa);
 }
 
