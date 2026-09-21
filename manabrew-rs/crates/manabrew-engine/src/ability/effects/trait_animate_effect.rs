@@ -34,7 +34,14 @@ pub fn parse_animate_params(sa: &SpellAbility) -> AnimateParams {
             .ir
             .animate_keywords_text
             .as_deref()
-            .map(|kws| kws.split(',').map(|s| s.trim().to_string()).collect())
+            // Java splits Animate's Keywords$ on " & " (AnimateEffect.java:80), not on commas;
+            // a keyword like "Protection from black" has no comma but several words.
+            .map(|kws| {
+                kws.split('&')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            })
             .unwrap_or_default(),
         colors: sa
             .ir
