@@ -1,6 +1,6 @@
 use forge_foundation::ZoneType;
 
-use super::{emit_zone_trigger, resolve_defined_player, resolve_numeric_svar, EffectContext};
+use super::{emit_zone_trigger, resolve_numeric_svar, EffectContext};
 use crate::ability::ability_ir::EffectIr;
 use crate::event::RunParams;
 use crate::parsing::keys;
@@ -20,25 +20,8 @@ use crate::trigger::TriggerType;
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let num = resolve_mill_amount(ctx, sa).max(0) as usize;
 
-    let mut millers: Vec<crate::ids::PlayerId> = if let Some(tp) = sa.target_chosen.target_player {
-        vec![tp]
-    } else if let Some(d) = sa.defined() {
-        let players = crate::ability::ability_utils::resolve_defined_players_with_sa(
-            d,
-            sa,
-            sa.activating_player,
-            ctx.game,
-        );
-        if players.is_empty() {
-            resolve_defined_player(d, sa.activating_player, ctx.game)
-                .map(|pid| vec![pid])
-                .unwrap_or_else(|| vec![sa.activating_player])
-        } else {
-            players
-        }
-    } else {
-        vec![sa.activating_player]
-    };
+    let mut millers: Vec<crate::ids::PlayerId> =
+        crate::ability::spell_ability_effect::get_target_players(ctx.game, sa);
 
     if sa.ir.optional {
         millers.retain(|&player| {
