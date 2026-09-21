@@ -367,8 +367,22 @@ fn compute_cost_adjustment_inner(
 
             // ── checkRequirement: OnlyFirstSpell$ ────────────────────
             if st_ab.ir.only_first_spell {
-                // Only applies if no matching spells have been cast yet this turn
-                if game.player(caster).spells_cast_this_turn > 0 {
+                // Java `CostAdjustment:541` narrows the spells cast this turn to the
+                // static's own `ValidCard$` before asking whether the activator cast
+                // one, so "the first creature spell" ignores every other spell.
+                let cast_this_turn = match st_ab.ir.valid_card_text.as_deref() {
+                    Some(valid) => crate::card::card_util::get_this_turn_cast(
+                        game,
+                        valid,
+                        source.id,
+                        source.controller,
+                    ),
+                    None => game.stack.get_spells_cast_this_turn().to_vec(),
+                };
+                if cast_this_turn
+                    .iter()
+                    .any(|&cid| game.card(cid).controller == caster)
+                {
                     continue;
                 }
             }
