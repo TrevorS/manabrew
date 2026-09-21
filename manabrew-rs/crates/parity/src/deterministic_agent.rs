@@ -282,7 +282,7 @@ impl DeterministicAgent {
     /// it can take more than the minimum.
     fn choose_targets_like_java(
         &mut self,
-        mut remaining: Vec<CardId>,
+        remaining: Vec<CardId>,
         min: usize,
         max: usize,
     ) -> Vec<CardId> {
@@ -291,12 +291,18 @@ impl DeterministicAgent {
         // Java's loop condition is `while (!isTargetNumberValid())`, which is false as soon
         // as the minimum is met, so the `pickBool` below draws but can never add another
         // target. Mirroring the condition, not just the body, is what keeps the count equal.
-        while !target_number_valid(chosen.len(), min, max) && !remaining.is_empty() {
+        // A target already chosen stays in the candidate list: `getAllCandidates` still
+        // returns it and `TargetChoices.add` is a no-op on a duplicate, so the draw is over
+        // the same option count every time and a repeat just costs another iteration.
+        while !target_number_valid(chosen.len(), min, max)
+            && remaining.iter().any(|cid| !chosen.contains(cid))
+        {
             let Some(pick) = choice_space::pick_one(&remaining, &mut rng) else {
                 break;
             };
-            remaining.retain(|&cid| cid != pick);
-            chosen.push(pick);
+            if !chosen.contains(&pick) {
+                chosen.push(pick);
+            }
             if chosen.len() >= max {
                 break;
             }
@@ -326,13 +332,16 @@ impl DeterministicAgent {
         let mut probe = sa.clone();
         let mut chosen: Vec<CardId> = Vec::new();
         let mut rng = self.rng.borrow_mut();
-        while !target_number_valid(chosen.len(), min, max) && !remaining.is_empty() {
+        while !target_number_valid(chosen.len(), min, max)
+            && remaining.iter().any(|cid| !chosen.contains(cid))
+        {
             let Some(pick) = choice_space::pick_one(&remaining, &mut rng) else {
                 break;
             };
-            remaining.retain(|&cid| cid != pick);
-            chosen.push(pick);
-            probe.target_chosen.add(Some(pick), None);
+            if !chosen.contains(&pick) {
+                chosen.push(pick);
+                probe.target_chosen.add(Some(pick), None);
+            }
             if chosen.len() >= max {
                 break;
             }
