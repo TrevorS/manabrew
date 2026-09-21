@@ -432,6 +432,23 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                     if let Some(kws) = sa.ir.add_keyword_text.as_deref() {
                         // AddKeyword$ supports multiple keywords separated by " & ".
                         for kw in kws.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+                            // Java `StaticAbilityContinuous:714` replaces a CardColors keyword
+                            // with one copy per colour of the affected card, so a colourless
+                            // one is granted nothing at all.
+                            if kw.contains("CardColors") || kw.contains("cardColors") {
+                                for color in game.card(target).color.iter() {
+                                    let name = color.long_name();
+                                    let expanded = kw
+                                        .replace("CardColors", &capitalize(name))
+                                        .replace("cardColors", name);
+                                    pending.push(PendingEffect {
+                                        layer: Layer::Ability,
+                                        target,
+                                        kind: EffectKind::GrantKeyword(expanded),
+                                    });
+                                }
+                                continue;
+                            }
                             pending.push(PendingEffect {
                                 layer: Layer::Ability,
                                 target,
@@ -1835,4 +1852,13 @@ fn sanitize_subtypes(type_line: &mut CardTypeLine) -> bool {
             || (plane && TypeRegistry::is_subtype_in("PlanarTypes", s))
     });
     type_line.subtypes.len() != before
+}
+
+/// `StringUtils.capitalize`, for the colour name Java splices into a CardColors keyword.
+fn capitalize(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
+    }
 }
