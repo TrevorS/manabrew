@@ -452,6 +452,7 @@ pub enum CardStateSelector {
     SingleTarget,
     PromisedGift,
     RingBearer,
+    Worthy,
 }
 
 // Numeric selector comparisons (`cmcGE3`, `powerLEX`, `counters_EQ1_P1P1`).
@@ -1182,6 +1183,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         }
         "damagedby" => SelectorPredicate::DamagedBy,
         "equippedby" | "enchantedby" | "attachedby" => SelectorPredicate::AttachedBy,
+        "worthy" => SelectorPredicate::CardState(CardStateSelector::Worthy),
         "facedown" => SelectorPredicate::CardState(CardStateSelector::FaceDown),
         "paired" => SelectorPredicate::CardState(CardStateSelector::Paired),
         "pairedwith" => SelectorPredicate::CardState(CardStateSelector::PairedWithSource),

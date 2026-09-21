@@ -857,6 +857,13 @@ fn matches_card_state(state: CardStateSelector, card: &Card, context: MatchConte
         CardStateSelector::RingBearer => context
             .game
             .is_some_and(|game| game.player(card.controller).ring_bearer == Some(card.id)),
+        // Java `CardState.isWorthy:1128`.
+        CardStateSelector::Worthy => {
+            card.type_line.is_creature()
+                && card.type_line.is_legendary()
+                && !card.type_line.has_subtype("Villain")
+                && (card.color.has_red() || card.color.has_white())
+        }
     }
 }
 
