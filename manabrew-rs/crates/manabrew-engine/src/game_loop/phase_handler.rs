@@ -380,20 +380,23 @@ impl GameLoop {
             } else {
                 let optional_keyword =
                     "You may choose not to untap CARDNAME during your untap step.";
-                let should_untap = if game.card(cid).has_keyword(optional_keyword) {
-                    let question = format!("Untap {}?", game.card(cid).card_name);
-                    let _source_name = game.card(cid).card_name.clone();
-                    agents[active.index()].choose_binary(
-                        active,
-                        &question,
-                        crate::agent::BinaryChoiceKind::UntapOrLeaveTapped,
-                        Some(true),
-                        Some(cid),
-                        None,
-                    )
-                } else {
-                    true
-                };
+                // Java `Untap.doUntap:118` filters the list with `canUntap` before
+                // `optionalUntap` prompts, so an untapped permanent is never asked.
+                let should_untap =
+                    if game.card(cid).tapped && game.card(cid).has_keyword(optional_keyword) {
+                        let question = format!("Untap {}?", game.card(cid).card_name);
+                        let _source_name = game.card(cid).card_name.clone();
+                        agents[active.index()].choose_binary(
+                            active,
+                            &question,
+                            crate::agent::BinaryChoiceKind::UntapOrLeaveTapped,
+                            Some(true),
+                            Some(cid),
+                            None,
+                        )
+                    } else {
+                        true
+                    };
                 if should_untap && game.untap_during_untap_step(cid, active) {
                     match untap_map.iter_mut().find(|(player, _)| *player == active) {
                         Some((_, untapped)) => untapped.push(cid),
