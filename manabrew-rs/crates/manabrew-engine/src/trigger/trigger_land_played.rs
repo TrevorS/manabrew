@@ -11,12 +11,14 @@ use super::trigger::{Trigger, TriggerBehavior};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TriggerLandPlayed {
     pub valid_card: Option<crate::parsing::CompiledSelector>,
+    pub origin: Option<String>,
 }
 
 impl TriggerLandPlayed {
     pub fn parse(params: &Params) -> Box<dyn TriggerBehavior> {
         Box::new(Self {
             valid_card: params.selector_cloned(keys::VALID_CARD),
+            origin: params.get(keys::ORIGIN).map(str::to_string),
         })
     }
 }
@@ -30,6 +32,22 @@ impl TriggerBehavior for TriggerLandPlayed {
     fn perform_test(&self, trigger: &Trigger, params: &RunParams, game: &GameState) -> bool {
         let _host_card = trigger.base.card_trait_base.host_card_id();
         let _host_controller = trigger.base.card_trait_base.host_controller(game);
+        // Java `TriggerLandPlayed.performTest` filters on the zone the land was played
+        // from, so a trigger that wants it played from anywhere but hand says so here.
+        if let Some(origin) = self.origin.as_deref() {
+            if origin != "Any" {
+                let Some(played_from) = params.origin else {
+                    return false;
+                };
+                if !origin
+                    .split(',')
+                    .filter_map(|z| forge_foundation::ZoneType::from_str_compat(z.trim()))
+                    .any(|z| z == played_from)
+                {
+                    return false;
+                }
+            }
+        }
         trigger.matches_optional_valid_card_filter(&self.valid_card, params.card, game)
     }
 

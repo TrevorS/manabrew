@@ -235,6 +235,7 @@ impl GameLoop {
             RunParams {
                 card: Some(card_id),
                 player: Some(player),
+                origin: Some(origin_zone),
                 ..Default::default()
             },
             false,
