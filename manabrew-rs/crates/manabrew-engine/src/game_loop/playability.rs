@@ -1509,6 +1509,48 @@ impl GameLoop {
             }
         }
 
+        // `ActionSpace.getPossibleActions` adds `lib.get(0)` for every player, not just `player`.
+        let library_tops: Vec<CardId> = game
+            .player_order
+            .iter()
+            .filter_map(|&owner| game.zone(ZoneType::Library, owner).peek_top())
+            .collect();
+        for card_id in library_tops {
+            if !can_may_play_from_static(card_id) {
+                continue;
+            }
+            if game.card(card_id).is_land() {
+                let land_sa = SpellAbility::new_land(Some(card_id), player);
+                if !must_be_instant && crate::spellability::land_ability::can_play(&land_sa, game) {
+                    playable.push(crate::agent::PlayOption {
+                        card_id,
+                        mode: crate::agent::PlayCardMode::Normal,
+                        alt_cost_index: 0,
+                    });
+                }
+                continue;
+            }
+            if must_be_instant && !has_flash_permission(card_id) {
+                continue;
+            }
+            if self.can_cast_may_play_spell(
+                game,
+                player,
+                card_id,
+                ZoneType::Library,
+                may_play_alt_cost(card_id),
+                &chosen_types_by_source,
+            ) {
+                for _ in 0..count_may_play_grants(card_id).max(1) {
+                    playable.push(crate::agent::PlayOption {
+                        card_id,
+                        mode: crate::agent::PlayCardMode::Normal,
+                        alt_cost_index: 0,
+                    });
+                }
+            }
+        }
+
         self.trace_playability(game, player, must_be_instant, &playable);
         playable
     }

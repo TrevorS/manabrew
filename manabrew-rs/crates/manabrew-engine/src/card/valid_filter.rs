@@ -931,7 +931,9 @@ fn matches_context_predicate(
             card.entered_this_turn()
                 && relation_target_player_any(target, context, |player| card.controller == player)
         }
-        ContextPredicate::TopLibrary => false,
+        ContextPredicate::TopLibrary => context.game.is_some_and(|game| {
+            game.zone(ZoneType::Library, card.owner).peek_top() == Some(card.id)
+        }),
         ContextPredicate::ExiledWithSource => context.source_card.exiled_cards.contains(&card.id),
         // Java `CardProperty:413` compares against the effect's source, not the effect card.
         ContextPredicate::ExiledWithEffectSource => context
