@@ -4295,7 +4295,7 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "loadgen"
-version = "0.2.31"
+version = "0.2.32"
 dependencies = [
  "futures-util",
  "manabot",
@@ -4379,7 +4379,7 @@ dependencies = [
 
 [[package]]
 name = "manabot"
-version = "0.13.7"
+version = "0.13.8"
 dependencies = [
  "bitflags 2.11.0",
  "futures-util",
@@ -4398,7 +4398,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew"
-version = "3.48.0"
+version = "3.48.1"
 dependencies = [
  "flate2",
  "forge-carddb",
@@ -4436,7 +4436,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew-agent-interface"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "forge-foundation",
  "manabrew-engine",
@@ -4496,7 +4496,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew-hub"
-version = "0.20.0"
+version = "0.20.1"
 dependencies = [
  "aws-lc-rs",
  "aws-sdk-s3",
@@ -4533,7 +4533,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew-protocol"
-version = "5.11.0"
+version = "5.11.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -4544,7 +4544,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew-relay-protocol"
-version = "5.14.1"
+version = "5.14.2"
 dependencies = [
  "base64 0.22.1",
  "manabrew-protocol",
@@ -4555,7 +4555,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew-server"
-version = "0.36.0"
+version = "0.36.2"
 dependencies = [
  "aws-lc-rs",
  "axum",
@@ -4585,7 +4585,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew_game_runtime"
-version = "0.3.53"
+version = "0.3.54"
 dependencies = [
  "forge-carddb",
  "forge-foundation",
@@ -7088,7 +7088,7 @@ dependencies = [
 
 [[package]]
 name = "self-hosted-node"
-version = "0.34.5"
+version = "0.34.6"
 dependencies = [
  "forge-carddb",
  "forge-foundation",
@@ -9266,7 +9266,7 @@ dependencies = [
 
 [[package]]
 name = "wasm"
-version = "0.10.8"
+version = "0.10.9"
 dependencies = [
  "console_error_panic_hook",
  "forge-carddb",

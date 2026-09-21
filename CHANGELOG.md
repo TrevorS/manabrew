@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.48.1](https://github.com/witchesofthehill/manabrew/compare/v3.48.0...v3.48.1) (2026-09-21)
+
+### Fixes
+
+* **play:** let a browser host concede instead of destroying the table ([#866](https://github.com/witchesofthehill/manabrew/issues/866)) ([279ddd2](https://github.com/witchesofthehill/manabrew/commit/279ddd243130f19c2a48c5ff9b7714a6abdab995))
+* **engine:** report engine crashes instead of calling the game a draw ([#887](https://github.com/witchesofthehill/manabrew/issues/887)) ([ee81330](https://github.com/witchesofthehill/manabrew/commit/ee813302b584aa04950dc9c58c4624bff7e2b1cc))
+
 ## [3.48.0](https://github.com/witchesofthehill/manabrew/compare/v3.47.6...v3.48.0) (2026-09-21)
 
 ### Features
