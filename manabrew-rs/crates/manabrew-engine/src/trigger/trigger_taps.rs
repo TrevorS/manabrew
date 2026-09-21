@@ -15,6 +15,7 @@ pub struct TriggerTaps {
     pub valid_player: Option<crate::parsing::CompiledSelector>,
     pub attacker: Option<bool>,
     pub require_first_time: bool,
+    pub require_teamwork: bool,
 }
 
 impl TriggerTaps {
@@ -27,6 +28,7 @@ impl TriggerTaps {
                 .get(keys::ATTACKER)
                 .map(|v| v.eq_ignore_ascii_case("true")),
             require_first_time: params.has("FirstTime"),
+            require_teamwork: params.has("Teamwork"),
         })
     }
 }
@@ -61,6 +63,11 @@ impl TriggerBehavior for TriggerTaps {
             }
         }
         if self.require_first_time && params.first_time != Some(true) {
+            return false;
+        }
+        // Java `TriggerTaps` requires the running cost payment to be a `CostTeamwork`;
+        // this port has no Teamwork cost part, so that test can never pass.
+        if self.require_teamwork {
             return false;
         }
         true
