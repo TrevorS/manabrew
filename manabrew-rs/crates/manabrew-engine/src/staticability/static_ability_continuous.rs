@@ -46,10 +46,11 @@ pub fn can_play(st_ab: &StaticAbility, source: &Card, card: &Card, game: &GameSt
         )
         .contains(&card.id);
     }
-    crate::card::valid_filter::matches_valid_card_selector_opt(
+    crate::card::valid_filter::matches_valid_card_selector_opt_in_game(
         st_ab.ir.affected.as_ref(),
         card,
         source,
+        game,
     )
 }
 
