@@ -1613,6 +1613,16 @@ fn count_valid_aggregate(
                     "CardToughness" => Some(card.toughness()),
                     "CardSumPT" => Some(card.power() + card.toughness()),
                     "CardManaCost" => Some(card.mana_value()),
+                    _ if property.starts_with("CardCounters.") => {
+                        let counter_name = property.strip_prefix("CardCounters.").unwrap_or("");
+                        Some(if counter_name.eq_ignore_ascii_case("ALL") {
+                            card.num_all_counters()
+                        } else {
+                            card.counter_count(&crate::ability::ability_utils::parse_counter_type(
+                                counter_name,
+                            ))
+                        })
+                    }
                     _ => None,
                 })
                 .collect();
