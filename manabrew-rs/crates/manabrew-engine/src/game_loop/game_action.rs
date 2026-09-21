@@ -287,6 +287,18 @@ impl GameLoop {
                 player,
                 ab.cost.clone(),
             );
+            // Java announces X before paying, and nothing stops the activator choosing 0, so the
+            // offer test asks whether the rest of the cost is payable. The spell path already
+            // does this with `ManaCost::without_x` (`playability.rs`).
+            let ab_cost = match ab_cost.parts.iter().find_map(|part| match part {
+                crate::cost::CostPart::Mana { cost, .. } if cost.count_x() > 0 => {
+                    Some(cost.without_x())
+                }
+                _ => None,
+            }) {
+                Some(without_x) => ab_cost.copy_with_defined_mana(without_x),
+                None => ab_cost,
+            };
             let mana_for_check = if needs_mana {
                 mana::calculate_available_mana_with_context(
                     self.pool(player),
