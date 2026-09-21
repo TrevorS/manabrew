@@ -631,6 +631,9 @@ fn matches_card_predicate(
             card.activated_abilities.iter().any(|a| a.is_mana_ability)
         }
         SelectorPredicate::NoAbilities => card.has_no_abilities(),
+        SelectorPredicate::CastSaSource => {
+            card.cast_sa.is_some() && card.id == context.source_card.id
+        }
         SelectorPredicate::CastWith(alt_cost) => card
             .cast_sa
             .as_ref()
@@ -2693,6 +2696,7 @@ fn matches_player_predicate(
         | SelectorPredicate::Legendary
         | SelectorPredicate::PowerLtToughness
         | SelectorPredicate::PowerGtBasePower
+        | SelectorPredicate::CastSaSource
         | SelectorPredicate::Kicked
         | SelectorPredicate::Monstrous
         | SelectorPredicate::Renowned

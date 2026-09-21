@@ -244,6 +244,9 @@ pub enum SelectorPredicate {
     PowerLtToughness,
     /// Java `CardProperty:1381` "powerGTbasePower": net power above the state's own power.
     PowerGtBasePower,
+    /// Java `CardProperty:1902` "CastSaSource": cast by the very spell that is the
+    /// filter's source, which is how a cast trigger excludes its own spell.
+    CastSaSource,
     Kicked,
     Monstrous,
     Renowned,
@@ -995,6 +998,7 @@ fn selector_predicate_order(predicate: &SelectorPredicate) -> u8 {
         | SelectorPredicate::Legendary
         | SelectorPredicate::PowerLtToughness
         | SelectorPredicate::PowerGtBasePower
+        | SelectorPredicate::CastSaSource
         | SelectorPredicate::Kicked
         | SelectorPredicate::Monstrous
         | SelectorPredicate::Renowned
@@ -1111,6 +1115,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "powergtbasepower" => SelectorPredicate::PowerGtBasePower,
         "basic" => SelectorPredicate::CardSupertype(CardSupertypeSelector::Basic),
         "snow" => SelectorPredicate::CardSupertype(CardSupertypeSelector::Snow),
+        "castsasource" => SelectorPredicate::CastSaSource,
         "kicked" => SelectorPredicate::Kicked,
         "ismonstrous" => SelectorPredicate::Monstrous,
         "isrenowned" => SelectorPredicate::Renowned,
