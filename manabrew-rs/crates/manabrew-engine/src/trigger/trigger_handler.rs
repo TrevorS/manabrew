@@ -622,10 +622,9 @@ impl TriggerHandler {
                         optional_trigger_description: None,
                         optional_trigger_source_name: None,
                     };
-                    // A trigger is optional if it has OptionalDecider$ OR if its
-                    // execute SVar has a non-mandatory, non-zero cost.  Mirrors Java's
-                    // Trigger.isOptional() which checks both the trigger flag and cost.
-                    // E.g. Smuggler's Copter loot "Cost$ Draw<1/You>" → optional.
+                    // Java `TriggerHandler.registerOneTrigger`: a trigger is optional when it
+                    // has `OptionalDecider$`, or when its ability carries a `Cost$` that is
+                    // neither mandatory nor zero. Nothing there reads the description.
                     let trigger_cost_optional = entry
                         .spell_ability
                         .pay_costs
@@ -634,10 +633,6 @@ impl TriggerHandler {
                         .unwrap_or(false);
                     let effect_optional_decider =
                         entry.spell_ability.ir.optional_decider_text.is_some();
-                    let description_lower = trigger.description.to_ascii_lowercase();
-                    let description_implies_optional = description_lower.starts_with("you may")
-                        && !entry.spell_ability.ir.optional
-                        && !effect_optional_decider;
                     let pending = PendingTrigger {
                         ability_triggered: Some(
                             crate::trigger::trigger_ability_triggered::build_run_params(
@@ -649,8 +644,7 @@ impl TriggerHandler {
                         ),
                         entry,
                         optional: (trigger.optional && !effect_optional_decider)
-                            || trigger_cost_optional
-                            || description_implies_optional,
+                            || trigger_cost_optional,
                         decider: host_controller,
                         description: trigger.description.clone(),
                     };
