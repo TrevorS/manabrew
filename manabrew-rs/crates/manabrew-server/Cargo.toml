@@ -1,6 +1,6 @@
 [package]
 name = "manabrew-server"
-version = "0.35.0"
+version = "0.35.1"
 edition = "2021"
 license.workspace = true
 description = "Matchmaking and lobby relay server for manabrew multiplayer"
@@ -29,7 +29,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 zstd = "0.13"
 manabrew-art-cache = { path = "../manabrew-art-cache", version = "0.2.0" }
-manabrew-lan-discovery = { path = "../manabrew-lan-discovery", version = "0.2.0" }
+manabrew-lan-discovery = { path = "../manabrew-lan-discovery", version = "0.2.1" }
 aws-lc-rs = "1"
 base64 = "0.22"
 minisign-verify = "0.2"

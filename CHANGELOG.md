@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.47.6](https://github.com/witchesofthehill/manabrew/compare/v3.47.5...v3.47.6) (2026-09-21)
+
+### Fixes
+
+* **relay:** a self-hosted relay that desktops can find and log into ([#878](https://github.com/witchesofthehill/manabrew/issues/878)) ([73986fe](https://github.com/witchesofthehill/manabrew/commit/73986fe8ded8e3de32c8c82572c208c52fc30c2f))
+
 ## [3.47.5](https://github.com/witchesofthehill/manabrew/compare/v3.47.4...v3.47.5) (2026-09-21)
 
 ## [3.47.4](https://github.com/witchesofthehill/manabrew/compare/v3.47.3...v3.47.4) (2026-09-21)

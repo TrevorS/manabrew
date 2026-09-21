@@ -4398,7 +4398,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew"
-version = "3.47.5"
+version = "3.47.6"
 dependencies = [
  "flate2",
  "forge-carddb",
@@ -4523,7 +4523,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew-lan-discovery"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "if-addrs",
  "mdns-sd",
@@ -4555,7 +4555,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew-server"
-version = "0.35.0"
+version = "0.35.1"
 dependencies = [
  "aws-lc-rs",
  "axum",
