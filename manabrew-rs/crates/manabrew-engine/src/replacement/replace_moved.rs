@@ -318,7 +318,13 @@ fn execute_replacement_ability(
         effects::resolve_effect(&mut ctx, sa_ref);
         parent_target_card = sa_ref.target_chosen.target_card.or(parent_target_card);
         parent_target_player = sa_ref.target_chosen.target_player.or(parent_target_player);
-        current_sa = cur.get_sub_ability();
+        // An `UnlessCost$` node resolves its own sub-chain, gated on
+        // `UnlessResolveSubs$`, so walking into it here would run it twice.
+        current_sa = if crate::ability::effects::sub_ability_handled_internally(sa_ref) {
+            None
+        } else {
+            cur.get_sub_ability()
+        };
     }
     true
 }
