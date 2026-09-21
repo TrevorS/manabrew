@@ -404,6 +404,7 @@ fn try_pay_effect_cost(
                 | CostPart::AddMana { .. }
                 | CostPart::Behold { exile: false, .. }
                 | CostPart::Exile { .. }
+                | CostPart::TapType { .. }
         ) {
             return false;
         }
@@ -703,6 +704,39 @@ fn try_pay_effect_cost(
                     ctx.agents[payer.index()].choose_cards_for_effect(payer, &pool, amount, amount);
                 if chosen.len() < amount {
                     return false;
+                }
+            }
+            CostPart::TapType {
+                amount,
+                type_filter,
+                min_total_power,
+                can_tap_source,
+            } => {
+                // Java `HarnessCostPlumbing.visit(CostTapType)` builds the pool, drops the
+                // source when the cost forbids it, then asks `chooseCardsForEffect` with
+                // the amount as both bounds.
+                let pool = crate::cost::get_tap_type_targets_for_cost(
+                    ctx.game,
+                    payer,
+                    type_filter,
+                    source,
+                    *can_tap_source,
+                    Some(sa),
+                );
+                if min_total_power.is_some() {
+                    return false;
+                }
+                let amount = amount.resolve(ctx.game, source, payer).max(0) as usize;
+                if amount == 0 || pool.len() < amount {
+                    return false;
+                }
+                let chosen =
+                    ctx.agents[payer.index()].choose_cards_for_effect(payer, &pool, amount, amount);
+                if chosen.len() < amount {
+                    return false;
+                }
+                for cid in chosen {
+                    ctx.game.card_mut(cid).set_tapped(true);
                 }
             }
             _ => return false,
