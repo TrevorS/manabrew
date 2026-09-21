@@ -42,6 +42,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         let mut found = Vec::new();
         let mut revealed = Vec::new();
+        let mut rest_cmc = crate::parsing::raw_get(&sa.ability_text, "MinTotalCMC")
+            .map(|raw| crate::svar::resolve_numeric_value(ctx.game, sa, raw, 0));
 
         // Walk from top of library down
         let lib_cards: Vec<_> = ctx
@@ -54,6 +56,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 break;
             }
             revealed.push(cid);
+            if let Some(rest) = rest_cmc.as_mut() {
+                *rest -= ctx.game.card(cid).mana_cost.cmc();
+                if *rest <= 0 {
+                    break;
+                }
+                continue;
+            }
             let card = ctx.game.card(cid);
             let matches = match (valid_selector, sa.source) {
                 (Some(selector), Some(source_id)) => {
