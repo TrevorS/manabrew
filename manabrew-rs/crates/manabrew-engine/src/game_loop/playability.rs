@@ -332,6 +332,24 @@ impl GameLoop {
                         });
                     }
                 }
+                // Java `Card.getAllPossibleAbilities` walks the card's spell abilities
+                // whatever its types are, so a land with Disguise is castable face down
+                // as well as playable as a land.
+                if card.has_morph && !must_be_instant {
+                    let available_mana =
+                        mana::calculate_available_mana(self.pool(player), game, player);
+                    if available_mana.can_pay(&forge_foundation::ManaCost::generic(
+                        crate::spellability::MORPH_GENERIC_COST,
+                    )) {
+                        playable.push(crate::agent::PlayOption {
+                            card_id,
+                            mode: crate::agent::PlayCardMode::Alternative(
+                                crate::spellability::AlternativeCost::Morph,
+                            ),
+                            alt_cost_index: 0,
+                        });
+                    }
+                }
             } else {
                 // MDFC: emit both the back-face LAND and the front-face SPELL
                 // (Java `getPossibleActions`). Only *modal* backs are playable;
