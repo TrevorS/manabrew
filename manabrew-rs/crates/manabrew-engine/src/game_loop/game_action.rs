@@ -444,6 +444,25 @@ impl GameLoop {
             }
         }
 
+        let library_tops: Vec<CardId> = game
+            .player_order
+            .iter()
+            .filter_map(|&owner| game.zone(ZoneType::Library, owner).peek_top())
+            .collect();
+        for card_id in library_tops {
+            if !crate::staticability::static_ability_plot_zone::plot_zone(game, game.card(card_id))
+            {
+                continue;
+            }
+            for ab in &game.card(card_id).activated_abilities {
+                if ab.ability_api == Some(crate::ability::api_type::ApiType::Plot)
+                    && can_activate(card_id, ab)
+                {
+                    result.push((card_id, ab.ability_index));
+                }
+            }
+        }
+
         result
     }
 

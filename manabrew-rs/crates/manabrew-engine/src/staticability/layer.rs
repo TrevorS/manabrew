@@ -818,6 +818,22 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             EffectKind::GrantKeyword(kw) => {
                 let card = &mut game.cards[effect.target.index()];
                 card.granted_keywords.add(&kw);
+                if let Some(cost_str) = crate::keyword::extract_keyword_cost_str(&kw, "Plot") {
+                    let cost = if cost_str == "CardManaCost" {
+                        card.mana_cost.to_string()
+                    } else {
+                        cost_str.to_string()
+                    };
+                    let next_idx = card.activated_abilities.len();
+                    let text = format!(
+                        "AB$ Plot | Cost$ {cost} | ActivationZone$ Hand | SorcerySpeed$ True | Secondary$ True | SpellDescription$ Plot"
+                    );
+                    if let Some(ab) =
+                        crate::ability::activated::parse_activated_ability(&text, next_idx)
+                    {
+                        card.activated_abilities.push(ab);
+                    }
+                }
                 if let Some(cost_str) = crate::keyword::extract_keyword_cost_str(&kw, "Ward") {
                     let next_id = card
                         .triggers

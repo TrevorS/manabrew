@@ -190,6 +190,13 @@ impl SpellAbilityRestriction {
         self.can_play_with_sa(game, card_id, player, None)
     }
 
+    /// Java `CardFactoryUtil:3289` resets a Plot ability's zone to Hand and then widens it
+    /// to the host's own zone while a `PlotZone` static covers the card.
+    fn plot_zone_widens(game: &GameState, card_id: CardId, sa: Option<&SpellAbility>) -> bool {
+        sa.is_some_and(|sa| sa.api == Some(crate::ability::api_type::ApiType::Plot))
+            && crate::staticability::static_ability_plot_zone::plot_zone(game, game.card(card_id))
+    }
+
     pub fn can_play_with_sa(
         &self,
         game: &GameState,
@@ -199,7 +206,7 @@ impl SpellAbilityRestriction {
     ) -> bool {
         // Check zone restriction
         let card_zone = game.card_current_zone(card_id);
-        if card_zone != self.variables.zone() {
+        if card_zone != self.variables.zone() && !Self::plot_zone_widens(game, card_id, sa) {
             return false;
         }
         let card = game.card(card_id);
