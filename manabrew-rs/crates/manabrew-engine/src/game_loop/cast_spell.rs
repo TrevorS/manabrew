@@ -1705,6 +1705,11 @@ impl GameLoop {
         } else {
             None
         };
+        let prechosen_raise_beholds = if let Some(ref rc) = raise_cost {
+            Self::prechoose_additional_cost_beholds(game, agents, player, card_id, rc)
+        } else {
+            None
+        };
         let prechosen_static_alt_sacrifices = if let Some(ref cost) = static_alt_cost {
             match self.prechoose_additional_cost_sacrifices(game, agents, player, cost, Some(&sa)) {
                 Some(picks) => Some(picks),
@@ -2384,7 +2389,7 @@ impl GameLoop {
                 None,
                 None,
                 None,
-                None,
+                prechosen_raise_beholds.as_deref(),
             ) {
                 rollback_failed_payment!();
             }
