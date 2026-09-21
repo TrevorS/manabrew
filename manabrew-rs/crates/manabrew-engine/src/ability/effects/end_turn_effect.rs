@@ -16,9 +16,26 @@ use super::EffectContext;
 /// `EndTurnEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(EndTurnEffect)]
 fn resolve(ctx: &mut EffectContext, _sa: &crate::spellability::SpellAbility) {
-    // Clear the stack (exile all spells/abilities)
+    // CR 721.1a
+    ctx.trigger_handler.clear_waiting_triggers();
+    // Every spell and ability on the stack is EXILED, this one included — it still finishes
+    // resolving. Popping the entries instead sent the card to its owner's graveyard.
+    let stack_cards: Vec<crate::ids::CardId> = ctx
+        .game
+        .player_order
+        .clone()
+        .iter()
+        .flat_map(|&pid| {
+            ctx.game
+                .cards_in_zone(forge_foundation::ZoneType::Stack, pid)
+                .to_vec()
+        })
+        .collect();
+    for card_id in stack_cards {
+        let owner = ctx.game.card(card_id).owner;
+        ctx.move_card(card_id, forge_foundation::ZoneType::Exile, owner);
+    }
     while ctx.game.stack.pop().is_some() {}
-    // Signal the game loop to skip to cleanup
     ctx.game.end_turn_requested = true;
 }
 
