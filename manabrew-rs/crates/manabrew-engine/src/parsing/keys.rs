@@ -510,6 +510,7 @@ pub const REMEMBER_COUNTERED: &str = "RememberCountered";
 pub const REMEMBER_COUNTERED_CMC: &str = "RememberCounteredCMC";
 pub const REMEMBER_FOR_COUNTER: &str = "RememberForCounter";
 pub const REMEMBER_DAMAGED_CREATURE: &str = "RememberDamagedCreature";
+pub const REMEMBER_DAMAGED: &str = "RememberDamaged";
 pub const SECRETLY: &str = "Secretly";
 pub const KEEP_SECRET: &str = "KeepSecret";
 pub const STORE_VOTE_NUM: &str = "StoreVoteNum";

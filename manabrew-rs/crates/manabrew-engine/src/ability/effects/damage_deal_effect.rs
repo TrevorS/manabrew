@@ -263,6 +263,11 @@ fn deal_damage_from_source(
                 ctx.game
                     .deal_damage_to_player_from(target_player, damage, Some(source), false);
             lifelink_dealt += dealt;
+            if sa.ir.remember_damaged && dealt > 0 {
+                ctx.game
+                    .card_mut(source)
+                    .add_remembered_player(target_player);
+            }
             ctx.game.record_player_damage_assignment(
                 Some(source),
                 Some(target_player),
@@ -380,7 +385,11 @@ fn deal_damage_from_source(
                     .deal_damage_to_card_from(target_card, damage, Some(source), false);
                 // What landed, not what was asked for: protection and prevention shields make
                 // this smaller, and Java sums `addDamageAfterPrevention`'s return the same way.
-                lifelink_dealt += (ctx.game.card(target_card).damage - before).max(0);
+                let landed = (ctx.game.card(target_card).damage - before).max(0);
+                lifelink_dealt += landed;
+                if sa.ir.remember_damaged && landed > 0 {
+                    ctx.game.card_mut(source).add_remembered_card(target_card);
+                }
                 if damage > lethal && excess_svar_condition(ctx.game, sa, target_card) {
                     stored_excess += damage - lethal;
                 }
