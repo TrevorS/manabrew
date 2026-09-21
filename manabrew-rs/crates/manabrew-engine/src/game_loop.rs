@@ -549,16 +549,15 @@ impl GameLoop {
 
         loop {
             let usable = self.collect_opening_hand_actions(game, takes_action, first_player);
-            for mut sa in usable {
+            // Java `GameAction.runOpeningHandActions` asks for the whole list in one
+            // `chooseSaToActivateFromOpeningHand` and resolves afterwards, so every
+            // question is put before any answer is acted on (Rule 103.5 ordering).
+            let mut accepted_sas = Vec::new();
+            for sa in usable {
                 let Some(source_id) = sa.source else {
                     continue;
                 };
-                if game.card(source_id).zone != ZoneType::Hand {
-                    continue;
-                }
-
                 agents[takes_action.index()].snapshot_state(game, &self.mana_pools);
-                let _card_name = game.card(source_id).card_name.clone();
                 let prompt = sa
                     .ir
                     .spell_description_text
@@ -572,7 +571,16 @@ impl GameLoop {
                     Some(source_id),
                     sa.api,
                 );
-                if !accepted {
+                if accepted {
+                    accepted_sas.push(sa);
+                }
+            }
+
+            for mut sa in accepted_sas {
+                let Some(source_id) = sa.source else {
+                    continue;
+                };
+                if game.card(source_id).zone != ZoneType::Hand {
                     continue;
                 }
 
