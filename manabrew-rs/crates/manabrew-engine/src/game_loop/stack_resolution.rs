@@ -4,28 +4,6 @@ use crate::replacement::replacement_handler::apply_moved_replacement;
 use crate::spellability::TargetKind;
 
 impl GameLoop {
-    fn trigger_cost_after_effect(sa: &SpellAbility) -> bool {
-        if sa.api != Some(crate::ability::api_type::ApiType::Draw) {
-            return false;
-        }
-        let Some(cost) = sa.pay_costs.as_ref() else {
-            return false;
-        };
-        cost.parts.iter().any(|part| {
-            matches!(
-                part,
-                crate::cost::CostPart::Discard { type_filter, .. }
-                    if type_filter == "Card"
-            )
-        }) && !cost.parts.iter().any(|part| {
-            matches!(
-                part,
-                crate::cost::CostPart::Discard { type_filter, .. }
-                    if type_filter == "Hand"
-            ) || matches!(part, crate::cost::CostPart::Mana { .. })
-        })
-    }
-
     /// Java `WrappedAbility.resolve`: a trigger whose intervening-if has stopped holding does
     /// nothing when it resolves, unless it is an Always trigger or asks for `NoResolvingCheck$`.
     fn trigger_requirements_still_met(game: &GameState, sa: &SpellAbility) -> bool {
@@ -251,12 +229,7 @@ impl GameLoop {
                 }
             }
 
-            let pay_trigger_cost_after_effect = (entry.spell_ability.is_trigger
-                || entry.spell_ability.trigger_source.is_some())
-                && Self::trigger_cost_after_effect(&entry.spell_ability);
-            if (entry.spell_ability.is_trigger || entry.spell_ability.trigger_source.is_some())
-                && !pay_trigger_cost_after_effect
-            {
+            if entry.spell_ability.is_trigger || entry.spell_ability.trigger_source.is_some() {
                 if let Some(cost) = entry.spell_ability.pay_costs.clone() {
                     let player = entry.spell_ability.activating_player;
                     let source = entry.spell_ability.source.unwrap_or(CardId(0));
@@ -305,24 +278,6 @@ impl GameLoop {
                     .add_ability_resolved_for(Some(&entry.spell_ability));
             }
             self.resolve_spell_effect(game, agents, &entry);
-            if pay_trigger_cost_after_effect {
-                if let Some(cost) = entry.spell_ability.pay_costs.clone() {
-                    let player = entry.spell_ability.activating_player;
-                    let source = entry.spell_ability.source.unwrap_or(CardId(0));
-                    let api = entry.spell_ability.api;
-                    let _ = self.pay_ability_cost(
-                        game,
-                        agents,
-                        player,
-                        source,
-                        &cost,
-                        api,
-                        cost.mandatory,
-                        CostPaymentContext::TriggerResolve,
-                        Some(&mut entry.spell_ability),
-                    );
-                }
-            }
             crate::perf::increment(crate::perf::Metric::SpellAbilityClones, 3);
             self.trigger_handler.run_trigger(
                 TriggerType::AbilityResolves,
