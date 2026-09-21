@@ -4618,6 +4618,13 @@ impl Card {
             .filter(|ab| ab.is_unlock_door)
             .cloned()
             .collect();
+        // Java keeps a Room's traits on the card and only moves `currentState`, so this
+        // port holds both doors' triggers and filters them in `register_one_trigger`.
+        // Their `Execute$` SVars are looked up on the host at resolution, so the other
+        // door's SVars have to stay reachable too.
+        let is_room = self.type_line.has_subtype("Room");
+        let room_triggers = is_room.then(|| self.triggers.clone());
+        let other_door_svars = is_room.then(|| self.svars.clone());
         if let Some(other) = self.other_part.as_mut() {
             std::mem::swap(&mut self.card_name, &mut other.name);
             std::mem::swap(&mut self.oracle_text, &mut other.oracle_text);
@@ -4658,6 +4665,12 @@ impl Card {
             for mut ab in unlock_abilities {
                 ab.ability_index = self.activated_abilities.len();
                 self.activated_abilities.push(ab);
+            }
+            if let Some(triggers) = room_triggers {
+                self.triggers = triggers;
+            }
+            for (key, value) in other_door_svars.into_iter().flatten() {
+                self.svars.entry(key).or_insert(value);
             }
             self.base_ability_count = self.activated_abilities.len();
             self.base_trigger_count = self.triggers.len();
