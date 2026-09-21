@@ -48,9 +48,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let player_ids = ctx.game.player_order.clone();
 
     // Pass 1 — collect matching battlefield permanents
+    let target_player = sa.target_chosen.target_player;
     let mut to_damage: Vec<CardId> = Vec::new();
     if let Some(valid_cards_filter) = valid_cards_filter {
         for &pid in &player_ids {
+            if target_player.is_some_and(|target| target != pid) {
+                continue;
+            }
             let zone_cards = ctx.game.cards_in_zone(ZoneType::Battlefield, pid).to_vec();
             for cid in zone_cards {
                 if damage_all_matches_valid_card(ctx, sa, valid_cards_filter, cid) {
@@ -61,7 +65,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
 
     // Check source card for Infect/Wither keywords
-    let source = sa.source;
+    let source = damage_all_source(ctx, sa);
     let (source_has_infect_keyword, source_has_wither) = if let Some(src_id) = source {
         let src = ctx.game.card(src_id);
         (
@@ -77,7 +81,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     };
 
     // Pass 2 — apply damage to collected permanents
-    let source = sa.source;
     for card_id in to_damage {
         if ctx.game.card(card_id).zone == ZoneType::Battlefield {
             // Protection: prevents all damage from matching sources
@@ -222,6 +225,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
     }
+}
+
+fn damage_all_source(ctx: &EffectContext, sa: &SpellAbility) -> Option<CardId> {
+    let Some(defined) = crate::parsing::raw_get(&sa.ability_text, "DamageSource") else {
+        return sa.source;
+    };
+    crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(ctx.game, sa, defined)
+        .first()
+        .copied()
 }
 
 fn resolve_damage_all_amount(ctx: &EffectContext, sa: &SpellAbility) -> i32 {
