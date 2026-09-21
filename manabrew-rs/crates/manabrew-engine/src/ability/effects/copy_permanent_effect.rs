@@ -270,11 +270,8 @@ fn resolve_originals(
                     .collect();
             }
             _ => {
-                return crate::ability::ability_utils::get_defined_cards(
-                    ctx.game,
-                    sa.source,
-                    defined,
-                    Some(controller),
+                return crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                    ctx.game, sa, defined,
                 );
             }
         }
