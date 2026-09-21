@@ -770,6 +770,26 @@ fn calculate_unless_cost(game: &GameState, sa: &SpellAbility, unless_cost: &str)
         return Some(parse_cost(&x_paid.to_string()));
     }
 
+    // Java `AbilityUtils.calculateUnlessCost`: an `UnlessCost$` naming an SVar other than
+    // X is evaluated and becomes that much mana of `UnlessColor$`, which defaults to
+    // generic. Without this the SVar name reached `parse_cost` as a literal.
+    if unless_cost != "ChosenNumber" && !unless_cost.starts_with("DefinedCost") {
+        if let Some(source_id) = sa.source {
+            if let Some(expr) = game.card(source_id).get_s_var(unless_cost) {
+                let expr = expr.to_string();
+                let amount = crate::svar::resolve_svar_expression(
+                    &expr,
+                    game,
+                    source_id,
+                    sa.activating_player,
+                    sa,
+                )
+                .max(0);
+                return Some(parse_cost(&amount.to_string()));
+            }
+        }
+    }
+
     if unless_cost == "ChosenNumber" {
         let n = sa
             .source
