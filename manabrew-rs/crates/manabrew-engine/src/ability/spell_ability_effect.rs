@@ -482,8 +482,9 @@ fn resolve_defined_cards_for_sa_ref_inner(
         DefinedRef::Discarded => sa.discarded_cost_cards.clone(),
         DefinedRef::Sacrificed => game.last_sacrificed_card.into_iter().collect(),
         DefinedRef::Unsupported(raw)
-            if triggered_card_key(raw)
-                .is_some_and(|key| sa.get_triggering_value(key).is_some()) =>
+            if !raw.contains('.')
+                && triggered_card_key(raw)
+                    .is_some_and(|key| sa.get_triggering_value(key).is_some()) =>
         {
             triggered_card_key(raw)
                 .map(|key| sa.get_triggering_cards(key))
