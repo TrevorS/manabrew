@@ -13,6 +13,26 @@ impl GameLoop {
         out
     }
 
+    /// The mana a `Mode$ RaiseCost` adds. A `Waterbend` part counts as generic mana:
+    /// `cost_waterbend::can_pay` clears the tap allowance outside AI control, mirroring
+    /// Java's `calculateManaCost` in test mode, so the probe has to find real mana for it.
+    /// `can_pay_ignoring_mana_for_spell` answers true for it, so nothing else would.
+    fn raise_mana_from_cost(
+        game: &GameState,
+        cost: &crate::cost::Cost,
+        source: CardId,
+        player: PlayerId,
+    ) -> forge_foundation::ManaCost {
+        let mut out = Self::mana_from_cost(cost);
+        for part in &cost.parts {
+            if let CostPart::Waterbend { amount } = part {
+                let n = amount.resolve(game, source, player).max(0);
+                out = out.add(&forge_foundation::ManaCost::generic(n));
+            }
+        }
+        out
+    }
+
     fn can_use_source_level_mana_fallback(
         game: &GameState,
         player: PlayerId,
@@ -181,7 +201,7 @@ impl GameLoop {
             ZoneType::Hand,
         )
         .as_ref()
-        .map(Self::mana_from_cost)
+        .map(|rc| Self::raise_mana_from_cost(game, rc, card_id, player))
         .unwrap_or_else(|| forge_foundation::ManaCost::generic(0));
         let base = cost_adj
             .apply(&Self::mana_from_cost(cost).without_x())
@@ -471,7 +491,7 @@ impl GameLoop {
                 );
                 let raise_mana = raise_cost
                     .as_ref()
-                    .map(Self::mana_from_cost)
+                    .map(|rc| Self::raise_mana_from_cost(game, rc, card_id, player))
                     .unwrap_or_else(|| forge_foundation::ManaCost::generic(0));
 
                 // Check mana conversion for playability
