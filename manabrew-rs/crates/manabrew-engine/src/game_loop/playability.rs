@@ -1149,6 +1149,15 @@ impl GameLoop {
                     if !ab.is_unlock_door {
                         continue;
                     }
+                    // Java `Card.getAllPossibleAbilities:7409` offers an unlock only for a
+                    // door still locked (`getLockedRooms`).
+                    let door = ab
+                        .params
+                        .get("CardState")
+                        .and_then(forge_foundation::CardStateName::from_str_compat);
+                    if !door.is_some_and(|state| card.room_door_locked(state)) {
+                        continue;
+                    }
                     let mana_cost = Self::mana_from_cost(&ab.cost);
                     let available_mana =
                         mana::calculate_available_mana(self.pool(player), game, player);

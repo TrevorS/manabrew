@@ -4369,6 +4369,18 @@ impl Card {
             .any(|door| door == state)
     }
 
+    /// Java `Card.getLockedRooms`: a door not in `unlockedRooms` is locked, and an
+    /// empty set means both doors are.
+    pub fn room_door_locked(&self, state: forge_foundation::CardStateName) -> bool {
+        !self
+            .svars
+            .get("UnlockedDoors")
+            .into_iter()
+            .flat_map(|doors| doors.split(','))
+            .filter_map(forge_foundation::CardStateName::from_str_compat)
+            .any(|door| door == state)
+    }
+
     pub fn unlock_room_door(&mut self, state: forge_foundation::CardStateName) {
         if self.room_door_unlocked(state) && self.svars.contains_key("UnlockedDoors") {
             return;
@@ -4594,6 +4606,22 @@ impl Card {
     }
 
     pub fn transform(&mut self) {
+        const ROOM_SVARS: [&str; 4] = [
+            "RoomRightSplitName",
+            "RoomRightSplitCost",
+            "UnlockedDoors",
+            "UnlockedRoomCount",
+        ];
+        let room_svars: Vec<(String, String)> = ROOM_SVARS
+            .iter()
+            .filter_map(|k| self.svars.get(*k).map(|v| ((*k).to_string(), v.clone())))
+            .collect();
+        let unlock_abilities: Vec<_> = self
+            .activated_abilities
+            .iter()
+            .filter(|ab| ab.is_unlock_door)
+            .cloned()
+            .collect();
         if let Some(other) = self.other_part.as_mut() {
             std::mem::swap(&mut self.card_name, &mut other.name);
             std::mem::swap(&mut self.oracle_text, &mut other.oracle_text);
@@ -4628,6 +4656,13 @@ impl Card {
                 })
                 .collect();
             self.generate_keyword_activated_abilities();
+            for (key, value) in &room_svars {
+                self.svars.insert(key.clone(), value.clone());
+            }
+            for mut ab in unlock_abilities {
+                ab.ability_index = self.activated_abilities.len();
+                self.activated_abilities.push(ab);
+            }
             self.base_ability_count = self.activated_abilities.len();
             self.base_trigger_count = self.triggers.len();
             self.parsed_svar_cache.clear();

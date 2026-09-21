@@ -256,13 +256,31 @@ pub(crate) fn assemble_card(
             card.set_s_var("RoomRightSplitName", unlock_name.as_str());
             card.set_s_var("RoomRightSplitCost", &unlock_cost);
             // Build an activated ability for unlocking the second door.
-            let ab_text = format!(
-                "AB$ UnlockDoor | Cost$ {unlock_cost} | SorcerySpeed$ True | CardState$ RightSplit | SpellDescription$ Unlock {unlock_name}"
-            );
-            let next_idx = card.activated_abilities.len();
-            if let Some(ab) = crate::ability::activated::parse_activated_ability(&ab_text, next_idx)
-            {
-                card.activated_abilities.push(ab);
+            let left_cost = rules
+                .main_part
+                .mana_cost
+                .to_string()
+                .replace('{', "")
+                .replace('}', " ")
+                .trim()
+                .to_string();
+            let left_name = &rules.main_part.name;
+            // Java builds one unlock ability per door at that door's own cost
+            // (`CardFactoryUtil.abilityUnlockRoom`); RightSplit stays first so the
+            // parity agent's declaration-order sort key is unchanged.
+            for (state, cost, name) in [
+                ("RightSplit", &unlock_cost, unlock_name),
+                ("LeftSplit", &left_cost, left_name),
+            ] {
+                let ab_text = format!(
+                    "AB$ UnlockDoor | Cost$ {cost} | SorcerySpeed$ True | CardState$ {state} | SpellDescription$ Unlock {name}"
+                );
+                let next_idx = card.activated_abilities.len();
+                if let Some(ab) =
+                    crate::ability::activated::parse_activated_ability(&ab_text, next_idx)
+                {
+                    card.activated_abilities.push(ab);
+                }
             }
             // Copy other face's SVars so the Execute$ SVar can be found
             // when the second door is unlocked via the activated ability.
@@ -293,8 +311,7 @@ pub(crate) fn assemble_card(
     // like every other multi-face card; the predicates that ask `getSplitType()` rather
     // than "does another state exist" exclude RightSplit themselves.
     if rules.split_type.is_dual_faced()
-        || (rules.split_type == forge_foundation::CardSplitType::Split
-            && !card.type_line.has_subtype("Room"))
+        || rules.split_type == forge_foundation::CardSplitType::Split
         || rules.split_type.changed_state_name() == Some(CardStateName::Secondary)
         || rules.split_type.changed_state_name() == Some(CardStateName::PreparedSpell)
     {
