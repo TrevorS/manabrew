@@ -317,7 +317,7 @@ pub(crate) fn assemble_card(
     {
         if let Some(ref back_face) = rules.other_part {
             let mut back_trigger_id = 0u32;
-            let back_triggers: Vec<_> = back_face
+            let mut back_triggers: Vec<_> = back_face
                 .triggers
                 .iter()
                 .filter_map(|raw| {
@@ -328,6 +328,11 @@ pub(crate) fn assemble_card(
                     )
                 })
                 .collect();
+            if rules.split_type == forge_foundation::CardSplitType::Split
+                && back_face.type_line.has_subtype("Room")
+            {
+                mark_triggers_card_state(&mut back_triggers, &card, CardStateName::RightSplit);
+            }
 
             let back_static_abilities: Vec<StaticAbility> = back_face
                 .static_abilities
