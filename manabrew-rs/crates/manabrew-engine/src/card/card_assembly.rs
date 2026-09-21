@@ -289,7 +289,12 @@ pub(crate) fn assemble_card(
     }
 
     // Double-faced cards
+    // A split card's right half is a face of its own in Java, so it gets an other_part
+    // like every other multi-face card; the predicates that ask `getSplitType()` rather
+    // than "does another state exist" exclude RightSplit themselves.
     if rules.split_type.is_dual_faced()
+        || (rules.split_type == forge_foundation::CardSplitType::Split
+            && !card.type_line.has_subtype("Room"))
         || rules.split_type.changed_state_name() == Some(CardStateName::Secondary)
         || rules.split_type.changed_state_name() == Some(CardStateName::PreparedSpell)
     {

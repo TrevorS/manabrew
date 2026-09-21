@@ -131,18 +131,16 @@ impl GameLoop {
         available_mana.can_pay(&cost_adj.apply(base_cost))
     }
 
-    fn can_play_secondary_spell(
+    fn can_play_card_state_spell(
         &self,
         game: &GameState,
         player: PlayerId,
         card_id: CardId,
+        state_name: forge_foundation::CardStateName,
         chosen_types_by_source: &crate::HashMap<CardId, String>,
     ) -> bool {
         let Some((host, sa)) = crate::spellability::build_spell_ability_for_card_state_cast(
-            game,
-            card_id,
-            player,
-            forge_foundation::CardStateName::Secondary,
+            game, card_id, player, state_name,
         ) else {
             return false;
         };
@@ -276,10 +274,34 @@ impl GameLoop {
 
         for &card_id in hand {
             let card = game.card(card_id);
-            if self.can_play_secondary_spell(game, player, card_id, &chosen_types_by_source) {
+            if self.can_play_card_state_spell(
+                game,
+                player,
+                card_id,
+                forge_foundation::CardStateName::Secondary,
+                &chosen_types_by_source,
+            ) {
                 playable.push(crate::agent::PlayOption {
                     card_id,
                     mode: crate::agent::PlayCardMode::Secondary,
+                    alt_cost_index: 0,
+                });
+            }
+            // A split card that is not a Room offers its right half as a spell of its own,
+            // as Java builds one Spell per CardState. A Room's right half is the same
+            // permanent behind a second door, so it keeps the cost-swap path below.
+            if !card.type_line.has_subtype("Room")
+                && self.can_play_card_state_spell(
+                    game,
+                    player,
+                    card_id,
+                    forge_foundation::CardStateName::RightSplit,
+                    &chosen_types_by_source,
+                )
+            {
+                playable.push(crate::agent::PlayOption {
+                    card_id,
+                    mode: crate::agent::PlayCardMode::RoomRightSplit,
                     alt_cost_index: 0,
                 });
             }

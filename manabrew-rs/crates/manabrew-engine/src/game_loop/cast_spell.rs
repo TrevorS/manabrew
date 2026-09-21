@@ -569,12 +569,22 @@ impl GameLoop {
         play: crate::agent::PlayOption,
     ) -> Option<PreparedSpellAbility> {
         let play_mode = play.mode;
+        let right_split_spell = play_mode == crate::agent::PlayCardMode::RoomRightSplit
+            && !game.card(card_id).type_line.has_subtype("Room");
         let mut sa = if play_mode == crate::agent::PlayCardMode::Secondary {
             crate::spellability::build_spell_ability_for_card_state_cast(
                 game,
                 card_id,
                 player,
                 forge_foundation::CardStateName::Secondary,
+            )?
+            .1
+        } else if right_split_spell {
+            crate::spellability::build_spell_ability_for_card_state_cast(
+                game,
+                card_id,
+                player,
+                forge_foundation::CardStateName::RightSplit,
             )?
             .1
         } else {
@@ -585,9 +595,11 @@ impl GameLoop {
         match play_mode {
             crate::agent::PlayCardMode::Normal | crate::agent::PlayCardMode::Secondary => {}
             crate::agent::PlayCardMode::RoomRightSplit => {
-                let cost = game.card(card_id).svars.get("RoomRightSplitCost")?;
-                sa.pay_costs = Some(parse_cost(cost));
-                sa.ir.card_state_name = Some("RightSplit".to_string());
+                if !right_split_spell {
+                    let cost = game.card(card_id).svars.get("RoomRightSplitCost")?;
+                    sa.pay_costs = Some(parse_cost(cost));
+                    sa.ir.card_state_name = Some("RightSplit".to_string());
+                }
             }
             crate::agent::PlayCardMode::UnlockDoor
             | crate::agent::PlayCardMode::ForetellExile

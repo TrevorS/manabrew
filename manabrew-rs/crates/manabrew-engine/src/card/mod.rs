@@ -2806,15 +2806,16 @@ impl Card {
     }
 
     pub fn has_state(&self) -> bool {
-        self.is_transformed || self.other_part.is_some()
+        self.is_transformed || self.has_alternate_state()
     }
 
     /// Whether this card is double-faced (has a back side).
     /// Mirrors Java `Card.isDoubleFaced()`.
     pub fn is_double_faced(&self) -> bool {
-        self.other_part
-            .as_ref()
-            .is_some_and(|other| other.state_name != CardStateName::Secondary)
+        self.other_part.as_ref().is_some_and(|other| {
+            other.state_name != CardStateName::Secondary
+                && other.state_name != CardStateName::RightSplit
+        })
     }
 
     pub fn change_to_state(&mut self) {
@@ -2835,7 +2836,9 @@ impl Card {
     }
 
     pub fn has_alternate_state(&self) -> bool {
-        self.other_part.is_some()
+        self.other_part
+            .as_ref()
+            .is_some_and(|other| other.state_name != CardStateName::RightSplit)
     }
 
     pub fn manifest(&mut self) {
