@@ -16,6 +16,7 @@ pub struct TriggerDamageDoneOnce {
     pub valid_source: Option<crate::parsing::CompiledSelector>,
     pub valid_target: Option<crate::parsing::CompiledSelector>,
     pub combat_damage: Option<bool>,
+    pub damage_amount_text: Option<String>,
 }
 
 impl TriggerDamageDoneOnce {
@@ -26,6 +27,7 @@ impl TriggerDamageDoneOnce {
             combat_damage: params
                 .get(keys::COMBAT_DAMAGE)
                 .map(|v| v.eq_ignore_ascii_case("True")),
+            damage_amount_text: params.get(keys::DAMAGE_AMOUNT).map(str::to_string),
         })
     }
 
@@ -110,7 +112,17 @@ impl TriggerBehavior for TriggerDamageDoneOnce {
         if !trigger.matches_damage_target_filter(&self.valid_target, params, game, true) {
             return false;
         }
-        self.damage_amount(trigger, params, game) > 0
+        let dealt = self.damage_amount(trigger, params, game);
+        // Java compares the whole amount against `DamageAmount$` (`TriggerDamageDoneOnce:38`),
+        // so a trigger that wants three or more does not fire on one.
+        if let Some(amount) = self.damage_amount_text.as_deref() {
+            let operator = amount.get(..2).unwrap_or("GE");
+            let operand = amount.get(2..).unwrap_or("0");
+            if !crate::parsing::compare::compare_expr(dealt, &format!("{operator}{operand}")) {
+                return false;
+            }
+        }
+        dealt > 0
     }
 
     fn set_triggering_objects(
