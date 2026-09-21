@@ -1023,6 +1023,13 @@ fn matches_relation_predicate(
                 card.shares_card_type_with(target)
             })
         }
+        // Java `CardProperty:753` drops the card from the list first, so it never
+        // satisfies the test by sharing a type with itself.
+        RelationPredicate::SharesCardTypeWithOther(target) => {
+            relation_target_card_any(target, card, context, |other| {
+                other.id != card.id && card.shares_card_type_with(other)
+            })
+        }
         RelationPredicate::SharesCreatureTypeWith(target) => {
             relation_target_card_any(target, card, context, |target| {
                 shares_creature_type(card, target)

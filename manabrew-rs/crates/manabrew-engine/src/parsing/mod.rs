@@ -378,6 +378,7 @@ pub enum RelationPredicate {
     SharesNameWith(TargetRef),
     DoesNotShareNameWith(TargetRef),
     SharesCardTypeWith(TargetRef),
+    SharesCardTypeWithOther(TargetRef),
     SharesCreatureTypeWith(TargetRef),
     SharesColorWith(TargetRef),
     SharesManaValueWith(TargetRef),
@@ -1253,6 +1254,14 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
             lower_relation_target_ref(normalized["doesNotShareNameWith".len()..].trim())
                 .map(|target| {
                     SelectorPredicate::Relation(RelationPredicate::DoesNotShareNameWith(target))
+                })
+                .unwrap_or_else(|| SelectorPredicate::Raw(normalized.to_string()))
+        }
+        // Must precede `sharescardtypewith`, which is a prefix of it.
+        shares if shares.starts_with("sharescardtypewithother") => {
+            lower_relation_target_ref(normalized["sharesCardTypeWithOther".len()..].trim())
+                .map(|target| {
+                    SelectorPredicate::Relation(RelationPredicate::SharesCardTypeWithOther(target))
                 })
                 .unwrap_or_else(|| SelectorPredicate::Raw(normalized.to_string()))
         }
