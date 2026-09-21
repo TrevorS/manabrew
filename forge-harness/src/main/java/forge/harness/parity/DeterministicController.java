@@ -492,7 +492,10 @@ public class DeterministicController extends PlayerController implements Harness
             }
         }
 
-        final boolean result = currentAbility.isTargetNumberValid();
+        boolean result = currentAbility.isTargetNumberValid();
+        if (result) {
+            result = assignDividedAllocations(currentAbility);
+        }
         final List<String> targetNames = new ArrayList<>();
         for (final Card c : currentAbility.getTargets().getTargetCards()) {
             targetNames.add(formatCard(c));
@@ -502,6 +505,33 @@ public class DeterministicController extends PlayerController implements Harness
         }
         onCallback("choose_targets_for", "[" + String.join(", ", targetNames) + "]", currentAbility.toString());
         return result;
+    }
+
+    // Java `PlayerControllerHuman.chooseTargetsFor` divides the amount after targeting.
+    // Without it `SpellAbility.getDividedValue` stays null and the effect throws.
+    private boolean assignDividedAllocations(final SpellAbility sa) {
+        final List<GameEntity> targets = new ArrayList<>();
+        for (final GameEntity e : sa.getTargets().getTargetEntities()) {
+            targets.add(e);
+        }
+        final int size = targets.size();
+        final int amount = sa.getStillToDivide();
+        if (size == 0 || amount <= 0) {
+            return true;
+        }
+        if (size == 1) {
+            sa.addDividedAllocation(targets.get(0), amount);
+            return true;
+        }
+        if (size > amount) {
+            return false;
+        }
+        final int each = amount / size;
+        final int remainder = amount % size;
+        for (int i = 0; i < size; i++) {
+            sa.addDividedAllocation(targets.get(i), i < remainder ? each + 1 : each);
+        }
+        return true;
     }
 
     private GameObject normalizeStackTargetCandidate(final GameObject candidate) {
