@@ -1594,6 +1594,15 @@ impl GameLoop {
                 );
                 rollback_cast!();
             }
+            // Java `PlaySpellAbility:679` checks `isLegalAfterStack` in the same pre-cost chain.
+            if !crate::staticability::static_ability_continuous::may_play_allows_after_stack(
+                game,
+                player,
+                game.card(card_id),
+                &sa,
+            ) {
+                rollback_cast!();
+            }
         }
 
         let mana_cost = if let (Some(escalate_cost_str), Some(selected_count)) = (

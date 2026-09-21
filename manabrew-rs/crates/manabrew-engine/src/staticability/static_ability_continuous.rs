@@ -143,6 +143,42 @@ pub fn may_play_grants<'a>(
         .filter(move |(source, st_ab)| may_play_player(st_ab, source, card, game) == player)
 }
 
+/// Java `GameActionUtil:371` copies a grant's `ValidAfterStack$` onto the ability it builds for
+/// that grant, and `SpellAbility.isLegalAfterStack` tests the spell against it. The restriction has
+/// to be captured that way because by the time it is checked the card is on the stack, so neither
+/// its zone nor an `Affected$` position like `TopLibrary` still holds. This port has one play
+/// option rather than one per grant, so it keys off `cast_from` instead and asks whether some grant
+/// opening that origin zone accepts the spell. With one such grant the two agree exactly.
+pub fn may_play_allows_after_stack(
+    game: &GameState,
+    player: crate::ids::PlayerId,
+    card: &Card,
+    sa: &crate::spellability::SpellAbility,
+) -> bool {
+    let Some(origin) = card.cast_from else {
+        return true;
+    };
+    if origin == forge_foundation::ZoneType::Hand {
+        return true;
+    }
+    let mut grants = may_play_grants(game, player, card)
+        .filter(|(source, st_ab)| {
+            st_ab.ir.may_play
+                && st_ab.ir.affected_zones.contains(&origin)
+                && st_ab.check_conditions(source, game)
+        })
+        .peekable();
+    if grants.peek().is_none() {
+        return true;
+    }
+    grants.any(
+        |(source, st_ab)| match st_ab.ir.valid_after_stack.as_deref() {
+            Some(filter) => crate::spellability::matches_valid_sa(filter, sa, source, Some(card)),
+            None => true,
+        },
+    )
+}
+
 /// Java `Card.mayPlay(player)` is not empty: a `MayPlay$` grant for `player` covers `card`.
 pub fn player_may_play(game: &GameState, player: crate::ids::PlayerId, card: &Card) -> bool {
     may_play_grants(game, player, card)
