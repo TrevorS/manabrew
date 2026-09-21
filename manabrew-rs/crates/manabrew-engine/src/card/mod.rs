@@ -2172,17 +2172,85 @@ impl Card {
     /// Keep in sync with the rules-host block of `Card.getReplacementEffects`. Stun
     /// counters are handled in `GameState::untap`; shield counters are not ported.
     pub fn rules_replacement_effects(&self) -> Vec<crate::replacement::ReplacementEffect> {
-        if self.counters.is_empty()
-            || self.counter_count(&CounterType::Named("FINALITY".to_string())) <= 0
+        let mut effects = Vec::new();
+        if !self.counters.is_empty()
+            && self.counter_count(&CounterType::Named("FINALITY".to_string())) > 0
         {
+            let raw = "R$ Event$ Moved | ActiveZones$ Battlefield | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Secondary$ True | NewDestination$ Exile | Description$ If CARDNAME would die, exile it instead.";
+            if let Some(mut replacement) = crate::replacement::parse_replacement_effect(raw) {
+                replacement.set_host_card(self);
+                effects.push(replacement);
+            }
+        }
+        effects.extend(self.prevent_damage_keyword_replacements());
+        effects
+    }
+
+    /// The `Prevent all ...` keyword family, which Java turns into `DamageDone`
+    /// replacements on the keyword instance (`CardFactoryUtil:2540-2581`). They are
+    /// built here rather than at assembly so a Pump-granted one is seen too.
+    fn prevent_damage_keyword_replacements(&self) -> Vec<crate::replacement::ReplacementEffect> {
+        const PREVENT_KEYWORDS: [(&str, bool, bool, bool); 6] = [
+            (
+                "Prevent all combat damage that would be dealt to and dealt by CARDNAME.",
+                true,
+                true,
+                true,
+            ),
+            (
+                "Prevent all combat damage that would be dealt by CARDNAME.",
+                true,
+                true,
+                false,
+            ),
+            (
+                "Prevent all combat damage that would be dealt to CARDNAME.",
+                true,
+                false,
+                true,
+            ),
+            (
+                "Prevent all damage that would be dealt to and dealt by CARDNAME.",
+                false,
+                true,
+                true,
+            ),
+            (
+                "Prevent all damage that would be dealt by CARDNAME.",
+                false,
+                true,
+                false,
+            ),
+            (
+                "Prevent all damage that would be dealt to CARDNAME.",
+                false,
+                false,
+                true,
+            ),
+        ];
+        if self.zone != ZoneType::Battlefield {
             return Vec::new();
         }
-        let raw = "R$ Event$ Moved | ActiveZones$ Battlefield | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Secondary$ True | NewDestination$ Exile | Description$ If CARDNAME would die, exile it instead.";
-        let Some(mut replacement) = crate::replacement::parse_replacement_effect(raw) else {
-            return Vec::new();
-        };
-        replacement.set_host_card(self);
-        vec![replacement]
+        let mut effects = Vec::new();
+        for (keyword, is_combat, from, to) in PREVENT_KEYWORDS {
+            if !self.has_keyword(keyword) {
+                continue;
+            }
+            let combat = if is_combat { " | IsCombat$ True" } else { "" };
+            for (applies, valid) in [(from, "ValidSource"), (to, "ValidTarget")] {
+                if !applies {
+                    continue;
+                }
+                let raw = format!(
+                    "R$ Event$ DamageDone | Prevent$ True{combat} | Secondary$ True | {valid}$ Card.Self | Description$ {keyword}"
+                );
+                if let Some(mut replacement) = crate::replacement::parse_replacement_effect(&raw) {
+                    replacement.set_host_card(self);
+                    effects.push(replacement);
+                }
+            }
+        }
+        effects
     }
 
     pub fn add_counter(&mut self, ct: &CounterType, count: i32) {
