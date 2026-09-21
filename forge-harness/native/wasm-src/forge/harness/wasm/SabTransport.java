@@ -270,20 +270,13 @@ public final class SabTransport implements InteractiveBridge {
                 + ",\"timestampMs\":" + System.currentTimeMillis() + "}");
     }
 
-    /**
-     * The last thing a game says.
-     *
-     * <p>The engine runs the whole game inside one blocking call, so when that
-     * call returns there is nobody left to answer anything: a client still
-     * waiting on its last answer waits forever, and a concede written into the
-     * buffer is never read. Publishing the final board — which carries
-     * gameOver and the winner — and a gameOver prompt to every seat is what
-     * the Rust engine does at the same point, and it is what lets the client
-     * show the result instead of "waiting for the opponent".
-     */
-    public void publishGameOver() {
+    public void publishGameOver(final String engineError) {
         final int seats = Math.max(1, seatCount());
         for (int seat = 0; seat < seats; seat++) {
+            if (engineError != null && !engineError.isEmpty()) {
+                sendTagged(seat, "error", "error", "{\"code\":\"engineCrash\",\"message\":"
+                        + new com.google.gson.JsonPrimitive(engineError) + "}");
+            }
             final String view = snapshots == null ? null : snapshots.apply(seat);
             if (view != null && !view.isEmpty()) {
                 sendTagged(seat, "state", "state", "{\"checkpointId\":" + (++checkpoint)

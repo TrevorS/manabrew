@@ -34,6 +34,7 @@ type SelfHostedNodeRoomPayload = {
   gameId?: unknown;
 };
 const GAME_OVER_PROMPT = { input: { type: "gameOver" } } as Prompt;
+const ENGINE_CRASH_CODE = "engineCrash";
 function isGameOverPrompt(prompt: Prompt | null): boolean {
   return prompt?.input.type === "gameOver";
 }
@@ -175,6 +176,7 @@ function reportEngineGame(): void {
       gameOver: isOver(state),
       winner: seats.find((seat) => seat.seatId === winnerId)?.username ?? null,
       seats,
+      engineError: state.engineCrash,
     });
   }
   reportEngineStats({
@@ -184,7 +186,7 @@ function reportEngineGame(): void {
     // Must be the same test that decides a game is over: on the hosted path the
     // engine sends a gameOver prompt and `gameView` never gets the flag, so
     // reading the flag alone filed finished games as quits.
-    endReason: isOver(state) ? "gameOver" : "left",
+    endReason: state.engineCrash ? "error" : isOver(state) ? "gameOver" : "left",
     gameId: engineReportGameId(
       state.isMultiplayer,
       useServerStore.getState().gameId,
@@ -279,6 +281,10 @@ export function useGameEventListeners() {
         }),
       );
       const handleProtocolError = (error: ProtocolError | undefined, source: string) => {
+        if ((error?.code as string) === ENGINE_CRASH_CODE) {
+          setState({ engineCrash: error?.message || "Engine crashed" });
+          return;
+        }
         if (!error?.code) return;
         applyProtocolError(error, source, setState);
         toast.error(`Action rejected (${error.code}) — try again`);
