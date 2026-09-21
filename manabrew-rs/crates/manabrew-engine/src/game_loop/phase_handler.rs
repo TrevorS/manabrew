@@ -973,12 +973,16 @@ impl GameLoop {
             if total <= 0 {
                 continue;
             }
+            // Java `PhaseHandler` puts `AbilityKey.AttackingPlayer` on combat damage, which is
+            // what `TriggeredAttackingPlayer` reads.
+            let attacking_player = Some(game.active_player());
             let params = match target {
                 Target::Card(cid) => RunParams {
                     damage_target_card: Some(cid),
                     damage_amount: Some(total),
                     damage_map: maps_by_target.get(&target).cloned(),
                     is_combat_damage: Some(true),
+                    attacking_player,
                     ..Default::default()
                 },
                 Target::Player(pid) => RunParams {
@@ -986,6 +990,7 @@ impl GameLoop {
                     damage_amount: Some(total),
                     damage_map: maps_by_target.get(&target).cloned(),
                     is_combat_damage: Some(true),
+                    attacking_player,
                     ..Default::default()
                 },
             };
