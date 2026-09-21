@@ -1501,6 +1501,16 @@ pub fn matches_change_type(
                     return false;
                 }
             }
+            "tapped" => {
+                if !card.tapped {
+                    return false;
+                }
+            }
+            "untapped" => {
+                if card.tapped {
+                    return false;
+                }
+            }
             "ChosenColor" => {
                 if source_chosen_colors.is_empty() {
                     return false;
