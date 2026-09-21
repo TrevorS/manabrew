@@ -1370,6 +1370,27 @@ impl GameLoop {
                         });
                     }
                 }
+                let room_right_split_cost = card
+                    .type_line
+                    .has_subtype("Room")
+                    .then(|| card.svars.get("RoomRightSplitCost").cloned())
+                    .flatten();
+                if let Some(cost) = room_right_split_cost {
+                    if self.can_cast_may_play_spell(
+                        game,
+                        player,
+                        card_id,
+                        ZoneType::Exile,
+                        Some(cost),
+                        &chosen_types_by_source,
+                    ) {
+                        playable.push(crate::agent::PlayOption {
+                            card_id,
+                            mode: crate::agent::PlayCardMode::RoomRightSplit,
+                            alt_cost_index: 0,
+                        });
+                    }
+                }
                 continue;
             }
             if card.face_down {
