@@ -1351,6 +1351,18 @@ pub fn parse_trigger(raw: &str, next_id: &mut u32) -> Option<Trigger> {
         }
     }
 
+    // A Cycled trigger fires from the cycling ability, which is activated in hand and
+    // resolves with the card already discarded. Java needs no zone here because
+    // `TriggerReplacementBase.zonesCheck` treats an unset zone list as every zone; this
+    // port defaults to Battlefield, so name the two zones the card is actually in.
+    if !params.has(keys::TRIGGER_ZONES) && mode.trigger_type() == TriggerType::Cycled {
+        for zone in [ZoneType::Hand, ZoneType::Graveyard] {
+            if !active_zones.contains(&zone) {
+                active_zones.push(zone);
+            }
+        }
+    }
+
     if !params.has(keys::TRIGGER_ZONES) && mode.trigger_type() == TriggerType::ChangesZone {
         if let Some(valid_card) = params.selector(keys::VALID_CARD) {
             let leaves_battlefield = params

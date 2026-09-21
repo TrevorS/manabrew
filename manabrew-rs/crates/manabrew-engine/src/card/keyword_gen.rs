@@ -218,7 +218,7 @@ impl Card {
         // Cycling: K:Cycling:{cost} → AB$ Draw | Cost$ {cost} Discard<1/CARDNAME> | ActivationZone$ Hand
         if let Some(cycling_cost) = self.get_keyword_cost("Cycling") {
             let ab_text = format!(
-                "AB$ Draw | Cost$ {cycling_cost} Discard<1/CARDNAME> | ActivationZone$ Hand | NumCards$ 1 | Defined$ You"
+                "AB$ Draw | Cost$ {cycling_cost} Discard<1/CARDNAME> | ActivationZone$ Hand | PrecostDesc$ Cycling | NumCards$ 1 | Defined$ You"
             );
             let next_idx = self.activated_abilities.len();
             if let Some(ab) = parse_activated_ability(&ab_text, next_idx) {
