@@ -1644,9 +1644,11 @@ mod tests {
             CostPart::AddCounter {
                 amount,
                 counter_type,
+                type_filter,
             } => {
                 assert_eq!(amount.as_literal(), Some(1));
                 assert_eq!(*counter_type, CounterType::Loyalty);
+                assert_eq!(type_filter, "CARDNAME");
             }
             _ => panic!("expected AddCounter cost part"),
         }
