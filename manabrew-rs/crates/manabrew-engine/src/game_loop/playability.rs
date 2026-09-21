@@ -423,7 +423,11 @@ impl GameLoop {
                             attacker.zone == ZoneType::Battlefield && attacker.controller == player
                         });
                 let normal_timing = !must_be_instant || has_flash_permission(card_id);
-                if !normal_timing && !sneak_window {
+                // Java `CardFactoryUtil:2961` gives foretell no sorcery-speed restriction, so a
+                // sorcery can still be foretold in a step where it could not be cast.
+                let foretell_window =
+                    card.get_foretell_cost().is_some() && game.turn.active_player == player;
+                if !normal_timing && !sneak_window && !foretell_window {
                     continue;
                 }
 
@@ -671,6 +675,15 @@ impl GameLoop {
                             mode: crate::agent::PlayCardMode::Alternative(
                                 crate::spellability::AlternativeCost::Sneak,
                             ),
+                            alt_cost_index: 0,
+                        });
+                    }
+                    if foretell_window
+                        && available_mana.can_pay(&forge_foundation::ManaCost::generic(2))
+                    {
+                        playable.push(crate::agent::PlayOption {
+                            card_id,
+                            mode: crate::agent::PlayCardMode::ForetellExile,
                             alt_cost_index: 0,
                         });
                     }
