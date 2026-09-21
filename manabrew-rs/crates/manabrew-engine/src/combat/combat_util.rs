@@ -3,10 +3,9 @@ use forge_foundation::ZoneType;
 
 use super::attack_constraints::AttackConstraints;
 use super::{CombatState, DefenderId, LureType};
-use crate::card::{valid_filter, Card};
+use crate::card::Card;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
-use crate::staticability::static_ability::StaticMode;
 use crate::staticability::static_ability_cant_attack_block;
 
 pub fn get_available_attackers(game: &GameState, player: PlayerId) -> Vec<CardId> {
@@ -152,53 +151,10 @@ pub fn can_creature_block(game: &GameState, blocker_id: CardId, attacker_id: Car
         return false;
     }
     // CantBlockBy static abilities
-    if cant_block_by(game, attacker_id, blocker_id) {
+    if static_ability_cant_attack_block::cant_block_by(game, &game.cards, attacker, Some(blocker)) {
         return false;
     }
     true
-}
-
-/// Check if any `CantBlockBy` static ability prevents blocking.
-fn cant_block_by(game: &GameState, attacker_id: CardId, blocker_id: CardId) -> bool {
-    let attacker = game.card(attacker_id);
-    let blocker = game.card(blocker_id);
-
-    for source in game
-        .cards
-        .iter()
-        .filter(|c| c.zone == ZoneType::Battlefield || c.zone == ZoneType::Command)
-    {
-        for sa in &source.static_abilities {
-            if !sa.check_mode(&StaticMode::CantBlockBy) {
-                continue;
-            }
-
-            if let Some(valid_attacker) = sa.ir.valid_attacker.as_ref() {
-                if !valid_filter::matches_valid_card_selector_in_game(
-                    valid_attacker,
-                    attacker,
-                    source,
-                    game,
-                ) {
-                    continue;
-                }
-            }
-
-            if let Some(valid_blocker) = sa.ir.valid_blocker.as_ref() {
-                if !valid_filter::matches_valid_card_selector_in_game(
-                    valid_blocker,
-                    blocker,
-                    source,
-                    game,
-                ) {
-                    continue;
-                }
-            }
-
-            return true;
-        }
-    }
-    false
 }
 
 /// Filter blockers to only those that can legally block at least one attacker.
