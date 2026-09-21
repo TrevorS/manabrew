@@ -619,6 +619,7 @@ fn matches_card_predicate(
         SelectorPredicate::Commander => card.is_commander,
         SelectorPredicate::Legendary => card.type_line.is_legendary(),
         SelectorPredicate::PowerLtToughness => card.power() < card.toughness(),
+        SelectorPredicate::PowerGtBasePower => card.power() > card.state_base_power(),
         SelectorPredicate::Kicked => card.kicked,
         SelectorPredicate::Monstrous => card.monstrous,
         SelectorPredicate::Renowned => card.is_renowned,
@@ -2691,6 +2692,7 @@ fn matches_player_predicate(
         | SelectorPredicate::Commander
         | SelectorPredicate::Legendary
         | SelectorPredicate::PowerLtToughness
+        | SelectorPredicate::PowerGtBasePower
         | SelectorPredicate::Kicked
         | SelectorPredicate::Monstrous
         | SelectorPredicate::Renowned

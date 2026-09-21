@@ -1594,6 +1594,13 @@ impl Card {
     /// - Layer 7c: `static_power_modifier` (anthem bonuses) is added.
     /// - Temporary: `power_modifier` (from spells like Giant Growth) is added.
     /// - Layer 7d: +1/+1 and -1/-1 counters are factored in.
+    /// Java `Card.getCurrentPower`: the power the card's own state carries, before the
+    /// modifiers `power` adds on top.
+    pub fn state_base_power(&self) -> i32 {
+        self.static_set_power
+            .unwrap_or(self.base_power.unwrap_or(0))
+    }
+
     pub fn power(&self) -> i32 {
         let base = self
             .static_set_power

@@ -242,6 +242,8 @@ pub enum SelectorPredicate {
     Legendary,
     /// Java `CardProperty:1389` "powerLTtoughness": net power below net toughness.
     PowerLtToughness,
+    /// Java `CardProperty:1381` "powerGTbasePower": net power above the state's own power.
+    PowerGtBasePower,
     Kicked,
     Monstrous,
     Renowned,
@@ -992,6 +994,7 @@ fn selector_predicate_order(predicate: &SelectorPredicate) -> u8 {
         | SelectorPredicate::Commander
         | SelectorPredicate::Legendary
         | SelectorPredicate::PowerLtToughness
+        | SelectorPredicate::PowerGtBasePower
         | SelectorPredicate::Kicked
         | SelectorPredicate::Monstrous
         | SelectorPredicate::Renowned
@@ -1105,6 +1108,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "iscommander" => SelectorPredicate::Commander,
         "legendary" => SelectorPredicate::Legendary,
         "powerlttoughness" => SelectorPredicate::PowerLtToughness,
+        "powergtbasepower" => SelectorPredicate::PowerGtBasePower,
         "basic" => SelectorPredicate::CardSupertype(CardSupertypeSelector::Basic),
         "snow" => SelectorPredicate::CardSupertype(CardSupertypeSelector::Snow),
         "kicked" => SelectorPredicate::Kicked,
