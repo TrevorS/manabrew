@@ -916,7 +916,13 @@ impl GameLoop {
                 .target_stack_entry
                 .or(parent_target_stack_entry);
             inherited_trigger_index = sa_ref.trigger_index;
-            current = sa.get_sub_ability();
+            // An `UnlessCost$` node resolves its own sub-chain, gated on
+            // `UnlessResolveSubs$`, so walking into it here would run it twice.
+            current = if crate::ability::effects::sub_ability_handled_internally(sa_ref) {
+                None
+            } else {
+                sa.get_sub_ability()
+            };
         }
 
         // Mirror Java's `SpellAbility.resolve` post-pass: fire `ChangesZoneAll`
