@@ -288,7 +288,10 @@ impl DeterministicAgent {
     ) -> Vec<CardId> {
         let mut chosen = Vec::new();
         let mut rng = self.rng.borrow_mut();
-        while chosen.len() < max && !remaining.is_empty() {
+        // Java's loop condition is `while (!isTargetNumberValid())`, which is false as soon
+        // as the minimum is met, so the `pickBool` below draws but can never add another
+        // target. Mirroring the condition, not just the body, is what keeps the count equal.
+        while !target_number_valid(chosen.len(), min, max) && !remaining.is_empty() {
             let Some(pick) = choice_space::pick_one(&remaining, &mut rng) else {
                 break;
             };
@@ -323,7 +326,7 @@ impl DeterministicAgent {
         let mut probe = sa.clone();
         let mut chosen: Vec<CardId> = Vec::new();
         let mut rng = self.rng.borrow_mut();
-        while chosen.len() < max && !remaining.is_empty() {
+        while !target_number_valid(chosen.len(), min, max) && !remaining.is_empty() {
             let Some(pick) = choice_space::pick_one(&remaining, &mut rng) else {
                 break;
             };
@@ -2498,4 +2501,10 @@ impl PlayerAgent for DeterministicAgent {
         _message_prefix: Option<&str>,
     ) {
     }
+}
+
+/// Java `SpellAbility.isTargetNumberValid`: the minimum is chosen and the maximum is not
+/// exceeded. `chooseTargetsFor` loops while this is false.
+fn target_number_valid(chosen: usize, min: usize, max: usize) -> bool {
+    chosen >= min && chosen <= max
 }
