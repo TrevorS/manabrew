@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.48.2](https://github.com/witchesofthehill/manabrew/compare/v3.48.1...v3.48.2) (2026-09-21)
+
+### Performance
+
+* **engine:** forge perf branch (fork #13), harness performance mode, forge-wasm 0.3.0 ([#925](https://github.com/witchesofthehill/manabrew/issues/925)) ([492de6d](https://github.com/witchesofthehill/manabrew/commit/492de6d2c6716eea64d870183d233a97e0018243))
+
 ## [3.48.1](https://github.com/witchesofthehill/manabrew/compare/v3.48.0...v3.48.1) (2026-09-21)
 
 ### Fixes
