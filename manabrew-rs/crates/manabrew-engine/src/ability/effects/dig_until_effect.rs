@@ -133,6 +133,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 owner
             };
             ctx.move_card(id, found_dest, dest_owner);
+            if found_dest == ZoneType::Exile {
+                if let Some(source_id) = sa.source {
+                    ctx.game.card_mut(source_id).add_exiled_card(id);
+                }
+            }
             if sa.ir.tapped && found_dest == ZoneType::Battlefield {
                 ctx.game.card_mut(id).tapped = true;
             }
@@ -203,6 +208,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 ctx.game.card_mut(id).set_zone(ZoneType::Library);
             } else {
                 ctx.move_card(id, final_dest, owner);
+                if final_dest == ZoneType::Exile {
+                    if let Some(source_id) = sa.source {
+                        ctx.game.card_mut(source_id).add_exiled_card(id);
+                    }
+                }
                 emit_zone_trigger(ctx.trigger_handler, id, ZoneType::Library, final_dest);
             }
         }
