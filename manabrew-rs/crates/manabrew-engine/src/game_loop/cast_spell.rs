@@ -535,6 +535,9 @@ impl GameLoop {
                 } else if ab.ability_text.contains("Mode$ TurnFaceUp") {
                     // Morph face-up is a special action: pay the cost and resolve immediately.
                     self.resolve_immediate_ability(game, agents, player, card_id, &ab)
+                } else if ab.is_unlock_door {
+                    // Java `CardFactoryUtil.abilityUnlockRoom` builds `ST$ UnlockDoor`.
+                    self.resolve_immediate_ability(game, agents, player, card_id, &ab)
                 } else {
                     self.play_activated_ability_on_stack(game, agents, player, card_id, &ab)
                 };
