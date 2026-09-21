@@ -535,6 +535,11 @@ impl DeterministicAgent {
         if play.mode == PlayCardMode::UnlockDoor {
             return format!("AB:{}", self.card_name(play.card_id));
         }
+        // Forge builds Foretell as an `AbilityStatic` (`CardFactoryUtil:2962`), so it is
+        // not a spell and `ParityOrder.actionBaseLabel` buckets it as "AB:".
+        if play.mode == PlayCardMode::ForetellExile {
+            return format!("AB:{}", self.card_name(play.card_id));
+        }
         let fb_tag = match play.mode {
             PlayCardMode::Alternative(AlternativeCost::Flashback) => "[FB]",
             _ => "",
@@ -686,6 +691,16 @@ impl DeterministicAgent {
         })
     }
 
+    /// Java's `ParityOrder.abilityDeclarationIndex` walks `Card.getSpellAbilities()`,
+    /// which lists the card's own spell first and the keyword-made Foretell after it.
+    fn foretell_declaration_index(&self, card_id: CardId) -> usize {
+        self.snapshot_cards()
+            .iter()
+            .find(|card| card.id == card_id)
+            .map(|card| card.activated_abilities.len().max(1))
+            .unwrap_or(1)
+    }
+
     fn action_sort_key(&self, choice: &ActionChoice) -> String {
         match *choice {
             ActionChoice::Card(play) => {
@@ -712,6 +727,15 @@ impl DeterministicAgent {
                         self.parity_map.id(play.card_id),
                         sort_idx,
                         self.ability_sort_text(play.card_id, ability_idx),
+                    );
+                }
+                if play.mode == PlayCardMode::ForetellExile {
+                    return format!(
+                        "AB:{}|1|{}|{:05}|{}",
+                        self.card_name(play.card_id),
+                        self.parity_map.id(play.card_id),
+                        self.foretell_declaration_index(play.card_id),
+                        self.play_option_fallback(play),
                     );
                 }
                 let label = self.play_option_label(play);
