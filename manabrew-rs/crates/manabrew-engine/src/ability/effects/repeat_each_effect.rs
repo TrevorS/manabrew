@@ -132,6 +132,48 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
+    if let Some(def) = crate::parsing::raw_get(raw, "RepeatTypesFrom") {
+        let cards =
+            crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(ctx.game, sa, def);
+        let mut valid_types: Vec<String> = Vec::new();
+        for cid in cards {
+            for ct in &ctx.game.card(cid).type_line.core_types {
+                let name = ct.name().to_string();
+                if !valid_types.contains(&name) {
+                    valid_types.push(name);
+                }
+            }
+        }
+        let chooser = match crate::parsing::raw_get(raw, "ChooseOrder") {
+            Some(order) if !order.eq_ignore_ascii_case("True") => {
+                crate::ability::ability_utils::resolve_defined_players_with_sa(
+                    order, sa, controller, ctx.game,
+                )
+                .first()
+                .copied()
+                .unwrap_or(controller)
+            }
+            _ => controller,
+        };
+        let stored_type = ctx.game.card(source_id).chosen_type.clone();
+        while !valid_types.is_empty() {
+            ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
+            let Some(chosen) =
+                ctx.agents[chooser.index()].choose_type(chooser, "Card", &valid_types)
+            else {
+                break;
+            };
+            ctx.game.card_mut(source_id).chosen_type = Some(chosen.clone());
+            let sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, controller);
+            resolve_sub_chain(ctx, sub_sa);
+            valid_types.retain(|t| t != &chosen);
+            if ctx.game.game_over {
+                break;
+            }
+        }
+        ctx.game.card_mut(source_id).chosen_type = stored_type;
+    }
+
     if let Some(repeat_players) = sa.ir.repeat_players.as_deref() {
         let mut players = Vec::new();
         for d in &crate::ability::ability_ir::DefinedExpr::parse(repeat_players).refs {

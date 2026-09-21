@@ -669,11 +669,11 @@ fn matches_card_predicate(
         SelectorPredicate::WasCast { by_you } => {
             card.was_cast() && (!by_you || card.controller == context.source_controller)
         }
-        SelectorPredicate::ChosenType => context
-            .source_card
-            .chosen_type
-            .as_ref()
-            .is_some_and(|ct| card.type_line.has_subtype(ct) || card.has_keyword("Changeling")),
+        SelectorPredicate::ChosenType => {
+            context.source_card.chosen_type.as_ref().is_some_and(|ct| {
+                card.type_line.has_string_type(ct) || card.has_keyword("Changeling")
+            })
+        }
         SelectorPredicate::Keyword { name, present } => card.has_keyword(name) == *present,
         SelectorPredicate::NumericComparison {
             property,
