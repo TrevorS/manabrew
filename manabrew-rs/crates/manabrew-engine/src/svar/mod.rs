@@ -214,6 +214,7 @@ fn card_x_property(
     };
     let base = match value {
         "CardPower" => net_power,
+        "CastTotalManaSpent" => card.paying_mana_to_cast.len() as i32,
         "CardNumColors" => card.color.count_colors() as i32,
         "CardBasePower" => card.base_power.unwrap_or(0),
         "CardToughness" => net_toughness,
@@ -341,7 +342,17 @@ fn resolve_defined_cards_for_svar(
     let defined_ref = DefinedRef::parse(defined);
     match defined_ref {
         DefinedRef::Targeted | DefinedRef::TargetedCard | DefinedRef::ThisTargetedCard => {
-            sa.target_chosen.all_target_cards()
+            let cards = sa.target_chosen.all_target_cards();
+            if !cards.is_empty() {
+                return cards;
+            }
+            // A targeted spell is a stack entry here, where Java holds the card itself.
+            sa.target_chosen
+                .target_stack_entry
+                .and_then(|id| game.stack.find_by_id(id))
+                .and_then(|entry| entry.spell_ability.source)
+                .into_iter()
+                .collect()
         }
         DefinedRef::ParentTargeted => sa.parent_targeting_card.into_iter().collect(),
         DefinedRef::TriggeredCard | DefinedRef::TriggeredCardLkiCopy => {
