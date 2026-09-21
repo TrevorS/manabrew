@@ -106,6 +106,7 @@ fn deal_damage_from_source(
     target_cards: &[crate::ids::CardId],
 ) -> i32 {
     let mut stored_excess = 0;
+    let mut lifelink_dealt = 0;
     // Check source card for Infect/Wither keywords
     let (source_has_infect_keyword, source_has_wither) = if let Some(src_id) = Some(source) {
         let src = ctx.game.card(src_id);
@@ -261,6 +262,7 @@ fn deal_damage_from_source(
             let dealt =
                 ctx.game
                     .deal_damage_to_player_from(target_player, damage, Some(source), false);
+            lifelink_dealt += dealt;
             ctx.game.record_player_damage_assignment(
                 Some(source),
                 Some(target_player),
@@ -432,6 +434,44 @@ fn deal_damage_from_source(
                 if let Some(src_id) = Some(source) {
                     let src = ctx.game.card_mut(src_id);
                     src.add_remembered_card(target_card);
+                }
+            }
+        }
+    }
+
+    // CR 702.15e: one gain for the whole event. Mirrors the combat lifelink path in
+    // `combat/mod.rs` — the can't-gain check and the GainLife replacement chain apply here too.
+    if lifelink_dealt > 0 && ctx.game.card(source).has_lifelink() {
+        let controller = ctx.game.card(source).controller;
+        if !crate::staticability::static_ability_cant_gain_lose_pay_life::cant_gain_life(
+            ctx.game, controller,
+        ) {
+            let mut gl_event =
+                crate::replacement::replacement_handler::ReplacementEvent::GainLife {
+                    player: controller,
+                    amount: lifelink_dealt,
+                };
+            let gl_result = crate::replacement::replacement_handler::apply_replacements(
+                ctx.game,
+                &mut gl_event,
+            );
+            if gl_result != crate::replacement::ReplacementResult::Skipped
+                && gl_result != crate::replacement::ReplacementResult::Replaced
+            {
+                let final_amount =
+                    if let crate::replacement::replacement_handler::ReplacementEvent::GainLife {
+                        amount,
+                        ..
+                    } = gl_event
+                    {
+                        amount
+                    } else {
+                        lifelink_dealt
+                    };
+                if final_amount > 0 {
+                    ctx.game.player_gain_life(controller, final_amount);
+                    ctx.game
+                        .player_add_team_life_gained(controller, final_amount);
                 }
             }
         }
