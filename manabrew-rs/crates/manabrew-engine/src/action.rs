@@ -307,6 +307,19 @@ impl GameState {
                     .entry(crate::card::CounterType::Loyalty)
                     .or_default() += loyalty.max(0);
             }
+            // Java `CardFactoryUtil:2316` gives Impending an ETB replacement gated on
+            // `Card.Self+impended`, so the time counters are there as it enters and it
+            // is never briefly a creature.
+            if let Some((_, amount)) = card.get_impending_cost() {
+                let impended = card.cast_sa.as_ref().is_some_and(|sa| {
+                    sa.alt_cost == Some(crate::spellability::AlternativeCost::Impending)
+                });
+                if impended {
+                    *etb_counters
+                        .entry(crate::card::CounterType::Time)
+                        .or_default() += amount.max(0);
+                }
+            }
             let sunburst = card.sunburst_count();
             if sunburst > 0 && card.has_keyword("Sunburst") {
                 let counter_type = if card.is_creature() {

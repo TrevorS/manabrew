@@ -772,6 +772,15 @@ impl GameLoop {
                     false
                 };
 
+                let impending_ok = if let Some((impending_cost, _)) = card.get_impending_cost() {
+                    let adjusted = cost_adj
+                        .apply(&forge_foundation::ManaCost::parse(&impending_cost))
+                        .add(&raise_mana);
+                    available_mana.can_pay(&adjusted)
+                } else {
+                    false
+                };
+
                 let may_play_costs: Vec<crate::cost::Cost> =
                     crate::staticability::static_ability_continuous::may_play_alt_costs(
                         game, player, card,
@@ -825,6 +834,7 @@ impl GameLoop {
                     && !morph_ok
                     && !bestow_ok
                     && !warp_ok
+                    && !impending_ok
                 {
                     continue;
                 }
@@ -1045,6 +1055,15 @@ impl GameLoop {
                                 card_id,
                                 mode: crate::agent::PlayCardMode::Alternative(
                                     crate::spellability::AlternativeCost::Warp,
+                                ),
+                                alt_cost_index: 0,
+                            });
+                        }
+                        if impending_ok {
+                            playable.push(crate::agent::PlayOption {
+                                card_id,
+                                mode: crate::agent::PlayCardMode::Alternative(
+                                    crate::spellability::AlternativeCost::Impending,
                                 ),
                                 alt_cost_index: 0,
                             });

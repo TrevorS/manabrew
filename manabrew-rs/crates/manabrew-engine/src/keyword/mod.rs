@@ -147,6 +147,21 @@ pub fn extract_suspend(collection: &keyword_collection::KeywordCollection) -> Op
     None
 }
 
+/// Parse impending info from a KeywordCollection: `Impending:<amount>:<cost>`,
+/// the amount first, as Java's `KeywordWithCostAndAmount` reads it.
+pub fn extract_impending(
+    collection: &keyword_collection::KeywordCollection,
+) -> Option<(String, i32)> {
+    for kw in collection.iter_strings() {
+        if let Some(rest) = kw.strip_prefix("Impending:") {
+            if let Some((amount, cost)) = rest.split_once(':') {
+                return Some((cost.trim().to_string(), amount.trim().parse().unwrap_or(0)));
+            }
+        }
+    }
+    None
+}
+
 /// Parse escape info from a KeywordCollection.
 pub fn extract_escape(collection: &keyword_collection::KeywordCollection) -> Option<EscapeInfo> {
     for kw in collection.iter_strings() {

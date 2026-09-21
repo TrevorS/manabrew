@@ -231,6 +231,30 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         }
     }
 
+    // Impending: Java `CardFactoryUtil:3937` gives the card a
+    // `RemoveType$ Creature` static affecting `Card.Self+impended+counters_GE1_TIME`,
+    // so a permanent cast for its impending cost is not a creature until the last
+    // time counter comes off.
+    for card in game.cards.iter_mut() {
+        if card.zone == ZoneType::Battlefield
+            && card.counter_count(&crate::card::CounterType::Time) > 0
+            && card.get_impending_cost().is_some()
+            && card.cast_sa.as_ref().is_some_and(|sa| {
+                sa.alt_cost == Some(crate::spellability::AlternativeCost::Impending)
+            })
+        {
+            if card.static_type_line_base.is_none() {
+                card.static_type_line_base = Some(card.type_line.clone());
+            }
+            card.remove_type("Creature");
+            let mut sanitized = card.type_line.clone();
+            if sanitize_subtypes(&mut sanitized) {
+                card.type_line = sanitized;
+                card.update_types();
+            }
+        }
+    }
+
     for player_idx in 0..game.player_order.len() {
         let pid = game.player_order[player_idx];
         let player = game.player_mut(pid);

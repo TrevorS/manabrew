@@ -802,6 +802,20 @@ impl Card {
                 });
         }
 
+        if kw.starts_with("Impending:") {
+            let raw = "Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self+impended+counters_GE1_TIME | Secondary$ True | Execute$ TrigImpending | TriggerDescription$ At the beginning of your end step, remove a time counter from it.";
+            if let Some(mut trig) = parse_trigger(raw, next_id) {
+                trig.execute = "TrigImpending".to_string();
+                self.add_trigger(trig);
+            }
+            self.svars
+                .entry("TrigImpending".to_string())
+                .or_insert_with(|| {
+                    "DB$ RemoveCounter | Defined$ Self | CounterType$ TIME | CounterNum$ 1"
+                        .to_string()
+                });
+        }
+
         if let Some(n_str) = crate::keyword::extract_keyword_cost_str(kw, "Hideaway") {
             let raw = format!(
                 "Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Secondary$ True | Execute$ TrigHideaway | TriggerDescription$ Hideaway {n_str}"

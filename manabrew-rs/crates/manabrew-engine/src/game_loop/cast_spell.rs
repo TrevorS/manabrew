@@ -801,6 +801,7 @@ impl GameLoop {
         let is_plot_cast = sa.alt_cost == Some(crate::spellability::AlternativeCost::Plot);
         let is_bestow = sa.alt_cost == Some(crate::spellability::AlternativeCost::Bestow);
         let is_warp = sa.alt_cost == Some(crate::spellability::AlternativeCost::Warp);
+        let is_impending = sa.alt_cost == Some(crate::spellability::AlternativeCost::Impending);
         let is_sneak = sa.alt_cost == Some(crate::spellability::AlternativeCost::Sneak);
         let is_web_slinging =
             sa.alt_cost == Some(crate::spellability::AlternativeCost::WebSlinging);
@@ -875,6 +876,8 @@ impl GameLoop {
                 card.get_bestow_cost()
             } else if is_warp {
                 card.get_warp_cost()
+            } else if is_impending {
+                card.get_impending_cost().map(|(cost, _)| cost)
             } else if is_sneak {
                 card.get_sneak_cost().map(|cost| {
                     format!("{cost} Return<1/Creature.attacking+unblocked/unblocked attacker>")

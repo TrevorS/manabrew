@@ -125,6 +125,12 @@ impl Card {
             .map(|info| (info.mana_cost, info.time_counters))
     }
 
+    /// Get impending cost and time-counter count (e.g. "Impending:4:1 G G").
+    pub fn get_impending_cost(&self) -> Option<(String, i32)> {
+        crate::keyword::extract_impending(&self.keywords)
+            .or_else(|| crate::keyword::extract_impending(&self.granted_keywords))
+    }
+
     /// Get foretell cost (e.g. "Foretell:W W" → Some("W W")).
     pub fn get_foretell_cost(&self) -> Option<String> {
         self.get_keyword_cost("Foretell")
