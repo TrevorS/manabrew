@@ -927,6 +927,14 @@ fn resolve_player_count_svar(
             .into_iter()
             .filter(|&pid| crate::player::player_predicates::is_opponent_of(game, controller, pid))
             .collect()
+    } else if kind == "RegisteredOpponents" {
+        // Java reads `game.getRegisteredPlayers()` here, not the living ones
+        // (`AbilityUtils.java:465`), so a player who has already lost still counts.
+        game.player_order
+            .iter()
+            .copied()
+            .filter(|&pid| crate::player::player_predicates::is_opponent_of(game, controller, pid))
+            .collect()
     } else if kind == "Remembered" {
         game.card(source_id).remembered_players.clone()
     } else if kind.starts_with("PropertyYou") {
