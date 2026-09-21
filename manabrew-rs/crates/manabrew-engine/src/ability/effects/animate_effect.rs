@@ -31,6 +31,28 @@ use forge_foundation::ManaCost;
 /// Struct form of this effect so it can participate in the
 /// `SpellAbilityEffect` trait hierarchy — mirrors Java's
 /// `AnimateEffect` class extending `SpellAbilityEffect`.
+/// Java builds an `Execute$` ability with its whole `SubAbility$` chain attached, while
+/// this port looks each one up by name on the host when the trigger resolves, so a
+/// granted trigger needs every SVar in the chain, not just the first.
+fn copy_execute_chain_svars(
+    source_svars: &std::collections::BTreeMap<String, String>,
+    card: &mut crate::card::Card,
+    start: &str,
+) {
+    let mut name = start.to_string();
+    for _ in 0..16 {
+        let Some(text) = source_svars.get(&name) else {
+            return;
+        };
+        let text = text.clone();
+        card.set_s_var_if_absent(name.clone(), text.clone());
+        let Some(next) = crate::parsing::raw_get(&text, crate::parsing::keys::SUB_ABILITY) else {
+            return;
+        };
+        name = next.trim().to_string();
+    }
+}
+
 #[manabrew_engine_macros::spell_effect(AnimateEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if !crate::ability::spell_ability_effect::check_valid_duration(
@@ -325,11 +347,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .apply_effect(ctx.game.card_mut(card_id));
                 for trig in &parsed_triggers {
                     if !trig.execute.is_empty() {
-                        if let Some(exec_svar) = source_svars.get(&trig.execute) {
-                            ctx.game
-                                .card_mut(card_id)
-                                .set_s_var_if_absent(trig.execute.clone(), exec_svar.clone());
-                        }
+                        copy_execute_chain_svars(
+                            &source_svars,
+                            ctx.game.card_mut(card_id),
+                            &trig.execute,
+                        );
                     }
                 }
             } else {
@@ -343,11 +365,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     // Copy the Execute SVar from source to target so trigger resolution
                     // can find it (e.g. SupernaturalStaminaTrigChangeZone)
                     if !trig.execute.is_empty() {
-                        if let Some(exec_svar) = source_svars.get(&trig.execute) {
-                            ctx.game
-                                .card_mut(card_id)
-                                .set_s_var_if_absent(trig.execute.clone(), exec_svar.clone());
-                        }
+                        copy_execute_chain_svars(
+                            &source_svars,
+                            ctx.game.card_mut(card_id),
+                            &trig.execute,
+                        );
                     }
                 }
             }
