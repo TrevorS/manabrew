@@ -4359,14 +4359,10 @@ impl Card {
     /// Which of a Room's doors are open. Forge keeps the open door as the card's current
     /// state and registers only that state's triggers; this port holds both faces' traits on
     /// one card, so the open doors are listed here and the traits are filtered by them.
+    /// Java `Card.getUnlockedRooms`: the complement of `getLockedRooms`, so a Room with
+    /// no unlocked set has both doors locked rather than both open.
     pub fn room_door_unlocked(&self, state: forge_foundation::CardStateName) -> bool {
-        let Some(doors) = self.svars.get("UnlockedDoors") else {
-            return true;
-        };
-        doors
-            .split(',')
-            .filter_map(forge_foundation::CardStateName::from_str_compat)
-            .any(|door| door == state)
+        !self.room_door_locked(state)
     }
 
     /// Java `Card.getLockedRooms`: a door not in `unlockedRooms` is locked, and an
