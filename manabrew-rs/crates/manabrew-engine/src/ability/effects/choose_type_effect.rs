@@ -50,6 +50,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     };
 
+    let valid_types: Vec<String> = match crate::parsing::raw_get(&sa.ability_text, "InvalidTypes") {
+        Some(invalid) => {
+            let invalid: Vec<&str> = invalid.split(',').map(str::trim).collect();
+            valid_types
+                .into_iter()
+                .filter(|t| !invalid.iter().any(|i| i.eq_ignore_ascii_case(t)))
+                .collect()
+        }
+        None => valid_types,
+    };
+
     if valid_types.is_empty() {
         return;
     }
