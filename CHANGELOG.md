@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.48.0](https://github.com/witchesofthehill/manabrew/compare/v3.47.6...v3.48.0) (2026-09-21)
+
+### Features
+
+* **lan:** read card art from the machine hosting the room ([#972](https://github.com/witchesofthehill/manabrew/issues/972)) ([cddd366](https://github.com/witchesofthehill/manabrew/commit/cddd366559ef1ee005b755b0f65038c7df901010))
+
 ## [3.47.6](https://github.com/witchesofthehill/manabrew/compare/v3.47.5...v3.47.6) (2026-09-21)
 
 ### Fixes
