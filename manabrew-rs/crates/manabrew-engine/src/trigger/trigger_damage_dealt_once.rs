@@ -14,7 +14,7 @@ use super::trigger::TriggerBehavior;
 pub struct TriggerDamageDealtOnce {
     pub valid_source: Option<crate::parsing::CompiledSelector>,
     pub valid_target: Option<crate::parsing::CompiledSelector>,
-    pub combat_damage_only: bool,
+    pub combat_damage: Option<bool>,
 }
 
 impl TriggerDamageDealtOnce {
@@ -22,7 +22,9 @@ impl TriggerDamageDealtOnce {
         Box::new(Self {
             valid_source: params.selector_cloned(keys::VALID_SOURCE),
             valid_target: params.selector_cloned(keys::VALID_TARGET),
-            combat_damage_only: params.is_true(keys::COMBAT_DAMAGE),
+            combat_damage: params
+                .get(keys::COMBAT_DAMAGE)
+                .map(|v| v.eq_ignore_ascii_case("True")),
         })
     }
 }
@@ -39,8 +41,12 @@ impl TriggerBehavior for TriggerDamageDealtOnce {
         params: &RunParams,
         game: &GameState,
     ) -> bool {
-        if self.combat_damage_only && params.is_combat_damage != Some(true) {
-            return false;
+        // Java compares the parameter against the run param for True and False alike
+        // (`TriggerDamageDone.performTest`), so `CombatDamage$ False` excludes combat damage.
+        if let Some(wants_combat) = self.combat_damage {
+            if params.is_combat_damage.unwrap_or(false) != wants_combat {
+                return false;
+            }
         }
         trigger.matches_optional_valid_card_filter(&self.valid_source, params.damage_source, game)
             && trigger.matches_damage_target_filter(&self.valid_target, params, game, true)
