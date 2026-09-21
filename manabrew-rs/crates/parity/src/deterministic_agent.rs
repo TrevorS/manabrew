@@ -154,6 +154,29 @@ enum ActionChoice {
     Ability(CardId, usize),
 }
 
+/// Java's controller holds the real `Game`, so a blocker filter like `Creature.powerGTX`
+/// resolves its `Count$` SVar there. This agent matches against a `GameSnapshot` and calls
+/// the game-less `matches_valid_card`, where an unresolvable comparison value makes
+/// `matches_numeric_comparison` match every card — turning a `CantBlockBy` static into
+/// "nothing may block". Substitute the source-only forms, which the snapshot can answer.
+fn substitute_source_only_svars(filter: &str, source: &Card) -> String {
+    let mut out = filter.to_string();
+    for (name, expr) in source.svars.iter() {
+        let value = match expr.as_str() {
+            "Count$CardPower" => source.power(),
+            "Count$CardToughness" => source.toughness(),
+            _ => continue,
+        };
+        for prop in ["power", "toughness", "cmc"] {
+            for op in ["GT", "LT", "GE", "LE", "EQ", "NE"] {
+                let needle = format!("{prop}{op}{name}");
+                out = out.replace(&needle, &format!("{prop}{op}{value}"));
+            }
+        }
+    }
+    out
+}
+
 #[allow(private_interfaces)]
 impl DeterministicAgent {
     fn shallow_snapshot_card(card: &Card) -> Card {
@@ -905,6 +928,7 @@ impl DeterministicAgent {
                 }
 
                 if let Some(valid_blocker) = sa.ir.valid_blocker_text.as_deref() {
+                    let valid_blocker = substitute_source_only_svars(valid_blocker, source);
                     let blocker_matches = valid_blocker.split(',').any(|v| {
                         manabrew_engine::card::valid_filter::matches_valid_card(
                             v.trim(),
