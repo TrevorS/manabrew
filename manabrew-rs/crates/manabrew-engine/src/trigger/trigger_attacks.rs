@@ -10,6 +10,7 @@ pub struct TriggerAttacks {
     pub valid_card: Option<crate::parsing::CompiledSelector>,
     pub attacked: Option<crate::parsing::CompiledSelector>,
     pub alone: bool,
+    pub first_attack: bool,
 }
 
 impl TriggerAttacks {
@@ -18,6 +19,7 @@ impl TriggerAttacks {
             valid_card: params.selector_cloned(keys::VALID_CARD),
             attacked: params.selector_cloned("Attacked"),
             alone: params.is_true(keys::ALONE),
+            first_attack: params.has("FirstAttack"),
         })
     }
 }
@@ -35,6 +37,15 @@ impl TriggerBehavior for TriggerAttacks {
         game: &GameState,
     ) -> bool {
         if self.alone && params.num_attackers.unwrap_or(0) != 1 {
+            return false;
+        }
+        // Java `TriggerAttacks.performTest:85` rejects once the attacker has already
+        // attacked more than once this turn, so the trigger covers only its first attack.
+        if self.first_attack
+            && params
+                .attacker
+                .is_some_and(|a| game.card(a).attacks_this_turn > 1)
+        {
             return false;
         }
         // Java `TriggerAttacks.performTest:64` filters on what was attacked, which is a
