@@ -8,6 +8,7 @@ use super::trigger::TriggerBehavior;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TriggerAttacks {
     pub valid_card: Option<crate::parsing::CompiledSelector>,
+    pub attacked: Option<crate::parsing::CompiledSelector>,
     pub alone: bool,
 }
 
@@ -15,6 +16,7 @@ impl TriggerAttacks {
     pub fn parse(params: &Params) -> Box<dyn TriggerBehavior> {
         Box::new(Self {
             valid_card: params.selector_cloned(keys::VALID_CARD),
+            attacked: params.selector_cloned("Attacked"),
             alone: params.is_true(keys::ALONE),
         })
     }
@@ -34,6 +36,26 @@ impl TriggerBehavior for TriggerAttacks {
     ) -> bool {
         if self.alone && params.num_attackers.unwrap_or(0) != 1 {
             return false;
+        }
+        // Java `TriggerAttacks.performTest:64` filters on what was attacked, which is a
+        // player for most triggers and a permanent for a planeswalker or battle.
+        if self.attacked.is_some() {
+            let matched = if params.attacked_player.is_some() {
+                trigger.matches_optional_valid_player_filter(
+                    &self.attacked,
+                    params.attacked_player,
+                    game,
+                )
+            } else {
+                trigger.matches_optional_valid_card_filter(
+                    &self.attacked,
+                    params.attacked_card,
+                    game,
+                )
+            };
+            if !matched {
+                return false;
+            }
         }
         trigger.matches_optional_valid_card_filter(&self.valid_card, params.attacker, game)
     }
