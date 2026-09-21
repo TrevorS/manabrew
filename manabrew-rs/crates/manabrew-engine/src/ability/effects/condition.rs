@@ -123,9 +123,9 @@ pub(super) fn check_condition(game: &GameState, sa: &SpellAbility) -> bool {
         let Some(source_id) = sa.source else {
             return false;
         };
-        let Some(expr) = game.card(source_id).get_s_var(cond) else {
-            return false;
-        };
+        // Java reads it with `AbilityUtils.calculateAmount(host, svarToCheck, sa)`, which takes an
+        // SVar name or the expression itself, so `ConditionCheckSVar$ Count$RememberedSize` counts.
+        let expr = game.card(source_id).get_s_var(cond).unwrap_or(cond);
 
         let value = if let Some(valid_filter) = expr.strip_prefix("Imprinted$Valid ") {
             let imprinted = game.card(source_id).imprinted_cards.clone();
