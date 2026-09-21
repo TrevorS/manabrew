@@ -240,6 +240,8 @@ pub enum SelectorPredicate {
     EffectSource,
     Commander,
     Legendary,
+    /// Java `CardProperty:1389` "powerLTtoughness": net power below net toughness.
+    PowerLtToughness,
     Kicked,
     Monstrous,
     Renowned,
@@ -989,6 +991,7 @@ fn selector_predicate_order(predicate: &SelectorPredicate) -> u8 {
         | SelectorPredicate::Colorless
         | SelectorPredicate::Commander
         | SelectorPredicate::Legendary
+        | SelectorPredicate::PowerLtToughness
         | SelectorPredicate::Kicked
         | SelectorPredicate::Monstrous
         | SelectorPredicate::Renowned
@@ -1101,6 +1104,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "effectsource" => SelectorPredicate::EffectSource,
         "iscommander" => SelectorPredicate::Commander,
         "legendary" => SelectorPredicate::Legendary,
+        "powerlttoughness" => SelectorPredicate::PowerLtToughness,
         "basic" => SelectorPredicate::CardSupertype(CardSupertypeSelector::Basic),
         "snow" => SelectorPredicate::CardSupertype(CardSupertypeSelector::Snow),
         "kicked" => SelectorPredicate::Kicked,
