@@ -1522,11 +1522,13 @@ impl GameLoop {
             if game.card(card_id).is_land() {
                 let land_sa = SpellAbility::new_land(Some(card_id), player);
                 if !must_be_instant && crate::spellability::land_ability::can_play(&land_sa, game) {
-                    playable.push(crate::agent::PlayOption {
-                        card_id,
-                        mode: crate::agent::PlayCardMode::Normal,
-                        alt_cost_index: 0,
-                    });
+                    for _ in 0..count_may_play_grants(card_id).max(1) {
+                        playable.push(crate::agent::PlayOption {
+                            card_id,
+                            mode: crate::agent::PlayCardMode::Normal,
+                            alt_cost_index: 0,
+                        });
+                    }
                 }
                 continue;
             }
