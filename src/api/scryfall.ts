@@ -10,6 +10,14 @@ import {
 import { platformFetch } from "@/lib/platformFetch";
 import { getPlatformType } from "@/platform";
 import { loadScryfallImage } from "@/lib/scryfallImageSource";
+import {
+  localCardNames,
+  localCardRecord,
+  localCardRecords,
+  localRulings,
+  localSets,
+} from "@/lib/localCardRecords";
+import { bestCachedName, cachedNameMatches } from "@/lib/localCardSearch";
 import { scryfallAssetUrl, scryfallAssetsMirrored } from "@/lib/scryfallAssets";
 import {
   enqueueCardLookup,
@@ -118,13 +126,59 @@ export async function searchCards(
 ): Promise<ScryfallListResponse> {
   const orderParam = order || "cmc";
   const dirParam = dir && dir !== "auto" ? `&dir=${dir}` : "";
-  return scryfallFetch(
-    `${SCRYFALL_API}/cards/search?q=${encodeURIComponent(query)}&page=${page}&order=${orderParam}&unique=cards${dirParam}`,
-    "Failed to fetch cards from Scryfall",
-  );
+  try {
+    return await scryfallFetch<ScryfallListResponse>(
+      `${SCRYFALL_API}/cards/search?q=${encodeURIComponent(query)}&page=${page}&order=${orderParam}&unique=cards${dirParam}`,
+      "Failed to fetch cards from Scryfall",
+    );
+  } catch (error) {
+    // A cache is keyed by name, so the only query it can answer is words in a
+    // title. Scryfall's operators (`t:`, `c:`, `cmc>=`) have no offline
+    // equivalent and the search stays failed rather than answering something
+    // narrower than what was asked.
+    const cached = await searchCachedNames(query, page);
+    if (cached) return cached;
+    throw error;
+  }
 }
-export async function getRulings(rulingsUri: string): Promise<ScryfallRulingsResponse> {
-  return scryfallFetch(rulingsUri, "Failed to fetch rulings from Scryfall");
+
+const CACHED_SEARCH_PAGE_SIZE = 175;
+
+async function searchCachedNames(
+  query: string,
+  page: number,
+): Promise<ScryfallListResponse | null> {
+  const names = await localCardNames();
+  if (!names) return null;
+  const matches = cachedNameMatches(query, names);
+  if (!matches) return null;
+  const start = (Math.max(page, 1) - 1) * CACHED_SEARCH_PAGE_SIZE;
+  const wanted = matches.slice(start, start + CACHED_SEARCH_PAGE_SIZE);
+  const found = await localCardRecords(wanted);
+  return {
+    object: "list",
+    total_cards: matches.length,
+    has_more: start + CACHED_SEARCH_PAGE_SIZE < matches.length,
+    data: wanted.map((name) => found.get(name)).filter((card) => card !== undefined),
+  };
+}
+export async function getRulings(
+  rulingsUri: string,
+  oracleId?: string,
+): Promise<ScryfallRulingsResponse> {
+  try {
+    return await scryfallFetch<ScryfallRulingsResponse>(
+      rulingsUri,
+      "Failed to fetch rulings from Scryfall",
+    );
+  } catch (error) {
+    // Scryfall's bulk rulings are grouped by oracle id, while `rulings_uri`
+    // names the printing, so the cache can only answer when the caller has the
+    // card in hand — which every caller does.
+    const cached = oracleId ? await localRulings(oracleId) : null;
+    if (cached) return cached;
+    throw error;
+  }
 }
 export async function getCardPrints(printsSearchUri: string): Promise<ScryfallListResponse> {
   return scryfallFetch(printsSearchUri, "Failed to fetch card prints from Scryfall");
@@ -175,10 +229,24 @@ export async function getCardByName(name: string, setCode?: string): Promise<Scr
   return enqueueCardLookup(setCode ? { name, set: setCode.toLowerCase() } : { name });
 }
 export async function fetchCardByFuzzyName(name: string): Promise<ScryfallCard> {
-  return scryfallFetch<ScryfallCard>(
-    `${SCRYFALL_API}/cards/named?fuzzy=${encodeURIComponent(name)}`,
-    `No card matches "${name}"`,
-  );
+  try {
+    return await scryfallFetch<ScryfallCard>(
+      `${SCRYFALL_API}/cards/named?fuzzy=${encodeURIComponent(name)}`,
+      `No card matches "${name}"`,
+    );
+  } catch (error) {
+    // Scryfall does the fuzzing online. Offline the cache's own name list is
+    // what a misspelling can be matched against, which is what makes pasting a
+    // decklist work with no internet.
+    const cached = await localCardRecord(name);
+    if (cached) return cached;
+    const guess = await localCardNames().then((names) =>
+      names ? bestCachedName(name, names) : null,
+    );
+    const matched = guess ? await localCardRecord(guess) : null;
+    if (matched) return matched;
+    throw error;
+  }
 }
 export async function getCardById(id: string): Promise<ScryfallCard> {
   return enqueueCardLookup({ id });
@@ -221,6 +289,7 @@ export async function fetchCardCollection(
           ? { name: c.name, set: c.setCode.toLowerCase() }
           : { name: c.name },
     );
+    let fromCache = false;
     const data = await scryfallFetch<{ data: ScryfallCard[] }>(
       `${SCRYFALL_API}/cards/collection`,
       "Failed to fetch card collection from Scryfall",
@@ -230,9 +299,21 @@ export async function fetchCardCollection(
         body: JSON.stringify({ identifiers: ids.map(normalizeIdentifierForRequest) }),
         signal,
       },
-    );
+    ).catch(async (error) => {
+      const cached = await localCardRecords(batch.map((c) => c.name));
+      if (cached.size === 0) throw error;
+      fromCache = true;
+      return { data: [...cached.values()] };
+    });
     batch.forEach((c, idx) => {
-      const card = data.data.find((found) => matchesIdentifier(found, ids[idx]));
+      // A cache holds one printing per card, so an exact-printing identifier
+      // has nothing to match there and the name is all it can be asked for.
+      // Online that stays a miss, where a wrong printing would be a wrong card.
+      const card =
+        data.data.find((found) => matchesIdentifier(found, ids[idx])) ??
+        (fromCache
+          ? data.data.find((found) => matchesIdentifier(found, { name: c.name }))
+          : undefined);
       // A set+number identifier carries no name, so a mistyped number would
       // silently resolve to a different card in that set — reject it instead.
       if (!card || !matchesIdentifier(card, { name: c.name })) return;
@@ -255,7 +336,11 @@ export async function fetchSets(): Promise<ScryfallSet[]> {
   const data = await scryfallFetch<{ data: ScryfallSet[] }>(
     `${SCRYFALL_API}/sets`,
     "Failed to fetch sets from Scryfall",
-  );
+  ).catch(async (error) => {
+    const cached = await localSets();
+    if (!cached) throw error;
+    return { data: cached };
+  });
   return data.data.map((set) => ({ ...set, icon_svg_uri: scryfallAssetUrl(set.icon_svg_uri) }));
 }
 
