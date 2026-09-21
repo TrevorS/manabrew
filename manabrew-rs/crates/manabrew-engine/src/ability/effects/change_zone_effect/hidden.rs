@@ -27,7 +27,6 @@ pub(super) fn resolve_hidden_origin(
     origin_zone: ZoneType,
     dest_zone: ZoneType,
 ) {
-    let (dest_zone, lib_position) = resolve_destination(ctx, sa, dest_zone);
     let defined = sa.defined().unwrap_or("").to_string();
     let defined_ref = sa.defined_ref();
     let change_type = sa.change_type().unwrap_or("").to_string();
@@ -158,6 +157,7 @@ pub(super) fn resolve_hidden_origin(
             // Java's changeHiddenOriginResolve skips the post-move search shuffle for
             // Defined$ cards unless Shuffle$ True, but still shuffles before a
             // Library to Library move.
+            let (dest_zone, lib_position) = resolve_destination(ctx, sa, dest_zone);
             let mut sa_no_shuffle = sa.clone();
             if dest_zone != ZoneType::Library && !sa.is_shuffle() {
                 sa_no_shuffle.ir.no_shuffle = true;
@@ -320,6 +320,7 @@ pub(super) fn resolve_hidden_origin(
                 }
             }
 
+            let (dest_zone, lib_position) = resolve_destination(ctx, sa, dest_zone);
             move_cards(
                 ctx,
                 sa,
@@ -530,6 +531,8 @@ pub(super) fn resolve_hidden_origin(
             )
         }
     };
+
+    let (dest_zone, lib_position) = resolve_destination(ctx, sa, dest_zone);
 
     if sa.ir.reorder && cards_to_move.len() > 1 {
         ctx.agents[effective_chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
