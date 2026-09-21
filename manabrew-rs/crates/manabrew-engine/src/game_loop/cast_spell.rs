@@ -697,8 +697,8 @@ impl GameLoop {
                     );
                     self.emit_tap_for_mana_triggers(player, &tapped);
                     self.pool_mut(player).try_pay(&foretell_exile_cost);
-                    game.card_mut(card_id).set_face_down(true);
                     self.move_card_with_runtime(game, card_id, ZoneType::Exile, player, agents);
+                    game.card_mut(card_id).set_face_down(true);
                     self.trigger_handler.run_trigger(
                         TriggerType::Foretell,
                         RunParams {
