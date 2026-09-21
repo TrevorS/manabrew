@@ -1161,6 +1161,13 @@ export default function Game({ exitTo }: GameProps = {}) {
     if (navigationBlocker.state === "blocked") navigationBlocker.reset();
     return endGame().then(() => setLeaveGameModalOpen(false));
   }, [navigationBlocker, endGame]);
+  const leaveEndsWithConcede = ownsEngine && !gameContinuesWithoutMe;
+  const handleLeaveConcede = useCallback(async () => {
+    await concede();
+    if (navigationBlocker.state === "blocked") navigationBlocker.reset();
+    eliminatedModalShownRef.current = true;
+    setLeaveGameModalOpen(false);
+  }, [navigationBlocker, concede]);
   useEffect(() => {
     if (gameOverNow) {
       setEliminatedModalOpen(false);
@@ -2502,7 +2509,12 @@ export default function Game({ exitTo }: GameProps = {}) {
         />
       )}
       {leaveGameModalOpen && (
-        <LeaveGameModal mode={leaveGameMode} onStay={handleStay} onLeave={handleLeaveConfirm} />
+        <LeaveGameModal
+          mode={leaveGameMode}
+          endsWithConcede={leaveEndsWithConcede}
+          onStay={handleStay}
+          onLeave={leaveEndsWithConcede ? handleLeaveConcede : handleLeaveConfirm}
+        />
       )}
       {concedeModalOpen && (
         <ConcedeGameModal
