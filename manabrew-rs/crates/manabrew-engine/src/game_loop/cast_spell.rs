@@ -1531,6 +1531,45 @@ impl GameLoop {
             rollback_cast!();
         }
 
+        // Java announces the Harmonize reduction with the other announced values, before
+        // targets (`HarnessPlayPlumbing.announceValuesLikeX`); only the cost arithmetic
+        // waits for the cost stage below.
+        let harmonize_choice = if is_harmonize {
+            let max_power = game
+                .cards_in_zone(ZoneType::Battlefield, player)
+                .iter()
+                .copied()
+                .filter(|&cid| game.card(cid).is_creature())
+                .map(|cid| game.card(cid).power().max(0))
+                .max()
+                .unwrap_or(0);
+            if max_power > 0 {
+                agents[player.index()].snapshot_state(game, &self.mana_pools);
+                let chosen_power = agents[player.index()]
+                    .choose_number(
+                        player,
+                        Some(card_id),
+                        "Harmonize",
+                        Some("Choose a creature's power to reduce the generic cost."),
+                        0,
+                        max_power,
+                    )
+                    .unwrap_or(0)
+                    .clamp(0, max_power);
+                let pay_keyword_cost = agents[player.index()].choose_number_for_keyword_cost(
+                    player,
+                    1,
+                    "Tap creature?",
+                    Some(card_id),
+                ) == 1;
+                Some((chosen_power, pay_keyword_cost))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         if !sa.overloaded {
             agents[player.index()].set_targeting_cancellable(true);
             let targets_ok = sa.setup_targets(game, agents, &self.mana_pools);
@@ -1593,47 +1632,14 @@ impl GameLoop {
         } else {
             mana_cost.clone()
         };
-        let harmonize_tap_cost = if is_harmonize {
-            let max_power = game
-                .cards_in_zone(ZoneType::Battlefield, player)
-                .iter()
-                .copied()
-                .filter(|&cid| game.card(cid).is_creature())
-                .map(|cid| game.card(cid).power().max(0))
-                .max()
-                .unwrap_or(0);
-            if max_power > 0 {
-                agents[player.index()].snapshot_state(game, &self.mana_pools);
-                let chosen_power = agents[player.index()]
-                    .choose_number(
-                        player,
-                        Some(card_id),
-                        "Harmonize",
-                        Some("Choose a creature's power to reduce the generic cost."),
-                        0,
-                        max_power,
-                    )
-                    .unwrap_or(0)
-                    .clamp(0, max_power);
-                let pay_keyword_cost = agents[player.index()].choose_number_for_keyword_cost(
-                    player,
-                    1,
-                    "Tap creature?",
-                    Some(card_id),
-                ) == 1;
-                if pay_keyword_cost {
-                    payable_base_cost = payable_base_cost.reduce_generic(chosen_power);
-                    Some(crate::cost::parse_cost(&format!(
-                        "tapXType<1/Creature.powerEQ{chosen_power}/creature for Harmonize>"
-                    )))
-                } else {
-                    None
-                }
-            } else {
-                None
+        let harmonize_tap_cost = match harmonize_choice {
+            Some((chosen_power, true)) => {
+                payable_base_cost = payable_base_cost.reduce_generic(chosen_power);
+                Some(crate::cost::parse_cost(&format!(
+                    "tapXType<1/Creature.powerEQ{chosen_power}/creature for Harmonize>"
+                )))
             }
-        } else {
-            None
+            _ => None,
         };
         if sa.is_spell && !sa.is_copy {
             if let Some(offspring_cost) = game.card(card_id).get_keyword_cost("Offspring") {
