@@ -529,7 +529,7 @@ impl Card {
                 });
             self.svars
                 .entry("TrigDecayedSac".to_string())
-                .or_insert_with(|| "DB$ Sacrifice | Defined$ Self".to_string());
+                .or_insert_with(|| "DB$ Sacrifice".to_string());
         }
 
         if kw == "Storied" && self.is_permanent() {
