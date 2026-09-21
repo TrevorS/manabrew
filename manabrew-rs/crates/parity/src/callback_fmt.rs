@@ -47,8 +47,16 @@ impl<'a> FmtCtx<'a> {
     /// Format a single card as `Name@parityId`.
     pub fn card(&self, cid: CardId) -> String {
         let card = self.game.card(cid);
+        // Java logs Card.getName(): off the battlefield a split card's current state is
+        // Original, whose name is the combined "A // B".
+        let split_off_battlefield = card.zone != forge_foundation::ZoneType::Battlefield
+            && card.other_part.as_ref().is_some_and(|other| {
+                other.state_name == forge_foundation::CardStateName::RightSplit
+            });
         let name = if card.face_down {
             ""
+        } else if split_off_battlefield {
+            card.full_name.as_str()
         } else {
             card.card_name.as_str()
         };

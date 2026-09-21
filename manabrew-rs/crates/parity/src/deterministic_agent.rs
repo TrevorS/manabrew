@@ -1047,8 +1047,16 @@ impl PlayerAgent for DeterministicAgent {
             refill_named(
                 &mut card_names,
                 game.cards.iter().map(|c| {
+                    // Keep in sync with FmtCtx::card: the action-space log names come
+                    // from this snapshot, so both must match Java's getName().
+                    let split_off_battlefield = c.zone != forge_foundation::ZoneType::Battlefield
+                        && c.other_part.as_ref().is_some_and(|o| {
+                            o.state_name == forge_foundation::CardStateName::RightSplit
+                        });
                     let name = if c.face_down {
                         ""
+                    } else if split_off_battlefield {
+                        c.full_name.as_str()
                     } else {
                         c.card_name.as_str()
                     };
