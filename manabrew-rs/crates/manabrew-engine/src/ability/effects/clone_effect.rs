@@ -40,6 +40,21 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         None => return,
     };
 
+    if sa.ir.optional {
+        let card_name = ctx.game.card(clone_source_id).card_name.clone();
+        ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        if !ctx.agents[controller.index()].confirm_action(
+            controller,
+            None,
+            &format!("Do you want to copy {card_name}?"),
+            &[],
+            sa.source,
+            Some(crate::ability::api_type::ApiType::Clone),
+        ) {
+            return;
+        }
+    }
+
     let clone_targets: Vec<crate::ids::CardId> =
         if let Some(defined) = sa.ir.clone_target.as_deref() {
             let mut targets = crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
