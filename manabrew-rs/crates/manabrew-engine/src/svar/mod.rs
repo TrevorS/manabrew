@@ -157,6 +157,7 @@ fn spell_ability_x_property(spell_ability: &SpellAbility, expr: &str, game: &Gam
     let base = match value {
         "CardPower" => source.power(),
         "CardToughness" => source.toughness(),
+        "CardNumColors" => source.color.count_colors() as i32,
         _ if value.starts_with("CardCounters.") => {
             let counter_name = value.strip_prefix("CardCounters.").unwrap_or("");
             if counter_name.eq_ignore_ascii_case("ALL") {
@@ -213,6 +214,7 @@ fn card_x_property(
     };
     let base = match value {
         "CardPower" => net_power,
+        "CardNumColors" => card.color.count_colors() as i32,
         "CardBasePower" => card.base_power.unwrap_or(0),
         "CardToughness" => net_toughness,
         "CardBaseToughness" => card.base_toughness.unwrap_or(0),
