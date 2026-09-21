@@ -180,6 +180,7 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
         }
         for svar_text in &replacement_svars {
             if let Some(mut re) = parse_replacement_effect(svar_text) {
+                re.active_zones = vec![ZoneType::Command];
                 re.base.set_active_zone(vec![ZoneType::Command]);
                 re.base.card_trait_base.set_intrinsic(true);
                 effect.add_replacement_effect(re);
