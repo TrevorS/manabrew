@@ -862,16 +862,19 @@ pub fn get_sub_counter_targets(
         .to_vec()
         .into_iter()
         .filter(|&cid| {
-            if type_filter == "Card" || type_filter.is_empty() {
-                return true;
-            }
-            let selector = crate::parsing::cached_compiled_selector(type_filter);
-            crate::card::valid_filter::matches_valid_card_selector_in_game(
-                &selector,
-                game.card(cid),
-                source_card,
-                game,
-            )
+            // Java's `CostPartWithList.getType().split(";")` treats `;` as an OR between
+            // independent type filters, same as `get_tap_type_targets`/`get_zone_targets`.
+            type_filter == "Card"
+                || type_filter.is_empty()
+                || type_filter.split(';').any(|alt| {
+                    let selector = crate::parsing::cached_compiled_selector(alt.trim());
+                    crate::card::valid_filter::matches_valid_card_selector_in_game(
+                        &selector,
+                        game.card(cid),
+                        source_card,
+                        game,
+                    )
+                })
         })
         .collect()
 }

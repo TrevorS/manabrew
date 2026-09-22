@@ -63,7 +63,13 @@ fn candidates(
     type_filter: &str,
 ) -> Vec<CardId> {
     let source_card = game.card(source);
-    let selector = crate::parsing::cached_compiled_selector(type_filter);
+    // Java's `CostPartWithList.getType().split(";")` treats `;` as an OR between independent
+    // type filters — the compiled selector only understands `,` for that, so each alternative
+    // is compiled on its own (mirrors `get_tap_type_targets`/`get_zone_targets`).
+    let selectors: Vec<_> = type_filter
+        .split(';')
+        .map(|alt| crate::parsing::cached_compiled_selector(alt.trim()))
+        .collect();
     let targeted: Vec<CardId> = ability
         .map(|sa| sa.target_chosen.all_target_cards())
         .unwrap_or_default();
@@ -81,11 +87,13 @@ fn candidates(
                 .to_vec()
         })
         .filter(|&cid| {
-            crate::card::valid_filter::matches_valid_card_selector_with_context(
-                &selector,
-                game.card(cid),
-                context,
-            )
+            selectors.iter().any(|selector| {
+                crate::card::valid_filter::matches_valid_card_selector_with_context(
+                    selector,
+                    game.card(cid),
+                    context,
+                )
+            })
         })
         .collect()
 }
