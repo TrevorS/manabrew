@@ -548,9 +548,15 @@ pub(super) fn resolve_hidden_origin(
         }
     }
 
+    let searched_origin = if origin_zones.contains(&ZoneType::Library) {
+        ZoneType::Library
+    } else {
+        origin_zones.first().copied().unwrap_or(origin_zone)
+    };
+
     // Exactly$ — must find exactly ChangeNum or fail
     if sa.ir.exactly && cards_to_move.len() != change_num {
-        if origin_zone == ZoneType::Library {
+        if searched_origin == ZoneType::Library {
             ctx.game
                 .shuffle_zone_cards(ZoneType::Library, search_player, ctx.rng);
         }
@@ -570,7 +576,7 @@ pub(super) fn resolve_hidden_origin(
         ctx,
         sa,
         &cards_to_move,
-        origin_zone,
+        searched_origin,
         dest_zone,
         &lib_position,
         controller,
