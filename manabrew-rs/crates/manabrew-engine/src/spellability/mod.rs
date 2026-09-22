@@ -2167,16 +2167,34 @@ pub fn choose_targets_by_kind(
                 .filter(|&cid| card_allowed_by_unique(sa, cid))
                 .collect();
             agent.snapshot_state(game, mana_pools);
-            match agent.choose_target_any(player, &valid_players, &valid_cards, Some(&*sa)) {
-                crate::agent::TargetChoice::Player(pid) => {
-                    sa.target_chosen.target_player = Some(pid)
-                }
-                crate::agent::TargetChoice::Card(cid) => {
-                    sa.target_chosen.target_card = Some(cid);
+            if max_targets > 1 && valid_players.is_empty() {
+                let chosen = agent.choose_target_cards(
+                    player,
+                    &valid_cards,
+                    min_targets.max(0) as usize,
+                    max_targets as usize,
+                    &*sa,
+                );
+                if let Some(&first) = chosen.first() {
+                    sa.target_chosen.target_card = Some(first);
                     sa.target_chosen.target_card_zone_timestamp =
-                        Some(game.card(cid).zone_timestamp);
+                        Some(game.card(first).zone_timestamp);
+                    for &extra in chosen.iter().skip(1) {
+                        sa.target_chosen.divided_map.insert(extra, 0);
+                    }
                 }
-                crate::agent::TargetChoice::None => {}
+            } else {
+                match agent.choose_target_any(player, &valid_players, &valid_cards, Some(&*sa)) {
+                    crate::agent::TargetChoice::Player(pid) => {
+                        sa.target_chosen.target_player = Some(pid)
+                    }
+                    crate::agent::TargetChoice::Card(cid) => {
+                        sa.target_chosen.target_card = Some(cid);
+                        sa.target_chosen.target_card_zone_timestamp =
+                            Some(game.card(cid).zone_timestamp);
+                    }
+                    crate::agent::TargetChoice::None => {}
+                }
             }
         }
         TargetKind::Creature(_) => {
