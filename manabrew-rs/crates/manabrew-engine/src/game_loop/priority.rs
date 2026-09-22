@@ -338,7 +338,7 @@ impl GameLoop {
                         self.with_shared_state_mutation(game, agents, |this, game, agents| {
                             let card_name = game.card(play.card_id).card_name.clone();
                             if (game.card(play.card_id).is_land()
-                                && play.mode != crate::agent::PlayCardMode::Secondary)
+                                && play.mode == crate::agent::PlayCardMode::Normal)
                                 || play.mode == crate::agent::PlayCardMode::BackFaceLand
                             {
                                 this.play_land(
