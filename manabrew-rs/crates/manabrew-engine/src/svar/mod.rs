@@ -542,16 +542,19 @@ fn resolve_lowered_svar_expression(
                 Some(sacrificed_card_property_value(game, sa, property))
             }
             ScriptSVarObjectRef::TriggeredCard => {
-                crate::lki::resolve_triggered_card_lki_property(game, sa, property).or_else(|| {
-                    resolve_card_list_property(
-                        "TriggeredCard",
-                        property,
-                        game,
-                        source_id,
-                        controller,
-                        sa,
-                    )
-                })
+                let (base, operators) = property.split_once('/').unwrap_or((property, ""));
+                crate::lki::resolve_triggered_card_lki_property(game, sa, base)
+                    .map(|value| do_x_math(value, operators, game, source_id, controller, sa))
+                    .or_else(|| {
+                        resolve_card_list_property(
+                            "TriggeredCard",
+                            property,
+                            game,
+                            source_id,
+                            controller,
+                            sa,
+                        )
+                    })
             }
             ScriptSVarObjectRef::CardList(defined) => {
                 resolve_card_list_property(defined, property, game, source_id, controller, sa)
@@ -567,6 +570,13 @@ fn resolve_lowered_svar_expression(
             }
             ScriptSVarObjectRef::ReplaceCount => None,
             ScriptSVarObjectRef::RuntimeValue(_) => None,
+        },
+        ScriptSVarNumericExpression::Spawner(inner) => match sa.trigger_spawning_ability.as_deref()
+        {
+            Some(spawner) => {
+                resolve_lowered_svar_expression(inner, game, source_id, controller, spawner)
+            }
+            None => Some(0),
         },
     }
 }

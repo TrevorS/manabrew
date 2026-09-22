@@ -80,6 +80,7 @@ pub struct DelayedTrigger {
     /// Forge hosts a `registerDelayedTrigger` trigger on an LKI copy of the source, so it sorts
     /// by the source's timestamp when it was registered.
     pub source_timestamp: Option<u64>,
+    pub spawning_ability: Option<crate::spellability::SpellAbility>,
 }
 
 impl DelayedTrigger {
@@ -117,7 +118,7 @@ impl DelayedTrigger {
                 .copied()
                 .map(crate::event::AbilityValue::Card)
                 .collect(),
-            spawning_ability: None,
+            spawning_ability: self.spawning_ability.clone(),
             original_host: None,
         }
     }
@@ -771,6 +772,7 @@ impl TriggerHandler {
                     delayed.controller,
                 );
                 sa.trigger_remembered_amount = delayed.remembered_amount;
+                sa.trigger_spawning_ability = delayed.spawning_ability.clone().map(Box::new);
                 // Propagate remembered cards (e.g. `RememberObjects$ Remembered`
                 // captured at registration) so the executed ability can target
                 // exactly the cards the parent trigger remembered.
@@ -970,6 +972,7 @@ impl TriggerHandler {
                 sa.trigger_source_zone_timestamp =
                     Some(game.card(delayed.source_card).zone_timestamp);
                 sa.trigger_remembered_amount = delayed.remembered_amount;
+                sa.trigger_spawning_ability = delayed.spawning_ability.clone().map(Box::new);
                 sa.trigger_remembered.extend(
                     delayed
                         .remembered_cards

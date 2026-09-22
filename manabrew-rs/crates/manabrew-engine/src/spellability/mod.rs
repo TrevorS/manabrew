@@ -293,6 +293,8 @@ pub struct SpellAbility {
     /// Java parity: trigger remembered objects copied from the originating trigger.
     #[serde(default)]
     pub trigger_remembered: Vec<AbilityValue>,
+    #[serde(default)]
+    pub trigger_spawning_ability: Option<Box<SpellAbility>>,
     /// Activation restriction for this ability.
     #[serde(default)]
     pub restriction: SpellAbilityRestriction,
@@ -674,6 +676,7 @@ impl SpellAbility {
             cast_face_down: false,
             trigger_objects: HashMap::default(),
             trigger_spell_abilities: HashMap::default(),
+            trigger_spawning_ability: None,
             additional_ability_lists: HashMap::default(),
             charm_modes_chosen: false,
             replacing_objects: HashMap::default(),

@@ -545,6 +545,12 @@ pub fn resolve_defined_players_with_sa(
     controller: PlayerId,
     game: &GameState,
 ) -> Vec<PlayerId> {
+    if let (Some(rest), Some(spawner)) = (
+        defined.strip_prefix("Spawner>"),
+        sa.trigger_spawning_ability.as_deref(),
+    ) {
+        return resolve_defined_players_with_sa(rest, spawner, controller, game);
+    }
     let key = defined.strip_prefix("Player.").unwrap_or(defined);
     if key.contains(" & ") {
         let mut players = Vec::new();

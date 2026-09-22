@@ -434,6 +434,12 @@ pub(crate) fn resolve_defined_cards_for_sa(
     sa: &SpellAbility,
     defined: &str,
 ) -> Vec<CardId> {
+    if let (Some(rest), Some(spawner)) = (
+        defined.strip_prefix("Spawner>"),
+        sa.trigger_spawning_ability.as_deref(),
+    ) {
+        return resolve_defined_cards_for_sa(game, spawner, rest);
+    }
     let defined_ref = DefinedRef::parse(defined);
     resolve_defined_cards_for_sa_ref_inner(game, sa, &defined_ref)
 }
@@ -1058,6 +1064,7 @@ pub fn register_at_eot(
         sort_after_active: false,
         trigger_order: None,
         source_timestamp: Some(game.card(source_card).zone_timestamp),
+        spawning_ability: Some(sa.clone()),
     });
 }
 

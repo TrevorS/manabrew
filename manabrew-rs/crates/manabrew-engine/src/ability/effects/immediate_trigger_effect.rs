@@ -53,6 +53,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     sort_after_active: false,
                     trigger_order: None,
                     source_timestamp: None,
+                    spawning_ability: Some(sa.clone()),
                 };
                 ctx.trigger_handler.register_delayed_trigger(delayed);
             }

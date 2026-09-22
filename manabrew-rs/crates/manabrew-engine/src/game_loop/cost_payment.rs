@@ -3339,6 +3339,7 @@ impl GameLoop {
                     sort_after_active: true,
                     trigger_order: None,
                     source_timestamp: None,
+                    spawning_ability: None,
                 },
             );
             self.trigger_handler.run_trigger(

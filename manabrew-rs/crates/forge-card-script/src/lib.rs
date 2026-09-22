@@ -283,6 +283,7 @@ pub enum ScriptSVarNumericExpression<'a> {
         object: ScriptSVarObjectRef<'a>,
         property: &'a str,
     },
+    Spawner(Box<ScriptSVarNumericExpression<'a>>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -321,6 +322,7 @@ pub enum OwnedSVarNumericExpression {
         object: OwnedSVarObjectRef,
         property: String,
     },
+    Spawner(Box<OwnedSVarNumericExpression>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -475,6 +477,9 @@ impl ScriptSVarNumericExpression<'_> {
                     object: object.to_owned_ref(),
                     property: (*property).to_string(),
                 }
+            }
+            Self::Spawner(inner) => {
+                OwnedSVarNumericExpression::Spawner(Box::new(inner.to_owned_expression()))
             }
         }
     }
@@ -970,6 +975,10 @@ pub fn parse_script_svar_numeric_expression<'a>(
     value: &'a str,
 ) -> Option<ScriptSVarNumericExpression<'a>> {
     let value = value.trim();
+    if let Some(rest) = value.strip_prefix("Spawner>") {
+        return parse_script_svar_numeric_expression(rest)
+            .map(|inner| ScriptSVarNumericExpression::Spawner(Box::new(inner)));
+    }
     if let Some(rest) = value.strip_prefix("Number$") {
         return Some(ScriptSVarNumericExpression::Number(rest.trim()));
     }

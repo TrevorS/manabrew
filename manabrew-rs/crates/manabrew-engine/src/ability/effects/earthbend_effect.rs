@@ -132,5 +132,6 @@ fn register_return_trigger(
             sort_after_active: false,
             trigger_order: None,
             source_timestamp: Some(ctx.game.card(source_card).zone_timestamp),
+            spawning_ability: Some(sa.clone()),
         });
 }

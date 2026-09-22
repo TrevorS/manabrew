@@ -636,6 +636,7 @@ fn record_svar_numeric_expression(
     stats: &mut ScriptScanStats,
 ) {
     match expression {
+        ScriptSVarNumericExpression::Spawner(inner) => record_svar_numeric_expression(inner, stats),
         ScriptSVarNumericExpression::Number(_) => stats.svar_values_numeric_number += 1,
         ScriptSVarNumericExpression::Count(_) => stats.svar_values_numeric_count += 1,
         ScriptSVarNumericExpression::PlayerCount(_) => stats.svar_values_numeric_player_count += 1,
