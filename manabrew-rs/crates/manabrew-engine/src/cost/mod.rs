@@ -616,6 +616,7 @@ pub fn apply_text_change_effects(cost: &mut Cost, game: &GameState, host: CardId
 pub fn has_x_in_any_cost_part(cost: &Cost) -> bool {
     cost.parts.iter().any(|p| match p {
         CostPart::Mana { cost, .. } => cost.count_x() > 0,
+        CostPart::Waterbend { .. } => false,
         _ => cost_part::convert_amount(p).is_some_and(AmountSpec::is_x),
     })
 }
