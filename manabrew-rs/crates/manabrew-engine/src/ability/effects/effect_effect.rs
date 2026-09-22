@@ -301,6 +301,7 @@ fn populate_remember_lists(
                 "RememberedCard" => out_cards.extend(host_remembered_cards.iter().copied()),
                 "RememberedPlayer" => out_players.extend(host_remembered_players.iter().copied()),
                 "RememberedLKI" => {
+                    out_cards.extend(host_remembered_cards.iter().copied());
                     for &cid in host_remembered_cards {
                         out_lki_cards.push(crate::card::card_copy_service::get_lki_copy(
                             ctx.game.card(cid),
