@@ -17,11 +17,9 @@ use crate::parsing::keys;
 /// `DigEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(DigEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let dig_players = match sa.target_chosen.target_player {
-        Some(target_player) if sa.defined().is_none() => vec![target_player],
-        _ => crate::ability::spell_ability_effect::get_defined_players_or_targeted(ctx.game, sa),
-    };
-    for dig_player in dig_players {
+    for dig_player in
+        crate::ability::spell_ability_effect::get_defined_players_or_targeted(ctx.game, sa)
+    {
         resolve_for_player(ctx, sa, dig_player);
     }
 }
