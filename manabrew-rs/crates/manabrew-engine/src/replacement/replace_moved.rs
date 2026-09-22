@@ -253,6 +253,7 @@ fn execute_replacement_ability(
 
     let mut parent_target_card: Option<CardId> = None;
     let mut parent_target_player = None;
+    let mut parent_additional_target_players: Vec<crate::ids::PlayerId> = Vec::new();
     let mut current_sa: Option<&crate::spellability::SpellAbility> = Some(&sa);
     while let Some(cur) = current_sa {
         let mut sa_with_ctx;
@@ -264,6 +265,10 @@ fn execute_replacement_ability(
             sa_with_ctx = cur.clone();
             if !cur.uses_targeting() && sa_with_ctx.target_chosen.target_player.is_none() {
                 sa_with_ctx.target_chosen.target_player = parent_target_player;
+                sa_with_ctx
+                    .target_chosen
+                    .additional_target_players
+                    .clone_from(&parent_additional_target_players);
             }
             sa_with_ctx.parent_targeting_player = parent_target_player;
             &sa_with_ctx
@@ -324,7 +329,11 @@ fn execute_replacement_ability(
         };
         effects::resolve_effect(&mut ctx, sa_ref);
         parent_target_card = sa_ref.target_chosen.target_card.or(parent_target_card);
-        parent_target_player = sa_ref.target_chosen.target_player.or(parent_target_player);
+        if sa_ref.target_chosen.target_player.is_some() {
+            parent_target_player = sa_ref.target_chosen.target_player;
+            parent_additional_target_players
+                .clone_from(&sa_ref.target_chosen.additional_target_players);
+        }
         // An `UnlessCost$` node resolves its own sub-chain, gated on
         // `UnlessResolveSubs$`, so walking into it here would run it twice.
         current_sa = if crate::ability::effects::sub_ability_handled_internally(sa_ref) {

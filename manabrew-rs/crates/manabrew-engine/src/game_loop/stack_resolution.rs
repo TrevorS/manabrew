@@ -782,6 +782,7 @@ impl GameLoop {
         // `Defined$ ParentTarget`. Mirrors Java's resolveApiAbility() + resolveSubAbilities().
         let mut parent_target_card: Option<CardId> = None;
         let mut parent_target_player = None;
+        let mut parent_additional_target_players: Vec<crate::ids::PlayerId> = Vec::new();
         let mut parent_target_stack_entry: Option<u32> = None;
         let mut inherited_trigger_index = entry.spell_ability.trigger_index;
         let root_kicked = entry.spell_ability.kicked;
@@ -829,6 +830,10 @@ impl GameLoop {
                     }
                     if sa_with_ctx.target_chosen.target_player.is_none() {
                         sa_with_ctx.target_chosen.target_player = parent_target_player;
+                        sa_with_ctx
+                            .target_chosen
+                            .additional_target_players
+                            .clone_from(&parent_additional_target_players);
                     }
                 }
                 if sa_with_ctx.target_chosen.target_stack_entry.is_none() {
@@ -854,7 +859,11 @@ impl GameLoop {
             };
             self.resolve_single_effect(game, agents, sa_ref, parent_target_card);
             parent_target_card = sa_ref.target_chosen.target_card.or(parent_target_card);
-            parent_target_player = sa_ref.target_chosen.target_player.or(parent_target_player);
+            if sa_ref.target_chosen.target_player.is_some() {
+                parent_target_player = sa_ref.target_chosen.target_player;
+                parent_additional_target_players
+                    .clone_from(&sa_ref.target_chosen.additional_target_players);
+            }
             parent_target_stack_entry = sa_ref
                 .target_chosen
                 .target_stack_entry

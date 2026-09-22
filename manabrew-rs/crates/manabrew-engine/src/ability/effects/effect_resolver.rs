@@ -338,6 +338,7 @@ pub fn resolve_effect_chain_with_parent(
     let mut current = Some(initial);
     let mut parent_target_card = initial_parent_target_card;
     let mut parent_target_player = initial_parent_target_player;
+    let mut parent_additional_target_players: Vec<PlayerId> = Vec::new();
     let mut is_first = true;
 
     while let Some(sa) = current {
@@ -354,6 +355,10 @@ pub fn resolve_effect_chain_with_parent(
                 }
                 if sa_with_ctx.target_chosen.target_player.is_none() {
                     sa_with_ctx.target_chosen.target_player = parent_target_player;
+                    sa_with_ctx
+                        .target_chosen
+                        .additional_target_players
+                        .clone_from(&parent_additional_target_players);
                 }
             }
             if !is_first || parent_target_player.is_some() {
@@ -366,7 +371,11 @@ pub fn resolve_effect_chain_with_parent(
 
         resolve_effect(ctx, sa_ref);
         parent_target_card = sa_ref.target_chosen.target_card.or(parent_target_card);
-        parent_target_player = sa_ref.target_chosen.target_player.or(parent_target_player);
+        if sa_ref.target_chosen.target_player.is_some() {
+            parent_target_player = sa_ref.target_chosen.target_player;
+            parent_additional_target_players
+                .clone_from(&sa_ref.target_chosen.additional_target_players);
+        }
         current = if sub_ability_handled_internally(sa_ref) {
             None
         } else {

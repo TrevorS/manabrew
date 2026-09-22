@@ -963,6 +963,7 @@ fn matches_context_predicate(
         ContextPredicate::RememberedPlayerCtrl => {
             context.remembered_players.contains(&card.controller)
         }
+        ContextPredicate::RememberedPlayerOwn => context.remembered_players.contains(&card.owner),
         ContextPredicate::TargetedPlayerCtrl => context.targeted_players.contains(&card.controller),
         // Java `CardProperty:270` asks `sa.getRootAbility().isTargeting(card)`.
         ContextPredicate::TargetedBy => context.targeted_cards.contains(&card.id),
