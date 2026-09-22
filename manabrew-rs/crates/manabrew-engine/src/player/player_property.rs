@@ -164,6 +164,9 @@ pub fn player_has_property(
     controller: PlayerId,
     sa: &SpellAbility,
 ) -> bool {
+    if let Some(rest) = property.strip_prefix('!') {
+        return !player_has_property(player, rest, game, source_id, controller, sa);
+    }
     let source = game.card(source_id);
     let player_state = game.player(player);
 
