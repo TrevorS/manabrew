@@ -859,6 +859,9 @@ public final class HarnessCostPlumbing {
                 list.remove(source);
             }
             list = CardLists.filter(list, ability.isCrew() ? CardPredicates.CAN_CREW : CardPredicates.CAN_TAP);
+            if (!"Any".equals(cost.getAmount()) && cost.getAbilityAmount(ability) == 0) {
+                return PaymentDecision.number(0);
+            }
             if (list.isEmpty()) {
                 return null;
             }
