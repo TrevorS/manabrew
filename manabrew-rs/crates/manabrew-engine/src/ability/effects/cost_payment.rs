@@ -154,7 +154,7 @@ fn can_auto_pay_mana_cost_for_effect(
     .is_some()
 }
 
-fn pay_mana_cost_for_effect(
+pub(crate) fn pay_mana_cost_for_effect(
     ctx: &mut EffectContext,
     payer: PlayerId,
     source: CardId,

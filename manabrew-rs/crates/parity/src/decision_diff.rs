@@ -21,6 +21,9 @@ use crate::protocol::{
 /// payment result, and also logs `false` when the cost cannot be paid; Rust
 /// logs `can_pay` before it pays and asks nothing when it cannot. Neither side
 /// draws RNG for the row, and the nested prompts are compared on their own.
+/// `pay_combat_cost` is left out for the same reason: Java's `payCombatCost`
+/// logs its result after the `pay_mana_cost` the plumbing raised, Rust logs the
+/// agent's answer before the payment.
 pub const COMPARED_CALLBACKS: &[&str] = &[
     "$ACTION_SPACE",
     "assign_combat_damage",
@@ -68,7 +71,6 @@ pub const COMPARED_CALLBACKS: &[&str] = &[
     "exert_attackers",
     "flip_coin_call",
     "help_pay_assist",
-    "pay_combat_cost",
     "pay_mana_cost",
     "specify_mana_combo",
 ];

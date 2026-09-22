@@ -1431,6 +1431,20 @@ impl PlayerAgent for DeterministicAgent {
         ManaCostAction::Pay { auto: true }
     }
 
+    fn pay_combat_cost(
+        &mut self,
+        _player: PlayerId,
+        _attacker: CardId,
+        _cost: i32,
+        _description: &str,
+        _mana_ability_options: &[manabrew_engine::agent::ManaAbilityOption],
+        _tappable_lands: &[CardId],
+        _untappable_lands: &[CardId],
+        _mana_pool_total: i32,
+    ) -> manabrew_engine::agent::CombatCostAction {
+        manabrew_engine::agent::CombatCostAction::AutoPay
+    }
+
     fn choose_attackers(
         &mut self,
         _player: PlayerId,

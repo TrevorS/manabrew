@@ -273,6 +273,7 @@ impl ParityFormat for CombatCostAction {
             CombatCostAction::TapLand { card_id, .. } => format!("TapLand({})", ctx.card(*card_id)),
             CombatCostAction::UntapLand(cid) => format!("UntapLand({})", ctx.card(*cid)),
             CombatCostAction::Pay => "Pay".to_string(),
+            CombatCostAction::AutoPay => "AutoPay".to_string(),
             CombatCostAction::Decline => "Decline".to_string(),
         }
     }

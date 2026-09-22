@@ -439,6 +439,33 @@ impl GameLoop {
                                 }
                                 break;
                             }
+                            CombatCostAction::AutoPay => {
+                                self.invalidate_mana_undo_for_player(controller);
+                                let mana_cost = forge_foundation::ManaCost::generic(cost);
+                                let mut ctx = crate::ability::effects::EffectContext {
+                                    game,
+                                    combat: Some(&mut self.combat),
+                                    agents,
+                                    trigger_handler: &mut self.trigger_handler,
+                                    token_templates: &self.token_templates,
+                                    token_art_variants: &self.token_art_variants,
+                                    token_fallback: &self.token_fallback,
+                                    edition_dates: &self.edition_dates,
+                                    mana_pools: &mut self.mana_pools,
+                                    parent_target_card: None,
+                                    rng: &mut *self.game_rng,
+                                };
+                                if !crate::ability::effects::cost_payment::pay_mana_cost_for_effect(
+                                    &mut ctx,
+                                    controller,
+                                    attacker_id,
+                                    &mana_cost,
+                                    false,
+                                ) {
+                                    cost_failures.push(attacker_id);
+                                }
+                                break;
+                            }
                             CombatCostAction::Decline => {
                                 self.invalidate_mana_undo_for_player(controller);
                                 cost_failures.push(attacker_id);
