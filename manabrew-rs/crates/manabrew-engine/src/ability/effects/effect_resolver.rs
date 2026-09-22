@@ -344,7 +344,8 @@ pub fn resolve_effect_chain_with_parent(
         let mut sa_with_ctx;
         let needs_ctx_clone = !is_first
             && ((parent_target_card.is_some() && sa.target_chosen.target_card.is_none())
-                || (parent_target_player.is_some() && sa.target_chosen.target_player.is_none()));
+                || (parent_target_player.is_some() && sa.target_chosen.target_player.is_none())
+                || sa.parent_targeting_player != parent_target_player);
         let sa_ref = if needs_ctx_clone {
             sa_with_ctx = sa.clone();
             if !sa_with_ctx.uses_targeting() {
@@ -355,6 +356,7 @@ pub fn resolve_effect_chain_with_parent(
                     sa_with_ctx.target_chosen.target_player = parent_target_player;
                 }
             }
+            sa_with_ctx.parent_targeting_player = parent_target_player;
             &sa_with_ctx
         } else {
             &sa

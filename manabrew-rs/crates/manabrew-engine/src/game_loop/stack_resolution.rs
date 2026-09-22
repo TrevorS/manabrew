@@ -830,6 +830,7 @@ impl GameLoop {
                     && sa.target_chosen.target_stack_entry.is_none())
                 || (inherited_trigger_index.is_some() && sa.trigger_index.is_none())
                 || sa.parent_targeting_card != parent_target_card
+                || sa.parent_targeting_player != parent_target_player
                 || (sa.trigger_objects.is_empty() && !root_trigger_objects.is_empty())
                 || (sa.trigger_source.is_none() && root_trigger_source.is_some());
             let sa_ref = if needs_ctx_clone {
@@ -853,6 +854,7 @@ impl GameLoop {
                     sa_with_ctx.trigger_index = inherited_trigger_index;
                 }
                 sa_with_ctx.parent_targeting_card = parent_target_card;
+                sa_with_ctx.parent_targeting_player = parent_target_player;
                 if sa_with_ctx.trigger_objects.is_empty() {
                     sa_with_ctx.trigger_objects = root_trigger_objects.clone();
                 }
