@@ -34,7 +34,7 @@ pub trait GameRng {
     fn next_int(&mut self, bound: i32) -> i32;
 
     fn next_boolean(&mut self) -> bool {
-        self.next_int(2) == 0
+        self.next_int(2) == 1
     }
 
     /// Debug: return the total number of RNG calls made so far (if tracked).

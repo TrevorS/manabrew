@@ -144,7 +144,7 @@ fn flip_single_coin(
         vec![result]
     } else {
         (0..multiplier)
-            .map(|_| ctx.rng.next_int(2) == 0)
+            .map(|_| ctx.rng.next_boolean())
             .collect::<Vec<_>>()
     };
     let kept_result = if results.iter().all(|result| *result == results[0]) {
