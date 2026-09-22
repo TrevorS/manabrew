@@ -3956,7 +3956,7 @@ impl GameLoop {
         // Java fires once per controller per call, not once per card.
         let mut to_sacrifice: Vec<CardId> = Vec::with_capacity(amount.max(0) as usize);
         for _ in 0..amount {
-            let valid = cost::get_sacrifice_targets(game, player, type_filter);
+            let valid = cost::get_sacrifice_targets(game, player, type_filter, sa.as_deref());
             if valid.is_empty() {
                 return false;
             }

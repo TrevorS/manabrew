@@ -837,6 +837,7 @@ fn matches_card_state(state: CardStateSelector, card: &Card, context: MatchConte
             None => card.entered_this_turn(),
         },
         CardStateSelector::WasDealtDamageThisTurn => !card.damage_sources_this_turn.is_empty(),
+        CardStateSelector::DealtDamageThisTurn => card.total_damage_done_this_turn > 0,
         CardStateSelector::Historic => {
             card.type_line.is_artifact()
                 || card.type_line.is_legendary()
@@ -906,6 +907,11 @@ fn matches_context_predicate(
         ContextPredicate::Blocked => context.combat.map_or(
             card.damage_history.creature_got_blocked_this_combat,
             |combat| combat.was_blocked_this_combat(card.id),
+        ),
+        ContextPredicate::Unblocked => context.combat.map_or(
+            card.attacking_player.is_some()
+                && !card.damage_history.creature_got_blocked_this_combat,
+            |combat| combat.is_unblocked(card.id),
         ),
         ContextPredicate::AttackedThisTurn => !card.damage_history.attacked_this_turn.is_empty(),
         ContextPredicate::BlockingSource => context.combat.is_some_and(|combat| {
@@ -1565,10 +1571,7 @@ fn resolve_selector_operand(
             if value == "Count$ChosenNumber" {
                 return context.source_card.chosen_number;
             }
-            if value.starts_with("Count$") || value.starts_with("PlayerCount") {
-                return resolve_operand_expression(value, context);
-            }
-            None
+            resolve_operand_expression(value, context)
         }
     }
 }
@@ -1706,6 +1709,7 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         ),
         "blocking" => matches_context_predicate(&ContextPredicate::Blocking(None), card, context),
         "blocked" => matches_context_predicate(&ContextPredicate::Blocked, card, context),
+        "unblocked" => matches_context_predicate(&ContextPredicate::Unblocked, card, context),
         "attackedthisturn" => {
             matches_context_predicate(&ContextPredicate::AttackedThisTurn, card, context)
         }
@@ -1875,6 +1879,9 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         }
         "wasdealtdamagethisturn" => {
             matches_card_state(CardStateSelector::WasDealtDamageThisTurn, card, context)
+        }
+        "dealtdamagethisturn" => {
+            matches_card_state(CardStateSelector::DealtDamageThisTurn, card, context)
         }
         dealt if dealt.starts_with("dealtcombatdamagethisturn") => {
             let Some(target_text) = value.split_once(' ').map(|(_, target)| target.trim()) else {
@@ -2552,6 +2559,7 @@ fn matches_type_and_qualifier_parts(
                 | "thisturnentered"
                 | "thisturnenteredfrom_battlefield"
                 | "wasdealtdamagethisturn"
+                | "dealtdamagethisturn"
                 | "historic"
                 | "modified"
                 | "issaddled"

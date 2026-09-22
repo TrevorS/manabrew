@@ -203,8 +203,12 @@ fn resolve_target_cards(ctx: &EffectContext, sa: &SpellAbility) -> Vec<CardId> {
             .iter()
             .filter(|card| zones.contains(&card.zone))
             .filter(|card| {
-                crate::card::valid_filter::matches_valid_card_selector_in_game(
-                    &selector, card, source, ctx.game,
+                crate::ability::ability_utils::matches_valid_cards_for_sa(
+                    ctx.game,
+                    sa,
+                    card,
+                    Some(&selector),
+                    valid,
                 )
             })
             .filter(|card| {

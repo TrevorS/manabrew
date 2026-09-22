@@ -354,6 +354,7 @@ pub enum ContextPredicate {
     BlockedValidThisTurn(CardSelectorType),
     BlockingValid(CardSelectorType),
     Blocked,
+    Unblocked,
     AttackedThisTurn,
     BlockingSource,
     BlockedBySource,
@@ -450,6 +451,7 @@ pub enum CardStateSelector {
     ChosenColor,
     EnteredThisTurn,
     WasDealtDamageThisTurn,
+    DealtDamageThisTurn,
     Historic,
     Modified,
     Saddled,
@@ -1195,6 +1197,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         }
         "blocking" => SelectorPredicate::Context(ContextPredicate::Blocking(None)),
         "blocked" => SelectorPredicate::Context(ContextPredicate::Blocked),
+        "unblocked" => SelectorPredicate::Context(ContextPredicate::Unblocked),
         "attackedthisturn" => SelectorPredicate::Context(ContextPredicate::AttackedThisTurn),
         "blockingsource" => SelectorPredicate::Context(ContextPredicate::BlockingSource),
         "blockedbysource" => SelectorPredicate::Context(ContextPredicate::BlockedBySource),
@@ -1221,6 +1224,9 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "thisturnentered" => SelectorPredicate::CardState(CardStateSelector::EnteredThisTurn),
         "wasdealtdamagethisturn" => {
             SelectorPredicate::CardState(CardStateSelector::WasDealtDamageThisTurn)
+        }
+        "dealtdamagethisturn" => {
+            SelectorPredicate::CardState(CardStateSelector::DealtDamageThisTurn)
         }
         "historic" => SelectorPredicate::CardState(CardStateSelector::Historic),
         "modified" => SelectorPredicate::CardState(CardStateSelector::Modified),

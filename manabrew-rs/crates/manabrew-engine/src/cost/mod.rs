@@ -840,11 +840,27 @@ pub fn matches_type_filter(game: &GameState, cid: CardId, type_filter: &str) -> 
 
 /// Find valid sacrifice targets on the battlefield for a player, filtered by type.
 /// Mirrors Java's `CostSacrifice.getMaxAmountX()` + `CardLists.getValidCards()`.
-pub fn get_sacrifice_targets(game: &GameState, player: PlayerId, type_filter: &str) -> Vec<CardId> {
+pub fn get_sacrifice_targets(
+    game: &GameState,
+    player: PlayerId,
+    type_filter: &str,
+    ability: Option<&SpellAbility>,
+) -> Vec<CardId> {
     game.cards_in_zone(ZoneType::Battlefield, player)
         .to_vec()
         .into_iter()
-        .filter(|&cid| matches_change_type(game.card(cid), type_filter, &[]))
+        .filter(|&cid| match ability.filter(|sa| sa.source.is_some()) {
+            Some(sa) => type_filter.split(';').any(|filter| {
+                crate::ability::ability_utils::matches_valid_cards_for_sa(
+                    game,
+                    sa,
+                    game.card(cid),
+                    None,
+                    filter.trim(),
+                )
+            }),
+            None => matches_change_type(game.card(cid), type_filter, &[]),
+        })
         .collect()
 }
 
@@ -899,7 +915,7 @@ pub fn get_sacrifice_targets_for_cost(
             .collect();
     }
     let source = ability.and_then(|sa| sa.source);
-    get_sacrifice_targets(game, player, type_filter)
+    get_sacrifice_targets(game, player, type_filter, ability)
         .into_iter()
         .filter(|&cid| !is_excluded_as_source(game, cid, source, type_filter))
         .filter(|&cid| !cant_sacrifice(&game.cards, game.card(cid), ability, true))

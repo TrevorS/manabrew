@@ -212,7 +212,7 @@ pub fn get_max_amount_x(
             }
         }
         CostPart::Return { type_filter, .. } => {
-            Some(crate::cost::get_sacrifice_targets(game, player, type_filter).len() as i32)
+            Some(crate::cost::get_sacrifice_targets(game, player, type_filter, None).len() as i32)
         }
         CostPart::TapType {
             type_filter,
