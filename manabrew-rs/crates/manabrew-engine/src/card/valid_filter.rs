@@ -1458,8 +1458,17 @@ fn matches_numeric_comparison(
     card: &Card,
     context: MatchContext<'_>,
 ) -> bool {
-    let Some(threshold) = resolve_selector_operand(threshold, context) else {
-        return true;
+    let threshold = match threshold {
+        SelectorNumericOperand::Symbol(symbol) if symbol == "Chosen" => {
+            let Some(chosen) = context.source_card.chosen_number else {
+                return false;
+            };
+            chosen
+        }
+        _ => match resolve_selector_operand(threshold, context) {
+            Some(threshold) => threshold,
+            None => return true,
+        },
     };
     let Some(value) = resolve_numeric_property(property, card, context) else {
         return true;
