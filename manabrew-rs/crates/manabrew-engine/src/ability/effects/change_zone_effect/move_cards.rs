@@ -214,6 +214,13 @@ pub(super) fn move_cards(
             } else {
                 vec![search_player]
             }
+        } else if let Some(defined) = sa.ir.targets_with_defined_controller_text.as_deref() {
+            crate::ability::ability_utils::resolve_defined_players_with_sa(
+                defined,
+                sa,
+                sa.activating_player,
+                ctx.game,
+            )
         } else {
             let mut owners: Vec<PlayerId> = Vec::new();
             for &card_id in cards {
