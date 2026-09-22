@@ -19,10 +19,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     // Choose opponent to clash with
     let opponent = if let Some(def) = sa.defined() {
-        super::resolve_defined_players(def, controller, ctx.game)
-            .into_iter()
-            .next()
-            .unwrap_or_else(|| ctx.game.opponent_of(controller))
+        crate::ability::ability_utils::resolve_defined_players_with_sa(
+            def, sa, controller, ctx.game,
+        )
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| ctx.game.opponent_of(controller))
     } else {
         ctx.game.opponent_of(controller)
     };

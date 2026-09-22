@@ -19,13 +19,9 @@ use crate::spellability::SpellAbility;
 #[manabrew_engine_macros::spell_effect(DiscoverEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let num = super::resolve_numeric_svar(ctx.game, sa, "Num", 1).max(0);
-    let controller = sa.activating_player;
 
-    let players = if let Some(def) = sa.defined_player() {
-        super::resolve_defined_players(def, controller, ctx.game)
-    } else {
-        vec![controller]
-    };
+    let players =
+        crate::ability::spell_ability_effect::get_defined_players_or_targeted(ctx.game, sa);
 
     for pid in players {
         discover_for_player(ctx, sa, pid, num);

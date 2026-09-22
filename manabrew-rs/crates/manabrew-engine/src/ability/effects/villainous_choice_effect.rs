@@ -11,8 +11,6 @@ use super::EffectContext;
 /// `VillainousChoiceEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(VillainousChoiceEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let controller = sa.activating_player;
-
     // Get choices (sub-ability names from Choices$ param)
     let choice_names: Vec<String> = sa
         .ir
@@ -25,11 +23,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         return;
     }
 
-    let players = if let Some(def) = sa.defined_player() {
-        super::resolve_defined_players(def, controller, ctx.game)
-    } else {
-        vec![ctx.game.opponent_of(controller)]
-    };
+    let players =
+        crate::ability::spell_ability_effect::get_defined_players_or_targeted(ctx.game, sa);
 
     for pid in players {
         if ctx.game.player(pid).has_lost {

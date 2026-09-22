@@ -12,14 +12,9 @@ use super::EffectContext;
 /// `ReorderZoneEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(ReorderZoneEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let controller = sa.activating_player;
     let zone = sa.ir.zone.unwrap_or(ZoneType::Library);
 
-    let players = if let Some(def) = sa.defined_player() {
-        super::resolve_defined_players(def, controller, ctx.game)
-    } else {
-        vec![controller]
-    };
+    let players = crate::ability::spell_ability_effect::get_target_players(ctx.game, sa);
 
     for pid in players {
         // For library: agent can reorder the top cards

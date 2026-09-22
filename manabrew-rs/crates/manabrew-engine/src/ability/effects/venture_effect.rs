@@ -71,14 +71,7 @@ const DUNGEONS: &[(&str, &[&str])] = &[
 /// `VentureEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(VentureEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let controller = sa.activating_player;
-    let players = if let Some(def) = sa.defined_player() {
-        super::resolve_defined_players(def, controller, ctx.game)
-    } else if let Some(target_player) = sa.target_chosen.target_player {
-        vec![target_player]
-    } else {
-        vec![controller]
-    };
+    let players = crate::ability::spell_ability_effect::get_target_players(ctx.game, sa);
 
     for pid in players {
         if ctx.game.player(pid).has_lost {

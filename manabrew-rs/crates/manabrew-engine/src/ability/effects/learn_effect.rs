@@ -28,11 +28,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         return;
     }
 
-    let players = if let Some(def) = sa.defined_player() {
-        super::resolve_defined_players(def, controller, ctx.game)
-    } else {
-        vec![controller]
-    };
+    let players = crate::ability::spell_ability_effect::get_target_players(ctx.game, sa);
 
     for pid in players {
         learn_lesson(ctx, sa, pid);
