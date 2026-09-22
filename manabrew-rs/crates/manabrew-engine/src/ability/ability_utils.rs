@@ -1856,11 +1856,12 @@ pub fn handle_paid(
     property: &str,
     _source_id: CardId,
 ) -> i32 {
+    let (property, operators) = property.split_once('/').unwrap_or((property, ""));
     if paid_cards.is_empty() {
-        return 0;
+        return do_x_math(0, operators);
     }
 
-    match property {
+    let value = match property {
         "Amount" | "Count" => paid_cards.len() as i32,
         "CardPower" => paid_cards
             .iter()
@@ -1919,7 +1920,8 @@ pub fn handle_paid(
                 .count() as i32
         }
         _ => paid_cards.len() as i32,
-    }
+    };
+    do_x_math(value, operators)
 }
 
 // ── Type Counting helpers ────────────────────────────────────────────
