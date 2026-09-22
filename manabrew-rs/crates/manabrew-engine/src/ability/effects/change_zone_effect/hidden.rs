@@ -32,7 +32,7 @@ pub(super) fn resolve_hidden_origin(
     let change_type = sa.change_type().unwrap_or("").to_string();
     let controller = sa.activating_player;
     // ChangeNum$ resolved late — may be a Count$ expression, not a literal.
-    let change_num =
+    let mut change_num =
         crate::svar::resolve_numeric_svar(ctx.game, sa, crate::parsing::keys::CHANGE_NUM, 1).max(0)
             as usize;
     let mut origin_zones = {
@@ -450,7 +450,17 @@ pub(super) fn resolve_hidden_origin(
         }
     }
 
-    let mut zone_cards = if sa.defined_player().is_none()
+    let choose_from_defined = sa.ir.choose_from_defined_text.as_deref();
+    let mut zone_cards = if let Some(choose_from_defined) = choose_from_defined {
+        crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+            ctx.game,
+            sa,
+            choose_from_defined,
+        )
+        .into_iter()
+        .filter(|&cid| origin_zones.contains(&ctx.game.card(cid).zone))
+        .collect()
+    } else if sa.defined_player().is_none()
         && !origin_zones
             .iter()
             .any(|zone| matches!(zone, ZoneType::Library | ZoneType::Hand))
@@ -465,9 +475,14 @@ pub(super) fn resolve_hidden_origin(
     } else {
         collect_search_zone_cards(ctx, &origin_zones, search_player)
     };
+    if choose_from_defined.is_some() && sa.ir.change_num_text.is_none() {
+        change_num = zone_cards.len();
+    }
+    let searched_library =
+        choose_from_defined.is_none() && origin_zones.contains(&ZoneType::Library);
 
     // Aven Mindcensor restriction
-    if origin_zones.contains(&ZoneType::Library) {
+    if searched_library {
         apply_library_search_limit(ctx, search_player, controller, &mut zone_cards);
     }
 
@@ -479,7 +494,7 @@ pub(super) fn resolve_hidden_origin(
     }
 
     // Panglacial Wurm — offer to cast while searching
-    if origin_zone == ZoneType::Library {
+    if searched_library && origin_zone == ZoneType::Library {
         offer_panglacial_cast(ctx, sa, controller, &mut zone_cards);
     }
 
@@ -572,6 +587,16 @@ pub(super) fn resolve_hidden_origin(
         }
     }
 
+    let sa_no_search_shuffle;
+    let sa = if choose_from_defined.is_some() && dest_zone != ZoneType::Library && !sa.is_shuffle()
+    {
+        let mut no_shuffle = sa.clone();
+        no_shuffle.ir.no_shuffle = true;
+        sa_no_search_shuffle = no_shuffle;
+        &sa_no_search_shuffle
+    } else {
+        sa
+    };
     move_cards(
         ctx,
         sa,
