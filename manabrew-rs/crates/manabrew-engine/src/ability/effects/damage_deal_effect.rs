@@ -32,6 +32,28 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     let (target_players, mut target_cards) =
         crate::ability::spell_ability_effect::get_target_entities(ctx.game, sa);
+    if let Some(decider) = sa.ir.optional_decider.as_deref().and_then(|decider| {
+        crate::ability::ability_utils::resolve_defined_players_with_sa(
+            decider,
+            sa,
+            sa.activating_player,
+            ctx.game,
+        )
+        .into_iter()
+        .next()
+    }) {
+        ctx.agents[decider.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        if !ctx.agents[decider.index()].confirm_action(
+            decider,
+            None,
+            &format!("Do you want to deal {damage} damage?"),
+            &[],
+            sa.source,
+            Some(crate::ability::api_type::ApiType::DealDamage),
+        ) {
+            return;
+        }
+    }
     for cid in card_util::get_radiance(ctx.game, sa).iter().copied() {
         if !target_cards.contains(&cid) {
             target_cards.push(cid);
