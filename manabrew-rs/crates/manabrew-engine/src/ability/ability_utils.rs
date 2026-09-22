@@ -244,7 +244,14 @@ fn resolve_defined_card_token(
             .map(|src| game.card(src).chosen_cards.clone())
             .unwrap_or_default(),
         DefinedCardToken::Attached => host_card
-            .and_then(|src| game.card(src).attached_to)
+            .and_then(|src| {
+                let card = game.card(src);
+                if card.zone == ZoneType::Battlefield {
+                    card.attached_to
+                } else {
+                    card.lki_attached_to
+                }
+            })
             .into_iter()
             .collect(),
         DefinedCardToken::EnchantedBy => host_card

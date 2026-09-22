@@ -669,6 +669,21 @@ impl GameState {
                 return;
             }
             ZoneType::Graveyard | ZoneType::Hand | ZoneType::Exile | ZoneType::Library => {
+                // Save last-known information before resetting.
+                // Mirrors Java's LKI system for trigger SVars like TriggeredCard$CardPower.
+                if src_zone == ZoneType::Battlefield {
+                    let card = &self.cards[card_id.index()];
+                    let lki_p = card.power();
+                    let lki_t = card.toughness();
+                    let lki_tapped = card.tapped;
+                    let lki_attached_to = card.attached_to;
+                    let card = &mut self.cards[card_id.index()];
+                    card.lki_power = Some(lki_p);
+                    card.lki_toughness = Some(lki_t);
+                    card.lki_tapped = Some(lki_tapped);
+                    card.lki_attached_to = lki_attached_to;
+                }
+
                 // Detach any attachments before resetting state.
                 let attachments: Vec<CardId> = self.cards[card_id.index()].attachments.clone();
                 for aura_id in attachments {
@@ -679,19 +694,6 @@ impl GameState {
                 self.cards[card_id.index()].attachments.clear();
                 // Also detach this card from its host if it was an Aura/Equipment.
                 self.detach(card_id);
-
-                // Save last-known information before resetting.
-                // Mirrors Java's LKI system for trigger SVars like TriggeredCard$CardPower.
-                if src_zone == ZoneType::Battlefield {
-                    let card = &self.cards[card_id.index()];
-                    let lki_p = card.power();
-                    let lki_t = card.toughness();
-                    let lki_tapped = card.tapped;
-                    let card = &mut self.cards[card_id.index()];
-                    card.lki_power = Some(lki_p);
-                    card.lki_toughness = Some(lki_t);
-                    card.lki_tapped = Some(lki_tapped);
-                }
 
                 // Reset battlefield state when leaving (including static modifiers).
                 let keep_counters =

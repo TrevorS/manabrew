@@ -701,6 +701,8 @@ pub struct Card {
     /// `Card.tapped` condition checked after such a move needs this instead.
     pub lki_tapped: Option<bool>,
     #[serde(default)]
+    pub lki_attached_to: Option<CardId>,
+    #[serde(default)]
     pub lki_zone_timestamp: Option<u64>,
     /// Java `Card.preparedEffect`: the effect card that lets its controller cast the
     /// prepared copy from exile.
@@ -1012,6 +1014,7 @@ impl Card {
             lki_power: None,
             lki_toughness: None,
             lki_tapped: None,
+            lki_attached_to: None,
             lki_zone_timestamp: None,
             prepared_effect: None,
             lki_counters: None,
@@ -1252,6 +1255,7 @@ impl Card {
             lki_power: self.lki_power,
             lki_toughness: self.lki_toughness,
             lki_tapped: self.lki_tapped,
+            lki_attached_to: self.lki_attached_to,
             lki_zone_timestamp: self.lki_zone_timestamp,
             prepared_effect: self.prepared_effect,
             lki_counters: self.lki_counters.clone(),
@@ -1522,6 +1526,7 @@ impl Card {
         out.lki_power.clone_from(&self.lki_power);
         out.lki_toughness.clone_from(&self.lki_toughness);
         out.lki_tapped.clone_from(&self.lki_tapped);
+        out.lki_attached_to.clone_from(&self.lki_attached_to);
         out.lki_zone_timestamp.clone_from(&self.lki_zone_timestamp);
         out.prepared_effect.clone_from(&self.prepared_effect);
         out.lki_counters.clone_from(&self.lki_counters);
