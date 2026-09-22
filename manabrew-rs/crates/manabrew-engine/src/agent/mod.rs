@@ -1126,6 +1126,10 @@ pub trait PlayerAgent {
     /// Default is a no-op so simple agents do not need to handle them.
     fn notify(&mut self, _event: GameNotification) {}
 
+    fn supports_checkpoints(&self) -> bool {
+        false
+    }
+
     /// Choose which replacement effect to apply when multiple effects match the same event.
     fn choose_single_replacement_effect(
         &mut self,

@@ -716,14 +716,16 @@ impl GameLoop {
         for agent in agents.iter_mut() {
             agent.snapshot_state(game, &self.mana_pools);
         }
-        let (checkpoint_id, label) = self.record_checkpoint(game, true);
-        for agent in agents.iter_mut() {
-            agent.notify(
-                crate::agent::notification::GameNotification::SnapshotCreated {
-                    checkpoint_id,
-                    label: label.clone(),
-                },
-            );
+        if agents.iter().any(|agent| agent.supports_checkpoints()) {
+            let (checkpoint_id, label) = self.record_checkpoint(game, true);
+            for agent in agents.iter_mut() {
+                agent.notify(
+                    crate::agent::notification::GameNotification::SnapshotCreated {
+                        checkpoint_id,
+                        label: label.clone(),
+                    },
+                );
+            }
         }
         for agent in agents.iter_mut() {
             agent.notify(crate::agent::notification::GameNotification::TurnChanged {

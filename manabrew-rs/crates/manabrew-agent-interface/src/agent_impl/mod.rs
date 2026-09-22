@@ -1406,6 +1406,10 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
         choices::choose_land_or_spell(self, player)
     }
 
+    fn supports_checkpoints(&self) -> bool {
+        true
+    }
+
     fn notify(&mut self, event: GameNotification) {
         match event {
             GameNotification::Event(log_event) => {
