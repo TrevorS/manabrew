@@ -2,6 +2,7 @@
 //!
 use forge_foundation::ZoneType;
 
+use crate::card::Card;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 use crate::parsing::compare::{compare_expr, CompareExpr};
@@ -281,9 +282,37 @@ fn matches_condition_filter_no_self_exclude(
 ) -> bool {
     let card = game.card(cid);
     let source = game.card(source_id);
-    alternatives
-        .iter()
-        .any(|alt| crate::card::valid_filter::matches_valid(alt, Some(card), None, source, player))
+    alternatives.iter().any(|alt| {
+        // A `ConditionDefined$` reference can name a card a preceding sub-ability already
+        // moved this same resolution (Brackish Blunder bounces its target, then checks
+        // `Card.tapped`). Java's target still holds the pre-move object and reads its old
+        // state; this port has one `Card` per id, so a bare tapped check on a card no longer
+        // on the battlefield reads the LKI captured as it left instead of the live (always
+        // untapped) state. Any other property on the moved card still reads live — Java's
+        // staleness only reaches as far as evidence has shown this one does.
+        if card.zone != ZoneType::Battlefield {
+            if let Some(lki_tapped) = tapped_alt_override(alt, card) {
+                return lki_tapped;
+            }
+        }
+        crate::card::valid_filter::matches_valid(alt, Some(card), None, source, player)
+    })
+}
+
+/// `alt` is exactly a (possibly negated) `tapped` property with no other qualifier — the only
+/// shape safe to answer from LKI instead of the general matcher. Returns `None` for anything
+/// else, deferring to `matches_valid` unchanged.
+fn tapped_alt_override(alt: &str, card: &Card) -> Option<bool> {
+    let (_, property) = alt.split_once('.')?;
+    let (negated, property) = match property.strip_prefix('!') {
+        Some(rest) => (true, rest),
+        None => (false, property),
+    };
+    if !property.eq_ignore_ascii_case("tapped") {
+        return None;
+    }
+    let tapped = card.lki_tapped?;
+    Some(tapped != negated)
 }
 
 #[cfg(test)]
