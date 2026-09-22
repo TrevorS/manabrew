@@ -23,7 +23,11 @@ use crate::staticability::parse_static_ability;
 /// `AmassEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(AmassEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let controller = sa.activating_player;
+    let Some(&controller) =
+        crate::ability::spell_ability_effect::get_target_players(ctx.game, sa).first()
+    else {
+        return;
+    };
     let amount = super::resolve_numeric_svar(ctx.game, sa, "Num", 1).max(0);
     let amass_type = sa.ir.type_filter.as_deref().unwrap_or("Zombie");
 
