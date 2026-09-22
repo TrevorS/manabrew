@@ -716,7 +716,6 @@ impl GameState {
                     card.set_type_line(type_line);
                 }
                 card.static_added_subtypes.clear();
-                card.cant_attack_static = false;
                 card.cant_block_static = false;
                 card.summoning_sick = true;
                 card.monstrous = false;
@@ -804,7 +803,6 @@ impl GameState {
                 }
                 card.static_added_subtypes.clear();
                 card.restore_changed_characteristics_baseline();
-                card.cant_attack_static = false;
                 card.cant_block_static = false;
                 card.summoning_sick = true;
                 card.monstrous = false;

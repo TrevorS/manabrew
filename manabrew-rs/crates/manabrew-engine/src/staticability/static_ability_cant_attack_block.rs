@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
+use crate::combat::DefenderId;
 use crate::game::GameState;
 use crate::ids::PlayerId;
 use crate::staticability::StaticAbility;
@@ -56,7 +57,12 @@ fn nearest_opponent_in_direction(
 
 /// Check if a creature can't attack.
 /// Mirrors Java's `StaticAbilityCantAttackBlock.cantAttack()`.
-pub fn cant_attack(game: &GameState, cards: &[Card], attacker: &Card, defender: PlayerId) -> bool {
+pub fn cant_attack(
+    game: &GameState,
+    cards: &[Card],
+    attacker: &Card,
+    defender: DefenderId,
+) -> bool {
     // Keywords — replace with static ability if able
     if attacker.has_keyword("CARDNAME can't attack.")
         || attacker.has_keyword("CARDNAME can't attack or block.")
@@ -89,7 +95,7 @@ pub fn apply_cant_attack_ability(
     st_ab: &StaticAbility,
     card: &Card,
     source: &Card,
-    defender: PlayerId,
+    defender: DefenderId,
     cards: &[Card],
 ) -> bool {
     if !valid_filter::matches_valid_card_selector_opt_in_game(
@@ -106,16 +112,25 @@ pub fn apply_cant_attack_ability(
         return false;
     }
 
-    // Target (the defender entity) validation
-    // In Java, `Target` is validated against the GameEntity (defender).
-    // We use player validation since defender is a PlayerId in our model.
-    if !valid_filter::matches_valid_player_opt(
-        st_ab.ir.target_text.as_deref(),
-        defender,
-        source.controller,
-    ) {
+    let target_ok = match defender {
+        DefenderId::Player(pid) => valid_filter::matches_valid_player_opt(
+            st_ab.ir.target_text.as_deref(),
+            pid,
+            source.controller,
+        ),
+        DefenderId::Permanent(cid) => st_ab.ir.target_text.as_deref().is_none_or(|target| {
+            valid_filter::matches_valid_card_selector_in_game(
+                &crate::parsing::cached_compiled_selector(target),
+                game.card(cid),
+                source,
+                game,
+            )
+        }),
+    };
+    if !target_ok {
         return false;
     }
+    let defender = defender.controlling_player(game);
 
     // Check for "can attack as if didn't have Defender" static.
     // In Java: if (stAb.isKeyword(Keyword.DEFENDER) && canAttackDefender(card, target))

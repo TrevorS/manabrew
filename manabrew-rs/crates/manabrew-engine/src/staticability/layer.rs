@@ -212,7 +212,6 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             card.set_type_line(type_line);
         }
         card.static_added_subtypes.clear();
-        card.cant_attack_static = false;
         card.cant_block_static = false;
     }
     for player in game.players.iter_mut() {
@@ -318,7 +317,6 @@ pub fn apply_continuous_effects(game: &mut GameState) {
 
     // ── 2. Build list of effects-to-apply (deferred to allow sorting) ────
     let mut pending: Vec<PendingEffect> = Vec::new();
-    let mut cant_attack_targets: Vec<CardId> = Vec::new();
     let mut cant_block_targets: Vec<CardId> = Vec::new();
     let mut granted_player_rules: Vec<(CardId, StaticAbility)> = Vec::new();
     let mut granted_statics: Vec<(CardId, StaticAbility)> = Vec::new();
@@ -630,9 +628,6 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                     }
                 }
 
-                if sa.check_mode(&StaticMode::CantAttack) {
-                    cant_attack_targets.push(target);
-                }
                 if sa.check_mode(&StaticMode::CantBlock) {
                     cant_block_targets.push(target);
                 }
@@ -767,9 +762,6 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         );
     }
 
-    for target in cant_attack_targets {
-        game.cards[target.index()].cant_attack_static = true;
-    }
     for target in cant_block_targets {
         game.cards[target.index()].cant_block_static = true;
     }
@@ -1531,6 +1523,16 @@ mod tests {
         id
     }
 
+    fn cant_attack_opponent(game: &GameState, attacker: CardId) -> bool {
+        let card = game.card(attacker);
+        crate::staticability::static_ability_cant_attack_block::cant_attack(
+            game,
+            &game.cards,
+            card,
+            crate::combat::DefenderId::Player(game.opponent_of(card.controller)),
+        )
+    }
+
     fn add_land(
         game: &mut GameState,
         owner: PlayerId,
@@ -1781,7 +1783,7 @@ mod tests {
     // ── CantAttack / CantBlock ────────────────────────────────────────────
 
     #[test]
-    fn cant_attack_flag_set() {
+    fn cant_attack_static_applies() {
         let mut game = new_game();
         let alice = PlayerId(0);
 
@@ -1790,11 +1792,10 @@ mod tests {
         add_enchantment(
             &mut game,
             alice,
-            vec!["S$ Mode$ CantAttack | Affected$ Creature.YouControl | Description$ Creatures you control can't attack.".to_string()],
+            vec!["S$ Mode$ CantAttack | ValidCard$ Creature.YouCtrl | Description$ Creatures you control can't attack.".to_string()],
         );
 
-        apply_continuous_effects(&mut game);
-        assert!(game.card(creature).cant_attack_static);
+        assert!(cant_attack_opponent(&game, creature));
     }
 
     #[test]
@@ -1814,7 +1815,7 @@ mod tests {
     }
 
     #[test]
-    fn flags_reset_on_reapplication() {
+    fn cant_attack_static_ends_when_its_source_leaves() {
         let mut game = new_game();
         let alice = PlayerId(0);
 
@@ -1822,18 +1823,13 @@ mod tests {
         let restrictor = add_enchantment(
             &mut game,
             alice,
-            vec!["S$ Mode$ CantAttack | Affected$ Creature.YouControl".to_string()],
+            vec!["S$ Mode$ CantAttack | ValidCard$ Creature.YouCtrl".to_string()],
         );
 
-        apply_continuous_effects(&mut game);
-        assert!(game.card(creature).cant_attack_static);
+        assert!(cant_attack_opponent(&game, creature));
 
         game.move_card(restrictor, ZoneType::Graveyard, alice);
-        apply_continuous_effects(&mut game);
-        assert!(
-            !game.card(creature).cant_attack_static,
-            "Flag should clear after enchantment leaves"
-        );
+        assert!(!cant_attack_opponent(&game, creature));
     }
 
     #[test]

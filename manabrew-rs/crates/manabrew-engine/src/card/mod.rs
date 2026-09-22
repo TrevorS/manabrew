@@ -450,9 +450,6 @@ pub struct Card {
 
     // Combat tracking
     pub has_deathtouch_damage: bool,
-    /// Set by `Mode$ CantAttack` static effects. Reset each time
-    /// [`layer::apply_continuous_effects`] runs.
-    pub cant_attack_static: bool,
     /// Set by `Mode$ CantBlock` static effects. Reset each time
     /// [`layer::apply_continuous_effects`] runs.
     pub cant_block_static: bool,
@@ -924,7 +921,6 @@ impl Card {
             changed_card_traits_by_text: std::collections::BTreeMap::new(),
             static_abilities,
             has_deathtouch_damage: false,
-            cant_attack_static: false,
             cant_block_static: false,
             turn_in_zone: 0,
             entered_battlefield_this_turn: false,
@@ -1164,7 +1160,6 @@ impl Card {
                 Vec::new()
             },
             has_deathtouch_damage: self.has_deathtouch_damage,
-            cant_attack_static: self.cant_attack_static,
             cant_block_static: self.cant_block_static,
             turn_in_zone: self.turn_in_zone,
             entered_battlefield_this_turn: self.entered_battlefield_this_turn,
@@ -1405,7 +1400,6 @@ impl Card {
         }
         out.has_deathtouch_damage
             .clone_from(&self.has_deathtouch_damage);
-        out.cant_attack_static.clone_from(&self.cant_attack_static);
         out.cant_block_static.clone_from(&self.cant_block_static);
         out.turn_in_zone.clone_from(&self.turn_in_zone);
         out.entered_battlefield_this_turn
@@ -2179,7 +2173,6 @@ impl Card {
         self.is_creature()
             && !self.tapped
             && !self.has_defender()
-            && !self.cant_attack_static
             && !self.detained
             && (self.has_haste() || !self.summoning_sick)
             && self.zone == ZoneType::Battlefield

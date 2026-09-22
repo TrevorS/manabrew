@@ -10,26 +10,33 @@ use crate::staticability::static_ability_cant_attack_block;
 
 pub fn get_available_attackers(game: &GameState, player: PlayerId) -> Vec<CardId> {
     let defending = game.opponent_of(player);
+    let defenders = get_possible_defenders(game, player);
     game.creatures_on_battlefield(player)
         .into_iter()
         .filter(|&cid| {
             let card = game.card(cid);
-            if card.can_attack() {
-                return true;
-            }
-            card.is_creature()
-                && !card.tapped
-                && !card.cant_attack_static
-                && !card.detained
-                && (card.has_haste() || !card.summoning_sick)
-                && card.zone == ZoneType::Battlefield
-                && card.has_defender()
-                && crate::staticability::static_ability_cant_attack_block::can_attack_defender(
-                    game,
-                    &game.cards,
-                    card,
-                    defending,
-                )
+            let ready = card.can_attack()
+                || (card.is_creature()
+                    && !card.tapped
+                    && !card.detained
+                    && (card.has_haste() || !card.summoning_sick)
+                    && card.zone == ZoneType::Battlefield
+                    && card.has_defender()
+                    && crate::staticability::static_ability_cant_attack_block::can_attack_defender(
+                        game,
+                        &game.cards,
+                        card,
+                        defending,
+                    ));
+            ready
+                && defenders.iter().any(|&defender| {
+                    !crate::staticability::static_ability_cant_attack_block::cant_attack(
+                        game,
+                        &game.cards,
+                        card,
+                        defender,
+                    )
+                })
         })
         .collect()
 }
@@ -50,11 +57,12 @@ pub fn can_attack_defender(game: &GameState, attacker_id: CardId, defender: Defe
         return false;
     }
 
-    // CantAttack static abilities
-    if card.cant_attack_static {
-        return false;
-    }
-    if card.detained {
+    if crate::staticability::static_ability_cant_attack_block::cant_attack(
+        game,
+        &game.cards,
+        card,
+        defender,
+    ) {
         return false;
     }
 
@@ -351,7 +359,12 @@ pub fn can_attack_next_turn(game: &GameState, attacker_id: CardId, defender: Def
     if !card.is_creature() || card.phased_out {
         return false;
     }
-    if card.cant_attack_static || card.detained {
+    if crate::staticability::static_ability_cant_attack_block::cant_attack(
+        game,
+        &game.cards,
+        card,
+        defender,
+    ) {
         return false;
     }
     if let DefenderId::Player(pid) = defender {
