@@ -2217,6 +2217,41 @@ impl GameLoop {
         Some(picked)
     }
 
+    pub(crate) fn prechoose_additional_cost_taps(
+        game: &GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        source: CardId,
+        spell_cost: &crate::cost::Cost,
+    ) -> Option<Vec<CardId>> {
+        let mut picked: Vec<CardId> = Vec::new();
+        for part in &spell_cost.parts {
+            if let CostPart::TapType {
+                amount,
+                type_filter,
+                min_total_power: None,
+                can_tap_source,
+            } = part
+            {
+                let valid =
+                    cost::get_tap_type_targets(game, player, type_filter, source, *can_tap_source);
+                let needed = amount.resolve(game, source, player).max(0) as usize;
+                if valid.len() < needed {
+                    return None;
+                }
+                let chosen =
+                    agents[player.index()].choose_cards_for_effect(player, &valid, needed, needed);
+                if chosen.len() < needed
+                    || !chosen.iter().take(needed).all(|cid| valid.contains(cid))
+                {
+                    return None;
+                }
+                picked.extend(chosen.into_iter().take(needed));
+            }
+        }
+        Some(picked)
+    }
+
     pub(crate) fn prechoose_additional_cost_beholds(
         game: &GameState,
         agents: &mut [Box<dyn PlayerAgent>],

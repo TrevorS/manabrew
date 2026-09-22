@@ -1590,6 +1590,21 @@ fn count_valid_aggregate(
             .iter()
             .fold(0u8, |mask, card| mask | card.color.mask())
             .count_ones() as i32,
+        "CreatureType" => {
+            let mut creature_types: Vec<&str> = Vec::new();
+            for card in matches {
+                for subtype in &card.type_line.subtypes {
+                    if crate::game::TypeRegistry::creature_types()
+                        .iter()
+                        .any(|ct| ct.eq_ignore_ascii_case(subtype))
+                        && !creature_types.contains(&subtype.as_str())
+                    {
+                        creature_types.push(subtype);
+                    }
+                }
+            }
+            creature_types.len() as i32
+        }
         "DifferentCardNames" => {
             let mut names: Vec<&str> = Vec::new();
             for card in matches.iter().filter(|card| !card.face_down) {

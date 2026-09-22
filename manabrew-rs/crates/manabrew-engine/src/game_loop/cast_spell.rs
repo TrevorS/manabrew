@@ -1734,6 +1734,33 @@ impl GameLoop {
         } else {
             None
         };
+        let prechosen_spell_taps = match spell_cost {
+            Some(ref sc)
+                if sc.parts.iter().any(|part| {
+                    matches!(
+                        part,
+                        crate::cost::CostPart::TapType {
+                            min_total_power: None,
+                            ..
+                        }
+                    )
+                }) && !sc.parts.iter().any(|part| {
+                    matches!(
+                        part,
+                        crate::cost::CostPart::TapType {
+                            min_total_power: Some(_),
+                            ..
+                        }
+                    )
+                }) =>
+            {
+                match Self::prechoose_additional_cost_taps(game, agents, player, card_id, sc) {
+                    Some(picks) => Some(picks),
+                    None => rollback_failed_payment!(),
+                }
+            }
+            _ => None,
+        };
         let prechosen_raise_beholds = if let Some(ref rc) = raise_cost {
             Self::prechoose_additional_cost_beholds(game, agents, player, card_id, rc)
         } else {
@@ -1764,37 +1791,10 @@ impl GameLoop {
             None
         };
         let prechosen_harmonize_taps = if let Some(ref cost) = harmonize_tap_cost {
-            let mut picks = Vec::new();
-            for part in &cost.parts {
-                if let crate::cost::CostPart::TapType {
-                    amount,
-                    type_filter,
-                    min_total_power: None,
-                    can_tap_source,
-                } = part
-                {
-                    let valid = crate::cost::get_tap_type_targets(
-                        game,
-                        player,
-                        type_filter,
-                        card_id,
-                        *can_tap_source,
-                    );
-                    let needed = (amount.resolve(game, card_id, player)).max(0) as usize;
-                    if valid.len() < needed {
-                        rollback_failed_payment!();
-                    }
-                    let chosen = agents[player.index()]
-                        .choose_cards_for_effect(player, &valid, needed, needed);
-                    if chosen.len() < needed
-                        || !chosen.iter().take(needed).all(|cid| valid.contains(cid))
-                    {
-                        rollback_failed_payment!();
-                    }
-                    picks.extend(chosen.into_iter().take(needed));
-                }
+            match Self::prechoose_additional_cost_taps(game, agents, player, card_id, cost) {
+                Some(picks) => Some(picks),
+                None => rollback_failed_payment!(),
             }
-            Some(picks)
         } else {
             None
         };
@@ -2321,7 +2321,7 @@ impl GameLoop {
                 Some(&mut sa),
                 prechosen_spell_sacrifices.as_deref(),
                 prechosen_spell_discards.as_deref(),
-                None,
+                prechosen_spell_taps.as_deref(),
                 prechosen_spell_beholds.as_deref(),
             ) {
                 rollback_failed_payment!();
