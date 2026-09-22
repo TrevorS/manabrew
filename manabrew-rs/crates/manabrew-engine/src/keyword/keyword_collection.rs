@@ -36,6 +36,10 @@ impl<'de> Deserialize<'de> for KeywordCollection {
 }
 
 impl KeywordCollection {
+    pub fn eq_in_order(&self, other: &Self) -> bool {
+        self.map.len() == other.map.len() && self.map.iter().eq(other.map.iter())
+    }
+
     /// Create a new empty keyword collection.
     pub fn new() -> Self {
         Self {

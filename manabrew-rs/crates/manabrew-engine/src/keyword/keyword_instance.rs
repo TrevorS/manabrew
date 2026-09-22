@@ -7,7 +7,7 @@ use std::fmt;
 
 /// Base data shared by all keyword instances.
 /// Mirrors Java's `KeywordInstance` abstract class fields.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct KeywordInstanceData {
     /// The keyword enum variant.
     pub keyword: Keyword,

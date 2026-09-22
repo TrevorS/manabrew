@@ -818,6 +818,12 @@ pub struct Card {
 /// Transitional alias for downstream code still importing `CardInstance`.
 pub type CardInstance = Card;
 
+fn refresh_field<T: PartialEq + Clone>(out: &mut T, src: &T) {
+    if out != src {
+        out.clone_from(src);
+    }
+}
+
 impl Card {
     pub fn new(
         id: CardId,
@@ -1158,11 +1164,7 @@ impl Card {
             static_abilities: if self.zone.is_static_ability_source() {
                 self.static_abilities
                     .iter()
-                    .map(|static_ability| {
-                        let mut static_ability = static_ability.clone();
-                        *static_ability.base = crate::card_trait_base::CardTraitBase::default();
-                        static_ability
-                    })
+                    .map(crate::staticability::StaticAbility::clone_for_parity_snapshot)
                     .collect()
             } else {
                 Vec::new()
@@ -1314,21 +1316,21 @@ impl Card {
     /// `clone_for_parity_snapshot` into an existing snapshot, reusing its allocations.
     pub fn refresh_parity_snapshot(&self, out: &mut Card) {
         out.id.clone_from(&self.id);
-        out.card_name.clone_from(&self.card_name);
-        out.full_name.clone_from(&self.full_name);
-        out.oracle_text.clone_from(&self.oracle_text);
+        refresh_field(&mut out.card_name, &self.card_name);
+        refresh_field(&mut out.full_name, &self.full_name);
+        refresh_field(&mut out.oracle_text, &self.oracle_text);
         out.owner.clone_from(&self.owner);
         out.controller.clone_from(&self.controller);
         out.zone.clone_from(&self.zone);
         if out.type_line != self.type_line {
-            out.type_line.clone_from(&self.type_line);
+            refresh_field(&mut out.type_line, &self.type_line);
         }
-        out.mana_cost.clone_from(&self.mana_cost);
-        out.color.clone_from(&self.color);
-        out.color_identity.clone_from(&self.color_identity);
+        refresh_field(&mut out.mana_cost, &self.mana_cost);
+        refresh_field(&mut out.color, &self.color);
+        refresh_field(&mut out.color_identity, &self.color_identity);
         out.base_power.clone_from(&self.base_power);
         out.base_toughness.clone_from(&self.base_toughness);
-        out.initial_loyalty.clone_from(&self.initial_loyalty);
+        refresh_field(&mut out.initial_loyalty, &self.initial_loyalty);
         out.power_modifier.clone_from(&self.power_modifier);
         out.toughness_modifier.clone_from(&self.toughness_modifier);
         out.perpetual_power_modifier
@@ -1344,7 +1346,7 @@ impl Card {
         out.static_toughness_modifier
             .clone_from(&self.static_toughness_modifier);
         out.tapped.clone_from(&self.tapped);
-        out.last_mana_produced.clone_from(&self.last_mana_produced);
+        refresh_field(&mut out.last_mana_produced, &self.last_mana_produced);
         out.flipped.clone_from(&self.flipped);
         out.face_down.clone_from(&self.face_down);
         out.has_morph.clone_from(&self.has_morph);
@@ -1355,7 +1357,7 @@ impl Card {
         out.manifested.clone_from(&self.manifested);
         out.cloaked.clone_from(&self.cloaked);
         out.foretold.clone_from(&self.foretold);
-        out.melded_with.clone_from(&self.melded_with);
+        refresh_field(&mut out.melded_with, &self.melded_with);
         out.foretold_cost_by_effect
             .clone_from(&self.foretold_cost_by_effect);
         out.is_bestowed.clone_from(&self.is_bestowed);
@@ -1365,16 +1367,20 @@ impl Card {
         out.exerted.clone_from(&self.exerted);
         out.damage.clone_from(&self.damage);
         out.cast_from.clone_from(&self.cast_from);
-        out.counters.clone_from(&self.counters);
-        out.keywords.clone_from(&self.keywords);
-        out.granted_keywords.clone_from(&self.granted_keywords);
-        out.granted_svars.clone_from(&self.granted_svars);
-        out.static_added_subtypes
-            .clone_from(&self.static_added_subtypes);
-        out.static_type_line_base
-            .clone_from(&self.static_type_line_base);
-        out.changed_type_line_base
-            .clone_from(&self.changed_type_line_base);
+        refresh_field(&mut out.counters, &self.counters);
+        if !out.keywords.eq_in_order(&self.keywords) {
+            out.keywords.clone_from(&self.keywords);
+        }
+        if !out.granted_keywords.eq_in_order(&self.granted_keywords) {
+            out.granted_keywords.clone_from(&self.granted_keywords);
+        }
+        refresh_field(&mut out.granted_svars, &self.granted_svars);
+        refresh_field(&mut out.static_added_subtypes, &self.static_added_subtypes);
+        refresh_field(&mut out.static_type_line_base, &self.static_type_line_base);
+        refresh_field(
+            &mut out.changed_type_line_base,
+            &self.changed_type_line_base,
+        );
         out.changed_base_power.clone_from(&self.changed_base_power);
         out.changed_base_toughness
             .clone_from(&self.changed_base_toughness);
@@ -1382,13 +1388,14 @@ impl Card {
             .clone_from(&self.changed_keywords_base);
         out.changed_trigger_count_base
             .clone_from(&self.changed_trigger_count_base);
-        out.pump_keywords.clone_from(&self.pump_keywords);
+        if !out.pump_keywords.eq_in_order(&self.pump_keywords) {
+            out.pump_keywords.clone_from(&self.pump_keywords);
+        }
         out.pump_trigger_count.clone_from(&self.pump_trigger_count);
         out.abilities.clear();
         out.action_spell_specs.clone_from(&self.action_spell_specs);
         out.action_spell_cost.clone_from(&self.action_spell_cost);
-        out.ai_phyrexian_payment
-            .clone_from(&self.ai_phyrexian_payment);
+        refresh_field(&mut out.ai_phyrexian_payment, &self.ai_phyrexian_payment);
         out.spree_min_mode_cost
             .clone_from(&self.spree_min_mode_cost);
         out.activated_abilities.clear();
@@ -1398,13 +1405,13 @@ impl Card {
             .clone_from(&self.changed_card_traits);
         out.changed_card_traits_by_text
             .clone_from(&self.changed_card_traits_by_text);
+        out.static_abilities.clear();
         if self.zone.is_static_ability_source() {
-            out.static_abilities.clone_from(&self.static_abilities);
-            for static_ability in &mut out.static_abilities {
-                *static_ability.base = crate::card_trait_base::CardTraitBase::default();
-            }
-        } else {
-            out.static_abilities.clear();
+            out.static_abilities.extend(
+                self.static_abilities
+                    .iter()
+                    .map(crate::staticability::StaticAbility::clone_for_parity_snapshot),
+            );
         }
         out.has_deathtouch_damage
             .clone_from(&self.has_deathtouch_damage);
@@ -1418,7 +1425,7 @@ impl Card {
             .clone_from(&self.started_turn_tapped);
         out.triggers.clear();
         if out.svars != self.svars {
-            out.svars.clone_from(&self.svars);
+            refresh_field(&mut out.svars, &self.svars);
         }
         out.parsed_svar_cache.clone_from(&self.parsed_svar_cache);
         out.is_commander.clone_from(&self.is_commander);
@@ -1435,43 +1442,53 @@ impl Card {
         out.attached_to.clone_from(&self.attached_to);
         out.attached_to_player.clone_from(&self.attached_to_player);
         out.attached_this_turn.clone_from(&self.attached_this_turn);
-        out.attachments.clone_from(&self.attachments);
-        out.remembered_cards.clone_from(&self.remembered_cards);
-        out.remembered_players.clone_from(&self.remembered_players);
-        out.remembered_counters
-            .clone_from(&self.remembered_counters);
-        out.imprinted_cards.clone_from(&self.imprinted_cards);
-        out.gain_control_targets
-            .clone_from(&self.gain_control_targets);
-        out.until_leaves_battlefield
-            .clone_from(&self.until_leaves_battlefield);
-        out.exiled_cards.clone_from(&self.exiled_cards);
-        out.paid_cost_exiled_cards
-            .clone_from(&self.paid_cost_exiled_cards);
-        out.haunted_by.clone_from(&self.haunted_by);
+        refresh_field(&mut out.attachments, &self.attachments);
+        refresh_field(&mut out.remembered_cards, &self.remembered_cards);
+        refresh_field(&mut out.remembered_players, &self.remembered_players);
+        refresh_field(&mut out.remembered_counters, &self.remembered_counters);
+        refresh_field(&mut out.imprinted_cards, &self.imprinted_cards);
+        refresh_field(&mut out.gain_control_targets, &self.gain_control_targets);
+        refresh_field(
+            &mut out.until_leaves_battlefield,
+            &self.until_leaves_battlefield,
+        );
+        refresh_field(&mut out.exiled_cards, &self.exiled_cards);
+        refresh_field(
+            &mut out.paid_cost_exiled_cards,
+            &self.paid_cost_exiled_cards,
+        );
+        refresh_field(&mut out.haunted_by, &self.haunted_by);
         out.haunting.clone_from(&self.haunting);
         out.chosen_map.clone_from(&self.chosen_map);
-        out.remembered_cmc.clone_from(&self.remembered_cmc);
+        refresh_field(&mut out.remembered_cmc, &self.remembered_cmc);
         out.effect_source.clone_from(&self.effect_source);
         out.clone_origin.clone_from(&self.clone_origin);
         out.copied_permanent.clone_from(&self.copied_permanent);
         out.cast_sa = None;
         out.chosen_charm_modes.clone_from(&self.chosen_charm_modes);
-        out.chosen_modes_your_combat
-            .clone_from(&self.chosen_modes_your_combat);
-        out.chosen_modes_your_last_combat
-            .clone_from(&self.chosen_modes_your_last_combat);
+        refresh_field(
+            &mut out.chosen_modes_your_combat,
+            &self.chosen_modes_your_combat,
+        );
+        refresh_field(
+            &mut out.chosen_modes_your_last_combat,
+            &self.chosen_modes_your_last_combat,
+        );
         out.remembered_lki_cards
             .clone_from(&self.remembered_lki_cards);
-        out.lose_control_condition
-            .clone_from(&self.lose_control_condition);
+        refresh_field(
+            &mut out.lose_control_condition,
+            &self.lose_control_condition,
+        );
         out.temp_effect_until_eot
             .clone_from(&self.temp_effect_until_eot);
         out.temp_effect_host.clone_from(&self.temp_effect_host);
         out.forget_on_moved_origin
             .clone_from(&self.forget_on_moved_origin);
-        out.exile_on_moved_origins
-            .clone_from(&self.exile_on_moved_origins);
+        refresh_field(
+            &mut out.exile_on_moved_origins,
+            &self.exile_on_moved_origins,
+        );
         out.exile_when_no_remembered
             .clone_from(&self.exile_when_no_remembered);
         out.exiled_by.clone_from(&self.exiled_by);
@@ -1484,29 +1501,29 @@ impl Card {
                 *out_other = other.as_ref().map(CardOtherPart::clone_for_parity_snapshot);
             }
         }
-        out.set_code.clone_from(&self.set_code);
-        out.card_number.clone_from(&self.card_number);
+        refresh_field(&mut out.set_code, &self.set_code);
+        refresh_field(&mut out.card_number, &self.card_number);
         out.paper_foil.clone_from(&self.paper_foil);
         out.phased_out.clone_from(&self.phased_out);
         out.regeneration_shields
             .clone_from(&self.regeneration_shields);
         out.kicked.clone_from(&self.kicked);
         out.monstrous.clone_from(&self.monstrous);
-        out.chosen_colors.clone_from(&self.chosen_colors);
-        out.chosen_cards.clone_from(&self.chosen_cards);
+        refresh_field(&mut out.chosen_colors, &self.chosen_colors);
+        refresh_field(&mut out.chosen_cards, &self.chosen_cards);
         out.animate_state.clone_from(&self.animate_state);
         out.clone_state.clone_from(&self.clone_state);
         out.face_down_state.clone_from(&self.face_down_state);
-        out.chosen_type.clone_from(&self.chosen_type);
-        out.chosen_type2.clone_from(&self.chosen_type2);
-        out.noted_types.clone_from(&self.noted_types);
-        out.named_cards.clone_from(&self.named_cards);
+        refresh_field(&mut out.chosen_type, &self.chosen_type);
+        refresh_field(&mut out.chosen_type2, &self.chosen_type2);
+        refresh_field(&mut out.noted_types, &self.noted_types);
+        refresh_field(&mut out.named_cards, &self.named_cards);
         out.chosen_number.clone_from(&self.chosen_number);
         out.chosen_number_controller
             .clone_from(&self.chosen_number_controller);
         out.chosen_number_revealed
             .clone_from(&self.chosen_number_revealed);
-        out.chosen_mode.clone_from(&self.chosen_mode);
+        refresh_field(&mut out.chosen_mode, &self.chosen_mode);
         out.chosen_player.clone_from(&self.chosen_player);
         out.chosen_player_controller
             .clone_from(&self.chosen_player_controller);
@@ -1517,20 +1534,22 @@ impl Card {
         out.chosen_type_revealed
             .clone_from(&self.chosen_type_revealed);
         out.promised_gift.clone_from(&self.promised_gift);
-        out.attraction_lights.clone_from(&self.attraction_lights);
-        out.sector.clone_from(&self.sector);
-        out.chosen_sector.clone_from(&self.chosen_sector);
+        refresh_field(&mut out.attraction_lights, &self.attraction_lights);
+        refresh_field(&mut out.sector, &self.sector);
+        refresh_field(&mut out.chosen_sector, &self.chosen_sector);
         out.sprocket.clone_from(&self.sprocket);
-        out.chosen_even_odd.clone_from(&self.chosen_even_odd);
+        refresh_field(&mut out.chosen_even_odd, &self.chosen_even_odd);
         out.detained.clone_from(&self.detained);
         out.attacking_player.clone_from(&self.attacking_player);
         out.goaded_by.clone_from(&self.goaded_by);
         out.damage_prevention.clone_from(&self.damage_prevention);
         out.assigned_damage.clone_from(&self.assigned_damage);
         out.must_block.clone_from(&self.must_block);
-        out.encoded_cards.clone_from(&self.encoded_cards);
-        out.damage_sources_this_turn
-            .clone_from(&self.damage_sources_this_turn);
+        refresh_field(&mut out.encoded_cards, &self.encoded_cards);
+        refresh_field(
+            &mut out.damage_sources_this_turn,
+            &self.damage_sources_this_turn,
+        );
         out.total_damage_done_this_turn
             .clone_from(&self.total_damage_done_this_turn);
         out.lki_power.clone_from(&self.lki_power);
@@ -1539,22 +1558,23 @@ impl Card {
         out.lki_attached_to.clone_from(&self.lki_attached_to);
         out.lki_zone_timestamp.clone_from(&self.lki_zone_timestamp);
         out.prepared_effect.clone_from(&self.prepared_effect);
-        out.lki_counters.clone_from(&self.lki_counters);
+        refresh_field(&mut out.lki_counters, &self.lki_counters);
         out.damage_history.clone_from(&self.damage_history);
-        out.must_block_cards.clone_from(&self.must_block_cards);
-        out.etb_counters.clone_from(&self.etb_counters);
+        refresh_field(&mut out.must_block_cards, &self.must_block_cards);
+        refresh_field(&mut out.etb_counters, &self.etb_counters);
         out.colors_spent_to_cast
             .clone_from(&self.colors_spent_to_cast);
-        out.paying_mana_to_cast
-            .clone_from(&self.paying_mana_to_cast);
-        out.chosen_modes.clone_from(&self.chosen_modes);
+        refresh_field(&mut out.paying_mana_to_cast, &self.paying_mana_to_cast);
+        refresh_field(&mut out.chosen_modes, &self.chosen_modes);
         out.strive_extra_targets
             .clone_from(&self.strive_extra_targets);
-        out.targeted_from_this_turn
-            .clone_from(&self.targeted_from_this_turn);
-        out.temp_controllers.clone_from(&self.temp_controllers);
-        out.may_look_at.clone_from(&self.may_look_at);
-        out.may_play.clone_from(&self.may_play);
+        refresh_field(
+            &mut out.targeted_from_this_turn,
+            &self.targeted_from_this_turn,
+        );
+        refresh_field(&mut out.temp_controllers, &self.temp_controllers);
+        refresh_field(&mut out.may_look_at, &self.may_look_at);
+        refresh_field(&mut out.may_play, &self.may_play);
         out.can_block_additional
             .clone_from(&self.can_block_additional);
         out.can_block_any.clone_from(&self.can_block_any);
@@ -1565,8 +1585,7 @@ impl Card {
         out.visited_this_turn.clone_from(&self.visited_this_turn);
         out.times_crewed_this_turn
             .clone_from(&self.times_crewed_this_turn);
-        out.crewed_by_this_turn
-            .clone_from(&self.crewed_by_this_turn);
+        refresh_field(&mut out.crewed_by_this_turn, &self.crewed_by_this_turn);
         out.is_crewed.clone_from(&self.is_crewed);
         out.ignore_legend_rule_flag
             .clone_from(&self.ignore_legend_rule_flag);
@@ -1587,8 +1606,7 @@ impl Card {
         out.chosen_modes_turn.clone_from(&self.chosen_modes_turn);
         out.enlisted_this_combat
             .clone_from(&self.enlisted_this_combat);
-        out.activations_this_game
-            .clone_from(&self.activations_this_game);
+        refresh_field(&mut out.activations_this_game, &self.activations_this_game);
         out.is_renowned.clone_from(&self.is_renowned);
         out.zone_timestamp.clone_from(&self.zone_timestamp);
         out.trait_base_activated_abilities = None;

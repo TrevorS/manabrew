@@ -229,6 +229,29 @@ pub struct StaticAbility {
     pub ir: StaticAbilityIr,
 }
 
+impl StaticAbility {
+    pub fn clone_for_parity_snapshot(&self) -> Self {
+        let StaticAbility {
+            base: _,
+            modes,
+            ignore_effect_cards,
+            ignore_effect_players,
+            may_play_turn,
+            svars,
+            ir,
+        } = self;
+        StaticAbility {
+            base: Box::default(),
+            modes: modes.clone(),
+            ignore_effect_cards: ignore_effect_cards.clone(),
+            ignore_effect_players: ignore_effect_players.clone(),
+            may_play_turn: *may_play_turn,
+            svars: svars.clone(),
+            ir: ir.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct StaticAbilityIr {
     pub card_trait_requirements: CardTraitRequirementsIr,
