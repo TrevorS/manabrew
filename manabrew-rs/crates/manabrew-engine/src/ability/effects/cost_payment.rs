@@ -559,6 +559,31 @@ fn try_pay_effect_cost(
                 type_filter,
             } => {
                 let amount_n = amount.resolve(ctx.game, source, payer);
+                let counter_target = if crate::cost::cost_put_counter::pays_from_source(type_filter)
+                {
+                    source
+                } else {
+                    let choices: Vec<crate::agent::GameEntity> =
+                        crate::cost::cost_put_counter::candidates(
+                            ctx.game,
+                            source,
+                            Some(sa),
+                            type_filter,
+                        )
+                        .into_iter()
+                        .map(crate::agent::GameEntity::Card)
+                        .collect();
+                    if choices.is_empty() {
+                        return false;
+                    }
+                    ctx.agents[payer.index()].snapshot_state(ctx.game, ctx.mana_pools);
+                    let Some(crate::agent::GameEntity::Card(chosen)) = ctx.agents[payer.index()]
+                        .choose_single_entity_for_effect(payer, &choices, false)
+                    else {
+                        return false;
+                    };
+                    chosen
+                };
                 if crate::cost::cost_put_counter::is_etb_replacement(Some(sa), source, type_filter)
                 {
                     ctx.game.card_mut(source).add_etb_counter(
@@ -571,7 +596,7 @@ fn try_pay_effect_cost(
                         ctx.game,
                         Some(ctx.trigger_handler),
                         Some(ctx.agents),
-                        source,
+                        counter_target,
                         counter_type,
                         amount_n,
                         crate::event::RunParams {

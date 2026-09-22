@@ -50,13 +50,13 @@ pub fn payment_order(part: &super::CostPart) -> i32 {
 
 /// Java `CostPart.payCostFromSource`: only CARDNAME and NICKNAME mean the source itself;
 /// anything else is a valid string searched over the battlefield.
-fn pays_from_source(type_filter: &str) -> bool {
+pub fn pays_from_source(type_filter: &str) -> bool {
     type_filter.eq_ignore_ascii_case("CARDNAME") || type_filter.eq_ignore_ascii_case("NICKNAME")
 }
 
 /// The permanents this cost may put its counters on, in Java's order.
 /// Mirrors the `CardLists.getValidCards` call in `CostPutCounter.canPay:154`.
-fn candidates(
+pub fn candidates(
     game: &crate::game::GameState,
     source: CardId,
     ability: Option<&crate::spellability::SpellAbility>,
@@ -96,22 +96,6 @@ fn candidates(
             })
         })
         .collect()
-}
-
-/// Which permanent this cost puts its counters on: the source for CARDNAME, otherwise
-/// the first battlefield permanent matching the valid string, in Java's order.
-pub fn counter_target(
-    game: &crate::game::GameState,
-    source: CardId,
-    ability: Option<&crate::spellability::SpellAbility>,
-    type_filter: &str,
-) -> Option<CardId> {
-    if pays_from_source(type_filter) {
-        return Some(source);
-    }
-    candidates(game, source, ability, type_filter)
-        .into_iter()
-        .next()
 }
 
 pub fn is_etb_replacement(

@@ -992,10 +992,10 @@ impl GameLoop {
                     type_filter,
                 } => {
                     let amount_n = amount.resolve(game, card_id, player);
-                    // Java `CostPutCounter` puts the counters on the source only for
-                    // CARDNAME; any other type is a valid string over the battlefield.
-                    let Some(counter_target) = crate::cost::cost_put_counter::counter_target(
+                    let Some(counter_target) = self.choose_put_counter_target(
                         game,
+                        agents,
+                        player,
                         card_id,
                         sa.as_deref(),
                         type_filter,
@@ -1673,13 +1673,16 @@ impl GameLoop {
                     type_filter,
                 } => {
                     let amount_n = amount.resolve(game, card_id, player);
-                    let counter_target = crate::cost::cost_put_counter::counter_target(
-                        game,
-                        card_id,
-                        sa.as_deref(),
-                        type_filter,
-                    )
-                    .unwrap_or(card_id);
+                    let counter_target = self
+                        .choose_put_counter_target(
+                            game,
+                            agents,
+                            player,
+                            card_id,
+                            sa.as_deref(),
+                            type_filter,
+                        )
+                        .unwrap_or(card_id);
                     if game.card(counter_target).zone == ZoneType::Battlefield {
                         crate::ability::effects::effect_context::add_counter_with_context(
                             game,
@@ -2213,6 +2216,33 @@ impl GameLoop {
             return false;
         }
         true
+    }
+
+    fn choose_put_counter_target(
+        &self,
+        game: &GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        source: CardId,
+        sa: Option<&SpellAbility>,
+        type_filter: &str,
+    ) -> Option<CardId> {
+        if crate::cost::cost_put_counter::pays_from_source(type_filter) {
+            return Some(source);
+        }
+        let choices: Vec<crate::agent::GameEntity> =
+            crate::cost::cost_put_counter::candidates(game, source, sa, type_filter)
+                .into_iter()
+                .map(crate::agent::GameEntity::Card)
+                .collect();
+        if choices.is_empty() {
+            return None;
+        }
+        agents[player.index()].snapshot_state(game, &self.mana_pools);
+        match agents[player.index()].choose_single_entity_for_effect(player, &choices, false) {
+            Some(crate::agent::GameEntity::Card(chosen)) => Some(chosen),
+            _ => None,
+        }
     }
 
     pub(crate) fn prechoose_additional_cost_sacrifices(
