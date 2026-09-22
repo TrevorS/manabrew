@@ -150,22 +150,35 @@ fn spell_ability_x_property(spell_ability: &SpellAbility, expr: &str, game: &Gam
         return 0;
     };
     let source = game.card(source_id);
+    let left_battlefield = source.zone != forge_foundation::ZoneType::Battlefield;
     let parts: Vec<&str> = expr.split('/').collect();
     let value = parts.first().copied().unwrap_or("");
     let operators = parts.get(1).copied().unwrap_or("");
 
     let base = match value {
-        "CardPower" => source.power(),
-        "CardToughness" => source.toughness(),
+        "CardPower" => left_battlefield
+            .then_some(source.lki_power)
+            .flatten()
+            .unwrap_or_else(|| source.power()),
+        "CardToughness" => left_battlefield
+            .then_some(source.lki_toughness)
+            .flatten()
+            .unwrap_or_else(|| source.toughness()),
         "CardNumColors" => source.color.count_colors() as i32,
         _ if value.starts_with("CardCounters.") => {
             let counter_name = value.strip_prefix("CardCounters.").unwrap_or("");
+            let lki_counters = left_battlefield
+                .then_some(source.lki_counters.as_ref())
+                .flatten();
             if counter_name.eq_ignore_ascii_case("ALL") {
-                source.num_all_counters()
+                lki_counters
+                    .map(|counters| counters.values().sum())
+                    .unwrap_or_else(|| source.num_all_counters())
             } else {
-                source.counter_count(&crate::ability::ability_utils::parse_counter_type(
-                    counter_name,
-                ))
+                let counter_type = crate::ability::ability_utils::parse_counter_type(counter_name);
+                lki_counters
+                    .map(|counters| counters.get(&counter_type).copied().unwrap_or(0))
+                    .unwrap_or_else(|| source.counter_count(&counter_type))
             }
         }
         _ if value.starts_with("CardManaCost") => {
@@ -2315,12 +2328,20 @@ pub fn resolve_count_svar_for_sa(
         return do_x_math(count, operators, game, source_id, controller, sa);
     }
 
+    let source_left_battlefield =
+        game.card(source_id).zone != forge_foundation::ZoneType::Battlefield;
     // Count$CardPower — power of the source card
     if expr == "Count$CardPower" {
+        if source_left_battlefield {
+            return crate::lki::resolve_lki_power(game, source_id);
+        }
         return game.card(source_id).power();
     }
     // Count$CardToughness
     if expr == "Count$CardToughness" {
+        if source_left_battlefield {
+            return crate::lki::resolve_lki_toughness(game, source_id);
+        }
         return game.card(source_id).toughness();
     }
     if let Some(operators) = expr.strip_prefix("Count$YourTurns") {
@@ -2336,11 +2357,18 @@ pub fn resolve_count_svar_for_sa(
     }
     // Count$CardCounters.TYPE
     if let Some(counter_type) = expr.strip_prefix("Count$CardCounters.") {
+        let use_lki = source_left_battlefield || leaves_battlefield_trigger(game, sa, source_id);
         if counter_type == "ALL" {
+            if use_lki {
+                return crate::lki::resolve_lki_counters(game, source_id)
+                    .iter()
+                    .map(|(_, count)| count)
+                    .sum();
+            }
             return game.card(source_id).num_all_counters();
         }
         let ct = crate::ability::effects::parse_counter_type(counter_type);
-        if leaves_battlefield_trigger(game, sa, source_id) {
+        if use_lki {
             return crate::lki::resolve_lki_counter_count(game, source_id, &ct);
         }
         return *game.card(source_id).counters.get(&ct).unwrap_or(&0);
