@@ -116,8 +116,9 @@ pub fn may_play_player(
     }
 }
 
-/// The statics on any battlefield or command zone whose `MayPlay$` grant for `card` would be
-/// `player`'s, in player order.
+/// The statics in any `ZoneType.STATIC_ABILITIES_SOURCE_ZONES` whose `MayPlay$` grant for `card`
+/// would be `player`'s, in player order. `check_conditions` still gates each one on its host's
+/// zone, so a static without `EffectZone$` keeps needing the battlefield.
 pub fn may_play_grants<'a>(
     game: &'a GameState,
     player: crate::ids::PlayerId,
@@ -126,12 +127,15 @@ pub fn may_play_grants<'a>(
     game.player_order
         .iter()
         .flat_map(move |&pid| {
-            game.cards_in_zone(forge_foundation::ZoneType::Battlefield, pid)
-                .iter()
-                .chain(
-                    game.cards_in_zone(forge_foundation::ZoneType::Command, pid)
-                        .iter(),
-                )
+            [
+                forge_foundation::ZoneType::Battlefield,
+                forge_foundation::ZoneType::Graveyard,
+                forge_foundation::ZoneType::Exile,
+                forge_foundation::ZoneType::Command,
+                forge_foundation::ZoneType::Stack,
+            ]
+            .into_iter()
+            .flat_map(move |zone| game.cards_in_zone(zone, pid).iter())
         })
         .flat_map(move |&source_id| {
             let source = game.card(source_id);
