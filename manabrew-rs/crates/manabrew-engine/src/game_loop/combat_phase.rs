@@ -568,6 +568,16 @@ impl GameLoop {
                 RunParams {
                     attacker: Some(attacker_id),
                     card: Some(attacker_id),
+                    // Java's `AbilityKey.Attacked` is the defender entity itself, which
+                    // `Attacked$` filters on; `DefendingPlayer` is a separate key.
+                    attacked_player: match defender {
+                        combat::DefenderId::Player(pid) => Some(pid),
+                        combat::DefenderId::Permanent(_) => None,
+                    },
+                    attacked_card: match defender {
+                        combat::DefenderId::Permanent(cid) => Some(cid),
+                        combat::DefenderId::Player(_) => None,
+                    },
                     defending_player: Some(def_player),
                     num_attackers: Some(num_attackers as usize),
                     ..Default::default()
