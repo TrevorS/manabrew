@@ -301,15 +301,15 @@ fn filter_battlefield(
 /// Mirrors Java's `AbilityUtils.getDefinedPlayers()`.
 pub fn get_defined_players(
     game: &GameState,
-    _host_card: Option<CardId>,
+    host_card: Option<CardId>,
     defined: &str,
     activating_player: Option<PlayerId>,
 ) -> Vec<PlayerId> {
-    if let Some(player) = activating_player {
-        resolve_defined_players(defined, player, game)
-    } else {
-        Vec::new()
-    }
+    let Some(player) = activating_player else {
+        return Vec::new();
+    };
+    let sa = SpellAbility::new_simple(host_card, player, "");
+    resolve_defined_players_with_sa(defined, &sa, player, game)
 }
 
 /// Calculate a numeric amount from a parameter string.
