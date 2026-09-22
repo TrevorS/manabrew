@@ -1882,7 +1882,7 @@ pub fn handle_paid(
     game: &GameState,
     paid_cards: &[CardId],
     property: &str,
-    _source_id: CardId,
+    source_id: CardId,
 ) -> i32 {
     let (property, operators) = property.split_once('/').unwrap_or((property, ""));
     if paid_cards.is_empty() {
@@ -1945,9 +1945,20 @@ pub fn handle_paid(
             .sum(),
         _ if property.starts_with("Valid ") => {
             let filter = property.strip_prefix("Valid ").unwrap_or("");
+            let source = game.card(source_id);
+            let selector = crate::parsing::cached_compiled_selector(filter);
+            let context = crate::card::valid_filter::MatchContext::from_source(source)
+                .with_game(game)
+                .with_source_controller(source.controller);
             paid_cards
                 .iter()
-                .filter(|&&cid| matches_change_type(game.card(cid), filter, &[]))
+                .filter(|&&cid| {
+                    crate::card::valid_filter::matches_valid_card_selector_with_context(
+                        &selector,
+                        game.card(cid),
+                        context,
+                    )
+                })
                 .count() as i32
         }
         _ => paid_cards.len() as i32,
