@@ -2765,7 +2765,16 @@ pub fn can_pay_mana_cost_with_reserved_sacrifices(
             continue;
         }
 
-        if card.is_land() && !card.tapped {
+        if card.is_land()
+            && crate::cost::cost_tap::can_pay(
+                game,
+                &Default::default(),
+                card_id,
+                player,
+                None,
+                &CostPart::Tap,
+            )
+        {
             let implicit_atoms = all_basic_subtype_atoms(card);
             if !implicit_atoms.is_empty() {
                 let mut implicit_mask = 0u16;
@@ -3749,7 +3758,17 @@ fn get_available_mana_sources(
                 return true;
             }
         }
-        if card.zone != ZoneType::Battlefield || card.tapped || !card.is_land() {
+        if card.zone != ZoneType::Battlefield
+            || !card.is_land()
+            || !crate::cost::cost_tap::can_pay(
+                game,
+                &Default::default(),
+                cid,
+                player,
+                None,
+                &CostPart::Tap,
+            )
+        {
             return false;
         }
         let has_subtype = !all_basic_subtype_atoms(card).is_empty();
