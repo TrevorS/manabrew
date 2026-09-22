@@ -430,9 +430,7 @@ pub fn resolve_defined_player_with_sa(
             .into_iter()
             .next()
             .or_else(|| parse_player_object(sa, AbilityKey::Player)),
-        "ParentTarget" => sa
-            .parent_targeting_player
-            .or_else(|| sa.target_chosen.all_target_players().into_iter().next()),
+        "ParentTarget" => sa.target_chosen.all_target_players().into_iter().next(),
         "ThisTargetedPlayer" => sa.target_chosen.all_target_players().into_iter().next(),
         "TargetedOrController" => sa
             .target_chosen
@@ -589,10 +587,7 @@ pub fn resolve_defined_players_with_sa(
             }
             players
         }
-        "ParentTarget" => sa.parent_targeting_player.map_or_else(
-            || sa.target_chosen.all_target_players(),
-            |player| vec![player],
-        ),
+        "ParentTarget" => sa.target_chosen.all_target_players(),
         "ThisTargetedPlayer" => sa.target_chosen.all_target_players(),
         "ChosenPlayer" => sa
             .source

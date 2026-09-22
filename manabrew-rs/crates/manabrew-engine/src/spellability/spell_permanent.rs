@@ -41,7 +41,6 @@ pub fn create_permanent_spell(
         target_restrictions: None,
         target_chosen: TargetChoices::default(),
         parent_targeting_card: None,
-        parent_targeting_player: None,
         pay_costs: None,
         sub_ability: None,
         unique_targets: Vec::new(),

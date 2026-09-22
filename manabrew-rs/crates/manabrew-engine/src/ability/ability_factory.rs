@@ -379,7 +379,6 @@ fn build_vanilla_spell_ability(card: &Card, card_id: CardId, player: PlayerId) -
         target_restrictions,
         target_chosen: TargetChoices::default(),
         parent_targeting_card: None,
-        parent_targeting_player: None,
         pay_costs: Some(Cost {
             parts: vec![CostPart::Mana {
                 cost: card.mana_cost.clone(),
@@ -556,7 +555,6 @@ fn build_spell_ability_of_type_with_params(
         target_restrictions,
         target_chosen: TargetChoices::default(),
         parent_targeting_card: None,
-        parent_targeting_player: None,
         pay_costs: cost,
         sub_ability,
         unique_targets: Vec::new(),
