@@ -261,17 +261,12 @@ impl GameLoop {
             ) {
                 return Err("planeswalker activation rule");
             }
-            if let Some(tr) = sa_for_target_check.target_restrictions.as_ref() {
-                let min_targets = tr.get_min_targets(game, &sa_for_target_check);
-                if min_targets > 0
-                    && !crate::spellability::target_restrictions::has_candidates_in_spell_ability_chain(
-                        game,
-                        player,
-                        &sa_for_target_check,
-                    )
-                {
-                    return Err("no target candidates");
-                }
+            if !crate::spellability::target_restrictions::has_candidates_in_spell_ability_chain(
+                game,
+                player,
+                &sa_for_target_check,
+            ) {
+                return Err("no target candidates");
             }
             let needs_mana = ab
                 .cost
