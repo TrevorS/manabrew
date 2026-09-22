@@ -13,6 +13,13 @@ use crate::trigger::parse_trigger;
 
 use super::Card;
 
+fn keyword_cost(keywords: &[String], name: &str) -> Option<String> {
+    keywords
+        .iter()
+        .find_map(|kw| crate::keyword::extract_keyword_cost_str(kw, name))
+        .map(str::to_string)
+}
+
 fn roman_chapter(mut chapter: usize) -> String {
     let mut result = String::new();
     for (value, numeral) in [
@@ -148,7 +155,9 @@ impl Card {
     /// Generate activated abilities from keywords (e.g. Cycling → AB$ Draw).
     /// Mirrors Java's `CardFactoryUtil.setupKeywordedAbilities()`.
     pub(super) fn generate_keyword_abilities(&mut self) {
-        self.generate_keyword_activated_abilities();
+        let mut keywords = self.keywords.as_string_list();
+        keywords.extend(self.granted_keywords.as_string_list());
+        self.generate_keyword_activated_abilities(&keywords);
 
         // Enlist: K:Enlist -> intrinsic optional attack cost static ability.
         if self
@@ -275,9 +284,9 @@ impl Card {
         }
     }
 
-    pub(crate) fn generate_keyword_activated_abilities(&mut self) {
+    pub(crate) fn generate_keyword_activated_abilities(&mut self, keywords: &[String]) {
         // Cycling: K:Cycling:{cost} → AB$ Draw | Cost$ {cost} Discard<1/CARDNAME> | ActivationZone$ Hand
-        if let Some(cycling_cost) = self.get_keyword_cost("Cycling") {
+        if let Some(cycling_cost) = keyword_cost(keywords, "Cycling") {
             let ab_text = format!(
                 "AB$ Draw | Cost$ {cycling_cost} Discard<1/CARDNAME> | ActivationZone$ Hand | PrecostDesc$ Cycling | NumCards$ 1 | Defined$ You"
             );
@@ -289,11 +298,7 @@ impl Card {
 
         // TypeCycling: K:TypeCycling:{type}:{cost} → AB$ ChangeZone | Cost$ {cost} Discard<1/CARDNAME> | ActivationZone$ Hand
         // Mirrors Java CardFactoryUtil lines 3852-3864.
-        for kw in self
-            .keywords
-            .iter_strings()
-            .chain(self.granted_keywords.iter_strings())
-        {
+        for kw in keywords.iter().map(String::as_str) {
             if let Some(rest) = kw.strip_prefix("TypeCycling:") {
                 let parts: Vec<&str> = rest.splitn(2, ':').collect();
                 if parts.len() == 2 {
@@ -320,10 +325,9 @@ impl Card {
             }
         }
 
-        for equip_raw in self
-            .keywords
-            .iter_strings()
-            .chain(self.granted_keywords.iter_strings())
+        for equip_raw in keywords
+            .iter()
+            .map(String::as_str)
             .filter_map(|kw| crate::keyword::extract_keyword_cost_str(kw, "Equip"))
         {
             let payload = equip_raw
@@ -355,11 +359,7 @@ impl Card {
         // Crew: K:Crew:N → AB$ Animate (tap creatures with total power ≥N).
         // Mirrors Java CardFactoryUtil lines 3820-3835.
         // Uses tapXType<Any/Creature.Other+withTotalPowerGE{N}> matching Java's format.
-        for kw in self
-            .keywords
-            .iter_strings()
-            .chain(self.granted_keywords.iter_strings())
-        {
+        for kw in keywords.iter().map(String::as_str) {
             if let Some(n_str) = crate::keyword::extract_keyword_cost_str(kw, "Crew") {
                 let mut k = n_str.split(':');
                 let n = k.next().unwrap_or_default().trim();
@@ -377,11 +377,7 @@ impl Card {
             }
         }
 
-        for kw in self
-            .keywords
-            .iter_strings()
-            .chain(self.granted_keywords.iter_strings())
-        {
+        for kw in keywords.iter().map(String::as_str) {
             if let Some(power) = crate::keyword::extract_keyword_cost_str(kw, "Saddle") {
                 let power = power.trim();
                 let ab_text = format!(
@@ -398,11 +394,7 @@ impl Card {
         // Mirrors Java CardFactoryUtil lines 3587-3595.
         // The ability is sorcery-speed and puts charge counters equal to the tapped
         // creature's power onto this Spacecraft/Planet.
-        for kw in self
-            .keywords
-            .iter_strings()
-            .chain(self.granted_keywords.iter_strings())
-        {
+        for kw in keywords.iter().map(String::as_str) {
             if let Some(_n_str) = crate::keyword::extract_keyword_cost_str(kw, "Station") {
                 let ab_text = "AB$ PutCounter | Cost$ tapXType<1/Creature.Other> | Defined$ Self | CounterType$ CHARGE | CounterNum$ StationX | SorcerySpeed$ True | CostDesc$ | SpellDescription$ Station";
                 let next_idx = self.activated_abilities.len();
@@ -417,11 +409,7 @@ impl Card {
 
         // Embalm: K:Embalm:cost → AB$ CopyPermanent from graveyard.
         // Mirrors Java CardFactoryUtil lines 2879-2891.
-        for kw in self
-            .keywords
-            .iter_strings()
-            .chain(self.granted_keywords.iter_strings())
-        {
+        for kw in keywords.iter().map(String::as_str) {
             if let Some(cost_str) = crate::keyword::extract_keyword_cost_str(kw, "Embalm") {
                 let cost = cost_str.trim();
                 let ab_text = format!(
@@ -436,11 +424,7 @@ impl Card {
 
         // Eternalize: K:Eternalize:cost → AB$ CopyPermanent from graveyard as 4/4.
         // Mirrors Java CardFactoryUtil lines 3023-3052.
-        for kw in self
-            .keywords
-            .iter_strings()
-            .chain(self.granted_keywords.iter_strings())
-        {
+        for kw in keywords.iter().map(String::as_str) {
             if let Some(cost_str) = crate::keyword::extract_keyword_cost_str(kw, "Eternalize") {
                 let cost = cost_str.trim();
                 let ab_text = format!(
@@ -456,7 +440,12 @@ impl Card {
         // Plot: K:Plot:{cost} → AB$ Plot | Cost$ {cost} | ActivationZone$ Hand | SorcerySpeed$ True
         // Mirrors Java CardFactoryUtil lines 3398-3449.
         // Exiles the card from hand; plotted cards can later be cast for free.
-        if let Some(plot_cost) = self.get_keyword_cost("Plot") {
+        if let Some(plot_cost) = keyword_cost(keywords, "Plot") {
+            let plot_cost = if plot_cost == "CardManaCost" {
+                self.mana_cost.to_string()
+            } else {
+                plot_cost
+            };
             let ab_text = format!(
                 "AB$ Plot | Cost$ {plot_cost} | ActivationZone$ Hand | SorcerySpeed$ True | Secondary$ True | SpellDescription$ Plot"
             );
@@ -468,7 +457,7 @@ impl Card {
 
         // Craft: K:Craft:{cost} → AB$ ChangeZone that exiles this artifact with the cost and
         // returns it transformed. Mirrors Java CardFactoryUtil (`inst instanceof Craft`).
-        if let Some(craft) = self.get_keyword_cost("Craft") {
+        if let Some(craft) = keyword_cost(keywords, "Craft") {
             let cost = craft.split(':').next().unwrap_or_default().trim();
             let ab_text = format!(
                 "AB$ ChangeZone | Cost$ Exile<1/CARDNAME> {cost} | Origin$ Exile | Destination$ Battlefield | Transformed$ True | Defined$ CorrectedSelf | SorcerySpeed$ True | SpellDescription$ Craft"
@@ -479,10 +468,9 @@ impl Card {
             }
         }
 
-        let class_keywords: Vec<String> = self
-            .keywords
-            .iter_strings()
-            .chain(self.granted_keywords.iter_strings())
+        let class_keywords: Vec<String> = keywords
+            .iter()
+            .map(String::as_str)
             .filter(|kw| kw.starts_with("Class:"))
             .map(|kw| kw.to_string())
             .collect();

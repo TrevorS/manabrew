@@ -537,6 +537,24 @@ impl ManaCost {
         self.generic_cost == 0 && self.shards.is_empty() && !self.has_no_cost
     }
 
+    pub fn short_string(&self) -> String {
+        if self.has_no_cost {
+            return "-1".to_string();
+        }
+        let mut parts: Vec<String> = Vec::new();
+        if self.is_zero() {
+            parts.push("0".to_string());
+        }
+        if self.generic_cost > 0 {
+            parts.push(self.generic_cost.to_string());
+        }
+        parts.extend(self.shards.iter().map(|s| s.short_string().to_string()));
+        if self.generic_cost < 0 {
+            parts.push(self.generic_cost.to_string());
+        }
+        parts.join(" ")
+    }
+
     pub fn is_pure_generic(&self) -> bool {
         self.shards.is_empty() && !self.has_no_cost
     }

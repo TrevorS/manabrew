@@ -339,6 +339,22 @@ fn apply_pump_to_card(
     resolve_ts: Option<i64>,
     sa: &crate::spellability::SpellAbility,
 ) {
+    let keywords: Vec<String> = {
+        let card = ctx.game.card(card_id);
+        keywords
+            .iter()
+            .map(|kw| {
+                if kw.contains("CardManaCost") {
+                    kw.replace("CardManaCost", &card.mana_cost.short_string())
+                } else if kw.contains("ConvertedManaCost") {
+                    kw.replace("ConvertedManaCost", &card.mana_value().to_string())
+                } else {
+                    kw.clone()
+                }
+            })
+            .collect()
+    };
+    let keywords = keywords.as_slice();
     let until_next_turn = matches!(
         sa.ir.duration,
         Some(

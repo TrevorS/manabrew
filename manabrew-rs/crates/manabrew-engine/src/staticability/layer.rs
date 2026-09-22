@@ -857,22 +857,6 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                             .push(re);
                     }
                 }
-                if let Some(cost_str) = crate::keyword::extract_keyword_cost_str(&kw, "Plot") {
-                    let cost = if cost_str == "CardManaCost" {
-                        card.mana_cost.to_string()
-                    } else {
-                        cost_str.to_string()
-                    };
-                    let next_idx = card.activated_abilities.len();
-                    let text = format!(
-                        "AB$ Plot | Cost$ {cost} | ActivationZone$ Hand | SorcerySpeed$ True | Secondary$ True | SpellDescription$ Plot"
-                    );
-                    if let Some(ab) =
-                        crate::ability::activated::parse_activated_ability(&text, next_idx)
-                    {
-                        card.activated_abilities.push(ab);
-                    }
-                }
                 if let Some(cost_str) = crate::keyword::extract_keyword_cost_str(&kw, "Ward") {
                     let next_id = card
                         .triggers
@@ -1001,6 +985,14 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             0,
             -2,
         );
+    }
+    for card in game.cards.iter_mut() {
+        if card.pump_keywords.is_empty() && card.granted_keywords.is_empty() {
+            continue;
+        }
+        let mut keywords = card.pump_keywords.as_string_list();
+        keywords.extend(card.granted_keywords.as_string_list());
+        card.generate_keyword_activated_abilities(&keywords);
     }
 
     for target in type_changed {

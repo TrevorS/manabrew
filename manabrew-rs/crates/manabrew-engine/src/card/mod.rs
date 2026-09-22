@@ -3606,7 +3606,9 @@ impl Card {
                 self.activated_abilities.push(parsed);
             }
         }
-        self.generate_keyword_activated_abilities();
+        let mut keywords = self.keywords.as_string_list();
+        keywords.extend(self.granted_keywords.as_string_list());
+        self.generate_keyword_activated_abilities(&keywords);
     }
 
     pub fn refresh_action_specs(&mut self) {
@@ -4672,7 +4674,9 @@ impl Card {
                     parse_or_warn(parse_activated_ability(raw, i), "ActivatedAbility", raw)
                 })
                 .collect();
-            self.generate_keyword_activated_abilities();
+            let mut keywords = self.keywords.as_string_list();
+            keywords.extend(self.granted_keywords.as_string_list());
+            self.generate_keyword_activated_abilities(&keywords);
             for (key, value) in &room_svars {
                 self.svars.insert(key.clone(), value.clone());
             }
