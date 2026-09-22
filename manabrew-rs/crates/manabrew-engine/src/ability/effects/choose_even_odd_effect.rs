@@ -33,8 +33,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             Some(source_id),
             sa.api,
         );
-        ctx.game
-            .card_mut(source_id)
-            .set_s_var("ChosenEvenOdd", if odd { "Odd" } else { "Even" });
+        ctx.game.card_mut(source_id).chosen_even_odd =
+            Some(if odd { "Odd" } else { "Even" }.to_string());
     }
 }

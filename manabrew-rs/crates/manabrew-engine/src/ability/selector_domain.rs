@@ -24,5 +24,16 @@ pub(crate) fn matches_selector_domain_predicate(
     {
         return Some(false);
     }
+    if let Some(negated) = match lower.as_str() {
+        "cmcchosenevenodd" => Some(false),
+        "cmcnotchosenevenodd" => Some(true),
+        _ => None,
+    } {
+        let Some(chosen) = context.source_card.chosen_even_odd.as_deref() else {
+            return Some(false);
+        };
+        let matches_chosen = (card.mana_value() % 2 == 0) == (chosen == "Even");
+        return Some(matches_chosen != negated);
+    }
     None
 }
