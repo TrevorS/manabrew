@@ -62,7 +62,7 @@ pub fn can_pay(
         return false;
     };
     let card = game.card(source);
-    if type_filter == "CARDNAME" {
+    if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
         if card.zone != ZoneType::Battlefield {
             return false;
         }
