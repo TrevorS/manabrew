@@ -306,12 +306,32 @@ fn resolve_card_list_property(
             .count() as i32;
         return Some(do_x_math(num, operators, game, source_id, controller, sa));
     }
-    Some(
+    let (fold, property) = list_property_fold(property);
+    Some(fold(
         cards
             .into_iter()
             .map(|cid| card_x_property(cid, property, game, source_id, controller, sa))
-            .sum(),
-    )
+            .collect(),
+    ))
+}
+
+fn list_property_fold(property: &str) -> (fn(Vec<i32>) -> i32, &str) {
+    if let Some(rest) = property.strip_prefix("Least") {
+        (|values| values.into_iter().min().unwrap_or(0), rest)
+    } else if let Some(rest) = property.strip_prefix("Greatest") {
+        (|values| values.into_iter().max().unwrap_or(0), rest)
+    } else if let Some(rest) = property.strip_prefix("Different") {
+        (
+            |mut values| {
+                values.sort_unstable();
+                values.dedup();
+                values.len() as i32
+            },
+            rest,
+        )
+    } else {
+        (|values| values.into_iter().sum(), property)
+    }
 }
 
 fn resolve_defined_cards_for_svar(
@@ -1615,23 +1635,7 @@ fn count_valid_aggregate(
             names.len() as i32
         }
         other => {
-            let (fold, property): (fn(Vec<i32>) -> i32, &str) =
-                if let Some(rest) = other.strip_prefix("Least") {
-                    (|values| values.into_iter().min().unwrap_or(0), rest)
-                } else if let Some(rest) = other.strip_prefix("Greatest") {
-                    (|values| values.into_iter().max().unwrap_or(0), rest)
-                } else if let Some(rest) = other.strip_prefix("Different") {
-                    (
-                        |mut values| {
-                            values.sort_unstable();
-                            values.dedup();
-                            values.len() as i32
-                        },
-                        rest,
-                    )
-                } else {
-                    (|values| values.into_iter().sum(), other)
-                };
+            let (fold, property) = list_property_fold(other);
             let values: Option<Vec<i32>> = matches
                 .iter()
                 .map(|card| match property {
