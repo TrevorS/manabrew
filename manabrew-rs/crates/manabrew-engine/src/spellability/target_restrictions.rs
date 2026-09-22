@@ -51,6 +51,8 @@ pub struct TargetRestrictions {
     pub target_kind: TargetKind,
     /// Additional target type filter (e.g. "Spell" from TargetType$ parameter)
     pub target_type_filter: Option<String>,
+    #[serde(default)]
+    pub sa_valid_targeting: Option<String>,
     /// Minimum number of targets expression (default "1").
     /// Mirrors Java storing raw `TargetMin` and resolving dynamically.
     pub min_targets: String,
@@ -118,6 +120,7 @@ impl TargetRestrictions {
         let min_targets = parsed.get(keys::TARGET_MIN).unwrap_or("1").to_string();
         let max_targets = parsed.get(keys::TARGET_MAX).unwrap_or("1").to_string();
         let target_type_filter = parsed.get(keys::TARGET_TYPE).map(str::to_string);
+        let sa_valid_targeting = parsed.get(keys::TARGET_VALID_TARGETING).map(str::to_string);
 
         // Any TargetType$ value targets the stack (the script convention is
         // exclusively SA-kind tokens like Spell, Activated, Triggered, …).
@@ -135,6 +138,7 @@ impl TargetRestrictions {
                 .unwrap_or_else(|| cached_compiled_selector(valid_tgts_str)),
             target_kind,
             target_type_filter,
+            sa_valid_targeting,
             min_targets,
             max_targets,
             tgt_zone: parsed_zone_list(parsed.get(keys::TGT_ZONE)).unwrap_or_else(|| {
@@ -198,6 +202,7 @@ impl TargetRestrictions {
 
         // Parse TargetType$ parameter if present (used by counterspells)
         let target_type_filter = params.get_cloned(keys::TARGET_TYPE);
+        let sa_valid_targeting = params.get_cloned(keys::TARGET_VALID_TARGETING);
 
         // If TargetType$ Spell* is specified, override to Spell targeting.
         // This handles cases like Counterspell ("Spell") and Imp's Mischief
@@ -218,6 +223,7 @@ impl TargetRestrictions {
                 .unwrap_or_else(|| cached_compiled_selector(valid_tgts_str)),
             target_kind,
             target_type_filter,
+            sa_valid_targeting,
             min_targets,
             max_targets,
             tgt_zone: parsed_zone_list(params.get(keys::TGT_ZONE)).unwrap_or_else(|| {
@@ -308,6 +314,7 @@ impl TargetRestrictions {
             TargetKind::Spell => !filter_spells_for_target_restrictions(
                 game,
                 player,
+                source_card,
                 &get_all_candidates_spells(game),
                 self,
             )
@@ -502,6 +509,7 @@ pub fn has_valid_spell_with_filter(game: &GameState, player: PlayerId, filter: &
 pub fn filter_spells_for_target_restrictions(
     game: &GameState,
     targeting_player: PlayerId,
+    source: Option<CardId>,
     candidates: &[u32],
     restrictions: &TargetRestrictions,
 ) -> Vec<u32> {
@@ -518,7 +526,69 @@ pub fn filter_spells_for_target_restrictions(
         let valid_filter = restrictions.valid_tgts.join(",");
         filtered = filter_spells_by_type(game, targeting_player, &filtered, &valid_filter);
     }
+    if let Some(valid_targeting) = restrictions.sa_valid_targeting.as_deref() {
+        filtered.retain(|&id| {
+            game.stack
+                .iter()
+                .find(|entry| entry.id == id)
+                .is_some_and(|entry| {
+                    spell_targets_valid(
+                        game,
+                        targeting_player,
+                        source,
+                        &entry.spell_ability,
+                        valid_targeting,
+                    )
+                })
+        });
+    }
     filtered
+}
+
+fn spell_targets_valid(
+    game: &GameState,
+    targeting_player: PlayerId,
+    source: Option<CardId>,
+    sa: &crate::spellability::SpellAbility,
+    filter: &str,
+) -> bool {
+    let Some(source) = source else {
+        return false;
+    };
+    let selector = cached_compiled_selector(filter);
+    let context = crate::card::valid_filter::MatchContext::from_source(game.card(source))
+        .with_game(game)
+        .with_source_controller(targeting_player);
+    let targeting_sa =
+        crate::spellability::SpellAbility::new_simple(Some(source), targeting_player, "");
+    let mut current = Some(sa);
+    while let Some(node) = current {
+        if node.uses_targeting() {
+            if node.target_chosen.all_target_cards().iter().any(|&cid| {
+                crate::card::valid_filter::matches_valid_card_selector_with_context(
+                    &selector,
+                    game.card(cid),
+                    context,
+                )
+            }) {
+                return true;
+            }
+            if node.target_chosen.all_target_players().iter().any(|&pid| {
+                crate::player::player_property::is_valid(
+                    pid,
+                    &selector,
+                    game,
+                    source,
+                    targeting_player,
+                    &targeting_sa,
+                )
+            }) {
+                return true;
+            }
+        }
+        current = node.sub_ability.as_deref();
+    }
+    false
 }
 
 /// Filter stack entries by a comma-separated TargetType$/ValidTgts$ filter.

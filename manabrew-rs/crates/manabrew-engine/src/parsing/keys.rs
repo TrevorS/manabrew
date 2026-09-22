@@ -67,6 +67,7 @@ pub const TARGET: &str = "Target";
 pub const TARGET_MIN: &str = "TargetMin";
 pub const TARGET_MAX: &str = "TargetMax";
 pub const TARGET_TYPE: &str = "TargetType";
+pub const TARGET_VALID_TARGETING: &str = "TargetValidTargeting";
 pub const TARGETING_PLAYER: &str = "TargetingPlayer";
 
 // ── Zone/movement params ───────────────────────────────────────────────

@@ -2303,6 +2303,7 @@ pub fn choose_targets_by_kind(
                 target_restrictions::filter_spells_for_target_restrictions(
                     game,
                     player,
+                    sa.source,
                     &valid,
                     restrictions,
                 )
