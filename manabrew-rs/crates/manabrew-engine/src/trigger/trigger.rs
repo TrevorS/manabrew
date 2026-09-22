@@ -586,13 +586,7 @@ impl Trigger {
             (None, _) => true,
             (Some(_), None) => false,
             (Some(selector), Some(player_id)) => {
-                let src = self.base.card_trait_base.host_card(game);
-                let controller = self.resolve_source_player(src);
-                let sa =
-                    crate::spellability::SpellAbility::new_simple(Some(src.id), controller, "");
-                crate::player::player_property::is_valid(
-                    player_id, selector, game, src.id, controller, &sa,
-                )
+                self.matches_valid_player_filter(selector, player_id, game)
             }
         }
     }
@@ -631,11 +625,10 @@ impl Trigger {
         player: PlayerId,
         game: &GameState,
     ) -> bool {
-        self.matches_compiled_valid(
-            &MatchValidTarget::Player(player),
-            filter,
-            Some(self.base.card_trait_base.host_card(game)),
-        )
+        let src = self.base.card_trait_base.host_card(game);
+        let controller = self.resolve_source_player(src);
+        let sa = crate::spellability::SpellAbility::new_simple(Some(src.id), controller, "");
+        crate::player::player_property::is_valid(player, filter, game, src.id, controller, &sa)
     }
 
     /// Matches a required player against a `Valid...` player filter from an explicit source controller.
