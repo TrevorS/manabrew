@@ -1713,7 +1713,7 @@ impl PlayerAgent for DeterministicAgent {
                     .map(|&(id, host)| (CardOrStackTarget::Stack(id), host)),
             )
             .collect();
-        entries.sort_by(|(_, a), (_, b)| self.target_sort_key(*a).cmp(&self.target_sort_key(*b)));
+        entries.sort_by_key(|(_, a)| self.target_sort_key(*a));
         let hosts: Vec<CardId> = entries.iter().map(|(_, host)| *host).collect();
         self.log_target_candidates(&[], &hosts);
         let choices: Vec<CardOrStackTarget> = entries.iter().map(|(choice, _)| *choice).collect();
