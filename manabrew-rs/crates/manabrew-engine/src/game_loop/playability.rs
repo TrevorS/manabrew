@@ -1276,6 +1276,7 @@ impl GameLoop {
             if card.get_flashback_cost().is_none()
                 && card.get_harmonize_cost().is_none()
                 && card.get_escape_cost().is_none()
+                && card.get_mayhem_cost().is_none()
             {
                 continue;
             }
@@ -1328,6 +1329,24 @@ impl GameLoop {
             } else {
                 false
             };
+            let mayhem_ok = if let Some(mayhem_cost_str) = card.get_mayhem_cost() {
+                let mayhem_mana = Self::mana_from_cost(&crate::cost::parse_cost(&mayhem_cost_str));
+                card.was_discarded()
+                    && card.entered_current_zone_this_turn(game.turn.turn_number)
+                    && available_mana.can_pay(&mayhem_mana)
+                    && sp_additional_ok
+            } else {
+                false
+            };
+            if mayhem_ok {
+                playable.push(crate::agent::PlayOption {
+                    card_id,
+                    mode: crate::agent::PlayCardMode::Alternative(
+                        crate::spellability::AlternativeCost::Mayhem,
+                    ),
+                    alt_cost_index: 0,
+                });
+            }
             if flashback_ok {
                 playable.push(crate::agent::PlayOption {
                     card_id,

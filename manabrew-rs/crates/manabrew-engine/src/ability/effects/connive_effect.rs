@@ -68,9 +68,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 nonland_count += 1;
             }
             ctx.game.player_record_discard(controller, 1);
-            ctx.game.card_mut(*card_id).set_discarded(true);
             let owner = ctx.game.card(*card_id).owner;
             ctx.move_card(*card_id, ZoneType::Graveyard, owner);
+            ctx.game.card_mut(*card_id).set_discarded(true);
             emit_zone_trigger(
                 ctx.trigger_handler,
                 *card_id,

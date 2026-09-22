@@ -817,6 +817,7 @@ impl GameLoop {
         let is_evoke = sa.alt_cost == Some(crate::spellability::AlternativeCost::Evoke);
         let is_escape = sa.alt_cost == Some(crate::spellability::AlternativeCost::Escape);
         let is_harmonize = sa.alt_cost == Some(crate::spellability::AlternativeCost::Harmonize);
+        let is_mayhem = sa.alt_cost == Some(crate::spellability::AlternativeCost::Mayhem);
         let is_overload = sa.alt_cost == Some(crate::spellability::AlternativeCost::Overload);
         let is_dash = sa.alt_cost == Some(crate::spellability::AlternativeCost::Dash);
         let is_blitz = sa.alt_cost == Some(crate::spellability::AlternativeCost::Blitz);
@@ -908,6 +909,8 @@ impl GameLoop {
             } else if is_web_slinging {
                 card.get_web_slinging_cost()
                     .map(|cost| format!("{cost} Return<1/Creature.tapped/tapped creature>"))
+            } else if is_mayhem {
+                card.get_mayhem_cost()
             } else {
                 None
             };
@@ -2602,7 +2605,7 @@ impl GameLoop {
 
         let cast_zone = if is_foretell {
             Some(ZoneType::Exile)
-        } else if is_flashback || is_escape {
+        } else if is_flashback || is_escape || is_mayhem {
             Some(ZoneType::Graveyard)
         } else if is_plot_cast {
             Some(ZoneType::Exile)

@@ -124,7 +124,6 @@ impl GameState {
     ) {
         let owner = self.card(card_id).owner;
         self.player_record_discard(discard_player, 1);
-        self.card_mut(card_id).set_discarded(true);
 
         // Move to graveyard through normal zone-change with is_discard=true.
         // Replacement effects (e.g. Madness → Exile) are handled generically.
@@ -138,6 +137,7 @@ impl GameState {
             true,
             true, // is_discard
         );
+        self.card_mut(card_id).set_discarded(true);
 
         // RememberDiscarded
         if let Some(sa) = sa {
@@ -590,6 +590,7 @@ impl GameState {
         self.cards[card_id.index()].zone = dest_zone;
         if src_zone != dest_zone {
             self.cards[card_id.index()].turn_in_zone = self.turn.turn_number;
+            self.cards[card_id.index()].set_discarded(false);
         }
 
         if let Some(table) = self.pending_change_zone_table.as_mut() {

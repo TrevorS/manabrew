@@ -176,6 +176,16 @@ impl Card {
         None
     }
 
+    pub fn get_mayhem_cost(&self) -> Option<String> {
+        if let Some(cost) = self.get_keyword_cost("Mayhem") {
+            return Some(cost);
+        }
+        if self.has_keyword("Mayhem") {
+            return Some(mana_cost_script_string(&self.mana_cost));
+        }
+        None
+    }
+
     /// Get Harmonize cost (e.g. "Harmonize:X G G" → Some("X G G")).
     pub fn get_harmonize_cost(&self) -> Option<String> {
         self.get_keyword_cost("Harmonize")

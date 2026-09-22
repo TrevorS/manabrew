@@ -91,9 +91,9 @@ fn learn_lesson(ctx: &mut EffectContext, _sa: &SpellAbility, player: PlayerId) {
         // Discard from hand, then draw 1
         let old_zone = ctx.game.card(card_id).zone;
         ctx.game.player_record_discard(player, 1);
-        ctx.game.card_mut(card_id).set_discarded(true);
         ctx.game
             .move_card(card_id, ZoneType::Graveyard, ctx.game.card(card_id).owner);
+        ctx.game.card_mut(card_id).set_discarded(true);
 
         ctx.trigger_handler.run_trigger(
             TriggerType::Discarded,
