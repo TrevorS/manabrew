@@ -253,12 +253,16 @@ fn execute_replacement_ability(
     let mut current_sa: Option<&crate::spellability::SpellAbility> = Some(&sa);
     while let Some(cur) = current_sa {
         let mut sa_with_ctx;
-        let sa_ref = if parent_target_player.is_some()
+        let sa_ref = if (parent_target_player.is_some()
             && cur.target_chosen.target_player.is_none()
-            && !cur.uses_targeting()
+            && !cur.uses_targeting())
+            || cur.parent_targeting_player != parent_target_player
         {
             sa_with_ctx = cur.clone();
-            sa_with_ctx.target_chosen.target_player = parent_target_player;
+            if !cur.uses_targeting() && sa_with_ctx.target_chosen.target_player.is_none() {
+                sa_with_ctx.target_chosen.target_player = parent_target_player;
+            }
+            sa_with_ctx.parent_targeting_player = parent_target_player;
             &sa_with_ctx
         } else {
             cur
