@@ -397,6 +397,9 @@ pub(crate) fn assemble_card(
     // now all been attached. Refresh the base counts so continuous-layer reset
     // logic does not strip real printed abilities from hidden-zone cards.
     card.refresh_action_specs();
+    // Needs every face's SVars merged, so it cannot run in `Card::new`: the mana part that
+    // decides this can sit on a `SubAbility$` link named by an SVar of either face.
+    card.classify_mana_abilities();
     card.base_ability_count = card.activated_abilities.len();
     card.base_trigger_count = card.triggers.len();
 

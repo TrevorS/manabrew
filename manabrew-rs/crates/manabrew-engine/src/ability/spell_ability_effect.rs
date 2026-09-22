@@ -109,6 +109,48 @@ pub trait SpellAbilityEffect {
 
 // ── Utility free functions mirroring Java's SpellAbilityEffect helpers ──
 
+/// Java puts `movesCardToOrFromLibrary` on `SpellAbilityEffect` and overrides it per effect
+/// class; the trait here is compile-time dispatched and has no instance to ask, so the
+/// overrides are collected into this one match. Keep it in sync with the Java overrides.
+pub fn moves_card_to_or_from_library(raw: &str) -> bool {
+    let params = crate::parsing::Params::from_raw(raw);
+    let Some(api) = params
+        .get(keys::AB)
+        .or_else(|| params.get(keys::DB))
+        .or_else(|| params.get(keys::SP))
+    else {
+        return false;
+    };
+    let zone_param_is_library = |key: &str| {
+        params.get(key).is_some_and(|v| {
+            crate::zone::zone_type::list_value_of(v).contains(&forge_foundation::ZoneType::Library)
+        })
+    };
+    match ApiType::smart_value_of(api) {
+        Some(
+            ApiType::Connive
+            | ApiType::Dig
+            | ApiType::DigUntil
+            | ApiType::Discover
+            | ApiType::Draw
+            | ApiType::Explore
+            | ApiType::Heist
+            | ApiType::Learn
+            | ApiType::Mill
+            | ApiType::Seek
+            | ApiType::Surveil,
+        ) => true,
+        Some(ApiType::ChangeZone | ApiType::ChangeZoneAll) => {
+            zone_param_is_library(keys::ORIGIN) || zone_param_is_library(keys::DESTINATION)
+        }
+        Some(ApiType::Manifest | ApiType::ManifestDread | ApiType::Cloak) => {
+            !params.has(keys::CHOICE_ZONE) || zone_param_is_library(keys::CHOICE_ZONE)
+        }
+        Some(ApiType::Play) => zone_param_is_library(keys::VALID_ZONE),
+        _ => false,
+    }
+}
+
 /// Get target cards for a spell ability.
 /// If the SA uses targeting, returns the chosen target card(s).
 /// Otherwise, resolves the `Defined$` parameter (defaulting to "Self").

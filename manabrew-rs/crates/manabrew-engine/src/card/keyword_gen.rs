@@ -38,6 +38,17 @@ fn roman_chapter(mut chapter: usize) -> String {
     result
 }
 
+/// Mirrors Java's `LibraryMovementCostVisitor`: the half of CR 605.1a that reads the cost.
+fn cost_moves_card_to_or_from_library(cost: &crate::cost::Cost) -> bool {
+    cost.parts.iter().any(|part| match part {
+        crate::cost::CostPart::Mill(_)
+        | crate::cost::CostPart::Draw(_)
+        | crate::cost::CostPart::PutCardToLib { .. } => true,
+        crate::cost::CostPart::Exile { from, .. } => *from == forge_foundation::ZoneType::Library,
+        _ => false,
+    })
+}
+
 impl Card {
     fn parsed_svar_params(&mut self, name: &str) -> Option<Params> {
         match self.parsed_s_var(name)?.kind {
@@ -48,6 +59,56 @@ impl Card {
             | ParsedSVarKind::Count { .. }
             | ParsedSVarKind::NumericExpression { .. }
             | ParsedSVarKind::Raw { .. } => None,
+        }
+    }
+
+    /// Mirrors Java's `SpellAbility.isManaAbility()` (CR 605.1a). `parse_activated_ability` only
+    /// sees one ability's own text, so it answers from the root `AB$` alone; the mana part can sit
+    /// on any link of the `SubAbility$` chain, and resolving those names needs the card's SVars.
+    /// Java's answer is fixed by the card script rather than the board, so this runs once here.
+    pub(crate) fn classify_mana_abilities(&mut self) {
+        let verdicts: Vec<(usize, bool)> = self
+            .activated_abilities
+            .iter()
+            .enumerate()
+            .map(|(i, ab)| {
+                let root = Params::from_raw(&ab.ability_text);
+                if root.has(keys::VALID_TGTS)
+                    || root.is_true(keys::PLANESWALKER)
+                    || cost_moves_card_to_or_from_library(&ab.cost)
+                {
+                    return (i, false);
+                }
+                let mut adds_mana = false;
+                let mut text = Some(ab.ability_text.clone());
+                let mut seen: Vec<String> = Vec::new();
+                while let Some(raw) = text {
+                    let params = Params::from_raw(&raw);
+                    if params
+                        .get(keys::AB)
+                        .or_else(|| params.get(keys::DB))
+                        .is_some_and(|a| {
+                            a.eq_ignore_ascii_case("Mana")
+                                || a.eq_ignore_ascii_case("ManaReflected")
+                        })
+                    {
+                        adds_mana = true;
+                    }
+                    if crate::ability::spell_ability_effect::moves_card_to_or_from_library(&raw) {
+                        return (i, false);
+                    }
+                    text = params
+                        .get(keys::SUB_ABILITY)
+                        .map(str::to_string)
+                        .filter(|name| !seen.contains(name))
+                        .inspect(|name| seen.push(name.clone()))
+                        .and_then(|name| self.svars.get(&name).cloned());
+                }
+                (i, adds_mana)
+            })
+            .collect();
+        for (i, verdict) in verdicts {
+            self.activated_abilities[i].is_mana_ability = verdict;
         }
     }
 
