@@ -482,7 +482,6 @@ impl GameLoop {
         crate::ability::activated::ActivatedAbility,
         crate::spellability::SpellAbility,
     )> {
-        let available_mana = mana::calculate_available_mana(self.pool(player), game, player);
         let card = game.card(card_id);
         if card.face_down {
             return None;
@@ -558,15 +557,18 @@ impl GameLoop {
                 }
             }
 
-            let entry = crate::staticability::static_ability_alternative_cost::alternative_costs(
+            let entries = crate::staticability::static_ability_alternative_cost::alternative_costs(
                 game,
                 &game.cards,
                 &sa,
                 card,
                 player,
-            )
-            .into_iter()
-            .find(|entry| {
+            );
+            if entries.is_empty() {
+                return None;
+            }
+            let available_mana = mana::calculate_available_mana(self.pool(player), game, player);
+            let entry = entries.into_iter().find(|entry| {
                 let mut alt_sa = sa.clone();
                 crate::staticability::static_ability_alternative_cost::apply_alternative_cost_to_sa(
                     &mut alt_sa,
