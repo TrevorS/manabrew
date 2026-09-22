@@ -89,7 +89,7 @@ impl GameLoop {
                     ),
                 );
                 let agent = &mut agents[active.index()];
-                let mut picked =
+                let picked =
                     agent.choose_attackers(active, &available_attackers, &possible_defenders);
                 if self.apply_pending_snapshot_restore(game, agents) {
                     return;
@@ -104,15 +104,12 @@ impl GameLoop {
                     ),
                 );
 
-                // Validate attack restrictions (OnlyAlone, NotAlone, NeedGreaterPower, etc.)
                 let attacker_ids: Vec<CardId> = picked.iter().map(|(a, _)| *a).collect();
-                let illegal = combat::attack_restriction::validate_attack_restrictions(
+                let mut invalid = !combat::attack_restriction::validate_attack_restrictions(
                     &attacker_ids,
                     &game.cards,
-                );
-                if !illegal.is_empty() {
-                    picked.retain(|(id, _)| !illegal.contains(id));
-                }
+                )
+                .is_empty();
 
                 // Check AttackRestrict limits (global + per-defender).
                 let global_max =
@@ -121,7 +118,6 @@ impl GameLoop {
                     );
 
                 // Global limit applies to ALL attackers regardless of defender.
-                let mut invalid = false;
                 if let Some(max) = global_max {
                     if picked.len() > max as usize {
                         invalid = true;
