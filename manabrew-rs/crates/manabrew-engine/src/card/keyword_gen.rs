@@ -1175,7 +1175,7 @@ impl Card {
                 self.add_trigger(trig);
             }
             self.svars.entry("TrigWard".to_string()).or_insert_with(|| {
-                format!("DB$ Counter | Defined$ TriggeredSourceSA | UnlessCost$ {cost_str}")
+                format!("DB$ Counter | Defined$ TriggeredSourceSA | UnlessCost$ {cost_str} | UnlessPayer$ TriggeredSourceSAController")
             });
         }
 

@@ -975,33 +975,12 @@ fn resolve_unless_payers(sa: &SpellAbility, game: &GameState) -> Vec<PlayerId> {
         .unless_payer_text
         .as_deref()
         .unwrap_or("TargetedController");
-    if pays.eq_ignore_ascii_case("TargetedController") {
-        if let Some(pid) = sa.target_chosen.target_player {
-            vec![pid]
-        } else if let Some(cid) = sa.target_chosen.target_card {
-            // Card target: controller of the targeted card.
-            vec![game.card(cid).controller]
-        } else if let Some(entry) = sa
-            .target_chosen
-            .target_stack_entry
-            .and_then(|id| game.stack.find_by_id(id))
-        {
-            vec![entry.spell_ability.activating_player]
-        } else {
-            vec![game.opponent_of(sa.activating_player)]
-        }
-    } else {
-        // Use sa-aware resolution so "Remembered" / "TriggeredPlayer" / etc.
-        // work — e.g. Rottenmouth Viper's "UnlessPayer$ Remembered" has to
-        // resolve via host.remembered_players (set by ChooseGenericEffect's
-        // TempRemember$ Chooser), not fall back to the controller.
-        crate::ability::ability_utils::resolve_defined_players_with_sa(
-            pays,
-            sa,
-            sa.activating_player,
-            game,
-        )
-    }
+    crate::ability::ability_utils::resolve_defined_players_with_sa(
+        pays,
+        sa,
+        sa.activating_player,
+        game,
+    )
 }
 
 pub(crate) fn try_pay_unless_cost(
