@@ -993,9 +993,20 @@ fn matches_context_predicate(
                 _ => true,
             }
         }
-        ContextPredicate::ActivePlayerCtrl
-        | ContextPredicate::DefenderCtrl
-        | ContextPredicate::EnchantedController => false,
+        ContextPredicate::ActivePlayerCtrl => context
+            .game
+            .is_some_and(|game| game.active_player() == card.controller),
+        ContextPredicate::DefenderCtrl => match (context.game, context.combat) {
+            (Some(game), Some(combat)) => combat
+                .get_defender_by_attacker(context.source_card.id)
+                .is_some_and(|defender| defender.controlling_player(game) == card.controller),
+            _ => false,
+        },
+        ContextPredicate::EnchantedController => context
+            .source_card
+            .attached_to
+            .and_then(|attached| context.game.map(|game| game.card(attached).controller))
+            .is_some_and(|controller| controller == card.owner),
     }
 }
 
