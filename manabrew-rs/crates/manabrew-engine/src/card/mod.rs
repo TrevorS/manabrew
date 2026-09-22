@@ -2334,6 +2334,7 @@ impl Card {
         self.attacked_this_turn = false;
         self.attacks_this_turn = 0;
         self.damage_sources_this_turn.clear();
+        self.attacking_player = None;
     }
 
     /// Reset per-turn state at start of turn.
