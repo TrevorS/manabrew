@@ -183,20 +183,30 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         if sa.ir.animate_remove_creature_types {
             let card = ctx.game.card_mut(card_id);
-            card.type_line.subtypes.retain(|s| {
+            let not_creature_type = |s: &String| {
                 !crate::game::TypeRegistry::creature_types()
                     .iter()
                     .any(|ct| ct.eq_ignore_ascii_case(s))
-            });
+            };
+            card.type_line.subtypes.retain(not_creature_type);
             card.update_types();
+            if is_permanent_duration {
+                if let Some(state) = card.animate_state.as_mut() {
+                    state.original_type_line.subtypes.retain(not_creature_type);
+                }
+            }
         }
 
         // Apply type changes
         if let Some(ref types) = types_str {
             if overwrite_types {
-                ctx.game
-                    .card_mut(card_id)
-                    .set_type_line(forge_foundation::CardTypeLine::new());
+                let card = ctx.game.card_mut(card_id);
+                card.set_type_line(forge_foundation::CardTypeLine::new());
+                if is_permanent_duration {
+                    if let Some(state) = card.animate_state.as_mut() {
+                        state.original_type_line = forge_foundation::CardTypeLine::new();
+                    }
+                }
             }
             for t in types.split(',') {
                 let t = t.trim();
@@ -208,7 +218,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         }
                         .apply_effect(ctx.game.card_mut(card_id));
                     } else {
-                        ctx.game.card_mut(card_id).add_type(t);
+                        let card = ctx.game.card_mut(card_id);
+                        card.add_type(t);
+                        if is_permanent_duration {
+                            if let Some(state) = card.animate_state.as_mut() {
+                                state.original_type_line.add_type(t);
+                            }
+                        }
                     }
                 }
             }
@@ -268,11 +284,22 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .apply_effect(ctx.game.card_mut(card_id));
             }
         } else {
+            let card = ctx.game.card_mut(card_id);
             if let Some(val) = parsed_power {
-                ctx.game.card_mut(card_id).set_base_power(Some(val));
+                card.set_base_power(Some(val));
             }
             if let Some(val) = parsed_toughness {
-                ctx.game.card_mut(card_id).set_base_toughness(Some(val));
+                card.set_base_toughness(Some(val));
+            }
+            if is_permanent_duration {
+                if let Some(state) = card.animate_state.as_mut() {
+                    if parsed_power.is_some() {
+                        state.original_base_power = parsed_power;
+                    }
+                    if parsed_toughness.is_some() {
+                        state.original_base_toughness = parsed_toughness;
+                    }
+                }
             }
         }
 
@@ -400,7 +427,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
                 .apply_effect(ctx.game.card_mut(card_id));
             } else {
-                ctx.game.card_mut(card_id).set_color(new_color);
+                let card = ctx.game.card_mut(card_id);
+                card.set_color(new_color);
+                if is_permanent_duration {
+                    if let Some(state) = card.animate_state.as_mut() {
+                        state.original_color = new_color;
+                    }
+                }
             }
         }
     }
