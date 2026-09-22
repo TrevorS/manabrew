@@ -702,12 +702,17 @@ impl Card {
                 self.add_trigger(trig);
             }
             self.svars.entry("TrigExtort".to_string()).or_insert_with(|| {
-                "DB$ LoseLife | Defined$ Player.Opponent | LifeAmount$ 1 | SubAbility$ ExtortGain"
+                "AB$ LoseLife | Cost$ WB | Defined$ Player.Opponent | LifeAmount$ 1 | SubAbility$ ExtortGain"
                     .to_string()
             });
             self.svars
                 .entry("ExtortGain".to_string())
-                .or_insert_with(|| "DB$ GainLife | Defined$ You | LifeAmount$ 1".to_string());
+                .or_insert_with(|| {
+                    "DB$ GainLife | Defined$ You | LifeAmount$ AFLifeLost".to_string()
+                });
+            self.svars
+                .entry("AFLifeLost".to_string())
+                .or_insert_with(|| "Number$0".to_string());
         }
     }
 
