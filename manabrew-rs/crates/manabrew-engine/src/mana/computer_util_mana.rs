@@ -905,7 +905,6 @@ fn pay_convoke_improvise(
 pub fn adjust_cost_by_convoke_or_improvise(
     game: &GameState,
     player: PlayerId,
-    spell: CardId,
     cost: &forge_foundation::ManaCost,
     artifacts: bool,
     creatures: bool,

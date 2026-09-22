@@ -206,6 +206,7 @@ pub fn adjust_ability_mana_cost(
     activator: PlayerId,
     targets: &[CardId],
     mana_cost: &ManaCost,
+    test: bool,
 ) -> ManaCost {
     let Some(host_id) = sa.source else {
         return mana_cost.clone();
@@ -228,11 +229,12 @@ pub fn adjust_ability_mana_cost(
     }
     cost.decrease_generic_mana(sum_generic);
     let adjusted = cost.to_mana_cost();
-    let adjusted = if ability.params.has("TapCreaturesForMana")
+    let adjusted = if test
+        && ability.params.has("TapCreaturesForMana")
         && game.action_space_mana_probe == crate::mana::ActionSpaceManaProbe::ComputerUtilMana
     {
         crate::mana::computer_util_mana::adjust_cost_by_convoke_or_improvise(
-            game, activator, host_id, &adjusted, false, true,
+            game, activator, &adjusted, false, true,
         )
     } else {
         adjusted
@@ -865,7 +867,6 @@ pub fn apply_cost_reductions(
         crate::mana::computer_util_mana::adjust_cost_by_convoke_or_improvise(
             game,
             player,
-            card_id,
             cost,
             card.has_keyword("Improvise"),
             card.has_keyword("Convoke"),

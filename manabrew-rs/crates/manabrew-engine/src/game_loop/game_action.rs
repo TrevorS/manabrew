@@ -126,6 +126,7 @@ impl GameLoop {
         ab: &crate::ability::activated::ActivatedAbility,
         player: PlayerId,
         mut cost: crate::cost::Cost,
+        test: bool,
     ) -> crate::cost::Cost {
         let targets = sa.get_targets().all_target_cards();
         for part in &mut cost.parts {
@@ -134,7 +135,7 @@ impl GameLoop {
             } = part
             {
                 *mc = crate::cost::cost_adjustment::adjust_ability_mana_cost(
-                    game, sa, ab, player, &targets, mc,
+                    game, sa, ab, player, &targets, mc, test,
                 );
                 break;
             }
@@ -290,6 +291,7 @@ impl GameLoop {
                 ab,
                 player,
                 ab.cost.clone(),
+                true,
             );
             // Java announces X before paying, and nothing stops the activator choosing 0, so the
             // offer test asks whether the rest of the cost is payable. The spell path already
@@ -868,6 +870,7 @@ impl GameLoop {
             player,
             &[],
             &mana_cost.without_x(),
+            true,
         );
         let available_mana = mana::calculate_available_mana(self.pool(player), game, player);
         let mut x: u32 = 0;
@@ -960,7 +963,8 @@ impl GameLoop {
             return false;
         }
 
-        let adjusted_cost = Self::adjusted_activation_cost(game, &sa, ab, player, activation_cost);
+        let adjusted_cost =
+            Self::adjusted_activation_cost(game, &sa, ab, player, activation_cost, false);
         self.finish_activated_ability_on_stack(game, agents, player, card_id, ab, sa, adjusted_cost)
     }
 
