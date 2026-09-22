@@ -41,6 +41,31 @@ pub(super) fn matches_with_context(
     matches_valid_card_selector_with_context(selector, ctx.game.card(card_id), match_context)
 }
 
+pub(super) fn filter_change_type_candidates(
+    ctx: &EffectContext,
+    sa: &SpellAbility,
+    cards: &[CardId],
+) -> Vec<CardId> {
+    let change_type = sa.change_type().unwrap_or("");
+    if change_type.starts_with("Targeted")
+        || change_type.starts_with("Triggered")
+        || change_type.starts_with("Remembered")
+        || change_type.starts_with("Imprinted")
+    {
+        return crate::ability::ability_utils::filter_list_by_type(
+            ctx.game,
+            cards,
+            change_type,
+            sa,
+        );
+    }
+    cards
+        .iter()
+        .copied()
+        .filter(|&cid| matches_with_context(ctx, sa, cid, sa.change_type_selector()))
+        .collect()
+}
+
 /// Check if all candidates are fungible (same card name).
 /// NOTE: Not used for search parity — Java always delegates to the player
 /// controller even for fungible candidates, so we must do the same to keep

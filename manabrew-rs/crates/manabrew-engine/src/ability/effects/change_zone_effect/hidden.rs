@@ -7,7 +7,7 @@ use forge_foundation::ZoneType;
 
 use super::super::EffectContext;
 use super::helpers::{
-    can_search_library, find_opposition_agent, find_search_limit, matches_with_context,
+    can_search_library, filter_change_type_candidates, find_opposition_agent, find_search_limit,
     resolve_destination,
 };
 use super::move_cards::move_cards;
@@ -279,11 +279,7 @@ pub(super) fn resolve_hidden_origin(
                     chooser_optional,
                 )
             } else {
-                let candidates: Vec<_> = zone_cards
-                    .iter()
-                    .copied()
-                    .filter(|&cid| matches_with_context(ctx, sa, cid, sa.change_type_selector()))
-                    .collect();
+                let candidates = filter_change_type_candidates(ctx, sa, &zone_cards);
                 if sa.is_at_random() {
                     if candidates.is_empty() {
                         Vec::new()
@@ -368,11 +364,11 @@ pub(super) fn resolve_hidden_origin(
 
     if !sa.ir.origin_alternative_zones.is_empty() {
         let mut alt = sa.ir.origin_alternative_zones.clone();
-        let alt_fetch_list: Vec<_> = alt
+        let alt_cards: Vec<_> = alt
             .iter()
             .flat_map(|&z| ctx.game.cards_in_zone(z, search_player).to_vec())
-            .filter(|&cid| matches_with_context(ctx, sa, cid, sa.change_type_selector()))
             .collect();
+        let alt_fetch_list = filter_change_type_candidates(ctx, sa, &alt_cards);
         ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
         let message = format!(
             "Search library? {} card(s) match in the other zones",
@@ -511,11 +507,7 @@ pub(super) fn resolve_hidden_origin(
             chooser_optional,
         )
     } else {
-        let candidates: Vec<_> = zone_cards
-            .iter()
-            .copied()
-            .filter(|&cid| matches_with_context(ctx, sa, cid, sa.change_type_selector()))
-            .collect();
+        let candidates = filter_change_type_candidates(ctx, sa, &zone_cards);
         if sa.is_at_random() {
             if candidates.is_empty() {
                 Vec::new()
