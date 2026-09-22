@@ -22,9 +22,15 @@ use crate::trigger::TriggerType;
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let num = resolve_numeric_svar(ctx.game, sa, keys::CONNIVE_NUM, 1).max(0) as usize;
 
-    // Resolve the conniving creature: source card by default.
-    let conniver_id = if let Some(target) = sa.target_chosen.target_card {
-        target
+    // Resolve the conniving creature. Java's `getTargetCards` reads the chosen target for a
+    // targeted ability (empty, and `resolve` returns, if none was chosen — `TargetMin$ 0`
+    // makes that a real "nothing connives" case, not a fallback) and the defined card
+    // otherwise. A targeted `Connive` with no target chosen has no conniver at all.
+    let conniver_id = if sa.target_restrictions.is_some() {
+        match sa.target_chosen.target_card {
+            Some(target) => target,
+            None => return,
+        }
     } else {
         match sa.source {
             Some(id) => id,
@@ -32,11 +38,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     };
 
-    // The conniver must be on the battlefield.
-    if ctx.game.card(conniver_id).zone != ZoneType::Battlefield {
-        return;
-    }
-
+    // Java's `ConniveEffect.resolve` draws and discards unconditionally once a conniver is
+    // resolved; only the +1/+1 counter placement checks whether it is still on the
+    // battlefield, further down. A conniver that has already left (the legend rule
+    // sacrificing the trigger's own host is the common case) still draws and discards,
+    // just gains no counter.
     let controller = ctx.game.card(conniver_id).controller;
 
     // Draw N cards.
