@@ -659,7 +659,8 @@ impl DeterministicAgent {
     /// The two `toUnsuppressedString()` texts Java compares for a card with a Secondary
     /// face (Adventure, Omen): the permanent spell reads `Name - Type ...`, the secondary
     /// spell reads its `SpellDescription$` with `CARDNAME` as the secondary face's name
-    /// (`CardTraitBase.getHostName`). Which sorts first depends on the card.
+    /// (`CardTraitBase.getHostName`). A modal back face is a permanent spell too, so both
+    /// texts read `Name - Type ...`. Which sorts first depends on the card.
     fn secondary_face_texts(&self, play: PlayOption) -> Option<(String, String)> {
         self.last_game_snapshot.as_ref()?;
         let card = self
@@ -667,19 +668,22 @@ impl DeterministicAgent {
             .iter()
             .find(|c| c.id == play.card_id)?;
         let other = card.other_part.as_ref()?;
-        if other.state_name != forge_foundation::CardStateName::Secondary {
-            return None;
+        let front = format!("{} - ", card.card_name);
+        match other.state_name {
+            forge_foundation::CardStateName::Secondary => {
+                let description = other.abilities.first()?.split('|').find_map(|param| {
+                    param
+                        .trim()
+                        .strip_prefix("SpellDescription$")
+                        .map(str::trim)
+                })?;
+                Some((front, description.replace("CARDNAME", &other.name)))
+            }
+            forge_foundation::CardStateName::Backside if other.is_modal => {
+                Some((front, format!("{} - ", other.name)))
+            }
+            _ => None,
         }
-        let description = other.abilities.first()?.split('|').find_map(|param| {
-            param
-                .trim()
-                .strip_prefix("SpellDescription$")
-                .map(str::trim)
-        })?;
-        Some((
-            format!("{} - ", card.card_name),
-            description.replace("CARDNAME", &other.name),
-        ))
     }
 
     /// For a playable on a split card (`"Front // Back"` `full_name`), return
