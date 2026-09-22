@@ -580,6 +580,49 @@ impl GameLoop {
                         break;
                     }
                 }
+                CostPart::SubCounter {
+                    amount,
+                    counter_type,
+                    type_filter,
+                } => {
+                    if !self.confirm_cost_part_payment(
+                        game,
+                        agents,
+                        player,
+                        card_id,
+                        &part,
+                        api,
+                        mandatory,
+                        &context,
+                        sa.as_deref(),
+                    ) {
+                        payment_ok = false;
+                        break;
+                    }
+                    let all_or_any = matches!(
+                        amount,
+                        crate::cost::AmountSpec::Svar(s) if s == "All" || s == "Any"
+                    );
+                    if all_or_any {
+                        continue;
+                    }
+                    let amount_n = amount.resolve(game, card_id, player);
+                    let candidates = if type_filter.eq_ignore_ascii_case("CARDNAME")
+                        || type_filter.eq_ignore_ascii_case("NICKNAME")
+                    {
+                        vec![card_id]
+                    } else {
+                        crate::cost::get_sub_counter_targets(game, player, card_id, type_filter)
+                    };
+                    if amount_n <= 0
+                        || !candidates
+                            .iter()
+                            .any(|&cid| game.card(cid).counter_count(counter_type) >= amount_n)
+                    {
+                        payment_ok = false;
+                        break;
+                    }
+                }
                 _ => {
                     // Confirm decisions for parts that need them
                     if !self.confirm_cost_part_payment(
