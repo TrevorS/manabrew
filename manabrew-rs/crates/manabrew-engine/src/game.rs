@@ -255,6 +255,10 @@ pub struct GameState {
     /// Used across sub-ability chains and consumed by `ChangeZoneResolve`.
     #[serde(skip)]
     pub pending_change_zone_table: Option<CardZoneTable>,
+    /// Open batch of cards each player discarded for one event; `DiscardedAll` fires once per
+    /// player when it closes, as Java's `SpellAbilityEffect.discard`/`CostDiscard` do.
+    #[serde(skip)]
+    pub pending_discard_batch: Option<crate::HashMap<PlayerId, Vec<CardId>>>,
     /// Keep in sync with `ReplacementEffect.hasRun`: a replacement is skipped by any event
     /// raised while its own replacement runs.
     #[serde(skip)]
@@ -334,6 +338,7 @@ impl GameState {
             pending_damage_map: None,
             pending_prevent_map: None,
             pending_change_zone_table: None,
+            pending_discard_batch: None,
             replacements_running: crate::HashSet::default(),
             token_edition_pins: std::collections::BTreeMap::new(),
             last_state_battlefield: Vec::new(),

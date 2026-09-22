@@ -37,25 +37,45 @@ impl TriggerBehavior for TriggerDiscardedAll {
     ) -> bool {
         let _host_card = trigger.base.card_trait_base.host_card_id();
         let _host_controller = trigger.base.card_trait_base.host_controller(game);
-        trigger.matches_optional_valid_card_filter(&self.valid_card, params.card, game)
+        // Java's key here is singular `ValidCard`, unlike TapAll's plural `ValidCards`, and it
+        // is matched against the whole `Cards` batch.
+        let cards_match = match params.cards.as_ref() {
+            Some(cards) => cards.iter().any(|&card_id| {
+                trigger.matches_optional_valid_card_filter(&self.valid_card, Some(card_id), game)
+            }),
+            None => self.valid_card.is_none(),
+        };
+        cards_match
             && trigger.matches_optional_valid_player_filter(&self.valid_player, params.player, game)
     }
 
     fn set_triggering_objects(
         &self,
-        _trigger: &super::trigger::Trigger,
+        trigger: &super::trigger::Trigger,
         sa: &mut SpellAbility,
         params: &RunParams,
-        _game: &GameState,
+        game: &GameState,
     ) {
-        // Java: filters cards with ValidCard via CardLists.getValidCards, then sets Cards, Amount, Player, Cause
-        // TODO: ValidCard filtering skipped — free function has no access to trigger params (hasParam/getParam)
         if let Some(cards) = params.cards.as_ref() {
+            let filtered: Vec<_> = cards
+                .iter()
+                .copied()
+                .filter(|&card_id| {
+                    trigger.matches_optional_valid_card_filter(
+                        &self.valid_card,
+                        Some(card_id),
+                        game,
+                    )
+                })
+                .collect();
+            sa.set_triggering_object(
+                crate::ability::AbilityKey::Amount,
+                filtered.len().to_string(),
+            );
             sa.set_triggering_value(
                 crate::ability::AbilityKey::Cards,
-                crate::event::AbilityValue::Cards(cards.clone()),
+                crate::event::AbilityValue::Cards(filtered),
             );
-            sa.set_triggering_object(crate::ability::AbilityKey::Amount, cards.len().to_string());
         }
         if let Some(p) = params.player {
             sa.set_triggering_value(

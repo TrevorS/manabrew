@@ -170,6 +170,10 @@ impl GameState {
             },
             false,
         );
+        if let Some(batch) = self.pending_discard_batch.as_mut() {
+            batch.entry(discard_player).or_default().push(card_id);
+            return;
+        }
         trigger_handler.run_trigger(
             TriggerType::DiscardedAll,
             RunParams {
@@ -180,6 +184,37 @@ impl GameState {
             },
             false,
         );
+    }
+
+    /// Idempotent: a nested call joins the open batch rather than starting a second one.
+    pub fn begin_discard_batch(&mut self) {
+        if self.pending_discard_batch.is_none() {
+            self.pending_discard_batch = Some(crate::HashMap::default());
+        }
+    }
+
+    /// Player-turn-order so the firings are deterministic. No-ops if no batch is open.
+    pub fn end_discard_batch(&mut self, trigger_handler: &mut TriggerHandler) {
+        let Some(mut batch) = self.pending_discard_batch.take() else {
+            return;
+        };
+        for &player in &self.player_order.clone() {
+            let Some(cards) = batch.remove(&player) else {
+                continue;
+            };
+            if cards.is_empty() {
+                continue;
+            }
+            trigger_handler.run_trigger(
+                TriggerType::DiscardedAll,
+                RunParams {
+                    cards: Some(cards),
+                    player: Some(player),
+                    ..Default::default()
+                },
+                false,
+            );
+        }
     }
 
     fn move_card_internal(

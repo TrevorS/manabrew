@@ -766,6 +766,7 @@ impl GameLoop {
                     type_filter,
                     amount,
                 } => {
+                    game.begin_discard_batch();
                     if type_filter == "CARDNAME" {
                         game.discard_card(
                             card_id,
@@ -805,6 +806,7 @@ impl GameLoop {
                             amount.resolve(game, card_id, player),
                         );
                     }
+                    game.end_discard_batch(&mut self.trigger_handler);
                 }
                 CostPart::ExileFromAnyGrave {
                     amount,
@@ -1477,6 +1479,7 @@ impl GameLoop {
                                 payment_ok = false;
                                 break;
                             }
+                            game.begin_discard_batch();
                             for &cid in &chosen {
                                 game.discard_card(
                                     cid,
@@ -1486,16 +1489,20 @@ impl GameLoop {
                                     &mut self.trigger_handler,
                                 );
                             }
+                            game.end_discard_batch(&mut self.trigger_handler);
                             chosen
                         } else {
-                            self.pay_discard_cost(
+                            game.begin_discard_batch();
+                            let discarded = self.pay_discard_cost(
                                 game,
                                 agents,
                                 player,
                                 card_id,
                                 type_filter,
                                 amount.resolve(game, card_id, player),
-                            )
+                            );
+                            game.end_discard_batch(&mut self.trigger_handler);
+                            discarded
                         };
                         if type_filter != "Hand"
                             && discarded.len()

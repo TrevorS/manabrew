@@ -647,6 +647,7 @@ impl GameLoop {
                         chosen.len().min(to_discard)
                     ),
                 );
+                game.begin_discard_batch();
                 for card_id in chosen.iter().take(to_discard) {
                     if game.card(*card_id).zone == ZoneType::Hand {
                         game.discard_card(
@@ -658,6 +659,7 @@ impl GameLoop {
                         );
                     }
                 }
+                game.end_discard_batch(&mut self.trigger_handler);
             }
 
             // Rule 514.2: Remove damage from permanents and end "until end of

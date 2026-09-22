@@ -68,6 +68,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // key set to `RememberDiscardingPlayers$`; the players are collected here instead.
     let mut discarding_players: Vec<crate::ids::PlayerId> = Vec::new();
 
+    ctx.game.begin_discard_batch();
     for target_player in target_players.iter().copied() {
         let mut hand: Vec<_> = ctx
             .game
@@ -295,6 +296,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
     }
+    ctx.game.end_discard_batch(ctx.trigger_handler);
 
     if crate::parsing::raw_has_key(&sa.ability_text, "RememberDiscardingPlayers") {
         if let Some(source_id) = sa.source {

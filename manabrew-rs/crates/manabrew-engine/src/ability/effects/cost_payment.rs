@@ -547,6 +547,7 @@ fn try_pay_effect_cost(
                 amount,
                 type_filter,
             } => {
+                ctx.game.begin_discard_batch();
                 if type_filter == "Hand" {
                     let hand = ctx.game.cards_in_zone(ZoneType::Hand, payer).to_vec();
                     for cid in hand {
@@ -558,6 +559,7 @@ fn try_pay_effect_cost(
                             ctx.trigger_handler,
                         );
                     }
+                    ctx.game.end_discard_batch(ctx.trigger_handler);
                     continue;
                 }
                 for _ in 0..amount.resolve(ctx.game, source, payer) {
@@ -579,6 +581,7 @@ fn try_pay_effect_cost(
                         })
                         .collect();
                     if valid.is_empty() {
+                        ctx.game.end_discard_batch(ctx.trigger_handler);
                         return false;
                     }
                     let chosen =
@@ -593,6 +596,7 @@ fn try_pay_effect_cost(
                         );
                     }
                 }
+                ctx.game.end_discard_batch(ctx.trigger_handler);
             }
             CostPart::Sacrifice {
                 amount,
