@@ -159,6 +159,7 @@ fn pay_mana_cost_for_effect(
     payer: PlayerId,
     source: CardId,
     mana_cost: &forge_foundation::ManaCost,
+    attempt_unpayable: bool,
 ) -> bool {
     let ctx_ptr: *mut EffectContext<'_> = ctx;
     let card_name = ctx.game.card(source).card_name.clone();
@@ -166,7 +167,9 @@ fn pay_mana_cost_for_effect(
     let payable_mana_cost =
         crate::mana::apply_player_life_payment_keywords(ctx.game, payer, mana_cost);
 
-    if !can_auto_pay_mana_cost_for_effect(ctx, payer, source, &payable_mana_cost) {
+    if !attempt_unpayable
+        && !can_auto_pay_mana_cost_for_effect(ctx, payer, source, &payable_mana_cost)
+    {
         return false;
     }
 
@@ -217,11 +220,29 @@ fn pay_mana_cost_for_effect(
                 )
             };
 
-            let Some(result) = auto_result.filter(|r| !r.cancelled) else {
+            let Some(result) = auto_result else {
                 *game = saved_game;
                 mana_pools[session.player.index()] = saved_pool;
                 return None;
             };
+            if result.cancelled {
+                if !attempt_unpayable {
+                    *game = saved_game;
+                    mana_pools[session.player.index()] = saved_pool;
+                    return None;
+                }
+                let mut trace: Vec<crate::agent::ManaCostAction> = result
+                    .choices
+                    .iter()
+                    .map(|choice| crate::agent::ManaCostAction::TapForMana {
+                        card_id: choice.card_id,
+                        mana_ability_index: Some(choice.mana_ability_index.unwrap_or(0)),
+                        express_choice: choice.mana_ability_index.map(|_| choice.chosen_atom),
+                    })
+                    .collect();
+                trace.push(crate::agent::ManaCostAction::AttemptedAndFailed);
+                return Some(trace);
+            }
 
             if result.life_paid > 0 {
                 game.player_lose_life(session.player, result.life_paid);
@@ -328,14 +349,29 @@ fn pay_mana_cost_for_effect(
 
 #[derive(Clone, Copy)]
 enum EffectCostPaymentMode {
-    Unless { spell_context: bool },
+    Unless {
+        spell_context: bool,
+        attempt_unpayable: bool,
+    },
     CumulativeUpkeep,
     Echo,
 }
 
+impl EffectCostPaymentMode {
+    fn attempts_unpayable(self) -> bool {
+        matches!(
+            self,
+            EffectCostPaymentMode::Unless {
+                attempt_unpayable: true,
+                ..
+            }
+        )
+    }
+}
+
 fn should_confirm_effect_cost_part(mode: EffectCostPaymentMode, part: &CostPart) -> bool {
     match mode {
-        EffectCostPaymentMode::Unless { spell_context } => {
+        EffectCostPaymentMode::Unless { spell_context, .. } => {
             if spell_context {
                 return false;
             }
@@ -382,7 +418,15 @@ fn try_pay_effect_cost(
 ) -> bool {
     let available_mana =
         crate::mana::calculate_available_mana(&ctx.mana_pools[payer.index()], ctx.game, payer);
-    if !crate::cost::can_pay_with_ability(cost, ctx.game, &available_mana, source, payer, Some(sa))
+    if !mode.attempts_unpayable()
+        && !crate::cost::can_pay_with_ability(
+            cost,
+            ctx.game,
+            &available_mana,
+            source,
+            payer,
+            Some(sa),
+        )
     {
         return false;
     }
@@ -463,7 +507,13 @@ fn try_pay_effect_cost(
             CostPart::Mana {
                 cost: mana_cost, ..
             } => {
-                if !pay_mana_cost_for_effect(ctx, payer, source, mana_cost) {
+                if !pay_mana_cost_for_effect(
+                    ctx,
+                    payer,
+                    source,
+                    mana_cost,
+                    mode.attempts_unpayable(),
+                ) {
                     return false;
                 }
             }
@@ -755,11 +805,14 @@ fn calculate_unless_cost(game: &GameState, sa: &SpellAbility, unless_cost: &str)
     // Java leaves `UnlessCost$ X` symbolic and lets `ManaCostBeingPaid` read the X the spell
     // was cast for; there is no such late binding here, so it is substituted up front.
     if unless_cost == "X" {
-        let x_paid = sa
-            .source
-            .and_then(|card_id| game.card(card_id).svars.get("XPaid"))
-            .and_then(|value| value.parse::<i32>().ok())
-            .unwrap_or(0);
+        let x_paid = if sa.x_mana_cost_paid > 0 {
+            sa.x_mana_cost_paid as i32
+        } else {
+            sa.source
+                .and_then(|card_id| game.card(card_id).svars.get("XPaid"))
+                .and_then(|value| value.parse::<i32>().ok())
+                .unwrap_or(0)
+        };
         return Some(parse_cost(&x_paid.to_string()));
     }
 
@@ -838,6 +891,7 @@ pub(super) fn resolve_effect_with_unless_cost(
         return;
     };
     let payers = resolve_unless_payers(sa, ctx.game);
+    let attempt_unpayable = unless_cost == "X";
     let resolve_subs = sa.ir.unless_resolve_subs.as_deref();
     let exec_subs_when_paid = resolve_subs.is_none_or(|value| value == "WhenPaid");
     let exec_subs_when_not_paid = resolve_subs.is_none_or(|value| value == "WhenNotPaid");
@@ -851,14 +905,16 @@ pub(super) fn resolve_effect_with_unless_cost(
         }
         let available_mana =
             crate::mana::calculate_available_mana(&ctx.mana_pools[payer.index()], ctx.game, payer);
-        if !crate::cost::can_pay_with_ability(
-            &cost,
-            ctx.game,
-            &available_mana,
-            source,
-            payer,
-            Some(sa),
-        ) {
+        if !attempt_unpayable
+            && !crate::cost::can_pay_with_ability(
+                &cost,
+                ctx.game,
+                &available_mana,
+                source,
+                payer,
+                Some(sa),
+            )
+        {
             continue;
         }
         let cost_kind = cost.to_simple_string();
@@ -920,7 +976,17 @@ pub(super) fn resolve_effect_with_unless_cost(
         let paid = if pay_life_unless {
             try_pay_unless_cost_without_confirm(ctx, sa, source, payer, &cost)
         } else {
-            try_pay_unless_cost(ctx, sa, source, payer, &cost)
+            try_pay_effect_cost(
+                ctx,
+                sa,
+                source,
+                payer,
+                &cost,
+                EffectCostPaymentMode::Unless {
+                    spell_context: is_spell_payment_context(sa, ctx.game),
+                    attempt_unpayable,
+                },
+            )
         };
         if paid {
             already_paid = true;
@@ -1007,6 +1073,7 @@ pub(crate) fn try_pay_unless_cost(
         cost,
         EffectCostPaymentMode::Unless {
             spell_context: is_spell_payment_context(sa, ctx.game),
+            attempt_unpayable: false,
         },
     )
 }
@@ -1026,6 +1093,7 @@ fn try_pay_unless_cost_without_confirm(
         cost,
         EffectCostPaymentMode::Unless {
             spell_context: true,
+            attempt_unpayable: false,
         },
     )
 }
