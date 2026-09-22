@@ -1028,7 +1028,9 @@ fn matches_extreme_power(
         .collect();
     if let Some(reference) = controlled_by {
         cards.retain(|other| matches_controlled_by_reference(reference, other, context));
-        if !cards.iter().any(|other| other.id == card.id) {
+        if card.zone == forge_foundation::ZoneType::Battlefield
+            && !cards.iter().any(|other| other.id == card.id)
+        {
             return false;
         }
     }
@@ -1040,7 +1042,11 @@ fn matches_controlled_by_reference(
     card: &Card,
     context: MatchContext<'_>,
 ) -> bool {
-    if reference.eq_ignore_ascii_case("You") || reference.eq_ignore_ascii_case("YouCtrl") {
+    if reference.eq_ignore_ascii_case("CardController") {
+        card.controller == context.source_card.controller
+    } else if reference.eq_ignore_ascii_case("CardOwner") {
+        card.controller == context.source_card.owner
+    } else if reference.eq_ignore_ascii_case("You") || reference.eq_ignore_ascii_case("YouCtrl") {
         card.controller == context.source_controller
     } else if reference.eq_ignore_ascii_case("Opponent")
         || reference.eq_ignore_ascii_case("OppCtrl")

@@ -139,16 +139,18 @@ impl TriggerBehavior for TriggerChangesZone {
             let actual_value = match lhs {
                 "Count$CardPower" => moved.power(),
                 "Count$CardToughness" => moved.toughness(),
-                _ => {
-                    let Some(counter_name) = lhs.strip_prefix("Count$CardCounters.") else {
-                        return false;
-                    };
-                    if counter_name == "ALL" {
-                        moved.num_all_counters()
-                    } else {
-                        moved.counter_count(&parse_counter_type(counter_name))
+                _ => match lhs.strip_prefix("Count$CardCounters.") {
+                    Some("ALL") => moved.num_all_counters(),
+                    Some(counter_name) => moved.counter_count(&parse_counter_type(counter_name)),
+                    None => {
+                        let expr = game
+                            .card(host_card)
+                            .get_s_var(lhs)
+                            .map(str::to_string)
+                            .unwrap_or_else(|| lhs.to_string());
+                        crate::svar::resolve_count_svar(&expr, game, moved.id, host_controller)
                     }
-                }
+                },
             };
             if !compare_expr(actual_value, rhs) {
                 return false;
