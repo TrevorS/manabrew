@@ -329,6 +329,21 @@ pub fn add_madness_replacement(card: &mut Card) {
     }
 }
 
+pub fn add_riot_replacement(card: &mut Card) {
+    if !card.keywords.as_string_list().iter().any(|kw| kw == "Riot") {
+        return;
+    }
+    card.svars.entry("Riot".to_string()).or_insert_with(|| {
+        "DB$ Animate | Defined$ Self | Keywords$ Haste | Duration$ Permanent | UnlessCost$ AddCounter<1/P1P1> | UnlessPayer$ You | SpellDescription$ Riot".to_string()
+    });
+    let repl_str =
+        "R$ Event$ Moved | Layer$ Other | ValidCard$ Card.Self | Destination$ Battlefield \
+         | ReplacementResult$ Updated | Secondary$ True | ReplaceWith$ Riot | Description$ Riot";
+    if let Some(repl) = parse_replacement_effect(repl_str) {
+        card.add_replacement_effect(repl);
+    }
+}
+
 /// Mirrors Java `CardFactoryUtil.aaFlashback()` — registers a replacement effect
 /// that exiles the card instead of sending it to the graveyard from the stack.
 /// Java uses `ValidStackSa$ Spell.Flashback+castKeyword` but in practice the

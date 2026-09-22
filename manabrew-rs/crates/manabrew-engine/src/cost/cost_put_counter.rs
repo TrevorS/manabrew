@@ -114,6 +114,21 @@ pub fn counter_target(
         .next()
 }
 
+pub fn is_etb_replacement(
+    ability: Option<&crate::spellability::SpellAbility>,
+    source: CardId,
+    type_filter: &str,
+) -> bool {
+    if !pays_from_source(type_filter) {
+        return false;
+    }
+    let Some(sa) = ability else {
+        return false;
+    };
+    sa.get_triggering_object(crate::ability::AbilityKey::Destination) == Some("Battlefield")
+        && sa.get_triggering_card(crate::ability::AbilityKey::ReplacedCard) == Some(source)
+}
+
 pub fn can_pay(
     game: &crate::game::GameState,
     _available_mana: &crate::mana::ManaPool,
@@ -126,7 +141,8 @@ pub fn can_pay(
         return false;
     };
     if pays_from_source(type_filter) {
-        return game.card(source).zone == forge_foundation::ZoneType::Battlefield;
+        return is_etb_replacement(ability, source, type_filter)
+            || game.card(source).zone == forge_foundation::ZoneType::Battlefield;
     }
     !candidates(game, source, ability, type_filter).is_empty()
 }

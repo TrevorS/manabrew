@@ -505,23 +505,32 @@ fn try_pay_effect_cost(
             CostPart::AddCounter {
                 amount,
                 counter_type,
-                ..
+                type_filter,
             } => {
                 let amount_n = amount.resolve(ctx.game, source, payer);
-                crate::ability::effects::effect_context::add_counter_with_context(
-                    ctx.game,
-                    Some(ctx.trigger_handler),
-                    Some(ctx.agents),
-                    source,
-                    counter_type,
-                    amount_n,
-                    crate::event::RunParams {
-                        source_player: Some(payer),
-                        cause: Some(sa.clone()),
-                        ..Default::default()
-                    },
-                    true,
-                );
+                if crate::cost::cost_put_counter::is_etb_replacement(Some(sa), source, type_filter)
+                {
+                    ctx.game.card_mut(source).add_etb_counter(
+                        Some(payer),
+                        counter_type.clone(),
+                        amount_n,
+                    );
+                } else {
+                    crate::ability::effects::effect_context::add_counter_with_context(
+                        ctx.game,
+                        Some(ctx.trigger_handler),
+                        Some(ctx.agents),
+                        source,
+                        counter_type,
+                        amount_n,
+                        crate::event::RunParams {
+                            source_player: Some(payer),
+                            cause: Some(sa.clone()),
+                            ..Default::default()
+                        },
+                        true,
+                    );
+                }
             }
             CostPart::Discard {
                 amount,

@@ -1004,27 +1004,6 @@ impl Card {
             }
         }
 
-        if kw == "Riot" {
-            let raw = "Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigRiot | TriggerDescription$ Riot";
-            if let Some(mut trig) = parse_trigger(raw, next_id) {
-                trig.execute = "TrigRiot".to_string();
-                self.add_trigger(trig);
-            }
-            self.svars
-                .entry("TrigRiot".to_string())
-                .or_insert_with(|| "SP$ Charm | Choices$ RiotCounter,RiotHaste".to_string());
-            self.svars
-                .entry("RiotCounter".to_string())
-                .or_insert_with(|| {
-                    "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1 | SpellDescription$ Put a +1/+1 counter on this creature".to_string()
-                });
-            self.svars
-                .entry("RiotHaste".to_string())
-                .or_insert_with(|| {
-                    "DB$ Pump | Defined$ Self | KW$ Haste | SpellDescription$ This creature gains haste".to_string()
-                });
-        }
-
         if kw == "Unleash" {
             let raw = "Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigUnleash | TriggerDescription$ Unleash";
             if let Some(mut trig) = parse_trigger(raw, next_id) {
