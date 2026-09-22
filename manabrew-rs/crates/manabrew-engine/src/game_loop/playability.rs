@@ -1189,6 +1189,37 @@ impl GameLoop {
                             });
                         }
                     }
+                    if let Some(warp_cost) = card.get_warp_cost() {
+                        let mut warp_sa = normal_sa.clone();
+                        warp_sa.alt_cost = Some(crate::spellability::AlternativeCost::Warp);
+                        let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
+                            game,
+                            card,
+                            player,
+                            ZoneType::Graveyard,
+                        );
+                        if (!must_be_instant || has_flash_permission(card_id))
+                            && accepting_may_play_grants(card_id, &warp_sa) > 0
+                            && self
+                                .available_mana_for_spell_card(
+                                    game,
+                                    player,
+                                    card_id,
+                                    &chosen_types_by_source,
+                                )
+                                .can_pay(
+                                    &cost_adj.apply(&forge_foundation::ManaCost::parse(&warp_cost)),
+                                )
+                        {
+                            playable.push(crate::agent::PlayOption {
+                                card_id,
+                                mode: crate::agent::PlayCardMode::Alternative(
+                                    crate::spellability::AlternativeCost::Warp,
+                                ),
+                                alt_cost_index: 0,
+                            });
+                        }
+                    }
                     if let Some(sneak_cost) = card.get_sneak_cost().filter(|_| sneak_window(card)) {
                         let mut sneak_sa = normal_sa;
                         sneak_sa.alt_cost = Some(crate::spellability::AlternativeCost::Sneak);
