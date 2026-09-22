@@ -760,6 +760,9 @@ impl GameState {
                         card.keywords = orig_kws;
                         card.update_keywords();
                     }
+                    for ts in state.trait_change_timestamps {
+                        card.remove_changed_card_traits(ts, 0);
+                    }
                 }
                 // After the until-end-of-turn snapshot: that snapshot can hold what a lasting
                 // change (Earthbend) made, and the baseline predates both.

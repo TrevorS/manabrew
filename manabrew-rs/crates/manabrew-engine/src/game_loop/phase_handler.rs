@@ -772,6 +772,9 @@ impl GameLoop {
                         state.original_base_toughness,
                         state.original_color,
                     );
+                    for ts in state.trait_change_timestamps {
+                        game.cards[i].remove_changed_card_traits(ts, 0);
+                    }
                     game.cards[i].clear_damage();
                 }
                 if game.cards[i]

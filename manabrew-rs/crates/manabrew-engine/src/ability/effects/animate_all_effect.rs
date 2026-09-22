@@ -150,6 +150,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     original_base_toughness,
                     original_color,
                     original_keywords: Some(original_keywords),
+                    trait_change_timestamps: Vec::new(),
                 }));
         }
 

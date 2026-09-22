@@ -475,6 +475,7 @@ pub struct SpellAbilityIr {
     pub animate_keywords_text: Option<String>,
     pub animate_remove_keywords_text: Option<String>,
     pub animate_triggers_text: Option<String>,
+    pub animate_static_abilities_text: Option<String>,
     pub animate_colors_text: Option<String>,
     pub overwrite_colors: bool,
     pub animate_overwrite_types: bool,
@@ -1048,6 +1049,9 @@ impl SpellAbilityIr {
             animate_keywords_text: params.get(keys::KEYWORDS).map(str::to_string),
             animate_remove_keywords_text: params.get("RemoveKeywords").map(str::to_string),
             animate_triggers_text: params.get(keys::TRIGGERS).map(str::to_string),
+            animate_static_abilities_text: params
+                .get(keys::ANIMATE_STATIC_ABILITIES)
+                .map(str::to_string),
             animate_colors_text: params.get("Colors").map(str::to_string),
             overwrite_colors: parsed_true(params.get(keys::OVERWRITE_COLORS)),
             animate_overwrite_types: parsed_true(params.get("OverwriteTypes")),

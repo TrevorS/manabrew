@@ -228,6 +228,8 @@ pub struct AnimateState {
     /// (e.g. Animate `Keywords$ Haste`) do not persist into the new object.
     #[serde(default)]
     pub original_keywords: Option<crate::keyword::keyword_collection::KeywordCollection>,
+    #[serde(default)]
+    pub trait_change_timestamps: Vec<i64>,
 }
 
 /// Saved pre-clone copiable characteristics.

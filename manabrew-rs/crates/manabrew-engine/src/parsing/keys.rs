@@ -367,6 +367,7 @@ pub const TRIGGER: &str = "Trigger";
 pub const TRIGGER_DESCRIPTION: &str = "TriggerDescription";
 pub const TRIGGER_ZONES: &str = "TriggerZones";
 pub const TRIGGERS: &str = "Triggers";
+pub const ANIMATE_STATIC_ABILITIES: &str = "staticAbilities";
 pub const ACTIVATOR: &str = "Activator";
 pub const ACTIVATOR_THIS_TURN_CAST: &str = "ActivatorThisTurnCast";
 pub const CASTER: &str = "Caster";

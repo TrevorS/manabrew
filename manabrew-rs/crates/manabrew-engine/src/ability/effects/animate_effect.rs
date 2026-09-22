@@ -127,6 +127,19 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
+    let mut parsed_statics: Vec<crate::staticability::StaticAbility> = Vec::new();
+    if let Some(ref names) = sa.ir.animate_static_abilities_text {
+        let source_id = sa.source.unwrap_or(crate::ids::CardId(0));
+        let source_svars = &ctx.game.card(source_id).svars;
+        for name in names.split(',') {
+            if let Some(text) = source_svars.get(name.trim()) {
+                if let Some(st) = crate::staticability::parse_static_ability(text) {
+                    parsed_statics.push(st);
+                }
+            }
+        }
+    }
+
     // Snapshot target IDs for AtEOT$ delayed trigger registration after the loop.
     let eot_targets = target_ids.clone();
 
@@ -178,6 +191,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     original_base_toughness,
                     original_color,
                     original_keywords: Some(original_keywords),
+                    trait_change_timestamps: Vec::new(),
                 }));
         }
 
@@ -403,6 +417,28 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             // Re-register this card's triggers so the new ones are active
             ctx.trigger_handler
                 .register_active_trigger(ctx.game, card_id);
+        }
+
+        if !parsed_statics.is_empty() {
+            let changes = CardTraitChanges {
+                static_abilities: parsed_statics.clone(),
+                ..Default::default()
+            };
+            if let Some(ts) = effect_ts {
+                perpetual_abilities::PerpetualAbilities {
+                    timestamp: ts,
+                    changes,
+                }
+                .apply_effect(ctx.game.card_mut(card_id));
+            } else {
+                let card = ctx.game.card_mut(card_id);
+                card.add_changed_card_traits(changes, resolve_ts, 0);
+                if !is_permanent_duration {
+                    if let Some(state) = card.animate_state.as_mut() {
+                        state.trait_change_timestamps.push(resolve_ts);
+                    }
+                }
+            }
         }
 
         // Apply color
