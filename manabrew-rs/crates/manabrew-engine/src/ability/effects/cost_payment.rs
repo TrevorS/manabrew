@@ -736,7 +736,7 @@ fn try_pay_effect_cost(
                 type_filter,
                 from,
             } => {
-                if type_filter == "CARDNAME" {
+                if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
                     let owner = ctx.game.card(source).owner;
                     let origin = ctx.game.card(source).zone;
                     ctx.move_card(source, ZoneType::Exile, owner);

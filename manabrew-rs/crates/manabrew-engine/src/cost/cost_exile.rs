@@ -54,7 +54,10 @@ pub fn can_pay(
             if type_filter == "All" {
                 return true;
             }
-            if type_filter == "CARDNAME" || type_filter == "OriginalHost" {
+            if type_filter == "CARDNAME"
+                || type_filter == "NICKNAME"
+                || type_filter == "OriginalHost"
+            {
                 if card.zone != *from {
                     return false;
                 }
@@ -243,7 +246,10 @@ pub fn pay_with_decision(
 ) -> bool {
     match part {
         super::CostPart::Exile { type_filter, .. } => {
-            if type_filter == "CARDNAME" || type_filter == "OriginalHost" {
+            if type_filter == "CARDNAME"
+                || type_filter == "NICKNAME"
+                || type_filter == "OriginalHost"
+            {
                 pay_as_decided_self(game, source)
             } else if let crate::cost::payment_decision::PaymentDecision::Cards(cards) = decision {
                 pay_as_decided_cards(game, cards)

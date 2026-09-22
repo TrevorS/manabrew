@@ -56,7 +56,7 @@ pub fn can_pay(
         return false;
     };
     let card = game.card(source);
-    if type_filter == "CARDNAME" {
+    if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
         return card.zone == ZoneType::Hand;
     }
     if type_filter == "Hand" {

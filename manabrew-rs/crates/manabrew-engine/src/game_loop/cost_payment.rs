@@ -282,6 +282,7 @@ impl GameLoop {
             } => {
                 type_filter == "All"
                     || type_filter == "CARDNAME"
+                    || type_filter == "NICKNAME"
                     || type_filter == "OriginalHost"
                     || *from == ZoneType::Library
             }
@@ -450,7 +451,7 @@ impl GameLoop {
                     type_filter,
                     amount,
                 } => {
-                    if type_filter != "CARDNAME" {
+                    if type_filter != "CARDNAME" && type_filter != "NICKNAME" {
                         if !self.confirm_cost_part_payment(
                             game,
                             agents,
@@ -900,7 +901,7 @@ impl GameLoop {
                     amount,
                 } => {
                     game.begin_discard_batch();
-                    if type_filter == "CARDNAME" {
+                    if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
                         game.discard_card(
                             card_id,
                             player,
@@ -1022,7 +1023,10 @@ impl GameLoop {
                     type_filter,
                     from,
                 } => {
-                    if type_filter == "CARDNAME" || type_filter == "OriginalHost" {
+                    if type_filter == "CARDNAME"
+                        || type_filter == "NICKNAME"
+                        || type_filter == "OriginalHost"
+                    {
                         self.move_card_with_runtime(
                             game,
                             card_id,
@@ -1705,7 +1709,10 @@ impl GameLoop {
                     type_filter,
                     from,
                 } => {
-                    if type_filter == "CARDNAME" || type_filter == "OriginalHost" {
+                    if type_filter == "CARDNAME"
+                        || type_filter == "NICKNAME"
+                        || type_filter == "OriginalHost"
+                    {
                         if game.card(card_id).zone == *from {
                             let owner = game.card(card_id).owner;
                             self.move_card_with_runtime(
