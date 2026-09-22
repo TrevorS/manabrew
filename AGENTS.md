@@ -31,7 +31,7 @@ Symptom-only fixes will be rejected in review. Full workflow: `docs/agents/ENGIN
 
 The project is large; every line is a long-term liability. Before adding code:
 
-- **Read first.** Inspect the Java counterpart and the existing Rust file. To find which cards use an API or parameter, and whether the engine mentions it, use `parity query` (see `manabrew-rs/crates/parity/AGENTS.md`); `yarn scan` and the `scan-feature-parity` command point at a script that no longer exists.
+- **Read first.** Inspect the Java counterpart and the existing Rust file. To find which cards use an API or parameter, and whether the engine mentions it, use `parity query` (see `manabrew-rs/crates/parity/AGENTS.md`).
 - **Mirror Java structure exactly.** Same file names (snake_case), same module layout, same method names. Do not invent. See `docs/agents/PARITY_PHILOSOPHY.md`.
 - **Extend before creating.** Prefer adding to the existing file that already mirrors the Java side over a new one.
 - **No premature abstraction.** Three similar lines beat a clever generic. No defensive code at internal boundaries. No speculative error handling.

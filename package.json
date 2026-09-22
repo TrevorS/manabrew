@@ -57,7 +57,6 @@
     "parity:ab": "node scripts/parity-ab.mjs",
     "parity:ir-audit": "python3 scripts/parity-ir-audit.py",
     "parity:test": "node scripts/harness.mjs ensure && cargo run --profile parity -p parity --bin parity -- --java-jar forge-harness/target/forge-harness-jar-with-dependencies.jar",
-    "scan": "node scan_structure.cjs",
     "import-deck": "tsx scripts/import-deck.ts",
     "enrich-presets": "node scripts/enrich-preset-decks.mjs",
     "format-engine": "cargo fmt --manifest-path Cargo.toml -p forge-foundation -p forge-carddb -pmanabrew-engine  -p manabrew-server -p parity -p wasm -p manabrew-agent-interface",
