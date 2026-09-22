@@ -3,6 +3,7 @@
 use crate::HashSet;
 
 use crate::card::Card;
+use crate::core::HasSVars;
 use crate::parsing::{keys, Params};
 use crate::replacement::parse_replacement_effect;
 use crate::replacement::ReplacementEffect;
@@ -329,17 +330,24 @@ pub fn add_madness_replacement(card: &mut Card) {
     }
 }
 
+pub fn riot_replacement(intrinsic: bool) -> Option<ReplacementEffect> {
+    let repl_str =
+        "R$ Event$ Moved | Layer$ Other | ValidCard$ Card.Self | Destination$ Battlefield \
+         | ReplacementResult$ Updated | Secondary$ True | ReplaceWith$ Riot | Description$ Riot";
+    let mut replacement = parse_replacement_effect(repl_str)?;
+    replacement.base.card_trait_base.set_intrinsic(intrinsic);
+    replacement.base.card_trait_base.set_svar(
+        "Riot".to_string(),
+        "DB$ Animate | Defined$ Self | Keywords$ Haste | Duration$ Permanent | UnlessCost$ AddCounter<1/P1P1> | UnlessPayer$ You | SpellDescription$ Riot".to_string(),
+    );
+    Some(replacement)
+}
+
 pub fn add_riot_replacement(card: &mut Card) {
     if !card.keywords.as_string_list().iter().any(|kw| kw == "Riot") {
         return;
     }
-    card.svars.entry("Riot".to_string()).or_insert_with(|| {
-        "DB$ Animate | Defined$ Self | Keywords$ Haste | Duration$ Permanent | UnlessCost$ AddCounter<1/P1P1> | UnlessPayer$ You | SpellDescription$ Riot".to_string()
-    });
-    let repl_str =
-        "R$ Event$ Moved | Layer$ Other | ValidCard$ Card.Self | Destination$ Battlefield \
-         | ReplacementResult$ Updated | Secondary$ True | ReplaceWith$ Riot | Description$ Riot";
-    if let Some(repl) = parse_replacement_effect(repl_str) {
+    if let Some(repl) = riot_replacement(true) {
         card.add_replacement_effect(repl);
     }
 }

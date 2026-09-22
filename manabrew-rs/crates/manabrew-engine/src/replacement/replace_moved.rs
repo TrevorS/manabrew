@@ -197,7 +197,10 @@ pub(super) fn execute_replace_with(
     agents: Option<&mut [Box<dyn PlayerAgent>]>,
     runtime: Option<&mut ReplacementRuntime<'_>>,
 ) -> bool {
-    let Some(raw) = game.card(source_card_id).svars.get(replace_with).cloned() else {
+    let Some(raw) = crate::core::HasSVars::get_svar(&effect.base.card_trait_base, replace_with)
+        .map(str::to_string)
+        .or_else(|| game.card(source_card_id).svars.get(replace_with).cloned())
+    else {
         return false;
     };
     let controller = game.card(source_card_id).controller;

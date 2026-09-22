@@ -802,6 +802,10 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     type_changed.sort_unstable_by_key(|id| id.0);
     type_changed.dedup();
 
+    let mut granted_keyword_replacements: indexmap::IndexMap<
+        CardId,
+        Vec<crate::replacement::replacement_effect::ReplacementEffect>,
+    > = indexmap::IndexMap::new();
     for effect in pending {
         match effect.kind {
             EffectKind::SetController { controller } => {
@@ -845,6 +849,14 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             EffectKind::GrantKeyword(kw) => {
                 let card = &mut game.cards[effect.target.index()];
                 card.granted_keywords.add(&kw);
+                if kw == "Riot" {
+                    if let Some(re) = crate::card::card_factory_util::riot_replacement(false) {
+                        granted_keyword_replacements
+                            .entry(effect.target)
+                            .or_default()
+                            .push(re);
+                    }
+                }
                 if let Some(cost_str) = crate::keyword::extract_keyword_cost_str(&kw, "Plot") {
                     let cost = if cost_str == "CardManaCost" {
                         card.mana_cost.to_string()
@@ -979,6 +991,16 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 }
             }
         }
+    }
+    for (target, replacements) in granted_keyword_replacements {
+        game.cards[target.index()].add_changed_card_traits(
+            crate::card::card_trait_changes::CardTraitChanges {
+                replacements,
+                ..Default::default()
+            },
+            0,
+            -2,
+        );
     }
 
     for target in type_changed {

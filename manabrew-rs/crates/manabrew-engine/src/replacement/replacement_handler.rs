@@ -309,9 +309,21 @@ impl ReplacementHandler {
     pub fn run(
         &mut self,
         game: &mut GameState,
+        agents: Option<&mut [Box<dyn PlayerAgent>]>,
+        runtime: Option<&mut ReplacementRuntime<'_>>,
+        event: &mut ReplacementEvent,
+    ) -> ReplacementResult {
+        let pre_list = battlefield_pre_list(game, event);
+        self.run_with_pre_list(game, agents, runtime, event, pre_list.as_ref())
+    }
+
+    fn run_with_pre_list(
+        &mut self,
+        game: &mut GameState,
         mut agents: Option<&mut [Box<dyn PlayerAgent>]>,
         mut runtime: Option<&mut ReplacementRuntime<'_>>,
         event: &mut ReplacementEvent,
+        pre_list: Option<&Card>,
     ) -> ReplacementResult {
         for layer in [
             ReplacementLayer::CantHappen,
@@ -326,13 +338,14 @@ impl ReplacementHandler {
                 runtime.as_deref_mut(),
                 event,
                 layer,
+                pre_list,
             );
             match result {
                 ReplacementResult::NotReplaced => continue,
                 ReplacementResult::Updated => {
                     // Java preserves Updated unless a later replacement fully
                     // replaces the event during the re-run.
-                    return match self.run(game, agents, runtime, event) {
+                    return match self.run_with_pre_list(game, agents, runtime, event, pre_list) {
                         ReplacementResult::NotReplaced | ReplacementResult::Updated => {
                             ReplacementResult::Updated
                         }
@@ -353,8 +366,9 @@ impl ReplacementHandler {
         mut runtime: Option<&mut ReplacementRuntime<'_>>,
         event: &mut ReplacementEvent,
         layer: ReplacementLayer,
+        pre_list: Option<&Card>,
     ) -> ReplacementResult {
-        let effects = collect_effects(game, event, layer);
+        let effects = collect_effects(game, event, layer, pre_list);
         let mut declined_effects: HashSet<(CardId, usize)> = HashSet::default();
 
         if effects.is_empty() {
@@ -894,8 +908,35 @@ fn resolve_replace_card_key(expr: &str, source_card_id: CardId) -> Option<CardId
 ///
 /// Mirrors Java `ReplacementHandler.cantHappenCheck()`.
 pub fn cant_happen_check(game: &GameState, event: &ReplacementEvent) -> bool {
-    let effects = collect_effects(game, event, ReplacementLayer::CantHappen);
+    let effects = collect_effects(game, event, ReplacementLayer::CantHappen, None);
     !effects.is_empty()
+}
+
+fn battlefield_pre_list(game: &GameState, event: &ReplacementEvent) -> Option<Card> {
+    let ReplacementEvent::Moved {
+        card,
+        destination: ZoneType::Battlefield,
+        ..
+    } = event
+    else {
+        return None;
+    };
+    let grants_keyword_trait = game.cards.iter().any(|host| {
+        host.zone.is_static_ability_source()
+            && host.static_abilities.iter().any(|st| {
+                st.ir
+                    .add_keyword_text
+                    .as_deref()
+                    .is_some_and(|keywords| keywords.contains("Riot"))
+            })
+    });
+    if !grants_keyword_trait {
+        return None;
+    }
+    let mut pre = game.clone();
+    pre.cards[card.index()].zone = ZoneType::Battlefield;
+    crate::staticability::layer::apply_continuous_effects(&mut pre);
+    Some(pre.cards[card.index()].clone())
 }
 
 /// Apply replacement effects specifically for damage events.
@@ -1043,6 +1084,7 @@ fn collect_effects(
     game: &GameState,
     event: &ReplacementEvent,
     layer: ReplacementLayer,
+    pre_list: Option<&Card>,
 ) -> Vec<(CardId, ReplacementEffect, usize)> {
     let _perf_scope =
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::Replacement);
@@ -1092,6 +1134,7 @@ fn collect_effects(
     let mut result = Vec::new();
     for (i, card) in game.cards.iter().enumerate() {
         let card_id = CardId(i as u32);
+        let card = pre_list.filter(|pre| pre.id == card_id).unwrap_or(card);
 
         let rules_effects = card.rules_replacement_effects();
         for (effect_idx_in_card, re) in card
