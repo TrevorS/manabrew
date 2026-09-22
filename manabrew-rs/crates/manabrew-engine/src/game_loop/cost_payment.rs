@@ -3443,7 +3443,7 @@ impl GameLoop {
     }
 
     /// Blight as a cost: put -1/-1 counters on creatures you control.
-    fn blight_targets(game: &GameState, player: PlayerId) -> Vec<CardId> {
+    pub(crate) fn blight_targets(game: &GameState, player: PlayerId) -> Vec<CardId> {
         game.cards_in_zone(ZoneType::Battlefield, player)
             .iter()
             .copied()

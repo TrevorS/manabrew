@@ -445,6 +445,7 @@ fn try_pay_effect_cost(
                 | CostPart::Discard { .. }
                 | CostPart::Sacrifice { .. }
                 | CostPart::AddCounter { .. }
+                | CostPart::Blight(_)
                 | CostPart::AddMana { .. }
                 | CostPart::Behold { exile: false, .. }
                 | CostPart::Exile { .. }
@@ -675,6 +676,34 @@ fn try_pay_effect_cost(
                         );
                     }
                 }
+            }
+            CostPart::Blight(amount) => {
+                let choices: Vec<crate::agent::GameEntity> =
+                    crate::game_loop::GameLoop::blight_targets(ctx.game, payer)
+                        .into_iter()
+                        .map(crate::agent::GameEntity::Card)
+                        .collect();
+                ctx.agents[payer.index()].snapshot_state(ctx.game, ctx.mana_pools);
+                let Some(crate::agent::GameEntity::Card(chosen)) = ctx.agents[payer.index()]
+                    .choose_single_entity_for_effect(payer, &choices, false)
+                else {
+                    return false;
+                };
+                let amount_n = amount.resolve(ctx.game, source, payer);
+                crate::ability::effects::effect_context::add_counter_with_context(
+                    ctx.game,
+                    Some(ctx.trigger_handler),
+                    Some(ctx.agents),
+                    chosen,
+                    &crate::card::CounterType::M1M1,
+                    amount_n,
+                    crate::event::RunParams {
+                        source_player: Some(payer),
+                        cause: Some(sa.clone()),
+                        ..Default::default()
+                    },
+                    true,
+                );
             }
             CostPart::AddMana { .. } => {}
             CostPart::Exile {
