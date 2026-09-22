@@ -407,18 +407,25 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         // Apply color
         if let Some(ref colors) = colors_str {
-            let mut new_color = ColorSet::COLORLESS;
-            for c in colors.split(',') {
-                let c = c.trim().to_lowercase();
-                match c.as_str() {
-                    "white" | "w" => new_color = new_color.union(ColorSet::WHITE),
-                    "blue" | "u" => new_color = new_color.union(ColorSet::BLUE),
-                    "black" | "b" => new_color = new_color.union(ColorSet::BLACK),
-                    "red" | "r" => new_color = new_color.union(ColorSet::RED),
-                    "green" | "g" => new_color = new_color.union(ColorSet::GREEN),
-                    _ => {}
-                }
-            }
+            let new_color = if colors == "ChosenColor" {
+                ColorSet::from_mask(sa.source.map_or(0, |src| {
+                    ctx.game
+                        .card(src)
+                        .chosen_colors
+                        .iter()
+                        .filter_map(|name| forge_foundation::Color::from_name(name))
+                        .fold(0u8, |acc, color| acc | color.mask())
+                }))
+            } else if colors == "All" {
+                ColorSet::ALL_COLORS
+            } else {
+                ColorSet::from_mask(
+                    colors
+                        .split(',')
+                        .filter_map(|name| forge_foundation::Color::from_name(name.trim()))
+                        .fold(0u8, |acc, color| acc | color.mask()),
+                )
+            };
             if let Some(ts) = effect_ts {
                 perpetual_colors::PerpetualColors {
                     timestamp: ts,
