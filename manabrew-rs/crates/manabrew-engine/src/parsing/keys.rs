@@ -578,6 +578,7 @@ pub const COMBAT: &str = "Combat";
 pub const SEARCHED: &str = "Searched";
 pub const SHARE_LAND_TYPE: &str = "ShareLandType";
 pub const SHUFFLE_CHANGED_PILE: &str = "ShuffleChangedPile";
+pub const SHUFFLE_NON_MANDATORY: &str = "ShuffleNonMandatory";
 pub const SNEAK: &str = "Sneak";
 pub const TRACK_DISCARDED: &str = "TrackDiscarded";
 pub const UNEARTH: &str = "Unearth";

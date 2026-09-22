@@ -169,6 +169,19 @@ pub(super) fn resolve_known_origin(
         Vec::new()
     };
 
+    if sa.ir.shuffle_non_mandatory
+        && !ctx.agents[controller.index()].confirm_action(
+            controller,
+            None,
+            "Do you want to shuffle the library?",
+            &[],
+            sa.source,
+            Some(crate::ability::api_type::ApiType::ChangeZone),
+        )
+    {
+        return;
+    }
+
     // Optional$ True — Java mirrors the per-card confirm at
     // `ChangeZoneEffect.java:558-561`: ask the chooser whether to move each
     // card individually and skip non-confirmed cards. Without this prompt,
