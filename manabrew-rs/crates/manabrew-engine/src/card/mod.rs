@@ -2030,7 +2030,8 @@ impl Card {
 
     /// Get Toxic count (e.g. "Toxic:1" → Some(1)).
     pub fn get_toxic_count(&self) -> Option<i32> {
-        self.get_keyword_cost("Toxic").and_then(|s| s.parse().ok())
+        let magnitude = self.get_keyword_magnitude("Toxic");
+        (magnitude > 0).then_some(magnitude)
     }
 
     /// Whether this card has the Storm keyword.

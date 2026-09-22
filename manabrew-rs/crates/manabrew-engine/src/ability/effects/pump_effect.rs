@@ -136,6 +136,34 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
+    if let (Some(defined), Some(host)) = (
+        crate::parsing::raw_get(&sa.ability_text, "DefinedKW"),
+        sa.source,
+    ) {
+        if defined == "ChosenType" {
+            let Some(chosen) = ctx.game.card(host).chosen_type.clone() else {
+                return;
+            };
+            for kw in &mut keywords {
+                *kw = kw.replace(defined, &chosen);
+            }
+        } else if defined == "ChosenColor" {
+            let Some(chosen) = ctx.game.card(host).chosen_colors.first().cloned() else {
+                return;
+            };
+            let lower = chosen.to_lowercase();
+            let mut capitalized = lower.clone();
+            if let Some(first) = capitalized.get_mut(0..1) {
+                first.make_ascii_uppercase();
+            }
+            for kw in &mut keywords {
+                *kw = kw
+                    .replace("ChosenColor", &capitalized)
+                    .replace("chosenColor", &lower);
+            }
+        }
+    }
+
     // `CanBlockAny$` — synthetic keyword grant (Java L79–L85 / L240–L253).
     // Rust has no dedicated `addCanBlockAny` / `addCanBlockAdditional`, so we
     // encode the permission as pump keywords that block-restriction code can

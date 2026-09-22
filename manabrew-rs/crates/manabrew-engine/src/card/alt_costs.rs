@@ -155,6 +155,33 @@ impl Card {
         )
     }
 
+    pub fn get_keyword_magnitude(&self, keyword: &str) -> i32 {
+        let mut count = 0;
+        for coll in [&self.keywords, &self.granted_keywords, &self.pump_keywords] {
+            for kw in coll.iter_strings() {
+                let parse: Vec<&str> = if kw.contains(':') {
+                    kw.split(':').collect()
+                } else {
+                    kw.split(' ').collect()
+                };
+                if parse[0] != keyword {
+                    continue;
+                }
+                if parse.len() < 2 {
+                    count += 1;
+                    continue;
+                }
+                let s = parse[1];
+                if let Ok(n) = s.parse::<i32>() {
+                    count += n;
+                } else if let Some(n) = self.svars.get(s).and_then(|v| v.parse::<i32>().ok()) {
+                    count += n;
+                }
+            }
+        }
+        count
+    }
+
     /// Get a keyword's numeric amount (e.g. "Dredge:2" → Some(2)).
     pub fn get_keyword_amount(&self, keyword: &str) -> Option<usize> {
         self.get_keyword_cost(keyword)
