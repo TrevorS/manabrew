@@ -83,6 +83,21 @@ fn add_players_from_remembered(
     }
 }
 
+fn imprinted_players_for_def(def: &str, sa: &SpellAbility, game: &GameState) -> Vec<PlayerId> {
+    let mut players = Vec::new();
+    let Some(source) = sa.source else {
+        return players;
+    };
+    for cid in game.card(source).imprinted_cards.clone() {
+        if def.ends_with("Controller") {
+            push_unique_player(&mut players, game.card(cid).controller);
+        } else if def.ends_with("Owner") {
+            push_unique_player(&mut players, game.card(cid).owner);
+        }
+    }
+    players
+}
+
 fn remembered_players_for_def(def: &str, sa: &SpellAbility, game: &GameState) -> Vec<PlayerId> {
     let mut players = Vec::new();
     if let Some(source) = sa.source {
@@ -431,6 +446,9 @@ pub fn resolve_defined_player_with_sa(
         _ if key.starts_with("Remembered") => {
             remembered_players_for_def(key, sa, game).into_iter().next()
         }
+        _ if key.starts_with("Imprinted") => {
+            imprinted_players_for_def(key, sa, game).into_iter().next()
+        }
         "TriggeredPlayer" | "Targeted" | "TargetedPlayer" => sa
             .target_chosen
             .all_target_players()
@@ -585,6 +603,7 @@ pub fn resolve_defined_players_with_sa(
             players
         }
         _ if key.starts_with("Remembered") => remembered_players_for_def(key, sa, game),
+        _ if key.starts_with("Imprinted") => imprinted_players_for_def(key, sa, game),
         "IsRemembered" => remembered_players_for_def("Remembered", sa, game),
         "TriggeredPlayer" | "Targeted" | "TargetedPlayer" => {
             let mut players = Vec::new();
