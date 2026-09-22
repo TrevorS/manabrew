@@ -652,6 +652,7 @@ fn matches_card_predicate(
         SelectorPredicate::RememberedCard => context.remembered_cards.contains(&card.id),
         SelectorPredicate::TriggerRememberedCard => is_trigger_remembered(card, context),
         SelectorPredicate::EffectSource => context.source_card.effect_source == Some(card.id),
+        SelectorPredicate::NoName => card.has_no_name(),
         SelectorPredicate::SourceColor(color) => matches_card_color(*color, card),
         SelectorPredicate::SourceColorless => card.color.is_colorless(),
         SelectorPredicate::ChosenColorSource => matches_chosen_color_source(card, context),
@@ -2824,6 +2825,7 @@ fn matches_player_predicate(
         | SelectorPredicate::RememberedCard
         | SelectorPredicate::TriggerRememberedCard
         | SelectorPredicate::EffectSource
+        | SelectorPredicate::NoName
         | SelectorPredicate::Commander
         | SelectorPredicate::Legendary
         | SelectorPredicate::PowerLtToughness

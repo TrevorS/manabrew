@@ -238,6 +238,7 @@ pub enum SelectorPredicate {
     RememberedCard,
     TriggerRememberedCard,
     EffectSource,
+    NoName,
     Commander,
     Legendary,
     /// Java `CardProperty:1389` "powerLTtoughness": net power below net toughness.
@@ -1041,6 +1042,7 @@ fn selector_predicate_order(predicate: &SelectorPredicate) -> u8 {
         SelectorPredicate::RememberedCard
         | SelectorPredicate::TriggerRememberedCard
         | SelectorPredicate::EffectSource
+        | SelectorPredicate::NoName
         | SelectorPredicate::DamagedBy
         | SelectorPredicate::AttachedBy => 5,
         SelectorPredicate::Not(inner) => selector_predicate_order(inner).saturating_add(1),
@@ -1129,6 +1131,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "isremembered" => SelectorPredicate::RememberedCard,
         "istriggerremembered" => SelectorPredicate::TriggerRememberedCard,
         "effectsource" => SelectorPredicate::EffectSource,
+        "noname" => SelectorPredicate::NoName,
         "iscommander" => SelectorPredicate::Commander,
         "legendary" => SelectorPredicate::Legendary,
         "powerlttoughness" => SelectorPredicate::PowerLtToughness,
@@ -1555,6 +1558,7 @@ fn lower_non_predicate(value: &str) -> Option<SelectorPredicate> {
         "basic" => SelectorPredicate::CardSupertype(CardSupertypeSelector::Basic),
         "snow" => SelectorPredicate::CardSupertype(CardSupertypeSelector::Snow),
         "token" => SelectorPredicate::Token(true),
+        "chosencard" => SelectorPredicate::CardState(CardStateSelector::ChosenCard),
         _ => SelectorPredicate::CardType(CardSelectorType::Subtype(value[3..].to_string())),
     };
     Some(SelectorPredicate::Not(Box::new(positive)))
