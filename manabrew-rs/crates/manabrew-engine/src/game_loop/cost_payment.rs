@@ -1360,7 +1360,8 @@ impl GameLoop {
                 }
                 CostPart::CollectEvidence(amount) => {
                     let resolved_amount = amount.resolve(game, card_id, player);
-                    if !self.pay_collect_evidence_cost(game, agents, player, resolved_amount) {
+                    if !self.pay_collect_evidence_cost(game, agents, player, resolved_amount, None)
+                    {
                         payment_ok = false;
                         break;
                     }
@@ -1494,6 +1495,7 @@ impl GameLoop {
         prechosen_discards: Option<&[CardId]>,
         prechosen_tap_type: Option<&[CardId]>,
         prechosen_beholds: Option<&[CardId]>,
+        prechosen_evidence: Option<&[CardId]>,
     ) -> bool {
         let payment_snapshot = self.make_snapshot(game, true);
         game.card_mut(card_id).paid_cost_exiled_cards.clear();
@@ -2086,7 +2088,13 @@ impl GameLoop {
                 }
                 CostPart::CollectEvidence(amount) => {
                     let resolved_amount = amount.resolve(game, card_id, player);
-                    if !self.pay_collect_evidence_cost(game, agents, player, resolved_amount) {
+                    if !self.pay_collect_evidence_cost(
+                        game,
+                        agents,
+                        player,
+                        resolved_amount,
+                        prechosen_evidence,
+                    ) {
                         payment_ok = false;
                         break;
                     }
@@ -2348,6 +2356,43 @@ impl GameLoop {
                     &type_filter,
                     resolved,
                 ));
+            }
+        }
+        Some(picked)
+    }
+
+    pub(crate) fn prechoose_additional_cost_evidence(
+        game: &GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        source: CardId,
+        spell_cost: &crate::cost::Cost,
+    ) -> Option<Vec<CardId>> {
+        let mut picked: Vec<CardId> = Vec::new();
+        for part in &spell_cost.parts {
+            if let CostPart::CollectEvidence(amount) = part {
+                let valid: Vec<CardId> = game
+                    .cards_in_zone(ZoneType::Graveyard, player)
+                    .iter()
+                    .copied()
+                    .filter(|&cid| can_exile_for_cost(game, cid))
+                    .collect();
+                if valid.is_empty() {
+                    return None;
+                }
+                let chosen: Vec<CardId> = agents[player.index()]
+                    .choose_cards_for_effect(player, &valid, 0, valid.len())
+                    .into_iter()
+                    .filter(|cid| valid.contains(cid))
+                    .collect();
+                let total_mv: i32 = chosen
+                    .iter()
+                    .map(|&cid| game.card(cid).mana_cost.cmc())
+                    .sum();
+                if total_mv < amount.resolve(game, source, player) {
+                    return None;
+                }
+                picked.extend(chosen);
             }
         }
         Some(picked)
@@ -2744,6 +2789,7 @@ impl GameLoop {
         agents: &mut [Box<dyn PlayerAgent>],
         player: PlayerId,
         amount: i32,
+        prechosen: Option<&[CardId]>,
     ) -> bool {
         let valid: Vec<CardId> = game
             .cards_in_zone(ZoneType::Graveyard, player)
@@ -2755,8 +2801,10 @@ impl GameLoop {
             return false;
         }
 
-        let selected =
-            agents[player.index()].choose_cards_for_effect(player, &valid, 0, valid.len());
+        let selected = match prechosen {
+            Some(picks) => picks.to_vec(),
+            None => agents[player.index()].choose_cards_for_effect(player, &valid, 0, valid.len()),
+        };
         let chosen: Vec<CardId> = selected
             .into_iter()
             .filter(|cid| valid.contains(cid))

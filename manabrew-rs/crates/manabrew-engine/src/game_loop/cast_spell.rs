@@ -1770,6 +1770,14 @@ impl GameLoop {
         } else {
             None
         };
+        let prechosen_spell_evidence = if let Some(ref sc) = spell_cost {
+            match Self::prechoose_additional_cost_evidence(game, agents, player, card_id, sc) {
+                Some(picks) => Some(picks),
+                None => rollback_failed_payment!(),
+            }
+        } else {
+            None
+        };
         let prechosen_spell_taps = match spell_cost {
             Some(ref sc)
                 if sc.parts.iter().any(|part| {
@@ -2359,6 +2367,7 @@ impl GameLoop {
                 prechosen_spell_discards.as_deref(),
                 prechosen_spell_taps.as_deref(),
                 prechosen_spell_beholds.as_deref(),
+                prechosen_spell_evidence.as_deref(),
             ) {
                 rollback_failed_payment!();
             }
@@ -2386,6 +2395,7 @@ impl GameLoop {
                 None,
                 None,
                 prechosen_harmonize_taps.as_deref(),
+                None,
                 None,
             ) {
                 rollback_failed_payment!();
@@ -2421,6 +2431,7 @@ impl GameLoop {
                 Some(&mut sa),
                 prechosen_static_alt_sacrifices.as_deref(),
                 prechosen_static_alt_discards.as_deref(),
+                None,
                 None,
                 None,
             ) {
@@ -2469,6 +2480,7 @@ impl GameLoop {
                 None,
                 None,
                 prechosen_raise_beholds.as_deref(),
+                None,
             ) {
                 rollback_failed_payment!();
             }
@@ -2495,6 +2507,7 @@ impl GameLoop {
                     None,
                     true,
                     Some(&mut sa),
+                    None,
                     None,
                     None,
                     None,
@@ -2539,6 +2552,7 @@ impl GameLoop {
                 None,
                 None,
                 None,
+                None,
             ) {
                 rollback_failed_payment!();
             }
@@ -2578,6 +2592,7 @@ impl GameLoop {
                 None,
                 None,
                 None,
+                None,
             ) {
                 rollback_failed_payment!();
             }
@@ -2594,6 +2609,7 @@ impl GameLoop {
                 kw_cost.mandatory,
                 Some(&mut sa),
                 prechosen_keyword_alt_sacrifices.as_deref(),
+                None,
                 None,
                 None,
                 None,
