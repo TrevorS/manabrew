@@ -1863,6 +1863,9 @@ pub fn handle_paid(
 
     let value = match property {
         "Amount" | "Count" => paid_cards.len() as i32,
+        "CardTypes" | "CardTypesPermanent" => {
+            count_card_types_from_list(game, paid_cards, property == "CardTypesPermanent")
+        }
         "CardPower" => paid_cards
             .iter()
             .map(|&cid| {
