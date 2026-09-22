@@ -492,6 +492,7 @@ impl GameLoop {
         // Tap attackers (Vigilance skips tapping)
         let num_attackers = chosen_attackers.len() as i32;
         game.player_attack_combat_reset(active);
+        let mut tapped_attackers: Vec<CardId> = Vec::new();
         for &(attacker_id, defender) in &chosen_attackers {
             if !game.card(attacker_id).has_vigilance() {
                 // We pre-tapped attackers before OptionalAttackCost resolution to
@@ -501,6 +502,7 @@ impl GameLoop {
                     game.untap(attacker_id);
                 }
                 game.tap(attacker_id);
+                tapped_attackers.push(attacker_id);
                 // Java attacker.tap(...) emits Taps triggers when a creature becomes tapped
                 // as part of attacker declaration.
                 self.trigger_handler.run_trigger(
@@ -568,6 +570,20 @@ impl GameLoop {
                     card: Some(attacker_id),
                     defending_player: Some(def_player),
                     num_attackers: Some(num_attackers as usize),
+                    ..Default::default()
+                },
+                false,
+            );
+        }
+        // Java's `PhaseHandler.declareAttackersForPlayer` collects every attacker that just
+        // became tapped into one `Cards` list and fires `TapAll` once for the batch, after
+        // declaration — not once per attacker like `Taps` above.
+        if !tapped_attackers.is_empty() {
+            self.trigger_handler.run_trigger(
+                TriggerType::TapAll,
+                RunParams {
+                    cards: Some(tapped_attackers),
+                    player: Some(active),
                     ..Default::default()
                 },
                 false,

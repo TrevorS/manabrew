@@ -1987,17 +1987,31 @@ impl GameLoop {
                             );
                         }
                         for &(convoked_id, _) in &result.convoked {
-                            for mode in [TriggerType::Taps, TriggerType::TapAll] {
-                                slf.trigger_handler.run_trigger(
-                                    mode,
-                                    RunParams {
-                                        card: Some(convoked_id),
-                                        player: Some(session.player),
-                                        ..Default::default()
-                                    },
-                                    false,
-                                );
-                            }
+                            slf.trigger_handler.run_trigger(
+                                TriggerType::Taps,
+                                RunParams {
+                                    card: Some(convoked_id),
+                                    player: Some(session.player),
+                                    ..Default::default()
+                                },
+                                false,
+                            );
+                        }
+                        // Java's `CostAdjustment.adjustCostByConvokeOrImprovise` batches every
+                        // convoked/improvised card into one `Cards` list and fires `TapAll`
+                        // once for the whole batch, not once per card.
+                        if !result.convoked.is_empty() {
+                            slf.trigger_handler.run_trigger(
+                                TriggerType::TapAll,
+                                RunParams {
+                                    cards: Some(
+                                        result.convoked.iter().map(|&(id, _)| id).collect(),
+                                    ),
+                                    player: Some(session.player),
+                                    ..Default::default()
+                                },
+                                false,
+                            );
                         }
                         convoked_to_cast
                             .borrow_mut()

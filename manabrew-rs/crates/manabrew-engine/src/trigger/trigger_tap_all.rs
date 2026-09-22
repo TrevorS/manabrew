@@ -15,8 +15,10 @@ pub struct TriggerTapAll {
 
 impl TriggerTapAll {
     pub fn parse(params: &Params) -> Box<dyn TriggerBehavior> {
+        // Java's `TriggerTapAll` reads `ValidCards$` (plural — it filters the whole batch of
+        // cards that became tapped), not the singular `ValidCard$` most other triggers use.
         Box::new(Self {
-            valid_card: params.selector_cloned(keys::VALID_CARD),
+            valid_card: params.selector_cloned(keys::VALID_CARDS),
         })
     }
 }
@@ -28,23 +30,43 @@ impl TriggerBehavior for TriggerTapAll {
     }
 
     fn perform_test(&self, trigger: &Trigger, params: &RunParams, game: &GameState) -> bool {
-        let _host_card = trigger.base.card_trait_base.host_card_id();
-        let _host_controller = trigger.base.card_trait_base.host_controller(game);
-        trigger.matches_optional_valid_card_filter(&self.valid_card, params.card, game)
+        // Java's `TriggerTapAll.performTest` is `matchesValidParam("ValidCards",
+        // runParams.get(Cards))` — the whole batch of cards that became tapped together, not
+        // a single `Card` payload. `AbilityKey.Cards` is what the batch tap sites (combat
+        // declaring attackers) set.
+        let Some(cards) = params.cards.as_ref() else {
+            return false;
+        };
+        cards.iter().any(|&card_id| {
+            trigger.matches_optional_valid_card_filter(&self.valid_card, Some(card_id), game)
+        })
     }
 
     fn set_triggering_objects(
         &self,
-        _trigger: &Trigger,
+        trigger: &Trigger,
         sa: &mut SpellAbility,
         params: &RunParams,
-        _game: &GameState,
+        game: &GameState,
     ) {
-        // TODO: port ValidCards filtering from Java (IterableUtil.filter with CardPredicates.restriction)
+        // Java's `setTriggeringObjects` filters the batch down to the cards `ValidCards$`
+        // actually accepts (`IterableUtil.filter`) before handing it to the executed ability —
+        // the untapped ones in `params.cards` may include cards the trigger's own test ignored.
         if let Some(cards) = params.cards.as_ref() {
+            let filtered: Vec<_> = cards
+                .iter()
+                .copied()
+                .filter(|&card_id| {
+                    trigger.matches_optional_valid_card_filter(
+                        &self.valid_card,
+                        Some(card_id),
+                        game,
+                    )
+                })
+                .collect();
             sa.set_triggering_value(
                 crate::ability::AbilityKey::Cards,
-                crate::event::AbilityValue::Cards(cards.clone()),
+                crate::event::AbilityValue::Cards(filtered),
             );
         }
     }
