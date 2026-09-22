@@ -743,7 +743,7 @@ impl Card {
         }
 
         if kw == "Flanking" {
-            let raw = "Mode$ AttackerBlockedByCreature | ValidBlocked$ Card.Self | ValidCard$ Creature.withoutFlanking | Execute$ TrigFlanking | TriggerZones$ Battlefield | TriggerDescription$ Flanking";
+            let raw = "Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | ValidBlocker$ Creature.withoutFlanking | TriggerZones$ Battlefield | Secondary$ True | TriggerDescription$ Flanking";
             if let Some(mut trig) = parse_trigger(raw, next_id) {
                 trig.execute = "TrigFlanking".to_string();
                 self.add_trigger(trig);
@@ -751,7 +751,8 @@ impl Card {
             self.svars
                 .entry("TrigFlanking".to_string())
                 .or_insert_with(|| {
-                    "DB$ Pump | Defined$ TriggeredBlocker | NumAtt$ -1 | NumDef$ -1".to_string()
+                    "DB$ Pump | Defined$ TriggeredBlockerLKICopy | NumAtt$ -1 | NumDef$ -1"
+                        .to_string()
                 });
         }
 
