@@ -178,6 +178,10 @@ pub struct SpellAbility {
     pub alt_cost_index: u8,
     #[serde(default)]
     pub cast_with_may_play: bool,
+    /// Host of the `MayPlay$` static that let this spell be cast, mirroring Java's
+    /// `newSA.setMayPlay(o)` in `GameActionUtil:381`.
+    #[serde(default)]
+    pub may_play_source: Option<crate::ids::CardId>,
     /// Number of Evoke keywords on the card at cast time (intrinsic + granted
     /// from hand — e.g. Ashling, the Limitless's `AddKeyword$ Evoke:4`).
     /// Java parity: `CardFactoryUtil` attaches one Evoke "sacrifice when it
@@ -636,6 +640,7 @@ impl SpellAbility {
             alt_cost: None,
             alt_cost_index: 0,
             cast_with_may_play: false,
+            may_play_source: None,
             evoke_keyword_count: 0,
             kicked: false,
             buyback_paid: false,

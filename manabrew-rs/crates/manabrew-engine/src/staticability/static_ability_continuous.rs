@@ -183,6 +183,24 @@ pub fn may_play_allows_after_stack(
     )
 }
 
+/// The host of the first `MayPlay$` grant opening `origin` for `player`, in the order
+/// `getMayPlaySpellOptions` walks them. Java records the grant on the ability it builds; with one
+/// play option per card the first covering grant is the one that built it.
+pub fn may_play_grant_source(
+    game: &GameState,
+    player: crate::ids::PlayerId,
+    card: &Card,
+    origin: forge_foundation::ZoneType,
+) -> Option<crate::ids::CardId> {
+    may_play_grants(game, player, card)
+        .find(|(source, st_ab)| {
+            st_ab.ir.may_play
+                && st_ab.ir.affected_zones.contains(&origin)
+                && st_ab.check_conditions(source, game)
+        })
+        .map(|(source, _)| source.id)
+}
+
 /// Java `Card.mayPlay(player)` is not empty: a `MayPlay$` grant for `player` covers `card`.
 pub fn player_may_play(game: &GameState, player: crate::ids::PlayerId, card: &Card) -> bool {
     may_play_grants(game, player, card)

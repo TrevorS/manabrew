@@ -359,6 +359,20 @@ impl GameLoop {
                 .filter(|card| card.zone == forge_foundation::ZoneType::Battlefield)
                 .map(|card| card.id)
                 .collect();
+            // Java `GameActionUtil:381` records the grant on the option it builds. This port
+            // builds one option per card rather than one per grant, so the grant is recovered
+            // from the zone the cast came out of; a cast from hand is the ungranted one.
+            let origin = game.card(stack_push.source_card).cast_from;
+            cause.may_play_source = origin
+                .filter(|&zone| zone != forge_foundation::ZoneType::Hand)
+                .and_then(|zone| {
+                    crate::staticability::static_ability_continuous::may_play_grant_source(
+                        game,
+                        player,
+                        game.card(stack_push.source_card),
+                        zone,
+                    )
+                });
             game.card_mut(stack_push.source_card).cast_sa = Some(Box::new(cause));
         }
         if let Some(pending_stack_id) = stack_push.pending_stack_id {
