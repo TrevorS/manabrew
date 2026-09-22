@@ -189,6 +189,18 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .clone()
             .unwrap_or_else(|| parse_counter_type(counter_type_str))
     };
+    let counter_types: Vec<crate::card::CounterType> = match sa.ir.counter_types_text.as_deref() {
+        Some(types) => types
+            .split(',')
+            .map(str::trim)
+            .filter(|type_name| !type_name.is_empty())
+            .map(parse_counter_type)
+            .collect(),
+        None => vec![counter_type],
+    };
+    if counter_types.is_empty() {
+        return;
+    }
     if sa.ir.optional {
         let activator = sa.activating_player;
         ctx.agents[activator.index()].snapshot_state(ctx.game, ctx.mana_pools);
@@ -252,7 +264,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     || crate::card::card_predicates::can_receive_counters(
                         ctx.game,
                         cid,
-                        &counter_type,
+                        &counter_types[0],
                     ))
                 {
                     valid.push(cid);
@@ -288,15 +300,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         .unwrap_or(1)
                 };
             }
-            put_counters_on_card(
-                ctx,
-                sa,
-                card_id,
-                &counter_type,
-                amount,
-                placer,
-                source_controller,
-            );
+            for counter_type in &counter_types {
+                put_counters_on_card(
+                    ctx,
+                    sa,
+                    card_id,
+                    counter_type,
+                    amount,
+                    placer,
+                    source_controller,
+                );
+            }
             if divided {
                 counter_remain -= amount;
             }
@@ -309,16 +323,18 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // handle player-level counters like ENERGY instead of card counters.
     if let Some(defined) = sa.defined() {
         if let Some(target_player) = resolve_defined_player(defined, source_controller, ctx.game) {
-            ctx.add_player_counter(
-                target_player,
-                &counter_type,
-                count,
-                sa,
-                RunParams {
-                    source_player: Some(placer),
-                    ..Default::default()
-                },
-            );
+            for counter_type in &counter_types {
+                ctx.add_player_counter(
+                    target_player,
+                    counter_type,
+                    count,
+                    sa,
+                    RunParams {
+                        source_player: Some(placer),
+                        ..Default::default()
+                    },
+                );
+            }
             return;
         }
     }
@@ -327,15 +343,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // When the SA uses targeting (ValidTgts$), use the chosen target.
     // Otherwise fall back to the Defined$ parameter (default "Self").
     for card_id in resolve_card_targets(ctx.game, sa) {
-        put_counters_on_card(
-            ctx,
-            sa,
-            card_id,
-            &counter_type,
-            count,
-            placer,
-            source_controller,
-        );
+        for counter_type in &counter_types {
+            put_counters_on_card(
+                ctx,
+                sa,
+                card_id,
+                counter_type,
+                count,
+                placer,
+                source_controller,
+            );
+        }
     }
 }
 

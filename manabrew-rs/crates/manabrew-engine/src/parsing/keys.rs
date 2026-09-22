@@ -392,6 +392,7 @@ pub const MEGA: &str = "Mega";
 
 // ── Counter params (extended) ────────────────────────────────────────
 pub const COUNTER_NUM: &str = "CounterNum";
+pub const COUNTER_TYPES: &str = "CounterTypes";
 pub const ADAPT: &str = "Adapt";
 pub const MONSTROSITY: &str = "Monstrosity";
 pub const RENOWN: &str = "Renown";

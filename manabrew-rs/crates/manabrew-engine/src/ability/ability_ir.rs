@@ -264,6 +264,7 @@ pub struct SpellAbilityIr {
     pub replace_with_text: Option<String>,
     pub damage_amount_text: Option<String>,
     pub counter_type_text: Option<String>,
+    pub counter_types_text: Option<String>,
     pub counter_type: Option<CounterType>,
     pub simple_counter_type_choice_path: bool,
     pub triggered_counter_map: bool,
@@ -818,6 +819,7 @@ impl SpellAbilityIr {
             replace_with_text: params.get(keys::REPLACE_WITH).map(str::to_string),
             damage_amount_text: params.get(keys::DAMAGE_AMOUNT).map(str::to_string),
             counter_type_text: params.get(keys::COUNTER_TYPE).map(str::to_string),
+            counter_types_text: params.get(keys::COUNTER_TYPES).map(str::to_string),
             counter_type: params.get(keys::COUNTER_TYPE).map(parse_counter_type),
             simple_counter_type_choice_path: params.get(keys::COUNTER_TYPE).is_some()
                 && ![
