@@ -159,6 +159,12 @@ pub fn get_defined_cards(
     if let Ok(token) = defined.parse::<DefinedCardToken>() {
         return resolve_defined_card_token(token, game, host_card, activating_player);
     }
+    if let Some(attachments) = defined.strip_prefix("AttachedBy ") {
+        return get_defined_cards(game, host_card, attachments, activating_player)
+            .into_iter()
+            .filter_map(|attachment| game.card(attachment).attached_to)
+            .collect();
+    }
     if let Some(cards) = get_defined_valid_cards(game, host_card, defined, activating_player, None)
     {
         return cards;

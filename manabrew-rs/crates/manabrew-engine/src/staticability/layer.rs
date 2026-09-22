@@ -637,6 +637,33 @@ pub fn apply_continuous_effects(game: &mut GameState) {
 
             if is_cda {
                 apply_to_target(source_id);
+            } else if let Some(defined) = sa.ir.affected_defined.as_deref() {
+                let selector = sa
+                    .ir
+                    .affected_text
+                    .as_deref()
+                    .map(crate::parsing::cached_compiled_selector);
+                for cid in crate::ability::ability_utils::get_defined_cards(
+                    game,
+                    Some(source_id),
+                    defined,
+                    Some(source_card.controller),
+                ) {
+                    let card = game.card(cid);
+                    if card.phased_out {
+                        continue;
+                    }
+                    if selector.as_ref().is_none_or(|selector| {
+                        crate::card::valid_filter::matches_valid_card_selector_in_game(
+                            selector,
+                            card,
+                            source_card,
+                            game,
+                        )
+                    }) {
+                        apply_to_target(cid);
+                    }
+                }
             } else if affected_str.eq_ignore_ascii_case("Card.Self")
                 || affected_str.starts_with("Card.Self+")
             {
