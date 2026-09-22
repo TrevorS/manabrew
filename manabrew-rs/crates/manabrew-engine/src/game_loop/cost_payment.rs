@@ -2745,11 +2745,6 @@ impl GameLoop {
         player: PlayerId,
         amount: i32,
     ) -> bool {
-        if amount <= 0 {
-            return true;
-        }
-        // Mirror Java human-style collect-evidence selection:
-        // choose any number from graveyard, then require total CMC >= amount.
         let valid: Vec<CardId> = game
             .cards_in_zone(ZoneType::Graveyard, player)
             .iter()
