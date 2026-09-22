@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.49.2](https://github.com/witchesofthehill/manabrew/compare/v3.49.1...v3.49.2) (2026-09-22)
+
+### Fixes
+
+* **ui:** localize multiplayer card textures per client ([#975](https://github.com/witchesofthehill/manabrew/issues/975)) ([617183c](https://github.com/witchesofthehill/manabrew/commit/617183cffa4e7868917b215266d70451351febab))
+
 ## [3.49.1](https://github.com/witchesofthehill/manabrew/compare/v3.49.0...v3.49.1) (2026-09-22)
 
 ### Fixes
