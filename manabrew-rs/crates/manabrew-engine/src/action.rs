@@ -238,6 +238,11 @@ impl GameState {
                 card.is_token,
             )
         };
+        if dest_zone == ZoneType::Exile && self.cards[card_id.index()].effect_source.is_some() {
+            self.remove_card_from_zone(src_zone, src_owner, card_id);
+            self.cards[card_id.index()].set_zone(ZoneType::None);
+            return;
+        }
         if let Ok(filter) = std::env::var("FORGE_CARD_TRACE") {
             if !filter.is_empty()
                 && self.cards[card_id.index()]
