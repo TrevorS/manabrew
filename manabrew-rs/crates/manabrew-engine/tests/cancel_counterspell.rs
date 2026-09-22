@@ -548,6 +548,7 @@ fn test_noncreature_spell_filter_excludes_creature_spells() {
     let filtered = target_restrictions::filter_spells_for_target_restrictions(
         &game,
         PlayerId(0),
+        None,
         &all,
         &restrictions,
     );
