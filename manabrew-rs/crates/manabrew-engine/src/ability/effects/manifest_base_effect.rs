@@ -5,6 +5,9 @@
 //! and `CloakEffect` that puts cards onto the battlefield face-down
 //! as 2/2 creatures.
 
+use forge_foundation::ZoneType;
+
+use crate::ids::{CardId, PlayerId};
 use crate::spellability::SpellAbility;
 
 use super::EffectContext;
@@ -29,6 +32,43 @@ pub fn parse_manifest_params(ctx: &EffectContext, sa: &SpellAbility) -> Manifest
         amount,
         from_library,
     }
+}
+
+pub fn manifest_target_cards(
+    ctx: &mut EffectContext,
+    sa: &SpellAbility,
+    player: PlayerId,
+    amount: usize,
+) -> Option<Vec<CardId>> {
+    if sa.ir.choices.is_some() || sa.ir.choice_zone.is_some() {
+        let zone = sa.ir.choice_zone.unwrap_or(ZoneType::Hand);
+        let mut choices = ctx.game.cards_in_zone(zone, player).to_vec();
+        if let Some(filter) = sa.ir.choices.as_deref() {
+            choices.retain(|&cid| {
+                crate::ability::ability_utils::matches_valid_cards_for_sa(
+                    ctx.game,
+                    sa,
+                    ctx.game.card(cid),
+                    sa.ir.choices_selector.as_ref(),
+                    filter,
+                )
+            });
+        }
+        if choices.is_empty() {
+            return None;
+        }
+        ctx.agents[player.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        return Some(
+            ctx.agents[player.index()].choose_cards_for_effect(player, &choices, amount, amount),
+        );
+    }
+    if sa.defined().is_none_or(|d| d == "TopOfLibrary") {
+        let lib = ctx.game.cards_in_zone(ZoneType::Library, player).to_vec();
+        return Some(lib.into_iter().rev().take(amount).collect());
+    }
+    Some(crate::ability::spell_ability_effect::get_target_cards(
+        ctx.game, sa,
+    ))
 }
 
 /// Get the default message for manifest choice prompts.

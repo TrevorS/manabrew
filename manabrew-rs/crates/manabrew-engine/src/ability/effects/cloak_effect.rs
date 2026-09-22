@@ -5,9 +5,9 @@
 
 use forge_foundation::ZoneType;
 
-use super::manifest_base_effect::parse_manifest_params;
+use super::manifest_base_effect::{manifest_target_cards, parse_manifest_params};
 use super::{emit_zone_trigger, EffectContext};
-use crate::ids::{CardId, PlayerId};
+use crate::ids::PlayerId;
 use crate::parsing::keys;
 use crate::spellability::SpellAbility;
 
@@ -34,13 +34,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 }
 
 fn cloak_for_player(ctx: &mut EffectContext, sa: &SpellAbility, player: PlayerId, amount: usize) {
-    // `Defined$ TopOfLibrary` (the default) takes the top cards; anything else is a card list,
-    // as Java's `ManifestBaseEffect` does.
-    let cards: Vec<CardId> = if sa.defined().is_none_or(|d| d == "TopOfLibrary") {
-        let lib = ctx.game.cards_in_zone(ZoneType::Library, player).to_vec();
-        lib.into_iter().rev().take(amount).collect()
-    } else {
-        crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa)
+    let Some(cards) = manifest_target_cards(ctx, sa, player, amount) else {
+        return;
     };
 
     for card_id in cards {

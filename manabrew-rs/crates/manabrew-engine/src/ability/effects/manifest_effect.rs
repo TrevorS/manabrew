@@ -8,7 +8,7 @@
 
 use forge_foundation::ZoneType;
 
-use super::manifest_base_effect::parse_manifest_params;
+use super::manifest_base_effect::{manifest_target_cards, parse_manifest_params};
 use super::{emit_zone_trigger, EffectContext};
 use crate::ids::{CardId, PlayerId};
 use crate::spellability::SpellAbility;
@@ -43,32 +43,8 @@ fn manifest_for_player(
     player: PlayerId,
     amount: usize,
 ) {
-    let defined = sa.defined().unwrap_or("TopOfLibrary");
-
-    // Determine source cards
-    let cards_to_manifest: Vec<CardId> = if defined == "TopOfLibrary" || defined.is_empty() {
-        // Default: top N cards of library
-        let lib = ctx.game.cards_in_zone(ZoneType::Library, player).to_vec();
-        lib.into_iter().rev().take(amount).collect()
-    } else if let Some(zone) = sa.ir.choice_zone {
-        // Player chooses from a specific zone
-        let zone_cards = ctx.game.cards_in_zone(zone, player).to_vec();
-        if zone_cards.is_empty() {
-            return;
-        }
-        // Let player choose
-        ctx.agents[player.index()].snapshot_state(ctx.game, ctx.mana_pools);
-        ctx.agents[player.index()].choose_cards_for_zone_change(
-            ctx.game,
-            player,
-            &zone_cards,
-            amount.min(zone_cards.len()),
-            amount.min(zone_cards.len()),
-            "Choose cards to manifest",
-        )
-    } else {
-        // Java `ManifestBaseEffect` falls through to getTargetCards.
-        crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa)
+    let Some(cards_to_manifest) = manifest_target_cards(ctx, sa, player, amount) else {
+        return;
     };
 
     // Manifest each card one at a time (CR 701.34d)
