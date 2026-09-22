@@ -573,6 +573,7 @@ impl GameState {
         }
         if leaves_as_new_object {
             self.cards[card_id.index()].cast_from = None;
+            self.cards[card_id.index()].chosen_charm_modes.clear();
         }
         if src_zone == ZoneType::Exile && dest_zone != ZoneType::Exile {
             self.cards[card_id.index()]
