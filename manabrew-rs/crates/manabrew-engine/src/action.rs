@@ -240,6 +240,23 @@ impl GameState {
                     .filter(|value| !value.is_empty() && *value != "no Condition")
                 {
                     let params = crate::parsing::Params::from_raw(extra_params);
+                    // Java's `makeEtbCounter` appends `extraparams` onto a replacement whose base
+                    // `ValidCard$` is `Card.Self`; a `ValidCard$` here overrides that base clause
+                    // (last key wins in Java's own param map) rather than adding an IsPresent-style
+                    // condition, so it is checked against the card itself, not the requirements IR.
+                    if let Some(valid_card) =
+                        params.selector_untracked(crate::parsing::keys::VALID_CARD)
+                    {
+                        let card = &self.cards[card_id.index()];
+                        if !crate::card::valid_filter::matches_valid_card_selector_opt_in_game(
+                            Some(valid_card),
+                            card,
+                            card,
+                            self,
+                        ) {
+                            continue;
+                        }
+                    }
                     let requirements =
                         crate::card::valid_filter::CardTraitRequirementsIr::from_key_values(
                             params.iter(),
