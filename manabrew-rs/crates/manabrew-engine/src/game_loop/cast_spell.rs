@@ -879,6 +879,27 @@ impl GameLoop {
             return None;
         }
 
+        let may_flash_cost = game.card(card_id).get_keyword_cost("MayFlashCost");
+        let flash_cost = may_flash_cost.as_deref().map(parse_cost);
+        let flash_paid = match may_flash_cost.as_deref() {
+            Some(cost_str) if !sa.can_cast_timing(game) => {
+                agents[player.index()].snapshot_state(game, &self.mana_pools);
+                agents[player.index()].choose_kicker(
+                    player,
+                    &format!("MayFlashCost:{cost_str}"),
+                    Some(card_id),
+                )
+            }
+            _ => false,
+        };
+        if flash_paid {
+            sa.restriction.variables.set_instant_speed(true);
+            sa.add_optional_cost(crate::spellability::OptionalCost::Flash);
+        }
+        if flash_cost.is_some() && !crate::spellability::spell::can_play(&sa, game) {
+            return None;
+        }
+
         // Parse flashback total cost once (can include non-mana parts like Sac<...>).
         let flashback_total_cost = if is_flashback {
             // Safe: is_flashback is only true if get_flashback_cost() returned Some
@@ -1051,6 +1072,11 @@ impl GameLoop {
             mana_cost.add(&buyback_mc)
         } else {
             mana_cost
+        };
+
+        let mana_cost = match &flash_cost {
+            Some(cost) if flash_paid => mana_cost.add(&Self::mana_from_cost(cost)),
+            _ => mana_cost,
         };
 
         let teamwork_amount = game.card(card_id).get_keyword_cost("Teamwork");
@@ -2492,6 +2518,28 @@ impl GameLoop {
                     if !waterbend_tapped.contains(&cid) {
                         waterbend_tapped.push(cid);
                     }
+                }
+            }
+        }
+
+        if flash_paid {
+            if let Some(ref cost) = flash_cost {
+                if !self.pay_additional_costs(
+                    game,
+                    agents,
+                    player,
+                    card_id,
+                    cost,
+                    None,
+                    true,
+                    Some(&mut sa),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                ) {
+                    rollback_failed_payment!();
                 }
             }
         }

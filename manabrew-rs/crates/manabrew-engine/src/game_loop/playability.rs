@@ -246,6 +246,14 @@ impl GameLoop {
             card.type_line.is_instant()
                 || card.has_keyword("Flash")
                 || card.get_offering_type().is_some()
+                || card.get_keyword_cost("MayFlashCost").is_some_and(|cost| {
+                    crate::cost::can_pay_ignoring_mana_for_spell(
+                        &crate::cost::parse_cost(&cost),
+                        game,
+                        card_id,
+                        player,
+                    )
+                })
                 || crate::staticability::static_ability_cast_with_flash::any_with_flash_for_card(
                     game, card, player,
                 )
@@ -466,7 +474,8 @@ impl GameLoop {
                 }
 
                 // Spell-level checks: not on battlefield, no split second
-                let timing_sa = if normal_timing {
+                let timing_sa = if normal_timing && card.get_keyword_cost("MayFlashCost").is_none()
+                {
                     cast_sa.clone()
                 } else {
                     let mut sneak_sa = cast_sa.clone();
