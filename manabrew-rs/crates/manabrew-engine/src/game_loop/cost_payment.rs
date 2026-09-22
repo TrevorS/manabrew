@@ -302,7 +302,8 @@ impl GameLoop {
             }
             CostPart::RollDice { .. } => true,
             CostPart::Sacrifice { type_filter, .. } => {
-                (type_filter == "CARDNAME" && !mandatory) || type_filter == "OriginalHost"
+                ((type_filter == "CARDNAME" || type_filter == "NICKNAME") && !mandatory)
+                    || type_filter == "OriginalHost"
             }
             CostPart::SubCounter { .. } => !source_is_planeswalker,
             CostPart::Unattach { .. } => true,
@@ -500,7 +501,9 @@ impl GameLoop {
                 CostPart::Sacrifice {
                     type_filter,
                     amount,
-                } if type_filter == "CARDNAME" && amount.resolve(game, card_id, player) > 0 => {
+                } if (type_filter == "CARDNAME" || type_filter == "NICKNAME")
+                    && amount.resolve(game, card_id, player) > 0 =>
+                {
                     if !reserved_sacrifices.contains(&card_id) {
                         reserved_sacrifices.push(card_id);
                     }
@@ -548,7 +551,7 @@ impl GameLoop {
                 CostPart::Sacrifice {
                     type_filter,
                     amount,
-                } if type_filter != "CARDNAME" => {
+                } if type_filter != "CARDNAME" && type_filter != "NICKNAME" => {
                     let mut valid = cost::get_sacrifice_targets_for_cost(
                         game,
                         player,
@@ -870,7 +873,7 @@ impl GameLoop {
                     type_filter,
                     amount,
                 } => {
-                    if type_filter == "CARDNAME" {
+                    if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
                         super::perform_sacrifice(
                             game,
                             &mut self.trigger_handler,
@@ -2219,7 +2222,7 @@ impl GameLoop {
                     type_filter,
                     amount,
                 } => {
-                    if type_filter == "CARDNAME" {
+                    if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
                         continue;
                     }
                     let amount_n = sa
