@@ -371,6 +371,8 @@ pub enum ContextPredicate {
     DefenderCtrl,
     EnchantedController,
     ControlledBy(String),
+    GreatestPower(Option<String>),
+    LeastPower(Option<String>),
     NotDefinedTargeted,
 }
 
@@ -1242,6 +1244,12 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
             SelectorPredicate::Context(ContextPredicate::RememberedPlayerCtrl)
         }
         "targetedplayerctrl" => SelectorPredicate::Context(ContextPredicate::TargetedPlayerCtrl),
+        greatest if greatest.starts_with("greatestpower") => SelectorPredicate::Context(
+            ContextPredicate::GreatestPower(controlled_by_suffix(normalized)),
+        ),
+        least if least.starts_with("leastpower") => SelectorPredicate::Context(
+            ContextPredicate::LeastPower(controlled_by_suffix(normalized)),
+        ),
         "targetedby" => SelectorPredicate::Context(ContextPredicate::TargetedBy),
         "activeplayerctrl" => SelectorPredicate::Context(ContextPredicate::ActivePlayerCtrl),
         "defenderctrl" => SelectorPredicate::Context(ContextPredicate::DefenderCtrl),
@@ -1371,6 +1379,12 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
             })
         }),
     }
+}
+
+fn controlled_by_suffix(property: &str) -> Option<String> {
+    property
+        .split_once("ControlledBy")
+        .map(|(_, defined)| defined.to_string())
 }
 
 fn lower_relation_target_ref(value: &str) -> Option<TargetRef> {

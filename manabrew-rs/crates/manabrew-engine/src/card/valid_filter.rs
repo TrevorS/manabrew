@@ -962,11 +962,46 @@ fn matches_context_predicate(
         ContextPredicate::ControlledBy(reference) => {
             matches_controlled_by_reference(reference, card, context)
         }
+        ContextPredicate::GreatestPower(controlled_by) => {
+            matches_extreme_power(controlled_by.as_deref(), card, context, |other, own| {
+                other > own
+            })
+        }
+        ContextPredicate::LeastPower(controlled_by) => {
+            matches_extreme_power(controlled_by.as_deref(), card, context, |other, own| {
+                other < own
+            })
+        }
         ContextPredicate::ActivePlayerCtrl
         | ContextPredicate::DefenderCtrl
         | ContextPredicate::EnchantedController
         | ContextPredicate::NotDefinedTargeted => false,
     }
+}
+
+fn matches_extreme_power(
+    controlled_by: Option<&str>,
+    card: &Card,
+    context: MatchContext<'_>,
+    beats: impl Fn(i32, i32) -> bool,
+) -> bool {
+    let Some(game) = context.game else {
+        return false;
+    };
+    let mut cards: Vec<&Card> = game
+        .cards
+        .iter()
+        .filter(|other| {
+            other.zone == forge_foundation::ZoneType::Battlefield && other.is_creature()
+        })
+        .collect();
+    if let Some(reference) = controlled_by {
+        cards.retain(|other| matches_controlled_by_reference(reference, other, context));
+        if !cards.iter().any(|other| other.id == card.id) {
+            return false;
+        }
+    }
+    !cards.iter().any(|other| beats(other.power(), card.power()))
 }
 
 fn matches_controlled_by_reference(
