@@ -1331,9 +1331,12 @@ pub fn matches_change_type(
     // Handle comma-separated alternatives (OR).
     // E.g. "Artifact,Creature" means Artifact OR Creature.
     if change_type.contains(',') {
-        return change_type
-            .split(',')
-            .any(|alt| matches_change_type(card, alt.trim(), source_chosen_colors));
+        let alternatives = forge_card_script::split_selector_alternatives(change_type);
+        if alternatives.len() > 1 {
+            return alternatives
+                .into_iter()
+                .any(|alt| matches_change_type(card, alt, source_chosen_colors));
+        }
     }
 
     // Forge separates qualifiers with '.' for the first qualifier after the

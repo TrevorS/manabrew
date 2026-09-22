@@ -1409,7 +1409,7 @@ fn is_produced_mana_atom(value: &str) -> bool {
 }
 
 fn parse_selector(raw: &str) -> SemanticSelector<'_> {
-    let alternatives = split_csv(raw)
+    let alternatives = split_selector_alternatives(raw)
         .into_iter()
         .flat_map(|alternative| split_spaced_ampersand(alternative).into_iter())
         .map(|alternative| {
@@ -1421,6 +1421,34 @@ fn parse_selector(raw: &str) -> SemanticSelector<'_> {
         })
         .collect();
     SemanticSelector { alternatives }
+}
+
+pub fn split_selector_alternatives(raw: &str) -> SmallVec<[&str; 4]> {
+    let mut alternatives: SmallVec<[&str; 4]> = SmallVec::new();
+    let mut start = 0;
+    for (idx, _) in raw.match_indices(',') {
+        if raw[idx + 1..].starts_with(' ') && names_a_card(&raw[start..idx]) {
+            continue;
+        }
+        alternatives.push(&raw[start..idx]);
+        start = idx + 1;
+    }
+    alternatives.push(&raw[start..]);
+    alternatives
+        .into_iter()
+        .map(str::trim)
+        .filter(|alternative| !alternative.is_empty())
+        .collect()
+}
+
+fn names_a_card(alternative: &str) -> bool {
+    let property = alternative
+        .rsplit(['.', '+'])
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
+    property.starts_with("named") || property.starts_with("notnamed")
 }
 
 fn split_spaced_ampersand(raw: &str) -> SmallVec<[&str; 4]> {
