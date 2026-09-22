@@ -203,11 +203,30 @@ pub(super) fn move_cards(
     let no_shuffle = sa.ir.shuffle_raw.as_deref() == Some("False") || sa.ir.no_shuffle;
     let force_shuffle = sa.is_shuffle();
     let already_shuffled = pre_move_shuffle;
-    if !already_shuffled && !no_shuffle && (origin_zone == ZoneType::Library || force_shuffle) {
-        let players = if !searched_owners.is_empty() {
-            searched_owners.clone()
+    let known_origin_shuffle = force_shuffle && dest_zone == ZoneType::Library;
+    if !already_shuffled
+        && !no_shuffle
+        && (origin_zone == ZoneType::Library || known_origin_shuffle)
+    {
+        let players = if origin_zone == ZoneType::Library {
+            if !searched_owners.is_empty() {
+                searched_owners.clone()
+            } else {
+                vec![search_player]
+            }
         } else {
-            vec![search_player]
+            let mut owners: Vec<PlayerId> = Vec::new();
+            for &card_id in cards {
+                let owner = ctx.game.card(card_id).owner;
+                if !owners.contains(&owner) {
+                    owners.push(owner);
+                }
+            }
+            if owners.is_empty() {
+                vec![search_player]
+            } else {
+                owners
+            }
         };
         for pid in players {
             if ctx.game.cards_in_zone(ZoneType::Library, pid).is_empty() {
