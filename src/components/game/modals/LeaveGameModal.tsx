@@ -1,16 +1,14 @@
+import { useRef, useState } from "react";
 import { Modal } from "./Modal";
 import { Button } from "@/components/ui/button";
 
-/** Who is leaving decides what leaving costs. */
 export type LeaveGameMode = "engineOwner" | "seat" | "solo";
 
 interface LeaveGameModalProps {
-  /** `engineOwner` (default): this app carries the engine, so leaving ends the
-   *  game for everyone. `seat`: a guest seat at someone else's table. `solo`: a
-   *  local game with nobody else in it. */
   mode?: LeaveGameMode;
+  endsWithConcede?: boolean;
   onStay: () => void;
-  onLeave: () => void;
+  onLeave: () => void | Promise<void>;
 }
 
 const COPY: Record<LeaveGameMode, { heading: string; body: string; leave: string }> = {
@@ -18,7 +16,7 @@ const COPY: Record<LeaveGameMode, { heading: string; body: string; leave: string
     heading: "End the game for everyone?",
     body:
       "This app is hosting the game engine. Leaving shuts it down and ends the game for every " +
-      "player still in it.",
+      "player still in it, with no result for anyone.",
     leave: "Leave and end game",
   },
   seat: {
@@ -33,19 +31,60 @@ const COPY: Record<LeaveGameMode, { heading: string; body: string; leave: string
   },
 };
 
-export function LeaveGameModal({ mode = "engineOwner", onStay, onLeave }: LeaveGameModalProps) {
-  const copy = COPY[mode];
+const CONCEDE_COPY = {
+  heading: "Concede the game?",
+  body:
+    "This app is hosting the game engine, so it has to stay until the game ends. Conceding " +
+    "ends it now: your opponent wins and everyone sees the result.",
+  leave: "Concede",
+};
+
+export function LeaveGameModal({
+  mode = "engineOwner",
+  endsWithConcede = false,
+  onStay,
+  onLeave,
+}: LeaveGameModalProps) {
+  const concedes = mode === "engineOwner" && endsWithConcede;
+  const copy = concedes ? CONCEDE_COPY : COPY[mode];
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submitting = useRef(false);
+  const leave = async () => {
+    if (submitting.current) return;
+    submitting.current = true;
+    setPending(true);
+    setError(null);
+    try {
+      await onLeave();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      submitting.current = false;
+      setPending(false);
+    }
+  };
   return (
-    <Modal maxWidth="max-w-md" maxHeight="" onClose={onStay}>
+    <Modal maxWidth="max-w-md" onClose={pending ? undefined : onStay}>
       <Modal.Header>
         <h2 className="font-semibold text-base">{copy.heading}</h2>
       </Modal.Header>
       <Modal.Instructions>{copy.body}</Modal.Instructions>
+      {(pending || error) && (
+        <Modal.Body className="space-y-3 text-sm">
+          {pending && <p role="status">{concedes ? "Conceding…" : "Leaving…"}</p>}
+          {error && (
+            <p role="alert" className="text-destructive">
+              {concedes ? "Could not concede" : "Could not leave"}: {error}
+            </p>
+          )}
+        </Modal.Body>
+      )}
       <Modal.Footer className="justify-between">
-        <Button variant="outline" onClick={onStay}>
+        <Modal.Close data-autofocus variant="ghost" disabled={pending} onClose={onStay}>
           Stay
-        </Button>
-        <Button variant="destructive" onClick={onLeave}>
+        </Modal.Close>
+        <Button variant="destructive" disabled={pending} onClick={() => void leave()}>
           {copy.leave}
         </Button>
       </Modal.Footer>

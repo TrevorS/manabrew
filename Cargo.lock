@@ -4408,7 +4408,7 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "loadgen"
-version = "0.2.22"
+version = "0.2.32"
 dependencies = [
  "futures-util",
  "manabot",
@@ -4492,13 +4492,15 @@ dependencies = [
 
 [[package]]
 name = "manabot"
-version = "0.11.20"
+version = "0.13.8"
 dependencies = [
+ "bitflags 2.11.0",
  "futures-util",
  "js-sys",
  "manabrew-agent-interface",
  "manabrew-engine",
  "manabrew-protocol",
+ "manabrew-relay-protocol",
  "serde",
  "serde_json",
  "tokio",
@@ -4509,7 +4511,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew"
-version = "3.43.1"
+version = "3.48.2"
 dependencies = [
  "flate2",
  "forge-carddb",
@@ -4547,7 +4549,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew-agent-interface"
-version = "0.12.6"
+version = "0.13.2"
 dependencies = [
  "forge-foundation",
  "manabrew-engine",
@@ -4563,7 +4565,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew-art-cache"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "flate2",
  "fs4",
@@ -4578,7 +4580,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew-engine"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "dyn-clone",
  "forge-card-script",
@@ -4607,7 +4609,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew-hub"
-version = "0.17.0"
+version = "0.20.1"
 dependencies = [
  "aws-lc-rs",
  "aws-sdk-s3",
@@ -4634,8 +4636,9 @@ dependencies = [
 
 [[package]]
 name = "manabrew-lan-discovery"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
+ "if-addrs",
  "mdns-sd",
  "serde",
  "tokio",
@@ -4643,7 +4646,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew-protocol"
-version = "5.8.0"
+version = "5.11.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -4654,7 +4657,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew-relay-protocol"
-version = "5.13.0"
+version = "5.14.2"
 dependencies = [
  "base64 0.22.1",
  "manabrew-protocol",
@@ -4665,7 +4668,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew-server"
-version = "0.33.2"
+version = "0.36.2"
 dependencies = [
  "aws-lc-rs",
  "axum",
@@ -4695,7 +4698,7 @@ dependencies = [
 
 [[package]]
 name = "manabrew_game_runtime"
-version = "0.3.51"
+version = "0.3.54"
 dependencies = [
  "forge-carddb",
  "forge-foundation",
@@ -5758,7 +5761,7 @@ dependencies = [
 
 [[package]]
 name = "parity"
-version = "0.6.2"
+version = "0.6.3"
 dependencies = [
  "axum",
  "chrono",
@@ -5787,7 +5790,7 @@ dependencies = [
 
 [[package]]
 name = "parity-debugger"
-version = "0.3.6"
+version = "0.3.7"
 dependencies = [
  "eframe",
  "egui",
@@ -7209,7 +7212,7 @@ dependencies = [
 
 [[package]]
 name = "self-hosted-node"
-version = "0.32.6"
+version = "0.34.7"
 dependencies = [
  "forge-carddb",
  "forge-foundation",
@@ -9397,7 +9400,7 @@ dependencies = [
 
 [[package]]
 name = "wasm"
-version = "0.9.9"
+version = "0.10.9"
 dependencies = [
  "console_error_panic_hook",
  "forge-carddb",

@@ -233,10 +233,17 @@ pub enum ReplacementEvent {
     },
 
     /// The planar die is being rolled.
-    RollPlanarDice { player: PlayerId },
+    RollPlanarDice {
+        player: PlayerId,
+        number: i32,
+        ignore: i32,
+    },
 
     /// A planar dice result is being applied.
-    PlanarDiceResult { player: PlayerId },
+    PlanarDiceResult {
+        player: PlayerId,
+        result: crate::agent::notification::PlanarDieFace,
+    },
 
     /// A player is planeswalking.
     Planeswalk { player: PlayerId },
@@ -377,7 +384,7 @@ impl ReplacementHandler {
                 return ReplacementResult::NotReplaced;
             }
 
-            let chosen_idx = if !eligible.is_empty() && layer != ReplacementLayer::CantHappen {
+            let chosen_idx = if eligible.len() > 1 && layer != ReplacementLayer::CantHappen {
                 if let Some(agents) = agents.as_deref_mut() {
                     let descriptions: Vec<String> = eligible
                         .iter()
@@ -470,8 +477,8 @@ fn affected_player_for_event(event: &ReplacementEvent, game: &GameState) -> Play
         ReplacementEvent::Learn { player } => *player,
         ReplacementEvent::LoseMana { player } => *player,
         ReplacementEvent::RollDice { player, .. } => *player,
-        ReplacementEvent::RollPlanarDice { player } => *player,
-        ReplacementEvent::PlanarDiceResult { player } => *player,
+        ReplacementEvent::RollPlanarDice { player, .. } => *player,
+        ReplacementEvent::PlanarDiceResult { player, .. } => *player,
         ReplacementEvent::Planeswalk { player } => *player,
         ReplacementEvent::SetInMotion { player } => *player,
         ReplacementEvent::AssembleContraption { player } => *player,
@@ -564,6 +571,7 @@ pub(crate) fn replacement_event_amount(event: &ReplacementEvent) -> Option<i32> 
         ReplacementEvent::CopySpell { count, .. } => Some(*count),
         ReplacementEvent::Proliferate { count, .. } => Some(*count),
         ReplacementEvent::RollDice { number, .. } => Some(*number),
+        ReplacementEvent::RollPlanarDice { number, .. } => Some(*number),
         _ => None,
     }
 }
@@ -583,6 +591,7 @@ pub(crate) fn set_replacement_event_amount(event: &mut ReplacementEvent, value: 
         ReplacementEvent::CopySpell { count, .. } => *count = value.max(0),
         ReplacementEvent::Proliferate { count, .. } => *count = value.max(0),
         ReplacementEvent::RollDice { number, .. } => *number = value.max(0),
+        ReplacementEvent::RollPlanarDice { number, .. } => *number = value.max(0),
         _ => return false,
     }
     true
@@ -634,7 +643,8 @@ pub(crate) fn resolve_replace_value(
             replacement_event_amount(event)?
         }
         "Ignore" => match event {
-            ReplacementEvent::RollDice { ignore, .. } => *ignore,
+            ReplacementEvent::RollDice { ignore, .. }
+            | ReplacementEvent::RollPlanarDice { ignore, .. } => *ignore,
             _ => return None,
         },
         _ => return None,
@@ -703,19 +713,31 @@ pub(crate) fn execute_replace_effect_ir(
                                 }
                             }
                         }
+                        "Result" => {
+                            if let Some(value) = var_value
+                                .as_deref()
+                                .and_then(crate::agent::notification::PlanarDieFace::parse)
+                            {
+                                if let ReplacementEvent::PlanarDiceResult { result, .. } = event {
+                                    *result = value;
+                                    updated = true;
+                                }
+                            }
+                        }
                         _ => {
                             if let Some(var_value) = var_value.as_deref() {
                                 if let Some(value) =
                                     resolve_replace_value(var_value, game, source_card_id, event)
                                 {
                                     match var_name {
-                                        "Ignore" => {
-                                            if let ReplacementEvent::RollDice { ignore, .. } = event
-                                            {
+                                        "Ignore" => match event {
+                                            ReplacementEvent::RollDice { ignore, .. }
+                                            | ReplacementEvent::RollPlanarDice { ignore, .. } => {
                                                 *ignore = value.max(0);
                                                 updated = true;
                                             }
-                                        }
+                                            _ => {}
+                                        },
                                         "IgnoreChosen" => {
                                             if var_type.as_deref() == Some("Map") {
                                                 if let Some(var_key) = var_key.as_deref() {

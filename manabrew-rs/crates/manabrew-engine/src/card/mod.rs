@@ -533,6 +533,8 @@ pub struct Card {
     pub chosen_map: HashMap<PlayerId, Vec<CardId>>,
     /// CMC values remembered by this card
     pub remembered_cmc: Vec<i32>,
+    #[serde(default)]
+    pub stored_rolls: Vec<i32>,
     /// Source card that created this effect card (for Card.EffectSource checks).
     pub effect_source: Option<CardId>,
     #[serde(default)]
@@ -948,6 +950,7 @@ impl Card {
             haunting: None,
             chosen_map: HashMap::default(),
             remembered_cmc: Vec::new(),
+            stored_rolls: Vec::new(),
             effect_source: None,
             clone_origin: None,
             copied_permanent: None,
@@ -1097,6 +1100,7 @@ impl Card {
             static_power_modifier: self.static_power_modifier,
             static_toughness_modifier: self.static_toughness_modifier,
             tapped: self.tapped,
+            stored_rolls: self.stored_rolls.clone(),
             last_mana_produced: self.last_mana_produced.clone(),
             flipped: self.flipped,
             face_down: self.face_down,
@@ -3430,13 +3434,14 @@ impl Card {
         self.remembered_cards.retain(|_| true);
     }
     pub fn add_stored_rolls(&mut self, roll: i32) {
-        self.add_remembered_cmc(roll);
+        self.stored_rolls.push(roll);
+        self.stored_rolls.sort_unstable();
     }
     pub fn replace_stored_roll(&mut self, from: i32, to: i32) {
-        for roll in &mut self.remembered_cmc {
-            if *roll == from {
-                *roll = to;
-            }
+        if let Some(index) = self.stored_rolls.iter().position(|roll| *roll == from) {
+            self.stored_rolls.remove(index);
+            self.stored_rolls.push(to);
+            self.stored_rolls.sort_unstable();
         }
     }
     pub fn add_flip_result(&mut self, heads: bool) {
