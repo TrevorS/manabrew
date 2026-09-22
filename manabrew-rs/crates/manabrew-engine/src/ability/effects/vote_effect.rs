@@ -136,7 +136,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             };
             for &player in voters {
                 ctx.game.card_mut(host).add_remembered_player(player);
-                resolve_chain(ctx, choice_abilities[*index].clone());
+                super::effect_resolver::resolve_effect_chain(ctx, choice_abilities[*index].clone());
                 ctx.game
                     .card_mut(host)
                     .remembered_players
@@ -205,7 +205,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     .card_mut(host)
                     .set_s_var("VoteNum".to_string(), format!("Number${count}"));
             }
-            resolve_chain(ctx, sub);
+            super::effect_resolver::resolve_effect_chain(ctx, sub);
         }
     }
     if params.has("VoteSubAbility") {
@@ -243,16 +243,5 @@ fn option_label(ctx: &EffectContext, choices: &[SpellAbility], option: &VoteOpti
         VoteOption::Ability(index) => choices[*index].description.clone(),
         VoteOption::Card(cid) => ctx.game.card(*cid).card_name.clone(),
         VoteOption::Player(pid) => ctx.game.player(*pid).name.clone(),
-    }
-}
-
-fn resolve_chain(ctx: &mut EffectContext, initial: SpellAbility) {
-    let mut current = Some(initial);
-    while let Some(cur) = current {
-        super::resolve_effect(ctx, &cur);
-        current = cur.sub_ability.map(|b| *b);
-        if ctx.game.game_over {
-            break;
-        }
     }
 }

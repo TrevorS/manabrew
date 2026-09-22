@@ -2041,19 +2041,8 @@ fn resolve_result_sub_ability(
             {
                 let mut sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, player);
                 sub_sa.activating_player = player;
-                resolve_sub_chain(ctx, sub_sa);
+                super::effect_resolver::resolve_effect_chain(ctx, sub_sa);
             }
-            break;
-        }
-    }
-}
-
-fn resolve_sub_chain(ctx: &mut EffectContext, initial: SpellAbility) {
-    let mut cur_opt: Option<SpellAbility> = Some(initial);
-    while let Some(cur_sa) = cur_opt {
-        super::resolve_effect(ctx, &cur_sa);
-        cur_opt = cur_sa.sub_ability.map(|b| *b);
-        if ctx.game.game_over {
             break;
         }
     }

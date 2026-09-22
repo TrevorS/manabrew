@@ -51,7 +51,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if sub_sa.target_chosen.target_player.is_none() {
             sub_sa.target_chosen.target_player = sa.target_chosen.target_player;
         }
-        resolve_sub_chain(ctx, sub_sa);
+        super::effect_resolver::resolve_effect_chain(ctx, sub_sa);
         count += 1;
 
         if ctx.game.game_over {
@@ -67,7 +67,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
 
     if let Some(sub_sa) = sa.sub_ability.as_deref() {
-        resolve_sub_chain(ctx, sub_sa.clone());
+        super::effect_resolver::resolve_effect_chain(ctx, sub_sa.clone());
     }
 }
 
@@ -169,29 +169,6 @@ fn check_repeat_conditions(ctx: &mut EffectContext, sa: &SpellAbility) -> bool {
     }
 
     true
-}
-
-fn resolve_sub_chain(ctx: &mut EffectContext, initial: SpellAbility) {
-    let parent_target_card = initial.target_chosen.target_card;
-    let parent_target_player = initial.target_chosen.target_player;
-    let mut cur_opt: Option<SpellAbility> = Some(initial);
-    while let Some(mut cur_sa) = cur_opt {
-        if cur_sa.target_chosen.target_card.is_none() {
-            cur_sa.target_chosen.target_card = parent_target_card;
-        }
-        if cur_sa.target_chosen.target_player.is_none() {
-            cur_sa.target_chosen.target_player = parent_target_player;
-        }
-        super::resolve_effect(ctx, &cur_sa);
-        cur_opt = if super::sub_ability_handled_internally(&cur_sa) {
-            None
-        } else {
-            cur_sa.sub_ability.map(|b| *b)
-        };
-        if ctx.game.game_over {
-            break;
-        }
-    }
 }
 
 #[cfg(test)]

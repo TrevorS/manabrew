@@ -259,17 +259,6 @@ fn resolve_for_players(
 
 fn resolve_additional(ctx: &mut EffectContext, sa: &SpellAbility, key: &str) {
     if let Some(sub_sa) = sa.get_additional_ability(key).cloned() {
-        resolve_sub_chain(ctx, sub_sa);
-    }
-}
-
-fn resolve_sub_chain(ctx: &mut EffectContext, initial: SpellAbility) {
-    let mut current = Some(initial);
-    while let Some(sa) = current {
-        super::resolve_effect(ctx, &sa);
-        current = sa.sub_ability.map(|next| *next);
-        if ctx.game.game_over {
-            break;
-        }
+        super::effect_resolver::resolve_effect_chain(ctx, sub_sa);
     }
 }

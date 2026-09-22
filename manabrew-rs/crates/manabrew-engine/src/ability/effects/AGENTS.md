@@ -32,6 +32,7 @@ PascalCase → snake_case, keep the `_effect` suffix. Don't drop or rename. If t
 - **Targeting and restrictions live upstream.** By the time an effect resolves, targets are validated. Don't re-validate; trust the spell-ability machinery.
 - **Don't bypass replacements.** Damage, zone changes, life loss, counters — every mutation that has a replacement type must go through the corresponding `replacement/` callsite. See `replacement/replacement_handler.rs`.
 - **Mirror Java's branching.** Even when it looks redundant. See `docs/agents/PARITY_PHILOSOPHY.md`.
+- **A sub-ability chain resolves through `effect_resolver::resolve_effect_chain`, never a private loop.** Java has one walker (`AbilityUtils.resolve` follows `getSubAbility` after each node) and so does this port: it stops after a node whose `UnlessCost$` handling already resolved the rest of the chain (`sub_ability_handled_internally`), and hands a parent's chosen target to a child that chose none (the `Defined$ Targeted` rule). A hand-rolled `while let Some(sa) = current { resolve_effect(ctx, &sa); current = sa.sub_ability... }` does neither: seven effects had one, and each resolved an `UnlessCost$` tail twice. `charm_effect.rs` is the one loop that stays, because it sets up each mode's targets per node before resolving it.
 
 ## Where things live
 

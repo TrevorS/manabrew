@@ -1,7 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{matches_valid_cards_for_sa, EffectContext};
-use crate::spellability::{build_spell_ability, SpellAbility};
+use crate::spellability::build_spell_ability;
 
 /// `SP$ RepeatEach` — loop a sub-ability over cards or players.
 ///
@@ -120,7 +120,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 ctx.game.card_mut(source_id).add_remembered_card(card_id);
             }
             let sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, controller);
-            resolve_sub_chain(ctx, sub_sa);
+            super::effect_resolver::resolve_effect_chain(ctx, sub_sa);
             if use_imprinted {
                 ctx.game.card_mut(source_id).remove_imprinted_card(card_id);
             } else {
@@ -165,7 +165,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             };
             ctx.game.card_mut(source_id).chosen_type = Some(chosen.clone());
             let sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, controller);
-            resolve_sub_chain(ctx, sub_sa);
+            super::effect_resolver::resolve_effect_chain(ctx, sub_sa);
             valid_types.retain(|t| t != &chosen);
             if ctx.game.game_over {
                 break;
@@ -214,7 +214,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             // Java `RepeatEachEffect` keeps sa.getActivatingPlayer() across
             // iterations; pid flows in only via Remembered.
             let sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, controller);
-            resolve_sub_chain(ctx, sub_sa);
+            super::effect_resolver::resolve_effect_chain(ctx, sub_sa);
 
             let host = ctx.game.card_mut(source_id);
             host.remembered_players.retain(|&p| p != pid);
@@ -239,18 +239,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if let Some(table) = ctx.game.pending_change_zone_table.clone() {
             table.trigger_changes_zone_all(ctx.trigger_handler, ctx.game, Some(sa));
             ctx.game.clear_pending_change_zone_table();
-        }
-    }
-}
-
-/// Walk a sub-ability chain (same pattern as charm_effect.rs).
-fn resolve_sub_chain(ctx: &mut EffectContext, initial: SpellAbility) {
-    let mut cur_opt: Option<SpellAbility> = Some(initial);
-    while let Some(cur_sa) = cur_opt {
-        super::resolve_effect(ctx, &cur_sa);
-        cur_opt = cur_sa.sub_ability.map(|b| *b);
-        if ctx.game.game_over {
-            break;
         }
     }
 }
