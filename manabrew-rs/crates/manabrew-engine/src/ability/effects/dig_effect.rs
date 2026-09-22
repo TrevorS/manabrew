@@ -154,6 +154,30 @@ fn resolve_for_player(
         valid.clone()
     } else if valid.is_empty() {
         Vec::new()
+    } else if let Some(mut totcmc) = sa.ir.with_total_cmc {
+        let chooser = sa.activating_player;
+        let mut valid_cmc: Vec<_> = valid
+            .iter()
+            .copied()
+            .filter(|&id| ctx.game.card(id).mana_value() <= totcmc)
+            .collect();
+        let mut moved = Vec::new();
+        while !valid_cmc.is_empty() && (any_number || moved.len() < change_num) {
+            let options: Vec<crate::agent::GameEntity> = valid_cmc
+                .iter()
+                .map(|&id| crate::agent::GameEntity::Card(id))
+                .collect();
+            ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
+            let Some(crate::agent::GameEntity::Card(chosen)) = ctx.agents[chooser.index()]
+                .choose_single_entity_for_effect(chooser, &options, any_number || optional)
+            else {
+                break;
+            };
+            moved.push(chosen);
+            totcmc -= ctx.game.card(chosen).mana_value();
+            valid_cmc.retain(|&id| id != chosen && ctx.game.card(id).mana_value() <= totcmc);
+        }
+        moved
     } else {
         ctx.agents[sa.activating_player.index()].choose_dig(
             ctx.game,
