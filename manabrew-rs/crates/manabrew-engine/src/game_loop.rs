@@ -618,6 +618,9 @@ impl GameLoop {
             game.turn.active_player = new_first;
             game.turn.priority_player = new_first;
         }
+
+        let (sba_handler, mut sba_parts) = self.sba_runtime();
+        check_sba(game, sba_handler, &mut sba_parts, agents);
     }
 
     fn collect_opening_hand_actions(
