@@ -70,6 +70,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         sa.ir.duration,
         Some(crate::spellability::AbilityDuration::Perpetual)
     );
+    let is_permanent_duration = matches!(
+        sa.ir.duration,
+        Some(crate::spellability::AbilityDuration::Permanent)
+    );
     let resolve_ts = ctx.game.next_effect_timestamp();
 
     // Resolve Triggers$ SVars from source into parsed Trigger objects.
@@ -135,6 +139,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
 
+        let until_registered = crate::ability::spell_ability_effect::add_until_command(
+            ctx.game,
+            sa.ir.duration.as_ref(),
+            sa.activating_player,
+            crate::phase::PhaseCommand::RestoreAnimate { card: card_id },
+        );
+
         // Save original state (only if not already animated this turn)
         if ctx.game.card(card_id).animate_state.is_none() {
             let original_type_line = ctx.game.card(card_id).type_line.clone();
@@ -151,7 +162,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     original_color,
                     original_keywords: Some(original_keywords),
                     trait_change_timestamps: Vec::new(),
-                    ends_at_end_of_turn: sa.ir.duration.is_none(),
+                    ends_at_end_of_turn: !until_registered
+                        && !is_permanent_duration
+                        && !is_perpetual,
                 }));
         }
 
