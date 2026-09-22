@@ -41,10 +41,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     )
             })
             .collect();
-        let chosen = ctx.agents[player.index()]
-            .choose_cards_for_effect(player, &valid, 1, 1)
-            .into_iter()
-            .next();
+        let options: Vec<GameEntity> = valid.iter().copied().map(GameEntity::Card).collect();
+        let chosen = match ctx.agents[player.index()]
+            .choose_single_entity_for_effect(player, &options, false)
+        {
+            Some(GameEntity::Card(card)) => Some(card),
+            _ => None,
+        };
         if let Some(card) = chosen {
             table.put(
                 Some(player),
