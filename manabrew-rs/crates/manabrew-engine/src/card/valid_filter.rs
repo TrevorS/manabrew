@@ -2712,15 +2712,10 @@ pub fn matches_valid_player(filter: &str, player: PlayerId, source_controller: P
         return true;
     }
 
-    // Handle comma-separated alternatives
-    if filter.contains(',') {
-        return filter.split(',').any(|part| {
-            filter_head_can_match_player(part)
-                && matches_single_valid_player(part.trim(), player, source_controller)
-        });
-    }
-
-    matches_single_valid_player(filter, player, source_controller)
+    filter.split(',').any(|part| {
+        filter_head_can_match_player(part)
+            && matches_single_valid_player(part.trim(), player, source_controller)
+    })
 }
 
 /// Convenience wrapper: None means "no filter" → always matches.
@@ -2899,14 +2894,6 @@ pub fn matches_valid(
     if let Some(card) = card {
         matches_valid_card(filter, card, source)
     } else if let Some(player) = player {
-        // Java parity: `Player.isValid` rejects card-oriented filter heads
-        // (e.g. "Card.Self", "Permanent.YouCtrl"). Without this guard the
-        // permissive fallback in `matches_single_valid_player` matches any
-        // unknown head, causing triggers like Ward (`ValidTarget$ Card.Self`)
-        // to fire on player targets.
-        if !filter_head_can_match_player(filter) {
-            return false;
-        }
         matches_valid_player(filter, player, source_controller)
     } else {
         false
