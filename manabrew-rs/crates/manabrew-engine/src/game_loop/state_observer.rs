@@ -47,7 +47,7 @@ impl GameLoop {
     }
 
     pub(crate) fn state_fingerprint(&self, game: &GameState) -> u64 {
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = FxHasher::default();
 
         hasher.write_u32(game.turn.turn_number);
         hasher.write_u32(game.turn.active_player.0);

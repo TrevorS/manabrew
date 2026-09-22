@@ -4590,6 +4590,7 @@ dependencies = [
  "indexmap 2.13.0",
  "manabrew-engine-macros",
  "rand 0.8.6",
+ "rustc-hash 2.1.2",
  "serde",
  "serde_json",
  "smallvec",

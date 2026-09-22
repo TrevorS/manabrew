@@ -1,6 +1,7 @@
 use crate::HashMap;
+use rustc_hash::FxHasher;
 use std::collections::VecDeque;
-use std::hash::{DefaultHasher, Hasher};
+use std::hash::Hasher;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 

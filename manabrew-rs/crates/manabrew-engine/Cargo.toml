@@ -17,6 +17,7 @@ serde_json = { workspace = true }
 rand = "0.8"
 indexmap = { version = "2", features = ["serde"] }
 smallvec = "1"
+rustc-hash = "2"
 typetag = "0.2"
 dyn-clone = "1"
 winnow = "0.7"
