@@ -1920,8 +1920,6 @@ impl GameLoop {
         let keywords_before = self.pool(player).collect_keyword_mana();
         let counters_before = self.pool(player).collect_counter_mana();
         let triggers_before = self.pool(player).collect_trigger_mana();
-        // Track pool size before payment for ManaExpend
-        let pool_size_before = self.pool(player).total_mana();
         let colors_spent_to_cast = std::cell::Cell::new(0u16);
         let paying_mana_to_cast = std::cell::RefCell::new(Vec::new());
         let paying_sources_to_cast = std::cell::RefCell::new(Vec::new());
@@ -2194,8 +2192,7 @@ impl GameLoop {
 
         // Fire ManaExpend triggers (Expend mechanic — cumulative per-turn tracking)
         {
-            let pool_size_after = self.pool(player).total_mana();
-            let mana_spent = pool_size_before - pool_size_after;
+            let mana_spent = game.card(card_id).paying_mana_to_cast.len() as i32;
             if mana_spent > 0 {
                 let starting = game.player(player).mana_expended_this_turn;
                 let total = starting + mana_spent;
