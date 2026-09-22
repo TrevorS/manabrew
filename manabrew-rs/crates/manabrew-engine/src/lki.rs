@@ -216,6 +216,25 @@ pub fn resolve_lki_counter_count(
     0
 }
 
+/// Every counter a card had when it last left, the way an LKI copy of it still carries them.
+/// Same two-step lookup as `resolve_lki_counter_count`, for a caller that needs the whole set.
+pub fn resolve_lki_counters(
+    game: &crate::game::GameState,
+    trigger_src: CardId,
+) -> Vec<(crate::card::CounterType, i32)> {
+    if let Some(counters) = game.card(trigger_src).lki_counters.as_ref() {
+        return counters.iter().map(|(ct, n)| (ct.clone(), *n)).collect();
+    }
+    if let Some(snapshot) = game.get_lki_snapshot(trigger_src) {
+        return snapshot
+            .counters
+            .iter()
+            .map(|(ct, n)| (ct.clone(), *n))
+            .collect();
+    }
+    Vec::new()
+}
+
 fn trigger_card_object(sa: &SpellAbility, key: &str) -> Option<CardId> {
     crate::ability::ability_key::from_string(key)
         .and_then(|ability_key| sa.get_triggering_card(ability_key))
