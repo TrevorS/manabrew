@@ -1130,6 +1130,10 @@ pub trait PlayerAgent {
         false
     }
 
+    fn enforces_block_requirements(&self) -> bool {
+        false
+    }
+
     /// Choose which replacement effect to apply when multiple effects match the same event.
     fn choose_single_replacement_effect(
         &mut self,

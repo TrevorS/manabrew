@@ -1525,7 +1525,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_blockers(
         &mut self,
-        _player: PlayerId,
+        player: PlayerId,
         attackers: &[CardId],
         available_blockers: &[CardId],
         max_blockers: Option<usize>,
@@ -1545,6 +1545,10 @@ impl PlayerAgent for DeterministicAgent {
 
         let mut pairs = Vec::new();
         let mut blocker_counts_by_attacker: HashMap<CardId, usize> = HashMap::new();
+        let mut combat = manabrew_engine::combat::CombatState::new();
+        for &attacker in attackers {
+            combat.declare_attacker(attacker, DefenderId::Player(player), 0);
+        }
         for &blocker in &sorted_blockers {
             // When BlockRestrict limit is reached, Java still iterates remaining
             // blockers with 0 legal options (consuming RNG for forced PASS).
@@ -1572,6 +1576,13 @@ impl PlayerAgent for DeterministicAgent {
                     current < self.snapshot_max_blockers_for_attacker(snap, *attacker)
                 });
             }
+            if let Some(game) = self.snapshot_game.as_ref() {
+                legal_attackers.retain(|&attacker| {
+                    !manabrew_engine::combat::combat_util::lure_forbids_block(
+                        game, &combat, attacker, blocker,
+                    )
+                });
+            }
             let choice = choice_space::pick_index_with_pass(
                 legal_attackers.len(),
                 &mut self.rng.borrow_mut(),
@@ -1579,6 +1590,7 @@ impl PlayerAgent for DeterministicAgent {
             if choice > 0 && choice <= legal_attackers.len() {
                 let attacker = legal_attackers[choice - 1];
                 *blocker_counts_by_attacker.entry(attacker).or_default() += 1;
+                combat.declare_blocker(blocker, attacker, 0);
                 pairs.push((blocker, attacker));
             }
         }

@@ -212,13 +212,59 @@ pub fn validate_blocks(game: &GameState, combat: &CombatState) -> Vec<(CardId, C
     invalid
 }
 
-/// Check if a blocker must block an attacker this combat.
 pub fn must_block_an_attacker(game: &GameState, combat: &CombatState, blocker_id: CardId) -> bool {
-    let blocker = game.card(blocker_id);
-    if blocker.must_block {
-        return true;
+    let has_block_cost = |attacker_id: CardId| {
+        super::block_cost::get_block_cost(
+            &game.cards,
+            game.card(blocker_id),
+            game.card(attacker_id),
+        ) > 0
+    };
+    let mut requirement_cards = Vec::new();
+    for &(attacker_id, _) in &combat.attackers {
+        if !has_block_cost(attacker_id)
+            && !attacker_lure_satisfied(game, attacker_id, &combat.get_blockers_for(attacker_id))
+            && can_creature_block(game, blocker_id, attacker_id)
+        {
+            requirement_cards.push(attacker_id);
+        }
     }
-    !compute_must_block_targets(game, combat, blocker_id).is_empty()
+    for &attacker_id in &game.card(blocker_id).must_block_cards {
+        if !has_block_cost(attacker_id)
+            && combat.is_attacking(attacker_id)
+            && can_creature_block(game, blocker_id, attacker_id)
+            && !requirement_cards.contains(&attacker_id)
+        {
+            requirement_cards.push(attacker_id);
+        }
+    }
+    let blocking = combat.get_attackers_for(blocker_id);
+    !requirement_cards.is_empty()
+        && requirement_cards
+            .iter()
+            .all(|attacker_id| !blocking.contains(attacker_id))
+}
+
+fn attacker_lure_satisfied(game: &GameState, attacker_id: CardId, blockers: &[CardId]) -> bool {
+    match get_lure_type(game.card(attacker_id)) {
+        LureType::AllMustBlock => false,
+        LureType::MustBeBlockedIfAble => !blockers.is_empty(),
+        LureType::None => true,
+    }
+}
+
+pub fn lure_forbids_block(
+    game: &GameState,
+    combat: &CombatState,
+    attacker_id: CardId,
+    blocker_id: CardId,
+) -> bool {
+    attacker_lure_satisfied(game, attacker_id, &combat.get_blockers_for(attacker_id))
+        && !game
+            .card(blocker_id)
+            .must_block_cards
+            .contains(&attacker_id)
+        && must_block_an_attacker(game, combat, blocker_id)
 }
 
 /// Determine the lure type of an attacker.

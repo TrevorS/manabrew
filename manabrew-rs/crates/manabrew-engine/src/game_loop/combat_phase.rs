@@ -832,29 +832,29 @@ impl GameLoop {
                         .retain(|(b, a)| !(b == blocker_id && a == attacker_id));
                 }
 
-                // Must-block enforcement: auto-assign blockers to required targets
-                let all_legal_blockers: Vec<CardId> = available_blockers.clone();
-                for &blocker_id in &all_legal_blockers {
-                    let must_targets =
-                        combat::compute_must_block_targets(game, &self.combat, blocker_id);
-                    if must_targets.is_empty() {
-                        continue;
-                    }
-                    let currently_blocking: Vec<CardId> = self
-                        .combat
-                        .blockers
-                        .iter()
-                        .filter(|(b, _)| *b == blocker_id)
-                        .map(|(_, a)| *a)
-                        .collect();
-                    if !must_targets.iter().any(|t| currently_blocking.contains(t)) {
-                        // Not blocking any required target — force-assign first
-                        if combat::can_creature_block(game, blocker_id, must_targets[0]) {
-                            self.combat.declare_blocker(
-                                blocker_id,
-                                must_targets[0],
-                                game.card(blocker_id).zone_timestamp,
-                            );
+                if agents[defending.index()].enforces_block_requirements() {
+                    for &blocker_id in &available_blockers {
+                        let must_targets =
+                            combat::compute_must_block_targets(game, &self.combat, blocker_id);
+                        if must_targets.is_empty() {
+                            continue;
+                        }
+                        let currently_blocking: Vec<CardId> = self
+                            .combat
+                            .blockers
+                            .iter()
+                            .filter(|(b, _)| *b == blocker_id)
+                            .map(|(_, a)| *a)
+                            .collect();
+                        if !must_targets.iter().any(|t| currently_blocking.contains(t)) {
+                            // Not blocking any required target — force-assign first
+                            if combat::can_creature_block(game, blocker_id, must_targets[0]) {
+                                self.combat.declare_blocker(
+                                    blocker_id,
+                                    must_targets[0],
+                                    game.card(blocker_id).zone_timestamp,
+                                );
+                            }
                         }
                     }
                 }
