@@ -228,6 +228,15 @@ pub fn adjust_ability_mana_cost(
     }
     cost.decrease_generic_mana(sum_generic);
     let adjusted = cost.to_mana_cost();
+    let adjusted = if ability.params.has("TapCreaturesForMana")
+        && game.action_space_mana_probe == crate::mana::ActionSpaceManaProbe::ComputerUtilMana
+    {
+        crate::mana::computer_util_mana::adjust_cost_by_convoke_or_improvise(
+            game, activator, host_id, &adjusted, false, true,
+        )
+    } else {
+        adjusted
+    };
     compute_cost_adjustment_inner(
         game,
         host,
@@ -854,7 +863,12 @@ pub fn apply_cost_reductions(
         && game.action_space_mana_probe == crate::mana::ActionSpaceManaProbe::ComputerUtilMana
     {
         crate::mana::computer_util_mana::adjust_cost_by_convoke_or_improvise(
-            game, player, card_id, cost,
+            game,
+            player,
+            card_id,
+            cost,
+            card.has_keyword("Improvise"),
+            card.has_keyword("Convoke"),
         )
     } else if card.has_keyword("Convoke") {
         let creature_count = game

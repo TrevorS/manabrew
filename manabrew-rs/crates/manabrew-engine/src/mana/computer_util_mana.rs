@@ -883,7 +883,9 @@ fn pay_convoke_improvise(
     unpaid: &mut ManaCostBeingPaid,
 ) -> Vec<(CardId, bool)> {
     let mut tapped = Vec::new();
-    for (cid, as_convoke) in convoke_improvise_sources(game, player, spell) {
+    let improvise = game.card(spell).has_keyword("Improvise");
+    let convoke = game.card(spell).has_keyword("Convoke");
+    for (cid, as_convoke) in convoke_improvise_sources(game, player, improvise, convoke) {
         if unpaid.is_paid() {
             break;
         }
@@ -905,9 +907,11 @@ pub fn adjust_cost_by_convoke_or_improvise(
     player: PlayerId,
     spell: CardId,
     cost: &forge_foundation::ManaCost,
+    artifacts: bool,
+    creatures: bool,
 ) -> forge_foundation::ManaCost {
     let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
-    for (cid, as_convoke) in convoke_improvise_sources(game, player, spell) {
+    for (cid, as_convoke) in convoke_improvise_sources(game, player, artifacts, creatures) {
         let color = convoke_color(game.card(cid), &unpaid, !as_convoke);
         let _ = unpaid.pay_mana_via_convoke(color);
     }
@@ -917,10 +921,11 @@ pub fn adjust_cost_by_convoke_or_improvise(
 fn convoke_improvise_sources(
     game: &GameState,
     player: PlayerId,
-    spell: CardId,
+    artifacts: bool,
+    creatures: bool,
 ) -> Vec<(CardId, bool)> {
-    let convoke = game.card(spell).has_keyword("Convoke");
-    let improvise = game.card(spell).has_keyword("Improvise");
+    let convoke = creatures;
+    let improvise = artifacts;
     if !convoke && !improvise {
         return Vec::new();
     }
