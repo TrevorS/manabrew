@@ -31,7 +31,7 @@ pub fn can_pay(
     _available_mana: &crate::mana::ManaPool,
     source: crate::ids::CardId,
     player: crate::ids::PlayerId,
-    _ability: Option<&crate::spellability::SpellAbility>,
+    ability: Option<&crate::spellability::SpellAbility>,
     part: &super::CostPart,
 ) -> bool {
     let super::CostPart::Return {
@@ -44,7 +44,7 @@ pub fn can_pay(
     if type_filter == "CARDNAME" {
         return game.card(source).zone == ZoneType::Battlefield;
     }
-    let targets = super::get_sacrifice_targets(game, player, type_filter);
+    let targets = super::get_sacrifice_targets_for_cost(game, player, type_filter, ability);
     (targets.len() as i32) >= amount.resolve(game, source, player)
 }
 

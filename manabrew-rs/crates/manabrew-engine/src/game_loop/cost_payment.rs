@@ -981,16 +981,16 @@ impl GameLoop {
                     if type_filter == "CARDNAME" {
                         let owner = game.card(card_id).owner;
                         self.move_card_with_runtime(game, card_id, ZoneType::Hand, owner, agents);
-                    } else {
-                        self.pay_return_cost(
-                            game,
-                            agents,
-                            player,
-                            card_id,
-                            type_filter,
-                            amount.resolve(game, card_id, player),
-                            sa.as_deref(),
-                        );
+                    } else if !self.pay_return_cost(
+                        game,
+                        agents,
+                        player,
+                        card_id,
+                        type_filter,
+                        amount.resolve(game, card_id, player),
+                        sa.as_deref(),
+                    ) {
+                        return false;
                     }
                 }
                 CostPart::TapType {
@@ -3401,28 +3401,30 @@ impl GameLoop {
         type_filter: &str,
         amount: i32,
         sa: Option<&SpellAbility>,
-    ) {
+    ) -> bool {
         for _ in 0..amount {
             let valid = cost::get_sacrifice_targets_for_cost(game, player, type_filter, sa);
             if valid.is_empty() {
-                break;
+                return false;
             }
-            let chosen = agents[player.index()]
+            let Some(chosen) = agents[player.index()]
                 .choose_cards_for_effect(player, &valid, 1, 1)
                 .into_iter()
-                .next();
-            if let Some(chosen) = chosen {
-                let owner = game.card(chosen).owner;
-                let from_zone = game.card(chosen).zone;
-                self.move_card_with_runtime(game, chosen, ZoneType::Hand, owner, agents);
-                crate::ability::effects::emit_zone_trigger(
-                    &mut self.trigger_handler,
-                    chosen,
-                    from_zone,
-                    ZoneType::Hand,
-                );
-            }
+                .next()
+            else {
+                return false;
+            };
+            let owner = game.card(chosen).owner;
+            let from_zone = game.card(chosen).zone;
+            self.move_card_with_runtime(game, chosen, ZoneType::Hand, owner, agents);
+            crate::ability::effects::emit_zone_trigger(
+                &mut self.trigger_handler,
+                chosen,
+                from_zone,
+                ZoneType::Hand,
+            );
         }
+        true
     }
 
     fn pay_return_cost_internal(
