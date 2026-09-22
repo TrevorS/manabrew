@@ -972,10 +972,23 @@ fn matches_context_predicate(
                 other < own
             })
         }
+        ContextPredicate::NotDefinedTargeted => {
+            if context.targeted_cards.contains(&card.id) {
+                return false;
+            }
+            match (context.game, context.spell_ability) {
+                (Some(game), Some(sa)) => {
+                    !crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                        game, sa, "Targeted",
+                    )
+                    .contains(&card.id)
+                }
+                _ => true,
+            }
+        }
         ContextPredicate::ActivePlayerCtrl
         | ContextPredicate::DefenderCtrl
-        | ContextPredicate::EnchantedController
-        | ContextPredicate::NotDefinedTargeted => false,
+        | ContextPredicate::EnchantedController => false,
     }
 }
 
