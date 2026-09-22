@@ -153,12 +153,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         trigger_order: None,
         source_timestamp: None,
     };
-    if sa.ir.this_turn {
-        ctx.trigger_handler
-            .register_this_turn_delayed_trigger(delayed);
-    } else if sa.ir.delayed_trigger_defined_player.is_some() {
+    if sa.ir.delayed_trigger_defined_player.is_some() {
         ctx.trigger_handler
             .register_player_defined_delayed_trigger(controller, delayed);
+    } else if sa.ir.this_turn {
+        ctx.trigger_handler
+            .register_this_turn_delayed_trigger(delayed);
     } else {
         ctx.trigger_handler.register_delayed_trigger(delayed);
     }
