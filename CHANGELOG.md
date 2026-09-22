@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.49.1](https://github.com/witchesofthehill/manabrew/compare/v3.49.0...v3.49.1) (2026-09-22)
+
+### Fixes
+
+* **telemetry:** stamp the browser engine's frames before the parse ([#976](https://github.com/witchesofthehill/manabrew/issues/976)) ([aafab42](https://github.com/witchesofthehill/manabrew/commit/aafab42324916d4f39c1c6cbea73dd12b11a9719))
+
 ## [3.49.0](https://github.com/witchesofthehill/manabrew/compare/v3.48.2...v3.49.0) (2026-09-22)
 
 ### Features
