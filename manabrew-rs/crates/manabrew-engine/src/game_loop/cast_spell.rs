@@ -501,6 +501,24 @@ impl GameLoop {
                 .run_trigger(TriggerType::Elementalbend, bend_params, false);
         }
 
+        let is_cycling = trigger_ctx.cast_trigger == TriggerType::AbilityCast
+            && sa_for_trigger
+                .ir
+                .precost_desc
+                .as_deref()
+                .is_some_and(|d| d.to_lowercase().contains("cycling"));
+        if is_cycling {
+            self.trigger_handler.run_trigger(
+                TriggerType::Cycled,
+                RunParams {
+                    card: Some(trigger_ctx.source_card),
+                    player: Some(player),
+                    ..Default::default()
+                },
+                false,
+            );
+        }
+
         self.emit_becomes_target_triggers(game, player, trigger_ctx.source_card, sa_for_trigger);
     }
 

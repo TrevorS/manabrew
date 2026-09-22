@@ -293,29 +293,6 @@ impl GameLoop {
                 },
                 false,
             );
-            // Fire Cycled trigger if this was a cycling ability
-            // (mirrors Java MagicStack resolve → Player.addCycled)
-            if entry.spell_ability.is_activated {
-                let is_cycling = entry
-                    .spell_ability
-                    .ir
-                    .precost_desc
-                    .as_deref()
-                    .is_some_and(|d| d.to_lowercase().contains("cycling"));
-                if is_cycling {
-                    if let Some(source_card) = entry.spell_ability.source {
-                        self.trigger_handler.run_trigger(
-                            TriggerType::Cycled,
-                            RunParams {
-                                card: Some(source_card),
-                                player: Some(entry.spell_ability.activating_player),
-                                ..Default::default()
-                            },
-                            false,
-                        );
-                    }
-                }
-            }
         } else if let Some(card_id) = entry.spell_ability.source {
             let alt_cost = entry.spell_ability.alt_cost;
             let player = entry.spell_ability.activating_player;
