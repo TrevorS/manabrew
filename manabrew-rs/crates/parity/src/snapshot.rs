@@ -209,6 +209,11 @@ fn snapshot_player(
     if player.radiation_counters > 0 {
         counters.insert("rad".to_string(), player.radiation_counters);
     }
+    for (counter_type, &amount) in &player.counters {
+        if amount > 0 {
+            counters.insert(counter_type_name(counter_type), amount);
+        }
+    }
     let mana_pool = mana_pools
         .get(pid.index())
         .map(|pool| {

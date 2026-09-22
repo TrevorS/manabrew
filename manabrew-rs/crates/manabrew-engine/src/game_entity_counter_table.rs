@@ -111,6 +111,12 @@ impl GameEntityCounterTable {
                     ),
                 ]
                 .into_iter()
+                .chain(
+                    player
+                        .counters
+                        .iter()
+                        .map(|(counter_type, amount)| (counter_type.clone(), *amount)),
+                )
                 .filter(|(_, amount)| *amount > 0)
                 .collect()
             }
@@ -434,7 +440,12 @@ fn counter_count(game: &GameState, object: GameEntity, counter_type: &CounterTyp
             CounterType::Poison => game.player(player).poison_counters,
             CounterType::Named(name) if name == "ENERGY" => game.player(player).energy_counters,
             CounterType::Named(name) if name == "RAD" => game.player(player).radiation_counters,
-            _ => 0,
+            _ => game
+                .player(player)
+                .counters
+                .get(counter_type)
+                .copied()
+                .unwrap_or(0),
         },
     }
 }
@@ -451,7 +462,13 @@ fn add_player_counter(
         CounterType::Named(name) if name == "RAD" => {
             game.player_mut(player).radiation_counters += amount;
         }
-        _ => {}
+        _ => {
+            *game
+                .player_mut(player)
+                .counters
+                .entry(counter_type.clone())
+                .or_insert(0) += amount;
+        }
     }
 }
 

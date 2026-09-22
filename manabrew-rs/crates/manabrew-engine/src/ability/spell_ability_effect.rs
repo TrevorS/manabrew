@@ -240,7 +240,10 @@ pub fn get_defined_entities(
     let mut cards = Vec::new();
     for d in &defined.refs {
         let found = resolve_defined_cards_for_sa_ref(game, sa, d);
-        if defined_ref_names_players(d) || found.is_empty() && !defined_ref_names_cards_only(d) {
+        if defined_ref_names_players(d)
+            || matches!(d, DefinedRef::Targeted | DefinedRef::ParentTarget)
+            || found.is_empty() && !defined_ref_names_cards_only(d)
+        {
             for player in ability_utils::resolve_defined_players_with_sa(
                 d.as_legacy_str(),
                 sa,

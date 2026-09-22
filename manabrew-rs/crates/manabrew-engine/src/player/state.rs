@@ -1,5 +1,5 @@
 use crate::HashMap;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -119,6 +119,8 @@ pub struct PlayerState {
     pub dice_rolls_this_turn: Vec<i32>,
     pub ring_bearer: Option<CardId>,
     pub radiation_counters: i32,
+    // Poison, energy and rad counters live in their own fields, never in this map.
+    pub counters: BTreeMap<crate::card::CounterType, i32>,
     pub permanents_left_battlefield_this_turn: i32,
     pub lands_entered_battlefield_this_turn: i32,
     pub permanents_put_into_graveyard_this_turn: i32,
@@ -242,6 +244,7 @@ impl PlayerState {
             dice_rolls_this_turn: Vec::new(),
             ring_bearer: None,
             radiation_counters: 0,
+            counters: BTreeMap::new(),
             permanents_left_battlefield_this_turn: 0,
             lands_entered_battlefield_this_turn: 0,
             permanents_put_into_graveyard_this_turn: 0,
@@ -428,6 +431,7 @@ impl PlayerState {
         self.dice_rolls_this_turn.clear();
         self.ring_bearer = None;
         self.radiation_counters = 0;
+        self.counters.clear();
         self.permanents_left_battlefield_this_turn = 0;
         self.lands_entered_battlefield_this_turn = 0;
         self.permanents_put_into_graveyard_this_turn = 0;

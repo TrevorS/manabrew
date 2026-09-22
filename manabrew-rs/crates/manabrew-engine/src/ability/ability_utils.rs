@@ -611,7 +611,14 @@ pub fn resolve_defined_players_with_sa(
         _ if key.starts_with("Remembered") => remembered_players_for_def(key, sa, game),
         _ if key.starts_with("Imprinted") => imprinted_players_for_def(key, sa, game),
         "IsRemembered" => remembered_players_for_def("Remembered", sa, game),
-        "TriggeredPlayer" | "Targeted" | "TargetedPlayer" => {
+        "Targeted" | "TargetedPlayer" => {
+            let mut players = Vec::new();
+            for player in sa.target_chosen.all_target_players() {
+                push_unique_player(&mut players, player);
+            }
+            players
+        }
+        "TriggeredPlayer" => {
             let mut players = Vec::new();
             for player in sa.target_chosen.all_target_players() {
                 push_unique_player(&mut players, player);
@@ -620,6 +627,17 @@ pub fn resolve_defined_players_with_sa(
                 push_unique_player(&mut players, player);
             }
             players
+        }
+        "Enchanted" | "Equipped" => sa
+            .source
+            .and_then(|source| game.card(source).attached_to_player)
+            .into_iter()
+            .collect(),
+        _ if key.starts_with("ChosenCard")
+            && !key.ends_with("Controller")
+            && !key.ends_with("Owner") =>
+        {
+            Vec::new()
         }
         "ParentTarget" => sa.parent_targeting_player.map_or_else(
             || sa.target_chosen.all_target_players(),

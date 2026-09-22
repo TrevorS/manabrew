@@ -1,9 +1,6 @@
 use forge_foundation::ZoneType;
 
-use super::{
-    matches_valid_cards_for_sa, parse_counter_type, resolve_defined_player, resolve_numeric_svar,
-    EffectContext,
-};
+use super::{matches_valid_cards_for_sa, parse_counter_type, resolve_numeric_svar, EffectContext};
 use crate::ability::ability_ir::DefinedRef;
 use crate::agent::GameEntity;
 use crate::event::RunParams;
@@ -318,24 +315,25 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         return;
     }
 
-    // Resolve the controller of this ability (for Defined$ You etc.)
-    // Check for Defined$ — if targeting a player (e.g. Defined$ You for energy),
-    // handle player-level counters like ENERGY instead of card counters.
-    if let Some(defined) = sa.defined() {
-        if let Some(target_player) = resolve_defined_player(defined, source_controller, ctx.game) {
-            for counter_type in &counter_types {
-                ctx.add_player_counter(
-                    target_player,
-                    counter_type,
-                    count,
-                    sa,
-                    RunParams {
-                        source_player: Some(placer),
-                        ..Default::default()
-                    },
-                );
-            }
-            return;
+    let target_players = match sa.ir.defined.as_ref() {
+        Some(defined) => {
+            crate::ability::spell_ability_effect::get_defined_entities(ctx.game, sa, defined).0
+        }
+        None if sa.target_restrictions.is_some() => sa.target_chosen.all_target_players(),
+        None => Vec::new(),
+    };
+    for target_player in target_players {
+        for counter_type in &counter_types {
+            ctx.add_player_counter(
+                target_player,
+                counter_type,
+                count,
+                sa,
+                RunParams {
+                    source_player: Some(placer),
+                    ..Default::default()
+                },
+            );
         }
     }
 
@@ -491,7 +489,8 @@ fn resolve_card_targets(
 }
 
 /// The counter kinds a player can already have. Java reads `Player.getCounters()`; this engine
-/// keeps them as separate fields, so the equivalent is the ones currently above zero.
+/// keeps poison, energy and rad as separate fields and the rest in `counters`, so the equivalent
+/// is the ones currently above zero.
 fn player_counter_kinds(
     game: &crate::game::GameState,
     player: crate::ids::PlayerId,
@@ -507,6 +506,13 @@ fn player_counter_kinds(
             kinds.push(parse_counter_type(name));
         }
     }
+    kinds.extend(
+        state
+            .counters
+            .iter()
+            .filter(|(_, &amount)| amount > 0)
+            .map(|(counter_type, _)| counter_type.clone()),
+    );
     kinds
 }
 
