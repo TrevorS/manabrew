@@ -307,6 +307,28 @@ impl GameLoop {
                     alt_cost_index: 0,
                 });
             }
+            // Java's `Card.collectSpellAbilities`: `isModal() && hasState(Backside)` adds every
+            // spell/land ability of the back face unconditionally — a Modal DFC's back face is
+            // castable from hand exactly like the front, not just as a land (`BackFaceLand`
+            // above covers the land case; this is the spell one, e.g. Peter Parker //
+            // Amazing Spider-Man). `PlayCardMode::Secondary` doubles for this: a card only ever
+            // has a `Secondary` state (Adventure/Omen) or a modal `Backside`, never both, so
+            // `cast_spell.rs` reads the state to build from off the card itself.
+            if card.is_modal()
+                && self.can_play_card_state_spell(
+                    game,
+                    player,
+                    card_id,
+                    forge_foundation::CardStateName::Backside,
+                    &chosen_types_by_source,
+                )
+            {
+                playable.push(crate::agent::PlayOption {
+                    card_id,
+                    mode: crate::agent::PlayCardMode::Secondary,
+                    alt_cost_index: 0,
+                });
+            }
             // A split card that is not a Room offers its right half as a spell of its own,
             // as Java builds one Spell per CardState. A Room's right half is the same
             // permanent behind a second door, so it keeps the cost-swap path below.

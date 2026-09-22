@@ -589,11 +589,17 @@ impl GameLoop {
         let right_split_spell = play_mode == crate::agent::PlayCardMode::RoomRightSplit
             && !game.card(card_id).type_line.has_subtype("Room");
         let mut sa = if play_mode == crate::agent::PlayCardMode::Secondary {
+            // `PlayCardMode::Secondary` covers both an Adventure/Omen `Secondary` face and a
+            // Modal DFC's `Backside` face — a card only ever has one of the two, so which state
+            // to build reads off the card itself. See `playability.rs`'s modal-backside check.
+            let state_name = game
+                .card(card_id)
+                .other_part
+                .as_ref()
+                .map(|other| other.state_name)
+                .unwrap_or(forge_foundation::CardStateName::Secondary);
             crate::spellability::build_spell_ability_for_card_state_cast(
-                game,
-                card_id,
-                player,
-                forge_foundation::CardStateName::Secondary,
+                game, card_id, player, state_name,
             )?
             .1
         } else if right_split_spell {

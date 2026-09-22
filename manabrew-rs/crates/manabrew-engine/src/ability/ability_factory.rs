@@ -317,7 +317,14 @@ pub fn build_spell_ability_for_card_state_cast(
         return None;
     }
     host.transform();
-    let mut sa = build_spell_ability_for_host_cast(&host, player)?;
+    // A Modal DFC's back face is routinely a vanilla creature with no `A:` line at all (Amazing
+    // Spider-Man has only keywords and a static) — `build_spell_ability_for_host_cast` returns
+    // `None` for that, so this needs the same vanilla fallback `build_spell_ability_for_card_cast`
+    // gives the front face, built against the already-transformed `host` this time.
+    let mut sa = match build_spell_ability_for_host_cast(&host, player) {
+        Some(sa) => sa,
+        None => build_vanilla_spell_ability(&host, card_id, player),
+    };
     sa.ir.card_state_name = Some(format!("{state_name:?}"));
     Some((host, sa))
 }
@@ -337,13 +344,16 @@ pub fn build_spell_ability_for_card_cast(
     if let Some(sa) = build_spell_ability_for_host_cast(game.card(card_id), player) {
         return sa;
     }
+    build_vanilla_spell_ability(game.card(card_id), card_id, player)
+}
 
-    // Vanilla fallback: no SP$ ability text. Build a castable spell probe
-    // with Java-like Spell defaults (hand zone + card mana cost).
+/// A castable spell probe with Java-like `Spell` defaults (hand zone + the face's own mana
+/// cost) for a face with no `A:` line at all — a vanilla creature, or a Modal DFC's back face
+/// when it is one (Amazing Spider-Man has only keywords and a static, no spell ability).
+fn build_vanilla_spell_ability(card: &Card, card_id: CardId, player: PlayerId) -> SpellAbility {
     let mut restriction = crate::spellability::SpellAbilityRestriction::default();
     restriction.variables.set_zone(ZoneType::Hand);
     let condition = crate::spellability::SpellAbilityCondition::default();
-    let card = game.card(card_id);
 
     // Aura enchantments: derive targeting from "Enchant <type>" keyword.
     // Mirrors Java's Spell constructor which reads the Enchant keyword to
