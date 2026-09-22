@@ -284,10 +284,17 @@ pub fn resolve_triggered_card_lki_property(
     }
 
     if let Some(counter_name) = property.strip_prefix("CardCounters.") {
+        let trigger_src = trigger_card_object(sa, "Card").or(sa.trigger_source)?;
+        if counter_name.eq_ignore_ascii_case("ALL") {
+            return Some(
+                resolve_lki_counters(game, trigger_src)
+                    .iter()
+                    .map(|(_, count)| count)
+                    .sum(),
+            );
+        }
         let counter_type = crate::ability::effects::parse_counter_type(counter_name);
-        return trigger_card_object(sa, "Card")
-            .or(sa.trigger_source)
-            .map(|trigger_src| resolve_lki_counter_count(game, trigger_src, &counter_type));
+        return Some(resolve_lki_counter_count(game, trigger_src, &counter_type));
     }
 
     if let Some(filter) = property.strip_prefix("Valid ") {
