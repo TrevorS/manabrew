@@ -765,7 +765,11 @@ impl GameLoop {
         for i in 0..game.cards.len() {
             if game.cards[i].zone == ZoneType::Battlefield {
                 // Restore animate state before checking creature status (issue #52).
-                if let Some(state) = game.cards[i].animate_state.take() {
+                let had_animate_state = game.cards[i].animate_state.is_some();
+                if let Some(state) = game.cards[i]
+                    .animate_state
+                    .take_if(|state| state.ends_at_end_of_turn)
+                {
                     game.cards[i].restore_animate_snapshot(
                         state.original_type_line,
                         state.original_base_power,
@@ -775,6 +779,8 @@ impl GameLoop {
                     for ts in state.trait_change_timestamps {
                         game.cards[i].remove_changed_card_traits(ts, 0);
                     }
+                }
+                if had_animate_state {
                     game.cards[i].clear_damage();
                 }
                 if game.cards[i]

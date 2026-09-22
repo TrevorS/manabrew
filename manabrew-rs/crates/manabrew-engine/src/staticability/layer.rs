@@ -1949,7 +1949,7 @@ mod tests {
 
 /// Keep in sync with `CardType.sanisfySubtypes`: after type changes, a subtype stays only
 /// while the card has a card type it belongs to. Returns whether anything was removed.
-fn sanitize_subtypes(type_line: &mut CardTypeLine) -> bool {
+pub(crate) fn sanitize_subtypes(type_line: &mut CardTypeLine) -> bool {
     use crate::game::TypeRegistry;
     if type_line.subtypes.is_empty() || !TypeRegistry::subtype_sections_loaded() {
         return false;

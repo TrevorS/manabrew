@@ -198,7 +198,50 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     original_color,
                     original_keywords: Some(original_keywords),
                     trait_change_timestamps: Vec::new(),
+                    ends_at_end_of_turn: sa.ir.duration.is_none(),
                 }));
+        }
+
+        if sa.ir.duration.is_some() {
+            crate::ability::spell_ability_effect::add_until_command(
+                ctx.game,
+                sa.ir.duration.as_ref(),
+                sa.activating_player,
+                crate::phase::PhaseCommand::RestoreAnimate { card: card_id },
+            );
+        }
+
+        if sa.ir.animate_remove_card_types {
+            let card = ctx.game.card_mut(card_id);
+            card.type_line.core_types.clear();
+            card.update_types();
+            if is_permanent_duration {
+                if let Some(state) = card.animate_state.as_mut() {
+                    state.original_type_line.core_types.clear();
+                }
+            }
+        }
+
+        if sa.ir.animate_remove_super_types {
+            let card = ctx.game.card_mut(card_id);
+            card.type_line.supertypes.clear();
+            card.update_types();
+            if is_permanent_duration {
+                if let Some(state) = card.animate_state.as_mut() {
+                    state.original_type_line.supertypes.clear();
+                }
+            }
+        }
+
+        if sa.ir.animate_remove_sub_types {
+            let card = ctx.game.card_mut(card_id);
+            card.type_line.subtypes.clear();
+            card.update_types();
+            if is_permanent_duration {
+                if let Some(state) = card.animate_state.as_mut() {
+                    state.original_type_line.subtypes.clear();
+                }
+            }
         }
 
         if sa.ir.animate_remove_creature_types {
@@ -247,6 +290,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         }
                     }
                 }
+            }
+        }
+
+        if sa.ir.animate_remove_card_types
+            || sa.ir.animate_remove_super_types
+            || sa.ir.animate_remove_sub_types
+            || types_str.is_some()
+        {
+            let card = ctx.game.card_mut(card_id);
+            if crate::staticability::layer::sanitize_subtypes(&mut card.type_line) {
+                card.update_types();
             }
         }
 

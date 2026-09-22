@@ -230,6 +230,14 @@ pub struct AnimateState {
     pub original_keywords: Option<crate::keyword::keyword_collection::KeywordCollection>,
     #[serde(default)]
     pub trait_change_timestamps: Vec<i64>,
+    /// Java registers the revert through `SpellAbilityEffect.addUntilCommand`, whose default
+    /// branch is end of turn; only that branch may be undone by the cleanup step.
+    #[serde(default = "crate::card::animate_ends_at_end_of_turn_default")]
+    pub ends_at_end_of_turn: bool,
+}
+
+pub(crate) fn animate_ends_at_end_of_turn_default() -> bool {
+    true
 }
 
 /// Saved pre-clone copiable characteristics.

@@ -151,6 +151,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     original_color,
                     original_keywords: Some(original_keywords),
                     trait_change_timestamps: Vec::new(),
+                    ends_at_end_of_turn: sa.ir.duration.is_none(),
                 }));
         }
 
