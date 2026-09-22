@@ -54,27 +54,18 @@ pub fn can_play(st_ab: &StaticAbility, source: &Card, card: &Card, game: &GameSt
     )
 }
 
-pub fn can_play_or_granted(
-    st_ab: &StaticAbility,
-    source: &Card,
-    card: &Card,
-    game: &GameState,
-) -> bool {
-    if can_play(st_ab, source, card, game) {
-        return true;
-    }
-    if !st_ab.check_conditions(source, game) {
-        return false;
-    }
-    if !crate::card::valid_filter::matches_valid_card_selector_opt(
-        st_ab.ir.affected.as_ref(),
-        source,
-        source,
-    ) {
-        return false;
+fn granted_statics(st_ab: &StaticAbility, source: &Card, game: &GameState) -> Vec<StaticAbility> {
+    if !st_ab.check_conditions(source, game)
+        || !crate::card::valid_filter::matches_valid_card_selector_opt(
+            st_ab.ir.affected.as_ref(),
+            source,
+            source,
+        )
+    {
+        return Vec::new();
     }
     let Some(add_static) = st_ab.ir.add_static_ability_text.as_deref() else {
-        return false;
+        return Vec::new();
     };
     add_static
         .split(" & ")
@@ -82,7 +73,41 @@ pub fn can_play_or_granted(
         .filter(|s| !s.is_empty())
         .filter_map(|svar_name| source.svars.get(svar_name))
         .filter_map(|static_text| crate::staticability::parse_static_ability(static_text))
-        .any(|granted| can_play(&granted, source, card, game))
+        .collect()
+}
+
+pub fn can_play_or_granted(
+    st_ab: &StaticAbility,
+    source: &Card,
+    card: &Card,
+    game: &GameState,
+) -> bool {
+    can_play(st_ab, source, card, game)
+        || granted_statics(st_ab, source, game)
+            .iter()
+            .any(|granted| can_play(granted, source, card, game))
+}
+
+/// `grants_zone_permissions` for one spell ability: Java's `checkZoneRestrictions`
+/// (`SpellAbilityRestriction.java:250`) skips a grant whose `ValidSA$` the ability does not match.
+pub fn grants_zone_permissions_for(
+    st_ab: &StaticAbility,
+    source: &Card,
+    card: &Card,
+    game: &GameState,
+    sa: &crate::spellability::SpellAbility,
+) -> bool {
+    let accepts = |granting: &StaticAbility| {
+        granting.ir.valid_sa.as_deref().is_none_or(|filter| {
+            crate::spellability::matches_valid_sa(filter, sa, source, Some(card))
+        })
+    };
+    if can_play(st_ab, source, card, game) {
+        return st_ab.ir.may_play_grants_zone_permissions && accepts(st_ab);
+    }
+    granted_statics(st_ab, source, game)
+        .iter()
+        .any(|granted| can_play(granted, source, card, game) && accepts(granted))
 }
 
 /// Java `SpellAbilityRestriction.checkZoneRestrictions`: a grant made with

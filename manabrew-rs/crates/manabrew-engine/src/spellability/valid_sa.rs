@@ -107,6 +107,8 @@ fn matches_property_token_positive(
         "mayplaysource" => sa.may_play_source == Some(source.id),
         "mayhem" => sa.alt_cost == Some(crate::spellability::AlternativeCost::Mayhem),
         "warp" => sa.alt_cost == Some(crate::spellability::AlternativeCost::Warp),
+        "sneak" => sa.alt_cost == Some(crate::spellability::AlternativeCost::Sneak),
+        "blitz" => sa.alt_cost == Some(crate::spellability::AlternativeCost::Blitz),
         "xcost" => sa.cost_has_x(),
         "singletarget" => sa.targets_single_target(),
         "crew" => is_crew(sa, ability_host),

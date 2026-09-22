@@ -259,6 +259,28 @@ impl GameLoop {
                     )
                 })
         };
+        let accepting_may_play_grants = |card_id: CardId, sa: &SpellAbility| -> usize {
+            let card = game.card(card_id);
+            crate::staticability::static_ability_continuous::may_play_grants(game, player, card)
+                .filter(|(source, st_ab)| {
+                    crate::staticability::static_ability_continuous::grants_zone_permissions_for(
+                        st_ab, source, card, game, sa,
+                    )
+                })
+                .count()
+        };
+        let sneak_window = |card: &Card| {
+            game.turn.phase == forge_foundation::PhaseType::CombatDeclareBlockers
+                && card.get_sneak_cost().is_some()
+                && self
+                    .combat
+                    .get_unblocked_attackers()
+                    .iter()
+                    .any(|&attacker| {
+                        let attacker = game.card(attacker);
+                        attacker.zone == ZoneType::Battlefield && attacker.controller == player
+                    })
+        };
         // First MayPlay alt-cost (e.g. Airbend's `MayPlayAltManaCost$ 2`)
         // granted to `card_id`. Returns the cost string if any.
         let may_play_alt_cost = |card_id: CardId| -> Option<String> {
@@ -433,17 +455,7 @@ impl GameLoop {
                     continue;
                 }
 
-                let sneak_window = game.turn.phase
-                    == forge_foundation::PhaseType::CombatDeclareBlockers
-                    && card.get_sneak_cost().is_some()
-                    && self
-                        .combat
-                        .get_unblocked_attackers()
-                        .iter()
-                        .any(|&attacker| {
-                            let attacker = game.card(attacker);
-                            attacker.zone == ZoneType::Battlefield && attacker.controller == player
-                        });
+                let sneak_window = sneak_window(card);
                 let normal_timing = !must_be_instant || has_flash_permission(card_id);
                 // Java `CardFactoryUtil:2961` gives foretell no sorcery-speed restriction, so a
                 // sorcery can still be foretold in a step where it could not be cast.
@@ -1154,23 +1166,56 @@ impl GameLoop {
             for &card_id in &gy_cards {
                 let card = game.card(card_id);
                 if !card.is_land() {
-                    if !can_may_play_from_static(card_id)
-                        || (must_be_instant && !has_flash_permission(card_id))
+                    let normal_sa = crate::spellability::build_spell_ability_for_card_cast(
+                        game, card_id, player,
+                    );
+                    let normal_grants = accepting_may_play_grants(card_id, &normal_sa);
+                    if normal_grants > 0
+                        && (!must_be_instant || has_flash_permission(card_id))
+                        && self.can_cast_may_play_spell(
+                            game,
+                            player,
+                            card_id,
+                            ZoneType::Graveyard,
+                            may_play_alt_cost(card_id),
+                            &chosen_types_by_source,
+                        )
                     {
-                        continue;
-                    }
-                    if self.can_cast_may_play_spell(
-                        game,
-                        player,
-                        card_id,
-                        ZoneType::Graveyard,
-                        may_play_alt_cost(card_id),
-                        &chosen_types_by_source,
-                    ) {
-                        for _ in 0..count_may_play_grants(card_id).max(1) {
+                        for _ in 0..normal_grants {
                             playable.push(crate::agent::PlayOption {
                                 card_id,
                                 mode: crate::agent::PlayCardMode::Normal,
+                                alt_cost_index: 0,
+                            });
+                        }
+                    }
+                    if let Some(sneak_cost) = card.get_sneak_cost().filter(|_| sneak_window(card)) {
+                        let mut sneak_sa = normal_sa;
+                        sneak_sa.alt_cost = Some(crate::spellability::AlternativeCost::Sneak);
+                        let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
+                            game,
+                            card,
+                            player,
+                            ZoneType::Graveyard,
+                        );
+                        if accepting_may_play_grants(card_id, &sneak_sa) > 0
+                            && self
+                                .available_mana_for_spell_card(
+                                    game,
+                                    player,
+                                    card_id,
+                                    &chosen_types_by_source,
+                                )
+                                .can_pay(
+                                    &cost_adj
+                                        .apply(&forge_foundation::ManaCost::parse(&sneak_cost)),
+                                )
+                        {
+                            playable.push(crate::agent::PlayOption {
+                                card_id,
+                                mode: crate::agent::PlayCardMode::Alternative(
+                                    crate::spellability::AlternativeCost::Sneak,
+                                ),
                                 alt_cost_index: 0,
                             });
                         }
