@@ -112,6 +112,7 @@ pub const TRIGGERS_WHEN_SPENT: &str = "TriggersWhenSpent";
 pub const AMOUNT: &str = "Amount";
 pub const MIN_AMOUNT: &str = "MinAmount";
 pub const ADDITIONAL: &str = "Additional";
+pub const MIN_LIMIT: &str = "MinLimit";
 pub const CONNIVE_NUM: &str = "ConniveNum";
 pub const HIT_COUNT: &str = "HitCount";
 pub const NUM_DMG: &str = "NumDmg";

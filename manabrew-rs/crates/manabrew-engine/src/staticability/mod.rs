@@ -2,6 +2,7 @@ pub mod layer;
 pub mod static_ability;
 pub mod static_ability_activate_ability_as_if_haste;
 pub mod static_ability_adapt;
+pub mod static_ability_additional_activations;
 pub mod static_ability_alternative_cost;
 pub mod static_ability_assign_combat_damage_as_unblocked;
 pub mod static_ability_assign_no_combat_damage;

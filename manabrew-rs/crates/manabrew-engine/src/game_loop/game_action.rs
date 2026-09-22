@@ -220,12 +220,21 @@ impl GameLoop {
             // PowerUp: once-per-game restriction
             if ab.power_up || ab.exhaust {
                 let card = game.card(card_id);
+                let sa = crate::ability::ability_factory::build_spell_ability(
+                    game,
+                    card_id,
+                    &ab.ability_text,
+                    player,
+                );
+                let limit = crate::staticability::static_ability_additional_activations::get_limit(
+                    game, card, &sa, player,
+                );
                 if card
                     .activations_this_game
                     .get(&ab.ability_index)
                     .copied()
                     .unwrap_or(0)
-                    > 0
+                    >= limit
                 {
                     return Err("PowerUp or Exhaust already activated");
                 }
@@ -494,15 +503,25 @@ impl GameLoop {
                     continue;
                 }
             }
-            if (ab.power_up || ab.exhaust)
-                && card
+            if ab.power_up || ab.exhaust {
+                let sa = crate::ability::ability_factory::build_spell_ability(
+                    game,
+                    card_id,
+                    &ab.ability_text,
+                    player,
+                );
+                let limit = crate::staticability::static_ability_additional_activations::get_limit(
+                    game, card, &sa, player,
+                );
+                if card
                     .activations_this_game
                     .get(&ab.ability_index)
                     .copied()
                     .unwrap_or(0)
-                    > 0
-            {
-                continue;
+                    >= limit
+                {
+                    continue;
+                }
             }
             if ab.sorcery_speed && !can_play_sorcery {
                 continue;
