@@ -200,21 +200,19 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let exile_source = if until_host_leaves { sa.source } else { None };
 
     {
-        // Restrict to the targeted/defined player when set; otherwise every player.
-        let player_ids: Vec<PlayerId> = if let Some(pid) = sa.target_chosen.target_player {
-            vec![pid]
+        let use_all_origin_zones =
+            crate::parsing::raw_has_key(&sa.ability_text, "UseAllOriginZones");
+        let player_ids: Vec<PlayerId> = if use_all_origin_zones {
+            ctx.game.player_order.clone()
+        } else if sa.uses_targeting() {
+            sa.target_chosen.all_target_players()
         } else if let Some(defined) = sa.ir.defined_text.as_deref() {
-            let resolved = crate::ability::ability_utils::resolve_defined_players_with_sa(
+            crate::ability::ability_utils::resolve_defined_players_with_sa(
                 defined,
                 sa,
                 sa.activating_player,
                 ctx.game,
-            );
-            if resolved.is_empty() {
-                ctx.game.player_order.clone()
-            } else {
-                resolved
-            }
+            )
         } else {
             ctx.game.player_order.clone()
         };
