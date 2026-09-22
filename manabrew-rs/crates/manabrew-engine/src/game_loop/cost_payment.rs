@@ -419,10 +419,32 @@ impl GameLoop {
         // Phase 1: visit/decide (matching Java's accept loop order).
         let mut pre_picked_discards: Vec<CardId> = Vec::new();
         let mut pre_picked_sacrifices: Vec<CardId> = Vec::new();
+        let mut pre_picked_blights: Vec<CardId> = Vec::new();
         let mut reserved_sacrifices: Vec<CardId> = self.current_reserved_sacrifices().to_vec();
         let allow_reserved_source_reuse = self.current_allow_reserved_source_reuse();
         for part in cost.parts.clone() {
             match &part {
+                CostPart::Blight(_) => {
+                    let choices: Vec<crate::agent::GameEntity> = Self::blight_targets(game, player)
+                        .into_iter()
+                        .map(crate::agent::GameEntity::Card)
+                        .collect();
+                    if choices.is_empty() {
+                        payment_ok = false;
+                        break;
+                    }
+                    match agents[player.index()]
+                        .choose_single_entity_for_effect(player, &choices, false)
+                    {
+                        Some(crate::agent::GameEntity::Card(chosen)) => {
+                            pre_picked_blights.push(chosen)
+                        }
+                        _ => {
+                            payment_ok = false;
+                            break;
+                        }
+                    }
+                }
                 CostPart::Discard {
                     type_filter,
                     amount,
@@ -589,6 +611,7 @@ impl GameLoop {
 
         // Phase 2: execute payments.
         let mut pre_sac_idx = 0usize;
+        let mut pre_blight_idx = 0usize;
         for part in cost.parts.clone() {
             match &part {
                 CostPart::Tap => {
@@ -1379,7 +1402,9 @@ impl GameLoop {
                         card_id,
                         resolved_amount,
                         sa.as_deref(),
+                        pre_picked_blights.get(pre_blight_idx).copied(),
                     );
+                    pre_blight_idx += 1;
                 }
                 CostPart::ExileCtrlOrGrave {
                     amount,
@@ -2110,6 +2135,7 @@ impl GameLoop {
                         card_id,
                         resolved_amount,
                         sa.as_deref(),
+                        None,
                     );
                 }
                 CostPart::ExileCtrlOrGrave {
@@ -3328,17 +3354,8 @@ impl GameLoop {
     }
 
     /// Blight as a cost: put -1/-1 counters on creatures you control.
-    pub(crate) fn pay_blight_cost(
-        &mut self,
-        game: &mut GameState,
-        agents: &mut [Box<dyn PlayerAgent>],
-        player: PlayerId,
-        _source: CardId,
-        amount: i32,
-        cause: Option<&SpellAbility>,
-    ) {
-        let valid: Vec<CardId> = game
-            .cards_in_zone(ZoneType::Battlefield, player)
+    fn blight_targets(game: &GameState, player: PlayerId) -> Vec<CardId> {
+        game.cards_in_zone(ZoneType::Battlefield, player)
             .iter()
             .copied()
             .filter(|&card| {
@@ -3350,18 +3367,38 @@ impl GameLoop {
                         &crate::card::CounterType::M1M1,
                     )
             })
-            .collect();
-        if valid.is_empty() {
-            return;
-        }
-        let choices: Vec<crate::agent::GameEntity> = valid
-            .iter()
-            .copied()
-            .map(crate::agent::GameEntity::Card)
-            .collect();
-        if let Some(crate::agent::GameEntity::Card(chosen)) =
-            agents[player.index()].choose_single_entity_for_effect(player, &choices, false)
-        {
+            .collect()
+    }
+
+    pub(crate) fn pay_blight_cost(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        _source: CardId,
+        amount: i32,
+        cause: Option<&SpellAbility>,
+        prechosen: Option<CardId>,
+    ) {
+        let chosen = match prechosen {
+            Some(chosen) => Some(chosen),
+            None => {
+                let choices: Vec<crate::agent::GameEntity> = Self::blight_targets(game, player)
+                    .into_iter()
+                    .map(crate::agent::GameEntity::Card)
+                    .collect();
+                if choices.is_empty() {
+                    return;
+                }
+                match agents[player.index()]
+                    .choose_single_entity_for_effect(player, &choices, false)
+                {
+                    Some(crate::agent::GameEntity::Card(chosen)) => Some(chosen),
+                    _ => None,
+                }
+            }
+        };
+        if let Some(chosen) = chosen {
             let mut table = crate::game_entity_counter_table::GameEntityCounterTable::default();
             table.put(
                 Some(player),
