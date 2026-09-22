@@ -28,7 +28,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let valid_selector = sa.ir.valid_filter_selector.as_ref();
     let valid_filter = sa.ir.valid_filter_text.as_deref().unwrap_or("Card");
 
-    let found_dest = sa.ir.found_destination_zone.unwrap_or(ZoneType::Hand);
+    let found_dest = sa.ir.found_destination_zone;
     let revealed_dest = sa.ir.revealed_destination_zone.unwrap_or(ZoneType::Library);
 
     for target_player in crate::ability::spell_ability_effect::get_target_players(ctx.game, sa) {
@@ -91,7 +91,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
             }
         }
-        if crate::parsing::raw_has_key(&sa.ability_text, "OptionalFoundMove") {
+        if let Some(found_dest) = found_dest
+            .filter(|_| crate::parsing::raw_has_key(&sa.ability_text, "OptionalFoundMove"))
+        {
             let mut kept = Vec::new();
             for &cid in &found {
                 ctx.agents[target_player.index()].snapshot_state(ctx.game, ctx.mana_pools);
@@ -108,11 +110,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
             found = kept;
         }
-        let mut rest: Vec<_> = revealed
-            .iter()
-            .copied()
-            .filter(|cid| !found.contains(cid))
-            .collect();
+        let mut rest: Vec<_> = if found_dest.is_some() {
+            revealed
+                .iter()
+                .copied()
+                .filter(|cid| !found.contains(cid))
+                .collect()
+        } else {
+            revealed.clone()
+        };
         if let Some(source_id) = sa.source {
             if sa.ir.imprint_revealed {
                 ctx.game
@@ -134,26 +140,28 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         // Move found cards to destination
-        for &id in &found {
-            let owner = ctx.game.card(id).owner;
-            let dest_owner = if found_dest == ZoneType::Battlefield {
-                sa.activating_player
-            } else {
-                owner
-            };
-            ctx.move_card(id, found_dest, dest_owner);
-            if found_dest == ZoneType::Exile {
-                if let Some(source_id) = sa.source {
-                    ctx.game.card_mut(source_id).add_exiled_card(id);
+        if let Some(found_dest) = found_dest {
+            for &id in &found {
+                let owner = ctx.game.card(id).owner;
+                let dest_owner = if found_dest == ZoneType::Battlefield {
+                    sa.activating_player
+                } else {
+                    owner
+                };
+                ctx.move_card(id, found_dest, dest_owner);
+                if found_dest == ZoneType::Exile {
+                    if let Some(source_id) = sa.source {
+                        ctx.game.card_mut(source_id).add_exiled_card(id);
+                    }
                 }
+                if sa.ir.tapped && found_dest == ZoneType::Battlefield {
+                    ctx.game.card_mut(id).tapped = true;
+                }
+                if found_dest == ZoneType::Battlefield {
+                    let _ = super::add_to_combat(ctx, sa, id, keys::ATTACKING);
+                }
+                emit_zone_trigger(ctx.trigger_handler, id, ZoneType::Library, found_dest);
             }
-            if sa.ir.tapped && found_dest == ZoneType::Battlefield {
-                ctx.game.card_mut(id).tapped = true;
-            }
-            if found_dest == ZoneType::Battlefield {
-                let _ = super::add_to_combat(ctx, sa, id, keys::ATTACKING);
-            }
-            emit_zone_trigger(ctx.trigger_handler, id, ZoneType::Library, found_dest);
         }
 
         let shuffle = crate::parsing::raw_has_key(&sa.ability_text, "Shuffle");
@@ -164,7 +172,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 rest.swap(i, j);
             }
         }
-        let sequential = revealed_dest == found_dest;
+        let sequential = found_dest == Some(revealed_dest);
         // The dig took every revealed card off the library up front, where Java only looks at
         // them, so "don't move them" has to put them back in the order they were seen.
         if crate::parsing::raw_has_key(&sa.ability_text, "NoMoveRevealed") {
