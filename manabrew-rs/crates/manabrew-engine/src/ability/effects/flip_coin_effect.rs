@@ -258,7 +258,7 @@ fn resolve_for_players(
 }
 
 fn resolve_additional(ctx: &mut EffectContext, sa: &SpellAbility, key: &str) {
-    if let Some(sub_sa) = sa.get_additional_ability(key).cloned() {
+    if let Some(sub_sa) = sa.additional_ability(ctx.game, key) {
         super::effect_resolver::resolve_effect_chain(ctx, sub_sa);
     }
 }
