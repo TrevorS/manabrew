@@ -458,7 +458,10 @@ pub(super) fn resolve_hidden_origin(
             choose_from_defined,
         )
         .into_iter()
-        .filter(|&cid| origin_zones.contains(&ctx.game.card(cid).zone))
+        .filter(|&cid| {
+            let card = ctx.game.card(cid);
+            card.zone != ZoneType::None && !card.phased_out
+        })
         .collect()
     } else if sa.defined_player().is_none()
         && !origin_zones
