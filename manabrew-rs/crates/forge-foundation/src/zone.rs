@@ -72,7 +72,14 @@ impl ZoneType {
     /// Zones that can host static abilities in Forge runtime checks.
     /// Mirrors Java's `ZoneType.STATIC_ABILITIES_SOURCE_ZONES` usage.
     pub fn is_static_ability_source(self) -> bool {
-        matches!(self, ZoneType::Battlefield | ZoneType::Command)
+        matches!(
+            self,
+            ZoneType::Battlefield
+                | ZoneType::Graveyard
+                | ZoneType::Exile
+                | ZoneType::Command
+                | ZoneType::Stack
+        )
     }
 
     pub fn from_str_compat(s: &str) -> Option<Self> {

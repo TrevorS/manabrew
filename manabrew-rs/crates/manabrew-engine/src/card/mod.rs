@@ -1132,7 +1132,7 @@ impl Card {
             base_trigger_count: self.base_trigger_count,
             changed_card_traits: self.changed_card_traits.clone(),
             changed_card_traits_by_text: self.changed_card_traits_by_text.clone(),
-            static_abilities: if matches!(self.zone, ZoneType::Battlefield | ZoneType::Command) {
+            static_abilities: if self.zone.is_static_ability_source() {
                 self.static_abilities
                     .iter()
                     .map(|static_ability| {
@@ -1373,7 +1373,7 @@ impl Card {
             .clone_from(&self.changed_card_traits);
         out.changed_card_traits_by_text
             .clone_from(&self.changed_card_traits_by_text);
-        if matches!(self.zone, ZoneType::Battlefield | ZoneType::Command) {
+        if self.zone.is_static_ability_source() {
             out.static_abilities.clone_from(&self.static_abilities);
             for static_ability in &mut out.static_abilities {
                 *static_ability.base = crate::card_trait_base::CardTraitBase::default();
