@@ -473,6 +473,15 @@ impl DeterministicAgent {
         }
     }
 
+    fn target_sort_key(&self, id: CardId) -> String {
+        let (owner, controller) = self.target_owner_controller_key(id);
+        format!(
+            "1|{}|O{owner:05}|C{controller:05}|I{:05}",
+            self.card_name(id),
+            self.parity_map.id(id)
+        )
+    }
+
     fn predicted_damage_to_card(
         &self,
         game: &GameState,
@@ -1690,15 +1699,7 @@ impl PlayerAgent for DeterministicAgent {
                     .map(|&(id, host)| (CardOrStackTarget::Stack(id), host)),
             )
             .collect();
-        entries.sort_by(|(_, a), (_, b)| {
-            self.card_name(*a)
-                .cmp(&self.card_name(*b))
-                .then_with(|| {
-                    self.target_owner_controller_key(*a)
-                        .cmp(&self.target_owner_controller_key(*b))
-                })
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
-        });
+        entries.sort_by(|(_, a), (_, b)| self.target_sort_key(*a).cmp(&self.target_sort_key(*b)));
         let hosts: Vec<CardId> = entries.iter().map(|(_, host)| *host).collect();
         self.log_target_candidates(&[], &hosts);
         let choices: Vec<CardOrStackTarget> = entries.iter().map(|(choice, _)| *choice).collect();
@@ -1727,14 +1728,7 @@ impl PlayerAgent for DeterministicAgent {
         };
         let sorted =
             choice_space::sort_native(valid, |a, b| match (source_of(*a), source_of(*b)) {
-                (Some(ca), Some(cb)) => self
-                    .card_name(ca)
-                    .cmp(&self.card_name(cb))
-                    .then_with(|| {
-                        self.target_owner_controller_key(ca)
-                            .cmp(&self.target_owner_controller_key(cb))
-                    })
-                    .then_with(|| self.parity_map.id(ca).cmp(&self.parity_map.id(cb))),
+                (Some(ca), Some(cb)) => self.target_sort_key(ca).cmp(&self.target_sort_key(cb)),
                 _ => a.cmp(b),
             });
         let spell_cards: Vec<CardId> = sorted.iter().filter_map(|&id| source_of(id)).collect();
@@ -1769,13 +1763,7 @@ impl PlayerAgent for DeterministicAgent {
         // Keep target ordering aligned with Java parity harness:
         // sort by card name, then owner/controller, then parity id.
         let sorted = choice_space::sort_native(valid, |a, b| {
-            self.card_name(*a)
-                .cmp(&self.card_name(*b))
-                .then_with(|| {
-                    self.target_owner_controller_key(*a)
-                        .cmp(&self.target_owner_controller_key(*b))
-                })
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+            self.target_sort_key(*a).cmp(&self.target_sort_key(*b))
         });
         self.log_target_candidates(&[], &sorted);
         let target = choice_space::pick_one(&sorted, &mut self.rng.borrow_mut())?;
@@ -1793,13 +1781,7 @@ impl PlayerAgent for DeterministicAgent {
             return None;
         }
         let sorted = choice_space::sort_native(valid, |a, b| {
-            self.card_name(*a)
-                .cmp(&self.card_name(*b))
-                .then_with(|| {
-                    self.target_owner_controller_key(*a)
-                        .cmp(&self.target_owner_controller_key(*b))
-                })
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+            self.target_sort_key(*a).cmp(&self.target_sort_key(*b))
         });
         self.log_target_candidates(&[], &sorted);
         choice_space::pick_one(&sorted, &mut self.rng.borrow_mut())
@@ -1824,14 +1806,9 @@ impl PlayerAgent for DeterministicAgent {
             (TargetChoice::Player(pa), TargetChoice::Player(pb)) => pa.0.cmp(&pb.0),
             (TargetChoice::Player(_), TargetChoice::Card(_)) => std::cmp::Ordering::Less,
             (TargetChoice::Card(_), TargetChoice::Player(_)) => std::cmp::Ordering::Greater,
-            (TargetChoice::Card(ca), TargetChoice::Card(cb)) => self
-                .card_name(*ca)
-                .cmp(&self.card_name(*cb))
-                .then_with(|| {
-                    self.target_owner_controller_key(*ca)
-                        .cmp(&self.target_owner_controller_key(*cb))
-                })
-                .then_with(|| self.parity_map.id(*ca).cmp(&self.parity_map.id(*cb))),
+            (TargetChoice::Card(ca), TargetChoice::Card(cb)) => {
+                self.target_sort_key(*ca).cmp(&self.target_sort_key(*cb))
+            }
             _ => std::cmp::Ordering::Equal,
         });
         let (candidate_players, candidate_cards): (Vec<PlayerId>, Vec<CardId>) = (
@@ -2245,9 +2222,7 @@ impl PlayerAgent for DeterministicAgent {
             return vec![];
         }
         let sorted = choice_space::sort_native(valid, |a, b| {
-            self.card_name(*a)
-                .cmp(&self.card_name(*b))
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+            self.target_sort_key(*a).cmp(&self.target_sort_key(*b))
         });
         if self.choosing_targets {
             self.log_target_candidates(&[], &sorted);
