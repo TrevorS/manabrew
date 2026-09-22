@@ -996,7 +996,7 @@ fn pay_roll_cost(
                             let _ = agents[player.index()].choose_color(player, valid_colors);
                             None
                         }
-                        mana::ManaPayCallback::ChooseTapType { .. } => None,
+                        mana::ManaPayCallback::ChooseCards { .. } => None,
                         mana::ManaPayCallback::ConfirmSelfSacrifice(sacrifice_id) => {
                             if agents[player.index()].confirm_payment(
                                 player,

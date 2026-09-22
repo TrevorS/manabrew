@@ -103,10 +103,10 @@ pub enum ManaPayCallback<'a> {
     /// The callback may use this to preserve parity-visible prompt ordering.
     /// The return value is ignored for this variant.
     ChooseColor(&'a [String]),
-    /// Choose permanents for a `tapXType` mana-ability cost. The callback
-    /// writes the selected cards into `chosen`; the return value is only used
-    /// as a success/cancel signal to fit the unified callback shape.
-    ChooseTapType {
+    /// Choose cards for a mana-ability cost part (`tapXType`, `Exile<N/...>`).
+    /// The callback writes the selected cards into `chosen`; the return value
+    /// is only used as a success/cancel signal to fit the unified callback shape.
+    ChooseCards {
         valid: &'a [CardId],
         min: usize,
         max: usize,
@@ -226,7 +226,7 @@ pub fn auto_tap_lands_with_chooser(
         match kind {
             ManaPayCallback::ChooseSacrifice(valid) => sacrifice_chooser(valid),
             ManaPayCallback::ChooseColor(_) => None,
-            ManaPayCallback::ChooseTapType { .. } => None,
+            ManaPayCallback::ChooseCards { .. } => None,
             ManaPayCallback::ConfirmSelfSacrifice(cid) => Some(cid),
             ManaPayCallback::ConfirmSubCounter(cid) => Some(cid),
             ManaPayCallback::ConfirmSourceExile(cid) => Some(cid),
@@ -262,7 +262,7 @@ pub fn auto_tap_lands_allow_reserved_source_reuse_with_chooser(
         match kind {
             ManaPayCallback::ChooseSacrifice(valid) => sacrifice_chooser(valid),
             ManaPayCallback::ChooseColor(_) => None,
-            ManaPayCallback::ChooseTapType { .. } => None,
+            ManaPayCallback::ChooseCards { .. } => None,
             ManaPayCallback::ConfirmSelfSacrifice(cid) => Some(cid),
             ManaPayCallback::ConfirmSubCounter(cid) => Some(cid),
             ManaPayCallback::ConfirmSourceExile(cid) => Some(cid),
@@ -1827,25 +1827,75 @@ fn pay_non_tap_mana_ability_costs(
                     }
                 }
             }
-            CostPart::Exile { amount, from, .. } => {
-                if !pay_cost_from_source(part)
-                    || amount.resolve(game, ma.card_id, player) > 1
-                    || game.card(ma.card_id).zone != *from
-                {
-                    return false;
-                }
-                if let Some(ref mut cb) = callback {
-                    if let Some(confirmed_id) = cb(ManaPayCallback::ConfirmSourceExile(ma.card_id))
+            CostPart::Exile {
+                amount,
+                from,
+                type_filter,
+                ..
+            } => {
+                if pay_cost_from_source(part) {
+                    if amount.resolve(game, ma.card_id, player) > 1
+                        || game.card(ma.card_id).zone != *from
                     {
-                        if confirmed_id != ma.card_id {
+                        return false;
+                    }
+                    if let Some(ref mut cb) = callback {
+                        if let Some(confirmed_id) =
+                            cb(ManaPayCallback::ConfirmSourceExile(ma.card_id))
+                        {
+                            if confirmed_id != ma.card_id {
+                                return false;
+                            }
+                        } else {
+                            return false;
+                        }
+                    }
+                    let owner = game.card(ma.card_id).owner;
+                    game.move_card(ma.card_id, ZoneType::Exile, owner);
+                } else {
+                    let required = amount.resolve(game, ma.card_id, player).max(0) as usize;
+                    let base_filter = crate::cost::normalize_exile_base_filter(type_filter);
+                    let mut valid = crate::cost::get_zone_targets(
+                        game,
+                        player,
+                        *from,
+                        &base_filter,
+                        ma.card_id,
+                    );
+                    valid.retain(|&cid| {
+                        !crate::staticability::static_ability_cant_exile::cant_exile(
+                            &game.cards,
+                            game.card(cid),
+                            None,
+                            true,
+                        )
+                    });
+                    if valid.len() < required {
+                        return false;
+                    }
+                    if required == 0 {
+                        continue;
+                    }
+                    let mut chosen = Vec::new();
+                    if let Some(ref mut cb) = callback {
+                        if cb(ManaPayCallback::ChooseCards {
+                            valid: &valid,
+                            min: required,
+                            max: required,
+                            chosen: &mut chosen,
+                        })
+                        .is_none()
+                        {
                             return false;
                         }
                     } else {
-                        return false;
+                        chosen.extend(valid.iter().take(required));
+                    }
+                    for cid in chosen {
+                        let owner = game.card(cid).owner;
+                        game.move_card(cid, ZoneType::Exile, owner);
                     }
                 }
-                let owner = game.card(ma.card_id).owner;
-                game.move_card(ma.card_id, ZoneType::Exile, owner);
             }
             CostPart::TapType { .. } => {
                 let targets = choose_tap_type_targets_for_mana_ability_with_callback(
@@ -1913,11 +1963,14 @@ fn can_pay_source_paid_mana_cost_part(
                 (targets.len() as i32) >= amount.resolve(game, source_id, player)
             }
         }
-        CostPart::Exile { amount, from, .. } => {
-            pay_cost_from_source(part)
-                && amount.resolve(game, source_id, player) <= 1
-                && game.card(source_id).zone == *from
-        }
+        CostPart::Exile { .. } => crate::cost::cost_exile::can_pay(
+            game,
+            &crate::mana::ManaPool::default(),
+            source_id,
+            player,
+            None,
+            part,
+        ),
         CostPart::TapType { .. } => !choose_tap_type_targets_for_mana_ability(
             game,
             player,
@@ -1995,7 +2048,7 @@ fn choose_tap_type_targets_for_mana_ability_with_callback(
         });
         if let Some(cb) = callback {
             let mut chosen = Vec::new();
-            if cb(ManaPayCallback::ChooseTapType {
+            if cb(ManaPayCallback::ChooseCards {
                 valid: &targets,
                 min: 1,
                 max: targets.len(),
@@ -2040,7 +2093,7 @@ fn choose_tap_type_targets_for_mana_ability_with_callback(
     });
     if let Some(cb) = callback {
         let mut chosen = Vec::new();
-        if cb(ManaPayCallback::ChooseTapType {
+        if cb(ManaPayCallback::ChooseCards {
             valid: &targets,
             min: required,
             max: required,
@@ -4328,7 +4381,7 @@ mod tests {
                     match kind {
                         ManaPayCallback::ChooseSacrifice(_) => None,
                         ManaPayCallback::ChooseColor(_) => None,
-                        ManaPayCallback::ChooseTapType { .. } => None,
+                        ManaPayCallback::ChooseCards { .. } => None,
                         ManaPayCallback::ConfirmSelfSacrifice(cid) => {
                             assert_eq!(cid, treasure); // should be asking about Treasure
                             Some(cid) // confirm
@@ -4393,7 +4446,7 @@ mod tests {
                     match kind {
                         ManaPayCallback::ChooseSacrifice(_) => None,
                         ManaPayCallback::ChooseColor(_) => None,
-                        ManaPayCallback::ChooseTapType { .. } => None,
+                        ManaPayCallback::ChooseCards { .. } => None,
                         ManaPayCallback::ConfirmSelfSacrifice(cid) => {
                             assert_eq!(cid, treasure2);
                             None // decline

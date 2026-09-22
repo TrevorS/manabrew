@@ -369,7 +369,7 @@ impl GameLoop {
                     let _ = agents[player.index()].choose_color(player, valid_colors);
                     None
                 }
-                mana::ManaPayCallback::ChooseTapType {
+                mana::ManaPayCallback::ChooseCards {
                     valid,
                     min,
                     max,
