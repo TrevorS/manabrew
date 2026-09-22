@@ -1398,8 +1398,20 @@ impl GameLoop {
                     &[],
                 );
             let max_x = {
+                let x_is_free_choice = game.card(card_id).get_s_var("X") == Some("Count$xPaid");
+                let mut limit: u32 = if x_is_free_choice { 99 } else { 0 };
+                if let Some(x_max) = sa.ir.x_max_text.as_deref() {
+                    limit = limit
+                        .min(crate::svar::resolve_numeric_value(game, &sa, x_max, 0).max(0) as u32);
+                }
+                if let Some(ai_x_max) = sa.ir.ai_x_max_text.as_deref() {
+                    sa.x_mana_cost_paid = limit;
+                    limit = limit.min(
+                        crate::svar::resolve_numeric_value(game, &sa, ai_x_max, 0).max(0) as u32,
+                    );
+                }
                 let mut x: u32 = 0;
-                loop {
+                while x < limit {
                     let extra_generic = ((x + 1) * x_count as u32) as i32 + commander_tax;
                     let full_cost =
                         non_x_cost.add(&forge_foundation::ManaCost::generic(extra_generic));
@@ -1408,9 +1420,12 @@ impl GameLoop {
                         break;
                     }
                     x += 1;
-                    if x >= 99 {
-                        break;
-                    }
+                }
+                if let Some(ai_x_max) = sa.ir.ai_x_max_text.as_deref() {
+                    sa.x_mana_cost_paid = x;
+                    x = x.min(
+                        crate::svar::resolve_numeric_value(game, &sa, ai_x_max, 0).max(0) as u32,
+                    );
                 }
                 x
             };
