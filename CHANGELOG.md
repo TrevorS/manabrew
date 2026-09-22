@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.49.0](https://github.com/witchesofthehill/manabrew/compare/v3.48.2...v3.49.0) (2026-09-22)
+
+### Features
+
+* **play:** add Forge bot preference ([#973](https://github.com/witchesofthehill/manabrew/issues/973)) ([ef44cac](https://github.com/witchesofthehill/manabrew/commit/ef44cac1a4f430c2cdaca316b7316f16eca60043))
+
 ## [3.48.2](https://github.com/witchesofthehill/manabrew/compare/v3.48.1...v3.48.2) (2026-09-21)
 
 ### Performance
