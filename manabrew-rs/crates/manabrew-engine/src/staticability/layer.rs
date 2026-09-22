@@ -851,6 +851,13 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             }
             EffectKind::GrantKeyword(kw) => {
                 let card = &mut game.cards[effect.target.index()];
+                let kw: String = if kw.contains("CardManaCost") {
+                    kw.replace("CardManaCost", &card.mana_cost.short_string())
+                } else if kw.contains("ConvertedManaCost") {
+                    kw.replace("ConvertedManaCost", &card.mana_value().to_string())
+                } else {
+                    kw.to_string()
+                };
                 card.granted_keywords.add(&kw);
                 if kw == "Riot" {
                     if let Some(re) = crate::card::card_factory_util::riot_replacement(false) {

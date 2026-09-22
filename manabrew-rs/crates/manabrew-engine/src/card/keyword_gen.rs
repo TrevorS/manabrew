@@ -441,11 +441,6 @@ impl Card {
         // Mirrors Java CardFactoryUtil lines 3398-3449.
         // Exiles the card from hand; plotted cards can later be cast for free.
         if let Some(plot_cost) = keyword_cost(keywords, "Plot") {
-            let plot_cost = if plot_cost == "CardManaCost" {
-                self.mana_cost.to_string()
-            } else {
-                plot_cost
-            };
             let ab_text = format!(
                 "AB$ Plot | Cost$ {plot_cost} | ActivationZone$ Hand | SorcerySpeed$ True | Secondary$ True | SpellDescription$ Plot"
             );
