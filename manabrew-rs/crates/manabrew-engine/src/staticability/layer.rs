@@ -392,8 +392,8 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                     let add_power = sa.ir.add_power_text.as_deref();
                     let add_toughness = sa.ir.add_toughness_text.as_deref();
                     if add_power.is_some() || add_toughness.is_some() {
-                        let p = resolve_add_pt_value(game, source_id, add_power);
-                        let t = resolve_add_pt_value(game, source_id, add_toughness);
+                        let p = resolve_add_pt_value(game, source_id, target, add_power);
+                        let t = resolve_add_pt_value(game, source_id, target, add_toughness);
                         pending.push(PendingEffect {
                             layer: Layer::ModifyPT,
                             target,
@@ -449,8 +449,8 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                     let set_power = sa.ir.set_power_text.as_deref();
                     let set_toughness = sa.ir.set_toughness_text.as_deref();
                     if set_power.is_some() || set_toughness.is_some() {
-                        let sp = resolve_set_pt_value(game, source_id, set_power);
-                        let st = resolve_set_pt_value(game, source_id, set_toughness);
+                        let sp = resolve_set_pt_value(game, source_id, target, set_power);
+                        let st = resolve_set_pt_value(game, source_id, target, set_toughness);
                         // Java parity: CharacteristicDefining$ True routes
                         // SetP/T through layer 7a, otherwise 7b.
                         let layer = if is_cda {
@@ -1307,10 +1307,20 @@ pub fn get_etb_unless_reveal_cost(card: &crate::card::Card) -> Option<(i32, Stri
 
 /// Resolve an AddPower$/AddToughness$ parameter that may be a literal integer
 /// or an SVar reference (e.g. "X" → Count$Valid Enchantment.YouCtrl).
-fn resolve_add_pt_value(game: &GameState, source_id: CardId, val_str: Option<&str>) -> i32 {
+fn resolve_add_pt_value(
+    game: &GameState,
+    source_id: CardId,
+    affected: CardId,
+    val_str: Option<&str>,
+) -> i32 {
     let val_str = match val_str {
         Some(val_str) => val_str.trim(),
         None => return 0,
+    };
+    let evaluated_on = if val_str.contains("Affected") {
+        affected
+    } else {
+        source_id
     };
 
     // Try direct integer parse first
@@ -1331,7 +1341,7 @@ fn resolve_add_pt_value(game: &GameState, source_id: CardId, val_str: Option<&st
             * crate::ability::effects::resolve_count_svar(
                 val_str,
                 game,
-                source_id,
+                evaluated_on,
                 source.controller,
             );
     }
@@ -1343,14 +1353,17 @@ fn resolve_add_pt_value(game: &GameState, source_id: CardId, val_str: Option<&st
                 * crate::ability::effects::resolve_count_svar(
                     svar_expr,
                     game,
-                    source_id,
+                    evaluated_on,
                     source.controller,
                 );
         }
         return sign
             * crate::ability::effects::evaluate_svar(
                 svar_expr,
-                &crate::spellability::SpellAbility::new_empty(Some(source_id), source.controller),
+                &crate::spellability::SpellAbility::new_empty(
+                    Some(evaluated_on),
+                    source.controller,
+                ),
             );
     }
 
@@ -1360,37 +1373,47 @@ fn resolve_add_pt_value(game: &GameState, source_id: CardId, val_str: Option<&st
 /// Resolve a SetPower$/SetToughness$ parameter that may be a literal integer or
 /// an SVar reference (e.g. "X" → SVar:X:Count$Valid Creature.ChosenType).
 /// Mirrors Java `AbilityUtils.calculateAmount(hostCard, param, stAb)`.
-fn resolve_set_pt_value(game: &GameState, source_id: CardId, val_str: Option<&str>) -> Option<i32> {
-    let val_str = val_str?;
+fn resolve_set_pt_value(
+    game: &GameState,
+    source_id: CardId,
+    affected: CardId,
+    val_str: Option<&str>,
+) -> Option<i32> {
+    let val_str = val_str?.trim();
     // Try direct integer parse first
-    if let Ok(n) = val_str.trim().parse::<i32>() {
+    if let Ok(n) = val_str.parse::<i32>() {
         return Some(n);
     }
+    let evaluated_on = if val_str.contains("Affected") {
+        affected
+    } else {
+        source_id
+    };
 
     let source = game.card(source_id);
-    if val_str.trim().starts_with("Count$") {
+    if val_str.starts_with("Count$") {
         return Some(crate::ability::effects::resolve_count_svar(
-            val_str.trim(),
+            val_str,
             game,
-            source_id,
+            evaluated_on,
             source.controller,
         ));
     }
 
     // It's an SVar reference — look it up on the source card
-    if let Some(svar_expr) = source.svars.get(val_str.trim()) {
+    if let Some(svar_expr) = source.svars.get(val_str) {
         if svar_expr.starts_with("Count$") {
             return Some(crate::ability::effects::resolve_count_svar(
                 svar_expr,
                 game,
-                source_id,
+                evaluated_on,
                 source.controller,
             ));
         }
         // Simple SVar evaluation (e.g. Number$2)
         return Some(crate::ability::effects::evaluate_svar(
             svar_expr,
-            &crate::spellability::SpellAbility::new_empty(Some(source_id), source.controller),
+            &crate::spellability::SpellAbility::new_empty(Some(evaluated_on), source.controller),
         ));
     }
 
