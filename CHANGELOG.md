@@ -1,5 +1,29 @@
 # Changelog
 
+## [3.49.3](https://github.com/witchesofthehill/manabrew/compare/v3.49.2...v3.49.3) (2026-09-22)
+
+### Fixes
+
+* **harness:** discover statically granted alternative costs ([#977](https://github.com/witchesofthehill/manabrew/issues/977)) ([7774117](https://github.com/witchesofthehill/manabrew/commit/7774117c71388cf6beaa18c2628033c3a5e34e82))
+
+## [3.49.2](https://github.com/witchesofthehill/manabrew/compare/v3.49.1...v3.49.2) (2026-09-22)
+
+### Fixes
+
+* **ui:** localize multiplayer card textures per client ([#975](https://github.com/witchesofthehill/manabrew/issues/975)) ([617183c](https://github.com/witchesofthehill/manabrew/commit/617183cffa4e7868917b215266d70451351febab))
+
+## [3.49.1](https://github.com/witchesofthehill/manabrew/compare/v3.49.0...v3.49.1) (2026-09-22)
+
+### Fixes
+
+* **telemetry:** stamp the browser engine's frames before the parse ([#976](https://github.com/witchesofthehill/manabrew/issues/976)) ([aafab42](https://github.com/witchesofthehill/manabrew/commit/aafab42324916d4f39c1c6cbea73dd12b11a9719))
+
+## [3.49.0](https://github.com/witchesofthehill/manabrew/compare/v3.48.2...v3.49.0) (2026-09-22)
+
+### Features
+
+* **play:** add Forge bot preference ([#973](https://github.com/witchesofthehill/manabrew/issues/973)) ([ef44cac](https://github.com/witchesofthehill/manabrew/commit/ef44cac1a4f430c2cdaca316b7316f16eca60043))
+
 ## [3.48.2](https://github.com/witchesofthehill/manabrew/compare/v3.48.1...v3.48.2) (2026-09-21)
 
 ### Performance
