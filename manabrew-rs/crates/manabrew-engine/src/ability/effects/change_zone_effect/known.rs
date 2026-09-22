@@ -51,7 +51,15 @@ pub(super) fn resolve_known_origin(
         return;
     }
 
-    let cards_to_move: Vec<CardId> = if sa.uses_targeting() {
+    let cards_to_move: Vec<CardId> = if crate::parsing::raw_has_key(
+        &sa.ability_text,
+        crate::parsing::keys::THIS_DEFINED_AND_TGTS,
+    ) {
+        crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa)
+            .into_iter()
+            .filter(|&cid| ctx.game.card(cid).zone == origin_zone)
+            .collect()
+    } else if sa.uses_targeting() {
         if sa.overloaded && origin_zone == ZoneType::Battlefield {
             // Overload: target → each. Mirrors damage_deal_effect / pump_effect.
             let valid_tgts = sa

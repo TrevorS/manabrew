@@ -66,11 +66,14 @@ pub fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
         // the known-origin path once per zone they currently occupy.
         // `NoShuffle` because this is not a library search (CR 701.18).
         let is_origin_all = sa.origin().is_some_and(|o| o.eq_ignore_ascii_case("All"));
-        if !is_origin_all {
+        if !is_origin_all && sa.origin().is_some() {
             return;
         }
-        let defined_cards =
-            crate::ability::spell_ability_effect::get_defined_cards_or_targeted(ctx.game, sa);
+        let defined_cards = if is_origin_all {
+            crate::ability::spell_ability_effect::get_defined_cards_or_targeted(ctx.game, sa)
+        } else {
+            crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa)
+        };
         if defined_cards.is_empty() {
             return;
         }

@@ -186,6 +186,11 @@ fn get_cards(
     defined_first: bool,
     defined_param: &str,
 ) -> Vec<CardId> {
+    if let Some(defined) = crate::parsing::raw_get(&sa.ability_text, keys::THIS_DEFINED_AND_TGTS) {
+        let mut cards = resolve_defined_cards_for_sa(game, sa, defined);
+        cards.extend(sa.target_chosen.all_target_cards());
+        return cards;
+    }
     let ir_defined = ir_defined_param(sa, defined_param);
     let has_defined = ir_defined.is_some_and(|defined| defined.is_some());
     let use_targets = sa.uses_targeting() && (!defined_first || !has_defined);

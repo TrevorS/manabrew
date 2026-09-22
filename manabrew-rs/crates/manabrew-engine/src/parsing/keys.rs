@@ -229,6 +229,7 @@ pub const REPLACE_GRAVEYARD: &str = "ReplaceGraveyard";
 /// from `Origin$` (which most effects use for the source zone of a ChangeZone
 /// move). When both appear, `TgtZone$` wins.
 pub const TGT_ZONE: &str = "TgtZone";
+pub const THIS_DEFINED_AND_TGTS: &str = "ThisDefinedAndTgts";
 pub const RESULT: &str = "Result";
 pub const PREVENT: &str = "Prevent";
 pub const REMEMBER_CHANGED: &str = "RememberChanged";
