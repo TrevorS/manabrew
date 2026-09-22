@@ -514,6 +514,8 @@ pub struct Card {
     pub remembered_cards: Vec<CardId>,
     /// Players remembered by this card (for Player.IsRemembered checks).
     pub remembered_players: Vec<PlayerId>,
+    #[serde(default)]
+    pub remembered_counters: Vec<CounterType>,
     /// Cards imprinted on this card (for Imprint mechanic, e.g. Chrome Mox).
     pub imprinted_cards: Vec<CardId>,
     /// Cards associated via gain-control effects.
@@ -943,6 +945,7 @@ impl Card {
             attachments: Vec::new(),
             remembered_cards: Vec::new(),
             remembered_players: Vec::new(),
+            remembered_counters: Vec::new(),
             imprinted_cards: Vec::new(),
             gain_control_targets: Vec::new(),
             until_leaves_battlefield: Vec::new(),
@@ -1182,6 +1185,7 @@ impl Card {
             attachments: self.attachments.clone(),
             remembered_cards: self.remembered_cards.clone(),
             remembered_players: self.remembered_players.clone(),
+            remembered_counters: self.remembered_counters.clone(),
             imprinted_cards: self.imprinted_cards.clone(),
             gain_control_targets: self.gain_control_targets.clone(),
             until_leaves_battlefield: self.until_leaves_battlefield.clone(),
@@ -1430,6 +1434,8 @@ impl Card {
         out.attachments.clone_from(&self.attachments);
         out.remembered_cards.clone_from(&self.remembered_cards);
         out.remembered_players.clone_from(&self.remembered_players);
+        out.remembered_counters
+            .clone_from(&self.remembered_counters);
         out.imprinted_cards.clone_from(&self.imprinted_cards);
         out.gain_control_targets
             .clone_from(&self.gain_control_targets);
@@ -2369,6 +2375,7 @@ impl Card {
         !self.remembered_cards.is_empty()
             || !self.remembered_players.is_empty()
             || !self.remembered_cmc.is_empty()
+            || !self.remembered_counters.is_empty()
     }
 
     pub fn add_remembered(&mut self, card_id: CardId) {
@@ -2383,6 +2390,7 @@ impl Card {
         self.remembered_cards.clear();
         self.remembered_players.clear();
         self.remembered_cmc.clear();
+        self.remembered_counters.clear();
     }
 
     pub fn update_remembered(&mut self) {

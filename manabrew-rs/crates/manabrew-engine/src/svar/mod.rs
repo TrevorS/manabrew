@@ -2428,8 +2428,10 @@ pub fn resolve_count_svar_for_sa(
     if let Some(rest) = expr.strip_prefix("Count$RememberedSize") {
         let operators = rest.strip_prefix('/').unwrap_or(rest);
         let card = game.card(source_id);
-        let count =
-            card.remembered_cards.len() + card.remembered_players.len() + card.remembered_cmc.len();
+        let count = card.remembered_cards.len()
+            + card.remembered_players.len()
+            + card.remembered_cmc.len()
+            + card.remembered_counters.len();
         return do_x_math(count as i32, operators, game, source_id, controller, sa);
     }
 
