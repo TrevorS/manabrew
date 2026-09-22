@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.49.3](https://github.com/witchesofthehill/manabrew/compare/v3.49.2...v3.49.3) (2026-09-22)
+
+### Fixes
+
+* **harness:** discover statically granted alternative costs ([#977](https://github.com/witchesofthehill/manabrew/issues/977)) ([7774117](https://github.com/witchesofthehill/manabrew/commit/7774117c71388cf6beaa18c2628033c3a5e34e82))
+
 ## [3.49.2](https://github.com/witchesofthehill/manabrew/compare/v3.49.1...v3.49.2) (2026-09-22)
 
 ### Fixes
