@@ -165,6 +165,7 @@ fn spell_ability_x_property(spell_ability: &SpellAbility, expr: &str, game: &Gam
             .flatten()
             .unwrap_or_else(|| source.toughness()),
         "CardNumColors" => source.color.count_colors() as i32,
+        _ if value.contains("Converge") => source.sunburst_count(),
         _ if value.starts_with("CardCounters.") => {
             let counter_name = value.strip_prefix("CardCounters.").unwrap_or("");
             let lki_counters = left_battlefield
@@ -241,6 +242,7 @@ fn card_x_property(
             cmc
         }
         "Amount" | "Count" => 1,
+        _ if value.contains("Converge") => card.sunburst_count(),
         _ if value.starts_with("CardCounters.") => {
             let counter_name = value.strip_prefix("CardCounters.").unwrap_or("");
             if counter_name.eq_ignore_ascii_case("ALL") {

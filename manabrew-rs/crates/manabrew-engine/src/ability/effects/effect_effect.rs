@@ -148,7 +148,7 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
         .ir
         .set_chosen_number
         .as_deref()
-        .map(ability_utils::calculate_amount);
+        .map(|value| crate::svar::resolve_numeric_value(ctx.game, sa, value, 0));
 
     for owner in owners {
         let mut effect = Card::new(

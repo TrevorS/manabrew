@@ -55,7 +55,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .collect();
 
         if let Some(n_str) = sa.ir.num_random_choices.as_deref() {
-            let n = crate::ability::ability_utils::calculate_amount(n_str) as usize;
+            let n = crate::svar::resolve_numeric_value(ctx.game, sa, n_str, 0) as usize;
             while abilities.len() > n {
                 let idx = ctx.rng.next_int(abilities.len() as i32) as usize;
                 abilities.remove(idx);
