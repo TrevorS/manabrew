@@ -941,6 +941,11 @@ fn matches_context_predicate(
         ContextPredicate::TopLibrary => context.game.is_some_and(|game| {
             game.zone(ZoneType::Library, card.owner).peek_top() == Some(card.id)
         }),
+        // Java `CardProperty:1910` tests the card's own cast ability against the rest of the
+        // property, which is why the selector keeps this argument's dots.
+        ContextPredicate::CastSa(filter) => card.cast_sa.as_ref().is_some_and(|cast_sa| {
+            crate::spellability::matches_valid_sa(filter, cast_sa, context.source_card, Some(card))
+        }),
         ContextPredicate::ExiledWithSource => context.source_card.exiled_cards.contains(&card.id),
         // Java `CardProperty:413` compares against the effect's source, not the effect card.
         ContextPredicate::ExiledWithEffectSource => context

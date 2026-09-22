@@ -104,6 +104,8 @@ fn matches_property_token_positive(
         "isremembered" => sa
             .source
             .is_some_and(|card| source.remembered_cards.contains(&card)),
+        "mayhem" => sa.alt_cost == Some(crate::spellability::AlternativeCost::Mayhem),
+        "warp" => sa.alt_cost == Some(crate::spellability::AlternativeCost::Warp),
         "xcost" => sa.cost_has_x(),
         "singletarget" => sa.targets_single_target(),
         "crew" => is_crew(sa, ability_host),

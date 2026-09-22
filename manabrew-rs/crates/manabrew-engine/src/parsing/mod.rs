@@ -362,6 +362,7 @@ pub enum ContextPredicate {
     TopLibrary,
     ExiledWithSource,
     ExiledWithEffectSource,
+    CastSa(String),
     RememberedPlayerCtrl,
     TargetedPlayerCtrl,
     /// Java `CardProperty` "targetedBy": the root ability is targeting this card.
@@ -958,10 +959,15 @@ fn lower_compiled_selector(alternatives: &[CompiledSelectorAlternative]) -> Sele
             .map(|alternative| {
                 let mut values: Vec<String> = Vec::new();
                 for part in &alternative.parts {
+                    // A property whose argument is itself a filter keeps the dots Java leaves in
+                    // it; Java splits a property string on its first dot only. Only the properties
+                    // whose lowering reads a dotted argument belong here.
                     let nested = part.separator == Some('.')
                         && values.len() > 1
                         && values.last().is_some_and(|last| {
-                            last.to_ascii_lowercase().starts_with("attachedto ")
+                            let last = last.to_ascii_lowercase();
+                            let last = last.strip_prefix('!').unwrap_or(&last);
+                            last.starts_with("attachedto ") || last.starts_with("castsa ")
                         });
                     match values.last_mut() {
                         Some(last) if nested => {
@@ -1209,6 +1215,10 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "saddledthisturn" => SelectorPredicate::Raw(normalized.to_string()),
         "mayplaysource" => SelectorPredicate::CardState(CardStateSelector::MayPlaySource),
         "exiledwithsource" => SelectorPredicate::Context(ContextPredicate::ExiledWithSource),
+        // The trailing space keeps `CastSaSource`, a separate property, out of this arm.
+        cast if cast.starts_with("castsa ") => SelectorPredicate::Context(
+            ContextPredicate::CastSa(normalized["CastSa ".len()..].trim().to_string()),
+        ),
         "exiledwitheffectsource" => {
             SelectorPredicate::Context(ContextPredicate::ExiledWithEffectSource)
         }
