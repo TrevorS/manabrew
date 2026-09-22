@@ -705,14 +705,33 @@ pub fn has_candidates_in_spell_ability_chain(
     while let Some(node) = current {
         if let Some(tr) = node.target_restrictions.as_ref() {
             let min_targets = tr.get_min_targets(game, node);
-            let has_candidates = match tr.target_kind {
-                TargetKind::CardInZone { .. } if node.is_spell => {
-                    !crate::card::card_util::get_valid_cards_to_target(game, node).is_empty()
+            if min_targets > 0 {
+                let card_kind = matches!(
+                    tr.target_kind,
+                    TargetKind::Creature(_)
+                        | TargetKind::Permanent(_)
+                        | TargetKind::CardInZone { .. }
+                );
+                if card_kind {
+                    let candidates = crate::card::card_util::get_valid_cards_to_target(game, node);
+                    if (candidates.len() as i32) < min_targets {
+                        return false;
+                    }
+                    if tr.different_controllers || tr.for_each_player {
+                        let mut controllers: Vec<PlayerId> = Vec::new();
+                        for cid in candidates {
+                            let controller = game.card(cid).controller;
+                            if !controllers.contains(&controller) {
+                                controllers.push(controller);
+                            }
+                        }
+                        if (controllers.len() as i32) < min_targets {
+                            return false;
+                        }
+                    }
+                } else if !tr.has_candidates(game, player, node.source) {
+                    return false;
                 }
-                _ => tr.has_candidates(game, player, node.source),
-            };
-            if min_targets > 0 && !has_candidates {
-                return false;
             }
         }
         current = node.sub_ability.as_deref();
