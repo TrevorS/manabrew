@@ -1498,22 +1498,33 @@ fn resolve_selector_operand(
                 return context.source_card.chosen_number;
             }
             if value.starts_with("Count$") || value.starts_with("PlayerCount") {
-                let game = context.game?;
-                let sa = crate::spellability::SpellAbility::new_empty(
-                    Some(context.source_card.id),
-                    context.source_controller,
-                );
-                return Some(crate::svar::resolve_svar_expression(
-                    value,
-                    game,
-                    context.source_card.id,
-                    context.source_controller,
-                    &sa,
-                ));
+                return resolve_operand_expression(value, context);
             }
             None
         }
     }
+}
+
+fn resolve_operand_expression(expression: &str, context: MatchContext<'_>) -> Option<i32> {
+    let game = context.game?;
+    let empty;
+    let sa = match context.spell_ability {
+        Some(sa) => sa,
+        None => {
+            empty = crate::spellability::SpellAbility::new_empty(
+                Some(context.source_card.id),
+                context.source_controller,
+            );
+            &empty
+        }
+    };
+    Some(crate::svar::resolve_svar_expression(
+        expression,
+        game,
+        context.source_card.id,
+        context.source_controller,
+        sa,
+    ))
 }
 
 fn compare_selector_value(actual: i32, operator: SelectorCompareOperator, expected: i32) -> bool {
@@ -3026,18 +3037,7 @@ fn parse_cmc_threshold(value: &str, context: Option<MatchContext<'_>>) -> Option
         return Some(n);
     }
     if raw.starts_with("Count$") || raw.starts_with("PlayerCount") {
-        let game = context.game?;
-        let sa = crate::spellability::SpellAbility::new_empty(
-            Some(context.source_card.id),
-            context.source_controller,
-        );
-        return Some(crate::svar::resolve_svar_expression(
-            raw,
-            game,
-            context.source_card.id,
-            context.source_controller,
-            &sa,
-        ));
+        return resolve_operand_expression(raw, context);
     }
     None
 }
