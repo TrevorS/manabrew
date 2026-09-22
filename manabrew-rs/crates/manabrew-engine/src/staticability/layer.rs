@@ -528,17 +528,20 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                     // The value is an SVar name on the source card containing the ability text.
                     // E.g. Abundant Growth: AddAbility$ AbundantGrowthTap
                     //   SVar:AbundantGrowthTap:AB$ Mana | Cost$ T | Produced$ Any
-                    if let Some(svar_name) = sa.ir.add_ability_text.as_deref() {
-                        if let Some(ab_text) = source_card.svars.get(svar_name).cloned() {
-                            pending.push(PendingEffect {
-                                layer: Layer::Ability,
-                                target,
-                                kind: EffectKind::GrantAbility {
-                                    text: ab_text,
-                                    svars: source_card.svars.clone(),
-                                    original_host: Some(source_id),
-                                },
-                            });
+                    if let Some(add_ability) = sa.ir.add_ability_text.as_deref() {
+                        for svar_name in add_ability.split(" & ") {
+                            if let Some(ab_text) = source_card.svars.get(svar_name.trim()).cloned()
+                            {
+                                pending.push(PendingEffect {
+                                    layer: Layer::Ability,
+                                    target,
+                                    kind: EffectKind::GrantAbility {
+                                        text: ab_text,
+                                        svars: source_card.svars.clone(),
+                                        original_host: Some(source_id),
+                                    },
+                                });
+                            }
                         }
                     }
 
