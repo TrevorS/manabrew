@@ -639,6 +639,7 @@ impl DeterministicAgent {
             PlayCardMode::Normal => self
                 .play_option_face_name(play)
                 .or_else(|| self.secondary_face_texts(play).map(|(front, _)| front))
+                .or_else(|| self.permanent_spell_text(play))
                 .unwrap_or_else(|| "0".to_string()),
             PlayCardMode::BackFaceLand => "1".to_string(),
             PlayCardMode::RoomRightSplit => self
@@ -684,6 +685,20 @@ impl DeterministicAgent {
             }
             _ => None,
         }
+    }
+
+    /// A permanent spell's `toUnsuppressedString()` starts `Name - Type ...`; a land play does
+    /// not, and a keyword cast of the same card (Warp reads `Warp {R} (...)`) sorts against it.
+    fn permanent_spell_text(&self, play: PlayOption) -> Option<String> {
+        self.last_game_snapshot.as_ref()?;
+        let card = self
+            .snapshot_cards()
+            .iter()
+            .find(|c| c.id == play.card_id)?;
+        if card.type_line.is_land() || !card.is_permanent() {
+            return None;
+        }
+        Some(format!("{} - ", card.card_name))
     }
 
     /// For a playable on a split card (`"Front // Back"` `full_name`), return
