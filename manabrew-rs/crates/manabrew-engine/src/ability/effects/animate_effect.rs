@@ -46,6 +46,12 @@ fn copy_execute_chain_svars(
         };
         let text = text.clone();
         card.set_s_var_if_absent(name.clone(), text.clone());
+        for (_, value) in crate::parsing::Params::from_raw(&text).iter() {
+            let value = value.trim();
+            if let Some(referenced) = source_svars.get(value) {
+                card.set_s_var_if_absent(value.to_string(), referenced.clone());
+            }
+        }
         let Some(next) = crate::parsing::raw_get(&text, crate::parsing::keys::SUB_ABILITY) else {
             return;
         };
