@@ -2142,6 +2142,7 @@ pub fn resolve_count_svar_for_sa(
                     sa.target_chosen.target_card.into_iter().collect();
                 let ctx = crate::card::valid_filter::MatchContext::from_source(source)
                     .with_game(game)
+                    .with_source_controller(controller)
                     .with_targets(&targeted_cards, &targeted_players)
                     .with_spell_ability(sa);
                 let matches: Vec<&crate::card::Card> = game
@@ -2208,13 +2209,16 @@ pub fn resolve_count_svar_for_sa(
 
         let source = game.card(source_id);
         let selector = crate::parsing::cached_compiled_selector(filter_str);
+        let context = crate::card::valid_filter::MatchContext::from_source(source)
+            .with_game(game)
+            .with_source_controller(controller);
         if greatest_power {
             // Return the greatest power among matching creatures
             let mut max_power = 0;
             for &cid in &cards_to_check {
                 let card = game.card(cid);
-                if crate::card::valid_filter::matches_valid_card_selector_in_game(
-                    &selector, card, source, game,
+                if crate::card::valid_filter::matches_valid_card_selector_with_context(
+                    &selector, card, context,
                 ) {
                     max_power = max_power.max(card.power());
                 }
@@ -2224,8 +2228,8 @@ pub fn resolve_count_svar_for_sa(
             let mut mask: u8 = 0;
             for &cid in &cards_to_check {
                 let card = game.card(cid);
-                if crate::card::valid_filter::matches_valid_card_selector_in_game(
-                    &selector, card, source, game,
+                if crate::card::valid_filter::matches_valid_card_selector_with_context(
+                    &selector, card, context,
                 ) {
                     mask |= card.color.mask();
                 }
@@ -2242,8 +2246,8 @@ pub fn resolve_count_svar_for_sa(
             let mut count = 0;
             for &cid in &cards_to_check {
                 let card = game.card(cid);
-                if crate::card::valid_filter::matches_valid_card_selector_in_game(
-                    &selector, card, source, game,
+                if crate::card::valid_filter::matches_valid_card_selector_with_context(
+                    &selector, card, context,
                 ) {
                     count += 1;
                 }
