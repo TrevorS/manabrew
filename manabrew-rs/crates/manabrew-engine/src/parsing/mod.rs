@@ -380,6 +380,7 @@ pub enum ContextPredicate {
 pub enum RelationPredicate {
     SharesNameWith(TargetRef),
     DoesNotShareNameWith(TargetRef),
+    DoesNotShareNameWithValid(String),
     SharesCardTypeWith(TargetRef),
     SharesCardTypeWithOther(TargetRef),
     SharesCreatureTypeWith(TargetRef),
@@ -969,7 +970,9 @@ fn lower_compiled_selector(alternatives: &[CompiledSelectorAlternative]) -> Sele
                         && values.last().is_some_and(|last| {
                             let last = last.to_ascii_lowercase();
                             let last = last.strip_prefix('!').unwrap_or(&last);
-                            last.starts_with("attachedto ") || last.starts_with("castsa ")
+                            last.starts_with("attachedto ")
+                                || last.starts_with("castsa ")
+                                || last.starts_with("doesnotsharenamewith ")
                         });
                     match values.last_mut() {
                         Some(last) if nested => {
@@ -1269,11 +1272,16 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
                 .unwrap_or_else(|| SelectorPredicate::Raw(normalized.to_string()))
         }
         shares if shares.starts_with("doesnotsharenamewith") => {
-            lower_relation_target_ref(normalized["doesNotShareNameWith".len()..].trim())
+            let restriction = normalized["doesNotShareNameWith".len()..].trim();
+            lower_relation_target_ref(restriction)
                 .map(|target| {
                     SelectorPredicate::Relation(RelationPredicate::DoesNotShareNameWith(target))
                 })
-                .unwrap_or_else(|| SelectorPredicate::Raw(normalized.to_string()))
+                .unwrap_or_else(|| {
+                    SelectorPredicate::Relation(RelationPredicate::DoesNotShareNameWithValid(
+                        restriction.to_string(),
+                    ))
+                })
         }
         // Must precede `sharescardtypewith`, which is a prefix of it.
         shares if shares.starts_with("sharescardtypewithother") => {

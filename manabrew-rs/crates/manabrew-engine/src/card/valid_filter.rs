@@ -1070,6 +1070,16 @@ fn matches_relation_predicate(
                 card.card_name.eq_ignore_ascii_case(&target.card_name)
             })
         }
+        RelationPredicate::DoesNotShareNameWithValid(restriction) => {
+            context.game.is_some_and(|game| {
+                let selector = crate::parsing::cached_compiled_selector(restriction);
+                !game.cards_in_all_zones(ZoneType::Battlefield).any(|id| {
+                    let other = game.card(id);
+                    matches_valid_card_selector_with_context(&selector, other, context)
+                        && card.card_name.eq_ignore_ascii_case(&other.card_name)
+                })
+            })
+        }
 
         RelationPredicate::SharesCardTypeWith(target) => {
             relation_target_card_any(target, card, context, |target| {
@@ -1710,13 +1720,12 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
             })
         }
         shares if shares.starts_with("doesnotsharenamewith") => {
-            raw_target_ref(&value["doesNotShareNameWith".len()..]).is_some_and(|target| {
-                matches_relation_predicate(
-                    &RelationPredicate::DoesNotShareNameWith(target),
-                    card,
-                    context,
-                )
-            })
+            let restriction = value["doesNotShareNameWith".len()..].trim();
+            let relation = match raw_target_ref(restriction) {
+                Some(target) => RelationPredicate::DoesNotShareNameWith(target),
+                None => RelationPredicate::DoesNotShareNameWithValid(restriction.to_string()),
+            };
+            matches_relation_predicate(&relation, card, context)
         }
         shares if shares.starts_with("sharescardtypewith") => {
             raw_target_ref(&value["sharesCardTypeWith".len()..]).is_some_and(|target| {
