@@ -166,6 +166,9 @@ pub(crate) fn pay_mana_cost_for_effect(
     let cost_str = mana_cost.to_string();
     let payable_mana_cost =
         crate::mana::apply_player_life_payment_keywords(ctx.game, payer, mana_cost);
+    if payable_mana_cost.is_zero() {
+        return true;
+    }
 
     if !attempt_unpayable
         && !can_auto_pay_mana_cost_for_effect(ctx, payer, source, &payable_mana_cost)
@@ -911,8 +914,16 @@ fn try_pay_effect_cost(
 /// returns `null`, which short-circuits the unless-cost branch).
 fn calculate_unless_cost(game: &GameState, sa: &SpellAbility, unless_cost: &str) -> Option<Cost> {
     // Java leaves `UnlessCost$ X` symbolic and lets `ManaCostBeingPaid` read the X the spell
-    // was cast for; there is no such late binding here, so it is substituted up front.
+    // was cast for; there is no such late binding here, so it is substituted up front. A spell
+    // that announced no X keeps the bare shard: the payer is still asked, and pays nothing.
     if unless_cost == "X" {
+        let announces_x = sa.x_mana_cost_paid > 0
+            || sa
+                .source
+                .is_some_and(|card_id| game.card(card_id).mana_cost.count_x() > 0);
+        if !announces_x {
+            return Some(parse_cost("X"));
+        }
         let x_paid = if sa.x_mana_cost_paid > 0 {
             sa.x_mana_cost_paid as i32
         } else {
