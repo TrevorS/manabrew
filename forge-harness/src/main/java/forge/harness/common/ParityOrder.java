@@ -142,7 +142,9 @@ public final class ParityOrder {
 
     public static List<ReplacementEffect> sortReplacementEffects(final List<ReplacementEffect> effects) {
         final List<ReplacementEffect> out = new ArrayList<>(effects);
-        out.sort(Comparator.comparing(ParityOrder::replacementSortKey));
+        out.sort(Comparator.comparing(ParityOrder::replacementSortKey)
+                .thenComparingInt((ReplacementEffect re) -> ParityCardMap.parityId(re.getHostCard()))
+                .thenComparingInt(ReplacementEffect::getId));
         return out;
     }
 
