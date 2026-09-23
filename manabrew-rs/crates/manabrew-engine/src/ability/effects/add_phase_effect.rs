@@ -24,6 +24,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         "Combat" | "BeginCombat" => {
             ctx.game.extra_combat_phases += amount;
         }
+        "End of Turn"
+            if crate::parsing::raw_get(&sa.ability_text, "AfterPhase")
+                .is_none_or(|after| after == "End of Turn") =>
+        {
+            ctx.game.extra_end_of_turn_phases += amount;
+        }
         _ => {
             // Only extra combat phases are supported for now
         }

@@ -233,7 +233,12 @@ impl GameLoop {
                             is_main_phase: false,
                         },
                     );
-                    TurnMachineState::Cleanup
+                    if game.extra_end_of_turn_phases > 0 {
+                        game.extra_end_of_turn_phases -= 1;
+                        TurnMachineState::EndOfTurn
+                    } else {
+                        TurnMachineState::Cleanup
+                    }
                 }
                 TurnMachineState::Cleanup => {
                     self.apply_turn_event(
@@ -713,6 +718,7 @@ impl GameLoop {
         game.end_turn_requested = false;
         game.end_combat_requested = false;
         game.extra_combat_phases = 0;
+        game.extra_end_of_turn_phases = 0;
         game.stack.reset_max_distinct_sources();
 
         // Empty mana pool at end of turn (cleanup step), per Magic rules.

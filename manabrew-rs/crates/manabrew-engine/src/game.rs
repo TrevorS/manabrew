@@ -233,6 +233,9 @@ pub struct GameState {
     pub extra_combat_phases: u32,
 
     #[serde(default)]
+    pub extra_end_of_turn_phases: u32,
+
+    #[serde(default)]
     pub action_space_mana_probe: crate::mana::ActionSpaceManaProbe,
 
     // Next card ID counter
@@ -334,6 +337,7 @@ impl GameState {
             end_turn_requested: false,
             end_combat_requested: false,
             extra_combat_phases: 0,
+            extra_end_of_turn_phases: 0,
             action_space_mana_probe: crate::mana::ActionSpaceManaProbe::default(),
             next_card_id: 0,
             next_zone_timestamp: 0,
