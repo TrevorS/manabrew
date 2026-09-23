@@ -19,7 +19,7 @@ pub fn payment_order(part: &super::CostPart) -> i32 {
     part.payment_order()
 }
 
-/// `CostRemoveAnyCounter.getMaxAmountX`: the source alone for `CARDNAME` (`payCostFromSource`),
+/// `CostRemoveAnyCounter.getMaxAmountX`: the source alone for `CARDNAME` or `NICKNAME` (`payCostFromSource`),
 /// otherwise the battlefield cards valid for the type with the source as context.
 pub fn valid_cards(
     game: &crate::game::GameState,
@@ -27,7 +27,7 @@ pub fn valid_cards(
     source: CardId,
     type_filter: &str,
 ) -> Vec<CardId> {
-    if type_filter == "CARDNAME" {
+    if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
         return vec![source];
     }
     game.cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
