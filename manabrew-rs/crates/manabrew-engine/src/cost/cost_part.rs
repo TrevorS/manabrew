@@ -144,12 +144,27 @@ pub fn get_max_amount_x(
         CostPart::PayShards(_) => Some(game.player(player).mana_shards),
         CostPart::PayLife(_) => Some(game.player(player).life.max(0)),
         CostPart::SubCounter {
-            amount,
             counter_type,
+            type_filter,
             ..
         } => {
-            let current = game.card(source).counter_count(counter_type);
-            Some(current.min(amount.resolve(game, source, player)))
+            if type_filter.eq_ignore_ascii_case("CARDNAME")
+                || type_filter.eq_ignore_ascii_case("NICKNAME")
+            {
+                return Some(game.card(source).counter_count(counter_type));
+            }
+            let type_list: Vec<CardId> = if type_filter == "OriginalHost" {
+                ability.original_host.into_iter().collect()
+            } else {
+                crate::cost::get_sub_counter_targets(game, player, source, type_filter)
+            };
+            Some(
+                type_list
+                    .into_iter()
+                    .map(|cid| game.card(cid).counter_count(counter_type))
+                    .max()
+                    .unwrap_or(0),
+            )
         }
         CostPart::Sacrifice { type_filter, .. } => {
             let (type_filter, different_names) =
