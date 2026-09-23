@@ -251,6 +251,18 @@ impl GameLoop {
                         apply_continuous_effects(game);
                         return;
                     }
+                    let mut need_x = true;
+                    if !self.announce_values_like_x(
+                        game,
+                        agents,
+                        player,
+                        &mut entry.spell_ability,
+                        Some(&cost),
+                        &mut need_x,
+                    ) {
+                        apply_continuous_effects(game);
+                        return;
+                    }
                     if !self.pay_ability_cost(
                         game,
                         agents,
