@@ -325,6 +325,8 @@ pub struct Card {
     /// Applied by `PumpAll` / `Pump` effects with `Duration$ Perpetual`.
     pub perpetual_power_modifier: i32,
     pub perpetual_toughness_modifier: i32,
+    #[serde(default)]
+    pub pt_boosts: Vec<(i64, i32, i32)>,
     /// Java-parity storage of all perpetual effect records applied to this card.
     #[serde(default)]
     pub perpetual: Vec<PerpetualRecord>,
@@ -884,6 +886,7 @@ impl Card {
             toughness_modifier: 0,
             perpetual_power_modifier: 0,
             perpetual_toughness_modifier: 0,
+            pt_boosts: Vec::new(),
             perpetual: Vec::new(),
             static_set_power: None,
             static_set_toughness: None,
@@ -1114,6 +1117,7 @@ impl Card {
             toughness_modifier: self.toughness_modifier,
             perpetual_power_modifier: self.perpetual_power_modifier,
             perpetual_toughness_modifier: self.perpetual_toughness_modifier,
+            pt_boosts: self.pt_boosts.clone(),
             perpetual: self.perpetual.clone(),
             static_set_power: self.static_set_power,
             static_set_toughness: self.static_set_toughness,
@@ -1340,6 +1344,7 @@ impl Card {
             .clone_from(&self.perpetual_power_modifier);
         out.perpetual_toughness_modifier
             .clone_from(&self.perpetual_toughness_modifier);
+        refresh_field(&mut out.pt_boosts, &self.pt_boosts);
         out.perpetual.clone_from(&self.perpetual);
         out.static_set_power.clone_from(&self.static_set_power);
         out.static_set_toughness
@@ -1658,6 +1663,11 @@ impl Card {
         base + self.static_power_modifier
             + self.power_modifier
             + self.perpetual_power_modifier
+            + self
+                .pt_boosts
+                .iter()
+                .map(|&(_, power, _)| power)
+                .sum::<i32>()
             + self.counter_count(&CounterType::P1P1)
             - self.counter_count(&CounterType::M1M1)
     }
@@ -1670,6 +1680,11 @@ impl Card {
         base + self.static_toughness_modifier
             + self.toughness_modifier
             + self.perpetual_toughness_modifier
+            + self
+                .pt_boosts
+                .iter()
+                .map(|&(_, _, toughness)| toughness)
+                .sum::<i32>()
             + self.counter_count(&CounterType::P1P1)
             - self.counter_count(&CounterType::M1M1)
     }
@@ -4022,6 +4037,12 @@ impl Card {
     pub fn remove_pt_boost(&mut self, p: i32, t: i32) {
         self.power_modifier -= p;
         self.toughness_modifier -= t;
+    }
+    pub fn add_pt_boost_at(&mut self, p: i32, t: i32, timestamp: i64) {
+        self.pt_boosts.push((timestamp, p, t));
+    }
+    pub fn remove_pt_boost_at(&mut self, timestamp: i64) {
+        self.pt_boosts.retain(|&(ts, _, _)| ts != timestamp);
     }
     pub fn add_draft_action(&mut self) {
         self.set_s_var("DraftAction", "True");

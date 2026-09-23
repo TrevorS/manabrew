@@ -720,6 +720,7 @@ impl GameState {
                 card.damage = 0;
                 card.power_modifier = 0;
                 card.toughness_modifier = 0;
+                card.pt_boosts.clear();
                 card.static_power_modifier = 0;
                 card.static_toughness_modifier = 0;
                 card.static_set_power = None;
@@ -806,6 +807,7 @@ impl GameState {
                 card.damage = 0;
                 card.power_modifier = 0;
                 card.toughness_modifier = 0;
+                card.pt_boosts.clear();
                 card.static_power_modifier = 0;
                 card.static_toughness_modifier = 0;
                 card.static_set_power = None;

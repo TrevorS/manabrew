@@ -114,6 +114,7 @@ pub fn get_lki_copy(card: &Card) -> Card {
     lki.static_toughness_modifier = 0;
     lki.perpetual_power_modifier = 0;
     lki.perpetual_toughness_modifier = 0;
+    lki.pt_boosts.clear();
     lki.lki_power = Some(current_power);
     lki.lki_toughness = Some(current_toughness);
 

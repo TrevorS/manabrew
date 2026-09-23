@@ -46,6 +46,10 @@ pub enum PhaseCommand {
         card: CardId,
         keyword: String,
     },
+    RemovePtBoost {
+        card: CardId,
+        timestamp: i64,
+    },
     RemoveGoad {
         card: CardId,
         player: PlayerId,
@@ -79,6 +83,9 @@ impl PhaseCommand {
             }
             PhaseCommand::RemoveKeyword { card, keyword } => {
                 game.card_mut(card).remove_changed_card_keywords(&keyword);
+            }
+            PhaseCommand::RemovePtBoost { card, timestamp } => {
+                game.card_mut(card).remove_pt_boost_at(timestamp);
             }
             PhaseCommand::RemoveGoad { card, player } => {
                 game.card_mut(card).remove_goad(player);

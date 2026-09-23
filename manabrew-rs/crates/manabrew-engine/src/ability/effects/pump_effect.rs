@@ -411,8 +411,13 @@ pub(super) fn apply_pump_to_card(
             .apply_effect(card);
         }
     } else if is_permanent {
+        if att != 0 || def != 0 {
+            let timestamp = ctx.game.next_effect_timestamp();
+            ctx.game
+                .card_mut(card_id)
+                .add_pt_boost_at(att, def, timestamp);
+        }
         let card = ctx.game.card_mut(card_id);
-        card.add_pt_boost(att, def);
         if !keywords.is_empty() {
             card.capture_changed_characteristics_baseline_if_needed();
         }
@@ -420,7 +425,22 @@ pub(super) fn apply_pump_to_card(
             card.add_changed_card_keywords(kw);
         }
     } else if until_next_turn {
-        ctx.game.card_mut(card_id).add_pt_boost(att, def);
+        if att != 0 || def != 0 {
+            let timestamp = ctx.game.next_effect_timestamp();
+            ctx.game
+                .card_mut(card_id)
+                .add_pt_boost_at(att, def, timestamp);
+            crate::ability::spell_ability_effect::add_until_command(
+                ctx.game,
+                sa.ir.duration.as_ref(),
+                sa.activating_player,
+                sa.source,
+                crate::phase::PhaseCommand::RemovePtBoost {
+                    card: card_id,
+                    timestamp,
+                },
+            );
+        }
         if !keywords.is_empty() {
             ctx.game
                 .card_mut(card_id)
