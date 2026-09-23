@@ -927,6 +927,13 @@ impl GameLoop {
         {
             x += 1;
         }
+        if sa
+            .target_restrictions
+            .as_ref()
+            .is_some_and(|tr| tr.min_targets == "X")
+        {
+            x = x.min(crate::card::card_util::get_valid_cards_to_target(game, sa).len() as u32);
+        }
         sa.x_mana_cost_paid = x;
         game.card_mut(card_id)
             .svars

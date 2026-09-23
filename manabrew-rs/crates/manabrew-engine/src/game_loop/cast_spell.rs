@@ -1471,6 +1471,15 @@ impl GameLoop {
                         crate::svar::resolve_numeric_value(game, &sa, ai_x_max, 0).max(0) as u32,
                     );
                 }
+                if sa
+                    .target_restrictions
+                    .as_ref()
+                    .is_some_and(|tr| tr.min_targets == "X")
+                {
+                    x = x.min(
+                        crate::card::card_util::get_valid_cards_to_target(game, &sa).len() as u32,
+                    );
+                }
                 x
             };
             x_value = max_x;
