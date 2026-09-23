@@ -695,6 +695,19 @@ impl Card {
             }
         }
 
+        if kw == "Battle cry" {
+            let raw = "Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Secondary$ True | Execute$ BattleCryPumpAll | TriggerDescription$ Battle cry";
+            if let Some(mut trig) = parse_trigger(raw, next_id) {
+                trig.execute = "BattleCryPumpAll".to_string();
+                self.add_trigger(trig);
+            }
+            self.svars
+                .entry("BattleCryPumpAll".to_string())
+                .or_insert_with(|| {
+                    "DB$ PumpAll | ValidCards$ Creature.attacking+Other | NumAtt$ 1".to_string()
+                });
+        }
+
         if kw == "Exalted" {
             let raw = "Mode$ Attacks | ValidCard$ Creature.YouCtrl | Alone$ True | Execute$ TrigExalted | TriggerZones$ Battlefield | TriggerDescription$ Exalted";
             if let Some(mut trig) = parse_trigger(raw, next_id) {
