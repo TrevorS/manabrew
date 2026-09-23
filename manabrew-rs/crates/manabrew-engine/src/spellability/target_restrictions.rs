@@ -784,12 +784,16 @@ pub fn has_candidates_in_spell_ability_chain(
                 );
                 if card_kind {
                     let candidates = crate::card::card_util::get_valid_cards_to_target(game, node);
-                    if (candidates.len() as i32) < min_targets {
+                    let stack_candidates = get_stack_target_candidates(game, node);
+                    if ((candidates.len() + stack_candidates.len()) as i32) < min_targets {
                         return false;
                     }
                     if tr.different_controllers || tr.for_each_player {
                         let mut controllers: Vec<PlayerId> = Vec::new();
-                        for cid in candidates {
+                        for cid in candidates
+                            .into_iter()
+                            .chain(stack_candidates.into_iter().map(|(_, host)| host))
+                        {
                             let controller = game.card(cid).controller;
                             if !controllers.contains(&controller) {
                                 controllers.push(controller);
