@@ -149,8 +149,17 @@ impl GameLoop {
             .as_ref()
             .map(Self::mana_from_cost)
             .unwrap_or_else(|| card.mana_cost.clone());
-        available_mana.can_pay(&cost_adj.apply(&base_cost))
+        let raise_cost =
+            crate::cost::cost_adjustment::compute_raise_cost_parts(game, card, player, zone);
+        let raise_mana = raise_cost
+            .as_ref()
+            .map(|rc| Self::raise_mana_from_cost(game, rc, card_id, player))
+            .unwrap_or_else(|| forge_foundation::ManaCost::generic(0));
+        available_mana.can_pay(&cost_adj.apply(&base_cost).add(&raise_mana))
             && alt_cost.as_ref().is_none_or(|cost| {
+                crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player)
+            })
+            && raise_cost.as_ref().is_none_or(|cost| {
                 crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player)
             })
     }
