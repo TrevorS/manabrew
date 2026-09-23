@@ -1031,6 +1031,18 @@ pub fn cant_happen_check(game: &GameState, event: &ReplacementEvent) -> bool {
     !effects.is_empty()
 }
 
+pub fn has_applicable_effects(game: &GameState, event: &ReplacementEvent) -> bool {
+    [
+        ReplacementLayer::CantHappen,
+        ReplacementLayer::Control,
+        ReplacementLayer::Copy,
+        ReplacementLayer::Transform,
+        ReplacementLayer::Other,
+    ]
+    .into_iter()
+    .any(|layer| !collect_effects(game, event, layer, None).is_empty())
+}
+
 fn battlefield_pre_list(game: &GameState, event: &ReplacementEvent) -> Option<Card> {
     let ReplacementEvent::Moved {
         card,

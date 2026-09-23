@@ -1406,14 +1406,17 @@ fn damage_needed_to_kill_for_assignment(
     }
 
     for damage in 1..=max_damage {
-        let mut sim = game.clone();
         let mut event = crate::replacement::replacement_handler::ReplacementEvent::DamageToCard {
             target,
             amount: damage,
             source: Some(source),
             is_combat: true,
         };
-        let _ = crate::replacement::replacement_handler::apply_replacements(&mut sim, &mut event);
+        if crate::replacement::replacement_handler::has_applicable_effects(game, &event) {
+            let mut sim = game.clone();
+            let _ =
+                crate::replacement::replacement_handler::apply_replacements(&mut sim, &mut event);
+        }
         let final_damage = match event {
             crate::replacement::replacement_handler::ReplacementEvent::DamageToCard {
                 amount,
