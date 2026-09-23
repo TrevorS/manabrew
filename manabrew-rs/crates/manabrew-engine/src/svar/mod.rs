@@ -1720,6 +1720,19 @@ fn enters_trigger_x_paid(game: &GameState, sa: &SpellAbility, card_id: CardId) -
     })
 }
 
+fn cause_trigger_x_paid(game: &GameState, sa: &SpellAbility, card_id: CardId) -> Option<i32> {
+    let host = sa.trigger_source.unwrap_or(card_id);
+    let trigger = game.card(host).triggers.get(sa.trigger_index?)?;
+    matches!(
+        trigger.mode.trigger_type(),
+        crate::trigger::TriggerType::Cycled | crate::trigger::TriggerType::TurnFaceUp
+    )
+    .then(|| {
+        sa.get_triggering_spell_ability(crate::ability::AbilityKey::Cause)
+            .map_or(0, |cause| cause.x_mana_cost_paid as i32)
+    })
+}
+
 fn leaves_battlefield_trigger(game: &GameState, sa: &SpellAbility, card_id: CardId) -> bool {
     let host = sa.trigger_source.unwrap_or(card_id);
     sa.trigger_index
@@ -1794,6 +1807,7 @@ pub fn resolve_count_svar_for_sa(
         let operators = rest.strip_prefix('/').unwrap_or(rest);
         let x = if sa.x_mana_cost_paid == 0 {
             enters_trigger_x_paid(game, sa, source_id)
+                .or_else(|| cause_trigger_x_paid(game, sa, source_id))
                 .or_else(|| enters_replacement_x_paid(game, sa, source_id))
                 .unwrap_or(0)
         } else {

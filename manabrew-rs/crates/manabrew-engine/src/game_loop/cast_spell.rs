@@ -527,6 +527,7 @@ impl GameLoop {
                 RunParams {
                     card: Some(trigger_ctx.source_card),
                     player: Some(player),
+                    cause: Some(sa_for_trigger.clone()),
                     ..Default::default()
                 },
                 false,
