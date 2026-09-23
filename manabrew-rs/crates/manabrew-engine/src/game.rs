@@ -357,25 +357,24 @@ impl GameState {
         let id = CardId(self.next_card_id);
         self.next_card_id += 1;
         card.id = id;
-        let bound_host = card.clone();
         for trigger in &mut card.triggers {
-            trigger.bind_host_card_id(bound_host.id);
+            trigger.bind_host_card_id(id);
         }
         for static_ability in &mut card.static_abilities {
-            static_ability.base.set_host_card_id(bound_host.id);
+            static_ability.base.set_host_card_id(id);
         }
         for replacement_effect in &mut card.replacement_effects {
-            replacement_effect.base.set_host_card_id(bound_host.id);
+            replacement_effect.base.set_host_card_id(id);
         }
         if let Some(other) = card.other_part.as_mut() {
             for trigger in &mut other.triggers {
-                trigger.bind_host_card_id(bound_host.id);
+                trigger.bind_host_card_id(id);
             }
             for static_ability in &mut other.static_abilities {
-                static_ability.base.set_host_card_id(bound_host.id);
+                static_ability.base.set_host_card_id(id);
             }
             for replacement_effect in &mut other.replacement_effects {
-                replacement_effect.base.set_host_card_id(bound_host.id);
+                replacement_effect.base.set_host_card_id(id);
             }
         }
         self.cards.push(card);
