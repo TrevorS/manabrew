@@ -13,6 +13,10 @@ use crate::spellability::SpellAbility;
 pub(crate) fn commit_crime_check(game: &GameState, p: PlayerId, sa: &SpellAbility) -> bool {
     let mut sa_walk = Some(sa);
     while let Some(current) = sa_walk {
+        sa_walk = current.sub_ability.as_deref();
+        if !current.uses_targeting() {
+            continue;
+        }
         let tc = &current.target_chosen;
         if tc
             .all_target_players()
@@ -43,7 +47,6 @@ pub(crate) fn commit_crime_check(game: &GameState, p: PlayerId, sa: &SpellAbilit
                 return true;
             }
         }
-        sa_walk = current.sub_ability.as_deref();
     }
     false
 }
