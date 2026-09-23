@@ -545,6 +545,12 @@ pub(super) fn apply_post_move(
                 // `Card.ExiledWithSource` / `Defined$ ExiledWith` selectors.
                 if source_active {
                     ctx.game.card_mut(sid).add_exiled_card(card_id);
+                } else if sa
+                    .trigger_source_zone_timestamp
+                    .or(sa.source_zone_timestamp)
+                    .is_some_and(|timestamp| timestamp != ctx.game.card(sid).zone_timestamp)
+                {
+                    ctx.game.add_lki_exiled_card(sid, card_id);
                 }
             }
         }

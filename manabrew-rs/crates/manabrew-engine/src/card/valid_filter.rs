@@ -970,7 +970,12 @@ fn matches_context_predicate(
             .source_card
             .effect_source
             .zip(context.game)
-            .is_some_and(|(host, game)| game.card(host).exiled_cards.contains(&card.id)),
+            .is_some_and(|(host, game)| {
+                game.card(host).exiled_cards.contains(&card.id)
+                    || game
+                        .get_lki_snapshot(host)
+                        .is_some_and(|lki| lki.exiled_cards.contains(&card.id))
+            }),
         ContextPredicate::RememberedPlayerCtrl => {
             context.remembered_players.contains(&card.controller)
         }

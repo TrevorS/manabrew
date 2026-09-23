@@ -297,6 +297,12 @@ fn resolve_for_player(
                     ZoneType::Battlefield | ZoneType::Stack | ZoneType::Command
                 ) {
                     ctx.game.card_mut(source_id).add_exiled_card(id);
+                } else if sa
+                    .trigger_source_zone_timestamp
+                    .or(sa.source_zone_timestamp)
+                    .is_some_and(|timestamp| timestamp != ctx.game.card(source_id).zone_timestamp)
+                {
+                    ctx.game.add_lki_exiled_card(source_id, id);
                 }
             }
         }

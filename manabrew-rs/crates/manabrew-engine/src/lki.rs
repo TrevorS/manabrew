@@ -127,6 +127,16 @@ impl crate::game::GameState {
         self.last_state_battlefield.iter().find(|s| s.id == card_id)
     }
 
+    pub fn add_lki_exiled_card(&mut self, host: CardId, card_id: CardId) {
+        if let Some(snapshot) = self
+            .last_state_battlefield
+            .iter_mut()
+            .find(|s| s.id == host)
+        {
+            snapshot.exiled_cards.push(card_id);
+        }
+    }
+
     /// Update the LKI snapshot for a specific card on the battlefield.
     /// If the card is already in the snapshot, update it. Otherwise, add it.
     /// Called when a card enters the battlefield or its state changes significantly.
