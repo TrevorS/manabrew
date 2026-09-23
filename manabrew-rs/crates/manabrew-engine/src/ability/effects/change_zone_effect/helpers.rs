@@ -395,12 +395,19 @@ pub(super) fn apply_post_move(
         }
     }
 
-    // Library bottom positioning
-    if dest_zone == ZoneType::Library
-        && (lib_position == "-1" || lib_position.eq_ignore_ascii_case("Bottom"))
-    {
-        ctx.game
-            .reorder_card_in_zone(ZoneType::Library, dest_owner, card_id, 0);
+    if dest_zone == ZoneType::Library {
+        if lib_position == "-1" || lib_position.eq_ignore_ascii_case("Bottom") {
+            ctx.game
+                .reorder_card_in_zone(ZoneType::Library, dest_owner, card_id, 0);
+        } else if let Ok(from_top) = lib_position.parse::<usize>() {
+            let len = ctx.game.cards_in_zone(ZoneType::Library, dest_owner).len();
+            ctx.game.reorder_card_in_zone(
+                ZoneType::Library,
+                dest_owner,
+                card_id,
+                len.saturating_sub(from_top + 1),
+            );
+        }
     }
 
     // Battlefield entry effects
