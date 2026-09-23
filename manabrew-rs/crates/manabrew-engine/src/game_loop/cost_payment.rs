@@ -2596,19 +2596,25 @@ impl GameLoop {
                 type_filter,
                 can_tap_source,
                 ..
-            } => Self::choose_cost_cards_exactly(
-                agents,
-                player,
-                &cost::get_tap_type_targets_for_cost(
-                    game,
+            } => {
+                let amount = amount.resolve(game, source, player);
+                if amount <= 0 {
+                    return Some(Vec::new());
+                }
+                Self::choose_cost_cards_exactly(
+                    agents,
                     player,
-                    type_filter,
-                    source,
-                    *can_tap_source,
-                    sa,
-                ),
-                amount.resolve(game, source, player),
-            ),
+                    &cost::get_tap_type_targets_for_cost(
+                        game,
+                        player,
+                        type_filter,
+                        source,
+                        *can_tap_source,
+                        sa,
+                    ),
+                    amount,
+                )
+            }
             CostPart::CollectEvidence(amount) => Self::choose_evidence_cost_cards(
                 game,
                 agents,
@@ -4053,6 +4059,8 @@ impl GameLoop {
                 picks.to_vec()
             } else if type_filter == "OriginalHost" {
                 valid.clone()
+            } else if amount <= 0 {
+                Vec::new()
             } else {
                 agents[player.index()].choose_cards_for_effect(
                     player,
