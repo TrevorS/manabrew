@@ -220,7 +220,7 @@ pub fn get_target_entities(game: &GameState, sa: &SpellAbility) -> (Vec<PlayerId
     if sa.uses_targeting() {
         return (
             sa.target_chosen.all_target_players(),
-            sa.target_chosen.target_card.into_iter().collect(),
+            sa.target_chosen.all_target_cards(),
         );
     }
     let Some(Some(defined)) = ir_defined_param(sa, "Defined") else {
