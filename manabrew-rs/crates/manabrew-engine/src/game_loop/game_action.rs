@@ -1130,35 +1130,6 @@ impl GameLoop {
         }
     }
 
-    fn rollback_ability_host(&mut self, game: &mut GameState, card_id: CardId) -> CardId {
-        let host = game.card(card_id);
-        if host.zone != ZoneType::Battlefield || !host.is_token {
-            return card_id;
-        }
-        let Some(original_id) = host.copied_permanent else {
-            return card_id;
-        };
-        if original_id == card_id || original_id.index() >= game.cards.len() {
-            return card_id;
-        }
-        let controller = host.controller;
-        game.remove_card_from_zone(ZoneType::Battlefield, controller, card_id);
-        game.card_mut(card_id).zone = ZoneType::None;
-        let original = game.card(original_id);
-        let (orig_zone, orig_owner) = (original.zone, original.controller);
-        if orig_zone != ZoneType::Battlefield {
-            if orig_zone != ZoneType::None {
-                game.remove_card_from_zone(orig_zone, orig_owner, original_id);
-            }
-            game.card_mut(original_id).cast_sa = None;
-            game.card_mut(original_id).cast_from = None;
-            game.card_mut(original_id).zone = ZoneType::Battlefield;
-            game.card_mut(original_id).controller = controller;
-            game.add_card_to_zone(ZoneType::Battlefield, controller, original_id);
-        }
-        original_id
-    }
-
     fn finish_activated_ability_on_stack(
         &mut self,
         game: &mut GameState,
@@ -1207,11 +1178,10 @@ impl GameLoop {
             CostPaymentContext::ActivatedAbility,
             Some(&mut sa),
         ) {
-            let rolled_back_host = self.rollback_ability_host(game, card_id);
             let notification =
                 crate::agent::notification::GameNotification::ActivatedAbilityPaymentFailed {
                     player,
-                    card_id: rolled_back_host,
+                    card_id,
                     ability_index: ab.ability_index,
                 };
             for agent in agents.iter_mut() {
