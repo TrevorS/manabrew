@@ -948,6 +948,7 @@ pub fn adjust(
     .apply(&cost.to_mana_cost());
     *cost = ManaCostBeingPaid::from_mana_cost(&adjusted);
 
+    let mut max_waterbend = 0;
     if let Some(raise_cost) = compute_raise_cost_parts_with_targets(
         game,
         game.card(card_id),
@@ -958,6 +959,13 @@ pub fn adjust(
     ) {
         let raise_mana = mana_from_cost(&raise_cost);
         cost.add_mana_cost(&raise_mana);
+        for part in &raise_cost.parts {
+            if let CostPart::Waterbend { amount } = part {
+                let waterbend = amount.resolve(game, card_id, payer).max(0);
+                cost.add_mana_cost(&ManaCost::generic(waterbend));
+                max_waterbend += waterbend;
+            }
+        }
     }
 
     apply_pip_reductions(cost, sa);
@@ -1012,6 +1020,20 @@ pub fn adjust(
         );
     }
     apply_affinity_reduction(cost, payer, game.card(card_id), game);
+    if max_waterbend > 0 {
+        apply_convoke_or_improvise_reduction(
+            game,
+            agents,
+            mana_pools,
+            cost,
+            sa,
+            payer,
+            true,
+            true,
+            Some(max_waterbend),
+            test,
+        );
+    }
     if effect {
         let max_reduction = cost.get_generic_mana_amount();
         apply_convoke_or_improvise_reduction(
@@ -1280,7 +1302,7 @@ fn apply_convoke_or_improvise_reduction(
                 break;
             }
         }
-        let pay_generic_only = artifacts && !creatures;
+        let pay_generic_only = artifacts;
         let mut paid = false;
         if !pay_generic_only {
             let payable_colors = game.card(cid).color.mask() as u16;

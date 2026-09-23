@@ -1020,7 +1020,7 @@ impl GameLoop {
         // NOTE: Static mana-cost reduction/increase is now handled centrally
         // by cost_adjustment::adjust() called later in this function.
         // Do not apply compute_cost_adjustment here.
-        // We still need raise_cost for its non-mana cost parts (e.g. Waterbend).
+        // We still need raise_cost for its non-mana cost parts.
         let cast_zone = game.card_current_zone(card_id);
         let raise_cost = crate::cost::cost_adjustment::compute_raise_cost_parts(
             game,
@@ -1028,6 +1028,16 @@ impl GameLoop {
             player,
             cast_zone,
         );
+        let raise_waterbend = raise_cost.as_ref().is_some_and(|rc| {
+            rc.parts
+                .iter()
+                .any(|p| matches!(p, crate::cost::CostPart::Waterbend { .. }))
+        });
+        let raise_cost = raise_cost.and_then(|mut rc| {
+            rc.parts
+                .retain(|p| !matches!(p, crate::cost::CostPart::Waterbend { .. }));
+            (!rc.parts.is_empty()).then_some(rc)
+        });
 
         // ── Additional cost checks (Kicker, Buyback, Multikicker, Replicate) ──
         // Check Kicker: offer to pay additional kicker cost
@@ -2522,24 +2532,6 @@ impl GameLoop {
             }
         }
         if let Some(ref rc) = raise_cost {
-            let has_waterbend = rc
-                .parts
-                .iter()
-                .any(|p| matches!(p, crate::cost::CostPart::Waterbend { .. }));
-            let untapped_before = if has_waterbend {
-                game.cards_in_zone(ZoneType::Battlefield, player)
-                    .iter()
-                    .copied()
-                    .filter(|&cid| {
-                        let c = game.card(cid);
-                        cid != card_id
-                            && !c.tapped
-                            && (c.is_creature() || c.type_line.is_artifact())
-                    })
-                    .collect::<Vec<_>>()
-            } else {
-                Vec::new()
-            };
             if !self.pay_additional_costs(
                 game,
                 agents,
@@ -2557,16 +2549,6 @@ impl GameLoop {
                 prechosen_raise_cards.as_deref(),
             ) {
                 rollback_failed_payment!();
-            }
-            if has_waterbend {
-                for cid in untapped_before
-                    .into_iter()
-                    .filter(|&cid| game.card(cid).tapped)
-                {
-                    if !waterbend_tapped.contains(&cid) {
-                        waterbend_tapped.push(cid);
-                    }
-                }
             }
         }
 
@@ -2811,7 +2793,7 @@ impl GameLoop {
                 source_card: card_id,
                 cast_trigger: TriggerType::SpellCast,
                 emit_ability_activated: false,
-                emit_waterbend: !waterbend_tapped.is_empty(),
+                emit_waterbend: raise_waterbend || !waterbend_tapped.is_empty(),
                 waterbend_cards: waterbend_tapped.clone(),
             },
         );
