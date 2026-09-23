@@ -340,6 +340,29 @@ pub trait PlayerAgent {
         valid.first().copied()
     }
 
+    fn choose_permanents_to_sacrifice(
+        &mut self,
+        player: PlayerId,
+        min: usize,
+        max: usize,
+        valid: &[CardId],
+        source: Option<CardId>,
+    ) -> Vec<CardId> {
+        if min < max {
+            return self.choose_cards_for_effect(player, valid, min, max);
+        }
+        let mut remaining = valid.to_vec();
+        let mut chosen = Vec::new();
+        while chosen.len() < max {
+            let Some(card_id) = self.choose_sacrifice(player, &remaining, source) else {
+                break;
+            };
+            remaining.retain(|&cid| cid != card_id);
+            chosen.push(card_id);
+        }
+        chosen
+    }
+
     /// Distribute the looked-at Scry cards across the zones. Returns one ordered
     /// pile per zone — `[top, bottom]` — where the last id in each pile is placed
     /// on top of that pile. Default: keep everything on top, nothing to bottom.

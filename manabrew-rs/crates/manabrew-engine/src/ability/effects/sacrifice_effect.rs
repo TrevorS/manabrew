@@ -348,27 +348,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     };
 
     for sacrificing_player in sacrificing_players {
-        if optional {
-            let _source_name = sa.source.map(|cid| ctx.game.card(cid).card_name.as_str());
-            let accepted = ctx.agents[sacrificing_player.index()].confirm_action(
-                sacrificing_player,
-                None,
-                "Do you want to sacrifice?",
-                &[],
-                sa.source,
-                Some(crate::ability::api_type::ApiType::Sacrifice),
-            );
-            if !accepted {
-                continue;
-            }
-        }
-
-        // When Optional$ True, Java uses choosePermanentsToSacrifice(min=0, max=amount)
-        // which allows the player to sacrifice fewer than `amount` creatures.
-        // We match this by collecting all chosen cards at once via choose_cards_for_effect.
-        if optional
-            && !sac_valid.eq_ignore_ascii_case("Self")
+        if !sac_valid.eq_ignore_ascii_case("Self")
             && defined.strip_prefix("carduid_").is_none()
+            && !sa.ir.random
         {
             let valid: Vec<_> = ctx
                 .game
@@ -394,17 +376,33 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 })
                 .collect();
 
-            let min_targets = if is_strict { amount } else { 0 };
-            let chosen = if valid.is_empty() {
-                vec![]
+            let min_targets = if optional && !is_strict { 0 } else { amount };
+            let not_enough_targets = is_strict && valid.len() < min_targets;
+            let chosen = if not_enough_targets
+                || (optional
+                    && !ctx.agents[sacrificing_player.index()].confirm_action(
+                        sacrificing_player,
+                        None,
+                        "Do you want to sacrifice?",
+                        &[],
+                        sa.source,
+                        Some(crate::ability::api_type::ApiType::Sacrifice),
+                    )) {
+                Vec::new()
             } else {
-                ctx.agents[sacrificing_player.index()].choose_cards_for_effect(
+                ctx.agents[sacrificing_player.index()].choose_permanents_to_sacrifice(
                     sacrificing_player,
-                    &valid,
                     min_targets,
                     amount,
+                    &valid,
+                    sa.source,
                 )
             };
+            let chosen = ctx.game.order_cards_by_their_owners(
+                chosen,
+                ZoneType::Graveyard,
+                &mut Some(&mut *ctx.agents),
+            );
 
             for card_id in chosen {
                 let sacrificed = do_sacrifice(ctx, sa, card_id, sacrificing_player, exploit_source);
@@ -416,6 +414,21 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
             }
             continue;
+        }
+
+        if optional {
+            let _source_name = sa.source.map(|cid| ctx.game.card(cid).card_name.as_str());
+            let accepted = ctx.agents[sacrificing_player.index()].confirm_action(
+                sacrificing_player,
+                None,
+                "Do you want to sacrifice?",
+                &[],
+                sa.source,
+                Some(crate::ability::api_type::ApiType::Sacrifice),
+            );
+            if !accepted {
+                continue;
+            }
         }
 
         // Repeat the sacrifice `amount` times (e.g. Annihilator N).

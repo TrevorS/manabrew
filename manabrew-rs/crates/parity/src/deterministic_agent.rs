@@ -2001,6 +2001,22 @@ impl PlayerAgent for DeterministicAgent {
         picked.into_iter().next()
     }
 
+    fn choose_permanents_to_sacrifice(
+        &mut self,
+        _player: PlayerId,
+        min: usize,
+        max: usize,
+        valid: &[CardId],
+        _source: Option<CardId>,
+    ) -> Vec<CardId> {
+        let sorted = choice_space::sort_native(valid, |a, b| {
+            self.card_name(*a)
+                .cmp(&self.card_name(*b))
+                .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
+        });
+        gui_repro::pick_many_unique(&sorted, min, max, &mut self.rng.borrow_mut())
+    }
+
     fn choose_discard(&mut self, _player: PlayerId, hand: &[CardId], num: usize) -> Vec<CardId> {
         if hand.is_empty() || num == 0 {
             return vec![];

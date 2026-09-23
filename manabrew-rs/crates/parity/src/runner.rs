@@ -845,6 +845,7 @@ impl PlayerAgent for CapturingAgent {
         fn choose_target_any(&mut self, player: PlayerId, valid_players: &[PlayerId], valid_cards: &[CardId], sa: Option<&manabrew_engine::spellability::SpellAbility>) -> manabrew_engine::agent::TargetChoice => "choose_target_any";
         fn choose_legend_keep(&mut self, player: PlayerId, duplicates: &[CardId]) -> CardId => "choose_single_entity_for_effect";
         fn choose_sacrifice(&mut self, player: PlayerId, valid: &[CardId], source: Option<CardId>) -> Option<CardId> => "choose_sacrifice";
+        fn choose_permanents_to_sacrifice(&mut self, player: PlayerId, min: usize, max: usize, valid: &[CardId], source: Option<CardId>) -> Vec<CardId> => "choose_sacrifice";
         fn choose_type(&mut self, player: PlayerId, type_category: &str, valid_types: &[String]) -> Option<String> => "choose_type";
         fn choose_scry(&mut self, game: &GameState, player: PlayerId, source: Option<CardId>, cards: &[CardId]) -> Vec<Vec<CardId>> => "choose_scry";
         fn choose_surveil(&mut self, game: &GameState, player: PlayerId, source: Option<CardId>, cards: &[CardId]) -> Vec<Vec<CardId>> => "choose_surveil";
