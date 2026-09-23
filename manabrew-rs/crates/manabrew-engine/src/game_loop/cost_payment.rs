@@ -3864,6 +3864,7 @@ impl GameLoop {
             let origin = game.card(chosen).zone;
             let owner = game.card(chosen).owner;
             self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
+            self.record_paid_cost_exile(game, source, chosen);
             crate::ability::effects::emit_zone_trigger(
                 &mut self.trigger_handler,
                 chosen,

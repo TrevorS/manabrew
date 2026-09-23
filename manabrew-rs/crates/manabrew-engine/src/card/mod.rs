@@ -3488,8 +3488,12 @@ impl Card {
     pub fn clear_delved(&mut self) {
         self.remove_s_var("Delved");
     }
-    pub fn retain_paid_list(&mut self) {
-        self.remembered_cards.retain(|_| true);
+    pub fn retain_paid_list(&mut self, paid: &[CardId]) {
+        for &craft in paid {
+            if craft != self.id {
+                self.add_exiled_card(craft);
+            }
+        }
     }
     pub fn add_stored_rolls(&mut self, roll: i32) {
         self.stored_rolls.push(roll);

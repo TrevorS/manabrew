@@ -464,6 +464,7 @@ fn resolve_defined_cards_for_svar(
             .flat_map(cards_from_ability_value)
             .collect(),
         DefinedRef::Imprinted => game.card(source_id).imprinted_cards.clone(),
+        DefinedRef::ExiledWith => game.card(source_id).exiled_cards.clone(),
         _ => crate::ability::ability_utils::get_defined_cards(
             game,
             Some(source_id),

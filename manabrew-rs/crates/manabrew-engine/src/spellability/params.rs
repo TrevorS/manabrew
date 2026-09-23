@@ -176,6 +176,10 @@ impl SpellAbility {
         self.ir.transformed
     }
 
+    pub fn is_craft(&self) -> bool {
+        crate::parsing::raw_get(&self.ability_text, keys::SPELL_DESCRIPTION) == Some("Craft")
+    }
+
     /// Get `AtRandom$` as boolean.
     pub fn is_at_random(&self) -> bool {
         self.ir.at_random

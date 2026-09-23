@@ -350,6 +350,17 @@ pub(super) fn apply_post_move(
     lib_position: &str,
 ) {
     let controller = sa.activating_player;
+    if dest_zone == ZoneType::Battlefield && sa.is_craft() {
+        let paid: Vec<CardId> = ctx
+            .game
+            .card(card_id)
+            .paid_cost_exiled_cards
+            .iter()
+            .copied()
+            .filter(|&craft| !ctx.game.card(craft).is_token)
+            .collect();
+        ctx.game.card_mut(card_id).retain_paid_list(&paid);
+    }
     let exile_source = sa.source.and_then(|source_id| {
         if sa.ir.exiled_with_effect_source {
             ctx.game.card(source_id).effect_source.or(Some(source_id))
