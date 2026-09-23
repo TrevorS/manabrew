@@ -111,7 +111,12 @@ pub fn get_proto_type(sa: &SpellAbility, original: &Card, new_owner: crate::ids:
 
     // Apply SetColor$ (e.g. Embalm sets color to White).
     if let Some(set_color) = sa.ir.set_color.as_deref() {
-        copy.set_color(ColorSet::from_names(set_color));
+        copy.set_color(
+            set_color
+                .split(',')
+                .map(ColorSet::from_names)
+                .fold(ColorSet::COLORLESS, ColorSet::union),
+        );
     }
 
     if crate::parsing::raw_has_key(&sa.ability_text, "NonLegendary") {

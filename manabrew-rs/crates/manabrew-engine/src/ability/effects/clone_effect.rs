@@ -156,9 +156,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         if let Some(set_color) = sa.ir.set_color.as_deref() {
-            ctx.game
-                .card_mut(clone_target_id)
-                .set_color(ColorSet::from_names(set_color));
+            ctx.game.card_mut(clone_target_id).set_color(
+                set_color
+                    .split(',')
+                    .map(ColorSet::from_names)
+                    .fold(ColorSet::COLORLESS, ColorSet::union),
+            );
         }
 
         if let Some(power) = sa

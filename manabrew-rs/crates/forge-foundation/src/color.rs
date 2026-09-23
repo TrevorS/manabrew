@@ -181,19 +181,15 @@ impl ColorSet {
     }
 
     pub fn from_names(s: &str) -> Self {
-        let mut mask = 0u8;
-        for c in s.chars() {
-            if let Some(color) = Color::from_char(c) {
-                mask |= color.mask();
-            }
+        if s == "all" {
+            return ColorSet::ALL_COLORS;
         }
-        if mask == 0 {
-            // Try full name
-            if let Some(color) = Color::from_name(s) {
-                mask = color.mask();
-            }
+        let chars: Vec<char> = s.chars().collect();
+        if chars.len() == 2 {
+            let char_mask = |c: char| Color::from_char(c).map_or(0, Color::mask);
+            return ColorSet(char_mask(chars[0]) | char_mask(chars[1]));
         }
-        ColorSet(mask & 0b11111)
+        ColorSet(Color::from_name(s).map_or(0, Color::mask))
     }
 }
 
