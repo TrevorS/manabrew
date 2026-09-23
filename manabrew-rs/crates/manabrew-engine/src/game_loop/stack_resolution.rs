@@ -790,6 +790,7 @@ impl GameLoop {
         let root_trigger_objects = entry.spell_ability.trigger_objects.clone();
         let root_trigger_spell_abilities = &entry.spell_ability.trigger_spell_abilities;
         let root_trigger_source = entry.spell_ability.trigger_source;
+        let root_trigger_source_zone_timestamp = entry.spell_ability.trigger_source_zone_timestamp;
         let root_trigger_spawning_ability = entry.spell_ability.trigger_spawning_ability.clone();
         let mut current = Some(&entry.spell_ability);
         let mut is_first = true;
@@ -819,6 +820,8 @@ impl GameLoop {
                 || (sa.trigger_spell_abilities.is_empty()
                     && !root_trigger_spell_abilities.is_empty())
                 || (sa.trigger_source.is_none() && root_trigger_source.is_some())
+                || (sa.trigger_source_zone_timestamp.is_none()
+                    && root_trigger_source_zone_timestamp.is_some())
                 || (sa.trigger_spawning_ability.is_none()
                     && root_trigger_spawning_ability.is_some());
             let sa_ref = if needs_ctx_clone {
@@ -857,6 +860,9 @@ impl GameLoop {
                 }
                 if sa_with_ctx.trigger_source.is_none() {
                     sa_with_ctx.trigger_source = root_trigger_source;
+                }
+                if sa_with_ctx.trigger_source_zone_timestamp.is_none() {
+                    sa_with_ctx.trigger_source_zone_timestamp = root_trigger_source_zone_timestamp;
                 }
                 if sa_with_ctx.trigger_spawning_ability.is_none() {
                     sa_with_ctx.trigger_spawning_ability = root_trigger_spawning_ability.clone();

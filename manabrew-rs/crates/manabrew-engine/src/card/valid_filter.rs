@@ -951,7 +951,20 @@ fn matches_context_predicate(
         ContextPredicate::CastSa(filter) => card.cast_sa.as_ref().is_some_and(|cast_sa| {
             crate::spellability::matches_valid_sa(filter, cast_sa, context.source_card, Some(card))
         }),
-        ContextPredicate::ExiledWithSource => context.source_card.exiled_cards.contains(&card.id),
+        ContextPredicate::ExiledWithSource => {
+            context.source_card.exiled_cards.contains(&card.id)
+                || (context
+                    .spell_ability
+                    .and_then(|sa| {
+                        sa.trigger_source_zone_timestamp
+                            .or(sa.source_zone_timestamp)
+                    })
+                    .is_some_and(|timestamp| timestamp != context.source_card.zone_timestamp)
+                    && context
+                        .game
+                        .and_then(|game| game.get_lki_snapshot(context.source_card.id))
+                        .is_some_and(|lki| lki.exiled_cards.contains(&card.id)))
+        }
         // Java `CardProperty:413` compares against the effect's source, not the effect card.
         ContextPredicate::ExiledWithEffectSource => context
             .source_card

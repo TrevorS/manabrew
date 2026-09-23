@@ -70,6 +70,7 @@ pub struct CardSnapshot {
     pub tapped: bool,
     pub zone: ZoneType,
     pub card_name: String,
+    pub exiled_cards: Vec<CardId>,
 }
 
 impl CardSnapshot {
@@ -85,6 +86,7 @@ impl CardSnapshot {
             tapped: card.tapped,
             zone: card.zone,
             card_name: card.card_name.clone(),
+            exiled_cards: card.exiled_cards.clone(),
         }
     }
 }
