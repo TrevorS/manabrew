@@ -450,6 +450,7 @@ fn try_pay_effect_cost(
                 | CostPart::Behold { exile: false, .. }
                 | CostPart::Exile { .. }
                 | CostPart::TapType { .. }
+                | CostPart::Waterbend { .. }
         ) {
             return false;
         }
@@ -515,6 +516,52 @@ fn try_pay_effect_cost(
                     mana_cost,
                     mode.attempts_unpayable(),
                 ) {
+                    return false;
+                }
+            }
+            CostPart::Waterbend { amount } => {
+                let mut remaining = amount.resolve(ctx.game, source, payer);
+                let untapped: Vec<CardId> = ctx
+                    .game
+                    .cards_in_zone(ZoneType::Battlefield, payer)
+                    .iter()
+                    .copied()
+                    .filter(|&cid| {
+                        let c = ctx.game.card(cid);
+                        !c.tapped && cid != source && (c.is_creature() || c.type_line.is_artifact())
+                    })
+                    .collect();
+                if !untapped.is_empty() && remaining > 0 {
+                    ctx.agents[payer.index()].snapshot_state(ctx.game, ctx.mana_pools);
+                    let to_tap = ctx.agents[payer.index()].choose_convoke(
+                        payer,
+                        &untapped,
+                        &forge_foundation::ManaCost::generic(remaining),
+                        Some(source),
+                    );
+                    let max_tap = remaining as usize;
+                    let mut count = 0usize;
+                    for cid in to_tap {
+                        if count >= max_tap {
+                            break;
+                        }
+                        if !untapped.contains(&cid) {
+                            continue;
+                        }
+                        ctx.game.tap(cid);
+                        remaining -= 1;
+                        count += 1;
+                    }
+                }
+                if remaining > 0
+                    && !pay_mana_cost_for_effect(
+                        ctx,
+                        payer,
+                        source,
+                        &forge_foundation::ManaCost::generic(remaining),
+                        mode.attempts_unpayable(),
+                    )
+                {
                     return false;
                 }
             }
