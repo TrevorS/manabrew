@@ -1046,9 +1046,9 @@ pub fn register_at_eot(
     action: &str,
     remembered: Vec<CardId>,
 ) {
-    if remembered.is_empty() {
+    let Some(source_card) = sa.source.or_else(|| remembered.first().copied()) else {
         return;
-    }
+    };
     let your = action.starts_with("Your");
     let action = action
         .strip_prefix("Your")
@@ -1056,7 +1056,6 @@ pub fn register_at_eot(
         .parse::<AtEotAction>()
         .unwrap_or_default();
     let execute_svar = action.execute_svar().to_string();
-    let source_card = sa.source.unwrap_or(remembered[0]);
     trigger_handler.register_delayed_trigger(crate::trigger::handler::DelayedTrigger {
         mode: crate::trigger::TriggerType::Phase,
         trigger_mode: Box::new(crate::trigger::trigger_phase::TriggerPhase {

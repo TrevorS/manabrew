@@ -562,13 +562,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .copied()
             .filter(|&cid| ctx.game.card(cid).zone == ZoneType::Battlefield)
             .collect();
-        crate::ability::spell_ability_effect::register_at_eot(
-            ctx.trigger_handler,
-            ctx.game,
-            sa,
-            action,
-            remembered,
-        );
+        if !remembered.is_empty() {
+            crate::ability::spell_ability_effect::register_at_eot(
+                ctx.trigger_handler,
+                ctx.game,
+                sa,
+                action,
+                remembered,
+            );
+        }
     }
 }
 

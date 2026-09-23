@@ -235,10 +235,6 @@ pub trait TokenEffectBase {
         trigger_list: &mut CardZoneTable,
         sa: &SpellAbility,
     ) -> TokenCreateResult {
-        if token_table.is_empty() {
-            return TokenCreateResult::default();
-        }
-
         self.apply_create_token_replacements(ctx, &mut token_table);
 
         let original_tokens: Vec<Card> = token_table

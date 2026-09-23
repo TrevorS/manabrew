@@ -174,7 +174,7 @@ pub(super) fn move_cards(
     }
 
     // AtEOT$ delayed triggers
-    if let Some(eot_svar) = sa.ir.at_eot.as_deref() {
+    if let Some(eot_svar) = sa.ir.at_eot.as_deref().filter(|_| !moved.is_empty()) {
         crate::ability::spell_ability_effect::register_at_eot(
             ctx.trigger_handler,
             ctx.game,

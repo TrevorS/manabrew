@@ -303,7 +303,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     // `AtEOT$ <action>` — register an end-of-turn delayed trigger that performs
     // `action` on the pumped targets (Java PumpEffect L486).
-    if let Some(action) = sa.ir.at_eot.as_deref() {
+    if let Some(action) = sa
+        .ir
+        .at_eot
+        .as_deref()
+        .filter(|_| !pumped_targets.is_empty())
+    {
         crate::ability::spell_ability_effect::register_at_eot(
             ctx.trigger_handler,
             ctx.game,

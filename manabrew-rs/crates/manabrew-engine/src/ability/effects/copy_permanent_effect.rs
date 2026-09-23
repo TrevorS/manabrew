@@ -61,10 +61,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
-    if token_table.is_empty() {
-        return;
-    }
-
     let mut trigger_list = CardZoneTable::default();
     let result = TOKEN_EFFECT_BASE.make_token_table(ctx, token_table, true, &mut trigger_list, sa);
     if !result.created.is_empty() {
