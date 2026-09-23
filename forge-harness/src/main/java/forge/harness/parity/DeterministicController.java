@@ -732,6 +732,7 @@ public class DeterministicController extends PlayerController implements Harness
         // Sort by (name, parityId) for deterministic cross-engine parity.
         // Avoids HashMap/collection ordering differences between Java and Rust.
         java.util.List<T> sorted = new java.util.ArrayList<>(optionList);
+        sorted.removeIf(e -> e instanceof Card && ((Card) e).getId() < 0 && e.getName().startsWith("--"));
         sorted.sort(java.util.Comparator.comparing((T e) -> e.getName())
                 .thenComparingInt(e -> (e instanceof Card) ? ParityCardMap.parityId((Card) e) : 0));
         final T picked = ChoiceSpace.pickOne(sorted, rng);
@@ -1485,8 +1486,11 @@ public class DeterministicController extends PlayerController implements Harness
 
     @Override
     public CardCollectionView chooseCardsToDelve(int genericAmount, CardCollection grave) {
-        captureDeepCheckpoint("choose_delve");
         final List<Card> sorted = ParityOrder.sortCardsByNameThenId(new ArrayList<Card>(grave));
+        if (probingPayability) {
+            return new CardCollection(sorted.subList(0, Math.min(genericAmount, sorted.size())));
+        }
+        captureDeepCheckpoint("choose_delve");
         final CardCollectionView result = ChoiceSpace.pickManyCards(new CardCollection(sorted), 0, Math.min(genericAmount, grave.size()), rng);
         onCallback("choose_delve", formatCards(result), String.valueOf(grave.size()), String.valueOf(genericAmount));
         return result;
