@@ -18,6 +18,19 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
 
     let controller = sa.activating_player;
+    let valid_sa = crate::parsing::raw_get(&sa.ability_text, crate::parsing::keys::VALID_SA)
+        .map(|filter| (filter, sa));
+    if valid_sa.is_some() {
+        candidates.retain(|&cid| {
+            !crate::ability::ability_utils::get_spells_from_play_effect(
+                ctx.game, cid, controller, false, valid_sa,
+            )
+            .is_empty()
+        });
+        if candidates.is_empty() {
+            return;
+        }
+    }
     let without_mana_cost = sa.ir.without_mana_cost;
     let play_cost = sa.ir.play_cost_text.clone();
     let remember = sa.ir.remember_played;
@@ -84,9 +97,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         };
 
         // ── Step 3: Get ability to play
-        let spell_sa_base =
-            crate::spellability::build_spell_ability_for_card_cast(ctx.game, card_id, controller);
-        let abilities = vec![spell_sa_base];
+        let abilities = crate::ability::ability_utils::get_spells_from_play_effect(
+            ctx.game,
+            card_id,
+            controller,
+            !without_mana_cost && play_cost.is_none(),
+            valid_sa,
+        );
+        if abilities.is_empty() {
+            continue;
+        }
         let sa_idx = ctx.agents[controller.index()].get_ability_to_play(controller, &abilities);
         let Some(mut spell_sa) = sa_idx.and_then(|idx| abilities.into_iter().nth(idx)) else {
             continue;
@@ -114,9 +134,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if let Some(ref mut cost) = spell_sa.pay_costs {
             cost.mandatory = true;
         }
-
-        // Remove zone restriction — allow casting from exile/library/etc.
-        std::sync::Arc::make_mut(&mut spell_sa.ir).cast_from_play_effect = true;
 
         if !spell_sa.setup_targets(ctx.game, ctx.agents, ctx.mana_pools) {
             amount -= 1;
@@ -200,15 +217,10 @@ fn resolve_target_cards(ctx: &EffectContext, sa: &SpellAbility) -> Vec<CardId> {
             })
             .filter(|zones| !zones.is_empty())
             .unwrap_or_else(|| vec![ZoneType::Hand]);
-        let Some(source_id) = sa.source else {
+        if sa.source.is_none() {
             return Vec::new();
-        };
-        let source = ctx.game.card(source_id);
+        }
         let selector = crate::parsing::cached_compiled_selector(valid);
-        let valid_sa = crate::parsing::raw_get(&sa.ability_text, crate::parsing::keys::VALID_SA);
-        let valid_sa_context = crate::card::valid_filter::MatchContext::from_source(source)
-            .with_game(ctx.game)
-            .with_spell_ability(sa);
         return ctx
             .game
             .cards
@@ -222,22 +234,6 @@ fn resolve_target_cards(ctx: &EffectContext, sa: &SpellAbility) -> Vec<CardId> {
                     Some(&selector),
                     valid,
                 )
-            })
-            .filter(|card| {
-                valid_sa.is_none_or(|v| {
-                    !card.is_land()
-                        && crate::spellability::valid_sa::matches_valid_sa_with_context(
-                            v,
-                            &crate::spellability::build_spell_ability_for_card_cast(
-                                ctx.game,
-                                card.id,
-                                sa.activating_player,
-                            ),
-                            source,
-                            Some(card),
-                            Some(valid_sa_context),
-                        )
-                })
             })
             .map(|card| card.id)
             .collect();

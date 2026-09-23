@@ -79,6 +79,18 @@ pub fn can_play_from_host(sa: &SpellAbility, game: &GameState) -> Option<CardId>
         return None;
     }
 
+    if sa.pay_costs.as_ref().is_some_and(|cost| {
+        !crate::cost::cost_payment::CostPayment::can_pay_additional_costs(
+            cost,
+            game,
+            card_id,
+            sa.activating_player,
+            false,
+        )
+    }) {
+        return None;
+    }
+
     Some(card_id)
 }
 

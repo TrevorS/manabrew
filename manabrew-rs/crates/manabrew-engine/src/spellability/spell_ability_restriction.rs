@@ -213,9 +213,13 @@ impl SpellAbilityRestriction {
             return false;
         }
         let card = game.card(card_id);
+        let cast_from_play_effect = sa.is_some_and(|sa| sa.ir.cast_from_play_effect);
         let spell_may_play = sa.is_some_and(|sa| sa.is_spell)
             && crate::staticability::static_ability_continuous::player_may_play(game, player, card);
-        if !spell_may_play && !self.can_player_activate_host(game, card_id, player) {
+        if !cast_from_play_effect
+            && !spell_may_play
+            && !self.can_player_activate_host(game, card_id, player)
+        {
             return false;
         }
 

@@ -1835,6 +1835,9 @@ impl SpellAbility {
         if self.ir.flash {
             return true;
         }
+        if (self.is_spell || self.is_land_ability) && self.ir.cast_from_play_effect {
+            return true;
+        }
         if let Some(card_id) = self.source {
             let card = game.card(card_id);
             let state_name = self

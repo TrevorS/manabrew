@@ -2524,49 +2524,50 @@ pub fn get_defined_entities(
 
 /// Collect the basic spell abilities that a Play$ effect could cast from
 /// `tgt_card`. Mirrors Java `AbilityUtils.getBasicSpellsFromPlayEffect(Card, Player)`.
-///
-/// "Basic" means the non-alternative cost variants — the Rust engine has no
-/// `Spell` wrapper analogue yet, so we synthesize fresh `SpellAbility` objects
-/// from the target card's ability text, filtering to spells / land abilities
-/// the way Java does in `collectSpellsForPlayEffect`.
 pub fn get_basic_spells_from_play_effect(
     game: &GameState,
     tgt_card: CardId,
     controller: PlayerId,
 ) -> Vec<SpellAbility> {
-    get_spells_from_play_effect(game, tgt_card, controller, false)
+    get_spells_from_play_effect(game, tgt_card, controller, false, None)
 }
 
-/// Full variant of `getBasicSpellsFromPlayEffect` — when `with_alt_cost` is
-/// `true`, alternative-cost (flashback/overload/…) variants are included.
-/// Mirrors Java `AbilityUtils.getSpellsFromPlayEffect(Card, Player, CardStateName, boolean)`.
-///
-/// Alt-cost expansion depends on `GameActionUtil.getAlternativeCosts`, which
-/// is not ported yet — the `with_alt_cost=true` branch currently degrades to
-/// the basic list. Revisit once alt-cost collection is available.
+/// Java `AbilityUtils.getSpellsFromPlayEffect`, without its alternative-cost variants.
 pub fn get_spells_from_play_effect(
     game: &GameState,
     tgt_card: CardId,
     controller: PlayerId,
     _with_alt_cost: bool,
+    valid_sa: Option<(&str, &SpellAbility)>,
 ) -> Vec<SpellAbility> {
     let card = game.card(tgt_card);
-    let mut out = Vec::new();
-    for ab_text in &card.abilities {
-        let params = crate::parsing::Params::from_raw(ab_text);
-        let record = crate::ability::ability_factory::AbilityRecordType::from_params(&params);
-        let is_spell = matches!(
-            record,
-            Some(crate::ability::ability_factory::AbilityRecordType::Spell)
-        );
-        if !is_spell && !card.type_line.is_land() {
-            continue;
-        }
-        let built =
-            crate::spellability::build_spell_ability_from_host_card(card, ab_text, controller);
-        out.push(built);
+    let mut spell =
+        crate::spellability::build_spell_ability_for_card_cast(game, tgt_card, controller);
+    spell.restriction.variables.set_zone(card.zone);
+    std::sync::Arc::make_mut(&mut spell.ir).cast_from_play_effect = true;
+    if crate::spellability::spell::can_play_from_host(&spell, game).is_none() {
+        return Vec::new();
     }
-    out
+    if let Some((filter, play_sa)) = valid_sa {
+        let Some(source) = play_sa.source.map(|id| game.card(id)) else {
+            return Vec::new();
+        };
+        let context = valid_filter::MatchContext::from_source(source)
+            .with_game(game)
+            .with_spell_ability(play_sa);
+        if card.is_land()
+            || !crate::spellability::valid_sa::matches_valid_sa_with_context(
+                filter,
+                &spell,
+                source,
+                Some(card),
+                Some(context),
+            )
+        {
+            return Vec::new();
+        }
+    }
+    vec![spell]
 }
 
 /// Mirrors Java `AbilityUtils.getSVar(CardTraitBase, String)`: a granted ability reads the
