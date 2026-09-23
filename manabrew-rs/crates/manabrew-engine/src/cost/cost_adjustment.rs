@@ -530,6 +530,17 @@ pub fn compute_raise_cost_parts_with_targets(
     let mut has_tap = false;
     let mut mandatory = false;
 
+    if spell_card.zone != ZoneType::Hand && spell_card.zone != ZoneType::Stack {
+        if let Some(raise) = crate::staticability::static_ability_continuous::may_play_raise_cost(
+            game, caster, spell_card,
+        ) {
+            let parsed = parse_cost(&raise);
+            merged_parts.extend(parsed.parts);
+            has_tap |= parsed.has_tap;
+            mandatory |= parsed.mandatory;
+        }
+    }
+
     for source in game
         .cards
         .iter()

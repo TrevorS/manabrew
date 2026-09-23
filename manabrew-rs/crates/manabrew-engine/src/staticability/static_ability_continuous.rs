@@ -257,6 +257,35 @@ pub fn may_play_grant_source(
         .map(|(source, st_ab)| (source.id, static_index(st_ab, source)))
 }
 
+/// Java `GameActionUtil:373-379`: the grant's `RaiseCost$` rides on the ability it builds, an
+/// SVar name resolved to a mana amount on the grant's host.
+pub fn may_play_raise_cost(
+    game: &GameState,
+    player: crate::ids::PlayerId,
+    card: &Card,
+) -> Option<String> {
+    let (source_id, index) = may_play_grant_source(game, player, card)?;
+    let source = game.card(source_id);
+    let raise = source
+        .static_abilities
+        .get(index?)?
+        .ir
+        .may_play_raise_cost
+        .as_deref()?;
+    if source.svars.contains_key(raise) {
+        return Some(
+            crate::svar::resolve_cost_amount_svar(game, source, raise, source.controller)
+                .to_string(),
+        );
+    }
+    Some(raise.to_string())
+}
+
+pub fn may_play_with_flash(game: &GameState, player: crate::ids::PlayerId, card: &Card) -> bool {
+    may_play_grants(game, player, card)
+        .any(|(source, st_ab)| st_ab.ir.may_play_with_flash && can_play(st_ab, source, card, game))
+}
+
 /// Java `Card.mayPlay(player)` is not empty: a `MayPlay$` grant for `player` covers `card`.
 pub fn player_may_play(game: &GameState, player: crate::ids::PlayerId, card: &Card) -> bool {
     may_play_grants(game, player, card)

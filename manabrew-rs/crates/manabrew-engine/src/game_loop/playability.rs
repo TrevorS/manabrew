@@ -263,6 +263,9 @@ impl GameLoop {
                 || crate::staticability::static_ability_cast_with_flash::any_with_flash_for_card(
                     game, card, player,
                 )
+                || crate::staticability::static_ability_continuous::may_play_with_flash(
+                    game, player, card,
+                )
         };
         let can_may_play_from_static = |card_id: CardId| {
             let card = game.card(card_id);

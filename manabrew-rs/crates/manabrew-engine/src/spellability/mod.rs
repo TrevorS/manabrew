@@ -1812,6 +1812,15 @@ impl SpellAbility {
             if ((self.is_spell || self.is_land_ability) && is_instant) || has_flash {
                 return true;
             }
+            if self.is_spell
+                && crate::staticability::static_ability_continuous::may_play_with_flash(
+                    game,
+                    self.activating_player,
+                    card,
+                )
+            {
+                return true;
+            }
             return crate::staticability::static_ability_cast_with_flash::any_with_flash_for_card(
                 game,
                 card,

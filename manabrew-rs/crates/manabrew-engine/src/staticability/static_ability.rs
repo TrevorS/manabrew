@@ -277,6 +277,7 @@ pub struct StaticAbilityIr {
     pub may_play_grants_zone_permissions: bool,
     pub may_play_player: Option<String>,
     pub may_play_limit: Option<i32>,
+    pub may_play_with_flash: bool,
     pub counter_type_text: Option<String>,
     pub counter_type: Option<CounterType>,
     pub caster: Option<CompiledSelector>,
@@ -409,6 +410,7 @@ pub struct StaticAbilityIr {
     pub player_turn_text: Option<String>,
     pub top_card_of_library_is: Option<String>,
     pub valid_after_stack: Option<String>,
+    pub may_play_raise_cost: Option<String>,
     pub class_level_min: Option<i32>,
     pub check_third_svar: Option<String>,
     pub third_svar_compare: Option<String>,
@@ -466,6 +468,7 @@ impl StaticAbilityIr {
             may_play_grants_zone_permissions: !raw
                 .contains_key(keys::MAY_PLAY_DONT_GRANT_ZONE_PERMISSIONS),
             may_play_player: raw.get(keys::MAY_PLAY_PLAYER).map(String::to_string),
+            may_play_with_flash: raw.contains_key("MayPlayWithFlash"),
             may_play_limit: raw
                 .get(keys::MAY_PLAY_LIMIT)
                 .and_then(|value| value.trim().parse().ok()),
@@ -637,6 +640,7 @@ impl StaticAbilityIr {
             player_turn_text: raw.get(keys::PLAYER_TURN).map(String::to_string),
             top_card_of_library_is: raw.get("TopCardOfLibraryIs").map(String::to_string),
             valid_after_stack: raw.get("ValidAfterStack").map(String::to_string),
+            may_play_raise_cost: raw.get("RaiseCost").map(String::to_string),
             class_level_min: raw.get("ClassLevel").and_then(|value| value.parse().ok()),
             check_third_svar: raw.get("CheckThirdSVar").map(String::to_string),
             third_svar_compare: raw.get("ThirdSVarCompare").map(String::to_string),
