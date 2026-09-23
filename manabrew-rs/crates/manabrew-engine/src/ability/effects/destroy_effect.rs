@@ -13,6 +13,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let no_regen = sa.ir.no_regen;
     let remember_destroyed = sa.ir.remember_destroyed;
     let always_remember = sa.ir.always_remember;
+    let remember_lki = sa.ir.remember_lki_flag;
 
     if remember_destroyed {
         if let Some(sid) = sa.source {
@@ -46,7 +47,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 // `AlwaysRemember` remembers the target even when destruction is
                 // prevented (Java `AbilityUtils.setCauseSA` path for "that card"
                 // references in chained subs).
-                if always_remember {
+                if always_remember && remember_lki {
                     if let Some(sid) = sa.source {
                         ctx.game.card_mut(sid).add_remembered_card(target_card);
                     }
@@ -60,7 +61,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 ctx.game.card_mut(target_card).regeneration_shields -= 1;
                 // Regenerating taps the creature and removes it from combat.
                 ctx.game.card_mut(target_card).tapped = true;
-                if always_remember {
+                if always_remember && remember_lki {
                     if let Some(sid) = sa.source {
                         ctx.game.card_mut(sid).add_remembered_card(target_card);
                     }
@@ -121,7 +122,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             // Track the destroyed card on the source so chained sub-abilities
             // (`Destroyed` triggers in `EffectEffect`, "that card" references)
             // can find it.
-            if remember_destroyed || always_remember {
+            if remember_destroyed || remember_lki {
                 if let Some(sid) = sa.source {
                     ctx.game.card_mut(sid).add_remembered_card(target_card);
                 }
