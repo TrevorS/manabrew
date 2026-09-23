@@ -647,12 +647,11 @@ pub fn get_valid_cards_to_target(game: &GameState, ability: &SpellAbility) -> Ve
                     _ => Vec::new(),
                 });
             }
-            _ => {
-                if let target_restrictions::TargetKind::CardInZone {
+            _ => match &tgt.target_kind {
+                target_restrictions::TargetKind::CardInZone {
                     filter,
                     zone: target_zone,
-                } = &tgt.target_kind
-                {
+                } => {
                     if *target_zone == zone {
                         candidates.extend(target_restrictions::get_valid_cards_in_zone_for_sa(
                             game,
@@ -663,7 +662,21 @@ pub fn get_valid_cards_to_target(game: &GameState, ability: &SpellAbility) -> Ve
                         ));
                     }
                 }
-            }
+                target_restrictions::TargetKind::Any
+                | target_restrictions::TargetKind::Creature(_)
+                | target_restrictions::TargetKind::Permanent(_)
+                    if zone != ZoneType::Stack =>
+                {
+                    candidates.extend(target_restrictions::get_valid_cards_in_zone_for_sa(
+                        game,
+                        zone,
+                        player,
+                        Some(tgt.valid_tgts.join(",").as_str()),
+                        ability,
+                    ));
+                }
+                _ => {}
+            },
         }
     }
 

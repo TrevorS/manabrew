@@ -826,6 +826,7 @@ pub fn has_candidates_in_spell_ability_chain(
                 } else if matches!(tr.target_kind, TargetKind::Any) {
                     if !tr.has_candidates(game, player, node.source)
                         && get_stack_target_candidates(game, node).is_empty()
+                        && crate::card::card_util::get_valid_cards_to_target(game, node).is_empty()
                     {
                         return false;
                     }
