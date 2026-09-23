@@ -4064,7 +4064,9 @@ fn autopay_source_score(game: &GameState, _player: PlayerId, ma: &ManaAbilityRef
     } else if ma.mana_text == "1" && ma.atoms.is_empty() {
         1
     } else {
-        let produced = ma.mana_text.clone();
+        let produced = ma
+            .mana_text
+            .replace("Chosen", &get_chosen_color(&card.chosen_colors));
         let tokens = produced
             .split_whitespace()
             .filter(|token| !token.is_empty())
@@ -4125,6 +4127,15 @@ fn score_implicit_land_mana_ability(atom: u16) -> i32 {
     }
     score += 1;
     score
+}
+
+fn get_chosen_color(chosen_colors: &[String]) -> String {
+    chosen_colors
+        .iter()
+        .filter_map(|color| forge_foundation::Color::from_name(color))
+        .map(forge_foundation::Color::short_name)
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn ability_mana_text_for_score_ir(
