@@ -1365,7 +1365,9 @@ fn execute_effect(
         ReplacementType::DeclareBlocker => {
             replace_declare_blocker::execute(effect, event, game, card_id)
         }
-        ReplacementType::Explore => replace_explore::execute(effect, event, game, card_id),
+        ReplacementType::Explore => {
+            replace_explore::execute(effect, event, game, card_id, agents, runtime)
+        }
         ReplacementType::Learn => replace_learn::execute(effect, event, game, card_id),
         ReplacementType::LifeReduced => replace_life_reduced::execute(effect, event, game, card_id),
         ReplacementType::LoseMana => replace_lose_mana::execute(effect, event, game, card_id),

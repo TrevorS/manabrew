@@ -2,12 +2,13 @@
 //!
 //! Mirrors Java `ReplaceExplore.java` in `forge/game/replacement/`.
 
+use crate::agent::PlayerAgent;
 use crate::card::Card;
 use crate::game::GameState;
 use crate::ids::CardId;
 
 use super::replacement_effect::ReplacementEffect;
-use super::replacement_handler::ReplacementEvent;
+use super::replacement_handler::{ReplacementEvent, ReplacementRuntime};
 use super::replacement_result::ReplacementResult;
 use super::replacement_type::ReplacementType;
 use crate::card_trait_base::CardTrait;
@@ -44,12 +45,25 @@ pub fn can_replace(
 /// Mirrors Java `ReplacementHandler.executeReplacement()` for Explore.
 pub fn execute(
     effect: &ReplacementEffect,
-    _event: &mut ReplacementEvent,
-    _game: &GameState,
-    _source_card_id: CardId,
+    event: &mut ReplacementEvent,
+    game: &mut GameState,
+    source_card_id: CardId,
+    agents: Option<&mut [Box<dyn PlayerAgent>]>,
+    runtime: Option<&mut ReplacementRuntime<'_>>,
 ) -> ReplacementResult {
     if effect.prevents() || effect.has_skip() {
         return ReplacementResult::Skipped;
+    }
+    if let Some(replace_with) = effect.replace_with() {
+        super::replace_moved::execute_replace_with(
+            effect,
+            replace_with,
+            game,
+            source_card_id,
+            event,
+            agents,
+            runtime,
+        );
     }
     ReplacementResult::Replaced
 }

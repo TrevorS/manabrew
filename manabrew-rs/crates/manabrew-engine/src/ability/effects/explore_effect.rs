@@ -4,7 +4,9 @@ use super::{emit_zone_trigger, EffectContext};
 use crate::card::CounterType;
 use crate::event::RunParams;
 use crate::parsing::keys;
-use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
+use crate::replacement::replacement_handler::{
+    apply_replacements_with_agents_and_runtime, ReplacementEvent, ReplacementRuntime,
+};
 use crate::replacement::ReplacementResult;
 use crate::trigger::TriggerType;
 
@@ -51,7 +53,21 @@ fn explore_one(
 
     for _ in 0..amount {
         let mut event = ReplacementEvent::Explore { card: explorer_id };
-        let result = apply_replacements(ctx.game, &mut event);
+        let mut runtime = ReplacementRuntime {
+            trigger_handler: ctx.trigger_handler,
+            token_templates: ctx.token_templates,
+            token_art_variants: ctx.token_art_variants,
+            token_fallback: ctx.token_fallback,
+            edition_dates: ctx.edition_dates,
+            mana_pools: ctx.mana_pools,
+            rng: ctx.rng,
+        };
+        let result = apply_replacements_with_agents_and_runtime(
+            ctx.game,
+            ctx.agents,
+            &mut runtime,
+            &mut event,
+        );
         if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
             continue;
         }
