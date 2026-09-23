@@ -196,6 +196,11 @@ fn resolve_for_player(
     // Java reverses moved cards before moving them so the final destination
     // order matches the chooser's intended top-first order.
     chosen.reverse();
+    if dest_zone1 == ZoneType::Battlefield || dest_zone1 == ZoneType::Library {
+        chosen =
+            ctx.game
+                .order_cards_by_their_owners(chosen, dest_zone1, &mut Some(&mut *ctx.agents));
+    }
 
     let mut rest: Vec<_> = top_n
         .iter()
