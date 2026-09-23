@@ -1829,9 +1829,15 @@ impl Card {
     }
 
     pub fn copiable_triggers(&self) -> Vec<Trigger> {
-        self.trait_base_triggers
+        let mut triggers = self
+            .trait_base_triggers
             .clone()
-            .unwrap_or_else(|| self.triggers.clone())
+            .unwrap_or_else(|| self.triggers.clone());
+        triggers.truncate(
+            self.changed_trigger_count_base
+                .unwrap_or(self.base_trigger_count),
+        );
+        triggers
     }
 
     pub fn copiable_replacement_effects(&self) -> Vec<ReplacementEffect> {
@@ -3334,6 +3340,21 @@ impl Card {
         let at = self.base_trigger_count.min(self.triggers.len());
         self.triggers.insert(at, trigger);
         self.base_trigger_count += 1;
+    }
+
+    pub fn add_intrinsic_trigger(&mut self, mut trigger: Trigger) {
+        trigger.bind_host_card_id(self.id);
+        let at = self
+            .changed_trigger_count_base
+            .unwrap_or(self.base_trigger_count);
+        if let Some(triggers) = self.trait_base_triggers.as_mut() {
+            triggers.insert(at.min(triggers.len()), trigger.clone());
+        }
+        self.triggers.insert(at.min(self.triggers.len()), trigger);
+        self.base_trigger_count += 1;
+        if let Some(count) = self.changed_trigger_count_base.as_mut() {
+            *count += 1;
+        }
     }
 
     pub fn restore_changed_characteristics_baseline(&mut self) {

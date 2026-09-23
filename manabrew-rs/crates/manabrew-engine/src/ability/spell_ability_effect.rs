@@ -1127,7 +1127,7 @@ pub fn add_self_trigger_at_eot(
         game.card_mut(card_id)
             .set_s_var("EndOfTurnLeavePlay", effect);
     }
-    game.card_mut(card_id).add_lasting_trigger(trigger);
+    game.card_mut(card_id).add_intrinsic_trigger(trigger);
 }
 
 /// Validate a `Duration$` param against the host card's current state.
