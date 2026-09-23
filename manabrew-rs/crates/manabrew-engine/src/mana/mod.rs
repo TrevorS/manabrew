@@ -293,6 +293,7 @@ pub struct ManaPaymentContext {
     pub chosen_types_by_source: crate::HashMap<CardId, String>,
     pub is_turn_face_up: bool,
     pub turn_face_up_key: Option<&'static str>,
+    pub is_unlock: bool,
     pub is_cast_face_down: bool,
 }
 
@@ -329,6 +330,7 @@ pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymen
         turn_face_up_key: ["MorphUp", "DisguiseUp", "ManifestUp", "CloakUp"]
             .into_iter()
             .find(|key| sa.ability_text.contains(&format!("{key}$ True"))),
+        is_unlock: sa.ability_text.contains("Unlock$ True"),
         is_cast_face_down: sa.is_spell && face_down,
     }
 }
@@ -436,6 +438,7 @@ fn check_single_restriction(restriction: &str, ctx: &ManaPaymentContext) -> bool
                 "MorphUp" | "DisguiseUp" | "ManifestUp" | "CloakUp" => {
                     ctx.turn_face_up_key == Some(property)
                 }
+                "Unlock" => ctx.is_unlock,
                 _ => {
                     crate::census::unhandled("mana-restriction-ignored", restriction);
                     return true;

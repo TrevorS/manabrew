@@ -295,7 +295,7 @@ pub(crate) fn assemble_card(
                 ("LeftSplit", &left_cost, left_name),
             ] {
                 let ab_text = format!(
-                    "AB$ UnlockDoor | Cost$ {cost} | SorcerySpeed$ True | CardState$ {state} | SpellDescription$ Unlock {name}"
+                    "AB$ UnlockDoor | Cost$ {cost} | SorcerySpeed$ True | CardState$ {state} | Unlock$ True | SpellDescription$ Unlock {name}"
                 );
                 let next_idx = card.activated_abilities.len();
                 if let Some(ab) =
