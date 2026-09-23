@@ -627,6 +627,15 @@ impl GameState {
         // Reset state on zone change
         match dest_zone {
             ZoneType::Battlefield => {
+                if !matches!(src_zone, ZoneType::Battlefield | ZoneType::None)
+                    && !crate::staticability::static_ability_counters_remain::counters_remain(
+                        &self.cards,
+                        &self.cards[card_id.index()],
+                        dest_zone,
+                    )
+                {
+                    self.cards[card_id.index()].counters.clear();
+                }
                 // A permanent enters under the destination player's control.
                 // This must be updated before ETB-trigger registration so
                 // triggered abilities inherit the correct controller.
