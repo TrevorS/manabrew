@@ -1144,6 +1144,20 @@ impl Card {
     }
 
     fn generate_keyword_trigger_misc(&mut self, kw: &str, next_id: &mut u32) {
+        if kw == "Storm" {
+            let raw = "Mode$ SpellCast | ValidCard$ Card.Self | TriggerZones$ Stack | Secondary$ True | TriggerDescription$ Storm";
+            if let Some(mut trig) = parse_trigger(raw, next_id) {
+                trig.execute = "TrigStorm".to_string();
+                self.add_trigger(trig);
+            }
+            self.svars.entry("TrigStorm".to_string()).or_insert_with(|| {
+                "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | Amount$ StormCount | MayChooseTarget$ True".to_string()
+            });
+            self.svars
+                .entry("StormCount".to_string())
+                .or_insert_with(|| "TriggerCount$CurrentStormCount/Minus.1".to_string());
+        }
+
         if let Some(cost_str) = crate::keyword::extract_keyword_cost_str(kw, "Ward") {
             let raw = "Mode$ BecomesTarget | ValidSource$ SpellAbility.OppCtrl | ValidTarget$ Card.Self | Secondary$ True | TriggerZones$ Battlefield | TriggerDescription$ Ward";
             if let Some(mut trig) = parse_trigger(raw, next_id) {

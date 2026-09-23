@@ -185,7 +185,12 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
                 crate::event::AbilityValue::Player(p),
             );
         }
-        // TODO: port CurrentStormCount triggering object - not yet in RunParams
+        if let Some(count) = params.current_storm_count {
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::CurrentStormCount,
+                crate::event::AbilityValue::Int(count),
+            );
+        }
         // TODO: port CurrentCastSpells triggering object - not yet in RunParams
     }
 

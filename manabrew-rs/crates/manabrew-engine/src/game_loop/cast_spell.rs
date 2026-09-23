@@ -463,6 +463,7 @@ impl GameLoop {
                 source_sa: Some(sa_for_trigger.clone()),
                 cause: Some(sa_for_trigger.clone()),
                 cause_card: Some(trigger_ctx.source_card),
+                current_storm_count: Some(game.stack.spells_cast_this_turn() as i32),
                 ..Default::default()
             },
             TriggerType::AbilityCast => RunParams {
@@ -475,6 +476,7 @@ impl GameLoop {
                 source_sa: Some(sa_for_trigger.clone()),
                 cause: Some(sa_for_trigger.clone()),
                 cause_card: Some(trigger_ctx.source_card),
+                current_storm_count: Some(game.stack.spells_cast_this_turn() as i32),
                 ..Default::default()
             },
             _ => return,
@@ -2813,69 +2815,6 @@ impl GameLoop {
                 waterbend_cards: waterbend_tapped.clone(),
             },
         );
-
-        // Storm: create N copies where N = spells_cast_this_turn - 1.
-        if game.card(card_id).has_storm() {
-            let storm_count = game.player_storm_count(player);
-            if storm_count > 0 {
-                crate::agent::notify_all_agents(
-                    agents,
-                    crate::agent::GameLogEvent::stack(format!("Storm count: {storm_count} copies"))
-                        .with_player(player)
-                        .with_card(card_id),
-                );
-                for i in 0..storm_count {
-                    if crate::card::card_factory::spell_ability_cant_be_copied(
-                        &game.cards,
-                        &entry.spell_ability,
-                    ) {
-                        continue;
-                    }
-                    crate::perf::increment(crate::perf::Metric::StackEntryClones, 1);
-                    let mut copy = entry.clone();
-                    copy.spell_ability =
-                        crate::card::card_factory::copy_spell_ability(&entry.spell_ability, player);
-                    if copy.spell_ability.uses_targeting() {
-                        agents[player.index()].snapshot_state(game, &self.mana_pools);
-                        agents[player.index()].notify(
-                            crate::agent::notification::GameNotification::Event(
-                                crate::agent::GameLogEvent::stack(format!(
-                                    "Choose target for Storm copy {}/{}",
-                                    i + 1,
-                                    storm_count
-                                ))
-                                .with_player(player)
-                                .with_card(card_id),
-                            ),
-                        );
-                        copy.spell_ability
-                            .setup_targets(game, agents, &self.mana_pools);
-                        crate::ability::effects::emit_targeting_triggers_for_sa(
-                            &mut self.trigger_handler,
-                            game,
-                            card_id,
-                            &copy.spell_ability,
-                        );
-                    }
-                    game.stack.push(copy);
-                    self.log_stack_push(
-                        &format!("{card_name} (Storm copy)"),
-                        &game.player(player).name,
-                    );
-
-                    // Emit SpellCopied trigger for Magecraft
-                    self.trigger_handler.run_trigger(
-                        TriggerType::SpellCopied,
-                        RunParams {
-                            spell_card: Some(card_id),
-                            spell_controller: Some(player),
-                            ..Default::default()
-                        },
-                        false,
-                    );
-                }
-            }
-        }
 
         // Replicate: create N copies where N = replicate_count
         if replicate_count > 0 {
