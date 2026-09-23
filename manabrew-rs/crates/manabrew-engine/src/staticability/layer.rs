@@ -1100,6 +1100,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             continue;
         }
         let mut keywords = card.pump_keywords.as_string_list();
+        card.generate_keyword_triggers_for(&keywords);
         keywords.extend(card.granted_keywords.as_string_list());
         card.generate_keyword_activated_abilities(&keywords);
     }
