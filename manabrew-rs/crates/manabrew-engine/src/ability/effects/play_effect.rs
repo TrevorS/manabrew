@@ -140,8 +140,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             continue;
         }
 
-        if let Some(ref cost_str) = play_cost {
-            let non_mana = crate::cost::parse_cost(cost_str).copy_with_no_mana();
+        if let Some(non_mana) = spell_sa
+            .pay_costs
+            .as_ref()
+            .map(crate::cost::Cost::copy_with_no_mana)
+        {
             if !non_mana.parts.is_empty()
                 && !super::cost_payment::try_pay_unless_cost_without_confirm(
                     ctx, &spell_sa, card_id, controller, &non_mana,

@@ -677,6 +677,7 @@ fn try_pay_effect_cost(
                     .cards_in_zone(ZoneType::Hand, payer)
                     .iter()
                     .copied()
+                    .filter(|&cid| cid != source)
                     .filter(|&cid| {
                         type_filter == "Card"
                             || type_filter.is_empty()
