@@ -2385,16 +2385,13 @@ impl Card {
     pub fn new_turn(&mut self) {
         self.clear_global_turn_state();
         if self.zone == ZoneType::Battlefield {
-            if let Ok(filter) = std::env::var("FORGE_CARD_TRACE") {
-                if !filter.is_empty()
-                    && self.card_name.eq_ignore_ascii_case(&filter)
-                    && self.summoning_sick
-                {
-                    eprintln!(
-                        "[card-trace] new_turn clears sickness on {}#{:?} (controller={:?})",
-                        self.card_name, self.id, self.controller,
-                    );
-                }
+            if crate::game_loop::GameLoop::card_trace_matches(&self.card_name)
+                && self.summoning_sick
+            {
+                eprintln!(
+                    "[card-trace] new_turn clears sickness on {}#{:?} (controller={:?})",
+                    self.card_name, self.id, self.controller,
+                );
             }
             self.summoning_sick = false;
         }

@@ -663,7 +663,7 @@ pub(crate) fn tap_land_for_mana(
     };
     mana.source_card = Some(land_id);
     mana.triggers_when_spent = triggers_when_spent;
-    if std::env::var("FORGE_PAYMENT_TRACE").is_ok() {
+    if crate::game_loop::GameLoop::payment_trace_enabled() {
         let card_name = game.card(land_id).card_name.clone();
         let turn = game.turn.turn_number;
         let phase = format!("{:?}", game.turn.phase);

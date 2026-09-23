@@ -553,7 +553,7 @@ impl GameLoop {
             //    before chooseSpellAbilityToPlay()).
             self.priority_round(game, agents, is_main_phase);
 
-            if std::env::var("FORGE_STACK_TRACE").is_ok() {
+            if Self::stack_trace_enabled() {
                 let names: Vec<String> = game
                     .stack
                     .iter()

@@ -357,7 +357,7 @@ impl GameLoop {
         player: PlayerId,
         stack_push: StackPushContext,
     ) -> SpellAbility {
-        if std::env::var("FORGE_STACK_TRACE").is_ok() {
+        if Self::stack_trace_enabled() {
             eprintln!(
                 "[stack-trace] PUSH player={:?} source={} depth_before={} msg={}",
                 player,
@@ -412,7 +412,7 @@ impl GameLoop {
                 .register_active_trigger(game, stack_push.source_card);
         }
 
-        if std::env::var("FORGE_STACK_TRACE").is_ok() {
+        if Self::stack_trace_enabled() {
             let names: Vec<String> = game
                 .stack
                 .iter()

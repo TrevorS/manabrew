@@ -244,23 +244,17 @@ impl GameState {
             self.cards[card_id.index()].set_zone(ZoneType::None);
             return;
         }
-        if let Ok(filter) = std::env::var("FORGE_CARD_TRACE") {
-            if !filter.is_empty()
-                && self.cards[card_id.index()]
-                    .card_name
-                    .eq_ignore_ascii_case(&filter)
-            {
-                eprintln!(
-                    "[card-trace] move {} {:?} {:?} -> {:?} (owner={:?} sick={} cast_from={:?})",
-                    self.cards[card_id.index()].card_name,
-                    card_id,
-                    src_zone,
-                    dest_zone,
-                    dest_owner,
-                    self.cards[card_id.index()].summoning_sick,
-                    self.cards[card_id.index()].cast_from,
-                );
-            }
+        if crate::game_loop::GameLoop::card_trace_matches(&self.cards[card_id.index()].card_name) {
+            eprintln!(
+                "[card-trace] move {} {:?} {:?} -> {:?} (owner={:?} sick={} cast_from={:?})",
+                self.cards[card_id.index()].card_name,
+                card_id,
+                src_zone,
+                dest_zone,
+                dest_owner,
+                self.cards[card_id.index()].summoning_sick,
+                self.cards[card_id.index()].cast_from,
+            );
         }
         let mut etb_counters = std::collections::BTreeMap::new();
         if dest_zone == ZoneType::Battlefield {

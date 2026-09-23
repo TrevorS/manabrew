@@ -589,7 +589,7 @@ impl GameState {
         owner: PlayerId,
         card: CardId,
     ) -> bool {
-        if std::env::var("FORGE_ZONE_TRACE").is_ok()
+        if crate::game_loop::GameLoop::zone_trace_enabled()
             && self.cards[card.index()].card_name == "Mind Stone"
         {
             eprintln!(
@@ -605,7 +605,7 @@ impl GameState {
     }
 
     pub(crate) fn add_card_to_zone(&mut self, zone_type: ZoneType, owner: PlayerId, card: CardId) {
-        if std::env::var("FORGE_ZONE_TRACE").is_ok()
+        if crate::game_loop::GameLoop::zone_trace_enabled()
             && self.cards[card.index()].card_name == "Mind Stone"
         {
             eprintln!(

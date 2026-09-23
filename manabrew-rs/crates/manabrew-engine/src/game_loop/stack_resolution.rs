@@ -48,7 +48,7 @@ impl GameLoop {
             return;
         }
 
-        if std::env::var("FORGE_STACK_TRACE").is_ok() {
+        if Self::stack_trace_enabled() {
             let names: Vec<String> = game
                 .stack
                 .iter()
@@ -81,7 +81,7 @@ impl GameLoop {
             .and_then(|cid| game.cards.get(cid.index()).map(|c| c.card_name.clone()))
             .unwrap_or_else(|| "Ability".to_string());
         self.log_stack_resolved_item(&stack_item_name);
-        if std::env::var("FORGE_STACK_TRACE").is_ok() {
+        if Self::stack_trace_enabled() {
             eprintln!(
                 "[stack-trace] POP resolving={} remaining_depth={}",
                 stack_item_name,
@@ -96,8 +96,7 @@ impl GameLoop {
         // A spell or ability is countered by game rules if ALL of its targets
         // are illegal on resolution. Walk the SA chain; if every targeting node
         // has only invalid targets, the whole thing fizzles.
-        if std::env::var("FORGE_TRIGGER_TRACE").is_ok() && entry.optional_trigger_decider.is_some()
-        {
+        if Self::trigger_trace_enabled() && entry.optional_trigger_decider.is_some() {
             eprintln!(
                 "[trigger-trace] RESOLVING optional trigger from stack: {} api={:?}",
                 stack_item_name, entry.spell_ability.api

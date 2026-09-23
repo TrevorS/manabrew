@@ -642,7 +642,7 @@ fn auto_tap_lands_internal_with_ctx(
     let mut tapped_choices: Vec<AutoTapChoice> = Vec::new();
     let mut payment = ManaPaymentOutcome::default();
 
-    let trace = std::env::var("FORGE_PAYMENT_TRACE").is_ok();
+    let trace = crate::game_loop::GameLoop::payment_trace_enabled();
     if trace {
         let turn = game.turn.turn_number;
         let phase = format!("{:?}", game.turn.phase);

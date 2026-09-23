@@ -72,6 +72,26 @@ impl GameLoop {
         Self::card_trace_filter().is_some_and(|filter| name.eq_ignore_ascii_case(filter))
     }
 
+    pub(crate) fn stack_trace_enabled() -> bool {
+        static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *ENABLED.get_or_init(|| std::env::var("FORGE_STACK_TRACE").is_ok())
+    }
+
+    pub(crate) fn trigger_trace_enabled() -> bool {
+        static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *ENABLED.get_or_init(|| std::env::var("FORGE_TRIGGER_TRACE").is_ok())
+    }
+
+    pub(crate) fn payment_trace_enabled() -> bool {
+        static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *ENABLED.get_or_init(|| std::env::var("FORGE_PAYMENT_TRACE").is_ok())
+    }
+
+    pub(crate) fn zone_trace_enabled() -> bool {
+        static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *ENABLED.get_or_init(|| std::env::var("FORGE_ZONE_TRACE").is_ok())
+    }
+
     /// Mana a spell cast of this card could draw on: `RestrictValid$` sources that the
     /// spell does not satisfy are left out, as `AbilityManaPart.meetsManaRestrictions` does.
     fn spell_payment_context(

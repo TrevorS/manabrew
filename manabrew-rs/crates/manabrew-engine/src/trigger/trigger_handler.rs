@@ -1190,7 +1190,7 @@ impl TriggerHandler {
             .iter()
             .any(|at| at.card_id == card_id && at.trigger_index == trigger_index);
         if !already_registered {
-            if std::env::var("FORGE_TRIGGER_TRACE").is_ok() {
+            if crate::game_loop::GameLoop::trigger_trace_enabled() {
                 if let Some(trigger) = game.card(card_id).triggers.get(trigger_index) {
                     if trigger.kind == TriggerType::BecomesTarget {
                         eprintln!(
