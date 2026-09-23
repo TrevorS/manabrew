@@ -2853,6 +2853,7 @@ pub fn resolve_count_svar_for_sa(
                         game,
                         valid_filter,
                         source_id,
+                        Some(sa),
                         controller,
                     )
                 } else {
@@ -2860,6 +2861,7 @@ pub fn resolve_count_svar_for_sa(
                         game,
                         valid_filter,
                         source_id,
+                        Some(sa),
                         controller,
                     )
                 });

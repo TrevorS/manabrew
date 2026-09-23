@@ -381,6 +381,7 @@ fn compute_cost_adjustment_inner(
                         game,
                         valid,
                         source.id,
+                        None,
                         source.controller,
                     ),
                     None => game.stack.get_spells_cast_this_turn().to_vec(),

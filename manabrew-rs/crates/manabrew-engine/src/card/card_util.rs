@@ -145,6 +145,7 @@ pub fn get_this_turn_cast(
     game: &GameState,
     valid: &str,
     src: CardId,
+    ctb: Option<&SpellAbility>,
     _controller: PlayerId,
 ) -> Vec<CardId> {
     filter_spells_cast(
@@ -153,6 +154,7 @@ pub fn get_this_turn_cast(
         game.stack.get_spells_cast_this_turn_from(),
         valid,
         src,
+        ctb,
     )
 }
 
@@ -160,6 +162,7 @@ pub fn get_last_turn_cast(
     game: &GameState,
     valid: &str,
     src: CardId,
+    ctb: Option<&SpellAbility>,
     _controller: PlayerId,
 ) -> Vec<CardId> {
     filter_spells_cast(
@@ -168,6 +171,7 @@ pub fn get_last_turn_cast(
         game.stack.get_spells_cast_last_turn_from(),
         valid,
         src,
+        ctb,
     )
 }
 
@@ -177,24 +181,28 @@ fn filter_spells_cast(
     cast_from: &[Option<ZoneType>],
     valid: &str,
     src: CardId,
+    ctb: Option<&SpellAbility>,
 ) -> Vec<CardId> {
     if valid.is_empty() {
         return cast.to_vec();
     }
     let selector = cached_compiled_selector(valid);
-    let source = game.card(src);
+    let mut context = valid_filter::MatchContext::from_source(game.card(src)).with_game(game);
+    if let Some(sa) = ctb {
+        context = context.with_spell_ability(sa);
+    }
     cast.iter()
         .zip(cast_from)
         .filter(|&(&card_id, &origin)| {
             let live = game.card(card_id);
             if live.cast_from.is_some() || origin.is_none() {
-                return valid_filter::matches_valid_card_selector_in_game(
-                    &selector, live, source, game,
+                return valid_filter::matches_valid_card_selector_with_context(
+                    &selector, live, context,
                 );
             }
             let mut cast_card = live.clone();
             cast_card.cast_from = origin;
-            valid_filter::matches_valid_card_selector_in_game(&selector, &cast_card, source, game)
+            valid_filter::matches_valid_card_selector_with_context(&selector, &cast_card, context)
         })
         .map(|(&card_id, _)| card_id)
         .collect()
