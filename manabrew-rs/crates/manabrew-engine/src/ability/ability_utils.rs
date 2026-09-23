@@ -161,6 +161,7 @@ pub enum DefinedCardToken {
     Tapped,
     Untapped,
     EffectSource,
+    ExiledWith,
 }
 
 /// Resolve `Defined$` strings to a list of card IDs.
@@ -257,6 +258,9 @@ fn resolve_defined_card_token(
             .unwrap_or_default(),
         DefinedCardToken::ChosenCard => host_card
             .map(|src| game.card(src).chosen_cards.clone())
+            .unwrap_or_default(),
+        DefinedCardToken::ExiledWith => host_card
+            .map(|src| game.card(src).exiled_cards.clone())
             .unwrap_or_default(),
         DefinedCardToken::Attached => host_card
             .and_then(|src| {

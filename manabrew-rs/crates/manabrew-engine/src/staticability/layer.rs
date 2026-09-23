@@ -695,6 +695,34 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         }
                     }
 
+                    if let Some(defined) = sa.ir.gains_abilities_of_defined.as_deref() {
+                        for gained in crate::ability::ability_utils::get_defined_cards(
+                            game,
+                            Some(source_id),
+                            defined,
+                            Some(source_card.controller),
+                        ) {
+                            let gained = game.card(gained);
+                            for ab in &gained.activated_abilities {
+                                let text = match sa.ir.gains_abilities_limit_per_turn.as_deref() {
+                                    Some(limit) => {
+                                        format!("{} | ActivationLimit$ {limit}", ab.ability_text)
+                                    }
+                                    None => ab.ability_text.clone(),
+                                };
+                                pending.push(PendingEffect {
+                                    layer: Layer::Ability,
+                                    target,
+                                    kind: EffectKind::GrantAbility {
+                                        text,
+                                        svars: gained.svars.clone(),
+                                        original_host: None,
+                                    },
+                                });
+                            }
+                        }
+                    }
+
                     if let Some(add_trigger) = sa.ir.add_trigger_text.as_deref() {
                         for svar_name in add_trigger
                             .split(" & ")
