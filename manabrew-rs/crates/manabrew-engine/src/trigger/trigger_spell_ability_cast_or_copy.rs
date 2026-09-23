@@ -82,11 +82,16 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
                 .as_ref()
                 .or(params.spell_ability.as_ref())
                 .is_some_and(|sa| {
-                    crate::spellability::matches_valid_sa(
+                    let host = trigger.base.card_trait_base.host_card(game);
+                    crate::spellability::valid_sa::matches_valid_sa_with_context(
                         filter,
                         sa,
-                        trigger.base.card_trait_base.host_card(game),
+                        host,
                         sa.source.map(|source| game.card(source)),
+                        Some(
+                            crate::card::valid_filter::MatchContext::from_source(host)
+                                .with_game(game),
+                        ),
                     )
                 })
         });

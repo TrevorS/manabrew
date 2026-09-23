@@ -139,6 +139,13 @@ fn matches_property_token_positive(
         "vehicle" | "mount" | "spacecraft" | "planet" => {
             ability_host.is_some_and(|host| host.type_line.has_subtype(token))
         }
+        lowered if lowered.starts_with("manafrom") => mana_from(
+            &token["ManaFrom".len()..],
+            sa,
+            source,
+            ability_host,
+            context,
+        ),
         lowered if lowered.starts_with("cmc") && context.is_some() => {
             ability_host.is_some_and(|host| {
                 crate::card::valid_filter::check_cmc_condition_with_context(
@@ -163,6 +170,41 @@ fn matches_property_token_positive(
             })
         }
     }
+}
+
+fn mana_from(
+    from_what: &str,
+    sa: &SpellAbility,
+    source: &Card,
+    ability_host: Option<&Card>,
+    context: Option<MatchContext<'_>>,
+) -> bool {
+    let (Some(game), Some(host)) = (context.and_then(|context| context.game), ability_host) else {
+        return false;
+    };
+    let (from_what, to_find) = match from_what.split_once('_') {
+        Some((valid, amount)) => (
+            valid,
+            crate::svar::resolve_svar_expression(amount, game, source.id, source.controller, sa),
+        ),
+        None => (from_what, 1),
+    };
+    let mut found = 0;
+    for &mana_source in host.paying_sources_to_cast.iter().flatten() {
+        if crate::card::valid_filter::matches_valid(
+            from_what,
+            Some(game.card(mana_source)),
+            None,
+            source,
+            source.controller,
+        ) {
+            found += 1;
+            if found == to_find {
+                break;
+            }
+        }
+    }
+    found == to_find
 }
 
 fn is_crew(sa: &SpellAbility, ability_host: Option<&Card>) -> bool {
