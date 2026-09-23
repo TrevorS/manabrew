@@ -84,12 +84,20 @@ pub fn apply_cant_be_cast_ability(
         return false;
     }
 
-    // Caster check
-    if !valid_filter::matches_valid_player_selector_opt(
-        st_ab.ir.caster.as_ref(),
-        activator,
-        source.controller,
-    ) {
+    let caster_matches = match (st_ab.ir.caster.as_ref(), game) {
+        (Some(caster), Some(g)) => crate::player::player_property::is_valid(
+            activator,
+            caster,
+            g,
+            source.id,
+            source.controller,
+            &SpellAbility::new_simple(Some(source.id), source.controller, ""),
+        ),
+        (caster, _) => {
+            valid_filter::matches_valid_player_selector_opt(caster, activator, source.controller)
+        }
+    };
+    if !caster_matches {
         return false;
     }
 
