@@ -968,7 +968,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     // effects have been applied (e.g. Urborg making lands into Swamps).
     for card in game.cards.iter_mut() {
         if card.zone == ZoneType::Battlefield && card.lacks_basic_land_mana_abilities() {
-            Arc::make_mut(card).generate_basic_land_mana_abilities();
+            Arc::make_mut(card).apply_land_trait_changes();
         }
     }
 }

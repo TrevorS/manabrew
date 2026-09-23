@@ -143,6 +143,21 @@ impl Card {
         }
     }
 
+    /// Java `CardState.LandTraitChanges.applySpellAbility`: the layer pass gives a land the mana
+    /// ability of each basic land type it has now, outside the base abilities, so the next
+    /// pass's reset removes the ones whose type has gone.
+    pub(crate) fn apply_land_trait_changes(&mut self) {
+        for &(subtype, letter, desc) in BASIC_LAND_SUBTYPE_MANA {
+            if self.type_line.has_subtype(subtype) && !self.produces_basic_land_mana(letter) {
+                let raw =
+                    format!("AB$ Mana | Cost$ T | Produced$ {letter} | SpellDescription$ {desc}");
+                if let Some(ab) = parse_activated_ability(&raw, self.activated_abilities.len()) {
+                    self.activated_abilities.push(ab);
+                }
+            }
+        }
+    }
+
     pub(crate) fn lacks_basic_land_mana_abilities(&self) -> bool {
         BASIC_LAND_SUBTYPE_MANA.iter().any(|&(subtype, letter, _)| {
             self.type_line.has_subtype(subtype) && !self.produces_basic_land_mana(letter)
