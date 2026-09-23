@@ -66,6 +66,9 @@ fn may_play_affects(st_ab: &StaticAbility, source: &Card, card: &Card, game: &Ga
 }
 
 fn granted_statics(st_ab: &StaticAbility, source: &Card, game: &GameState) -> Vec<StaticAbility> {
+    let Some(add_static) = st_ab.ir.add_static_ability_text.as_deref() else {
+        return Vec::new();
+    };
     if !st_ab.check_conditions(source, game)
         || !crate::card::valid_filter::matches_valid_card_selector_opt(
             st_ab.ir.affected.as_ref(),
@@ -75,9 +78,6 @@ fn granted_statics(st_ab: &StaticAbility, source: &Card, game: &GameState) -> Ve
     {
         return Vec::new();
     }
-    let Some(add_static) = st_ab.ir.add_static_ability_text.as_deref() else {
-        return Vec::new();
-    };
     add_static
         .split(" & ")
         .map(str::trim)
@@ -178,6 +178,7 @@ pub fn may_play_grants<'a>(
             source
                 .static_abilities
                 .iter()
+                .filter(|st_ab| st_ab.ir.may_play || st_ab.ir.add_static_ability_text.is_some())
                 .map(move |st_ab| (source, st_ab))
         })
         .filter(move |(source, st_ab)| may_play_player(st_ab, source, card, game) == player)
