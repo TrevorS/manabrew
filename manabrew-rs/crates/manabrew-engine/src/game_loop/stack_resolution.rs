@@ -1,7 +1,6 @@
 use super::cost_payment::CostPaymentContext;
 use super::*;
 use crate::replacement::replacement_handler::apply_moved_replacement;
-use crate::spellability::TargetKind;
 
 impl GameLoop {
     /// Java `WrappedAbility.resolve`: a trigger whose intervening-if has stopped holding does
@@ -1158,24 +1157,12 @@ impl GameLoop {
             }
         }
 
-        // Determine expected zone from target restrictions
-        let expected_zone = if let Some(ref tr) = sa.target_restrictions {
-            match &tr.target_kind {
-                TargetKind::Creature(_) | TargetKind::Permanent(_) | TargetKind::Any => {
-                    Some(ZoneType::Battlefield)
-                }
-                TargetKind::CardInZone { zone, .. } => Some(*zone),
-                _ => Some(ZoneType::Battlefield), // default
-            }
-        } else {
-            Some(ZoneType::Battlefield) // default
+        let in_target_zone = match sa.target_restrictions.as_ref() {
+            Some(tr) if !tr.tgt_zone.is_empty() => tr.tgt_zone.contains(&card.zone),
+            _ => card.zone == ZoneType::Battlefield,
         };
-
-        // Card must be in the expected zone
-        if let Some(zone) = expected_zone {
-            if card.zone != zone {
-                return false;
-            }
+        if !in_target_zone {
+            return false;
         }
 
         if let Some(ref tr) = sa.target_restrictions {

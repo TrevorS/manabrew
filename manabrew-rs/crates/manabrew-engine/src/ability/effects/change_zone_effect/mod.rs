@@ -98,6 +98,20 @@ pub fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
     if (primary_origin.is_hidden() || sa.is_hidden()) && !sa.ir.ninjutsu {
         hidden::resolve_hidden_origin(ctx, sa, primary_origin, destination);
     } else if let Some(dest_zone) = destination {
-        known::resolve_known_origin(ctx, sa, primary_origin, dest_zone);
+        let mut known_origins: Vec<ZoneType> = Vec::new();
+        if sa.uses_targeting() && origins.len() > 1 && !origins.contains(&ZoneType::Stack) {
+            for cid in sa.target_chosen.all_target_cards() {
+                let zone = ctx.game.card(cid).zone;
+                if origins.contains(&zone) && !known_origins.contains(&zone) {
+                    known_origins.push(zone);
+                }
+            }
+        }
+        if known_origins.is_empty() {
+            known_origins.push(primary_origin);
+        }
+        for zone in known_origins {
+            known::resolve_known_origin(ctx, sa, zone, dest_zone);
+        }
     }
 }
