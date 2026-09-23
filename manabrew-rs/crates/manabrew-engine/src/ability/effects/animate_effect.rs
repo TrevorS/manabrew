@@ -73,6 +73,20 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // Determine target card
     let target_ids = resolve_animate_targets(ctx, sa, controller);
 
+    if sa.ir.optional {
+        ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        if !ctx.agents[controller.index()].confirm_action(
+            controller,
+            None,
+            "Do you want to animate?",
+            &[],
+            sa.source,
+            Some(crate::ability::api_type::ApiType::Animate),
+        ) {
+            return;
+        }
+    }
+
     // Use shared base-class parsing for common animate params
     let anim_params = parse_animate_params(sa);
     let power_str = sa
