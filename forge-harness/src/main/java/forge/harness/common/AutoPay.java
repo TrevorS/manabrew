@@ -34,6 +34,11 @@ import java.util.Map;
 import java.util.Set;
 
 public final class AutoPay {
+    // An announced X can be near Integer.MAX_VALUE, and ManaCostBeingPaid.getUnpaidShards lists
+    // one shard per unpaid generic mana. No game reaches this much mana, so a cost above it is
+    // just as unpayable and pays out the same way.
+    private static final int MAX_PAYABLE_GENERIC = 10_000;
+
     private final Player payer;
     private final HarnessCostPlumbing costPlumbing;
     private final boolean useManaCostManaAbilities;
@@ -49,8 +54,16 @@ public final class AutoPay {
         this.useManaCostManaAbilities = useManaCostManaAbilities;
     }
 
-    public PayManaCostResult payManaCostWithTrace(final ManaCost toPay, final SpellAbility saBeingPaid, final boolean effect) {
+    private static ManaCostBeingPaid boundedUnpaid(final ManaCost toPay) {
         final ManaCostBeingPaid unpaid = new ManaCostBeingPaid(toPay);
+        if (unpaid.getGenericManaAmount() > MAX_PAYABLE_GENERIC) {
+            unpaid.decreaseGenericMana(unpaid.getGenericManaAmount() - MAX_PAYABLE_GENERIC);
+        }
+        return unpaid;
+    }
+
+    public PayManaCostResult payManaCostWithTrace(final ManaCost toPay, final SpellAbility saBeingPaid, final boolean effect) {
+        final ManaCostBeingPaid unpaid = boundedUnpaid(toPay);
         final ManaPool pool = payer.getManaPool();
         final List<Mana> manaSpentToPay = saBeingPaid.getPayingMana();
         final List<String> steps = new ArrayList<>();
@@ -141,7 +154,7 @@ public final class AutoPay {
 
         int guard = 0;
         while (guard++ < 128) {
-            final ManaCostBeingPaid unpaid = new ManaCostBeingPaid(toPay);
+            final ManaCostBeingPaid unpaid = boundedUnpaid(toPay);
             final List<Mana> probe = new ArrayList<>();
             if (pool.payManaCostFromPool(unpaid, saBeingPaid, true, probe)) {
                 break;
