@@ -1041,9 +1041,7 @@ impl GameLoop {
             sa,
             adjusted_cost,
         );
-        if !activated {
-            Self::reset_x_mana_cost_paid(game, card_id, x_paid_before);
-        }
+        Self::reset_x_mana_cost_paid(game, card_id, x_paid_before);
         activated
     }
 
@@ -1093,9 +1091,7 @@ impl GameLoop {
             sa,
             adjusted_cost,
         );
-        if !activated {
-            Self::reset_x_mana_cost_paid(game, card_id, x_paid_before);
-        }
+        Self::reset_x_mana_cost_paid(game, card_id, x_paid_before);
         activated
     }
 
