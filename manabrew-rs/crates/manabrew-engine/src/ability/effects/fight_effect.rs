@@ -83,8 +83,55 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             map.put(target, DamageTarget::Card(source), target_power);
         }
     } else {
-        ctx.game.deal_damage_to_card(target, source_power);
-        ctx.game.deal_damage_to_card(source, target_power);
+        let mut stored_excess = 0;
+        let mut excess_damaged: Vec<CardId> = Vec::new();
+        for (damaged, dealer, damage) in [
+            (target, source, source_power),
+            (source, target, target_power),
+        ] {
+            let lethal = super::damage_deal_effect::excess_damage_value(ctx.game, damaged, dealer);
+            let before = ctx.game.card(damaged).damage;
+            ctx.game.deal_damage_to_card(damaged, damage);
+            let landed = (ctx.game.card(damaged).damage - before).max(0);
+            if damage > lethal
+                && super::damage_deal_effect::excess_svar_condition(ctx.game, sa, damaged)
+            {
+                stored_excess += damage - lethal;
+            }
+            if landed > lethal {
+                ctx.game.card_mut(damaged).log_excess_damage();
+                ctx.trigger_handler.run_trigger(
+                    TriggerType::ExcessDamage,
+                    RunParams {
+                        damage_target_card: Some(damaged),
+                        damage_amount: Some(landed - lethal),
+                        is_combat_damage: Some(false),
+                        ..Default::default()
+                    },
+                    false,
+                );
+                excess_damaged.push(damaged);
+            }
+        }
+        if !excess_damaged.is_empty() {
+            ctx.trigger_handler.run_trigger(
+                TriggerType::ExcessDamageAll,
+                RunParams {
+                    cards: Some(excess_damaged),
+                    is_combat_damage: Some(false),
+                    ..Default::default()
+                },
+                false,
+            );
+        }
+        if let (Some(excess_svar), Some(host)) = (
+            crate::parsing::raw_get(&sa.ability_text, "ExcessSVar"),
+            sa.source,
+        ) {
+            ctx.game
+                .card_mut(host)
+                .set_s_var(excess_svar, stored_excess.to_string());
+        }
     }
 
     // Fire per-fighter and batched fight triggers (matches Java FightEffect).

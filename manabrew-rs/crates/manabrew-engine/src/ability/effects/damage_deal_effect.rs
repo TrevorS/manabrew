@@ -97,7 +97,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let _ = crate::ability::spell_ability_effect::replace_dying(ctx.game, sa);
 }
 
-fn excess_damage_value(
+pub(super) fn excess_damage_value(
     game: &crate::game::GameState,
     card_id: crate::ids::CardId,
     source: crate::ids::CardId,
@@ -119,7 +119,7 @@ fn excess_damage_value(
     0
 }
 
-fn excess_svar_condition(
+pub(super) fn excess_svar_condition(
     game: &crate::game::GameState,
     sa: &SpellAbility,
     card_id: crate::ids::CardId,
