@@ -1557,6 +1557,7 @@ fn resolve_numeric_property(
         NumericSelectorProperty::ManaValue => Some(effective_mana_value(card, context)),
         NumericSelectorProperty::Power => Some(card.power()),
         NumericSelectorProperty::Toughness => Some(card.toughness()),
+        NumericSelectorProperty::TotalPT => Some(card.power() + card.toughness()),
         NumericSelectorProperty::TargetCount => {
             Some((context.targeted_cards.len() + context.targeted_players.len()) as i32)
         }
@@ -2045,6 +2046,8 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
                 check_power_condition(rest, card)
             } else if let Some(rest) = value_lower.strip_prefix("toughness") {
                 check_toughness_condition(rest, card)
+            } else if value_lower.starts_with("totalpt_") {
+                crate::parsing::compare::compare_expr(card.power() + card.toughness(), &value[8..])
             } else if let Some(color) = Color::from_name(&value_lower) {
                 card.color.has_color(color)
             } else if let Some(keyword_suffix) = value_lower.strip_prefix("with") {
@@ -2714,6 +2717,13 @@ fn matches_type_and_qualifier_parts(
                     } else if let Some(rest) = sub_lower.strip_prefix("toughness") {
                         // Toughness comparisons: toughnessLE2, toughnessGE3, etc.
                         if !check_toughness_condition(rest, card) {
+                            return false;
+                        }
+                    } else if sub_lower.starts_with("totalpt_") {
+                        if !crate::parsing::compare::compare_expr(
+                            card.power() + card.toughness(),
+                            &sub[8..],
+                        ) {
                             return false;
                         }
                     } else if let Some(color) = Color::from_name(&sub_lower) {

@@ -449,6 +449,7 @@ pub enum NumericSelectorProperty {
     ManaValue,
     Power,
     Toughness,
+    TotalPT,
     TargetCount,
     ManaSpent,
 }
@@ -1617,6 +1618,8 @@ fn lower_selector_comparison(value: &str) -> Option<SelectorPredicate> {
         (NumericSelectorProperty::Power, &value[5..])
     } else if lower.starts_with("toughness") {
         (NumericSelectorProperty::Toughness, &value[9..])
+    } else if lower.starts_with("totalpt_") {
+        (NumericSelectorProperty::TotalPT, &value[8..])
     } else if lower.starts_with("numtargets ") {
         (NumericSelectorProperty::TargetCount, value[11..].trim())
     } else if lower.starts_with("manaspent ") {
