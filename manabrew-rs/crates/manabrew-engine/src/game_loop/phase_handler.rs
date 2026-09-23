@@ -349,7 +349,16 @@ impl GameLoop {
 
     pub fn step_untap(&mut self, game: &mut GameState, agents: &mut [Box<dyn PlayerAgent>]) {
         let active = game.active_player();
-        let cards_snapshot = game.cards.clone();
+        let untap_other_player_sources: Vec<_> = game
+            .cards
+            .iter()
+            .filter(|card| {
+                card.static_abilities.iter().any(|st_ab| {
+                    st_ab.check_mode(&crate::staticability::StaticMode::UntapOtherPlayer)
+                })
+            })
+            .cloned()
+            .collect();
 
         // Delegate phasing to the phase module.
         crate::phase::untap::do_phasing(game, active);
@@ -422,7 +431,7 @@ impl GameLoop {
             }
             let controller = card.controller;
             if crate::staticability::static_ability_untap_other_player::untap(
-                &cards_snapshot,
+                &untap_other_player_sources,
                 card,
                 active,
             ) && game.untap_during_untap_step(cid, active)
