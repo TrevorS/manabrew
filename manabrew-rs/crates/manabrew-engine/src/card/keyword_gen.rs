@@ -1161,6 +1161,23 @@ impl Card {
     }
 
     fn generate_keyword_trigger_misc(&mut self, kw: &str, next_id: &mut u32) {
+        if kw == "Conspire" {
+            let raw = "Mode$ SpellCast | ValidCard$ Card.Self | CheckSVar$ Conspire | TriggerZones$ Stack | Secondary$ True | TriggerDescription$ Copy CARDNAME if its conspire cost was paid";
+            if let Some(mut trig) = parse_trigger(raw, next_id) {
+                trig.execute = "TrigConspire".to_string();
+                self.add_trigger(trig);
+            }
+            self.svars
+                .entry("TrigConspire".to_string())
+                .or_insert_with(|| {
+                    "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | MayChooseTarget$ True"
+                        .to_string()
+                });
+            self.svars
+                .entry("Conspire".to_string())
+                .or_insert_with(|| "Count$OptionalKeywordAmount".to_string());
+        }
+
         if kw == "Storm" {
             let raw = "Mode$ SpellCast | ValidCard$ Card.Self | TriggerZones$ Stack | Secondary$ True | TriggerDescription$ Storm";
             if let Some(mut trig) = parse_trigger(raw, next_id) {

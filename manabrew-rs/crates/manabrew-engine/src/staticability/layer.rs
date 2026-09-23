@@ -1054,6 +1054,32 @@ fn apply_pending_effects(
                     card.granted_svars
                         .insert(amount, "TriggerCount$CurrentStormCount/Minus.1".to_string());
                 }
+                if kw == "Conspire" {
+                    let next_id = card
+                        .triggers
+                        .iter()
+                        .map(|t| t.id)
+                        .max()
+                        .unwrap_or(0)
+                        .saturating_add(1);
+                    let mut next_id_mut = next_id;
+                    let execute = format!("TrigConspireGranted{next_id}");
+                    let check = format!("ConspireGranted{next_id}");
+                    let raw = format!(
+                        "Mode$ SpellCast | ValidCard$ Card.Self | CheckSVar$ {check} | TriggerZones$ Stack | Secondary$ True | Execute$ {execute} | TriggerDescription$ Copy CARDNAME if its conspire cost was paid"
+                    );
+                    if let Some(mut trig) = crate::trigger::parse_trigger(&raw, &mut next_id_mut) {
+                        trig.execute = execute.clone();
+                        card.add_trigger(trig);
+                    }
+                    card.granted_svars.insert(
+                        execute,
+                        "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | MayChooseTarget$ True"
+                            .to_string(),
+                    );
+                    card.granted_svars
+                        .insert(check, "Count$OptionalKeywordAmount".to_string());
+                }
                 if kw == "Decayed" {
                     let next_id = card
                         .triggers

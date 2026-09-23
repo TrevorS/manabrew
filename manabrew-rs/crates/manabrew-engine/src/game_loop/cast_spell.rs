@@ -822,6 +822,54 @@ impl GameLoop {
         }
     }
 
+    fn add_extra_keyword_cost(
+        &self,
+        game: &GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        card_id: CardId,
+        sa: &mut SpellAbility,
+    ) -> Option<crate::cost::Cost> {
+        if !sa.is_spell || sa.is_copy {
+            return None;
+        }
+        let host = game.card(card_id);
+        let conspire_cost = format!(
+            "tapXType<2/Creature.SharesColorWith/creature that shares a color with {}>",
+            host.card_name
+        );
+        let conspire_count = host
+            .keywords
+            .iter_strings()
+            .chain(host.granted_keywords.iter_strings())
+            .chain(host.pump_keywords.iter_strings())
+            .filter(|kw| *kw == "Conspire")
+            .count();
+        let mut conspire_paid = 0;
+        for _ in 0..conspire_count {
+            agents[player.index()].snapshot_state(game, &self.mana_pools);
+            if agents[player.index()].choose_number_for_keyword_cost(
+                player,
+                1,
+                &format!("Pay for Conspire? {conspire_cost}"),
+                Some(card_id),
+            ) == 1
+            {
+                conspire_paid += 1;
+            }
+        }
+        if conspire_paid == 0 {
+            return None;
+        }
+        sa.optional_keyword_amounts
+            .insert("Conspire".to_string(), 1);
+        Some(crate::cost::parse_cost(&format!(
+            "tapXType<{}/Creature.SharesColorWith/creature that shares a color with {}>",
+            2 * conspire_paid,
+            host.card_name
+        )))
+    }
+
     fn cast_card_spell_ability(
         &mut self,
         game: &mut GameState,
@@ -1647,6 +1695,7 @@ impl GameLoop {
             } else {
                 None
             };
+        let conspire_tap_cost = self.add_extra_keyword_cost(game, agents, player, card_id, &mut sa);
 
         let mut need_x = x_count == 0;
         let announce_cost = if sa.alt_cost.is_some() {
@@ -1903,6 +1952,14 @@ impl GameLoop {
             None
         };
         let prechosen_harmonize_taps = if let Some(ref cost) = harmonize_tap_cost {
+            match Self::prechoose_additional_cost_taps(game, agents, player, card_id, cost) {
+                Some(picks) => Some(picks),
+                None => rollback_failed_payment!(),
+            }
+        } else {
+            None
+        };
+        let prechosen_conspire_taps = if let Some(ref cost) = conspire_tap_cost {
             match Self::prechoose_additional_cost_taps(game, agents, player, card_id, cost) {
                 Some(picks) => Some(picks),
                 None => rollback_failed_payment!(),
@@ -2479,6 +2536,26 @@ impl GameLoop {
                 None,
                 None,
                 prechosen_harmonize_taps.as_deref(),
+                None,
+                None,
+                None,
+            ) {
+                rollback_failed_payment!();
+            }
+        }
+        if let Some(ref cost) = conspire_tap_cost {
+            if !self.pay_additional_costs(
+                game,
+                agents,
+                player,
+                card_id,
+                cost,
+                None,
+                cost.mandatory,
+                Some(&mut sa),
+                None,
+                None,
+                prechosen_conspire_taps.as_deref(),
                 None,
                 None,
                 None,
