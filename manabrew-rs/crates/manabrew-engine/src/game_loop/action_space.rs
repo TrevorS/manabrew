@@ -125,6 +125,22 @@ impl GameLoop {
         true
     }
 
+    pub(crate) fn reset_offered_sub_ability_targets(
+        game: &mut GameState,
+        action_space: &crate::agent::PriorityActionSpace,
+    ) {
+        for action in &action_space.activatable {
+            if let Some(ability) = game
+                .card_mut(action.card_id)
+                .activated_abilities
+                .iter_mut()
+                .find(|ability| ability.ability_index == action.ability_index)
+            {
+                ability.sub_ability_targets.clear();
+            }
+        }
+    }
+
     pub(crate) fn action_space(
         &self,
         game: &GameState,

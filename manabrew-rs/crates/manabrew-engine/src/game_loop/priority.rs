@@ -123,7 +123,9 @@ impl GameLoop {
 
             let mut action_space = if self.provide_priority_action_space {
                 crate::staticability::layer::apply_continuous_effects(game);
-                Some(self.action_space(game, priority_player, is_main_phase))
+                let space = self.action_space(game, priority_player, is_main_phase);
+                Self::reset_offered_sub_ability_targets(game, &space);
+                Some(space)
             } else {
                 None
             };
@@ -157,7 +159,9 @@ impl GameLoop {
                 }
                 let mut request_action_space = || {
                     crate::staticability::layer::apply_continuous_effects(game);
-                    self.action_space(game, priority_player, is_main_phase)
+                    let space = self.action_space(game, priority_player, is_main_phase);
+                    Self::reset_offered_sub_ability_targets(game, &space);
+                    space
                 };
                 agents[priority_player.index()].choose_action(
                     priority_player,
@@ -195,7 +199,9 @@ impl GameLoop {
             } else {
                 if action_space.is_none() {
                     crate::staticability::layer::apply_continuous_effects(game);
-                    action_space = Some(self.action_space(game, priority_player, is_main_phase));
+                    let space = self.action_space(game, priority_player, is_main_phase);
+                    Self::reset_offered_sub_ability_targets(game, &space);
+                    action_space = Some(space);
                 }
                 let action_space = action_space
                     .as_ref()

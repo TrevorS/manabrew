@@ -96,6 +96,8 @@ pub struct ActivatedAbility {
     /// `SpellAbility.copy` keeps `xManaCostPaid`.
     #[serde(default)]
     pub x_mana_cost_paid: Option<u32>,
+    #[serde(default)]
+    pub sub_ability_targets: Vec<crate::ids::CardId>,
 }
 
 impl ActivatedAbility {
@@ -231,6 +233,7 @@ pub fn parse_activated_ability(raw: &str, index: usize) -> Option<ActivatedAbili
         params,
         original_host: None,
         x_mana_cost_paid: None,
+        sub_ability_targets: Vec::new(),
     })
 }
 

@@ -319,7 +319,7 @@ impl GameLoop {
                     game,
                     player,
                     Some(card_id),
-                    &[],
+                    &ab.sub_ability_targets,
                     Some(&mana::payment_context_for_sa(game, &sa_for_target_check)),
                 )
             } else {
@@ -1029,6 +1029,7 @@ impl GameLoop {
             Self::reset_x_mana_cost_paid(game, card_id, x_paid_before);
             return false;
         }
+        Self::keep_sub_ability_targets(game, card_id, ab.ability_index, &sa);
 
         let adjusted_cost =
             Self::adjusted_activation_cost(game, &sa, ab, player, activation_cost, false);
@@ -1081,6 +1082,7 @@ impl GameLoop {
             Self::reset_x_mana_cost_paid(game, card_id, x_paid_before);
             return false;
         }
+        Self::keep_sub_ability_targets(game, card_id, ab.ability_index, &sa);
         let adjusted_cost = sa.pay_costs.clone().unwrap_or_else(|| ab.cost.clone());
         let activated = self.finish_activated_ability_on_stack(
             game,
@@ -1093,6 +1095,26 @@ impl GameLoop {
         );
         Self::reset_x_mana_cost_paid(game, card_id, x_paid_before);
         activated
+    }
+
+    fn keep_sub_ability_targets(
+        game: &mut GameState,
+        card_id: CardId,
+        ability_index: usize,
+        sa: &crate::spellability::SpellAbility,
+    ) {
+        let targets: Vec<CardId> =
+            std::iter::successors(sa.sub_ability.as_deref(), |sub| sub.sub_ability.as_deref())
+                .flat_map(|sub| sub.target_chosen.all_target_cards())
+                .collect();
+        if let Some(ability) = game
+            .card_mut(card_id)
+            .activated_abilities
+            .iter_mut()
+            .find(|ability| ability.ability_index == ability_index)
+        {
+            ability.sub_ability_targets = targets;
+        }
     }
 
     fn reset_x_mana_cost_paid(game: &mut GameState, card_id: CardId, x_paid: Option<String>) {
