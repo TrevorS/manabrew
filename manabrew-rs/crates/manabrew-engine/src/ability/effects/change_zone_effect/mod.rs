@@ -51,15 +51,15 @@ pub fn build_spell_ability(sa: &mut SpellAbility) {
 /// Top-level resolve dispatcher — mirrors Java's `resolve()` which splits on
 /// `sa.isHidden()` into hidden-origin (library search) vs known-origin paths.
 pub fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
-    let dest_zone = match sa.destination_zone() {
-        Some(z) => z,
-        None => return,
-    };
+    let destination = sa.destination_zone();
 
     // Multi-origin: Origin$ can be comma-separated (e.g. "Library,Graveyard")
     let origins: Vec<ZoneType> = sa.origin_zones();
 
     if origins.is_empty() {
+        let Some(dest_zone) = destination else {
+            return;
+        };
         // `Origin$ All` — Java's `ZoneType.listValueOf("All")` is empty and
         // `ZoneType.isHidden(origin)` returns true for that case. Resolve
         // the SA's `Defined$` (or targets) to concrete cards, then dispatch
@@ -96,8 +96,8 @@ pub fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
 
     // Java parity: sa.isHidden() && !sa.isNinjutsu() → hidden path
     if (primary_origin.is_hidden() || sa.is_hidden()) && !sa.ir.ninjutsu {
-        hidden::resolve_hidden_origin(ctx, sa, primary_origin, dest_zone);
-    } else {
+        hidden::resolve_hidden_origin(ctx, sa, primary_origin, destination);
+    } else if let Some(dest_zone) = destination {
         known::resolve_known_origin(ctx, sa, primary_origin, dest_zone);
     }
 }

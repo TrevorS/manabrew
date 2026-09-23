@@ -25,8 +25,9 @@ pub(super) fn resolve_hidden_origin(
     ctx: &mut EffectContext,
     sa: &SpellAbility,
     origin_zone: ZoneType,
-    dest_zone: ZoneType,
+    destination: Option<ZoneType>,
 ) {
+    let dest_zone = destination.unwrap_or(origin_zone);
     let defined = sa.defined().unwrap_or("").to_string();
     let defined_ref = sa.defined_ref();
     let change_type = sa.change_type().unwrap_or("").to_string();
@@ -542,7 +543,10 @@ pub(super) fn resolve_hidden_origin(
         }
     };
 
-    let (dest_zone, lib_position) = resolve_destination(ctx, sa, dest_zone);
+    let (dest_zone, lib_position) = match destination {
+        Some(dest_zone) => resolve_destination(ctx, sa, dest_zone),
+        None => (dest_zone, String::new()),
+    };
 
     if sa.ir.reorder && cards_to_move.len() > 1 {
         ctx.agents[effective_chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
@@ -566,7 +570,7 @@ pub(super) fn resolve_hidden_origin(
 
     // Exactly$ — must find exactly ChangeNum or fail
     if sa.ir.exactly && cards_to_move.len() != change_num {
-        if searched_origin == ZoneType::Library {
+        if searched_origin == ZoneType::Library && destination == Some(ZoneType::Library) {
             ctx.game
                 .shuffle_zone_cards(ZoneType::Library, search_player, ctx.rng);
         }
@@ -580,6 +584,17 @@ pub(super) fn resolve_hidden_origin(
                 ctx.game.card_mut(sid).add_remembered_card(cid);
             }
         }
+    }
+
+    if destination.is_none() {
+        if sa.is_remember_changed() {
+            if let Some(sid) = sa.source {
+                for &cid in &cards_to_move {
+                    ctx.game.card_mut(sid).add_remembered_card(cid);
+                }
+            }
+        }
+        return;
     }
 
     let sa_no_search_shuffle;
