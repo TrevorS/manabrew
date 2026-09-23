@@ -221,6 +221,29 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         count = sa.trigger_remembered_amount;
     }
 
+    if crate::parsing::raw_has_key(&sa.ability_text, "ForColor") {
+        let Some(source_id) = sa.source else {
+            return;
+        };
+        let old_colors = ctx.game.card(source_id).chosen_colors.clone();
+        for color in ["white", "blue", "black", "red", "green"] {
+            ctx.game.card_mut(source_id).chosen_colors = vec![color.to_string()];
+            resolve_per_type(ctx, sa, &counter_types, count, placer, source_controller);
+        }
+        ctx.game.card_mut(source_id).chosen_colors = old_colors;
+    } else {
+        resolve_per_type(ctx, sa, &counter_types, count, placer, source_controller);
+    }
+}
+
+fn resolve_per_type(
+    ctx: &mut EffectContext,
+    sa: &SpellAbility,
+    counter_types: &[crate::card::CounterType],
+    count: i32,
+    placer: crate::ids::PlayerId,
+    source_controller: crate::ids::PlayerId,
+) {
     if let Some(filter) = sa.ir.choices.clone() {
         let chooser = match sa.ir.chooser.as_deref() {
             Some(defined) => {
@@ -297,7 +320,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         .unwrap_or(1)
                 };
             }
-            for counter_type in &counter_types {
+            for counter_type in counter_types {
                 put_counters_on_card(
                     ctx,
                     sa,
@@ -323,7 +346,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         None => Vec::new(),
     };
     for target_player in target_players {
-        for counter_type in &counter_types {
+        for counter_type in counter_types {
             ctx.add_player_counter(
                 target_player,
                 counter_type,
@@ -341,7 +364,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // When the SA uses targeting (ValidTgts$), use the chosen target.
     // Otherwise fall back to the Defined$ parameter (default "Self").
     for card_id in resolve_card_targets(ctx.game, sa) {
-        for counter_type in &counter_types {
+        for counter_type in counter_types {
             put_counters_on_card(
                 ctx,
                 sa,
