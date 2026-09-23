@@ -1241,6 +1241,25 @@ impl Card {
             }
         }
 
+        if kw == "Cascade" {
+            let raw = "Mode$ SpellCast | ValidCard$ Card.Self | TriggerZones$ Stack | Secondary$ True | TriggerDescription$ Cascade - CARDNAME";
+            if let Some(mut trig) = parse_trigger(raw, next_id) {
+                trig.execute = "TrigCascade".to_string();
+                self.add_trigger(trig);
+            }
+            for (name, value) in [
+                ("TrigCascade", "DB$ DigUntil | Defined$ You | Amount$ 1 | Valid$ Card.nonLand+cmcLTCascadeX | FoundDestination$ Exile | RevealedDestination$ Exile | ImprintFound$ True | RememberRevealed$ True | SubAbility$ DBCascadeCast"),
+                ("DBCascadeCast", "DB$ Play | Defined$ Imprinted | WithoutManaCost$ True | Optional$ True | ValidSA$ Spell.cmcLTCascadeX | SubAbility$ DBCascadeMoveToLib"),
+                ("DBCascadeMoveToLib", "DB$ ChangeZoneAll | ChangeType$ Card.IsRemembered,Card.IsImprinted | Origin$ Exile | Destination$ Library | RandomOrder$ True | LibraryPosition$ -1 | SubAbility$ DBCascadeCleanup"),
+                ("DBCascadeCleanup", "DB$ Cleanup | ClearRemembered$ True | ClearImprinted$ True"),
+                ("CascadeX", "Count$CardManaCost"),
+            ] {
+                self.svars
+                    .entry(name.to_string())
+                    .or_insert_with(|| value.to_string());
+            }
+        }
+
         if let Some(cost_str) = crate::keyword::extract_keyword_cost_str(kw, "Ward") {
             let raw = "Mode$ BecomesTarget | ValidSource$ SpellAbility.OppCtrl | ValidTarget$ Card.Self | Secondary$ True | TriggerZones$ Battlefield | TriggerDescription$ Ward";
             if let Some(mut trig) = parse_trigger(raw, next_id) {

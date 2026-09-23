@@ -139,9 +139,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .remove_card_from_zone(ZoneType::Library, target_player, card_id);
         }
 
+        let sequential = found_dest == Some(revealed_dest);
         // Move found cards to destination
         if let Some(found_dest) = found_dest {
-            for &id in &found {
+            let moving = if sequential { &revealed } else { &found };
+            for &id in moving {
                 let owner = ctx.game.card(id).owner;
                 let dest_owner = if found_dest == ZoneType::Battlefield {
                     sa.activating_player
@@ -172,7 +174,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 rest.swap(i, j);
             }
         }
-        let sequential = found_dest == Some(revealed_dest);
+        if sequential {
+            continue;
+        }
         // The dig took every revealed card off the library up front, where Java only looks at
         // them, so "don't move them" has to put them back in the order they were seen.
         if crate::parsing::raw_has_key(&sa.ability_text, "NoMoveRevealed") {
@@ -186,7 +190,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         let mut final_dest = revealed_dest;
         let mut final_pos = library_position(ctx, sa, "RevealedLibraryPosition");
-        if !sequential && found.len() < amount {
+        if found.len() < amount {
             if let Some(none_found) =
                 crate::parsing::raw_get(&sa.ability_text, "NoneFoundDestination")
                     .and_then(|raw| ZoneType::from_str_compat(raw.trim()))
@@ -197,8 +201,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         let known_dest = !matches!(final_dest, ZoneType::Library | ZoneType::Hand);
-        if !sequential
-            && (known_dest || (final_dest == ZoneType::Library && !shuffle && !random_order))
+        if (known_dest || (final_dest == ZoneType::Library && !shuffle && !random_order))
             && rest.len() >= 2
         {
             ctx.agents[target_player.index()].snapshot_state(ctx.game, ctx.mana_pools);

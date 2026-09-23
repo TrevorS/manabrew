@@ -131,7 +131,7 @@ impl ZoneStore {
                 zone.cards.remove(pos);
             }
         }
-        for card in cards.iter().rev() {
+        for card in cards {
             zone.cards.insert(0, *card);
         }
     }

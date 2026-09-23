@@ -2387,6 +2387,12 @@ pub fn resolve_count_svar_for_sa(
         }
         return game.card(source_id).toughness();
     }
+    if let Some(property) = expr
+        .strip_prefix("Count$")
+        .filter(|property| property.starts_with("CardManaCost"))
+    {
+        return card_x_property(source_id, property, game, source_id, controller, sa);
+    }
     if let Some(operators) = expr.strip_prefix("Count$YourTurns") {
         let operators = operators.strip_prefix('/').unwrap_or(operators);
         return do_x_math(
