@@ -782,6 +782,7 @@ impl GameLoop {
 
         // Remove damage and reset until-end-of-turn effects on all battlefield permanents
         for i in 0..game.cards.len() {
+            game.cards[i].tapped_this_turn = 0;
             if game.cards[i].zone == ZoneType::Battlefield {
                 // Restore animate state before checking creature status (issue #52).
                 let had_animate_state = game.cards[i].animate_state.is_some();

@@ -2133,6 +2133,7 @@ impl GameState {
             return false; // Tap was prevented
         }
         self.cards[card_id.index()].tapped = true;
+        self.cards[card_id.index()].tapped_this_turn += 1;
         true
     }
 

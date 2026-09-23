@@ -473,6 +473,8 @@ pub struct Card {
     /// attacked this turn; a `FirstAttack$` trigger only fires while this is one.
     #[serde(default)]
     pub attacks_this_turn: u32,
+    #[serde(default)]
+    pub tapped_this_turn: u32,
     /// Snapshot of whether this permanent was tapped at the start of its
     /// controller's current turn (before untap step).
     pub started_turn_tapped: bool,
@@ -944,6 +946,7 @@ impl Card {
             entered_battlefield_this_turn: false,
             attacked_this_turn: false,
             attacks_this_turn: 0,
+            tapped_this_turn: 0,
             started_turn_tapped: false,
             triggers: Vec::new(),
             svars: BTreeMap::new(),
@@ -1181,6 +1184,7 @@ impl Card {
             entered_battlefield_this_turn: self.entered_battlefield_this_turn,
             attacked_this_turn: self.attacked_this_turn,
             attacks_this_turn: self.attacks_this_turn,
+            tapped_this_turn: self.tapped_this_turn,
             started_turn_tapped: self.started_turn_tapped,
             triggers: Vec::new(),
             svars: self.svars.clone(),
@@ -1429,6 +1433,7 @@ impl Card {
             .clone_from(&self.entered_battlefield_this_turn);
         out.attacked_this_turn.clone_from(&self.attacked_this_turn);
         out.attacks_this_turn = self.attacks_this_turn;
+        out.tapped_this_turn = self.tapped_this_turn;
         out.started_turn_tapped
             .clone_from(&self.started_turn_tapped);
         out.triggers.clear();
@@ -2352,6 +2357,7 @@ impl Card {
         self.entered_battlefield_this_turn = true;
         self.attacked_this_turn = false;
         self.attacks_this_turn = 0;
+        self.tapped_this_turn = 0;
         self.damage_sources_this_turn.clear();
         self.attacking_player = None;
     }

@@ -62,7 +62,13 @@ impl TriggerBehavior for TriggerTaps {
                 return false;
             }
         }
-        if self.require_first_time && params.first_time != Some(true) {
+        if self.require_first_time
+            && !params.first_time.unwrap_or_else(|| {
+                params
+                    .card
+                    .is_some_and(|card| game.card(card).tapped_this_turn == 1)
+            })
+        {
             return false;
         }
         // Java `TriggerTaps` requires the running cost payment to be a `CostTeamwork`;
