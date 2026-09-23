@@ -47,7 +47,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     // Draw N cards.
     for _ in 0..num {
-        ctx.game.draw_card(controller);
+        super::draw_effect::draw_card(ctx, controller);
     }
 
     // Discard N cards from hand.

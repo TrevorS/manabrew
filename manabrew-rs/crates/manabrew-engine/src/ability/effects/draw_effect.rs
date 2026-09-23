@@ -88,28 +88,8 @@ pub(crate) fn draw_for_player(
     let remember_drawn = sa.ir.remember_drawn;
     let mut drawn: Vec<crate::ids::CardId> = Vec::new();
     for _ in 0..actual_num {
-        if let Some(card_id) = ctx.game.draw_card_with_agents(target, ctx.agents) {
+        if let Some(card_id) = draw_card(ctx, target) {
             drawn.push(card_id);
-            // Snapshot drawn_this_turn AFTER draw_card increments it.
-            // This captures the exact count at draw time for Number$ N matching.
-            let drawn_snapshot = ctx.game.player(target).drawn_this_turn;
-            ctx.trigger_handler.run_trigger(
-                TriggerType::Drawn,
-                RunParams {
-                    card: Some(card_id),
-                    player: Some(target),
-                    drawn_this_turn_snapshot: Some(drawn_snapshot),
-                    ..Default::default()
-                },
-                false,
-            );
-            // Flush/match Drawn triggers immediately so that triggers with
-            // Number$ N (e.g. Sneaky Snacker "3rd card") see the correct game
-            // state at draw time. Only flush if there's a Number$ Drawn trigger
-            // that needs fire-time matching (to avoid disrupting other triggers).
-            if ctx.trigger_handler.has_number_drawn_triggers(ctx.game) {
-                ctx.trigger_handler.flush_waiting_triggers(ctx.game);
-            }
         }
     }
 
@@ -123,6 +103,28 @@ pub(crate) fn draw_for_player(
             }
         }
     }
+}
+
+pub(crate) fn draw_card(
+    ctx: &mut EffectContext,
+    player: crate::ids::PlayerId,
+) -> Option<crate::ids::CardId> {
+    let card_id = ctx.game.draw_card_with_agents(player, ctx.agents)?;
+    let drawn_snapshot = ctx.game.player(player).drawn_this_turn;
+    ctx.trigger_handler.run_trigger(
+        TriggerType::Drawn,
+        RunParams {
+            card: Some(card_id),
+            player: Some(player),
+            drawn_this_turn_snapshot: Some(drawn_snapshot),
+            ..Default::default()
+        },
+        false,
+    );
+    if ctx.trigger_handler.has_number_drawn_triggers(ctx.game) {
+        ctx.trigger_handler.flush_waiting_triggers(ctx.game);
+    }
+    Some(card_id)
 }
 
 fn resolve_draw_amount(ctx: &EffectContext, sa: &SpellAbility) -> i32 {
