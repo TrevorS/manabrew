@@ -1462,14 +1462,17 @@ impl GameLoop {
                     type_filter,
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
-                    self.pay_exile_ctrl_or_grave_cost(
+                    if !self.pay_exile_ctrl_or_grave_cost(
                         game,
                         agents,
                         player,
                         card_id,
                         type_filter,
                         resolved_amount,
-                    );
+                    ) {
+                        payment_ok = false;
+                        break;
+                    }
                 }
             }
         }
@@ -2207,14 +2210,17 @@ impl GameLoop {
                     type_filter,
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
-                    self.pay_exile_ctrl_or_grave_cost(
+                    if !self.pay_exile_ctrl_or_grave_cost(
                         game,
                         agents,
                         player,
                         card_id,
                         type_filter,
                         resolved_amount,
-                    );
+                    ) {
+                        payment_ok = false;
+                        break;
+                    }
                 }
             }
         }
@@ -3545,9 +3551,9 @@ impl GameLoop {
         source: CardId,
         type_filter: &str,
         amount: i32,
-    ) {
+    ) -> bool {
         let base_filter = crate::cost::normalize_exile_base_filter(type_filter);
-        for _ in 0..amount {
+        let candidates = |game: &GameState| {
             let mut valid: Vec<CardId> = crate::cost::get_zone_targets(
                 game,
                 player,
@@ -3563,6 +3569,13 @@ impl GameLoop {
                 source,
             ));
             valid.retain(|&cid| can_exile_for_cost(game, cid));
+            valid
+        };
+        if (candidates(game).len() as i32) < amount {
+            return false;
+        }
+        for _ in 0..amount {
+            let valid = candidates(game);
             if valid.is_empty() {
                 break;
             }
@@ -3579,6 +3592,7 @@ impl GameLoop {
                 );
             }
         }
+        true
     }
 
     /// Return `amount` permanents matching `type_filter` for `player` to hand.
