@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.49.4](https://github.com/witchesofthehill/manabrew/compare/v3.49.3...v3.49.4) (2026-09-23)
+
+### Fixes
+
+* **ui:** load locale-matched card images from cdn ([#982](https://github.com/witchesofthehill/manabrew/issues/982)) ([3325ed1](https://github.com/witchesofthehill/manabrew/commit/3325ed14a3746753764a707e44bac174d5c7ff40))
+
 ## [3.49.3](https://github.com/witchesofthehill/manabrew/compare/v3.49.2...v3.49.3) (2026-09-22)
 
 ### Fixes
