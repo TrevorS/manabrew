@@ -327,7 +327,7 @@ pub fn build_spell_ability_for_card_state_cast(
         Some(sa) => sa,
         None => build_vanilla_spell_ability(&host, card_id, player),
     };
-    sa.ir.card_state_name = Some(format!("{state_name:?}"));
+    std::sync::Arc::make_mut(&mut sa.ir).card_state_name = Some(format!("{state_name:?}"));
     Some((host, sa))
 }
 
@@ -377,7 +377,7 @@ fn build_vanilla_spell_ability(card: &Card, card_id: CardId, player: PlayerId) -
         targeting_player: None,
         ability_text: String::new(),
         record_type: AbilityRecordType::Spell,
-        ir: crate::ability::ability_ir::SpellAbilityIr::default(),
+        ir: Default::default(),
         target_restrictions,
         target_chosen: TargetChoices::default(),
         parent_targeting_card: None,
@@ -557,7 +557,7 @@ fn build_spell_ability_of_type_with_params(
         targeting_player: None,
         ability_text: ability_text.to_string(),
         record_type,
-        ir,
+        ir: std::sync::Arc::new(ir),
         target_restrictions,
         target_chosen: TargetChoices::default(),
         parent_targeting_card: None,
@@ -700,7 +700,7 @@ pub fn adjust_change_zone_target(sa: &mut SpellAbility, game: &GameState) {
             forge_foundation::ZoneType::Library | forge_foundation::ZoneType::Hand
         ) {
             // Hidden zones use different targeting rules
-            sa.ir.hidden = true;
+            std::sync::Arc::make_mut(&mut sa.ir).hidden = true;
         }
     }
 }

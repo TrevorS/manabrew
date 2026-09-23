@@ -37,7 +37,7 @@ pub fn create_permanent_spell(
         targeting_player: None,
         ability_text: String::new(),
         record_type: crate::ability::ability_factory::AbilityRecordType::Spell,
-        ir: crate::ability::ability_ir::SpellAbilityIr::default(),
+        ir: Default::default(),
         target_restrictions: None,
         target_chosen: TargetChoices::default(),
         parent_targeting_card: None,

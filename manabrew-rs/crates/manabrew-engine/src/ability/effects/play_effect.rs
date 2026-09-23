@@ -116,7 +116,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         // Remove zone restriction — allow casting from exile/library/etc.
-        spell_sa.ir.cast_from_play_effect = true;
+        std::sync::Arc::make_mut(&mut spell_sa.ir).cast_from_play_effect = true;
 
         if !spell_sa.setup_targets(ctx.game, ctx.agents, ctx.mana_pools) {
             amount -= 1;

@@ -645,7 +645,8 @@ impl GameLoop {
                 if !right_split_spell {
                     let cost = game.card(card_id).svars.get("RoomRightSplitCost")?;
                     sa.pay_costs = Some(parse_cost(cost));
-                    sa.ir.card_state_name = Some("RightSplit".to_string());
+                    std::sync::Arc::make_mut(&mut sa.ir).card_state_name =
+                        Some("RightSplit".to_string());
                 }
             }
             crate::agent::PlayCardMode::UnlockDoor

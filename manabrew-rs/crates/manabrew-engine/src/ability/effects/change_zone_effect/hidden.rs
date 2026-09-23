@@ -161,7 +161,7 @@ pub(super) fn resolve_hidden_origin(
             let (dest_zone, lib_position) = resolve_destination(ctx, sa, dest_zone);
             let mut sa_no_shuffle = sa.clone();
             if dest_zone != ZoneType::Library && !sa.is_shuffle() {
-                sa_no_shuffle.ir.no_shuffle = true;
+                std::sync::Arc::make_mut(&mut sa_no_shuffle.ir).no_shuffle = true;
             }
             move_cards(
                 ctx,
@@ -603,7 +603,7 @@ pub(super) fn resolve_hidden_origin(
     let sa = if choose_from_defined.is_some() && dest_zone != ZoneType::Library && !sa.is_shuffle()
     {
         let mut no_shuffle = sa.clone();
-        no_shuffle.ir.no_shuffle = true;
+        std::sync::Arc::make_mut(&mut no_shuffle.ir).no_shuffle = true;
         sa_no_search_shuffle = no_shuffle;
         &sa_no_search_shuffle
     } else {

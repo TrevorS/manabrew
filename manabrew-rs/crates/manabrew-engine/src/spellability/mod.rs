@@ -122,7 +122,7 @@ pub struct SpellAbility {
     /// Skipped on serde: a deserialized `SpellAbility` must rebuild it from
     /// `ability_text` before use or every typed param reads as absent.
     #[serde(skip)]
-    pub ir: SpellAbilityIr,
+    pub ir: std::sync::Arc<SpellAbilityIr>,
     /// Targeting restrictions parsed from `ValidTgts$`.
     /// `None` means this ability doesn't use targeting.
     /// Mirrors Java's `targetRestrictions` field.
@@ -628,7 +628,7 @@ impl SpellAbility {
             targeting_player: None,
             ability_text: ability_text.to_string(),
             record_type,
-            ir,
+            ir: std::sync::Arc::new(ir),
             target_restrictions,
             target_chosen: TargetChoices::default(),
             parent_targeting_card: None,

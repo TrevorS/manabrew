@@ -265,18 +265,18 @@ pub fn apply_alternative_cost_to_sa(sa: &mut SpellAbility, entry: &AlternativeCo
     // TODO: sa.setBasicSpell(false) — no field yet
 
     if let Some(ref announce) = entry.announce {
-        sa.ir.announce_text = Some(announce.clone());
+        std::sync::Arc::make_mut(&mut sa.ir).announce_text = Some(announce.clone());
     }
     if let Some(ref stack_desc) = entry.stack_description {
-        sa.ir.stack_description_text = Some(stack_desc.clone());
+        std::sync::Arc::make_mut(&mut sa.ir).stack_description_text = Some(stack_desc.clone());
     }
     if let Some(ref cost_desc) = entry.cost_desc {
-        sa.ir.precost_desc = Some(cost_desc.clone());
+        std::sync::Arc::make_mut(&mut sa.ir).precost_desc = Some(cost_desc.clone());
     }
 
     // Apply Named override
     if let Some(ref named) = entry.named {
-        sa.ir.name_text = Some(named.clone());
+        std::sync::Arc::make_mut(&mut sa.ir).name_text = Some(named.clone());
     }
 
     let _ = &entry.x_alternative;

@@ -85,7 +85,7 @@ pub fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
             }
         }
         let mut sa_no_shuffle = sa.clone();
-        sa_no_shuffle.ir.no_shuffle = true;
+        std::sync::Arc::make_mut(&mut sa_no_shuffle.ir).no_shuffle = true;
         for zone in zones {
             known::resolve_known_origin(ctx, &sa_no_shuffle, zone, dest_zone);
         }

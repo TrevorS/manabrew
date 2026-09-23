@@ -14,9 +14,10 @@ pub fn build_spell_ability(sa: &mut crate::spellability::SpellAbility) {
     let Some(n) = sa.ir.adapt.clone().or_else(|| sa.ir.monstrosity.clone()) else {
         return;
     };
-    sa.ir.counter_type_text = Some("P1P1".to_string());
-    sa.ir.counter_type = Some(crate::card::CounterType::P1P1);
-    sa.ir.semantic_numeric_params.insert(
+    let ir = std::sync::Arc::make_mut(&mut sa.ir);
+    ir.counter_type_text = Some("P1P1".to_string());
+    ir.counter_type = Some(crate::card::CounterType::P1P1);
+    ir.semantic_numeric_params.insert(
         keys::COUNTER_NUM.to_string(),
         crate::ability::ability_ir::NumericParamIr::Raw(n),
     );
