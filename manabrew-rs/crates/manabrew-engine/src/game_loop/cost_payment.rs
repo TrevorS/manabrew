@@ -659,6 +659,8 @@ impl GameLoop {
         // Phase 2: execute payments.
         let mut pre_sac_idx = 0usize;
         let mut pre_blight_idx = 0usize;
+        let mut failed_auto_pay_taps: Vec<CardId> = Vec::new();
+        let mut failed_auto_pay_pool: Option<crate::mana::ManaPool> = None;
         for part in cost.parts.clone() {
             match &part {
                 CostPart::Tap => {
@@ -796,25 +798,25 @@ impl GameLoop {
                                 session.player,
                                 &trace,
                             );
+                            let mut actions: Vec<ManaCostAction> = trace
+                                .iter()
+                                .map(|choice| ManaCostAction::TapForMana {
+                                    card_id: choice.card_id,
+                                    mana_ability_index: Some(
+                                        choice.mana_ability_index.unwrap_or(0),
+                                    ),
+                                    express_choice: if choice.needs_express_choice {
+                                        Some(choice.chosen_atom)
+                                    } else {
+                                        None
+                                    },
+                                })
+                                .collect();
                             if let Some(life_to_pay) = pay_from_pool(
                                 &mut slf.mana_pools[session.player.index()],
                                 session.mana_cost,
                                 game.player(session.player).life,
                             ) {
-                                let trace: Vec<ManaCostAction> = trace
-                                    .iter()
-                                    .map(|choice| ManaCostAction::TapForMana {
-                                        card_id: choice.card_id,
-                                        mana_ability_index: Some(
-                                            choice.mana_ability_index.unwrap_or(0),
-                                        ),
-                                        express_choice: if choice.needs_express_choice {
-                                            Some(choice.chosen_atom)
-                                        } else {
-                                            None
-                                        },
-                                    })
-                                    .collect();
                                 if life_to_pay > 0 {
                                     slf.pay_life_cost(
                                         game,
@@ -823,9 +825,14 @@ impl GameLoop {
                                         life_to_pay,
                                     );
                                 }
-                                Some(trace)
+                                Some(actions)
                             } else {
-                                None
+                                failed_auto_pay_taps
+                                    .extend(trace.iter().map(|choice| choice.card_id));
+                                failed_auto_pay_pool =
+                                    Some(slf.mana_pools[session.player.index()].clone());
+                                actions.push(ManaCostAction::AttemptedAndFailed);
+                                Some(actions)
                             }
                         },
                         |slf, game, player| {
@@ -1480,6 +1487,14 @@ impl GameLoop {
         self.reserved_source_reuse_stack.pop();
         if !payment_ok {
             self.restore_snapshot(game, &payment_snapshot);
+            for tapped_id in failed_auto_pay_taps {
+                if game.card_is_in_zone(tapped_id, ZoneType::Battlefield) {
+                    game.card_mut(tapped_id).set_tapped(true);
+                }
+            }
+            if let Some(pool) = failed_auto_pay_pool {
+                self.mana_pools[player.index()] = pool;
+            }
             return false;
         }
         true
