@@ -1613,6 +1613,7 @@ impl SpellAbility {
             "Megamorph" => self.ir.megamorph,
             "PwAbility" => self.ir.pw_ability,
             "Exhaust" => crate::parsing::raw_has_key(&self.ability_text, keys::EXHAUST),
+            "PowerUp" => crate::parsing::raw_has_key(&self.ability_text, keys::POWER_UP),
             "Flash" => self.ir.flash,
             "SplitSecond" => self.ir.split_second,
             _ => false,
