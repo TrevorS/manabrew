@@ -109,6 +109,10 @@ pub fn get_proto_type(sa: &SpellAbility, original: &Card, new_owner: crate::ids:
         copy.set_color(ColorSet::from_names(set_color));
     }
 
+    if crate::parsing::raw_has_key(&sa.ability_text, "NonLegendary") {
+        copy.remove_type("Legendary");
+    }
+
     // Apply AddTypes$ (e.g. Embalm adds "Zombie").
     if let Some(add_types) = sa.ir.add_types.as_deref() {
         for t in add_types.split(" & ") {
