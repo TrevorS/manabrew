@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
@@ -59,7 +61,7 @@ fn nearest_opponent_in_direction(
 /// Mirrors Java's `StaticAbilityCantAttackBlock.cantAttack()`.
 pub fn cant_attack(
     game: &GameState,
-    cards: &[Card],
+    cards: &[Arc<Card>],
     attacker: &Card,
     defender: DefenderId,
 ) -> bool {
@@ -96,7 +98,7 @@ pub fn apply_cant_attack_ability(
     card: &Card,
     source: &Card,
     defender: DefenderId,
-    cards: &[Card],
+    cards: &[Arc<Card>],
 ) -> bool {
     if !valid_filter::matches_valid_card_selector_opt_in_game(
         st_ab.ir.valid_card.as_ref(),
@@ -170,7 +172,7 @@ pub fn apply_cant_attack_ability(
 /// Mirrors Java's `StaticAbilityCantAttackBlock.canAttackDefender()`.
 pub fn can_attack_defender(
     game: &GameState,
-    cards: &[Card],
+    cards: &[Arc<Card>],
     card: &Card,
     defender: PlayerId,
 ) -> bool {
@@ -221,7 +223,7 @@ pub fn apply_can_attack_defender_ability(
 
 /// Check if a creature can't block.
 /// Mirrors Java's `StaticAbilityCantAttackBlock.cantBlock()`.
-pub fn cant_block(game: &GameState, cards: &[Card], blocker: &Card) -> bool {
+pub fn cant_block(game: &GameState, cards: &[Arc<Card>], blocker: &Card) -> bool {
     // Detained check
     if blocker.detained {
         return true;
@@ -278,7 +280,7 @@ pub fn apply_cant_block_ability(
 /// Mirrors Java's `StaticAbilityCantAttackBlock.cantBlockBy()`.
 pub fn cant_block_by(
     game: &GameState,
-    cards: &[Card],
+    cards: &[Arc<Card>],
     attacker: &Card,
     blocker: Option<&Card>,
 ) -> bool {
@@ -309,7 +311,7 @@ pub fn apply_cant_block_by_ability(
     attacker: &Card,
     blocker: Option<&Card>,
     source: &Card,
-    cards: &[Card],
+    cards: &[Arc<Card>],
 ) -> bool {
     if !valid_filter::matches_valid_card_selector_opt_in_game(
         st_ab.ir.valid_attacker.as_ref(),
@@ -422,7 +424,7 @@ pub fn apply_cant_block_by_ability(
 /// Mirrors Java's `StaticAbilityCantAttackBlock.canBlockIfReach()`.
 pub fn can_block_if_reach(
     game: &GameState,
-    cards: &[Card],
+    cards: &[Arc<Card>],
     attacker: &Card,
     blocker: &Card,
 ) -> bool {
@@ -471,7 +473,7 @@ pub fn apply_can_block_if_reach_ability(
 
 /// Check if tapped creatures can block.
 /// Mirrors Java's `StaticAbilityCantAttackBlock.canBlockTapped()`.
-pub fn can_block_tapped(game: &GameState, cards: &[Card], card: &Card) -> bool {
+pub fn can_block_tapped(game: &GameState, cards: &[Arc<Card>], card: &Card) -> bool {
     for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
         for st_ab in source
             .static_abilities
@@ -505,7 +507,7 @@ fn apply_block_tapped(game: &GameState, st_ab: &StaticAbility, card: &Card, sour
 /// Mirrors Java's `StaticAbilityCantAttackBlock.canAttackHaste()`.
 pub fn can_attack_haste(
     game: &GameState,
-    cards: &[Card],
+    cards: &[Arc<Card>],
     attacker: &Card,
     _defender: PlayerId,
 ) -> bool {
@@ -563,7 +565,7 @@ pub fn apply_can_attack_haste_ability(
 /// Returns (min, max). Mirrors Java's `StaticAbilityCantAttackBlock.getMinMaxBlocker()`.
 pub fn get_min_max_blocker(
     game: &GameState,
-    cards: &[Card],
+    cards: &[Arc<Card>],
     attacker: &Card,
     _defender: PlayerId,
 ) -> (i32, i32) {
@@ -597,7 +599,7 @@ pub fn apply_min_max_blocker_ability(
     attacker: &Card,
     source: &Card,
     defender: PlayerId,
-    cards: &[Card],
+    cards: &[Arc<Card>],
     min: &mut i32,
     max: &mut i32,
 ) {
@@ -637,7 +639,7 @@ pub fn apply_min_max_blocker_ability(
 
 /// Check if attacker has vigilance from a static ability (doesn't tap when attacking).
 /// Mirrors Java's `StaticAbilityCantAttackBlock.attackVigilance()`.
-pub fn attack_vigilance(game: &GameState, cards: &[Card], card: &Card) -> bool {
+pub fn attack_vigilance(game: &GameState, cards: &[Arc<Card>], card: &Card) -> bool {
     for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
         for st_ab in source
             .static_abilities

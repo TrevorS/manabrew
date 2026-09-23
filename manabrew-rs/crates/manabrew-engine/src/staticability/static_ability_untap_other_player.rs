@@ -1,8 +1,10 @@
+use std::sync::Arc;
+
 use crate::card::{valid_filter, Card};
 use crate::ids::PlayerId;
 use crate::staticability::StaticMode;
 
-pub fn untap(cards: &[Card], card: &Card, player: PlayerId) -> bool {
+pub fn untap(cards: &[Arc<Card>], card: &Card, player: PlayerId) -> bool {
     for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
         for st_ab in source.static_abilities.iter().filter(|sa| {
             sa.check_mode(&StaticMode::UntapOtherPlayer) && sa.zones_check(source.zone)

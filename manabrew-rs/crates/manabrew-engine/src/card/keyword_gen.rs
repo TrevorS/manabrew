@@ -13,6 +13,14 @@ use crate::trigger::parse_trigger;
 
 use super::Card;
 
+const BASIC_LAND_SUBTYPE_MANA: &[(&str, &str, &str)] = &[
+    ("Plains", "W", "Add {W}."),
+    ("Island", "U", "Add {U}."),
+    ("Swamp", "B", "Add {B}."),
+    ("Mountain", "R", "Add {R}."),
+    ("Forest", "G", "Add {G}."),
+];
+
 fn keyword_cost(keywords: &[String], name: &str) -> Option<String> {
     keywords
         .iter()
@@ -122,34 +130,33 @@ impl Card {
     /// Generate intrinsic mana abilities for basic land subtypes (Plains → {W}, etc.).
     /// Mirrors Java's `CardFactoryUtil.addIntrinsicAbilities()`.
     pub(crate) fn generate_basic_land_mana_abilities(&mut self) {
-        const SUBTYPE_MANA: &[(&str, &str, &str)] = &[
-            ("Plains", "W", "Add {W}."),
-            ("Island", "U", "Add {U}."),
-            ("Swamp", "B", "Add {B}."),
-            ("Mountain", "R", "Add {R}."),
-            ("Forest", "G", "Add {G}."),
-        ];
-        for &(subtype, letter, desc) in SUBTYPE_MANA {
-            if self.type_line.has_subtype(subtype) {
-                let already_produces = self.activated_abilities.iter().any(|ab| {
-                    ab.is_mana_ability
-                        && ab
-                            .produced_ir
-                            .as_ref()
-                            .is_some_and(|ir| ir.as_script_text() == letter)
-                });
-                if !already_produces {
-                    let raw = format!(
-                        "AB$ Mana | Cost$ T | Produced$ {letter} | SpellDescription$ {desc}"
-                    );
-                    let idx = self.abilities.len();
-                    self.abilities.push(raw.clone());
-                    if let Some(ab) = parse_activated_ability(&raw, idx) {
-                        self.activated_abilities.push(ab);
-                    }
+        for &(subtype, letter, desc) in BASIC_LAND_SUBTYPE_MANA {
+            if self.type_line.has_subtype(subtype) && !self.produces_basic_land_mana(letter) {
+                let raw =
+                    format!("AB$ Mana | Cost$ T | Produced$ {letter} | SpellDescription$ {desc}");
+                let idx = self.abilities.len();
+                self.abilities.push(raw.clone());
+                if let Some(ab) = parse_activated_ability(&raw, idx) {
+                    self.activated_abilities.push(ab);
                 }
             }
         }
+    }
+
+    pub(crate) fn lacks_basic_land_mana_abilities(&self) -> bool {
+        BASIC_LAND_SUBTYPE_MANA.iter().any(|&(subtype, letter, _)| {
+            self.type_line.has_subtype(subtype) && !self.produces_basic_land_mana(letter)
+        })
+    }
+
+    fn produces_basic_land_mana(&self, letter: &str) -> bool {
+        self.activated_abilities.iter().any(|ab| {
+            ab.is_mana_ability
+                && ab
+                    .produced_ir
+                    .as_ref()
+                    .is_some_and(|ir| ir.as_script_text() == letter)
+        })
     }
 
     /// Generate activated abilities from keywords (e.g. Cycling → AB$ Draw).

@@ -170,7 +170,7 @@ impl CardDatabaseRegistry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameState {
     // Arenas
-    pub cards: Vec<Card>,
+    pub cards: Vec<Arc<Card>>,
     pub players: Vec<PlayerState>,
 
     // Zones: keyed by (ZoneType, PlayerId)
@@ -377,7 +377,7 @@ impl GameState {
                 replacement_effect.base.set_host_card_id(id);
             }
         }
-        self.cards.push(card);
+        self.cards.push(Arc::new(card));
         id
     }
 
@@ -388,7 +388,7 @@ impl GameState {
     }
 
     pub fn card_mut(&mut self, id: CardId) -> &mut Card {
-        &mut self.cards[id.index()]
+        Arc::make_mut(&mut self.cards[id.index()])
     }
 
     pub fn player(&self, id: PlayerId) -> &PlayerState {
@@ -494,6 +494,7 @@ impl GameState {
     pub fn reset_card_turn_tracking(&mut self) {
         self.counter_added_this_turn.clear();
         for card in &mut self.cards {
+            let card = Arc::make_mut(card);
             card.reset_activations_per_turn();
             card.reset_ability_resolved_this_turn();
         }
@@ -777,7 +778,7 @@ impl GameState {
     pub fn assign_zone_timestamp(&mut self, card_id: CardId) -> u64 {
         let ts = self.next_zone_timestamp;
         self.next_zone_timestamp += 1;
-        self.cards[card_id.index()].zone_timestamp = ts;
+        self.card_mut(card_id).zone_timestamp = ts;
         ts
     }
 

@@ -1,8 +1,10 @@
+use std::sync::Arc;
+
 use crate::card::{valid_filter, Card};
 use crate::spellability::SpellAbility;
 use crate::staticability::StaticMode;
 
-pub fn cant_transform(cards: &[Card], card: &Card, cause: Option<&SpellAbility>) -> bool {
+pub fn cant_transform(cards: &[Arc<Card>], card: &Card, cause: Option<&SpellAbility>) -> bool {
     for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
         for st_ab in source
             .static_abilities

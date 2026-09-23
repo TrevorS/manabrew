@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::ability::ability_ir::{DefinedRef, NumericParamIr};
 use crate::card::card_damage_history::TrackedEntity;
 use crate::card::filter_constants as fc;
@@ -1604,6 +1606,7 @@ fn evaluate_cost_amount_count_expr(
         let matches: Vec<&Card> = game
             .cards
             .iter()
+            .map(Arc::as_ref)
             .filter(|c| c.zone == ZoneType::Battlefield)
             .filter(|c| {
                 crate::card::valid_filter::matches_valid_card_selector_in_game(
@@ -2187,6 +2190,7 @@ pub fn resolve_count_svar_for_sa(
                 let matches: Vec<&crate::card::Card> = game
                     .cards
                     .iter()
+                    .map(Arc::as_ref)
                     .filter(|card| {
                         (if self_only {
                             card.id == source_id

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
@@ -41,7 +43,7 @@ pub struct AlternativeCostEntry {
 /// Collect all alternative costs that apply to `sa` cast by `player` from `source`.
 pub fn alternative_costs(
     game: &GameState,
-    cards: &[Card],
+    cards: &[Arc<Card>],
     sa: &SpellAbility,
     source: &Card,
     player: PlayerId,
@@ -69,7 +71,7 @@ pub fn alternative_costs(
 /// alternative cost is available.
 pub fn has_alternative_cost(
     game: &GameState,
-    cards: &[Card],
+    cards: &[Arc<Card>],
     sa: &SpellAbility,
     source: &Card,
     player: PlayerId,

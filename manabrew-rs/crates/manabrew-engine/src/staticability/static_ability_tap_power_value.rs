@@ -1,9 +1,11 @@
+use std::sync::Arc;
+
 use crate::card::{valid_filter, Card};
 use crate::spellability::{matches_valid_sa, SpellAbility};
 use crate::staticability::StaticMode;
 
 /// Check if a card should use toughness as its tap power value.
-pub fn with_toughness(cards: &[Card], card: &Card, sa: Option<&SpellAbility>) -> bool {
+pub fn with_toughness(cards: &[Arc<Card>], card: &Card, sa: Option<&SpellAbility>) -> bool {
     for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
         for st_ab in source
             .static_abilities
@@ -40,7 +42,7 @@ pub fn with_toughness(cards: &[Card], card: &Card, sa: Option<&SpellAbility>) ->
 }
 
 /// Get the modifier for tap power value.
-pub fn get_mod(cards: &[Card], card: &Card, sa: Option<&SpellAbility>) -> i32 {
+pub fn get_mod(cards: &[Arc<Card>], card: &Card, sa: Option<&SpellAbility>) -> i32 {
     let mut total = 0;
     for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
         for st_ab in source
@@ -74,7 +76,7 @@ pub fn get_mod(cards: &[Card], card: &Card, sa: Option<&SpellAbility>) -> i32 {
     total
 }
 
-fn ability_host<'a>(cards: &'a [Card], sa: &SpellAbility) -> Option<&'a Card> {
+fn ability_host<'a>(cards: &'a [Arc<Card>], sa: &SpellAbility) -> Option<&'a Card> {
     let source = sa.source?;
-    cards.get(source.index())
+    cards.get(source.index()).map(Arc::as_ref)
 }

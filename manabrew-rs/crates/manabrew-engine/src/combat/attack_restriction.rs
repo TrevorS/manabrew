@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::HashSet;
 
 use forge_foundation::ZoneType;
@@ -110,7 +112,7 @@ pub fn can_attack(card: &Card, num_attackers: usize) -> bool {
 ///
 /// Mirrors Java's `AttackRestriction.getViolation()` — checks restrictions
 /// against the set of all chosen attackers (not just battlefield state).
-pub fn validate_attack_restrictions(attackers: &[CardId], cards: &[Card]) -> HashSet<CardId> {
+pub fn validate_attack_restrictions(attackers: &[CardId], cards: &[Arc<Card>]) -> HashSet<CardId> {
     let mut illegal = HashSet::default();
     let num_attackers = attackers.len();
 

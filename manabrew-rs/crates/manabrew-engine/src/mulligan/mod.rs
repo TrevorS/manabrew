@@ -349,11 +349,11 @@ mod tests {
         for _ in 0..deck_size {
             let c0 = game.create_card(filler_card(p0));
             game.add_card_to_zone(ZoneType::Library, p0, c0);
-            game.cards[c0.index()].zone = ZoneType::Library;
+            game.card_mut(c0).zone = ZoneType::Library;
 
             let c1 = game.create_card(filler_card(p1));
             game.add_card_to_zone(ZoneType::Library, p1, c1);
-            game.cards[c1.index()].zone = ZoneType::Library;
+            game.card_mut(c1).zone = ZoneType::Library;
         }
         let rng = rand::rngs::StdRng::seed_from_u64(42);
         (game, rng)

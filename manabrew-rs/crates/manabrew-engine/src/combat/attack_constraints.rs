@@ -1,5 +1,6 @@
 use indexmap::IndexMap;
 use std::cmp::Reverse;
+use std::sync::Arc;
 
 use super::attack_requirement::{self, AttackRequirement};
 use super::attack_restriction::{self, AttackRestrictionType};
@@ -35,7 +36,7 @@ pub struct AttackRestriction {
 impl AttackRestriction {
     pub fn new(
         attacker: CardId,
-        cards: &[Card],
+        cards: &[Arc<Card>],
         possible_defenders: &[DefenderId],
         game: &crate::game::GameState,
     ) -> Self {
@@ -78,7 +79,7 @@ impl AttackRestriction {
         &self,
         defender: DefenderId,
         attackers: &[(CardId, DefenderId)],
-        cards: &[Card],
+        cards: &[Arc<Card>],
     ) -> bool {
         if !self.can_attack(defender) {
             return false;
@@ -90,7 +91,7 @@ impl AttackRestriction {
     pub fn get_violations(
         &self,
         attackers: &[(CardId, DefenderId)],
-        cards: &[Card],
+        cards: &[Arc<Card>],
     ) -> crate::HashSet<AttackRestrictionType> {
         let mut violations = crate::HashSet::default();
         let n = attackers.len();
@@ -212,7 +213,7 @@ impl AttackConstraints {
     /// handles the most common cases (single-creature requirements, global
     /// limits). The full recursive constraint solver from Java is replaced
     /// with a greedy approach that works correctly for 2-player games.
-    pub fn get_legal_attackers(&self, cards: &[Card]) -> (Vec<(CardId, DefenderId)>, i32) {
+    pub fn get_legal_attackers(&self, cards: &[Arc<Card>]) -> (Vec<(CardId, DefenderId)>, i32) {
         let max = self
             .global_restrictions
             .get_max()
@@ -340,7 +341,7 @@ impl AttackConstraints {
     /// Returns -1 if a restriction is violated (illegal attack).
     ///
     /// Mirrors Java's `countViolations()`.
-    pub fn count_violations(&self, attackers: &[(CardId, DefenderId)], cards: &[Card]) -> i32 {
+    pub fn count_violations(&self, attackers: &[(CardId, DefenderId)], cards: &[Arc<Card>]) -> i32 {
         if !self.global_restrictions.is_legal(attackers) {
             return -1;
         }
@@ -371,7 +372,7 @@ impl AttackConstraints {
 
     /// Build a sorted list of attack candidates from requirements.
     /// Higher-priority (more requirements) come first.
-    fn get_sorted_filtered_requirements(&self, _cards: &[Card]) -> Vec<Attack> {
+    fn get_sorted_filtered_requirements(&self, _cards: &[Arc<Card>]) -> Vec<Attack> {
         let mut result = Vec::new();
 
         for (&attacker_id, req) in &self.requirements {

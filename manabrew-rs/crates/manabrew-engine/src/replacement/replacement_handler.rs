@@ -1065,9 +1065,9 @@ fn battlefield_pre_list(game: &GameState, event: &ReplacementEvent) -> Option<Ca
         return None;
     }
     let mut pre = game.clone();
-    pre.cards[card.index()].zone = ZoneType::Battlefield;
+    pre.card_mut(*card).zone = ZoneType::Battlefield;
     crate::staticability::layer::apply_continuous_effects(&mut pre);
-    Some(pre.cards[card.index()].clone())
+    Some(pre.card(*card).clone())
 }
 
 type ReplaceDamageKey = (CardId, usize, i32);

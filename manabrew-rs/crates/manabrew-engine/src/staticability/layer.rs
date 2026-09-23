@@ -33,6 +33,7 @@
 //! 8. Forge rules-modifying layer → [`Layer::Rules`]
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use forge_foundation::{CardTypeLine, CoreType, Supertype, ZoneType};
 
@@ -195,6 +196,10 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::Continuous);
     // ── 1. Reset all derived fields ──────────────────────────────────────
     for card in game.cards.iter_mut() {
+        if static_layer_reset_is_noop(card) {
+            continue;
+        }
+        let card = Arc::make_mut(card);
         card.clear_static_layer_changed_card_traits();
         // Remove abilities granted by continuous effects (AddAbility$).
         // The base_ability_count tracks how many abilities the card originally had.
@@ -238,7 +243,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             && card.has_keyword("Unleash")
             && card.counter_count(&crate::card::CounterType::P1P1) > 0
         {
-            card.cant_block_static = true;
+            Arc::make_mut(card).cant_block_static = true;
         }
     }
 
@@ -253,7 +258,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         == Some("Decayed")
             });
         if card.zone == ZoneType::Battlefield && card.is_creature() && decayed {
-            card.cant_block_static = true;
+            Arc::make_mut(card).cant_block_static = true;
         }
     }
 
@@ -269,6 +274,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 sa.alt_cost == Some(crate::spellability::AlternativeCost::Impending)
             })
         {
+            let card = Arc::make_mut(card);
             if card.static_type_line_base.is_none() {
                 card.static_type_line_base = Some(card.type_line.clone());
             }
@@ -848,7 +854,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         granted_by_target.entry(target).or_default().push(granted);
     }
     for (target, static_abilities) in granted_by_target {
-        game.cards[target.index()].add_changed_card_traits(
+        game.card_mut(target).add_changed_card_traits(
             crate::card::card_trait_changes::CardTraitChanges {
                 static_abilities,
                 ..Default::default()
@@ -859,7 +865,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     }
 
     for target in cant_block_targets {
-        game.cards[target.index()].cant_block_static = true;
+        game.card_mut(target).cant_block_static = true;
     }
 
     flush_pending_effects(
@@ -873,7 +879,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     type_changed.dedup();
 
     for (target, replacements) in granted_keyword_replacements {
-        game.cards[target.index()].add_changed_card_traits(
+        game.card_mut(target).add_changed_card_traits(
             crate::card::card_trait_changes::CardTraitChanges {
                 replacements,
                 ..Default::default()
@@ -886,6 +892,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         if card.pump_keywords.is_empty() && card.granted_keywords.is_empty() {
             continue;
         }
+        let card = Arc::make_mut(card);
         let mut keywords = card.pump_keywords.as_string_list();
         card.generate_keyword_triggers_for(&keywords);
         keywords.extend(card.granted_keywords.as_string_list());
@@ -893,7 +900,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     }
 
     for target in type_changed {
-        let card = &mut game.cards[target.index()];
+        let card = game.card_mut(target);
         let mut sanitized = card.type_line.clone();
         if sanitize_subtypes(&mut sanitized) {
             if card.static_type_line_base.is_none() {
@@ -907,10 +914,38 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     // Rebuild intrinsic basic-land mana abilities after type-changing continuous
     // effects have been applied (e.g. Urborg making lands into Swamps).
     for card in game.cards.iter_mut() {
-        if card.zone == ZoneType::Battlefield {
-            card.generate_basic_land_mana_abilities();
+        if card.zone == ZoneType::Battlefield && card.lacks_basic_land_mana_abilities() {
+            Arc::make_mut(card).generate_basic_land_mana_abilities();
         }
     }
+}
+
+/// Keep in sync with the reset loop at the top of `apply_continuous_effects`: a card this
+/// answers true for is skipped there, so it must be exactly the state that loop would leave.
+fn static_layer_reset_is_noop(card: &crate::card::Card) -> bool {
+    card.changed_card_traits
+        .keys()
+        .all(|(_, static_id)| *static_id >= 0)
+        && card.activated_abilities.len() <= card.base_ability_count
+        && card
+            .activated_abilities
+            .iter()
+            .enumerate()
+            .all(|(ability_idx, ability)| ability.ability_index == ability_idx)
+        && card.triggers.len() <= card.base_trigger_count + card.pump_trigger_count
+        && card.static_power_modifier == 0
+        && card.static_toughness_modifier == 0
+        && (card.face_down
+            || (card.static_set_power.is_none() && card.static_set_toughness.is_none()))
+        && card.granted_keywords.has_no_entries()
+        && card
+            .svars
+            .get("OriginalName")
+            .is_none_or(|name| *name == card.card_name)
+        && card.granted_svars.is_empty()
+        && card.static_type_line_base.is_none()
+        && card.static_added_subtypes.is_empty()
+        && !card.cant_block_static
 }
 
 fn flush_pending_effects(
@@ -953,12 +988,12 @@ fn apply_pending_effects(
                 game.change_controller(effect.target, controller);
             }
             EffectKind::AddPT { power, toughness } => {
-                let card = &mut game.cards[effect.target.index()];
+                let card = game.card_mut(effect.target);
                 card.static_power_modifier += power;
                 card.static_toughness_modifier += toughness;
             }
             EffectKind::SetPT { power, toughness } => {
-                let card = &mut game.cards[effect.target.index()];
+                let card = game.card_mut(effect.target);
                 // Layer 7b: override the base P/T for this calculation cycle.
                 // We use `static_set_power` rather than mutating `base_power`
                 // so the original base value is preserved for the next reset.
@@ -973,7 +1008,7 @@ fn apply_pending_effects(
                 timestamp,
                 static_id,
             } => {
-                game.cards[effect.target.index()].add_changed_card_traits(
+                game.card_mut(effect.target).add_changed_card_traits(
                     crate::card::card_trait_changes::CardTraitChanges::remove_all_layer(
                         Vec::new(),
                         Vec::new(),
@@ -985,10 +1020,10 @@ fn apply_pending_effects(
                 );
             }
             EffectKind::SetName(name) => {
-                game.cards[effect.target.index()].add_changed_name(&name);
+                game.card_mut(effect.target).add_changed_name(&name);
             }
             EffectKind::GrantKeyword(kw) => {
-                let card = &mut game.cards[effect.target.index()];
+                let card = game.card_mut(effect.target);
                 let kw: String = if kw.contains("CardManaCost") {
                     kw.replace("CardManaCost", &card.mana_cost.short_string())
                 } else if kw.contains("ConvertedManaCost") {
@@ -1111,7 +1146,7 @@ fn apply_pending_effects(
                 }
             }
             EffectKind::RemoveCardTypes => {
-                let card = &mut game.cards[effect.target.index()];
+                let card = game.card_mut(effect.target);
                 if card.static_type_line_base.is_none() {
                     card.static_type_line_base = Some(card.type_line.clone());
                 }
@@ -1125,7 +1160,7 @@ fn apply_pending_effects(
                     EffectKind::RemoveLandTypes => crate::game::TypeRegistry::is_land_type,
                     _ => |s| crate::game::TypeRegistry::is_subtype_in("ArtifactTypes", s),
                 };
-                let card = &mut game.cards[effect.target.index()];
+                let card = game.card_mut(effect.target);
                 if card.type_line.subtypes.iter().any(|s| is_removed(s)) {
                     if card.static_type_line_base.is_none() {
                         card.static_type_line_base = Some(card.type_line.clone());
@@ -1135,7 +1170,7 @@ fn apply_pending_effects(
                 }
             }
             EffectKind::RemoveCreatureTypes => {
-                let card = &mut game.cards[effect.target.index()];
+                let card = game.card_mut(effect.target);
                 if card.type_line.subtypes.iter().any(|s| {
                     crate::game::TypeRegistry::creature_types()
                         .iter()
@@ -1153,7 +1188,7 @@ fn apply_pending_effects(
                 }
             }
             EffectKind::AddType(t) => {
-                let card = &mut game.cards[effect.target.index()];
+                let card = game.card_mut(effect.target);
                 if !type_line_has_token(&card.type_line, &t) {
                     if card.static_type_line_base.is_none() {
                         card.static_type_line_base = Some(card.type_line.clone());
@@ -1169,16 +1204,14 @@ fn apply_pending_effects(
             } => {
                 // Parse the ability text and add it to the target's activated abilities.
                 // This grants abilities like "{T}: Add one mana of any color."
-                game.cards[effect.target.index()]
-                    .granted_svars
-                    .extend(svars);
+                game.card_mut(effect.target).granted_svars.extend(svars);
                 let target_idx = effect.target.index();
                 let next_idx = game.cards[target_idx].activated_abilities.len();
                 if let Some(mut ab) =
                     crate::ability::activated::parse_activated_ability(&text, next_idx)
                 {
                     ab.original_host = original_host;
-                    game.cards[target_idx].activated_abilities.push(ab);
+                    game.card_mut(effect.target).activated_abilities.push(ab);
                 }
             }
             EffectKind::GrantTrigger {
@@ -1186,9 +1219,7 @@ fn apply_pending_effects(
                 svars,
                 original_host,
             } => {
-                game.cards[effect.target.index()]
-                    .granted_svars
-                    .extend(svars);
+                game.card_mut(effect.target).granted_svars.extend(svars);
                 let target = &game.cards[effect.target.index()];
                 let intrinsic_count = (target.base_trigger_count + target.pump_trigger_count)
                     .min(target.triggers.len());
@@ -1209,7 +1240,7 @@ fn apply_pending_effects(
                 let mut next_id_mut = base_id.saturating_add(1).saturating_add(seq);
                 if let Some(mut trig) = crate::trigger::parse_trigger(&text, &mut next_id_mut) {
                     trig.original_host = original_host;
-                    game.cards[effect.target.index()].add_trigger(trig);
+                    game.card_mut(effect.target).add_trigger(trig);
                 }
             }
             EffectKind::GrantReplacement { text, svars } => {
@@ -1429,7 +1460,7 @@ pub fn apply_etb_tapped_with_agents(
         };
 
         if tapped {
-            game.cards[entering_card.index()].tapped = true;
+            game.card_mut(entering_card).tapped = true;
             return; // once tapped, no need to check further sources
         }
     }
@@ -1447,7 +1478,7 @@ pub fn apply_etb_tapped_with_agents(
         prompt_etb_tapped_replacement_with_agents(game, entering_card, agents);
     }
 
-    game.cards[entering_card.index()].tapped = true;
+    game.card_mut(entering_card).tapped = true;
 }
 
 /// Check if a card has a shock-land-style "enters tapped unless you pay life" effect.

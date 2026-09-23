@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
@@ -5,7 +7,7 @@ use crate::spellability::SpellAbility;
 use crate::staticability::StaticMode;
 
 pub fn cant_sacrifice(
-    cards: &[Card],
+    cards: &[Arc<Card>],
     card: &Card,
     cause: Option<&SpellAbility>,
     is_cost: bool,

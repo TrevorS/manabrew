@@ -12,7 +12,7 @@ forge-carddb = { path = "../forge-carddb", version = "0.3.3" }
 manabrew-engine-macros = { path = "../manabrew-engine-macros", version = "0.2.0" }
 strum_macros = "0.28.0"
 strum = "0.28"
-serde = { workspace = true }
+serde = { workspace = true, features = ["rc"] }
 serde_json = { workspace = true }
 rand = "0.8"
 indexmap = { version = "2", features = ["serde"] }

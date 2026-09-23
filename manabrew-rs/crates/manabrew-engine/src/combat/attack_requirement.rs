@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::HashMap;
 
 use super::DefenderId;
@@ -71,7 +73,7 @@ impl AttackRequirement {
 /// 1. Static abilities with `MustAttack` mode (existing `must_attack()` check)
 /// 2. Goad: creature is goaded and must attack a player other than the goader
 pub fn compute_attack_requirements(
-    cards: &[Card],
+    cards: &[Arc<Card>],
     available: &[CardId],
     defending: PlayerId,
 ) -> Vec<AttackRequirement> {
@@ -80,7 +82,7 @@ pub fn compute_attack_requirements(
 
 /// Compute attack requirements with a full list of possible defenders.
 pub fn compute_attack_requirements_with_defenders(
-    cards: &[Card],
+    cards: &[Arc<Card>],
     available: &[CardId],
     possible_defenders: &[DefenderId],
 ) -> Vec<AttackRequirement> {

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
@@ -6,7 +8,7 @@ use crate::staticability::StaticMode;
 
 /// Check whether damage from `source_id` cannot be prevented.
 /// Mirrors Java's StaticAbilityCantPreventDamage.cantPreventDamage().
-pub fn cant_prevent_damage(cards: &[Card], source_id: CardId, is_combat: bool) -> bool {
+pub fn cant_prevent_damage(cards: &[Arc<Card>], source_id: CardId, is_combat: bool) -> bool {
     let source_card = &cards[source_id.index()];
 
     for static_source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {

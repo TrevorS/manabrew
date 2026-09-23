@@ -1,9 +1,11 @@
+use std::sync::Arc;
+
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
 use crate::staticability::StaticMode;
 
-pub fn assign_as_unblocked(cards: &[Card], card: &Card, optional: bool) -> bool {
+pub fn assign_as_unblocked(cards: &[Arc<Card>], card: &Card, optional: bool) -> bool {
     for source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {
         for st_ab in source
             .static_abilities
@@ -24,7 +26,7 @@ pub fn assign_as_unblocked(cards: &[Card], card: &Card, optional: bool) -> bool 
     false
 }
 
-pub fn has_optional_assign_as_unblocked(cards: &[Card], card: &Card) -> bool {
+pub fn has_optional_assign_as_unblocked(cards: &[Arc<Card>], card: &Card) -> bool {
     cards
         .iter()
         .filter(|c| c.zone == ZoneType::Battlefield)
@@ -40,7 +42,7 @@ pub fn has_optional_assign_as_unblocked(cards: &[Card], card: &Card) -> bool {
         })
 }
 
-pub fn has_mandatory_assign_as_unblocked(cards: &[Card], card: &Card) -> bool {
+pub fn has_mandatory_assign_as_unblocked(cards: &[Arc<Card>], card: &Card) -> bool {
     cards
         .iter()
         .filter(|c| c.zone == ZoneType::Battlefield)
@@ -57,7 +59,7 @@ pub fn has_mandatory_assign_as_unblocked(cards: &[Card], card: &Card) -> bool {
 }
 
 /// Java parity alias for `assign_as_unblocked`.
-pub fn assign_combat_damage_as_unblocked(cards: &[Card], card: &Card) -> bool {
+pub fn assign_combat_damage_as_unblocked(cards: &[Arc<Card>], card: &Card) -> bool {
     has_mandatory_assign_as_unblocked(cards, card)
 }
 

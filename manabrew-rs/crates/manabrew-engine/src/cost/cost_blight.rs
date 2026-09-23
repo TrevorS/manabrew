@@ -51,7 +51,7 @@ pub fn can_pay(
         .players
         .iter()
         .flat_map(|p| game.cards_in_zone(forge_foundation::ZoneType::Battlefield, p.id))
-        .map(|&cid| game.card(cid).clone())
+        .map(|&cid| game.cards[cid.index()].clone())
         .collect();
     let has_creature = game
         .cards_in_zone(forge_foundation::ZoneType::Battlefield, player)

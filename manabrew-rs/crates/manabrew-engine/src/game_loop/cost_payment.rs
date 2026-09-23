@@ -3188,7 +3188,7 @@ impl GameLoop {
             .players
             .iter()
             .flat_map(|p| game.cards_in_zone(ZoneType::Battlefield, p.id))
-            .map(|&cid| game.card(cid).clone())
+            .map(|&cid| game.cards[cid.index()].clone())
             .collect();
         let foods: Vec<CardId> = game
             .cards_in_zone(ZoneType::Battlefield, player)

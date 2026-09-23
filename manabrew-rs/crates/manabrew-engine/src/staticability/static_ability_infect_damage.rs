@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
@@ -9,7 +11,7 @@ use crate::staticability::StaticMode;
 
 pub fn is_infect_damage(
     game: &GameState,
-    cards: &[Card],
+    cards: &[Arc<Card>],
     target: PlayerId,
     source_controller: PlayerId,
 ) -> bool {
@@ -18,7 +20,7 @@ pub fn is_infect_damage(
 
 pub fn is_infect_damage_with_life_override(
     game: &GameState,
-    cards: &[Card],
+    cards: &[Arc<Card>],
     target: PlayerId,
     _source_controller: PlayerId,
     target_life_override: Option<i32>,

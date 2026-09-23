@@ -1,10 +1,12 @@
+use std::sync::Arc;
+
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card, CounterType};
 use crate::parsing::CompiledSelector;
 use crate::staticability::StaticMode;
 
-pub fn max_counter(cards: &[Card], target: &Card, counter_type: &CounterType) -> Option<i32> {
+pub fn max_counter(cards: &[Arc<Card>], target: &Card, counter_type: &CounterType) -> Option<i32> {
     let _perf_scope =
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::StaticAbility);
     let mut result: Option<i32> = None;

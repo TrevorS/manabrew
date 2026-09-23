@@ -1113,7 +1113,7 @@ impl GameLoop {
         let active = game.active_player();
         for card in game.cards.iter_mut() {
             if card.zone == ZoneType::Battlefield {
-                card.on_end_of_combat(active);
+                Arc::make_mut(card).on_end_of_combat(active);
             }
         }
         for command in game.end_of_combat.execute_until(None) {
@@ -1128,6 +1128,7 @@ impl GameLoop {
         // End-of-combat damage history reset and must_block cleanup
         for card in game.cards.iter_mut() {
             if card.zone == ZoneType::Battlefield && card.is_creature() {
+                let card = Arc::make_mut(card);
                 card.damage_history.end_combat();
                 card.must_block = false;
                 card.must_block_cards.clear();

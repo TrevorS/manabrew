@@ -1,10 +1,12 @@
+use std::sync::Arc;
+
 use forge_foundation::ZoneType;
 
 use crate::card::Card;
 use crate::ids::PlayerId;
 use crate::staticability::StaticMode;
 
-pub fn global_attack_restrict(cards: &[Card]) -> Option<i32> {
+pub fn global_attack_restrict(cards: &[Arc<Card>]) -> Option<i32> {
     let mut max: Option<i32> = None;
     for source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {
         for st_ab in source
@@ -27,7 +29,7 @@ pub fn global_attack_restrict(cards: &[Card]) -> Option<i32> {
     max
 }
 
-pub fn attack_restrict_num_for_defender(cards: &[Card], defender: PlayerId) -> Option<i32> {
+pub fn attack_restrict_num_for_defender(cards: &[Arc<Card>], defender: PlayerId) -> Option<i32> {
     let mut max: Option<i32> = None;
     for source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {
         for st_ab in source

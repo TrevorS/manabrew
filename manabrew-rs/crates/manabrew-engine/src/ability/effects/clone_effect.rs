@@ -105,7 +105,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
             })
             .collect();
-        let target = &mut ctx.game.cards[clone_target_id.index()];
+        let target = ctx.game.card_mut(clone_target_id);
         let host_svars = (clone_target_id == source_id).then(|| target.svars.clone());
         crate::card::card_copy_service::copy_copiable_characteristics(&src, target);
         // Forge builds the sub-abilities and `Execute$` abilities of the cloning ability

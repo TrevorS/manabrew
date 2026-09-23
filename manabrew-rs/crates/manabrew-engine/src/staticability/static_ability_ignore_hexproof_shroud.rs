@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
@@ -5,15 +7,15 @@ use crate::ids::PlayerId;
 use crate::parsing::CompiledSelector;
 use crate::staticability::StaticMode;
 
-pub fn ignore_hexproof(cards: &[Card], target: &Card, activator: PlayerId) -> bool {
+pub fn ignore_hexproof(cards: &[Arc<Card>], target: &Card, activator: PlayerId) -> bool {
     any_ignore(cards, target, activator, StaticMode::IgnoreHexproof)
 }
 
-pub fn ignore_shroud(cards: &[Card], target: &Card, activator: PlayerId) -> bool {
+pub fn ignore_shroud(cards: &[Arc<Card>], target: &Card, activator: PlayerId) -> bool {
     any_ignore(cards, target, activator, StaticMode::IgnoreShroud)
 }
 
-fn any_ignore(cards: &[Card], target: &Card, activator: PlayerId, mode: StaticMode) -> bool {
+fn any_ignore(cards: &[Arc<Card>], target: &Card, activator: PlayerId, mode: StaticMode) -> bool {
     for source in cards
         .iter()
         .filter(|c| c.zone == ZoneType::Battlefield || c.zone == ZoneType::Command)

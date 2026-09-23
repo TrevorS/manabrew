@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use forge_foundation::Color;
 use manabrew_engine::card::Card;
 use manabrew_engine::ids::CardId;
@@ -24,7 +26,7 @@ pub fn sort_replacement_descriptions_with_indices(descriptions: &[String]) -> Ve
 }
 
 pub fn ability_declaration_sort_index(
-    cards: &[Card],
+    cards: &[Arc<Card>],
     ability_texts: &[((CardId, usize), String)],
     card_id: CardId,
     ability_idx: usize,
@@ -56,7 +58,7 @@ pub fn ability_declaration_sort_index(
 }
 
 pub fn ability_declaration_sort_key(
-    cards: &[Card],
+    cards: &[Arc<Card>],
     ability_texts: &[((CardId, usize), String)],
     card_id: CardId,
     ability_idx: usize,

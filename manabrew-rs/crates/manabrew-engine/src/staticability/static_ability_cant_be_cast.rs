@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::card::{valid_filter, Card};
 use crate::game::GameState;
 use crate::ids::PlayerId;
@@ -11,7 +13,7 @@ use forge_foundation::ZoneType;
 /// Sets the cast SA on the card, then iterates all cards in static-ability
 /// source zones plus the card itself, checking CantBeCast static abilities.
 pub fn cant_be_cast_ability(
-    cards: &[Card],
+    cards: &[Arc<Card>],
     spell: &SpellAbility,
     card: &Card,
     activator: PlayerId,
@@ -31,7 +33,7 @@ pub fn restriction_host(card: &Card) -> Card {
 /// Context-aware variant used by playability/casting code where full game
 /// timing checks (e.g. OnlySorcerySpeed) are available.
 pub fn cant_be_cast_ability_in_context(
-    cards: &[Card],
+    cards: &[Arc<Card>],
     spell: &SpellAbility,
     card: &Card,
     activator: PlayerId,
@@ -182,7 +184,7 @@ pub fn apply_cant_be_cast_ability(
 /// Then iterates all cards in static-ability source zones.
 pub fn cant_be_activated_ability(
     game: &GameState,
-    cards: &[Card],
+    cards: &[Arc<Card>],
     spell: &SpellAbility,
     card: &Card,
     activator: PlayerId,
@@ -258,7 +260,7 @@ pub fn apply_cant_be_activated_ability(
 /// Mirrors Java's `StaticAbilityCantBeCast.cantPlayLandAbility`.
 ///
 /// Iterates all cards in static-ability source zones checking CantPlayLand.
-pub fn cant_play_land_ability(cards: &[Card], card: &Card, player: PlayerId) -> bool {
+pub fn cant_play_land_ability(cards: &[Arc<Card>], card: &Card, player: PlayerId) -> bool {
     for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
         for st_ab in source
             .static_abilities

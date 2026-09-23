@@ -1800,7 +1800,7 @@ mod tests {
         let mut maralen = Card::from_rules(&rules, PlayerId(0));
         maralen.id = crate::ids::CardId(0);
         maralen.zone = forge_foundation::ZoneType::Battlefield;
-        game.cards.push(maralen);
+        game.cards.push(std::sync::Arc::new(maralen));
         game.add_card_to_zone(
             forge_foundation::ZoneType::Battlefield,
             PlayerId(0),

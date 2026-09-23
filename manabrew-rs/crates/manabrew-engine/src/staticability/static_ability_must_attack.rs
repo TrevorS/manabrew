@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
@@ -15,7 +17,7 @@ pub enum MustAttackEntity {
 /// Mirrors Java `StaticAbilityMustAttack.entitiesMustAttack`: the entities the attacker must
 /// attack, with the active player dropped (CR 506.2, a player cannot attack themselves).
 pub fn entities_must_attack(
-    cards: &[Card],
+    cards: &[Arc<Card>],
     attacker: &Card,
     active_player: PlayerId,
 ) -> Vec<MustAttackEntity> {

@@ -161,13 +161,16 @@ impl DeterministicAgent {
         card.clone_for_parity_snapshot()
     }
 
-    fn shallow_cards(game: &GameState) -> Vec<Card> {
-        game.cards.iter().map(Self::shallow_snapshot_card).collect()
+    fn shallow_cards(game: &GameState) -> Vec<Arc<Card>> {
+        game.cards
+            .iter()
+            .map(|card| Arc::new(Self::shallow_snapshot_card(card)))
+            .collect()
     }
 
     /// Refreshes a snapshot of `cards` kept from the last decision; most cards have not
     /// changed, so this reuses their allocations instead of cloning every card again.
-    pub(crate) fn refresh_snapshot_cards(snapshot: &mut Vec<Card>, cards: &[Card]) {
+    pub(crate) fn refresh_snapshot_cards(snapshot: &mut Vec<Arc<Card>>, cards: &[Arc<Card>]) {
         snapshot.truncate(cards.len());
         for (out, card) in snapshot.iter_mut().zip(cards) {
             if out.id == card.id
@@ -176,10 +179,14 @@ impl DeterministicAgent {
             {
                 continue;
             }
-            card.refresh_parity_snapshot(out);
+            card.refresh_parity_snapshot(Arc::make_mut(out));
         }
         let kept = snapshot.len();
-        snapshot.extend(cards[kept..].iter().map(Self::shallow_snapshot_card));
+        snapshot.extend(
+            cards[kept..]
+                .iter()
+                .map(|card| Arc::new(Self::shallow_snapshot_card(card))),
+        );
     }
 
     pub(crate) fn shallow_stack_entry(entry: &StackEntry) -> StackEntry {
@@ -248,7 +255,7 @@ impl DeterministicAgent {
         self.snapshot_game.as_mut()
     }
 
-    fn snapshot_cards(&self) -> &[Card] {
+    fn snapshot_cards(&self) -> &[Arc<Card>] {
         self.snapshot_game
             .as_ref()
             .map(|game| game.cards.as_slice())
@@ -920,7 +927,10 @@ impl DeterministicAgent {
     }
 
     fn snapshot_card(&self, _snap: &GameSnapshot, id: CardId) -> Option<&Card> {
-        self.snapshot_cards().iter().find(|c| c.id == id)
+        self.snapshot_cards()
+            .iter()
+            .find(|c| c.id == id)
+            .map(Arc::as_ref)
     }
 
     fn snapshot_can_creature_block(

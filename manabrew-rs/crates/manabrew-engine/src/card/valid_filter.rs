@@ -27,6 +27,8 @@
 //! - Combat: DamagedBy
 //! - Attachment: EnchantedBy
 
+use std::sync::Arc;
+
 use forge_foundation::color::Color;
 use forge_foundation::mana::ManaAtom;
 use forge_foundation::ZoneType;
@@ -1041,6 +1043,7 @@ fn matches_extreme_power(
     let mut cards: Vec<&Card> = game
         .cards
         .iter()
+        .map(Arc::as_ref)
         .filter(|other| {
             other.zone == forge_foundation::ZoneType::Battlefield && other.is_creature()
         })

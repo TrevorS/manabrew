@@ -786,61 +786,63 @@ impl GameLoop {
 
         // Remove damage and reset until-end-of-turn effects on all battlefield permanents
         for i in 0..game.cards.len() {
-            game.cards[i].tapped_this_turn = 0;
-            if game.cards[i].zone == ZoneType::Battlefield {
+            let card = Arc::make_mut(&mut game.cards[i]);
+            card.tapped_this_turn = 0;
+            if card.zone == ZoneType::Battlefield {
                 // Restore animate state before checking creature status (issue #52).
-                let had_animate_state = game.cards[i].animate_state.is_some();
-                if let Some(state) = game.cards[i]
+                let had_animate_state = card.animate_state.is_some();
+                if let Some(state) = card
                     .animate_state
                     .take_if(|state| state.ends_at_end_of_turn)
                 {
-                    game.cards[i].restore_animate_snapshot(
+                    card.restore_animate_snapshot(
                         state.original_type_line,
                         state.original_base_power,
                         state.original_base_toughness,
                         state.original_color,
                     );
                     for ts in state.trait_change_timestamps {
-                        game.cards[i].remove_changed_card_traits(ts, 0);
+                        card.remove_changed_card_traits(ts, 0);
                     }
                 }
                 if had_animate_state {
-                    game.cards[i].clear_damage();
+                    card.clear_damage();
                 }
-                if game.cards[i]
+                if card
                     .clone_state
                     .as_ref()
                     .is_some_and(|state| state.expires_at_cleanup)
                 {
-                    if let Some(state) = game.cards[i].clone_state.take() {
-                        game.cards[i].restore_clone_snapshot(*state);
+                    if let Some(state) = card.clone_state.take() {
+                        card.restore_clone_snapshot(*state);
                     }
                 }
 
-                game.cards[i].reset_turn_modifiers();
-                game.cards[i].cant_have_keywords.clear();
-                game.cards[i].clear_pump_keywords();
-                game.cards[i].clear_pump_triggers();
-                game.cards[i].clear_deathtouch_damage();
-                game.cards[i].reset_regeneration_shields();
-                game.cards[i].reset_shield_count();
-                game.cards[i].reset_crewed();
-                game.cards[i].reset_saddled();
+                card.reset_turn_modifiers();
+                card.cant_have_keywords.clear();
+                card.clear_pump_keywords();
+                card.clear_pump_triggers();
+                card.clear_deathtouch_damage();
+                card.reset_regeneration_shields();
+                card.reset_shield_count();
+                card.reset_crewed();
+                card.reset_saddled();
 
-                if game.cards[i].is_creature() {
+                if card.is_creature() {
                     let keep_damage =
                         crate::staticability::static_ability_no_cleanup_damage::damage_not_removed(
                             &game.cards,
                             &game.cards[i],
                         );
+                    let card = Arc::make_mut(&mut game.cards[i]);
                     if !keep_damage {
-                        game.cards[i].clear_damage();
+                        card.clear_damage();
                     }
-                    game.cards[i].reset_turn_modifiers();
-                    game.cards[i].clear_deathtouch_damage();
-                    game.cards[i].reset_regeneration_shields();
-                    game.cards[i].reset_shield_count();
-                    game.cards[i].damage_history.new_turn();
+                    card.reset_turn_modifiers();
+                    card.clear_deathtouch_damage();
+                    card.reset_regeneration_shields();
+                    card.reset_shield_count();
+                    card.damage_history.new_turn();
                 }
                 // Effects with "until end of turn" duration end at cleanup
                 // (CR 514.2). Pump keywords and "can't have" tags apply to
@@ -849,13 +851,14 @@ impl GameLoop {
                 // every battlefield card, not just creatures. Without this,
                 // an artifact like Lightning Greaves keeps Heroic
                 // Intervention's hexproof past the turn it was cast.
-                game.cards[i].cant_have_keywords.clear();
-                game.cards[i].clear_pump_keywords();
-                game.cards[i].clear_pump_triggers();
+                let card = Arc::make_mut(&mut game.cards[i]);
+                card.cant_have_keywords.clear();
+                card.clear_pump_keywords();
+                card.clear_pump_triggers();
             } else {
-                game.cards[i].cant_have_keywords.clear();
-                game.cards[i].clear_pump_keywords();
-                game.cards[i].clear_pump_triggers();
+                card.cant_have_keywords.clear();
+                card.clear_pump_keywords();
+                card.clear_pump_triggers();
             }
         }
     }
@@ -889,7 +892,7 @@ impl GameLoop {
                 && card.zone == ZoneType::Battlefield
                 && card.turn_in_zone < turn_number
             {
-                card.came_under_control_since_last_upkeep = false;
+                Arc::make_mut(card).came_under_control_since_last_upkeep = false;
             }
         }
     }

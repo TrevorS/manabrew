@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use forge_foundation::{CoreType, ZoneType};
 
 use crate::agent::{GameEntity, PlayerAgent};
@@ -241,7 +243,7 @@ impl GameState {
         };
         if dest_zone == ZoneType::Exile && self.cards[card_id.index()].effect_source.is_some() {
             self.remove_card_from_zone(src_zone, src_owner, card_id);
-            self.cards[card_id.index()].set_zone(ZoneType::None);
+            self.card_mut(card_id).set_zone(ZoneType::None);
             return;
         }
         if crate::game_loop::GameLoop::card_trace_matches(&self.cards[card_id.index()].card_name) {
@@ -300,7 +302,7 @@ impl GameState {
                                 .cloned(),
                             params.selector_untracked("IsPresent2").cloned(),
                         );
-                    let card = &self.cards[card_id.index()];
+                    let card = self.card(card_id);
                     if !requirements.meets(self, card, card) {
                         continue;
                     }
@@ -446,7 +448,7 @@ impl GameState {
         let etb_counter_map = if dest_zone != ZoneType::Battlefield {
             etb_counter_map
         } else {
-            let staged_etb_counters = std::mem::take(&mut self.cards[card_id.index()].etb_counters);
+            let staged_etb_counters = std::mem::take(&mut self.card_mut(card_id).etb_counters);
             if staged_etb_counters.is_empty() {
                 etb_counter_map
             } else {
@@ -518,7 +520,7 @@ impl GameState {
         for eff_id in exile_on_moved_effects {
             let controller = self.card(eff_id).controller;
             self.remove_card_from_zone(ZoneType::Command, controller, eff_id);
-            self.cards[eff_id.index()].zone = ZoneType::None;
+            self.card_mut(eff_id).zone = ZoneType::None;
         }
 
         if src_zone == ZoneType::Battlefield && dest_zone != ZoneType::Battlefield {
@@ -536,7 +538,7 @@ impl GameState {
             }
             let mut exile_effects = Vec::new();
             for eff_id in forget_effects.iter().copied() {
-                let eff = &mut self.cards[eff_id.index()];
+                let eff = self.card_mut(eff_id);
                 eff.remembered_cards.retain(|&rid| rid != card_id);
                 if eff.exile_when_no_remembered && eff.remembered_cards.is_empty() {
                     exile_effects.push(eff_id);
@@ -544,13 +546,13 @@ impl GameState {
             }
             let attachments: Vec<CardId> = self.cards[card_id.index()].attachments.clone();
             for aura_id in attachments {
-                self.cards[aura_id.index()].attached_to = None;
-                self.cards[aura_id.index()].is_bestowed = false;
+                self.card_mut(aura_id).attached_to = None;
+                self.card_mut(aura_id).is_bestowed = false;
             }
-            self.cards[card_id.index()].attachments.clear();
+            self.card_mut(card_id).attachments.clear();
             self.detach(card_id);
 
-            self.cards[card_id.index()].zone = ZoneType::None;
+            self.card_mut(card_id).zone = ZoneType::None;
             if src_zone != ZoneType::None {
                 self.remove_card_from_zone(src_zone, src_owner, card_id);
             }
@@ -560,7 +562,7 @@ impl GameState {
             for eff_id in exile_effects {
                 let controller = self.card(eff_id).controller;
                 self.remove_card_from_zone(ZoneType::Command, controller, eff_id);
-                self.cards[eff_id.index()].zone = ZoneType::None;
+                self.card_mut(eff_id).zone = ZoneType::None;
             }
             apply_continuous_effects(self);
             debug_assert!(self.card_zone_location_matches_card(card_id));
@@ -573,17 +575,17 @@ impl GameState {
         if leaves_as_new_object && src_zone == ZoneType::Battlefield {
             let card = &self.cards[card_id.index()];
             let lki_transformed = card.is_transformed && !card.type_line.has_subtype("Room");
-            self.cards[card_id.index()].lki_transformed = lki_transformed;
+            self.card_mut(card_id).lki_transformed = lki_transformed;
         }
         if leaves_as_new_object && self.cards[card_id.index()].is_transformed {
-            self.cards[card_id.index()].transform();
+            self.card_mut(card_id).transform();
         }
         if leaves_as_new_object {
-            self.cards[card_id.index()].cast_from = None;
-            self.cards[card_id.index()].chosen_charm_modes.clear();
+            self.card_mut(card_id).cast_from = None;
+            self.card_mut(card_id).chosen_charm_modes.clear();
         }
         if src_zone == ZoneType::Exile && dest_zone != ZoneType::Exile {
-            self.cards[card_id.index()]
+            self.card_mut(card_id)
                 .keywords
                 .remove(crate::card::KEYWORD_WARP_EXILED);
         }
@@ -594,16 +596,16 @@ impl GameState {
         }
 
         if src_zone == ZoneType::Exile && dest_zone != ZoneType::Exile {
-            self.cards[card_id.index()]
+            self.card_mut(card_id)
                 .keywords
                 .retain(|kw| !kw.starts_with(crate::card::KEYWORD_PLOTTED_PREFIX));
         }
 
         // Update card's zone
-        self.cards[card_id.index()].zone = dest_zone;
+        self.card_mut(card_id).zone = dest_zone;
         if src_zone != dest_zone {
-            self.cards[card_id.index()].turn_in_zone = self.turn.turn_number;
-            self.cards[card_id.index()].set_discarded(false);
+            self.card_mut(card_id).turn_in_zone = self.turn.turn_number;
+            self.card_mut(card_id).set_discarded(false);
         }
 
         if let Some(table) = self.pending_change_zone_table.as_mut() {
@@ -612,7 +614,7 @@ impl GameState {
 
         if src_zone == ZoneType::Battlefield {
             let left_at = self.cards[card_id.index()].zone_timestamp;
-            self.cards[card_id.index()].lki_zone_timestamp = Some(left_at);
+            self.card_mut(card_id).lki_zone_timestamp = Some(left_at);
         }
 
         // Assign a zone timestamp so same-player triggers are ordered by
@@ -625,7 +627,8 @@ impl GameState {
         self.save_zone_lki(dest_zone, dest_owner, card_id, src_zone);
 
         if !matches!(src_zone, ZoneType::Battlefield) && dest_zone != ZoneType::Battlefield {
-            self.cards[card_id.index()].restore_changed_characteristics_baseline();
+            self.card_mut(card_id)
+                .restore_changed_characteristics_baseline();
         }
 
         // Reset state on zone change
@@ -638,15 +641,15 @@ impl GameState {
                         dest_zone,
                     )
                 {
-                    self.cards[card_id.index()].counters.clear();
+                    self.card_mut(card_id).counters.clear();
                 }
                 // A permanent enters under the destination player's control.
                 // This must be updated before ETB-trigger registration so
                 // triggered abilities inherit the correct controller.
-                self.cards[card_id.index()].controller = dest_owner;
-                self.cards[card_id.index()].enter_battlefield();
+                self.card_mut(card_id).controller = dest_owner;
+                self.card_mut(card_id).enter_battlefield();
                 if replacement_marked_etb_tapped {
-                    self.cards[card_id.index()].set_tapped(true);
+                    self.card_mut(card_id).set_tapped(true);
                 }
                 // Add to destination zone first so the card is "on the
                 // battlefield" when ETB-tapped checks run against it.
@@ -703,7 +706,7 @@ impl GameState {
                     let lki_t = card.toughness();
                     let lki_tapped = card.tapped;
                     let lki_attached_to = card.attached_to;
-                    let card = &mut self.cards[card_id.index()];
+                    let card = self.card_mut(card_id);
                     card.lki_power = Some(lki_p);
                     card.lki_toughness = Some(lki_t);
                     card.lki_tapped = Some(lki_tapped);
@@ -713,11 +716,11 @@ impl GameState {
                 // Detach any attachments before resetting state.
                 let attachments: Vec<CardId> = self.cards[card_id.index()].attachments.clone();
                 for aura_id in attachments {
-                    self.cards[aura_id.index()].attached_to = None;
+                    self.card_mut(aura_id).attached_to = None;
                     // Bestow: when host leaves, revert aura to creature
-                    self.cards[aura_id.index()].is_bestowed = false;
+                    self.card_mut(aura_id).is_bestowed = false;
                 }
-                self.cards[card_id.index()].attachments.clear();
+                self.card_mut(card_id).attachments.clear();
                 // Also detach this card from its host if it was an Aura/Equipment.
                 self.detach(card_id);
 
@@ -728,7 +731,7 @@ impl GameState {
                         &self.cards[card_id.index()],
                         dest_zone,
                     );
-                let card = &mut self.cards[card_id.index()];
+                let card = self.card_mut(card_id);
                 card.tapped = false;
                 card.damage = 0;
                 card.power_modifier = 0;
@@ -803,9 +806,9 @@ impl GameState {
                 // Detach any attachments before resetting state.
                 let attachments: Vec<CardId> = self.cards[card_id.index()].attachments.clone();
                 for aura_id in attachments {
-                    self.cards[aura_id.index()].attached_to = None;
+                    self.card_mut(aura_id).attached_to = None;
                 }
-                self.cards[card_id.index()].attachments.clear();
+                self.card_mut(card_id).attachments.clear();
                 self.detach(card_id);
 
                 // Commander returning to command zone: reset battlefield state.
@@ -815,7 +818,7 @@ impl GameState {
                         &self.cards[card_id.index()],
                         dest_zone,
                     );
-                let card = &mut self.cards[card_id.index()];
+                let card = self.card_mut(card_id);
                 card.tapped = false;
                 card.damage = 0;
                 card.power_modifier = 0;
@@ -846,7 +849,7 @@ impl GameState {
                 }
             }
             ZoneType::Stack => {
-                self.cards[card_id.index()].controller = dest_owner;
+                self.card_mut(card_id).controller = dest_owner;
             }
             _ => {}
         }
@@ -858,12 +861,12 @@ impl GameState {
         // SBA may offer moving it to the command zone exactly once.
         let commander_entered_gy_or_exile = self.card(card_id).is_commander
             && matches!(dest_zone, ZoneType::Graveyard | ZoneType::Exile);
-        self.cards[card_id.index()].move_to_command_zone = commander_entered_gy_or_exile;
+        self.card_mut(card_id).move_to_command_zone = commander_entered_gy_or_exile;
 
         // Forget remembered objects for command effects with ForgetOnMoved.
         let mut exile_effects = Vec::new();
         for eff_id in forget_effects {
-            let eff = &mut self.cards[eff_id.index()];
+            let eff = self.card_mut(eff_id);
             eff.remembered_cards.retain(|&rid| rid != card_id);
             if eff.exile_when_no_remembered && eff.remembered_cards.is_empty() {
                 exile_effects.push(eff_id);
@@ -874,7 +877,7 @@ impl GameState {
         for eff_id in exile_effects {
             let controller = self.card(eff_id).controller;
             self.remove_card_from_zone(ZoneType::Command, controller, eff_id);
-            self.cards[eff_id.index()].zone = ZoneType::None;
+            self.card_mut(eff_id).zone = ZoneType::None;
         }
 
         // Expire temporary effect cards linked to this host leaving play
@@ -889,7 +892,7 @@ impl GameState {
             for eff_id in linked_effects {
                 let controller = self.card(eff_id).controller;
                 self.remove_card_from_zone(ZoneType::Command, controller, eff_id);
-                self.cards[eff_id.index()].zone = ZoneType::None;
+                self.card_mut(eff_id).zone = ZoneType::None;
             }
 
             // Return cards exiled by this host via ChangeZoneAll Duration$ UntilHostLeavesPlay
@@ -907,7 +910,7 @@ impl GameState {
                 })
                 .collect();
             for (exiled_id, owner, origin) in exiled_by_host {
-                self.cards[exiled_id.index()].cleanup_exiled_with();
+                self.card_mut(exiled_id).cleanup_exiled_with();
                 self.move_card(exiled_id, origin, owner);
                 if let Some(handler) = trigger_handler.as_deref_mut() {
                     let returned_zone = self.card(exiled_id).zone;
@@ -1072,12 +1075,14 @@ impl GameState {
                 let shields = self.cards[target.index()].damage_prevention;
                 if shields > 0 && final_amount > 0 {
                     let consumed = shields.min(final_amount);
-                    self.cards[target.index()].damage_prevention -= consumed;
+                    self.card_mut(target).damage_prevention -= consumed;
                     final_amount -= consumed;
                 }
                 let mut dealt = 0;
                 if final_amount > 0 {
-                    dealt = self.cards[target.index()].add_damage_after_prevention(final_amount);
+                    dealt = self
+                        .card_mut(target)
+                        .add_damage_after_prevention(final_amount);
                     // Fire DealtDamage replacement event after damage is applied.
                     let mut dealt_event = ReplacementEvent::DealtDamage {
                         target,
@@ -1325,7 +1330,7 @@ impl GameState {
         if !is_multiplayer {
             // CR 707.9: at the end of the game every face-down card is revealed.
             for &cid in &all_cards {
-                self.cards[cid.index()].force_turn_face_up();
+                self.card_mut(cid).force_turn_face_up();
             }
             return;
         }
@@ -1360,7 +1365,7 @@ impl GameState {
             if owner != player {
                 // CR 800.4c: nothing stays enchanting the leaving player.
                 if self.cards[cid.index()].attached_to_player == Some(player) {
-                    self.cards[cid.index()].attached_to_player = None;
+                    self.card_mut(cid).attached_to_player = None;
                 }
                 continue;
             }
@@ -1368,7 +1373,7 @@ impl GameState {
                 // Mirrors Java: lingering effects move to the next player so
                 // they continue to work.
                 self.remove_card_from_zone(ZoneType::Command, controller, cid);
-                self.cards[cid.index()].controller = next;
+                self.card_mut(cid).controller = next;
                 self.add_card_to_zone(ZoneType::Command, next, cid);
                 continue;
             }
@@ -1377,7 +1382,7 @@ impl GameState {
                 if other == cid {
                     continue;
                 }
-                let other_card = &mut self.cards[other.index()];
+                let other_card = self.card_mut(other);
                 other_card.imprinted_cards.retain(|&r| r != cid);
                 other_card.exiled_cards.retain(|&r| r != cid);
                 other_card.remembered_cards.retain(|&r| r != cid);
@@ -1391,7 +1396,7 @@ impl GameState {
                 crate::ability::effects::emit_zone_trigger(handler, cid, zone, ZoneType::None);
             }
             self.remove_card_from_zone(zone, controller, cid);
-            self.cards[cid.index()].zone = ZoneType::None;
+            self.card_mut(cid).zone = ZoneType::None;
         }
 
         apply_continuous_effects(self);
@@ -1836,7 +1841,7 @@ impl GameState {
             .collect();
         for (cid, key) in tokens_outside_battlefield {
             self.remove_card_from_zone(key.zone_type, key.owner, cid);
-            self.cards[cid.index()].zone = ZoneType::None;
+            self.card_mut(cid).zone = ZoneType::None;
             any_changes = true;
         }
 
@@ -1862,7 +1867,7 @@ impl GameState {
             } else {
                 continue;
             }
-            self.cards[cid.index()].has_deathtouch_damage = false;
+            self.card_mut(cid).has_deathtouch_damage = false;
         }
 
         for &pid in &self.player_order.clone() {
@@ -1909,8 +1914,8 @@ impl GameState {
                     });
                 if let Some(umbra_id) = umbra_id {
                     // Remove all damage from the creature
-                    self.cards[cid.index()].damage = 0;
-                    self.cards[cid.index()].has_deathtouch_damage = false;
+                    self.card_mut(cid).damage = 0;
+                    self.card_mut(cid).has_deathtouch_damage = false;
                     // Destroy the aura instead
                     let umbra_owner = self.cards[umbra_id.index()].owner;
                     let old_zone = self.cards[umbra_id.index()].zone;
@@ -2219,12 +2224,12 @@ impl GameState {
         let all_card_ids: Vec<CardId> = (0..self.cards.len()).map(|i| CardId(i as u32)).collect();
         for cid in all_card_ids {
             if self.cards[cid.index()].zone == ZoneType::Battlefield {
-                self.cards[cid.index()].started_turn_tapped = self.cards[cid.index()].tapped;
+                self.card_mut(cid).started_turn_tapped = self.cards[cid.index()].tapped;
             }
             if self.cards[cid.index()].controller == player {
-                self.cards[cid.index()].new_turn();
+                self.card_mut(cid).new_turn();
             } else {
-                self.cards[cid.index()].clear_global_turn_state();
+                self.card_mut(cid).clear_global_turn_state();
             }
         }
     }
@@ -2242,8 +2247,8 @@ impl GameState {
         if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
             return false; // Tap was prevented
         }
-        self.cards[card_id.index()].tapped = true;
-        self.cards[card_id.index()].tapped_this_turn += 1;
+        self.card_mut(card_id).tapped = true;
+        self.card_mut(card_id).tapped_this_turn += 1;
         true
     }
 
@@ -2266,7 +2271,7 @@ impl GameState {
         if card.counter_count(&stun) > 0 && card.can_remove_counters(&stun) {
             // Stun counters replace the untap event: remove one counter and keep the
             // permanent tapped. This mirrors Java's built-in stun untap replacement.
-            self.cards[card_id.index()].remove_counter(&stun, 1);
+            self.card_mut(card_id).remove_counter(&stun, 1);
             return false;
         }
         // Run Untap replacement effects.
@@ -2278,7 +2283,7 @@ impl GameState {
         if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
             return false; // Untap was prevented
         }
-        self.cards[card_id.index()].tapped = false;
+        self.card_mut(card_id).tapped = false;
         // `ControlGain$ LoseControl$ Untap` — revert scheduled steal now.
         crate::ability::effects::control_gain_effect::untap_hook(self, card_id);
         true
@@ -2300,9 +2305,9 @@ impl GameState {
             self.remove_card_from_zone(zone, old_controller, card_id);
             self.add_card_to_zone(zone, new_controller, card_id);
         }
-        self.cards[card_id.index()].controller = new_controller;
+        self.card_mut(card_id).controller = new_controller;
         if zone == ZoneType::Battlefield {
-            self.cards[card_id.index()].summoning_sick = true;
+            self.card_mut(card_id).summoning_sick = true;
         }
     }
 
@@ -2312,30 +2317,28 @@ impl GameState {
     pub fn attach_to(&mut self, aura_id: CardId, target_id: CardId) {
         // Detach from previous host if any
         self.detach(aura_id);
-        self.cards[aura_id.index()].attached_to = Some(target_id);
-        self.cards[aura_id.index()].attached_to_player = None;
-        self.cards[aura_id.index()].attached_this_turn = true;
-        self.cards[target_id.index()].attachments.push(aura_id);
+        self.card_mut(aura_id).attached_to = Some(target_id);
+        self.card_mut(aura_id).attached_to_player = None;
+        self.card_mut(aura_id).attached_this_turn = true;
+        self.card_mut(target_id).attachments.push(aura_id);
     }
 
     pub fn attach_to_player(&mut self, aura_id: CardId, player_id: PlayerId) {
         self.detach(aura_id);
-        self.cards[aura_id.index()].attached_to = None;
-        self.cards[aura_id.index()].attached_to_player = Some(player_id);
-        self.cards[aura_id.index()].attached_this_turn = true;
+        self.card_mut(aura_id).attached_to = None;
+        self.card_mut(aura_id).attached_to_player = Some(player_id);
+        self.card_mut(aura_id).attached_this_turn = true;
     }
 
     /// Detach `aura_id` from whatever it is currently attached to.
     /// Mirrors Java's `Card.unattachFromEntity()`.
     pub fn detach(&mut self, aura_id: CardId) {
-        if let Some(host_id) = self.cards[aura_id.index()].attached_to.take() {
-            self.cards[host_id.index()]
-                .attachments
-                .retain(|&a| a != aura_id);
+        if let Some(host_id) = self.card_mut(aura_id).attached_to.take() {
+            self.card_mut(host_id).attachments.retain(|&a| a != aura_id);
             // Bestow: when unattached, revert to a creature
-            self.cards[aura_id.index()].is_bestowed = false;
+            self.card_mut(aura_id).is_bestowed = false;
         }
-        self.cards[aura_id.index()].attached_to_player = None;
+        self.card_mut(aura_id).attached_to_player = None;
     }
 
     /// Move a card from its current zone to the bottom of a player's library.
@@ -2349,7 +2352,7 @@ impl GameState {
             self.remove_card_from_zone(src_zone, src_owner, card_id);
         }
 
-        self.cards[card_id.index()].zone = ZoneType::Library;
+        self.card_mut(card_id).zone = ZoneType::Library;
         self.assign_zone_timestamp(card_id);
         self.add_card_to_zone_bottom(ZoneType::Library, owner, card_id);
     }
@@ -2379,7 +2382,7 @@ pub fn run_life_lost_all(
 }
 
 fn can_attachment_remain_attached(
-    cards: &[Card],
+    cards: &[Arc<Card>],
     attachment: &Card,
     target: &Card,
     check_sba: bool,

@@ -4,6 +4,8 @@
 //! Handles "until next untap", phasing, day/night transitions,
 //! and the actual untap of permanents.
 
+use std::sync::Arc;
+
 use forge_foundation::ZoneType;
 
 use crate::game::GameState;
@@ -21,7 +23,7 @@ pub fn do_phasing(game: &mut GameState, turn_player: PlayerId) {
             && game.cards[i].controller == turn_player
             && game.cards[i].zone == ZoneType::Battlefield
         {
-            game.cards[i].phased_out = false;
+            Arc::make_mut(&mut game.cards[i]).phased_out = false;
         }
     }
 
@@ -32,7 +34,7 @@ pub fn do_phasing(game: &mut GameState, turn_player: PlayerId) {
             && game.cards[i].zone == ZoneType::Battlefield
             && game.cards[i].has_keyword("Phasing")
         {
-            game.cards[i].phased_out = true;
+            Arc::make_mut(&mut game.cards[i]).phased_out = true;
         }
     }
 }
@@ -121,7 +123,7 @@ pub fn do_untap(game: &mut GameState, active: PlayerId) -> Vec<CardId> {
     // Remove exerted-by flags from all battlefield permanents
     for i in 0..game.cards.len() {
         if game.cards[i].zone == ZoneType::Battlefield {
-            game.cards[i].exerted = false;
+            Arc::make_mut(&mut game.cards[i]).exerted = false;
         }
     }
 

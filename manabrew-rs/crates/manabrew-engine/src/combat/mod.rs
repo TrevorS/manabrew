@@ -10,6 +10,8 @@ pub mod combat_util;
 pub mod global_attack_restrictions;
 pub mod selector_domain;
 
+use std::sync::Arc;
+
 use crate::{HashMap, HashSet};
 
 use forge_foundation::ZoneType;
@@ -117,9 +119,9 @@ impl CombatState {
     }
 
     /// Clear combat state, including the `attacking_player` flag on each attacker card.
-    pub fn clear_with_cards(&mut self, cards: &mut [crate::card::Card]) {
+    pub fn clear_with_cards(&mut self, cards: &mut [Arc<crate::card::Card>]) {
         for &(attacker_id, _) in &self.attackers {
-            cards[attacker_id.index()].attacking_player = None;
+            Arc::make_mut(&mut cards[attacker_id.index()]).attacking_player = None;
         }
         // Preserve lki_cache across clear_with_cards (persists until end of combat)
         let lki = std::mem::take(&mut self.lki_cache);
@@ -230,7 +232,7 @@ impl CombatState {
     /// if any combatant was removed.
     ///
     /// Mirrors Java Forge's `Combat.removeAbsentCombatants()`.
-    pub fn remove_absent_combatants(&mut self, cards: &[crate::card::Card]) -> bool {
+    pub fn remove_absent_combatants(&mut self, cards: &[Arc<crate::card::Card>]) -> bool {
         let before_attackers = self.attackers.len();
         let before_blockers = self.blockers.len();
 
@@ -956,7 +958,7 @@ impl CombatState {
         // Reset damage history combat tracking on all battlefield creatures
         for card in game.cards.iter_mut() {
             if card.zone == ZoneType::Battlefield {
-                card.damage_history.end_combat();
+                Arc::make_mut(card).damage_history.end_combat();
             }
         }
 

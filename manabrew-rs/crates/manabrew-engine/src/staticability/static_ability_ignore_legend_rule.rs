@@ -1,10 +1,12 @@
+use std::sync::Arc;
+
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
 use crate::parsing::CompiledSelector;
 use crate::staticability::StaticMode;
 
-pub fn ignore_legend_rule(cards: &[Card], card: &Card) -> bool {
+pub fn ignore_legend_rule(cards: &[Arc<Card>], card: &Card) -> bool {
     for source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {
         for st_ab in source
             .static_abilities
@@ -28,7 +30,7 @@ fn matches_valid_card(valid: Option<&CompiledSelector>, card: &Card, source: &Ca
 }
 
 fn is_present_condition_met(
-    cards: &[Card],
+    cards: &[Arc<Card>],
     st_ab: &crate::staticability::StaticAbility,
     source: &Card,
 ) -> bool {

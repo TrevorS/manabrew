@@ -6,6 +6,8 @@
 //! compute mana cost reductions, increases, set-cost floors (Trinisphere),
 //! and additional non-mana cost parts (e.g. sacrifice from `Cost$` params).
 
+use std::sync::Arc;
+
 use crate::spellability::OptionalCost;
 use forge_foundation::color::Color;
 use forge_foundation::mana::ManaCost;
@@ -302,7 +304,7 @@ fn compute_cost_adjustment_inner(
 ) -> CostAdjustment {
     let mut adj = CostAdjustment::default();
 
-    for source in game.cards.iter().filter(|c| {
+    for source in game.cards.iter().map(Arc::as_ref).filter(|c| {
         matches!(
             c.zone,
             ZoneType::Battlefield | ZoneType::Stack | ZoneType::Command
@@ -544,6 +546,7 @@ pub fn compute_raise_cost_parts_with_targets(
     for source in game
         .cards
         .iter()
+        .map(Arc::as_ref)
         .filter(|c| c.zone == ZoneType::Battlefield || c.id == spell_card.id)
     {
         for st_ab in source.static_abilities.iter() {

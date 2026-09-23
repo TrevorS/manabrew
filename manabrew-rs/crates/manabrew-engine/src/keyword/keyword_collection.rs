@@ -66,6 +66,10 @@ impl KeywordCollection {
         self.map.values().all(|v| v.is_empty())
     }
 
+    pub fn has_no_entries(&self) -> bool {
+        self.map.is_empty()
+    }
+
     /// Total number of keyword instances.
     pub fn size(&self) -> usize {
         self.map.values().map(|v| v.len()).sum()

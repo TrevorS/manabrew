@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card, CounterType};
@@ -5,7 +7,7 @@ use crate::ids::PlayerId;
 use crate::staticability::StaticMode;
 
 pub fn any_cant_put_counter_on_card(
-    cards: &[Card],
+    cards: &[Arc<Card>],
     target: &Card,
     counter_type: &CounterType,
 ) -> bool {
@@ -33,7 +35,7 @@ pub fn any_cant_put_counter_on_card(
 }
 
 pub fn any_cant_put_counter_on_player(
-    cards: &[Card],
+    cards: &[Arc<Card>],
     player: PlayerId,
     counter_type: &CounterType,
 ) -> bool {
@@ -61,7 +63,7 @@ pub fn any_cant_put_counter_on_player(
 }
 
 pub fn any_cant_put_counter(
-    cards: &[Card],
+    cards: &[Arc<Card>],
     target_card: Option<&Card>,
     target_player: Option<PlayerId>,
     counter_type: &CounterType,

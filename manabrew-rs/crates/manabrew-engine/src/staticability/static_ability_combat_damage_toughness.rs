@@ -1,9 +1,11 @@
+use std::sync::Arc;
+
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
 use crate::staticability::StaticMode;
 
-pub fn combat_damage_uses_toughness(cards: &[Card], card: &Card) -> bool {
+pub fn combat_damage_uses_toughness(cards: &[Arc<Card>], card: &Card) -> bool {
     for source in cards
         .iter()
         .filter(|c| c.zone == ZoneType::Battlefield || c.zone == ZoneType::Command)
@@ -21,7 +23,7 @@ pub fn combat_damage_uses_toughness(cards: &[Card], card: &Card) -> bool {
     false
 }
 
-pub fn combat_damage_toughness(cards: &[Card], card: &Card) -> bool {
+pub fn combat_damage_toughness(cards: &[Arc<Card>], card: &Card) -> bool {
     combat_damage_uses_toughness(cards, card)
 }
 

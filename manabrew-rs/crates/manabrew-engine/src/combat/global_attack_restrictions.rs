@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::HashMap;
 
 use super::DefenderId;
@@ -39,7 +41,7 @@ impl GlobalAttackRestrictions {
     /// battlefield. Mirrors Java's
     /// `GlobalAttackRestrictions.getGlobalRestrictions()`.
     pub fn get_global_restrictions(
-        cards: &[Card],
+        cards: &[Arc<Card>],
         attacking_player: PlayerId,
         possible_defenders: &[DefenderId],
     ) -> Self {

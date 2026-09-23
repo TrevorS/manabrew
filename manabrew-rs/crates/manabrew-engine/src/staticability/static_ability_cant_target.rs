@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
@@ -7,7 +9,7 @@ use crate::spellability::SpellAbility;
 use crate::staticability::StaticMode;
 
 pub fn cant_target(
-    cards: &[Card],
+    cards: &[Arc<Card>],
     target: &Card,
     activator: PlayerId,
     source_card: Option<&Card>,

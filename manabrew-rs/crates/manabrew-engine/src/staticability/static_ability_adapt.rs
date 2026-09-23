@@ -1,8 +1,10 @@
+use std::sync::Arc;
+
 use crate::card::{valid_filter, Card};
 use crate::spellability::SpellAbility;
 use crate::staticability::StaticMode;
 
-pub fn any_with_adapt(cards: &[Card], sa: &SpellAbility, card: &Card) -> bool {
+pub fn any_with_adapt(cards: &[Arc<Card>], sa: &SpellAbility, card: &Card) -> bool {
     for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
         for st_ab in source
             .static_abilities
