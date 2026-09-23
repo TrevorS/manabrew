@@ -74,10 +74,8 @@ impl SpellAbilityRestriction {
 
         // Parse phase restrictions
         if let Some(phases_str) = get("ActivationPhases") {
-            for phase_name in phases_str.split(',') {
-                if let Some(phase) = PhaseType::from_script_name(phase_name.trim()) {
-                    self.variables.add_phase(phase);
-                }
+            for phase in PhaseType::parse_range(phases_str) {
+                self.variables.add_phase(phase);
             }
         }
 

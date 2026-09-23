@@ -76,13 +76,7 @@ pub(super) fn check_condition(game: &GameState, sa: &SpellAbility) -> bool {
 
     // Phase gate: `ConditionPhases$ End Of Turn,Upkeep` (comma-separated).
     if let Some(phases) = sa.ir.condition_phases.as_deref() {
-        let current = game.turn.phase;
-        let ok = phases
-            .split(',')
-            .map(str::trim)
-            .filter_map(forge_foundation::PhaseType::from_script_name)
-            .any(|p| p == current);
-        if !ok {
+        if !forge_foundation::PhaseType::parse_range(phases).contains(&game.turn.phase) {
             return false;
         }
     }

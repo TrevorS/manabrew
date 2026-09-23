@@ -52,12 +52,8 @@ impl SpellAbilityCondition {
 
         // Parse condition phase
         if let Some(phases_str) = get("ConditionPhases") {
-            for phase_name in phases_str.split(',') {
-                if let Some(phase) =
-                    forge_foundation::PhaseType::from_script_name(phase_name.trim())
-                {
-                    self.variables.add_phase(phase);
-                }
+            for phase in forge_foundation::PhaseType::parse_range(phases_str) {
+                self.variables.add_phase(phase);
             }
         }
 
