@@ -624,6 +624,10 @@ impl GameState {
         // Track LKI: record which zone this card came from on the destination zone.
         self.save_zone_lki(dest_zone, dest_owner, card_id, src_zone);
 
+        if !matches!(src_zone, ZoneType::Battlefield) && dest_zone != ZoneType::Battlefield {
+            self.cards[card_id.index()].restore_changed_characteristics_baseline();
+        }
+
         // Reset state on zone change
         match dest_zone {
             ZoneType::Battlefield => {

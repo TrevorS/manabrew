@@ -3345,6 +3345,7 @@ impl Card {
         }
         if let Some(keywords) = self.changed_keywords_base.take() {
             self.keywords = keywords;
+            self.update_keywords();
         }
         if let Some(count) = self.changed_trigger_count_base.take() {
             if count < self.base_trigger_count {
