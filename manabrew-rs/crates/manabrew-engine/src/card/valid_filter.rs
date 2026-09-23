@@ -3056,7 +3056,7 @@ fn check_counters_received_this_turn(
 }
 
 /// Check a CMC condition like "cmcEQ1", "cmcLE3", or "cmcLEY".
-fn check_cmc_condition_with_context(
+pub(crate) fn check_cmc_condition_with_context(
     rest: &str,
     card: &Card,
     context: Option<MatchContext<'_>>,

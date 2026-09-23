@@ -1,4 +1,5 @@
 use crate::ability::api_type::ApiType;
+use crate::card::valid_filter::MatchContext;
 use crate::card::Card;
 use crate::keyword::keyword_instance::Keyword;
 use crate::spellability::SpellAbility;
@@ -9,6 +10,16 @@ pub fn matches_valid_sa(
     source: &Card,
     ability_host: Option<&Card>,
 ) -> bool {
+    matches_valid_sa_with_context(filter, sa, source, ability_host, None)
+}
+
+pub fn matches_valid_sa_with_context(
+    filter: &str,
+    sa: &SpellAbility,
+    source: &Card,
+    ability_host: Option<&Card>,
+    context: Option<MatchContext<'_>>,
+) -> bool {
     let filter = filter.trim();
     if filter.is_empty() {
         return true;
@@ -18,7 +29,7 @@ pub fn matches_valid_sa(
         .split(',')
         .map(str::trim)
         .filter(|restriction| !restriction.is_empty())
-        .any(|restriction| matches_restriction(restriction, sa, source, ability_host))
+        .any(|restriction| matches_restriction(restriction, sa, source, ability_host, context))
 }
 
 fn matches_restriction(
@@ -26,6 +37,7 @@ fn matches_restriction(
     sa: &SpellAbility,
     source: &Card,
     ability_host: Option<&Card>,
+    context: Option<MatchContext<'_>>,
 ) -> bool {
     let mut parts = restriction.splitn(2, '.');
     let base = parts.next().unwrap_or("").trim();
@@ -42,7 +54,7 @@ fn matches_restriction(
             .map(str::trim)
             .filter(|property| !property.is_empty())
         {
-            if !matches_property_token(property, sa, source, ability_host) {
+            if !matches_property_token(property, sa, source, ability_host, context) {
                 return false;
             }
         }
@@ -77,6 +89,7 @@ fn matches_property_token(
     sa: &SpellAbility,
     source: &Card,
     ability_host: Option<&Card>,
+    context: Option<MatchContext<'_>>,
 ) -> bool {
     let token = token.trim();
     let (negated, token) = match token.strip_prefix('!') {
@@ -84,7 +97,7 @@ fn matches_property_token(
         None => (false, token),
     };
 
-    let matched = matches_property_token_positive(token, sa, source, ability_host);
+    let matched = matches_property_token_positive(token, sa, source, ability_host, context);
     matched != negated
 }
 
@@ -93,6 +106,7 @@ fn matches_property_token_positive(
     sa: &SpellAbility,
     source: &Card,
     ability_host: Option<&Card>,
+    context: Option<MatchContext<'_>>,
 ) -> bool {
     match token.to_ascii_lowercase().as_str() {
         "self" => ability_host.is_some_and(|host| host.id == source.id),
@@ -117,6 +131,15 @@ fn matches_property_token_positive(
         "station" => is_keyword_ability(sa, ability_host, Keyword::Station, "station"),
         "vehicle" | "mount" | "spacecraft" | "planet" => {
             ability_host.is_some_and(|host| host.type_line.has_subtype(token))
+        }
+        lowered if lowered.starts_with("cmc") && context.is_some() => {
+            ability_host.is_some_and(|host| {
+                crate::card::valid_filter::check_cmc_condition_with_context(
+                    &token[3..],
+                    host,
+                    context,
+                )
+            })
         }
         _ => {
             if sa.has_property(token) {
