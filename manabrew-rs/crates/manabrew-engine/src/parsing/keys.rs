@@ -598,4 +598,5 @@ pub const WITH_TOTAL_POWER: &str = "WithTotalPower";
 pub const NEW_NAME: &str = "NewName";
 pub const KEEP_NAME: &str = "KeepName";
 pub const REMEMBER_CLONE_ORIGIN: &str = "RememberCloneOrigin";
+pub const INTO_PLAY_TAPPED: &str = "IntoPlayTapped";
 pub const CHOICE_OPTIONAL: &str = "ChoiceOptional";
