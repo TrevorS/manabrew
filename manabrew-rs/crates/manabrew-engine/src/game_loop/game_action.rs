@@ -295,10 +295,18 @@ impl GameLoop {
             );
             // Java announces X before paying, and nothing stops the activator choosing 0, so the
             // offer test asks whether the rest of the cost is payable. The spell path already
-            // does this with `ManaCost::without_x` (`playability.rs`).
+            // does this with `ManaCost::without_x` (`playability.rs`). A `GainThisAbility` copy
+            // keeps the X its source paid, which `ComputerUtilMana.calculateManaCost` adds back.
             let ab_cost = match ab_cost.parts.iter().find_map(|part| match part {
                 crate::cost::CostPart::Mana { cost, .. } if cost.count_x() > 0 => {
-                    Some(cost.without_x())
+                    Some(match ab.x_mana_cost_paid {
+                        Some(x_paid) if x_paid > 0 => {
+                            cost.without_x().add(&forge_foundation::ManaCost::generic(
+                                (x_paid as i32).saturating_mul(cost.count_x() as i32),
+                            ))
+                        }
+                        _ => cost.without_x(),
+                    })
                 }
                 _ => None,
             }) {

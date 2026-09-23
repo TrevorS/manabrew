@@ -92,6 +92,10 @@ pub struct ActivatedAbility {
     /// The card whose static granted this ability (`AddAbility$`); Java's `setOriginalHost`.
     #[serde(default)]
     pub original_host: Option<crate::ids::CardId>,
+    /// The X paid by the ability a `GainThisAbility` copy was made from; Java's
+    /// `SpellAbility.copy` keeps `xManaCostPaid`.
+    #[serde(default)]
+    pub x_mana_cost_paid: Option<u32>,
 }
 
 impl ActivatedAbility {
@@ -226,6 +230,7 @@ pub fn parse_activated_ability(raw: &str, index: usize) -> Option<ActivatedAbili
         is_mana_reflected,
         params,
         original_host: None,
+        x_mana_cost_paid: None,
     })
 }
 

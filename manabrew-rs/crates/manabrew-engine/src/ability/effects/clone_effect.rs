@@ -199,9 +199,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         {
             let target = ctx.game.card_mut(clone_target_id);
             let index = target.activated_abilities.len();
-            if let Some(ability) =
+            if let Some(mut ability) =
                 crate::ability::activated::parse_activated_ability(&sa.ability_text, index)
             {
+                ability.x_mana_cost_paid = Some(sa.x_mana_cost_paid);
                 target.activated_abilities.push(ability);
                 target.base_ability_count = target.activated_abilities.len();
             }
