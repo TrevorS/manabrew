@@ -841,6 +841,7 @@ impl GameViewDtoExt for GameViewDto {
                 .map(|(&card_raw_id, &casts)| (card_id_str(CardId(card_raw_id)), casts))
                 .collect();
             let mut player_keywords = ps.changed_keywords.clone();
+            player_keywords.extend(ps.static_keywords.iter().cloned());
             player_keywords.extend(ps.keywords_until_my_next_turn.iter().cloned());
             player_keywords.extend(ps.keywords_until_end_of_turn.iter().cloned());
             player_keywords.sort_unstable();

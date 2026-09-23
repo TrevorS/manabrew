@@ -51,10 +51,13 @@ pub fn has_counter(game: &GameState, player: PlayerId, counter: &str) -> bool {
     }
 }
 
+pub fn get_keywords(game: &GameState, player: PlayerId) -> impl Iterator<Item = &String> {
+    let state = game.player(player);
+    state.changed_keywords.iter().chain(&state.static_keywords)
+}
+
 pub fn is_protected_from(game: &GameState, player: PlayerId, source: CardId) -> bool {
-    game.player(player)
-        .changed_keywords
-        .iter()
+    get_keywords(game, player)
         .any(|keyword| protection_applies_to_source(game, player, keyword, source))
 }
 
@@ -86,10 +89,7 @@ pub fn protection_applies_to_source(
 }
 
 pub fn has_keyword(game: &GameState, player: PlayerId, keyword: &str) -> bool {
-    game.player(player)
-        .changed_keywords
-        .iter()
-        .any(|candidate| candidate.eq_ignore_ascii_case(keyword))
+    get_keywords(game, player).any(|candidate| candidate.eq_ignore_ascii_case(keyword))
 }
 
 pub fn can_be_attached(game: &GameState, player: PlayerId) -> bool {

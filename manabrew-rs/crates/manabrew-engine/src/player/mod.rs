@@ -385,7 +385,7 @@ pub fn can_be_targeted_by(
     activator: PlayerId,
 ) -> bool {
     game.player(player).is_alive()
-        && !game.player(player).changed_keywords.iter().any(|keyword| {
+        && !player_predicates::get_keywords(game, player).any(|keyword| {
             keyword == "Shroud"
                 || (keyword == "Hexproof"
                     && player_predicates::is_opponent_of(game, activator, player))
