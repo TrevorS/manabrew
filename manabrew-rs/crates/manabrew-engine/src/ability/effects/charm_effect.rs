@@ -276,9 +276,6 @@ pub fn make_choices_precast_with_count(
         })
         .map(|(i, _)| i)
         .collect();
-    if valid_mode_indices.is_empty() {
-        return None;
-    }
 
     let valid_descriptions: Vec<String> = valid_mode_indices
         .iter()
@@ -325,6 +322,9 @@ pub fn make_choices_precast_with_count(
     };
 
     if chosen_indices.len() < min_charm_num {
+        return None;
+    }
+    if sa.is_trigger && chosen_indices.is_empty() {
         return None;
     }
 
@@ -423,10 +423,6 @@ pub(crate) fn can_make_choices_precast(
         .iter()
         .filter(|text| mode_has_valid_targets_in_game(game, text, player, source_id))
         .count();
-
-    if valid_count == 0 {
-        return false;
-    }
 
     if !can_repeat && min_charm_num > valid_count {
         return false;
