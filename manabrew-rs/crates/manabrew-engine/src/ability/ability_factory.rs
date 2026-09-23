@@ -4,6 +4,8 @@
 //! Parses ability strings (AB$, SP$, DB$, ST$ prefixed) and constructs
 //! the corresponding `SpellAbility` with all sub-abilities resolved.
 
+use std::cell::RefCell;
+
 use crate::HashMap;
 
 use crate::ability::api_type::ApiType;
@@ -21,7 +23,7 @@ use serde::{Deserialize, Serialize};
 
 /// The record type prefix for an ability definition.
 /// Mirrors Java's `AbilityFactory.AbilityRecordType`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum AbilityRecordType {
     /// AB$ — activated ability
     Ability,
@@ -253,24 +255,7 @@ pub fn build_spell_ability_from_host_card(
     ability_text: &str,
     player: PlayerId,
 ) -> SpellAbility {
-    let _perf_scope =
-        crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::AbilityBuild);
-    crate::perf::increment_params_parse();
-    let parsed = ParsedParams::parse(ability_text);
-    let record_type = AbilityRecordType::from_parsed(&parsed).unwrap_or_else(|| {
-        panic!(
-            "AbilityFactory::build_spell_ability requires AB$/SP$/ST$/DB$ ability text; got: {ability_text:?}"
-        )
-    });
-    let params = Params::from_parsed(&parsed);
-    build_spell_ability_of_type_with_params(
-        host,
-        ability_text,
-        player,
-        record_type,
-        &parsed,
-        params,
-    )
+    build_spell_ability_for_host(host, ability_text, player, None)
 }
 
 fn build_spell_ability_for_host_cast(host: &Card, player: PlayerId) -> Option<SpellAbility> {
@@ -467,25 +452,94 @@ fn build_spell_ability_of_type(
     player: PlayerId,
     record_type: AbilityRecordType,
 ) -> SpellAbility {
+    build_spell_ability_for_host(host, ability_text, player, Some(record_type))
+}
+
+fn build_spell_ability_for_host(
+    host: &Card,
+    ability_text: &str,
+    player: PlayerId,
+    record_type: Option<AbilityRecordType>,
+) -> SpellAbility {
+    let mut sa = cached_spell_ability_template(ability_text, record_type);
+    sa.source = Some(host.id);
+    sa.original_host = host.effect_source;
+    sa.activating_player = player;
+    sa.source_zone_timestamp = Some(host.zone_timestamp);
+    sa.sub_ability = if let Some(sub_svar_name) = sa.ir.sub_ability_name.as_deref() {
+        let depth = SUB_ABILITY_CHAIN_DEPTH.with(|d| d.get());
+        if depth >= MAX_SUB_ABILITY_CHAIN_DEPTH {
+            eprintln!(
+                "SubAbility chain exceeded depth limit on {}, stopping at: {sub_svar_name}",
+                host.card_name
+            );
+            None
+        } else {
+            host.get_s_var(sub_svar_name)
+                .map(str::to_string)
+                .map(|sub_text| {
+                    SUB_ABILITY_CHAIN_DEPTH.with(|d| d.set(depth + 1));
+                    let _depth_guard = SubAbilityChainDepthGuard { previous: depth };
+                    Box::new(build_spell_ability_from_host_card(host, &sub_text, player))
+                })
+        }
+    } else {
+        None
+    };
+    if let Some(sub_ability) = sa.sub_ability.as_deref_mut() {
+        sub_ability.set_root_ability_text(ability_text);
+    }
+    sa
+}
+
+fn cached_spell_ability_template(
+    ability_text: &str,
+    record_type: Option<AbilityRecordType>,
+) -> SpellAbility {
+    thread_local! {
+        static TEMPLATES: RefCell<
+            crate::HashMap<Option<AbilityRecordType>, crate::HashMap<Box<str>, SpellAbility>>,
+        > = RefCell::new(crate::HashMap::default());
+    }
+    TEMPLATES.with(|templates| {
+        if let Some(sa) = templates
+            .borrow()
+            .get(&record_type)
+            .and_then(|by_text| by_text.get(ability_text))
+        {
+            return sa.clone();
+        }
+        let sa = build_spell_ability_template(ability_text, record_type);
+        templates
+            .borrow_mut()
+            .entry(record_type)
+            .or_default()
+            .insert(ability_text.into(), sa.clone());
+        sa
+    })
+}
+
+fn build_spell_ability_template(
+    ability_text: &str,
+    record_type: Option<AbilityRecordType>,
+) -> SpellAbility {
     let _perf_scope =
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::AbilityBuild);
     crate::perf::increment_params_parse();
     let parsed = ParsedParams::parse(ability_text);
+    let record_type = record_type.unwrap_or_else(|| {
+        AbilityRecordType::from_parsed(&parsed).unwrap_or_else(|| {
+            panic!(
+                "AbilityFactory::build_spell_ability requires AB$/SP$/ST$/DB$ ability text; got: {ability_text:?}"
+            )
+        })
+    });
     let params = Params::from_parsed(&parsed);
-    build_spell_ability_of_type_with_params(
-        host,
-        ability_text,
-        player,
-        record_type,
-        &parsed,
-        params,
-    )
+    build_spell_ability_of_type_with_params(ability_text, record_type, &parsed, params)
 }
 
 fn build_spell_ability_of_type_with_params(
-    host: &Card,
     ability_text: &str,
-    player: PlayerId,
     record_type: AbilityRecordType,
     parsed: &ParsedParams<'_>,
     params: Params,
@@ -521,28 +575,6 @@ fn build_spell_ability_of_type_with_params(
         condition.set_conditions_parsed(parsed);
     }
 
-    // Recursively build sub-ability chain from SVars
-    let sub_ability = if let Some(sub_svar_name) = parsed.get(keys::SUB_ABILITY) {
-        let depth = SUB_ABILITY_CHAIN_DEPTH.with(|d| d.get());
-        if depth >= MAX_SUB_ABILITY_CHAIN_DEPTH {
-            eprintln!(
-                "SubAbility chain exceeded depth limit on {}, stopping at: {sub_svar_name}",
-                host.card_name
-            );
-            None
-        } else {
-            host.get_s_var(sub_svar_name)
-                .map(str::to_string)
-                .map(|sub_text| {
-                    SUB_ABILITY_CHAIN_DEPTH.with(|d| d.set(depth + 1));
-                    let _depth_guard = SubAbilityChainDepthGuard { previous: depth };
-                    Box::new(build_spell_ability_from_host_card(host, &sub_text, player))
-                })
-        }
-    } else {
-        None
-    };
-
     let mana_part = if parsed.has(keys::PRODUCED) {
         build_mana_part_from_parsed(parsed)
     } else {
@@ -551,9 +583,9 @@ fn build_spell_ability_of_type_with_params(
     let mut sa = SpellAbility {
         id: 0,
         api,
-        source: Some(host.id),
-        original_host: host.effect_source,
-        activating_player: player,
+        source: None,
+        original_host: None,
+        activating_player: PlayerId(0),
         targeting_player: None,
         ability_text: ability_text.to_string(),
         record_type,
@@ -563,7 +595,7 @@ fn build_spell_ability_of_type_with_params(
         parent_targeting_card: None,
         parent_targeting_player: None,
         pay_costs: cost,
-        sub_ability,
+        sub_ability: None,
         unique_targets: Vec::new(),
         wrapped_ability: None,
         is_spell: record_type == AbilityRecordType::Spell,
@@ -572,7 +604,7 @@ fn build_spell_ability_of_type_with_params(
         intrinsic: false,
         trigger_source: None,
         trigger_source_zone_timestamp: None,
-        source_zone_timestamp: Some(host.zone_timestamp),
+        source_zone_timestamp: None,
         source_trigger_id: None,
         trigger_index: None,
         alt_cost: None,
@@ -628,9 +660,6 @@ fn build_spell_ability_of_type_with_params(
         damage_map: None,
         prevent_map: None,
     };
-    if let Some(sub_ability) = sa.sub_ability.as_deref_mut() {
-        sub_ability.set_root_ability_text(ability_text);
-    }
     if let Some(api) = api {
         crate::ability::effects::build_spell_ability_for_api(api, &mut sa);
     }

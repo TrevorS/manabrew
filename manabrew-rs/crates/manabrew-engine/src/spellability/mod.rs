@@ -598,6 +598,27 @@ impl SpellAbility {
 
     /// Create a simple SpellAbility for tests and triggers.
     pub fn new_simple(source: Option<CardId>, player: PlayerId, ability_text: &str) -> Self {
+        thread_local! {
+            static TEMPLATES: std::cell::RefCell<HashMap<Box<str>, SpellAbility>> =
+                std::cell::RefCell::new(HashMap::default());
+        }
+        let mut sa = TEMPLATES.with(|templates| {
+            if let Some(sa) = templates.borrow().get(ability_text) {
+                return sa.clone();
+            }
+            let sa = Self::new_simple_template(ability_text);
+            templates
+                .borrow_mut()
+                .insert(ability_text.into(), sa.clone());
+            sa
+        });
+        sa.id = next_spell_ability_id();
+        sa.source = source;
+        sa.activating_player = player;
+        sa
+    }
+
+    fn new_simple_template(ability_text: &str) -> Self {
         let _perf_scope = crate::perf::ParamsLookupScopeGuard::enter(
             crate::perf::ParamsLookupScope::AbilityBuild,
         );
@@ -620,11 +641,11 @@ impl SpellAbility {
         ir.compile_numeric_params_from_runtime(&params);
 
         SpellAbility {
-            id: next_spell_ability_id(),
+            id: 0,
             api,
-            source,
+            source: None,
             original_host: None,
-            activating_player: player,
+            activating_player: PlayerId(0),
             targeting_player: None,
             ability_text: ability_text.to_string(),
             record_type,
