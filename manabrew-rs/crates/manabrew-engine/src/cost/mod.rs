@@ -130,6 +130,8 @@ impl AmountSpec {
             Self::X
         } else if let Ok(n) = head.parse::<i32>() {
             Self::Literal(n)
+        } else if head.ends_with('+') {
+            Self::Svar(head.to_string())
         } else {
             Self::Literal(default)
         }

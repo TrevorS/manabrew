@@ -2575,21 +2575,33 @@ impl GameLoop {
                 amount,
                 type_filter,
                 from,
-            } => Self::choose_cost_cards_exactly(
-                agents,
-                player,
-                &Self::exile_cost_candidates(game, player, source, type_filter, *from),
-                amount.resolve(game, source, player),
-            ),
+            } => {
+                let amount = amount.resolve(game, source, player);
+                if amount <= 0 {
+                    return Some(Vec::new());
+                }
+                Self::choose_cost_cards_exactly(
+                    agents,
+                    player,
+                    &Self::exile_cost_candidates(game, player, source, type_filter, *from),
+                    amount,
+                )
+            }
             CostPart::ExileCtrlOrGrave {
                 amount,
                 type_filter,
-            } => Self::choose_cost_cards_exactly(
-                agents,
-                player,
-                &Self::exile_ctrl_or_grave_candidates(game, player, source, type_filter),
-                amount.resolve(game, source, player),
-            ),
+            } => {
+                let amount = amount.resolve(game, source, player);
+                if amount <= 0 {
+                    return Some(Vec::new());
+                }
+                Self::choose_cost_cards_exactly(
+                    agents,
+                    player,
+                    &Self::exile_ctrl_or_grave_candidates(game, player, source, type_filter),
+                    amount,
+                )
+            }
             CostPart::Return {
                 amount,
                 type_filter,
