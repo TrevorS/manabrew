@@ -258,10 +258,12 @@ fn produce_mana_for_player(
                     .cloned()
                     .unwrap_or_else(|| "C".to_string())
             } else {
-                ctx.agents[chooser.index()]
-                    .choose_color(chooser, &available)
-                    .or_else(|| available.first().cloned())
-                    .unwrap_or_else(|| "C".to_string())
+                chosen_mana_letter(
+                    ctx.agents[chooser.index()]
+                        .choose_color(chooser, &available)
+                        .or_else(|| available.first().cloned())
+                        .unwrap_or_else(|| "C".to_string()),
+                )
             };
             per_unit.push(pick);
         }
@@ -281,9 +283,11 @@ fn produce_mana_for_player(
     } else if produced_ir.is_any_like() {
         // Java's isAnyMana branch: one colour for the whole amount, not one per unit.
         let available = ["W", "U", "B", "R", "G"].map(String::from).to_vec();
-        let pick = ctx.agents[chooser.index()]
-            .choose_color(chooser, &available)
-            .unwrap_or_else(|| "W".to_string());
+        let pick = chosen_mana_letter(
+            ctx.agents[chooser.index()]
+                .choose_color(chooser, &available)
+                .unwrap_or_else(|| "W".to_string()),
+        );
         final_mana = vec![pick; amount as usize].join(" ");
     } else if amount > 1 {
         let base = final_mana.clone();
@@ -594,6 +598,11 @@ fn matches_simple_valid(
     }
 
     true
+}
+
+fn chosen_mana_letter(choice: String) -> String {
+    forge_foundation::Color::from_name(&choice)
+        .map_or(choice, |color| color.short_name().to_string())
 }
 
 fn color_to_letter(color_name: &str) -> String {
