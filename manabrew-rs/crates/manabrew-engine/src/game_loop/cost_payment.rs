@@ -421,32 +421,11 @@ impl GameLoop {
         // Phase 1: visit/decide (matching Java's accept loop order).
         let mut pre_picked_discards: Vec<CardId> = Vec::new();
         let mut pre_picked_sacrifices: Vec<CardId> = Vec::new();
-        let mut pre_picked_blights: Vec<CardId> = Vec::new();
+        let mut decided_cards: Vec<Option<Vec<CardId>>> = vec![None; cost.parts.len()];
         let mut reserved_sacrifices: Vec<CardId> = self.current_reserved_sacrifices().to_vec();
         let allow_reserved_source_reuse = self.current_allow_reserved_source_reuse();
-        for part in cost.parts.clone() {
+        for (idx, part) in cost.parts.clone().into_iter().enumerate() {
             match &part {
-                CostPart::Blight(_) => {
-                    let choices: Vec<crate::agent::GameEntity> = Self::blight_targets(game, player)
-                        .into_iter()
-                        .map(crate::agent::GameEntity::Card)
-                        .collect();
-                    if choices.is_empty() {
-                        payment_ok = false;
-                        break;
-                    }
-                    match agents[player.index()]
-                        .choose_single_entity_for_effect(player, &choices, false)
-                    {
-                        Some(crate::agent::GameEntity::Card(chosen)) => {
-                            pre_picked_blights.push(chosen)
-                        }
-                        _ => {
-                            payment_ok = false;
-                            break;
-                        }
-                    }
-                }
                 CostPart::Discard {
                     type_filter,
                     amount,
@@ -627,6 +606,36 @@ impl GameLoop {
                         break;
                     }
                 }
+                _ if Self::decides_cost_part_cards(&part) => {
+                    if !self.confirm_cost_part_payment(
+                        game,
+                        agents,
+                        player,
+                        card_id,
+                        &part,
+                        api,
+                        mandatory,
+                        &context,
+                        sa.as_deref(),
+                    ) {
+                        payment_ok = false;
+                        break;
+                    }
+                    match self.decide_cost_part_cards(
+                        game,
+                        agents,
+                        player,
+                        card_id,
+                        &part,
+                        sa.as_deref(),
+                    ) {
+                        Some(cards) => decided_cards[idx] = Some(cards),
+                        None => {
+                            payment_ok = false;
+                            break;
+                        }
+                    }
+                }
                 _ => {
                     // Confirm decisions for parts that need them
                     if !self.confirm_cost_part_payment(
@@ -658,10 +667,10 @@ impl GameLoop {
 
         // Phase 2: execute payments.
         let mut pre_sac_idx = 0usize;
-        let mut pre_blight_idx = 0usize;
         let mut failed_auto_pay_taps: Vec<CardId> = Vec::new();
         let mut failed_auto_pay_pool: Option<crate::mana::ManaPool> = None;
-        for part in cost.parts.clone() {
+        for (idx, part) in cost.parts.clone().into_iter().enumerate() {
+            let decided = decided_cards[idx].as_deref();
             match &part {
                 CostPart::Tap => {
                     game.tap(card_id);
@@ -1051,6 +1060,7 @@ impl GameLoop {
                             type_filter,
                             amount.resolve(game, card_id, player),
                             *from,
+                            decided,
                         );
                     }
                 }
@@ -1069,6 +1079,7 @@ impl GameLoop {
                         type_filter,
                         amount.resolve(game, card_id, player),
                         sa.as_deref(),
+                        decided,
                     ) {
                         return false;
                     }
@@ -1089,6 +1100,7 @@ impl GameLoop {
                         *min_total_power,
                         *can_tap_source,
                         sa.as_deref_mut(),
+                        decided,
                     ) {
                         payment_ok = false;
                         break;
@@ -1182,6 +1194,7 @@ impl GameLoop {
                         resolved_amount,
                         from,
                         sa.as_deref_mut(),
+                        decided,
                     );
                 }
                 CostPart::Exert {
@@ -1371,14 +1384,23 @@ impl GameLoop {
                 }
                 CostPart::CollectEvidence(amount) => {
                     let resolved_amount = amount.resolve(game, card_id, player);
-                    if !self.pay_collect_evidence_cost(game, agents, player, resolved_amount, None)
-                    {
+                    if !self.pay_collect_evidence_cost(
+                        game,
+                        agents,
+                        player,
+                        resolved_amount,
+                        decided,
+                    ) {
                         payment_ok = false;
                         break;
                     }
                 }
                 CostPart::Forage => {
-                    self.pay_forage_cost(game, agents, player, card_id);
+                    if !self.pay_forage_cost(game, agents, player, card_id, sa.as_deref(), decided)
+                    {
+                        payment_ok = false;
+                        break;
+                    }
                 }
                 CostPart::PutCardToLib {
                     amount,
@@ -1460,9 +1482,8 @@ impl GameLoop {
                         card_id,
                         resolved_amount,
                         sa.as_deref(),
-                        pre_picked_blights.get(pre_blight_idx).copied(),
+                        decided.and_then(|cards| cards.first().copied()),
                     );
-                    pre_blight_idx += 1;
                 }
                 CostPart::ExileCtrlOrGrave {
                     amount,
@@ -1476,6 +1497,7 @@ impl GameLoop {
                         card_id,
                         type_filter,
                         resolved_amount,
+                        decided,
                     ) {
                         payment_ok = false;
                         break;
@@ -1518,6 +1540,7 @@ impl GameLoop {
         prechosen_tap_type: Option<&[CardId]>,
         prechosen_beholds: Option<&[CardId]>,
         prechosen_evidence: Option<&[CardId]>,
+        decided_cards: Option<&[Option<Vec<CardId>>]>,
     ) -> bool {
         let payment_snapshot = self.make_snapshot(game, true);
         game.card_mut(card_id).paid_cost_exiled_cards.clear();
@@ -1526,7 +1549,10 @@ impl GameLoop {
         let mut pre_discard_idx = 0usize;
         let mut pre_tap_idx = 0usize;
         let mut pre_behold_idx = 0usize;
-        for part in spell_cost.parts.clone() {
+        for (idx, part) in spell_cost.parts.clone().into_iter().enumerate() {
+            let decided = decided_cards
+                .and_then(|cards| cards.get(idx))
+                .and_then(|cards| cards.as_deref());
             // Java deterministic parity does not route confirm-payment prompts
             // through RNG while paying spell costs; confirmPayment() returns true
             // for spell payment context. Keep Rust aligned to avoid decision-RNG
@@ -1751,6 +1777,7 @@ impl GameLoop {
                             type_filter,
                             amount.resolve(game, card_id, player),
                             *from,
+                            decided,
                         );
                     }
                 }
@@ -1835,6 +1862,7 @@ impl GameLoop {
                         *min_total_power,
                         *can_tap_source,
                         sa.as_deref_mut(),
+                        None,
                     ) {
                         payment_ok = false;
                         break;
@@ -1928,6 +1956,7 @@ impl GameLoop {
                         resolved_amount,
                         from,
                         sa.as_deref_mut(),
+                        decided,
                     );
                 }
                 CostPart::Exert {
@@ -2128,7 +2157,11 @@ impl GameLoop {
                     }
                 }
                 CostPart::Forage => {
-                    self.pay_forage_cost(game, agents, player, card_id);
+                    if !self.pay_forage_cost(game, agents, player, card_id, sa.as_deref(), decided)
+                    {
+                        payment_ok = false;
+                        break;
+                    }
                 }
                 CostPart::PutCardToLib {
                     amount,
@@ -2217,7 +2250,7 @@ impl GameLoop {
                         card_id,
                         resolved_amount,
                         sa.as_deref(),
-                        None,
+                        decided.and_then(|cards| cards.first().copied()),
                     );
                 }
                 CostPart::ExileCtrlOrGrave {
@@ -2232,6 +2265,7 @@ impl GameLoop {
                         card_id,
                         type_filter,
                         resolved_amount,
+                        decided,
                     ) {
                         payment_ok = false;
                         break;
@@ -2429,31 +2463,206 @@ impl GameLoop {
         let mut picked: Vec<CardId> = Vec::new();
         for part in &spell_cost.parts {
             if let CostPart::CollectEvidence(amount) = part {
-                let valid: Vec<CardId> = game
-                    .cards_in_zone(ZoneType::Graveyard, player)
-                    .iter()
-                    .copied()
-                    .filter(|&cid| can_exile_for_cost(game, cid))
-                    .collect();
-                if valid.is_empty() {
-                    return None;
-                }
-                let chosen: Vec<CardId> = agents[player.index()]
-                    .choose_cards_for_effect(player, &valid, 0, valid.len())
-                    .into_iter()
-                    .filter(|cid| valid.contains(cid))
-                    .collect();
-                let total_mv: i32 = chosen
-                    .iter()
-                    .map(|&cid| game.card(cid).mana_cost.cmc())
-                    .sum();
-                if total_mv < amount.resolve(game, source, player) {
-                    return None;
-                }
-                picked.extend(chosen);
+                picked.extend(Self::choose_evidence_cost_cards(
+                    game,
+                    agents,
+                    player,
+                    amount.resolve(game, source, player),
+                )?);
             }
         }
         Some(picked)
+    }
+
+    fn choose_evidence_cost_cards(
+        game: &GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        amount: i32,
+    ) -> Option<Vec<CardId>> {
+        let valid: Vec<CardId> = game
+            .cards_in_zone(ZoneType::Graveyard, player)
+            .iter()
+            .copied()
+            .filter(|&cid| can_exile_for_cost(game, cid))
+            .collect();
+        if valid.is_empty() {
+            return None;
+        }
+        let chosen: Vec<CardId> = agents[player.index()]
+            .choose_cards_for_effect(player, &valid, 0, valid.len())
+            .into_iter()
+            .filter(|cid| valid.contains(cid))
+            .collect();
+        let total_mv: i32 = chosen
+            .iter()
+            .map(|&cid| game.card(cid).mana_cost.cmc())
+            .sum();
+        if total_mv < amount {
+            return None;
+        }
+        Some(chosen)
+    }
+
+    fn choose_cost_cards_exactly(
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        valid: &[CardId],
+        amount: i32,
+    ) -> Option<Vec<CardId>> {
+        let amount = amount.max(0) as usize;
+        if valid.len() < amount {
+            return None;
+        }
+        let chosen = agents[player.index()].choose_cards_for_effect(player, valid, amount, amount);
+        (chosen.len() >= amount).then_some(chosen)
+    }
+
+    fn decides_cost_part_cards(part: &CostPart) -> bool {
+        match part {
+            CostPart::Exile {
+                type_filter, from, ..
+            } => {
+                !matches!(
+                    type_filter.as_str(),
+                    "CARDNAME" | "NICKNAME" | "OriginalHost" | "All"
+                ) && *from != ZoneType::Library
+            }
+            CostPart::Return { type_filter, .. } => type_filter != "CARDNAME",
+            CostPart::TapType {
+                type_filter,
+                min_total_power,
+                ..
+            } => min_total_power.is_none() && type_filter != "OriginalHost",
+            CostPart::ExileCtrlOrGrave { .. }
+            | CostPart::CollectEvidence(_)
+            | CostPart::Reveal { .. }
+            | CostPart::Blight(_)
+            | CostPart::Forage => true,
+            _ => false,
+        }
+    }
+
+    fn decide_cost_part_cards(
+        &mut self,
+        game: &GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        source: CardId,
+        part: &CostPart,
+        sa: Option<&SpellAbility>,
+    ) -> Option<Vec<CardId>> {
+        match part {
+            CostPart::Exile {
+                amount,
+                type_filter,
+                from,
+            } => Self::choose_cost_cards_exactly(
+                agents,
+                player,
+                &Self::exile_cost_candidates(game, player, source, type_filter, *from),
+                amount.resolve(game, source, player),
+            ),
+            CostPart::ExileCtrlOrGrave {
+                amount,
+                type_filter,
+            } => Self::choose_cost_cards_exactly(
+                agents,
+                player,
+                &Self::exile_ctrl_or_grave_candidates(game, player, source, type_filter),
+                amount.resolve(game, source, player),
+            ),
+            CostPart::Return {
+                amount,
+                type_filter,
+            } => Self::choose_cost_cards_exactly(
+                agents,
+                player,
+                &cost::get_sacrifice_targets_for_cost(game, player, type_filter, sa),
+                amount.resolve(game, source, player),
+            ),
+            CostPart::TapType {
+                amount,
+                type_filter,
+                can_tap_source,
+                ..
+            } => Self::choose_cost_cards_exactly(
+                agents,
+                player,
+                &cost::get_tap_type_targets_for_cost(
+                    game,
+                    player,
+                    type_filter,
+                    source,
+                    *can_tap_source,
+                    sa,
+                ),
+                amount.resolve(game, source, player),
+            ),
+            CostPart::CollectEvidence(amount) => Self::choose_evidence_cost_cards(
+                game,
+                agents,
+                player,
+                amount.resolve(game, source, player),
+            ),
+            CostPart::Reveal {
+                amount,
+                type_filter,
+                from,
+            } => Some(self.choose_reveal_cost_cards(
+                game,
+                agents,
+                player,
+                source,
+                type_filter,
+                amount.resolve(game, source, player),
+                from,
+            )),
+            CostPart::Blight(_) => {
+                let choices: Vec<crate::agent::GameEntity> = Self::blight_targets(game, player)
+                    .into_iter()
+                    .map(crate::agent::GameEntity::Card)
+                    .collect();
+                if choices.is_empty() {
+                    return None;
+                }
+                match agents[player.index()]
+                    .choose_single_entity_for_effect(player, &choices, false)
+                {
+                    Some(crate::agent::GameEntity::Card(chosen)) => Some(vec![chosen]),
+                    _ => None,
+                }
+            }
+            CostPart::Forage => Self::choose_forage_cost_cards(game, agents, player, source, sa),
+            _ => Some(Vec::new()),
+        }
+    }
+
+    pub(crate) fn prechoose_additional_cost_cards(
+        &mut self,
+        game: &GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        source: CardId,
+        spell_cost: &crate::cost::Cost,
+        sa: Option<&SpellAbility>,
+    ) -> Option<Vec<Option<Vec<CardId>>>> {
+        let mut decided: Vec<Option<Vec<CardId>>> = vec![None; spell_cost.parts.len()];
+        for (idx, part) in spell_cost.parts.iter().enumerate() {
+            if matches!(
+                part,
+                CostPart::Exile { .. }
+                    | CostPart::ExileCtrlOrGrave { .. }
+                    | CostPart::Reveal { .. }
+                    | CostPart::Blight(_)
+                    | CostPart::Forage
+            ) && Self::decides_cost_part_cards(part)
+            {
+                decided[idx] =
+                    Some(self.decide_cost_part_cards(game, agents, player, source, part, sa)?);
+            }
+        }
+        Some(decided)
     }
 
     pub(crate) fn prechoose_additional_cost_discards(
@@ -2746,6 +2955,25 @@ impl GameLoop {
         }
     }
 
+    fn exile_cost_candidates(
+        game: &GameState,
+        player: PlayerId,
+        source: CardId,
+        type_filter: &str,
+        from: ZoneType,
+    ) -> Vec<CardId> {
+        let base_filter = crate::cost::normalize_exile_base_filter(type_filter);
+        let mut valid = cost::get_zone_targets(game, player, from, &base_filter, source);
+        valid.retain(|&cid| can_exile_for_cost(game, cid));
+        if from == ZoneType::Hand
+            && game.card(source).zone == ZoneType::Hand
+            && game.card(source).owner == player
+        {
+            valid.retain(|&cid| cid != source);
+        }
+        valid
+    }
+
     /// Exile `amount` cards from `zone` matching `type_filter` for `player`.
     /// Mirrors Java's `CostExile.doListPayment()`.
     pub(crate) fn pay_exile_cost(
@@ -2757,24 +2985,22 @@ impl GameLoop {
         type_filter: &str,
         amount: i32,
         from: ZoneType,
+        prechosen: Option<&[CardId]>,
     ) {
         if amount <= 0 {
             return;
         }
         let amount = amount as usize;
-        let base_filter = crate::cost::normalize_exile_base_filter(type_filter);
-        let mut valid = cost::get_zone_targets(game, player, from, &base_filter, source);
-        valid.retain(|&cid| can_exile_for_cost(game, cid));
-        if from == ZoneType::Hand
-            && game.card(source).zone == ZoneType::Hand
-            && game.card(source).owner == player
-        {
-            valid.retain(|&cid| cid != source);
-        }
-        if valid.len() < amount {
-            return;
-        }
-        let chosen = agents[player.index()].choose_cards_for_effect(player, &valid, amount, amount);
+        let chosen = match prechosen {
+            Some(picks) => picks.to_vec(),
+            None => {
+                let valid = Self::exile_cost_candidates(game, player, source, type_filter, from);
+                if valid.len() < amount {
+                    return;
+                }
+                agents[player.index()].choose_cards_for_effect(player, &valid, amount, amount)
+            }
+        };
         for chosen in chosen {
             let owner = game.card(chosen).owner;
             self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
@@ -2897,14 +3123,13 @@ impl GameLoop {
         true
     }
 
-    /// Forage as a cost: exile 3 from graveyard or sacrifice a Food.
-    pub(crate) fn pay_forage_cost(
-        &mut self,
-        game: &mut GameState,
+    fn choose_forage_cost_cards(
+        game: &GameState,
         agents: &mut [Box<dyn PlayerAgent>],
         player: PlayerId,
         source: CardId,
-    ) {
+        sa: Option<&SpellAbility>,
+    ) -> Option<Vec<CardId>> {
         let battlefield_cards: Vec<_> = game
             .players
             .iter()
@@ -2931,85 +3156,55 @@ impl GameLoop {
             .copied()
             .filter(|&cid| can_exile_for_cost(game, cid))
             .collect();
-
-        if !foods.is_empty() && gy.len() < 3 {
-            let chosen = agents[player.index()]
+        let can_exile = gy.len() >= 3;
+        if foods.is_empty() && !can_exile {
+            return None;
+        }
+        let choose_food = !foods.is_empty()
+            && (!can_exile
+                || agents[player.index()].choose_binary(
+                    player,
+                    "Forage: sacrifice Food instead of exiling three cards?",
+                    crate::agent::BinaryChoiceKind::AddOrRemove,
+                    None,
+                    Some(source),
+                    sa.and_then(|s| s.api),
+                ));
+        if choose_food {
+            return agents[player.index()]
                 .choose_sacrifice(player, &foods, Some(source))
-                .unwrap_or(foods[0]);
-            super::perform_sacrifice(game, &mut self.trigger_handler, agents, &[chosen]);
-        } else if !foods.is_empty() {
-            // Let the chooser pick between food + graveyard cards. Food means sacrifice path.
-            let mut combined = foods.clone();
-            combined.extend(gy.iter().copied());
-            if let Some(chosen) =
-                self.choose_cost_card_mixed(game, agents, player, &combined, source)
-            {
-                if foods.contains(&chosen) {
-                    super::perform_sacrifice(game, &mut self.trigger_handler, agents, &[chosen]);
-                } else {
-                    // Graveyard path: exile chosen + two more.
-                    let mut chosen_gy = vec![chosen];
-                    while chosen_gy.len() < 3 {
-                        let remaining: Vec<CardId> = game
-                            .cards_in_zone(ZoneType::Graveyard, player)
-                            .iter()
-                            .copied()
-                            .filter(|cid| !chosen_gy.contains(cid))
-                            .filter(|&cid| can_exile_for_cost(game, cid))
-                            .collect();
-                        if remaining.is_empty() {
-                            return;
-                        }
-                        let next = self
-                            .choose_cost_card_from_zone(
-                                game,
-                                agents,
-                                player,
-                                &remaining,
-                                ZoneType::Graveyard,
-                                source,
-                            )
-                            .unwrap_or(remaining[0]);
-                        chosen_gy.push(next);
-                    }
-                    for cid in chosen_gy.into_iter().take(3) {
-                        let owner = game.card(cid).owner;
-                        self.move_card_with_runtime(game, cid, ZoneType::Exile, owner, agents);
-                        crate::ability::effects::emit_zone_trigger(
-                            &mut self.trigger_handler,
-                            cid,
-                            ZoneType::Graveyard,
-                            ZoneType::Exile,
-                        );
-                    }
-                }
-            }
+                .map(|food| vec![food]);
+        }
+        let chosen = agents[player.index()].choose_cards_for_effect(player, &gy, 3, 3);
+        (chosen.len() == 3).then_some(chosen)
+    }
+
+    /// Forage as a cost: exile 3 from graveyard or sacrifice a Food.
+    pub(crate) fn pay_forage_cost(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        source: CardId,
+        sa: Option<&SpellAbility>,
+        prechosen: Option<&[CardId]>,
+    ) -> bool {
+        let chosen = match prechosen {
+            Some(picks) => picks.to_vec(),
+            None => match Self::choose_forage_cost_cards(game, agents, player, source, sa) {
+                Some(picks) => picks,
+                None => return false,
+            },
+        };
+        if chosen.len() == 1 {
+            super::perform_sacrifice(game, &mut self.trigger_handler, agents, &chosen);
         } else {
-            for _ in 0..3 {
-                let remaining: Vec<CardId> = game
-                    .cards_in_zone(ZoneType::Graveyard, player)
-                    .iter()
-                    .copied()
-                    .filter(|&cid| can_exile_for_cost(game, cid))
-                    .collect();
-                if remaining.is_empty() {
-                    return;
-                }
-                let chosen = self
-                    .choose_cost_card_from_zone(
-                        game,
-                        agents,
-                        player,
-                        &remaining,
-                        ZoneType::Graveyard,
-                        source,
-                    )
-                    .unwrap_or(remaining[0]);
-                let owner = game.card(chosen).owner;
-                self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
+            for cid in chosen {
+                let owner = game.card(cid).owner;
+                self.move_card_with_runtime(game, cid, ZoneType::Exile, owner, agents);
                 crate::ability::effects::emit_zone_trigger(
                     &mut self.trigger_handler,
-                    chosen,
+                    cid,
                     ZoneType::Graveyard,
                     ZoneType::Exile,
                 );
@@ -3024,21 +3219,21 @@ impl GameLoop {
             },
             false,
         );
+        true
     }
 
-    pub(crate) fn pay_reveal_cost(
+    fn choose_reveal_cost_cards(
         &mut self,
-        game: &mut GameState,
+        game: &GameState,
         agents: &mut [Box<dyn PlayerAgent>],
         player: PlayerId,
         source: CardId,
         type_filter: &str,
         amount: i32,
         from: &crate::cost::RevealFrom,
-        sa: Option<&mut SpellAbility>,
-    ) {
+    ) -> Vec<CardId> {
         if amount <= 0 {
-            return;
+            return Vec::new();
         }
 
         let mut candidates: Vec<CardId> = match from {
@@ -3122,7 +3317,36 @@ impl GameLoop {
                 amount as usize,
             );
         }
+        revealed
+    }
 
+    pub(crate) fn pay_reveal_cost(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        source: CardId,
+        type_filter: &str,
+        amount: i32,
+        from: &crate::cost::RevealFrom,
+        sa: Option<&mut SpellAbility>,
+        prechosen: Option<&[CardId]>,
+    ) {
+        if amount <= 0 {
+            return;
+        }
+        let revealed = match prechosen {
+            Some(picks) => picks.to_vec(),
+            None => self.choose_reveal_cost_cards(
+                game,
+                agents,
+                player,
+                source,
+                type_filter,
+                amount,
+                from,
+            ),
+        };
         if revealed.is_empty() {
             return;
         }
@@ -3557,6 +3781,31 @@ impl GameLoop {
         }
     }
 
+    fn exile_ctrl_or_grave_candidates(
+        game: &GameState,
+        player: PlayerId,
+        source: CardId,
+        type_filter: &str,
+    ) -> Vec<CardId> {
+        let base_filter = crate::cost::normalize_exile_base_filter(type_filter);
+        let mut valid: Vec<CardId> = crate::cost::get_zone_targets(
+            game,
+            player,
+            ZoneType::Battlefield,
+            &base_filter,
+            source,
+        );
+        valid.extend(crate::cost::get_zone_targets(
+            game,
+            player,
+            ZoneType::Graveyard,
+            &base_filter,
+            source,
+        ));
+        valid.retain(|&cid| can_exile_for_cost(game, cid));
+        valid
+    }
+
     /// Exile cards from controller battlefield or graveyard (craft helper).
     pub(crate) fn pay_exile_ctrl_or_grave_cost(
         &mut self,
@@ -3566,46 +3815,28 @@ impl GameLoop {
         source: CardId,
         type_filter: &str,
         amount: i32,
+        prechosen: Option<&[CardId]>,
     ) -> bool {
-        let base_filter = crate::cost::normalize_exile_base_filter(type_filter);
-        let candidates = |game: &GameState| {
-            let mut valid: Vec<CardId> = crate::cost::get_zone_targets(
-                game,
-                player,
-                ZoneType::Battlefield,
-                &base_filter,
-                source,
-            );
-            valid.extend(crate::cost::get_zone_targets(
-                game,
-                player,
-                ZoneType::Graveyard,
-                &base_filter,
-                source,
-            ));
-            valid.retain(|&cid| can_exile_for_cost(game, cid));
-            valid
+        let chosen = match prechosen {
+            Some(picks) => picks.to_vec(),
+            None => {
+                let valid = Self::exile_ctrl_or_grave_candidates(game, player, source, type_filter);
+                match Self::choose_cost_cards_exactly(agents, player, &valid, amount) {
+                    Some(picks) => picks,
+                    None => return false,
+                }
+            }
         };
-        if (candidates(game).len() as i32) < amount {
-            return false;
-        }
-        for _ in 0..amount {
-            let valid = candidates(game);
-            if valid.is_empty() {
-                break;
-            }
-            if let Some(chosen) = self.choose_cost_card_mixed(game, agents, player, &valid, source)
-            {
-                let origin = game.card(chosen).zone;
-                let owner = game.card(chosen).owner;
-                self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
-                crate::ability::effects::emit_zone_trigger(
-                    &mut self.trigger_handler,
-                    chosen,
-                    origin,
-                    ZoneType::Exile,
-                );
-            }
+        for chosen in chosen {
+            let origin = game.card(chosen).zone;
+            let owner = game.card(chosen).owner;
+            self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
+            crate::ability::effects::emit_zone_trigger(
+                &mut self.trigger_handler,
+                chosen,
+                origin,
+                ZoneType::Exile,
+            );
         }
         true
     }
@@ -3621,19 +3852,19 @@ impl GameLoop {
         type_filter: &str,
         amount: i32,
         sa: Option<&SpellAbility>,
+        prechosen: Option<&[CardId]>,
     ) -> bool {
-        for _ in 0..amount {
-            let valid = cost::get_sacrifice_targets_for_cost(game, player, type_filter, sa);
-            if valid.is_empty() {
-                return false;
+        let chosen = match prechosen {
+            Some(picks) => picks.to_vec(),
+            None => {
+                let valid = cost::get_sacrifice_targets_for_cost(game, player, type_filter, sa);
+                match Self::choose_cost_cards_exactly(agents, player, &valid, amount) {
+                    Some(picks) => picks,
+                    None => return false,
+                }
             }
-            let Some(chosen) = agents[player.index()]
-                .choose_cards_for_effect(player, &valid, 1, 1)
-                .into_iter()
-                .next()
-            else {
-                return false;
-            };
+        };
+        for chosen in chosen {
             let owner = game.card(chosen).owner;
             let from_zone = game.card(chosen).zone;
             self.move_card_with_runtime(game, chosen, ZoneType::Hand, owner, agents);
@@ -3715,6 +3946,7 @@ impl GameLoop {
         min_total_power: Option<i32>,
         can_tap_source: bool,
         sa: Option<&mut SpellAbility>,
+        prechosen: Option<&[CardId]>,
     ) -> bool {
         let mut tapped_cards = Vec::new();
         if let Some(power_threshold) = min_total_power {
@@ -3798,7 +4030,9 @@ impl GameLoop {
             if valid.len() < amount.max(0) as usize {
                 return false;
             }
-            let chosen_cards = if type_filter == "OriginalHost" {
+            let chosen_cards = if let Some(picks) = prechosen {
+                picks.to_vec()
+            } else if type_filter == "OriginalHost" {
                 valid.clone()
             } else {
                 agents[player.index()].choose_cards_for_effect(
