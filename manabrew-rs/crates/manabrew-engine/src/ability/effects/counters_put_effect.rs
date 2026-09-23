@@ -506,7 +506,10 @@ fn resolve_card_targets(
                 && sa
                     .source_zone_timestamp
                     .is_some_and(|created_at| game.card(card).zone_timestamp != created_at);
-            !self_moved && (sa.ir.etb || game.card(card).zone == ZoneType::Battlefield)
+            !self_moved
+                && (sa.ir.etb
+                    || matches!(sa.defined_ref(), Some(DefinedRef::Remembered))
+                    || game.card(card).zone == ZoneType::Battlefield)
         })
         .collect()
 }
