@@ -1163,7 +1163,7 @@ impl Card {
             changed_trigger_count_base: self.changed_trigger_count_base,
             pump_keywords: self.pump_keywords.clone(),
             pump_trigger_count: self.pump_trigger_count,
-            abilities: Vec::new(),
+            abilities: self.abilities.clone(),
             action_spell_specs: self.action_spell_specs.clone(),
             action_spell_cost: self.action_spell_cost.clone(),
             ai_phyrexian_payment: self.ai_phyrexian_payment.clone(),
@@ -1408,7 +1408,7 @@ impl Card {
             out.pump_keywords.clone_from(&self.pump_keywords);
         }
         out.pump_trigger_count.clone_from(&self.pump_trigger_count);
-        out.abilities.clear();
+        refresh_field(&mut out.abilities, &self.abilities);
         out.action_spell_specs.clone_from(&self.action_spell_specs);
         out.action_spell_cost.clone_from(&self.action_spell_cost);
         refresh_field(&mut out.ai_phyrexian_payment, &self.ai_phyrexian_payment);
