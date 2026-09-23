@@ -2285,11 +2285,13 @@ mod tests {
 /// while the card has a card type it belongs to. Returns whether anything was removed.
 pub(crate) fn sanitize_subtypes(type_line: &mut CardTypeLine) -> bool {
     use crate::game::TypeRegistry;
+    let creature = type_line.core_types.contains(&CoreType::Creature)
+        || type_line.core_types.contains(&CoreType::Kindred);
+    let cleared_all_creature_types = !creature && std::mem::take(&mut type_line.all_creature_types);
     if type_line.subtypes.is_empty() || !TypeRegistry::subtype_sections_loaded() {
-        return false;
+        return cleared_all_creature_types;
     }
     let has = |t: CoreType| type_line.core_types.contains(&t);
-    let creature = has(CoreType::Creature) || has(CoreType::Kindred);
     let land = has(CoreType::Land);
     let artifact = has(CoreType::Artifact);
     let enchantment = has(CoreType::Enchantment);
@@ -2310,7 +2312,7 @@ pub(crate) fn sanitize_subtypes(type_line: &mut CardTypeLine) -> bool {
             || (battle && TypeRegistry::is_subtype_in("BattleTypes", s))
             || (plane && TypeRegistry::is_subtype_in("PlanarTypes", s))
     });
-    type_line.subtypes.len() != before
+    type_line.subtypes.len() != before || cleared_all_creature_types
 }
 
 /// `StringUtils.capitalize`, for the colour name Java splices into a CardColors keyword.

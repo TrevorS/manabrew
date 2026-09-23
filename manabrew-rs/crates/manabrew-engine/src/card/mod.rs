@@ -4258,7 +4258,8 @@ impl Card {
         if self.type_line.has_subtype(creature_type) {
             return true;
         }
-        self.has_keyword("Changeling") && crate::game::TypeRegistry::is_creature_type(creature_type)
+        (self.type_line.all_creature_types || self.has_keyword("Changeling"))
+            && crate::game::TypeRegistry::is_creature_type(creature_type)
     }
 
     pub fn is_outlaw(&self) -> bool {

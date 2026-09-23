@@ -265,10 +265,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     .any(|ct| ct.eq_ignore_ascii_case(s))
             };
             card.type_line.subtypes.retain(not_creature_type);
+            card.type_line.all_creature_types = false;
             card.update_types();
             if is_permanent_duration {
                 if let Some(state) = card.animate_state.as_mut() {
                     state.original_type_line.subtypes.retain(not_creature_type);
+                    state.original_type_line.all_creature_types = false;
                 }
             }
         }
@@ -302,6 +304,19 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                             }
                         }
                     }
+                }
+            }
+        }
+
+        if crate::parsing::raw_has_key(
+            &sa.ability_text,
+            crate::parsing::keys::ADD_ALL_CREATURE_TYPES,
+        ) {
+            let card = ctx.game.card_mut(card_id);
+            card.type_line.all_creature_types = true;
+            if is_permanent_duration {
+                if let Some(state) = card.animate_state.as_mut() {
+                    state.original_type_line.all_creature_types = true;
                 }
             }
         }

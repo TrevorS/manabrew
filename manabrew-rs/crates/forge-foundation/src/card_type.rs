@@ -174,6 +174,8 @@ pub struct CardTypeLine {
     pub supertypes: BTreeSet<Supertype>,
     pub core_types: BTreeSet<CoreType>,
     pub subtypes: Vec<String>,
+    #[serde(default)]
+    pub all_creature_types: bool,
 }
 
 impl CardTypeLine {
@@ -182,6 +184,7 @@ impl CardTypeLine {
             supertypes: BTreeSet::new(),
             core_types: BTreeSet::new(),
             subtypes: Vec::new(),
+            all_creature_types: false,
         }
     }
 
