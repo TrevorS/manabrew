@@ -124,7 +124,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .collect()
     };
 
-    let rest: Vec<_> = top_n
+    let mut rest: Vec<_> = top_n
         .iter()
         .copied()
         .filter(|id| !chosen.contains(id))
@@ -156,6 +156,18 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
         emit_zone_trigger(ctx.trigger_handler, id, ZoneType::Library, dest_zone1);
+    }
+
+    if dest_zone2 == ZoneType::Library || dest_zone2 == ZoneType::Graveyard {
+        if sa.ir.rest_random_order {
+            for i in (1..rest.len()).rev() {
+                let j = ctx.rng.next_int((i + 1) as i32) as usize;
+                rest.swap(i, j);
+            }
+        }
+        if lib_position2 != -1 {
+            rest.reverse();
+        }
     }
 
     // Move rest to dest_zone2.
