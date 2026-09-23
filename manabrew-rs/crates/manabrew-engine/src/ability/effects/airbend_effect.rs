@@ -72,13 +72,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let host_id = sa.source;
     let host_image = host_id.map(|id| ctx.game.card(id).card_name.clone());
 
-    // Cumulative list of cards this resolution has moved into Exile and not
-    // since left it. Mirrors Java `zoneMovements.filterCards(null, [Exile], …)`
-    // observed from inside the per-target loop: each new effect remembers
-    // every airbent card so far, so an early target ends up "remembered" by
-    // every subsequently-created effect.
-    let mut exiled_so_far: Vec<CardId> = Vec::new();
-
     for card_id in targets {
         if ctx.game.card(card_id).zone == ZoneType::None {
             continue;
@@ -96,10 +89,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if ctx.game.card(card_id).zone != ZoneType::Exile {
             continue;
         }
-
-        // Java's `removeIf(Card::isToken)` mirrored above; the cumulative list
-        // only collects non-token cards that ended this iteration in Exile.
-        exiled_so_far.push(card_id);
 
         // Per-card persistent Effect in the Command zone granting
         // `MayPlay$ True | MayPlayAltManaCost$ 2` to the exiled card while
@@ -128,7 +117,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if let Some(static_ab) = parse_static_ability(static_text) {
             effect.set_static_abilities(vec![static_ab]);
         }
-        effect.add_remembered_cards(exiled_so_far.iter().copied());
+        effect.add_remembered_cards([card_id]);
         effect.set_forget_on_moved_origin(Some(ZoneType::Exile));
 
         let effect_id = ctx.game.create_card(effect);
