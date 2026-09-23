@@ -224,7 +224,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         for &pid in &player_ids {
             let zone_cards: Vec<CardId> = origin_zones
                 .iter()
-                .flat_map(|&zone| ctx.game.cards_in_zone(zone, pid).to_vec())
+                .flat_map(|&zone| {
+                    let cards = ctx.game.cards_in_zone(zone, pid);
+                    if zone == ZoneType::Library {
+                        cards.iter().rev().copied().collect::<Vec<_>>()
+                    } else {
+                        cards.to_vec()
+                    }
+                })
                 .collect();
             let by_type = if filter_by_type {
                 crate::ability::ability_utils::filter_list_by_type(
