@@ -509,6 +509,10 @@ impl MagicStack {
         self.resolving_entry = entry;
     }
 
+    pub fn resolving_entry(&self) -> Option<&StackEntry> {
+        self.resolving_entry.as_ref()
+    }
+
     // ── Undo stack ───────────────────────────────────────────────────
 
     /// Check if undo is available for the given player.
