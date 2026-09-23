@@ -255,6 +255,16 @@ fn resolve_exiled_with(
         .filter(|cid| !result.contains(cid))
         .collect();
     result.extend(remembered);
+    let exiled: Vec<_> = ctx
+        .game
+        .card(source_id)
+        .exiled_cards
+        .iter()
+        .copied()
+        .filter(|&cid| ctx.game.card(cid).zone == origin_zone)
+        .filter(|cid| !result.contains(cid))
+        .collect();
+    result.extend(exiled);
     result
 }
 

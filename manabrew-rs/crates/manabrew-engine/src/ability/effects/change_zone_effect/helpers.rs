@@ -534,9 +534,6 @@ pub(super) fn apply_post_move(
                     src_zone,
                     ZoneType::Battlefield | ZoneType::Stack | ZoneType::Command
                 );
-                if source_active && !ctx.game.card(sid).remembered_cards.contains(&card_id) {
-                    ctx.game.card_mut(sid).add_remembered_card(card_id);
-                }
                 // Mirrors Java `SpellAbilityEffect.handleExiledWith` — feeds
                 // `Card.ExiledWithSource` / `Defined$ ExiledWith` selectors.
                 if source_active {

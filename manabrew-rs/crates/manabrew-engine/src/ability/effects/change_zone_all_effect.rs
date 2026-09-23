@@ -218,20 +218,36 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         };
         let mut to_move: Vec<(CardId, PlayerId)> = Vec::new();
 
+        let filter_by_type = ["Targeted", "Triggered", "Remembered", "Imprinted"]
+            .iter()
+            .any(|prefix| valid_cards_filter.starts_with(prefix));
         for &pid in &player_ids {
             let zone_cards: Vec<CardId> = origin_zones
                 .iter()
                 .flat_map(|&zone| ctx.game.cards_in_zone(zone, pid).to_vec())
                 .collect();
-            for cid in zone_cards {
-                if matches_change_zone_all_filter(
-                    cid,
+            let by_type = if filter_by_type {
+                crate::ability::ability_utils::filter_list_by_type(
                     ctx.game,
-                    Some(sa),
+                    &zone_cards,
                     &valid_cards_filter,
-                    &source_chosen_colors,
-                    effective_target,
-                ) {
+                    sa,
+                )
+            } else {
+                Vec::new()
+            };
+            for cid in zone_cards {
+                if (filter_by_type && by_type.contains(&cid))
+                    || (!filter_by_type
+                        && matches_change_zone_all_filter(
+                            cid,
+                            ctx.game,
+                            Some(sa),
+                            &valid_cards_filter,
+                            &source_chosen_colors,
+                            effective_target,
+                        ))
+                {
                     let dest_owner = if dest_zone == ZoneType::Battlefield {
                         sa.activating_player
                     } else {
