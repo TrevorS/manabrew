@@ -805,7 +805,7 @@ impl GameLoop {
                     let mut block_cost_failures = Vec::new();
                     for &(blocker_id, attacker_id) in &self.combat.blockers {
                         let cost = combat::block_cost::get_block_cost(
-                            &game.cards,
+                            game,
                             game.card(blocker_id),
                             game.card(attacker_id),
                         );

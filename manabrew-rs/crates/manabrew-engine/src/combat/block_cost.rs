@@ -7,6 +7,7 @@
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::staticability::StaticMode;
 
 /// Compute the total generic mana cost required for `blocker` to block `attacker`.
@@ -17,12 +18,20 @@ use crate::staticability::StaticMode;
 /// ```text
 /// S:Mode$ CantBlockUnless | ValidCard$ Creature | Cost$ 1
 /// ```
-pub fn get_block_cost(cards: &[Card], blocker: &Card, _attacker: &Card) -> i32 {
+pub fn get_block_cost(game: &GameState, blocker: &Card, _attacker: &Card) -> i32 {
     let mut total_cost = 0;
 
-    for source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {
+    for source in game
+        .cards
+        .iter()
+        .filter(|c| c.zone == ZoneType::Battlefield)
+    {
         for sa in &source.static_abilities {
             if !sa.check_mode(&StaticMode::CantBlockUnless) {
+                continue;
+            }
+
+            if !sa.check_conditions(source, game) {
                 continue;
             }
 

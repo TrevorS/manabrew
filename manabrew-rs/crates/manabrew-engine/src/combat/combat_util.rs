@@ -214,11 +214,7 @@ pub fn validate_blocks(game: &GameState, combat: &CombatState) -> Vec<(CardId, C
 
 pub fn must_block_an_attacker(game: &GameState, combat: &CombatState, blocker_id: CardId) -> bool {
     let has_block_cost = |attacker_id: CardId| {
-        super::block_cost::get_block_cost(
-            &game.cards,
-            game.card(blocker_id),
-            game.card(attacker_id),
-        ) > 0
+        super::block_cost::get_block_cost(game, game.card(blocker_id), game.card(attacker_id)) > 0
     };
     let mut requirement_cards = Vec::new();
     for &(attacker_id, _) in &combat.attackers {
@@ -453,7 +449,7 @@ pub fn check_propaganda_effects(
 pub fn pay_required_block_costs(game: &GameState, blocker_id: CardId, attacker_id: CardId) -> bool {
     let blocker = game.card(blocker_id);
     let attacker = game.card(attacker_id);
-    let cost = super::block_cost::get_block_cost(&game.cards, blocker, attacker);
+    let cost = super::block_cost::get_block_cost(game, blocker, attacker);
     cost == 0
 }
 
