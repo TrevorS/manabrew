@@ -272,6 +272,7 @@ impl CapturingAgent {
     /// Build a formatting context for the current game state.
     /// Returns `None` if no game state has been captured yet.
     fn fmt_ctx(&self) -> Option<FmtCtx<'_>> {
+        self.inner.sync_parity_ids();
         self.inner.snapshot_game().map(|game| FmtCtx {
             game,
             parity_map: &self.parity_map,
@@ -519,6 +520,7 @@ impl PlayerAgent for CapturingAgent {
                 self.failed_payment_cards_this_turn.clear();
                 self.pending_pay_mana_cost_args = None;
                 self.pending_pay_mana_cost_card = None;
+                self.inner.sync_parity_ids();
                 if self.capture_snapshots {
                     let pending = self.pending_turn_snapshot.take();
                     if let Some(mut snap) = pending.or_else(|| {
@@ -545,6 +547,7 @@ impl PlayerAgent for CapturingAgent {
                     game.turn.phase = *phase;
                 }
                 if self.deep && self.player_id.0 == 0 {
+                    self.inner.sync_parity_ids();
                     if let Some(game) = self.inner.snapshot_game() {
                         self.parity_observer.push_entry(ParityLogEntry::Snapshot(
                             self.snapshot_with_rng_counts(game),
@@ -558,6 +561,7 @@ impl PlayerAgent for CapturingAgent {
                     game.turn.priority_player = *player;
                 }
                 if self.deep && self.player_id.0 == 0 {
+                    self.inner.sync_parity_ids();
                     if let Some(game) = self.inner.snapshot_game() {
                         self.parity_observer.push_entry(ParityLogEntry::Snapshot(
                             self.snapshot_with_rng_counts(game),

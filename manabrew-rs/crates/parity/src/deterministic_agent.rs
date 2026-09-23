@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -106,6 +106,7 @@ pub struct DeterministicAgent {
     game_rng: Rc<RefCell<JavaRandom>>,
     prefer_actions: bool,
     parity_map: Arc<ParityCardMap>,
+    parity_sync_pending: Cell<bool>,
     parity_observer: Option<Arc<crate::runner::ParityObserver>>,
     choosing_targets: bool,
     target_loop_drew_continue: bool,
@@ -227,6 +228,19 @@ impl DeterministicAgent {
         self.snapshot_game.as_ref()
     }
 
+    pub(crate) fn sync_parity_ids(&self) {
+        if self.parity_sync_pending.replace(false) {
+            if let Some(game) = self.snapshot_game() {
+                self.parity_map.sync_with_game(game);
+            }
+        }
+    }
+
+    fn parity_id(&self, cid: CardId) -> u32 {
+        self.sync_parity_ids();
+        self.parity_map.id(cid)
+    }
+
     pub(crate) fn snapshot_game_mut(&mut self) -> Option<&mut GameState> {
         self.snapshot_game.as_mut()
     }
@@ -269,6 +283,7 @@ impl DeterministicAgent {
             game_rng,
             prefer_actions,
             parity_map,
+            parity_sync_pending: Cell::new(false),
             parity_observer,
             choosing_targets: false,
             target_loop_drew_continue: false,
@@ -396,7 +411,7 @@ impl DeterministicAgent {
     fn defender_sort_key(&self, defender: DefenderId) -> (String, u32) {
         match defender {
             DefenderId::Player(pid) => (self.player_name(pid), pid.0),
-            DefenderId::Permanent(cid) => (self.card_name(cid), self.parity_map.id(cid)),
+            DefenderId::Permanent(cid) => (self.card_name(cid), self.parity_id(cid)),
         }
     }
 
@@ -478,7 +493,7 @@ impl DeterministicAgent {
         format!(
             "1|{}|O{owner:05}|C{controller:05}|I{:05}",
             self.card_name(id),
-            self.parity_map.id(id)
+            self.parity_id(id)
         )
     }
 
@@ -784,7 +799,7 @@ impl DeterministicAgent {
                     return format!(
                         "AB:{}|1|{}|{}|{}",
                         self.card_name(play.card_id),
-                        self.parity_map.id(play.card_id),
+                        self.parity_id(play.card_id),
                         sort_idx,
                         self.ability_sort_text(play.card_id, ability_idx),
                     );
@@ -793,7 +808,7 @@ impl DeterministicAgent {
                     return format!(
                         "AB:{}|1|{}|{:05}|{}",
                         self.card_name(play.card_id),
-                        self.parity_map.id(play.card_id),
+                        self.parity_id(play.card_id),
                         self.foretell_declaration_index(play.card_id),
                         self.play_option_fallback(play),
                     );
@@ -802,7 +817,7 @@ impl DeterministicAgent {
                 format!(
                     "{}|0|{}|{}|{}",
                     label,
-                    self.parity_map.id(play.card_id),
+                    self.parity_id(play.card_id),
                     Self::play_option_sort_text(play),
                     self.play_option_fallback(play),
                 )
@@ -829,7 +844,7 @@ impl DeterministicAgent {
                 format!(
                     "AB:{}|1|{}|{}|{}",
                     self.card_name(card_id),
-                    self.parity_map.id(card_id),
+                    self.parity_id(card_id),
                     sort_idx,
                     self.ability_sort_text(card_id, ability_idx),
                 )
@@ -866,12 +881,12 @@ impl DeterministicAgent {
             ActionChoice::Card(play) => format!(
                 "CastSpell(PlayOption {{ card: {}@{}, mode: Normal }})",
                 self.card_name(play.card_id),
-                self.parity_map.id(play.card_id),
+                self.parity_id(play.card_id),
             ),
             ActionChoice::Ability(card_id, ability_idx) => format!(
                 "ActivateAbility(AbilityRef {{ card: {}@{}, ability_index: {} }})",
                 self.card_name(card_id),
-                self.parity_map.id(card_id),
+                self.parity_id(card_id),
                 if ability_idx == STATIC_ALTERNATIVE_ABILITY_INDEX {
                     "-1".to_string()
                 } else {
@@ -1085,18 +1100,7 @@ impl PlayerAgent for DeterministicAgent {
     fn snapshot_state(&mut self, game: &GameState, _mana_pools: &[ManaPool]) {
         let split_priority_snapshot = manabrew_engine::perf::current_params_lookup_scope()
             == Some(manabrew_engine::perf::ParamsLookupScope::PrioritySnapshot);
-        // Assign parity IDs for all currently existing cards as soon as we
-        // observe state, so later parity_id reads are not first-touch dependent.
-        {
-            let _perf_scope = split_priority_snapshot
-                .then(|| {
-                    manabrew_engine::perf::ParamsLookupScopeGuard::enter(
-                        manabrew_engine::perf::ParamsLookupScope::PrioritySnapshotSync,
-                    )
-                })
-                .flatten();
-            self.parity_map.sync_with_game(game);
-        }
+        self.parity_sync_pending.set(true);
 
         let (
             mut player_names,
@@ -1262,18 +1266,10 @@ impl PlayerAgent for DeterministicAgent {
             target_names.push(format!("Player({})", pid.0));
         }
         if let Some(cid) = sa.target_chosen.target_card {
-            target_names.push(format!(
-                "{}@{}",
-                self.card_name(cid),
-                self.parity_map.id(cid)
-            ));
+            target_names.push(format!("{}@{}", self.card_name(cid), self.parity_id(cid)));
         }
         for &cid in sa.target_chosen.divided_map.keys() {
-            target_names.push(format!(
-                "{}@{}",
-                self.card_name(cid),
-                self.parity_map.id(cid)
-            ));
+            target_names.push(format!("{}@{}", self.card_name(cid), self.parity_id(cid)));
         }
         if let Some(stack_id) = sa.target_chosen.target_stack_entry {
             target_names.push(format!("Stack({stack_id})"));
@@ -1342,7 +1338,7 @@ impl PlayerAgent for DeterministicAgent {
                     format!(
                         "AB:{}@{}:{} mana={}",
                         self.card_name(a.card_id),
-                        self.parity_map.id(a.card_id),
+                        self.parity_id(a.card_id),
                         a.ability_index,
                         self.is_mana_ability(a.card_id, a.ability_index)
                     )
@@ -1388,7 +1384,7 @@ impl PlayerAgent for DeterministicAgent {
                     ActionChoice::Ability(card_id, ability_idx) => format!(
                         "#{idx}: AB:{}@{}:{}",
                         self.card_name(card_id),
-                        self.parity_map.id(card_id),
+                        self.parity_id(card_id),
                         ability_idx
                     ),
                 })
@@ -1483,7 +1479,7 @@ impl PlayerAgent for DeterministicAgent {
                 let an = self.card_name(*a);
                 let bn = self.card_name(*b);
                 an.cmp(&bn)
-                    .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+                    .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
             });
             for &id in &sorted_available {
                 let roll = choice_space::pick_index(2, &mut self.rng.borrow_mut());
@@ -1557,13 +1553,13 @@ impl PlayerAgent for DeterministicAgent {
             let an = self.card_name(*a);
             let bn = self.card_name(*b);
             an.cmp(&bn)
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+                .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
         });
         let sorted_blockers = choice_space::sort_native(available_blockers, |a, b| {
             let an = self.card_name(*a);
             let bn = self.card_name(*b);
             an.cmp(&bn)
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+                .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
         });
 
         let mut pairs = Vec::new();
@@ -1633,7 +1629,7 @@ impl PlayerAgent for DeterministicAgent {
             let an = self.card_name(*a);
             let bn = self.card_name(*b);
             an.cmp(&bn)
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+                .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
         });
         let legal_attackers = self.legal_attackers_for_blocker(blocker, &sorted_attackers);
         if legal_attackers.is_empty() {
@@ -1660,7 +1656,7 @@ impl PlayerAgent for DeterministicAgent {
         parity_order::sort_cards_by_name_then_id(
             blockers,
             |cid| self.card_name(cid),
-            |cid| self.parity_map.id(cid),
+            |cid| self.parity_id(cid),
         )
     }
 
@@ -1978,7 +1974,7 @@ impl PlayerAgent for DeterministicAgent {
         let sorted = choice_space::sort_native(duplicates, |a, b| {
             self.card_name(*a)
                 .cmp(&self.card_name(*b))
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+                .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
         });
         choice_space::pick_one(&sorted, &mut self.rng.borrow_mut()).unwrap_or(duplicates[0])
     }
@@ -1995,7 +1991,7 @@ impl PlayerAgent for DeterministicAgent {
         let sorted = choice_space::sort_native(valid, |a, b| {
             self.card_name(*a)
                 .cmp(&self.card_name(*b))
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+                .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
         });
         // Match Java `choosePermanentsToSacrifice` which calls
         // `ChoiceSpace.pickManyCards(sorted, min=1, max=1, rng)`. The RNG
@@ -2013,7 +2009,7 @@ impl PlayerAgent for DeterministicAgent {
         let sorted = choice_space::sort_native(hand, |a, b| {
             self.card_name(*a)
                 .cmp(&self.card_name(*b))
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+                .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
         });
         gui_repro::pick_many_unique(&sorted, num, num, &mut self.rng.borrow_mut())
     }
@@ -2031,7 +2027,7 @@ impl PlayerAgent for DeterministicAgent {
         let sorted = choice_space::sort_native(hand, |a, b| {
             self.card_name(*a)
                 .cmp(&self.card_name(*b))
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+                .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
         });
         let clamped_max = max.min(sorted.len());
         gui_repro::pick_many_unique(&sorted, min, clamped_max, &mut self.rng.borrow_mut())
@@ -2085,7 +2081,7 @@ impl PlayerAgent for DeterministicAgent {
         let sorted = choice_space::sort_native(valid, |a, b| {
             self.card_name(*a)
                 .cmp(&self.card_name(*b))
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+                .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
         });
         gui_repro::pick_many_unique(&sorted, min, max, &mut self.rng.borrow_mut())
     }
@@ -2108,7 +2104,7 @@ impl PlayerAgent for DeterministicAgent {
         let sorted = choice_space::sort_native(valid, |a, b| {
             self.card_name(*a)
                 .cmp(&self.card_name(*b))
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+                .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
         });
         choice_space::pick_many_unique(&sorted, min, max, &mut self.rng.borrow_mut())
     }
@@ -2142,7 +2138,7 @@ impl PlayerAgent for DeterministicAgent {
             let sorted = choice_space::sort_native(&remaining, |a, b| {
                 self.card_name(*a)
                     .cmp(&self.card_name(*b))
-                    .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+                    .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
             });
             if let Some(pick) = choice_space::pick_one(&sorted, &mut self.rng.borrow_mut()) {
                 chosen.push(pick);
@@ -2250,7 +2246,7 @@ impl PlayerAgent for DeterministicAgent {
         let sorted = choice_space::sort_native(valid, |a, b| {
             self.card_name(*a)
                 .cmp(&self.card_name(*b))
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+                .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
         });
         if self.choosing_targets {
             self.log_target_candidates(&[], &sorted);
@@ -2336,7 +2332,7 @@ impl PlayerAgent for DeterministicAgent {
             let key = |e: &GameEntity| -> (u8, String, u32) {
                 match e {
                     GameEntity::Player(pid) => (0, format!("P{}", pid.0), 0),
-                    GameEntity::Card(cid) => (1, self.card_name(*cid), self.parity_map.id(*cid)),
+                    GameEntity::Card(cid) => (1, self.card_name(*cid), self.parity_id(*cid)),
                 }
             };
             key(a).cmp(&key(b))
@@ -2361,7 +2357,7 @@ impl PlayerAgent for DeterministicAgent {
         let sorted = choice_space::sort_native(valid, |a, b| {
             self.card_name(*a)
                 .cmp(&self.card_name(*b))
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+                .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
         });
         let _ = player;
         choice_space::pick_one(&sorted, &mut self.rng.borrow_mut())
@@ -2379,7 +2375,7 @@ impl PlayerAgent for DeterministicAgent {
         let sorted = choice_space::sort_native(valid, |a, b| {
             self.card_name(*a)
                 .cmp(&self.card_name(*b))
-                .then_with(|| self.parity_map.id(*a).cmp(&self.parity_map.id(*b)))
+                .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
         });
         self.choose_cards_for_effect(player, &sorted, min, max)
     }
@@ -2459,7 +2455,7 @@ impl PlayerAgent for DeterministicAgent {
             let key = |entity: &GameEntity| -> (u8, String, u32) {
                 match entity {
                     GameEntity::Player(p) => (0, format!("P{}", p.0), 0),
-                    GameEntity::Card(c) => (1, self.card_name(*c), self.parity_map.id(*c)),
+                    GameEntity::Card(c) => (1, self.card_name(*c), self.parity_id(*c)),
                 }
             };
             key(a).cmp(&key(b))
