@@ -221,6 +221,9 @@ impl GameLoop {
             card_name.to_string()
         };
 
+        if game.card(card_id).face_down {
+            game.card_mut(card_id).turn_face_up();
+        }
         if can_play_back_face_land && !game.card(card_id).is_transformed {
             game.card_mut(card_id).transform();
         }
