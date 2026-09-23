@@ -1551,8 +1551,8 @@ impl GameLoop {
             }
         }
         if sa.is_spell && !game.card_is_in_zone(card_id, ZoneType::Stack) {
-            self.move_card_with_runtime(game, card_id, ZoneType::Stack, player, agents);
             game.card_mut(card_id).cast_from = Some(announced_from_zone);
+            self.move_card_with_runtime(game, card_id, ZoneType::Stack, player, agents);
         }
         if sa.is_spell
             && game.card(card_id).face_down
