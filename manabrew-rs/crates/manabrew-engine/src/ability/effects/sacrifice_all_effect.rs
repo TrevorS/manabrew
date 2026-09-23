@@ -109,6 +109,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
     }
+    if sa.ir.remember_sacrificed {
+        if let Some(source_id) = sa.source {
+            ctx.game.card_mut(source_id).clear_remembered();
+        }
+    }
     if let Some(controller_text) = sa.ir.controller_text.as_deref() {
         let controllers = crate::ability::ability_utils::resolve_defined_players_with_sa(
             controller_text,
@@ -180,6 +185,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         );
         ctx.move_card(card_id, ZoneType::Graveyard, owner);
         ctx.trigger_handler.flush_waiting_triggers(ctx.game);
+        if sa.ir.remember_sacrificed {
+            if let Some(source_id) = sa.source {
+                ctx.game.card_mut(source_id).add_remembered_card(card_id);
+            }
+        }
         by_controller.entry(controller).or_default().push(card_id);
     }
 

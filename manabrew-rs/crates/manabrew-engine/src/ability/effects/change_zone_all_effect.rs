@@ -255,10 +255,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                             effective_target,
                         ))
                 {
-                    let dest_owner = if dest_zone == ZoneType::Battlefield {
+                    let dest_owner = if dest_zone != ZoneType::Battlefield {
+                        ctx.game.card(cid).owner
+                    } else if sa.is_gain_control() {
                         sa.activating_player
                     } else {
-                        ctx.game.card(cid).owner
+                        ctx.game.card(cid).controller
                     };
                     to_move.push((cid, dest_owner));
                 }
