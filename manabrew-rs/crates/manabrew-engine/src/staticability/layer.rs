@@ -139,6 +139,13 @@ pub fn classify_static_layers(sa: &StaticAbility) -> Vec<Layer> {
     layers
 }
 
+fn first_static_layer(sa: &StaticAbility) -> Layer {
+    classify_static_layers(sa)
+        .into_iter()
+        .min()
+        .unwrap_or(Layer::Rules)
+}
+
 fn push_layer(layers: &mut Vec<Layer>, condition: bool, layer: Layer) {
     if condition {
         push_unique_layer(layers, layer);
@@ -321,35 +328,98 @@ pub fn apply_continuous_effects(game: &mut GameState) {
 
     // ── 2. Build list of effects-to-apply (deferred to allow sorting) ────
     let mut pending: Vec<PendingEffect> = Vec::new();
+    let mut staged: Vec<(usize, PendingEffect)> = Vec::new();
+    let mut type_changed: Vec<CardId> = Vec::new();
+    let mut granted_keyword_replacements: indexmap::IndexMap<
+        CardId,
+        Vec<crate::replacement::replacement_effect::ReplacementEffect>,
+    > = indexmap::IndexMap::new();
     let mut cant_block_targets: Vec<CardId> = Vec::new();
     let mut granted_player_rules: Vec<(CardId, StaticAbility)> = Vec::new();
     let mut granted_statics: Vec<(CardId, StaticAbility)> = Vec::new();
 
-    let mut statics: std::collections::VecDeque<(CardId, usize, Option<StaticAbility>)> = game
+    for card in &game.cards {
+        for (counter, &amount) in &card.counters {
+            if amount <= 0 {
+                continue;
+            }
+            if let Some(keyword) =
+                crate::card::counter_keyword_type::CounterKeywordType::keyword(counter)
+            {
+                staged.push((
+                    usize::MAX,
+                    PendingEffect {
+                        layer: Layer::Ability,
+                        target: card.id,
+                        kind: EffectKind::GrantKeyword(keyword.to_string()),
+                    },
+                ));
+            } else if *counter == crate::card::CounterType::Named("HONE".to_string())
+                && card.zone == ZoneType::Battlefield
+                && card.type_line.has_subtype("Equipment")
+            {
+                if let Some(equipped) = card
+                    .attached_to
+                    .filter(|&equipped| game.card(equipped).is_creature())
+                {
+                    staged.push((
+                        usize::MAX,
+                        PendingEffect {
+                            layer: Layer::ModifyPT,
+                            target: equipped,
+                            kind: EffectKind::AddPT {
+                                power: amount,
+                                toughness: 0,
+                            },
+                        },
+                    ));
+                }
+            }
+        }
+    }
+
+    let mut initial: Vec<(CardId, usize, StaticAbility, bool, usize, Layer)> = game
         .cards
         .iter()
         .flat_map(|card| {
-            (0..card.static_abilities.len()).map(move |sa_idx| (card.id, sa_idx, None))
+            card.static_abilities
+                .iter()
+                .enumerate()
+                .filter(move |(_, sa)| !card.face_down && sa.zones_check(card.zone))
+                .map(move |(sa_idx, sa)| (card.id, sa_idx, sa.clone()))
+        })
+        .enumerate()
+        .map(|(seq, (card_id, sa_idx, sa))| {
+            let layer = first_static_layer(&sa);
+            (card_id, sa_idx, sa, false, seq, layer)
         })
         .collect();
-    while let Some((source_id, sa_idx, granted)) = statics.pop_front() {
+    initial.sort_by_key(|entry| entry.5);
+    let mut statics: std::collections::VecDeque<(
+        CardId,
+        usize,
+        StaticAbility,
+        bool,
+        usize,
+        Layer,
+    )> = initial.into();
+    let mut flushed_below: Option<Layer> = None;
+    while let Some((source_id, sa_idx, sa, is_granted, seq, first_layer)) = statics.pop_front() {
+        if flushed_below != Some(first_layer) {
+            flush_pending_effects(
+                game,
+                &mut staged,
+                Some(first_layer),
+                &mut type_changed,
+                &mut granted_keyword_replacements,
+            );
+            flushed_below = Some(first_layer);
+        }
         {
-            let is_granted = granted.is_some();
             let pending_before = pending.len();
-            // `check_conditions` rejects on `zones_check` first, so test the zone
-            // against a borrow before paying for a full Card clone. Most cards in
-            // a game are in a library or graveyard and fail here.
-            let sa = {
-                let card = game.card(source_id);
-                let zones_ok = match &granted {
-                    Some(sa) => sa.zones_check(card.zone),
-                    None => !card.face_down && card.static_abilities[sa_idx].zones_check(card.zone),
-                };
-                if !zones_ok {
-                    continue;
-                }
-                granted.unwrap_or_else(|| card.static_abilities[sa_idx].clone())
-            };
+            if !sa.zones_check(game.card(source_id).zone) {
+                continue;
+            }
             // Full static-ability condition gate (IsPresent$, CheckSVar$, Condition$, etc.).
             // Mirrors Java static ability checks before applying continuous effects.
             if !sa.check_conditions(game.card(source_id), game) {
@@ -762,9 +832,10 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             }
             for (offset, (target, granted)) in granted_statics.drain(..).enumerate().rev() {
                 let granted_idx = game.card(target).static_abilities.len() + offset;
-                statics.push_front((target, granted_idx, Some(granted)));
+                statics.push_front((target, granted_idx, granted, true, seq, first_layer));
             }
         }
+        staged.extend(pending.drain(..).map(|effect| (seq, effect)));
     }
 
     let mut granted_by_target: indexmap::IndexMap<CardId, Vec<StaticAbility>> =
@@ -789,59 +860,92 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         game.cards[target.index()].cant_block_static = true;
     }
 
-    for card in &game.cards {
-        for (counter, &amount) in &card.counters {
-            if amount <= 0 {
-                continue;
-            }
-            if let Some(keyword) =
-                crate::card::counter_keyword_type::CounterKeywordType::keyword(counter)
-            {
-                pending.push(PendingEffect {
-                    layer: Layer::Ability,
-                    target: card.id,
-                    kind: EffectKind::GrantKeyword(keyword.to_string()),
-                });
-            } else if *counter == crate::card::CounterType::Named("HONE".to_string())
-                && card.zone == ZoneType::Battlefield
-                && card.type_line.has_subtype("Equipment")
-            {
-                if let Some(equipped) = card
-                    .attached_to
-                    .filter(|&equipped| game.card(equipped).is_creature())
-                {
-                    pending.push(PendingEffect {
-                        layer: Layer::ModifyPT,
-                        target: equipped,
-                        kind: EffectKind::AddPT {
-                            power: amount,
-                            toughness: 0,
-                        },
-                    });
-                }
-            }
-        }
-    }
-
-    // ── 4. Sort by layer then apply ──────────────────────────────────────
-    // CR 613.1: apply layers 1→7c in order. Within the same layer, timestamp
-    // ordering is preserved by the stable sort (sources were collected in
-    // card-declaration order, which approximates timestamp order).
-    pending.sort_by_key(|e| e.layer);
-
-    let mut type_changed: Vec<CardId> = pending
-        .iter()
-        .filter(|e| e.layer == Layer::Type)
-        .map(|e| e.target)
-        .collect();
+    flush_pending_effects(
+        game,
+        &mut staged,
+        None,
+        &mut type_changed,
+        &mut granted_keyword_replacements,
+    );
     type_changed.sort_unstable_by_key(|id| id.0);
     type_changed.dedup();
 
-    let mut granted_keyword_replacements: indexmap::IndexMap<
+    for (target, replacements) in granted_keyword_replacements {
+        game.cards[target.index()].add_changed_card_traits(
+            crate::card::card_trait_changes::CardTraitChanges {
+                replacements,
+                ..Default::default()
+            },
+            0,
+            -2,
+        );
+    }
+    for card in game.cards.iter_mut() {
+        if card.pump_keywords.is_empty() && card.granted_keywords.is_empty() {
+            continue;
+        }
+        let mut keywords = card.pump_keywords.as_string_list();
+        card.generate_keyword_triggers_for(&keywords);
+        keywords.extend(card.granted_keywords.as_string_list());
+        card.generate_keyword_activated_abilities(&keywords);
+    }
+
+    for target in type_changed {
+        let card = &mut game.cards[target.index()];
+        let mut sanitized = card.type_line.clone();
+        if sanitize_subtypes(&mut sanitized) {
+            if card.static_type_line_base.is_none() {
+                card.static_type_line_base = Some(card.type_line.clone());
+            }
+            card.type_line = sanitized;
+            card.update_types();
+        }
+    }
+
+    // Rebuild intrinsic basic-land mana abilities after type-changing continuous
+    // effects have been applied (e.g. Urborg making lands into Swamps).
+    for card in game.cards.iter_mut() {
+        if card.zone == ZoneType::Battlefield {
+            card.generate_basic_land_mana_abilities();
+        }
+    }
+}
+
+fn flush_pending_effects(
+    game: &mut GameState,
+    staged: &mut Vec<(usize, PendingEffect)>,
+    below: Option<Layer>,
+    type_changed: &mut Vec<CardId>,
+    granted_keyword_replacements: &mut indexmap::IndexMap<
         CardId,
         Vec<crate::replacement::replacement_effect::ReplacementEffect>,
-    > = indexmap::IndexMap::new();
-    for effect in pending {
+    >,
+) {
+    let is_ready = |effect: &PendingEffect| below.is_none_or(|layer| effect.layer < layer);
+    if !staged.iter().any(|(_, effect)| is_ready(effect)) {
+        return;
+    }
+    staged.sort_by_key(|(seq, effect)| (effect.layer, *seq));
+    let ready = staged.partition_point(|(_, effect)| is_ready(effect));
+    let effects: Vec<PendingEffect> = staged.drain(..ready).map(|(_, effect)| effect).collect();
+    type_changed.extend(
+        effects
+            .iter()
+            .filter(|effect| effect.layer == Layer::Type)
+            .map(|effect| effect.target),
+    );
+    apply_pending_effects(game, effects, granted_keyword_replacements);
+}
+
+fn apply_pending_effects(
+    game: &mut GameState,
+    effects: Vec<PendingEffect>,
+    granted_keyword_replacements: &mut indexmap::IndexMap<
+        CardId,
+        Vec<crate::replacement::replacement_effect::ReplacementEffect>,
+    >,
+) {
+    for effect in effects {
         match effect.kind {
             EffectKind::SetController { controller } => {
                 game.change_controller(effect.target, controller);
@@ -1083,45 +1187,6 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         .push(re);
                 }
             }
-        }
-    }
-    for (target, replacements) in granted_keyword_replacements {
-        game.cards[target.index()].add_changed_card_traits(
-            crate::card::card_trait_changes::CardTraitChanges {
-                replacements,
-                ..Default::default()
-            },
-            0,
-            -2,
-        );
-    }
-    for card in game.cards.iter_mut() {
-        if card.pump_keywords.is_empty() && card.granted_keywords.is_empty() {
-            continue;
-        }
-        let mut keywords = card.pump_keywords.as_string_list();
-        card.generate_keyword_triggers_for(&keywords);
-        keywords.extend(card.granted_keywords.as_string_list());
-        card.generate_keyword_activated_abilities(&keywords);
-    }
-
-    for target in type_changed {
-        let card = &mut game.cards[target.index()];
-        let mut sanitized = card.type_line.clone();
-        if sanitize_subtypes(&mut sanitized) {
-            if card.static_type_line_base.is_none() {
-                card.static_type_line_base = Some(card.type_line.clone());
-            }
-            card.type_line = sanitized;
-            card.update_types();
-        }
-    }
-
-    // Rebuild intrinsic basic-land mana abilities after type-changing continuous
-    // effects have been applied (e.g. Urborg making lands into Swamps).
-    for card in game.cards.iter_mut() {
-        if card.zone == ZoneType::Battlefield {
-            card.generate_basic_land_mana_abilities();
         }
     }
 }
