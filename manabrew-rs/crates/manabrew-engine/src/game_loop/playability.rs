@@ -170,13 +170,15 @@ impl GameLoop {
         player: PlayerId,
         card_id: CardId,
         state_name: forge_foundation::CardStateName,
+        zone: ZoneType,
         chosen_types_by_source: &crate::HashMap<CardId, String>,
     ) -> bool {
-        let Some((host, sa)) = crate::spellability::build_spell_ability_for_card_state_cast(
+        let Some((host, mut sa)) = crate::spellability::build_spell_ability_for_card_state_cast(
             game, card_id, player, state_name,
         ) else {
             return false;
         };
+        sa.restriction.variables.set_zone(zone);
         if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_in_context(
             &game.cards,
             &sa,
@@ -203,21 +205,13 @@ impl GameLoop {
         if !crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player) {
             return false;
         }
-        let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
-            game,
-            &host,
-            player,
-            ZoneType::Hand,
-        );
-        let raise_mana = crate::cost::cost_adjustment::compute_raise_cost_parts(
-            game,
-            &host,
-            player,
-            ZoneType::Hand,
-        )
-        .as_ref()
-        .map(|rc| Self::raise_mana_from_cost(game, rc, card_id, player))
-        .unwrap_or_else(|| forge_foundation::ManaCost::generic(0));
+        let cost_adj =
+            crate::cost::cost_adjustment::compute_cost_adjustment(game, &host, player, zone);
+        let raise_mana =
+            crate::cost::cost_adjustment::compute_raise_cost_parts(game, &host, player, zone)
+                .as_ref()
+                .map(|rc| Self::raise_mana_from_cost(game, rc, card_id, player))
+                .unwrap_or_else(|| forge_foundation::ManaCost::generic(0));
         let base = cost_adj
             .apply(&Self::mana_from_cost(cost).without_x())
             .add(&raise_mana);
@@ -245,6 +239,49 @@ impl GameLoop {
             &reduced,
             &payment_ctx,
         )
+    }
+
+    fn may_play_secondary_spell_grants(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+        zone: ZoneType,
+        chosen_types_by_source: &crate::HashMap<CardId, String>,
+    ) -> usize {
+        let card = game.card(card_id);
+        if card.face_down {
+            return 0;
+        }
+        let Some((host, sa)) = crate::spellability::build_spell_ability_for_card_state_cast(
+            game,
+            card_id,
+            player,
+            forge_foundation::CardStateName::Secondary,
+        ) else {
+            return 0;
+        };
+        let grants =
+            crate::staticability::static_ability_continuous::may_play_grants(game, player, card)
+                .filter(|(source, st_ab)| {
+                    crate::staticability::static_ability_continuous::grants_zone_permissions_for(
+                        st_ab, source, &host, game, &sa,
+                    )
+                })
+                .count();
+        if grants == 0
+            || !self.can_play_card_state_spell(
+                game,
+                player,
+                card_id,
+                forge_foundation::CardStateName::Secondary,
+                zone,
+                chosen_types_by_source,
+            )
+        {
+            return 0;
+        }
+        grants
     }
 
     /// Get cards the active player can play.
@@ -347,6 +384,7 @@ impl GameLoop {
                 player,
                 card_id,
                 forge_foundation::CardStateName::Secondary,
+                ZoneType::Hand,
                 &chosen_types_by_source,
             ) {
                 playable.push(crate::agent::PlayOption {
@@ -368,6 +406,7 @@ impl GameLoop {
                     player,
                     card_id,
                     forge_foundation::CardStateName::Backside,
+                    ZoneType::Hand,
                     &chosen_types_by_source,
                 )
             {
@@ -386,6 +425,7 @@ impl GameLoop {
                     player,
                     card_id,
                     forge_foundation::CardStateName::RightSplit,
+                    ZoneType::Hand,
                     &chosen_types_by_source,
                 )
             {
@@ -1216,6 +1256,19 @@ impl GameLoop {
                             });
                         }
                     }
+                    for _ in 0..self.may_play_secondary_spell_grants(
+                        game,
+                        player,
+                        card_id,
+                        ZoneType::Graveyard,
+                        &chosen_types_by_source,
+                    ) {
+                        playable.push(crate::agent::PlayOption {
+                            card_id,
+                            mode: crate::agent::PlayCardMode::Secondary,
+                            alt_cost_index: 0,
+                        });
+                    }
                     if let Some(warp_cost) = card.get_warp_cost() {
                         let mut warp_sa = normal_sa.clone();
                         warp_sa.alt_cost = Some(crate::spellability::AlternativeCost::Warp);
@@ -1507,6 +1560,19 @@ impl GameLoop {
                     continue;
                 }
 
+                for _ in 0..self.may_play_secondary_spell_grants(
+                    game,
+                    player,
+                    card_id,
+                    ZoneType::Exile,
+                    &chosen_types_by_source,
+                ) {
+                    playable.push(crate::agent::PlayOption {
+                        card_id,
+                        mode: crate::agent::PlayCardMode::Secondary,
+                        alt_cost_index: 0,
+                    });
+                }
                 if must_be_instant && !has_flash_permission(card_id) {
                     continue;
                 }
@@ -1709,6 +1775,19 @@ impl GameLoop {
                     }
                 }
                 continue;
+            }
+            for _ in 0..self.may_play_secondary_spell_grants(
+                game,
+                player,
+                card_id,
+                ZoneType::Library,
+                &chosen_types_by_source,
+            ) {
+                playable.push(crate::agent::PlayOption {
+                    card_id,
+                    mode: crate::agent::PlayCardMode::Secondary,
+                    alt_cost_index: 0,
+                });
             }
             if must_be_instant && !has_flash_permission(card_id) {
                 continue;
