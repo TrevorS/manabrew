@@ -327,6 +327,13 @@ pub fn may_play_alt_mana_cost(
         .map(|cost| cost.replace("ConvertedManaCost", &card.mana_value().to_string()))
 }
 
+pub fn is_mana_alt_cost(cost: &str) -> bool {
+    crate::cost::parse_cost(cost)
+        .parts
+        .iter()
+        .all(|part| matches!(part, crate::cost::CostPart::Mana { .. }))
+}
+
 pub fn run(st_ab: &StaticAbility, source: &Card, game: &GameState) -> bool {
     st_ab.check_conditions(source, game)
 }

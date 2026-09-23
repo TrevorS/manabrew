@@ -353,6 +353,9 @@ impl GameLoop {
                     crate::staticability::static_ability_continuous::may_play_alt_mana_cost(
                         sa, source, card, game,
                     )
+                    .filter(|cost| {
+                        crate::staticability::static_ability_continuous::is_mana_alt_cost(cost)
+                    })
                 })
         };
         // Count distinct MayPlay statics that grant permission to cast
@@ -1576,20 +1579,50 @@ impl GameLoop {
                 if must_be_instant && !has_flash_permission(card_id) {
                     continue;
                 }
-                if self.can_cast_may_play_spell(
-                    game,
-                    player,
-                    card_id,
-                    ZoneType::Exile,
-                    may_play_alt_cost(card_id),
-                    &chosen_types_by_source,
-                ) {
-                    let grant_count = count_may_play_grants(card_id).max(1);
-                    for _ in 0..grant_count {
+                let non_mana_alt_costs: Vec<(usize, String)> =
+                    crate::staticability::static_ability_continuous::may_play_alt_costs(
+                        game, player, card,
+                    )
+                    .into_iter()
+                    .enumerate()
+                    .filter(|(_, cost)| {
+                        !crate::staticability::static_ability_continuous::is_mana_alt_cost(cost)
+                    })
+                    .collect();
+                let normal_grants = count_may_play_grants(card_id)
+                    .max(1)
+                    .saturating_sub(non_mana_alt_costs.len());
+                if normal_grants > 0
+                    && self.can_cast_may_play_spell(
+                        game,
+                        player,
+                        card_id,
+                        ZoneType::Exile,
+                        may_play_alt_cost(card_id),
+                        &chosen_types_by_source,
+                    )
+                {
+                    for _ in 0..normal_grants {
                         playable.push(crate::agent::PlayOption {
                             card_id,
                             mode: crate::agent::PlayCardMode::Normal,
                             alt_cost_index: 0,
+                        });
+                    }
+                }
+                for (alt_cost_index, alt_cost) in non_mana_alt_costs {
+                    if self.can_cast_may_play_spell(
+                        game,
+                        player,
+                        card_id,
+                        ZoneType::Exile,
+                        Some(alt_cost),
+                        &chosen_types_by_source,
+                    ) {
+                        playable.push(crate::agent::PlayOption {
+                            card_id,
+                            mode: crate::agent::PlayCardMode::MayPlay(None),
+                            alt_cost_index: alt_cost_index as u8,
                         });
                     }
                 }

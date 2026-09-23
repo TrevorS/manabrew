@@ -20,6 +20,9 @@ fn may_play_alt_mana_cost_for(
                 crate::staticability::static_ability_continuous::may_play_alt_mana_cost(
                     sa, source, card, game,
                 )
+                .filter(|cost| {
+                    crate::staticability::static_ability_continuous::is_mana_alt_cost(cost)
+                })
             })
         })
 }
