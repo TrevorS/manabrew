@@ -909,6 +909,9 @@ impl GameLoop {
     ) -> bool {
         let Some(mana_cost) = cost.parts.iter().find_map(|part| match part {
             crate::cost::CostPart::Mana { cost, .. } => Some(cost.clone()),
+            crate::cost::CostPart::Waterbend { amount } if amount.is_x() => {
+                Some(forge_foundation::ManaCost::parse("X"))
+            }
             _ => None,
         }) else {
             return false;
