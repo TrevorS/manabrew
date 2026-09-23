@@ -230,7 +230,7 @@ pub fn pay_mana_cost_auto_with_callback_and_reserved_sacrifices(
             paying_mana: Vec::new(),
             paying_sources: Vec::new(),
             cancelled: true,
-            convoked: Vec::new(),
+            convoked: trace.convoked,
         });
     }
     Some(AutoPayResult {

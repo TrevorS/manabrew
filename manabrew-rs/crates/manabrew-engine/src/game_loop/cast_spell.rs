@@ -2046,6 +2046,8 @@ impl GameLoop {
         let convoked_to_cast = std::cell::RefCell::new(Vec::new());
         let failed_non_undoable_choices: std::cell::RefCell<Vec<(CardId, usize, u16)>> =
             std::cell::RefCell::new(Vec::new());
+        let failed_improvised: std::cell::RefCell<Vec<CardId>> =
+            std::cell::RefCell::new(Vec::new());
 
         // Unified mana payment loop. Agents decide whether to pay manually or
         // auto-pay through their `pay_mana_cost()` implementation; the engine
@@ -2149,6 +2151,13 @@ impl GameLoop {
                                         choice.chosen_atom,
                                     ))
                                 }),
+                            );
+                            failed_improvised.borrow_mut().extend(
+                                result
+                                    .convoked
+                                    .iter()
+                                    .filter(|&&(_, as_convoke)| !as_convoke)
+                                    .map(|&(improvised_id, _)| improvised_id),
                             );
                             // Append the explicit failure here so the
                             // session-generic loop sees a terminal failed trace
@@ -2268,6 +2277,11 @@ impl GameLoop {
                 let non_undoable = std::mem::take(&mut *failed_non_undoable_choices.borrow_mut());
                 Self::trace_cast_rollback(game, card_id, line!());
                 self.restore_snapshot(game, &cast_rollback_snapshot);
+                for improvised_id in failed_improvised.take() {
+                    if game.card_is_in_zone(improvised_id, ZoneType::Battlefield) {
+                        game.card_mut(improvised_id).set_tapped(true);
+                    }
+                }
                 for (source_id, ability_index, chosen_atom) in non_undoable {
                     crate::mana::computer_util_mana::reapply_non_undoable_payment_ability(
                         game,
