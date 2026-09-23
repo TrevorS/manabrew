@@ -39,6 +39,15 @@ impl GameLoop {
         if !host.paid_cost_exiled_cards.contains(&exiled) {
             host.paid_cost_exiled_cards.push(exiled);
         }
+        if game.card(exiled).is_token {
+            return;
+        }
+        if matches!(
+            game.card(source).zone,
+            ZoneType::Battlefield | ZoneType::Stack | ZoneType::Command
+        ) {
+            game.card_mut(source).add_exiled_card(exiled);
+        }
     }
 
     fn choose_cost_card_from_zone(
