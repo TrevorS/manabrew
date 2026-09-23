@@ -136,7 +136,7 @@ impl GameLoop {
             if let Some(ab_x_min) = ab_x_min {
                 min = ab_x_min;
             }
-            if let Some(limit) = sa.ir.x_max_limit_text.as_deref() {
+            if let Some(limit) = sa.ir.x_max_text.as_deref() {
                 max = max.min(crate::svar::resolve_numeric_value(game, sa, limit, 0));
             }
             if let Some(cost) = cost {
