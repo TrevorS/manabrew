@@ -266,7 +266,7 @@ fn subtract_counter(
         TriggerType::CounterRemoved,
         RunParams {
             card: Some(card_id),
-            counter_type: Some(format!("{counter_type:?}")),
+            counter_type: Some(counter_type.to_string()),
             counter_amount: Some(actual),
             new_counter_amount: Some(new_counter_amount),
             ..Default::default()

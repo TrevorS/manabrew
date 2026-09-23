@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
-use strum_macros::{Display, EnumString};
+use strum_macros::EnumString;
 
 /// Counter types commonly used in MTG.
 /// Note: `Copy` is intentionally absent because the `Named(String)` variant
 /// holds heap-allocated data. Use `.clone()` when an owned copy is needed.
 #[derive(
-    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, EnumString, Display,
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, EnumString,
 )]
 pub enum CounterType {
     P1P1,
@@ -56,6 +56,15 @@ pub fn parse_counter_type(s: &str) -> CounterType {
         "PAGE" => CounterType::Page,
         "DREAM" => CounterType::Dream,
         other => CounterType::Named(other.to_string()),
+    }
+}
+
+impl std::fmt::Display for CounterType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CounterType::Named(name) => f.write_str(name),
+            other => write!(f, "{other:?}"),
+        }
     }
 }
 

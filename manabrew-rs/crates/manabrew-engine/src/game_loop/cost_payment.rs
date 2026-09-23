@@ -4251,7 +4251,7 @@ impl GameLoop {
                         RunParams {
                             card: Some(card_id),
                             player: Some(player),
-                            counter_type: Some(format!("{ct:?}")),
+                            counter_type: Some(ct.to_string()),
                             counter_amount: Some(1),
                             new_counter_amount: Some(new_counter_amount),
                             ..Default::default()

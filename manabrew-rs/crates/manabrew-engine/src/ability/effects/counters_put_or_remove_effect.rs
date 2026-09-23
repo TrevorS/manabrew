@@ -86,7 +86,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             crate::trigger::TriggerType::CounterRemoved,
             crate::event::RunParams {
                 card: Some(target_id),
-                counter_type: Some(format!("{counter_type:?}")),
+                counter_type: Some(counter_type.to_string()),
                 counter_amount: Some(amount),
                 new_counter_amount: Some(new_counter_amount),
                 cause_player: Some(controller),
