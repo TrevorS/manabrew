@@ -132,7 +132,7 @@ pub(super) fn resolve_multi_search(
         );
     }
 
-    if sa.defined().is_none() || sa.ir.choose_from_defined_cards {
+    if change_num > 1 && (sa.defined().is_none() || sa.ir.choose_from_defined_cards) {
         let multi_min = if sa.ir.mandatory { max } else { 0 };
         ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
         let mut selected = ctx.agents[chooser.index()].choose_cards_for_zone_change(
