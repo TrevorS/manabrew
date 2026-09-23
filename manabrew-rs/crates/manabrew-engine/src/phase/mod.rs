@@ -245,6 +245,8 @@ pub struct TurnState {
     #[serde(default)]
     pub n_combats_this_turn: i32,
     pub n_end_of_turns_this_turn: i32,
+    #[serde(default)]
+    pub extra_phases: HashMap<PhaseType, Vec<ExtraPhase>>,
 }
 
 impl TurnState {
@@ -263,11 +265,45 @@ impl TurnState {
             n_upkeeps_this_turn: 0,
             n_combats_this_turn: 0,
             n_end_of_turns_this_turn: 0,
+            extra_phases: HashMap::default(),
         }
     }
 
     pub fn is_first_combat(&self) -> bool {
         self.n_combats_this_turn == 1
+    }
+
+    pub fn add_extra_phase(
+        &mut self,
+        after_phase: PhaseType,
+        extra_phase_list: &[PhaseType],
+        next_phase: PhaseType,
+    ) {
+        let Some(&first) = extra_phase_list.first() else {
+            return;
+        };
+        for (i, &extra) in extra_phase_list.iter().enumerate() {
+            let linked = match extra_phase_list.get(i + 1) {
+                Some(&following) => ExtraPhase::new(following),
+                None => self
+                    .extra_phases
+                    .get_mut(&after_phase)
+                    .and_then(Vec::pop)
+                    .unwrap_or_else(|| ExtraPhase::new(next_phase)),
+            };
+            self.extra_phases.entry(extra).or_default().push(linked);
+        }
+        self.extra_phases
+            .entry(after_phase)
+            .or_default()
+            .push(ExtraPhase::new(first));
+    }
+
+    pub fn next_phase_after(&mut self, phase: PhaseType) -> PhaseType {
+        match self.extra_phases.get_mut(&phase).and_then(Vec::pop) {
+            Some(extra_phase) => extra_phase.get_phase(),
+            None => phase.next(),
+        }
     }
 
     /// Advance to the next phase. Returns true if the turn ended (wrapped to Untap).

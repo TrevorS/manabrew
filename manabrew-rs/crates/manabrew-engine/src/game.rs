@@ -229,12 +229,6 @@ pub struct GameState {
     // End combat requested — skip remaining combat steps (issue #22, EndCombatPhase effect).
     pub end_combat_requested: bool,
 
-    // Extra combat phases to insert after current combat (issue #22, AddPhase effect).
-    pub extra_combat_phases: u32,
-
-    #[serde(default)]
-    pub extra_end_of_turn_phases: u32,
-
     #[serde(default)]
     pub action_space_mana_probe: crate::mana::ActionSpaceManaProbe,
 
@@ -336,8 +330,6 @@ impl GameState {
             initiative_holder: None,
             end_turn_requested: false,
             end_combat_requested: false,
-            extra_combat_phases: 0,
-            extra_end_of_turn_phases: 0,
             action_space_mana_probe: crate::mana::ActionSpaceManaProbe::default(),
             next_card_id: 0,
             next_zone_timestamp: 0,

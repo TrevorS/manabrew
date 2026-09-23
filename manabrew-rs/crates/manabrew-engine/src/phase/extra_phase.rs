@@ -3,10 +3,11 @@
 //! Mirrors Java's `ExtraPhase.java`.
 
 use forge_foundation::PhaseType;
+use serde::{Deserialize, Serialize};
 
 /// An extra phase entry — tracks what phase to insert and any delayed triggers.
 /// Mirrors Java's `ExtraPhase` class.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExtraPhase {
     phase: PhaseType,
     delayed_triggers: Vec<String>,
