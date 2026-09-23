@@ -2182,14 +2182,10 @@ pub fn choose_targets_by_kind(
         TargetKind::None => {}
         TargetKind::Player => {
             agent.snapshot_state(game, mana_pools);
-            let is_opponent_only = tr
-                .valid_tgts
-                .iter()
-                .any(|v| v.eq_ignore_ascii_case("Opponent"));
             let valid_players: Vec<PlayerId> = game
                 .alive_players()
                 .into_iter()
-                .filter(|&pid| !is_opponent_only || pid != player)
+                .filter(|&pid| player_allowed_by_valid_tgts(game, sa, tr, pid))
                 .filter(|&pid| {
                     sa.source.is_none_or(|source| {
                         crate::player::can_be_targeted_by(game, pid, source, sa.activating_player)
@@ -2223,6 +2219,7 @@ pub fn choose_targets_by_kind(
                 if target_restrictions::any_target_allows_players(&tr.valid_tgts) {
                     game.alive_players()
                         .into_iter()
+                        .filter(|&pid| player_allowed_by_valid_tgts(game, sa, tr, pid))
                         .filter(|&pid| {
                             sa.source.is_none_or(|source| {
                                 crate::player::can_be_targeted_by(
@@ -2407,6 +2404,24 @@ fn collect_target_entities(chosen: &TargetChoices, out: &mut Vec<crate::agent::G
     for player in chosen.all_target_players() {
         out.push(crate::agent::GameEntity::Player(player));
     }
+}
+
+fn player_allowed_by_valid_tgts(
+    game: &GameState,
+    sa: &SpellAbility,
+    tr: &TargetRestrictions,
+    player: PlayerId,
+) -> bool {
+    sa.source.is_none_or(|source| {
+        crate::player::player_property::is_valid(
+            player,
+            &tr.compiled_valid_tgts(),
+            game,
+            source,
+            sa.activating_player,
+            sa,
+        )
+    })
 }
 
 fn target_allowed_by_unique(sa: &SpellAbility, entity: crate::agent::GameEntity) -> bool {
