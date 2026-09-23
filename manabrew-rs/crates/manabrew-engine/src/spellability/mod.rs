@@ -1115,6 +1115,18 @@ impl SpellAbility {
         self.clone()
     }
 
+    pub fn set_activating_player(&mut self, player: PlayerId) {
+        self.activating_player = player;
+        if let Some(sub_ability) = self.sub_ability.as_deref_mut() {
+            sub_ability.set_activating_player(player);
+        }
+        for abilities in self.additional_ability_lists.values_mut() {
+            for ability in abilities {
+                ability.set_activating_player(player);
+            }
+        }
+    }
+
     pub fn copy_for_player(&self, activ: PlayerId) -> Self {
         crate::perf::increment(crate::perf::Metric::SpellAbilityClones, 1);
         let mut clone = self.clone();

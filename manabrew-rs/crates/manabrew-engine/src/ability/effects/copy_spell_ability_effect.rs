@@ -124,6 +124,9 @@ fn push_copy(
 
     let trigger_sa = copy_entry.spell_ability.clone();
     ctx.game.stack.push(copy_entry);
+    if !trigger_sa.is_trigger {
+        ctx.game.turn.priority_player = controller;
+    }
     if let Some(source_id) = trigger_sa.source {
         ctx.trigger_handler.run_trigger(
             TriggerType::SpellCopied,
