@@ -1927,6 +1927,11 @@ impl GameLoop {
         } else {
             None
         };
+        let prechosen_flashback_beholds = if let Some(ref fb_cost) = flashback_total_cost {
+            Self::prechoose_additional_cost_beholds(game, agents, player, card_id, fb_cost)
+        } else {
+            None
+        };
         let prechosen_static_alt_sacrifices = if let Some(ref cost) = static_alt_cost {
             match self.prechoose_additional_cost_sacrifices(game, agents, player, cost, Some(&sa)) {
                 Some(picks) => Some(picks),
@@ -2711,7 +2716,7 @@ impl GameLoop {
                 None,
                 None,
                 None,
-                None,
+                prechosen_flashback_beholds.as_deref(),
                 None,
                 None,
             ) {
