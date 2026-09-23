@@ -108,8 +108,18 @@ fn valid_names(ctx: &EffectContext, sa: &SpellAbility) -> Vec<String> {
         let database =
             CardDatabaseRegistry::all().expect("card database must be loaded for card naming");
         for (_, rules) in database.iter() {
-            insert_all_rules_faces(&mut names, ctx.game, sa, rules);
+            if !rules.is_variant() {
+                insert_all_rules_faces(&mut names, ctx.game, sa, rules);
+            }
         }
+        let flavor_faces: Vec<String> = database
+            .flavor_name_faces()
+            .into_iter()
+            .filter(|face| names.contains(face))
+            .collect();
+        let mut valid: Vec<String> = names.into_iter().chain(flavor_faces).collect();
+        valid.sort();
+        return valid;
     }
     names.into_iter().collect()
 }

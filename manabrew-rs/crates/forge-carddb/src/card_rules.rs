@@ -1,4 +1,4 @@
-use forge_foundation::{CardSplitType, ColorSet, ManaCost};
+use forge_foundation::{CardSplitType, ColorSet, CoreType, FaceSelectionMethod, ManaCost};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -36,6 +36,29 @@ impl CardRules {
             }
             _ => self.main_part.name.clone(),
         }
+    }
+
+    pub fn is_variant(&self) -> bool {
+        let is_variant_type = |face: &CardFace| {
+            let type_line = &face.type_line;
+            [
+                CoreType::Vanguard,
+                CoreType::Scheme,
+                CoreType::Plane,
+                CoreType::Phenomenon,
+                CoreType::Conspiracy,
+                CoreType::Dungeon,
+            ]
+            .iter()
+            .any(|core| type_line.core_types.contains(core))
+                || type_line.has_subtype("Attraction")
+                || type_line.has_subtype("Contraption")
+        };
+        is_variant_type(&self.main_part)
+            || (matches!(
+                self.split_type.aggregation_method(),
+                FaceSelectionMethod::Combine
+            ) && self.other_part.as_ref().is_some_and(is_variant_type))
     }
 
     pub fn mana_cost(&self) -> ManaCost {

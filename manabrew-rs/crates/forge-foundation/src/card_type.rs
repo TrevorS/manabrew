@@ -1,5 +1,27 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
+use std::sync::OnceLock;
+
+static MULTIWORD_TYPES: OnceLock<Vec<String>> = OnceLock::new();
+
+pub fn set_multiword_types(types: Vec<String>) {
+    let _ = MULTIWORD_TYPES.set(types);
+}
+
+fn type_words(text: &str) -> Vec<&str> {
+    let mut words = Vec::new();
+    let mut rest = text.trim_start();
+    while !rest.is_empty() {
+        let word = MULTIWORD_TYPES
+            .get()
+            .and_then(|types| types.iter().find(|multi| rest.starts_with(multi.as_str())))
+            .map(|multi| &rest[..multi.len()])
+            .unwrap_or_else(|| rest.split_whitespace().next().unwrap_or(rest));
+        words.push(word);
+        rest = rest[word.len()..].trim_start();
+    }
+    words
+}
 
 /// Core card types in MTG. Mirrors Java `CardType.CoreType`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -184,7 +206,7 @@ impl CardTypeLine {
         // In MTG type lines WITHOUT a dash (e.g. "Land Forest Island"),
         // words that are not supertypes or core types are subtypes.
         // This handles shock lands, tribal lands, etc.
-        for word in before_dash.split_whitespace() {
+        for word in type_words(before_dash) {
             if let Some(st) = Supertype::from_name(word) {
                 result.supertypes.insert(st);
             } else if let Some(ct) = CoreType::from_name(word) {
@@ -197,10 +219,8 @@ impl CardTypeLine {
 
         // Parse subtypes
         if let Some(sub_str) = after_dash {
-            for word in sub_str.split_whitespace() {
-                if !word.is_empty() {
-                    result.subtypes.push(word.to_string());
-                }
+            for word in type_words(sub_str) {
+                result.subtypes.push(word.to_string());
             }
         }
 

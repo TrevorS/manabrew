@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use deunicode::deunicode;
@@ -8,6 +8,18 @@ use crate::card_rules::CardRules;
 use crate::parser::CardScriptParser;
 
 const FLAVOR_NAME_FIELD: &str = "FlavorName:";
+const TYPE_SECTIONS: [&str; 10] = [
+    "BasicTypes",
+    "LandTypes",
+    "CreatureTypes",
+    "SpellTypes",
+    "EnchantmentTypes",
+    "ArtifactTypes",
+    "WalkerTypes",
+    "DungeonTypes",
+    "BattleTypes",
+    "PlanarTypes",
+];
 
 pub struct CardDatabase {
     cards: Mutex<HashMap<String, &'static CardRules>>,
@@ -22,6 +34,7 @@ pub struct CardDatabase {
     edition_dates: HashMap<String, String>,
     edition_names: HashMap<String, String>,
     card_default_edition: HashMap<String, String>,
+    edition_flavor_names: Vec<(String, String, String, String)>,
 }
 
 impl std::fmt::Debug for CardDatabase {
@@ -69,6 +82,7 @@ impl CardDatabase {
             edition_dates: HashMap::new(),
             edition_names: HashMap::new(),
             card_default_edition: HashMap::new(),
+            edition_flavor_names: Vec::new(),
         }
     }
 
@@ -305,6 +319,74 @@ impl CardDatabase {
             .count()
     }
 
+    pub fn flavor_name_faces(&self) -> Vec<String> {
+        let real: HashSet<String> = self
+            .iter()
+            .into_iter()
+            .filter(|(_, rules)| !rules.is_variant())
+            .flat_map(|(_, rules)| {
+                std::iter::once(&rules.main_part)
+                    .chain(rules.other_part.iter())
+                    .chain(rules.specialized_parts.values())
+            })
+            .map(|face| face.name.to_lowercase())
+            .collect();
+        let mut keys: HashSet<String> = HashSet::new();
+        let mut faces = Vec::new();
+        let mut add = |key: &str, face: &str| {
+            let key = key.to_lowercase();
+            if !real.contains(&key) && keys.insert(key) {
+                faces.push(face.to_string());
+            }
+        };
+        if let Some(archive) = self.archive {
+            for card in archive.cards.iter() {
+                if self
+                    .get(card.name_lower.as_str())
+                    .is_none_or(|rules| rules.is_variant())
+                {
+                    continue;
+                }
+                let mut face_name = None;
+                for line in card.raw.as_str().lines() {
+                    let line = line.trim();
+                    if let Some(name) = line.strip_prefix("Name:") {
+                        face_name = Some(name.trim());
+                    } else if let (Some(face), Some((_, alias))) =
+                        (face_name, line.split_once(FLAVOR_NAME_FIELD))
+                    {
+                        add(alias.trim(), face);
+                    }
+                }
+            }
+        }
+        let mut entries: Vec<&(String, String, String, String)> =
+            self.edition_flavor_names.iter().collect();
+        entries.sort_by(|a, b| {
+            b.0.cmp(&a.0)
+                .then_with(|| b.1.cmp(&a.1))
+                .then_with(|| a.2.to_lowercase().cmp(&b.2.to_lowercase()))
+        });
+        let mut mapped: HashSet<String> = HashSet::new();
+        for (_, _, printed_name, flavor_name) in entries {
+            let Some(rules) = self.get_by_card_name(printed_name) else {
+                continue;
+            };
+            if rules.is_variant() {
+                continue;
+            }
+            let parts: Vec<&str> = flavor_name.split("//").map(str::trim).collect();
+            if !mapped.insert(parts.join(" // ")) {
+                continue;
+            }
+            add(parts[0], &rules.main_part.name);
+            if let (Some(other), Some(second)) = (rules.other_part.as_ref(), parts.get(1)) {
+                add(second, &other.name);
+            }
+        }
+        faces
+    }
+
     /// Mirror of Java's CardDb.getNormalizedName().
     /// If the given name is an accent-stripped variant, returns the original name.
     pub fn get_normalized_name<'a>(&'a self, card_name: &'a str) -> &'a str {
@@ -338,6 +420,10 @@ impl CardDatabase {
             forge_cardset_archive::load_checked(bytes_static)
                 .map_err(|e| format!("invalid archive: {e}"))?;
 
+        forge_foundation::card_type::set_multiword_types(multiword_types(
+            std::iter::once(archive.type_lists.as_str())
+                .chain(archive.editions.iter().map(|edition| edition.raw.as_str())),
+        ));
         let mut cards = Self::new();
         cards.archive = Some(archive);
         for edition in archive.editions.iter() {
@@ -555,6 +641,12 @@ impl CardDatabase {
                 }
             }
             if let Some((printed_name, flavor_name)) = parse_edition_flavor_alias_line(line) {
+                self.edition_flavor_names.push((
+                    edition_date.clone(),
+                    edition_name.clone(),
+                    printed_name.clone(),
+                    flavor_name.clone(),
+                ));
                 let canonical = self
                     .get_by_card_name(&printed_name)
                     .map(|rules| rules.name())
@@ -579,6 +671,25 @@ impl CardDatabase {
             }
         }
     }
+}
+
+fn multiword_types<'a>(sources: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    let mut types: Vec<String> = Vec::new();
+    for raw in sources {
+        let mut in_types = false;
+        for line in raw.lines() {
+            let line = line.trim();
+            if let Some(section) = line.strip_prefix('[').and_then(|l| l.strip_suffix(']')) {
+                in_types = TYPE_SECTIONS.contains(&section);
+                continue;
+            }
+            let name = line.split(':').next().unwrap_or(line);
+            if in_types && name.contains(' ') && !types.iter().any(|t| t == name) {
+                types.push(name.to_string());
+            }
+        }
+    }
+    types
 }
 
 /// Parse a card name from an edition's `[cards]` section line.
