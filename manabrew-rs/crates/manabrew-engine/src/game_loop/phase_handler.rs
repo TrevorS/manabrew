@@ -45,7 +45,6 @@ impl GameLoop {
                 && state != TurnMachineState::Cleanup
                 && state != TurnMachineState::Done
             {
-                game.end_turn_requested = false;
                 self.combat.clear_with_cards(&mut game.cards);
                 state = TurnMachineState::Cleanup;
                 continue;
@@ -587,6 +586,9 @@ impl GameLoop {
             self.with_shared_state_mutation(game, agents, |this, game, agents| {
                 this.resolve_stack(game, agents);
             });
+            if game.end_turn_requested {
+                break;
+            }
         }
     }
     pub fn step_main_phase(&mut self, game: &mut GameState, agents: &mut [Box<dyn PlayerAgent>]) {
@@ -598,6 +600,7 @@ impl GameLoop {
         // during Cleanup, players get priority and then a new Cleanup step
         // begins. This mirrors Java's bRepeatCleanup / givePriorityToPlayer
         // loop in PhaseHandler.java.
+        let end_turn_by_effect = std::mem::take(&mut game.end_turn_requested);
         let mut is_repeat = false;
         loop {
             // On repeat iterations, re-notify the phase so that parity agents
@@ -677,6 +680,7 @@ impl GameLoop {
             if !sba_performed
                 && game.stack.is_empty()
                 && self.trigger_handler.pre_matched_trigger_count() == 0
+                && (is_repeat || !end_turn_by_effect)
             {
                 break;
             }
