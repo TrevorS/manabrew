@@ -29,12 +29,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     if let Some(execute_name) = sa.ir.execute.as_deref() {
         if let Some(source_id) = sa.source {
-            let svar_text = ctx
-                .game
-                .card(source_id)
-                .get_s_var(execute_name)
-                .map(str::to_string);
-            if svar_text.is_some() {
+            if crate::ability::ability_utils::get_s_var(sa, ctx.game, execute_name).is_some() {
                 let delayed = DelayedTrigger {
                     mode: TriggerType::Immediate,
                     trigger_mode: Box::new(crate::trigger::trigger_immediate::TriggerImmediate),

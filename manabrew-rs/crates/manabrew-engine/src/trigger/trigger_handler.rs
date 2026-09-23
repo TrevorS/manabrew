@@ -952,12 +952,17 @@ impl TriggerHandler {
             if delayed.mode != TriggerType::Immediate {
                 continue;
             }
-            // Look up the Execute SVar on the source card
-            let svar_text = game
-                .card(delayed.source_card)
-                .svars
-                .get(&delayed.execute_svar)
-                .cloned();
+            let svar_text = match delayed.spawning_ability.as_ref() {
+                Some(spawner) => {
+                    crate::ability::ability_utils::get_s_var(spawner, game, &delayed.execute_svar)
+                        .map(str::to_string)
+                }
+                None => game
+                    .card(delayed.source_card)
+                    .svars
+                    .get(&delayed.execute_svar)
+                    .cloned(),
+            };
             if let Some(text) = svar_text {
                 let mut sa =
                     build_spell_ability(game, delayed.source_card, &text, delayed.controller);
