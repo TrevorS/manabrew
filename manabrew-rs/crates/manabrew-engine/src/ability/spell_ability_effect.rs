@@ -196,8 +196,7 @@ fn get_cards(
     let use_targets = sa.uses_targeting() && (!defined_first || !has_defined);
 
     if use_targets {
-        // Return targeted card(s)
-        sa.target_chosen.target_card.into_iter().collect()
+        sa.target_chosen.all_target_cards()
     } else {
         // Resolve Defined$ (or default to "Self")
         let defined = ir_defined;
@@ -467,7 +466,7 @@ fn resolve_defined_cards_for_sa_ref_inner(
             sa.source.into_iter().collect()
         }
         DefinedRef::Targeted | DefinedRef::TargetedCard | DefinedRef::ThisTargetedCard => {
-            sa.target_chosen.target_card.into_iter().collect()
+            sa.target_chosen.all_target_cards()
         }
         DefinedRef::OriginalHost => sa.original_host.into_iter().collect(),
         DefinedRef::ParentTarget => sa
