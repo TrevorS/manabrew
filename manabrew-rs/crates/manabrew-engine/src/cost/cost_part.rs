@@ -260,6 +260,21 @@ pub fn get_max_amount_x(
         } => Some(
             crate::cost::get_zone_targets(game, player, *from, type_filter, source).len() as i32,
         ),
+        CostPart::ExileCtrlOrGrave { type_filter, .. } => {
+            let base_filter = crate::cost::normalize_exile_base_filter(type_filter);
+            Some(
+                [
+                    forge_foundation::ZoneType::Battlefield,
+                    forge_foundation::ZoneType::Graveyard,
+                ]
+                .into_iter()
+                .map(|zone| {
+                    crate::cost::get_zone_targets(game, player, zone, &base_filter, source).len()
+                        as i32
+                })
+                .sum(),
+            )
+        }
         _ => None,
     }
 }

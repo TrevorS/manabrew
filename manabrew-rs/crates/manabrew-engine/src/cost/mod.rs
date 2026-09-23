@@ -700,6 +700,7 @@ pub fn parse_cost(raw: &str) -> Cost {
     let mut has_tap = false;
     let mut mandatory = false;
     let mut mana_tokens: Vec<&str> = Vec::new();
+    let mut x_min: Option<i32> = None;
 
     // Pre-scan for untap cost (Q/Untap), mirroring Java's pre-scan for hasUntapInPrice.
     let has_untap = tokens.iter().any(|token| {
@@ -707,6 +708,10 @@ pub fn parse_cost(raw: &str) -> Cost {
     });
 
     for token in &tokens {
+        if let Some(rest) = token.strip_prefix("XMin") {
+            x_min = Some(rest.parse::<i32>().unwrap_or(0));
+            continue;
+        }
         match cost_parser::parse_cost_token(token) {
             cost_parser::TokenResult::Part(part) => parts.push(part),
             cost_parser::TokenResult::Tap => {
@@ -737,13 +742,17 @@ pub fn parse_cost(raw: &str) -> Cost {
     }
 
     // If we have mana tokens, combine them into a ManaCost
-    if !mana_tokens.is_empty() {
+    if !mana_tokens.is_empty() || x_min.is_some() {
         let mana_str = mana_tokens.join(" ");
-        let mana_cost = ManaCost::parse(&mana_str);
-        if mana_cost.cmc() > 0 || !mana_str.is_empty() {
+        let mana_cost = if mana_str.is_empty() {
+            ManaCost::zero()
+        } else {
+            ManaCost::parse(&mana_str)
+        };
+        if mana_cost.cmc() > 0 || !mana_str.is_empty() || x_min.is_some() {
             parts.push(CostPart::Mana {
                 cost: mana_cost,
-                x_min: 0,
+                x_min: x_min.unwrap_or(0),
                 is_exiled_creature_cost: false,
                 is_enchanted_creature_cost: false,
                 is_cost_pay_any_number_of_times: false,
