@@ -119,6 +119,11 @@ fn set_state_for_card(
 
             // Re-scan active triggers so the new face's trigger list takes effect.
             ctx.trigger_handler.reset_active_triggers(ctx.game);
+            if sa.is_remember_changed() {
+                if let Some(host) = sa.source {
+                    ctx.game.card_mut(host).add_remembered_card(card_id);
+                }
+            }
         }
         Some(SpellAbilityMode::Flip) => {
             // Toggle the flipped state.
@@ -172,6 +177,11 @@ fn set_state_for_card(
 
                 // Re-scan active triggers for the revealed card
                 ctx.trigger_handler.reset_active_triggers(ctx.game);
+                if sa.is_remember_changed() {
+                    if let Some(host) = sa.source {
+                        ctx.game.card_mut(host).add_remembered_card(card_id);
+                    }
+                }
             }
         }
         Some(SpellAbilityMode::TurnFaceDown) => {

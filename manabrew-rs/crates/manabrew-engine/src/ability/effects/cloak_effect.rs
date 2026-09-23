@@ -48,7 +48,6 @@ fn cloak_for_player(ctx: &mut EffectContext, sa: &SpellAbility, player: PlayerId
         ctx.game
             .card_mut(card_id)
             .add_intrinsic_keyword_with_triggers("Ward:2");
-        ctx.game.card_mut(card_id).set_controller(player);
 
         if sa.is_tapped() {
             ctx.game.tap(card_id);

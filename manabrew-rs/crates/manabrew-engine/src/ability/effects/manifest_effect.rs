@@ -69,7 +69,6 @@ pub(super) fn manifest_single_card(
     crate::card::card_factory_util::ability_turn_face_up(ctx.game.card_mut(card_id), "ManifestUp");
 
     // Move to battlefield under the player's control
-    ctx.game.card_mut(card_id).set_controller(player);
     ctx.move_card(card_id, ZoneType::Battlefield, player);
 
     ctx.trigger_handler
