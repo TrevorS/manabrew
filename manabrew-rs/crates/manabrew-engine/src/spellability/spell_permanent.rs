@@ -90,6 +90,7 @@ pub fn create_permanent_spell(
         trigger_objects: HashMap::default(),
         trigger_spell_abilities: HashMap::default(),
         trigger_spawning_ability: None,
+        root_ability_text: None,
         additional_ability_lists: HashMap::default(),
         charm_modes_chosen: false,
         replacing_objects: HashMap::default(),

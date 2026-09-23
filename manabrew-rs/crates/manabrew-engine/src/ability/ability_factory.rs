@@ -439,6 +439,7 @@ fn build_vanilla_spell_ability(card: &Card, card_id: CardId, player: PlayerId) -
         trigger_objects: crate::HashMap::default(),
         trigger_spell_abilities: crate::HashMap::default(),
         trigger_spawning_ability: None,
+        root_ability_text: None,
         additional_ability_lists: crate::HashMap::default(),
         charm_modes_chosen: false,
         replacing_objects: crate::HashMap::default(),
@@ -606,6 +607,7 @@ fn build_spell_ability_of_type_with_params(
         trigger_objects: crate::HashMap::default(),
         trigger_spell_abilities: crate::HashMap::default(),
         trigger_spawning_ability: None,
+        root_ability_text: None,
         additional_ability_lists: crate::HashMap::default(),
         charm_modes_chosen: false,
         replacing_objects: crate::HashMap::default(),
@@ -622,6 +624,9 @@ fn build_spell_ability_of_type_with_params(
         damage_map: None,
         prevent_map: None,
     };
+    if let Some(sub_ability) = sa.sub_ability.as_deref_mut() {
+        sub_ability.set_root_ability_text(ability_text);
+    }
     if let Some(api) = api {
         crate::ability::effects::build_spell_ability_for_api(api, &mut sa);
     }

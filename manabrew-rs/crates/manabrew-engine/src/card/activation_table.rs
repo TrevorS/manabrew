@@ -21,7 +21,12 @@ impl ActivationTable {
         // Java tracks original/root ability identity; this is the nearest
         // equivalent in the current Rust engine.
         let mut hash = 1469598103934665603u64; // FNV offset
-        for b in sa.ability_text.as_bytes() {
+        for b in sa
+            .root_ability_text
+            .as_deref()
+            .unwrap_or(&sa.ability_text)
+            .as_bytes()
+        {
             hash ^= *b as u64;
             hash = hash.wrapping_mul(1099511628211);
         }

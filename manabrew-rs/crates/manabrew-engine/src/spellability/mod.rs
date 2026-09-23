@@ -295,6 +295,8 @@ pub struct SpellAbility {
     pub trigger_remembered: Vec<AbilityValue>,
     #[serde(default)]
     pub trigger_spawning_ability: Option<Box<SpellAbility>>,
+    #[serde(default)]
+    pub root_ability_text: Option<String>,
     /// Activation restriction for this ability.
     #[serde(default)]
     pub restriction: SpellAbilityRestriction,
@@ -677,6 +679,7 @@ impl SpellAbility {
             trigger_objects: HashMap::default(),
             trigger_spell_abilities: HashMap::default(),
             trigger_spawning_ability: None,
+            root_ability_text: None,
             additional_ability_lists: HashMap::default(),
             charm_modes_chosen: false,
             replacing_objects: HashMap::default(),
@@ -1647,6 +1650,13 @@ impl SpellAbility {
         self.original_host = Some(card_id);
         if let Some(sub_ability) = self.sub_ability.as_deref_mut() {
             sub_ability.set_original_host(card_id);
+        }
+    }
+
+    pub fn set_root_ability_text(&mut self, text: &str) {
+        self.root_ability_text = Some(text.to_string());
+        if let Some(sub_ability) = self.sub_ability.as_deref_mut() {
+            sub_ability.set_root_ability_text(text);
         }
     }
 
