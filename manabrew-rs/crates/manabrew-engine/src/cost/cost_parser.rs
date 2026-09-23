@@ -366,7 +366,7 @@ fn parse_reveal(inner: &str) -> Option<CostPart> {
     Some(CostPart::Reveal {
         amount,
         type_filter: filter,
-        from: RevealFrom::All,
+        from: RevealFrom::Hand,
     })
 }
 
@@ -375,7 +375,7 @@ fn parse_choose_card(inner: &str) -> Option<CostPart> {
     Some(CostPart::Reveal {
         amount,
         type_filter: filter,
-        from: RevealFrom::Hand,
+        from: RevealFrom::All,
     })
 }
 

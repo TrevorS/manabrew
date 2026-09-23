@@ -1260,9 +1260,20 @@ pub(crate) fn reveal_candidates(
         return cards;
     }
 
+    let source_card = game.card(source);
     cards
         .into_iter()
-        .filter(|&cid| matches_change_type(game.card(cid), type_filter, &[]))
+        .filter(|&cid| {
+            type_filter.split(';').any(|alt| {
+                let selector = crate::parsing::cached_compiled_selector(alt.trim());
+                crate::card::valid_filter::matches_valid_card_selector_in_game(
+                    &selector,
+                    game.card(cid),
+                    source_card,
+                    game,
+                )
+            })
+        })
         .collect()
 }
 

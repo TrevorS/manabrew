@@ -3092,22 +3092,14 @@ impl GameLoop {
                 }
             }
         } else {
-            candidates.retain(|&cid| {
-                type_filter == "Card"
-                    || type_filter.is_empty()
-                    || crate::ability::effects::matches_change_type(
-                        game.card(cid),
-                        type_filter,
-                        &[],
-                    )
-            });
-            while (revealed.len() as i32) < amount && !candidates.is_empty() {
-                let next = self
-                    .choose_cost_card_mixed(game, agents, player, &candidates, source)
-                    .unwrap_or(candidates[0]);
-                revealed.push(next);
-                candidates.retain(|&cid| cid != next);
-            }
+            let candidates =
+                crate::cost::reveal_candidates(game, player, source, type_filter, from);
+            revealed = agents[player.index()].choose_cards_for_effect(
+                player,
+                &candidates,
+                amount as usize,
+                amount as usize,
+            );
         }
 
         if revealed.is_empty() {
