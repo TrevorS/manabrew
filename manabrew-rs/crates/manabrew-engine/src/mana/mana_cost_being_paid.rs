@@ -89,6 +89,26 @@ impl ManaCostBeingPaid {
         self.get_unpaid_shards(ManaCostShard::Generic)
     }
 
+    /// Mirrors Java's `ManaCostBeingPaid.getUnpaidShards()`.
+    pub fn get_unpaid_shard_list(&self) -> Vec<ManaCostShard> {
+        let mut result = Vec::new();
+        for (&shard, sc) in &self.unpaid_shards {
+            for _ in 0..sc.total_count {
+                result.push(shard);
+            }
+        }
+        for _ in 0..self.cnt_x {
+            result.push(ManaCostShard::X);
+        }
+        result
+    }
+
+    pub fn is_needed(&self, possible_uses: u16) -> bool {
+        self.unpaid_shards
+            .keys()
+            .any(|&shard| can_pay_for_shard_with_color(shard, possible_uses))
+    }
+
     /// Whether any unpaid shard has the given kind bitmask.
     /// Mirrors Java's `ManaCostBeingPaid.hasAnyKind()`.
     pub fn has_any_kind(&self, kind: u16) -> bool {

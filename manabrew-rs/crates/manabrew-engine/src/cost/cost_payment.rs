@@ -1,3 +1,8 @@
+use std::collections::BTreeMap;
+
+use forge_foundation::mana::ManaAtom;
+use forge_foundation::ManaCostShard;
+
 use crate::agent::PlayerAgent;
 use crate::cost::payment_decision::PaymentDecision;
 use crate::cost::trait_cost_decision_maker::DefaultCostDecisionMaker;
@@ -5,6 +10,8 @@ use crate::cost::trait_cost_visitor::CostVisitor;
 use crate::cost::{Cost, CostPart};
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
+use crate::mana::mana_pool::mana_matches_context;
+use crate::mana::{Mana, ManaPaymentContext, ManaPool};
 
 pub struct CostPayment {
     /// The original, unadjusted cost.
@@ -157,6 +164,95 @@ impl CostPayment {
         // - If sa.isOffering(): sacrifice the offering card, fire zone triggers
         // - If sa.isEmerge(): sacrifice the emerge card, update LKI, fire zone triggers
         true
+    }
+
+    pub fn get_mana(
+        pool: &mut ManaPool,
+        shard: ManaCostShard,
+        sa_being_paid_for: &ManaPaymentContext,
+        any_color: bool,
+        colors_paid: Option<u16>,
+        x_mana_cost_paid_by_color: &BTreeMap<String, i32>,
+        choose_mana_from_pool: &mut dyn FnMut(&[Mana]) -> usize,
+    ) -> Option<Mana> {
+        let weighted_options = Self::select_mana_to_pay_for(
+            pool,
+            shard,
+            sa_being_paid_for,
+            any_color,
+            colors_paid,
+            x_mana_cost_paid_by_color,
+        );
+        if weighted_options.is_empty() {
+            return None;
+        }
+
+        let mut mana_choices: Vec<Mana> = Vec::new();
+        let mut best_weight = i32::MIN;
+        for (this_mana, this_weight) in weighted_options {
+            if this_weight > best_weight {
+                mana_choices.clear();
+                best_weight = this_weight;
+            }
+            if this_weight == best_weight && !mana_choices.iter().any(|m| m.equals(&this_mana)) {
+                mana_choices.push(this_mana);
+            }
+        }
+
+        if mana_choices.len() == 1 {
+            return mana_choices.pop();
+        }
+        let chosen = choose_mana_from_pool(&mana_choices);
+        mana_choices.into_iter().nth(chosen)
+    }
+
+    fn select_mana_to_pay_for(
+        manapool: &mut ManaPool,
+        shard: ManaCostShard,
+        sa_being_paid_for: &ManaPaymentContext,
+        any_color: bool,
+        colors_paid: Option<u16>,
+        x_mana_cost_paid_by_color: &BTreeMap<String, i32>,
+    ) -> Vec<(Mana, i32)> {
+        let mut weighted_options = Vec::new();
+        for this_mana in manapool.floating_mana() {
+            if shard == ManaCostShard::ColoredX
+                && x_mana_cost_paid_by_color.contains_key(ManaPool::atom_to_letter(this_mana.color))
+            {
+                continue;
+            }
+            if !manapool.can_pay_for_shard_with_color(shard, this_mana.color, any_color) {
+                continue;
+            }
+            if shard.is_snow() && !this_mana.is_snow {
+                continue;
+            }
+            if !mana_matches_context(&this_mana, sa_being_paid_for) {
+                continue;
+            }
+
+            let mut weight = 0;
+            match colors_paid {
+                None => {
+                    if this_mana.color == ManaAtom::COLORLESS {
+                        weight += 5;
+                    }
+                }
+                Some(colors_paid) => {
+                    if (this_mana.color | colors_paid) != colors_paid {
+                        weight += 5;
+                    }
+                }
+            }
+            if this_mana.restriction.is_some() {
+                weight += 2;
+            }
+            if !this_mana.is_snow {
+                weight += 1;
+            }
+            weighted_options.push((this_mana, weight));
+        }
+        weighted_options
     }
 }
 

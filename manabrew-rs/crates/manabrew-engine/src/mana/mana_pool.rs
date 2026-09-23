@@ -21,7 +21,7 @@ pub struct ManaPaymentOutcome {
     pub paying_sources: Vec<Option<CardId>>,
 }
 
-fn mana_matches_context(mana: &Mana, ctx: &ManaPaymentContext) -> bool {
+pub(crate) fn mana_matches_context(mana: &Mana, ctx: &ManaPaymentContext) -> bool {
     let Some(restriction) = &mana.restriction else {
         return true;
     };
@@ -49,6 +49,8 @@ fn mana_matches_context(mana: &Mana, ctx: &ManaPaymentContext) -> bool {
 pub struct ManaPool {
     #[serde(skip)]
     mana: Vec<Mana>,
+    #[serde(skip)]
+    floating_mana_keys: Vec<u16>,
     #[serde(skip)]
     last_payment_atoms: Vec<u16>,
     #[serde(skip)]
@@ -106,7 +108,7 @@ impl ManaPool {
 
     pub fn add(&mut self, atom: u16, amount: i32) {
         for _ in 0..amount {
-            self.mana.push(Mana::simple(atom));
+            self.add_mana(Mana::simple(atom));
         }
     }
 
@@ -121,7 +123,7 @@ impl ManaPool {
         for _ in 0..amount {
             let mut m = Mana::simple(atom);
             m.is_snow = true;
-            self.mana.push(m);
+            self.add_mana(m);
         }
     }
 
@@ -129,7 +131,7 @@ impl ManaPool {
     pub fn add_restricted(&mut self, atom: u16, restriction: String) {
         let mut m = Mana::simple(atom);
         m.restriction = Some(restriction);
-        self.mana.push(m);
+        self.add_mana(m);
     }
 
     /// Count mana in pool that has the "can't be countered" flag.
@@ -199,7 +201,37 @@ impl ManaPool {
     }
 
     pub fn add_mana(&mut self, m: Mana) {
+        self.sync_floating_mana_keys();
+        if !self.floating_mana_keys.contains(&m.color) {
+            self.floating_mana_keys.push(m.color);
+        }
         self.mana.push(m);
+    }
+
+    fn sync_floating_mana_keys(&mut self) {
+        let mut idx = 0;
+        while idx < self.floating_mana_keys.len() {
+            let key = self.floating_mana_keys[idx];
+            if self.mana.iter().any(|m| m.color == key) {
+                idx += 1;
+            } else {
+                self.floating_mana_keys.swap_remove(idx);
+            }
+        }
+        for m in &self.mana {
+            if !self.floating_mana_keys.contains(&m.color) {
+                self.floating_mana_keys.push(m.color);
+            }
+        }
+    }
+
+    pub(crate) fn floating_mana(&mut self) -> Vec<Mana> {
+        self.sync_floating_mana_keys();
+        self.floating_mana_keys
+            .iter()
+            .flat_map(|&key| self.mana.iter().filter(move |m| m.color == key))
+            .cloned()
+            .collect()
     }
 
     /// Total floating mana count.
@@ -1010,23 +1042,27 @@ impl ManaPool {
     /// Remove a specific Mana object from the pool.
     /// Mirrors Java's `ManaPool.removeMana(Mana)`.
     pub fn remove_mana(&mut self, mana: &Mana) -> bool {
-        if let Some(pos) = self
-            .mana
-            .iter()
-            .position(|m| m.color == mana.color && m.source_card == mana.source_card)
-        {
-            self.mana.remove(pos);
-            true
-        } else {
-            false
-        }
+        self.sync_floating_mana_keys();
+        let Some(pos) = self.mana.iter().position(|m| m.equals(mana)) else {
+            return false;
+        };
+        self.mana.remove(pos);
+        self.sync_floating_mana_keys();
+        true
     }
 
-    /// Pay mana cost using mana produced by a mana ability.
     /// Mirrors Java's `ManaPool.payManaFromAbility()`.
-    pub fn pay_mana_from_ability(&mut self, produced_color: u16, amount: i32) {
-        for _ in 0..amount {
-            self.add(produced_color, 1);
+    pub(crate) fn pay_mana_from_ability(
+        &mut self,
+        mana_cost: &mut ManaCostBeingPaid,
+        last_mana_produced: &[Mana],
+        any_color: bool,
+        mana_spent_to_pay: &mut ManaPaymentOutcome,
+    ) {
+        for mana in last_mana_produced {
+            if self.try_pay_cost_with_mana(mana_cost, mana, any_color) {
+                self.add_mana_spent_to_pay(mana, mana_spent_to_pay);
+            }
         }
     }
 
@@ -1043,8 +1079,38 @@ impl ManaPool {
 
     /// Try to pay with a specific Mana object.
     /// Mirrors Java's `ManaPool.tryPayCostWithMana()`.
-    pub fn try_pay_cost_with_mana(&mut self, mana: &Mana) -> bool {
-        self.remove_mana(mana)
+    pub fn try_pay_cost_with_mana(
+        &mut self,
+        mana_cost: &mut ManaCostBeingPaid,
+        mana: &Mana,
+        any_color: bool,
+    ) -> bool {
+        let possible_uses = Self::get_possible_color_uses(mana.color, any_color);
+        if !mana_cost.is_needed(possible_uses) {
+            return false;
+        }
+        if !self.remove_mana(mana) {
+            return false;
+        }
+        mana_cost.try_pay_mana(possible_uses, possible_uses as u8);
+        true
+    }
+
+    fn add_mana_spent_to_pay(&mut self, mana: &Mana, mana_spent_to_pay: &mut ManaPaymentOutcome) {
+        mana_spent_to_pay.colors_spent |= mana.color;
+        mana_spent_to_pay.paying_mana.push(mana.color);
+        mana_spent_to_pay.paying_sources.push(mana.source_card);
+        if let (Some(svar), Some(src)) = (mana.triggers_when_spent.clone(), mana.source_card) {
+            self.last_payment_triggers_consumed.push((svar, src));
+        }
+    }
+
+    pub(crate) fn get_possible_color_uses(color: u16, any_color: bool) -> u16 {
+        if any_color && color != ManaAtom::COLORLESS {
+            ManaAtom::COLORS_SUPERPOSITION
+        } else {
+            color
+        }
     }
 
     /// Account for mana produced by a mana ability (verify it's in the pool).
@@ -1063,17 +1129,51 @@ impl ManaPool {
 
     /// Check if a mana cost shard can be paid by a given color.
     /// Mirrors Java's `ManaPool.canPayForShardWithColor()`.
-    pub fn can_pay_for_shard_with_color(&self, shard_color: u16, pay_color: u16) -> bool {
-        if shard_color == 0 {
-            return true;
-        }
-        (shard_color & pay_color) != 0
+    pub fn can_pay_for_shard_with_color(
+        &self,
+        shard: forge_foundation::ManaCostShard,
+        color: u16,
+        any_color: bool,
+    ) -> bool {
+        super::mana_cost_being_paid::can_pay_for_shard_with_color(
+            shard,
+            Self::get_possible_color_uses(color, any_color),
+        )
     }
 
-    /// Pay an entire mana cost from floating mana.
     /// Mirrors Java's `ManaPool.payManaCostFromPool()`.
-    pub fn pay_mana_cost_from_pool(&mut self, cost: &forge_foundation::ManaCost) -> bool {
-        self.try_pay(cost)
+    pub(crate) fn pay_mana_cost_from_pool(
+        &mut self,
+        cost: &mut ManaCostBeingPaid,
+        ctx: &ManaPaymentContext,
+        any_color: bool,
+        has_converge: bool,
+        mana_spent_to_pay: &mut ManaPaymentOutcome,
+        choose_mana_from_pool: &mut dyn FnMut(&[Mana]) -> usize,
+    ) -> bool {
+        let mut unpaid_shards = cost.get_unpaid_shard_list();
+        unpaid_shards.sort();
+        for part in unpaid_shards {
+            if part == forge_foundation::ManaCostShard::X || cost.is_paid() {
+                continue;
+            }
+            let colors_paid = has_converge.then_some(cost.sunburst_map);
+            let Some(mana) = crate::cost::cost_payment::CostPayment::get_mana(
+                self,
+                part,
+                ctx,
+                any_color,
+                colors_paid,
+                &cost.x_mana_cost_paid_by_color,
+                choose_mana_from_pool,
+            ) else {
+                continue;
+            };
+            if self.try_pay_cost_with_mana(cost, &mana, any_color) {
+                self.add_mana_spent_to_pay(&mana, mana_spent_to_pay);
+            }
+        }
+        cost.is_paid()
     }
 
     fn try_pay_with_phyrexian_life(

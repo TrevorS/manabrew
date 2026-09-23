@@ -1000,6 +1000,14 @@ fn pay_roll_cost(
                             *chosen = agents[player.index()].choose_color(player, options);
                             None
                         }
+                        mana::ManaPayCallback::ChooseManaFromPool {
+                            mana_choices,
+                            chosen,
+                        } => {
+                            *chosen =
+                                agents[player.index()].choose_mana_from_pool(player, mana_choices);
+                            None
+                        }
                         mana::ManaPayCallback::ChooseCards { .. } => None,
                         mana::ManaPayCallback::ConfirmSelfSacrifice(sacrifice_id) => {
                             if agents[player.index()].confirm_payment(

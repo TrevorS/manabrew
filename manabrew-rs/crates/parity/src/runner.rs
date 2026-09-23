@@ -828,6 +828,28 @@ impl PlayerAgent for CapturingAgent {
         result
     }
 
+    fn choose_mana_from_pool(
+        &mut self,
+        player: PlayerId,
+        mana_choices: &[manabrew_engine::mana::Mana],
+    ) -> usize {
+        self.save_snapshot("choose_mana_from_pool");
+        let cb_args = vec![mana_choices.len().to_string()];
+        let result = self.inner.choose_mana_from_pool(player, mana_choices);
+        let outcome = mana_choices.get(result).map_or("null", |mana| {
+            manabrew_engine::mana::ManaPool::atom_to_letter(mana.color)
+        });
+        self.parity_observer.on_callback(
+            "choose_mana_from_pool",
+            outcome,
+            self.player_id.0,
+            self.current_turn,
+            &self.current_phase,
+            cb_args,
+        );
+        result
+    }
+
     parity_agent_callback! {
         fn choose_targets_for(&mut self, sa: &mut manabrew_engine::spellability::SpellAbility, game: &GameState, mana_pools: &[manabrew_engine::mana::ManaPool]) -> bool => "choose_targets_for";
         fn mulligan_decision(&mut self, player: PlayerId, hand: &[CardId], mulligan_count: u32) -> bool => "mulligan_decision";

@@ -5,7 +5,7 @@ use crate::cost::payment_decision::PaymentDecision;
 use crate::cost::CostPart;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
-use crate::mana::ManaPool;
+use crate::mana::{Mana, ManaPool};
 use crate::player::actions::PlayerAction;
 use crate::spellability::SpellAbility;
 
@@ -793,6 +793,10 @@ pub trait PlayerAgent {
     /// Default: pick the first valid color.
     fn choose_color(&mut self, _player: PlayerId, valid_colors: &[String]) -> Option<String> {
         valid_colors.first().cloned()
+    }
+
+    fn choose_mana_from_pool(&mut self, _player: PlayerId, _mana_choices: &[Mana]) -> usize {
+        0
     }
 
     /// Choose one or more colors.

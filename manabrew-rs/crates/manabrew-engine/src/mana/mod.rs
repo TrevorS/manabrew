@@ -249,6 +249,17 @@ impl Mana {
     pub fn triggers_when_spent(&self) -> bool {
         self.triggers_when_spent.is_some()
     }
+
+    pub fn equals(&self, other: &Mana) -> bool {
+        self.color == other.color
+            && self.adds_keywords() == other.adds_keywords()
+            && self.adds_counters() == other.adds_counters()
+            && self.adds_no_counter == other.adds_no_counter
+            && self.triggers_when_spent == other.triggers_when_spent
+            && self.is_persistent == other.is_persistent
+            && self.is_combat_mana == other.is_combat_mana
+            && self.restriction == other.restriction
+    }
 }
 
 /// Context about what a mana payment is for, used to check restrictions.

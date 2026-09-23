@@ -14,7 +14,7 @@ use super::mana_cost_being_paid::{can_pay_for_shard_with_color, ManaCostBeingPai
 use super::mana_pool::ManaPaymentOutcome;
 use super::{
     add_produced_mana_to_pool, all_basic_subtype_atoms, atom_short, basic_land_mana_atom,
-    chosen_colors_to_atoms, tap_land_for_mana, ManaPool, ManaProductionParams,
+    chosen_colors_to_atoms, tap_land_for_mana, Mana, ManaPool, ManaProductionParams,
 };
 
 #[derive(Debug, Clone)]
@@ -106,6 +106,10 @@ pub enum ManaPayCallback<'a> {
     ChooseManaColor {
         options: &'a [String],
         chosen: &'a mut Option<String>,
+    },
+    ChooseManaFromPool {
+        mana_choices: &'a [Mana],
+        chosen: &'a mut usize,
     },
     /// Choose cards for a mana-ability cost part (`tapXType`, `Exile<N/...>`).
     /// The callback writes the selected cards into `chosen`; the return value
@@ -231,6 +235,7 @@ pub fn auto_tap_lands_with_chooser(
             ManaPayCallback::ChooseSacrifice(valid) => sacrifice_chooser(valid),
             ManaPayCallback::ChooseColor(_) => None,
             ManaPayCallback::ChooseManaColor { .. } => None,
+            ManaPayCallback::ChooseManaFromPool { .. } => None,
             ManaPayCallback::ChooseCards { .. } => None,
             ManaPayCallback::ConfirmSelfSacrifice(cid) => Some(cid),
             ManaPayCallback::ConfirmSubCounter(cid) => Some(cid),
@@ -268,6 +273,7 @@ pub fn auto_tap_lands_allow_reserved_source_reuse_with_chooser(
             ManaPayCallback::ChooseSacrifice(valid) => sacrifice_chooser(valid),
             ManaPayCallback::ChooseColor(_) => None,
             ManaPayCallback::ChooseManaColor { .. } => None,
+            ManaPayCallback::ChooseManaFromPool { .. } => None,
             ManaPayCallback::ChooseCards { .. } => None,
             ManaPayCallback::ConfirmSelfSacrifice(cid) => Some(cid),
             ManaPayCallback::ConfirmSubCounter(cid) => Some(cid),
@@ -655,15 +661,18 @@ fn auto_tap_lands_internal_with_ctx(
     }
 
     let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
+    let default_ctx = crate::mana::ManaPaymentContext::default();
+    let pool_ctx = payment_ctx.unwrap_or(&default_ctx);
+    let has_converge = current_spell.is_some_and(|cid| game.card(cid).has_converge());
     if consume_incrementally {
-        let spent = pool.pay_unpaid_for_spell_incremental(
+        pool.pay_mana_cost_from_pool(
             &mut unpaid,
-            payment_ctx.unwrap_or(&crate::mana::ManaPaymentContext::default()),
+            pool_ctx,
             any_color_conversion,
+            has_converge,
+            &mut payment,
+            &mut |mana_choices: &[Mana]| choose_mana_from_pool(callback, mana_choices),
         );
-        payment.colors_spent |= spent.colors_spent;
-        payment.paying_mana.extend(spent.paying_mana);
-        payment.paying_sources.extend(spent.paying_sources);
     } else if let Some(ctx) = payment_ctx {
         pay_cost_from_pool(&mut unpaid, &pool.filtered_for_context(ctx));
     } else {
@@ -738,8 +747,10 @@ fn auto_tap_lands_internal_with_ctx(
             } else {
                 chosen_atom
             };
+            let pool_before = pool.mana_entries().len();
             let produced =
                 produce_mana_for_auto_pay(game, pool, player, &sa_payment, chosen_atom, callback);
+            let last_mana_produced = pool.mana_entries()[pool_before..].to_vec();
             let trigger_atoms = add_taps_for_mana_trigger_mana(
                 game,
                 pool,
@@ -750,14 +761,20 @@ fn auto_tap_lands_internal_with_ctx(
                 callback,
             );
             if consume_incrementally {
-                let spent = pool.pay_unpaid_for_spell_incremental(
+                pool.pay_mana_from_ability(
                     &mut unpaid,
-                    payment_ctx.unwrap_or(&crate::mana::ManaPaymentContext::default()),
+                    &last_mana_produced,
                     any_color_conversion,
+                    &mut payment,
                 );
-                payment.colors_spent |= spent.colors_spent;
-                payment.paying_mana.extend(spent.paying_mana);
-                payment.paying_sources.extend(spent.paying_sources);
+                pool.pay_mana_cost_from_pool(
+                    &mut unpaid,
+                    pool_ctx,
+                    any_color_conversion,
+                    has_converge,
+                    &mut payment,
+                    &mut |mana_choices: &[Mana]| choose_mana_from_pool(callback, mana_choices),
+                );
             } else {
                 for &atom in &trigger_atoms {
                     let _ = unpaid.try_pay_mana(atom, atom as u8);
@@ -782,6 +799,7 @@ fn auto_tap_lands_internal_with_ctx(
                 && sa_payment.atoms.is_empty();
             let needs_express = sa_payment.atoms.len() > 1;
             let mut trigger_atoms_for_non_incremental: Vec<u16> = Vec::new();
+            let mut last_mana_produced: Vec<Mana> = Vec::new();
             if is_empty_combo_color_identity {
                 // Java's deterministic AutoPay taps an empty `Combo
                 // ColorIdentity` source (Arcane Signet in a non-Commander
@@ -792,6 +810,7 @@ fn auto_tap_lands_internal_with_ctx(
                     game.tap(sa_payment.card_id);
                 }
             } else {
+                let pool_before = pool.mana_entries().len();
                 let produced = produce_mana_for_auto_pay(
                     game,
                     pool,
@@ -800,6 +819,7 @@ fn auto_tap_lands_internal_with_ctx(
                     chosen_atom,
                     callback,
                 );
+                last_mana_produced = pool.mana_entries()[pool_before..].to_vec();
                 trigger_atoms_for_non_incremental = add_taps_for_mana_trigger_mana(
                     game,
                     pool,
@@ -820,14 +840,20 @@ fn auto_tap_lands_internal_with_ctx(
 
             if consume_incrementally {
                 if !is_empty_combo_color_identity {
-                    let spent = pool.pay_unpaid_for_spell_incremental(
+                    pool.pay_mana_from_ability(
                         &mut unpaid,
-                        payment_ctx.unwrap_or(&crate::mana::ManaPaymentContext::default()),
+                        &last_mana_produced,
                         any_color_conversion,
+                        &mut payment,
                     );
-                    payment.colors_spent |= spent.colors_spent;
-                    payment.paying_mana.extend(spent.paying_mana);
-                    payment.paying_sources.extend(spent.paying_sources);
+                    pool.pay_mana_cost_from_pool(
+                        &mut unpaid,
+                        pool_ctx,
+                        any_color_conversion,
+                        has_converge,
+                        &mut payment,
+                        &mut |mana_choices: &[Mana]| choose_mana_from_pool(callback, mana_choices),
+                    );
                 }
             } else if !is_empty_combo_color_identity {
                 let _ = unpaid.try_pay_mana(chosen_atom, chosen_atom as u8);
@@ -884,6 +910,20 @@ fn auto_tap_lands_internal_with_ctx(
         paid: unpaid.is_paid(),
         convoked,
     }
+}
+
+fn choose_mana_from_pool(
+    callback: &mut Option<ManaPayCallbackFn<'_>>,
+    mana_choices: &[Mana],
+) -> usize {
+    let mut chosen = 0;
+    if let Some(ref mut cb) = callback {
+        cb(ManaPayCallback::ChooseManaFromPool {
+            mana_choices,
+            chosen: &mut chosen,
+        });
+    }
+    chosen
 }
 
 /// The harness's `AutoPay.payConvokeImprovise`, run after the mana sources: untapped
@@ -4456,6 +4496,7 @@ mod tests {
                         ManaPayCallback::ChooseSacrifice(_) => None,
                         ManaPayCallback::ChooseColor(_) => None,
                         ManaPayCallback::ChooseManaColor { .. } => None,
+                        ManaPayCallback::ChooseManaFromPool { .. } => None,
                         ManaPayCallback::ChooseCards { .. } => None,
                         ManaPayCallback::ConfirmSelfSacrifice(cid) => {
                             assert_eq!(cid, treasure); // should be asking about Treasure
@@ -4522,6 +4563,7 @@ mod tests {
                         ManaPayCallback::ChooseSacrifice(_) => None,
                         ManaPayCallback::ChooseColor(_) => None,
                         ManaPayCallback::ChooseManaColor { .. } => None,
+                        ManaPayCallback::ChooseManaFromPool { .. } => None,
                         ManaPayCallback::ChooseCards { .. } => None,
                         ManaPayCallback::ConfirmSelfSacrifice(cid) => {
                             assert_eq!(cid, treasure2);

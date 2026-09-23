@@ -2174,6 +2174,15 @@ impl PlayerAgent for DeterministicAgent {
         gui_repro::choose_color(&sorted, &mut self.rng.borrow_mut())
     }
 
+    fn choose_mana_from_pool(
+        &mut self,
+        _player: PlayerId,
+        mana_choices: &[manabrew_engine::mana::Mana],
+    ) -> usize {
+        let indices: Vec<usize> = (0..mana_choices.len()).collect();
+        choice_space::pick_one(&indices, &mut self.rng.borrow_mut()).unwrap_or(0)
+    }
+
     fn choose_colors(
         &mut self,
         _player: PlayerId,
