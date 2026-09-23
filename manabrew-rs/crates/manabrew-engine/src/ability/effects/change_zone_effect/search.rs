@@ -16,7 +16,8 @@ pub(super) fn resolve_each_search(
     each_spec: &str,
     zone_cards: &mut Vec<CardId>,
     chooser: PlayerId,
-    _is_optional: bool,
+    change_num: usize,
+    is_optional: bool,
 ) -> Vec<CardId> {
     let mut out = Vec::new();
     for clause in each_spec
@@ -25,27 +26,24 @@ pub(super) fn resolve_each_search(
         .filter(|s| !s.is_empty())
     {
         let selector = crate::parsing::CompiledSelector::parse(clause);
-        let candidates: Vec<_> = zone_cards
-            .iter()
-            .copied()
-            .filter(|&cid| matches_with_context(ctx, sa, cid, Some(&selector)))
-            .collect();
-        if candidates.is_empty() {
-            continue;
-        }
-        // Java always routes through chooseSingleCardForZoneChange, even for
-        // a single candidate, so do not short-circuit here.
-        ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
-        let chosen = ctx.agents[chooser.index()].choose_single_card_for_zone_change(
-            ctx.game,
-            chooser,
-            &candidates,
-            sa.select_prompt().unwrap_or("Select card for zone change"),
-            false,
-        );
-        if let Some(id) = chosen {
-            out.push(id);
-            zone_cards.retain(|&cid| cid != id);
+        for _ in 0..change_num {
+            let candidates: Vec<_> = zone_cards
+                .iter()
+                .copied()
+                .filter(|&cid| matches_with_context(ctx, sa, cid, Some(&selector)))
+                .collect();
+            ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
+            let chosen = ctx.agents[chooser.index()].choose_single_card_for_zone_change(
+                ctx.game,
+                chooser,
+                &candidates,
+                sa.select_prompt().unwrap_or("Select card for zone change"),
+                is_optional,
+            );
+            if let Some(id) = chosen {
+                out.push(id);
+                zone_cards.retain(|&cid| cid != id);
+            }
         }
     }
     out

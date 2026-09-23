@@ -277,6 +277,7 @@ pub(super) fn resolve_hidden_origin(
                     each_spec,
                     &mut zone_cards,
                     effective_chooser,
+                    change_num,
                     chooser_optional,
                 )
             } else {
@@ -505,6 +506,7 @@ pub(super) fn resolve_hidden_origin(
             each_spec,
             &mut zone_cards,
             effective_chooser,
+            change_num,
             chooser_optional,
         )
     } else {
