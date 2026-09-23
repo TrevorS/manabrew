@@ -260,14 +260,9 @@ pub(super) fn resolve_hidden_origin(
                 }
             }
 
-            let mut zone_cards = ctx
-                .game
-                .cards_in_zone(origin_zone, affected_player)
-                .to_vec();
-            if origin_zone == ZoneType::Library {
-                if let Some(max) = find_search_limit(ctx, affected_player, controller) {
-                    zone_cards.truncate(max);
-                }
+            let mut zone_cards = collect_search_zone_cards(ctx, &origin_zones, affected_player);
+            if origin_zones.contains(&ZoneType::Library) {
+                apply_library_search_limit(ctx, affected_player, controller, &mut zone_cards);
             }
 
             let mut cards_to_move = if let Some(each_spec) = change_type.strip_prefix("EACH ") {
@@ -319,11 +314,16 @@ pub(super) fn resolve_hidden_origin(
             }
 
             let (dest_zone, lib_position) = resolve_destination(ctx, sa, dest_zone);
+            let searched_origin = if origin_zones.contains(&ZoneType::Library) {
+                ZoneType::Library
+            } else {
+                origin_zones.first().copied().unwrap_or(origin_zone)
+            };
             move_cards(
                 ctx,
                 sa,
                 &cards_to_move,
-                origin_zone,
+                searched_origin,
                 dest_zone,
                 &lib_position,
                 affected_player,
