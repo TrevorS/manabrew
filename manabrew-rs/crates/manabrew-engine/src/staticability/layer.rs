@@ -779,6 +779,23 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                     target: card.id,
                     kind: EffectKind::GrantKeyword(keyword.to_string()),
                 });
+            } else if *counter == crate::card::CounterType::Named("HONE".to_string())
+                && card.zone == ZoneType::Battlefield
+                && card.type_line.has_subtype("Equipment")
+            {
+                if let Some(equipped) = card
+                    .attached_to
+                    .filter(|&equipped| game.card(equipped).is_creature())
+                {
+                    pending.push(PendingEffect {
+                        layer: Layer::ModifyPT,
+                        target: equipped,
+                        kind: EffectKind::AddPT {
+                            power: amount,
+                            toughness: 0,
+                        },
+                    });
+                }
             }
         }
     }
