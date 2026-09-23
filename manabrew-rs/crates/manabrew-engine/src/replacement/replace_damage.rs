@@ -193,10 +193,14 @@ pub fn execute(
             _ => {}
         }
     }
-    if let Some(result) = resolve_replace_with_chain(effect, game.card(source_card_id))
-        .and_then(|chain| execute_replace_effect_ir(&chain, event, game, source_card_id, None))
-    {
-        return result;
+    let chain_result = resolve_replace_with_chain(effect, game.card(source_card_id))
+        .and_then(|chain| execute_replace_effect_ir(&chain, event, game, source_card_id, None));
+    match effect.base.card_trait_base.get_param("ReplacementResult") {
+        Some("Updated") => ReplacementResult::Updated,
+        Some("NotReplaced") => ReplacementResult::NotReplaced,
+        Some("Prevented") => ReplacementResult::Prevented,
+        Some("Skipped") => ReplacementResult::Skipped,
+        Some("Replaced") => ReplacementResult::Replaced,
+        _ => chain_result.unwrap_or(ReplacementResult::Replaced),
     }
-    ReplacementResult::Replaced
 }

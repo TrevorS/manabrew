@@ -13,21 +13,27 @@ use crate::game_entity_counter_table::GameEntityCounterTable;
 #[manabrew_engine_macros::spell_effect(DamageResolveEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let from_pending = sa.damage_map.is_none();
-    let damage_map_owned = sa
+    let Some(mut damage_map) = sa
         .damage_map
         .clone()
-        .or_else(|| ctx.game.pending_damage_map.clone());
-    let Some(damage_map) = damage_map_owned.as_ref() else {
+        .or_else(|| ctx.game.pending_damage_map.clone())
+    else {
         return;
     };
 
-    let prevent_map_owned = sa
+    let mut prevent_map = sa
         .prevent_map
         .clone()
-        .or_else(|| ctx.game.pending_prevent_map.clone());
-    if let Some(prevent_map) = prevent_map_owned.as_ref() {
-        prevent_map.trigger_prevent_damage(ctx.trigger_handler, false);
-    }
+        .or_else(|| ctx.game.pending_prevent_map.clone())
+        .unwrap_or_default();
+    crate::replacement::replacement_handler::run_replace_damage(
+        ctx.game,
+        Some(ctx.agents),
+        false,
+        &mut damage_map,
+        &mut prevent_map,
+    );
+    prevent_map.trigger_prevent_damage(ctx.trigger_handler, false);
 
     let mut counter_table = GameEntityCounterTable::default();
     for (source, target, amount) in damage_map.entries() {
@@ -70,7 +76,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                             amount,
                         );
                     } else {
-                        ctx.game.deal_damage_to_card(cid, amount);
+                        ctx.game.add_damage_after_prevention(
+                            DamageTarget::Card(cid),
+                            amount,
+                            Some(source),
+                            false,
+                            Some(ctx.agents),
+                        );
                     }
                 }
             }
@@ -90,7 +102,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         amount,
                     );
                 } else {
-                    let dealt = ctx.game.deal_damage_to_player(pid, amount);
+                    let dealt = ctx.game.add_damage_after_prevention(
+                        DamageTarget::Player(pid),
+                        amount,
+                        Some(source),
+                        false,
+                        Some(ctx.agents),
+                    );
                     ctx.game
                         .record_player_damage_assignment(Some(source), Some(pid), dealt, false);
                 }

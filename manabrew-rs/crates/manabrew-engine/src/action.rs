@@ -1,6 +1,7 @@
 use forge_foundation::{CoreType, ZoneType};
 
 use crate::agent::{GameEntity, PlayerAgent};
+use crate::card::card_damage_map::DamageTarget;
 use crate::card::{Card, CounterType};
 use crate::event::RunParams;
 use crate::game::GameState;
@@ -1105,6 +1106,50 @@ impl GameState {
             }
             _ => unreachable!(),
         }
+    }
+
+    pub fn add_damage_after_prevention(
+        &mut self,
+        target: DamageTarget,
+        amount: i32,
+        source: Option<CardId>,
+        is_combat: bool,
+        agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
+    ) -> i32 {
+        if amount <= 0 {
+            return 0;
+        }
+        let event = match target {
+            DamageTarget::Card(target) => {
+                if !self.card(target).can_be_dealt_damage() {
+                    return 0;
+                }
+                ReplacementEvent::DamageToCard {
+                    target,
+                    amount,
+                    source,
+                    is_combat,
+                }
+            }
+            DamageTarget::Player(target) => {
+                if crate::staticability::static_ability_cant_gain_lose_pay_life::cant_lose_life(
+                    self, target,
+                ) || crate::player::has_keyword(self, target, "Protection from everything")
+                    || source.is_some_and(|source| {
+                        crate::player::player_predicates::is_protected_from(self, target, source)
+                    })
+                {
+                    return 0;
+                }
+                ReplacementEvent::DamageToPlayer {
+                    target,
+                    amount,
+                    source,
+                    is_combat,
+                }
+            }
+        };
+        self.deal_replaced_damage(event, agents).1
     }
 
     /// Deal damage to a player.

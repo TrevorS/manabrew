@@ -37,6 +37,26 @@ impl CardDamageMap {
         prev
     }
 
+    pub fn remove(&mut self, source: CardId, target: DamageTarget) {
+        let Some(by_target) = self.data.get_mut(&source) else {
+            return;
+        };
+        by_target.shift_remove(&target);
+        if by_target.is_empty() {
+            self.data.shift_remove(&source);
+        }
+    }
+
+    pub fn column_map(&self) -> IndexMap<DamageTarget, Vec<(CardId, i32)>> {
+        let mut columns: IndexMap<DamageTarget, Vec<(CardId, i32)>> = IndexMap::new();
+        for (&source, targets) in &self.data {
+            for (&target, &amount) in targets {
+                columns.entry(target).or_default().push((source, amount));
+            }
+        }
+        columns
+    }
+
     pub fn total_amount(&self) -> i32 {
         self.data.values().flat_map(|m| m.values()).copied().sum()
     }

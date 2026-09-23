@@ -13,6 +13,7 @@ use crate::{HashMap, HashSet};
 use forge_foundation::{PhaseType, ZoneType};
 
 use crate::agent::GameEntity;
+use crate::card::card_damage_map::{CardDamageMap, DamageTarget};
 use crate::card::Card;
 use crate::card::CounterType;
 use crate::card_trait_base::CardTrait;
@@ -1057,14 +1058,250 @@ fn battlefield_pre_list(game: &GameState, event: &ReplacementEvent) -> Option<Ca
     Some(pre.cards[card.index()].clone())
 }
 
-/// Apply replacement effects specifically for damage events.
-///
-/// Delegates to `apply_replacements`. This is a convenience entry point
-/// matching Java's batch-damage processing path in `ReplacementHandler`.
-///
-/// Mirrors Java `ReplacementHandler.runReplaceDamage()`.
-pub fn run_replace_damage(game: &mut GameState, event: &mut ReplacementEvent) -> ReplacementResult {
-    apply_replacements(game, event)
+type ReplaceDamageKey = (CardId, usize, i32);
+
+struct ReplaceDamageBatch {
+    players: Vec<PlayerId>,
+    run_params: Vec<(CardId, ReplacementEvent)>,
+    effects: HashMap<ReplaceDamageKey, ReplacementEffect>,
+    replace_damage_list: Vec<indexmap::IndexMap<ReplaceDamageKey, Vec<usize>>>,
+    executed_damage_map: indexmap::IndexMap<ReplaceDamageKey, Vec<usize>>,
+}
+
+fn damage_run_params(
+    source: CardId,
+    target: DamageTarget,
+    amount: i32,
+    is_combat: bool,
+) -> ReplacementEvent {
+    match target {
+        DamageTarget::Card(target) => ReplacementEvent::DamageToCard {
+            target,
+            amount,
+            source: Some(source),
+            is_combat,
+        },
+        DamageTarget::Player(target) => ReplacementEvent::DamageToPlayer {
+            target,
+            amount,
+            source: Some(source),
+            is_combat,
+        },
+    }
+}
+
+fn replaced_damage(event: &ReplacementEvent) -> (DamageTarget, i32) {
+    match *event {
+        ReplacementEvent::DamageToCard { target, amount, .. } => {
+            (DamageTarget::Card(target), amount)
+        }
+        ReplacementEvent::DamageToPlayer { target, amount, .. } => {
+            (DamageTarget::Player(target), amount)
+        }
+        _ => unreachable!(),
+    }
+}
+
+fn damage_target_controller(game: &GameState, target: DamageTarget) -> PlayerId {
+    match target {
+        DamageTarget::Card(card) => game.card(card).controller,
+        DamageTarget::Player(player) => player,
+    }
+}
+
+fn damage_replacement_list(
+    game: &GameState,
+    event: &ReplacementEvent,
+) -> Vec<(ReplaceDamageKey, ReplacementEffect)> {
+    collect_effects(game, event, ReplacementLayer::Other, None)
+        .into_iter()
+        .filter(|(_, re, _)| re.event == ReplacementType::DamageDone)
+        .map(|(card_id, re, effect_idx)| {
+            let effect_id = crate::core::Identifiable::id(&re.base.card_trait_base);
+            ((card_id, effect_idx, effect_id), re)
+        })
+        .filter(|(key, _)| !game.replacements_running.contains(key))
+        .collect()
+}
+
+fn get_possible_replace_damage_list(
+    game: &GameState,
+    batch: &mut ReplaceDamageBatch,
+    is_combat: bool,
+    damage_map: &CardDamageMap,
+) {
+    for (target, sources) in damage_map.column_map() {
+        let controller = damage_target_controller(game, target);
+        let Some(player_index) = batch.players.iter().position(|&p| p == controller) else {
+            continue;
+        };
+        for (source, damage) in sources {
+            if damage <= 0 {
+                continue;
+            }
+            let run_params = damage_run_params(source, target, damage, is_combat);
+            let index = batch.run_params.len();
+            for (key, re) in damage_replacement_list(game, &run_params) {
+                batch.replace_damage_list[player_index]
+                    .entry(key)
+                    .or_default()
+                    .push(index);
+                batch.effects.entry(key).or_insert(re);
+            }
+            batch.run_params.push((source, run_params));
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_single_replace_damage_effect(
+    game: &mut GameState,
+    agents: Option<&mut [Box<dyn PlayerAgent>]>,
+    batch: &mut ReplaceDamageBatch,
+    re: ReplaceDamageKey,
+    index: usize,
+    player_index: usize,
+    damage_map: &mut CardDamageMap,
+    prevent_map: &mut CardDamageMap,
+) {
+    let effect = batch.effects[&re].clone();
+    let source = batch.run_params[index].0;
+    let (target, damage) = replaced_damage(&batch.run_params[index].1);
+    let res = execute_effect(
+        game,
+        re.0,
+        &effect,
+        &mut batch.run_params[index].1,
+        agents,
+        None,
+    );
+    let (new_target, new_damage) = replaced_damage(&batch.run_params[index].1);
+
+    if res != ReplacementResult::NotReplaced {
+        let replace_candidate_map = &mut batch.replace_damage_list[player_index];
+        for (key, run_param_list) in replace_candidate_map.iter_mut() {
+            if *key != re {
+                run_param_list.retain(|&other| other != index);
+            }
+        }
+        replace_candidate_map
+            .retain(|key, run_param_list| *key == re || !run_param_list.is_empty());
+        if res == ReplacementResult::Updated {
+            let new_controller = damage_target_controller(game, new_target);
+            if let Some(new_player_index) = batch.players.iter().position(|&p| p == new_controller)
+            {
+                for (key, new_re) in damage_replacement_list(game, &batch.run_params[index].1) {
+                    if batch
+                        .executed_damage_map
+                        .get(&key)
+                        .is_some_and(|executed| executed.contains(&index))
+                    {
+                        continue;
+                    }
+                    batch.replace_damage_list[new_player_index]
+                        .entry(key)
+                        .or_default()
+                        .push(index);
+                    batch.effects.entry(key).or_insert(new_re);
+                }
+            }
+        }
+    }
+
+    match res {
+        ReplacementResult::NotReplaced => {}
+        ReplacementResult::Updated => {
+            if target == new_target {
+                damage_map.put(source, target, new_damage - damage);
+            } else {
+                damage_map.remove(source, target);
+                damage_map.put(source, new_target, new_damage);
+            }
+        }
+        _ => {
+            damage_map.remove(source, target);
+            if effect.prevents() || effect.base.card_trait_base.has_param("PreventionEffect") {
+                prevent_map.put(source, target, damage);
+            }
+        }
+    }
+
+    batch.executed_damage_map.entry(re).or_default().push(index);
+}
+
+pub fn run_replace_damage(
+    game: &mut GameState,
+    mut agents: Option<&mut [Box<dyn PlayerAgent>]>,
+    is_combat: bool,
+    damage_map: &mut CardDamageMap,
+    prevent_map: &mut CardDamageMap,
+) {
+    let players: Vec<PlayerId> = game
+        .player_order
+        .iter()
+        .copied()
+        .filter(|&p| game.player(p).is_alive())
+        .collect();
+    let mut batch = ReplaceDamageBatch {
+        replace_damage_list: vec![indexmap::IndexMap::new(); players.len()],
+        players,
+        run_params: Vec::new(),
+        effects: HashMap::default(),
+        executed_damage_map: indexmap::IndexMap::new(),
+    };
+
+    get_possible_replace_damage_list(game, &mut batch, is_combat, damage_map);
+
+    while let Some(player_index) = batch
+        .replace_damage_list
+        .iter()
+        .position(|replace_candidate_map| !replace_candidate_map.is_empty())
+    {
+        let decider = batch.players[player_index];
+        let mut possible_replacers: Vec<ReplaceDamageKey> = batch.replace_damage_list[player_index]
+            .keys()
+            .copied()
+            .collect();
+        possible_replacers.sort_unstable();
+        let chosen_index = match agents.as_deref_mut() {
+            Some(agents) if possible_replacers.len() > 1 => {
+                let game: &GameState = game;
+                let descriptions: Vec<String> = possible_replacers
+                    .iter()
+                    .map(|key| {
+                        let host = game.card(key.0);
+                        let desc = batch.effects[key].description(host, game);
+                        format!("{}: {desc}", host.card_name)
+                    })
+                    .collect();
+                agents[decider.index()]
+                    .choose_single_replacement_effect(decider, &descriptions)
+                    .min(possible_replacers.len() - 1)
+            }
+            _ => 0,
+        };
+        let chosen_re = possible_replacers[chosen_index];
+        let run_param_list = batch.replace_damage_list[player_index][&chosen_re].clone();
+        batch.executed_damage_map.entry(chosen_re).or_default();
+
+        let newly_running = game.replacements_running.insert(chosen_re);
+        for index in run_param_list {
+            run_single_replace_damage_effect(
+                game,
+                agents.as_deref_mut(),
+                &mut batch,
+                chosen_re,
+                index,
+                player_index,
+                damage_map,
+                prevent_map,
+            );
+        }
+        if newly_running {
+            game.replacements_running.remove(&chosen_re);
+        }
+        batch.replace_damage_list[player_index].shift_remove(&chosen_re);
+    }
 }
 
 /// Parse a raw `R$` replacement-effect line. Re-export of
