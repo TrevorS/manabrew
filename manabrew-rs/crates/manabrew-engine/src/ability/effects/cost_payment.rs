@@ -714,39 +714,46 @@ fn try_pay_effect_cost(
                 amount,
                 type_filter,
             } => {
-                for _ in 0..amount.resolve(ctx.game, source, payer) {
-                    let valid = crate::cost::get_sacrifice_targets_for_cost(
-                        ctx.game,
-                        payer,
-                        type_filter,
-                        Some(sa),
+                let required = amount.resolve(ctx.game, source, payer).max(0) as usize;
+                let valid = crate::cost::get_sacrifice_targets_for_cost(
+                    ctx.game,
+                    payer,
+                    type_filter,
+                    Some(sa),
+                );
+                if valid.len() < required {
+                    return false;
+                }
+                let chosen_cards = if required == 0 {
+                    Vec::new()
+                } else {
+                    ctx.agents[payer.index()].choose_permanents_to_sacrifice(
+                        payer, required, required, &valid, sa.source,
+                    )
+                };
+                if chosen_cards.len() < required {
+                    return false;
+                }
+                for chosen in chosen_cards {
+                    let owner = ctx.game.card(chosen).owner;
+                    let sacrificer = ctx.game.card(chosen).controller;
+                    crate::player::add_sacrificed_this_turn(ctx.game, sacrificer, chosen);
+                    ctx.trigger_handler.run_trigger(
+                        TriggerType::Sacrificed,
+                        RunParams {
+                            card: Some(chosen),
+                            player: Some(payer),
+                            ..Default::default()
+                        },
+                        false,
                     );
-                    if valid.is_empty() {
-                        return false;
-                    }
-                    if let Some(chosen) =
-                        ctx.agents[payer.index()].choose_sacrifice(payer, &valid, sa.source)
-                    {
-                        let owner = ctx.game.card(chosen).owner;
-                        let sacrificer = ctx.game.card(chosen).controller;
-                        crate::player::add_sacrificed_this_turn(ctx.game, sacrificer, chosen);
-                        ctx.trigger_handler.run_trigger(
-                            TriggerType::Sacrificed,
-                            RunParams {
-                                card: Some(chosen),
-                                player: Some(payer),
-                                ..Default::default()
-                            },
-                            false,
-                        );
-                        ctx.move_card(chosen, ZoneType::Graveyard, owner);
-                        emit_zone_trigger(
-                            ctx.trigger_handler,
-                            chosen,
-                            ZoneType::Battlefield,
-                            ZoneType::Graveyard,
-                        );
-                    }
+                    ctx.move_card(chosen, ZoneType::Graveyard, owner);
+                    emit_zone_trigger(
+                        ctx.trigger_handler,
+                        chosen,
+                        ZoneType::Battlefield,
+                        ZoneType::Graveyard,
+                    );
                 }
             }
             CostPart::Blight(amount) => {

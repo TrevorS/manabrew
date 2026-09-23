@@ -546,21 +546,20 @@ impl GameLoop {
                         payment_ok = false;
                         break;
                     }
-                    for _ in 0..required {
-                        let Some(chosen) = agents[player.index()].choose_sacrifice(
+                    if required > 0 {
+                        let chosen = agents[player.index()].choose_permanents_to_sacrifice(
                             player,
+                            required,
+                            required,
                             &valid,
                             sa.as_deref().and_then(|s| s.source),
-                        ) else {
+                        );
+                        if chosen.len() < required {
                             payment_ok = false;
                             break;
-                        };
-                        pre_picked_sacrifices.push(chosen);
-                        reserved_sacrifices.push(chosen);
-                        valid.retain(|&cid| cid != chosen);
-                    }
-                    if !payment_ok {
-                        break;
+                        }
+                        reserved_sacrifices.extend(chosen.iter().copied());
+                        pre_picked_sacrifices.extend(chosen);
                     }
                 }
                 CostPart::SubCounter {
@@ -2330,7 +2329,7 @@ impl GameLoop {
                         .map(|src| amount.resolve(game, src, player))
                         .unwrap_or_else(|| amount.as_literal().unwrap_or(0))
                         .max(0);
-                    let mut valid =
+                    let valid =
                         cost::get_sacrifice_targets_for_cost(game, player, &type_filter, sa);
                     if valid.len() < amount_n as usize {
                         return None;
@@ -2347,14 +2346,18 @@ impl GameLoop {
                             return None;
                         }
                     }
-                    for _ in 0..amount_n {
-                        let chosen = agents[player.index()].choose_sacrifice(
+                    if amount_n > 0 {
+                        let chosen = agents[player.index()].choose_permanents_to_sacrifice(
                             player,
+                            amount_n as usize,
+                            amount_n as usize,
                             &valid,
                             sa.and_then(|s| s.source),
-                        )?;
-                        picked.push(chosen);
-                        valid.retain(|&cid| cid != chosen);
+                        );
+                        if chosen.len() < amount_n as usize {
+                            return None;
+                        }
+                        picked.extend(chosen);
                     }
                 }
                 CostPart::Return {
