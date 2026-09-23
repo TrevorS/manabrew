@@ -303,7 +303,10 @@ fn compute_cost_adjustment_inner(
     let mut adj = CostAdjustment::default();
 
     for source in game.cards.iter().filter(|c| {
-        c.zone == ZoneType::Battlefield || (include_spell_self && c.id == spell_card.id)
+        matches!(
+            c.zone,
+            ZoneType::Battlefield | ZoneType::Stack | ZoneType::Command
+        ) || (include_spell_self && c.id == spell_card.id)
     }) {
         for st_ab in source.static_abilities.iter() {
             let (is_reduce, is_set_cost) = if st_ab.check_mode(&StaticMode::ReduceCost) {
@@ -357,18 +360,8 @@ fn compute_cost_adjustment_inner(
                 continue;
             }
 
-            // EffectZone$ gates by the static's host zone (not the cast zone).
-            // Empty declaration defaults to Battlefield — Java
-            // `StaticAbility.zonesCheck`.
-            if !st_ab.ir.effect_zone_all {
-                let active = if st_ab.ir.effect_zones.is_empty() {
-                    source.zone == ZoneType::Battlefield
-                } else {
-                    st_ab.ir.effect_zones.contains(&source.zone)
-                };
-                if !active {
-                    continue;
-                }
+            if !st_ab.zones_check(source.zone) {
+                continue;
             }
 
             // ── checkRequirement: common CardTraitBase requirements ──
