@@ -97,6 +97,21 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         return;
     };
 
+    if sa.ir.optional {
+        let activator = sa.activating_player;
+        ctx.agents[activator.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        if !ctx.agents[activator.index()].confirm_action(
+            activator,
+            None,
+            &sa.description,
+            &[],
+            sa.source,
+            sa.api,
+        ) {
+            return;
+        }
+    }
+
     for card_id in targets {
         if ctx.game.card(card_id).zone == ZoneType::None {
             continue;
