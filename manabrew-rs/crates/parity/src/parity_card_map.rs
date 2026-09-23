@@ -7,8 +7,9 @@ use manabrew_engine::ids::{CardId, PlayerId};
 
 /// Maps engine-internal card IDs to stable, cross-engine parity IDs.
 ///
-/// Deck cards are assigned sequential IDs (1, 2, 3, ...) at game start from the
-/// opening hand + library.  Cards created mid-game (tokens, copies, detached
+/// Deck cards are assigned sequential IDs (1, 2, 3, ...) from the hand and library
+/// once the opening-hand actions have run, as Java's `initializeFromOpeningState` does at
+/// the first turn-1 snapshot; nothing syncs before that.  Cards created mid-game (tokens, copies, detached
 /// effects) are assigned the next sequential ID on first access, so both engines
 /// produce identical parity IDs as long as they encounter cards in the same order.
 pub struct ParityCardMap {
@@ -18,6 +19,7 @@ pub struct ParityCardMap {
 struct ParityCardMapInner {
     by_card: HashMap<CardId, u32>,
     next: u32,
+    initialized: bool,
 }
 
 impl Default for ParityCardMap {
@@ -26,6 +28,7 @@ impl Default for ParityCardMap {
             inner: Mutex::new(ParityCardMapInner {
                 by_card: HashMap::new(),
                 next: 1,
+                initialized: false,
             }),
         }
     }
@@ -41,31 +44,25 @@ impl ParityCardMap {
         inner.by_card.insert(cid, id);
     }
 
-    pub fn from_opening_state(game: &GameState) -> Self {
-        let mut by_card: HashMap<CardId, u32> = HashMap::new();
-        let mut next: u32 = 1;
-
+    pub fn initialize_from_opening_state(&self, game: &GameState) {
+        let mut inner = self.inner.lock().unwrap();
+        if inner.initialized {
+            return;
+        }
         let mut players: Vec<PlayerId> = game.player_order.clone();
         players.sort_by_key(|p| p.0);
 
         for pid in players {
             for &cid in game.cards_in_zone(ZoneType::Hand, pid) {
-                if by_card.insert(cid, next).is_none() {
-                    next += 1;
-                }
+                Self::assign_if_absent(&mut inner, cid);
             }
             // Rust library top is the end of the vector; Java top is iterated first.
             // Assign parity ids in draw order (top -> bottom) to match Java.
             for &cid in game.cards_in_zone(ZoneType::Library, pid).iter().rev() {
-                if by_card.insert(cid, next).is_none() {
-                    next += 1;
-                }
+                Self::assign_if_absent(&mut inner, cid);
             }
         }
-
-        Self {
-            inner: Mutex::new(ParityCardMapInner { by_card, next }),
-        }
+        inner.initialized = true;
     }
 
     /// Assign parity IDs for all currently existing cards in a canonical order.
@@ -75,6 +72,9 @@ impl ParityCardMap {
     /// especially tokens).
     pub fn sync_with_game(&self, game: &GameState) {
         let mut inner = self.inner.lock().unwrap();
+        if !inner.initialized {
+            return;
+        }
 
         let mut players: Vec<PlayerId> = game.player_order.clone();
         players.sort_by_key(|p| p.0);

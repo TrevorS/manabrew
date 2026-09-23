@@ -739,6 +739,9 @@ impl PlayerAgent for CapturingAgent {
                 (None, _) => "null".to_string(),
             }
         };
+        fn choose_sa_to_activate_from_opening_hand(&mut self, player: PlayerId, usable: &[manabrew_engine::spellability::SpellAbility]) -> Vec<usize> => "choose_sa_from_opening_hand", format_with |result: &Vec<usize>, _fmt: Option<FmtCtx<'_>>| {
+            result.len().to_string()
+        };
         fn choose_counter_type(&mut self, player: PlayerId, options: &[manabrew_engine::card::CounterType], prompt: &str) -> Option<manabrew_engine::card::CounterType> => "choose_counter_type", format_with |result: &Option<manabrew_engine::card::CounterType>, _fmt: Option<FmtCtx<'_>>| {
             match result {
                 Some(manabrew_engine::card::CounterType::Named(name)) => name.clone(),
@@ -1277,7 +1280,7 @@ pub fn run_with_data_streaming(
         Arc::new(Mutex::new(Vec::new()));
     crate::parity_log::set_sink(Arc::clone(&parity_log_sink));
 
-    let parity_map = Arc::new(ParityCardMap::from_opening_state(&game));
+    let parity_map = Arc::new(ParityCardMap::default());
     let shared_snapshot_index: Arc<Mutex<usize>> = Arc::new(Mutex::new(0));
 
     // Create deterministic agents — player 0 uses CapturingAgent to collect
@@ -1331,6 +1334,7 @@ pub fn run_with_data_streaming(
     game_loop.game_rng = Box::new(crate::java_random::JavaGameRng(Rc::clone(&game_rng)));
     let mut runtime = GameRuntime::from_parts(game, game_loop, agents);
     runtime.run_opening_hand_actions();
+    parity_map.initialize_from_opening_state(runtime.game());
 
     manabrew_engine::perf::reset_counters();
 

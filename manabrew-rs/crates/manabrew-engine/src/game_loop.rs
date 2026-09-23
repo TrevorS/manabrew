@@ -550,31 +550,17 @@ impl GameLoop {
 
         loop {
             let usable = self.collect_opening_hand_actions(game, takes_action, first_player);
-            // Java `GameAction.runOpeningHandActions` asks for the whole list in one
-            // `chooseSaToActivateFromOpeningHand` and resolves afterwards, so every
-            // question is put before any answer is acted on (Rule 103.5 ordering).
             let mut accepted_sas = Vec::new();
-            for sa in usable {
-                let Some(source_id) = sa.source else {
-                    continue;
-                };
+            if !usable.is_empty() {
                 agents[takes_action.index()].snapshot_state(game, &self.mana_pools);
-                let prompt = sa
-                    .ir
-                    .spell_description_text
-                    .as_deref()
-                    .unwrap_or("Use opening hand effect?");
-                let accepted = agents[takes_action.index()].confirm_action(
-                    takes_action,
-                    Some("FromOpeningHand"),
-                    prompt,
-                    &[],
-                    Some(source_id),
-                    sa.api,
-                );
-                if accepted {
-                    accepted_sas.push(sa);
-                }
+                let chosen = agents[takes_action.index()]
+                    .choose_sa_to_activate_from_opening_hand(takes_action, &usable);
+                accepted_sas = usable
+                    .into_iter()
+                    .enumerate()
+                    .filter(|(index, _)| chosen.contains(index))
+                    .map(|(_, sa)| sa)
+                    .collect();
             }
 
             for mut sa in accepted_sas {

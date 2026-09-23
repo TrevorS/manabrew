@@ -630,6 +630,31 @@ pub trait PlayerAgent {
         false
     }
 
+    fn choose_sa_to_activate_from_opening_hand(
+        &mut self,
+        player: PlayerId,
+        usable: &[SpellAbility],
+    ) -> Vec<usize> {
+        usable
+            .iter()
+            .enumerate()
+            .filter(|(_, sa)| {
+                self.confirm_action(
+                    player,
+                    Some("FromOpeningHand"),
+                    sa.ir
+                        .spell_description_text
+                        .as_deref()
+                        .unwrap_or("Use opening hand effect?"),
+                    &[],
+                    sa.source,
+                    sa.api,
+                )
+            })
+            .map(|(index, _)| index)
+            .collect()
+    }
+
     fn confirm_payment(
         &mut self,
         player: PlayerId,
