@@ -576,7 +576,14 @@ impl TriggerHandler {
                     continue;
                 }
                 let trigger = &card.triggers[trigger_index];
-                let host_controller = card.controller;
+                let host_controller = if card.zone != ZoneType::Battlefield
+                    && trigger.get_active_zone().contains(&ZoneType::Battlefield)
+                    && !trigger.get_active_zone().contains(&card.zone)
+                {
+                    card.lki_controller.unwrap_or(card.controller)
+                } else {
+                    card.controller
+                };
                 if crate::staticability::static_ability_disable_triggers::is_disabled(
                     game,
                     card_id,

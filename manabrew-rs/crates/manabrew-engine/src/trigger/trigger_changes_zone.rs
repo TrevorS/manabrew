@@ -90,7 +90,24 @@ impl TriggerBehavior for TriggerChangesZone {
             return false;
         }
         let valid_card = trigger.ir.valid_card_selector.clone();
-        if !trigger.matches_optional_valid_card_filter(&valid_card, moved_card, game) {
+        let lki_card = moved_card
+            .filter(|_| params.origin == Some(forge_foundation::ZoneType::Battlefield))
+            .map(|card_id| game.card(card_id))
+            .filter(|card| card.zone != forge_foundation::ZoneType::Battlefield)
+            .and_then(|card| {
+                card.lki_controller
+                    .filter(|&controller| controller != card.controller)
+                    .map(|controller| {
+                        let mut lki = card.clone();
+                        lki.controller = controller;
+                        lki
+                    })
+            });
+        let valid = match lki_card.as_ref() {
+            Some(lki) => trigger.matches_optional_valid_card(&valid_card, Some(lki), game),
+            None => trigger.matches_optional_valid_card_filter(&valid_card, moved_card, game),
+        };
+        if !valid {
             return false;
         }
         if let Some(filter) = trigger.ir.valid_cause_selector.as_ref() {

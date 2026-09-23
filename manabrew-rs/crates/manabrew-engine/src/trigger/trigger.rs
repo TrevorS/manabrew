@@ -548,10 +548,19 @@ impl Trigger {
         card_id: Option<CardId>,
         game: &GameState,
     ) -> bool {
-        match (filter.as_ref(), card_id) {
+        self.matches_optional_valid_card(filter, card_id.map(|id| game.card(id)), game)
+    }
+
+    pub fn matches_optional_valid_card(
+        &self,
+        filter: &Option<CompiledSelector>,
+        card: Option<&Card>,
+        game: &GameState,
+    ) -> bool {
+        match (filter.as_ref(), card) {
             (None, _) => true,
             (Some(_), None) => false,
-            (Some(selector), Some(card_id)) => {
+            (Some(selector), Some(card)) => {
                 let src = self.base.card_trait_base.host_card(game);
                 let player = self.resolve_source_player(src);
                 let trigger_remembered_cards = self
@@ -564,7 +573,7 @@ impl Trigger {
                     .collect::<Vec<_>>();
                 valid_filter::matches_valid_card_selector_with_context(
                     selector,
-                    game.card(card_id),
+                    card,
                     valid_filter::MatchContext::from_source(src)
                         .with_game(game)
                         .with_source_controller(player)

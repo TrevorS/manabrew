@@ -715,6 +715,8 @@ pub struct Card {
     /// `Card.tapped` condition checked after such a move needs this instead.
     pub lki_tapped: Option<bool>,
     #[serde(default)]
+    pub lki_controller: Option<PlayerId>,
+    #[serde(default)]
     pub lki_attached_to: Option<CardId>,
     #[serde(default)]
     pub lki_zone_timestamp: Option<u64>,
@@ -1039,6 +1041,7 @@ impl Card {
             lki_power: None,
             lki_toughness: None,
             lki_tapped: None,
+            lki_controller: None,
             lki_attached_to: None,
             lki_zone_timestamp: None,
             lki_transformed: false,
@@ -1280,6 +1283,7 @@ impl Card {
             lki_power: self.lki_power,
             lki_toughness: self.lki_toughness,
             lki_tapped: self.lki_tapped,
+            lki_controller: self.lki_controller,
             lki_attached_to: self.lki_attached_to,
             lki_zone_timestamp: self.lki_zone_timestamp,
             lki_transformed: self.lki_transformed,
@@ -1573,6 +1577,7 @@ impl Card {
         out.lki_power.clone_from(&self.lki_power);
         out.lki_toughness.clone_from(&self.lki_toughness);
         out.lki_tapped.clone_from(&self.lki_tapped);
+        out.lki_controller.clone_from(&self.lki_controller);
         out.lki_attached_to.clone_from(&self.lki_attached_to);
         out.lki_zone_timestamp.clone_from(&self.lki_zone_timestamp);
         out.lki_transformed.clone_from(&self.lki_transformed);
