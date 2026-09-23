@@ -466,7 +466,14 @@ impl GameLoop {
                             .into_iter()
                             .filter(|&cid| cid != card_id || game.card(card_id).owner != player)
                             .collect();
-                        let chosen = if type_filter == "Hand" {
+                        let chosen = if type_filter == "Hand" && eligible.len() > 1 {
+                            agents[player.index()].order_move_to_zone_list(
+                                game,
+                                player,
+                                &eligible,
+                                ZoneType::Graveyard,
+                            )
+                        } else if type_filter == "Hand" {
                             eligible
                         } else {
                             agents[player.index()].choose_discard(
@@ -2688,12 +2695,21 @@ impl GameLoop {
                     continue;
                 }
                 if type_filter == "Hand" {
-                    picked.extend(
-                        available_hand
-                            .iter()
-                            .copied()
-                            .filter(|&cid| cid != source || game.card(source).owner != player),
-                    );
+                    let hand: Vec<CardId> = available_hand
+                        .iter()
+                        .copied()
+                        .filter(|&cid| cid != source || game.card(source).owner != player)
+                        .collect();
+                    if hand.len() > 1 {
+                        picked.extend(agents[player.index()].order_move_to_zone_list(
+                            game,
+                            player,
+                            &hand,
+                            ZoneType::Graveyard,
+                        ));
+                    } else {
+                        picked.extend(hand);
+                    }
                     available_hand.clear();
                     continue;
                 }
