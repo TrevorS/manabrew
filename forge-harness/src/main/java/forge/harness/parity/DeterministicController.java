@@ -22,6 +22,7 @@ import forge.LobbyPlayer;
 import forge.ai.AiCostDecision;
 import forge.ai.ComputerUtilCombat;
 import forge.ai.ComputerUtilCost;
+import forge.game.ability.AbilityKey;
 import forge.game.ability.ApiType;
 import forge.game.ability.effects.RollDiceEffect;
 import forge.game.cost.Cost;
@@ -1853,6 +1854,7 @@ public class DeterministicController extends PlayerController implements Harness
             boolean effect
     ) {
         ManaCost payableCost = toPay;
+        final CardCollection cardsToDelve = new CardCollection();
         if (sa != null && sa.getXManaCostPaid() != null && toPay != null && toPay.countX() > 0) {
             final ManaCostBeingPaid expanded = new ManaCostBeingPaid(toPay);
             expanded.setXManaCostPaid(sa.getXManaCostPaid(), sa.getXColor());
@@ -1873,7 +1875,7 @@ public class DeterministicController extends PlayerController implements Harness
             // afford.
             final ManaCostBeingPaid adjusted = new ManaCostBeingPaid(payableCost);
             final Player payer = sa.getActivatingPlayer() != null ? sa.getActivatingPlayer() : player;
-            if (CostAdjustment.adjust(adjusted, sa, payer, null, true, effect)) {
+            if (CostAdjustment.adjust(adjusted, sa, payer, cardsToDelve, true, effect)) {
                 payableCost = adjusted.toManaCost();
             }
         }
@@ -1892,9 +1894,36 @@ public class DeterministicController extends PlayerController implements Harness
                     "[" + String.join(", ", result.steps()) + "]",
                     sourceLabel,
                     payableCost.toString());
+            if (result.paid()) {
+                exileDelvedCards(sa, cardsToDelve);
+            }
             return result.paid();
         }
-        return autoPay.payManaCost(payableCost, sa, effect);
+        final boolean paid = autoPay.payManaCost(payableCost, sa, effect);
+        if (paid && sa != null) {
+            exileDelvedCards(sa, cardsToDelve);
+        }
+        return paid;
+    }
+
+    private void exileDelvedCards(final SpellAbility ability, final CardCollection cardsToDelve) {
+        if (cardsToDelve.isEmpty()) {
+            return;
+        }
+        final Card hostCard = ability.getHostCard();
+        final Game game = hostCard.getGame();
+        final CardZoneTable table = new CardZoneTable(game.getLastStateBattlefield(), game.getLastStateGraveyard());
+        final Map<AbilityKey, Object> params = AbilityKey.newMap();
+        AbilityKey.addCardZoneTableParams(params, table);
+        for (final Card c : cardsToDelve) {
+            hostCard.addDelved(c);
+            final Card d = game.getAction().exile(c, null, params);
+            hostCard.addExiledCard(d);
+            d.setExiledWith(hostCard);
+            d.setExiledBy(hostCard.getController());
+            d.setExiledSA(ability);
+        }
+        table.triggerChangesZoneAll(game, ability);
     }
 
     @Override
