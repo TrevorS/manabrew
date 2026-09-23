@@ -95,6 +95,16 @@ pub(super) fn resolve_known_origin(
                 .filter(|&cid| ctx.game.card(cid).zone == origin_zone)
                 .collect()
         }
+    } else if sa
+        .ir
+        .defined
+        .as_ref()
+        .is_some_and(|defined| defined.refs.len() > 1)
+    {
+        crate::ability::spell_ability_effect::get_defined_cards_or_targeted(ctx.game, sa)
+            .into_iter()
+            .filter(|&cid| ctx.game.card(cid).zone == origin_zone)
+            .collect()
     } else if matches!(
         defined_ref,
         Some(DefinedRef::TriggeredCard | DefinedRef::TriggeredCardLkiCopy)
