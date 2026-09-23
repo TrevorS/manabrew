@@ -543,8 +543,7 @@ impl CombatState {
                 // Skip the prompt for zero-damage steps (e.g. a non-first-
                 // strike attacker during the first-strike step), since Java
                 // never enters the assignment loop in that case.
-                let must_prompt_assignment =
-                    remaining_damage > 0 && (can_assign_to_defender || !alive_blockers.is_empty());
+                let must_prompt_assignment = remaining_damage > 0 && !alive_blockers.is_empty();
 
                 let assignments = if must_prompt_assignment {
                     let controller = game.card(attacker_id).controller;
