@@ -2,6 +2,7 @@ use forge_foundation::ZoneType;
 
 use super::{emit_zone_trigger, resolve_defined_player, resolve_numeric_svar, EffectContext};
 use crate::event::RunParams;
+use crate::parsing::keys;
 use crate::trigger::TriggerType;
 
 /// Mirrors Java's `SurveilEffect.java`.
@@ -64,11 +65,25 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ZoneType::Graveyard,
         );
     }
+    if crate::parsing::raw_has_key(&sa.ability_text, keys::REMEMBER_MOVED) {
+        if let Some(source) = sa.source {
+            ctx.game
+                .card_mut(source)
+                .add_remembered_cards(graveyard.iter().copied());
+        }
+    }
 
     // Top pile is ordered top-to-bottom (first = top of library); iterate in
     // reverse so the last append leaves the intended card on top.
     for &id in keep_top.iter().rev() {
         ctx.game.add_card_to_zone(ZoneType::Library, target, id);
+    }
+    if crate::parsing::raw_has_key(&sa.ability_text, keys::REMEMBER_KEPT) {
+        if let Some(source) = sa.source {
+            ctx.game
+                .card_mut(source)
+                .add_remembered_cards(keep_top.iter().rev().copied());
+        }
     }
 
     // Fire Surveil trigger
