@@ -553,7 +553,8 @@ public final class AutoPay {
                 out.add(c);
             }
         }
-        return ParityOrder.sortCardsByNameThenId(out);
+        out.sort(Comparator.comparing((Card c) -> c.getName()).thenComparingLong(Card::getGameTimestamp));
+        return out;
     }
 
     private byte convokeColor(final Card card, final ManaCostBeingPaid remainingCost, final boolean artifacts) {

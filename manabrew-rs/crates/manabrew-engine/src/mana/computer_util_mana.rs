@@ -887,9 +887,8 @@ fn auto_tap_lands_internal_with_ctx(
 }
 
 /// The harness's `AutoPay.payConvokeImprovise`, run after the mana sources: untapped
-/// creatures (Convoke) and artifacts (Improvise) pay what is left, sorted by name. Java breaks
-/// a name tie with the parity id, which the engine does not have; the battlefield timestamp
-/// stands in for it, as it does for mana sources.
+/// creatures (Convoke) and artifacts (Improvise) pay what is left, sorted by name, then by the
+/// time each entered the battlefield (Java `getGameTimestamp`).
 fn pay_convoke_improvise(
     game: &mut GameState,
     player: PlayerId,
