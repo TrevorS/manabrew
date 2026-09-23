@@ -237,6 +237,22 @@ pub fn add_etb_keyword_replacements(card: &mut Card) {
     }
 }
 
+pub fn add_etb_counter_replacements(card: &mut Card) {
+    let keywords = card.keywords.as_string_list();
+    for keyword in keywords {
+        if !keyword
+            .split(':')
+            .next()
+            .is_some_and(|head| head.eq_ignore_ascii_case("etbCounter"))
+        {
+            continue;
+        }
+        if let Some(re) = make_etb_counter(&keyword, card, true) {
+            card.add_replacement_effect(re);
+        }
+    }
+}
+
 pub fn make_etb_counter(kw: &str, card: &Card, intrinsic: bool) -> Option<ReplacementEffect> {
     let splitkw: Vec<&str> = kw.split(':').collect();
     if splitkw.len() < 3 {

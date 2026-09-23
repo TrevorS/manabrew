@@ -234,6 +234,7 @@ pub(crate) fn assemble_card(
     // Java parity: convert ETBReplacement keywords into intrinsic
     // Event$ Moved replacement effects after SVars are available.
     super::card_factory_util::add_etb_keyword_replacements(&mut card);
+    super::card_factory_util::add_etb_counter_replacements(&mut card);
 
     // Java parity: convert Dredge:N keywords into Draw replacement effects.
     super::card_factory_util::add_dredge_replacement(&mut card);

@@ -284,6 +284,7 @@ pub struct ReplacementHandler {
     /// Tracks (card_id, layer, effect_index) tuples that have already been applied
     /// during this handler invocation, to prevent infinite re-application.
     has_run: HashSet<(CardId, ReplacementLayer, usize, i32)>,
+    etb_counters_pass: Option<bool>,
 }
 
 impl Default for ReplacementHandler {
@@ -296,6 +297,7 @@ impl ReplacementHandler {
     pub fn new() -> Self {
         Self {
             has_run: HashSet::default(),
+            etb_counters_pass: None,
         }
     }
 
@@ -312,12 +314,51 @@ impl ReplacementHandler {
     pub fn run(
         &mut self,
         game: &mut GameState,
-        agents: Option<&mut [Box<dyn PlayerAgent>]>,
-        runtime: Option<&mut ReplacementRuntime<'_>>,
+        mut agents: Option<&mut [Box<dyn PlayerAgent>]>,
+        mut runtime: Option<&mut ReplacementRuntime<'_>>,
         event: &mut ReplacementEvent,
     ) -> ReplacementResult {
         let pre_list = battlefield_pre_list(game, event);
-        self.run_with_pre_list(game, agents, runtime, event, pre_list.as_ref())
+        if !matches!(
+            event,
+            ReplacementEvent::Moved {
+                destination: ZoneType::Battlefield,
+                counter_map: Some(_),
+                ..
+            }
+        ) {
+            return self.run_with_pre_list(game, agents, runtime, event, pre_list.as_ref());
+        }
+        self.etb_counters_pass = Some(false);
+        let moved = self.run_with_pre_list(
+            game,
+            agents.as_deref_mut(),
+            runtime.as_deref_mut(),
+            event,
+            pre_list.as_ref(),
+        );
+        if !matches!(
+            moved,
+            ReplacementResult::NotReplaced | ReplacementResult::Updated
+        ) || !matches!(
+            event,
+            ReplacementEvent::Moved {
+                destination: ZoneType::Battlefield,
+                counter_map: Some(_),
+                ..
+            }
+        ) {
+            self.etb_counters_pass = None;
+            return moved;
+        }
+        self.etb_counters_pass = Some(true);
+        let counters = self.run_with_pre_list(game, agents, runtime, event, pre_list.as_ref());
+        self.etb_counters_pass = None;
+        match counters {
+            ReplacementResult::NotReplaced => moved,
+            ReplacementResult::Updated => ReplacementResult::Updated,
+            other => other,
+        }
     }
 
     fn run_with_pre_list(
@@ -371,7 +412,10 @@ impl ReplacementHandler {
         layer: ReplacementLayer,
         pre_list: Option<&Card>,
     ) -> ReplacementResult {
-        let effects = collect_effects(game, event, layer, pre_list);
+        let mut effects = collect_effects(game, event, layer, pre_list);
+        if let Some(counters_pass) = self.etb_counters_pass {
+            effects.retain(|(_, re, _)| (re.event == ReplacementType::AddCounter) == counters_pass);
+        }
         let mut declined_effects: HashSet<(CardId, usize)> = HashSet::default();
 
         if effects.is_empty() {
