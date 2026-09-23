@@ -30,6 +30,20 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if let Some(execute_name) = sa.ir.execute.as_deref() {
         if let Some(source_id) = sa.source {
             if crate::ability::ability_utils::get_s_var(sa, ctx.game, execute_name).is_some() {
+                let remembered_amount = sa
+                    .ir
+                    .remember_svar_amount
+                    .as_deref()
+                    .and_then(|svar| crate::ability::ability_utils::get_s_var(sa, ctx.game, svar))
+                    .map_or(0, |expr| {
+                        crate::svar::resolve_svar_expression(
+                            expr,
+                            ctx.game,
+                            source_id,
+                            sa.activating_player,
+                            sa,
+                        )
+                    });
                 let delayed = DelayedTrigger {
                     mode: TriggerType::Immediate,
                     trigger_mode: Box::new(crate::trigger::trigger_immediate::TriggerImmediate),
@@ -40,7 +54,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     created_turn: ctx.game.turn.turn_number,
                     created_phase: ctx.game.turn.phase,
                     target_card: None,
-                    remembered_amount: 0,
+                    remembered_amount,
                     remembered_cards,
                     remembered_players,
                     remembered_lki_cards: Vec::new(),

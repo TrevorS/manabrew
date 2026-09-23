@@ -173,7 +173,20 @@ pub fn get_mana_cost_for(
             // isCostPayAnyNumberOfTimes: multiply the base cost by NumTimes SVar
             if *is_cost_pay_any_number_of_times {
                 let times_to_pay = ability
-                    .map(|sa| crate::svar::resolve_numeric_svar(game, sa, "NumTimes", 0))
+                    .map(|sa| {
+                        crate::ability::ability_utils::get_s_var(sa, game, "NumTimes").map_or(
+                            0,
+                            |expr| {
+                                crate::svar::resolve_svar_expression(
+                                    expr,
+                                    game,
+                                    source,
+                                    sa.activating_player,
+                                    sa,
+                                )
+                            },
+                        )
+                    })
                     .unwrap_or_else(|| {
                         game.card(source)
                             .svars
