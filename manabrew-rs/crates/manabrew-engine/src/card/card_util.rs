@@ -145,14 +145,14 @@ pub fn get_this_turn_cast(
     game: &GameState,
     valid: &str,
     src: CardId,
-    controller: PlayerId,
+    _controller: PlayerId,
 ) -> Vec<CardId> {
-    filter_valid_cards(
+    filter_spells_cast(
         game,
-        game.stack.get_spells_cast_this_turn().to_vec(),
+        game.stack.get_spells_cast_this_turn(),
+        game.stack.get_spells_cast_this_turn_from(),
         valid,
         src,
-        controller,
     )
 }
 
@@ -160,15 +160,44 @@ pub fn get_last_turn_cast(
     game: &GameState,
     valid: &str,
     src: CardId,
-    controller: PlayerId,
+    _controller: PlayerId,
 ) -> Vec<CardId> {
-    filter_valid_cards(
+    filter_spells_cast(
         game,
-        game.stack.get_spells_cast_last_turn().to_vec(),
+        game.stack.get_spells_cast_last_turn(),
+        game.stack.get_spells_cast_last_turn_from(),
         valid,
         src,
-        controller,
     )
+}
+
+fn filter_spells_cast(
+    game: &GameState,
+    cast: &[CardId],
+    cast_from: &[Option<ZoneType>],
+    valid: &str,
+    src: CardId,
+) -> Vec<CardId> {
+    if valid.is_empty() {
+        return cast.to_vec();
+    }
+    let selector = cached_compiled_selector(valid);
+    let source = game.card(src);
+    cast.iter()
+        .zip(cast_from)
+        .filter(|&(&card_id, &origin)| {
+            let live = game.card(card_id);
+            if live.cast_from.is_some() || origin.is_none() {
+                return valid_filter::matches_valid_card_selector_in_game(
+                    &selector, live, source, game,
+                );
+            }
+            let mut cast_card = live.clone();
+            cast_card.cast_from = origin;
+            valid_filter::matches_valid_card_selector_in_game(&selector, &cast_card, source, game)
+        })
+        .map(|(&card_id, _)| card_id)
+        .collect()
 }
 
 pub fn get_this_turn_activated<'a>(

@@ -159,6 +159,12 @@ pub struct MagicStack {
     #[serde(default)]
     last_turn_cast: Vec<CardId>,
 
+    #[serde(default)]
+    this_turn_cast_from: Vec<Option<ZoneType>>,
+
+    #[serde(default)]
+    last_turn_cast_from: Vec<Option<ZoneType>>,
+
     /// Abilities activated this turn.
     #[serde(default)]
     this_turn_activated: Vec<SpellAbility>,
@@ -204,6 +210,8 @@ impl MagicStack {
             resolving_entry: None,
             this_turn_cast: Vec::new(),
             last_turn_cast: Vec::new(),
+            this_turn_cast_from: Vec::new(),
+            last_turn_cast_from: Vec::new(),
             this_turn_activated: Vec::new(),
             max_distinct_sources: 0,
             undo_stack: Vec::new(),
@@ -359,6 +367,8 @@ impl MagicStack {
         self.resolving_entry = None;
         self.last_turn_cast.clear();
         self.this_turn_cast.clear();
+        self.last_turn_cast_from.clear();
+        self.this_turn_cast_from.clear();
         self.simultaneous_entries.clear();
         self.undo_stack.clear();
         self.undo_stack_owner = None;
@@ -652,12 +662,14 @@ impl MagicStack {
     /// Mirrors Java's `MagicStack.onNextTurn()`.
     pub fn on_next_turn(&mut self) {
         self.last_turn_cast = std::mem::take(&mut self.this_turn_cast);
+        self.last_turn_cast_from = std::mem::take(&mut self.this_turn_cast_from);
         self.this_turn_activated.clear();
     }
 
     /// Record that a spell was cast this turn (for storm count, etc.).
-    pub fn record_spell_cast(&mut self, card_id: CardId) {
+    pub fn record_spell_cast(&mut self, card_id: CardId, cast_from: Option<ZoneType>) {
         self.this_turn_cast.push(card_id);
+        self.this_turn_cast_from.push(cast_from);
     }
 
     /// Get the number of spells cast this turn (storm count).
@@ -673,6 +685,14 @@ impl MagicStack {
     /// Get the list of spells cast last turn.
     pub fn get_spells_cast_last_turn(&self) -> &[CardId] {
         &self.last_turn_cast
+    }
+
+    pub fn get_spells_cast_this_turn_from(&self) -> &[Option<ZoneType>] {
+        &self.this_turn_cast_from
+    }
+
+    pub fn get_spells_cast_last_turn_from(&self) -> &[Option<ZoneType>] {
+        &self.last_turn_cast_from
     }
 
     /// Track an ability activation this turn.

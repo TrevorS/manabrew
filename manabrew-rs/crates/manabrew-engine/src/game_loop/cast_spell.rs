@@ -2717,7 +2717,8 @@ impl GameLoop {
             game.player_record_spell_cast(player, card_id);
         }
         // Track spell cast on the stack (storm count, etc.)
-        game.stack.record_spell_cast(card_id);
+        let cast_from = game.card(card_id).cast_from;
+        game.stack.record_spell_cast(card_id, cast_from);
 
         let cast_zone = if is_foretell {
             Some(ZoneType::Exile)
@@ -3039,7 +3040,8 @@ impl GameLoop {
                     {
                         game.player_record_spell_cast(player, cascade_card_id);
                     }
-                    game.stack.record_spell_cast(cascade_card_id);
+                    let cast_from = game.card(cascade_card_id).cast_from;
+                    game.stack.record_spell_cast(cascade_card_id, cast_from);
                     self.trigger_handler.run_trigger(
                         TriggerType::SpellCast,
                         RunParams {
