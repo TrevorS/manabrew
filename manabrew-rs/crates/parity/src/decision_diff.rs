@@ -138,9 +138,13 @@ pub fn is_forced_choice(record: &CallbackRecord) -> bool {
         && matches!(record.args.as_slice(), [only] if only.choices == Some(1))
 }
 
-fn compared(log: &[ParityLogEntry], java: bool) -> Vec<&CallbackRecord> {
+/// Forge runs the untap step of the turn after the limit before the game ends
+/// (`PhaseHandler.onPhaseBegin` follows the `GameEventTurnPhase` that stops the
+/// harness), so Java logs its optional-untap prompts where Rust has already stopped.
+fn compared(log: &[ParityLogEntry], java: bool, max_turns: u32) -> Vec<&CallbackRecord> {
     log.iter()
         .filter_map(ParityLogEntry::as_callback)
+        .filter(|record| record.turn <= max_turns)
         .filter(|record| COMPARED_CALLBACKS.contains(&record.name.as_str()))
         .filter(|record| !(java && is_java_pick_row(record)))
         .filter(|record| !(java && is_java_unasked_announcement(record)))
@@ -184,9 +188,10 @@ fn same_decision(rust: &CallbackRecord, java: &CallbackRecord) -> bool {
 pub fn first_decision_divergence(
     rust_log: &[ParityLogEntry],
     java_log: &[ParityLogEntry],
+    max_turns: u32,
 ) -> Option<Divergence> {
-    let rust = compared(rust_log, false);
-    let java = compared(java_log, true);
+    let rust = compared(rust_log, false, max_turns);
+    let java = compared(java_log, true, max_turns);
     let shared = rust.len().min(java.len());
     let position = (0..shared)
         .find(|&i| !same_decision(rust[i], java[i]))
@@ -359,7 +364,7 @@ fn window_decisions(
     from_snapshot: usize,
     to_snapshot: usize,
 ) -> Vec<String> {
-    compared(log, java)
+    compared(log, java, u32::MAX)
         .into_iter()
         .filter(|record| {
             record.snapshot_index >= from_snapshot

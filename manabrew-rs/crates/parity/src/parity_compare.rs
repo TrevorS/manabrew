@@ -144,7 +144,11 @@ fn build_matchup_result(
         divergences: outcome.divergences,
         localized: None,
         localized_detail: vec![],
-        decision: crate::decision_diff::first_decision_divergence(&rust_log, &java_log),
+        decision: crate::decision_diff::first_decision_divergence(
+            &rust_log,
+            &java_log,
+            config.max_turns,
+        ),
         error_message: None,
         skip_reason: guard_abort.map(|(turn, reason)| format!("ABORTED AT TURN {turn}: {reason}")),
         covered_cards: vec![],
