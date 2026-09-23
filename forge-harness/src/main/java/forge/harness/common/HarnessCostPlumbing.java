@@ -370,6 +370,9 @@ public final class HarnessCostPlumbing {
             if (list.size() < amount) {
                 return null;
             }
+            if (amount == 0) {
+                return PaymentDecision.number(0);
+            }
 
             final CardCollectionView selected = chooseCards(list, amount, "Exile for cost");
             if (selected == null || selected.size() < amount) {
@@ -415,6 +418,9 @@ public final class HarnessCostPlumbing {
                 return PaymentDecision.card(source);
             }
             final int amount = cost.getAbilityAmount(ability);
+            if (amount == 0) {
+                return PaymentDecision.number(0);
+            }
             CardCollectionView list = player.getCardsIn(ZoneType.Battlefield);
             list = CardLists.getValidCards(list, cost.getType().split(";"), player, source, ability);
             if (list.size() < amount) {
@@ -630,6 +636,9 @@ public final class HarnessCostPlumbing {
             }
 
             final int amount = cost.getAbilityAmount(ability);
+            if (amount == 0) {
+                return PaymentDecision.number(0);
+            }
             CardCollection valid = new CardCollection(CardLists.getValidCards(
                     player.getCardsIn(ZoneType.Battlefield),
                     cost.getType().split(";"),
@@ -703,6 +712,9 @@ public final class HarnessCostPlumbing {
             from = CardLists.getValidCards(from, cost.getType().split(";"), player, source, ability);
             if (from.size() < amount) {
                 return null;
+            }
+            if (amount == 0) {
+                return PaymentDecision.number(0);
             }
             final CardCollectionView selected = chooseCards(from, amount, "Reveal for cost");
             return selected == null || selected.size() < amount ? null : PaymentDecision.card(selected);
