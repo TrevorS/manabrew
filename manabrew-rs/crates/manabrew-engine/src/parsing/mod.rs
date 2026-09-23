@@ -11,8 +11,9 @@ pub mod compare;
 pub mod cost;
 pub mod keys;
 
+use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::sync::{Mutex, OnceLock};
+use std::sync::Arc;
 
 use forge_foundation::ZoneType;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -52,8 +53,8 @@ pub fn raw_get<'a>(raw: &'a str, key: &str) -> Option<&'a str> {
 /// accessor methods.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CompiledSelector {
-    pub alternatives: Vec<CompiledSelectorAlternative>,
-    pub ir: Selector,
+    pub alternatives: Arc<Vec<CompiledSelectorAlternative>>,
+    pub ir: Arc<Selector>,
 }
 
 impl CompiledSelector {
@@ -75,7 +76,10 @@ impl CompiledSelector {
 
     pub fn from_alternatives(alternatives: Vec<CompiledSelectorAlternative>) -> Self {
         let ir = lower_compiled_selector(&alternatives);
-        Self { alternatives, ir }
+        Self {
+            alternatives: Arc::new(alternatives),
+            ir: Arc::new(ir),
+        }
     }
 
     pub fn from_raw_alternative(raw: &str) -> Self {
@@ -118,54 +122,27 @@ impl CompiledSelector {
 }
 
 pub fn cached_compiled_selector(raw: &str) -> CompiledSelector {
-    static CACHE: OnceLock<Mutex<BTreeMap<String, CompiledSelector>>> = OnceLock::new();
-    let key = raw.trim().to_string();
-    if let Some(selector) = common_compiled_selector(&key) {
-        return selector;
+    thread_local! {
+        static CACHE: RefCell<crate::HashMap<Box<str>, CompiledSelector>> =
+            RefCell::new(crate::HashMap::default());
     }
-    let cache = CACHE.get_or_init(|| Mutex::new(BTreeMap::new()));
-    if let Some(selector) = cache
-        .lock()
-        .expect("selector cache poisoned")
-        .get(&key)
-        .cloned()
-    {
-        return selector;
-    }
-    let selector = CompiledSelector::parse(&key);
-    cache
-        .lock()
-        .expect("selector cache poisoned")
-        .insert(key, selector.clone());
-    selector
+    let key = raw.trim();
+    CACHE.with(|cache| {
+        if let Some(selector) = cache.borrow().get(key) {
+            return selector.clone();
+        }
+        let selector =
+            common_compiled_selector(key).unwrap_or_else(|| CompiledSelector::parse(key));
+        cache.borrow_mut().insert(key.into(), selector.clone());
+        selector
+    })
 }
 
 fn common_compiled_selector(raw: &str) -> Option<CompiledSelector> {
     match raw {
-        "Card.Self" => {
-            static SELECTOR: OnceLock<CompiledSelector> = OnceLock::new();
-            Some(
-                SELECTOR
-                    .get_or_init(|| selector_from_parts("Card.Self", &["Card", "Self"]))
-                    .clone(),
-            )
-        }
-        "Creature.Self" => {
-            static SELECTOR: OnceLock<CompiledSelector> = OnceLock::new();
-            Some(
-                SELECTOR
-                    .get_or_init(|| selector_from_parts("Creature.Self", &["Creature", "Self"]))
-                    .clone(),
-            )
-        }
-        "You" => {
-            static SELECTOR: OnceLock<CompiledSelector> = OnceLock::new();
-            Some(
-                SELECTOR
-                    .get_or_init(|| selector_from_parts("You", &["You"]))
-                    .clone(),
-            )
-        }
+        "Card.Self" => Some(selector_from_parts("Card.Self", &["Card", "Self"])),
+        "Creature.Self" => Some(selector_from_parts("Creature.Self", &["Creature", "Self"])),
+        "You" => Some(selector_from_parts("You", &["You"])),
         _ => None,
     }
 }
@@ -955,8 +932,7 @@ fn compile_semantic_selector(selector: &SemanticSelector<'_>) -> CompiledSelecto
                 .collect(),
         })
         .collect::<Vec<_>>();
-    let ir = lower_compiled_selector(&alternatives);
-    CompiledSelector { alternatives, ir }
+    CompiledSelector::from_alternatives(alternatives)
 }
 
 fn lower_compiled_selector(alternatives: &[CompiledSelectorAlternative]) -> Selector {

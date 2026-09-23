@@ -323,7 +323,7 @@ pub fn apply_cant_block_by_ability(
     // ValidBlocker — complex logic matching Java's comma-split + withoutReach check
     if let Some(valid_blocker_param) = st_ab.ir.valid_blocker.as_ref() {
         let mut still_block = true;
-        for alternative in &valid_blocker_param.alternatives {
+        for alternative in valid_blocker_param.alternatives.iter() {
             if let Some(b) = blocker {
                 let matches_blocker =
                     crate::parsing::CompiledSelector::from_alternatives(vec![alternative.clone()]);
