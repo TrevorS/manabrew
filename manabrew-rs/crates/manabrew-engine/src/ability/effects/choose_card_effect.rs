@@ -90,6 +90,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .card_mut(source_id)
         .set_chosen_cards(chosen.clone());
 
+    if sa.ir.forget_other_remembered {
+        ctx.game.card_mut(source_id).clear_remembered();
+    }
+
     // Optionally remember
     if remember {
         for &cid in &chosen {

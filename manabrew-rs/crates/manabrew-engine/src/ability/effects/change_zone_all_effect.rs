@@ -267,6 +267,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
 
+        if sa.ir.forget_other_remembered {
+            if let Some(sid) = sa.source {
+                ctx.game.card_mut(sid).clear_remembered();
+            }
+        }
+
         if dest_zone == ZoneType::Library && to_move.len() > 1 && sa.ir.random_order {
             let mut cards = to_move.iter().map(|(cid, _)| *cid).collect::<Vec<_>>();
             ctx.rng.shuffle_cards(&mut cards);
