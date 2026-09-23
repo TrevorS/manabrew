@@ -81,31 +81,23 @@ pub fn resolve_dynamic_amount(
     }
     let source_card = game.card(source);
 
-    if let Some(paid_x) = source_card
-        .svars
-        .get("XPaid")
-        .and_then(|s| s.parse::<i32>().ok())
-    {
-        return paid_x;
-    }
-
     if let Some(x_expr) = source_card.get_s_var("X") {
-        if x_expr == "Count$xPaid" || x_expr == "Count$XPaid" {
-            return source_card
-                .svars
-                .get("XPaid")
-                .and_then(|s| s.parse::<i32>().ok())
-                .unwrap_or(0);
-        }
         if let Ok(n) = x_expr.parse::<i32>() {
             return n;
         }
-        if x_expr.starts_with("Count$") {
+        if x_expr.starts_with("Count$")
+            && !x_expr.starts_with("Count$xPaid")
+            && !x_expr.starts_with("Count$XPaid")
+        {
             return crate::ability::effects::resolve_count_svar(x_expr, game, source, player);
         }
     }
 
-    0
+    source_card
+        .svars
+        .get("XPaid")
+        .and_then(|s| s.parse::<i32>().ok())
+        .unwrap_or(0)
 }
 
 /// The amount slot of a [`CostPart`]. Replaces the legacy `i32` (with
