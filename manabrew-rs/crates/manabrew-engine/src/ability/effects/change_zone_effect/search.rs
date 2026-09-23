@@ -249,23 +249,7 @@ pub(super) fn resolve_random_selection(
     count: usize,
 ) -> Vec<CardId> {
     let mut pool = candidates.to_vec();
-    let java_order = |cid: &CardId| {
-        let card = ctx.game.card(*cid);
-        let player = ctx
-            .game
-            .players
-            .iter()
-            .position(|p| p.id == card.controller)
-            .unwrap_or(0);
-        let position = ctx
-            .game
-            .cards_in_zone(card.zone, card.controller)
-            .iter()
-            .position(|c| c == cid)
-            .unwrap_or(0);
-        (player, std::cmp::Reverse(position))
-    };
-    pool.sort_by_key(java_order);
+    pool.sort_by_cached_key(|cid| format!("{} ({})", ctx.game.card(*cid).card_name, cid.0));
     let mut chosen = Vec::new();
     while chosen.len() < count && !pool.is_empty() {
         let index = if pool.len() == 1 {
