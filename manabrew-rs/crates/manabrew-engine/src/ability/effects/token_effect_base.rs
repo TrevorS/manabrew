@@ -248,7 +248,12 @@ pub trait TokenEffectBase {
         for mut cell in token_table.cells().iter().cloned() {
             let script = cell.prototype.get_s_var("TokenScript").map(str::to_owned);
             if let Some(script) = script.as_deref() {
-                cell.prototype.set_code = Some(ctx.sync_token_art_rng(script, sa));
+                if cell.prototype.copied_permanent.is_some() {
+                    // Java builds a copy from the original's PaperToken; its image key is the only draw.
+                    ctx.rng.next_int(1);
+                } else {
+                    cell.prototype.set_code = Some(ctx.sync_token_art_rng(script, sa));
+                }
             }
 
             let controller = cell.prototype.controller;
