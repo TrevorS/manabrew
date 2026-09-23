@@ -37,7 +37,7 @@ pub struct Trigger {
     #[serde(default)]
     pub trigger_remembered: Vec<AbilityValue>,
     #[serde(default)]
-    pub spawning_ability: Option<SpellAbility>,
+    pub spawning_ability: Option<Box<SpellAbility>>,
     #[serde(default)]
     pub original_host: Option<crate::ids::CardId>,
 }
@@ -164,11 +164,11 @@ impl Trigger {
     }
 
     pub fn get_spawning_ability(&self) -> Option<&SpellAbility> {
-        self.spawning_ability.as_ref()
+        self.spawning_ability.as_deref()
     }
 
     pub fn set_spawning_ability(&mut self, ability: SpellAbility) {
-        self.spawning_ability = Some(ability);
+        self.spawning_ability = Some(Box::new(ability));
     }
 }
 
@@ -964,7 +964,7 @@ impl Trigger {
             let ability = self.ensure_ability(game, host_card, activating_player)?;
             self.set_overriding_ability(ability);
         }
-        self.base.overriding_ability.as_mut()
+        self.base.overriding_ability.as_deref_mut()
     }
 
     pub fn is_chapter(&self) -> bool {

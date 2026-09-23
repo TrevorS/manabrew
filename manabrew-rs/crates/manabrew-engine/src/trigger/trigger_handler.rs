@@ -118,7 +118,7 @@ impl DelayedTrigger {
                 .copied()
                 .map(crate::event::AbilityValue::Card)
                 .collect(),
-            spawning_ability: self.spawning_ability.clone(),
+            spawning_ability: self.spawning_ability.clone().map(Box::new),
             original_host: None,
         }
     }

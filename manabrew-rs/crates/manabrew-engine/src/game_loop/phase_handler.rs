@@ -813,7 +813,7 @@ impl GameLoop {
                     .is_some_and(|state| state.expires_at_cleanup)
                 {
                     if let Some(state) = game.cards[i].clone_state.take() {
-                        game.cards[i].restore_clone_snapshot(state);
+                        game.cards[i].restore_clone_snapshot(*state);
                     }
                 }
 

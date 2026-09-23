@@ -383,9 +383,9 @@ impl ReplacementEffect {
             let ability = self.ensure_ability(game, host_card, activating_player)?;
             // Store directly. The built ability is already host-bound by
             // `build_spell_ability`.
-            self.base.overriding_ability = Some(ability);
+            self.base.overriding_ability = Some(Box::new(ability));
         }
-        self.base.overriding_ability.as_mut()
+        self.base.overriding_ability.as_deref_mut()
     }
 
     /// Filter for ETB replacement events. Mirrors Java

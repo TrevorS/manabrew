@@ -80,7 +80,7 @@ pub struct CardTraitBase {
     #[serde(skip)]
     card_state_name: Option<CardStateName>,
     #[serde(skip)]
-    keyword: Option<KeywordInterface>,
+    keyword: Option<Box<KeywordInterface>>,
 
     original_map_params: HashMap<String, String>,
     map_params: HashMap<String, String>,
@@ -208,11 +208,11 @@ impl CardTraitBase {
     }
 
     pub fn get_keyword(&self) -> Option<&KeywordInterface> {
-        self.keyword.as_ref()
+        self.keyword.as_deref()
     }
 
     pub fn set_keyword(&mut self, kw: KeywordInterface) {
-        self.keyword = Some(kw);
+        self.keyword = Some(Box::new(kw));
     }
 
     pub fn is_embalm(&self) -> bool {

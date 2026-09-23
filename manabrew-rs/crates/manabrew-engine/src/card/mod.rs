@@ -640,9 +640,9 @@ pub struct Card {
     /// Saved state for AnimateEffect — restored during step_cleanup.
     pub animate_state: Option<AnimateState>,
     /// Saved state for temporary Clone effects — restored during step_cleanup.
-    pub clone_state: Option<CloneState>,
+    pub clone_state: Option<Box<CloneState>>,
     #[serde(default)]
-    pub face_down_state: Option<CloneState>,
+    pub face_down_state: Option<Box<CloneState>>,
 
     // ── Issue #53: High-priority effect fields ──────────────────────────
     /// Type chosen by ChooseType effect (e.g. "Goblin", "Artifact").
@@ -2950,7 +2950,7 @@ impl Card {
     pub fn turn_face_up(&mut self) {
         self.face_down = false;
         if let Some(state) = self.face_down_state.take() {
-            self.apply_clone_state(state);
+            self.apply_clone_state(*state);
         }
     }
 
@@ -2962,7 +2962,7 @@ impl Card {
         if self.face_down_state.is_some() {
             return;
         }
-        self.face_down_state = Some(self.capture_clone_state());
+        self.face_down_state = Some(Box::new(self.capture_clone_state()));
         self.type_line = CardTypeLine::parse("Creature");
         self.mana_cost = ManaCost::parse("no cost");
         self.color = ColorSet::COLORLESS;
@@ -3255,7 +3255,7 @@ impl Card {
     }
 
     pub fn set_clone_state(&mut self, state: Option<CloneState>) {
-        self.clone_state = state;
+        self.clone_state = state.map(Box::new);
     }
 
     pub fn set_exiled_by(&mut self, source: Option<CardId>) {

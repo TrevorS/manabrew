@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 pub struct TriggerReplacementBase {
     pub card_trait_base: CardTraitBase,
     pub valid_host_zones: Option<Vec<ZoneType>>,
-    pub overriding_ability: Option<SpellAbility>,
+    pub overriding_ability: Option<Box<SpellAbility>>,
 }
 
 impl Identifiable for TriggerReplacementBase {
@@ -73,11 +73,11 @@ impl TriggerReplacementBase {
     }
 
     pub fn get_overriding_ability(&self) -> Option<&SpellAbility> {
-        self.overriding_ability.as_ref()
+        self.overriding_ability.as_deref()
     }
 
     pub fn set_overriding_ability(&mut self, overriding_ability: SpellAbility) {
-        self.overriding_ability = Some(overriding_ability);
+        self.overriding_ability = Some(Box::new(overriding_ability));
         if let Some(ability) = self.overriding_ability.as_mut() {
             if let Some(host_card_id) = self.card_trait_base.get_host_card_id() {
                 ability.set_host_card_id(host_card_id);
@@ -96,7 +96,7 @@ impl TriggerReplacementBase {
     /// the base owns the resolved ability directly, so `ensure_ability`
     /// returns the stored ability when present.
     pub fn ensure_ability(&mut self) -> Option<&mut SpellAbility> {
-        self.overriding_ability.as_mut()
+        self.overriding_ability.as_deref_mut()
     }
 
     pub fn change_text(&mut self) {
