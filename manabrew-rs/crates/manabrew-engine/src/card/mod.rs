@@ -1969,9 +1969,10 @@ impl Card {
     /// then falls back to string matching on granted/pump keywords.
     /// Mirrors Java's `Card.hasKeyword(Keyword)`.
     pub fn has_keyword_enum(&self, kw: Kw) -> bool {
-        if self
-            .cant_have_keywords
-            .contains(&kw.display_name().to_ascii_lowercase())
+        if !self.cant_have_keywords.is_empty()
+            && self
+                .cant_have_keywords
+                .contains(&kw.display_name().to_ascii_lowercase())
         {
             return false;
         }

@@ -608,9 +608,10 @@ pub fn add_color(card: &mut Card, color: ColorSet) {
 
 pub fn has_keyword(card: &Card, keyword: &str) -> bool {
     let keyword = keyword.strip_prefix("HIDDEN ").unwrap_or(keyword);
-    if card
-        .cant_have_keywords
-        .contains(&keyword.to_ascii_lowercase())
+    if !card.cant_have_keywords.is_empty()
+        && card
+            .cant_have_keywords
+            .contains(&keyword.to_ascii_lowercase())
     {
         return false;
     }
