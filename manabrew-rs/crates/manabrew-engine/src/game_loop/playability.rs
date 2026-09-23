@@ -175,7 +175,9 @@ impl GameLoop {
             || sa.target_restrictions.as_ref().is_some_and(|tr| {
                 !matches!(
                     tr.target_kind,
-                    crate::spellability::TargetKind::Player | crate::spellability::TargetKind::Any
+                    crate::spellability::TargetKind::Player
+                        | crate::spellability::TargetKind::Any
+                        | crate::spellability::TargetKind::Spell
                 ) && tr.get_min_targets(game, &sa)
                     > crate::card::card_util::get_valid_cards_to_target(game, &sa).len() as i32
             })
