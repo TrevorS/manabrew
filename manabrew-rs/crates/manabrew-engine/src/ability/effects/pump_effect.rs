@@ -394,6 +394,8 @@ pub(super) fn apply_pump_to_card(
             crate::spellability::AbilityDuration::UntilYourNextTurn
                 | crate::spellability::AbilityDuration::UntilTheEndOfYourNextTurn
                 | crate::spellability::AbilityDuration::UntilHostLeavesPlay
+                | crate::spellability::AbilityDuration::UntilLoseControlOfHost
+                | crate::spellability::AbilityDuration::AsLongAsControl
                 | crate::spellability::AbilityDuration::AsLongAsInPlay
         )
     );

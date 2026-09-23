@@ -748,6 +748,8 @@ pub fn add_until_command(
         }
         Some(
             crate::spellability::AbilityDuration::UntilHostLeavesPlay
+            | crate::spellability::AbilityDuration::UntilLoseControlOfHost
+            | crate::spellability::AbilityDuration::AsLongAsControl
             | crate::spellability::AbilityDuration::AsLongAsInPlay,
         ) => {
             let Some(host) = host else {
