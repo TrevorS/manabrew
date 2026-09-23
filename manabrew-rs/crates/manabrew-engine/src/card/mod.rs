@@ -4671,11 +4671,13 @@ impl Card {
             .cloned()
             .collect();
         // Java keeps a Room's traits on the card and only moves `currentState`, so this
-        // port holds both doors' triggers and filters them in `register_one_trigger`.
+        // port holds both doors' triggers and statics and filters them in
+        // `register_one_trigger` and `StaticAbility::check_conditions`.
         // Their `Execute$` SVars are looked up on the host at resolution, so the other
         // door's SVars have to stay reachable too.
         let is_room = self.type_line.has_subtype("Room");
         let room_triggers = is_room.then(|| self.triggers.clone());
+        let room_statics = is_room.then(|| self.static_abilities.clone());
         let other_door_svars = is_room.then(|| self.svars.clone());
         if let Some(other) = self.other_part.as_mut() {
             std::mem::swap(&mut self.card_name, &mut other.name);
@@ -4722,6 +4724,9 @@ impl Card {
             }
             if let Some(triggers) = room_triggers {
                 self.triggers = triggers;
+            }
+            if let Some(statics) = room_statics {
+                self.static_abilities = statics;
             }
             for (key, value) in other_door_svars.into_iter().flatten() {
                 self.svars.entry(key).or_insert(value);

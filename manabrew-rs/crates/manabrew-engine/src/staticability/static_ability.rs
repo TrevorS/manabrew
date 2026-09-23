@@ -788,6 +788,16 @@ impl StaticAbility {
         if source.phased_out {
             return false;
         }
+        if let Some(state) = self.base.get_card_state_name() {
+            if matches!(
+                state,
+                forge_foundation::CardStateName::LeftSplit
+                    | forge_foundation::CardStateName::RightSplit
+            ) && !source.room_door_unlocked(state)
+            {
+                return false;
+            }
+        }
         if !self.meets_card_trait_requirements(game, source, self) {
             return false;
         }

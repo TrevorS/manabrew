@@ -21,7 +21,7 @@ use crate::trigger::{parse_trigger, Trigger};
 
 use super::{Card, CardOtherPart};
 
-fn mark_triggers_card_state(triggers: &mut [Trigger], card: &Card, state_name: CardStateName) {
+fn room_door_state(card: &Card, state_name: CardStateName) -> crate::card::card_state::CardState {
     let mut state = crate::card::card_state::CardState::new(card.clone(), state_name);
     state.set_name(match state_name {
         CardStateName::RightSplit => card
@@ -31,8 +31,20 @@ fn mark_triggers_card_state(triggers: &mut [Trigger], card: &Card, state_name: C
             .unwrap_or_else(|| card.card_name.clone()),
         _ => card.card_name.clone(),
     });
+    state
+}
+
+fn mark_triggers_card_state(triggers: &mut [Trigger], card: &Card, state_name: CardStateName) {
+    let state = room_door_state(card, state_name);
     for trigger in triggers {
         trigger.base.set_card_state(state.clone());
+    }
+}
+
+fn mark_statics_card_state(statics: &mut [StaticAbility], card: &Card, state_name: CardStateName) {
+    let state = room_door_state(card, state_name);
+    for st_ab in statics {
+        st_ab.base.set_card_state(&state);
     }
 }
 
@@ -193,6 +205,11 @@ pub(crate) fn assemble_card(
         && card.type_line.has_subtype("Room")
     {
         mark_triggers_card_state(&mut components.triggers, &card, CardStateName::LeftSplit);
+        mark_statics_card_state(
+            &mut components.static_abilities,
+            &card,
+            CardStateName::LeftSplit,
+        );
     }
     let keyword_trigger_count = card.triggers.len();
     for trig in components.triggers {
@@ -305,6 +322,21 @@ pub(crate) fn assemble_card(
             for trig in other_triggers {
                 card.add_trigger(trig);
             }
+            let mut other_statics: Vec<StaticAbility> = other_face
+                .static_abilities
+                .iter()
+                .filter_map(|raw| {
+                    parse_classified_or_warn(
+                        parse_static_ability(&format!("S$ {raw}")),
+                        "StaticAbility",
+                        raw,
+                    )
+                })
+                .collect();
+            mark_statics_card_state(&mut other_statics, &card, CardStateName::RightSplit);
+            for st_ab in other_statics {
+                card.add_static_ability(st_ab);
+            }
         }
     }
 
@@ -336,7 +368,7 @@ pub(crate) fn assemble_card(
                 mark_triggers_card_state(&mut back_triggers, &card, CardStateName::RightSplit);
             }
 
-            let back_static_abilities: Vec<StaticAbility> = back_face
+            let mut back_static_abilities: Vec<StaticAbility> = back_face
                 .static_abilities
                 .iter()
                 .filter_map(|raw| {
@@ -347,6 +379,15 @@ pub(crate) fn assemble_card(
                     )
                 })
                 .collect();
+            if rules.split_type == forge_foundation::CardSplitType::Split
+                && back_face.type_line.has_subtype("Room")
+            {
+                mark_statics_card_state(
+                    &mut back_static_abilities,
+                    &card,
+                    CardStateName::RightSplit,
+                );
+            }
 
             let mut back_replacement_effects: Vec<ReplacementEffect> = back_face
                 .replacements
