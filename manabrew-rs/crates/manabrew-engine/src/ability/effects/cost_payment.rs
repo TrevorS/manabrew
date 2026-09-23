@@ -577,7 +577,7 @@ fn try_pay_effect_cost(
                     .player_add_shards(payer, -amount.resolve(ctx.game, source, payer));
             }
             CostPart::Draw(amount) => {
-                for _ in 0..amount.resolve(ctx.game, source, payer) {
+                for _ in 0..amount.resolve_for_sa(ctx.game, source, payer, Some(sa)) {
                     ctx.game.draw_card(payer);
                 }
             }

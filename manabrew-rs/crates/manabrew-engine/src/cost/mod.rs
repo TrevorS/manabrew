@@ -146,6 +146,24 @@ impl AmountSpec {
         }
     }
 
+    pub fn resolve_for_sa(
+        &self,
+        game: &GameState,
+        source: CardId,
+        player: PlayerId,
+        sa: Option<&SpellAbility>,
+    ) -> i32 {
+        let Some(sa) = sa.filter(|_| self.is_x()) else {
+            return self.resolve(game, source, player);
+        };
+        match crate::ability::ability_utils::get_s_var(sa, game, "X") {
+            Some(expr) if !expr.starts_with("Count$") && expr.parse::<i32>().is_err() => {
+                crate::svar::resolve_numeric_value(game, sa, "X", 0)
+            }
+            _ => self.resolve(game, source, player),
+        }
+    }
+
     pub fn as_literal(&self) -> Option<i32> {
         match self {
             Self::Literal(n) => Some(*n),

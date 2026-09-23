@@ -21,13 +21,13 @@ pub fn can_pay(
     _available_mana: &crate::mana::ManaPool,
     source: crate::ids::CardId,
     player: crate::ids::PlayerId,
-    _ability: Option<&crate::spellability::SpellAbility>,
+    ability: Option<&crate::spellability::SpellAbility>,
     part: &super::CostPart,
 ) -> bool {
     let super::CostPart::Draw(amount) = part else {
         return false;
     };
-    let resolved = amount.resolve(game, source, player);
+    let resolved = amount.resolve_for_sa(game, source, player, ability);
     let allowed =
         crate::staticability::static_ability_cant_draw::can_draw_amount(game, player, resolved);
     allowed >= resolved
