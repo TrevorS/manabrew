@@ -1178,6 +1178,20 @@ impl GameLoop {
             }
         }
 
+        if let Some(ref tr) = sa.target_restrictions {
+            if !tr.valid_tgts.is_empty()
+                && !crate::ability::ability_utils::matches_valid_cards_for_sa(
+                    game,
+                    sa,
+                    card,
+                    Some(&tr.compiled_valid_tgts()),
+                    "Card",
+                )
+            {
+                return false;
+            }
+        }
+
         // Card must still be targetable (hexproof, shroud, protection, etc.)
         // Use the activating player as the source controller
         crate::spellability::target_restrictions::can_be_targeted_by_sa(

@@ -443,7 +443,7 @@ fn parsed_zone_type(value: Option<&str>) -> Option<ZoneType> {
 }
 
 impl TargetRestrictions {
-    fn compiled_valid_tgts(&self) -> CompiledSelector {
+    pub(crate) fn compiled_valid_tgts(&self) -> CompiledSelector {
         if self.valid_tgts_selector.alternatives.is_empty() {
             cached_compiled_selector(&self.valid_tgts.join(","))
         } else {
