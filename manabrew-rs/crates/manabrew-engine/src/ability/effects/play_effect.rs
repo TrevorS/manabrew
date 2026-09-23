@@ -140,33 +140,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ctx.game.card(card_id).mana_cost.clone()
         };
 
-        let available = crate::mana::calculate_available_mana(
-            &ctx.mana_pools[controller.index()],
-            ctx.game,
-            controller,
-        );
-        if !available.can_pay(&mc) {
+        let saved_game = ctx.game.clone();
+        let saved_pool = ctx.mana_pools[controller.index()].clone();
+        if !super::cost_payment::pay_mana_cost_for_effect(ctx, controller, card_id, &mc, true) {
+            *ctx.game = saved_game;
+            ctx.mana_pools[controller.index()] = saved_pool;
             return;
         }
-        let tapped = crate::mana::auto_tap_lands(
-            ctx.game,
-            &mut ctx.mana_pools[controller.index()],
-            controller,
-            &mc,
-            Some(card_id),
-        );
-        for &land_id in &tapped {
-            ctx.trigger_handler.run_trigger(
-                TriggerType::TapsForMana,
-                RunParams {
-                    card: Some(land_id),
-                    player: Some(controller),
-                    ..Default::default()
-                },
-                false,
-            );
-        }
-        ctx.mana_pools[controller.index()].try_pay(&mc);
     }
 
     // `ReplaceGraveyard$ <Zone>` — install a one-shot replacement that
