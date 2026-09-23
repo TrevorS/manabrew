@@ -388,6 +388,8 @@ fn apply_pump_to_card(
         Some(
             crate::spellability::AbilityDuration::UntilYourNextTurn
                 | crate::spellability::AbilityDuration::UntilTheEndOfYourNextTurn
+                | crate::spellability::AbilityDuration::UntilHostLeavesPlay
+                | crate::spellability::AbilityDuration::AsLongAsInPlay
         )
     );
     if is_perpetual {
@@ -430,6 +432,7 @@ fn apply_pump_to_card(
                 ctx.game,
                 sa.ir.duration.as_ref(),
                 sa.activating_player,
+                sa.source,
                 crate::phase::PhaseCommand::RemoveKeyword {
                     card: card_id,
                     keyword: kw.clone(),

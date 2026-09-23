@@ -489,6 +489,13 @@ impl GameState {
             // `ControlGain$ LoseControl$ LeavesPlay` — drop the scheduled
             // revert since the card is no longer on the battlefield.
             crate::ability::effects::control_gain_effect::leaves_play_hook(self, card_id);
+            let (commands, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.leaves_play_commands)
+                .into_iter()
+                .partition(|(host, _)| *host == card_id);
+            self.leaves_play_commands = kept;
+            for (_, command) in commands {
+                command.run(self);
+            }
         }
         if dest_zone == ZoneType::Graveyard && was_permanent && !is_token {
             self.player_record_permanent_put_into_graveyard(self.card(card_id).owner);

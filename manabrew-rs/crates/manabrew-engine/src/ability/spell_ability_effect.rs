@@ -718,11 +718,13 @@ pub fn handle_exiled_with(game: &mut GameState, sa: &SpellAbility, exiled_card_i
 }
 
 /// Mirrors Java's `SpellAbilityEffect.addUntilCommand` for the durations that end at the
-/// controller's next turn. Returns false for any other duration.
+/// controller's next turn or when `host` leaves the battlefield. Returns false for any other
+/// duration.
 pub fn add_until_command(
     game: &mut GameState,
     duration: Option<&crate::spellability::AbilityDuration>,
     controller: crate::ids::PlayerId,
+    host: Option<CardId>,
     until: crate::phase::PhaseCommand,
 ) -> bool {
     match duration {
@@ -744,6 +746,15 @@ pub fn add_until_command(
         }
         Some(crate::spellability::AbilityDuration::UntilYourNextEndStep) => {
             game.end_of_turn.add_until(Some(controller), until);
+        }
+        Some(
+            crate::spellability::AbilityDuration::UntilHostLeavesPlay
+            | crate::spellability::AbilityDuration::AsLongAsInPlay,
+        ) => {
+            let Some(host) = host else {
+                return false;
+            };
+            game.leaves_play_commands.push((host, until));
         }
         _ => return false,
     }

@@ -218,6 +218,7 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
             ctx.game,
             duration,
             owner,
+            None,
             crate::phase::PhaseCommand::ExileEffect { effect: effect_id },
         );
         ctx.move_card(effect_id, ZoneType::Command, owner);

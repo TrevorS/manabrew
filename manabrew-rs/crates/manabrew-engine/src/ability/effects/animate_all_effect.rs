@@ -143,6 +143,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ctx.game,
             sa.ir.duration.as_ref(),
             sa.activating_player,
+            sa.source,
             crate::phase::PhaseCommand::RestoreAnimate { card: card_id },
         );
 

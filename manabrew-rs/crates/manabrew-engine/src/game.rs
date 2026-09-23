@@ -198,6 +198,8 @@ pub struct GameState {
     #[serde(default)]
     pub last_copied_replacement_id: i32,
     pub cleanup: Phase,
+    #[serde(default)]
+    pub leaves_play_commands: Vec<(CardId, crate::phase::PhaseCommand)>,
 
     // Player order (for turn sequence)
     pub player_order: Vec<PlayerId>,
@@ -321,6 +323,7 @@ impl GameState {
             end_of_turn: Phase::new(forge_foundation::PhaseType::EndOfTurn),
             last_copied_replacement_id: 1 << 24,
             cleanup: Phase::new(forge_foundation::PhaseType::Cleanup),
+            leaves_play_commands: Vec::new(),
             player_order,
             game_over: false,
             winner: None,
