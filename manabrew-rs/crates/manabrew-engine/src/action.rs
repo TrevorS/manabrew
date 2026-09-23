@@ -1468,9 +1468,33 @@ impl GameState {
         dest: ZoneType,
         agents: &mut Option<&mut [Box<dyn PlayerAgent>]>,
     ) -> Vec<CardId> {
+        self.order_cards_by_their_owners_for_sa(list, dest, None, agents)
+    }
+
+    pub(crate) fn order_cards_by_their_owners_for_sa(
+        &self,
+        list: Vec<CardId>,
+        dest: ZoneType,
+        sa: Option<&crate::spellability::SpellAbility>,
+        agents: &mut Option<&mut [Box<dyn PlayerAgent>]>,
+    ) -> Vec<CardId> {
         if list.len() <= 1 {
             return list;
         }
+        let gain_control_decider = sa.filter(|sa| sa.ir.gain_control).and_then(|sa| {
+            match sa.ir.gain_control_text.as_deref() {
+                // Java `getDefinedPlayers` answers `True` with every player in turn order.
+                None | Some("True") => self.alive_players().first().copied(),
+                Some(defined) => crate::ability::ability_utils::resolve_defined_players_with_sa(
+                    defined,
+                    sa,
+                    sa.activating_player,
+                    self,
+                )
+                .first()
+                .copied(),
+            }
+        });
         let active_player = self.active_player();
         let start = self
             .player_order
@@ -1490,7 +1514,7 @@ impl GameState {
                     } else {
                         card.owner
                     };
-                    decider == pid
+                    gain_control_decider.unwrap_or(decider) == pid
                 })
                 .collect();
             match agents.as_deref_mut() {

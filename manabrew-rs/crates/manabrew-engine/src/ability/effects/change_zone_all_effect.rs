@@ -306,8 +306,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 ctx.agents[orderer.index()]
                     .order_move_to_zone_list(ctx.game, orderer, &cards, dest_zone)
             } else {
-                ctx.game
-                    .order_cards_by_their_owners(cards, dest_zone, &mut Some(&mut *ctx.agents))
+                ctx.game.order_cards_by_their_owners_for_sa(
+                    cards,
+                    dest_zone,
+                    Some(sa),
+                    &mut Some(&mut *ctx.agents),
+                )
             };
             let mut reordered = Vec::with_capacity(to_move.len());
             for cid in ordered {
