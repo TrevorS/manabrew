@@ -108,6 +108,13 @@ fn matches_property_token_positive(
     ability_host: Option<&Card>,
     context: Option<MatchContext<'_>>,
 ) -> bool {
+    if let Some(rest) = token.strip_prefix("ManaSpent ") {
+        let (comparator, amount) = rest.split_at(2.min(rest.len()));
+        let spent = ability_host.map_or(0, |host| host.paying_mana_to_cast.len() as i32);
+        return amount.parse::<i32>().is_ok_and(|y| {
+            crate::parsing::compare::compare_expr(spent, &format!("{comparator}{y}"))
+        });
+    }
     match token.to_ascii_lowercase().as_str() {
         "self" => ability_host.is_some_and(|host| host.id == source.id),
         "youctrl" => sa.activating_player == source.controller,
