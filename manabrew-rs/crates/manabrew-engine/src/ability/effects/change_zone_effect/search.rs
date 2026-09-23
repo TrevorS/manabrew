@@ -99,7 +99,7 @@ pub(super) fn resolve_multi_search(
     candidates: &[CardId],
     chooser: PlayerId,
     change_num: usize,
-    _is_optional: bool,
+    is_optional: bool,
 ) -> Vec<CardId> {
     let max = change_num.min(candidates.len());
     let diff_names = sa.ir.different_names;
@@ -121,7 +121,8 @@ pub(super) fn resolve_multi_search(
             sa,
             candidates,
             chooser,
-            max,
+            change_num,
+            is_optional,
             diff_names,
             diff_cmc,
             diff_power,
@@ -159,7 +160,7 @@ pub(super) fn resolve_multi_search(
             chooser,
             &remaining,
             sa.select_prompt().unwrap_or("Select card for zone change"),
-            _is_optional,
+            is_optional,
         ) else {
             break;
         };
@@ -175,7 +176,8 @@ fn resolve_constrained_multi(
     sa: &SpellAbility,
     candidates: &[CardId],
     chooser: PlayerId,
-    max: usize,
+    change_num: usize,
+    is_optional: bool,
     diff_names: bool,
     diff_cmc: bool,
     diff_power: bool,
@@ -189,16 +191,12 @@ fn resolve_constrained_multi(
     let mut spent_power: i32 = 0;
     let mut required_land_types: Vec<String> = Vec::new();
 
-    for _ in 0..max {
-        // Apply budget filters
+    for _ in 0..change_num {
         if let Some(b) = budget_cmc {
             remaining.retain(|&cid| ctx.game.card(cid).mana_cost.cmc() + spent_cmc <= b);
         }
         if let Some(b) = budget_power {
             remaining.retain(|&cid| ctx.game.card(cid).base_power.unwrap_or(0) + spent_power <= b);
-        }
-        if remaining.is_empty() {
-            break;
         }
 
         ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
@@ -207,7 +205,7 @@ fn resolve_constrained_multi(
             chooser,
             &remaining,
             sa.select_prompt().unwrap_or("Select card for zone change"),
-            true,
+            is_optional,
         ) else {
             break;
         };
