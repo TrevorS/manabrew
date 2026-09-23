@@ -308,15 +308,16 @@ pub fn build_spell_ability_for_card_state_cast(
     player: PlayerId,
     state_name: CardStateName,
 ) -> Option<(Card, SpellAbility)> {
-    let mut host = game.card(card_id).clone();
-    if host.is_transformed
-        || !host
+    let card = game.card(card_id);
+    if card.is_transformed
+        || !card
             .other_part
             .as_ref()
             .is_some_and(|other| other.state_name == state_name)
     {
         return None;
     }
+    let mut host = card.clone();
     host.transform();
     // A Modal DFC's back face is routinely a vanilla creature with no `A:` line at all (Amazing
     // Spider-Man has only keywords and a static) — `build_spell_ability_for_host_cast` returns
