@@ -321,9 +321,6 @@ pub fn make_choices_precast_with_count(
             .collect()
     };
 
-    if chosen_indices.len() < min_charm_num {
-        return None;
-    }
     if sa.is_trigger && chosen_indices.is_empty() {
         return None;
     }
