@@ -1005,6 +1005,7 @@ impl GameLoop {
         {
             return false;
         }
+        let x_paid_before = game.card(card_id).svars.get("XPaid").cloned();
         let mut need_x =
             !self.preset_max_x_for_activation(game, player, card_id, ab, &mut sa, &activation_cost);
         if !self.announce_values_like_x(
@@ -1015,18 +1016,32 @@ impl GameLoop {
             Some(&activation_cost),
             &mut need_x,
         ) {
+            Self::reset_x_mana_cost_paid(game, card_id, x_paid_before);
             return false;
         }
         agents[player.index()].set_targeting_cancellable(true);
         let targets_ok = sa.setup_targets(game, agents, &self.mana_pools);
         agents[player.index()].set_targeting_cancellable(false);
         if !targets_ok {
+            Self::reset_x_mana_cost_paid(game, card_id, x_paid_before);
             return false;
         }
 
         let adjusted_cost =
             Self::adjusted_activation_cost(game, &sa, ab, player, activation_cost, false);
-        self.finish_activated_ability_on_stack(game, agents, player, card_id, ab, sa, adjusted_cost)
+        let activated = self.finish_activated_ability_on_stack(
+            game,
+            agents,
+            player,
+            card_id,
+            ab,
+            sa,
+            adjusted_cost,
+        );
+        if !activated {
+            Self::reset_x_mana_cost_paid(game, card_id, x_paid_before);
+        }
+        activated
     }
 
     pub(crate) fn play_prepared_activated_ability_on_stack(
@@ -1044,6 +1059,7 @@ impl GameLoop {
             return false;
         }
         let announce_cost = sa.pay_costs.clone().unwrap_or_else(|| ab.cost.clone());
+        let x_paid_before = game.card(card_id).svars.get("XPaid").cloned();
         let mut need_x =
             !self.preset_max_x_for_activation(game, player, card_id, ab, &mut sa, &announce_cost);
         if !self.announce_values_like_x(
@@ -1054,16 +1070,43 @@ impl GameLoop {
             Some(&announce_cost),
             &mut need_x,
         ) {
+            Self::reset_x_mana_cost_paid(game, card_id, x_paid_before);
             return false;
         }
         agents[player.index()].set_targeting_cancellable(true);
         let targets_ok = sa.setup_targets(game, agents, &self.mana_pools);
         agents[player.index()].set_targeting_cancellable(false);
         if !targets_ok {
+            Self::reset_x_mana_cost_paid(game, card_id, x_paid_before);
             return false;
         }
         let adjusted_cost = sa.pay_costs.clone().unwrap_or_else(|| ab.cost.clone());
-        self.finish_activated_ability_on_stack(game, agents, player, card_id, ab, sa, adjusted_cost)
+        let activated = self.finish_activated_ability_on_stack(
+            game,
+            agents,
+            player,
+            card_id,
+            ab,
+            sa,
+            adjusted_cost,
+        );
+        if !activated {
+            Self::reset_x_mana_cost_paid(game, card_id, x_paid_before);
+        }
+        activated
+    }
+
+    fn reset_x_mana_cost_paid(game: &mut GameState, card_id: CardId, x_paid: Option<String>) {
+        match x_paid {
+            Some(value) => {
+                game.card_mut(card_id)
+                    .svars
+                    .insert("XPaid".to_string(), value);
+            }
+            None => {
+                game.card_mut(card_id).svars.remove("XPaid");
+            }
+        }
     }
 
     fn rollback_ability_host(&mut self, game: &mut GameState, card_id: CardId) -> CardId {
