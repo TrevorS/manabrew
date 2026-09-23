@@ -282,6 +282,7 @@ fn push_spell_to_stack(
     let trigger_sa = entry.spell_ability.clone();
 
     ctx.game.stack.push(entry);
+    ctx.game.turn.priority_player = controller;
     ctx.move_card(card_id, ZoneType::Stack, controller);
     ctx.game.player_record_spell_cast(controller, card_id);
 

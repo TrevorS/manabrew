@@ -42,7 +42,7 @@ impl GameLoop {
     ) {
         let _perf_scope =
             crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::Priority);
-        let mut priority_player = game.active_player();
+        let mut priority_player = game.turn.priority_player;
         let mut last_notified_priority: Option<PlayerId> = None;
         let mut passed_count = 0;
         let num_players = game.players.len();
