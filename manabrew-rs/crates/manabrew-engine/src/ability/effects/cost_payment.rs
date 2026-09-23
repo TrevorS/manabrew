@@ -666,13 +666,7 @@ fn try_pay_effect_cost(
                 if type_filter == "Hand" {
                     let hand = ctx.game.cards_in_zone(ZoneType::Hand, payer).to_vec();
                     for cid in hand {
-                        ctx.game.discard_card(
-                            cid,
-                            payer,
-                            Some(sa),
-                            Some(ctx.agents),
-                            ctx.trigger_handler,
-                        );
+                        ctx.discard_card(cid, payer, Some(sa));
                     }
                     ctx.game.end_discard_batch(ctx.trigger_handler);
                     continue;
@@ -707,13 +701,7 @@ fn try_pay_effect_cost(
                     return false;
                 }
                 for cid in chosen {
-                    ctx.game.discard_card(
-                        cid,
-                        payer,
-                        Some(sa),
-                        Some(ctx.agents),
-                        ctx.trigger_handler,
-                    );
+                    ctx.discard_card(cid, payer, Some(sa));
                 }
                 ctx.game.end_discard_batch(ctx.trigger_handler);
             }

@@ -26,13 +26,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .any(|&card_id| !ctx.game.card(card_id).is_land());
             for card_id in to_be_discarded {
                 if ctx.game.card(card_id).zone == ZoneType::Hand {
-                    ctx.game.discard_card(
-                        card_id,
-                        p,
-                        Some(sa),
-                        Some(ctx.agents),
-                        ctx.trigger_handler,
-                    );
+                    ctx.discard_card(card_id, p, Some(sa));
                 }
             }
 

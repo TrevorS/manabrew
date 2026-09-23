@@ -163,13 +163,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         }
                     }
                     let owner = ctx.game.card(card_id).owner;
-                    ctx.game.discard_card(
-                        card_id,
-                        owner,
-                        Some(sa),
-                        Some(ctx.agents),
-                        ctx.trigger_handler,
-                    );
+                    ctx.discard_card(card_id, owner, Some(sa));
                 }
             }
             discarding_players.push(target_player);
@@ -201,13 +195,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                             ctx.game.card_mut(sid).add_remembered_card(card_id);
                         }
                     }
-                    ctx.game.discard_card(
-                        card_id,
-                        target_player,
-                        Some(sa),
-                        Some(ctx.agents),
-                        ctx.trigger_handler,
-                    );
+                    ctx.discard_card(card_id, target_player, Some(sa));
                 }
             }
             discarding_players.push(target_player);
@@ -286,13 +274,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         ctx.game.card_mut(sid).add_remembered_card(card_id);
                     }
                 }
-                ctx.game.discard_card(
-                    card_id,
-                    target_player,
-                    Some(sa),
-                    Some(ctx.agents),
-                    ctx.trigger_handler,
-                );
+                ctx.discard_card(card_id, target_player, Some(sa));
             }
         }
     }

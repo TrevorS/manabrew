@@ -152,6 +152,25 @@ impl EffectContext<'_> {
         );
     }
 
+    pub fn discard_card(
+        &mut self,
+        card_id: CardId,
+        discard_player: PlayerId,
+        sa: Option<&SpellAbility>,
+    ) {
+        let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
+            trigger_handler: self.trigger_handler,
+            token_templates: self.token_templates,
+            token_art_variants: self.token_art_variants,
+            token_fallback: self.token_fallback,
+            edition_dates: self.edition_dates,
+            mana_pools: self.mana_pools,
+            rng: self.rng,
+        };
+        self.game
+            .discard_card(card_id, discard_player, sa, Some(self.agents), &mut runtime);
+    }
+
     pub(crate) fn add_counter(
         &mut self,
         card_id: CardId,

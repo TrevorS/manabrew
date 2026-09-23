@@ -669,7 +669,7 @@ impl GameLoop {
                             active,
                             None,
                             Some(agents),
-                            &mut self.trigger_handler,
+                            &mut self.replacement_runtime(),
                         );
                     }
                 }

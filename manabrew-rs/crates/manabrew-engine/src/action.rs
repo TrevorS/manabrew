@@ -123,7 +123,7 @@ impl GameState {
         discard_player: PlayerId,
         sa: Option<&crate::spellability::SpellAbility>,
         agents: Option<&mut [Box<dyn PlayerAgent>]>,
-        trigger_handler: &mut TriggerHandler,
+        runtime: &mut ReplacementRuntime<'_>,
     ) {
         let owner = self.card(card_id).owner;
         self.player_record_discard(discard_player, 1);
@@ -135,11 +135,12 @@ impl GameState {
             ZoneType::Graveyard,
             owner,
             agents,
-            Some(trigger_handler),
             None,
+            Some(&mut *runtime),
             true,
             true, // is_discard
         );
+        let trigger_handler = &mut *runtime.trigger_handler;
         self.card_mut(card_id).set_discarded(true);
 
         // RememberDiscarded

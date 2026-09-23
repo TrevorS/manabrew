@@ -224,7 +224,13 @@ impl GameLoop {
             agents[player.index()].choose_discard(player, &eligible, amount as usize)
         };
         for &cid in &chosen {
-            game.discard_card(cid, player, None, Some(agents), &mut self.trigger_handler);
+            game.discard_card(
+                cid,
+                player,
+                None,
+                Some(agents),
+                &mut self.replacement_runtime(),
+            );
         }
         chosen
     }
@@ -938,7 +944,7 @@ impl GameLoop {
                             player,
                             None,
                             Some(agents),
-                            &mut self.trigger_handler,
+                            &mut self.replacement_runtime(),
                         );
                     } else if !pre_picked_discards.is_empty() {
                         // Use pre-picked cards from visit phase
@@ -956,7 +962,7 @@ impl GameLoop {
                                 player,
                                 None,
                                 Some(agents),
-                                &mut self.trigger_handler,
+                                &mut self.replacement_runtime(),
                             );
                             // Store discarded card for SVar evaluation
                             game.card_mut(card_id).add_remembered_card(cid);
@@ -1661,7 +1667,7 @@ impl GameLoop {
                                     player,
                                     None,
                                     Some(agents),
-                                    &mut self.trigger_handler,
+                                    &mut self.replacement_runtime(),
                                 );
                             }
                             game.end_discard_batch(&mut self.trigger_handler);
