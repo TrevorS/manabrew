@@ -584,7 +584,11 @@ fn resolve_animate_targets(
     if targets.is_empty() && matches!(sa.defined_ref(), Some(DefinedRef::ParentTarget)) {
         targets.extend(ctx.parent_target_card);
     }
-    if let Some(stack_id) = sa.target_chosen.target_stack_entry {
+    if let Some(stack_id) = sa
+        .target_chosen
+        .target_stack_entry
+        .filter(|_| sa.uses_targeting())
+    {
         if let Some(source) = ctx
             .game
             .stack

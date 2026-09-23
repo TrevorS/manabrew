@@ -89,34 +89,8 @@ impl GameLoop {
             );
         }
 
-        // Copy spells: resolve effect only. CR 707.10 / 111.11 — a copy of a
-        // permanent spell becomes a token (`GameAction.changeZone` line 94).
-        if entry.spell_ability.is_copy {
-            let should_create_token_copy = (entry.is_creature_spell || entry.is_permanent_spell)
-                && entry.spell_ability.source.is_some();
-            if should_create_token_copy {
-                self.resolve_copied_permanent_as_token(game, agents, &entry);
-            } else {
-                self.resolve_spell_effect(game, agents, &entry);
-            }
-            crate::perf::increment(crate::perf::Metric::SpellAbilityClones, 3);
-            self.trigger_handler.run_trigger(
-                TriggerType::AbilityResolves,
-                RunParams {
-                    card: entry.spell_ability.source,
-                    spell_card: entry.spell_ability.source,
-                    spell_controller: Some(entry.spell_ability.activating_player),
-                    spell_ability: Some(entry.spell_ability.clone()),
-                    source_sa: Some(entry.spell_ability.clone()),
-                    cause: Some(entry.spell_ability.clone()),
-                    cause_card: entry.spell_ability.source,
-                    ..Default::default()
-                },
-                false,
-            );
-            apply_continuous_effects(game);
-            return;
-        }
+        let copied_spell_host =
+            crate::card::card_factory::is_copied_spell_host(game, &entry.spell_ability);
 
         // Fizzle check — mirrors Java's MagicStack.hasFizzled() (CR 608.2b).
         // A spell or ability is countered by game rules if ALL of its targets
@@ -182,6 +156,43 @@ impl GameLoop {
                     }
                 }
             }
+            if copied_spell_host {
+                Self::cease_to_exist_copied_spell(game, entry.spell_ability.source);
+            }
+            apply_continuous_effects(game);
+            return;
+        }
+
+        // Copy spells: resolve effect only. CR 707.10 / 111.11 — a copy of a
+        // permanent spell becomes a token (`GameAction.changeZone` line 94).
+        if entry.spell_ability.is_copy
+            && !(copied_spell_host && (entry.is_creature_spell || entry.is_permanent_spell))
+        {
+            let should_create_token_copy = (entry.is_creature_spell || entry.is_permanent_spell)
+                && entry.spell_ability.source.is_some();
+            if should_create_token_copy {
+                self.resolve_copied_permanent_as_token(game, agents, &entry);
+            } else {
+                self.resolve_spell_effect(game, agents, &entry);
+            }
+            if copied_spell_host {
+                Self::cease_to_exist_copied_spell(game, entry.spell_ability.source);
+            }
+            crate::perf::increment(crate::perf::Metric::SpellAbilityClones, 3);
+            self.trigger_handler.run_trigger(
+                TriggerType::AbilityResolves,
+                RunParams {
+                    card: entry.spell_ability.source,
+                    spell_card: entry.spell_ability.source,
+                    spell_controller: Some(entry.spell_ability.activating_player),
+                    spell_ability: Some(entry.spell_ability.clone()),
+                    source_sa: Some(entry.spell_ability.clone()),
+                    cause: Some(entry.spell_ability.clone()),
+                    cause_card: entry.spell_ability.source,
+                    ..Default::default()
+                },
+                false,
+            );
             apply_continuous_effects(game);
             return;
         }
@@ -1279,6 +1290,14 @@ impl GameLoop {
                     spawning_ability: None,
                 },
             );
+        }
+    }
+
+    fn cease_to_exist_copied_spell(game: &mut GameState, host: Option<CardId>) {
+        if let Some(host) = host.filter(|&host| game.card(host).zone == ZoneType::Stack) {
+            let controller = game.card(host).controller;
+            game.remove_card_from_zone(ZoneType::Stack, controller, host);
+            game.card_mut(host).zone = ZoneType::None;
         }
     }
 

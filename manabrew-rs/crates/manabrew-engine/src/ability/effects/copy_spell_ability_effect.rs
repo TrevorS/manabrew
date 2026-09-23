@@ -89,7 +89,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     for controller in controllers {
         for original in &originals {
             for _ in 0..amount {
-                push_copy(ctx, original, controller);
+                push_copy(ctx, sa, original, controller);
             }
         }
     }
@@ -97,11 +97,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
 fn push_copy(
     ctx: &mut EffectContext,
+    sa: &crate::spellability::SpellAbility,
     original: &crate::spellability::SpellAbility,
     controller: crate::ids::PlayerId,
 ) {
-    // Clone the spell ability with same targets using CardFactory parity helper.
-    let copy = crate::card::card_factory::copy_spell_ability(original, controller);
+    let copy = crate::card::card_factory::copy_spell_ability_and_possibly_host(
+        ctx.game, sa, original, controller,
+    );
 
     // Push the copy onto the stack (it will resolve like a normal spell)
     let copy_entry = crate::spellability::StackEntry {
