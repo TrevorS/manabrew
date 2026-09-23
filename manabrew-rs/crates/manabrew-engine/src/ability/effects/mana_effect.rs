@@ -67,6 +67,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     {
         produce_mana_for_player(ctx, sa, source_id, player);
     }
+
+    if crate::parsing::raw_has_key(&sa.ability_text, "Firebending") {
+        crate::player::trigger_elemental_bend(
+            ctx.game,
+            ctx.trigger_handler,
+            player,
+            crate::trigger::TriggerType::Firebend,
+        );
+    }
 }
 
 fn produce_mana_for_player(

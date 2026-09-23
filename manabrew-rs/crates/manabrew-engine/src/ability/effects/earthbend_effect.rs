@@ -77,6 +77,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         register_return_trigger(ctx, sa, card_id, ZoneType::Graveyard);
         register_return_trigger(ctx, sa, card_id, ZoneType::Exile);
     }
+    crate::player::trigger_elemental_bend(
+        ctx.game,
+        ctx.trigger_handler,
+        sa.activating_player,
+        TriggerType::Earthbend,
+    );
 }
 
 fn register_return_trigger(

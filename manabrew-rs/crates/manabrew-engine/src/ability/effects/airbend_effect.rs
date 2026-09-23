@@ -72,6 +72,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let host_id = sa.source;
     let host_image = host_id.map(|id| ctx.game.card(id).card_name.clone());
 
+    let mut moved_any = false;
     for card_id in targets {
         if ctx.game.card(card_id).zone == ZoneType::None {
             continue;
@@ -82,6 +83,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let owner = ctx.game.card(card_id).owner;
         ctx.move_card(card_id, ZoneType::Exile, owner);
         super::emit_zone_trigger(ctx.trigger_handler, card_id, old_zone, ZoneType::Exile);
+        moved_any |= ctx.game.card(card_id).zone == ZoneType::Exile;
 
         if ctx.game.card(card_id).is_token {
             continue;
@@ -122,5 +124,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         let effect_id = ctx.game.create_card(effect);
         ctx.move_card(effect_id, ZoneType::Command, owner);
+    }
+
+    if moved_any {
+        crate::player::trigger_elemental_bend(
+            ctx.game,
+            ctx.trigger_handler,
+            sa.activating_player,
+            crate::trigger::TriggerType::Airbend,
+        );
     }
 }

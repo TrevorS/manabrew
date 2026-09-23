@@ -1277,10 +1277,23 @@ pub fn after_static_ability_layer(game: &mut GameState, player: PlayerId) {
     game.player_mut(player).devotion_mod = 0;
 }
 
-pub fn trigger_elemental_bend(game: &mut GameState, player: PlayerId, trigger: &str) {
+pub fn trigger_elemental_bend(
+    game: &mut GameState,
+    trigger_handler: &mut TriggerHandler,
+    player: PlayerId,
+    trigger: crate::trigger::TriggerType,
+) {
     game.player_mut(player)
         .elemental_bend_triggers
-        .insert(trigger.to_string());
+        .insert(trigger.name().to_string());
+    trigger_handler.run_trigger(
+        crate::trigger::TriggerType::ElementalBend,
+        crate::event::RunParams {
+            player: Some(player),
+            ..Default::default()
+        },
+        false,
+    );
 }
 
 pub fn has_all_element_bend(game: &GameState, player: PlayerId, triggers: &[&str]) -> bool {

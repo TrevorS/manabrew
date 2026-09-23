@@ -701,7 +701,7 @@ impl Card {
             self.svars
                 .entry("TrigFirebending".to_string())
                 .or_insert_with(|| {
-                    format!("DB$ Mana | Defined$ You | CombatMana$ True | Produced$ R | Amount$ {n_str}")
+                    format!("DB$ Mana | Defined$ You | CombatMana$ True | Produced$ R | Amount$ {n_str} | Firebending$ True")
                 });
         }
 
