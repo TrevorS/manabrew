@@ -294,8 +294,9 @@ struct Cli {
     #[arg(long)]
     probe_out: Option<PathBuf>,
 
-    /// Write a JSON report (as `--format json -o` does) for every probe seed that does not pass
-    /// into this folder, named `<card>-<seed>.json`, ready for `explain` and `why`
+    /// Write a JSON report (as `--format json -o` does) for every probe seed that does not pass,
+    /// or passes on state with a differing decision, into this folder, named
+    /// `<card>-<seed>.json`, ready for `explain` and `why`
     #[arg(long)]
     probe_reports: Option<PathBuf>,
 
@@ -1187,7 +1188,7 @@ fn run_probe_mode(cli: &Cli) {
             .run_cached(&config, &java.pool, java.cache.as_ref())
             .result;
         if let Some(dir) = &cli.probe_reports {
-            if result.status != MatchupStatus::Pass {
+            if result.status != MatchupStatus::Pass || result.decision.is_some() {
                 write_probe_report(cli, dir, deck1, deck2, seed, &result);
             }
         }
