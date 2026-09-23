@@ -955,8 +955,12 @@ impl GameLoop {
 
         // Parse flashback total cost once (can include non-mana parts like Sac<...>).
         let flashback_total_cost = if is_flashback {
-            // Safe: is_flashback is only true if get_flashback_cost() returned Some
-            let fb_cost_str = game.card(card_id).get_flashback_cost().unwrap_or_default();
+            let fb_cost_str = game
+                .card(card_id)
+                .get_all_flashback_costs()
+                .get(sa.alt_cost_index as usize)
+                .cloned()
+                .unwrap_or_default();
             Some(parse_cost(&fb_cost_str))
         } else {
             None

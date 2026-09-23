@@ -1429,7 +1429,8 @@ impl GameLoop {
             if must_be_instant && !has_flash_permission(card_id) {
                 continue;
             }
-            if card.get_flashback_cost().is_none()
+            let flashback_costs = card.get_all_flashback_costs();
+            if flashback_costs.is_empty()
                 && card.get_harmonize_cost().is_none()
                 && card.get_escape_cost().is_none()
                 && card.get_mayhem_cost().is_none()
@@ -1454,15 +1455,20 @@ impl GameLoop {
             } else {
                 true
             };
-            let flashback_ok = if let Some(fb_cost_str) = card.get_flashback_cost() {
-                let fb_cost = crate::cost::parse_cost(&fb_cost_str);
-                let fb_mana = Self::mana_from_cost(&fb_cost);
-                available_mana.can_pay(&fb_mana)
-                    && sp_additional_ok
-                    && crate::cost::can_pay_ignoring_mana_for_spell(&fb_cost, game, card_id, player)
-            } else {
-                false
-            };
+            let flashback_payable: Vec<usize> = flashback_costs
+                .iter()
+                .enumerate()
+                .filter(|(_, fb_cost_str)| {
+                    let fb_cost = crate::cost::parse_cost(fb_cost_str);
+                    let fb_mana = Self::mana_from_cost(&fb_cost);
+                    available_mana.can_pay(&fb_mana)
+                        && sp_additional_ok
+                        && crate::cost::can_pay_ignoring_mana_for_spell(
+                            &fb_cost, game, card_id, player,
+                        )
+                })
+                .map(|(index, _)| index)
+                .collect();
             let harmonize_ok = if let Some(harmonize_cost_str) = card.get_harmonize_cost() {
                 let harmonize_mana = forge_foundation::ManaCost::parse(&harmonize_cost_str);
                 let harmonize_base = if harmonize_mana.count_x() > 0 {
@@ -1503,13 +1509,13 @@ impl GameLoop {
                     alt_cost_index: 0,
                 });
             }
-            if flashback_ok {
+            for index in flashback_payable {
                 playable.push(crate::agent::PlayOption {
                     card_id,
                     mode: crate::agent::PlayCardMode::Alternative(
                         crate::spellability::AlternativeCost::Flashback,
                     ),
-                    alt_cost_index: 0,
+                    alt_cost_index: index as u8,
                 });
             }
             if harmonize_ok {

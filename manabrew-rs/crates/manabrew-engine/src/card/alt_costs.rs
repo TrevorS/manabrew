@@ -194,13 +194,21 @@ impl Card {
     }
 
     pub fn get_flashback_cost(&self) -> Option<String> {
-        if let Some(cost) = self.get_keyword_cost("Flashback") {
-            return Some(cost);
+        self.get_all_flashback_costs().into_iter().next()
+    }
+
+    pub fn get_all_flashback_costs(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        for coll in [&self.keywords, &self.granted_keywords, &self.pump_keywords] {
+            for kw in coll.iter_strings() {
+                if let Some(cost) = kw.strip_prefix("Flashback:") {
+                    out.push(cost.to_string());
+                } else if kw == "Flashback" && !self.mana_cost.is_no_cost() {
+                    out.push(mana_cost_script_string(&self.mana_cost));
+                }
+            }
         }
-        if self.has_keyword("Flashback") && !self.mana_cost.is_no_cost() {
-            return Some(mana_cost_script_string(&self.mana_cost));
-        }
-        None
+        out
     }
 
     pub fn get_mayhem_cost(&self) -> Option<String> {
