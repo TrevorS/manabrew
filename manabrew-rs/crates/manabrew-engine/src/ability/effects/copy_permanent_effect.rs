@@ -82,12 +82,21 @@ pub fn get_proto_type(sa: &SpellAbility, original: &Card, new_owner: crate::ids:
         CardId(0),
         original.card_name.clone(),
         new_owner,
-        original.type_line.clone(),
+        original
+            .changed_type_line_base
+            .clone()
+            .unwrap_or_else(|| original.type_line.clone()),
         original.mana_cost.clone(),
         original.color,
-        original.base_power,
-        original.base_toughness,
-        original.keywords.as_string_list(),
+        original.changed_base_power.unwrap_or(original.base_power),
+        original
+            .changed_base_toughness
+            .unwrap_or(original.base_toughness),
+        original
+            .changed_keywords_base
+            .as_ref()
+            .unwrap_or(&original.keywords)
+            .as_string_list(),
         original.abilities.clone(),
     );
     copy.set_triggers(original.copiable_triggers());
