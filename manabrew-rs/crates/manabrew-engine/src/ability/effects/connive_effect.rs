@@ -1,8 +1,14 @@
 use forge_foundation::ZoneType;
 
 use super::{emit_zone_trigger, resolve_numeric_svar, EffectContext};
+use crate::agent::GameEntity;
 use crate::event::RunParams;
+use crate::ids::CardId;
 use crate::parsing::keys;
+use crate::replacement::replacement_handler::{
+    apply_replacements_with_agents_and_runtime, ReplacementEvent, ReplacementRuntime,
+};
+use crate::replacement::ReplacementResult;
 use crate::trigger::TriggerType;
 
 /// `DB$ Connive` — target creature connives N times.
@@ -22,22 +28,71 @@ use crate::trigger::TriggerType;
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let num = resolve_numeric_svar(ctx.game, sa, keys::CONNIVE_NUM, 1).max(0) as usize;
 
-    // Resolve the conniving creature. Java's `getTargetCards` reads the chosen target for a
-    // targeted ability (empty, and `resolve` returns, if none was chosen — `TargetMin$ 0`
-    // makes that a real "nothing connives" case, not a fallback) and the defined card
-    // otherwise. A targeted `Connive` with no target chosen has no conniver at all.
-    let conniver_id = if sa.target_restrictions.is_some() {
-        match sa.target_chosen.target_card {
-            Some(target) => target,
-            None => return,
-        }
-    } else {
-        match sa.source {
-            Some(id) => id,
-            None => return,
-        }
-    };
+    let to_connive =
+        if sa.uses_targeting() || crate::parsing::raw_has_key(&sa.ability_text, keys::DEFINED) {
+            crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa)
+        } else {
+            sa.source.into_iter().collect()
+        };
+    if to_connive.is_empty() {
+        return;
+    }
 
+    let player_order = ctx.game.player_order.clone();
+    let start = player_order
+        .iter()
+        .position(|p| *p == ctx.game.turn.active_player)
+        .unwrap_or(0);
+    for idx in 0..player_order.len() {
+        let p = player_order[(start + idx) % player_order.len()];
+        let mut connivers: Vec<CardId> = to_connive
+            .iter()
+            .copied()
+            .filter(|c| ctx.game.card(*c).controller == p)
+            .collect();
+        while !connivers.is_empty() {
+            let conniver = if connivers.len() > 1 {
+                let options: Vec<GameEntity> =
+                    connivers.iter().copied().map(GameEntity::Card).collect();
+                match ctx.agents[p.index()].choose_single_entity_for_effect(p, &options, false) {
+                    Some(GameEntity::Card(card)) => card,
+                    _ => connivers[0],
+                }
+            } else {
+                connivers[0]
+            };
+            connivers.retain(|c| *c != conniver);
+
+            let mut event = ReplacementEvent::Connive { card: conniver };
+            let mut runtime = ReplacementRuntime {
+                trigger_handler: ctx.trigger_handler,
+                token_templates: ctx.token_templates,
+                token_art_variants: ctx.token_art_variants,
+                token_fallback: ctx.token_fallback,
+                edition_dates: ctx.edition_dates,
+                mana_pools: ctx.mana_pools,
+                rng: ctx.rng,
+            };
+            let result = apply_replacements_with_agents_and_runtime(
+                ctx.game,
+                ctx.agents,
+                &mut runtime,
+                &mut event,
+            );
+            if result != ReplacementResult::NotReplaced {
+                continue;
+            }
+            connive_one(ctx, sa, num, conniver);
+        }
+    }
+}
+
+fn connive_one(
+    ctx: &mut EffectContext,
+    sa: &crate::spellability::SpellAbility,
+    num: usize,
+    conniver_id: CardId,
+) {
     // Java's `ConniveEffect.resolve` draws and discards unconditionally once a conniver is
     // resolved; only the +1/+1 counter placement checks whether it is still on the
     // battlefield, further down. A conniver that has already left (the legend rule

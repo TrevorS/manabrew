@@ -76,7 +76,9 @@ pub enum ReplacementEvent {
     },
 
     /// A permanent is being destroyed (lethal damage or destroy effect).
-    Destroy { target: CardId },
+    Destroy {
+        target: CardId,
+    },
 
     /// A card is moving between zones.
     Moved {
@@ -95,7 +97,10 @@ pub enum ReplacementEvent {
     },
 
     /// A player is gaining life.
-    GainLife { player: PlayerId, amount: i32 },
+    GainLife {
+        player: PlayerId,
+        amount: i32,
+    },
 
     /// Token(s) are being created.
     /// `is_effect` is `true` when created by a spell/ability effect, `false` for game rules.
@@ -125,10 +130,14 @@ pub enum ReplacementEvent {
     },
 
     /// A player is winning the game.
-    GameWin { player: PlayerId },
+    GameWin {
+        player: PlayerId,
+    },
 
     /// A spell is being countered.
-    Counter { card: CardId },
+    Counter {
+        card: CardId,
+    },
 
     /// Mana is being produced (for doublers like Mirari's Wake, Nyxbloom Ancient).
     /// `mana` is the produced mana string (e.g. "G" or "U U") that may be modified.
@@ -139,7 +148,9 @@ pub enum ReplacementEvent {
     },
 
     /// A permanent is being tapped.
-    Tap { card: CardId },
+    Tap {
+        card: CardId,
+    },
 
     /// A permanent is being untapped.
     Untap {
@@ -169,19 +180,34 @@ pub enum ReplacementEvent {
     },
 
     /// Multiple cards are being drawn.
-    DrawCards { player: PlayerId, count: i32 },
+    DrawCards {
+        player: PlayerId,
+        count: i32,
+    },
 
     /// Cards are being milled.
-    Mill { player: PlayerId, count: i32 },
+    Mill {
+        player: PlayerId,
+        count: i32,
+    },
 
     /// Life is being paid as a cost.
-    PayLife { player: PlayerId, amount: i32 },
+    PayLife {
+        player: PlayerId,
+        amount: i32,
+    },
 
     /// A player is scrying.
-    Scry { player: PlayerId, count: i32 },
+    Scry {
+        player: PlayerId,
+        count: i32,
+    },
 
     /// An aura/equipment is being attached.
-    Attached { card: CardId, target: CardId },
+    Attached {
+        card: CardId,
+        target: CardId,
+    },
 
     /// A phase is beginning.
     BeginPhase {
@@ -190,37 +216,66 @@ pub enum ReplacementEvent {
     },
 
     /// A turn is beginning.
-    BeginTurn { player: PlayerId },
+    BeginTurn {
+        player: PlayerId,
+    },
 
     /// A creature is exploring.
-    Explore { card: CardId },
+    Explore {
+        card: CardId,
+    },
+
+    Connive {
+        card: CardId,
+    },
 
     /// Blockers are being declared.
-    DeclareBlocker { player: PlayerId },
+    DeclareBlocker {
+        player: PlayerId,
+    },
 
     /// Damage is being assigned before dealing.
-    AssignDealDamage { card: CardId },
+    AssignDealDamage {
+        card: CardId,
+    },
 
     /// A DFC is transforming.
-    Transform { card: CardId },
+    Transform {
+        card: CardId,
+    },
 
     /// A face-down card is turning face up.
-    TurnFaceUp { card: CardId },
+    TurnFaceUp {
+        card: CardId,
+    },
 
     /// A spell is being copied.
-    CopySpell { player: PlayerId, count: i32 },
+    CopySpell {
+        player: PlayerId,
+        count: i32,
+    },
 
     /// A player is proliferating.
-    Proliferate { player: PlayerId, count: i32 },
+    Proliferate {
+        player: PlayerId,
+        count: i32,
+    },
 
     /// Cascade is triggering.
-    Cascade { player: PlayerId },
+    Cascade {
+        player: PlayerId,
+    },
 
     /// A player is learning.
-    Learn { player: PlayerId },
+    Learn {
+        player: PlayerId,
+    },
 
     /// Mana is being lost.
-    LoseMana { player: PlayerId, mana: u16 },
+    LoseMana {
+        player: PlayerId,
+        mana: u16,
+    },
 
     /// Dice are being rolled.
     RollDice {
@@ -246,13 +301,19 @@ pub enum ReplacementEvent {
     },
 
     /// A player is planeswalking.
-    Planeswalk { player: PlayerId },
+    Planeswalk {
+        player: PlayerId,
+    },
 
     /// A scheme is being set in motion.
-    SetInMotion { player: PlayerId },
+    SetInMotion {
+        player: PlayerId,
+    },
 
     /// A contraption is being assembled.
-    AssembleContraption { player: PlayerId },
+    AssembleContraption {
+        player: PlayerId,
+    },
 }
 
 // ── ReplacementHandler struct ─────────────────────────────────────────────────
@@ -481,6 +542,7 @@ fn affected_player_for_event(event: &ReplacementEvent, game: &GameState) -> Play
         ReplacementEvent::BeginPhase { player, .. } => *player,
         ReplacementEvent::BeginTurn { player } => *player,
         ReplacementEvent::Explore { card } => game.cards[card.index()].controller,
+        ReplacementEvent::Connive { card } => game.cards[card.index()].controller,
         ReplacementEvent::DeclareBlocker { player } => *player,
         ReplacementEvent::AssignDealDamage { card } => game.cards[card.index()].controller,
         ReplacementEvent::Transform { card } => game.cards[card.index()].controller,
@@ -1097,6 +1159,7 @@ fn collect_effects(
         replace_begin_phase,
         replace_begin_turn,
         replace_cascade,
+        replace_connive,
         replace_copy_spell,
         replace_counter,
         replace_damage,
@@ -1201,6 +1264,7 @@ fn collect_effects(
                     replace_begin_turn::can_replace(re, event, game, card)
                 }
                 ReplacementType::Cascade => replace_cascade::can_replace(re, event, game, card),
+                ReplacementType::Connive => replace_connive::can_replace(re, event, game, card),
                 ReplacementType::CopySpell => {
                     replace_copy_spell::can_replace(re, event, game, card)
                 }
@@ -1278,6 +1342,7 @@ fn execute_effect(
         replace_begin_phase,
         replace_begin_turn,
         replace_cascade,
+        replace_connive,
         replace_copy_spell,
         replace_counter,
         replace_damage,
@@ -1367,6 +1432,9 @@ fn execute_effect(
         }
         ReplacementType::Explore => {
             replace_explore::execute(effect, event, game, card_id, agents, runtime)
+        }
+        ReplacementType::Connive => {
+            replace_connive::execute(effect, event, game, card_id, agents, runtime)
         }
         ReplacementType::Learn => replace_learn::execute(effect, event, game, card_id),
         ReplacementType::LifeReduced => replace_life_reduced::execute(effect, event, game, card_id),

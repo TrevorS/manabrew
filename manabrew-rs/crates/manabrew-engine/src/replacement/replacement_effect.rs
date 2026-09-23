@@ -665,6 +665,7 @@ impl ReplacementEffect {
                 | ReplacementEvent::Tap { card }
                 | ReplacementEvent::Untap { card, .. }
                 | ReplacementEvent::Explore { card }
+                | ReplacementEvent::Connive { card }
                 | ReplacementEvent::Transform { card }
                 | ReplacementEvent::TurnFaceUp { card }
                 | ReplacementEvent::AssignDealDamage { card } => {

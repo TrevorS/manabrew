@@ -25,6 +25,7 @@ pub enum ReplacementType {
     BeginPhase,
     BeginTurn,
     Cascade,
+    Connive,
     Counter,
     CopySpell,
     CreateToken,

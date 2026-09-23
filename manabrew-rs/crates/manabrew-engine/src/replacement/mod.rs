@@ -31,6 +31,7 @@ pub mod replace_attached;
 pub mod replace_begin_phase;
 pub mod replace_begin_turn;
 pub mod replace_cascade;
+pub mod replace_connive;
 pub mod replace_copy_spell;
 pub mod replace_dealt_damage;
 pub mod replace_declare_blocker;
