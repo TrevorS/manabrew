@@ -1172,6 +1172,28 @@ fn apply_pending_effects(
                     card.granted_svars
                         .insert(amount, "TriggerCount$CurrentStormCount/Minus.1".to_string());
                 }
+                if kw == "Prowess" {
+                    let next_id = card
+                        .triggers
+                        .iter()
+                        .map(|t| t.id)
+                        .max()
+                        .unwrap_or(0)
+                        .saturating_add(1);
+                    let mut next_id_mut = next_id;
+                    let execute = format!("TrigProwessGranted{next_id}");
+                    let raw = format!(
+                        "Mode$ SpellCast | ValidCard$ Card.nonCreature | ValidActivatingPlayer$ You | Execute$ {execute} | TriggerZones$ Battlefield | TriggerDescription$ Prowess"
+                    );
+                    if let Some(mut trig) = crate::trigger::parse_trigger(&raw, &mut next_id_mut) {
+                        trig.execute = execute.clone();
+                        card.add_trigger(trig);
+                    }
+                    card.granted_svars.insert(
+                        execute,
+                        "DB$ Pump | Defined$ Self | NumAtt$ +1 | NumDef$ +1".to_string(),
+                    );
+                }
                 if kw == "Conspire" {
                     let next_id = card
                         .triggers
