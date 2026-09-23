@@ -346,7 +346,45 @@ impl GameLoop {
                     )),
                 )
             };
-            if !can_pay_cost {
+            let main_mana_payable = || {
+                let mut mana_only = ab_cost.clone();
+                mana_only
+                    .parts
+                    .retain(|p| matches!(p, crate::cost::CostPart::Mana { .. }));
+                mana_only.has_tap = false;
+                crate::cost::can_pay_with_ability(
+                    &mana_only,
+                    game,
+                    &mana_for_check,
+                    card_id,
+                    player,
+                    Some(&sa_for_target_check),
+                )
+            };
+            if !can_pay_cost
+                && !ab
+                    .params
+                    .get(crate::parsing::keys::ALTERNATE_COST)
+                    .is_some_and(|alternate| {
+                        let alternate_cost = Self::adjusted_activation_cost(
+                            game,
+                            &sa_for_target_check,
+                            ab,
+                            player,
+                            crate::cost::parse_cost(alternate),
+                            true,
+                        );
+                        main_mana_payable()
+                            && crate::cost::can_pay_with_ability(
+                                &alternate_cost,
+                                game,
+                                &mana_for_check,
+                                card_id,
+                                player,
+                                Some(&sa_for_target_check),
+                            )
+                    })
+            {
                 return Err("cost cannot be paid");
             }
             Ok(())
