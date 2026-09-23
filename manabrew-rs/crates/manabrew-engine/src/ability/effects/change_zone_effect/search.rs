@@ -247,7 +247,7 @@ pub(super) fn resolve_random_selection(
     count: usize,
 ) -> Vec<CardId> {
     let mut pool = candidates.to_vec();
-    pool.sort_by_cached_key(|cid| format!("{} ({})", ctx.game.card(*cid).card_name, cid.0));
+    pool.sort_by_cached_key(|cid| (ctx.game.card(*cid).card_name.clone(), cid.0));
     let mut chosen = Vec::new();
     while chosen.len() < count && !pool.is_empty() {
         let index = if pool.len() == 1 {
