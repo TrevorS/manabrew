@@ -172,6 +172,13 @@ impl GameLoop {
         // Clear mana pools at each phase/step transition, retaining persistent,
         // combat mana, and UnspentMana static colors (MTG rule 500.4).
         // Scan for UnspentMana statics (Omnath, Leyline Tyrant, Upwelling, etc.)
+        self.clear_mana_pools_on_phase_end(game);
+        game.turn.phase = phase;
+        self.log_phase_begin(phase);
+        self.notify_phase_changed(game, agents);
+    }
+
+    pub(crate) fn clear_mana_pools_on_phase_end(&mut self, game: &mut GameState) {
         let num_players = self.mana_pools.len();
         for pidx in 0..num_players {
             let player_id = crate::ids::PlayerId(pidx as u32);
@@ -206,9 +213,6 @@ impl GameLoop {
                 game.player_lose_life(player_id, cleared as i32);
             }
         }
-        game.turn.phase = phase;
-        self.log_phase_begin(phase);
-        self.notify_phase_changed(game, agents);
     }
 }
 

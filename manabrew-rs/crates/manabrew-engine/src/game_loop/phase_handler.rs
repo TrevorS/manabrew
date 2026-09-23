@@ -466,8 +466,6 @@ impl GameLoop {
             },
             false,
         );
-
-        self.pool_mut(active).reset_pool();
     }
 
     pub fn step_draw(&mut self, game: &mut GameState, agents: &mut [Box<dyn PlayerAgent>]) {
@@ -708,9 +706,7 @@ impl GameLoop {
         game.turn.extra_phases.clear();
         game.stack.reset_max_distinct_sources();
 
-        // Empty mana pool at end of turn (cleanup step), per Magic rules.
-        let active = game.active_player();
-        self.pool_mut(active).reset_pool();
+        self.clear_mana_pools_on_phase_end(game);
         self.trigger_handler.clear_this_turn_delayed_trigger();
     }
 
