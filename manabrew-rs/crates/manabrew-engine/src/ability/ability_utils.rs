@@ -2569,19 +2569,15 @@ pub fn get_spells_from_play_effect(
     out
 }
 
-/// Read an SVar from the SA's host, applying in-flight text-change effects
-/// when the SA is intrinsic — mirrors Java `AbilityUtils.getSVar(CardTraitBase, String)`.
-pub fn get_s_var(sa: &SpellAbility, game: &GameState, svar_name: &str) -> Option<String> {
-    let host_id = sa.source?;
-    let raw = game.card(host_id).get_s_var(svar_name)?.to_string();
-    if !sa.is_intrinsic() || raw.is_empty() {
-        return Some(raw);
-    }
-    // Text-change effects are applied at Card state time; no additional
-    // rewrite needed here (see `apply_description_text_change_effects` for the
-    // description path). Mirrors Java's behavior when no active text changes
-    // match the SVar value.
-    Some(raw)
+/// Mirrors Java `AbilityUtils.getSVar(CardTraitBase, String)`: a granted ability reads the
+/// granting card's SVars before its host's (`CardTraitBase.getSVarFallback`).
+pub fn get_s_var<'a>(sa: &SpellAbility, game: &'a GameState, svar_name: &str) -> Option<&'a str> {
+    sa.original_host
+        .and_then(|host| game.card(host).get_s_var(svar_name))
+        .or_else(|| {
+            sa.source
+                .and_then(|host| game.card(host).get_s_var(svar_name))
+        })
 }
 
 /// Returns `true` when a trait can't be linked to the cast-SA of `card` because

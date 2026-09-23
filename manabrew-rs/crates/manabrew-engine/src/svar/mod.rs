@@ -539,7 +539,15 @@ fn resolve_lowered_svar_expression(
         ),
         ScriptSVarNumericExpression::ObjectProperty { object, property } => match object {
             ScriptSVarObjectRef::Sacrificed => {
-                Some(sacrificed_card_property_value(game, sa, property))
+                let (base, operators) = property.split_once('/').unwrap_or((property, ""));
+                Some(do_x_math(
+                    sacrificed_card_property_value(game, sa, base),
+                    operators,
+                    game,
+                    source_id,
+                    controller,
+                    sa,
+                ))
             }
             ScriptSVarObjectRef::TriggeredCard => {
                 let (base, operators) = property.split_once('/').unwrap_or((property, ""));
@@ -1254,7 +1262,7 @@ pub fn resolve_numeric_value(
     if val_str == "X" {
         // First check if there's an SVar named "X" on the source card
         if let Some(source_id) = sa.source {
-            if let Some(svar_expr) = game.card(source_id).get_s_var("X") {
+            if let Some(svar_expr) = crate::ability::ability_utils::get_s_var(sa, game, "X") {
                 if svar_expr.starts_with("Count$") {
                     return sign
                         * resolve_count_svar_for_sa(
@@ -1330,7 +1338,8 @@ pub fn resolve_numeric_value(
 
     // It's an SVar reference — look it up on the source card
     if let Some(source_id) = sa.source {
-        if let Some(svar_expr) = game.card(source_id).get_s_var(val_str.trim()) {
+        if let Some(svar_expr) = crate::ability::ability_utils::get_s_var(sa, game, val_str.trim())
+        {
             // Game-aware SVar resolution for patterns that need GameState.
             if svar_expr.starts_with("Count$") {
                 return sign

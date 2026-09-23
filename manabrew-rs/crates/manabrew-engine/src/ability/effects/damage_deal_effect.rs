@@ -550,24 +550,15 @@ fn resolve_damage_amount_from_params(ctx: &EffectContext, sa: &SpellAbility) -> 
 }
 
 fn resolve_x_amount(ctx: &EffectContext, sa: &SpellAbility) -> i32 {
-    if let Some(source_id) = sa.source {
-        if let Some(svar_expr) = ctx.game.card(source_id).get_s_var("X") {
-            return evaluate_svar_expr(ctx, sa, svar_expr);
-        }
+    if let Some(svar_expr) = crate::ability::ability_utils::get_s_var(sa, ctx.game, "X") {
+        return evaluate_svar_expr(ctx, sa, svar_expr);
     }
     sa.x_mana_cost_paid as i32
 }
 
 fn resolve_svar_amount(ctx: &EffectContext, sa: &SpellAbility, var_name: &str) -> i32 {
-    if let Some(source_id) = sa.source {
-        let svar_val = ctx
-            .game
-            .card(source_id)
-            .get_s_var(var_name)
-            .map(str::to_string);
-        if let Some(expr) = svar_val {
-            return evaluate_svar_expr(ctx, sa, &expr);
-        }
+    if let Some(expr) = crate::ability::ability_utils::get_s_var(sa, ctx.game, var_name) {
+        return evaluate_svar_expr(ctx, sa, expr);
     }
 
     0
