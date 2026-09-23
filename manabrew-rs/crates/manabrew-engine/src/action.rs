@@ -259,6 +259,15 @@ impl GameState {
                 self.cards[card_id.index()].cast_from,
             );
         }
+        let indirect_aura = dest_zone == ZoneType::Battlefield && src_zone != ZoneType::Stack && {
+            let card = self.card(card_id);
+            card.type_line.has_subtype("Aura")
+                && card.attached_to.is_none()
+                && card.attached_to_player.is_none()
+        };
+        if indirect_aura && self.aura_attach_candidates(card_id).is_empty() {
+            return;
+        }
         let mut etb_counters = std::collections::BTreeMap::new();
         if dest_zone == ZoneType::Battlefield {
             for keyword in self.cards[card_id.index()].keywords.as_string_list() {
@@ -446,6 +455,11 @@ impl GameState {
                 ),
                 _ => (dest_zone, None, None, Vec::new()),
             };
+        if indirect_aura && dest_zone == ZoneType::Battlefield {
+            if let Some(agents) = agents.as_deref_mut() {
+                self.attach_aura_on_indirect_etb(agents, card_id, dest_owner);
+            }
+        }
         let etb_counter_map = if dest_zone != ZoneType::Battlefield {
             etb_counter_map
         } else {
@@ -2309,6 +2323,61 @@ impl GameState {
         self.card_mut(card_id).controller = new_controller;
         if zone == ZoneType::Battlefield {
             self.card_mut(card_id).summoning_sick = true;
+        }
+    }
+
+    fn aura_attach_candidates(&self, aura_id: CardId) -> Vec<GameEntity> {
+        let aura = self.card(aura_id);
+        let Some(enchant_type) = aura
+            .keywords
+            .iter_strings()
+            .find_map(|kw| crate::keyword::extract_keyword_cost_str(kw, "Enchant"))
+        else {
+            return Vec::new();
+        };
+        let normalized = enchant_type
+            .split_once(':')
+            .map_or(enchant_type, |(kind, _)| kind);
+        if normalized.starts_with("Player") || normalized.starts_with("Opponent") {
+            return (0..self.players.len())
+                .map(|index| PlayerId(index as u32))
+                .filter(|&player| crate::player::player_predicates::can_be_attached(self, player))
+                .map(GameEntity::Player)
+                .collect();
+        }
+        self.cards_in_all_zones(ZoneType::Battlefield)
+            .chain(self.cards_in_all_zones(ZoneType::Graveyard))
+            .filter(|&target| {
+                target != aura_id
+                    && crate::parsing::enchant_type_matches_card(
+                        enchant_type,
+                        self.card(target),
+                        Some(aura),
+                    )
+                    && crate::card::card_predicates::can_be_attached(self, target, aura_id)
+            })
+            .map(GameEntity::Card)
+            .collect()
+    }
+
+    fn attach_aura_on_indirect_etb(
+        &mut self,
+        agents: &mut [Box<dyn PlayerAgent>],
+        aura_id: CardId,
+        controller: PlayerId,
+    ) {
+        let candidates = self.aura_attach_candidates(aura_id);
+        if candidates.is_empty() {
+            return;
+        }
+        match agents[controller.index()].choose_single_entity_for_effect(
+            controller,
+            &candidates,
+            false,
+        ) {
+            Some(GameEntity::Card(target)) => self.attach_to(aura_id, target),
+            Some(GameEntity::Player(player)) => self.attach_to_player(aura_id, player),
+            None => {}
         }
     }
 
