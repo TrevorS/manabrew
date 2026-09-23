@@ -1,5 +1,4 @@
 use super::{resolve_numeric_svar, EffectContext};
-use crate::parsing::keys;
 
 /// Resolve `SP$ AddPhase` — add extra combat (or main) phases to the current turn.
 ///
@@ -9,8 +8,8 @@ use crate::parsing::keys;
 ///
 /// # Card script examples
 /// ```text
-/// A:SP$ AddPhase | ExtraPhase$ Combat | Amount$ 1
-/// A:SP$ AddPhase | ExtraPhase$ Combat | Amount$ 2
+/// A:SP$ AddPhase | ExtraPhase$ Combat
+/// A:SP$ AddPhase | ExtraPhase$ Combat | NumPhases$ 2
 /// ```
 /// Struct form of this effect so it can participate in the
 /// `SpellAbilityEffect` trait hierarchy — mirrors Java's
@@ -19,7 +18,7 @@ use crate::parsing::keys;
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let extra_phase = sa.ir.extra_phase_text.as_deref().unwrap_or("Combat");
 
-    let amount = resolve_numeric_svar(ctx.game, sa, keys::AMOUNT, 1).max(0) as u32;
+    let amount = resolve_numeric_svar(ctx.game, sa, "NumPhases", 1).max(0) as u32;
 
     match extra_phase {
         "Combat" | "BeginCombat" => {
