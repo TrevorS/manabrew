@@ -2267,7 +2267,7 @@ impl Card {
             && self.counter_count(&CounterType::Named("FINALITY".to_string())) > 0
         {
             let raw = "R$ Event$ Moved | ActiveZones$ Battlefield | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Secondary$ True | NewDestination$ Exile | Description$ If CARDNAME would die, exile it instead.";
-            if let Some(mut replacement) = crate::replacement::parse_replacement_effect(raw) {
+            if let Some(mut replacement) = crate::replacement::cached_replacement_effect(raw) {
                 replacement.set_host_card(self);
                 effects.push(replacement);
             }
@@ -2334,7 +2334,7 @@ impl Card {
                 let raw = format!(
                     "R$ Event$ DamageDone | Prevent$ True{combat} | Secondary$ True | {valid}$ Card.Self | Description$ {keyword}"
                 );
-                if let Some(mut replacement) = crate::replacement::parse_replacement_effect(&raw) {
+                if let Some(mut replacement) = crate::replacement::cached_replacement_effect(&raw) {
                     replacement.set_host_card(self);
                     effects.push(replacement);
                 }

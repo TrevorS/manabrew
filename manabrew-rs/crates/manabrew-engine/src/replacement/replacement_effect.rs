@@ -985,6 +985,21 @@ pub fn parse_replacement_effect(raw: &str) -> Option<ReplacementEffect> {
     Some(ReplacementEffect::new(event, layer, params, active_zones))
 }
 
+pub fn cached_replacement_effect(raw: &str) -> Option<ReplacementEffect> {
+    thread_local! {
+        static CACHE: std::cell::RefCell<crate::HashMap<Box<str>, Option<ReplacementEffect>>> =
+            std::cell::RefCell::new(crate::HashMap::default());
+    }
+    CACHE.with(|cache| {
+        if let Some(effect) = cache.borrow().get(raw) {
+            return effect.clone();
+        }
+        let effect = parse_replacement_effect(raw);
+        cache.borrow_mut().insert(raw.into(), effect.clone());
+        effect
+    })
+}
+
 /// Parse a comma- or space-separated zone list string into `ZoneType` values.
 pub(super) fn parse_zone_list(s: &str) -> Vec<ZoneType> {
     s.split([',', ' '])
