@@ -385,7 +385,14 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         }
     }
 
-    let mut initial: Vec<(CardId, usize, StaticAbility, bool, usize, Layer)> = game
+    let mut initial: Vec<(
+        CardId,
+        usize,
+        Option<Box<StaticAbility>>,
+        bool,
+        usize,
+        Layer,
+    )> = game
         .cards
         .iter()
         .flat_map(|card| {
@@ -393,26 +400,42 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 .iter()
                 .enumerate()
                 .filter(move |(_, sa)| !card.face_down && sa.zones_check(card.zone))
-                .map(move |(sa_idx, sa)| (card.id, sa_idx, sa.clone()))
+                .map(move |(sa_idx, sa)| (card.id, sa_idx, first_static_layer(sa)))
         })
         .enumerate()
-        .map(|(seq, (card_id, sa_idx, sa))| {
-            let layer = first_static_layer(&sa);
-            (card_id, sa_idx, sa, false, seq, layer)
-        })
+        .map(|(seq, (card_id, sa_idx, layer))| (card_id, sa_idx, None, false, seq, layer))
         .collect();
     initial.sort_by_key(|entry| entry.5);
     let mut statics: std::collections::VecDeque<(
         CardId,
         usize,
-        StaticAbility,
+        Option<Box<StaticAbility>>,
         bool,
         usize,
         Layer,
     )> = initial.into();
     let mut flushed_below: Option<Layer> = None;
-    while let Some((source_id, sa_idx, sa, is_granted, seq, first_layer)) = statics.pop_front() {
+    while let Some((source_id, sa_idx, mut owned, is_granted, seq, first_layer)) =
+        statics.pop_front()
+    {
         if flushed_below != Some(first_layer) {
+            let losing_traits: Vec<CardId> = staged
+                .iter()
+                .filter(|(_, effect)| matches!(effect.kind, EffectKind::RemoveAllCardTraits { .. }))
+                .map(|(_, effect)| effect.target)
+                .collect();
+            if !losing_traits.is_empty() {
+                let queued = statics
+                    .iter_mut()
+                    .map(|(card_id, idx, owned, ..)| (*card_id, *idx, owned));
+                for (card_id, idx, owned) in
+                    std::iter::once((source_id, sa_idx, &mut owned)).chain(queued)
+                {
+                    if owned.is_none() && losing_traits.contains(&card_id) {
+                        *owned = Some(Box::new(game.card(card_id).static_abilities[idx].clone()));
+                    }
+                }
+            }
             flush_pending_effects(
                 game,
                 &mut staged,
@@ -424,6 +447,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         }
         {
             let pending_before = pending.len();
+            let sa = static_ability_at(game, source_id, sa_idx, &owned);
             if !sa.zones_check(game.card(source_id).zone) {
                 continue;
             }
@@ -433,10 +457,21 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 continue;
             }
 
-            if sa.check_mode(&StaticMode::Continuous) {
-                apply_player_keyword_effects(game, source_id, &sa);
-                apply_player_rules_effects(game, source_id, &sa);
+            if sa.check_mode(&StaticMode::Continuous)
+                && (sa.ir.add_keyword_text.is_some() || sa.ir.adjust_land_plays_text.is_some())
+            {
+                let affected_players = affected_players_for_static(game, source_id, sa);
+                let add_keywords = sa.ir.add_keyword_text.clone();
+                let adjust_land_plays = sa.ir.adjust_land_plays_text.clone();
+                apply_player_keyword_effects(game, &affected_players, add_keywords.as_deref());
+                apply_player_rules_effects(
+                    game,
+                    source_id,
+                    &affected_players,
+                    adjust_land_plays.as_deref(),
+                );
             }
+            let sa = static_ability_at(game, source_id, sa_idx, &owned);
             let source_card = game.card(source_id);
 
             // CharacteristicDefining statics always affect only the host card.
@@ -840,7 +875,14 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             }
             for (offset, (target, granted)) in granted_statics.drain(..).enumerate().rev() {
                 let granted_idx = game.card(target).static_abilities.len() + offset;
-                statics.push_front((target, granted_idx, granted, true, seq, first_layer));
+                statics.push_front((
+                    target,
+                    granted_idx,
+                    Some(Box::new(granted)),
+                    true,
+                    seq,
+                    first_layer,
+                ));
             }
         }
         staged.extend(pending.drain(..).map(|effect| (seq, effect)));
@@ -849,7 +891,13 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     let mut granted_by_target: indexmap::IndexMap<CardId, Vec<StaticAbility>> =
         indexmap::IndexMap::new();
     for (target, mut granted) in granted_player_rules {
-        apply_player_rules_effects(game, target, &granted);
+        let affected_players = affected_players_for_static(game, target, &granted);
+        apply_player_rules_effects(
+            game,
+            target,
+            &affected_players,
+            granted.ir.adjust_land_plays_text.as_deref(),
+        );
         granted.base.set_host_card_id(target);
         granted_by_target.entry(target).or_default().push(granted);
     }
@@ -1260,11 +1308,15 @@ fn apply_pending_effects(
     }
 }
 
-fn apply_player_keyword_effects(game: &mut GameState, source_id: CardId, sa: &StaticAbility) {
-    let Some(add_keywords) = sa.ir.add_keyword_text.as_deref() else {
+fn apply_player_keyword_effects(
+    game: &mut GameState,
+    affected_players: &[PlayerId],
+    add_keywords: Option<&str>,
+) {
+    let Some(add_keywords) = add_keywords else {
         return;
     };
-    for player in affected_players_for_static(game, source_id, sa) {
+    for &player in affected_players {
         for keyword in add_keywords
             .split(" & ")
             .map(str::trim)
@@ -1278,23 +1330,39 @@ fn apply_player_keyword_effects(game: &mut GameState, source_id: CardId, sa: &St
     }
 }
 
-fn apply_player_rules_effects(game: &mut GameState, source_id: CardId, sa: &StaticAbility) {
-    let Some(adjust_land_plays) = sa.ir.adjust_land_plays_text.as_deref() else {
+fn apply_player_rules_effects(
+    game: &mut GameState,
+    source_id: CardId,
+    affected_players: &[PlayerId],
+    adjust_land_plays: Option<&str>,
+) {
+    let Some(adjust_land_plays) = adjust_land_plays else {
         return;
     };
-    let affected_players = affected_players_for_static(game, source_id, sa);
     if affected_players.is_empty() {
         return;
     }
     if adjust_land_plays.eq_ignore_ascii_case("Unlimited") {
-        for player in affected_players {
+        for &player in affected_players {
             game.player_mut(player).unlimited_land_plays = true;
         }
         return;
     }
     let amount = resolve_rules_amount(game, source_id, adjust_land_plays);
-    for player in affected_players {
+    for &player in affected_players {
         game.player_mut(player).max_land_plays_per_turn += amount;
+    }
+}
+
+fn static_ability_at<'a>(
+    game: &'a GameState,
+    source_id: CardId,
+    sa_idx: usize,
+    owned: &'a Option<Box<StaticAbility>>,
+) -> &'a StaticAbility {
+    match owned {
+        Some(sa) => sa,
+        None => &game.card(source_id).static_abilities[sa_idx],
     }
 }
 
