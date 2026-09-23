@@ -493,6 +493,23 @@ pub(super) fn apply_post_move(
         }
     }
 
+    if dest_zone != ZoneType::Battlefield {
+        for counter_type in sa.with_counters_types() {
+            let amount =
+                crate::svar::resolve_numeric_svar(ctx.game, sa, keys::WITH_COUNTERS_AMOUNT, 1);
+            ctx.add_counter(
+                card_id,
+                &counter_type,
+                amount,
+                sa,
+                crate::event::RunParams {
+                    source_player: Some(controller),
+                    ..Default::default()
+                },
+            );
+        }
+    }
+
     // Exile effects
     if dest_zone == ZoneType::Exile {
         if sa.is_exile_face_down() {
