@@ -26,6 +26,7 @@ use crate::protocol::{
 /// agent's answer before the payment.
 pub const COMPARED_CALLBACKS: &[&str] = &[
     "$ACTION_SPACE",
+    "announce_requirements",
     "assign_combat_damage",
     "choose_action",
     "choose_attackers",
@@ -117,6 +118,12 @@ pub fn is_java_pick_row(record: &CallbackRecord) -> bool {
     JAVA_PICK_ROW_CALLBACKS.contains(&record.name.as_str()) && !record.args.is_empty()
 }
 
+/// `EngineHandler.announceRequirements` logs `null` when the bounds are empty and asks nothing;
+/// `GameLoop::announce_requirements` returns before calling the agent in the same case.
+pub fn is_java_unasked_announcement(record: &CallbackRecord) -> bool {
+    record.name == "announce_requirements" && record.outcome == "null"
+}
+
 /// Prompts Forge raises even when there is exactly one option: `ReplacementHandler.run`
 /// asks which replacement effect to apply, and `CountersPutEffect.chooseTypeFromList`
 /// asks which counter type. A one-option row offers no choice and draws no RNG,
@@ -136,6 +143,7 @@ fn compared(log: &[ParityLogEntry], java: bool) -> Vec<&CallbackRecord> {
         .filter_map(ParityLogEntry::as_callback)
         .filter(|record| COMPARED_CALLBACKS.contains(&record.name.as_str()))
         .filter(|record| !(java && is_java_pick_row(record)))
+        .filter(|record| !(java && is_java_unasked_announcement(record)))
         .filter(|record| !is_forced_choice(record))
         .collect()
 }
@@ -148,10 +156,13 @@ fn describe(record: &CallbackRecord) -> String {
 /// Keep in sync with `HarnessCostPlumbing.visit(CostDiscard)`: Java asks for a
 /// discard paid as a cost through `chooseCardsForEffect`, Rust through
 /// `choose_discard`. Both agents sort the pool the same way and make the same
-/// `pick_many_unique` draw, so the two names are one decision.
+/// `pick_many_unique` draw, so the two names are one decision. An announced value
+/// (`HarnessPlayPlumbing.announceValuesLikeX`) is `announce_requirements` in Java and
+/// `choose_number` in Rust, one `pick_int_in_range` draw on both sides.
 pub fn canonical_name(name: &str) -> &str {
     match name {
         "choose_discard" => "choose_cards_for_effect",
+        "announce_requirements" => "choose_number",
         other => other,
     }
 }
