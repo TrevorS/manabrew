@@ -1805,6 +1805,7 @@ fn deal_combat_damage_to_player(
             GameEntity::Player(player) => TrackedEntity::Player(player),
             GameEntity::Card(card) => TrackedEntity::Card(card),
         };
+        game.card_mut(source).total_damage_done_this_turn += amount;
         game.card_mut(source)
             .damage_history
             .register_damage(amount, true, Some(source), tracked);
@@ -1876,6 +1877,7 @@ fn deal_combat_damage_to_card(
             }
             GameEntity::Player(player) => TrackedEntity::Player(player),
         };
+        game.card_mut(source).total_damage_done_this_turn += amount;
         game.card_mut(source)
             .damage_history
             .register_damage(amount, true, Some(source), tracked);
