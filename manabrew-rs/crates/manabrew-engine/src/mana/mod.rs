@@ -312,7 +312,7 @@ pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymen
 
     ManaPaymentContext {
         is_spell: sa.is_spell,
-        is_activated_ability: sa.is_activated,
+        is_activated_ability: sa.is_activated && !sa.is_trigger,
         // `payment_context_for_sa` is used for activated-ability cost
         // calculations and AI lookahead — neither is the real cast-time
         // payment of a spell on stack. Leave the SA-on-stack guard off so
