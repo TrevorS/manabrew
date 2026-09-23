@@ -2,14 +2,15 @@
 //!
 //! Mirrors Java `ReplaceDamage.java` in `forge/game/replacement/`.
 
+use crate::ability::ability_utils::{get_defined_cards, get_defined_players};
 use crate::card::Card;
 use crate::game::GameState;
 use crate::ids::CardId;
 use crate::parsing::compare::compare_expr;
 
-use super::replacement_effect::ReplacementEffect;
+use super::replacement_effect::{resolve_replace_with_chain, ReplacementEffect};
 use super::replacement_handler::ReplacementEvent;
-use super::replacement_handler::{execute_replace_with_numeric_update, resolve_replace_value};
+use super::replacement_handler::{execute_replace_effect_ir, resolve_replace_value};
 use super::replacement_result::ReplacementResult;
 use super::replacement_type::ReplacementType;
 use crate::card_trait_base::CardTrait;
@@ -88,6 +89,50 @@ pub fn can_replace(
             return false;
         }
     }
+    if let Some(def) = effect.ir.damage_target_text.as_deref() {
+        let cant_be_redirected = "Damage that would be dealt to CARDNAME can't be redirected.";
+        let affected_cant_be_redirected = match (target_player, target_card) {
+            (Some(player), _) => crate::player::has_keyword(game, player, cant_be_redirected),
+            (_, Some(card)) => game.card(card).has_keyword(cant_be_redirected),
+            _ => false,
+        };
+        if affected_cant_be_redirected {
+            return false;
+        }
+        if def.starts_with("Replaced") {
+            if def == "ReplacedSourceController" {
+                let Some(source_id) = damage_source else {
+                    return false;
+                };
+                if game.player(game.card(source_id).controller).left_game {
+                    return false;
+                }
+            } else if def == "ReplacedTargetController" {
+                let Some(card) = target_card else {
+                    return false;
+                };
+                if game.player(game.card(card).controller).left_game {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        } else {
+            let controller = Some(source_card.controller);
+            if get_defined_players(game, Some(source_card.id), def, controller)
+                .into_iter()
+                .any(|player| game.player(player).left_game)
+            {
+                return false;
+            }
+            if get_defined_cards(game, Some(source_card.id), def, controller)
+                .into_iter()
+                .any(|card| !game.card(card).can_be_dealt_damage())
+            {
+                return false;
+            }
+        }
+    }
     true
 }
 
@@ -148,8 +193,8 @@ pub fn execute(
             _ => {}
         }
     }
-    if let Some(result) =
-        execute_replace_with_numeric_update(effect, event, game, source_card_id, "DamageAmount")
+    if let Some(result) = resolve_replace_with_chain(effect, game.card(source_card_id))
+        .and_then(|chain| execute_replace_effect_ir(&chain, event, game, source_card_id, None))
     {
         return result;
     }

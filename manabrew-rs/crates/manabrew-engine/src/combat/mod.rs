@@ -15,7 +15,8 @@ use crate::{HashMap, HashSet};
 use forge_foundation::ZoneType;
 use serde::{Deserialize, Serialize};
 
-use crate::agent::PlayerAgent;
+use crate::agent::{GameEntity, PlayerAgent};
+use crate::card::card_damage_history::TrackedEntity;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 
@@ -750,7 +751,7 @@ impl CombatState {
                     );
 
                     for &(target_id, dmg) in &to_creatures {
-                        deal_combat_damage_to_card(
+                        let (target_player, target_card) = deal_combat_damage_to_card(
                             game,
                             attacker_id,
                             target_id,
@@ -763,8 +764,8 @@ impl CombatState {
                         );
                         events.push(CombatDamageEvent {
                             source: attacker_id,
-                            target_player: None,
-                            target_card: Some(target_id),
+                            target_player,
+                            target_card,
                             amount: dmg,
                             is_combat: true,
                             lifelink_player: if attacker_has_lifelink {
@@ -776,7 +777,7 @@ impl CombatState {
                         });
                     }
                     if to_player > 0 {
-                        deal_combat_damage_to_player(
+                        let (target_player, target_card) = deal_combat_damage_to_player(
                             game,
                             attacker_id,
                             defending_player,
@@ -789,8 +790,8 @@ impl CombatState {
                         );
                         events.push(CombatDamageEvent {
                             source: attacker_id,
-                            target_player: Some(defending_player),
-                            target_card: None,
+                            target_player,
+                            target_card,
                             amount: to_player,
                             is_combat: true,
                             lifelink_player: if attacker_has_lifelink {
@@ -800,7 +801,9 @@ impl CombatState {
                             },
                             lifelink_amount: if attacker_has_lifelink { to_player } else { 0 },
                         });
-                        if game.player_is_commander(game.card(attacker_id).owner, attacker_id) {
+                        if target_player == Some(defending_player)
+                            && game.player_is_commander(game.card(attacker_id).owner, attacker_id)
+                        {
                             game.player_add_commander_damage(
                                 defending_player,
                                 attacker_id,
@@ -831,7 +834,7 @@ impl CombatState {
                         &defending_creatures,
                         None,
                     ) {
-                        deal_combat_damage_to_card(
+                        let (target_player, target_card) = deal_combat_damage_to_card(
                             game,
                             attacker_id,
                             chosen,
@@ -844,8 +847,8 @@ impl CombatState {
                         );
                         events.push(CombatDamageEvent {
                             source: attacker_id,
-                            target_player: None,
-                            target_card: Some(chosen),
+                            target_player,
+                            target_card,
                             amount: attacker_power,
                             is_combat: true,
                             lifelink_player: if attacker_has_lifelink {
@@ -864,7 +867,7 @@ impl CombatState {
                 }
                 match defender {
                     DefenderId::Player(defending_player) => {
-                        deal_combat_damage_to_player(
+                        let (target_player, target_card) = deal_combat_damage_to_player(
                             game,
                             attacker_id,
                             defending_player,
@@ -877,8 +880,8 @@ impl CombatState {
                         );
                         events.push(CombatDamageEvent {
                             source: attacker_id,
-                            target_player: Some(defending_player),
-                            target_card: None,
+                            target_player,
+                            target_card,
                             amount: attacker_power,
                             is_combat: true,
                             lifelink_player: if attacker_has_lifelink {
@@ -893,7 +896,9 @@ impl CombatState {
                             },
                         });
                         // Track commander damage
-                        if game.player_is_commander(game.card(attacker_id).owner, attacker_id) {
+                        if target_player == Some(defending_player)
+                            && game.player_is_commander(game.card(attacker_id).owner, attacker_id)
+                        {
                             game.player_add_commander_damage(
                                 defending_player,
                                 attacker_id,
@@ -903,7 +908,7 @@ impl CombatState {
                     }
                     DefenderId::Permanent(target_id) => {
                         // Damage to planeswalker/battle
-                        deal_combat_damage_to_card(
+                        let (target_player, target_card) = deal_combat_damage_to_card(
                             game,
                             attacker_id,
                             target_id,
@@ -916,8 +921,8 @@ impl CombatState {
                         );
                         events.push(CombatDamageEvent {
                             source: attacker_id,
-                            target_player: None,
-                            target_card: Some(target_id),
+                            target_player,
+                            target_card,
                             amount: attacker_power,
                             is_combat: true,
                             lifelink_player: if attacker_has_lifelink {
@@ -945,7 +950,7 @@ impl CombatState {
             // Now apply all damage (attacker → blockers, then blockers → attacker)
             // using pre-computed power values.
             for &(blocker_id, damage_to_blocker) in &damage_assignments {
-                deal_combat_damage_to_card(
+                let (target_player, target_card) = deal_combat_damage_to_card(
                     game,
                     attacker_id,
                     blocker_id,
@@ -958,8 +963,8 @@ impl CombatState {
                 );
                 events.push(CombatDamageEvent {
                     source: attacker_id,
-                    target_player: None,
-                    target_card: Some(blocker_id),
+                    target_player,
+                    target_card,
                     amount: damage_to_blocker,
                     is_combat: true,
                     lifelink_player: if attacker_has_lifelink {
@@ -978,7 +983,7 @@ impl CombatState {
             if defender_damage > 0 {
                 match effective_defender {
                     DefenderId::Player(defending_player) => {
-                        deal_combat_damage_to_player(
+                        let (target_player, target_card) = deal_combat_damage_to_player(
                             game,
                             attacker_id,
                             defending_player,
@@ -991,8 +996,8 @@ impl CombatState {
                         );
                         events.push(CombatDamageEvent {
                             source: attacker_id,
-                            target_player: Some(defending_player),
-                            target_card: None,
+                            target_player,
+                            target_card,
                             amount: defender_damage,
                             is_combat: true,
                             lifelink_player: if attacker_has_lifelink {
@@ -1006,7 +1011,9 @@ impl CombatState {
                                 0
                             },
                         });
-                        if game.card(attacker_id).is_commander {
+                        if target_player == Some(defending_player)
+                            && game.card(attacker_id).is_commander
+                        {
                             game.player_add_commander_damage(
                                 defending_player,
                                 attacker_id,
@@ -1015,7 +1022,7 @@ impl CombatState {
                         }
                     }
                     DefenderId::Permanent(target_id) => {
-                        deal_combat_damage_to_card(
+                        let (target_player, target_card) = deal_combat_damage_to_card(
                             game,
                             attacker_id,
                             target_id,
@@ -1028,8 +1035,8 @@ impl CombatState {
                         );
                         events.push(CombatDamageEvent {
                             source: attacker_id,
-                            target_player: None,
-                            target_card: Some(target_id),
+                            target_player,
+                            target_card,
                             amount: defender_damage,
                             is_combat: true,
                             lifelink_player: if attacker_has_lifelink {
@@ -1052,7 +1059,7 @@ impl CombatState {
                 if !game.card_is_in_zone(info.blocker_id, ZoneType::Battlefield) {
                     continue;
                 }
-                deal_combat_damage_to_card(
+                let (target_player, target_card) = deal_combat_damage_to_card(
                     game,
                     info.blocker_id,
                     attacker_id,
@@ -1065,8 +1072,8 @@ impl CombatState {
                 );
                 events.push(CombatDamageEvent {
                     source: info.blocker_id,
-                    target_player: None,
-                    target_card: Some(attacker_id),
+                    target_player,
+                    target_card,
                     amount: info.power,
                     is_combat: true,
                     lifelink_player: if info.has_lifelink {
@@ -1739,7 +1746,8 @@ fn deal_combat_damage_to_player(
     source_toxic_count: Option<i32>,
     agents: Option<&mut [Box<dyn PlayerAgent>]>,
     counter_table: &mut crate::game_entity_counter_table::GameEntityCounterTable,
-) {
+) -> (Option<PlayerId>, Option<CardId>) {
+    let mut damaged = GameEntity::Player(target);
     if amount > 0 {
         if source_has_infect {
             // Infect: deal damage as poison counters instead of life loss
@@ -1756,36 +1764,54 @@ fn deal_combat_damage_to_player(
                 );
             }
         } else {
-            let dealt = game.deal_damage_to_player_from_with_agents(
+            let (entity, dealt) = game.deal_damage_to_player_from_with_agents(
                 target,
                 amount,
                 Some(source),
                 true,
                 agents,
             );
-            game.record_player_damage_assignment(Some(source), Some(target), dealt, true);
+            damaged = entity;
+            match damaged {
+                GameEntity::Player(player) => {
+                    game.record_player_damage_assignment(Some(source), Some(player), dealt, true);
+                }
+                GameEntity::Card(card) => {
+                    if !game.card(card).damage_sources_this_turn.contains(&source) {
+                        game.card_mut(card).add_damage_source_this_turn(source);
+                    }
+                    if game.card(source).has_deathtouch() {
+                        game.card_mut(card).mark_deathtouch_damage();
+                    }
+                }
+            }
         }
         // Toxic: add poison counters in addition to normal damage
-        if let Some(toxic) = source_toxic_count {
+        if let (Some(toxic), GameEntity::Player(player)) = (source_toxic_count, damaged) {
             if !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_player(
                 &game.cards,
-                target,
+                player,
                 &crate::card::CounterType::Poison,
             ) {
                 counter_table.put(
                     Some(source_controller),
-                    crate::agent::GameEntity::Player(target),
+                    crate::agent::GameEntity::Player(player),
                     crate::card::CounterType::Poison,
                     toxic,
                 );
             }
         }
-        game.card_mut(source).damage_history.register_damage(
-            amount,
-            true,
-            Some(source),
-            crate::card::card_damage_history::TrackedEntity::Player(target),
-        );
+        let tracked = match damaged {
+            GameEntity::Player(player) => TrackedEntity::Player(player),
+            GameEntity::Card(card) => TrackedEntity::Card(card),
+        };
+        game.card_mut(source)
+            .damage_history
+            .register_damage(amount, true, Some(source), tracked);
+    }
+    match damaged {
+        GameEntity::Player(player) => (Some(player), None),
+        GameEntity::Card(card) => (None, Some(card)),
     }
 }
 
@@ -1800,18 +1826,15 @@ fn deal_combat_damage_to_card(
     source_has_wither_or_infect: bool,
     agents: Option<&mut [Box<dyn PlayerAgent>]>,
     counter_table: &mut crate::game_entity_counter_table::GameEntityCounterTable,
-) {
+) -> (Option<PlayerId>, Option<CardId>) {
+    let mut damaged = GameEntity::Card(target);
     if amount > 0 {
         if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
             &game.cards,
             game.card(target),
             game.card(source),
         ) {
-            return;
-        }
-        // Track damage source for DamagedBy trigger filters (Sengir Vampire, etc.)
-        if !game.card(target).damage_sources_this_turn.contains(&source) {
-            game.card_mut(target).add_damage_source_this_turn(source);
+            return (None, Some(target));
         }
         if source_has_wither_or_infect {
             // Wither/Infect: damage to creatures as -1/-1 counters instead
@@ -1828,17 +1851,38 @@ fn deal_combat_damage_to_card(
                 );
             }
         } else {
-            game.deal_damage_to_card_from_with_agents(target, amount, Some(source), true, agents);
+            let (entity, dealt) = game.deal_damage_to_card_from_with_agents(
+                target,
+                amount,
+                Some(source),
+                true,
+                agents,
+            );
+            damaged = entity;
+            if let GameEntity::Player(player) = damaged {
+                game.record_player_damage_assignment(Some(source), Some(player), dealt, true);
+            }
         }
-        if deathtouch {
-            game.card_mut(target).mark_deathtouch_damage();
-        }
-        game.card_mut(source).damage_history.register_damage(
-            amount,
-            true,
-            Some(source),
-            crate::card::card_damage_history::TrackedEntity::Card(target),
-        );
+        let tracked = match damaged {
+            GameEntity::Card(card) => {
+                // Track damage source for DamagedBy trigger filters (Sengir Vampire, etc.)
+                if !game.card(card).damage_sources_this_turn.contains(&source) {
+                    game.card_mut(card).add_damage_source_this_turn(source);
+                }
+                if deathtouch {
+                    game.card_mut(card).mark_deathtouch_damage();
+                }
+                TrackedEntity::Card(card)
+            }
+            GameEntity::Player(player) => TrackedEntity::Player(player),
+        };
+        game.card_mut(source)
+            .damage_history
+            .register_damage(amount, true, Some(source), tracked);
+    }
+    match damaged {
+        GameEntity::Player(player) => (Some(player), None),
+        GameEntity::Card(card) => (None, Some(card)),
     }
 }
 

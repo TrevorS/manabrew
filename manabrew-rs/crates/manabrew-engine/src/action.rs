@@ -1,6 +1,6 @@
 use forge_foundation::{CoreType, ZoneType};
 
-use crate::agent::PlayerAgent;
+use crate::agent::{GameEntity, PlayerAgent};
 use crate::card::{Card, CounterType};
 use crate::event::RunParams;
 use crate::game::GameState;
@@ -1027,13 +1027,13 @@ impl GameState {
         amount: i32,
         source: Option<CardId>,
         is_combat: bool,
-        agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
-    ) {
+        mut agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
+    ) -> (GameEntity, i32) {
         if amount <= 0 {
-            return;
+            return (GameEntity::Card(target), 0);
         }
         if !self.card(target).can_be_dealt_damage() {
-            return;
+            return (GameEntity::Card(target), 0);
         }
         let mut event = ReplacementEvent::DamageToCard {
             target,
@@ -1041,38 +1041,60 @@ impl GameState {
             source,
             is_combat,
         };
-        if let Some(agents) = agents {
+        if let Some(agents) = agents.as_deref_mut() {
             apply_replacements_with_agents(self, agents, &mut event);
         } else {
             apply_replacements(self, &mut event);
         }
-        if let ReplacementEvent::DamageToCard {
-            amount: mut final_amount,
-            ..
-        } = event
-        {
-            // Consume PreventDamage shields. Each shield prevents 1 damage and
-            // is removed. Mirrors Java's per-shield ReplaceDamage effect cards
-            // in the Command zone, but using the legacy `damage_prevention`
-            // counter pending the proper Command-zone effect-card port.
-            let shields = self.cards[target.index()].damage_prevention;
-            if shields > 0 && final_amount > 0 {
-                let consumed = shields.min(final_amount);
-                self.cards[target.index()].damage_prevention -= consumed;
-                final_amount -= consumed;
-            }
-            if final_amount > 0 {
-                let dealt = self.cards[target.index()].add_damage_after_prevention(final_amount);
-                // Fire DealtDamage replacement event after damage is applied.
-                let mut dealt_event = ReplacementEvent::DealtDamage {
-                    target,
-                    amount: dealt,
-                    source,
-                };
-                if dealt > 0 {
-                    apply_replacements(self, &mut dealt_event);
+        self.deal_replaced_damage(event, agents)
+    }
+
+    fn deal_replaced_damage(
+        &mut self,
+        event: ReplacementEvent,
+        agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
+    ) -> (GameEntity, i32) {
+        match event {
+            ReplacementEvent::DamageToCard {
+                target,
+                amount: mut final_amount,
+                source,
+                ..
+            } => {
+                // Consume PreventDamage shields. Each shield prevents 1 damage and
+                // is removed. Mirrors Java's per-shield ReplaceDamage effect cards
+                // in the Command zone, but using the legacy `damage_prevention`
+                // counter pending the proper Command-zone effect-card port.
+                let shields = self.cards[target.index()].damage_prevention;
+                if shields > 0 && final_amount > 0 {
+                    let consumed = shields.min(final_amount);
+                    self.cards[target.index()].damage_prevention -= consumed;
+                    final_amount -= consumed;
                 }
+                let mut dealt = 0;
+                if final_amount > 0 {
+                    dealt = self.cards[target.index()].add_damage_after_prevention(final_amount);
+                    // Fire DealtDamage replacement event after damage is applied.
+                    let mut dealt_event = ReplacementEvent::DealtDamage {
+                        target,
+                        amount: dealt,
+                        source,
+                    };
+                    if dealt > 0 {
+                        apply_replacements(self, &mut dealt_event);
+                    }
+                }
+                (GameEntity::Card(target), dealt)
             }
+            ReplacementEvent::DamageToPlayer { target, amount, .. } => {
+                let dealt = if amount > 0 {
+                    self.player_deal_damage_with_agents(target, amount, agents)
+                } else {
+                    0
+                };
+                (GameEntity::Player(target), dealt)
+            }
+            _ => unreachable!(),
         }
     }
 
@@ -1092,7 +1114,10 @@ impl GameState {
         source: Option<CardId>,
         is_combat: bool,
     ) -> i32 {
-        self.deal_damage_to_player_from_with_agents(target, amount, source, is_combat, None)
+        match self.deal_damage_to_player_from_with_agents(target, amount, source, is_combat, None) {
+            (GameEntity::Player(_), dealt) => dealt,
+            (GameEntity::Card(_), _) => 0,
+        }
     }
 
     /// Deal damage to a player with source tracking and optional agents for RNG parity.
@@ -1106,17 +1131,17 @@ impl GameState {
         source: Option<CardId>,
         is_combat: bool,
         mut agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
-    ) -> i32 {
+    ) -> (GameEntity, i32) {
         if amount <= 0 {
-            return 0;
+            return (GameEntity::Player(target), 0);
         }
         if crate::staticability::static_ability_cant_gain_lose_pay_life::cant_lose_life(
             self, target,
         ) {
-            return 0;
+            return (GameEntity::Player(target), 0);
         }
         if crate::player::has_keyword(self, target, "Protection from everything") {
-            return 0;
+            return (GameEntity::Player(target), 0);
         }
         let mut event = ReplacementEvent::DamageToPlayer {
             target,
@@ -1129,16 +1154,7 @@ impl GameState {
         } else {
             apply_replacements(self, &mut event);
         }
-        if let ReplacementEvent::DamageToPlayer {
-            amount: final_amount,
-            ..
-        } = event
-        {
-            if final_amount > 0 {
-                return self.player_deal_damage_with_agents(target, final_amount, agents);
-            }
-        }
-        0
+        self.deal_replaced_damage(event, agents)
     }
 
     pub fn process_damage(&mut self, trigger_handler: &mut TriggerHandler) -> Vec<(PlayerId, i32)> {

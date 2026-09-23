@@ -659,6 +659,38 @@ pub(crate) fn set_replacement_event_amount(event: &mut ReplacementEvent, value: 
     true
 }
 
+fn set_replacement_event_affected(event: &mut ReplacementEvent, affected: GameEntity) {
+    let (amount, source, is_combat) = match event {
+        ReplacementEvent::DamageToCard {
+            amount,
+            source,
+            is_combat,
+            ..
+        }
+        | ReplacementEvent::DamageToPlayer {
+            amount,
+            source,
+            is_combat,
+            ..
+        } => (*amount, *source, *is_combat),
+        _ => return,
+    };
+    *event = match affected {
+        GameEntity::Card(target) => ReplacementEvent::DamageToCard {
+            target,
+            amount,
+            source,
+            is_combat,
+        },
+        GameEntity::Player(target) => ReplacementEvent::DamageToPlayer {
+            target,
+            amount,
+            source,
+            is_combat,
+        },
+    };
+}
+
 fn amount_after_math(mut amount: i32, ops: &str) -> i32 {
     if ops.is_empty() {
         return amount;
@@ -785,6 +817,33 @@ pub(crate) fn execute_replace_effect_ir(
                                     updated = true;
                                 }
                             }
+                        }
+                        "Affected" => {
+                            let affected = match (var_type.as_deref(), var_value.as_deref()) {
+                                (Some("Card"), Some(var_value)) => {
+                                    crate::ability::ability_utils::get_defined_cards(
+                                        game,
+                                        Some(source_card_id),
+                                        var_value,
+                                        Some(game.card(source_card_id).controller),
+                                    )
+                                    .first()
+                                    .copied()
+                                    .map(GameEntity::Card)
+                                }
+                                (Some("Player"), Some(var_value)) => resolve_replace_player_key(
+                                    var_value,
+                                    game,
+                                    source_card_id,
+                                    event,
+                                )
+                                .map(GameEntity::Player),
+                                _ => None,
+                            };
+                            if let Some(affected) = affected {
+                                set_replacement_event_affected(event, affected);
+                            }
+                            updated = true;
                         }
                         _ => {
                             if let Some(var_value) = var_value.as_deref() {
@@ -936,6 +995,17 @@ fn resolve_replace_player_key(
             _ => None,
         },
         "Opponent" => Some(game.opponent_of(game.card(source_card_id).controller)),
+        "ReplacedSourceController" => match event {
+            ReplacementEvent::DamageToCard { source, .. }
+            | ReplacementEvent::DamageToPlayer { source, .. } => {
+                source.map(|source| game.card(source).controller)
+            }
+            _ => None,
+        },
+        "ReplacedTargetController" => match event {
+            ReplacementEvent::DamageToCard { target, .. } => Some(game.card(*target).controller),
+            _ => None,
+        },
         _ => None,
     }
 }
