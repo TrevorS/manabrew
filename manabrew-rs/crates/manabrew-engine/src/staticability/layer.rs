@@ -90,6 +90,10 @@ enum EffectKind {
         svars: BTreeMap<String, String>,
         original_host: Option<CardId>,
     },
+    GrantReplacement {
+        text: String,
+        svars: BTreeMap<String, String>,
+    },
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
@@ -593,6 +597,25 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         }
                     }
 
+                    if let Some(add_replacement) = sa.ir.add_replacement_effect_text.as_deref() {
+                        for svar_name in add_replacement
+                            .split(" & ")
+                            .map(str::trim)
+                            .filter(|s| !s.is_empty())
+                        {
+                            if let Some(re_text) = source_card.svars.get(svar_name).cloned() {
+                                pending.push(PendingEffect {
+                                    layer: Layer::Ability,
+                                    target,
+                                    kind: EffectKind::GrantReplacement {
+                                        text: re_text,
+                                        svars: source_card.svars.clone(),
+                                    },
+                                });
+                            }
+                        }
+                    }
+
                     if let Some(add_static) = sa.ir.add_static_ability_text.as_deref() {
                         for svar_name in add_static
                             .split(" & ")
@@ -1018,6 +1041,19 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 if let Some(mut trig) = crate::trigger::parse_trigger(&text, &mut next_id_mut) {
                     trig.original_host = original_host;
                     game.cards[effect.target.index()].add_trigger(trig);
+                }
+            }
+            EffectKind::GrantReplacement { text, svars } => {
+                if let Some(mut re) =
+                    crate::replacement::replacement_effect::parse_replacement_effect(&text)
+                {
+                    for (name, value) in svars {
+                        crate::core::HasSVars::set_svar(&mut re.base.card_trait_base, name, value);
+                    }
+                    granted_keyword_replacements
+                        .entry(effect.target)
+                        .or_default()
+                        .push(re);
                 }
             }
         }
