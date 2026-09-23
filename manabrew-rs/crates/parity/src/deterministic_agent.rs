@@ -555,7 +555,8 @@ impl DeterministicAgent {
     }
 
     fn play_option_label(&self, play: PlayOption) -> String {
-        if self.is_land(play.card_id) && play.mode != PlayCardMode::Secondary {
+        let cast_face_down = matches!(play.mode, PlayCardMode::Alternative(alt) if alt.is_morph());
+        if self.is_land(play.card_id) && play.mode != PlayCardMode::Secondary && !cast_face_down {
             return format!("LAND:{}", self.card_name(play.card_id));
         }
         // MDFC back-face land — Java buckets as LAND via isLandAbility().
