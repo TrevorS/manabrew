@@ -677,39 +677,43 @@ fn try_pay_effect_cost(
                     ctx.game.end_discard_batch(ctx.trigger_handler);
                     continue;
                 }
-                for _ in 0..amount.resolve(ctx.game, source, payer) {
-                    let valid: Vec<CardId> = ctx
-                        .game
-                        .cards_in_zone(ZoneType::Hand, payer)
-                        .to_vec()
-                        .into_iter()
-                        .filter(|&cid| {
-                            if type_filter == "Card" || type_filter.is_empty() {
-                                true
-                            } else {
-                                crate::ability::effects::helpers::matches_change_type(
-                                    ctx.game.card(cid),
-                                    type_filter,
-                                    &[],
-                                )
-                            }
-                        })
-                        .collect();
-                    if valid.is_empty() {
-                        ctx.game.end_discard_batch(ctx.trigger_handler);
-                        return false;
-                    }
-                    let chosen =
-                        ctx.agents[payer.index()].choose_cards_for_effect(payer, &valid, 1, 1);
-                    if let Some(&cid) = chosen.first() {
-                        ctx.game.discard_card(
-                            cid,
-                            payer,
-                            Some(sa),
-                            Some(ctx.agents),
-                            ctx.trigger_handler,
-                        );
-                    }
+                let amount = amount.resolve(ctx.game, source, payer).max(0) as usize;
+                let valid: Vec<CardId> = ctx
+                    .game
+                    .cards_in_zone(ZoneType::Hand, payer)
+                    .iter()
+                    .copied()
+                    .filter(|&cid| {
+                        type_filter == "Card"
+                            || type_filter.is_empty()
+                            || crate::ability::effects::helpers::matches_change_type(
+                                ctx.game.card(cid),
+                                type_filter,
+                                &[],
+                            )
+                    })
+                    .collect();
+                if valid.len() < amount {
+                    ctx.game.end_discard_batch(ctx.trigger_handler);
+                    return false;
+                }
+                let chosen = if amount == 0 {
+                    Vec::new()
+                } else {
+                    ctx.agents[payer.index()].choose_cards_for_effect(payer, &valid, amount, amount)
+                };
+                if chosen.len() < amount {
+                    ctx.game.end_discard_batch(ctx.trigger_handler);
+                    return false;
+                }
+                for cid in chosen {
+                    ctx.game.discard_card(
+                        cid,
+                        payer,
+                        Some(sa),
+                        Some(ctx.agents),
+                        ctx.trigger_handler,
+                    );
                 }
                 ctx.game.end_discard_batch(ctx.trigger_handler);
             }
