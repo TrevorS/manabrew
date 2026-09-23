@@ -1324,7 +1324,15 @@ pub fn can_pay_with_ability_and_reserved(
                     continue;
                 }
 
-                let mut valid = get_sacrifice_targets_for_cost(game, player, type_filter, ability);
+                let mut valid = if type_filter.contains('X') {
+                    game.cards_in_zone(ZoneType::Battlefield, player)
+                        .iter()
+                        .copied()
+                        .filter(|&cid| !cant_sacrifice(&game.cards, game.card(cid), ability, true))
+                        .collect()
+                } else {
+                    get_sacrifice_targets_for_cost(game, player, type_filter, ability)
+                };
                 valid.retain(|cid| !reserved_sacrifices.contains(cid));
                 if type_filter.eq_ignore_ascii_case("All") {
                     if valid.is_empty() {

@@ -77,8 +77,11 @@ pub fn can_pay(
         let targets = super::get_sacrifice_targets_for_cost(game, player, type_filter, ability);
         return !targets.is_empty();
     }
-    let valid =
-        super::get_sacrifice_targets_for_cost(game, player, type_filter, ability).len() as i32;
+    let valid = ability
+        .and_then(|sa| super::cost_part::get_max_amount_x(game, sa, player, part, true))
+        .unwrap_or_else(|| {
+            super::get_sacrifice_targets_for_cost(game, player, type_filter, ability).len() as i32
+        });
     valid >= amount.resolve(game, source, player)
 }
 
