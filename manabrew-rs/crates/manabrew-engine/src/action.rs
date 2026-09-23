@@ -535,7 +535,7 @@ impl GameState {
         // Set zone to None (limbo) and remove from source zone without adding to destination.
         if is_token && dest_zone != ZoneType::Battlefield && dest_zone != ZoneType::Stack {
             if let Some(table) = self.pending_change_zone_table.as_mut() {
-                table.put(Some(src_zone), Some(ZoneType::None), card_id);
+                table.put(Some(src_zone), Some(dest_zone), card_id);
             }
             let mut exile_effects = Vec::new();
             for eff_id in forget_effects.iter().copied() {
