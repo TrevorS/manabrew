@@ -815,16 +815,8 @@ fn check_sba(
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::PrioritySba);
     trigger_handler.run_state_trigger(game);
     let result = game.check_state_based_actions_with_runtime(trigger_handler, parts, agents);
-    if result {
-        // Flush triggers fired during SBA before re-registering. This preserves
-        // triggers from Animate effects (pump_trigger_count) that were active
-        // when creatures died.
-        trigger_handler.flush_waiting_triggers(game);
-        // Re-register triggers after SBA may have moved cards between zones.
-        // This ensures triggers with non-Battlefield active zones (e.g.
-        // TriggerZones$ Graveyard) are registered when cards die.
-        trigger_handler.reset_active_triggers(game);
-    }
+    trigger_handler.flush_waiting_triggers(game);
+    trigger_handler.reset_active_triggers(game);
     result
 }
 
