@@ -1695,6 +1695,7 @@ impl GameState {
             let keep = if let Some(chooser) = legend_keep_fn.as_deref_mut() {
                 chooser(pid, &ids)
             } else if let Some(agents) = agents.as_deref_mut() {
+                agents[pid.index()].snapshot_state(self, &[]);
                 agents[pid.index()].choose_legend_keep(pid, &ids)
             } else {
                 ids[0]
