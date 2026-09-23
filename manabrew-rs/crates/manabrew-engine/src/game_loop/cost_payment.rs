@@ -1515,13 +1515,21 @@ impl GameLoop {
         self.reserved_source_reuse_stack.pop();
         if !payment_ok {
             self.restore_snapshot(game, &payment_snapshot);
-            for tapped_id in failed_auto_pay_taps {
-                if game.card_is_in_zone(tapped_id, ZoneType::Battlefield) {
-                    game.card_mut(tapped_id).set_tapped(true);
-                }
+            if !matches!(context, CostPaymentContext::ManaAbility)
+                && cost.parts.iter().any(|part| matches!(part, CostPart::Tap))
+                && game.card_is_in_zone(card_id, ZoneType::Battlefield)
+            {
+                game.tap(card_id);
             }
-            if let Some(pool) = failed_auto_pay_pool {
-                self.mana_pools[player.index()] = pool;
+            if !matches!(context, CostPaymentContext::ActivatedAbility) {
+                for tapped_id in failed_auto_pay_taps {
+                    if game.card_is_in_zone(tapped_id, ZoneType::Battlefield) {
+                        game.card_mut(tapped_id).set_tapped(true);
+                    }
+                }
+                if let Some(pool) = failed_auto_pay_pool {
+                    self.mana_pools[player.index()] = pool;
+                }
             }
             return false;
         }
