@@ -47,8 +47,8 @@ public final class EngineHandler {
             if (abXMin) {
                 min = Integer.parseInt(ability.getParam("XMin"));
             }
-            if (ability.hasParam("XMaxLimit")) {
-                max = Math.min(max, AbilityUtils.calculateAmount(host, ability.getParam("XMaxLimit"), ability));
+            if (ability.hasParam("XMax")) {
+                max = Math.min(max, AbilityUtils.calculateAmount(host, ability.getParam("XMax"), ability));
             }
             if (cost != null) {
                 Integer costX = cost.getMaxForNonManaX(ability, player, false);
