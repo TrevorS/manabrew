@@ -1773,6 +1773,13 @@ impl GameState {
         recheck
     }
 
+    fn state_based_action_704_5d(&self, card_id: CardId, zone: ZoneType) -> bool {
+        let card = &self.cards[card_id.index()];
+        card.is_token
+            && !matches!(zone, ZoneType::Battlefield | ZoneType::Stack)
+            && !(zone == ZoneType::Exile && card.is_in_prepared_spell_state())
+    }
+
     fn state_based_actions_pass(
         &mut self,
         trigger_handler: &mut Option<&mut TriggerHandler>,
@@ -1782,6 +1789,17 @@ impl GameState {
     ) -> bool {
         let mut any_changes = false;
         let mut sacrifice_list: Vec<CardId> = Vec::new();
+
+        let tokens_outside_battlefield: Vec<(CardId, crate::zone::ZoneKey)> = self
+            .iter_zones()
+            .flat_map(|(key, zone)| zone.cards.iter().map(move |&cid| (cid, key)))
+            .filter(|&(cid, key)| self.state_based_action_704_5d(cid, key.zone_type))
+            .collect();
+        for (cid, key) in tokens_outside_battlefield {
+            self.remove_card_from_zone(key.zone_type, key.owner, cid);
+            self.cards[cid.index()].zone = ZoneType::None;
+            any_changes = true;
+        }
 
         // Check creatures with lethal damage or 0 toughness
         let battlefield_cards: Vec<CardId> = self
