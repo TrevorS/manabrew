@@ -1723,14 +1723,17 @@ fn enters_trigger_x_paid(game: &GameState, sa: &SpellAbility, card_id: CardId) -
 fn cause_trigger_x_paid(game: &GameState, sa: &SpellAbility, card_id: CardId) -> Option<i32> {
     let host = sa.trigger_source.unwrap_or(card_id);
     let trigger = game.card(host).triggers.get(sa.trigger_index?)?;
-    matches!(
-        trigger.mode.trigger_type(),
-        crate::trigger::TriggerType::Cycled | crate::trigger::TriggerType::TurnFaceUp
+    let key = match trigger.mode.trigger_type() {
+        crate::trigger::TriggerType::SpellCast => crate::ability::AbilityKey::SpellAbility,
+        crate::trigger::TriggerType::Cycled | crate::trigger::TriggerType::TurnFaceUp => {
+            crate::ability::AbilityKey::Cause
+        }
+        _ => return None,
+    };
+    Some(
+        sa.get_triggering_spell_ability(key)
+            .map_or(0, |cause| cause.x_mana_cost_paid as i32),
     )
-    .then(|| {
-        sa.get_triggering_spell_ability(crate::ability::AbilityKey::Cause)
-            .map_or(0, |cause| cause.x_mana_cost_paid as i32)
-    })
 }
 
 fn leaves_battlefield_trigger(game: &GameState, sa: &SpellAbility, card_id: CardId) -> bool {
