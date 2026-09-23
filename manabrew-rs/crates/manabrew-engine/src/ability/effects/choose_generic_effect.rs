@@ -63,7 +63,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         abilities.retain(|choice_sa| {
-            if let Some(unless_cost_str) = choice_sa.ir.unless_cost.as_deref() {
+            if !choice_sa
+                .restriction
+                .check_other_restrictions(ctx.game, source_id, choice_sa, player)
+            {
+                false
+            } else if let Some(unless_cost_str) = choice_sa.ir.unless_cost.as_deref() {
                 let cost = crate::cost::parse_cost(unless_cost_str);
                 // Java's `Cost.canPay` answers true for the mana part (`CostPartMana.canPay`).
                 crate::cost::can_pay_ignoring_mana_with_ability(

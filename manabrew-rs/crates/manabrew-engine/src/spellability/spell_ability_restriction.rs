@@ -424,7 +424,13 @@ impl SpellAbilityRestriction {
 
     /// Check other restrictions (threshold, metalcraft, etc.).
     /// Mirrors Java's `SpellAbilityRestriction.checkOtherRestrictions(Card, SpellAbility)`.
-    pub fn check_other_restrictions(&self, game: &GameState, player: PlayerId) -> bool {
+    pub fn check_other_restrictions(
+        &self,
+        game: &GameState,
+        card_id: CardId,
+        sa: &SpellAbility,
+        player: PlayerId,
+    ) -> bool {
         if self.variables.hellbent() && !game.player_has_hellbent(player) {
             return false;
         }
@@ -446,7 +452,10 @@ impl SpellAbilityRestriction {
         if self.variables.blessing() && !game.player_has_blessing(player) {
             return false;
         }
-        true
+        if self.variables.solved() && !game.card(card_id).is_solved() {
+            return false;
+        }
+        self.check_presence_restriction(game, card_id, player, Some(sa))
     }
 }
 
