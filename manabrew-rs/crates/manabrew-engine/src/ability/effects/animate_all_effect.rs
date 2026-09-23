@@ -96,8 +96,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
-    // Collect matching cards on the battlefield.
-    let player_ids = ctx.game.player_order.clone();
+    let player_ids = if !sa.uses_targeting() && sa.defined().is_none() {
+        ctx.game.player_order.clone()
+    } else {
+        crate::ability::spell_ability_effect::get_target_players(ctx.game, sa)
+    };
     let mut targets = Vec::new();
     for &pid in &player_ids {
         let zone_cards = ctx.game.cards_in_zone(ZoneType::Battlefield, pid).to_vec();
