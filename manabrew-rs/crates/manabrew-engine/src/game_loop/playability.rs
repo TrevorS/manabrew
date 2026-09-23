@@ -805,7 +805,7 @@ impl GameLoop {
                 };
 
                 // StaticAbilityAlternativeCost (Mode$ AlternativeCost)
-                let static_alt_ok =
+                let static_alt_indices: Vec<usize> =
                     crate::staticability::static_ability_alternative_cost::alternative_costs(
                         game,
                         &game.cards,
@@ -814,7 +814,8 @@ impl GameLoop {
                         player,
                     )
                     .iter()
-                    .any(|entry| {
+                    .enumerate()
+                    .filter(|(_, entry)| {
                         let base = Self::mana_from_cost(&entry.cost);
                         let adjusted = cost_adj.apply(&base).add(&raise_mana);
                         available_mana.can_pay(&adjusted)
@@ -824,7 +825,10 @@ impl GameLoop {
                                 card_id,
                                 player,
                             )
-                    });
+                    })
+                    .map(|(index, _)| index)
+                    .collect();
+                let static_alt_ok = !static_alt_indices.is_empty();
 
                 // Suspend: special action, pay suspend cost to exile with time counters
                 // (Suspend is not a spell cast — cost reduction doesn't apply)
@@ -1119,11 +1123,11 @@ impl GameLoop {
                                 alt_cost_index: 0,
                             });
                         }
-                        if static_alt_ok {
+                        for &index in &static_alt_indices {
                             playable.push(crate::agent::PlayOption {
                                 card_id,
                                 mode: crate::agent::PlayCardMode::StaticAlternative,
-                                alt_cost_index: 0,
+                                alt_cost_index: index as u8,
                             });
                         }
                         if emerge_ok {

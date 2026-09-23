@@ -661,14 +661,7 @@ impl GameLoop {
                         player,
                     )
                     .into_iter()
-                    .find(|entry| {
-                        crate::cost::can_pay_ignoring_mana_for_spell(
-                            &entry.cost,
-                            game,
-                            card_id,
-                            player,
-                        )
-                    })?;
+                    .nth(play.alt_cost_index as usize)?;
                 crate::staticability::static_ability_alternative_cost::apply_alternative_cost_to_sa(
                     &mut sa, &entry,
                 );
