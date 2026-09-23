@@ -49,6 +49,12 @@ ts-rs = { version = "10", features = ["no-serde-warnings"] }
 opt-level = "z"
 lto = true
 
+[profile.selfplay]
+inherits = "release"
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+
 [profile.parity]
 inherits = "release"
 debug-assertions = true
