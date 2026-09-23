@@ -378,8 +378,19 @@ pub fn has_keyword(game: &GameState, player: PlayerId, keyword: &str) -> bool {
     player_predicates::has_keyword(game, player, keyword)
 }
 
-pub fn can_be_targeted_by(game: &GameState, player: PlayerId, _source: CardId) -> bool {
-    game.player(player).is_alive() && !has_keyword(game, player, "Shroud")
+pub fn can_be_targeted_by(
+    game: &GameState,
+    player: PlayerId,
+    source: CardId,
+    activator: PlayerId,
+) -> bool {
+    game.player(player).is_alive()
+        && !game.player(player).changed_keywords.iter().any(|keyword| {
+            keyword == "Shroud"
+                || (keyword == "Hexproof"
+                    && player_predicates::is_opponent_of(game, activator, player))
+                || player_predicates::protection_applies_to_source(game, player, keyword, source)
+        })
 }
 
 pub fn can_mulligan(game: &GameState, player: PlayerId) -> bool {

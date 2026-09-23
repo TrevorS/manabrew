@@ -1149,7 +1149,11 @@ impl GameState {
         ) {
             return (GameEntity::Player(target), 0);
         }
-        if crate::player::has_keyword(self, target, "Protection from everything") {
+        if crate::player::has_keyword(self, target, "Protection from everything")
+            || source.is_some_and(|source| {
+                crate::player::player_predicates::is_protected_from(self, target, source)
+            })
+        {
             return (GameEntity::Player(target), 0);
         }
         let mut event = ReplacementEvent::DamageToPlayer {

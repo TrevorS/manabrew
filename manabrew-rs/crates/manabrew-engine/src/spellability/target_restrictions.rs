@@ -260,10 +260,18 @@ impl TargetRestrictions {
         match &self.target_kind {
             TargetKind::None => true,
             // "target player" = any alive player (including the caster themselves).
-            TargetKind::Player => !game.alive_players().is_empty(),
+            TargetKind::Player => game
+                .alive_players()
+                .into_iter()
+                .any(|pid| player_can_be_targeted(game, pid, source_card, player)),
             // "any target" fallback: derive player/card candidates from ValidTgts.
             TargetKind::Any => {
-                if any_target_allows_players(&self.valid_tgts) && !game.alive_players().is_empty() {
+                if any_target_allows_players(&self.valid_tgts)
+                    && game
+                        .alive_players()
+                        .into_iter()
+                        .any(|pid| player_can_be_targeted(game, pid, source_card, player))
+                {
                     return true;
                 }
                 get_all_candidates_any_filtered_for_restrictions(
@@ -704,6 +712,16 @@ pub fn parse_valid_targets(ability: &str) -> TargetKind {
         Some(val) => parse_target_kind_enhanced(val, origin_zone),
         None => TargetKind::None,
     }
+}
+
+fn player_can_be_targeted(
+    game: &GameState,
+    target: PlayerId,
+    source_card: Option<CardId>,
+    activator: PlayerId,
+) -> bool {
+    source_card
+        .is_none_or(|source| crate::player::can_be_targeted_by(game, target, source, activator))
 }
 
 /// Check if there is at least one valid target for the given ability string.

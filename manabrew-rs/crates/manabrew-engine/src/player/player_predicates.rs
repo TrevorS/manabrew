@@ -1,5 +1,5 @@
 use crate::game::GameState;
-use crate::ids::PlayerId;
+use crate::ids::{CardId, PlayerId};
 
 pub fn is_active_player(game: &GameState, player: PlayerId) -> bool {
     game.active_player() == player
@@ -49,6 +49,40 @@ pub fn has_counter(game: &GameState, player: PlayerId, counter: &str) -> bool {
         "Rad" | "Radiation" => game.player(player).radiation_counters > 0,
         _ => false,
     }
+}
+
+pub fn is_protected_from(game: &GameState, player: PlayerId, source: CardId) -> bool {
+    game.player(player)
+        .changed_keywords
+        .iter()
+        .any(|keyword| protection_applies_to_source(game, player, keyword, source))
+}
+
+pub fn protection_applies_to_source(
+    game: &GameState,
+    player: PlayerId,
+    keyword: &str,
+    source: CardId,
+) -> bool {
+    if keyword == "Protection from everything" {
+        return true;
+    }
+    let Some(characteristic) = keyword
+        .strip_prefix("Protection:")
+        .and_then(|rest| rest.split(':').next())
+        .filter(|characteristic| characteristic.starts_with("Player"))
+    else {
+        return false;
+    };
+    let sa = crate::spellability::SpellAbility::new_simple(Some(source), player, "");
+    crate::player::player_property::is_valid(
+        game.card(source).controller,
+        &crate::parsing::cached_compiled_selector(characteristic),
+        game,
+        source,
+        player,
+        &sa,
+    )
 }
 
 pub fn has_keyword(game: &GameState, player: PlayerId, keyword: &str) -> bool {
