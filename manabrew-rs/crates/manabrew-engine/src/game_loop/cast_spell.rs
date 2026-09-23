@@ -2136,15 +2136,7 @@ impl GameLoop {
                                         .card(choice.card_id)
                                         .activated_abilities
                                         .get(idx)
-                                        .is_some_and(|ab| {
-                                            ab.cost.parts.iter().any(|part| {
-                                                !matches!(
-                                                    part,
-                                                    crate::cost::CostPart::Tap
-                                                        | crate::cost::CostPart::Mana { .. }
-                                                )
-                                            })
-                                        });
+                                        .is_some_and(|ab| !ab.is_undoable());
                                     non_undoable.then_some((
                                         choice.card_id,
                                         idx,

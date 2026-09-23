@@ -121,6 +121,26 @@ impl ActivatedAbility {
         (!s.is_empty()).then_some(s)
     }
 
+    pub fn is_undoable(&self) -> bool {
+        if !self
+            .cost
+            .parts
+            .iter()
+            .all(crate::cost::cost_part::is_undoable)
+            || self.sub_ability.is_some()
+        {
+            return false;
+        }
+        if self.is_mana_reflected {
+            return true;
+        }
+        self.params.get("ActivationLimit").is_none()
+            && self
+                .amount
+                .as_deref()
+                .is_none_or(|amount| amount.chars().all(|c| c.is_ascii_digit()))
+    }
+
     pub fn produced_color_symbols(&self) -> Vec<String> {
         use crate::ability::{ProducedMana, ProducedManaCombo};
         match &self.produced_ir {
