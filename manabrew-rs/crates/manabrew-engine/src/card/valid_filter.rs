@@ -677,7 +677,9 @@ fn matches_card_predicate(
                 card.type_line.has_string_type(ct) || card.has_keyword("Changeling")
             })
         }
-        SelectorPredicate::Keyword { name, present } => card.has_keyword(name) == *present,
+        SelectorPredicate::Keyword { name, present } => {
+            card.has_start_of_un_hidden_keyword(name) == *present
+        }
         SelectorPredicate::NumericComparison {
             property,
             operator,

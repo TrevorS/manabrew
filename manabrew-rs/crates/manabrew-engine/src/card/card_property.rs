@@ -182,9 +182,9 @@ fn matches_single_property(card: &Card, property: &str, source_controller: Playe
             } else if property == "hasAbility Activated" {
                 !card.activated_abilities.is_empty()
             } else if let Some(keyword) = property.strip_prefix("without") {
-                !card.has_keyword(keyword)
+                !card.has_start_of_un_hidden_keyword(keyword)
             } else if let Some(keyword) = property.strip_prefix("with") {
-                card.has_keyword(keyword)
+                card.has_start_of_un_hidden_keyword(keyword)
             } else {
                 // Check if it's a creature subtype (Wall, Zombie, Elf, etc.).
                 // Mirrors Java's CardProperty.cardHasProperty() subtype matching.

@@ -4153,7 +4153,16 @@ impl Card {
         self.keywords.iter_strings().any(|k| k.starts_with(prefix))
     }
     pub fn has_start_of_un_hidden_keyword(&self, prefix: &str) -> bool {
-        self.has_start_of_keyword(prefix)
+        if self
+            .cant_have_keywords
+            .contains(&prefix.to_ascii_lowercase())
+        {
+            return false;
+        }
+        [&self.keywords, &self.granted_keywords, &self.pump_keywords]
+            .into_iter()
+            .flat_map(|keywords| keywords.iter_strings())
+            .any(|keyword| keyword.starts_with(prefix))
     }
     pub fn has_any_keyword(&self) -> bool {
         !self.keywords.as_string_list().is_empty()
