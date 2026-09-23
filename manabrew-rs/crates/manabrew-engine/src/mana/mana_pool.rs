@@ -290,22 +290,34 @@ impl ManaPool {
     /// Clear mana pool at the end of `ending_phase`, retaining persistent and combat mana.
     /// Mirrors Java's PhaseHandler.onPhaseEnd() → clearPool(true) (MTG rule 500.4).
     pub fn clear_pool(&mut self, ending_phase: PhaseType) -> usize {
-        self.clear_pool_with_keep(ending_phase, 0)
+        self.clear_pool_with_keep(ending_phase, 0, None)
     }
 
     /// Clear the mana pool at the end of `ending_phase`, retaining persistent mana until
     /// cleanup, combat mana until the end of combat, and mana of colors specified by
     /// `keep_colors` bitmask (from UnspentMana statics).
     /// Returns the number of mana cleared (for mana burn calculation).
-    pub fn clear_pool_with_keep(&mut self, ending_phase: PhaseType, keep_colors: u16) -> usize {
+    pub fn clear_pool_with_keep(
+        &mut self,
+        ending_phase: PhaseType,
+        keep_colors: u16,
+        convert_to: Option<u16>,
+    ) -> usize {
         let before = self.mana.len();
         let cleanup = ending_phase == PhaseType::Cleanup;
         let combat_end = ending_phase == PhaseType::CombatEnd;
-        self.mana.retain(|m| {
+        let kept = |m: &Mana| {
             (!cleanup && m.is_persistent)
                 || (!cleanup && !combat_end && m.is_combat_mana)
                 || (keep_colors != 0 && (m.color & keep_colors) != 0)
-        });
+        };
+        if let Some(color) = convert_to {
+            for m in self.mana.iter_mut().filter(|m| !kept(m)) {
+                m.color = color;
+            }
+            return 0;
+        }
+        self.mana.retain(kept);
         before - self.mana.len()
     }
 

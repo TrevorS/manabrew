@@ -220,7 +220,7 @@ pub enum ReplacementEvent {
     Learn { player: PlayerId },
 
     /// Mana is being lost.
-    LoseMana { player: PlayerId },
+    LoseMana { player: PlayerId, mana: u16 },
 
     /// Dice are being rolled.
     RollDice {
@@ -489,7 +489,7 @@ fn affected_player_for_event(event: &ReplacementEvent, game: &GameState) -> Play
         ReplacementEvent::Proliferate { player, .. } => *player,
         ReplacementEvent::Cascade { player } => *player,
         ReplacementEvent::Learn { player } => *player,
-        ReplacementEvent::LoseMana { player } => *player,
+        ReplacementEvent::LoseMana { player, .. } => *player,
         ReplacementEvent::RollDice { player, .. } => *player,
         ReplacementEvent::RollPlanarDice { player, .. } => *player,
         ReplacementEvent::PlanarDiceResult { player, .. } => *player,

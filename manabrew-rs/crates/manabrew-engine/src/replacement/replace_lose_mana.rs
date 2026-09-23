@@ -3,8 +3,11 @@
 //! Mirrors Java `ReplaceLoseMana.java` in `forge/game/replacement/`.
 
 use crate::card::Card;
+use crate::core::HasSVars;
 use crate::game::GameState;
 use crate::ids::CardId;
+use crate::parsing::{keys, Params};
+use forge_foundation::ManaAtom;
 
 use super::replacement_effect::ReplacementEffect;
 use super::replacement_handler::ReplacementEvent;
@@ -23,7 +26,7 @@ pub fn can_replace(
         return false;
     }
     let player = match event {
-        ReplacementEvent::LoseMana { player } => *player,
+        ReplacementEvent::LoseMana { player, .. } => *player,
         _ => return false,
     };
     if let Some(valid) = effect.ir.valid_player_selector.as_ref() {
@@ -37,12 +40,20 @@ pub fn can_replace(
 /// Mirrors Java `ReplacementHandler.executeReplacement()` for LoseMana.
 pub fn execute(
     effect: &ReplacementEffect,
-    _event: &mut ReplacementEvent,
-    _game: &GameState,
-    _source_card_id: CardId,
+    event: &mut ReplacementEvent,
+    game: &GameState,
+    source_card_id: CardId,
 ) -> ReplacementResult {
     if effect.prevents() || effect.has_skip() {
         return ReplacementResult::Skipped;
+    }
+    let replace_type = effect
+        .replace_with()
+        .and_then(|name| game.card(source_card_id).get_svar(name))
+        .map(Params::from_raw)
+        .and_then(|params| params.get(keys::REPLACE_TYPE).map(str::to_ascii_lowercase));
+    if let (Some(replace_type), ReplacementEvent::LoseMana { mana, .. }) = (replace_type, event) {
+        *mana = ManaAtom::from_name(&replace_type);
     }
     ReplacementResult::Replaced
 }

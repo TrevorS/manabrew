@@ -644,7 +644,7 @@ impl ReplacementEffect {
                 | ReplacementEvent::DeclareBlocker { player }
                 | ReplacementEvent::RollPlanarDice { player, .. }
                 | ReplacementEvent::PlanarDiceResult { player, .. }
-                | ReplacementEvent::LoseMana { player }
+                | ReplacementEvent::LoseMana { player, .. }
                 | ReplacementEvent::GameLoss { player, .. }
                 | ReplacementEvent::GameWin { player }
                 | ReplacementEvent::Cascade { player }

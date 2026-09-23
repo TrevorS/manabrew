@@ -28,7 +28,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             continue;
         }
         // Run LoseMana replacement effects before draining mana.
-        let mut event = ReplacementEvent::LoseMana { player: *pid };
+        let mut event = ReplacementEvent::LoseMana {
+            player: *pid,
+            mana: forge_foundation::ManaAtom::COLORLESS,
+        };
         let result = apply_replacements(ctx.game, &mut event);
         if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
             continue;

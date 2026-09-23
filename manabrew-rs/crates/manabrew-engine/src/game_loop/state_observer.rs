@@ -175,8 +175,32 @@ impl GameLoop {
         let num_players = self.mana_pools.len();
         for pidx in 0..num_players {
             let player_id = crate::ids::PlayerId(pidx as u32);
+            if self.mana_pools[pidx].total_mana() == 0 {
+                continue;
+            }
+            let mut event = crate::replacement::replacement_handler::ReplacementEvent::LoseMana {
+                player: player_id,
+                mana: forge_foundation::ManaAtom::COLORLESS,
+            };
+            let convert_to =
+                match crate::replacement::replacement_handler::apply_replacements(game, &mut event)
+                {
+                    crate::replacement::ReplacementResult::NotReplaced => None,
+                    crate::replacement::ReplacementResult::Skipped => continue,
+                    _ => match event {
+                        crate::replacement::replacement_handler::ReplacementEvent::LoseMana {
+                            mana,
+                            ..
+                        } => Some(mana),
+                        _ => None,
+                    },
+                };
             let keep_colors = compute_unspent_mana_colors(game, player_id);
-            let cleared = self.mana_pools[pidx].clear_pool_with_keep(game.turn.phase, keep_colors);
+            let cleared = self.mana_pools[pidx].clear_pool_with_keep(
+                game.turn.phase,
+                keep_colors,
+                convert_to,
+            );
             // Mana burn: if player has ManaBurn static, lose life equal to cleared mana
             if cleared > 0 && has_mana_burn(game, player_id) {
                 game.player_lose_life(player_id, cleared as i32);
