@@ -793,6 +793,8 @@ impl GameLoop {
         // the parent SA's chosen target card so sub-abilities can resolve
         // `Defined$ ParentTarget`. Mirrors Java's resolveApiAbility() + resolveSubAbilities().
         let mut parent_target_card: Option<CardId> = None;
+        let mut parent_additional_target_cards: indexmap::IndexMap<CardId, i32> =
+            indexmap::IndexMap::new();
         let mut parent_target_player = None;
         let mut parent_additional_target_players: Vec<crate::ids::PlayerId> = Vec::new();
         let mut parent_target_stack_entry: Option<u32> = None;
@@ -845,6 +847,10 @@ impl GameLoop {
                 if !sa_with_ctx.uses_targeting() {
                     if sa_with_ctx.target_chosen.target_card.is_none() {
                         sa_with_ctx.target_chosen.target_card = parent_target_card;
+                        sa_with_ctx
+                            .target_chosen
+                            .divided_map
+                            .clone_from(&parent_additional_target_cards);
                     }
                     if sa_with_ctx.target_chosen.target_player.is_none() {
                         sa_with_ctx.target_chosen.target_player = parent_target_player;
@@ -884,7 +890,10 @@ impl GameLoop {
                 sa
             };
             self.resolve_single_effect(game, agents, sa_ref, parent_target_card);
-            parent_target_card = sa_ref.target_chosen.target_card.or(parent_target_card);
+            if sa_ref.target_chosen.target_card.is_some() {
+                parent_target_card = sa_ref.target_chosen.target_card;
+                parent_additional_target_cards.clone_from(&sa_ref.target_chosen.divided_map);
+            }
             if sa_ref.target_chosen.target_player.is_some() {
                 parent_target_player = sa_ref.target_chosen.target_player;
                 parent_additional_target_players

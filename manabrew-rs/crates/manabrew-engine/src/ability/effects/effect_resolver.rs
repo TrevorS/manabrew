@@ -337,6 +337,8 @@ pub fn resolve_effect_chain_with_parent(
 ) {
     let mut current = Some(initial);
     let mut parent_target_card = initial_parent_target_card;
+    let mut parent_additional_target_cards: indexmap::IndexMap<CardId, i32> =
+        indexmap::IndexMap::new();
     let mut parent_target_player = initial_parent_target_player;
     let mut parent_additional_target_players: Vec<PlayerId> = Vec::new();
     let mut is_first = true;
@@ -352,6 +354,10 @@ pub fn resolve_effect_chain_with_parent(
             if !sa_with_ctx.uses_targeting() {
                 if sa_with_ctx.target_chosen.target_card.is_none() {
                     sa_with_ctx.target_chosen.target_card = parent_target_card;
+                    sa_with_ctx
+                        .target_chosen
+                        .divided_map
+                        .clone_from(&parent_additional_target_cards);
                 }
                 if sa_with_ctx.target_chosen.target_player.is_none() {
                     sa_with_ctx.target_chosen.target_player = parent_target_player;
@@ -370,7 +376,10 @@ pub fn resolve_effect_chain_with_parent(
         };
 
         resolve_effect(ctx, sa_ref);
-        parent_target_card = sa_ref.target_chosen.target_card.or(parent_target_card);
+        if sa_ref.target_chosen.target_card.is_some() {
+            parent_target_card = sa_ref.target_chosen.target_card;
+            parent_additional_target_cards.clone_from(&sa_ref.target_chosen.divided_map);
+        }
         if sa_ref.target_chosen.target_player.is_some() {
             parent_target_player = sa_ref.target_chosen.target_player;
             parent_additional_target_players
