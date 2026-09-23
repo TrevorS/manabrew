@@ -883,6 +883,33 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         ),
                     );
                 }
+                if kw == "Decayed" {
+                    let next_id = card
+                        .triggers
+                        .iter()
+                        .map(|t| t.id)
+                        .max()
+                        .unwrap_or(0)
+                        .saturating_add(1);
+                    let mut next_id_mut = next_id;
+                    let execute = format!("TrigDecayedGranted{next_id}");
+                    let sacrifice = format!("TrigDecayedSacGranted{next_id}");
+                    let raw = format!(
+                        "Mode$ Attacks | ValidCard$ Card.Self | Secondary$ True | Execute$ {execute} | TriggerDescription$ When a creature with decayed attacks, sacrifice it at end of combat."
+                    );
+                    if let Some(mut trig) = crate::trigger::parse_trigger(&raw, &mut next_id_mut) {
+                        trig.execute = execute.clone();
+                        card.add_trigger(trig);
+                    }
+                    card.granted_svars.insert(
+                        execute,
+                        format!(
+                            "DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | Execute$ {sacrifice} | TriggerDescription$ At end of combat, sacrifice CARDNAME."
+                        ),
+                    );
+                    card.granted_svars
+                        .insert(sacrifice, "DB$ Sacrifice".to_string());
+                }
             }
             EffectKind::RemoveCardTypes => {
                 let card = &mut game.cards[effect.target.index()];
