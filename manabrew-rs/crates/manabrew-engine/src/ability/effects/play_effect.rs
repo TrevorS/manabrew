@@ -93,9 +93,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .retain(|part| !matches!(part, crate::cost::CostPart::Mana { .. }));
         }
     } else if let Some(ref cost_str) = play_cost {
-        let alt_mc = forge_foundation::ManaCost::parse(cost_str);
         if let Some(ref existing) = spell_sa.pay_costs {
-            spell_sa.pay_costs = Some(existing.copy_with_defined_mana(alt_mc));
+            let mut cost = existing.copy_with_no_mana();
+            crate::cost::merge_to(&mut cost, &crate::cost::parse_cost(cost_str));
+            spell_sa.pay_costs = Some(cost);
         }
     }
 
@@ -115,10 +116,26 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         return;
     }
 
+    if let Some(ref cost_str) = play_cost {
+        let non_mana = crate::cost::parse_cost(cost_str).copy_with_no_mana();
+        if !non_mana.parts.is_empty()
+            && !super::cost_payment::try_pay_unless_cost_without_confirm(
+                ctx, &spell_sa, card_id, controller, &non_mana,
+            )
+        {
+            return;
+        }
+    }
+
     // ── Step 6: Pay mana ────────────────────────────────────────────
     if !without_mana_cost {
         let mc = if let Some(ref cost_str) = play_cost {
-            forge_foundation::ManaCost::parse(cost_str)
+            crate::cost::parse_cost(cost_str)
+                .parts
+                .iter()
+                .find_map(crate::cost::cost_part_mana::get_mana)
+                .cloned()
+                .unwrap_or_else(forge_foundation::ManaCost::zero)
         } else {
             ctx.game.card(card_id).mana_cost.clone()
         };

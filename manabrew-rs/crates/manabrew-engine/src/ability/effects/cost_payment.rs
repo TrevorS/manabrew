@@ -1197,7 +1197,7 @@ pub(crate) fn try_pay_unless_cost(
     )
 }
 
-fn try_pay_unless_cost_without_confirm(
+pub(crate) fn try_pay_unless_cost_without_confirm(
     ctx: &mut EffectContext,
     sa: &SpellAbility,
     source: CardId,
