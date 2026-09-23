@@ -182,34 +182,49 @@ pub fn filter_legal_blockers(
         .collect()
 }
 
-pub fn validate_blocks(game: &GameState, combat: &CombatState) -> Vec<(CardId, CardId)> {
-    let mut invalid = Vec::new();
-
-    for &(attacker_id, _) in &combat.attackers {
-        let blockers_for = combat.get_blockers_for(attacker_id);
-        let num_blockers = blockers_for.len();
-
-        if num_blockers == 0 {
-            continue;
-        }
-
-        // Check blockers with "can't block alone" keyword
-        for &blocker_id in &blockers_for {
-            let blocker = game.card(blocker_id);
-            let cant_block_alone = blocker
-                .keywords
-                .iter_strings()
-                .chain(blocker.granted_keywords.iter_strings())
-                .chain(blocker.pump_keywords.iter_strings())
-                .any(|kw| kw.to_lowercase().contains("can't block alone"));
-
-            if cant_block_alone && num_blockers == 1 {
-                invalid.push((blocker_id, attacker_id));
+pub fn validate_blocks(game: &GameState, combat: &CombatState, defender: PlayerId) -> Vec<CardId> {
+    let mut removed: Vec<CardId> = Vec::new();
+    loop {
+        let mut remaining_blockers: Vec<CardId> = Vec::new();
+        for &(blocker_id, _) in &combat.blockers {
+            if !removed.contains(&blocker_id)
+                && !remaining_blockers.contains(&blocker_id)
+                && game.card(blocker_id).controller == defender
+            {
+                remaining_blockers.push(blocker_id);
             }
         }
+        let mut reached_steady_state = true;
+        for &blocker_id in &remaining_blockers {
+            let blocker = game.card(blocker_id);
+            let cant_block_alone = blocker.has_keyword("CARDNAME can't attack or block alone.")
+                || blocker.has_keyword("CARDNAME can't block alone.");
+            let remove_blocker = if remaining_blockers.len() < 2 && cant_block_alone {
+                true
+            } else if remaining_blockers.len() < 3
+                && blocker
+                    .has_keyword("CARDNAME can't block unless at least two other creatures block.")
+            {
+                true
+            } else if blocker.has_keyword(
+                "CARDNAME can't block unless a creature with greater power also blocks.",
+            ) {
+                let power = blocker.power();
+                !remaining_blockers
+                    .iter()
+                    .any(|&other| game.card(other).power() > power)
+            } else {
+                false
+            };
+            if remove_blocker {
+                removed.push(blocker_id);
+                reached_steady_state = false;
+            }
+        }
+        if reached_steady_state {
+            return removed;
+        }
     }
-
-    invalid
 }
 
 pub fn must_block_an_attacker(game: &GameState, combat: &CombatState, blocker_id: CardId) -> bool {

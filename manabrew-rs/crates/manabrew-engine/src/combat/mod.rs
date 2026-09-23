@@ -1870,7 +1870,6 @@ pub fn compute_must_block_targets(
     combat_util::compute_must_block_targets(game, combat, blocker_id)
 }
 
-/// Validate blocker assignments and return invalid (blocker, attacker) pairs.
-pub fn validate_blocks(game: &GameState, combat: &CombatState) -> Vec<(CardId, CardId)> {
-    combat_util::validate_blocks(game, combat)
+pub fn validate_blocks(game: &GameState, combat: &CombatState, defender: PlayerId) -> Vec<CardId> {
+    combat_util::validate_blocks(game, combat, defender)
 }

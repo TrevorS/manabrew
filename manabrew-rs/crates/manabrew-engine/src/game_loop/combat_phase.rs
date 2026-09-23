@@ -824,12 +824,8 @@ impl GameLoop {
                         .retain(|(b, _)| !block_cost_failures.contains(b));
                 }
 
-                // Block validation (Menace, can't block alone)
-                let invalid_blocks = combat::validate_blocks(game, &self.combat);
-                for (blocker_id, attacker_id) in &invalid_blocks {
-                    self.combat
-                        .blockers
-                        .retain(|(b, a)| !(b == blocker_id && a == attacker_id));
+                for blocker_id in combat::validate_blocks(game, &self.combat, defending) {
+                    self.combat.undo_blocking_assignment(blocker_id);
                 }
 
                 if agents[defending.index()].enforces_block_requirements() {
@@ -959,6 +955,7 @@ impl GameLoop {
                         );
                     }
                 } else {
+                    self.combat.blocked_attackers.remove(&attacker_id);
                     self.trigger_handler.run_trigger(
                         TriggerType::AttackerUnblocked,
                         RunParams {
