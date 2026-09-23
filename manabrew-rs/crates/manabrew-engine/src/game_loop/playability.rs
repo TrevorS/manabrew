@@ -144,11 +144,15 @@ impl GameLoop {
             self.available_mana_for_spell_card(game, player, card_id, chosen_types_by_source);
         let cost_adj =
             crate::cost::cost_adjustment::compute_cost_adjustment(game, card, player, zone);
-        let alt_cost_mc = alt_cost
+        let alt_cost = alt_cost.as_deref().map(crate::cost::parse_cost);
+        let base_cost = alt_cost
             .as_ref()
-            .map(|s| forge_foundation::ManaCost::parse(s));
-        let base_cost = alt_cost_mc.as_ref().unwrap_or(&card.mana_cost);
-        available_mana.can_pay(&cost_adj.apply(base_cost))
+            .map(Self::mana_from_cost)
+            .unwrap_or_else(|| card.mana_cost.clone());
+        available_mana.can_pay(&cost_adj.apply(&base_cost))
+            && alt_cost.as_ref().is_none_or(|cost| {
+                crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player)
+            })
     }
 
     fn can_play_card_state_spell(
@@ -1697,19 +1701,46 @@ impl GameLoop {
             if must_be_instant && !has_flash_permission(card_id) {
                 continue;
             }
-            if self.can_cast_may_play_spell(
-                game,
-                player,
-                card_id,
-                ZoneType::Library,
-                may_play_alt_cost(card_id),
-                &chosen_types_by_source,
-            ) {
-                for _ in 0..count_may_play_grants(card_id).max(1) {
+            let may_play_costs =
+                crate::staticability::static_ability_continuous::may_play_alt_costs(
+                    game,
+                    player,
+                    game.card(card_id),
+                );
+            let normal_grants = count_may_play_grants(card_id)
+                .max(1)
+                .saturating_sub(may_play_costs.len());
+            if normal_grants > 0
+                && self.can_cast_may_play_spell(
+                    game,
+                    player,
+                    card_id,
+                    ZoneType::Library,
+                    None,
+                    &chosen_types_by_source,
+                )
+            {
+                for _ in 0..normal_grants {
                     playable.push(crate::agent::PlayOption {
                         card_id,
                         mode: crate::agent::PlayCardMode::Normal,
                         alt_cost_index: 0,
+                    });
+                }
+            }
+            for (alt_cost_index, alt_cost) in may_play_costs.into_iter().enumerate() {
+                if self.can_cast_may_play_spell(
+                    game,
+                    player,
+                    card_id,
+                    ZoneType::Library,
+                    Some(alt_cost),
+                    &chosen_types_by_source,
+                ) {
+                    playable.push(crate::agent::PlayOption {
+                        card_id,
+                        mode: crate::agent::PlayCardMode::MayPlay(None),
+                        alt_cost_index: alt_cost_index as u8,
                     });
                 }
             }

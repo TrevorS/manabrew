@@ -291,7 +291,11 @@ pub fn may_play_alt_mana_cost(
     if st_ab.ir.may_play_without_mana_cost {
         return Some("0".to_string());
     }
-    st_ab.ir.may_play_alt_mana_cost.clone()
+    st_ab
+        .ir
+        .may_play_alt_mana_cost
+        .as_ref()
+        .map(|cost| cost.replace("ConvertedManaCost", &card.mana_value().to_string()))
 }
 
 pub fn run(st_ab: &StaticAbility, source: &Card, game: &GameState) -> bool {
