@@ -601,6 +601,10 @@ impl GameLoop {
         card_id: CardId,
         ab: &crate::ability::activated::ActivatedAbility,
     ) -> bool {
+        let mut x_sa =
+            crate::spellability::build_spell_ability(game, card_id, &ab.ability_text, player);
+        let has_x =
+            self.preset_max_x_for_activation(game, player, card_id, ab, &mut x_sa, &ab.cost);
         // Pay costs
         if !self.pay_ability_cost(
             game,
@@ -611,7 +615,7 @@ impl GameLoop {
             ab.ability_api,
             ab.cost.mandatory,
             CostPaymentContext::ActivatedAbility,
-            None,
+            has_x.then_some(&mut x_sa),
         ) {
             return false;
         }
@@ -632,7 +636,9 @@ impl GameLoop {
         );
 
         // Build the spell ability and resolve effect immediately (no stack).
-        let sa = crate::spellability::build_spell_ability(game, card_id, &ab.ability_text, player);
+        let mut sa =
+            crate::spellability::build_spell_ability(game, card_id, &ab.ability_text, player);
+        sa.x_mana_cost_paid = x_sa.x_mana_cost_paid;
         let entry = StackEntry {
             id: 0,
             spell_ability: sa,
