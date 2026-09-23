@@ -103,6 +103,10 @@ pub enum ManaPayCallback<'a> {
     /// The callback may use this to preserve parity-visible prompt ordering.
     /// The return value is ignored for this variant.
     ChooseColor(&'a [String]),
+    ChooseManaColor {
+        options: &'a [String],
+        chosen: &'a mut Option<String>,
+    },
     /// Choose cards for a mana-ability cost part (`tapXType`, `Exile<N/...>`).
     /// The callback writes the selected cards into `chosen`; the return value
     /// is only used as a success/cancel signal to fit the unified callback shape.
@@ -226,6 +230,7 @@ pub fn auto_tap_lands_with_chooser(
         match kind {
             ManaPayCallback::ChooseSacrifice(valid) => sacrifice_chooser(valid),
             ManaPayCallback::ChooseColor(_) => None,
+            ManaPayCallback::ChooseManaColor { .. } => None,
             ManaPayCallback::ChooseCards { .. } => None,
             ManaPayCallback::ConfirmSelfSacrifice(cid) => Some(cid),
             ManaPayCallback::ConfirmSubCounter(cid) => Some(cid),
@@ -262,6 +267,7 @@ pub fn auto_tap_lands_allow_reserved_source_reuse_with_chooser(
         match kind {
             ManaPayCallback::ChooseSacrifice(valid) => sacrifice_chooser(valid),
             ManaPayCallback::ChooseColor(_) => None,
+            ManaPayCallback::ChooseManaColor { .. } => None,
             ManaPayCallback::ChooseCards { .. } => None,
             ManaPayCallback::ConfirmSelfSacrifice(cid) => Some(cid),
             ManaPayCallback::ConfirmSubCounter(cid) => Some(cid),
@@ -734,8 +740,15 @@ fn auto_tap_lands_internal_with_ctx(
             };
             let produced =
                 produce_mana_for_auto_pay(game, pool, player, &sa_payment, chosen_atom, callback);
-            let trigger_atoms =
-                add_taps_for_mana_trigger_mana(game, pool, player, &sa_payment, &produced, to_pay);
+            let trigger_atoms = add_taps_for_mana_trigger_mana(
+                game,
+                pool,
+                player,
+                &sa_payment,
+                &produced,
+                to_pay,
+                callback,
+            );
             if consume_incrementally {
                 let spent = pool.pay_unpaid_for_spell_incremental(
                     &mut unpaid,
@@ -794,6 +807,7 @@ fn auto_tap_lands_internal_with_ctx(
                     &sa_payment,
                     &produced,
                     to_pay,
+                    callback,
                 );
             }
 
@@ -1019,8 +1033,11 @@ fn add_taps_for_mana_trigger_mana(
     sa_payment: &ManaAbilityRef,
     produced: &str,
     to_pay: ManaCostShard,
+    callback: &mut Option<ManaPayCallbackFn<'_>>,
 ) -> Vec<u16> {
-    add_taps_for_mana_trigger_mana_impl(game, pool, player, sa_payment, produced, true, to_pay)
+    add_taps_for_mana_trigger_mana_impl(
+        game, pool, player, sa_payment, produced, true, to_pay, callback,
+    )
 }
 
 fn add_taps_for_mana_trigger_mana_impl(
@@ -1031,6 +1048,7 @@ fn add_taps_for_mana_trigger_mana_impl(
     produced: &str,
     require_tap: bool,
     to_pay: ManaCostShard,
+    callback: &mut Option<ManaPayCallbackFn<'_>>,
 ) -> Vec<u16> {
     // TapsForMana fires only when the mana ability has a Tap cost
     // (`AbilityManaPart.tapsForMana`). Implicit basic-land taps have no parsed
@@ -1094,9 +1112,25 @@ fn add_taps_for_mana_trigger_mana_impl(
                     continue;
                 };
                 let atoms = produced_ir.to_atoms(&host.chosen_colors);
-                let Some(atom) = atoms.first().copied() else {
+                let Some(mut atom) = atoms.first().copied() else {
                     continue;
                 };
+                if produced_ir.is_any_like() && !produced_ir.is_combo_mana() {
+                    if let Some(ref mut cb) = callback {
+                        let options = ["W", "U", "B", "R", "G"].map(String::from);
+                        let mut chosen = None;
+                        cb(ManaPayCallback::ChooseManaColor {
+                            options: &options,
+                            chosen: &mut chosen,
+                        });
+                        if let Some(color) = chosen
+                            .as_deref()
+                            .and_then(forge_foundation::Color::from_name)
+                        {
+                            atom = u16::from(color.mask());
+                        }
+                    }
+                }
                 (atom, sa.amount_of_mana_generated().max(1))
             };
             let Some(letter) = ManaPool::atom_to_letter(atom).chars().next() else {
@@ -2961,6 +2995,7 @@ pub fn can_pay_spell_mana_cost_for_action_space(
             &produced,
             false,
             to_pay,
+            &mut None,
         );
         simulated_pool.pay_unpaid_for_spell_incremental(&mut unpaid, payment_ctx, false);
 
@@ -3677,6 +3712,7 @@ fn predict_mana(
         &atoms_as_mana_string(&produced),
         false,
         to_pay,
+        &mut None,
     );
     produced.extend(triggered);
     produced
@@ -4404,6 +4440,7 @@ mod tests {
                     match kind {
                         ManaPayCallback::ChooseSacrifice(_) => None,
                         ManaPayCallback::ChooseColor(_) => None,
+                        ManaPayCallback::ChooseManaColor { .. } => None,
                         ManaPayCallback::ChooseCards { .. } => None,
                         ManaPayCallback::ConfirmSelfSacrifice(cid) => {
                             assert_eq!(cid, treasure); // should be asking about Treasure
@@ -4469,6 +4506,7 @@ mod tests {
                     match kind {
                         ManaPayCallback::ChooseSacrifice(_) => None,
                         ManaPayCallback::ChooseColor(_) => None,
+                        ManaPayCallback::ChooseManaColor { .. } => None,
                         ManaPayCallback::ChooseCards { .. } => None,
                         ManaPayCallback::ConfirmSelfSacrifice(cid) => {
                             assert_eq!(cid, treasure2);
