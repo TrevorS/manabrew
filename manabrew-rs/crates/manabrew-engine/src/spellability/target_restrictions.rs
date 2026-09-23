@@ -343,7 +343,9 @@ impl TargetRestrictions {
     /// Whether this can target a player.
     /// Mirrors Java's `TargetRestrictions.canTgtPlayer()`.
     pub fn can_tgt_player(&self) -> bool {
-        matches!(self.target_kind, TargetKind::Player | TargetKind::Any)
+        self.valid_tgts
+            .iter()
+            .any(|s| s.starts_with("Player") || s.starts_with("Opponent") || s.starts_with("Any"))
     }
 
     /// Whether this can target a permanent.
@@ -802,6 +804,12 @@ pub fn has_candidates_in_spell_ability_chain(
                         if (controllers.len() as i32) < min_targets {
                             return false;
                         }
+                    }
+                } else if matches!(tr.target_kind, TargetKind::Any) {
+                    if !tr.has_candidates(game, player, node.source)
+                        && get_stack_target_candidates(game, node).is_empty()
+                    {
+                        return false;
                     }
                 } else if !tr.has_candidates(game, player, node.source) {
                     return false;
