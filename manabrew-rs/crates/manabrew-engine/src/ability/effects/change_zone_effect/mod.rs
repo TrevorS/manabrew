@@ -60,11 +60,8 @@ pub fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
         let Some(dest_zone) = destination else {
             return;
         };
-        // `Origin$ All` — Java's `ZoneType.listValueOf("All")` is empty and
-        // `ZoneType.isHidden(origin)` returns true for that case. Resolve
-        // the SA's `Defined$` (or targets) to concrete cards, then dispatch
-        // the known-origin path once per zone they currently occupy.
-        // `NoShuffle` because this is not a library search (CR 701.18).
+        // Java's `Origin$ All` includes the library, so `changeHiddenOriginResolve` shuffles the
+        // fetcher's library before a move to it and again for `Shuffle$ True`.
         let is_origin_all = sa.origin().is_some_and(|o| o.eq_ignore_ascii_case("All"));
         if !is_origin_all && sa.origin().is_some() {
             return;
@@ -84,10 +81,30 @@ pub fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
                 zones.push(zone);
             }
         }
+        let fetchers = if is_origin_all {
+            search::resolve_defined_players_for_hidden_origin(ctx, sa)
+        } else {
+            Vec::new()
+        };
+        let shuffle_mandatory = !sa.ir.no_shuffle && sa.ir.shuffle_raw.as_deref() != Some("False");
+        if dest_zone == ZoneType::Library && shuffle_mandatory {
+            for &pid in &fetchers {
+                shuffle_library(ctx, pid);
+            }
+        }
         let mut sa_no_shuffle = sa.clone();
-        std::sync::Arc::make_mut(&mut sa_no_shuffle.ir).no_shuffle = true;
+        let ir = std::sync::Arc::make_mut(&mut sa_no_shuffle.ir);
+        ir.no_shuffle = true;
+        if is_origin_all {
+            ir.shuffle = false;
+        }
         for zone in zones {
             known::resolve_known_origin(ctx, &sa_no_shuffle, zone, dest_zone);
+        }
+        if sa.is_shuffle() {
+            for &pid in &fetchers {
+                shuffle_library(ctx, pid);
+            }
         }
         return;
     }
@@ -114,4 +131,16 @@ pub fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
             known::resolve_known_origin(ctx, sa, zone, dest_zone);
         }
     }
+}
+
+fn shuffle_library(ctx: &mut EffectContext, pid: crate::ids::PlayerId) {
+    ctx.game.shuffle_zone_cards(ZoneType::Library, pid, ctx.rng);
+    ctx.trigger_handler.run_trigger(
+        crate::trigger::TriggerType::Shuffled,
+        crate::event::RunParams {
+            player: Some(pid),
+            ..Default::default()
+        },
+        false,
+    );
 }
