@@ -797,9 +797,7 @@ fn matches_card_state(state: CardStateSelector, card: &Card, context: MatchConte
         CardStateSelector::FaceDown => card.face_down,
         CardStateSelector::Paired => card.paired_with.is_some(),
         CardStateSelector::PairedWithSource => card.paired_with == Some(context.source_card.id),
-        CardStateSelector::Attached => {
-            card.attached_to.is_some() || card.attached_to_player.is_some()
-        }
+        CardStateSelector::Attached => context.source_card.attachments.contains(&card.id),
         CardStateSelector::Equipped => context.game.is_some_and(|game| {
             card.attachments
                 .iter()
