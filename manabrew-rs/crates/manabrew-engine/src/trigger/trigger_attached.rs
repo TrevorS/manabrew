@@ -12,13 +12,15 @@ use super::trigger::TriggerBehavior;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TriggerAttached {
-    pub valid_card: Option<crate::parsing::CompiledSelector>,
+    pub valid_source: Option<crate::parsing::CompiledSelector>,
+    pub valid_target: Option<crate::parsing::CompiledSelector>,
 }
 
 impl TriggerAttached {
     pub fn parse(params: &Params) -> Box<dyn TriggerBehavior> {
         Box::new(Self {
-            valid_card: params.selector_cloned(keys::VALID_CARD),
+            valid_source: params.selector_cloned(keys::VALID_SOURCE),
+            valid_target: params.selector_cloned(keys::VALID_TARGET),
         })
     }
 }
@@ -35,9 +37,8 @@ impl TriggerBehavior for TriggerAttached {
         params: &RunParams,
         game: &GameState,
     ) -> bool {
-        let _host_card = trigger.base.card_trait_base.host_card_id();
-        let _host_controller = trigger.base.card_trait_base.host_controller(game);
-        trigger.matches_optional_valid_card_filter(&self.valid_card, params.card, game)
+        trigger.matches_optional_valid_card_filter(&self.valid_source, params.source_card, game)
+            && trigger.matches_optional_valid_card_filter(&self.valid_target, params.card, game)
     }
 
     fn set_triggering_objects(

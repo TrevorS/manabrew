@@ -184,7 +184,8 @@ fn attach_to_entity(ctx: &mut EffectContext, attachment: CardId, target: CardId)
     ctx.trigger_handler.run_trigger(
         crate::trigger::TriggerType::Attached,
         crate::event::RunParams {
-            card: Some(attachment),
+            source_card: Some(attachment),
+            card: Some(target),
             ..Default::default()
         },
         false,
