@@ -225,10 +225,9 @@ impl ApiType {
     /// Parse from a string, case-insensitive.
     /// Mirrors Java's `ApiType.smartValueOf()`.
     pub fn smart_value_of(value: &str) -> Option<ApiType> {
-        let lower = value.to_ascii_lowercase();
         ALL_API_TYPES
             .iter()
-            .find(|(name, _)| name.to_ascii_lowercase() == lower)
+            .find(|(name, _)| name.eq_ignore_ascii_case(value))
             .map(|(_, api)| *api)
     }
 
