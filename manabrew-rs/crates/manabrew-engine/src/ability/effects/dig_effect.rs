@@ -17,10 +17,11 @@ use crate::parsing::keys;
 /// `DigEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(DigEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
+    let mut chooser = sa.activating_player;
     for dig_player in
         crate::ability::spell_ability_effect::get_defined_players_or_targeted(ctx.game, sa)
     {
-        resolve_for_player(ctx, sa, dig_player);
+        resolve_for_player(ctx, sa, dig_player, &mut chooser);
     }
 }
 
@@ -28,6 +29,7 @@ fn resolve_for_player(
     ctx: &mut EffectContext,
     sa: &crate::spellability::SpellAbility,
     dig_player: crate::ids::PlayerId,
+    chooser: &mut crate::ids::PlayerId,
 ) {
     let dig_num = resolve_numeric_svar(ctx.game, sa, "DigNum", 1).max(0) as usize;
     let optional = sa.ir.optional;
@@ -106,6 +108,35 @@ fn resolve_for_player(
             .collect()
     };
 
+    if let Some(choser) = crate::parsing::raw_get(&sa.ability_text, "Choser") {
+        let activator = sa.activating_player;
+        let choosers = crate::ability::ability_utils::resolve_defined_players_with_sa(
+            choser, sa, activator, ctx.game,
+        );
+        if !choosers.is_empty() {
+            let entities: Vec<crate::agent::GameEntity> = choosers
+                .into_iter()
+                .map(crate::agent::GameEntity::Player)
+                .collect();
+            ctx.agents[activator.index()].snapshot_state(ctx.game, ctx.mana_pools);
+            if let Some(crate::agent::GameEntity::Player(pid)) = ctx.agents[activator.index()]
+                .choose_single_entity_for_effect(activator, &entities, false)
+            {
+                *chooser = pid;
+            }
+        }
+        if crate::parsing::raw_has_key(&sa.ability_text, "SetChosenPlayer") {
+            if let Some(source_id) = sa.source {
+                ctx.game.card_mut(source_id).set_chosen_player(
+                    Some(*chooser),
+                    Some(activator),
+                    true,
+                );
+            }
+        }
+    }
+    let chooser = *chooser;
+
     // Java DigEffect only prompts for optional skip when PromptToSkipOptionalAbility is set.
     // Otherwise Optional$ True is modeled by allowing 0 selected cards in choose_dig.
     let may_be_skipped = sa.ir.prompt_to_skip_optional_ability;
@@ -155,7 +186,6 @@ fn resolve_for_player(
     } else if valid.is_empty() {
         Vec::new()
     } else if let Some(mut totcmc) = sa.ir.with_total_cmc {
-        let chooser = sa.activating_player;
         let mut valid_cmc: Vec<_> = valid
             .iter()
             .copied()
@@ -179,9 +209,9 @@ fn resolve_for_player(
         }
         moved
     } else {
-        ctx.agents[sa.activating_player.index()].choose_dig(
+        ctx.agents[chooser.index()].choose_dig(
             ctx.game,
-            sa.activating_player,
+            chooser,
             &valid,
             max_take,
             optional || any_number,
@@ -251,12 +281,9 @@ fn resolve_for_player(
         && rest.len() > 1
         && (dest_zone2 == ZoneType::Library || dest_zone2 == ZoneType::Graveyard)
     {
-        ctx.agents[sa.activating_player.index()].snapshot_state(ctx.game, ctx.mana_pools);
-        let reordered = ctx.agents[sa.activating_player.index()].choose_reorder_library(
-            ctx.game,
-            sa.activating_player,
-            &rest,
-        );
+        ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        let reordered =
+            ctx.agents[chooser.index()].choose_reorder_library(ctx.game, chooser, &rest);
         if reordered.len() == rest.len() && rest.iter().all(|id| reordered.contains(id)) {
             rest = reordered;
         }
