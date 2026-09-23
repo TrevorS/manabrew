@@ -1011,36 +1011,9 @@ impl GameLoop {
                 let additional_costs_ok = sp_additional_ok && raised_additional_ok;
 
                 if additional_costs_ok {
-                    // Only validate cast-time targets from SP$ abilities.
-                    // Non-spell abilities (AB$/DB$/...) must not gate whether the card
-                    // can be cast from hand. Otherwise cards with target-dependent
-                    // activated abilities (e.g. Walking Bulwark) become incorrectly
-                    // uncastable when no valid AB$ target exists.
-                    let all_valid = card.action_spell_specs.iter().all(|spec| {
-                        let dynamic_target_count = spec
-                            .target_chain
-                            .iter()
-                            .any(|target| target.min_targets.is_none());
-                        if dynamic_target_count {
-                            return card.abilities.get(spec.ability_index).is_none_or(|ab| {
-                                target_restrictions::has_candidates_in_chain(
-                                    game,
-                                    player,
-                                    ab,
-                                    Some(card_id),
-                                )
-                            });
-                        }
-
-                        spec.target_chain.iter().all(|target| {
-                            target.min_targets.unwrap_or(1) <= 0
-                                || target.target_restrictions.has_candidates(
-                                    game,
-                                    player,
-                                    Some(card_id),
-                                )
-                        })
-                    });
+                    let all_valid = target_restrictions::has_candidates_in_spell_ability_chain(
+                        game, player, &cast_sa,
+                    );
                     if all_valid {
                         if normal_ok {
                             playable.push(crate::agent::PlayOption {
