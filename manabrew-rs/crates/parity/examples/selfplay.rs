@@ -36,6 +36,7 @@ struct RandomAgent {
     rng: StdRng,
     weight: u32,
     streak: u32,
+    last_replacement: Option<(Option<CardId>, String)>,
     counts: std::rc::Rc<std::cell::Cell<Counts>>,
 }
 
@@ -71,6 +72,7 @@ impl PlayerAgent for RandomAgent {
         request: &mut dyn FnMut() -> PriorityActionSpace,
     ) -> PlayerAction {
         self.bump(false);
+        self.last_replacement = None;
         let owned;
         let s = match space {
             Some(s) => s,
@@ -203,6 +205,19 @@ impl PlayerAgent for RandomAgent {
         }
     }
 
+    fn confirm_replacement_effect(
+        &mut self,
+        _p: PlayerId,
+        question: &str,
+        _d: &str,
+        source: Option<CardId>,
+    ) -> bool {
+        let prompt = Some((source, question.to_string()));
+        let repeated = self.last_replacement == prompt;
+        self.last_replacement = prompt;
+        !repeated
+    }
+
     fn choose_land_or_spell(&mut self, _p: PlayerId) -> Option<bool> {
         Some(self.rng.gen_bool(0.5))
     }
@@ -305,6 +320,7 @@ fn main() {
                         rng: StdRng::seed_from_u64(seed * 2 + p + 1),
                         weight,
                         streak: 0,
+                        last_replacement: None,
                         counts: std::rc::Rc::clone(&counts),
                     }) as Box<dyn PlayerAgent>
                 })
