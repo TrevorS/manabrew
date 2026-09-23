@@ -1,6 +1,6 @@
 use forge_foundation::ZoneType;
 
-use super::{emit_zone_trigger, resolve_defined_player, resolve_numeric_svar, EffectContext};
+use super::{emit_zone_trigger, resolve_numeric_svar, EffectContext};
 use crate::ids::CardId;
 
 /// Mirrors Java's `DigEffect.java`.
@@ -39,14 +39,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .unwrap_or_default();
 
     // Determine the player whose library we dig through.
-    let dig_player = sa
-        .target_chosen
-        .target_player
-        .or_else(|| {
-            sa.defined()
-                .and_then(|d| resolve_defined_player(d, sa.activating_player, ctx.game))
-        })
-        .unwrap_or(sa.activating_player);
+    let Some(dig_player) =
+        crate::ability::spell_ability_effect::get_defined_players_or_targeted(ctx.game, sa)
+            .into_iter()
+            .next()
+    else {
+        return;
+    };
 
     let lib_len = ctx.game.cards_in_zone(ZoneType::Library, dig_player).len();
     if lib_len == 0 {
