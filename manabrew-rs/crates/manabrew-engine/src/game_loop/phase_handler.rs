@@ -397,6 +397,14 @@ impl GameLoop {
                         true
                     };
                 if should_untap && game.untap_during_untap_step(cid, active) {
+                    self.trigger_handler.run_trigger(
+                        TriggerType::Untaps,
+                        crate::event::RunParams {
+                            card: Some(cid),
+                            ..Default::default()
+                        },
+                        false,
+                    );
                     match untap_map.iter_mut().find(|(player, _)| *player == active) {
                         Some((_, untapped)) => untapped.push(cid),
                         None => untap_map.push((active, vec![cid])),
@@ -431,6 +439,14 @@ impl GameLoop {
                 active,
             ) && game.untap_during_untap_step(cid, active)
             {
+                self.trigger_handler.run_trigger(
+                    TriggerType::Untaps,
+                    crate::event::RunParams {
+                        card: Some(cid),
+                        ..Default::default()
+                    },
+                    false,
+                );
                 match untap_map
                     .iter_mut()
                     .find(|(player, _)| *player == controller)
