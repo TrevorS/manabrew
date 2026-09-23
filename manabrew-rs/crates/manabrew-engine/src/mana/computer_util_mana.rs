@@ -1242,7 +1242,12 @@ fn auto_pay_base_mana_string(
         if let Some(ref mut cb) = callback {
             if let Some(color_name) = super::mana_atom_to_color_name(chosen_atom) {
                 let forced = [color_name.to_string()];
-                for _ in 0..base_amount {
+                let is_any_mana = ma
+                    .produced_ir
+                    .as_ref()
+                    .is_some_and(|produced| produced.is_any_like() && !produced.is_combo_mana());
+                let color_choices = if is_any_mana { 1 } else { base_amount };
+                for _ in 0..color_choices {
                     cb(ManaPayCallback::ChooseColor(&forced));
                 }
             }
