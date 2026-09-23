@@ -459,7 +459,7 @@ public class DeterministicController extends PlayerController implements Harness
                     ""
             );
 
-            if (valid.isEmpty()) {
+            if (valid.isEmpty() || valid.stream().allMatch(pair -> currentAbility.getTargets().contains(pair.getRight()))) {
                 final boolean result = currentAbility.isTargetNumberValid();
                 onCallback("choose_targets_for", Boolean.toString(result), currentAbility.toString());
                 return result;
