@@ -840,6 +840,10 @@ fn matches_card_state(state: CardStateSelector, card: &Card, context: MatchConte
         },
         CardStateSelector::WasDealtDamageThisTurn => !card.damage_sources_this_turn.is_empty(),
         CardStateSelector::DealtDamageThisTurn => card.total_damage_done_this_turn > 0,
+        CardStateSelector::DealtDamageToAny => card.damage_history.get_hasdealt_damage_to_any(),
+        CardStateSelector::DealtCombatDamageToAny => {
+            card.damage_history.get_hasdealt_combat_damage_to_any()
+        }
         CardStateSelector::Historic => {
             card.type_line.is_artifact()
                 || card.type_line.is_legendary()
@@ -1948,6 +1952,12 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         }
         "dealtdamagethisturn" => {
             matches_card_state(CardStateSelector::DealtDamageThisTurn, card, context)
+        }
+        "dealtdamagetoany" => {
+            matches_card_state(CardStateSelector::DealtDamageToAny, card, context)
+        }
+        "dealtcombatdamagetoany" => {
+            matches_card_state(CardStateSelector::DealtCombatDamageToAny, card, context)
         }
         dealt if dealt.starts_with("dealtcombatdamagethisturn") => {
             let Some(target_text) = value.split_once(' ').map(|(_, target)| target.trim()) else {

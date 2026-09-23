@@ -430,6 +430,8 @@ pub enum CardStateSelector {
     EnteredThisTurn,
     WasDealtDamageThisTurn,
     DealtDamageThisTurn,
+    DealtDamageToAny,
+    DealtCombatDamageToAny,
     Historic,
     Modified,
     Saddled,
@@ -1212,6 +1214,10 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         }
         "dealtdamagethisturn" => {
             SelectorPredicate::CardState(CardStateSelector::DealtDamageThisTurn)
+        }
+        "dealtdamagetoany" => SelectorPredicate::CardState(CardStateSelector::DealtDamageToAny),
+        "dealtcombatdamagetoany" => {
+            SelectorPredicate::CardState(CardStateSelector::DealtCombatDamageToAny)
         }
         "historic" => SelectorPredicate::CardState(CardStateSelector::Historic),
         "modified" => SelectorPredicate::CardState(CardStateSelector::Modified),

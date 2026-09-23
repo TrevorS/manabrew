@@ -43,6 +43,8 @@ pub struct CardDamageHistory {
     pub not_been_blocked_since_last_upkeep_of: Vec<PlayerId>,
     /// Damage dealt by this creature this turn.
     pub damage_done_this_turn: Vec<DamageInstance>,
+    pub hasdealt_damage_to_any: bool,
+    pub hasdealt_combat_damage_to_any: bool,
 }
 
 impl CardDamageHistory {
@@ -81,6 +83,7 @@ impl CardDamageHistory {
 
     /// Record damage dealt by this creature.
     pub fn record_damage(&mut self, amount: i32, is_combat: bool) {
+        self.record_dealt_damage_to_any(is_combat);
         self.damage_done_this_turn.push(DamageInstance {
             amount,
             is_combat,
@@ -100,12 +103,26 @@ impl CardDamageHistory {
         if damage <= 0 {
             return;
         }
+        self.record_dealt_damage_to_any(is_combat);
         self.damage_done_this_turn.push(DamageInstance {
             amount: damage,
             is_combat,
             source: source_lki,
             target: Some(target),
         });
+    }
+
+    fn record_dealt_damage_to_any(&mut self, is_combat: bool) {
+        self.hasdealt_damage_to_any = true;
+        self.hasdealt_combat_damage_to_any |= is_combat;
+    }
+
+    pub fn get_hasdealt_damage_to_any(&self) -> bool {
+        self.hasdealt_damage_to_any
+    }
+
+    pub fn get_hasdealt_combat_damage_to_any(&self) -> bool {
+        self.hasdealt_combat_damage_to_any
     }
 
     pub fn has_attacked_this_turn(&self, entity: TrackedEntity) -> bool {
