@@ -1034,8 +1034,8 @@ impl AtEotAction {
     }
 }
 
-/// Register a delayed trigger that fires at end of turn and performs `action`
-/// on `remembered` cards. Mirrors Java
+/// Register a delayed trigger that fires at the next end step, end of combat or
+/// upkeep and performs `action` on `remembered` cards. Mirrors Java
 /// `SpellAbilityEffect.registerDelayedTrigger(sa, location, iterable)`.
 ///
 /// `action` parses via `AtEotAction::from_str` — unknown tokens default to
@@ -1051,16 +1051,20 @@ pub fn register_at_eot(
         return;
     };
     let your = action.starts_with("Your");
-    let action = action
-        .strip_prefix("Your")
-        .unwrap_or(action)
-        .parse::<AtEotAction>()
-        .unwrap_or_default();
+    let action = action.strip_prefix("Your").unwrap_or(action);
+    let (action, phase) = if let Some(action) = action.strip_suffix("Combat") {
+        (action, forge_foundation::PhaseType::CombatEnd)
+    } else if let Some(action) = action.strip_suffix("Upkeep") {
+        (action, forge_foundation::PhaseType::Upkeep)
+    } else {
+        (action, forge_foundation::PhaseType::EndOfTurn)
+    };
+    let action = action.parse::<AtEotAction>().unwrap_or_default();
     let execute_svar = action.execute_svar().to_string();
     trigger_handler.register_delayed_trigger(crate::trigger::handler::DelayedTrigger {
         mode: crate::trigger::TriggerType::Phase,
         trigger_mode: Box::new(crate::trigger::trigger_phase::TriggerPhase {
-            phases: vec![forge_foundation::PhaseType::EndOfTurn],
+            phases: vec![phase],
             valid_player: your.then(|| crate::parsing::cached_compiled_selector("You")),
         }) as Box<dyn crate::trigger::TriggerBehavior>,
         params: crate::parsing::Params::default(),
