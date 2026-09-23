@@ -111,7 +111,7 @@ impl DelayedTrigger {
             execute: self.execute_svar.clone(),
             optional: false,
             description: String::new(),
-            static_trigger: false,
+            static_trigger: delayed_params.has("Static"),
             trigger_remembered: self
                 .remembered_cards
                 .iter()
@@ -135,6 +135,7 @@ pub struct PendingTrigger {
     pub decider: PlayerId,
     /// Description text for the trigger (shown to player for optional triggers).
     pub description: String,
+    pub static_trigger: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -482,17 +483,7 @@ impl TriggerHandler {
             notify_all_agents(agents, event);
 
             let is_optional = pt.optional;
-            let is_static = pt
-                .entry
-                .spell_ability
-                .trigger_source
-                .zip(pt.entry.spell_ability.trigger_index)
-                .and_then(|(source, index)| {
-                    game.cards
-                        .get(source.index())
-                        .and_then(|card| card.triggers.get(index))
-                })
-                .is_some_and(|trigger| trigger.is_static());
+            let is_static = pt.static_trigger;
             let pushed_entry = pt.entry.clone();
             game.stack.push(pt.entry);
             if pushed_entry.spell_ability.is_trigger && !is_static {
@@ -648,6 +639,7 @@ impl TriggerHandler {
                             || trigger_cost_optional,
                         decider: host_controller,
                         description: trigger.description.clone(),
+                        static_trigger: trigger.is_static(),
                     };
                     let source_ts = card.zone_timestamp;
                     entries.push((pending, host_controller, source_ts, 1, trigger.id));
@@ -699,6 +691,7 @@ impl TriggerHandler {
                                     || trigger_cost_optional,
                                 decider: host_controller,
                                 description: trigger.description.clone(),
+                                static_trigger: trigger.is_static(),
                             },
                             host_controller,
                             source_ts,
@@ -831,6 +824,7 @@ impl TriggerHandler {
                     optional: false,
                     decider: delayed.controller,
                     description: String::new(),
+                    static_trigger: delayed.params.has("Static"),
                 };
                 let delayed_ts = delayed.host_timestamp(game);
                 let delayed_bucket = if delayed.sort_after_active { 2 } else { 0 };
@@ -1025,6 +1019,7 @@ impl TriggerHandler {
                     optional: false,
                     decider: delayed.controller,
                     description: String::new(),
+                    static_trigger: delayed.params.has("Static"),
                 };
                 let ts = delayed.host_timestamp(game);
                 // An immediate trigger is made while its ability resolves, so its Java trigger id

@@ -12,17 +12,7 @@ impl GameLoop {
         let pending = self.trigger_handler.run_waiting_triggers(game);
         let mut pushed = Vec::new();
         for pt in pending {
-            let is_static = pt
-                .entry
-                .spell_ability
-                .trigger_source
-                .zip(pt.entry.spell_ability.trigger_index)
-                .and_then(|(source, index)| {
-                    game.cards
-                        .get(source.index())
-                        .and_then(|card| card.triggers.get(index))
-                })
-                .is_some_and(|trigger| trigger.is_static());
+            let is_static = pt.static_trigger;
             let one_off_effect = pt
                 .entry
                 .spell_ability
