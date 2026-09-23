@@ -1968,6 +1968,7 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         "issaddled" => matches_card_state(CardStateSelector::Saddled, card, context),
         "issuspected" => card.has_s_var("Suspected"),
         "issolved" => card.is_solved(),
+        "harnessed" => card.is_harnessed(),
         "sneaked" => {
             card.cast_sa.as_ref().is_some_and(|cast| {
                 cast.alt_cost == Some(crate::spellability::AlternativeCost::Sneak)
@@ -2624,6 +2625,7 @@ fn matches_type_and_qualifier_parts(
                 | "issaddled"
                 | "issuspected"
                 | "issolved"
+                | "harnessed"
                 | "sneaked"
                 | "mayplaysource"
                 | "suspended"

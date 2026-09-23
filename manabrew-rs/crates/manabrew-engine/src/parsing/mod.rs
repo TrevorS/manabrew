@@ -1103,7 +1103,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
             SelectorPredicate::CardController(ControllerSelector::Opponent)
         }
         "chosenctrl" | "hasabasiclandtype" | "adventurecard" | "issuspected" | "issolved"
-        | "sneaked" => SelectorPredicate::Raw(normalized.to_string()),
+        | "sneaked" | "harnessed" => SelectorPredicate::Raw(normalized.to_string()),
         "youown" => SelectorPredicate::CardOwner(ControllerSelector::You),
         "oppown" | "opponentown" => SelectorPredicate::CardOwner(ControllerSelector::Opponent),
         // Raw — runtime-resolved against the SA's target list in valid_filter.
