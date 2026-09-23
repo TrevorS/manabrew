@@ -646,13 +646,15 @@ impl DeterministicAgent {
         // generic — no Room-specific SVars.
         let base: String = match play.mode {
             PlayCardMode::Normal => self
-                .play_option_face_name(play)
+                .split_face_spell_text(play)
+                .or_else(|| self.play_option_face_name(play))
                 .or_else(|| self.secondary_face_texts(play).map(|(front, _)| front))
                 .or_else(|| self.permanent_spell_text(play))
                 .unwrap_or_else(|| "0".to_string()),
             PlayCardMode::BackFaceLand => "1".to_string(),
             PlayCardMode::RoomRightSplit => self
-                .play_option_face_name(play)
+                .split_face_spell_text(play)
+                .or_else(|| self.play_option_face_name(play))
                 .unwrap_or_else(|| "2".to_string()),
             PlayCardMode::Secondary => self
                 .secondary_face_texts(play)
@@ -726,6 +728,27 @@ impl DeterministicAgent {
             PlayCardMode::RoomRightSplit => back.trim().to_string(),
             _ => return None,
         })
+    }
+
+    fn split_face_spell_text(&self, play: PlayOption) -> Option<String> {
+        self.last_game_snapshot.as_ref()?;
+        let card = self
+            .snapshot_cards()
+            .iter()
+            .find(|c| c.id == play.card_id)?;
+        let other = card.other_part.as_ref()?;
+        if other.state_name != forge_foundation::CardStateName::RightSplit {
+            return None;
+        }
+        match play.mode {
+            PlayCardMode::Normal if !card.type_line.is_permanent() => {
+                Some(card.oracle_text.clone())
+            }
+            PlayCardMode::RoomRightSplit if !other.type_line.is_permanent() => {
+                Some(other.oracle_text.clone())
+            }
+            _ => None,
+        }
     }
 
     /// Java's `ParityOrder.abilityDeclarationIndex` walks `Card.getSpellAbilities()`,
