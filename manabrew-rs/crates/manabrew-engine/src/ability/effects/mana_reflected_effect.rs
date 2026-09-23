@@ -110,15 +110,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         atom
     } else if let Some(chosen_name) = ctx.agents[player.index()].choose_color(player, &color_names)
     {
-        match chosen_name.as_str() {
-            "White" => ManaAtom::WHITE,
-            "Blue" => ManaAtom::BLUE,
-            "Black" => ManaAtom::BLACK,
-            "Red" => ManaAtom::RED,
-            "Green" => ManaAtom::GREEN,
-            "Colorless" => ManaAtom::COLORLESS,
-            _ => sorted_colors[0],
-        }
+        color_name_to_mana_atom(&chosen_name).unwrap_or(sorted_colors[0])
     } else {
         sorted_colors[0]
     };
