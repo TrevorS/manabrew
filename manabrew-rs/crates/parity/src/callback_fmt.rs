@@ -60,7 +60,7 @@ impl<'a> FmtCtx<'a> {
         } else {
             card.card_name.as_str()
         };
-        let pid = self.parity_map.id(cid);
+        let pid = self.parity_map.parity_id(self.game, cid);
         format!("{name}@{pid}")
     }
 

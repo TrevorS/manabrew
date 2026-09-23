@@ -238,7 +238,10 @@ impl DeterministicAgent {
 
     fn parity_id(&self, cid: CardId) -> u32 {
         self.sync_parity_ids();
-        self.parity_map.id(cid)
+        match self.snapshot_game() {
+            Some(game) => self.parity_map.parity_id(game, cid),
+            None => self.parity_map.id(cid),
+        }
     }
 
     pub(crate) fn snapshot_game_mut(&mut self) -> Option<&mut GameState> {

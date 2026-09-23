@@ -9,7 +9,8 @@ use manabrew_engine::ids::{CardId, PlayerId};
 ///
 /// Deck cards are assigned sequential IDs (1, 2, 3, ...) from the hand and library
 /// once the opening-hand actions have run, as Java's `initializeFromOpeningState` does at
-/// the first turn-1 snapshot; nothing syncs before that.  Cards created mid-game (tokens, copies, detached
+/// the first turn-1 snapshot. Before that only a lookup syncs, and it numbers the whole game as
+/// Java's `parityId` does.  Cards created mid-game (tokens, copies, detached
 /// effects) are assigned the next sequential ID on first access, so both engines
 /// produce identical parity IDs as long as they encounter cards in the same order.
 pub struct ParityCardMap {
@@ -75,7 +76,10 @@ impl ParityCardMap {
         if !inner.initialized {
             return;
         }
+        Self::sync(&mut inner, game);
+    }
 
+    fn sync(inner: &mut ParityCardMapInner, game: &GameState) {
         let mut players: Vec<PlayerId> = game.player_order.clone();
         players.sort_by_key(|p| p.0);
 
@@ -92,11 +96,11 @@ impl ParityCardMap {
                     .then_with(|| a.index().cmp(&b.index()))
             });
             for cid in hand_cards {
-                Self::assign_if_absent(&mut inner, cid);
+                Self::assign_if_absent(inner, cid);
             }
             // Draw order parity for library: top -> bottom.
             for &cid in game.cards_in_zone(ZoneType::Library, pid).iter().rev() {
-                Self::assign_if_absent(&mut inner, cid);
+                Self::assign_if_absent(inner, cid);
             }
             let mut battlefield_cards: Vec<CardId> =
                 game.cards_in_zone(ZoneType::Battlefield, pid).to_vec();
@@ -111,7 +115,7 @@ impl ParityCardMap {
                     .then_with(|| a.index().cmp(&b.index()))
             });
             for cid in battlefield_cards {
-                Self::assign_if_absent(&mut inner, cid);
+                Self::assign_if_absent(inner, cid);
             }
             let mut graveyard_cards: Vec<CardId> = game
                 .cards_in_zone(ZoneType::Graveyard, pid)
@@ -130,7 +134,7 @@ impl ParityCardMap {
                     .then_with(|| a.index().cmp(&b.index()))
             });
             for cid in graveyard_cards {
-                Self::assign_if_absent(&mut inner, cid);
+                Self::assign_if_absent(inner, cid);
             }
             let mut exile_cards: Vec<CardId> = game
                 .cards_in_zone(ZoneType::Exile, pid)
@@ -149,7 +153,7 @@ impl ParityCardMap {
                     .then_with(|| a.index().cmp(&b.index()))
             });
             for cid in exile_cards {
-                Self::assign_if_absent(&mut inner, cid);
+                Self::assign_if_absent(inner, cid);
             }
             let mut stack_cards: Vec<CardId> = game
                 .cards_in_zone(ZoneType::Stack, pid)
@@ -168,9 +172,18 @@ impl ParityCardMap {
                     .then_with(|| a.index().cmp(&b.index()))
             });
             for cid in stack_cards {
-                Self::assign_if_absent(&mut inner, cid);
+                Self::assign_if_absent(inner, cid);
             }
         }
+    }
+
+    pub fn parity_id(&self, game: &GameState, cid: CardId) -> u32 {
+        let mut inner = self.inner.lock().unwrap();
+        if !inner.initialized {
+            Self::sync(&mut inner, game);
+        }
+        Self::assign_if_absent(&mut inner, cid);
+        inner.by_card[&cid]
     }
 
     /// The parity ID of `cid` if it has one, without assigning one; for logging, where a
