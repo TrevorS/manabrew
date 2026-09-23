@@ -179,6 +179,7 @@ const RESTRICTION_KEYS: &[&str] = &[
     "OpponentTurn",
     "ActivationLimit",
     "GameActivationLimit",
+    "Boast",
     "Threshold",
     "Metalcraft",
     "Delirium",

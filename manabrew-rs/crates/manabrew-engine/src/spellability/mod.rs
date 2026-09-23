@@ -793,6 +793,17 @@ impl SpellAbility {
             }
 
             let card = game.card(card_id);
+            if crate::parsing::raw_has_key(&self.ability_text, "Boast")
+                && card.get_ability_activated_this_turn(Some(self))
+                    >= crate::staticability::static_ability_additional_activations::get_limit(
+                        game,
+                        card,
+                        self,
+                        self.activating_player,
+                    )
+            {
+                return false;
+            }
             if let Some(limit_expr) = self.restriction.variables.limit_to_check() {
                 let limit = crate::svar::resolve_numeric_value(game, self, limit_expr, 0);
                 if card.get_ability_activated_this_turn(Some(self)) as i32 >= limit {

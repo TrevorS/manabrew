@@ -154,6 +154,11 @@ impl SpellAbilityRestriction {
             self.variables
                 .set_present_defined(Some(defined.to_string()));
         }
+        if get("Boast").is_some() {
+            self.variables.set_present_defined(Some("Self".to_string()));
+            self.variables
+                .set_is_present(Some("Card.attackedThisTurn".to_string()));
+        }
 
         if let Some(class_level) = get("ClassLevel") {
             if class_level.len() >= 2 {
