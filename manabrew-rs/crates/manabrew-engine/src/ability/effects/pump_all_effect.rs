@@ -1,8 +1,6 @@
 use forge_foundation::ZoneType;
 
 use super::{matches_valid_cards_for_sa, EffectContext};
-use crate::card::perpetual::perpetual_interface::PerpetualInterface;
-use crate::card::perpetual::{perpetual_keywords, perpetual_pt_boost};
 use crate::ids::CardId;
 
 /// End-of-turn revert for PumpAll. Mirrors the `GameCommand.run()` in Java
@@ -96,6 +94,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     // Perpetual effects persist across zone changes (stored in perpetual_*_modifier).
     let is_perpetual = sa.ir.perpetual_duration;
+    let is_permanent = matches!(
+        sa.ir.duration,
+        Some(crate::spellability::AbilityDuration::Permanent)
+    );
     let resolve_ts = if is_perpetual {
         Some(ctx.game.next_effect_timestamp())
     } else {
@@ -124,32 +126,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if ctx.game.card(card_id).zone != pump_zone {
             continue; // already moved
         }
-        if is_perpetual {
-            let ts = resolve_ts.expect("perpetual resolve timestamp must exist");
-            let card = ctx.game.card_mut(card_id);
-            perpetual_pt_boost::PerpetualPtBoost {
-                timestamp: ts,
-                power: att_bonus,
-                toughness: def_bonus,
-            }
-            .apply_effect(card);
-            for kw in &keywords {
-                perpetual_keywords::PerpetualKeywords {
-                    timestamp: ts,
-                    add_keywords: vec![kw.clone()],
-                    remove_keywords: Vec::new(),
-                    remove_all: false,
-                }
-                .apply_effect(card);
-            }
-        } else {
-            ctx.game
-                .card_mut(card_id)
-                .add_pt_boost(att_bonus, def_bonus);
-            for kw in &keywords {
-                ctx.game.card_mut(card_id).add_pump_keyword(kw);
-            }
-        }
+        super::pump_effect::apply_pump_to_card(
+            ctx,
+            card_id,
+            att_bonus,
+            def_bonus,
+            &keywords,
+            is_perpetual,
+            is_permanent,
+            resolve_ts,
+            sa,
+        );
         if sa.ir.remember_pumped {
             if let Some(source) = sa.source {
                 ctx.game.card_mut(source).add_remembered(card_id);
