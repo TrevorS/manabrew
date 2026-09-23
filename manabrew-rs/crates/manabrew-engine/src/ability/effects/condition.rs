@@ -224,6 +224,18 @@ pub(super) fn check_condition_present(
                 )
             })
             .collect();
+        let defined_players: Vec<PlayerId> = cond_defined
+            .refs
+            .iter()
+            .flat_map(|defined| {
+                crate::ability::ability_utils::resolve_defined_players_with_sa(
+                    defined.as_legacy_str(),
+                    sa,
+                    player,
+                    game,
+                )
+            })
+            .collect();
 
         // ConditionDefined$ cards are explicitly defined — don't exclude self.
         // Self-exclusion only makes sense for the zone-scan path below.
@@ -238,7 +250,15 @@ pub(super) fn check_condition_present(
                     &alternatives,
                 )
             })
-            .count() as i32;
+            .count() as i32
+            + defined_players
+                .iter()
+                .filter(|&&pid| {
+                    alternatives.iter().any(|alt| {
+                        crate::card::valid_filter::matches_valid_player(alt, pid, player)
+                    })
+                })
+                .count() as i32;
 
         return if let Some(compare) = sa.ir.condition_compare.as_deref() {
             compare_expr(count, compare)
