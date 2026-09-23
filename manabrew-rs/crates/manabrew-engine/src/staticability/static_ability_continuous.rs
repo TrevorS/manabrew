@@ -243,28 +243,18 @@ fn static_index(st_ab: &StaticAbility, source: &Card) -> Option<usize> {
         .position(|candidate| std::ptr::eq(candidate, st_ab))
 }
 
-/// The first `MayPlay$` grant opening `origin` for `card` that has uses left, in the order
-/// `getMayPlaySpellOptions` walks them, as its host and index. Java records the grant on the
-/// ability it builds; with one play option per card the first covering grant is the one that built
-/// it.
+/// The first `MayPlay$` grant that lets `player` play `card` from where it is, in the order
+/// `getMayPlaySpellOptions` walks them, as its host and, for a static printed on the host, its
+/// index. Java records the grant on the ability it builds; with one play option per card the first
+/// covering grant is the one that built it.
 pub fn may_play_grant_source(
     game: &GameState,
     player: crate::ids::PlayerId,
     card: &Card,
-    origin: forge_foundation::ZoneType,
-) -> Option<(crate::ids::CardId, usize)> {
+) -> Option<(crate::ids::CardId, Option<usize>)> {
     may_play_grants(game, player, card)
-        .find(|(source, st_ab)| {
-            st_ab.ir.may_play
-                && st_ab.ir.affected_zones.contains(&origin)
-                && st_ab.check_conditions(source, game)
-                && st_ab
-                    .ir
-                    .may_play_limit
-                    .is_none_or(|limit| may_play_turn(st_ab, source, game) < limit)
-                && may_play_affects(st_ab, source, card, game)
-        })
-        .and_then(|(source, st_ab)| Some((source.id, static_index(st_ab, source)?)))
+        .find(|(source, st_ab)| can_play_or_granted(st_ab, source, card, game))
+        .map(|(source, st_ab)| (source.id, static_index(st_ab, source)))
 }
 
 /// Java `Card.mayPlay(player)` is not empty: a `MayPlay$` grant for `player` covers `card`.

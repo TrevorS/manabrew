@@ -200,12 +200,11 @@ impl GameLoop {
         }
         let origin_zone = game.card_current_zone(card_id);
         if origin_zone != ZoneType::Hand {
-            if let Some((source, index)) =
+            if let Some((source, Some(index))) =
                 crate::staticability::static_ability_continuous::may_play_grant_source(
                     game,
                     player,
                     game.card(card_id),
-                    origin_zone,
                 )
             {
                 game.card_mut(source).static_abilities[index].inc_may_play_turn();
@@ -374,22 +373,6 @@ impl GameLoop {
                 .filter(|card| card.zone == forge_foundation::ZoneType::Battlefield)
                 .map(|card| card.id)
                 .collect();
-            // Java `GameActionUtil:381` records the grant on the option it builds. This port
-            // builds one option per card rather than one per grant, so the grant is recovered
-            // from the zone the cast came out of; a cast from hand is the ungranted one.
-            let origin = game.card(stack_push.source_card).cast_from;
-            let grant = origin
-                .filter(|&zone| zone != forge_foundation::ZoneType::Hand)
-                .and_then(|zone| {
-                    crate::staticability::static_ability_continuous::may_play_grant_source(
-                        game,
-                        player,
-                        game.card(stack_push.source_card),
-                        zone,
-                    )
-                });
-            cause.may_play_source = grant.map(|(source, _)| source);
-            cause.may_play_static = grant.map(|(_, index)| index);
             game.card_mut(stack_push.source_card).cast_sa = Some(Box::new(cause));
         }
         if let Some(pending_stack_id) = stack_push.pending_stack_id {
@@ -1555,6 +1538,18 @@ impl GameLoop {
 
         let cast_rollback_snapshot = self.make_snapshot(game, true);
         let announced_from_zone = game.card_current_zone(card_id);
+        if sa.is_spell && announced_from_zone != ZoneType::Hand {
+            if let Some((source, index)) =
+                crate::staticability::static_ability_continuous::may_play_grant_source(
+                    game,
+                    player,
+                    game.card(card_id),
+                )
+            {
+                sa.may_play_source = Some(source);
+                sa.may_play_static = index;
+            }
+        }
         if sa.is_spell && !game.card_is_in_zone(card_id, ZoneType::Stack) {
             self.move_card_with_runtime(game, card_id, ZoneType::Stack, player, agents);
             game.card_mut(card_id).cast_from = Some(announced_from_zone);
