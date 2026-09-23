@@ -30,6 +30,39 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         {
             continue;
         }
+        if crate::parsing::raw_has_key(&sa.ability_text, "RevealFirst") {
+            let mut lki = ctx.game.card(card_id).clone();
+            lki.turn_face_up();
+            if let (Some(valid_new_face), Some(source_id)) = (
+                crate::parsing::raw_get(&sa.ability_text, "ValidNewFace"),
+                sa.source,
+            ) {
+                let source = ctx.game.card(source_id);
+                if !valid_new_face.split(',').any(|valid| {
+                    crate::card::valid_filter::matches_valid_card_selector_in_game(
+                        &crate::parsing::cached_compiled_selector(valid.trim()),
+                        &lki,
+                        source,
+                        ctx.game,
+                    )
+                }) {
+                    continue;
+                }
+            }
+        }
+        if sa.param_is_true(keys::OPTIONAL) {
+            let message = format!("Transform {}?", ctx.game.card(card_id).card_name);
+            if !ctx.agents[sa.activating_player.index()].confirm_action(
+                sa.activating_player,
+                Some("Random"),
+                &message,
+                &[],
+                Some(card_id),
+                sa.api,
+            ) {
+                return;
+            }
+        }
         set_state_for_card(ctx, sa, card_id, mode);
     }
 }
@@ -106,8 +139,7 @@ fn set_state_for_card(
                 card.set_static_set_pt(None, None);
 
                 // Remove the synthetic morph turn-face-up ability
-                card.activated_abilities
-                    .retain(|ab| !ab.ability_text.contains("Mode$ TurnFaceUp"));
+                card.activated_abilities.retain(|ab| !ab.is_turn_face_up());
 
                 // Megamorph: add a +1/+1 counter when turning face-up
                 if sa.param_is_true(keys::MEGA) {

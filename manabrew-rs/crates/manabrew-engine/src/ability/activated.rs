@@ -95,6 +95,12 @@ pub struct ActivatedAbility {
 }
 
 impl ActivatedAbility {
+    pub fn is_turn_face_up(&self) -> bool {
+        ["MorphUp", "DisguiseUp", "ManifestUp", "CloakUp"]
+            .into_iter()
+            .any(|key| self.params.get(key).is_some())
+    }
+
     pub fn display_description(&self, card_name: &str) -> String {
         self.spell_description
             .as_deref()

@@ -564,7 +564,7 @@ impl GameLoop {
                 {
                     // Java models Plot as AbilityStatic, which resolves immediately.
                     self.resolve_immediate_ability(game, agents, player, card_id, &ab)
-                } else if ab.ability_text.contains("Mode$ TurnFaceUp") {
+                } else if ab.is_turn_face_up() {
                     // Morph face-up is a special action: pay the cost and resolve immediately.
                     self.resolve_immediate_ability(game, agents, player, card_id, &ab)
                 } else if ab.is_unlock_door {
