@@ -4,6 +4,7 @@ use std::sync::Arc;
 use forge_carddb::CardDatabase;
 use manabrew_engine::agent::notification::GameNotification;
 use manabrew_engine::agent::PlayerAgent;
+use manabrew_engine::card::Card;
 use manabrew_engine::game::GameState;
 use manabrew_engine::game_loop::GameLoop;
 use manabrew_engine::ids::PlayerId;
@@ -16,11 +17,15 @@ use crate::deck::{
 
 pub const DEFAULT_MAX_TURNS: u32 = 5000;
 
-pub fn register_tokens_from_db(game_loop: &mut GameLoop, token_db: &CardDatabase) {
+pub fn token_templates_from_db(
+    token_db: &CardDatabase,
+) -> Arc<manabrew_engine::HashMap<String, Card>> {
+    let mut templates = manabrew_engine::HashMap::default();
     for (script_name, rules) in token_db.iter() {
         let template = card_rules_to_instance(rules, PlayerId(0));
-        game_loop.register_token(script_name, template);
+        templates.insert(script_name, template);
     }
+    Arc::new(templates)
 }
 
 pub struct HostedGameOutcome {

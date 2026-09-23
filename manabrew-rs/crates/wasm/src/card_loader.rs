@@ -6,7 +6,9 @@ use std::sync::{Arc, OnceLock};
 use forge_carddb::CardDatabase;
 use forge_foundation::edition::EditionsRegistry;
 use forge_limited::bootstrap::build_registry;
+use manabrew_engine::card::Card;
 use manabrew_engine::game::{CardDatabaseRegistry, TypeRegistry};
+use manabrew_game_runtime::host_runtime::token_templates_from_db;
 use wasm_bindgen::prelude::*;
 
 /// The global card database, populated by `load_card_archive`.
@@ -14,6 +16,7 @@ static CARD_DB: OnceLock<Arc<CardDatabase>> = OnceLock::new();
 /// The global token-script database, populated alongside `CARD_DB` from the
 /// unified archive.
 static TOKEN_DB: OnceLock<CardDatabase> = OnceLock::new();
+static TOKEN_TEMPLATES: OnceLock<Arc<manabrew_engine::HashMap<String, Card>>> = OnceLock::new();
 static EDITIONS: OnceLock<EditionsRegistry> = OnceLock::new();
 
 /// A card entry inside a deck list, post-conversion from `JsDeckCard`.
@@ -159,8 +162,9 @@ pub fn get_token_count() -> u32 {
     TOKEN_DB.get().map(|db| db.len() as u32).unwrap_or(0)
 }
 
-pub fn get_token_db() -> Option<&'static CardDatabase> {
-    TOKEN_DB.get()
+pub fn get_token_templates() -> Option<&'static Arc<manabrew_engine::HashMap<String, Card>>> {
+    let token_db = TOKEN_DB.get()?;
+    Some(TOKEN_TEMPLATES.get_or_init(|| token_templates_from_db(token_db)))
 }
 
 /// Look up a card by name to verify it exists.

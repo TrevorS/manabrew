@@ -12,11 +12,12 @@ use crate::config::DeckSelection;
 use forge_carddb::CardDatabase;
 use manabot::BotResponder;
 use manabrew_engine::agent::PlayerAgent;
+use manabrew_engine::card::Card;
 use manabrew_engine::game::{CardDatabaseRegistry, TypeRegistry};
 use manabrew_engine::ids::PlayerId;
 use manabrew_game_runtime::deck::prepare_players;
 use manabrew_game_runtime::host_runtime::{
-    register_tokens_from_db, run_hosted_multiplayer_game, DEFAULT_MAX_TURNS,
+    run_hosted_multiplayer_game, token_templates_from_db, DEFAULT_MAX_TURNS,
 };
 use manabrew_game_runtime::mpsc_transport::MpscTransport as NodeTransport;
 use memmap2::Mmap;
@@ -68,7 +69,7 @@ pub fn run_hosted_engine_game(
         abort_signal,
         DEFAULT_MAX_TURNS,
         &mut rng,
-        |game_loop| register_tokens_from_db(game_loop, get_token_db()),
+        |game_loop| game_loop.token_templates = get_token_templates(),
         |pid| {
             if Some(pid.index()) == local_player_index {
                 local_ai
@@ -130,7 +131,7 @@ pub fn run_self_play(
         abort_signal,
         max_turns,
         &mut rng,
-        |game_loop| register_tokens_from_db(game_loop, get_token_db()),
+        |game_loop| game_loop.token_templates = get_token_templates(),
         move |pid| {
             Box::new(PromptAgent::new(
                 pid,
@@ -159,6 +160,7 @@ pub fn run_self_play(
 /// if it's missing (rather than silently degrading to an FS scan).
 static CARD_DB: OnceLock<Arc<CardDatabase>> = OnceLock::new();
 static TOKEN_DB: OnceLock<CardDatabase> = OnceLock::new();
+static TOKEN_TEMPLATES: OnceLock<Arc<manabrew_engine::HashMap<String, Card>>> = OnceLock::new();
 static DB_INIT: Once = Once::new();
 
 fn ensure_dbs_loaded() {
@@ -208,6 +210,10 @@ fn get_card_db() -> &'static CardDatabase {
 fn get_token_db() -> &'static CardDatabase {
     ensure_dbs_loaded();
     TOKEN_DB.get().expect("token db must be initialized")
+}
+
+fn get_token_templates() -> Arc<manabrew_engine::HashMap<String, Card>> {
+    Arc::clone(TOKEN_TEMPLATES.get_or_init(|| token_templates_from_db(get_token_db())))
 }
 
 fn cardset_archive_path() -> PathBuf {

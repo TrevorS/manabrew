@@ -292,27 +292,7 @@ fn main() {
             gl.game_rng = Box::new(SeededGameRng(StdRng::seed_from_u64(
                 seed ^ 0x9e37_79b9_7f4a_7c15,
             )));
-            for (name, tmpl) in &data.token_templates {
-                gl.register_token(name.clone(), tmpl.clone());
-            }
-            gl.token_art_variants = data
-                .db
-                .token_art_variants()
-                .iter()
-                .map(|(k, v)| (k.clone(), *v))
-                .collect();
-            gl.token_fallback = data
-                .db
-                .token_fallback()
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect();
-            gl.edition_dates = data
-                .db
-                .edition_dates()
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect();
+            data.share_token_data(&mut gl);
             let counts = std::rc::Rc::new(std::cell::Cell::new(Counts::default()));
             let agents: Vec<Box<dyn PlayerAgent>> = (0..2u64)
                 .map(|p| {

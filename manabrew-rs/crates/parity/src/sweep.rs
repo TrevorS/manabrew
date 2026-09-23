@@ -440,12 +440,7 @@ fn play_game(data: &LoadedData, deck: &DeckSpec, seed: u64, limits: &GameLimits)
         build_deck_from_spec(&mut game, db, PlayerId(1), deck, false);
         let mut game_loop = GameLoop::new(2);
         game_loop.set_provide_priority_action_space(false);
-        for (name, template) in &data.token_templates {
-            game_loop.register_token(name.clone(), template.clone());
-        }
-        game_loop.token_art_variants = db.token_art_variants().clone().into_iter().collect();
-        game_loop.token_fallback = db.token_fallback().clone().into_iter().collect();
-        game_loop.edition_dates = db.edition_dates().clone().into_iter().collect();
+        data.share_token_data(&mut game_loop);
         let agents: Vec<Box<dyn PlayerAgent>> = (0..2u64)
             .map(|player| {
                 Box::new(Agent {

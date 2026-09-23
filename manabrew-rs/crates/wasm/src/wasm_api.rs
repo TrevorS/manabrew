@@ -2,7 +2,7 @@ use manabrew_protocol::deck_dto::Deck as WireDeck;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-use crate::card_loader::{get_card_db, get_token_db};
+use crate::card_loader::{get_card_db, get_token_templates};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameConfig {
@@ -140,9 +140,7 @@ pub fn run_interactive_game(
 ) -> Result<JsValue, JsError> {
     use js_sys::SharedArrayBuffer;
     use manabrew_game_runtime::deck::prepare_players;
-    use manabrew_game_runtime::host_runtime::{
-        register_tokens_from_db, run_hosted_multiplayer_game, DEFAULT_MAX_TURNS,
-    };
+    use manabrew_game_runtime::host_runtime::{run_hosted_multiplayer_game, DEFAULT_MAX_TURNS};
     use rand::rngs::StdRng;
     use rand::SeedableRng;
     use std::sync::atomic::AtomicBool;
@@ -206,8 +204,8 @@ pub fn run_interactive_game(
         DEFAULT_MAX_TURNS,
         &mut rng,
         |game_loop| {
-            if let Some(token_db) = get_token_db() {
-                register_tokens_from_db(game_loop, token_db);
+            if let Some(templates) = get_token_templates() {
+                game_loop.token_templates = Arc::clone(templates);
             }
         },
         |pid| {
@@ -252,9 +250,7 @@ pub fn run_multiplayer_game(
 ) -> Result<JsValue, JsError> {
     use js_sys::{Array, SharedArrayBuffer};
     use manabrew_game_runtime::deck::prepare_players;
-    use manabrew_game_runtime::host_runtime::{
-        register_tokens_from_db, run_hosted_multiplayer_game, DEFAULT_MAX_TURNS,
-    };
+    use manabrew_game_runtime::host_runtime::{run_hosted_multiplayer_game, DEFAULT_MAX_TURNS};
     use rand::rngs::StdRng;
     use rand::SeedableRng;
     use std::sync::atomic::AtomicBool;
@@ -368,8 +364,8 @@ pub fn run_multiplayer_game(
         DEFAULT_MAX_TURNS,
         &mut rng,
         |game_loop| {
-            if let Some(token_db) = get_token_db() {
-                register_tokens_from_db(game_loop, token_db);
+            if let Some(templates) = get_token_templates() {
+                game_loop.token_templates = Arc::clone(templates);
             }
         },
         |pid| {

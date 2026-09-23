@@ -954,7 +954,19 @@ pub struct RunConfig {
 
 pub struct LoadedData {
     pub db: Arc<CardDatabase>,
-    pub token_templates: Vec<(String, CardInstance)>,
+    pub token_templates: Arc<manabrew_engine::HashMap<String, CardInstance>>,
+    pub token_art_variants: Arc<manabrew_engine::HashMap<(String, String), usize>>,
+    pub token_fallback: Arc<manabrew_engine::HashMap<String, String>>,
+    pub edition_dates: Arc<manabrew_engine::HashMap<String, String>>,
+}
+
+impl LoadedData {
+    pub fn share_token_data(&self, game_loop: &mut GameLoop) {
+        game_loop.token_templates = Arc::clone(&self.token_templates);
+        game_loop.token_art_variants = Arc::clone(&self.token_art_variants);
+        game_loop.token_fallback = Arc::clone(&self.token_fallback);
+        game_loop.edition_dates = Arc::clone(&self.edition_dates);
+    }
 }
 
 // Parity runners share loaded card data across worker threads. Game execution
@@ -1047,10 +1059,10 @@ pub fn load_data(cards_dir: Option<&str>, verbose: bool) -> Result<LoadedData, S
     }
 
     // Tokens come from the same rkyv archive bundle as cards.
-    let mut token_templates = Vec::new();
+    let mut token_templates = manabrew_engine::HashMap::default();
     for (script_name, rules) in token_db.iter() {
         let template = CardInstance::from_rules(rules, PlayerId(0));
-        token_templates.push((script_name, template));
+        token_templates.insert(script_name, template);
     }
 
     // Load creature types from the archive's copy of TypeLists.txt into the
@@ -1073,8 +1085,11 @@ pub fn load_data(cards_dir: Option<&str>, verbose: bool) -> Result<LoadedData, S
     }
 
     Ok(LoadedData {
+        token_templates: Arc::new(token_templates),
+        token_art_variants: Arc::new(db.token_art_variants().clone().into_iter().collect()),
+        token_fallback: Arc::new(db.token_fallback().clone().into_iter().collect()),
+        edition_dates: Arc::new(db.edition_dates().clone().into_iter().collect()),
         db,
-        token_templates,
     })
 }
 
@@ -1206,17 +1221,7 @@ pub fn run_with_data_streaming(
         });
     }
 
-    // Register token templates
-    for (script_name, template) in &data.token_templates {
-        game_loop.register_token(script_name.clone(), template.clone());
-    }
-
-    // Copy token art variant data from the card DB for game-RNG parity.
-    // Java's Aggregates.random() on a Set consumes nextInt() per element,
-    // so Rust must know how many art variants each token has per edition.
-    game_loop.token_art_variants = data.db.token_art_variants().clone().into_iter().collect();
-    game_loop.token_fallback = data.db.token_fallback().clone().into_iter().collect();
-    game_loop.edition_dates = data.db.edition_dates().clone().into_iter().collect();
+    data.share_token_data(&mut game_loop);
 
     // Shared storage for parity log entries captured by CapturingAgent
     let shared_log: Arc<Mutex<Vec<ParityLogEntry>>> = Arc::new(Mutex::new(Vec::new()));

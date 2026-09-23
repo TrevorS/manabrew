@@ -44,17 +44,17 @@ pub struct GameLoop {
     pub game_log: GameLog,
     /// Token templates keyed by their script filename stem (e.g. "r_1_1_goblin").
     /// Populated at game start by the Tauri layer; used by the Token effect handler.
-    pub token_templates: HashMap<String, Card>,
+    pub token_templates: Arc<HashMap<String, Card>>,
     /// Token art variant counts: (token_script, edition_code) → count.
     /// Used for game-RNG parity with Java. When Java creates a token, it calls
     /// `Aggregates.random(collection)` on a Set of art variants, which consumes
     /// `nextInt()` once per element. Rust needs to consume the same number of
     /// RNG calls to keep the game RNG in sync.
-    pub token_art_variants: HashMap<(String, String), usize>,
+    pub token_art_variants: Arc<HashMap<(String, String), usize>>,
     /// Token fallback codes: edition_code → fallback_edition_code.
-    pub token_fallback: HashMap<String, String>,
+    pub token_fallback: Arc<HashMap<String, String>>,
     /// Edition release dates: edition_code → "YYYY-MM-DD".
-    pub edition_dates: HashMap<String, String>,
+    pub edition_dates: Arc<HashMap<String, String>>,
     /// Pluggable RNG for game effects (shuffles, coin flips, dice rolls).
     /// Default: ThreadRngAdapter (non-deterministic). For parity testing,
     /// replace with a JavaRandom-backed implementation.
@@ -162,10 +162,10 @@ impl GameLoop {
             combat: CombatState::new(),
             trigger_handler: TriggerHandler::new(),
             game_log: GameLog::new(),
-            token_templates: HashMap::default(),
-            token_art_variants: HashMap::default(),
-            token_fallback: HashMap::default(),
-            edition_dates: HashMap::default(),
+            token_templates: Arc::default(),
+            token_art_variants: Arc::default(),
+            token_fallback: Arc::default(),
+            edition_dates: Arc::default(),
             game_rng: Box::new(ThreadRngAdapter),
             experimental_restore_snapshot: false,
             previous_game_state: None,
@@ -202,7 +202,7 @@ impl GameLoop {
     /// Register a token template by its script filename stem (e.g. "r_1_1_goblin").
     /// Called at game start by the Tauri layer for every token script in the token DB.
     pub fn register_token(&mut self, script_name: impl Into<String>, template: Card) {
-        self.token_templates.insert(script_name.into(), template);
+        Arc::make_mut(&mut self.token_templates).insert(script_name.into(), template);
     }
 
     /// Get the number of art variants for a token in a given edition.
