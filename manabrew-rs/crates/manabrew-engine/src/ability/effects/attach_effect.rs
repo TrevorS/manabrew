@@ -169,6 +169,9 @@ fn attach_to_entity(ctx: &mut EffectContext, attachment: CardId, target: CardId)
     ) {
         return false;
     }
+    if ctx.game.card(attachment).attached_to == Some(target) {
+        return true;
+    }
 
     let mut event = ReplacementEvent::Attached {
         card: attachment,
