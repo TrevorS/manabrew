@@ -1953,16 +1953,6 @@ impl SpellAbility {
         self.target_chosen.replace_target_card(old, new);
     }
 
-    /// Whether this targets a single target only.
-    /// Mirrors Java's `SpellAbility.targetsSingleTarget()`.
-    pub fn targets_single_target(&self) -> bool {
-        if let Some(ref tr) = self.target_restrictions {
-            tr.max_targets == "1"
-        } else {
-            false
-        }
-    }
-
     // ── Variable operand getters/setters ──────────────────────────────────
     // These mirror Java's SpellAbilityVariables Operand/ToCheck/Operator accessors.
     // In Rust, they are stored in the SpellAbilityVariables but accessed via SA.

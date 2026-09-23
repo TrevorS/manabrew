@@ -131,7 +131,7 @@ fn matches_property_token_positive(
         "sneak" => sa.alt_cost == Some(crate::spellability::AlternativeCost::Sneak),
         "blitz" => sa.alt_cost == Some(crate::spellability::AlternativeCost::Blitz),
         "xcost" => sa.cost_has_x(),
-        "singletarget" => sa.targets_single_target(),
+        "singletarget" => single_target(sa),
         "crew" => is_crew(sa, ability_host),
         "equip" => is_keyword_ability(sa, ability_host, Keyword::Equip, "equip"),
         "saddle" => is_keyword_ability(sa, ability_host, Keyword::Saddle, "saddle"),
@@ -170,6 +170,24 @@ fn matches_property_token_positive(
             })
         }
     }
+}
+
+fn single_target(sa: &SpellAbility) -> bool {
+    let mut num = 0;
+    let mut current = Some(sa);
+    while let Some(node) = current {
+        if node.uses_targeting() {
+            let targets = &node.target_chosen;
+            num += targets.all_target_cards().len()
+                + targets.all_target_players().len()
+                + usize::from(targets.target_stack_entry.is_some());
+            if num > 1 {
+                return false;
+            }
+        }
+        current = node.sub_ability.as_deref();
+    }
+    num == 1
 }
 
 fn mana_from(
