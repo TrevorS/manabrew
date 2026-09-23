@@ -1,4 +1,4 @@
-//! Random self-play throughput: `selfplay <deck1> <deck2> <games> <max_turns> <play_weight>`.
+//! Random self-play throughput: `selfplay <deck1> <deck2> <games> <max_turns> <play_weight> [first_seed]`.
 //! Threads follow `RAYON_NUM_THREADS`. The checksum folds every game's winner, final turn and
 //! life totals, so a change that should not alter play must leave it unchanged.
 use std::time::Instant;
@@ -17,10 +17,14 @@ use manabrew_engine::mana::ManaPool;
 use manabrew_engine::player::actions::{AbilityRef, PlayerAction};
 use manabrew_engine::spellability::SpellAbility;
 use parity::runner::{load_data, DEFAULT_DECKS_DIRS};
+use parity::runtime::PARITY_THREAD_STACK_SIZE;
 use parity::utils::decks::{build_deck_from_spec, resolve_deck_spec};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
+
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[derive(Default, Clone, Copy)]
 struct Counts {
@@ -250,13 +254,18 @@ fn main() {
     let games: u64 = args[3].parse().expect("games");
     let max_turns: u32 = args[4].parse().expect("max_turns");
     let weight: u32 = args[5].parse().expect("play_weight");
+    let first_seed: u64 = args.get(6).map_or(0, |s| s.parse().expect("first_seed"));
 
+    rayon::ThreadPoolBuilder::new()
+        .stack_size(PARITY_THREAD_STACK_SIZE)
+        .build_global()
+        .expect("rayon pool");
     let data = load_data(None, false).expect("load_data");
     let s1 = resolve_deck_spec(d1, DEFAULT_DECKS_DIRS).expect("deck1");
     let s2 = resolve_deck_spec(d2, DEFAULT_DECKS_DIRS).expect("deck2");
 
     let t0 = Instant::now();
-    let results: Vec<GameResult> = (0..games)
+    let results: Vec<GameResult> = (first_seed..first_seed + games)
         .into_par_iter()
         .map(|seed| {
             let setup = Instant::now();
