@@ -978,6 +978,7 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
         &mut self,
         player: PlayerId,
         descriptions: &[String],
+        _hosts: &[CardId],
     ) -> usize {
         choices::choose_single_replacement_effect(self, player, descriptions)
     }

@@ -2621,8 +2621,11 @@ impl PlayerAgent for DeterministicAgent {
         &mut self,
         _player: PlayerId,
         descriptions: &[String],
+        hosts: &[CardId],
     ) -> usize {
-        let sorted = parity_order::sort_replacement_descriptions_with_indices(descriptions);
+        let host_ids: Vec<u32> = hosts.iter().map(|&host| self.parity_id(host)).collect();
+        let sorted =
+            parity_order::sort_replacement_descriptions_with_indices(descriptions, &host_ids);
         if sorted.is_empty() {
             return 0;
         }

@@ -1191,6 +1191,7 @@ pub trait PlayerAgent {
         &mut self,
         _player: PlayerId,
         _descriptions: &[String],
+        _hosts: &[CardId],
     ) -> usize {
         0
     }

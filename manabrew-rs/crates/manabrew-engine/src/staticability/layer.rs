@@ -1488,8 +1488,9 @@ pub fn prompt_etb_tapped_replacement_with_agents(
         .iter()
         .map(|(source_id, desc)| format!("{}: {}", game.card(*source_id).card_name, desc))
         .collect();
+    let hosts: Vec<CardId> = applicable.iter().map(|(source_id, _)| *source_id).collect();
     let _chosen = agents[affected_player.index()]
-        .choose_single_replacement_effect(affected_player, &descriptions)
+        .choose_single_replacement_effect(affected_player, &descriptions, &hosts)
         .min(applicable.len().saturating_sub(1));
 }
 

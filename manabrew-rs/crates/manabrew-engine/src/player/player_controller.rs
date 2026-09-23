@@ -579,9 +579,13 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         ));
     }
 
-    pub fn choose_single_replacement_effect(&mut self, descriptions: &[String]) -> usize {
+    pub fn choose_single_replacement_effect(
+        &mut self,
+        descriptions: &[String],
+        hosts: &[CardId],
+    ) -> usize {
         self.agent
-            .choose_single_replacement_effect(self.player, descriptions)
+            .choose_single_replacement_effect(self.player, descriptions, hosts)
     }
 
     pub fn choose_land_or_spell(&mut self) -> Option<bool> {

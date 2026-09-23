@@ -458,10 +458,12 @@ impl ReplacementHandler {
                         })
                         .collect();
 
+                    let hosts: Vec<CardId> =
+                        eligible.iter().map(|(card_id, _, _)| *card_id).collect();
                     let affected_player = affected_player_for_event(event, game);
                     let agent = &mut agents[affected_player.index()];
                     agent
-                        .choose_single_replacement_effect(affected_player, &descriptions)
+                        .choose_single_replacement_effect(affected_player, &descriptions, &hosts)
                         .min(eligible.len() - 1)
                 } else {
                     0
@@ -1286,8 +1288,9 @@ pub fn run_replace_damage(
                         format!("{}: {desc}", host.card_name)
                     })
                     .collect();
+                let hosts: Vec<CardId> = possible_replacers.iter().map(|key| key.0).collect();
                 agents[decider.index()]
-                    .choose_single_replacement_effect(decider, &descriptions)
+                    .choose_single_replacement_effect(decider, &descriptions, &hosts)
                     .min(possible_replacers.len() - 1)
             }
             _ => 0,
