@@ -368,6 +368,48 @@ pub fn add_riot_replacement(card: &mut Card) {
     }
 }
 
+pub fn add_devour_replacement(card: &mut Card) {
+    use crate::keyword::keyword_with_type_interface::KeywordWithTypeTrait;
+    let keywords = card.keywords.as_string_list();
+    for keyword in keywords {
+        let Some(details) = keyword.strip_prefix("Devour:") else {
+            continue;
+        };
+        let mut devour = crate::keyword::devour::Devour::new(keyword.clone());
+        devour.parse(details);
+        let valid = devour.get_valid_type().to_string();
+        card.set_s_var(
+            "DevourSac",
+            format!(
+                "DB$ Sacrifice | Defined$ You | Amount$ DevourSacX | RememberSacrificed$ True | Optional$ True | SacValid$ {valid}.Other | SacMessage$ another {} | SubAbility$ DevourCounter",
+                devour.get_type_description()
+            ),
+        );
+        card.set_s_var(
+            "DevourCounter",
+            "DB$ PutCounter | ETB$ True | Defined$ Self | CounterType$ P1P1 | CounterNum$ DevourX | SubAbility$ DevourCleanup",
+        );
+        card.set_s_var("DevourCleanup", "DB$ Cleanup | ClearRemembered$ True");
+        card.set_s_var("DevourSacX", format!("Count$Valid {valid}.YouCtrl+Other"));
+        card.set_s_var(
+            "DevourX",
+            format!(
+                "Count$RememberedSize/Times.{}",
+                devour.inner.get_amount_string()
+            ),
+        );
+        let repl_str = format!(
+            "R$ Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield \
+             | ReplacementResult$ Updated | ReplaceWith$ DevourSac | Description$ {}",
+            devour.get_title()
+        );
+        if let Some(mut repl) = parse_replacement_effect(&repl_str) {
+            repl.base.card_trait_base.set_intrinsic(true);
+            card.add_replacement_effect(repl);
+        }
+    }
+}
+
 /// Mirrors Java `CardFactoryUtil.aaFlashback()` — registers a replacement effect
 /// that exiles the card instead of sending it to the graveyard from the stack.
 /// Java uses `ValidStackSa$ Spell.Flashback+castKeyword` but in practice the
