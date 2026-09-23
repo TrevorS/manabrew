@@ -690,7 +690,12 @@ impl GameLoop {
         let mut pre_sac_idx = 0usize;
         let mut failed_auto_pay_taps: Vec<CardId> = Vec::new();
         let mut failed_auto_pay_pool: Option<crate::mana::ManaPool> = None;
+        let outer_change_zone_table = game.pending_change_zone_table.take();
         for (idx, part) in cost.parts.clone().into_iter().enumerate() {
+            self.handle_change_zone_trigger(game, sa.as_deref());
+            if !matches!(part, CostPart::Mana { .. }) {
+                game.ensure_pending_change_zone_table();
+            }
             let decided = decided_cards[idx].as_deref();
             match &part {
                 CostPart::Tap => {
@@ -1526,6 +1531,8 @@ impl GameLoop {
                 }
             }
         }
+        self.handle_change_zone_trigger(game, sa.as_deref());
+        game.pending_change_zone_table = outer_change_zone_table;
         self.reserved_sacrifice_stack.pop();
         self.reserved_source_reuse_stack.pop();
         if !payment_ok {
@@ -1578,7 +1585,12 @@ impl GameLoop {
         let mut pre_discard_idx = 0usize;
         let mut pre_tap_idx = 0usize;
         let mut pre_behold_idx = 0usize;
+        let outer_change_zone_table = game.pending_change_zone_table.take();
         for (idx, part) in spell_cost.parts.clone().into_iter().enumerate() {
+            self.handle_change_zone_trigger(game, sa.as_deref());
+            if !matches!(part, CostPart::Mana { .. }) {
+                game.ensure_pending_change_zone_table();
+            }
             let decided = decided_cards
                 .and_then(|cards| cards.get(idx))
                 .and_then(|cards| cards.as_deref());
@@ -2302,6 +2314,8 @@ impl GameLoop {
                 }
             }
         }
+        self.handle_change_zone_trigger(game, sa.as_deref());
+        game.pending_change_zone_table = outer_change_zone_table;
         if !payment_ok {
             self.restore_snapshot(game, &payment_snapshot);
             return false;
@@ -4355,6 +4369,12 @@ impl GameLoop {
             Self::record_sacrificed_cost_cards(sa, &to_sacrifice);
         }
         true
+    }
+
+    fn handle_change_zone_trigger(&mut self, game: &mut GameState, sa: Option<&SpellAbility>) {
+        if let Some(table) = game.pending_change_zone_table.take() {
+            table.trigger_changes_zone_all(&mut self.trigger_handler, game, sa);
+        }
     }
 
     fn record_sacrificed_cost_cards(sa: Option<&mut SpellAbility>, cards: &[CardId]) {
