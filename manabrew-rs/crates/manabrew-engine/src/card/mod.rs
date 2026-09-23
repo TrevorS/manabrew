@@ -718,6 +718,8 @@ pub struct Card {
     pub lki_attached_to: Option<CardId>,
     #[serde(default)]
     pub lki_zone_timestamp: Option<u64>,
+    #[serde(default)]
+    pub lki_transformed: bool,
     /// Java `Card.preparedEffect`: the effect card that lets its controller cast the
     /// prepared copy from exile.
     #[serde(default)]
@@ -1039,6 +1041,7 @@ impl Card {
             lki_tapped: None,
             lki_attached_to: None,
             lki_zone_timestamp: None,
+            lki_transformed: false,
             prepared_effect: None,
             lki_counters: None,
             damage_history: damage_history::DamageHistory::default(),
@@ -1279,6 +1282,7 @@ impl Card {
             lki_tapped: self.lki_tapped,
             lki_attached_to: self.lki_attached_to,
             lki_zone_timestamp: self.lki_zone_timestamp,
+            lki_transformed: self.lki_transformed,
             prepared_effect: self.prepared_effect,
             lki_counters: self.lki_counters.clone(),
             damage_history: self.damage_history.clone(),
@@ -1571,6 +1575,7 @@ impl Card {
         out.lki_tapped.clone_from(&self.lki_tapped);
         out.lki_attached_to.clone_from(&self.lki_attached_to);
         out.lki_zone_timestamp.clone_from(&self.lki_zone_timestamp);
+        out.lki_transformed.clone_from(&self.lki_transformed);
         out.prepared_effect.clone_from(&self.prepared_effect);
         refresh_field(&mut out.lki_counters, &self.lki_counters);
         out.damage_history.clone_from(&self.damage_history);

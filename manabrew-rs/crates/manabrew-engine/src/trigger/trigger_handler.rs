@@ -1644,6 +1644,7 @@ impl TriggerHandler {
             && params.origin == Some(ZoneType::Battlefield)
             && trigger.get_active_zone().contains(&ZoneType::Battlefield)
             && card.zone != ZoneType::Battlefield
+            && !card.lki_transformed
             && self.looks_back_in_time(trigger)
             && game.pre_sba_battlefield.contains(&host_card)
         {
@@ -1656,6 +1657,7 @@ impl TriggerHandler {
         } else if *mode == TriggerType::ChangesZoneAll
             && trigger.get_active_zone().contains(&ZoneType::Battlefield)
             && card.zone != ZoneType::Battlefield
+            && !card.lki_transformed
             && self.looks_back_in_time(trigger)
             && params
                 .change_zone_table

@@ -575,6 +575,11 @@ impl GameState {
         let leaves_as_new_object = (src_zone == ZoneType::Stack
             && !matches!(dest_zone, ZoneType::Stack | ZoneType::Battlefield))
             || (src_zone == ZoneType::Battlefield && dest_zone != ZoneType::Battlefield);
+        if leaves_as_new_object && src_zone == ZoneType::Battlefield {
+            let card = &self.cards[card_id.index()];
+            let lki_transformed = card.is_transformed && !card.type_line.has_subtype("Room");
+            self.cards[card_id.index()].lki_transformed = lki_transformed;
+        }
         if leaves_as_new_object && self.cards[card_id.index()].is_transformed {
             self.cards[card_id.index()].transform();
         }
