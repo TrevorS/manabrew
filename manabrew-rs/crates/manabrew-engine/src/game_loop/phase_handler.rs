@@ -747,6 +747,16 @@ impl GameLoop {
             game.card_mut(card_id).clear_granted_keywords();
             if current != original {
                 game.change_controller(card_id, original);
+                self.trigger_handler.run_trigger(
+                    TriggerType::ChangesController,
+                    crate::event::RunParams {
+                        card: Some(card_id),
+                        player: Some(original),
+                        original_controller: Some(current),
+                        ..Default::default()
+                    },
+                    false,
+                );
             }
         }
 

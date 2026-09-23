@@ -1153,7 +1153,11 @@ pub fn parse_trigger(raw: &str, next_id: &mut u32) -> Option<Trigger> {
         "ChangesZoneAll" => crate::trigger::trigger_changes_zone_all::TriggerChangesZoneAll::parse(&params),
         "ChangesController" => {
             let valid_card = params.selector_cloned(keys::VALID_CARD);
-            crate::trigger::trigger_changes_controller::TriggerChangesController::parse(valid_card)
+            let valid_original_controller = params.selector_cloned("ValidOriginalController");
+            crate::trigger::trigger_changes_controller::TriggerChangesController::parse(
+                valid_card,
+                valid_original_controller,
+            )
         }
         "TurnBegin" | "NewTurn" => crate::trigger::trigger_turn_begin::TriggerTurnBegin::parse(&params),
         "DamageDoneOnce" => crate::trigger::trigger_damage_done_once::TriggerDamageDoneOnce::parse(&params),

@@ -10,11 +10,18 @@ use super::trigger::TriggerBehavior;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TriggerChangesController {
     pub valid_card: Option<crate::parsing::CompiledSelector>,
+    pub valid_original_controller: Option<crate::parsing::CompiledSelector>,
 }
 
 impl TriggerChangesController {
-    pub fn parse(valid_card: Option<crate::parsing::CompiledSelector>) -> Box<dyn TriggerBehavior> {
-        Box::new(Self { valid_card })
+    pub fn parse(
+        valid_card: Option<crate::parsing::CompiledSelector>,
+        valid_original_controller: Option<crate::parsing::CompiledSelector>,
+    ) -> Box<dyn TriggerBehavior> {
+        Box::new(Self {
+            valid_card,
+            valid_original_controller,
+        })
     }
 }
 
@@ -33,6 +40,11 @@ impl TriggerBehavior for TriggerChangesController {
         let _host_card = trigger.base.card_trait_base.host_card_id();
         let _host_controller = trigger.base.card_trait_base.host_controller(game);
         trigger.matches_optional_valid_card_filter(&self.valid_card, params.card, game)
+            && trigger.matches_optional_valid_player_filter(
+                &self.valid_original_controller,
+                params.original_controller,
+                game,
+            )
     }
 
     fn set_triggering_objects(
