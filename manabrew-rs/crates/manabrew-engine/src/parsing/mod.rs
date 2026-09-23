@@ -977,6 +977,7 @@ fn lower_compiled_selector(alternatives: &[CompiledSelectorAlternative]) -> Sele
                             last.starts_with("attachedto ")
                                 || last.starts_with("castsa ")
                                 || last.starts_with("doesnotsharenamewith ")
+                                || last.starts_with("ownedby ")
                         });
                     match values.last_mut() {
                         Some(last) if nested => {

@@ -1090,6 +1090,26 @@ fn matches_controlled_by_reference(
     }
 }
 
+fn matches_owned_by_valid(valid: &str, card: &Card, context: MatchContext<'_>) -> bool {
+    let (Some(game), Some(sa)) = (context.game, context.spell_ability) else {
+        return false;
+    };
+    crate::player::player_property::is_valid(
+        card.owner,
+        &crate::parsing::cached_compiled_selector(valid),
+        game,
+        context.source_card.id,
+        context.source_controller,
+        sa,
+    ) || crate::ability::ability_utils::resolve_defined_players_with_sa(
+        valid,
+        sa,
+        context.source_controller,
+        game,
+    )
+    .contains(&card.owner)
+}
+
 fn matches_relation_predicate(
     predicate: &RelationPredicate,
     card: &Card,
@@ -1858,10 +1878,15 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
                     }),
             }
         }
-        owned if owned.starts_with("ownedby ") => raw_target_ref(&value["OwnedBy ".len()..])
-            .is_some_and(|target| {
-                matches_relation_predicate(&RelationPredicate::OwnedBy(target), card, context)
-            }),
+        owned if owned.starts_with("ownedby ") => {
+            let valid = value["OwnedBy ".len()..].trim();
+            match raw_target_ref(valid) {
+                Some(target) => {
+                    matches_relation_predicate(&RelationPredicate::OwnedBy(target), card, context)
+                }
+                None => matches_owned_by_valid(valid, card, context),
+            }
+        }
         opponent if opponent.starts_with("opponentof ") => {
             raw_target_ref(&value["OpponentOf ".len()..]).is_some_and(|target| {
                 matches_relation_predicate(&RelationPredicate::OpponentOf(target), card, context)
