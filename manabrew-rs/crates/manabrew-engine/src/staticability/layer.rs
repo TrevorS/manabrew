@@ -240,8 +240,8 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     // Unleash: creatures with Unleash keyword and a +1/+1 counter can't block.
     for card in game.cards.iter_mut() {
         if card.zone == ZoneType::Battlefield
-            && card.has_keyword("Unleash")
             && card.counter_count(&crate::card::CounterType::P1P1) > 0
+            && card.has_keyword("Unleash")
         {
             Arc::make_mut(card).cant_block_static = true;
         }
@@ -251,13 +251,15 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     // static off the keyword instance, so a keyword gained from a decayed counter carries it.
     // `keyword_gen` only builds that static for a printed keyword.
     for card in game.cards.iter_mut() {
-        let decayed = card.has_keyword("Decayed")
-            || card.counters.iter().any(|(counter, &amount)| {
-                amount > 0
-                    && crate::card::counter_keyword_type::CounterKeywordType::keyword(counter)
-                        == Some("Decayed")
-            });
-        if card.zone == ZoneType::Battlefield && card.is_creature() && decayed {
+        if card.zone == ZoneType::Battlefield
+            && card.is_creature()
+            && (card.has_keyword("Decayed")
+                || card.counters.iter().any(|(counter, &amount)| {
+                    amount > 0
+                        && crate::card::counter_keyword_type::CounterKeywordType::keyword(counter)
+                            == Some("Decayed")
+                }))
+        {
             Arc::make_mut(card).cant_block_static = true;
         }
     }
@@ -302,7 +304,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             for sa_idx in 0..static_ability_count {
                 let card = game.card(source_id);
                 let sa = &card.static_abilities[sa_idx];
-                if !sa.check_conditions(card, game) {
+                if sa.ir.set_max_hand_size.is_none() && sa.ir.raise_max_hand_size.is_none() {
                     continue;
                 }
                 if !sa.check_mode(&StaticMode::Continuous) {
@@ -310,6 +312,9 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 }
                 let affected = sa.ir.affected_text.as_deref().unwrap_or("");
                 if !affected.eq_ignore_ascii_case("You") {
+                    continue;
+                }
+                if !sa.check_conditions(card, game) {
                     continue;
                 }
                 let controller = card.controller;
@@ -361,7 +366,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         kind: EffectKind::GrantKeyword(keyword.to_string()),
                     },
                 ));
-            } else if *counter == crate::card::CounterType::Named("HONE".to_string())
+            } else if matches!(counter, crate::card::CounterType::Named(name) if name == "HONE")
                 && card.zone == ZoneType::Battlefield
                 && card.type_line.has_subtype("Equipment")
             {
