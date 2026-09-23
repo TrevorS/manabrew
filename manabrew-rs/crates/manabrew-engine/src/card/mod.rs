@@ -4167,8 +4167,19 @@ impl Card {
     pub fn has_no_name(&self) -> bool {
         self.card_name.trim().is_empty()
     }
+    pub fn get_name(&self) -> &str {
+        if self.zone != ZoneType::Battlefield
+            && self
+                .other_part
+                .as_ref()
+                .is_some_and(|other| other.state_name == CardStateName::RightSplit)
+        {
+            return &self.full_name;
+        }
+        &self.card_name
+    }
     pub fn shares_name_with(&self, other: &Card) -> bool {
-        self.card_name.eq_ignore_ascii_case(&other.card_name)
+        self.get_name().eq_ignore_ascii_case(other.get_name())
     }
     pub fn has_creature_type(&self, creature_type: &str) -> bool {
         if !self.is_creature() && !self.type_line.core_types.contains(&CoreType::Kindred) {

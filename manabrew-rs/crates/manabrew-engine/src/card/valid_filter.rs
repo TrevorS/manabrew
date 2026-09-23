@@ -1085,12 +1085,12 @@ fn matches_relation_predicate(
     match predicate {
         RelationPredicate::SharesNameWith(target) => {
             relation_target_card_any(target, card, context, |target| {
-                card.card_name.eq_ignore_ascii_case(&target.card_name)
+                target.shares_name_with(card)
             })
         }
         RelationPredicate::DoesNotShareNameWith(target) => {
             !relation_target_card_any(target, card, context, |target| {
-                card.card_name.eq_ignore_ascii_case(&target.card_name)
+                target.shares_name_with(card)
             })
         }
         RelationPredicate::DoesNotShareNameWithValid(restriction) => {
@@ -1099,7 +1099,7 @@ fn matches_relation_predicate(
                 !game.cards_in_all_zones(ZoneType::Battlefield).any(|id| {
                     let other = game.card(id);
                     matches_valid_card_selector_with_context(&selector, other, context)
-                        && card.card_name.eq_ignore_ascii_case(&other.card_name)
+                        && other.shares_name_with(card)
                 })
             })
         }
