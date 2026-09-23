@@ -1187,14 +1187,24 @@ fn apply_pending_effects(
                 game.cards[effect.target.index()]
                     .granted_svars
                     .extend(svars);
-                let next_id = game.cards[effect.target.index()]
-                    .triggers
+                let target = &game.cards[effect.target.index()];
+                let intrinsic_count = (target.base_trigger_count + target.pump_trigger_count)
+                    .min(target.triggers.len());
+                let base_id = target.triggers[..intrinsic_count]
                     .iter()
                     .map(|t| t.id)
                     .max()
-                    .unwrap_or(0)
-                    .saturating_add(1);
-                let mut next_id_mut = next_id;
+                    .unwrap_or(0);
+                let key = (
+                    effect.target,
+                    target.zone_timestamp,
+                    original_host,
+                    original_host.map_or(0, |host| game.card(host).zone_timestamp),
+                    text.clone(),
+                );
+                let next_seq = game.granted_trigger_ids.len() as u32;
+                let seq = *game.granted_trigger_ids.entry(key).or_insert(next_seq);
+                let mut next_id_mut = base_id.saturating_add(1).saturating_add(seq);
                 if let Some(mut trig) = crate::trigger::parse_trigger(&text, &mut next_id_mut) {
                     trig.original_host = original_host;
                     game.cards[effect.target.index()].add_trigger(trig);

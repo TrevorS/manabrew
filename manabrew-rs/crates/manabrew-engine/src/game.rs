@@ -291,6 +291,8 @@ pub struct GameState {
     pub left_battlefield_this_turn: Vec<CardId>,
     #[serde(skip)]
     pub left_graveyard_this_turn: Vec<CardId>,
+    #[serde(skip)]
+    pub granted_trigger_ids: crate::HashMap<(CardId, u64, Option<CardId>, u64, String), u32>,
 }
 
 impl GameState {
@@ -346,6 +348,7 @@ impl GameState {
             counter_added_this_turn: BTreeMap::new(),
             left_battlefield_this_turn: Vec::new(),
             left_graveyard_this_turn: Vec::new(),
+            granted_trigger_ids: crate::HashMap::default(),
         }
     }
 
