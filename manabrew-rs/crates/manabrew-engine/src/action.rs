@@ -1656,6 +1656,51 @@ impl GameState {
         any_changes
     }
 
+    fn handle_legend_rule(
+        &self,
+        pid: PlayerId,
+        no_reg_creats: &mut Vec<CardId>,
+        legend_keep_fn: &mut Option<&mut dyn FnMut(PlayerId, &[CardId]) -> CardId>,
+        agents: &mut Option<&mut [Box<dyn PlayerAgent>]>,
+    ) -> bool {
+        let battlefield = self.cards_in_zone(ZoneType::Battlefield, pid).to_vec();
+        let mut by_name: std::collections::BTreeMap<String, Vec<CardId>> =
+            std::collections::BTreeMap::new();
+        for cid in battlefield {
+            let c = self.card(cid);
+            if !c.type_line.is_legendary() {
+                continue;
+            }
+            if crate::staticability::static_ability_ignore_legend_rule::ignore_legend_rule(
+                &self.cards,
+                c,
+            ) {
+                continue;
+            }
+            by_name.entry(c.card_name.clone()).or_default().push(cid);
+        }
+        let mut recheck = false;
+        for (_name, ids) in by_name {
+            if ids.len() <= 1 {
+                continue;
+            }
+            recheck = true;
+            let keep = if let Some(chooser) = legend_keep_fn.as_deref_mut() {
+                chooser(pid, &ids)
+            } else if let Some(agents) = agents.as_deref_mut() {
+                agents[pid.index()].choose_legend_keep(pid, &ids)
+            } else {
+                ids[0]
+            };
+            for cid in ids {
+                if cid != keep && !no_reg_creats.contains(&cid) {
+                    no_reg_creats.push(cid);
+                }
+            }
+        }
+        recheck
+    }
+
     fn state_based_actions_pass(
         &mut self,
         trigger_handler: &mut Option<&mut TriggerHandler>,
@@ -1690,6 +1735,11 @@ impl GameState {
             }
             self.cards[cid.index()].has_deathtouch_damage = false;
         }
+
+        for &pid in &self.player_order.clone() {
+            any_changes |= self.handle_legend_rule(pid, &mut no_reg_creats, legend_keep_fn, agents);
+        }
+        des_creats.retain(|cid| !no_reg_creats.contains(cid));
 
         if no_reg_creats.len() > 1 {
             no_reg_creats =
@@ -1863,54 +1913,6 @@ impl GameState {
                 };
                 if accepted {
                     self.move_card_without_replacement(cid, ZoneType::Command, pid);
-                    any_changes = true;
-                }
-            }
-        }
-
-        // Legend rule: for each player, if they control multiple legendary
-        // permanents with the same name, keep one and move the rest to graveyard.
-        // IgnoreLegendRule statics exempt matching cards.
-        for &pid in &self.player_order.clone() {
-            let battlefield = self.cards_in_zone(ZoneType::Battlefield, pid).to_vec();
-            let mut by_name: std::collections::BTreeMap<String, Vec<CardId>> =
-                std::collections::BTreeMap::new();
-            for cid in battlefield {
-                let c = self.card(cid);
-                if !c.type_line.is_legendary() {
-                    continue;
-                }
-                if crate::staticability::static_ability_ignore_legend_rule::ignore_legend_rule(
-                    &self.cards,
-                    c,
-                ) {
-                    continue;
-                }
-                by_name.entry(c.card_name.clone()).or_default().push(cid);
-            }
-            for (_name, ids) in by_name {
-                if ids.len() <= 1 {
-                    continue;
-                }
-                // Choose which to keep: delegate to callback (mirrors Java's
-                // chooseSingleEntityForEffect), or default to first in zone order.
-                let keep = if let Some(chooser) = legend_keep_fn.as_deref_mut() {
-                    chooser(pid, &ids)
-                } else if let Some(agents) = agents.as_deref_mut() {
-                    agents[pid.index()].choose_legend_keep(pid, &ids)
-                } else {
-                    ids[0]
-                };
-                for cid in ids {
-                    if cid == keep {
-                        continue;
-                    }
-                    self.move_battlefield_card_to_graveyard_for_sba(
-                        cid,
-                        trigger_handler,
-                        agents,
-                        parts,
-                    );
                     any_changes = true;
                 }
             }
