@@ -1583,6 +1583,9 @@ public class DeterministicController extends PlayerController implements Harness
 
     @Override
     public Mana chooseManaFromPool(List<Mana> manaChoices) {
+        if (probingPayability) {
+            return manaChoices.get(0);
+        }
         final Mana result = ChoiceSpace.pickOne(manaChoices, rng);
         onCallback("choose_mana_from_pool", result == null ? "null" : result.toString(), String.valueOf(manaChoices.size()));
         return result;
