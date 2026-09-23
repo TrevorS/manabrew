@@ -533,8 +533,20 @@ pub fn filter_spells_for_target_restrictions(
             .iter()
             .all(|clause| clause.eq_ignore_ascii_case("Card"))
     {
-        let valid_filter = restrictions.valid_tgts.join(",");
-        filtered = filter_spells_by_type(game, targeting_player, &filtered, &valid_filter);
+        filtered.retain(|&id| {
+            game.stack
+                .iter()
+                .find(|entry| entry.id == id)
+                .is_some_and(|entry| {
+                    spell_host_is_valid(
+                        game,
+                        targeting_player,
+                        source,
+                        &entry.spell_ability,
+                        restrictions,
+                    )
+                })
+        });
     }
     if let Some(valid_targeting) = restrictions.sa_valid_targeting.as_deref() {
         filtered.retain(|&id| {
@@ -553,6 +565,28 @@ pub fn filter_spells_for_target_restrictions(
         });
     }
     filtered
+}
+
+fn spell_host_is_valid(
+    game: &GameState,
+    targeting_player: PlayerId,
+    source: Option<CardId>,
+    sa: &crate::spellability::SpellAbility,
+    restrictions: &TargetRestrictions,
+) -> bool {
+    let Some(host) = sa.source else {
+        return false;
+    };
+    let host = game.card(host);
+    let source = source.map_or(host, |source| game.card(source));
+    let context = crate::card::valid_filter::MatchContext::from_source(source)
+        .with_game(game)
+        .with_source_controller(targeting_player);
+    crate::card::valid_filter::matches_valid_card_selector_with_context(
+        &restrictions.compiled_valid_tgts(),
+        host,
+        context,
+    )
 }
 
 fn spell_targets_valid(
