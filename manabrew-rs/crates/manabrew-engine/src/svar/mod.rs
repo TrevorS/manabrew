@@ -2381,22 +2381,27 @@ pub fn resolve_count_svar_for_sa(
         );
     }
     // Count$CardCounters.TYPE
-    if let Some(counter_type) = expr.strip_prefix("Count$CardCounters.") {
+    if let Some(rest) = expr.strip_prefix("Count$CardCounters.") {
+        let (counter_type, operators) = rest.split_once('/').unwrap_or((rest, ""));
         let use_lki = source_left_battlefield || leaves_battlefield_trigger(game, sa, source_id);
-        if counter_type == "ALL" {
+        let count = if counter_type == "ALL" {
             if use_lki {
-                return crate::lki::resolve_lki_counters(game, source_id)
+                crate::lki::resolve_lki_counters(game, source_id)
                     .iter()
                     .map(|(_, count)| count)
-                    .sum();
+                    .sum()
+            } else {
+                game.card(source_id).num_all_counters()
             }
-            return game.card(source_id).num_all_counters();
-        }
-        let ct = crate::ability::effects::parse_counter_type(counter_type);
-        if use_lki {
-            return crate::lki::resolve_lki_counter_count(game, source_id, &ct);
-        }
-        return *game.card(source_id).counters.get(&ct).unwrap_or(&0);
+        } else {
+            let ct = crate::ability::effects::parse_counter_type(counter_type);
+            if use_lki {
+                crate::lki::resolve_lki_counter_count(game, source_id, &ct)
+            } else {
+                *game.card(source_id).counters.get(&ct).unwrap_or(&0)
+            }
+        };
+        return do_x_math(count, operators, game, source_id, controller, sa);
     }
 
     // Count$TotalDamageDoneByThisTurn — total damage dealt by the source card this turn.
