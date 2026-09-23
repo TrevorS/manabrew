@@ -37,6 +37,17 @@ pub fn can_play(st_ab: &StaticAbility, source: &Card, card: &Card, game: &GameSt
     } else if card.zone != forge_foundation::ZoneType::Hand {
         return false;
     }
+    if st_ab
+        .ir
+        .may_play_limit
+        .is_some_and(|limit| may_play_turn(st_ab, source, game) >= limit)
+    {
+        return false;
+    }
+    may_play_affects(st_ab, source, card, game)
+}
+
+fn may_play_affects(st_ab: &StaticAbility, source: &Card, card: &Card, game: &GameState) -> bool {
     if let Some(defined) = st_ab.ir.affected_defined.as_deref() {
         return crate::ability::ability_utils::get_defined_cards(
             game,
@@ -208,22 +219,52 @@ pub fn may_play_allows_after_stack(
     )
 }
 
-/// The host of the first `MayPlay$` grant opening `origin` for `player`, in the order
-/// `getMayPlaySpellOptions` walks them. Java records the grant on the ability it builds; with one
-/// play option per card the first covering grant is the one that built it.
+/// Java `StaticAbility.getMayPlayTurn`: the lands played through the grant plus the spells cast
+/// this turn whose `getMayPlay()` is this static.
+pub fn may_play_turn(st_ab: &StaticAbility, source: &Card, game: &GameState) -> i32 {
+    let index = static_index(st_ab, source);
+    let spells = game
+        .stack
+        .get_spells_cast_this_turn()
+        .iter()
+        .filter(|&&cid| {
+            game.card(cid).cast_sa.as_deref().is_some_and(|sa| {
+                sa.may_play_source == Some(source.id) && sa.may_play_static == index
+            })
+        })
+        .count() as i32;
+    st_ab.may_play_turn + spells
+}
+
+fn static_index(st_ab: &StaticAbility, source: &Card) -> Option<usize> {
+    source
+        .static_abilities
+        .iter()
+        .position(|candidate| std::ptr::eq(candidate, st_ab))
+}
+
+/// The first `MayPlay$` grant opening `origin` for `card` that has uses left, in the order
+/// `getMayPlaySpellOptions` walks them, as its host and index. Java records the grant on the
+/// ability it builds; with one play option per card the first covering grant is the one that built
+/// it.
 pub fn may_play_grant_source(
     game: &GameState,
     player: crate::ids::PlayerId,
     card: &Card,
     origin: forge_foundation::ZoneType,
-) -> Option<crate::ids::CardId> {
+) -> Option<(crate::ids::CardId, usize)> {
     may_play_grants(game, player, card)
         .find(|(source, st_ab)| {
             st_ab.ir.may_play
                 && st_ab.ir.affected_zones.contains(&origin)
                 && st_ab.check_conditions(source, game)
+                && st_ab
+                    .ir
+                    .may_play_limit
+                    .is_none_or(|limit| may_play_turn(st_ab, source, game) < limit)
+                && may_play_affects(st_ab, source, card, game)
         })
-        .map(|(source, _)| source.id)
+        .and_then(|(source, st_ab)| Some((source.id, static_index(st_ab, source)?)))
 }
 
 /// Java `Card.mayPlay(player)` is not empty: a `MayPlay$` grant for `player` covers `card`.

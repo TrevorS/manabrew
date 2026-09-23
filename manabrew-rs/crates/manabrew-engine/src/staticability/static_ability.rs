@@ -276,6 +276,7 @@ pub struct StaticAbilityIr {
     pub may_play_without_mana_cost: bool,
     pub may_play_grants_zone_permissions: bool,
     pub may_play_player: Option<String>,
+    pub may_play_limit: Option<i32>,
     pub counter_type_text: Option<String>,
     pub counter_type: Option<CounterType>,
     pub caster: Option<CompiledSelector>,
@@ -464,6 +465,9 @@ impl StaticAbilityIr {
             may_play_grants_zone_permissions: !raw
                 .contains_key(keys::MAY_PLAY_DONT_GRANT_ZONE_PERMISSIONS),
             may_play_player: raw.get(keys::MAY_PLAY_PLAYER).map(String::to_string),
+            may_play_limit: raw
+                .get(keys::MAY_PLAY_LIMIT)
+                .and_then(|value| value.trim().parse().ok()),
             counter_type_text: raw.get(keys::COUNTER_TYPE).map(String::to_string),
             counter_type: raw
                 .get(keys::COUNTER_TYPE)

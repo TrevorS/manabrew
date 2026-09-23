@@ -59,6 +59,7 @@ pub fn create_permanent_spell(
         alt_cost_index: 0,
         cast_with_may_play: false,
         may_play_source: None,
+        may_play_static: None,
         evoke_keyword_count: 0,
         kicked: false,
         buyback_paid: false,

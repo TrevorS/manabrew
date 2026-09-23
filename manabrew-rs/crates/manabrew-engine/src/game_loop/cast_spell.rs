@@ -199,6 +199,18 @@ impl GameLoop {
             return None;
         }
         let origin_zone = game.card_current_zone(card_id);
+        if origin_zone != ZoneType::Hand {
+            if let Some((source, index)) =
+                crate::staticability::static_ability_continuous::may_play_grant_source(
+                    game,
+                    player,
+                    game.card(card_id),
+                    origin_zone,
+                )
+            {
+                game.card_mut(source).static_abilities[index].inc_may_play_turn();
+            }
+        }
         let play_name = if can_play_back_face_land {
             game.card(card_id)
                 .other_part
@@ -363,7 +375,7 @@ impl GameLoop {
             // builds one option per card rather than one per grant, so the grant is recovered
             // from the zone the cast came out of; a cast from hand is the ungranted one.
             let origin = game.card(stack_push.source_card).cast_from;
-            cause.may_play_source = origin
+            let grant = origin
                 .filter(|&zone| zone != forge_foundation::ZoneType::Hand)
                 .and_then(|zone| {
                     crate::staticability::static_ability_continuous::may_play_grant_source(
@@ -373,6 +385,8 @@ impl GameLoop {
                         zone,
                     )
                 });
+            cause.may_play_source = grant.map(|(source, _)| source);
+            cause.may_play_static = grant.map(|(_, index)| index);
             game.card_mut(stack_push.source_card).cast_sa = Some(Box::new(cause));
         }
         if let Some(pending_stack_id) = stack_push.pending_stack_id {

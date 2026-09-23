@@ -2343,6 +2343,9 @@ impl Card {
 
     /// Reset per-turn state at start of turn.
     pub fn clear_global_turn_state(&mut self) {
+        for st_ab in &mut self.static_abilities {
+            st_ab.reset_may_play_turn();
+        }
         self.entered_battlefield_this_turn = false;
         self.attacked_this_turn = false;
         self.attacks_this_turn = 0;
