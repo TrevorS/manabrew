@@ -872,15 +872,21 @@ impl GameState {
 
             // Return cards exiled by this host via ChangeZoneAll Duration$ UntilHostLeavesPlay
             // (e.g. Deputy of Detention: exiled permanents return when it leaves).
-            let exiled_by_host: Vec<(CardId, PlayerId)> = self
+            let exiled_by_host: Vec<(CardId, PlayerId, ZoneType)> = self
                 .cards
                 .iter()
                 .filter(|c| c.zone == ZoneType::Exile && c.exiled_by == Some(card_id))
-                .map(|c| (c.id, c.owner))
+                .map(|c| {
+                    (
+                        c.id,
+                        c.owner,
+                        c.until_host_leaves_origin.unwrap_or(ZoneType::Battlefield),
+                    )
+                })
                 .collect();
-            for (exiled_id, owner) in exiled_by_host {
-                self.cards[exiled_id.index()].exiled_by = None;
-                self.move_card(exiled_id, ZoneType::Battlefield, owner);
+            for (exiled_id, owner, origin) in exiled_by_host {
+                self.cards[exiled_id.index()].cleanup_exiled_with();
+                self.move_card(exiled_id, origin, owner);
                 if let Some(handler) = trigger_handler.as_deref_mut() {
                     let returned_zone = self.card(exiled_id).zone;
                     handler.register_active_trigger(self, exiled_id);

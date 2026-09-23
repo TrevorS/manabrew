@@ -328,6 +328,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             if dest_zone == ZoneType::Exile {
                 if let Some(src_id) = exile_source {
                     ctx.game.card_mut(card_id).set_exiled_by(Some(src_id));
+                    ctx.game.card_mut(card_id).until_host_leaves_origin = Some(old_zone);
                 }
                 // `moveTo(ZoneType.Exile, ...)` goes through `GameAction.exile`.
                 if ctx.game.card(card_id).zone == ZoneType::Exile {

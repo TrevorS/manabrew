@@ -94,6 +94,7 @@ pub(super) fn move_cards(
     }
 
     let mut moved = Vec::new();
+    let mut moved_origins = Vec::new();
 
     for &card_id in &ordered {
         if origin_zone == ZoneType::Library {
@@ -138,6 +139,7 @@ pub(super) fn move_cards(
             ctx.trigger_handler.unregister_active_triggers(card_id);
         }
         moved.push(card_id);
+        moved_origins.push((card_id, old_zone));
 
         // Move melded parts together
         for meld_id in melded_parts {
@@ -154,6 +156,7 @@ pub(super) fn move_cards(
                     ctx.trigger_handler.unregister_active_triggers(meld_id);
                 }
                 moved.push(meld_id);
+                moved_origins.push((meld_id, mz));
             }
         }
     }
@@ -189,8 +192,9 @@ pub(super) fn move_cards(
                 | crate::spellability::AbilityDuration::UntilHostLeavesPlayOrEot
         ) {
             if let Some(sid) = sa.source {
-                for &cid in &moved {
+                for &(cid, origin) in &moved_origins {
                     ctx.game.card_mut(cid).set_exiled_by(Some(sid));
+                    ctx.game.card_mut(cid).until_host_leaves_origin = Some(origin);
                 }
             }
         }
