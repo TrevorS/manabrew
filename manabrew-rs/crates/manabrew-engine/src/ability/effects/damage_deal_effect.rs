@@ -61,6 +61,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
 
     let mut stored_excess = 0;
+    let mut excess_damaged: Vec<crate::ids::CardId> = Vec::new();
     for source in sources {
         stored_excess += deal_damage_from_source(
             ctx,
@@ -70,6 +71,18 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             use_damage_map,
             &target_players,
             &target_cards,
+            &mut excess_damaged,
+        );
+    }
+    if !excess_damaged.is_empty() {
+        ctx.trigger_handler.run_trigger(
+            crate::trigger::TriggerType::ExcessDamageAll,
+            crate::event::RunParams {
+                cards: Some(excess_damaged),
+                is_combat_damage: Some(false),
+                ..Default::default()
+            },
+            false,
         );
     }
     if let (Some(excess_svar), Some(host)) = (
@@ -126,6 +139,7 @@ fn deal_damage_from_source(
     use_damage_map: bool,
     target_players: &[crate::ids::PlayerId],
     target_cards: &[crate::ids::CardId],
+    excess_damaged: &mut Vec<crate::ids::CardId>,
 ) -> i32 {
     let mut stored_excess = 0;
     let mut lifelink_dealt = 0;
@@ -414,6 +428,20 @@ fn deal_damage_from_source(
                 }
                 if damage > lethal && excess_svar_condition(ctx.game, sa, target_card) {
                     stored_excess += damage - lethal;
+                }
+                if landed > lethal {
+                    ctx.game.card_mut(target_card).log_excess_damage();
+                    ctx.trigger_handler.run_trigger(
+                        crate::trigger::TriggerType::ExcessDamage,
+                        crate::event::RunParams {
+                            damage_target_card: Some(target_card),
+                            damage_amount: Some(landed - lethal),
+                            is_combat_damage: Some(false),
+                            ..Default::default()
+                        },
+                        false,
+                    );
+                    excess_damaged.push(target_card);
                 }
             }
 

@@ -12,14 +12,16 @@ use super::trigger::{Trigger, TriggerBehavior};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TriggerExcessDamageAll {
     pub valid_target: Option<crate::parsing::CompiledSelector>,
-    pub combat_damage_only: bool,
+    pub combat_damage: Option<bool>,
 }
 
 impl TriggerExcessDamageAll {
     pub fn parse(params: &Params) -> Box<dyn TriggerBehavior> {
         Box::new(Self {
             valid_target: params.selector_cloned(keys::VALID_TARGET),
-            combat_damage_only: params.is_true(keys::COMBAT_DAMAGE),
+            combat_damage: params
+                .get(keys::COMBAT_DAMAGE)
+                .map(|value| value.eq_ignore_ascii_case("True")),
         })
     }
 }
@@ -31,8 +33,10 @@ impl TriggerBehavior for TriggerExcessDamageAll {
     }
 
     fn perform_test(&self, trigger: &Trigger, params: &RunParams, game: &GameState) -> bool {
-        if self.combat_damage_only && params.is_combat_damage != Some(true) {
-            return false;
+        if let Some(combat_damage) = self.combat_damage {
+            if params.is_combat_damage != Some(combat_damage) {
+                return false;
+            }
         }
 
         let targets = params.cards.as_deref().unwrap_or(&[]);
