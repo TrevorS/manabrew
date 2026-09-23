@@ -26,6 +26,13 @@ use crate::trigger::TriggerType;
 #[manabrew_engine_macros::spell_effect(DestroyAllEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let valid_cards = sa.ir.valid_cards_selector.as_ref();
+    let remember_destroyed = sa.ir.remember_destroyed;
+
+    if remember_destroyed {
+        if let Some(sid) = sa.source {
+            ctx.game.card_mut(sid).clear_remembered();
+        }
+    }
 
     // Pass 1 — collect matching battlefield cards; a targeted player narrows it to theirs
     // (Java `CardLists.filterControlledBy`).
@@ -114,6 +121,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .lki_toughness
                 .unwrap_or_else(|| ctx.game.card(card_id).toughness()),
         );
+        if remember_destroyed {
+            if let Some(sid) = sa.source {
+                ctx.game.card_mut(sid).add_remembered_card(card_id);
+            }
+        }
     }
 }
 
