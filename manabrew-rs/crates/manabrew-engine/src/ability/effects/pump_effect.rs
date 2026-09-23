@@ -248,14 +248,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     targets.sort_unstable_by_key(|cid| cid.0);
     targets.dedup();
 
-    let tgt_zones = sa
-        .target_restrictions
-        .as_ref()
-        .map(|tr| tr.tgt_zone.clone())
-        .filter(|zones| !zones.is_empty())
+    let pump_zones = sa
+        .ir
+        .pump_zone
+        .as_deref()
+        .map(crate::zone::zone_type::list_value_of)
         .unwrap_or_else(|| vec![ZoneType::Battlefield]);
     for target_card in targets {
-        if !tgt_zones.contains(&ctx.game.card(target_card).zone) {
+        if !pump_zones.contains(&ctx.game.card(target_card).zone) {
             continue;
         }
         let target = ctx.game.card(target_card);
@@ -429,7 +429,9 @@ pub(super) fn apply_pump_to_card(
             card.capture_changed_characteristics_baseline_if_needed();
         }
         for kw in keywords {
-            card.add_changed_card_keywords(kw);
+            if card.add_changed_card_keywords(kw) {
+                card.add_lasting_keyword_triggers(kw);
+            }
         }
     } else if until_next_turn {
         if att != 0 || def != 0 {

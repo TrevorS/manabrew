@@ -117,7 +117,7 @@ impl Card {
         self.get_keyword_cost("Strive")
     }
 
-    /// Get suspend cost and time counters (e.g. "Suspend:1 U:3" → Some(("1 U", 3))).
+    /// Get suspend cost and time counters (e.g. "Suspend:3:1 U" → Some(("1 U", 3))).
     /// Delegates parsing to the keyword module.
     pub fn get_suspend_cost(&self) -> Option<(String, i32)> {
         crate::keyword::extract_suspend(&self.keywords)

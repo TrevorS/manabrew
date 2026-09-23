@@ -261,12 +261,14 @@ fn subtract_counter(
     ctx.game
         .card_mut(card_id)
         .remove_counter(counter_type, actual);
+    let new_counter_amount = ctx.game.card(card_id).counter_count(counter_type);
     ctx.trigger_handler.run_trigger(
         TriggerType::CounterRemoved,
         RunParams {
             card: Some(card_id),
             counter_type: Some(format!("{counter_type:?}")),
             counter_amount: Some(actual),
+            new_counter_amount: Some(new_counter_amount),
             ..Default::default()
         },
         false,

@@ -84,12 +84,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     ctx.game
         .card_mut(from)
         .remove_counter(&counter_type, actual);
+    let new_counter_amount = ctx.game.card(from).counter_count(&counter_type);
     ctx.trigger_handler.run_trigger(
         TriggerType::CounterRemoved,
         RunParams {
             card: Some(from),
             counter_type: Some(format!("{counter_type:?}")),
             counter_amount: Some(actual),
+            new_counter_amount: Some(new_counter_amount),
             ..Default::default()
         },
         false,

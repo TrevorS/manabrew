@@ -12,6 +12,7 @@ use super::trigger::TriggerBehavior;
 pub struct TriggerCounterRemoved {
     pub valid_card: Option<crate::parsing::CompiledSelector>,
     pub counter_type: Option<String>,
+    pub new_counter_amount: Option<i32>,
 }
 
 impl TriggerCounterRemoved {
@@ -19,6 +20,9 @@ impl TriggerCounterRemoved {
         Box::new(Self {
             valid_card: params.selector_cloned(keys::VALID_CARD),
             counter_type: params.get_cloned(keys::COUNTER_TYPE),
+            new_counter_amount: params
+                .get("NewCounterAmount")
+                .and_then(|amount| amount.trim().parse().ok()),
         })
     }
 }
@@ -40,6 +44,9 @@ impl TriggerBehavior for TriggerCounterRemoved {
                 &self.counter_type,
                 &params.counter_type,
             )
+            && self
+                .new_counter_amount
+                .is_none_or(|amount| params.new_counter_amount == Some(amount))
     }
 
     fn set_triggering_objects(

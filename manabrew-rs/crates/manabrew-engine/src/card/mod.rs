@@ -3559,7 +3559,9 @@ impl Card {
     }
 
     pub fn has_suspend(&self) -> bool {
-        self.has_keyword("Suspend")
+        self.has_keyword_enum(Kw::Suspend)
+            && self.zone == ZoneType::Exile
+            && self.counter_count(&CounterType::Time) >= 1
     }
 
     pub fn has_converge(&self) -> bool {
@@ -4110,8 +4112,8 @@ impl Card {
     pub fn update_keywords(&mut self) {
         self.update_keywords_cache();
     }
-    pub fn add_changed_card_keywords(&mut self, kw: &str) {
-        self.add_intrinsic_keyword(kw);
+    pub fn add_changed_card_keywords(&mut self, kw: &str) -> bool {
+        self.add_intrinsic_keyword(kw)
     }
     pub fn add_keyword_for_static_ability(&mut self, kw: &str) {
         self.granted_keywords.add(kw);

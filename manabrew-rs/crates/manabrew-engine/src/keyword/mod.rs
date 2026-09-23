@@ -132,14 +132,14 @@ pub struct SuspendInfo {
 }
 
 /// Parse suspend info from a KeywordCollection.
-/// Format: "Suspend:MANA_COST:TIME_COUNTERS" e.g. "Suspend:1 U:3"
+/// Format: "Suspend:TIME_COUNTERS:MANA_COST" e.g. "Suspend:3:1 U"
 pub fn extract_suspend(collection: &keyword_collection::KeywordCollection) -> Option<SuspendInfo> {
     for kw in collection.iter_strings() {
         if let Some(rest) = kw.strip_prefix("Suspend:") {
-            if let Some(colon_pos) = rest.rfind(':') {
+            if let Some((counters, cost)) = rest.split_once(':') {
                 return Some(SuspendInfo {
-                    mana_cost: rest[..colon_pos].trim().to_string(),
-                    time_counters: rest[colon_pos + 1..].trim().parse().unwrap_or(0),
+                    mana_cost: cost.trim().to_string(),
+                    time_counters: counters.trim().parse().unwrap_or(0),
                 });
             }
         }

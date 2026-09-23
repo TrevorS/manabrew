@@ -554,6 +554,14 @@ impl Card {
         }
     }
 
+    pub(crate) fn add_lasting_keyword_triggers(&mut self, kw: &str) {
+        let start = self.triggers.len();
+        self.generate_keyword_triggers_for(&[kw.to_string()]);
+        for trigger in self.triggers.split_off(start) {
+            self.add_lasting_trigger(trigger);
+        }
+    }
+
     /// Generate triggered abilities from keywords (e.g. Prowess, Bushido, Annihilator, etc.).
     /// Mirrors Java's `CardFactoryUtil.setupKeywordedTriggers()`.
     pub fn generate_keyword_triggers(&mut self) {
@@ -1190,6 +1198,47 @@ impl Card {
             self.svars
                 .entry("StormCount".to_string())
                 .or_insert_with(|| "TriggerCount$CurrentStormCount/Minus.1".to_string());
+        }
+
+        if kw.starts_with("Suspend") {
+            let raw = "Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Exile | IsPresent$ Card.Self+suspended | PresentZone$ Exile | Secondary$ True | TriggerDescription$ At the beginning of your upkeep, if this card is suspended, remove a time counter from it";
+            if let Some(mut trig) = parse_trigger(raw, next_id) {
+                trig.execute = "TrigSuspendUpkeep".to_string();
+                self.add_trigger(trig);
+            }
+            self.svars
+                .entry("TrigSuspendUpkeep".to_string())
+                .or_insert_with(|| {
+                    "DB$ RemoveCounter | Defined$ Self | CounterType$ TIME | CounterNum$ 1"
+                        .to_string()
+                });
+            let raw = "Mode$ CounterRemoved | TriggerZones$ Exile | ValidCard$ Card.Self | CounterType$ TIME | NewCounterAmount$ 0 | Secondary$ True | TriggerDescription$ When the last time counter is removed from this card, if it's exiled, you may play it without paying its mana cost if able. If you can't, it remains exiled. If you cast a creature spell this way, it gains haste until you lose control of the spell or the permanent it becomes.";
+            if let Some(mut trig) = parse_trigger(raw, next_id) {
+                trig.execute = "TrigSuspendPlay".to_string();
+                self.add_trigger(trig);
+            }
+            if self.is_permanent() {
+                self.svars
+                    .entry("TrigSuspendPlay".to_string())
+                    .or_insert_with(|| {
+                        "DB$ Play | Defined$ Self | WithoutManaCost$ True | Optional$ True | RememberPlayed$ True | SubAbility$ SuspendPump".to_string()
+                    });
+                self.svars
+                    .entry("SuspendPump".to_string())
+                    .or_insert_with(|| {
+                        "DB$ Pump | Defined$ Remembered | KW$ Haste | PumpZone$ Stack | ConditionDefined$ Remembered | ConditionPresent$ Creature | Duration$ UntilLoseControlOfHost | SubAbility$ SuspendCleanup".to_string()
+                    });
+                self.svars
+                    .entry("SuspendCleanup".to_string())
+                    .or_insert_with(|| "DB$ Cleanup | ClearRemembered$ True".to_string());
+            } else {
+                self.svars
+                    .entry("TrigSuspendPlay".to_string())
+                    .or_insert_with(|| {
+                        "DB$ Play | Defined$ Self | WithoutManaCost$ True | Optional$ True"
+                            .to_string()
+                    });
+            }
         }
 
         if let Some(cost_str) = crate::keyword::extract_keyword_cost_str(kw, "Ward") {

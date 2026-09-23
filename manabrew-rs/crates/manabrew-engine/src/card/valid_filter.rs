@@ -851,7 +851,7 @@ fn matches_card_state(state: CardStateSelector, card: &Card, context: MatchConte
         }
         CardStateSelector::Saddled => card.get_s_var("Saddled") == Some("True"),
         CardStateSelector::MayPlaySource => card.may_play(context.source_controller),
-        CardStateSelector::Suspended => card.has_keyword("Suspend") && card.zone == ZoneType::Exile,
+        CardStateSelector::Suspended => card.has_suspend(),
         CardStateSelector::SingleTarget => false,
         CardStateSelector::PromisedGift => card.promised_gift.is_some(),
         CardStateSelector::RingBearer => context

@@ -4218,6 +4218,7 @@ impl GameLoop {
                 let remove = remaining.min(game.card(card_id).counter_count(&ct));
                 for _ in 0..remove {
                     game.card_mut(card_id).remove_counter(&ct, 1);
+                    let new_counter_amount = game.card(card_id).counter_count(&ct);
                     self.trigger_handler.run_trigger(
                         TriggerType::CounterRemoved,
                         RunParams {
@@ -4225,6 +4226,7 @@ impl GameLoop {
                             player: Some(player),
                             counter_type: Some(format!("{ct:?}")),
                             counter_amount: Some(1),
+                            new_counter_amount: Some(new_counter_amount),
                             ..Default::default()
                         },
                         false,
