@@ -1206,10 +1206,7 @@ fn apply_delve_reduction(
     if !game.card(source).has_keyword("Delve") {
         return true;
     }
-    let generic = cost.get_generic_mana_amount();
-    if generic <= 0 {
-        return true;
-    }
+    let generic = cost.get_generic_mana_amount().max(0) as usize;
     let player = sa.activating_player;
     let graveyard: Vec<CardId> = game
         .cards_in_zone(ZoneType::Graveyard, player)
@@ -1217,10 +1214,7 @@ fn apply_delve_reduction(
         .filter(|&&cid| cid != source)
         .copied()
         .collect();
-    if graveyard.is_empty() {
-        return true;
-    }
-    let max_delve = (generic as usize).min(graveyard.len());
+    let max_delve = generic.min(graveyard.len());
     agents[player.index()].snapshot_state(game, mana_pools);
     let chosen = agents[player.index()].choose_delve(player, &graveyard, max_delve, Some(source));
     game.card_mut(source).clear_delved();

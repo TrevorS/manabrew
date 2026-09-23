@@ -2409,6 +2409,21 @@ impl PlayerAgent for DeterministicAgent {
         self.choose_cards_for_effect(player, &sorted, min, max)
     }
 
+    fn choose_delve(
+        &mut self,
+        _player: PlayerId,
+        valid: &[CardId],
+        max: usize,
+        _source: Option<CardId>,
+    ) -> Vec<CardId> {
+        let sorted = parity_order::sort_cards_by_name_then_id(
+            valid,
+            |cid| self.card_name(cid),
+            |cid| self.parity_id(cid),
+        );
+        gui_repro::pick_many_unique(&sorted, 0, max, &mut self.rng.borrow_mut())
+    }
+
     fn choose_keyword_for_pump(
         &mut self,
         _player: PlayerId,
