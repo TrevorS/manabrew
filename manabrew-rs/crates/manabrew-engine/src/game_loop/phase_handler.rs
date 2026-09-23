@@ -913,8 +913,8 @@ impl GameLoop {
 
         let life_lost_all_damage_map = game.process_damage(&mut self.trigger_handler);
 
-        // Per-event: fire DamageDone and LifeGained
-        for event in events {
+        let lifelink_gains = combat::lifelink_gains_by_source(events);
+        for (index, event) in events.iter().enumerate() {
             self.trigger_handler.run_trigger(
                 TriggerType::DamageDone,
                 RunParams {
@@ -927,13 +927,16 @@ impl GameLoop {
                 },
                 false,
             );
-            if let Some(player) = event.lifelink_player {
-                if event.lifelink_amount > 0 {
+            let last_of_source = events[index + 1..]
+                .iter()
+                .all(|later| later.source != event.source);
+            if let Some(&(player, amount)) = lifelink_gains.get(&event.source) {
+                if last_of_source && amount > 0 {
                     self.trigger_handler.run_trigger(
                         TriggerType::LifeGained,
                         RunParams {
                             player: Some(player),
-                            life_amount: Some(event.lifelink_amount),
+                            life_amount: Some(amount),
                             source_card: Some(event.source),
                             ..Default::default()
                         },

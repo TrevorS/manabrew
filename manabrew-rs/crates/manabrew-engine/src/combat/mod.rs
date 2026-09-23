@@ -757,7 +757,6 @@ impl CombatState {
                             target_id,
                             dmg,
                             attacker_has_deathtouch,
-                            attacker_has_lifelink,
                             attacker_controller,
                             attacker_has_wither || attacker_has_infect_for_creature,
                             Some(agents),
@@ -783,7 +782,6 @@ impl CombatState {
                             attacker_id,
                             defending_player,
                             to_player,
-                            attacker_has_lifelink,
                             attacker_controller,
                             attacker_has_infect_for_player,
                             attacker_toxic_count,
@@ -840,7 +838,6 @@ impl CombatState {
                             chosen,
                             attacker_power,
                             attacker_has_deathtouch,
-                            attacker_has_lifelink,
                             attacker_controller,
                             attacker_has_wither || attacker_has_infect_for_creature,
                             Some(agents),
@@ -873,7 +870,6 @@ impl CombatState {
                             attacker_id,
                             defending_player,
                             attacker_power,
-                            attacker_has_lifelink,
                             attacker_controller,
                             attacker_has_infect_for_player,
                             attacker_toxic_count,
@@ -914,7 +910,6 @@ impl CombatState {
                             target_id,
                             attacker_power,
                             attacker_has_deathtouch,
-                            attacker_has_lifelink,
                             attacker_controller,
                             attacker_has_wither || attacker_has_infect_for_creature,
                             Some(agents),
@@ -957,7 +952,6 @@ impl CombatState {
                     blocker_id,
                     damage_to_blocker,
                     attacker_has_deathtouch,
-                    attacker_has_lifelink,
                     attacker_controller,
                     attacker_has_wither || attacker_has_infect_for_creature,
                     Some(agents),
@@ -990,7 +984,6 @@ impl CombatState {
                             attacker_id,
                             defending_player,
                             defender_damage,
-                            attacker_has_lifelink,
                             attacker_controller,
                             attacker_has_infect_for_player,
                             attacker_toxic_count,
@@ -1029,7 +1022,6 @@ impl CombatState {
                             target_id,
                             defender_damage,
                             attacker_has_deathtouch,
-                            attacker_has_lifelink,
                             attacker_controller,
                             attacker_has_wither || attacker_has_infect_for_creature,
                             Some(agents),
@@ -1067,7 +1059,6 @@ impl CombatState {
                     attacker_id,
                     info.power,
                     info.has_deathtouch,
-                    info.has_lifelink,
                     info.controller,
                     info.has_wither_or_infect,
                     Some(agents),
@@ -1090,6 +1081,10 @@ impl CombatState {
 
             // Note: non-trample excess is validated/flushed to last blocker;
             // trample excess is applied to defender.
+        }
+
+        for (player, amount) in lifelink_gains_by_source(&events).into_values() {
+            gain_combat_lifelink(game, player, amount);
         }
 
         CombatDamageResolution {
@@ -1686,13 +1681,60 @@ pub fn filter_legal_blockers(
     combat_util::filter_legal_blockers(game, attackers, blockers)
 }
 
-/// Deal combat damage to a player, handling lifelink, Infect, and Toxic.
+pub(crate) fn lifelink_gains_by_source(
+    events: &[CombatDamageEvent],
+) -> indexmap::IndexMap<CardId, (PlayerId, i32)> {
+    let mut gains: indexmap::IndexMap<CardId, (PlayerId, i32)> = indexmap::IndexMap::new();
+    for event in events {
+        if let Some(player) = event.lifelink_player {
+            gains.entry(event.source).or_insert((player, 0)).1 += event.lifelink_amount;
+        }
+    }
+    gains
+}
+
+fn gain_combat_lifelink(game: &mut GameState, source_controller: PlayerId, amount: i32) {
+    if amount <= 0
+        || crate::staticability::static_ability_cant_gain_lose_pay_life::cant_gain_life(
+            game,
+            source_controller,
+        )
+    {
+        return;
+    }
+    let mut gl_event = crate::replacement::replacement_handler::ReplacementEvent::GainLife {
+        player: source_controller,
+        amount,
+    };
+    let gl_result =
+        crate::replacement::replacement_handler::apply_replacements(game, &mut gl_event);
+    if gl_result == crate::replacement::ReplacementResult::Skipped
+        || gl_result == crate::replacement::ReplacementResult::Replaced
+    {
+        return;
+    }
+    let final_amount =
+        if let crate::replacement::replacement_handler::ReplacementEvent::GainLife {
+            amount: a,
+            ..
+        } = gl_event
+        {
+            a
+        } else {
+            amount
+        };
+    if final_amount > 0 {
+        game.player_gain_life(source_controller, final_amount);
+        game.player_add_team_life_gained(source_controller, final_amount);
+    }
+}
+
+/// Deal combat damage to a player, handling Infect and Toxic.
 fn deal_combat_damage_to_player(
     game: &mut GameState,
     source: CardId,
     target: PlayerId,
     amount: i32,
-    lifelink: bool,
     source_controller: PlayerId,
     source_has_infect: bool,
     source_toxic_count: Option<i32>,
@@ -1739,39 +1781,6 @@ fn deal_combat_damage_to_player(
                 );
             }
         }
-        if lifelink
-            && !crate::staticability::static_ability_cant_gain_lose_pay_life::cant_gain_life(
-                game,
-                source_controller,
-            )
-        {
-            // Run GainLife replacement effects (e.g. Tainted Remedy).
-            let mut gl_event =
-                crate::replacement::replacement_handler::ReplacementEvent::GainLife {
-                    player: source_controller,
-                    amount,
-                };
-            let gl_result =
-                crate::replacement::replacement_handler::apply_replacements(game, &mut gl_event);
-            if gl_result != crate::replacement::ReplacementResult::Skipped
-                && gl_result != crate::replacement::ReplacementResult::Replaced
-            {
-                let final_amount =
-                    if let crate::replacement::replacement_handler::ReplacementEvent::GainLife {
-                        amount: a,
-                        ..
-                    } = gl_event
-                    {
-                        a
-                    } else {
-                        amount
-                    };
-                if final_amount > 0 {
-                    game.player_gain_life(source_controller, final_amount);
-                    game.player_add_team_life_gained(source_controller, final_amount);
-                }
-            }
-        }
         game.card_mut(source).damage_history.register_damage(
             amount,
             true,
@@ -1781,14 +1790,13 @@ fn deal_combat_damage_to_player(
     }
 }
 
-/// Deal combat damage to a card, handling deathtouch, lifelink, Infect/Wither.
+/// Deal combat damage to a card, handling deathtouch, Infect/Wither.
 fn deal_combat_damage_to_card(
     game: &mut GameState,
     source: CardId,
     target: CardId,
     amount: i32,
     deathtouch: bool,
-    lifelink: bool,
     source_controller: PlayerId,
     source_has_wither_or_infect: bool,
     agents: Option<&mut [Box<dyn PlayerAgent>]>,
@@ -1825,39 +1833,6 @@ fn deal_combat_damage_to_card(
         }
         if deathtouch {
             game.card_mut(target).mark_deathtouch_damage();
-        }
-        if lifelink
-            && !crate::staticability::static_ability_cant_gain_lose_pay_life::cant_gain_life(
-                game,
-                source_controller,
-            )
-        {
-            // Run GainLife replacement effects (e.g. Tainted Remedy).
-            let mut gl_event =
-                crate::replacement::replacement_handler::ReplacementEvent::GainLife {
-                    player: source_controller,
-                    amount,
-                };
-            let gl_result =
-                crate::replacement::replacement_handler::apply_replacements(game, &mut gl_event);
-            if gl_result != crate::replacement::ReplacementResult::Skipped
-                && gl_result != crate::replacement::ReplacementResult::Replaced
-            {
-                let final_amount =
-                    if let crate::replacement::replacement_handler::ReplacementEvent::GainLife {
-                        amount: a,
-                        ..
-                    } = gl_event
-                    {
-                        a
-                    } else {
-                        amount
-                    };
-                if final_amount > 0 {
-                    game.player_gain_life(source_controller, final_amount);
-                    game.player_add_team_life_gained(source_controller, final_amount);
-                }
-            }
         }
         game.card_mut(source).damage_history.register_damage(
             amount,
