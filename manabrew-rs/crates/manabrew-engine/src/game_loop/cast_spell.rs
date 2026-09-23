@@ -730,15 +730,20 @@ impl GameLoop {
                     if !available_mana.can_pay(&foretell_exile_cost) {
                         return Some(None);
                     }
-                    let tapped = mana::auto_tap_lands(
+                    let foretell_cost = parse_cost("2");
+                    if !self.pay_ability_cost(
                         game,
-                        self.pool_mut(player),
+                        agents,
                         player,
-                        &foretell_exile_cost,
-                        Some(card_id),
-                    );
-                    self.emit_tap_for_mana_triggers(player, &tapped);
-                    self.pool_mut(player).try_pay(&foretell_exile_cost);
+                        card_id,
+                        &foretell_cost,
+                        None,
+                        foretell_cost.mandatory,
+                        super::cost_payment::CostPaymentContext::ActivatedAbility,
+                        None,
+                    ) {
+                        return Some(None);
+                    }
                     self.move_card_with_runtime(game, card_id, ZoneType::Exile, player, agents);
                     game.card_mut(card_id).set_face_down(true);
                     self.trigger_handler.run_trigger(
