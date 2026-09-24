@@ -2322,6 +2322,11 @@ impl GameState {
                                 || c.type_line.core_types.contains(&CoreType::Battle)
                                 || !can_attachment_remain_attached(&self.cards, c, host, true))
                     }
+                    None => {
+                        c.attached_to_player.is_some()
+                            && (c.is_creature()
+                                || c.type_line.core_types.contains(&CoreType::Battle))
+                    }
                     _ => false,
                 })
                 .map(|c| c.id)
