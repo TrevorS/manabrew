@@ -2605,6 +2605,14 @@ fn group_mana_sources_by_color(
             {
                 continue;
             }
+            if filter_reflected_replacements
+                && ab
+                    .sub_ability
+                    .as_deref()
+                    .is_some_and(|sub| !chk_drawback_with_subs(card, sub))
+            {
+                continue;
+            }
             // Handle ManaReflected abilities (e.g. The Grey Havens).
             // Java has two paths here:
             // - `ComputerUtilMana.groupSourcesByManaColor` predicts
@@ -3505,10 +3513,12 @@ fn get_ai_available_mana_sources(game: &GameState, player: PlayerId) -> Vec<Card
                 }
                 needs_limited_resources = !unpreferred_cost;
             }
-            if ab.sub_ability.is_some()
-                && card.card_name != "Pristine Talisman"
-                && card.card_name != "Zhur-Taa Druid"
-            {
+            if let Some(sub) = ab.sub_ability.as_deref().filter(|_| {
+                card.card_name != "Pristine Talisman" && card.card_name != "Zhur-Taa Druid"
+            }) {
+                if !chk_drawback_with_subs(card, sub) {
+                    continue;
+                }
                 needs_limited_resources = true;
             }
             usable += 1;
@@ -3543,6 +3553,38 @@ fn get_ai_available_mana_sources(game: &GameState, player: PlayerId) -> Vec<Card
     sorted.extend(other);
     sorted.extend(use_last);
     sorted
+}
+
+/// `SpellAbilityAi.chkDrawbackWithSubs` for the APIs whose `chkDrawback` refuses a mana
+/// ability's sub-ability; every other API is willing.
+fn chk_drawback_with_subs(card: &crate::card::Card, sub_ability: &str) -> bool {
+    let mut next = Some(sub_ability.to_string());
+    while let Some(name) = next {
+        let Some(raw) = card.get_s_var(&name) else {
+            return true;
+        };
+        let params = crate::parsing::Params::from_raw(raw);
+        if !chk_drawback(card, &params) {
+            return false;
+        }
+        next = params
+            .get(crate::parsing::keys::SUB_ABILITY)
+            .map(str::to_string);
+    }
+    true
+}
+
+fn chk_drawback(card: &crate::card::Card, params: &crate::parsing::Params) -> bool {
+    match params.get(crate::parsing::keys::DB) {
+        Some("DelayedTrigger" | "ImmediateTrigger") => {
+            params.get("AILogic") == Some("Always")
+                || params
+                    .get(crate::parsing::keys::EXECUTE)
+                    .is_some_and(|execute| chk_drawback_with_subs(card, execute))
+        }
+        Some("CopySpellAbility") => params.get("AILogic") == Some("Always"),
+        _ => true,
+    }
 }
 
 /// `Cost.isReusuableResource`.
