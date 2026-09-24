@@ -50,7 +50,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
 }
 
-fn lose_life(ctx: &mut EffectContext, sa: &SpellAbility, target: PlayerId, amount: i32) -> i32 {
+pub(super) fn lose_life(
+    ctx: &mut EffectContext,
+    sa: &SpellAbility,
+    target: PlayerId,
+    amount: i32,
+) -> i32 {
     if crate::staticability::static_ability_cant_gain_lose_pay_life::cant_lose_life(
         ctx.game, target,
     ) {

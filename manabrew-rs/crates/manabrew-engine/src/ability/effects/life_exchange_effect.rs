@@ -1,4 +1,4 @@
-use super::{resolve_defined_player, EffectContext};
+use super::EffectContext;
 use crate::event::RunParams;
 use crate::trigger::TriggerType;
 
@@ -16,84 +16,58 @@ use crate::trigger::TriggerType;
 /// `LifeExchangeEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(LifeExchangeEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let controller = sa.activating_player;
-
-    // Determine the other player: targeted or Defined$
-    let other = if let Some(target_player) = sa.target_chosen.target_player {
-        target_player
-    } else {
-        let defined = sa.defined().unwrap_or("Opponent");
-        resolve_defined_player(defined, controller, ctx.game)
-            .unwrap_or_else(|| ctx.game.opponent_of(controller))
+    let tgt_players = crate::ability::spell_ability_effect::get_target_players(ctx.game, sa);
+    let (mut p1, mut p2) = match tgt_players.as_slice() {
+        [] => return,
+        [p] => (sa.activating_player, *p),
+        [a, b, ..] => (*a, *b),
     };
 
-    if !ctx.game.player(controller).is_alive() || !ctx.game.player(other).is_alive() {
-        return;
+    let life1 = ctx.game.player(p1).life;
+    let life2 = ctx.game.player(p2).life;
+    let diff = (life1 - life2).abs();
+
+    if life2 > life1 {
+        std::mem::swap(&mut p1, &mut p2);
     }
-
-    let life_a = ctx.game.player(controller).life;
-    let life_b = ctx.game.player(other).life;
-
-    // Set each player's life to the other's previous total
-    let diff_a = ctx.game.player_set_life(controller, life_b);
-    let diff_b = ctx.game.player_set_life(other, life_a);
-
-    // Fire triggers for controller
-    if diff_a > 0 {
-        ctx.trigger_handler.run_trigger(
-            TriggerType::LifeGained,
-            RunParams {
-                player: Some(controller),
-                life_amount: Some(diff_a),
-                first_time: Some(ctx.game.player(controller).life_gained_this_turn == diff_a),
-                source_card: sa.source,
-                source_sa: Some(sa.clone()),
-                ..Default::default()
-            },
-            false,
-        );
-    } else if diff_a < 0 {
-        ctx.trigger_handler.run_trigger(
-            TriggerType::LifeLost,
-            RunParams {
-                player: Some(controller),
-                life_amount: Some(diff_a.abs()),
-                first_time: Some(ctx.game.player(controller).life_lost_this_turn == diff_a.abs()),
-                source_card: sa.source,
-                source_sa: Some(sa.clone()),
-                ..Default::default()
-            },
-            false,
-        );
+    if diff > 0
+        && ctx.game.player(p1).is_alive()
+        && !crate::staticability::static_ability_cant_gain_lose_pay_life::cant_lose_life(
+            ctx.game, p1,
+        )
+        && ctx.game.player(p2).is_alive()
+        && !crate::staticability::static_ability_cant_gain_lose_pay_life::cant_gain_life(
+            ctx.game, p2,
+        )
+    {
+        let lost = super::life_lose_effect::lose_life(ctx, sa, p1, diff);
+        super::life_gain_effect::gain_life(ctx, sa, p2, diff);
+        if lost > 0 {
+            ctx.trigger_handler.run_trigger(
+                TriggerType::LifeLostAll,
+                RunParams {
+                    player: Some(p1),
+                    life_amount: Some(lost),
+                    source_card: sa.source,
+                    source_sa: Some(sa.clone()),
+                    ..Default::default()
+                },
+                false,
+            );
+            if crate::parsing::raw_has_key(&sa.ability_text, "RememberOwnLoss")
+                && p1 == sa.activating_player
+            {
+                if let Some(source) = sa.source {
+                    ctx.game.card_mut(source).add_remembered_cmc(lost);
+                }
+            }
+        }
     }
-
-    // Fire triggers for the other player
-    if diff_b > 0 {
-        ctx.trigger_handler.run_trigger(
-            TriggerType::LifeGained,
-            RunParams {
-                player: Some(other),
-                life_amount: Some(diff_b),
-                first_time: Some(ctx.game.player(other).life_gained_this_turn == diff_b),
-                source_card: sa.source,
-                source_sa: Some(sa.clone()),
-                ..Default::default()
-            },
-            false,
-        );
-    } else if diff_b < 0 {
-        ctx.trigger_handler.run_trigger(
-            TriggerType::LifeLost,
-            RunParams {
-                player: Some(other),
-                life_amount: Some(diff_b.abs()),
-                first_time: Some(ctx.game.player(other).life_lost_this_turn == diff_b.abs()),
-                source_card: sa.source,
-                source_sa: Some(sa.clone()),
-                ..Default::default()
-            },
-            false,
-        );
+    if crate::parsing::raw_has_key(&sa.ability_text, "RememberDifference") {
+        if let Some(source) = sa.source {
+            let difference = ctx.game.player(p1).life - ctx.game.player(p2).life;
+            ctx.game.card_mut(source).add_remembered_cmc(difference);
+        }
     }
 }
 
