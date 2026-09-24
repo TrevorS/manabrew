@@ -643,6 +643,19 @@ impl Card {
                 .or_insert_with(|| "DB$ Sacrifice".to_string());
         }
 
+        if kw == "Dethrone" {
+            let raw = "Mode$ Attacks | ValidCard$ Card.Self | Attacked$ Player.withMostLife | Secondary$ True | TriggerZones$ Battlefield | Execute$ TrigDethrone | TriggerDescription$ Dethrone (Whenever this creature attacks the player with the most life or tied for the most life, put a +1/+1 counter on it.)";
+            if let Some(mut trig) = parse_trigger(raw, next_id) {
+                trig.execute = "TrigDethrone".to_string();
+                self.add_trigger(trig);
+            }
+            self.svars
+                .entry("TrigDethrone".to_string())
+                .or_insert_with(|| {
+                    "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1".to_string()
+                });
+        }
+
         if kw == "Storied" && self.is_permanent() {
             let raw = "Mode$ Always | TriggerZones$ Battlefield | Secondary$ True | Static$ True | EnduringStory$ False | IsPresent$ Permanent.YouCtrl+Historic | PresentCompare$ GE3 | Execute$ TrigStoried | TriggerDescription$ Storied";
             if let Some(mut trig) = parse_trigger(raw, next_id) {
