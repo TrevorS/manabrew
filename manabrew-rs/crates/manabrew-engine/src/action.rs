@@ -1711,6 +1711,9 @@ impl GameState {
         parts: &mut SbaReplacementParts<'_>,
         agents: &mut [Box<dyn PlayerAgent>],
     ) -> bool {
+        for (player, pool) in self.players.iter_mut().zip(parts.mana_pools.iter()) {
+            player.mana_pool_colors = pool.mana_colors();
+        }
         self.check_state_based_actions_with_parts(
             Some(trigger_handler),
             None,

@@ -2654,6 +2654,16 @@ pub fn resolve_count_svar_for_sa(
                 .sum();
             return math(doors);
         }
+        if sq[0].starts_with("ManaPool") {
+            let color = l0.split(':').nth(1).unwrap_or_default();
+            let colors = &player.mana_pool_colors;
+            return math(if color == "All" {
+                colors.len() as i32
+            } else {
+                let atom = forge_foundation::mana::ManaAtom::from_name(&color.to_ascii_lowercase());
+                colors.iter().filter(|&&c| c == atom).count() as i32
+            });
+        }
         if sq[0].starts_with("Void") {
             return math(calculate_branch(game.is_void()));
         }

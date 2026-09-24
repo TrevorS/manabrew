@@ -155,6 +155,8 @@ pub struct PlayerState {
     pub gained_ownership: Vec<CardId>,
     pub paid_for_stack: Vec<crate::spellability::SpellAbility>,
     pub devotion_mod: i32,
+    #[serde(default)]
+    pub mana_pool_colors: Vec<u16>,
     pub draft_notes: HashMap<String, String>,
     pub statistics: PlayerStatistics,
 }
@@ -279,6 +281,7 @@ impl PlayerState {
             gained_ownership: Vec::new(),
             paid_for_stack: Vec::new(),
             devotion_mod: 0,
+            mana_pool_colors: Vec::new(),
             draft_notes: HashMap::default(),
             statistics: PlayerStatistics {
                 opening_hand_size: 7,
