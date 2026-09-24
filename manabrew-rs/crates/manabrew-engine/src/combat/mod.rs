@@ -87,6 +87,8 @@ pub struct CombatState {
     /// blockers later left combat before damage.
     #[serde(default)]
     pub blocked_attackers: HashSet<CardId>,
+    #[serde(default)]
+    pub blockers_declared: bool,
     /// Zone timestamp of each blocker at declare-blockers time.
     #[serde(default)]
     pub blocker_zone_timestamps: HashMap<CardId, u64>,
@@ -113,6 +115,7 @@ impl CombatState {
         self.attacker_zone_timestamps.clear();
         self.blockers.clear();
         self.blocked_attackers.clear();
+        self.blockers_declared = false;
         self.blocker_zone_timestamps.clear();
         self.damage_order.clear();
         self.lki_cache.clear();
@@ -1207,7 +1210,7 @@ impl CombatState {
 
     /// Check if an attacker is unblocked (declared, blockers declared, but none assigned).
     pub fn is_unblocked(&self, attacker: CardId) -> bool {
-        self.is_attacking(attacker) && !self.is_blocked(attacker)
+        self.blockers_declared && self.is_attacking(attacker) && !self.is_blocked(attacker)
     }
 
     /// Get all unblocked attacker IDs.

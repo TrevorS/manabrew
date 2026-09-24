@@ -927,7 +927,16 @@ fn matches_context_predicate(
         ),
         ContextPredicate::Unblocked => context.combat.map_or(
             card.attacking_player.is_some()
-                && !card.damage_history.creature_got_blocked_this_combat,
+                && !card.damage_history.creature_got_blocked_this_combat
+                && context.game.is_none_or(|game| {
+                    matches!(
+                        game.turn.phase,
+                        forge_foundation::PhaseType::CombatDeclareBlockers
+                            | forge_foundation::PhaseType::CombatFirstStrikeDamage
+                            | forge_foundation::PhaseType::CombatDamage
+                            | forge_foundation::PhaseType::CombatEnd
+                    )
+                }),
             |combat| combat.is_unblocked(card.id),
         ),
         ContextPredicate::AttackedThisTurn => !card.damage_history.attacked_this_turn.is_empty(),

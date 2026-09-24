@@ -782,6 +782,7 @@ impl GameLoop {
                 false,
             );
 
+            self.combat.blockers_declared = true;
             // Fire AttackerBlocked / AttackerUnblocked triggers
             for &(attacker_id, defender_id) in &self.combat.attackers.clone() {
                 if self.combat.is_blocked(attacker_id) {

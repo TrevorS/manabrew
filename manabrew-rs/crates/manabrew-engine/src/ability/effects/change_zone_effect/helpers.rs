@@ -426,7 +426,7 @@ pub(super) fn apply_post_move(
 
     // Battlefield entry effects
     if dest_zone == ZoneType::Battlefield {
-        if sa.is_tapped() {
+        if sa.is_tapped() || sa.ir.ninjutsu {
             ctx.game.tap(card_id);
         }
         if sa.is_gain_control() {
@@ -434,7 +434,24 @@ pub(super) fn apply_post_move(
             ctx.game.card_mut(card_id).set_controller(new_controller);
         }
         if sa.ir.ninjutsu {
-            let _ = super::super::add_to_combat(ctx, sa, card_id, keys::NINJUTSU);
+            let returned = sa
+                .paid_hash
+                .get(crate::cost::cost_return::HASH_LKI)
+                .and_then(|ids| ids.first())
+                .and_then(|id| id.parse::<u32>().ok())
+                .map(crate::ids::CardId);
+            if let (Some(returned), Some(combat)) = (returned, ctx.combat.as_deref_mut()) {
+                if let Some(defender) = combat
+                    .get_defender_by_attacker(returned)
+                    .or_else(|| combat.get_combat_lki(returned).and_then(|lki| lki.defender))
+                {
+                    combat.add_attacker(card_id, defender);
+                    let defending_player = defender.controlling_player(ctx.game);
+                    ctx.game
+                        .card_mut(card_id)
+                        .set_attacking_player(defending_player);
+                }
+            }
         }
         if sa.ir.unearth {
             ctx.game.card_mut(card_id).add_pump_keyword("Haste");

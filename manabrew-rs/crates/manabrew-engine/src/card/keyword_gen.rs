@@ -472,6 +472,17 @@ impl Card {
             }
         }
 
+        if let Some(ninjutsu) = keyword_cost(keywords, "Ninjutsu") {
+            let cost = ninjutsu.split(':').next().unwrap_or_default().trim();
+            let ab_text = format!(
+                "AB$ ChangeZone | Cost$ {cost} Return<1/Creature.attacking+unblocked/unblocked attacker> | PrecostDesc$ Ninjutsu | ActivationZone$ Hand | Origin$ Hand | Destination$ Battlefield | Defined$ Self | Ninjutsu$ True | SpellDescription$ Ninjutsu"
+            );
+            let next_idx = self.activated_abilities.len();
+            if let Some(ab) = parse_activated_ability(&ab_text, next_idx) {
+                self.activated_abilities.push(ab);
+            }
+        }
+
         // Craft: K:Craft:{cost} → AB$ ChangeZone that exiles this artifact with the cost and
         // returns it transformed. Mirrors Java CardFactoryUtil (`inst instanceof Craft`).
         if let Some(craft) = keyword_cost(keywords, "Craft") {

@@ -1138,17 +1138,26 @@ impl GameLoop {
                     if type_filter == "CARDNAME" {
                         let owner = game.card(card_id).owner;
                         self.move_card_with_runtime(game, card_id, ZoneType::Hand, owner, agents);
-                    } else if !self.pay_return_cost(
-                        game,
-                        agents,
-                        player,
-                        card_id,
-                        type_filter,
-                        amount.resolve(game, card_id, player),
-                        sa.as_deref(),
-                        decided,
-                    ) {
-                        return false;
+                    } else {
+                        let Some(returned) = self.pay_return_cost(
+                            game,
+                            agents,
+                            player,
+                            card_id,
+                            type_filter,
+                            amount.resolve(game, card_id, player),
+                            sa.as_deref(),
+                            decided,
+                        ) else {
+                            return false;
+                        };
+                        if let Some(sa) = sa.as_deref_mut() {
+                            for card in &returned {
+                                let id = card.0.to_string();
+                                sa.add_cost_to_hash_list(crate::cost::cost_return::HASH_CARDS, &id);
+                                sa.add_cost_to_hash_list(crate::cost::cost_return::HASH_LKI, &id);
+                            }
+                        }
                     }
                 }
                 CostPart::TapType {
@@ -4041,18 +4050,15 @@ impl GameLoop {
         amount: i32,
         sa: Option<&SpellAbility>,
         prechosen: Option<&[CardId]>,
-    ) -> bool {
+    ) -> Option<Vec<CardId>> {
         let chosen = match prechosen {
             Some(picks) => picks.to_vec(),
             None => {
                 let valid = cost::get_sacrifice_targets_for_cost(game, player, type_filter, sa);
-                match Self::choose_cost_cards_exactly(agents, player, &valid, amount) {
-                    Some(picks) => picks,
-                    None => return false,
-                }
+                Self::choose_cost_cards_exactly(agents, player, &valid, amount)?
             }
         };
-        for chosen in chosen {
+        for &chosen in &chosen {
             let owner = game.card(chosen).owner;
             let from_zone = game.card(chosen).zone;
             self.move_card_with_runtime(game, chosen, ZoneType::Hand, owner, agents);
@@ -4063,7 +4069,7 @@ impl GameLoop {
                 ZoneType::Hand,
             );
         }
-        true
+        Some(chosen)
     }
 
     fn pay_return_cost_internal(
