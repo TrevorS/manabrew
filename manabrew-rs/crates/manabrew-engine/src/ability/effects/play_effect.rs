@@ -177,6 +177,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             cost.mandatory = true;
         }
 
+        if spell_sa.api == Some(crate::ability::api_type::ApiType::Charm)
+            && !super::charm_effect::make_choices_precast(ctx.game, ctx.agents, &mut spell_sa)
+        {
+            restore_split_state(ctx, card_id, was_transformed);
+            amount -= 1;
+            continue;
+        }
+
         let mut announced_x = None;
         if !without_mana_cost
             && play_cost.is_none()
