@@ -1895,6 +1895,14 @@ impl GameLoop {
                         });
                     }
                 }
+                if !must_be_instant {
+                    playable.extend(self.may_play_morph_options(
+                        game,
+                        player,
+                        card_id,
+                        normal_grants,
+                    ));
+                }
                 let room_right_split_cost = card
                     .type_line
                     .has_subtype("Room")
@@ -2166,6 +2174,9 @@ impl GameLoop {
                     });
                 }
             }
+            if !must_be_instant {
+                playable.extend(self.may_play_morph_options(game, player, card_id, normal_grants));
+            }
         }
 
         self.trace_playability(game, player, must_be_instant, &playable);
@@ -2286,6 +2297,58 @@ impl GameLoop {
                 );
             }
         }
+    }
+
+    fn may_play_morph_options(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+        normal_grants: usize,
+    ) -> Vec<crate::agent::PlayOption> {
+        let card = game.card(card_id);
+        if !card.has_morph {
+            return Vec::new();
+        }
+        let available_mana = mana::calculate_available_mana(self.pool(player), game, player);
+        let morph = crate::agent::PlayOption {
+            card_id,
+            mode: crate::agent::PlayCardMode::Alternative(
+                crate::spellability::AlternativeCost::Morph,
+            ),
+            alt_cost_index: 0,
+        };
+        let mut options = if available_mana.can_pay(&forge_foundation::ManaCost::generic(
+            crate::spellability::MORPH_GENERIC_COST,
+        )) {
+            vec![morph; normal_grants]
+        } else {
+            Vec::new()
+        };
+        let alt_cost_grants =
+            crate::staticability::static_ability_continuous::may_play_grants(game, player, card)
+                .filter_map(|(source, st_ab)| {
+                    crate::staticability::static_ability_continuous::may_play_alt_mana_cost(
+                        st_ab, source, card, game,
+                    )
+                    .map(|cost| (st_ab.ir.may_play_without_mana_cost, cost))
+                });
+        for (alt_cost_index, (without_mana_cost, cost)) in alt_cost_grants.enumerate() {
+            let cost = crate::cost::parse_cost(&cost);
+            if !without_mana_cost
+                && available_mana.can_pay(&Self::mana_from_cost(&cost))
+                && crate::cost::can_pay_ignoring_mana_for_spell(&cost, game, card_id, player)
+            {
+                options.push(crate::agent::PlayOption {
+                    card_id,
+                    mode: crate::agent::PlayCardMode::MayPlay(Some(
+                        crate::spellability::AlternativeCost::Morph,
+                    )),
+                    alt_cost_index: alt_cost_index as u8,
+                });
+            }
+        }
+        options
     }
 
     fn may_play_land_options(

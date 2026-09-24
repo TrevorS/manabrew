@@ -403,7 +403,10 @@ impl GameLoop {
                     // Java's MayPlay copy rebuilds its params from `originalMapParams`
                     // (`CardTraitBase.copyHelper`), dropping the `FaceDownKeyword$ Ward:2`
                     // that `putParam` set on the Disguise cast.
-                    if disguise_cost.is_some() && !entry.spell_ability.cast_with_may_play {
+                    if disguise_cost.is_some()
+                        && !entry.spell_ability.cast_with_may_play
+                        && entry.spell_ability.may_play_source.is_none()
+                    {
                         c.add_intrinsic_keyword_with_triggers("Ward:2");
                     }
                     c.static_set_power = Some(crate::spellability::MORPH_PT);
