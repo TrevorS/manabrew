@@ -98,6 +98,19 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
+    let mut parsed_statics: Vec<crate::staticability::StaticAbility> = Vec::new();
+    if let Some(ref names) = sa.ir.animate_static_abilities_text {
+        let source_id = sa.source.unwrap_or(crate::ids::CardId(0));
+        let source_svars = &ctx.game.card(source_id).svars;
+        for name in names.split(',') {
+            if let Some(text) = source_svars.get(name.trim()) {
+                if let Some(st) = crate::staticability::parse_static_ability(text) {
+                    parsed_statics.push(st);
+                }
+            }
+        }
+    }
+
     let player_ids = if !sa.uses_targeting() && sa.defined().is_none() {
         ctx.game.player_order.clone()
     } else {
@@ -200,7 +213,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
 
-        if remove_all_abilities || !added_abilities.is_empty() {
+        if remove_all_abilities || !added_abilities.is_empty() || !parsed_statics.is_empty() {
             let card = ctx.game.card_mut(card_id);
             if remove_all_abilities {
                 card.clear_pump_keywords();
@@ -209,6 +222,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             card.add_changed_card_traits(
                 CardTraitChanges {
                     abilities: added_abilities,
+                    static_abilities: parsed_statics.clone(),
                     remove_all: remove_all_abilities,
                     ..Default::default()
                 },
