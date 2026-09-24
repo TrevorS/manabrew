@@ -1752,12 +1752,25 @@ impl TriggerHandler {
         }
 
         // ── ActivatorThisTurnCast$ condition ──────────────────────────
-        // Mirrors Java's TriggerSpellAbilityCast.checkActivatorThisTurnCast():
-        // "EQ2" means the activating player must have cast exactly 2 spells
-        // this turn (including the one triggering).
+        // Mirrors Java's TriggerSpellAbilityCastOrCopy.performTest: the activator's spells
+        // cast this turn that match ValidCard$, the triggering one included.
         if let Some(cond) = trigger.ir.activator_this_turn_cast.as_deref() {
             let caster = params.spell_controller.unwrap_or(host_controller);
-            let count = game.player(caster).spells_cast_this_turn;
+            let valid = trigger
+                .ir
+                .valid_card_selector
+                .as_ref()
+                .map_or_else(|| "Card".to_string(), |selector| selector.as_raw());
+            let count = crate::card::card_util::get_this_turn_cast(
+                game,
+                &valid,
+                host_card,
+                None,
+                host_controller,
+            )
+            .into_iter()
+            .filter(|&cast| game.card(cast).controller == caster)
+            .count() as i32;
             if !compare_expr(count, cond.trim()) {
                 return Err("ActivatorThisTurnCast");
             }
