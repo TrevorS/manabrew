@@ -67,6 +67,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 return;
             }
             targets
+        } else if sa.ir.choices.is_some() && sa.uses_targeting() {
+            sa.target_chosen.target_card.into_iter().collect()
         } else {
             vec![source_id]
         };
