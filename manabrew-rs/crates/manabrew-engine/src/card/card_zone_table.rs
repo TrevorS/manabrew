@@ -92,20 +92,23 @@ impl CardZoneTable {
                     continue;
                 }
             }
-            out.extend(cards.iter().copied());
+            out.extend(cards.iter().map(|&card| (from, card)));
         }
         if let Some(filter) = valid {
-            out.retain(|&cid| {
+            out.retain(|&(from, cid)| {
+                let lki = (from == ZoneType::Battlefield)
+                    .then(|| crate::lki::battlefield_lki_card(game, cid))
+                    .flatten();
                 valid_filter::matches_valid_card_selector_in_game(
                     filter,
-                    game.card(cid),
+                    lki.as_ref().unwrap_or_else(|| game.card(cid)),
                     game.card(source),
                     game,
                 )
             });
         }
         let _ = source_controller;
-        out
+        out.into_iter().map(|(_, card)| card).collect()
     }
 
     pub fn all_cards(&self) -> Vec<CardId> {
