@@ -122,13 +122,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         );
         let explicit = crate::parsing::raw_has_key(&sa.ability_text, "CounterNum");
         let count = resolve_numeric_svar(ctx.game, sa, keys::COUNTER_NUM, 1);
-        // Java walks `c.getCounters()` on whatever `getDefinedCards` returned, and an
-        // `LKICopy` reference returns the card as it was, counters included. Resolving to
-        // an id loses that, so the counters have to come back off the LKI here.
+        // Java reads the counters off the object `getDefinedCards` returned (an `LKICopy`, or
+        // the host for `Self`), which keeps them after the card moves.
         let from_lki = defined.contains("LKICopy");
         for card_id in resolve_card_targets(ctx.game, sa) {
             for source_card in &sources {
-                let counters: Vec<(crate::card::CounterType, i32)> = if from_lki {
+                let host_moved = sa.source == Some(*source_card)
+                    && sa.source_zone_timestamp.is_some_and(|created_at| {
+                        ctx.game.card(*source_card).zone_timestamp != created_at
+                    });
+                let counters: Vec<(crate::card::CounterType, i32)> = if from_lki || host_moved {
                     crate::lki::resolve_lki_counters(ctx.game, *source_card)
                 } else {
                     ctx.game
