@@ -170,7 +170,11 @@ fn collect_stack_targets(root: &SpellAbility) -> Vec<TargetRef> {
     out
 }
 
-fn stack_source_ability_text(game: &GameState, sa: &SpellAbility) -> Option<String> {
+fn stack_source_ability_text(
+    game: &GameState,
+    sa: &SpellAbility,
+    viewer: PlayerId,
+) -> Option<String> {
     let source_id = sa.trigger_source.or(sa.source)?;
     let source = game.card(source_id);
     if !sa.is_trigger && sa.is_spell && source.is_permanent() {
@@ -204,9 +208,12 @@ fn stack_source_ability_text(game: &GameState, sa: &SpellAbility) -> Option<Stri
                 (!sa.stack_description.trim().is_empty()).then(|| sa.stack_description.clone())
             })?
     };
-    let mut text = raw
-        .replace("CARDNAME", &source.card_name)
-        .replace("NICKNAME", &source.card_name);
+    let name = if can_face_down_be_shown_to(source, viewer) {
+        source.card_name.as_str()
+    } else {
+        ""
+    };
+    let mut text = raw.replace("CARDNAME", name).replace("NICKNAME", name);
     if text.contains("ORIGINALHOST") {
         let original_host = sa
             .original_host
@@ -422,11 +429,34 @@ fn can_be_shown_to(game: &GameState, cid: CardId, viewer: PlayerId) -> bool {
     let card = game.card(cid);
     match card.zone {
         ZoneType::Hand if card.controller == viewer => true,
+        ZoneType::Hand => card.may_player_look(viewer),
+        ZoneType::Exile => can_face_down_be_shown_to(card, viewer),
+        _ => true,
+    }
+}
+
+fn can_face_down_be_shown_to(card: &Card, viewer: PlayerId) -> bool {
+    match card.zone {
+        _ if !card.face_down || card.may_player_look(viewer) => true,
+        ZoneType::Battlefield | ZoneType::Stack | ZoneType::Sideboard => card.controller == viewer,
         // The engine does not record Forge's mayLookFaceDownExile grant; the owner stands
         // in for the player who exiled the card.
-        ZoneType::Exile if !card.face_down || card.owner == viewer => true,
-        ZoneType::Hand | ZoneType::Exile => card.may_player_look(viewer),
-        _ => true,
+        ZoneType::Exile => card.owner == viewer,
+        _ => false,
+    }
+}
+
+fn card_identity(card: &Card) -> CardIdentity {
+    CardIdentity {
+        name: card.card_name.clone(),
+        set_code: card.set_code.clone().unwrap_or_default(),
+        card_number: card.card_number.clone().unwrap_or_default(),
+        is_token: card.is_token,
+        token_script: card
+            .is_token
+            .then(|| card.get_s_var("TokenScript"))
+            .flatten()
+            .map(|script| manabrew_protocol::TokenScript(script.to_owned())),
     }
 }
 
@@ -582,8 +612,13 @@ pub fn card_to_dto(game: &GameState, cid: CardId) -> CardDto {
     card_to_dto_for_viewer(game, cid, None)
 }
 
-fn card_to_dto_for_viewer(game: &GameState, cid: CardId, viewer: Option<PlayerId>) -> CardDto {
+pub(crate) fn card_to_dto_for_viewer(
+    game: &GameState,
+    cid: CardId,
+    viewer: Option<PlayerId>,
+) -> CardDto {
     let card = game.card(cid);
+    let face_shown = viewer.is_none_or(|viewer| can_face_down_be_shown_to(card, viewer));
     let types: Vec<String> = card
         .type_line
         .core_types
@@ -631,10 +666,9 @@ fn card_to_dto_for_viewer(game: &GameState, cid: CardId, viewer: Option<PlayerId
     let class_levels = visible_class_levels(card);
     let saga_chapters = visible_saga_chapters(card);
 
-    // Face-down cards show as nameless 2/2 creatures with no info
+    // Face-down cards show as 2/2 creatures with no info
     let morph_pt = manabrew_engine::spellability::MORPH_PT.to_string();
     let (
-        name,
         types,
         subtypes,
         supertypes,
@@ -646,9 +680,8 @@ fn card_to_dto_for_viewer(game: &GameState, cid: CardId, viewer: Option<PlayerId
         color,
         mana_cost_str,
         cmc,
-    ) = if card.face_down && card.zone == ZoneType::Battlefield {
+    ) = if card.face_down && matches!(card.zone, ZoneType::Battlefield | ZoneType::Stack) {
         (
-            "Face-down creature".to_string(),
             vec!["Creature".to_string()],
             vec![],
             vec![],
@@ -663,7 +696,6 @@ fn card_to_dto_for_viewer(game: &GameState, cid: CardId, viewer: Option<PlayerId
         )
     } else {
         (
-            card.card_name.clone(),
             types,
             subtypes,
             supertypes,
@@ -680,17 +712,10 @@ fn card_to_dto_for_viewer(game: &GameState, cid: CardId, viewer: Option<PlayerId
 
     CardDto {
         id: card_id_str(cid),
-        identity: CardIdentity {
-            name,
-            set_code: card.set_code.clone().unwrap_or_default(),
-            card_number: card.card_number.clone().unwrap_or_default(),
-            is_token: card.is_token,
-            token_script: if card.is_token {
-                card.get_s_var("TokenScript")
-                    .map(|script| manabrew_protocol::TokenScript(script.to_owned()))
-            } else {
-                None
-            },
+        identity: if face_shown {
+            card_identity(card)
+        } else {
+            CardIdentity::default()
         },
         color,
         mana_cost: mana_cost_str,
@@ -734,7 +759,7 @@ fn card_to_dto_for_viewer(game: &GameState, cid: CardId, viewer: Option<PlayerId
         damage: card.damage,
         summoning_sick: card.summoning_sick && !card.has_haste(),
         is_copy: card.copied_permanent.is_some(),
-        is_double_faced: card.other_part.is_some(),
+        is_double_faced: face_shown && card.other_part.is_some(),
         flashback_cost: card.get_flashback_cost(),
         kicker_cost: card.get_kicker_cost(),
         is_transformed: card.is_transformed,
@@ -1011,21 +1036,15 @@ impl GameViewDtoExt for GameViewDto {
             .iter()
             .map(|entry| {
                 let source_card = entry.spell_ability.source.map(|cid| game.card(cid));
-                let identity = CardIdentity {
-                    name: source_card
-                        .map(|c| c.card_name.clone())
-                        .unwrap_or_else(|| "Ability".to_string()),
-                    set_code: source_card
-                        .and_then(|c| c.set_code.clone())
-                        .unwrap_or_default(),
-                    card_number: source_card
-                        .and_then(|c| c.card_number.clone())
-                        .unwrap_or_default(),
-                    is_token: source_card.map(|c| c.is_token).unwrap_or(false),
-                    token_script: source_card
-                        .filter(|c| c.is_token)
-                        .and_then(|c| c.get_s_var("TokenScript"))
-                        .map(|script| manabrew_protocol::TokenScript(script.to_owned())),
+                let shown_card =
+                    source_card.filter(|card| can_face_down_be_shown_to(card, human_player));
+                let identity = match (source_card, shown_card) {
+                    (_, Some(card)) => card_identity(card),
+                    (Some(_), None) => CardIdentity::default(),
+                    (None, None) => CardIdentity {
+                        name: "Ability".to_string(),
+                        ..Default::default()
+                    },
                 };
                 StackObjectDto {
                     id: format!("stack-{}", entry.id),
@@ -1040,11 +1059,15 @@ impl GameViewDtoExt for GameViewDto {
                         .unwrap_or_default(),
                     identity,
                     text: entry.spell_ability.ability_text.clone(),
-                    source_ability_text: stack_source_ability_text(game, &entry.spell_ability),
+                    source_ability_text: stack_source_ability_text(
+                        game,
+                        &entry.spell_ability,
+                        human_player,
+                    ),
                     is_permanent_spell: entry.is_creature_spell || entry.is_permanent_spell,
                     is_casting: entry.is_pending_cast,
-                    is_double_faced: source_card.map(|c| c.is_double_faced()).unwrap_or(false),
-                    face_index: source_card
+                    is_double_faced: shown_card.is_some_and(|c| c.is_double_faced()),
+                    face_index: shown_card
                         .map(|c| u8::from(c.is_transformed))
                         .unwrap_or_default(),
                     targets: collect_stack_targets(&entry.spell_ability),

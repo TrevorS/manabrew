@@ -122,6 +122,7 @@ export function stackObjectToCardStub(obj: StackObjectDto): ClientCardDto {
     zoneId: "stack",
     isDoubleFaced: obj.isDoubleFaced,
     isTransformed: obj.faceIndex === 1,
+    isFaceDown: !obj.identity.name,
   };
 }
 export function stackObjectAbilityText(obj: StackObjectDto): string {

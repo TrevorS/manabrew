@@ -16,7 +16,9 @@ use manabrew_engine::player::actions::PlayerAction as EnginePlayerAction;
 
 use crate::game_log_event::GameLogEntryDto;
 use crate::game_snapshot_event::GameSnapshotEventDto;
-use crate::game_view_dto::{card_to_dto, CardDto, GameViewDto, GameViewDtoExt, StepKind};
+use crate::game_view_dto::{
+    card_to_dto_for_viewer, CardDto, GameViewDto, GameViewDtoExt, StepKind,
+};
 use crate::ids_codec::{card_id_str, parse_card_id, parse_player_id, player_id_str};
 use crate::mana_action_id::{mana_ability_actions, parse_tap_action_id};
 use crate::prompt::*;
@@ -516,7 +518,12 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
         self.source_cards = game
             .cards
             .iter()
-            .map(|card| (card.id, card_to_dto(game, card.id)))
+            .map(|card| {
+                (
+                    card.id,
+                    card_to_dto_for_viewer(game, card.id, Some(self.player_id)),
+                )
+            })
             .collect();
         self.latest_view = Some(GameViewDto::from_engine(
             game,
@@ -1427,10 +1434,18 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
                 card_name,
                 set_code,
             } => {
+                let face_hidden = self
+                    .source_cards
+                    .get(&card_id)
+                    .is_some_and(|card| card.is_face_down && card.identity.name.is_empty());
                 self.emit_display(DisplayEvent::CardPlayed {
                     card_id: card_id_str(card_id),
-                    card_name,
-                    set_code,
+                    card_name: if face_hidden {
+                        String::new()
+                    } else {
+                        card_name
+                    },
+                    set_code: if face_hidden { String::new() } else { set_code },
                     player_id: player_id_str(player),
                 });
                 self.emit_state();
