@@ -67,7 +67,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // Check source card for Infect/Wither keywords
     let source = damage_all_source(ctx, sa);
     let (source_has_infect_keyword, source_has_wither) = if let Some(src_id) = source {
-        let src = ctx.game.card(src_id);
+        let src = ctx.game.get_change_zone_lki_info(src_id);
         (
             src.has_infect(),
             src.has_wither()
@@ -167,7 +167,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if let Some(valid_players) = valid_players {
         for pid in valid_players {
             let source_has_infect = if let Some(src_id) = source {
-                let src = ctx.game.card(src_id);
+                let src = ctx.game.get_change_zone_lki_info(src_id);
                 source_has_infect_keyword
                     || crate::staticability::static_ability_infect_damage::is_infect_damage(
                         ctx.game,
@@ -192,7 +192,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         num_dmg,
                         sa,
                         crate::event::RunParams {
-                            source_player: source.map(|source| ctx.game.card(source).controller),
+                            source_player: source
+                                .map(|source| ctx.game.get_change_zone_lki_info(source).controller),
                             ..Default::default()
                         },
                     );

@@ -103,7 +103,7 @@ pub(super) fn excess_damage_value(
     source: crate::ids::CardId,
 ) -> i32 {
     let card = game.card(card_id);
-    if card.is_creature() && game.card(source).has_deathtouch() {
+    if card.is_creature() && game.get_change_zone_lki_info(source).has_deathtouch() {
         return 1.min((card.toughness() - card.damage).max(0));
     }
     if card.is_creature() {
@@ -145,7 +145,7 @@ fn deal_damage_from_source(
     let mut lifelink_dealt = 0;
     // Check source card for Infect/Wither keywords
     let (source_has_infect_keyword, source_has_wither) = if let Some(src_id) = Some(source) {
-        let src = ctx.game.card(src_id);
+        let src = ctx.game.get_change_zone_lki_info(src_id);
         (
             src.has_infect(),
             src.has_wither()
@@ -221,7 +221,7 @@ fn deal_damage_from_source(
                         &crate::card::CounterType::M1M1,
                         damage,
                         crate::event::RunParams {
-                            source_player: Some(source).map(|src_id| ctx.game.card(src_id).controller),
+                            source_player: Some(source).map(|src_id| ctx.game.get_change_zone_lki_info(src_id).controller),
                             cause: Some(sa.clone()),
                             ..Default::default()
                         },
@@ -256,7 +256,7 @@ fn deal_damage_from_source(
 
     for &target_player in target_players {
         let source_has_infect = if let Some(src_id) = Some(source) {
-            let src = ctx.game.card(src_id);
+            let src = ctx.game.get_change_zone_lki_info(src_id);
             source_has_infect_keyword
                 || crate::staticability::static_ability_infect_damage::is_infect_damage(
                     ctx.game,
@@ -282,7 +282,8 @@ fn deal_damage_from_source(
                     damage,
                     sa,
                     crate::event::RunParams {
-                        source_player: Some(source).map(|source| ctx.game.card(source).controller),
+                        source_player: Some(source)
+                            .map(|source| ctx.game.get_change_zone_lki_info(source).controller),
                         ..Default::default()
                     },
                 );
@@ -403,7 +404,7 @@ fn deal_damage_from_source(
                         &crate::card::CounterType::M1M1,
                         damage,
                         crate::event::RunParams {
-                            source_player: Some(source).map(|src_id| ctx.game.card(src_id).controller),
+                            source_player: Some(source).map(|src_id| ctx.game.get_change_zone_lki_info(src_id).controller),
                             cause: Some(sa.clone()),
                             ..Default::default()
                         },

@@ -73,16 +73,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         ctx.game.card_mut(cid).add_damage_source_this_turn(source);
                     }
 
-                    let source_has_infect = ctx.game.card(source).has_infect();
-                    let source_has_wither = ctx.game.card(source).has_wither()
+                    let source_has_infect = ctx.game.get_change_zone_lki_info(source).has_infect();
+                    let source_has_wither = ctx.game.get_change_zone_lki_info(source).has_wither()
                         || crate::staticability::static_ability_wither_damage::is_wither_damage(
                             &ctx.game.cards,
-                            ctx.game.card(source),
+                            ctx.game.get_change_zone_lki_info(source),
                         );
 
                     if source_has_infect || source_has_wither {
                         counter_table.put(
-                            Some(ctx.game.card(source).controller),
+                            Some(ctx.game.get_change_zone_lki_info(source).controller),
                             GameEntity::Card(cid),
                             CounterType::M1M1,
                             amount,
@@ -100,16 +100,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
             }
             DamageTarget::Player(pid) => {
-                let source_has_infect = ctx.game.card(source).has_infect()
+                let source_has_infect = ctx.game.get_change_zone_lki_info(source).has_infect()
                     || crate::staticability::static_ability_infect_damage::is_infect_damage(
                         ctx.game,
                         &ctx.game.cards,
                         pid,
-                        ctx.game.card(source).controller,
+                        ctx.game.get_change_zone_lki_info(source).controller,
                     );
                 if source_has_infect {
                     counter_table.put(
-                        Some(ctx.game.card(source).controller),
+                        Some(ctx.game.get_change_zone_lki_info(source).controller),
                         GameEntity::Player(pid),
                         CounterType::Poison,
                         amount,

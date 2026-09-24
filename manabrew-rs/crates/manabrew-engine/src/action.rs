@@ -1257,7 +1257,9 @@ impl GameState {
                     if dealt > 0 {
                         self.card_mut(target).add_assigned_damage(dealt);
                         if self.card(target).is_creature()
-                            && source.is_some_and(|source| self.card(source).has_deathtouch())
+                            && source.is_some_and(|source| {
+                                self.get_change_zone_lki_info(source).has_deathtouch()
+                            })
                         {
                             self.card_mut(target).mark_deathtouch_damage();
                         }
