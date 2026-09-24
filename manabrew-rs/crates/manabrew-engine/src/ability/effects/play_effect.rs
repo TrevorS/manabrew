@@ -126,6 +126,43 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
 
+        let mut additional_mana = forge_foundation::ManaCost::zero();
+        if let Some(alt_additional) = ctx
+            .game
+            .card(card_id)
+            .get_keyword_cost("AlternateAdditionalCost")
+        {
+            let mut variant_costs = Vec::new();
+            let mut variant_sas = Vec::new();
+            for segment in alt_additional.split(':') {
+                let cost = crate::cost::parse_cost(segment);
+                if crate::cost::can_pay_ignoring_mana_for_spell(
+                    &cost, ctx.game, card_id, controller,
+                ) {
+                    let mut variant_sa = spell_sa.clone();
+                    match variant_sa.pay_costs.as_mut() {
+                        Some(existing) => crate::cost::merge_to(existing, &cost),
+                        None => variant_sa.pay_costs = Some(cost.clone()),
+                    }
+                    variant_costs.push(cost);
+                    variant_sas.push(variant_sa);
+                }
+            }
+            let Some(idx) = ctx.agents[controller.index()]
+                .get_ability_to_play(controller, &variant_sas)
+                .filter(|&idx| idx < variant_sas.len())
+            else {
+                amount -= 1;
+                continue;
+            };
+            additional_mana = variant_costs[idx]
+                .parts
+                .iter()
+                .filter_map(crate::cost::cost_part_mana::get_mana)
+                .fold(forge_foundation::ManaCost::zero(), |acc, mc| acc.add(mc));
+            spell_sa = variant_sas.swap_remove(idx);
+        }
+
         // ── Step 4: Alt-cost flags ──────────────────────────────────────
         if is_madness {
             spell_sa.alt_cost = Some(crate::spellability::AlternativeCost::Madness);
@@ -194,8 +231,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         // ── Step 6: Pay mana ────────────────────────────────────────────
-        if !without_mana_cost {
-            let mc = if let Some(ref cost_str) = play_cost {
+        if !without_mana_cost || !additional_mana.is_zero() {
+            let mc = if without_mana_cost {
+                forge_foundation::ManaCost::zero()
+            } else if let Some(ref cost_str) = play_cost {
                 crate::cost::parse_cost(cost_str)
                     .parts
                     .iter()
@@ -211,6 +250,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 )),
                 None => mc,
             };
+            let mc = mc.add(&additional_mana);
 
             let saved_game = ctx.game.clone();
             let saved_pool = ctx.mana_pools[controller.index()].clone();
