@@ -23,6 +23,7 @@ import forge.ai.AiCostDecision;
 import forge.ai.ComputerUtilCombat;
 import forge.ai.ComputerUtilCost;
 import forge.game.ability.AbilityKey;
+import forge.game.ability.AbilityUtils;
 import forge.game.ability.ApiType;
 import forge.game.ability.effects.RollDiceEffect;
 import forge.game.cost.Cost;
@@ -46,6 +47,7 @@ import forge.game.combat.CombatUtil;
 import forge.game.mana.Mana;
 import forge.game.mana.ManaCostBeingPaid;
 import forge.game.mana.ManaConversionMatrix;
+import forge.game.mana.ManaPool;
 import forge.game.player.*;
 import forge.game.card.CounterType;
 import forge.game.replacement.ReplacementEffect;
@@ -53,6 +55,7 @@ import forge.game.spellability.*;
 import forge.card.ICardFace;
 import forge.game.keyword.KeywordInterface;
 import forge.game.staticability.StaticAbility;
+import forge.game.staticability.StaticAbilityManaConvert;
 import forge.game.trigger.WrappedAbility;
 import forge.game.zone.PlayerZone;
 import forge.game.zone.ZoneType;
@@ -1841,6 +1844,7 @@ public class DeterministicController extends PlayerController implements Harness
             ManaConversionMatrix matrix,
             boolean effect
     ) {
+        applyManaConversion(ability, effect);
         return autoPay.payManaCost(toPay.toManaCost(), ability, effect);
     }
 
@@ -1853,6 +1857,7 @@ public class DeterministicController extends PlayerController implements Harness
             ManaConversionMatrix matrix,
             boolean effect
     ) {
+        applyManaConversion(sa, effect);
         ManaCost payableCost = toPay;
         final CardCollection cardsToDelve = new CardCollection();
         if (sa != null && sa.getXManaCostPaid() != null && toPay != null && toPay.countX() > 0) {
@@ -1904,6 +1909,26 @@ public class DeterministicController extends PlayerController implements Harness
             exileDelvedCards(sa, cardsToDelve);
         }
         return paid;
+    }
+
+    private void applyManaConversion(final SpellAbility sa, final boolean effect) {
+        if (sa == null || player.getControllingPlayer() != null) {
+            return;
+        }
+        final ManaPool manapool = player.getManaPool();
+        manapool.restoreColorReplacements();
+        final CardPlayOption mayPlay = sa.getMayPlayOption();
+        if (!effect) {
+            if (sa.isSpell() && mayPlay != null) {
+                mayPlay.applyManaConvert(manapool);
+            } else if (sa.isActivatedAbility() && sa.getGrantorStatic() != null && sa.getGrantorStatic().hasParam("ManaConversion")) {
+                AbilityUtils.applyManaColorConversion(manapool, sa.getGrantorStatic().getParam("ManaConversion"));
+            }
+        }
+        if (sa.hasParam("ManaConversion")) {
+            AbilityUtils.applyManaColorConversion(manapool, sa.getParam("ManaConversion"));
+        }
+        StaticAbilityManaConvert.manaConvert(manapool, player, sa.getHostCard(), effect && !sa.isCastFromPlayEffect() ? null : sa);
     }
 
     private void exileDelvedCards(final SpellAbility ability, final CardCollection cardsToDelve) {
