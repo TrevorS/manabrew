@@ -299,9 +299,13 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     }
     let player_ids: Vec<PlayerId> = game.player_order.clone();
     for &pid in &player_ids {
-        let battlefield_cards: Vec<CardId> =
-            game.cards_in_zone(ZoneType::Battlefield, pid).to_vec();
-        for source_id in battlefield_cards {
+        let source_cards: Vec<CardId> = game
+            .cards_in_zone(ZoneType::Battlefield, pid)
+            .iter()
+            .chain(game.cards_in_zone(ZoneType::Command, pid))
+            .copied()
+            .collect();
+        for source_id in source_cards {
             let static_ability_count = game.card(source_id).static_abilities.len();
             for sa_idx in 0..static_ability_count {
                 let card = game.card(source_id);
