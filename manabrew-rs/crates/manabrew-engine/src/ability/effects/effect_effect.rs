@@ -456,7 +456,10 @@ fn apply_duration_flags(effect: &mut Card, duration: Option<&AbilityDuration>, s
         Some(AbilityDuration::UntilHostLeavesPlayOrEot) => EffectDuration::UntilHostLeavesPlayOrEOT,
         Some(AbilityDuration::Permanent)
         | Some(AbilityDuration::UntilYourNextTurn)
-        | Some(AbilityDuration::UntilTheEndOfYourNextTurn) => EffectDuration::Permanent,
+        | Some(AbilityDuration::UntilTheEndOfYourNextTurn)
+        | Some(AbilityDuration::UntilEndOfCombat)
+        | Some(AbilityDuration::UntilNextEndStep)
+        | Some(AbilityDuration::UntilYourNextEndStep) => EffectDuration::Permanent,
         Some(AbilityDuration::Unsupported(raw)) if raw.eq_ignore_ascii_case("Permanent") => {
             EffectDuration::Permanent
         }

@@ -287,7 +287,16 @@ impl GameLoop {
                 self.set_phase(game, agents, phase);
                 match phase {
                     PhaseType::Upkeep => game.turn.n_upkeeps_this_turn += 1,
-                    PhaseType::EndOfTurn => game.turn.n_end_of_turns_this_turn += 1,
+                    PhaseType::EndOfTurn => {
+                        game.turn.n_end_of_turns_this_turn += 1;
+                        let active = game.active_player();
+                        for command in game.end_of_turn.execute_until(Some(active)) {
+                            command.run(game);
+                        }
+                        for command in game.end_of_turn.execute_at() {
+                            command.run(game);
+                        }
+                    }
                     PhaseType::Cleanup => {
                         game.turn.n_upkeeps_this_turn = 0;
                         game.turn.n_combats_this_turn = 0;
