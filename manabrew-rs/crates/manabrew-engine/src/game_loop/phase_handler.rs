@@ -164,13 +164,12 @@ impl GameLoop {
                                 .any(|s| s.eq_ignore_ascii_case("Attraction"))
                         })
                     {
+                        let player = game.active_player();
                         crate::ability::effects::roll_dice_effect::roll_to_visit_attractions(
                             game,
-                            &mut self.trigger_handler,
-                            &mut *self.game_rng,
+                            &mut self.replacement_runtime(),
                             agents,
-                            &mut self.mana_pools,
-                            game.active_player(),
+                            player,
                         );
                     }
                     self.apply_turn_event(

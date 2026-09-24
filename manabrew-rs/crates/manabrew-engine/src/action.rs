@@ -158,7 +158,7 @@ impl GameState {
         );
     }
 
-    fn move_card_without_replacement(
+    pub(crate) fn move_card_without_replacement(
         &mut self,
         card_id: CardId,
         dest_zone: ZoneType,

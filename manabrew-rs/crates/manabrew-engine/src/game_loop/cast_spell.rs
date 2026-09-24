@@ -816,13 +816,26 @@ impl GameLoop {
                     if !available_mana.can_pay(&suspend_mc) {
                         return Some(None);
                     }
-                    let tapped = mana::auto_tap_lands(
-                        game,
-                        self.pool_mut(player),
-                        player,
-                        &suspend_mc,
-                        Some(card_id),
-                    );
+                    let tapped = {
+                        let mut replacement_pools =
+                            (0..game.players.len()).map(|_| ManaPool::new()).collect();
+                        let (pool, mut runtime) =
+                            self.mana_payment_runtime(player, &mut replacement_pools);
+                        let game_ptr: *mut GameState = game;
+                        let mut callback = mana::computer_util_mana::auto_payment_callback(
+                            game_ptr,
+                            &mut runtime,
+                            agents,
+                        );
+                        mana::auto_tap_lands_with_callbacks(
+                            game,
+                            pool,
+                            player,
+                            &suspend_mc,
+                            Some(card_id),
+                            &mut callback,
+                        )
+                    };
                     self.emit_tap_for_mana_triggers(player, &tapped);
                     self.pool_mut(player).try_pay(&suspend_mc);
                     self.move_card_with_runtime(game, card_id, ZoneType::Exile, player, agents);

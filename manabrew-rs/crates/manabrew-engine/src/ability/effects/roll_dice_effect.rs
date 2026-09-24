@@ -9,7 +9,9 @@ use crate::game::GameState;
 use crate::game_rng::GameRng;
 use crate::ids::PlayerId;
 use crate::mana;
-use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
+use crate::replacement::replacement_handler::{
+    apply_replacements, ReplacementEvent, ReplacementRuntime,
+};
 use crate::replacement::ReplacementResult;
 use crate::spellability::{build_spell_ability, SpellAbility};
 use crate::trigger::handler::TriggerHandler;
@@ -132,13 +134,11 @@ pub fn roll_dice_for_player(
 /// replacement effects, roll modifiers, and attraction visiting.
 pub fn roll_dice_for_player_to_visit_attractions(
     game: &mut GameState,
-    trigger_handler: &mut TriggerHandler,
-    rng: &mut (impl crate::game_rng::GameRng + ?Sized),
+    runtime: &mut ReplacementRuntime<'_>,
     agents: &mut [Box<dyn crate::agent::PlayerAgent>],
-    mana_pools: &mut [crate::mana::ManaPool],
     player: PlayerId,
 ) {
-    roll_to_visit_attractions(game, trigger_handler, rng, agents, mana_pools, player);
+    roll_to_visit_attractions(game, runtime, agents, player);
 }
 
 /// `SP$ RollDice` — roll a die and resolve a sub-ability based on the result.
@@ -464,10 +464,8 @@ fn reroll_stored_results(
 
 pub fn roll_to_visit_attractions(
     game: &mut GameState,
-    trigger_handler: &mut TriggerHandler,
-    rng: &mut (impl GameRng + ?Sized),
+    runtime: &mut ReplacementRuntime<'_>,
     agents: &mut [Box<dyn crate::agent::PlayerAgent>],
-    mana_pools: &mut [crate::mana::ManaPool],
     player: PlayerId,
 ) {
     let mut event = ReplacementEvent::RollDice {
@@ -504,7 +502,7 @@ pub fn roll_to_visit_attractions(
 
     let mut natural_rolls = Vec::new();
     for _ in 0..roll_count {
-        natural_rolls.push(rng.next_int(6) + 1);
+        natural_rolls.push(runtime.rng.next_int(6) + 1);
     }
     natural_rolls.sort();
 
@@ -520,9 +518,8 @@ pub fn roll_to_visit_attractions(
     ignored_rolls.extend(ignored_by_choice);
     let mut results_list = apply_keyword_roll_modifiers_for_attraction(
         game,
-        trigger_handler,
+        runtime,
         agents,
-        mana_pools,
         player,
         &mut natural_rolls,
     );
@@ -542,7 +539,7 @@ pub fn roll_to_visit_attractions(
     let roll_start_number = game.player(player).num_rolls_this_turn;
     let roll_number_base = roll_start_number - 1;
     for (idx, result) in kept_rolls.iter().copied().enumerate() {
-        trigger_handler.run_trigger(
+        runtime.trigger_handler.run_trigger(
             TriggerType::RolledDie,
             RunParams {
                 player: Some(player),
@@ -556,7 +553,7 @@ pub fn roll_to_visit_attractions(
             false,
         );
     }
-    trigger_handler.run_trigger(
+    runtime.trigger_handler.run_trigger(
         TriggerType::RolledDieOnce,
         RunParams {
             player: Some(player),
@@ -605,7 +602,7 @@ pub fn roll_to_visit_attractions(
         agent.await_display_ack();
     }
 
-    visit_attractions(game, trigger_handler, player, final_result);
+    visit_attractions(game, runtime.trigger_handler, player, final_result);
 }
 
 fn apply_chosen_ignores(
@@ -748,11 +745,19 @@ fn apply_keyword_roll_modifiers(
     player: PlayerId,
     natural_rolls: &mut Vec<i32>,
 ) -> Vec<DieRollResult> {
+    let mut runtime = ReplacementRuntime {
+        trigger_handler: ctx.trigger_handler,
+        token_templates: ctx.token_templates,
+        token_art_variants: ctx.token_art_variants,
+        token_fallback: ctx.token_fallback,
+        edition_dates: ctx.edition_dates,
+        mana_pools: ctx.mana_pools,
+        rng: ctx.rng,
+    };
     apply_simple_roll_modifiers(
         ctx.game,
-        ctx.trigger_handler,
+        &mut runtime,
         ctx.agents,
-        ctx.mana_pools,
         player,
         natural_rolls,
         Some(sa),
@@ -761,28 +766,18 @@ fn apply_keyword_roll_modifiers(
 
 fn apply_keyword_roll_modifiers_for_attraction(
     game: &mut GameState,
-    trigger_handler: &mut TriggerHandler,
+    runtime: &mut ReplacementRuntime<'_>,
     agents: &mut [Box<dyn crate::agent::PlayerAgent>],
-    mana_pools: &mut [crate::mana::ManaPool],
     player: PlayerId,
     natural_rolls: &mut Vec<i32>,
 ) -> Vec<DieRollResult> {
-    apply_simple_roll_modifiers(
-        game,
-        trigger_handler,
-        agents,
-        mana_pools,
-        player,
-        natural_rolls,
-        None,
-    )
+    apply_simple_roll_modifiers(game, runtime, agents, player, natural_rolls, None)
 }
 
 fn apply_simple_roll_modifiers(
     game: &mut GameState,
-    trigger_handler: &mut TriggerHandler,
+    runtime: &mut ReplacementRuntime<'_>,
     agents: &mut [Box<dyn crate::agent::PlayerAgent>],
-    mana_pools: &mut [crate::mana::ManaPool],
     player: PlayerId,
     natural_rolls: &mut Vec<i32>,
     source_sa: Option<&SpellAbility>,
@@ -836,9 +831,8 @@ fn apply_simple_roll_modifiers(
                 .unwrap_or_default();
             let can_pay = pay_roll_cost(
                 game,
-                trigger_handler,
+                runtime,
                 agents,
-                mana_pools,
                 player,
                 card_id,
                 &roll_modify_cost,
@@ -931,16 +925,15 @@ fn can_pay_roll_cost(
 
 fn pay_roll_cost(
     game: &mut GameState,
-    trigger_handler: &mut TriggerHandler,
+    runtime: &mut ReplacementRuntime<'_>,
     agents: &mut [Box<dyn crate::agent::PlayerAgent>],
-    mana_pools: &mut [crate::mana::ManaPool],
     player: PlayerId,
     card_id: crate::ids::CardId,
     cost_raw: &str,
     source_sa: Option<&SpellAbility>,
 ) -> bool {
     let cost = parse_cost(cost_raw);
-    if !can_pay_roll_cost(game, mana_pools, player, card_id, &cost, source_sa) {
+    if !can_pay_roll_cost(game, runtime.mana_pools, player, card_id, &cost, source_sa) {
         return false;
     }
 
@@ -982,176 +975,38 @@ fn pay_roll_cost(
             CostPart::Mana {
                 cost: mana_cost, ..
             } => {
-                let game_ptr: *mut GameState = game;
-                let trigger_handler_ptr = std::ptr::from_mut(trigger_handler);
-                let mut callback = |kind: mana::ManaPayCallback<'_>| -> Option<crate::ids::CardId> {
-                    match kind {
-                        mana::ManaPayCallback::ChooseSacrifice(valid) => {
-                            agents[player.index()].choose_sacrifice(player, valid, Some(card_id))
-                        }
-                        mana::ManaPayCallback::ChooseColor(valid_colors) => {
-                            // Always invoke the agent — humans see an
-                            // interactive `ChooseColor` modal, AI
-                            // returns a default. No engine-side branch.
-                            let _ = agents[player.index()].choose_color(player, valid_colors);
-                            None
-                        }
-                        mana::ManaPayCallback::ChooseManaColor { options, chosen } => {
-                            *chosen = agents[player.index()].choose_color(player, options);
-                            None
-                        }
-                        mana::ManaPayCallback::ChooseManaFromPool {
-                            mana_choices,
-                            chosen,
-                        } => {
-                            *chosen =
-                                agents[player.index()].choose_mana_from_pool(player, mana_choices);
-                            None
-                        }
-                        mana::ManaPayCallback::ChooseCards { .. } => None,
-                        mana::ManaPayCallback::ConfirmSelfSacrifice(sacrifice_id) => {
-                            if agents[player.index()].confirm_payment(
-                                player,
-                                "Sacrifice",
-                                "Sacrifice for mana",
-                                Some(sacrifice_id),
-                                Some(crate::ability::api_type::ApiType::Mana),
-                            ) {
-                                Some(sacrifice_id)
-                            } else {
-                                None
-                            }
-                        }
-                        mana::ManaPayCallback::ConfirmSubCounter(source_id) => {
-                            if agents[player.index()].confirm_payment(
-                                player,
-                                "SubCounter",
-                                "Remove counter for mana",
-                                Some(source_id),
-                                Some(crate::ability::api_type::ApiType::Mana),
-                            ) {
-                                Some(source_id)
-                            } else {
-                                None
-                            }
-                        }
-                        mana::ManaPayCallback::ConfirmSourceExile(source_id) => {
-                            if agents[player.index()].confirm_payment(
-                                player,
-                                "Exile",
-                                "Exile for mana",
-                                Some(source_id),
-                                Some(crate::ability::api_type::ApiType::Mana),
-                            ) {
-                                Some(source_id)
-                            } else {
-                                None
-                            }
-                        }
-                        mana::ManaPayCallback::ConfirmPayLife(source_id) => {
-                            if agents[player.index()].confirm_payment(
-                                player,
-                                "PayLife",
-                                "Pay life for mana",
-                                Some(source_id),
-                                Some(crate::ability::api_type::ApiType::Mana),
-                            ) {
-                                Some(source_id)
-                            } else {
-                                None
-                            }
-                        }
-                        mana::ManaPayCallback::NotifySacrificeForMana(sacrificed_id) => unsafe {
-                            let game = &mut *game_ptr;
-                            let trigger_handler = &mut *trigger_handler_ptr;
-                            let owner = game.card(sacrificed_id).owner;
-                            let controller = game.card(sacrificed_id).controller;
-                            let lki_counters = game.card(sacrificed_id).counters.clone();
-                            let lki_power = game.card(sacrificed_id).power();
-                            let lki_toughness = game.card(sacrificed_id).toughness();
-                            let lki_p1p1 = *lki_counters
-                                .get(&crate::card::CounterType::P1P1)
-                                .unwrap_or(&0);
-                            {
-                                let card = game.card_mut(sacrificed_id);
-                                card.lki_counters = Some(lki_counters);
-                                card.set_lki_power_toughness(Some(lki_power), Some(lki_toughness));
-                            }
-                            game.last_sacrificed_card = Some(sacrificed_id);
-                            let sacrificer = game.card(sacrificed_id).controller;
-                            crate::player::add_sacrificed_this_turn(
-                                game,
-                                sacrificer,
-                                sacrificed_id,
-                            );
-                            trigger_handler.run_trigger(
-                                TriggerType::Sacrificed,
-                                RunParams {
-                                    card: Some(sacrificed_id),
-                                    player: Some(controller),
-                                    ..Default::default()
-                                },
-                                false,
-                            );
-                            crate::ability::effects::emit_zone_trigger_with_lki_counters(
-                                trigger_handler,
-                                sacrificed_id,
-                                ZoneType::Battlefield,
-                                ZoneType::Graveyard,
-                                lki_p1p1,
-                                lki_power,
-                                lki_toughness,
-                            );
-                            trigger_handler.flush_waiting_triggers(game);
-                            game.move_card(sacrificed_id, ZoneType::Graveyard, owner);
-                            let mut by_controller = std::collections::BTreeMap::new();
-                            by_controller.insert(controller, vec![sacrificed_id]);
-                            crate::game_loop::fire_sacrificed_once_for_batch(
-                                game,
-                                trigger_handler,
-                                &by_controller,
-                            );
-                            Some(sacrificed_id)
-                        },
-                        mana::ManaPayCallback::ApplyProduceManaReplacement {
-                            activator,
-                            source_card,
-                            mana,
-                        } => unsafe {
-                            let game = &mut *game_ptr;
-                            let mut event =
-                                crate::replacement::replacement_handler::ReplacementEvent::ProduceMana {
-                                    source: source_card,
-                                    activator,
-                                    mana: mana.clone(),
-                                };
-                            let result =
-                                crate::replacement::replacement_handler::apply_replacements_with_agents(
-                                    game, agents, &mut event,
-                                );
-                            if result == crate::replacement::ReplacementResult::Updated {
-                                if let crate::replacement::replacement_handler::ReplacementEvent::ProduceMana {
-                                    mana: new_mana,
-                                    ..
-                                } = event
-                                {
-                                    *mana = new_mana;
-                                }
-                            }
-                            None
-                        },
-                    }
+                let tapped = {
+                    let mut replacement_pools = (0..game.players.len())
+                        .map(|_| crate::mana::ManaPool::new())
+                        .collect();
+                    let mut sacrifice_runtime = ReplacementRuntime {
+                        trigger_handler: &mut *runtime.trigger_handler,
+                        token_templates: runtime.token_templates,
+                        token_art_variants: runtime.token_art_variants,
+                        token_fallback: runtime.token_fallback,
+                        edition_dates: runtime.edition_dates,
+                        mana_pools: &mut replacement_pools,
+                        rng: &mut *runtime.rng,
+                    };
+                    let game_ptr: *mut GameState = game;
+                    let mut callback = crate::game_loop::GameLoop::make_mana_payment_callback(
+                        &mut sacrifice_runtime,
+                        game_ptr,
+                        agents,
+                        player,
+                        card_id,
+                    );
+                    mana::auto_tap_lands_with_callbacks(
+                        game,
+                        &mut runtime.mana_pools[player.index()],
+                        player,
+                        mana_cost,
+                        Some(card_id),
+                        &mut callback,
+                    )
                 };
-                let tapped = mana::auto_tap_lands_with_callbacks(
-                    game,
-                    &mut mana_pools[player.index()],
-                    player,
-                    mana_cost,
-                    Some(card_id),
-                    &mut callback,
-                );
                 for &land_id in &tapped {
-                    trigger_handler.run_trigger(
+                    runtime.trigger_handler.run_trigger(
                         TriggerType::Taps,
                         RunParams {
                             card: Some(land_id),
@@ -1160,7 +1015,7 @@ fn pay_roll_cost(
                         },
                         false,
                     );
-                    trigger_handler.run_trigger(
+                    runtime.trigger_handler.run_trigger(
                         TriggerType::TapsForMana,
                         RunParams {
                             card: Some(land_id),
@@ -1170,13 +1025,13 @@ fn pay_roll_cost(
                         false,
                     );
                 }
-                if !mana_pools[player.index()].try_pay(mana_cost) {
+                if !runtime.mana_pools[player.index()].try_pay(mana_cost) {
                     return false;
                 }
             }
             CostPart::PayLife(amount) => {
                 game.player_lose_life(player, amount.resolve(game, card_id, player));
-                trigger_handler.run_trigger(
+                runtime.trigger_handler.run_trigger(
                     TriggerType::LifeLost,
                     RunParams {
                         player: Some(player),
@@ -1248,11 +1103,19 @@ fn apply_keyword_roll_rerolls(
             .get("RollRerollCost")
             .cloned()
             .unwrap_or_default();
+        let mut runtime = ReplacementRuntime {
+            trigger_handler: ctx.trigger_handler,
+            token_templates: ctx.token_templates,
+            token_art_variants: ctx.token_art_variants,
+            token_fallback: ctx.token_fallback,
+            edition_dates: ctx.edition_dates,
+            mana_pools: ctx.mana_pools,
+            rng: ctx.rng,
+        };
         if !pay_roll_cost(
             ctx.game,
-            ctx.trigger_handler,
+            &mut runtime,
             ctx.agents,
-            ctx.mana_pools,
             player,
             card_id,
             &reroll_cost,
@@ -1745,11 +1608,24 @@ mod tests {
         let mut mana_pools = vec![ManaPool::default(), ManaPool::default()];
         let mut rolls = vec![4];
 
+        let token_templates = HashMap::default();
+        let token_art_variants = HashMap::default();
+        let token_fallback = HashMap::default();
+        let edition_dates = HashMap::default();
+        let mut rng = FixedRng::new(&[]);
+        let mut runtime = ReplacementRuntime {
+            trigger_handler: &mut trigger_handler,
+            token_templates: &token_templates,
+            token_art_variants: &token_art_variants,
+            token_fallback: &token_fallback,
+            edition_dates: &edition_dates,
+            mana_pools: &mut mana_pools,
+            rng: &mut rng,
+        };
         let results = apply_simple_roll_modifiers(
             &mut game,
-            &mut trigger_handler,
+            &mut runtime,
             &mut agents,
-            &mut mana_pools,
             player,
             &mut rolls,
             None,
@@ -1802,11 +1678,24 @@ mod tests {
         let mut mana_pools = vec![ManaPool::default(), ManaPool::default()];
         let mut rolls = vec![3];
 
+        let token_templates = HashMap::default();
+        let token_art_variants = HashMap::default();
+        let token_fallback = HashMap::default();
+        let edition_dates = HashMap::default();
+        let mut rng = FixedRng::new(&[]);
+        let mut runtime = ReplacementRuntime {
+            trigger_handler: &mut trigger_handler,
+            token_templates: &token_templates,
+            token_art_variants: &token_art_variants,
+            token_fallback: &token_fallback,
+            edition_dates: &edition_dates,
+            mana_pools: &mut mana_pools,
+            rng: &mut rng,
+        };
         let results = apply_simple_roll_modifiers(
             &mut game,
-            &mut trigger_handler,
+            &mut runtime,
             &mut agents,
-            &mut mana_pools,
             player,
             &mut rolls,
             None,
