@@ -10,7 +10,7 @@ use std::time::Instant;
 use crate::java_bridge::{
     JavaBridge, JavaBridgeConfig, JavaBridgeError, JavaMatchupData, JavaServer, JavaServerConfig,
 };
-use crate::java_cache::JavaCache;
+use crate::java_cache::{truncate_log, JavaCache};
 use crate::parity_compare::compare_matchup;
 use crate::protocol::{GameTrace, MatchupResult, MatchupStatus, ParityLogEntry};
 use crate::runner::{self, LoadedData, RunConfig};
@@ -454,6 +454,7 @@ impl<'a> ParityRuntime<'a> {
             return RuntimeMatchup::finish(result, start, true, stages);
         }
 
+        let java_turns = cache.map_or(config.max_turns, |c| c.java_turns(config));
         let (rust_timed, java_timed) = match run_parallel(
             "parity-rust",
             || {
@@ -468,7 +469,7 @@ impl<'a> ParityRuntime<'a> {
                         &config.deck1,
                         &config.deck2,
                         config.seed,
-                        config.max_turns,
+                        java_turns,
                         config.prefer_actions,
                         config.deep,
                         &config.variant,
@@ -497,6 +498,21 @@ impl<'a> ParityRuntime<'a> {
             }
         };
 
+        let java_result = match java_result {
+            Ok(data) if java_turns > config.max_turns => {
+                if let (Some(c), Ok(_)) = (cache, &rust_result) {
+                    let long_config = RunConfig {
+                        max_turns: java_turns,
+                        ..config.clone()
+                    };
+                    let _ = c.put(&long_config, &data);
+                }
+                Ok(JavaMatchupData {
+                    log: truncate_log(data.log, config.max_turns),
+                })
+            }
+            other => other,
+        };
         let compare_start = Instant::now();
         let compared =
             compare_results_with_java_data(config, rust_result, java_result, "Java server error");
@@ -506,7 +522,7 @@ impl<'a> ParityRuntime<'a> {
             Err(result) => return RuntimeMatchup::finish(result, start, false, stages),
         };
 
-        if result.status != MatchupStatus::Error {
+        if result.status != MatchupStatus::Error && java_turns == config.max_turns {
             if let Some(c) = cache {
                 let _ = c.put(config, &java_data);
             }

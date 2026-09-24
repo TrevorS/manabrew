@@ -418,6 +418,11 @@ struct Cli {
     #[arg(long, default_value = ".parity-cache")]
     cache_dir: String,
 
+    /// On a Java cache miss, run Java to this many turns (when longer than --max-turns) and
+    /// cache it at that length; a shorter --max-turns is served from its prefix.
+    #[arg(long, value_parser = clap::value_parser!(u32).range(1..=java_cache::MAX_PREFIX_TURNS as i64))]
+    java_turns: Option<u32>,
+
     /// Tracing log level for serve mode (default: warn). Accepts: error, warn, info, debug, trace.
     /// Can also be set via RUST_LOG env var which takes precedence.
     #[arg(long, default_value = "warn")]
@@ -675,7 +680,7 @@ fn run_multi_game_mode(cli: &Cli) {
             let project_root = std::env::current_dir().unwrap_or_default();
             let source_hash =
                 java_cache::compute_source_hash(&project_root, cli.java_jar.as_deref());
-            JavaCache::open(Path::new(&cli.cache_dir), source_hash).ok()
+            JavaCache::open(Path::new(&cli.cache_dir), source_hash, cli.java_turns).ok()
         };
         if cli.is_verbose() {
             eprintln!("[parity] Multi-game mode: {workers} Java worker(s), {total} games");
@@ -1101,7 +1106,12 @@ fn java_runtime_or_exit(cli: &Cli) -> JavaRuntime {
     } else {
         let project_root = std::env::current_dir().unwrap_or_default();
         let source_hash = java_cache::compute_source_hash(&project_root, Some(jar_path));
-        JavaCache::open(std::path::Path::new(&cli.cache_dir), source_hash).ok()
+        JavaCache::open(
+            std::path::Path::new(&cli.cache_dir),
+            source_hash,
+            cli.java_turns,
+        )
+        .ok()
     };
     JavaRuntime { pool, cache }
 }
@@ -1410,7 +1420,11 @@ fn run_matrix_mode(cli: &Cli) {
     let java_cache: Option<JavaCache> = if !cli.java_cache_off() && cli.java_jar.is_some() {
         let project_root = std::env::current_dir().unwrap_or_default();
         let source_hash = java_cache::compute_source_hash(&project_root, cli.java_jar.as_deref());
-        match JavaCache::open(std::path::Path::new(&cli.cache_dir), source_hash) {
+        match JavaCache::open(
+            std::path::Path::new(&cli.cache_dir),
+            source_hash,
+            cli.java_turns,
+        ) {
             Ok(c) => {
                 eprintln!(
                     "[parity] Java cache: {} (hash={})",
@@ -1543,14 +1557,15 @@ fn run_matrix_mode(cli: &Cli) {
     let misses = cache_misses.load(Ordering::Relaxed);
     if hits + misses > 0 {
         eprintln!(
-            "[parity] Java cache: {} hits, {} misses ({:.0}% hit rate)",
+            "[parity] Java cache: {} hits, {} misses ({:.0}% hit rate), {} hits from another --max-turns",
             hits,
             misses,
             if hits + misses > 0 {
                 (hits as f64 / (hits + misses) as f64) * 100.0
             } else {
                 0.0
-            }
+            },
+            java_cache.as_ref().map_or(0, JavaCache::prefix_hits)
         );
     }
 
@@ -2752,7 +2767,11 @@ fn run_serve_mode(cli: &Cli) {
     } else {
         let project_root = std::env::current_dir().unwrap_or_default();
         let source_hash = java_cache::compute_source_hash(&project_root, Some(&jar_path));
-        match JavaCache::open(std::path::Path::new(&cli.cache_dir), source_hash) {
+        match JavaCache::open(
+            std::path::Path::new(&cli.cache_dir),
+            source_hash,
+            cli.java_turns,
+        ) {
             Ok(c) => {
                 tracing::info!(
                     cache_dir = %cli.cache_dir,

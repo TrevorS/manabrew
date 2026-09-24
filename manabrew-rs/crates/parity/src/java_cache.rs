@@ -16,6 +16,7 @@ use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use rayon::prelude::*;
 
@@ -27,9 +28,11 @@ use crate::runner::{deck_search_dirs, RunConfig};
 pub struct JavaCache {
     cache_dir: PathBuf,
     source_hash: String,
+    java_turns: Option<u32>,
+    prefix_hits: AtomicUsize,
 }
 
-#[derive(Hash)]
+#[derive(Hash, Clone, Copy)]
 struct MatchupKey<'a> {
     deck1: &'a str,
     deck1_contents: u64,
@@ -71,13 +74,18 @@ struct Manifest {
 const MANIFEST_FILE: &str = "manifest.json";
 const INCOMPLETE_HASH_PREFIX: &str = "incomplete-";
 pub const CACHE_VERSION: u32 = 9;
+pub const MAX_PREFIX_TURNS: u32 = 100;
 
 impl JavaCache {
     /// Open (or create) a cache directory.
     ///
     /// `source_hash` is an opaque string that identifies the current Java
     /// sources, card scripts and jar. When it changes the entire cache is wiped.
-    pub fn open(cache_dir: &Path, source_hash: String) -> std::io::Result<Self> {
+    pub fn open(
+        cache_dir: &Path,
+        source_hash: String,
+        java_turns: Option<u32>,
+    ) -> std::io::Result<Self> {
         fs::create_dir_all(cache_dir)?;
 
         let manifest_path = cache_dir.join(MANIFEST_FILE);
@@ -126,13 +134,47 @@ impl JavaCache {
         Ok(Self {
             cache_dir: cache_dir.to_path_buf(),
             source_hash,
+            java_turns,
+            prefix_hits: AtomicUsize::new(0),
         })
     }
 
     /// Look up a cached matchup.  Returns `None` on miss or corruption.
     pub fn get(&self, config: &RunConfig) -> Option<JavaMatchupData> {
-        let path = self.entry_path(config);
-        let bytes = fs::read(&path).ok()?;
+        let key = matchup_key(config);
+        if let Some(data) = self.read(&self.key_path(&key)) {
+            return Some(data);
+        }
+        if config.deep {
+            return None;
+        }
+        let stored = |max_turns| self.read(&self.key_path(&MatchupKey { max_turns, ..key }));
+        let log = (config.max_turns + 1..=MAX_PREFIX_TURNS)
+            .find_map(|turns| stored(turns).map(|data| truncate_log(data.log, config.max_turns)))
+            .or_else(|| {
+                (1..config.max_turns).rev().find_map(|turns| {
+                    stored(turns)
+                        .filter(|data| data.log.iter().all(|entry| entry_turn(entry) < turns))
+                        .map(|data| data.log)
+                })
+            })?;
+        self.prefix_hits.fetch_add(1, Ordering::Relaxed);
+        Some(JavaMatchupData { log })
+    }
+
+    pub fn java_turns(&self, config: &RunConfig) -> u32 {
+        match self.java_turns {
+            Some(turns) if !config.deep => turns.max(config.max_turns),
+            _ => config.max_turns,
+        }
+    }
+
+    pub fn prefix_hits(&self) -> usize {
+        self.prefix_hits.load(Ordering::Relaxed)
+    }
+
+    fn read(&self, path: &Path) -> Option<JavaMatchupData> {
+        let bytes = fs::read(path).ok()?;
         let cached: CachedMatchup = match serde_json::from_slice(&bytes) {
             Ok(c) => c,
             Err(e) => {
@@ -141,7 +183,7 @@ impl JavaCache {
                     path.display(),
                     e
                 );
-                let _ = fs::remove_file(&path);
+                let _ = fs::remove_file(path);
                 return None;
             }
         };
@@ -198,19 +240,10 @@ impl JavaCache {
     }
 
     fn entry_path(&self, config: &RunConfig) -> PathBuf {
-        let decks_dirs = deck_search_dirs(config.decks_dir.as_deref());
-        let key = MatchupKey {
-            deck1: &config.deck1,
-            deck1_contents: deck_contents_hash(&config.deck1, &decks_dirs),
-            deck2: &config.deck2,
-            deck2_contents: deck_contents_hash(&config.deck2, &decks_dirs),
-            seed: config.seed,
-            max_turns: config.max_turns,
-            prefer_actions: config.prefer_actions,
-            deep: config.deep,
-            variant: &config.variant,
-            commanders: &config.commanders,
-        };
+        self.key_path(&matchup_key(config))
+    }
+
+    fn key_path(&self, key: &MatchupKey) -> PathBuf {
         let hash = {
             let mut h = DefaultHasher::new();
             self.source_hash.hash(&mut h);
@@ -220,6 +253,66 @@ impl JavaCache {
         let shard = &hash[..2];
         self.cache_dir.join(shard).join(format!("{hash}.json"))
     }
+}
+
+fn matchup_key(config: &RunConfig) -> MatchupKey<'_> {
+    let decks_dirs = deck_search_dirs(config.decks_dir.as_deref());
+    MatchupKey {
+        deck1: &config.deck1,
+        deck1_contents: deck_contents_hash(&config.deck1, &decks_dirs),
+        deck2: &config.deck2,
+        deck2_contents: deck_contents_hash(&config.deck2, &decks_dirs),
+        seed: config.seed,
+        max_turns: config.max_turns,
+        prefer_actions: config.prefer_actions,
+        deep: config.deep,
+        variant: &config.variant,
+        commanders: &config.commanders,
+    }
+}
+
+fn entry_turn(entry: &ParityLogEntry) -> u32 {
+    match entry {
+        ParityLogEntry::Snapshot(snapshot) => snapshot.turn,
+        ParityLogEntry::Callback(callback) => callback.turn,
+        ParityLogEntry::Decision(decision) => decision.turn,
+        ParityLogEntry::Event(event) => event.turn,
+    }
+}
+
+fn entry_phase(entry: &ParityLogEntry) -> &str {
+    match entry {
+        ParityLogEntry::Snapshot(snapshot) => &snapshot.phase,
+        ParityLogEntry::Callback(callback) => &callback.phase,
+        ParityLogEntry::Decision(decision) => &decision.phase,
+        ParityLogEntry::Event(event) => &event.phase,
+    }
+}
+
+// Main.runGame ends the game at the first phase event past max_turns without a snapshot,
+// and Forge still runs that phase's turn-based actions, so their rows stay.
+pub fn truncate_log(log: Vec<ParityLogEntry>, max_turns: u32) -> Vec<ParityLogEntry> {
+    let mut limit_phase: Option<String> = None;
+    let mut snapshots = 0;
+    let mut kept = Vec::with_capacity(log.len());
+    for mut entry in log {
+        if entry_turn(&entry) > max_turns {
+            let phase = limit_phase.get_or_insert_with(|| entry_phase(&entry).to_string());
+            if entry_turn(&entry) > max_turns + 1 || entry_phase(&entry) != phase.as_str() {
+                break;
+            }
+            if entry.as_snapshot().is_some() {
+                continue;
+            }
+        }
+        match &mut entry {
+            ParityLogEntry::Snapshot(_) => snapshots += 1,
+            ParityLogEntry::Callback(callback) => callback.snapshot_index = snapshots,
+            _ => {}
+        }
+        kept.push(entry);
+    }
+    kept
 }
 
 fn deck_contents_hash(spec: &str, decks_dirs: &[&str]) -> u64 {
