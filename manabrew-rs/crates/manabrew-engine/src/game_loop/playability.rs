@@ -1717,26 +1717,20 @@ impl GameLoop {
                 if must_be_instant && !has_flash_permission(card_id) {
                     continue;
                 }
-                let non_mana_alt_costs: Vec<(usize, String)> =
+                let may_play_costs =
                     crate::staticability::static_ability_continuous::may_play_alt_costs(
                         game, player, card,
-                    )
-                    .into_iter()
-                    .enumerate()
-                    .filter(|(_, cost)| {
-                        !crate::staticability::static_ability_continuous::is_mana_alt_cost(cost)
-                    })
-                    .collect();
+                    );
                 let normal_grants = count_may_play_grants(card_id)
                     .max(1)
-                    .saturating_sub(non_mana_alt_costs.len());
+                    .saturating_sub(may_play_costs.len());
                 if normal_grants > 0
                     && self.can_cast_may_play_spell(
                         game,
                         player,
                         card_id,
                         ZoneType::Exile,
-                        may_play_alt_cost(card_id),
+                        None,
                         &chosen_types_by_source,
                     )
                 {
@@ -1748,13 +1742,13 @@ impl GameLoop {
                         });
                     }
                 }
-                for (alt_cost_index, alt_cost) in non_mana_alt_costs {
+                for (alt_cost_index, alt_cost) in may_play_costs.iter().enumerate() {
                     if self.can_cast_may_play_spell(
                         game,
                         player,
                         card_id,
                         ZoneType::Exile,
-                        Some(alt_cost),
+                        Some(alt_cost.clone()),
                         &chosen_types_by_source,
                     ) {
                         playable.push(crate::agent::PlayOption {
@@ -1770,19 +1764,39 @@ impl GameLoop {
                     .then(|| card.svars.get("RoomRightSplitCost").cloned())
                     .flatten();
                 if let Some(cost) = room_right_split_cost {
-                    if self.can_cast_may_play_spell(
-                        game,
-                        player,
-                        card_id,
-                        ZoneType::Exile,
-                        Some(cost),
-                        &chosen_types_by_source,
-                    ) {
-                        playable.push(crate::agent::PlayOption {
+                    if normal_grants > 0
+                        && self.can_cast_may_play_spell(
+                            game,
+                            player,
                             card_id,
-                            mode: crate::agent::PlayCardMode::RoomRightSplit,
-                            alt_cost_index: 0,
-                        });
+                            ZoneType::Exile,
+                            Some(cost),
+                            &chosen_types_by_source,
+                        )
+                    {
+                        for _ in 0..normal_grants {
+                            playable.push(crate::agent::PlayOption {
+                                card_id,
+                                mode: crate::agent::PlayCardMode::RoomRightSplit,
+                                alt_cost_index: 0,
+                            });
+                        }
+                    }
+                    for (alt_cost_index, alt_cost) in may_play_costs.into_iter().enumerate() {
+                        if self.can_cast_may_play_spell(
+                            game,
+                            player,
+                            card_id,
+                            ZoneType::Exile,
+                            Some(alt_cost),
+                            &chosen_types_by_source,
+                        ) {
+                            playable.push(crate::agent::PlayOption {
+                                card_id,
+                                mode: crate::agent::PlayCardMode::RoomRightSplit,
+                                alt_cost_index: alt_cost_index as u8 + 1,
+                            });
+                        }
                     }
                 }
                 continue;

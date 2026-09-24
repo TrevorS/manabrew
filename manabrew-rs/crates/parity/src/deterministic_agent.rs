@@ -121,8 +121,55 @@ struct GameSnapshot {
     ability_texts: Vec<((CardId, usize), String)>,
     gained_copy_abilities: Vec<(CardId, usize)>,
     stack_sources: Vec<(u32, CardId)>,
+    may_play_grants: Vec<MayPlayGrants>,
     phase: PhaseType,
     stack_depth: usize,
+}
+
+type MayPlayGrants = (CardId, bool, Vec<(bool, Option<CardId>)>);
+
+/// The grants Java's `getMayPlaySpellOptions` names per card, in the engine's grant order.
+fn may_play_grants(game: &GameState, player: PlayerId) -> Vec<MayPlayGrants> {
+    use manabrew_engine::staticability::static_ability_continuous as continuous;
+    if !game.cards.iter().any(|c| {
+        c.zone.is_static_ability_source()
+            && c.static_abilities
+                .iter()
+                .any(|st| st.ir.may_play || st.ir.add_static_ability_text.is_some())
+    }) {
+        return Vec::new();
+    }
+    game.cards
+        .iter()
+        .filter(|card| {
+            !matches!(
+                card.zone,
+                forge_foundation::ZoneType::Battlefield | forge_foundation::ZoneType::Stack
+            )
+        })
+        .filter_map(|card| {
+            let grants: Vec<(bool, Option<CardId>)> =
+                continuous::may_play_grants(game, player, card)
+                    .filter(|(source, st_ab)| {
+                        continuous::can_play_or_granted(st_ab, source, card, game)
+                    })
+                    .map(|(source, st_ab)| {
+                        (
+                            continuous::may_play_alt_mana_cost(st_ab, source, card, game).is_some(),
+                            (source.id != card.id)
+                                .then(|| source.effect_source.unwrap_or(source.id)),
+                        )
+                    })
+                    .collect();
+            (!grants.is_empty()).then(|| {
+                (
+                    card.id,
+                    card.zone == forge_foundation::ZoneType::Hand,
+                    grants,
+                )
+            })
+        })
+        .collect()
 }
 
 /// Refill a snapshot lookup table in place, keeping the `Vec` and each `String` buffer, so a
@@ -645,18 +692,62 @@ impl DeterministicAgent {
     /// When variant is the same (e.g., Normal and Warp both return "0"),
     /// this ensures a deterministic ordering.
     fn play_option_fallback(&self, play: PlayOption) -> String {
-        if let PlayCardMode::MayPlay(base) = play.mode {
-            let base_play = PlayOption {
-                mode: base.map_or(PlayCardMode::Normal, PlayCardMode::Alternative),
-                alt_cost_index: 0,
-                ..play
-            };
-            return format!(
-                "{} by:{:03}",
-                self.play_option_fallback(base_play),
-                play.alt_cost_index
-            );
+        let grant = match play.mode {
+            PlayCardMode::MayPlay(_) => Some((true, play.alt_cost_index as usize)),
+            PlayCardMode::RoomRightSplit if play.alt_cost_index > 0 => {
+                Some((true, play.alt_cost_index as usize - 1))
+            }
+            PlayCardMode::Normal | PlayCardMode::RoomRightSplit => Some((false, 0)),
+            _ => None,
+        };
+        let label = grant.and_then(|(alt, nth)| self.may_play_grant_label(play.card_id, alt, nth));
+        match (play.mode, label) {
+            (PlayCardMode::MayPlay(base), label) => {
+                let base_play = PlayOption {
+                    mode: base.map_or(PlayCardMode::Normal, PlayCardMode::Alternative),
+                    alt_cost_index: 0,
+                    ..play
+                };
+                format!(
+                    "{}{}",
+                    self.play_option_base_fallback(base_play),
+                    label.unwrap_or_else(|| format!(" by:{:03}", play.alt_cost_index))
+                )
+            }
+            (_, Some(label)) => format!(
+                "{}{label}",
+                self.play_option_base_fallback(PlayOption {
+                    alt_cost_index: 0,
+                    ..play
+                })
+            ),
+            (_, None) => self.play_option_base_fallback(play),
         }
+    }
+
+    /// Java `GameActionUtil.getMayPlaySpellOptions` describes each grant's copy as
+    /// `" by <host>"` plus the grant's cost text, and the harness sorts on that description.
+    fn may_play_grant_label(&self, card_id: CardId, alt_cost: bool, nth: usize) -> Option<String> {
+        let snap = self.last_game_snapshot.as_ref()?;
+        let (_, in_hand, grants) = snap
+            .may_play_grants
+            .iter()
+            .find(|(id, _, _)| *id == card_id)?;
+        if *in_hand && !alt_cost {
+            return None;
+        }
+        let (_, host) = grants
+            .iter()
+            .filter(|(has_alt_cost, _)| *has_alt_cost == alt_cost)
+            .nth(nth)?;
+        let by = host.map_or(String::new(), |host| {
+            // Java card ids count from 1, this engine's from 0.
+            format!(" by {} ({})", self.card_name(host), host.0 + 1)
+        });
+        Some(if alt_cost { format!("{by} (") } else { by })
+    }
+
+    fn play_option_base_fallback(&self, play: PlayOption) -> String {
         // Disambiguate multi-cost alt entries (e.g. intrinsic vs granted
         // Evoke) so the stable sort places them in a predictable order that
         // matches Java's SA text ordering.
@@ -1229,6 +1320,7 @@ impl PlayerAgent for DeterministicAgent {
         );
         self.last_game_snapshot = Some(GameSnapshot {
             stack_sources,
+            may_play_grants: may_play_grants(game, self.player_id),
             player_names,
             card_names,
             card_is_land,

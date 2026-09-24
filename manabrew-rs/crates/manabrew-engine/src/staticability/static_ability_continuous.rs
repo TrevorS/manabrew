@@ -254,6 +254,34 @@ pub fn may_play_grant_source(
         .map(|(source, st_ab)| (source.id, static_index(st_ab, source)))
 }
 
+/// Java `GameActionUtil:381` `newSA.setMayPlay(o)`: a spell paying a grant's alternative cost
+/// names that grant by `alt_cost_index`, any other spell the first grant without one.
+pub fn may_play_spell_grant_source(
+    game: &GameState,
+    player: crate::ids::PlayerId,
+    card: &Card,
+    sa: &crate::spellability::SpellAbility,
+) -> Option<(crate::ids::CardId, Option<usize>)> {
+    let covering: Vec<(&Card, &StaticAbility)> = may_play_grants(game, player, card)
+        .filter(|(source, st_ab)| can_play_or_granted(st_ab, source, card, game))
+        .collect();
+    let has_alt_cost = |(source, st_ab): &&(&Card, &StaticAbility)| {
+        may_play_alt_mana_cost(st_ab, source, card, game).is_some()
+    };
+    let grant = if sa.cast_with_may_play {
+        covering
+            .iter()
+            .filter(has_alt_cost)
+            .nth(sa.alt_cost_index as usize)
+    } else {
+        covering
+            .iter()
+            .find(|grant| !has_alt_cost(grant))
+            .or(covering.first())
+    };
+    grant.map(|(source, st_ab)| (source.id, static_index(st_ab, source)))
+}
+
 /// Java `GameActionUtil:373-379`: the grant's `RaiseCost$` rides on the ability it builds, an
 /// SVar name resolved to a mana amount on the grant's host.
 pub fn may_play_raise_cost(

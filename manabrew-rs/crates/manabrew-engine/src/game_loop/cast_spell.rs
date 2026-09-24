@@ -2,31 +2,6 @@ use super::mana_payment::ManaPaymentSession;
 use super::*;
 use crate::mana::mana_cost_being_paid::ManaCostBeingPaid;
 
-/// Find the `MayPlayAltManaCost$` value granted to `card_id` by any
-/// `MayPlay$ True` static the player controls. Mirrors Java's
-/// `GameActionUtil.getAlternativeCosts` reading the static that authorized the cast.
-fn may_play_alt_mana_cost_for(
-    game: &GameState,
-    player: PlayerId,
-    card_id: CardId,
-) -> Option<String> {
-    let card = game.card(card_id);
-    game.cards_in_zone(ZoneType::Battlefield, player)
-        .iter()
-        .chain(game.cards_in_zone(ZoneType::Command, player).iter())
-        .find_map(|&source_id| {
-            let source = game.card(source_id);
-            source.static_abilities.iter().find_map(|sa| {
-                crate::staticability::static_ability_continuous::may_play_alt_mana_cost(
-                    sa, source, card, game,
-                )
-                .filter(|cost| {
-                    crate::staticability::static_ability_continuous::is_mana_alt_cost(cost)
-                })
-            })
-        })
-}
-
 impl GameLoop {
     pub(crate) fn parse_spell_cost(abilities: &[String]) -> Option<crate::cost::Cost> {
         for ability in abilities {
@@ -682,8 +657,23 @@ impl GameLoop {
             crate::agent::PlayCardMode::Normal | crate::agent::PlayCardMode::Secondary => {}
             crate::agent::PlayCardMode::RoomRightSplit => {
                 if !right_split_spell {
-                    let cost = game.card(card_id).svars.get("RoomRightSplitCost")?;
-                    sa.pay_costs = Some(parse_cost(cost));
+                    if play.alt_cost_index > 0 {
+                        sa.alt_cost_index = play.alt_cost_index - 1;
+                        let alt_cost =
+                            crate::staticability::static_ability_continuous::may_play_alt_costs(
+                                game,
+                                player,
+                                game.card(card_id),
+                            )
+                            .into_iter()
+                            .nth(sa.alt_cost_index as usize)?;
+                        sa.cast_with_may_play = true;
+                        sa.pay_costs = Some(parse_cost(&alt_cost));
+                        static_alternative_cost_prepared = true;
+                    } else {
+                        let cost = game.card(card_id).svars.get("RoomRightSplitCost")?;
+                        sa.pay_costs = Some(parse_cost(cost));
+                    }
                     std::sync::Arc::make_mut(&mut sa.ir).card_state_name =
                         Some("RightSplit".to_string());
                 }
@@ -1104,13 +1094,6 @@ impl GameLoop {
             Self::mana_from_cost(static_alt_cost.as_ref()?)
         } else if is_morph_facedown {
             forge_foundation::ManaCost::generic(crate::spellability::MORPH_GENERIC_COST)
-        } else if original_zone == ZoneType::Exile {
-            // Java parity: a `MayPlay$ True | MayPlayAltManaCost$ X` static
-            // active for this exiled card replaces the printed mana cost.
-            // Used by Airbend's Effect to let the owner cast for `{2}`.
-            may_play_alt_mana_cost_for(game, player, card_id)
-                .map(|s| forge_foundation::ManaCost::parse(&s))
-                .unwrap_or_else(|| game.card(card_id).mana_cost.clone())
         } else {
             game.card(card_id).mana_cost.clone()
         };
@@ -1673,10 +1656,11 @@ impl GameLoop {
         let announced_from_zone = game.card_current_zone(card_id);
         if sa.is_spell && announced_from_zone != ZoneType::Hand {
             if let Some((source, index)) =
-                crate::staticability::static_ability_continuous::may_play_grant_source(
+                crate::staticability::static_ability_continuous::may_play_spell_grant_source(
                     game,
                     player,
                     game.card(card_id),
+                    &sa,
                 )
             {
                 sa.may_play_source = Some(source);
