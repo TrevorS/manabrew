@@ -99,6 +99,49 @@ pub(crate) fn perform_sacrifice(
     sacrificed
 }
 
+pub(crate) fn exile_cost_cards(
+    game: &mut GameState,
+    runtime: &mut ReplacementRuntime<'_>,
+    agents: &mut [Box<dyn PlayerAgent>],
+    payer: PlayerId,
+    cards: &[CardId],
+    collect_evidence: bool,
+) {
+    let outer_change_zone_table = game.pending_change_zone_table.take();
+    game.ensure_pending_change_zone_table();
+    for &card_id in cards {
+        let from = game.card(card_id).zone;
+        let owner = game.card(card_id).owner;
+        game.move_card_with_agents_and_replacement_runtime(
+            card_id,
+            ZoneType::Exile,
+            owner,
+            agents,
+            runtime,
+        );
+        crate::ability::effects::emit_zone_trigger(
+            runtime.trigger_handler,
+            card_id,
+            from,
+            ZoneType::Exile,
+        );
+    }
+    if collect_evidence {
+        runtime.trigger_handler.run_trigger(
+            TriggerType::CollectEvidence,
+            RunParams {
+                player: Some(payer),
+                ..Default::default()
+            },
+            false,
+        );
+    }
+    if let Some(table) = game.pending_change_zone_table.take() {
+        table.trigger_changes_zone_all(runtime.trigger_handler, game, None);
+    }
+    game.pending_change_zone_table = outer_change_zone_table;
+}
+
 /// Fire `TriggerType::SacrificedOnce` once per distinct controller in the batch.
 pub(crate) fn fire_sacrificed_once_for_batch(
     game: &mut GameState,

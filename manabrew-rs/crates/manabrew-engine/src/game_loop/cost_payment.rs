@@ -3322,23 +3322,13 @@ impl GameLoop {
             return false;
         }
 
-        for cid in chosen {
-            let owner = game.card(cid).owner;
-            self.move_card_with_runtime(game, cid, ZoneType::Exile, owner, agents);
-            crate::ability::effects::emit_zone_trigger(
-                &mut self.trigger_handler,
-                cid,
-                ZoneType::Graveyard,
-                ZoneType::Exile,
-            );
-        }
-        self.trigger_handler.run_trigger(
-            TriggerType::CollectEvidence,
-            RunParams {
-                player: Some(player),
-                ..Default::default()
-            },
-            false,
+        super::exile_cost_cards(
+            game,
+            &mut self.replacement_runtime(),
+            agents,
+            player,
+            &chosen,
+            true,
         );
         true
     }

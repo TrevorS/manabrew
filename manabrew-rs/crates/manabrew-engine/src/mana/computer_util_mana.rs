@@ -139,6 +139,14 @@ pub enum ManaPayCallback<'a> {
     /// battlefield LKI, moving the card, and returning the same card id on
     /// success. Returning `None` cancels the payment.
     NotifySacrificeForMana(CardId),
+    /// Exile cards to pay a mana ability's cost and run their triggers (Java
+    /// `CostExile`/`CostCollectEvidence.doListPayment`). A callback without a game
+    /// runtime returns `None`, and the payer moves the cards itself.
+    ExileCostCardsForMana {
+        player: PlayerId,
+        cards: &'a [CardId],
+        collect_evidence: bool,
+    },
     /// Apply real ProduceMana replacements to the actual mana string this
     /// source is about to add to the pool. The callback mutates `mana` after
     /// running replacement choice through the caller's agents.
@@ -243,6 +251,7 @@ pub fn auto_tap_lands_with_chooser(
             ManaPayCallback::ConfirmSourceExile(cid) => Some(cid),
             ManaPayCallback::ConfirmPayLife(cid) => Some(cid),
             ManaPayCallback::NotifySacrificeForMana(cid) => Some(cid),
+            ManaPayCallback::ExileCostCardsForMana { .. } => None,
             ManaPayCallback::ApplyProduceManaReplacement { .. } => None,
         }
     };
@@ -281,6 +290,7 @@ pub fn auto_tap_lands_allow_reserved_source_reuse_with_chooser(
             ManaPayCallback::ConfirmSourceExile(cid) => Some(cid),
             ManaPayCallback::ConfirmPayLife(cid) => Some(cid),
             ManaPayCallback::NotifySacrificeForMana(cid) => Some(cid),
+            ManaPayCallback::ExileCostCardsForMana { .. } => None,
             ManaPayCallback::ApplyProduceManaReplacement { .. } => None,
         }
     };
@@ -1796,6 +1806,21 @@ pub(crate) fn auto_payment_callback<'a, 'r: 'a>(
                 crate::game_loop::perform_sacrifice(unsafe { &mut *game }, runtime, agents, &[id]);
                 Some(id)
             }
+            ManaPayCallback::ExileCostCardsForMana {
+                player,
+                cards,
+                collect_evidence,
+            } => {
+                crate::game_loop::exile_cost_cards(
+                    unsafe { &mut *game },
+                    runtime,
+                    agents,
+                    player,
+                    cards,
+                    collect_evidence,
+                );
+                cards.first().copied()
+            }
             _ => None,
         }
     }
@@ -2038,8 +2063,7 @@ fn pay_non_tap_mana_ability_costs(
                             return false;
                         }
                     }
-                    let owner = game.card(ma.card_id).owner;
-                    game.move_card(ma.card_id, ZoneType::Exile, owner);
+                    exile_mana_ability_cost_cards(game, player, callback, &[ma.card_id], false);
                 } else {
                     let required = amount.resolve(game, ma.card_id, player).max(0) as usize;
                     let base_filter = crate::cost::normalize_exile_base_filter(type_filter);
@@ -2079,10 +2103,7 @@ fn pay_non_tap_mana_ability_costs(
                     } else {
                         chosen.extend(valid.iter().take(required));
                     }
-                    for &cid in &chosen {
-                        let owner = game.card(cid).owner;
-                        game.move_card(cid, ZoneType::Exile, owner);
-                    }
+                    exile_mana_ability_cost_cards(game, player, callback, &chosen, false);
                     cost_cards.extend(chosen);
                 }
             }
@@ -2129,10 +2150,7 @@ fn pay_non_tap_mana_ability_costs(
                 if total < required {
                     return false;
                 }
-                for &cid in &chosen {
-                    let owner = game.card(cid).owner;
-                    game.move_card(cid, ZoneType::Exile, owner);
-                }
+                exile_mana_ability_cost_cards(game, player, callback, &chosen, true);
                 cost_cards.extend(chosen);
             }
             CostPart::TapType { .. } => {
@@ -2158,6 +2176,30 @@ fn pay_non_tap_mana_ability_costs(
         }
     }
     true
+}
+
+fn exile_mana_ability_cost_cards(
+    game: &mut GameState,
+    player: PlayerId,
+    callback: &mut Option<ManaPayCallbackFn<'_>>,
+    cards: &[CardId],
+    collect_evidence: bool,
+) {
+    if let Some(ref mut cb) = callback {
+        if cb(ManaPayCallback::ExileCostCardsForMana {
+            player,
+            cards,
+            collect_evidence,
+        })
+        .is_some()
+        {
+            return;
+        }
+    }
+    for &cid in cards {
+        let owner = game.card(cid).owner;
+        game.move_card(cid, ZoneType::Exile, owner);
+    }
 }
 
 fn can_pay_source_paid_mana_cost_part(
@@ -4801,6 +4843,7 @@ mod tests {
                             game.move_card(cid, ZoneType::Graveyard, owner);
                             Some(cid)
                         },
+                        ManaPayCallback::ExileCostCardsForMana { .. } => None,
                         ManaPayCallback::ApplyProduceManaReplacement { .. } => None,
                     }
                 };
@@ -4868,6 +4911,7 @@ mod tests {
                             game.move_card(cid, ZoneType::Graveyard, owner);
                             Some(cid)
                         },
+                        ManaPayCallback::ExileCostCardsForMana { .. } => None,
                         ManaPayCallback::ApplyProduceManaReplacement { .. } => None,
                     }
                 };

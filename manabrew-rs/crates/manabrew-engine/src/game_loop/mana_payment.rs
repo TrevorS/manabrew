@@ -446,6 +446,14 @@ impl GameLoop {
                     perform_sacrifice(&mut *game, runtime, agents, &[sacrificed_id]);
                     Some(sacrificed_id)
                 },
+                mana::ManaPayCallback::ExileCostCardsForMana {
+                    player,
+                    cards,
+                    collect_evidence,
+                } => unsafe {
+                    exile_cost_cards(&mut *game, runtime, agents, player, cards, collect_evidence);
+                    cards.first().copied()
+                },
                 mana::ManaPayCallback::ApplyProduceManaReplacement {
                     activator,
                     source_card,

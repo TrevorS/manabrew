@@ -847,7 +847,7 @@ mod cast_spell;
 mod combat_phase;
 mod cost_payment;
 mod game_action;
-pub(crate) use game_action::{fire_sacrificed_once_for_batch, perform_sacrifice};
+pub(crate) use game_action::{exile_cost_cards, fire_sacrificed_once_for_batch, perform_sacrifice};
 pub(crate) mod mana_payment;
 mod phase_handler;
 mod playability;
