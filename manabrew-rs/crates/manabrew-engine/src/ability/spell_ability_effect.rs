@@ -545,6 +545,11 @@ fn resolve_defined_cards_for_sa_ref_inner(
                 .map(|key| sa.get_triggering_cards(key))
                 .unwrap_or_default()
         }
+        DefinedRef::Unsupported(raw) if !raw.contains('.') && replaced_card_key(raw).is_some() => {
+            replaced_card_key(raw)
+                .map(|key| sa.get_triggering_cards(key))
+                .unwrap_or_default()
+        }
         DefinedRef::Unsupported(raw) if !raw.starts_with("Valid") && raw.contains('.') => {
             let (head, valids) = raw.split_once('.').unwrap_or((raw, ""));
             resolve_defined_cards_for_sa_ref_inner(game, sa, &DefinedRef::parse(head))
@@ -590,6 +595,10 @@ fn triggered_card_key(defined: &str) -> Option<AbilityKey> {
     let key = defined.strip_prefix("Triggered")?;
     let key = key.split_once("LKICopy").map_or(key, |(key, _)| key);
     crate::ability::ability_key::from_string(key)
+}
+
+fn replaced_card_key(defined: &str) -> Option<AbilityKey> {
+    crate::ability::ability_key::from_string(defined.strip_prefix("Replaced")?)
 }
 
 fn triggered_target_lki_cards(sa: &SpellAbility) -> Vec<CardId> {

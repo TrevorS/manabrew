@@ -347,6 +347,7 @@ impl CombatState {
         &self,
         game: &mut GameState,
         agents: &mut [Box<dyn PlayerAgent>],
+        runtime: &mut crate::replacement::replacement_handler::ReplacementRuntime<'_>,
         first_strike_only: bool,
         as_unblocked_choices: &HashSet<CardId>,
     ) -> CombatDamageResolution {
@@ -879,6 +880,7 @@ impl CombatState {
         crate::replacement::replacement_handler::run_replace_damage(
             game,
             Some(agents),
+            runtime,
             true,
             &mut damage_map,
             &mut prevent_map,
@@ -1135,10 +1137,17 @@ impl CombatState {
         &self,
         game: &mut GameState,
         agents: &mut [Box<dyn PlayerAgent>],
+        runtime: &mut crate::replacement::replacement_handler::ReplacementRuntime<'_>,
         first_strike_damage: bool,
         as_unblocked_choices: &HashSet<CardId>,
     ) -> CombatDamageResolution {
-        self.resolve_damage_step(game, agents, first_strike_damage, as_unblocked_choices)
+        self.resolve_damage_step(
+            game,
+            agents,
+            runtime,
+            first_strike_damage,
+            as_unblocked_choices,
+        )
     }
 
     /// Deal assigned damage (no-op in our architecture since resolve_damage_step

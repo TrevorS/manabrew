@@ -26,9 +26,19 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .clone()
         .or_else(|| ctx.game.pending_prevent_map.clone())
         .unwrap_or_default();
+    let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
+        trigger_handler: ctx.trigger_handler,
+        token_templates: ctx.token_templates,
+        token_art_variants: ctx.token_art_variants,
+        token_fallback: ctx.token_fallback,
+        edition_dates: ctx.edition_dates,
+        mana_pools: ctx.mana_pools,
+        rng: ctx.rng,
+    };
     crate::replacement::replacement_handler::run_replace_damage(
         ctx.game,
         Some(ctx.agents),
+        &mut runtime,
         false,
         &mut damage_map,
         &mut prevent_map,

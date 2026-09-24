@@ -208,7 +208,7 @@ pub(super) fn execute_replace_with(
     execute_replacement_ability(effect, sa, game, event, agents, runtime)
 }
 
-fn execute_replacement_ability(
+pub(super) fn execute_replacement_ability(
     effect: &ReplacementEffect,
     mut sa: crate::spellability::SpellAbility,
     game: &mut GameState,

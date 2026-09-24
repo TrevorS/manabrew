@@ -12,6 +12,7 @@ use crate::{HashMap, HashSet};
 
 use forge_foundation::{PhaseType, ZoneType};
 
+use crate::ability::api_type::ApiType;
 use crate::agent::GameEntity;
 use crate::card::card_damage_map::{CardDamageMap, DamageTarget};
 use crate::card::Card;
@@ -980,6 +981,8 @@ struct ReplaceDamageBatch {
     effects: HashMap<ReplaceDamageKey, ReplacementEffect>,
     replace_damage_list: Vec<indexmap::IndexMap<ReplaceDamageKey, Vec<usize>>>,
     executed_damage_map: indexmap::IndexMap<ReplaceDamageKey, Vec<usize>>,
+    replacement_result_map: HashMap<(ReplaceDamageKey, usize), ReplacementResult>,
+    prevented_amount: HashMap<usize, i32>,
 }
 
 fn damage_run_params(
@@ -1136,16 +1139,106 @@ fn run_single_replace_damage_effect(
             damage_map.remove(source, target);
             if effect.prevents() || effect.base.card_trait_base.has_param("PreventionEffect") {
                 prevent_map.put(source, target, damage);
+                batch.prevented_amount.insert(index, damage);
             }
         }
     }
 
+    batch.replacement_result_map.insert((re, index), res);
     batch.executed_damage_map.entry(re).or_default().push(index);
+}
+
+fn execute_replace_damage_buffered_sa(
+    game: &mut GameState,
+    mut agents: Option<&mut [Box<dyn PlayerAgent>]>,
+    runtime: &mut ReplacementRuntime<'_>,
+    batch: ReplaceDamageBatch,
+    is_combat: bool,
+) {
+    for (re, mut executed_param_list) in batch.executed_damage_map {
+        let effect = &batch.effects[&re];
+        let controller = game.card(re.0).controller;
+        let Some(mut buffered_sa) = effect.ensure_ability(game, re.0, controller) else {
+            continue;
+        };
+        if matches!(
+            buffered_sa.api,
+            Some(ApiType::ReplaceDamage | ApiType::ReplaceSplitDamage | ApiType::ReplaceEffect)
+        ) {
+            let Some(sub_ability) = buffered_sa.sub_ability.take() else {
+                continue;
+            };
+            buffered_sa = *sub_ability;
+        }
+
+        let is_prevention =
+            effect.prevents() || effect.base.card_trait_base.has_param("PreventionEffect");
+        let execute_mode = effect.base.card_trait_base.get_param("ExecuteMode");
+        let execute_per_source = execute_mode == Some("PerSource");
+        let execute_per_target = execute_mode == Some("PerTarget");
+
+        while !executed_param_list.is_empty() {
+            let mut damage_source_list: Vec<CardId> = Vec::new();
+            let mut affected_list: Vec<DamageTarget> = Vec::new();
+            let mut damage_sum = 0;
+
+            executed_param_list.retain(|&index| {
+                if batch.replacement_result_map[&(re, index)] == ReplacementResult::NotReplaced {
+                    return false;
+                }
+                let (source, ref event) = batch.run_params[index];
+                if execute_per_source
+                    && !damage_source_list.is_empty()
+                    && !damage_source_list.contains(&source)
+                {
+                    return true;
+                }
+                let (target, amount) = replaced_damage(event);
+                if execute_per_target
+                    && !affected_list.is_empty()
+                    && !affected_list.contains(&target)
+                {
+                    return true;
+                }
+                let damage = if is_prevention {
+                    batch.prevented_amount.get(&index).copied().unwrap_or(0)
+                } else {
+                    amount
+                };
+                if !damage_source_list.contains(&source) {
+                    damage_source_list.push(source);
+                }
+                if !affected_list.contains(&target) {
+                    affected_list.push(target);
+                }
+                damage_sum += damage;
+                false
+            });
+
+            if damage_sum > 0 {
+                let run_params = damage_run_params(
+                    damage_source_list[0],
+                    affected_list[0],
+                    damage_sum,
+                    is_combat,
+                );
+                super::replace_moved::execute_replacement_ability(
+                    effect,
+                    buffered_sa.clone(),
+                    game,
+                    &run_params,
+                    agents.as_deref_mut(),
+                    Some(&mut *runtime),
+                );
+            }
+        }
+    }
 }
 
 pub fn run_replace_damage(
     game: &mut GameState,
     mut agents: Option<&mut [Box<dyn PlayerAgent>]>,
+    runtime: &mut ReplacementRuntime<'_>,
     is_combat: bool,
     damage_map: &mut CardDamageMap,
     prevent_map: &mut CardDamageMap,
@@ -1162,6 +1255,8 @@ pub fn run_replace_damage(
         run_params: Vec::new(),
         effects: HashMap::default(),
         executed_damage_map: indexmap::IndexMap::new(),
+        replacement_result_map: HashMap::default(),
+        prevented_amount: HashMap::default(),
     };
 
     get_possible_replace_damage_list(game, &mut batch, is_combat, damage_map);
@@ -1217,6 +1312,8 @@ pub fn run_replace_damage(
         }
         batch.replace_damage_list[player_index].shift_remove(&chosen_re);
     }
+
+    execute_replace_damage_buffered_sa(game, agents, runtime, batch, is_combat);
 }
 
 /// Parse a raw `R$` replacement-effect line. Re-export of

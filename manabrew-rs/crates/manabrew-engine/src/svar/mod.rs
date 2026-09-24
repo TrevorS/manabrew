@@ -579,7 +579,11 @@ fn resolve_lowered_svar_expression(
             ScriptSVarObjectRef::PaidHash(key) => {
                 resolve_paid_hash_property(key, property, game, source_id, sa)
             }
-            ScriptSVarObjectRef::ReplaceCount => None,
+            ScriptSVarObjectRef::ReplaceCount => {
+                let (key, operators) = property.split_once('/').unwrap_or((property, ""));
+                let count = parse_trigger_int_values(sa, key).into_iter().sum();
+                Some(do_x_math(count, operators, game, source_id, controller, sa))
+            }
             ScriptSVarObjectRef::RuntimeValue(_) => None,
         },
         ScriptSVarNumericExpression::Spawner(inner) => match sa.trigger_spawning_ability.as_deref()

@@ -1016,9 +1016,21 @@ impl GameLoop {
             let combat::CombatDamageResolution {
                 events: fs_events,
                 counter_table: fs_counter_table,
-            } = self
-                .combat
-                .resolve_damage_step(game, agents, true, &fs_unblocked_choices);
+            } = self.combat.resolve_damage_step(
+                game,
+                agents,
+                &mut crate::replacement::replacement_handler::ReplacementRuntime {
+                    trigger_handler: &mut self.trigger_handler,
+                    token_templates: &self.token_templates,
+                    token_art_variants: &self.token_art_variants,
+                    token_fallback: &self.token_fallback,
+                    edition_dates: &self.edition_dates,
+                    mana_pools: &mut self.mana_pools,
+                    rng: &mut *self.game_rng,
+                },
+                true,
+                &fs_unblocked_choices,
+            );
             // Record damage in source damage history for player-targeted combat damage
             for event in &fs_events {
                 if event.target_player.is_some() && event.amount > 0 {
@@ -1075,9 +1087,21 @@ impl GameLoop {
             let combat::CombatDamageResolution {
                 events: dmg_events,
                 counter_table: damage_counter_table,
-            } = self
-                .combat
-                .resolve_damage_step(game, agents, false, &unblocked_choices);
+            } = self.combat.resolve_damage_step(
+                game,
+                agents,
+                &mut crate::replacement::replacement_handler::ReplacementRuntime {
+                    trigger_handler: &mut self.trigger_handler,
+                    token_templates: &self.token_templates,
+                    token_art_variants: &self.token_art_variants,
+                    token_fallback: &self.token_fallback,
+                    edition_dates: &self.edition_dates,
+                    mana_pools: &mut self.mana_pools,
+                    rng: &mut *self.game_rng,
+                },
+                false,
+                &unblocked_choices,
+            );
             // Record damage in source damage history for player-targeted combat damage
             for event in &dmg_events {
                 if event.target_player.is_some() && event.amount > 0 {
