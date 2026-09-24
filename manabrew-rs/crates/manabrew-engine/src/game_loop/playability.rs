@@ -761,6 +761,16 @@ impl GameLoop {
                         }
                     }
                 }
+                let sneak_window = sneak_window(card);
+                let normal_timing = !must_be_instant || has_flash_permission(card_id);
+                // Java `CardFactoryUtil:2961` gives foretell no sorcery-speed restriction, so a
+                // sorcery can still be foretold in a step where it could not be cast.
+                let foretell_window =
+                    card.get_foretell_cost().is_some() && game.turn.active_player == player;
+                if !normal_timing && !sneak_window && !foretell_window {
+                    continue;
+                }
+
                 let cast_sa =
                     crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
                 if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
@@ -773,26 +783,16 @@ impl GameLoop {
                     continue;
                 }
 
-                let sneak_window = sneak_window(card);
-                let normal_timing = !must_be_instant || has_flash_permission(card_id);
-                // Java `CardFactoryUtil:2961` gives foretell no sorcery-speed restriction, so a
-                // sorcery can still be foretold in a step where it could not be cast.
-                let foretell_window =
-                    card.get_foretell_cost().is_some() && game.turn.active_player == player;
-                if !normal_timing && !sneak_window && !foretell_window {
-                    continue;
-                }
-
                 // Spell-level checks: not on battlefield, no split second
-                let timing_sa = if normal_timing && card.get_keyword_cost("MayFlashCost").is_none()
+                let timing_ok = if normal_timing && card.get_keyword_cost("MayFlashCost").is_none()
                 {
-                    cast_sa.clone()
+                    crate::spellability::spell::can_play(&cast_sa, game)
                 } else {
                     let mut sneak_sa = cast_sa.clone();
                     sneak_sa.restriction.variables.set_instant_speed(true);
-                    sneak_sa
+                    crate::spellability::spell::can_play(&sneak_sa, game)
                 };
-                if !crate::spellability::spell::can_play(&timing_sa, game) {
+                if !timing_ok {
                     continue;
                 }
 
@@ -1714,14 +1714,14 @@ impl GameLoop {
                     });
                 }
             }
-            if must_be_instant && !has_flash_permission(card_id) {
-                continue;
-            }
             if flashback_costs.is_empty()
                 && card.get_harmonize_cost().is_none()
                 && card.get_escape_cost().is_none()
                 && card.get_mayhem_cost().is_none()
             {
+                continue;
+            }
+            if must_be_instant && !has_flash_permission(card_id) {
                 continue;
             }
             let cast_sa =
