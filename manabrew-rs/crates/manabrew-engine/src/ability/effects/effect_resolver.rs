@@ -335,6 +335,7 @@ pub fn resolve_effect_chain_with_parent(
     initial_parent_target_card: Option<CardId>,
     initial_parent_target_player: Option<PlayerId>,
 ) {
+    let chain_target_cards = initial.chain_target_cards_from_root();
     let mut current = Some(initial);
     let mut parent_target_card = initial_parent_target_card;
     let mut parent_additional_target_cards: indexmap::IndexMap<CardId, i32> =
@@ -348,9 +349,13 @@ pub fn resolve_effect_chain_with_parent(
         let needs_ctx_clone = (parent_target_card.is_some()
             && sa.target_chosen.target_card.is_none())
             || (parent_target_player.is_some() && sa.target_chosen.target_player.is_none())
-            || (!is_first && sa.parent_targeting_player != parent_target_player);
+            || (!is_first && sa.parent_targeting_player != parent_target_player)
+            || sa.chain_target_cards != chain_target_cards;
         let sa_ref = if needs_ctx_clone {
             sa_with_ctx = sa.clone();
+            sa_with_ctx
+                .chain_target_cards
+                .clone_from(&chain_target_cards);
             if !sa_with_ctx.uses_targeting() {
                 if sa_with_ctx.target_chosen.target_card.is_none() {
                     sa_with_ctx.target_chosen.target_card = parent_target_card;

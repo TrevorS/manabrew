@@ -147,6 +147,8 @@ pub struct SpellAbility {
     /// `setup_targets` writes it on the way down.
     #[serde(skip)]
     pub unique_targets: Vec<crate::agent::GameEntity>,
+    #[serde(skip)]
+    pub chain_target_cards: Vec<CardId>,
     /// Java parity: payload carried by `WrappedAbility`.
     #[serde(default)]
     pub wrapped_ability: Option<Box<SpellAbility>>,
@@ -368,6 +370,30 @@ impl CardTraitIrOwner for SpellAbility {
 impl SpellAbility {
     /// Whether this ability uses targeting.
     /// Mirrors Java's `usesTargeting()`: `return targetRestrictions != null`.
+    pub fn get_all_target_choices(&self) -> Vec<&TargetChoices> {
+        let mut res = Vec::new();
+        let mut sa = Some(self);
+        while let Some(node) = sa {
+            if node.uses_targeting() {
+                res.push(&node.target_chosen);
+            }
+            sa = node.sub_ability.as_deref();
+        }
+        res
+    }
+
+    pub fn chain_target_cards_from_root(&self) -> Vec<CardId> {
+        let mut cards = Vec::new();
+        for tc in self.get_all_target_choices() {
+            for card in tc.all_target_cards() {
+                if !cards.contains(&card) {
+                    cards.push(card);
+                }
+            }
+        }
+        cards
+    }
+
     pub fn uses_targeting(&self) -> bool {
         self.target_restrictions.is_some()
     }
@@ -660,6 +686,7 @@ impl SpellAbility {
             pay_costs: cost,
             sub_ability: None,
             unique_targets: Vec::new(),
+            chain_target_cards: Vec::new(),
             wrapped_ability: None,
             is_spell: false,
             is_trigger: false,

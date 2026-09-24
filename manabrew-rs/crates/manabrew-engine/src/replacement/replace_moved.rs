@@ -254,6 +254,7 @@ pub(super) fn execute_replacement_ability(
     let mut parent_target_card: Option<CardId> = None;
     let mut parent_target_player = None;
     let mut parent_additional_target_players: Vec<crate::ids::PlayerId> = Vec::new();
+    let chain_target_cards = sa.chain_target_cards_from_root();
     let mut current_sa: Option<&crate::spellability::SpellAbility> = Some(&sa);
     while let Some(cur) = current_sa {
         let mut sa_with_ctx;
@@ -261,8 +262,12 @@ pub(super) fn execute_replacement_ability(
             && cur.target_chosen.target_player.is_none()
             && !cur.uses_targeting())
             || cur.parent_targeting_player != parent_target_player
+            || cur.chain_target_cards != chain_target_cards
         {
             sa_with_ctx = cur.clone();
+            sa_with_ctx
+                .chain_target_cards
+                .clone_from(&chain_target_cards);
             if !cur.uses_targeting() && sa_with_ctx.target_chosen.target_player.is_none() {
                 sa_with_ctx.target_chosen.target_player = parent_target_player;
                 sa_with_ctx

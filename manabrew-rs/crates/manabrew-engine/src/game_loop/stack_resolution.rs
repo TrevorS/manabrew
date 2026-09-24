@@ -826,6 +826,7 @@ impl GameLoop {
         let root_trigger_source = entry.spell_ability.trigger_source;
         let root_trigger_source_zone_timestamp = entry.spell_ability.trigger_source_zone_timestamp;
         let root_trigger_spawning_ability = entry.spell_ability.trigger_spawning_ability.clone();
+        let chain_target_cards = entry.spell_ability.chain_target_cards_from_root();
         let mut current = Some(&entry.spell_ability);
         let mut is_first = true;
         while let Some(sa) = current {
@@ -857,7 +858,8 @@ impl GameLoop {
                 || (sa.trigger_source_zone_timestamp.is_none()
                     && root_trigger_source_zone_timestamp.is_some())
                 || (sa.trigger_spawning_ability.is_none()
-                    && root_trigger_spawning_ability.is_some());
+                    && root_trigger_spawning_ability.is_some())
+                || sa.chain_target_cards != chain_target_cards;
             let sa_ref = if needs_ctx_clone {
                 sa_with_ctx = sa.clone();
                 if root_kicked && !sa_with_ctx.kicked {
@@ -905,6 +907,9 @@ impl GameLoop {
                 if sa_with_ctx.trigger_spawning_ability.is_none() {
                     sa_with_ctx.trigger_spawning_ability = root_trigger_spawning_ability.clone();
                 }
+                sa_with_ctx
+                    .chain_target_cards
+                    .clone_from(&chain_target_cards);
                 &sa_with_ctx
             } else {
                 sa

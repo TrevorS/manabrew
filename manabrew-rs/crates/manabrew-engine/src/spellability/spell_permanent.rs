@@ -46,6 +46,7 @@ pub fn create_permanent_spell(
         pay_costs: None,
         sub_ability: None,
         unique_targets: Vec::new(),
+        chain_target_cards: Vec::new(),
         wrapped_ability: None,
         is_spell: true,
         is_trigger: false,

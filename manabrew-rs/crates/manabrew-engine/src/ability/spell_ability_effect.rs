@@ -465,6 +465,9 @@ fn resolve_defined_cards_for_sa_ref_inner(
             }
             sa.source.into_iter().collect()
         }
+        DefinedRef::Targeted | DefinedRef::TargetedCard if !sa.chain_target_cards.is_empty() => {
+            sa.chain_target_cards.clone()
+        }
         DefinedRef::Targeted | DefinedRef::TargetedCard | DefinedRef::ThisTargetedCard => {
             sa.target_chosen.all_target_cards()
         }
