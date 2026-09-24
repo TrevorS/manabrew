@@ -201,32 +201,29 @@ impl TriggerHandler {
                 mode,
                 TriggerType::Always | TriggerType::TapsForMana | TriggerType::ManaAdded
             );
+        let follow_up_modes: &[TriggerType] = match mode {
+            TriggerType::SpellCast => {
+                &[TriggerType::SpellAbilityCast, TriggerType::SpellCastOrCopy]
+            }
+            TriggerType::AbilityCast => &[TriggerType::SpellAbilityCast],
+            TriggerType::SpellCopied => &[
+                TriggerType::SpellCopy,
+                TriggerType::SpellAbilityCopy,
+                TriggerType::SpellCastOrCopy,
+            ],
+            _ => &[],
+        };
+        let follow_ups: Vec<TriggerWaiting> = follow_up_modes
+            .iter()
+            .map(|&follow_up| self.build_waiting_trigger(follow_up, params.clone()))
+            .collect();
+        let waiting = self.build_waiting_trigger(mode, params);
         if urgent {
-            self.waiting_triggers
-                .insert(0, self.build_waiting_trigger(mode, params.clone()));
+            self.waiting_triggers.insert(0, waiting);
         } else {
-            self.waiting_triggers
-                .push(self.build_waiting_trigger(mode, params.clone()));
+            self.waiting_triggers.push(waiting);
         }
-
-        if mode == TriggerType::SpellCast {
-            self.waiting_triggers
-                .push(self.build_waiting_trigger(TriggerType::SpellAbilityCast, params.clone()));
-            self.waiting_triggers
-                .push(self.build_waiting_trigger(TriggerType::SpellCastOrCopy, params.clone()));
-        }
-        if mode == TriggerType::AbilityCast {
-            self.waiting_triggers
-                .push(self.build_waiting_trigger(TriggerType::SpellAbilityCast, params.clone()));
-        }
-        if mode == TriggerType::SpellCopied {
-            self.waiting_triggers
-                .push(self.build_waiting_trigger(TriggerType::SpellCopy, params.clone()));
-            self.waiting_triggers
-                .push(self.build_waiting_trigger(TriggerType::SpellAbilityCopy, params.clone()));
-            self.waiting_triggers
-                .push(self.build_waiting_trigger(TriggerType::SpellCastOrCopy, params.clone()));
-        }
+        self.waiting_triggers.extend(follow_ups);
     }
 
     /// Java-parity entrypoint that can resolve triggers immediately when the
