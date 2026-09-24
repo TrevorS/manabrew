@@ -248,9 +248,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         push_spell_to_stack(ctx, card_id, spell_sa, label);
 
         // ── Step 8: RememberPlayed ──────────────────────────────────────
-        if remember {
-            if let Some(source_id) = sa.source {
-                ctx.game.card_mut(source_id).remembered_cards.push(card_id);
+        if let Some(source_id) = sa.source {
+            let source = ctx.game.card_mut(source_id);
+            if remember {
+                source.remembered_cards.push(card_id);
+            }
+            if sa.ir.imprint_played {
+                source.add_imprinted_card(card_id);
+            }
+            if sa.ir.forget_played {
+                source.remove_remembered(card_id);
             }
         }
 
