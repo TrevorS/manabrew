@@ -135,6 +135,44 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             cost.mandatory = true;
         }
 
+        let mut announced_x = None;
+        if !without_mana_cost
+            && play_cost.is_none()
+            && matches!(
+                ctx.game.card(card_id).get_s_var("X"),
+                None | Some("Count$xPaid")
+            )
+            && spell_sa
+                .pay_costs
+                .as_ref()
+                .is_some_and(crate::cost::has_x_in_any_cost_part)
+        {
+            let Some((min, max)) = crate::game_loop::GameLoop::announce_bounds(
+                ctx.game,
+                controller,
+                &spell_sa,
+                spell_sa.pay_costs.as_ref(),
+                "X",
+            ) else {
+                amount -= 1;
+                continue;
+            };
+            ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
+            let Some(x) = ctx.agents[controller.index()].choose_number(
+                controller,
+                Some(card_id),
+                "Choose a value for X",
+                None,
+                min,
+                max,
+            ) else {
+                amount -= 1;
+                continue;
+            };
+            spell_sa.x_mana_cost_paid = x.max(0) as u32;
+            announced_x = Some(x.max(0));
+        }
+
         if !spell_sa.setup_targets(ctx.game, ctx.agents, ctx.mana_pools) {
             amount -= 1;
             continue;
@@ -167,6 +205,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             } else {
                 ctx.game.card(card_id).mana_cost.clone()
             };
+            let mc = match announced_x {
+                Some(x) => mc.without_x().add(&forge_foundation::ManaCost::generic(
+                    x.saturating_mul(mc.count_x() as i32),
+                )),
+                None => mc,
+            };
 
             let saved_game = ctx.game.clone();
             let saved_pool = ctx.mana_pools[controller.index()].clone();
@@ -176,6 +220,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 amount -= 1;
                 continue;
             }
+        }
+
+        if let Some(x) = announced_x {
+            ctx.game
+                .card_mut(card_id)
+                .svars
+                .insert("XPaid".to_string(), x.to_string());
         }
 
         // `ReplaceGraveyard$ <Zone>` — install a one-shot replacement that

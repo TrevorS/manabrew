@@ -90,7 +90,7 @@ impl GameLoop {
         agents[player.index()].choose_number(player, sa.source, &title, None, min, max)
     }
 
-    fn announce_bounds(
+    pub(crate) fn announce_bounds(
         game: &GameState,
         player: PlayerId,
         sa: &SpellAbility,
