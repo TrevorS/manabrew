@@ -572,6 +572,11 @@ fn resolve_defined_cards_for_sa_ref_inner(
             )
             .unwrap_or_default()
         }
+        DefinedRef::Unsupported(raw) if sa.paid_hash.contains_key(raw.as_str()) => sa.paid_hash
+            [raw.as_str()]
+        .iter()
+        .filter_map(|id| id.parse().ok().map(CardId))
+        .collect(),
         _ => ability_utils::get_defined_cards(
             game,
             sa.source,

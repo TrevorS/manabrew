@@ -1505,7 +1505,7 @@ impl GameLoop {
                         player,
                         card_id,
                         resolved_amount,
-                        sa.as_deref(),
+                        sa.as_deref_mut(),
                         decided.and_then(|cards| cards.first().copied()),
                     );
                 }
@@ -2288,7 +2288,7 @@ impl GameLoop {
                         player,
                         card_id,
                         resolved_amount,
-                        sa.as_deref(),
+                        sa.as_deref_mut(),
                         decided.and_then(|cards| cards.first().copied()),
                     );
                 }
@@ -3813,7 +3813,7 @@ impl GameLoop {
         player: PlayerId,
         _source: CardId,
         amount: i32,
-        cause: Option<&SpellAbility>,
+        cause: Option<&mut SpellAbility>,
         prechosen: Option<CardId>,
     ) {
         let chosen = match prechosen {
@@ -3846,10 +3846,15 @@ impl GameLoop {
                 game,
                 Some(&mut self.trigger_handler),
                 Some(agents),
-                cause,
+                cause.as_deref(),
                 false,
                 Default::default(),
             );
+            if let Some(sa) = cause {
+                let id = chosen.0.to_string();
+                sa.add_cost_to_hash_list(crate::cost::cost_put_counter::HASH_LKI, &id);
+                sa.add_cost_to_hash_list(crate::cost::cost_put_counter::HASH_CARDS, &id);
+            }
         }
     }
 
