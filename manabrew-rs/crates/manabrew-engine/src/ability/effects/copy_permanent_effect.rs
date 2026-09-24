@@ -288,7 +288,5 @@ fn resolve_originals(
         }
     }
 
-    // Check Defined$ parameter first.
-    // Fall back to targeting.
-    sa.target_chosen.target_card.into_iter().collect()
+    crate::ability::spell_ability_effect::get_defined_cards_or_targeted(ctx.game, sa)
 }
