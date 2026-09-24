@@ -787,6 +787,7 @@ impl GameLoop {
 
         // Java parity: triggers fired during resolution are queued now and only
         self.trigger_handler.flush_waiting_triggers(game);
+        self.trigger_handler.reset_active_triggers(game);
     }
 
     pub(crate) fn resolve_spell_effect(
