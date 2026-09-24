@@ -159,8 +159,10 @@ impl GameLoop {
                 Self::cease_to_exist_copied_spell(game, entry.spell_ability.source);
             }
             apply_continuous_effects(game);
+            game.copy_last_state_combat_lki(&self.combat);
             return;
         }
+        game.copy_last_state_combat_lki(&self.combat);
 
         // Copy spells: resolve effect only. CR 707.10 / 111.11 — a copy of a
         // permanent spell becomes a token (`GameAction.changeZone` line 94).
@@ -791,6 +793,7 @@ impl GameLoop {
         // Keep the snapshot pre-SBA so deep parity aligns with Java's
         // GameEventPlayerPriority boundary.
         game.copy_last_state();
+        game.copy_last_state_combat_lki(&self.combat);
 
         // Java parity: triggers fired during resolution are queued now and only
         self.trigger_handler.flush_waiting_triggers(game);

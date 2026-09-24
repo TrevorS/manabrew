@@ -1865,6 +1865,11 @@ impl GameState {
                 &mut parts,
             );
             self.replacement_last_state_battlefield = outer_last_state;
+            let cards = &self.cards;
+            let pre_sba_battlefield = &self.pre_sba_battlefield;
+            self.last_state_battlefield_combat_lki.retain(|(id, _)| {
+                !pre_sba_battlefield.contains(id) || cards[id.index()].zone != ZoneType::Graveyard
+            });
             let table = std::mem::replace(&mut self.pending_change_zone_table, outer_table);
             if let (Some(handler), Some(table)) = (trigger_handler.as_deref_mut(), table) {
                 table.trigger_changes_zone_all(handler, self, None);

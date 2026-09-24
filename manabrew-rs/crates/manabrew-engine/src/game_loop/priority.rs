@@ -334,6 +334,7 @@ impl GameLoop {
                                 );
                                 passed_count = 0;
                             }
+                            game.copy_last_state_combat_lki(&self.combat);
                             // Whether activated or not, skip the normal play_card path
                             continue;
                         }
@@ -427,6 +428,7 @@ impl GameLoop {
                                 .with_player(priority_player),
                         );
                     }
+                    game.copy_last_state_combat_lki(&self.combat);
                 }
                 MainPhaseAction::ActivateMana(land_id, requested_ability_idx, express_choice) => {
                     let action_space = action_space
@@ -748,6 +750,7 @@ impl GameLoop {
                         });
                         passed_count = 0;
                     }
+                    game.copy_last_state_combat_lki(&self.combat);
                 }
             }
         }

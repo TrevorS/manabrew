@@ -899,11 +899,10 @@ fn matches_context_predicate(
         ContextPredicate::AttackingAlone => {
             matches_attacking_predicate(None, card, context)
                 && context.game.is_some_and(|game| {
-                    game.cards
+                    game.last_state_battlefield_combat_lki
                         .iter()
-                        .filter(|other| {
-                            other.zone == forge_foundation::ZoneType::Battlefield
-                                && other.attacking_player.is_some()
+                        .filter(|(id, combat_lki)| {
+                            combat_lki.unwrap_or_else(|| game.card(*id).attacking_player.is_some())
                         })
                         .count()
                         == 1

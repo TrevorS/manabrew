@@ -125,6 +125,21 @@ impl crate::game::GameState {
         }
     }
 
+    pub fn copy_last_state_combat_lki(&mut self, combat: &crate::combat::CombatState) {
+        self.last_state_battlefield_combat_lki = self
+            .cards
+            .iter()
+            .filter(|card| card.zone == ZoneType::Battlefield)
+            .map(|card| {
+                let is_attacker = combat.is_attacking(card.id);
+                (
+                    card.id,
+                    (is_attacker || combat.is_blocking(card.id)).then_some(is_attacker),
+                )
+            })
+            .collect();
+    }
+
     /// Look up a card's LKI snapshot from the last battlefield state.
     /// Returns None if the card wasn't on the battlefield at the last checkpoint.
     pub fn get_lki_snapshot(&self, card_id: CardId) -> Option<&CardSnapshot> {
