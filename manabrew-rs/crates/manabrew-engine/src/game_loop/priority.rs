@@ -54,9 +54,7 @@ impl GameLoop {
                 game.game_over = true;
                 return;
             }
-            self.with_shared_state_mutation(game, agents, |_this, game, _agents| {
-                game.turn.priority_player = priority_player;
-            });
+            game.turn.priority_player = priority_player;
 
             if last_notified_priority != Some(priority_player) {
                 self.notify_priority_changed(game, agents, priority_player);
@@ -113,9 +111,7 @@ impl GameLoop {
                     self.log_priority_pass(game, priority_player);
                     passed_count += 1;
                     priority_player = game.next_player(priority_player);
-                    self.with_shared_state_mutation(game, agents, |_this, game, _agents| {
-                        game.turn.priority_player = priority_player;
-                    });
+                    game.turn.priority_player = priority_player;
                     continue;
                 }
             }
@@ -133,9 +129,7 @@ impl GameLoop {
                 self.log_priority_pass(game, priority_player);
                 passed_count += 1;
                 priority_player = game.next_player(priority_player);
-                self.with_shared_state_mutation(game, agents, |_this, game, _agents| {
-                    game.turn.priority_player = priority_player;
-                });
+                game.turn.priority_player = priority_player;
                 continue;
             }
             self.log_waiting_for_priority(game, priority_player);
@@ -181,9 +175,7 @@ impl GameLoop {
                 }
                 passed_count = 0;
                 priority_player = game.next_player(priority_player);
-                self.with_shared_state_mutation(game, agents, |_this, game, _agents| {
-                    game.turn.priority_player = priority_player;
-                });
+                game.turn.priority_player = priority_player;
                 continue;
             }
 
@@ -230,9 +222,7 @@ impl GameLoop {
                         );
                         passed_count += 1;
                         priority_player = game.next_player(priority_player);
-                        self.with_shared_state_mutation(game, agents, |_this, game, _agents| {
-                            game.turn.priority_player = priority_player;
-                        });
+                        game.turn.priority_player = priority_player;
                         continue;
                     }
                 }
@@ -246,9 +236,7 @@ impl GameLoop {
                     self.log_priority_pass(game, priority_player);
                     passed_count += 1;
                     priority_player = game.next_player(priority_player);
-                    self.with_shared_state_mutation(game, agents, |_this, game, _agents| {
-                        game.turn.priority_player = priority_player;
-                    });
+                    game.turn.priority_player = priority_player;
                 }
                 MainPhaseAction::Play(play) => {
                     agents[priority_player.index()].clear_pass_until();
@@ -271,9 +259,7 @@ impl GameLoop {
                         );
                         passed_count += 1;
                         priority_player = game.next_player(priority_player);
-                        self.with_shared_state_mutation(game, agents, |_this, game, _agents| {
-                            game.turn.priority_player = priority_player;
-                        });
+                        game.turn.priority_player = priority_player;
                         continue;
                     }
 
@@ -448,9 +434,7 @@ impl GameLoop {
                         );
                         passed_count += 1;
                         priority_player = game.next_player(priority_player);
-                        self.with_shared_state_mutation(game, agents, |_this, game, _agents| {
-                            game.turn.priority_player = priority_player;
-                        });
+                        game.turn.priority_player = priority_player;
                         continue;
                     }
                     let undo_record = self.begin_mana_undo_action(game, priority_player, land_id);
@@ -653,9 +637,7 @@ impl GameLoop {
                         );
                         passed_count += 1;
                         priority_player = game.next_player(priority_player);
-                        self.with_shared_state_mutation(game, agents, |_this, game, _agents| {
-                            game.turn.priority_player = priority_player;
-                        });
+                        game.turn.priority_player = priority_player;
                         continue;
                     }
                     self.with_shared_state_mutation(game, agents, |this, game, _agents| {
@@ -688,9 +670,7 @@ impl GameLoop {
                         );
                         passed_count += 1;
                         priority_player = game.next_player(priority_player);
-                        self.with_shared_state_mutation(game, agents, |_this, game, _agents| {
-                            game.turn.priority_player = priority_player;
-                        });
+                        game.turn.priority_player = priority_player;
                         continue;
                     }
                     let activated =
@@ -753,8 +733,6 @@ impl GameLoop {
                 }
             }
         }
-        self.with_shared_state_mutation(game, agents, |_this, game, _agents| {
-            game.turn.priority_player = game.active_player();
-        });
+        game.turn.priority_player = game.active_player();
     }
 }

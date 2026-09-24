@@ -572,9 +572,7 @@ impl GameLoop {
                 game.stack.len()
             ),
         );
-        self.with_shared_state_mutation(game, agents, |_this, game, _agents| {
-            game.turn.priority_player = game.active_player();
-        });
+        game.turn.priority_player = game.active_player();
         loop {
             if game.game_over {
                 return;
