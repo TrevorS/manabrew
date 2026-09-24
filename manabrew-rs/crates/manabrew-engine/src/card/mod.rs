@@ -2294,9 +2294,26 @@ impl Card {
     }
 
     /// Keep in sync with the rules-host block of `Card.getReplacementEffects`. Stun
-    /// counters are handled in `GameState::untap`; shield counters are not ported.
+    /// counters are handled in `GameState::untap`. A shield counter's `Destroy` half is not
+    /// ported: this engine's `Destroy` event carries no cause for its `ValidCause$ SpellAbility`.
     pub fn rules_replacement_effects(&self) -> Vec<crate::replacement::ReplacementEffect> {
         let mut effects = Vec::new();
+        if !self.counters.is_empty()
+            && self.counter_count(&CounterType::Named("SHIELD".to_string())) > 0
+        {
+            let raw = "R$ Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | PreventionEffect$ True | AlwaysReplace$ True | Secondary$ True | Description$ If damage would be dealt to this permanent, prevent that damage and remove a shield counter from it.";
+            if let Some(mut replacement) = crate::replacement::cached_replacement_effect(raw) {
+                replacement.set_host_card(self);
+                replacement.base.set_overriding_ability(
+                    crate::ability::ability_factory::build_spell_ability_from_host_card(
+                        self,
+                        "DB$ RemoveCounter | Defined$ Self | CounterType$ Shield | CounterNum$ 1",
+                        self.controller,
+                    ),
+                );
+                effects.push(replacement);
+            }
+        }
         if !self.counters.is_empty()
             && self.counter_count(&CounterType::Named("FINALITY".to_string())) > 0
         {
