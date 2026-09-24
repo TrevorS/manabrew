@@ -1,6 +1,7 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
+use manabot::agent::AgentKind;
 use manabrew_agent_interface::protocol::GameFormat;
 use manabrew_protocol::deck_dto::{Deck, DeckCard, DeckCardIdentity};
 use serde::Deserialize;
@@ -30,7 +31,12 @@ pub struct Config {
     pub bot_enabled: bool,
     pub bot_username: String,
     pub forge_ai: bool,
+    /// Which agent this node's bot seats play with. One source of truth:
+    /// the seat's relay connection and the in-process responder that may
+    /// answer for it both read this, so they cannot drift apart.
+    pub bot_agent: AgentKind,
     /// Answer this node's bot seats in-process instead of over the relay.
+    /// Only sound because the responder is built from `bot_agent` too.
     pub bot_local_answers: bool,
     pub reconnect_timeout_s: Option<u32>,
     pub table_style: Option<String>,
@@ -138,6 +144,7 @@ impl Config {
             ),
             bot_username,
             forge_ai: env_bool("SELF_HOSTED_NODE_FORGE_AI", "FORGE_ROOM_FORGE_AI", false),
+            bot_agent: AgentKind::default(),
             bot_local_answers: env_bool("SELF_HOSTED_NODE_BOT_LOCAL_ANSWERS", "", true),
             reconnect_timeout_s: env_first("SELF_HOSTED_NODE_RECONNECT_TIMEOUT_S", "")
                 .and_then(|value| value.parse().ok()),
@@ -183,6 +190,7 @@ impl Config {
             bot_enabled: false,
             bot_username,
             forge_ai: false,
+            bot_agent: AgentKind::default(),
             bot_local_answers: true,
             reconnect_timeout_s,
             table_style,
