@@ -316,7 +316,7 @@ mod tests {
         ];
         let mut pools = vec![ManaPool::new(), ManaPool::new()];
         let mut trigger_handler = TriggerHandler::default();
-        let mut rng = crate::game_rng::ThreadRngAdapter;
+        let mut rng = crate::game_rng::ThreadRngAdapter::default();
         let start_life = game.player(p1).life;
 
         RepeatEffect::resolve(
@@ -382,7 +382,7 @@ mod tests {
         ];
         let mut pools = vec![ManaPool::new(), ManaPool::new()];
         let mut trigger_handler = TriggerHandler::default();
-        let mut rng = crate::game_rng::ThreadRngAdapter;
+        let mut rng = crate::game_rng::ThreadRngAdapter::default();
         let start_life = game.player(p1).life;
 
         RepeatEffect::resolve(

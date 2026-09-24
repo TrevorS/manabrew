@@ -249,7 +249,7 @@ fn execute_replacement_ability(
     let local_token_art_variants: HashMap<(String, String), usize> = HashMap::default();
     let local_token_fallback: HashMap<String, String> = HashMap::default();
     let local_edition_dates: HashMap<String, String> = HashMap::default();
-    let mut local_rng = ThreadRngAdapter;
+    let mut local_rng = ThreadRngAdapter::default();
 
     let mut parent_target_card: Option<CardId> = None;
     let mut parent_target_player = None;

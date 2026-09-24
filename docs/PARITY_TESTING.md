@@ -128,6 +128,7 @@ Other useful trace env vars:
 | `FORGE_RNG_BT=1`            | Print Rust RNG backtraces for suspicious bounded calls.              |
 | `FORGE_RNG_BT_BOUNDS=1,2,6` | Forward selected Java RNG bounded-call backtraces for those bounds.  |
 | `FORGE_RNG_BT_UNBOUNDED=1`  | Forward Java unbounded RNG backtraces.                               |
+| `FORGE_RNG_STRICT=1`        | Panic at a `[rng-fallback]` draw instead of printing the line.       |
 | `FORGE_SORT_TRACE=1`        | Trace Java ordering/sorting decisions forwarded through the harness. |
 | `FORGE_STACK_TRACE=1`       | Trace Rust stack casting and resolution paths.                       |
 | `FORGE_PAYMENT_TRACE=1`     | Trace Rust mana payment decisions.                                   |

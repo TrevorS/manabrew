@@ -286,7 +286,7 @@ fn resolve_effect<E: SpellAbilityEffect>(
     let token_art_variants = HashMap::new();
     let token_fallback = HashMap::new();
     let edition_dates = HashMap::new();
-    let mut rng = ThreadRngAdapter;
+    let mut rng = ThreadRngAdapter::default();
     let mut ctx = EffectContext {
         game,
         combat: None,

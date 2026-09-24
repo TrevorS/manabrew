@@ -574,7 +574,7 @@ mod tests {
         let templates_variants: HashMap<(String, String), usize> = HashMap::default();
         let token_fallback: HashMap<String, String> = HashMap::default();
         let edition_dates: HashMap<String, String> = HashMap::default();
-        let mut rng_adapter = crate::game_rng::ThreadRngAdapter;
+        let mut rng_adapter = crate::game_rng::ThreadRngAdapter::default();
         let mut ctx = make_ctx(
             &mut game,
             &mut agents,
@@ -613,7 +613,7 @@ mod tests {
         let templates_variants: HashMap<(String, String), usize> = HashMap::default();
         let token_fallback: HashMap<String, String> = HashMap::default();
         let edition_dates: HashMap<String, String> = HashMap::default();
-        let mut rng_adapter = crate::game_rng::ThreadRngAdapter;
+        let mut rng_adapter = crate::game_rng::ThreadRngAdapter::default();
         let mut ctx = make_ctx(
             &mut game,
             &mut agents,

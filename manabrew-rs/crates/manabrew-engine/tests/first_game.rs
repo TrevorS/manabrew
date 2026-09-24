@@ -62,7 +62,7 @@ fn resolve_sa(game: &mut GameState, sa: &manabrew_engine::spellability::SpellAbi
     let token_art_variants = std::collections::HashMap::new();
     let token_fallback = std::collections::HashMap::new();
     let edition_dates = std::collections::HashMap::new();
-    let mut rng = ThreadRngAdapter;
+    let mut rng = ThreadRngAdapter::default();
     let mut ctx = EffectContext {
         game,
         combat: None,

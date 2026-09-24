@@ -538,7 +538,7 @@ mod tests {
         let token_fallback: crate::HashMap<String, String> = crate::HashMap::default();
         let edition_dates: crate::HashMap<String, String> = crate::HashMap::default();
         let mut mana_pools = vec![ManaPool::new(), ManaPool::new()];
-        let mut rng_adapter = crate::game_rng::ThreadRngAdapter;
+        let mut rng_adapter = crate::game_rng::ThreadRngAdapter::default();
         let mut ctx = EffectContext {
             game: &mut game,
             combat: None,

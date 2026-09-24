@@ -44,17 +44,45 @@ pub trait GameRng {
 }
 
 /// Default RNG using `rand::thread_rng()` — non-deterministic, for normal gameplay.
-pub struct ThreadRngAdapter;
+pub struct ThreadRngAdapter {
+    #[cfg(debug_assertions)]
+    site: &'static std::panic::Location<'static>,
+}
+
+impl Default for ThreadRngAdapter {
+    #[cfg_attr(debug_assertions, track_caller)]
+    fn default() -> Self {
+        ThreadRngAdapter {
+            #[cfg(debug_assertions)]
+            site: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl ThreadRngAdapter {
+    #[cfg(debug_assertions)]
+    fn report_fallback_draw(&self) {
+        let site = format!("{}:{}", self.site.file(), self.site.line());
+        if std::env::var_os("FORGE_RNG_STRICT").is_some_and(|v| v == "1") {
+            panic!("[rng-fallback] {site} drew outside the game RNG");
+        }
+        eprintln!("[rng-fallback] {site}");
+    }
+}
 
 #[allow(clippy::disallowed_methods)]
 impl GameRng for ThreadRngAdapter {
     fn shuffle_cards(&mut self, cards: &mut [CardId]) {
         use rand::seq::SliceRandom;
+        #[cfg(debug_assertions)]
+        self.report_fallback_draw();
         cards.shuffle(&mut rand::thread_rng());
     }
 
     fn next_int(&mut self, bound: i32) -> i32 {
         use rand::Rng;
+        #[cfg(debug_assertions)]
+        self.report_fallback_draw();
         rand::thread_rng().gen_range(0..bound)
     }
 }

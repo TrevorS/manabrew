@@ -109,7 +109,7 @@ mod tests {
         let token_fallback = HashMap::default();
         let edition_dates = HashMap::default();
         let mut mana_pools = vec![ManaPool::new(), ManaPool::new()];
-        let mut rng = crate::game_rng::ThreadRngAdapter;
+        let mut rng = crate::game_rng::ThreadRngAdapter::default();
 
         {
             let mut ctx = EffectContext {

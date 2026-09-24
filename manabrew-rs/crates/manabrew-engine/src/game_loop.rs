@@ -166,7 +166,7 @@ impl GameLoop {
             token_art_variants: Arc::default(),
             token_fallback: Arc::default(),
             edition_dates: Arc::default(),
-            game_rng: Box::new(ThreadRngAdapter),
+            game_rng: Box::new(ThreadRngAdapter::default()),
             experimental_restore_snapshot: false,
             previous_game_state: None,
             checkpoints: VecDeque::new(),
