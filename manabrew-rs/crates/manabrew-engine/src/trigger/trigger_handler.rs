@@ -322,6 +322,27 @@ impl TriggerHandler {
         self.pre_matched_triggers.extend(matched);
     }
 
+    pub fn take_matched_triggers_of(
+        &mut self,
+        game: &GameState,
+        player: PlayerId,
+    ) -> Vec<PendingTrigger> {
+        self.flush_waiting_triggers(game);
+        let (mut taken, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.pre_matched_triggers)
+            .into_iter()
+            .partition(|(_, controller, ..)| *controller == player);
+        self.pre_matched_triggers = kept;
+        taken.sort_by_key(|(_, _, ts, trigger_bucket, trigger_order)| {
+            (
+                if *trigger_bucket == 2 { 1u8 } else { 0 },
+                *ts,
+                *trigger_bucket,
+                *trigger_order,
+            )
+        });
+        taken.into_iter().map(|(pending, ..)| pending).collect()
+    }
+
     /// Mirrors Java's runWaitingTriggers().
     /// Drains waiting queue, matches triggers, returns PendingTriggers.
     /// The caller (game_loop) handles OptionalDecider$ prompting.
