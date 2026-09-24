@@ -1107,6 +1107,30 @@ impl GameState {
         apply_continuous_effects(self);
     }
 
+    pub fn has_static_ability_affecting_zone(
+        &self,
+        zone: ZoneType,
+        layer: crate::staticability::Layer,
+    ) -> bool {
+        self.cards.iter().any(|card| {
+            card.zone.is_static_ability_source()
+                && card.static_abilities.iter().any(|st_ab| {
+                    let affects_zone = if st_ab.ir.affected_zones.is_empty() {
+                        zone == ZoneType::Battlefield
+                    } else {
+                        st_ab.ir.affected_zones.contains(&zone)
+                    };
+                    affects_zone
+                        && st_ab.check_conditions_full(
+                            &crate::staticability::StaticMode::Continuous,
+                            card,
+                            self,
+                        )
+                        && crate::staticability::classify_static_layers(st_ab).contains(&layer)
+                })
+        })
+    }
+
     /// Deal damage to a card (creature).
     ///
     /// Runs replacement effects (e.g. damage prevention) before applying.

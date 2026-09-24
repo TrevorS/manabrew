@@ -353,6 +353,25 @@ impl GameLoop {
         )
     }
 
+    fn apply_stack_statics(game: &GameState, spell_hosts: &[CardId]) -> Option<GameState> {
+        if spell_hosts.is_empty()
+            || !game.has_static_ability_affecting_zone(
+                ZoneType::Stack,
+                crate::staticability::Layer::Ability,
+            )
+        {
+            return None;
+        }
+        let mut pre = game.clone();
+        for &card_id in spell_hosts {
+            let host = pre.card_mut(card_id);
+            host.cast_from = Some(host.zone);
+            host.zone = ZoneType::Stack;
+        }
+        crate::staticability::layer::apply_continuous_effects(&mut pre);
+        Some(pre)
+    }
+
     fn may_play_secondary_spell_grants(
         &self,
         game: &GameState,
@@ -491,9 +510,13 @@ impl GameLoop {
             .iter()
             .filter_map(|c| c.chosen_type.clone().map(|chosen| (c.id, chosen)))
             .collect();
+        let stack_statics = Self::apply_stack_statics(game, hand);
 
         for &card_id in hand {
             let card = game.card(card_id);
+            let probe_host = stack_statics
+                .as_ref()
+                .map_or(card, |stack_statics| stack_statics.card(card_id));
             if self.can_play_card_state_spell(
                 game,
                 player,
@@ -761,7 +784,7 @@ impl GameLoop {
                         } else {
                             let colored = payable_base.phyrexian_to_colored();
                             let reduced =
-                                apply_cost_reductions(game, player, card_id, card, &colored);
+                                apply_cost_reductions(game, player, card_id, probe_host, &colored);
                             if any_color {
                                 available_mana.can_pay_any_color(&reduced)
                             } else {
@@ -770,7 +793,7 @@ impl GameLoop {
                         }
                     } else {
                         let reduced =
-                            apply_cost_reductions(game, player, card_id, card, &payable_base);
+                            apply_cost_reductions(game, player, card_id, probe_host, &payable_base);
                         if any_color {
                             available_mana.can_pay_any_color(&reduced)
                         } else {
