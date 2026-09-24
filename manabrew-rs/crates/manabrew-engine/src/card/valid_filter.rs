@@ -871,6 +871,7 @@ fn matches_card_state(state: CardStateSelector, card: &Card, context: MatchConte
         CardStateSelector::Saddled => card.get_s_var("Saddled") == Some("True"),
         CardStateSelector::MayPlaySource => card.may_play(context.source_controller),
         CardStateSelector::Suspended => card.has_suspend(),
+        CardStateSelector::HasXCost => card.mana_cost.count_x() > 0,
         CardStateSelector::SingleTarget => false,
         CardStateSelector::PromisedGift => card.promised_gift.is_some(),
         CardStateSelector::RingBearer => context
@@ -2108,6 +2109,7 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         }
         "toplibrary" => matches_context_predicate(&ContextPredicate::TopLibrary, card, context),
         "suspended" => matches_card_state(CardStateSelector::Suspended, card, context),
+        "hasxcost" => matches_card_state(CardStateSelector::HasXCost, card, context),
         "singletarget" => matches_card_state(CardStateSelector::SingleTarget, card, context),
         "promisedgift" => matches_card_state(CardStateSelector::PromisedGift, card, context),
         "isringbearer" => matches_card_state(CardStateSelector::RingBearer, card, context),
@@ -2747,6 +2749,7 @@ fn matches_type_and_qualifier_parts(
                 | "sneaked"
                 | "mayplaysource"
                 | "suspended"
+                | "hasxcost"
                 | "singletarget"
                 | "promisedgift" => {
                     if !legacy_matches_card_atom(raw, card, context) {

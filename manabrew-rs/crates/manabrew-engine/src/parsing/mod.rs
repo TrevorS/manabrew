@@ -440,6 +440,7 @@ pub enum CardStateSelector {
     Saddled,
     MayPlaySource,
     Suspended,
+    HasXCost,
     SingleTarget,
     PromisedGift,
     RingBearer,
@@ -1245,6 +1246,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         }
         "toplibrary" => SelectorPredicate::Context(ContextPredicate::TopLibrary),
         "suspended" => SelectorPredicate::CardState(CardStateSelector::Suspended),
+        "hasxcost" => SelectorPredicate::CardState(CardStateSelector::HasXCost),
         "singletarget" => SelectorPredicate::CardState(CardStateSelector::SingleTarget),
         "promisedgift" => SelectorPredicate::CardState(CardStateSelector::PromisedGift),
         "isringbearer" => SelectorPredicate::CardState(CardStateSelector::RingBearer),
