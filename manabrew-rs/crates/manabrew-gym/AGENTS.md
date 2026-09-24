@@ -22,7 +22,7 @@ Reinforcement-learning environment over the Rust engine. The trainer is meant to
 
 A learner seat's agent sends a `Decision` and blocks on the action channel. The action is validated on the game thread; an invalid one comes back as `Err(ActionError)` and the decision stays open. Dropping the env (or `reset` on a running env) sets the game loop's abort signal and closes the channel; the agent then answers every call with its default and the loop exits at its next abort check. A panic inside the engine ends the game with `EndReason::EnginePanic`.
 
-Caps: `max_turns` (the engine's own turn limit, `EndReason::TurnCap`), `Limits::max_decisions` and `Limits::max_turn_decisions` (learner decisions per game and per turn). A cap ends the game with no winner.
+Caps: `max_turns` (the engine's own turn limit, `EndReason::TurnCap`), `Limits::max_decisions` and `Limits::max_turn_decisions` (learner decisions per game and per turn), and `Limits::max_turn_calls` (learner agent calls per turn, pass-only priority windows and snapshots included). A cap ends the game with no winner. The call cap exists because some engine loops never check the abort signal (the CLEANUP repeat in `GameLoop::step_cleanup` hands out priority on every pass and exits only when a pass performs no state-based action), so past it the agent unwinds the game thread with `resume_unwind(Stalled)`, which skips the panic hook, and the game ends with `EndReason::Stalled`.
 
 ## PlayerAgent methods
 

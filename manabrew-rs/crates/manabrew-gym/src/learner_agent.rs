@@ -26,6 +26,8 @@ use crate::decision::{
 use crate::encode::{Encoder, EncoderConfig};
 use crate::game_env::{EndReason, Envelope, Limits, Message, Step};
 
+pub(crate) struct Stalled;
+
 pub(crate) struct Link {
     env: usize,
     generation: u64,
@@ -41,6 +43,7 @@ struct LinkState {
     decisions: u32,
     turn: u32,
     turn_decisions: u32,
+    turn_calls: u32,
     stop: Option<EndReason>,
     blocked: Duration,
     encoding: Duration,
@@ -117,6 +120,23 @@ impl Link {
         if state.turn != turn {
             state.turn = turn;
             state.turn_decisions = 0;
+            state.turn_calls = 0;
+        }
+    }
+
+    pub(crate) fn turn(&self) -> u32 {
+        self.state.borrow().turn
+    }
+
+    fn count_call(&self) {
+        let calls = {
+            let mut state = self.state.borrow_mut();
+            state.turn_calls += 1;
+            state.turn_calls
+        };
+        if calls > self.limits.max_turn_calls {
+            self.stop(EndReason::Stalled);
+            std::panic::resume_unwind(Box::new(Stalled));
         }
     }
 
@@ -277,6 +297,7 @@ impl LearnerAgent {
     }
 
     fn ask(&mut self, kind: DecisionKind) -> Option<Action> {
+        self.link.count_call();
         if !self.link.admit() {
             return None;
         }
@@ -361,6 +382,7 @@ impl PlayerAgent for LearnerAgent {
     fn snapshot_state(&mut self, game: &GameState, mana_pools: &[ManaPool]) {
         self.turn = game.turn.turn_number;
         self.link.observe_turn(self.turn);
+        self.link.count_call();
         if self.link.stopped() {
             return;
         }

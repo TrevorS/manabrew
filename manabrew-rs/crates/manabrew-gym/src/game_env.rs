@@ -21,7 +21,7 @@ use rand::{Rng, SeedableRng};
 use crate::data::GymData;
 use crate::decision::{Action, ActionError, Decision};
 use crate::encode::EncoderConfig;
-use crate::learner_agent::{LearnerAgent, Link};
+use crate::learner_agent::{LearnerAgent, Link, Stalled};
 use crate::random_agent::Opponent;
 use crate::vec_env::VecEnv;
 
@@ -29,6 +29,7 @@ use crate::vec_env::VecEnv;
 pub struct Limits {
     pub max_decisions: u32,
     pub max_turn_decisions: u32,
+    pub max_turn_calls: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,6 +47,7 @@ impl Default for EnvConfig {
             limits: Limits {
                 max_decisions: 10_000,
                 max_turn_decisions: 1_000,
+                max_turn_calls: 5_000,
             },
             opponent: Opponent::Random { play_weight: 1 },
             encoder: Some(EncoderConfig::default()),
@@ -72,6 +74,7 @@ pub enum EndReason {
     TurnCap,
     DecisionCap,
     TurnDecisionCap,
+    Stalled,
     Aborted,
     EnginePanic(String),
 }
@@ -129,8 +132,12 @@ impl Worker {
                 let outcome = catch_unwind(AssertUnwindSafe(|| play(&data, &config, &spec, &link)))
                     .unwrap_or_else(|panic| Outcome {
                         winner: None,
-                        reason: EndReason::EnginePanic(panic_message(panic)),
-                        turns: 0,
+                        reason: if panic.is::<Stalled>() {
+                            EndReason::Stalled
+                        } else {
+                            EndReason::EnginePanic(panic_message(panic))
+                        },
+                        turns: link.turn(),
                         life: [0, 0],
                         decisions: link.decisions(),
                         checksum: 0,

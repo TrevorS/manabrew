@@ -141,6 +141,6 @@ fn main() {
         turns as f64 / n,
         count(&|r| *r == EndReason::TurnCap),
         count(&|r| matches!(r, EndReason::DecisionCap | EndReason::TurnDecisionCap)),
-        count(&|r| matches!(r, EndReason::EnginePanic(_))),
+        count(&|r| matches!(r, EndReason::EnginePanic(_) | EndReason::Stalled)),
     );
 }

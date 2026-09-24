@@ -169,12 +169,13 @@ fn same_seeds_and_actions_replay_identically_on_one_and_many_envs() {
 }
 
 #[test]
-fn caps_end_games_as_draws_and_bad_actions_are_rejected() {
+fn caps_and_stalls_end_games_as_draws_and_bad_actions_are_rejected() {
     let spec = specs()[0];
     let config = EnvConfig {
         limits: Limits {
             max_decisions: 10_000,
             max_turn_decisions: 3,
+            max_turn_calls: 5_000,
         },
         ..config()
     };
@@ -197,6 +198,25 @@ fn caps_end_games_as_draws_and_bad_actions_are_rejected() {
     assert!(rejected);
     assert_eq!(outcome.reason, EndReason::TurnDecisionCap);
     assert_eq!(outcome.winner, None);
+
+    let stalling = EnvConfig {
+        limits: Limits {
+            max_turn_calls: 20,
+            ..config.limits
+        },
+        ..config
+    };
+    let mut env = GameEnv::new(Arc::clone(&survey().0), stalling);
+    let mut step = env.reset(spec);
+    let outcome = loop {
+        match step {
+            Step::Decision(decision) => {
+                step = env.step(policy.act(&decision.kind)).expect("valid action")
+            }
+            Step::Done(outcome) => break outcome,
+        }
+    };
+    assert_eq!(outcome.reason, EndReason::Stalled);
 
     let mut env = GameEnv::new(Arc::clone(&survey().0), config);
     assert!(matches!(env.reset(spec), Step::Decision(_)));
