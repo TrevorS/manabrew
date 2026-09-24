@@ -2030,6 +2030,7 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
             context.source_card.attached_to == Some(card.id)
         }
         "facedown" => matches_card_state(CardStateSelector::FaceDown, card, context),
+        "faceup" => !matches_card_state(CardStateSelector::FaceDown, card, context),
         "paired" => matches_card_state(CardStateSelector::Paired, card, context),
         "pairedwith" => matches_card_state(CardStateSelector::PairedWithSource, card, context),
         "attached" => matches_card_state(CardStateSelector::Attached, card, context),
@@ -2738,6 +2739,7 @@ fn matches_type_and_qualifier_parts(
                     }
                 }
                 "facedown"
+                | "faceup"
                 | "paired"
                 | "pairedwith"
                 | "equipped"
