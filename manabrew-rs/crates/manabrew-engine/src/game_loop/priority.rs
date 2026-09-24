@@ -76,8 +76,8 @@ impl GameLoop {
                     game.game_over = true;
                     return;
                 }
-                let triggers_added =
-                    self.with_shared_state_mutation(game, agents, |this, game, agents| {
+                let triggers_added = self.trigger_handler.has_waiting_triggers()
+                    && self.with_shared_state_mutation(game, agents, |this, game, agents| {
                         this.process_triggers(game, agents)
                     });
                 // Keep looping while either SBA changed state or new triggers were added
@@ -310,13 +310,15 @@ impl GameLoop {
                                 },
                             );
                             if played.is_some() {
-                                self.with_shared_state_mutation(
-                                    game,
-                                    agents,
-                                    |this, game, agents| {
-                                        this.process_triggers(game, agents);
-                                    },
-                                );
+                                if self.trigger_handler.has_waiting_triggers() {
+                                    self.with_shared_state_mutation(
+                                        game,
+                                        agents,
+                                        |this, game, agents| {
+                                            this.process_triggers(game, agents);
+                                        },
+                                    );
+                                }
                                 passed_count = 0;
                             }
                             game.copy_last_state_combat_lki(&self.combat);
@@ -724,9 +726,11 @@ impl GameLoop {
                         // Process triggers immediately after ability activation so
                         // they go on the stack above the ability (mirroring the
                         // Play arm and Java's addAndUnfreeze behaviour).
-                        self.with_shared_state_mutation(game, agents, |this, game, agents| {
-                            this.process_triggers(game, agents);
-                        });
+                        if self.trigger_handler.has_waiting_triggers() {
+                            self.with_shared_state_mutation(game, agents, |this, game, agents| {
+                                this.process_triggers(game, agents);
+                            });
+                        }
                         passed_count = 0;
                     }
                     game.copy_last_state_combat_lki(&self.combat);

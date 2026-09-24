@@ -270,6 +270,17 @@ impl TriggerHandler {
         self.pre_matched_triggers.len()
     }
 
+    /// Keep in sync with `run_waiting_triggers`: without a waiting event, only pre-matched
+    /// and `Immediate` delayed triggers come out of it.
+    pub fn has_waiting_triggers(&self) -> bool {
+        !self.waiting_triggers.is_empty()
+            || !self.pre_matched_triggers.is_empty()
+            || self
+                .delayed_triggers
+                .iter()
+                .any(|delayed| delayed.mode == TriggerType::Immediate)
+    }
+
     /// Match waiting triggers NOW, while source cards are still in their
     /// current zones.  Stores results in `pre_matched_triggers` so that a
     /// subsequent `run_waiting_triggers` call returns them even if SBA has
