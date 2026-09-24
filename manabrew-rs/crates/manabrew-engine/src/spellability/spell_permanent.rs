@@ -97,6 +97,7 @@ pub fn create_permanent_spell(
         trigger_spawning_ability: None,
         root_ability_text: None,
         additional_ability_lists: HashMap::default(),
+        svars: std::collections::BTreeMap::new(),
         charm_modes_chosen: false,
         replacing_objects: HashMap::default(),
         trigger_remembered: Vec::new(),

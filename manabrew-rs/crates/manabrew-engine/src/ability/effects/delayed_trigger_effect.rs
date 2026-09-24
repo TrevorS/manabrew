@@ -21,7 +21,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let mode = parsed.kind;
 
     let execute_svar = if let Some(exec) = sa.ir.execute.as_deref() {
-        if let Some(svar_text) = ctx.game.card(source_id).get_s_var(exec) {
+        if let Some(svar_text) = crate::ability::ability_utils::get_s_var(sa, ctx.game, exec) {
             svar_text.to_string()
         } else {
             exec.to_string()

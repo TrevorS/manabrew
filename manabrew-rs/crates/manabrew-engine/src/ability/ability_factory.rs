@@ -433,6 +433,7 @@ fn build_vanilla_spell_ability(card: &Card, card_id: CardId, player: PlayerId) -
         trigger_spawning_ability: None,
         root_ability_text: None,
         additional_ability_lists: crate::HashMap::default(),
+        svars: std::collections::BTreeMap::new(),
         charm_modes_chosen: false,
         replacing_objects: crate::HashMap::default(),
         trigger_remembered: Vec::new(),
@@ -471,6 +472,16 @@ fn build_spell_ability_for_host(
     sa.activating_player = player;
     sa.source_zone_timestamp = Some(host.zone_timestamp);
     sa.card_state = Some(host.get_current_state_name());
+    if matches!(
+        sa.api,
+        Some(ApiType::DelayedTrigger | ApiType::ImmediateTrigger)
+    ) {
+        if let Some(execute) = sa.ir.execute.as_deref() {
+            if let Some(text) = host.get_s_var(execute) {
+                sa.svars.insert(execute.to_string(), text.to_string());
+            }
+        }
+    }
     sa.sub_ability = if let Some(sub_svar_name) = sa.ir.sub_ability_name.as_deref() {
         let depth = SUB_ABILITY_CHAIN_DEPTH.with(|d| d.get());
         if depth >= MAX_SUB_ABILITY_CHAIN_DEPTH {
@@ -654,6 +665,7 @@ fn build_spell_ability_of_type_with_params(
         trigger_spawning_ability: None,
         root_ability_text: None,
         additional_ability_lists: crate::HashMap::default(),
+        svars: std::collections::BTreeMap::new(),
         charm_modes_chosen: false,
         replacing_objects: crate::HashMap::default(),
         trigger_remembered: Vec::new(),

@@ -117,6 +117,8 @@ pub struct SpellAbility {
     pub targeting_player: Option<PlayerId>,
     /// The raw ability text (pipe-delimited params).
     pub ability_text: String,
+    #[serde(default)]
+    pub svars: std::collections::BTreeMap<String, String>,
     /// Java parity: AB/SP/ST/DB record kind used to distinguish sub-abilities.
     #[serde(default)]
     pub record_type: AbilityRecordType,
@@ -741,6 +743,7 @@ impl SpellAbility {
             trigger_spawning_ability: None,
             root_ability_text: None,
             additional_ability_lists: HashMap::default(),
+            svars: std::collections::BTreeMap::new(),
             charm_modes_chosen: false,
             replacing_objects: HashMap::default(),
             trigger_remembered: Vec::new(),
