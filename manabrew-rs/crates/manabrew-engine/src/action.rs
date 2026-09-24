@@ -359,6 +359,13 @@ impl GameState {
         if indirect_aura && self.aura_attach_candidates(card_id).is_empty() {
             return;
         }
+        if dest_zone == ZoneType::Battlefield
+            && !matches!(src_zone, ZoneType::Stack | ZoneType::Battlefield)
+        {
+            let card = self.card_mut(card_id);
+            card.cast_sa = None;
+            card.svars.remove("XPaid");
+        }
         let mut etb_counters = std::collections::BTreeMap::new();
         if dest_zone == ZoneType::Battlefield {
             for keyword in self.cards[card_id.index()].keywords.as_string_list() {
