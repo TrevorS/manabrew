@@ -1984,6 +1984,18 @@ impl GameLoop {
                 {
                     continue;
                 }
+                let cast_sa =
+                    crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
+                if cast_sa
+                    .target_restrictions
+                    .as_ref()
+                    .is_some_and(|tr| tr.get_min_targets(game, &cast_sa) > 0)
+                    && !target_restrictions::has_candidates_in_spell_ability_chain(
+                        game, player, &cast_sa,
+                    )
+                {
+                    continue;
+                }
                 playable.push(crate::agent::PlayOption {
                     card_id,
                     mode: crate::agent::PlayCardMode::Alternative(
