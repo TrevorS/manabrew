@@ -99,6 +99,7 @@ impl JavaBridge {
         // Cap JVM heap to prevent unbounded memory consumption on VMs.
         cmd.arg(format!("-Xmx{}", self.config.java_heap));
         cmd.arg(format!("-Xms{}", self.config.java_heap));
+        cmd.arg("-XX:+DisableExplicitGC");
         cmd.arg("-Dfile.encoding=UTF-8");
         cmd.arg("-Dsun.stdout.encoding=UTF-8");
         cmd.arg("-Dsun.stderr.encoding=UTF-8");
@@ -407,6 +408,7 @@ impl JavaServer {
         // Cap JVM heap to prevent unbounded memory consumption on VMs.
         cmd.arg(format!("-Xmx{}", config.java_heap));
         cmd.arg(format!("-Xms{}", config.java_heap));
+        cmd.arg("-XX:+DisableExplicitGC");
         cmd.arg("-Dfile.encoding=UTF-8");
         cmd.arg("-Dsun.stdout.encoding=UTF-8");
         cmd.arg("-Dsun.stderr.encoding=UTF-8");
