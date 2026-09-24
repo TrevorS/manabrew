@@ -867,6 +867,7 @@ impl GameState {
                 card.exiled_cards.clear();
                 card.reset_crewed();
                 card.reset_saddled();
+                card.activations_this_game.clear();
                 if !keep_counters {
                     card.counters.clear();
                 }
