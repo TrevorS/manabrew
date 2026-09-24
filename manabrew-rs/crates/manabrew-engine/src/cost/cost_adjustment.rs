@@ -362,12 +362,7 @@ fn compute_cost_adjustment_inner(
                 continue;
             }
 
-            if !st_ab.zones_check(source.zone) {
-                continue;
-            }
-
-            // ── checkRequirement: common CardTraitBase requirements ──
-            if !st_ab.meets_card_trait_requirements(game, source, source) {
+            if !st_ab.check_conditions(source, game) {
                 continue;
             }
 
