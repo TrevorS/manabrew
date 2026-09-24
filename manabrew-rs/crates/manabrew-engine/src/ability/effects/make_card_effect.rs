@@ -67,7 +67,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 card.set_tapped(true);
             }
             if sa.param_is_true(keys::FACE_DOWN) {
-                card.set_face_down(true);
+                crate::card::card_factory_util::turn_face_down_with_state(&mut card);
             }
 
             let card_id = ctx.game.create_card(card);

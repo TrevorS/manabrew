@@ -331,6 +331,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
             let old_zone = ctx.game.card(card_id).zone;
             ctx.game.setup_static_effect(card_id, sa);
+            if dest_zone == ZoneType::Battlefield && sa.is_face_down() {
+                crate::card::card_factory_util::turn_face_down_with_state(
+                    ctx.game.card_mut(card_id),
+                );
+                crate::card::card_factory_util::set_face_down_state(ctx.game, card_id, sa);
+            }
             ctx.move_card(card_id, dest_zone, dest_owner);
             if sa.is_remember_changed() && ctx.game.card(card_id).zone != old_zone {
                 let remembers = match crate::parsing::raw_get(

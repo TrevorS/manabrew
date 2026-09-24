@@ -69,6 +69,26 @@ pub fn ability_morph_up(card: &mut Card, morph_details: &str, mega: bool, disgui
     }
 }
 
+pub fn turn_face_down_with_state(card: &mut Card) {
+    card.set_face_down(true);
+    card.set_original_state_as_face_down();
+    card.set_static_set_pt(None, None);
+    let disguise_cost = face_up_keyword_cost(card, "Disguise");
+    let megamorph_cost = face_up_keyword_cost(card, "Megamorph");
+    if let Some(morph_details) = disguise_cost
+        .clone()
+        .or_else(|| megamorph_cost.clone())
+        .or_else(|| face_up_keyword_cost(card, "Morph"))
+    {
+        ability_morph_up(
+            card,
+            &morph_details,
+            disguise_cost.is_none() && megamorph_cost.is_some(),
+            disguise_cost.is_some(),
+        );
+    }
+}
+
 pub fn set_face_down_state(
     game: &mut crate::game::GameState,
     card_id: crate::ids::CardId,

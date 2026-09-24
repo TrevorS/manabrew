@@ -318,6 +318,10 @@ fn resolve_for_player(
         } else {
             owner
         };
+        if sa.is_face_down() && !dest_zone1.is_deck() {
+            crate::card::card_factory_util::turn_face_down_with_state(ctx.game.card_mut(id));
+            crate::card::card_factory_util::set_face_down_state(ctx.game, id, sa);
+        }
         ctx.move_card(id, dest_zone1, dest_owner);
         zone_movements.put(Some(ZoneType::Library), Some(dest_zone1), id);
         if dest_zone1 == ZoneType::Library {
