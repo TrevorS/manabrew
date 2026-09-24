@@ -190,6 +190,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     ends_at_end_of_turn: !until_registered
                         && !is_permanent_duration
                         && !is_perpetual,
+                    new_power: None,
+                    new_toughness: None,
+                    new_color: None,
                 }));
         }
 
@@ -287,11 +290,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .apply_effect(ctx.game.card_mut(card_id));
             }
         } else {
+            let card = ctx.game.card_mut(card_id);
             if let Some(val) = parsed_power {
-                ctx.game.card_mut(card_id).set_base_power(Some(val));
+                card.set_base_power(Some(val));
             }
             if let Some(val) = parsed_toughness {
-                ctx.game.card_mut(card_id).set_base_toughness(Some(val));
+                card.set_base_toughness(Some(val));
+            }
+            if let Some(state) = card.animate_state.as_mut() {
+                state.add_new_pt(parsed_power, parsed_toughness);
             }
         }
 
@@ -339,7 +346,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     }
                     .apply_effect(ctx.game.card_mut(card_id));
                 } else {
-                    ctx.game.card_mut(card_id).set_color(new_color);
+                    let card = ctx.game.card_mut(card_id);
+                    card.set_color(new_color);
+                    if let Some(state) = card.animate_state.as_mut() {
+                        state.add_color(new_color, false);
+                    }
                 }
             } else if let Some(ts) = effect_ts {
                 perpetual_colors::PerpetualColors {
@@ -349,8 +360,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
                 .apply_effect(ctx.game.card_mut(card_id));
             } else {
-                let union = ctx.game.card(card_id).color.union(new_color);
-                ctx.game.card_mut(card_id).set_color(union);
+                let card = ctx.game.card_mut(card_id);
+                card.set_color(card.color.union(new_color));
+                if let Some(state) = card.animate_state.as_mut() {
+                    state.add_color(new_color, true);
+                }
             }
         }
 

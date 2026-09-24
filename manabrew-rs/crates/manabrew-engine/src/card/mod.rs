@@ -212,6 +212,42 @@ pub struct AnimateState {
     /// branch is end of turn; only that branch may be undone by the cleanup step.
     #[serde(default = "crate::card::animate_ends_at_end_of_turn_default")]
     pub ends_at_end_of_turn: bool,
+    #[serde(default)]
+    pub new_power: Option<i32>,
+    #[serde(default)]
+    pub new_toughness: Option<i32>,
+    #[serde(default)]
+    pub new_color: Option<(ColorSet, bool)>,
+}
+
+impl AnimateState {
+    pub fn add_new_pt(&mut self, power: Option<i32>, toughness: Option<i32>) {
+        self.new_power = power.or(self.new_power);
+        self.new_toughness = toughness.or(self.new_toughness);
+    }
+
+    pub fn add_color(&mut self, color: ColorSet, add_to_colors: bool) {
+        self.new_color = Some(match self.new_color {
+            Some((previous, additional)) if add_to_colors => (previous.union(color), additional),
+            _ => (color, add_to_colors),
+        });
+    }
+
+    pub fn apply_new_pt_and_color(&self, card: &mut Card) {
+        if let Some(power) = self.new_power {
+            card.base_power = Some(power);
+        }
+        if let Some(toughness) = self.new_toughness {
+            card.base_toughness = Some(toughness);
+        }
+        if let Some((color, additional)) = self.new_color {
+            card.color = if additional {
+                card.color.union(color)
+            } else {
+                color
+            };
+        }
+    }
 }
 
 pub(crate) fn animate_ends_at_end_of_turn_default() -> bool {
@@ -4864,7 +4900,6 @@ impl Card {
             .collect();
         let mut granted_triggers = Vec::new();
         let mut lasting_trigger_count = 0;
-        let mut animated = None;
         if self.other_part.is_some() {
             let base = self.base_trigger_count.min(self.triggers.len());
             let face = self
@@ -4876,12 +4911,6 @@ impl Card {
                 self.type_line = type_line;
             }
             if let Some(state) = self.animate_state.as_ref() {
-                animated = Some((
-                    (self.base_power != state.original_base_power).then_some(self.base_power),
-                    (self.base_toughness != state.original_base_toughness)
-                        .then_some(self.base_toughness),
-                    (self.color != state.original_color).then_some(self.color),
-                ));
                 self.type_line = state.original_type_line.clone();
                 self.base_power = state.original_base_power;
                 self.base_toughness = state.original_base_toughness;
@@ -4949,24 +4978,14 @@ impl Card {
                     self.add_intrinsic_keyword(kw);
                 }
             }
-            if let Some((power, toughness, color)) = animated {
-                if let Some(mut state) = self.animate_state.take() {
-                    state.original_type_line = self.type_line.clone();
-                    state.original_base_power = self.base_power;
-                    state.original_base_toughness = self.base_toughness;
-                    state.original_color = self.color;
-                    state.original_keywords = Some(self.keywords.clone());
-                    self.animate_state = Some(state);
-                }
-                if let Some(power) = power {
-                    self.base_power = power;
-                }
-                if let Some(toughness) = toughness {
-                    self.base_toughness = toughness;
-                }
-                if let Some(color) = color {
-                    self.color = color;
-                }
+            if let Some(mut state) = self.animate_state.take() {
+                state.original_type_line = self.type_line.clone();
+                state.original_base_power = self.base_power;
+                state.original_base_toughness = self.base_toughness;
+                state.original_color = self.color;
+                state.original_keywords = Some(self.keywords.clone());
+                state.apply_new_pt_and_color(self);
+                self.animate_state = Some(state);
             }
             if !self.changed_card_types.is_empty() {
                 for (_, change) in self.changed_card_types.clone() {

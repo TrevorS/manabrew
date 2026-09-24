@@ -232,6 +232,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     original_keywords: Some(original_keywords),
                     trait_change_timestamps: Vec::new(),
                     ends_at_end_of_turn: !until_registered,
+                    new_power: None,
+                    new_toughness: None,
+                    new_color: None,
                 }));
         }
 
@@ -360,8 +363,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             if let Some(val) = parsed_toughness {
                 card.set_base_toughness(Some(val));
             }
-            if is_permanent_duration {
-                if let Some(state) = card.animate_state.as_mut() {
+            if let Some(state) = card.animate_state.as_mut() {
+                if !is_permanent_duration {
+                    state.add_new_pt(parsed_power, parsed_toughness);
+                } else {
                     if parsed_power.is_some() {
                         state.original_base_power = parsed_power;
                     }
@@ -577,9 +582,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             } else {
                 let card = ctx.game.card_mut(card_id);
                 card.set_color(new_color);
-                if is_permanent_duration {
-                    if let Some(state) = card.animate_state.as_mut() {
+                if let Some(state) = card.animate_state.as_mut() {
+                    if is_permanent_duration {
                         state.original_color = new_color;
+                    } else {
+                        state.add_color(new_color, false);
                     }
                 }
             }

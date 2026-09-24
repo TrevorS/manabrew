@@ -416,33 +416,21 @@ fn resolve_clone_source(
 
 #[derive(Clone)]
 struct ActiveAnimationSnapshot {
-    original_type_line: CardTypeLine,
-    original_color: ColorSet,
-    original_base_power: Option<i32>,
-    original_base_toughness: Option<i32>,
+    state: crate::card::AnimateState,
     original_keywords: Option<Vec<String>>,
     type_line: CardTypeLine,
-    color: ColorSet,
-    base_power: Option<i32>,
-    base_toughness: Option<i32>,
     keywords: Vec<String>,
 }
 
 fn capture_active_animation(card: &crate::card::Card) -> Option<ActiveAnimationSnapshot> {
-    let state = card.animate_state.as_ref()?;
+    let state = card.animate_state.clone()?;
     Some(ActiveAnimationSnapshot {
-        original_type_line: state.original_type_line.clone(),
-        original_color: state.original_color,
-        original_base_power: state.original_base_power,
-        original_base_toughness: state.original_base_toughness,
         original_keywords: state
             .original_keywords
             .as_ref()
             .map(|kws| kws.iter_strings().map(str::to_string).collect()),
+        state,
         type_line: card.type_line.clone(),
-        color: card.color,
-        base_power: card.base_power,
-        base_toughness: card.base_toughness,
         keywords: card.keywords.iter_strings().map(str::to_string).collect(),
     })
 }
@@ -451,19 +439,20 @@ fn reapply_active_animation(card: &mut crate::card::Card, animation: &ActiveAnim
     for supertype in animation
         .type_line
         .supertypes
-        .difference(&animation.original_type_line.supertypes)
+        .difference(&animation.state.original_type_line.supertypes)
     {
         card.type_line.supertypes.insert(*supertype);
     }
     for core_type in animation
         .type_line
         .core_types
-        .difference(&animation.original_type_line.core_types)
+        .difference(&animation.state.original_type_line.core_types)
     {
         card.type_line.core_types.insert(*core_type);
     }
     for subtype in &animation.type_line.subtypes {
         if animation
+            .state
             .original_type_line
             .subtypes
             .iter()
@@ -483,15 +472,7 @@ fn reapply_active_animation(card: &mut crate::card::Card, animation: &ActiveAnim
     card.update_types();
     card.update_types_for_view();
 
-    if animation.color != animation.original_color {
-        card.color = animation.color;
-    }
-    if animation.base_power != animation.original_base_power {
-        card.base_power = animation.base_power;
-    }
-    if animation.base_toughness != animation.original_base_toughness {
-        card.base_toughness = animation.base_toughness;
-    }
+    animation.state.apply_new_pt_and_color(card);
 
     let original_keywords = animation.original_keywords.as_deref().unwrap_or(&[]);
     for keyword in &animation.keywords {
