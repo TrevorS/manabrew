@@ -158,7 +158,7 @@ fn push_spell_to_stack(
     ctx.game.card_mut(card_id).cast_from = cast_zone;
     ctx.move_card(card_id, ZoneType::Stack, controller);
     ctx.game.player_record_spell_cast(controller, card_id);
-    ctx.game.stack.record_spell_cast(card_id, cast_zone);
+    ctx.game.stack.record_spell_cast(card_id, cast_zone, None);
 
     ctx.trigger_handler.run_trigger(
         TriggerType::SpellCast,

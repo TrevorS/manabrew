@@ -168,6 +168,9 @@ pub struct MagicStack {
     #[serde(default)]
     last_turn_cast_from: Vec<Option<ZoneType>>,
 
+    #[serde(default)]
+    this_turn_cast_may_play: Vec<Option<(CardId, Option<usize>)>>,
+
     /// Abilities activated this turn.
     #[serde(default)]
     this_turn_activated: Vec<SpellAbility>,
@@ -215,6 +218,7 @@ impl MagicStack {
             last_turn_cast: Vec::new(),
             this_turn_cast_from: Vec::new(),
             last_turn_cast_from: Vec::new(),
+            this_turn_cast_may_play: Vec::new(),
             this_turn_activated: Vec::new(),
             max_distinct_sources: 0,
             undo_stack: Vec::new(),
@@ -372,6 +376,7 @@ impl MagicStack {
         self.this_turn_cast.clear();
         self.last_turn_cast_from.clear();
         self.this_turn_cast_from.clear();
+        self.this_turn_cast_may_play.clear();
         self.simultaneous_entries.clear();
         self.undo_stack.clear();
         self.undo_stack_owner = None;
@@ -670,13 +675,24 @@ impl MagicStack {
     pub fn on_next_turn(&mut self) {
         self.last_turn_cast = std::mem::take(&mut self.this_turn_cast);
         self.last_turn_cast_from = std::mem::take(&mut self.this_turn_cast_from);
+        self.this_turn_cast_may_play.clear();
         self.this_turn_activated.clear();
     }
 
     /// Record that a spell was cast this turn (for storm count, etc.).
-    pub fn record_spell_cast(&mut self, card_id: CardId, cast_from: Option<ZoneType>) {
+    pub fn record_spell_cast(
+        &mut self,
+        card_id: CardId,
+        cast_from: Option<ZoneType>,
+        may_play: Option<(CardId, Option<usize>)>,
+    ) {
         self.this_turn_cast.push(card_id);
         self.this_turn_cast_from.push(cast_from);
+        self.this_turn_cast_may_play.push(may_play);
+    }
+
+    pub fn get_spells_cast_this_turn_may_play(&self) -> &[Option<(CardId, Option<usize>)>] {
+        &self.this_turn_cast_may_play
     }
 
     /// Get the number of spells cast this turn (storm count).

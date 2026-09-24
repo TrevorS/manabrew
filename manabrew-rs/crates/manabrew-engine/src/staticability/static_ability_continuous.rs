@@ -226,13 +226,9 @@ pub fn may_play_turn(st_ab: &StaticAbility, source: &Card, game: &GameState) -> 
     let index = static_index(st_ab, source);
     let spells = game
         .stack
-        .get_spells_cast_this_turn()
+        .get_spells_cast_this_turn_may_play()
         .iter()
-        .filter(|&&cid| {
-            game.card(cid).cast_sa.as_deref().is_some_and(|sa| {
-                sa.may_play_source == Some(source.id) && sa.may_play_static == index
-            })
-        })
+        .filter(|&&may_play| may_play == Some((source.id, index)))
         .count() as i32;
     st_ab.may_play_turn + spells
 }

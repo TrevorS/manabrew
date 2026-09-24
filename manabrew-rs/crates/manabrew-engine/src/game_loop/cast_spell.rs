@@ -2887,7 +2887,12 @@ impl GameLoop {
         }
         // Track spell cast on the stack (storm count, etc.)
         let cast_from = game.card(card_id).cast_from;
-        game.stack.record_spell_cast(card_id, cast_from);
+        game.stack.record_spell_cast(
+            card_id,
+            cast_from,
+            sa.may_play_source
+                .map(|source| (source, sa.may_play_static)),
+        );
 
         let cast_zone = if is_foretell {
             Some(ZoneType::Exile)
