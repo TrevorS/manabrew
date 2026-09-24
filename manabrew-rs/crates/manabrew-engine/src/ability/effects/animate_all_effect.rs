@@ -340,8 +340,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
             } else {
                 for trig in &parsed_triggers {
-                    ctx.game.card_mut(card_id).add_trigger(trig.clone());
-                    ctx.game.card_mut(card_id).increment_pump_trigger_count();
+                    ctx.game.card_mut(card_id).add_pump_trigger(trig.clone());
                     if !trig.execute.is_empty() {
                         if let Some(exec_svar) = source_svars.get(&trig.execute) {
                             ctx.game

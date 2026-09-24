@@ -501,8 +501,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     if is_permanent_duration {
                         ctx.game.card_mut(card_id).add_lasting_trigger(trig.clone());
                     } else {
-                        ctx.game.card_mut(card_id).add_trigger(trig.clone());
-                        ctx.game.card_mut(card_id).increment_pump_trigger_count();
+                        ctx.game.card_mut(card_id).add_pump_trigger(trig.clone());
                     }
                     // Copy the Execute SVar from source to target so trigger resolution
                     // can find it (e.g. SupernaturalStaminaTrigChangeZone)

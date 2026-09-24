@@ -1853,12 +1853,9 @@ impl Card {
         if count == 0 {
             return;
         }
-        let new_len = self
-            .triggers
-            .len()
-            .saturating_sub(count)
-            .max(self.base_trigger_count);
-        self.triggers.truncate(new_len);
+        let start = self.base_trigger_count.min(self.triggers.len());
+        let end = (start + count).min(self.triggers.len());
+        self.triggers.drain(start..end);
         self.pump_trigger_count = 0;
     }
 
@@ -3489,7 +3486,10 @@ impl Card {
         self.pump_keywords.clear();
     }
 
-    pub fn increment_pump_trigger_count(&mut self) {
+    pub fn add_pump_trigger(&mut self, mut trigger: Trigger) {
+        trigger.bind_host_card_id(self.id);
+        let at = (self.base_trigger_count + self.pump_trigger_count).min(self.triggers.len());
+        self.triggers.insert(at, trigger);
         self.pump_trigger_count += 1;
     }
 
