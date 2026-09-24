@@ -2401,6 +2401,14 @@ impl GameState {
         if !card.tapped {
             return false;
         }
+        let mut event = ReplacementEvent::Untap {
+            card: card_id,
+            player,
+        };
+        if crate::replacement::replacement_handler::cant_happen_check(self, &event) {
+            return false;
+        }
+        let card = &self.cards[card_id.index()];
         let stun = CounterType::Named("STUN".to_string());
         if card.counter_count(&stun) > 0 && card.can_remove_counters(&stun) {
             // Stun counters replace the untap event: remove one counter and keep the
@@ -2409,10 +2417,6 @@ impl GameState {
             return false;
         }
         // Run Untap replacement effects.
-        let mut event = ReplacementEvent::Untap {
-            card: card_id,
-            player,
-        };
         let result = apply_replacements(self, &mut event);
         if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
             return false; // Untap was prevented
