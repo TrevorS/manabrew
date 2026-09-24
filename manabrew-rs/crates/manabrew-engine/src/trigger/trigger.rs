@@ -482,7 +482,23 @@ impl Trigger {
             }
         }
         let host = game.card(host_card);
-        if !self.meets_card_trait_requirements(game, host, &self.base.card_trait_base) {
+        let trigger_remembered = self
+            .trigger_remembered
+            .iter()
+            .filter_map(|value| match value {
+                AbilityValue::Card(card_id) => Some(*card_id),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if !self
+            .card_trait_requirements()
+            .meets_with_trigger_remembered(
+                game,
+                host,
+                &self.base.card_trait_base,
+                &trigger_remembered,
+            )
+        {
             return false;
         }
         self.check_resolved_limit(game, host_card)

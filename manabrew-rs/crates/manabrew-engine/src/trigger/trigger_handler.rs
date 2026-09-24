@@ -735,6 +735,9 @@ impl TriggerHandler {
                     continue;
                 }
                 let tmp_trigger = delayed.as_trigger(game);
+                if !tmp_trigger.requirements_check(game, delayed.source_card) {
+                    continue;
+                }
                 if !delayed
                     .trigger_mode
                     .perform_test(&tmp_trigger, event_payload, game)

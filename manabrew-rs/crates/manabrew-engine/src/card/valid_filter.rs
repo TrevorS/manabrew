@@ -232,7 +232,17 @@ impl CardTraitRequirementsIr {
     }
 
     pub fn meets(&self, game: &GameState, source: &Card, svar_source: &dyn HasSVars) -> bool {
-        meets_card_trait_requirements(self, game, source, svar_source)
+        meets_card_trait_requirements(self, game, source, svar_source, &[])
+    }
+
+    pub fn meets_with_trigger_remembered(
+        &self,
+        game: &GameState,
+        source: &Card,
+        svar_source: &dyn HasSVars,
+        trigger_remembered: &[CardId],
+    ) -> bool {
+        meets_card_trait_requirements(self, game, source, svar_source, trigger_remembered)
     }
 
     fn set(&mut self, key: &str, value: &str) {
@@ -3340,6 +3350,7 @@ fn meets_card_trait_requirements(
     game: &GameState,
     source: &Card,
     svar_source: &dyn HasSVars,
+    trigger_remembered: &[CardId],
 ) -> bool {
     if requirements.is_empty() {
         return true;
@@ -3484,7 +3495,15 @@ fn meets_card_trait_requirements(
             present_zone,
         )
         .into_iter()
-        .filter(|&cid| matches_valid_card_selector_in_game(&selector, game.card(cid), source, game))
+        .filter(|&cid| {
+            matches_valid_card_selector_with_context(
+                &selector,
+                game.card(cid),
+                MatchContext::from_source(source)
+                    .with_game(game)
+                    .with_trigger_remembered_cards(trigger_remembered),
+            )
+        })
         .count() as i32;
         if !compare_requirement_amount(source, svar_source, present_compare, game, count) {
             return false;
@@ -3506,7 +3525,13 @@ fn meets_card_trait_requirements(
         let count = collect_present_cards(game, source, None, present_player, present_zone)
             .into_iter()
             .filter(|&cid| {
-                matches_valid_card_selector_in_game(&selector, game.card(cid), source, game)
+                matches_valid_card_selector_with_context(
+                    &selector,
+                    game.card(cid),
+                    MatchContext::from_source(source)
+                        .with_game(game)
+                        .with_trigger_remembered_cards(trigger_remembered),
+                )
             })
             .count() as i32;
         if !compare_requirement_amount(source, svar_source, present_compare, game, count) {
