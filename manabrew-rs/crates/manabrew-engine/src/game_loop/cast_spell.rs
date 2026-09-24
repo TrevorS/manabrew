@@ -2031,6 +2031,22 @@ impl GameLoop {
         } else {
             None
         };
+        let prechosen_raise_sacrifices = if let Some(ref rc) = raise_cost {
+            match self.prechoose_additional_cost_sacrifices(game, agents, player, rc, Some(&sa)) {
+                Some(picks) => Some(picks),
+                None => rollback_failed_payment!(),
+            }
+        } else {
+            None
+        };
+        let prechosen_raise_discards = if let Some(ref rc) = raise_cost {
+            match self.prechoose_additional_cost_discards(game, agents, player, card_id, rc) {
+                Some(picks) => Some(picks),
+                None => rollback_failed_payment!(),
+            }
+        } else {
+            None
+        };
         let prechosen_raise_cards = if let Some(ref rc) = raise_cost {
             match self.prechoose_additional_cost_cards(game, agents, player, card_id, rc, Some(&sa))
             {
@@ -2703,8 +2719,8 @@ impl GameLoop {
                 None,
                 rc.mandatory,
                 Some(&mut sa),
-                None,
-                None,
+                prechosen_raise_sacrifices.as_deref(),
+                prechosen_raise_discards.as_deref(),
                 None,
                 prechosen_raise_beholds.as_deref(),
                 None,
