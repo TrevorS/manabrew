@@ -45,6 +45,9 @@ impl GameLoop {
                 && state != TurnMachineState::Cleanup
                 && state != TurnMachineState::Done
             {
+                for command in game.end_of_combat.execute_until(None) {
+                    command.run(game, &mut *self.game_rng);
+                }
                 self.combat.clear_with_cards(&mut game.cards);
                 state = TurnMachineState::Cleanup;
                 continue;

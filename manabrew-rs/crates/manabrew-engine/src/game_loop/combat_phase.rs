@@ -20,7 +20,7 @@ impl GameLoop {
         }
         self.emit_phase_trigger(game, PhaseType::CombatBegin);
         self.step_with_priority(game, agents, false);
-        if game.game_over {
+        if game.game_over || game.end_turn_requested {
             self.combat.clear_with_cards(&mut game.cards);
             return;
         }
@@ -554,7 +554,7 @@ impl GameLoop {
         // whenever the combat object exists, regardless of whether attackers were
         // declared), so priority is always given here.
         self.step_with_priority(game, agents, false);
-        if game.game_over {
+        if game.game_over || game.end_turn_requested {
             self.combat.clear_with_cards(&mut game.cards);
             return;
         }
@@ -847,7 +847,7 @@ impl GameLoop {
             }
 
             self.step_with_priority(game, agents, false);
-            if game.game_over {
+            if game.game_over || game.end_turn_requested {
                 self.combat.clear_with_cards(&mut game.cards);
                 game.turn.combat_block_assignments.clear();
                 return;
@@ -916,7 +916,7 @@ impl GameLoop {
             if fs_damage_assigned {
                 self.step_with_priority(game, agents, false);
             }
-            if game.game_over {
+            if game.game_over || game.end_turn_requested {
                 self.combat.clear_with_cards(&mut game.cards);
                 game.turn.combat_block_assignments.clear();
                 return;
@@ -990,7 +990,7 @@ impl GameLoop {
             if damage_assigned {
                 self.step_with_priority(game, agents, false);
             }
-            if game.game_over {
+            if game.game_over || game.end_turn_requested {
                 self.combat.clear_with_cards(&mut game.cards);
                 game.turn.combat_block_assignments.clear();
                 return;
