@@ -68,6 +68,7 @@ pub struct CardSnapshot {
     pub toughness: i32,
     pub counters: BTreeMap<CounterType, i32>,
     pub tapped: bool,
+    pub type_line: forge_foundation::CardTypeLine,
     pub zone: ZoneType,
     pub card_name: String,
     pub exiled_cards: Vec<CardId>,
@@ -85,6 +86,7 @@ impl CardSnapshot {
             toughness: card.toughness(),
             counters: card.counters.clone(),
             tapped: card.tapped,
+            type_line: card.type_line.clone(),
             zone: card.zone,
             card_name: card.card_name.clone(),
             exiled_cards: card.exiled_cards.clone(),
@@ -169,6 +171,7 @@ pub fn battlefield_lki_card(game: &crate::game::GameState, card_id: CardId) -> O
     lki.controller = snapshot.controller;
     lki.counters = snapshot.counters.clone();
     lki.tapped = snapshot.tapped;
+    lki.type_line = snapshot.type_line.clone();
     Some(lki)
 }
 
