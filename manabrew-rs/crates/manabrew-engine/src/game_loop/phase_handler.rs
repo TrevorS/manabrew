@@ -682,6 +682,9 @@ impl GameLoop {
                         chosen.len().min(to_discard)
                     ),
                 );
+                let outer_table = game
+                    .pending_change_zone_table
+                    .replace(crate::card::card_zone_table::CardZoneTable::default());
                 game.begin_discard_batch();
                 for card_id in chosen.iter().take(to_discard) {
                     if game.card(*card_id).zone == ZoneType::Hand {
@@ -693,6 +696,11 @@ impl GameLoop {
                             &mut self.replacement_runtime(),
                         );
                     }
+                }
+                if let Some(table) =
+                    std::mem::replace(&mut game.pending_change_zone_table, outer_table)
+                {
+                    table.trigger_changes_zone_all(&mut self.trigger_handler, game, None);
                 }
                 game.end_discard_batch(&mut self.trigger_handler);
             }
