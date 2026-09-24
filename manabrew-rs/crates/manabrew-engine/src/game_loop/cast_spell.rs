@@ -184,6 +184,7 @@ impl GameLoop {
         card_id: CardId,
         card_name: &str,
         play_mode: crate::agent::PlayCardMode,
+        alt_cost_index: u8,
     ) -> Option<(CardId, String)> {
         let is_back_face_land_play = matches!(play_mode, crate::agent::PlayCardMode::BackFaceLand);
         let can_play_back_face_land = is_back_face_land_play
@@ -194,10 +195,42 @@ impl GameLoop {
                 .is_some_and(|other| other.type_line.is_land());
         if !matches!(
             play_mode,
-            crate::agent::PlayCardMode::Normal | crate::agent::PlayCardMode::BackFaceLand
+            crate::agent::PlayCardMode::Normal
+                | crate::agent::PlayCardMode::BackFaceLand
+                | crate::agent::PlayCardMode::MayPlay(None)
         ) || (is_back_face_land_play && !can_play_back_face_land)
         {
             return None;
+        }
+        if play_mode == crate::agent::PlayCardMode::MayPlay(None) {
+            let alt_cost = crate::staticability::static_ability_continuous::may_play_alt_costs(
+                game,
+                player,
+                game.card(card_id),
+            )
+            .into_iter()
+            .nth(alt_cost_index as usize)?;
+            if !self.pay_ability_cost(
+                game,
+                agents,
+                player,
+                card_id,
+                &parse_cost(&alt_cost),
+                None,
+                false,
+                super::cost_payment::CostPaymentContext::ActivatedAbility,
+                None,
+            ) {
+                let notification =
+                    crate::agent::notification::GameNotification::SpellPaymentFailed {
+                        player,
+                        card_id,
+                    };
+                for agent in agents.iter_mut() {
+                    agent.notify(notification.clone());
+                }
+                return None;
+            }
         }
         let origin_zone = game.card_current_zone(card_id);
         if origin_zone != ZoneType::Hand {

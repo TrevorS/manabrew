@@ -1444,13 +1444,12 @@ impl GameLoop {
                         game,
                     )
                 {
-                    for _ in 0..may_play_grants {
-                        playable.push(crate::agent::PlayOption {
-                            card_id,
-                            mode: crate::agent::PlayCardMode::Normal,
-                            alt_cost_index: 0,
-                        });
-                    }
+                    playable.extend(Self::may_play_land_options(
+                        game,
+                        player,
+                        card_id,
+                        may_play_grants,
+                    ));
                 }
             }
         }
@@ -1669,11 +1668,12 @@ impl GameLoop {
                     if !must_be_instant
                         && crate::spellability::land_ability::can_play(&land_sa, game)
                     {
-                        playable.push(crate::agent::PlayOption {
+                        playable.extend(Self::may_play_land_options(
+                            game,
+                            player,
                             card_id,
-                            mode: crate::agent::PlayCardMode::Normal,
-                            alt_cost_index: 0,
-                        });
+                            count_may_play_grants(card_id).max(1),
+                        ));
                     }
                     continue;
                 }
@@ -1914,13 +1914,12 @@ impl GameLoop {
             if game.card(card_id).is_land() {
                 let land_sa = SpellAbility::new_land(Some(card_id), player);
                 if !must_be_instant && crate::spellability::land_ability::can_play(&land_sa, game) {
-                    for _ in 0..count_may_play_grants(card_id).max(1) {
-                        playable.push(crate::agent::PlayOption {
-                            card_id,
-                            mode: crate::agent::PlayCardMode::Normal,
-                            alt_cost_index: 0,
-                        });
-                    }
+                    playable.extend(Self::may_play_land_options(
+                        game,
+                        player,
+                        card_id,
+                        count_may_play_grants(card_id).max(1),
+                    ));
                 }
                 continue;
             }
@@ -2103,6 +2102,46 @@ impl GameLoop {
                 );
             }
         }
+    }
+
+    fn may_play_land_options(
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+        grants: usize,
+    ) -> Vec<crate::agent::PlayOption> {
+        let alt_cost_grants: Vec<u8> =
+            crate::staticability::static_ability_continuous::may_play_alt_costs(
+                game,
+                player,
+                game.card(card_id),
+            )
+            .iter()
+            .enumerate()
+            .filter(|(_, cost)| {
+                !crate::staticability::static_ability_continuous::is_mana_alt_cost(cost)
+            })
+            .map(|(index, _)| index as u8)
+            .collect();
+        let normal = std::iter::repeat_n(
+            crate::agent::PlayOption {
+                card_id,
+                mode: crate::agent::PlayCardMode::Normal,
+                alt_cost_index: 0,
+            },
+            grants.saturating_sub(alt_cost_grants.len()),
+        );
+        normal
+            .chain(
+                alt_cost_grants
+                    .into_iter()
+                    .map(|alt_cost_index| crate::agent::PlayOption {
+                        card_id,
+                        mode: crate::agent::PlayCardMode::MayPlay(None),
+                        alt_cost_index,
+                    }),
+            )
+            .collect()
     }
 }
 
