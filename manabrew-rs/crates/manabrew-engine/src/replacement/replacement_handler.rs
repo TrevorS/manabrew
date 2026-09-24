@@ -694,32 +694,6 @@ fn set_replacement_event_affected(event: &mut ReplacementEvent, affected: GameEn
     };
 }
 
-fn amount_after_math(mut amount: i32, ops: &str) -> i32 {
-    if ops.is_empty() {
-        return amount;
-    }
-    let parts: Vec<&str> = ops.split('.').collect();
-    let op = parts.first().copied().unwrap_or("");
-    let rhs = parts
-        .get(1)
-        .and_then(|value| value.parse::<i32>().ok())
-        .unwrap_or(0);
-    if op.contains("Plus") {
-        amount += rhs;
-    } else if op.contains("Minus") {
-        amount -= rhs;
-    } else if op.contains("Twice") {
-        amount *= 2;
-    } else if op.contains("Thrice") {
-        amount *= 3;
-    } else if op.contains("HalfUp") {
-        amount = ((amount as f64) / 2.0).ceil() as i32;
-    } else if op.contains("HalfDown") {
-        amount = ((amount as f64) / 2.0).floor() as i32;
-    }
-    amount
-}
-
 pub(crate) fn resolve_replace_value(
     expr: &str,
     game: &GameState,
@@ -746,7 +720,15 @@ pub(crate) fn resolve_replace_value(
         },
         _ => return None,
     };
-    Some(amount_after_math(base, ops))
+    let controller = game.card(source_card_id).controller;
+    Some(crate::svar::do_x_math(
+        base,
+        ops,
+        game,
+        source_card_id,
+        controller,
+        &crate::spellability::SpellAbility::new_empty(Some(source_card_id), controller),
+    ))
 }
 
 pub(crate) fn execute_replace_with_numeric_update(

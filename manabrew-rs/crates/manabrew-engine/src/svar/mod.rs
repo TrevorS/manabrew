@@ -80,7 +80,7 @@ fn apply_simple_operator_chain(num: i32, operators: &str) -> i32 {
     value
 }
 
-fn do_x_math(
+pub(crate) fn do_x_math(
     num: i32,
     operators: &str,
     game: &GameState,
