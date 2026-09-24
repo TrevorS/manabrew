@@ -1083,9 +1083,16 @@ fn matches_controlled_by_reference(
         card.controller != context.source_controller
     } else if reference.eq_ignore_ascii_case("Remembered")
         || reference.eq_ignore_ascii_case("RememberedPlayer")
-        || reference.eq_ignore_ascii_case("RememberedController")
     {
         context.remembered_players.contains(&card.controller)
+    } else if reference.eq_ignore_ascii_case("RememberedController") {
+        context.remembered_players.contains(&card.controller)
+            || context.game.is_some_and(|game| {
+                context
+                    .remembered_cards
+                    .iter()
+                    .any(|&remembered| game.card(remembered).controller == card.controller)
+            })
     } else if reference.eq_ignore_ascii_case("Targeted")
         || reference.eq_ignore_ascii_case("TargetedPlayer")
         || reference.eq_ignore_ascii_case("TargetedController")
