@@ -208,6 +208,25 @@ fn resolve_for_player(
             valid_cmc.retain(|&id| id != chosen && ctx.game.card(id).mana_value() <= totcmc);
         }
         moved
+    } else if crate::parsing::raw_has_key(&sa.ability_text, "WithDifferentPowers") {
+        let mut valid_power = valid.clone();
+        let mut moved = Vec::new();
+        while !valid_power.is_empty() && (any_number || moved.len() < change_num) {
+            let options: Vec<crate::agent::GameEntity> = valid_power
+                .iter()
+                .map(|&id| crate::agent::GameEntity::Card(id))
+                .collect();
+            ctx.agents[dig_player.index()].snapshot_state(ctx.game, ctx.mana_pools);
+            let Some(crate::agent::GameEntity::Card(chosen)) = ctx.agents[dig_player.index()]
+                .choose_single_entity_for_effect(dig_player, &options, true)
+            else {
+                break;
+            };
+            moved.push(chosen);
+            let power = ctx.game.card(chosen).power();
+            valid_power.retain(|&id| ctx.game.card(id).power() != power);
+        }
+        moved
     } else {
         ctx.agents[chooser.index()].choose_dig(
             ctx.game,
