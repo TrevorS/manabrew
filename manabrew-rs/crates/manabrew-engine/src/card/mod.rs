@@ -739,8 +739,6 @@ pub struct Card {
     /// Pre-selected charm/mode indices (for Spree — modes chosen before payment).
     /// If `Some`, charm_effect should use these instead of asking the player again.
     pub chosen_modes: Option<Vec<usize>>,
-    /// Number of extra targets paid for via Strive (0 = no extra targets).
-    pub strive_extra_targets: u32,
     /// Tracks if this card became a target this turn.
     pub targeted_from_this_turn: Vec<PlayerId>,
     /// Temporary controllers layered on this card.
@@ -1051,7 +1049,6 @@ impl Card {
             paying_mana_to_cast: Vec::new(),
             paying_sources_to_cast: Vec::new(),
             chosen_modes: None,
-            strive_extra_targets: 0,
             targeted_from_this_turn: Vec::new(),
             temp_controllers: Vec::new(),
             may_look_at: Vec::new(),
@@ -1298,7 +1295,6 @@ impl Card {
             paying_mana_to_cast: self.paying_mana_to_cast.clone(),
             paying_sources_to_cast: self.paying_sources_to_cast.clone(),
             chosen_modes: self.chosen_modes.clone(),
-            strive_extra_targets: self.strive_extra_targets,
             targeted_from_this_turn: self.targeted_from_this_turn.clone(),
             temp_controllers: self.temp_controllers.clone(),
             may_look_at: self.may_look_at.clone(),
@@ -1594,8 +1590,6 @@ impl Card {
             .clone_from(&self.colors_spent_to_cast);
         refresh_field(&mut out.paying_mana_to_cast, &self.paying_mana_to_cast);
         refresh_field(&mut out.chosen_modes, &self.chosen_modes);
-        out.strive_extra_targets
-            .clone_from(&self.strive_extra_targets);
         refresh_field(
             &mut out.targeted_from_this_turn,
             &self.targeted_from_this_turn,
@@ -3189,10 +3183,6 @@ impl Card {
         self.chosen_type = chosen_type;
         self.chosen_type_controller = chooser;
         self.chosen_type_revealed = revealed;
-    }
-
-    pub fn set_strive_extra_targets(&mut self, value: u32) {
-        self.strive_extra_targets = value;
     }
 
     pub fn set_colors_spent_to_cast(&mut self, colors: u16) {

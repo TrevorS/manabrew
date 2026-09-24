@@ -1389,38 +1389,6 @@ impl GameLoop {
             mana_cost
         };
 
-        // Check Strive: additional cost per target beyond the first.
-        let mana_cost = if let Some(strive_cost_str) = game.card(card_id).get_strive_cost() {
-            let strive_mc = forge_foundation::ManaCost::parse(&strive_cost_str);
-            let available_mana = mana::calculate_available_mana(self.pool(player), game, player);
-            // Calculate max affordable extra targets
-            let mut extra_targets = 0u32;
-            let mut test_cost = mana_cost.clone();
-            for _ in 0..20 {
-                // cap at 20 to avoid infinite loop
-                test_cost = test_cost.add(&strive_mc);
-                if available_mana.can_pay(&test_cost) {
-                    extra_targets += 1;
-                } else {
-                    break;
-                }
-            }
-            if extra_targets > 0 {
-                let mut total = mana_cost.clone();
-                for _ in 0..extra_targets {
-                    total = total.add(&strive_mc);
-                }
-                // Store max targets (1 base + extras) for resolution targeting
-                game.card_mut(card_id)
-                    .set_strive_extra_targets(extra_targets);
-                total
-            } else {
-                mana_cost
-            }
-        } else {
-            mana_cost
-        };
-
         // Check Entwine: pay extra to choose all modes of a modal spell
         let entwine_paid = if let Some(entwine_cost_str) = game.card(card_id).get_entwine_cost() {
             let entwine_mc = forge_foundation::ManaCost::parse(&entwine_cost_str);
@@ -1860,6 +1828,17 @@ impl GameLoop {
             let mut total = mana_cost.clone();
             for _ in 1..selected_count {
                 total = total.add(&esc_mc);
+            }
+            total
+        } else {
+            mana_cost
+        };
+        let mana_cost = if let Some(strive_cost_str) = game.card(card_id).get_strive_cost() {
+            let strive_mc = forge_foundation::ManaCost::parse(&strive_cost_str);
+            let target_count: usize = sa.get_all_target_choices().iter().map(|tc| tc.size()).sum();
+            let mut total = mana_cost.clone();
+            for _ in 1..target_count {
+                total = total.add(&strive_mc);
             }
             total
         } else {

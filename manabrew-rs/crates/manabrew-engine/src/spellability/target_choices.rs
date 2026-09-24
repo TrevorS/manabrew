@@ -58,6 +58,12 @@ impl TargetChoices {
         cards
     }
 
+    pub fn size(&self) -> usize {
+        self.all_target_cards().len()
+            + self.all_target_players().len()
+            + usize::from(self.target_stack_entry.is_some())
+    }
+
     /// Add a target (card and/or player).
     /// Mirrors Java's `TargetChoices.add(GameObject)`.
     pub fn add(&mut self, target_card: Option<CardId>, target_player: Option<PlayerId>) {
