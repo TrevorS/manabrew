@@ -1548,13 +1548,20 @@ pub fn resolve_count_svar(
     source_id: CardId,
     controller: PlayerId,
 ) -> i32 {
-    resolve_count_svar_for_sa(
-        expr,
-        game,
-        source_id,
-        controller,
-        &crate::spellability::SpellAbility::new_empty(Some(source_id), controller),
-    )
+    thread_local! {
+        static EMPTY_SPELL_ABILITY: std::cell::Cell<Option<Box<SpellAbility>>> =
+            const { std::cell::Cell::new(None) };
+    }
+    // Stands in for `SpellAbility::new_empty(Some(source_id), controller)`: only the id
+    // would differ, and the count path never reads it.
+    let mut sa = EMPTY_SPELL_ABILITY
+        .take()
+        .unwrap_or_else(|| Box::new(SpellAbility::new_empty(None, controller)));
+    sa.source = Some(source_id);
+    sa.activating_player = controller;
+    let value = resolve_count_svar_for_sa(expr, game, source_id, controller, &sa);
+    EMPTY_SPELL_ABILITY.set(Some(sa));
+    value
 }
 
 /// Resolve a cost-adjustment `Amount$ <ident>` slot. Tries a direct integer
