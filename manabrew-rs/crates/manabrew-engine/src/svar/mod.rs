@@ -1620,6 +1620,15 @@ fn evaluate_cost_amount_count_expr(
     {
         return n;
     }
+    if let Some(value) = resolve_card_list_expr(
+        expr,
+        game,
+        source.id,
+        source.controller,
+        &SpellAbility::new_empty(Some(source.id), source.controller),
+    ) {
+        return value;
+    }
     crate::ability::effects::resolve_count_svar(expr, game, source.id, source.controller)
 }
 
