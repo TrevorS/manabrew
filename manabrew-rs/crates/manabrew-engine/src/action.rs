@@ -2007,6 +2007,7 @@ impl GameState {
         }
         des_creats.retain(|cid| !no_reg_creats.contains(cid));
 
+        self.hold_checking_static_abilities = true;
         if no_reg_creats.len() > 1 {
             no_reg_creats =
                 self.order_cards_by_their_owners(no_reg_creats, ZoneType::Graveyard, agents);
@@ -2149,6 +2150,7 @@ impl GameState {
                 any_changes = true;
             }
         }
+        self.hold_checking_static_abilities = false;
 
         // CR 704.5q: +1/+1 and -1/-1 counter cancellation
         for &pid in &self.player_order.clone() {

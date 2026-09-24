@@ -190,6 +190,9 @@ fn type_line_has_token(type_line: &CardTypeLine, token: &str) -> bool {
 /// - Any triggered ability fires.
 /// - Before querying `can_attack()` / `can_block()` for combat legality.
 pub fn apply_continuous_effects(game: &mut GameState) {
+    if game.hold_checking_static_abilities {
+        return;
+    }
     let _perf_timer = crate::perf::ScopeTimer::start(
         crate::perf::Metric::ContinuousEffectsCalls,
         crate::perf::Metric::ContinuousEffectsNs,

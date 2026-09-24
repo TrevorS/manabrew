@@ -281,6 +281,8 @@ pub struct GameState {
     /// raised while its own replacement runs.
     #[serde(skip)]
     pub replacements_running: crate::HashSet<(CardId, usize, i32)>,
+    #[serde(skip)]
+    pub hold_checking_static_abilities: bool,
 
     #[serde(skip)]
     pub token_edition_pins: std::collections::BTreeMap<String, String>,
@@ -375,6 +377,7 @@ impl GameState {
             pending_change_zone_table: None,
             pending_discard_batch: None,
             replacements_running: crate::HashSet::default(),
+            hold_checking_static_abilities: false,
             token_edition_pins: std::collections::BTreeMap::new(),
             last_state_battlefield: Vec::new(),
             last_state_battlefield_combat_lki: Vec::new(),
