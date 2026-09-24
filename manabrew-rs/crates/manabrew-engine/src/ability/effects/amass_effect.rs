@@ -33,12 +33,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     // Step 1: If no Army on battlefield, create one
     let has_army = ctx.game.cards.iter().any(|c| {
-        c.zone == ZoneType::Battlefield
-            && c.controller == controller
-            && c.type_line
-                .subtypes
-                .iter()
-                .any(|s| s.eq_ignore_ascii_case("Army"))
+        c.zone == ZoneType::Battlefield && c.controller == controller && c.has_string_type("Army")
     });
 
     if !has_army {
@@ -53,10 +48,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .filter(|c| {
             c.zone == ZoneType::Battlefield
                 && c.controller == controller
-                && c.type_line
-                    .subtypes
-                    .iter()
-                    .any(|s| s.eq_ignore_ascii_case("Army"))
+                && c.has_string_type("Army")
         })
         .map(|c| c.id)
         .collect();
@@ -92,15 +84,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     );
 
     // Step 5: If Army doesn't have the amass type, add it via effect
-    let has_type = ctx
-        .game
-        .card(target)
-        .type_line
-        .subtypes
-        .iter()
-        .any(|s| s.eq_ignore_ascii_case(amass_type));
-
-    if !has_type {
+    if !ctx.game.card(target).has_creature_type(amass_type) {
         add_type_effect(ctx, sa, controller, target, amass_type);
     }
 }
