@@ -4812,6 +4812,14 @@ impl Card {
             .filter(|ab| ab.is_unlock_door)
             .cloned()
             .collect();
+        if self.other_part.is_some() {
+            if let Some(statics) = self.trait_base_static_abilities.clone() {
+                self.static_abilities = statics;
+            }
+            if let Some(replacements) = self.trait_base_replacement_effects.clone() {
+                self.replacement_effects = replacements;
+            }
+        }
         // Java keeps a Room's traits on the card and only moves `currentState`, so this
         // port holds both doors' triggers and statics and filters them in
         // `register_one_trigger` and `StaticAbility::check_conditions`.
