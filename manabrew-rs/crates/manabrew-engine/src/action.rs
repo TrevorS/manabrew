@@ -2003,10 +2003,21 @@ impl GameState {
         }
 
         if !sacrifice_list.is_empty() {
-            if let (Some(handler), Some(agents)) =
-                (trigger_handler.as_deref_mut(), agents.as_deref_mut())
-            {
-                if !crate::game_loop::perform_sacrifice(self, handler, agents, &sacrifice_list)
+            if let (Some(handler), Some(agents), Some(parts)) = (
+                trigger_handler.as_deref_mut(),
+                agents.as_deref_mut(),
+                parts.as_deref_mut(),
+            ) {
+                let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
+                    trigger_handler: handler,
+                    token_templates: parts.token_templates,
+                    token_art_variants: parts.token_art_variants,
+                    token_fallback: parts.token_fallback,
+                    edition_dates: parts.edition_dates,
+                    mana_pools: &mut *parts.mana_pools,
+                    rng: &mut *parts.rng,
+                };
+                if !crate::game_loop::perform_sacrifice(self, &mut runtime, agents, &sacrifice_list)
                     .is_empty()
                 {
                     any_changes = true;

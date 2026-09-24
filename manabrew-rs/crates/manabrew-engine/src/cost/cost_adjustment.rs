@@ -1348,12 +1348,12 @@ fn mana_from_cost(cost: &Cost) -> ManaCost {
 pub fn commit_offerings_and_emerge(
     game: &mut GameState,
     agents: &mut [Box<dyn PlayerAgent>],
-    trigger_handler: &mut TriggerHandler,
+    runtime: &mut crate::replacement::replacement_handler::ReplacementRuntime<'_>,
     sa: &mut SpellAbility,
 ) {
     let to_sacrifice: Vec<_> = [sa.sacrificed_as_offering, sa.sacrificed_as_emerge]
         .into_iter()
         .flatten()
         .collect();
-    crate::game_loop::perform_sacrifice(game, trigger_handler, agents, &to_sacrifice);
+    crate::game_loop::perform_sacrifice(game, runtime, agents, &to_sacrifice);
 }

@@ -919,7 +919,7 @@ impl GameLoop {
                     if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
                         super::perform_sacrifice(
                             game,
-                            &mut self.trigger_handler,
+                            &mut self.replacement_runtime(),
                             agents,
                             &[card_id],
                         );
@@ -3271,7 +3271,7 @@ impl GameLoop {
             },
         };
         if chosen.len() == 1 {
-            super::perform_sacrifice(game, &mut self.trigger_handler, agents, &chosen);
+            super::perform_sacrifice(game, &mut self.replacement_runtime(), agents, &chosen);
         } else {
             for cid in chosen {
                 let owner = game.card(cid).owner;
@@ -4365,7 +4365,7 @@ impl GameLoop {
             }
         }
         if !to_sacrifice.is_empty() {
-            super::perform_sacrifice(game, &mut self.trigger_handler, agents, &to_sacrifice);
+            super::perform_sacrifice(game, &mut self.replacement_runtime(), agents, &to_sacrifice);
             Self::record_sacrificed_cost_cards(sa, &to_sacrifice);
         }
         true

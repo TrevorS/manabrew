@@ -2809,7 +2809,7 @@ impl GameLoop {
         crate::cost::cost_adjustment::commit_offerings_and_emerge(
             game,
             agents,
-            &mut self.trigger_handler,
+            &mut self.replacement_runtime(),
             &mut sa,
         );
 

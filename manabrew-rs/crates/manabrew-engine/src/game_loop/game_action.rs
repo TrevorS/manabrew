@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use super::cost_payment::CostPaymentContext;
 use super::*;
 use crate::player::actions::player_action::STATIC_ALTERNATIVE_ABILITY_INDEX;
+use crate::replacement::replacement_handler::ReplacementRuntime;
 
 /// Single chokepoint for the per-card sequence:
 ///   1. capture LKI (counter map, power, toughness) before any zone change
@@ -36,7 +37,7 @@ use crate::player::actions::player_action::STATIC_ALTERNATIVE_ABILITY_INDEX;
 /// the match is done.
 pub(crate) fn perform_sacrifice(
     game: &mut GameState,
-    trigger_handler: &mut TriggerHandler,
+    runtime: &mut ReplacementRuntime<'_>,
     agents: &mut [Box<dyn PlayerAgent>],
     cards: &[CardId],
 ) -> Vec<CardId> {
@@ -66,7 +67,7 @@ pub(crate) fn perform_sacrifice(
 
         let sacrificer = game.card(card_id).controller;
         crate::player::add_sacrificed_this_turn(game, sacrificer, card_id);
-        trigger_handler.run_trigger(
+        runtime.trigger_handler.run_trigger(
             TriggerType::Sacrificed,
             RunParams {
                 card: Some(card_id),
@@ -76,7 +77,7 @@ pub(crate) fn perform_sacrifice(
             false,
         );
         crate::ability::effects::emit_zone_trigger_with_lki_counters(
-            trigger_handler,
+            runtime.trigger_handler,
             card_id,
             ZoneType::Battlefield,
             ZoneType::Graveyard,
@@ -84,14 +85,20 @@ pub(crate) fn perform_sacrifice(
             lki_power,
             lki_toughness,
         );
-        trigger_handler.flush_waiting_triggers(game);
-        game.move_card_with_agents(card_id, ZoneType::Graveyard, owner, agents);
+        runtime.trigger_handler.flush_waiting_triggers(game);
+        game.move_card_with_agents_and_replacement_runtime(
+            card_id,
+            ZoneType::Graveyard,
+            owner,
+            agents,
+            runtime,
+        );
 
         sacrificed.push(card_id);
         by_controller.entry(controller).or_default().push(card_id);
     }
 
-    fire_sacrificed_once_for_batch(game, trigger_handler, &by_controller);
+    fire_sacrificed_once_for_batch(game, runtime.trigger_handler, &by_controller);
 
     sacrificed
 }
