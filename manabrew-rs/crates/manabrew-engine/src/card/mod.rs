@@ -3201,6 +3201,7 @@ impl Card {
         base_toughness: Option<i32>,
         color: ColorSet,
     ) {
+        self.static_type_line_base = None;
         self.set_type_line(type_line);
         self.base_power = base_power;
         self.base_toughness = base_toughness;

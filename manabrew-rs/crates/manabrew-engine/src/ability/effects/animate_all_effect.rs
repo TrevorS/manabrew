@@ -153,7 +153,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         // Save original state (only if not already animated this turn)
         if ctx.game.card(card_id).animate_state.is_none() {
-            let original_type_line = ctx.game.card(card_id).type_line.clone();
+            let original_type_line = ctx
+                .game
+                .card(card_id)
+                .static_type_line_base
+                .clone()
+                .unwrap_or_else(|| ctx.game.card(card_id).type_line.clone());
             let original_base_power = ctx.game.card(card_id).base_power;
             let original_base_toughness = ctx.game.card(card_id).base_toughness;
             let original_color = ctx.game.card(card_id).color;
