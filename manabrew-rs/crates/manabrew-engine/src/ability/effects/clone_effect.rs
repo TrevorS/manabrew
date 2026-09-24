@@ -108,6 +108,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let target = ctx.game.card_mut(clone_target_id);
         let host_svars = (clone_target_id == source_id).then(|| target.svars.clone());
         crate::card::card_copy_service::copy_copiable_characteristics(&src, target);
+        // Java keys `ChoiceRestriction$` history by ability object (`Card.getChosenModes`),
+        // and a copy's abilities are new objects.
+        target.chosen_charm_modes.clear();
+        target.chosen_modes_your_combat.clear();
+        target.chosen_modes_your_last_combat.clear();
         // Forge builds the sub-abilities and `Execute$` abilities of the cloning ability
         // before the copy; this engine looks them up by name on the host when they resolve.
         for (name, value) in host_svars.into_iter().flatten() {
