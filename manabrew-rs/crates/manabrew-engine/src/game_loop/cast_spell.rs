@@ -1482,9 +1482,9 @@ impl GameLoop {
         let mut spell_cost = Self::parse_spell_cost(&abilities_for_spell);
         let mut alternate_additional_mana = None;
 
-        if let Some(alt_additional) = game
-            .card(card_id)
-            .get_keyword_cost("AlternateAdditionalCost")
+        if let Some(alt_additional) = Some(game.card(card_id))
+            .filter(|card| !card.face_down)
+            .and_then(|card| card.get_keyword_cost("AlternateAdditionalCost"))
         {
             let mut variant_costs: Vec<crate::cost::Cost> = Vec::new();
             let mut variant_sas: Vec<SpellAbility> = Vec::new();
