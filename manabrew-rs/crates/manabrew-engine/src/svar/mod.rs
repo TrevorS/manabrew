@@ -843,13 +843,7 @@ fn player_x_property(
         "CardsDrawn" => game.player(player).drawn_this_turn,
         "CardsDiscardedThisTurn" => game.player(player).discarded_this_turn,
         "ExploredThisTurn" => game.player(player).explored_this_turn,
-        "AttackersDeclared" => game
-            .cards
-            .iter()
-            .filter(|card| {
-                card.controller == player && card.attacked_this_turn && card.is_creature()
-            })
-            .count() as i32,
+        "AttackersDeclared" => game.player(player).creatures_attacked_this_turn.len() as i32,
         "DamageToOppsThisTurn" => game.player(player).opponents_assigned_damage_this_turn,
         "NonCombatDamageDealtThisTurn" => {
             game.player(player).assigned_damage_this_turn
@@ -2070,12 +2064,11 @@ pub fn resolve_count_svar_for_sa(
     }
 
     if expr == "Count$AttackersDeclared" {
-        return game
-            .cards
+        let attackers = &game.player(controller).creatures_attacked_this_turn;
+        return attackers
             .iter()
-            .filter(|card| {
-                card.controller == controller && card.attacked_this_turn && card.is_creature()
-            })
+            .enumerate()
+            .filter(|(i, attacker)| !attackers[..*i].contains(attacker))
             .count() as i32;
     }
 
@@ -3321,7 +3314,7 @@ mod tests {
         let mut game = GameState::new(&["A", "B"], 20);
         let p0 = PlayerId(0);
 
-        let mut attacker = Card::new(
+        let attacker = Card::new(
             CardId(0),
             "Attacker".to_string(),
             p0,
@@ -3333,11 +3326,13 @@ mod tests {
             vec![],
             vec![],
         );
-        attacker.attacked_this_turn = true;
-        game.create_card(attacker);
+        let attacker_id = game.create_card(attacker);
 
         game.player_mut(p0).life_lost_this_turn = 3;
         game.player_mut(p0).new_turn();
+        game.player_mut(p0)
+            .creatures_attacked_this_turn
+            .push((attacker_id, 0));
 
         let mut host = Card::new(
             CardId(1),

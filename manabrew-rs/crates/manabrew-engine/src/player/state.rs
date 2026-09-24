@@ -109,6 +109,7 @@ pub struct PlayerState {
     pub assigned_combat_damage_this_turn: i32,
     pub opponents_assigned_damage_this_turn: i32,
     pub attacked_players_this_turn: Vec<PlayerId>,
+    pub creatures_attacked_this_turn: Vec<(CardId, u64)>,
     pub attacked_players_last_turn: Vec<PlayerId>,
     pub attacked_players_this_combat: Vec<PlayerId>,
     pub been_dealt_combat_damage_since_last_turn: bool,
@@ -236,6 +237,7 @@ impl PlayerState {
             assigned_combat_damage_this_turn: 0,
             opponents_assigned_damage_this_turn: 0,
             attacked_players_this_turn: Vec::new(),
+            creatures_attacked_this_turn: Vec::new(),
             attacked_players_last_turn: Vec::new(),
             attacked_players_this_combat: Vec::new(),
             been_dealt_combat_damage_since_last_turn: false,
@@ -425,6 +427,7 @@ impl PlayerState {
         self.combat_damage_received_this_turn = 0;
         self.opponents_assigned_damage_this_turn = 0;
         self.attacked_players_this_turn.clear();
+        self.creatures_attacked_this_turn.clear();
         self.attacked_players_last_turn.clear();
         self.attacked_players_this_combat.clear();
         self.been_dealt_combat_damage_since_last_turn = false;

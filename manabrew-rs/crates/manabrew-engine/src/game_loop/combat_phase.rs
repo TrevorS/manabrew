@@ -539,6 +539,12 @@ impl GameLoop {
                 );
             }
             game.card_mut(attacker_id).mark_attacked_this_turn();
+            let attacker = game.card(attacker_id);
+            let (attacker_controller, zone_timestamp) =
+                (attacker.controller, attacker.zone_timestamp);
+            game.player_mut(attacker_controller)
+                .creatures_attacked_this_turn
+                .push((attacker_id, zone_timestamp));
             // Set attacking_player to the controlling player of the defender
             let def_player = defender.controlling_player(game);
             game.card_mut(attacker_id).set_attacking_player(def_player);
