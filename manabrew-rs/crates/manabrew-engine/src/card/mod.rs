@@ -3996,12 +3996,6 @@ impl Card {
         self.keywords.clear();
     }
 
-    pub fn clear_all_keyword_sets(&mut self) {
-        self.keywords.clear();
-        self.pump_keywords.clear();
-        self.granted_keywords.clear();
-    }
-
     pub fn clear_subtypes(&mut self) {
         self.type_line.subtypes.clear();
     }

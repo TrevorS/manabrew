@@ -174,7 +174,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         // RemoveAllAbilities — strip keywords/abilities
         if remove_all_abilities {
-            ctx.game.card_mut(card_id).clear_all_keyword_sets();
+            let card = ctx.game.card_mut(card_id);
+            card.clear_pump_keywords();
+            card.clear_static_changed_card_keywords();
+            card.add_changed_card_traits(
+                CardTraitChanges::remove_all_layer(Vec::new(), Vec::new(), Vec::new(), Vec::new()),
+                resolve_ts,
+                0,
+            );
+            if let Some(state) = card.animate_state.as_mut() {
+                state.trait_change_timestamps.push(resolve_ts);
+            }
         }
 
         // RemoveCreatureTypes — clear subtypes before adding new types
