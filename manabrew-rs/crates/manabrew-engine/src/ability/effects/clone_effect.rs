@@ -236,12 +236,18 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         if duration.is_some() || sa.ir.duration.is_some() {
-            ctx.game.end_of_turn.add_until(
-                None,
-                crate::phase::PhaseCommand::Unclone {
-                    card: clone_target_id,
-                },
-            );
+            let unclone = crate::phase::PhaseCommand::Unclone {
+                card: clone_target_id,
+            };
+            if !crate::ability::spell_ability_effect::add_until_command(
+                ctx.game,
+                sa.ir.duration.as_ref(),
+                controller,
+                Some(source_id),
+                unclone.clone(),
+            ) {
+                ctx.game.end_of_turn.add_until(None, unclone);
+            }
         }
 
         {
