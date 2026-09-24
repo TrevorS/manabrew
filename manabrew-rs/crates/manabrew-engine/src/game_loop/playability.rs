@@ -1465,6 +1465,29 @@ impl GameLoop {
             for &card_id in &gy_cards {
                 let card = game.card(card_id);
                 if !card.is_land() {
+                    if !crate::staticability::static_ability_continuous::may_play_grants(
+                        game, player, card,
+                    )
+                    .any(|(source, st_ab)| {
+                        crate::staticability::static_ability_continuous::grants_zone_permissions(
+                            st_ab, source, card, game,
+                        )
+                    }) {
+                        for alt_cost_index in self.may_play_secondary_spell_grants(
+                            game,
+                            player,
+                            card_id,
+                            ZoneType::Graveyard,
+                            &chosen_types_by_source,
+                        ) {
+                            playable.push(crate::agent::PlayOption {
+                                card_id,
+                                mode: crate::agent::PlayCardMode::Secondary,
+                                alt_cost_index,
+                            });
+                        }
+                        continue;
+                    }
                     let normal_sa = crate::spellability::build_spell_ability_for_card_cast(
                         game, card_id, player,
                     );
