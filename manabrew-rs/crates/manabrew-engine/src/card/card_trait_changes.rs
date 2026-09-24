@@ -14,6 +14,8 @@ pub struct CardTraitChanges {
     pub triggers: Vec<Trigger>,
     pub replacements: Vec<ReplacementEffect>,
     pub static_abilities: Vec<StaticAbility>,
+    #[serde(default)]
+    pub keywords: Vec<String>,
     /// Java parity subset for predicate removal: true means remove all existing
     /// card traits before applying additions (used by addChangedCardTraitsByText).
     pub remove_all: bool,
@@ -32,6 +34,7 @@ impl CardTraitChanges {
             triggers,
             replacements,
             static_abilities,
+            keywords: Vec::new(),
             remove_all: true,
         }
     }

@@ -224,6 +224,54 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }));
         }
 
+        let removes_all_abilities = sa.ir.animate_remove_all_abilities && effect_ts.is_none();
+        if removes_all_abilities {
+            let keywords: Vec<String> = keywords_str
+                .as_deref()
+                .map(|kws| {
+                    kws.split(',')
+                        .map(str::trim)
+                        .filter(|kw| !kw.is_empty())
+                        .map(str::to_string)
+                        .collect()
+                })
+                .unwrap_or_default();
+            let card = ctx.game.card_mut(card_id);
+            card.clear_pump_keywords();
+            card.clear_static_changed_card_keywords();
+            let first_keyword_ability = card.activated_abilities.len();
+            card.generate_keyword_activated_abilities(&keywords);
+            let keyword_abilities = card.activated_abilities.split_off(first_keyword_ability);
+            let controller = card.controller;
+            let abilities = keyword_abilities
+                .iter()
+                .map(|ab| {
+                    let mut ability =
+                        crate::ability::ability_factory::build_spell_ability_from_host_card(
+                            card,
+                            &ab.ability_text,
+                            controller,
+                        );
+                    ability.is_activated = true;
+                    ability
+                })
+                .collect();
+            card.add_changed_card_traits(
+                CardTraitChanges {
+                    abilities,
+                    static_abilities: parsed_statics.clone(),
+                    keywords,
+                    remove_all: true,
+                    ..Default::default()
+                },
+                resolve_ts,
+                0,
+            );
+            if let Some(state) = card.animate_state.as_mut() {
+                state.trait_change_timestamps.push(resolve_ts);
+            }
+        }
+
         if sa.ir.animate_remove_card_types {
             let card = ctx.game.card_mut(card_id);
             card.type_line.core_types.clear();
@@ -436,7 +484,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     .collect()
             })
             .unwrap_or_default();
-        if !add_keywords.is_empty() || !remove_keywords.is_empty() {
+        if !removes_all_abilities && (!add_keywords.is_empty() || !remove_keywords.is_empty()) {
             if let Some(ts) = effect_ts {
                 perpetual_keywords::PerpetualKeywords {
                     timestamp: ts,
@@ -515,7 +563,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .register_active_trigger(ctx.game, card_id);
         }
 
-        if !parsed_statics.is_empty() {
+        if !removes_all_abilities && !parsed_statics.is_empty() {
             let changes = CardTraitChanges {
                 static_abilities: parsed_statics.clone(),
                 ..Default::default()

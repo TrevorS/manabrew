@@ -702,6 +702,9 @@ pub fn apply_keywords(
     if layer.remove_all {
         list.clear();
     }
+    for kw in &layer.keywords {
+        list.add(kw);
+    }
     list
 }
 
