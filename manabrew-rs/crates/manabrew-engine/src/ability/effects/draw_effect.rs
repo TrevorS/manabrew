@@ -110,6 +110,8 @@ pub(crate) fn draw_card(
     player: crate::ids::PlayerId,
 ) -> Option<crate::ids::CardId> {
     let card_id = ctx.game.draw_card_with_agents(player, ctx.agents)?;
+    ctx.trigger_handler
+        .register_active_trigger(ctx.game, card_id);
     let drawn_snapshot = ctx.game.player(player).drawn_this_turn;
     ctx.trigger_handler.run_trigger(
         TriggerType::Drawn,

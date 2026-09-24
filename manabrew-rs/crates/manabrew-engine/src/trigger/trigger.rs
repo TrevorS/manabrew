@@ -1400,6 +1400,14 @@ pub fn parse_trigger(raw: &str, next_id: &mut u32) -> Option<Trigger> {
             }
         }
     }
+    if !params.has(keys::TRIGGER_ZONES)
+        && mode.trigger_type() == TriggerType::Drawn
+        && params
+            .selector(keys::VALID_CARD)
+            .is_some_and(|selector| selector.is_any_of(["Card.Self"]))
+    {
+        active_zones.push(ZoneType::Hand);
+    }
 
     if !params.has(keys::TRIGGER_ZONES) && mode.trigger_type() == TriggerType::ChangesZone {
         if let Some(valid_card) = params.selector(keys::VALID_CARD) {

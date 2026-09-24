@@ -1222,6 +1222,18 @@ impl Card {
                 .or_insert_with(|| "TriggerCount$CurrentStormCount/Minus.1".to_string());
         }
 
+        if let Some(details) = crate::keyword::extract_keyword_cost_str(kw, "Miracle") {
+            if let Some(mut trig) =
+                parse_trigger(crate::card::card_factory_util::MIRACLE_TRIGGER, next_id)
+            {
+                trig.execute = "TrigMiracle".to_string();
+                self.add_trigger(trig);
+            }
+            for (name, value) in crate::card::card_factory_util::miracle_svars(details, "") {
+                self.svars.entry(name).or_insert(value);
+            }
+        }
+
         if kw.starts_with("Suspend") {
             let raw = "Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Exile | IsPresent$ Card.Self+suspended | PresentZone$ Exile | Secondary$ True | TriggerDescription$ At the beginning of your upkeep, if this card is suspended, remove a time counter from it";
             if let Some(mut trig) = parse_trigger(raw, next_id) {

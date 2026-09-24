@@ -359,6 +359,29 @@ pub fn riot_replacement(intrinsic: bool) -> Option<ReplacementEffect> {
     Some(replacement)
 }
 
+pub const MIRACLE_TRIGGER: &str = "Mode$ Drawn | ValidCard$ Card.Self | Number$ 1 | Secondary$ True | OptionalDecider$ You | Static$ True | TriggerDescription$ CARDNAME - Miracle";
+
+pub fn miracle_svars(details: &str, suffix: &str) -> [(String, String); 3] {
+    let mut k = details.split(':');
+    let manacost = k.next().unwrap_or_default();
+    let mut ab_str_play =
+        format!("DB$ Play | Defined$ Self | Optional$ True | PlayCost$ {manacost}");
+    if let Some(reduce) = k.next() {
+        ab_str_play.push_str(&format!(" | PlayReduceCost$ {reduce}"));
+    }
+    [
+        (
+            format!("TrigMiracle{suffix}"),
+            format!("DB$ Reveal | Defined$ You | RevealDefined$ Self | SubAbility$ MiracleImmediate{suffix}"),
+        ),
+        (
+            format!("MiracleImmediate{suffix}"),
+            format!("DB$ ImmediateTrigger | Execute$ MiraclePlay{suffix} | TriggerDescription$ CARDNAME - Miracle"),
+        ),
+        (format!("MiraclePlay{suffix}"), ab_str_play),
+    ]
+}
+
 pub fn add_riot_replacement(card: &mut Card) {
     if !card.keywords.as_string_list().iter().any(|kw| kw == "Riot") {
         return;

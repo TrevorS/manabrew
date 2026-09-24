@@ -1265,6 +1265,29 @@ fn apply_pending_effects(
                     card.granted_svars
                         .insert(amount, "TriggerCount$CurrentStormCount/Minus.1".to_string());
                 }
+                if let Some(details) = crate::keyword::extract_keyword_cost_str(&kw, "Miracle") {
+                    let next_id = card
+                        .triggers
+                        .iter()
+                        .map(|t| t.id)
+                        .max()
+                        .unwrap_or(0)
+                        .saturating_add(1);
+                    let mut next_id_mut = next_id;
+                    let suffix = format!("Granted{next_id}");
+                    if let Some(mut trig) = crate::trigger::parse_trigger(
+                        crate::card::card_factory_util::MIRACLE_TRIGGER,
+                        &mut next_id_mut,
+                    ) {
+                        trig.execute = format!("TrigMiracle{suffix}");
+                        card.add_trigger(trig);
+                    }
+                    for (name, value) in
+                        crate::card::card_factory_util::miracle_svars(details, &suffix)
+                    {
+                        card.granted_svars.insert(name, value);
+                    }
+                }
                 if kw == "Prowess" {
                     let next_id = card
                         .triggers

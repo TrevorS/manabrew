@@ -517,6 +517,7 @@ impl GameLoop {
                 if let Some(card_id) =
                     game.player_draw_one_internal(active, draw_index == 0, Some(agents))
                 {
+                    self.trigger_handler.register_active_trigger(game, card_id);
                     let drawn_snapshot = game.player(active).drawn_this_turn;
                     // Fire Drawn trigger for turn draw
                     self.trigger_handler.run_trigger(
