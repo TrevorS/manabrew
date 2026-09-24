@@ -336,6 +336,39 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let is_strict = sa.ir.strict_amount;
     let defined = sa.defined().map(|s| s.to_lowercase()).unwrap_or_default();
 
+    if sac_valid.eq_ignore_ascii_case("Self") && defined.strip_prefix("carduid_").is_none() {
+        let Some(host) = sa.source else {
+            return;
+        };
+        let activator = sa.activating_player;
+        if ctx.game.card(host).controller == activator
+            && ctx.game.card(host).zone == ZoneType::Battlefield
+            && (!optional
+                || ctx.agents[activator.index()].confirm_action(
+                    activator,
+                    None,
+                    "Do you want to sacrifice?",
+                    &[],
+                    sa.source,
+                    Some(crate::ability::api_type::ApiType::Sacrifice),
+                ))
+        {
+            if let Some(cid) = do_sacrifice(ctx, sa, host, activator, exploit_source) {
+                if sa.ir.remember_sacrificed {
+                    ctx.game.card_mut(host).add_remembered_card(host);
+                }
+                let mut by_controller: BTreeMap<PlayerId, Vec<CardId>> = BTreeMap::new();
+                by_controller.insert(activator, vec![cid]);
+                crate::game_loop::fire_sacrificed_once_for_batch(
+                    ctx.game,
+                    ctx.trigger_handler,
+                    &by_controller,
+                );
+            }
+        }
+        return;
+    }
+
     let sacrificing_players = get_target_players(ctx.game, sa);
 
     // Track per-controller batches so a single SacrificedOnce trigger fires after
@@ -439,10 +472,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     .parse::<u32>()
                     .ok()
                     .map(crate::ids::CardId)
-                    .filter(|&cid| ctx.game.card(cid).zone == ZoneType::Battlefield)
-            } else if sac_valid.eq_ignore_ascii_case("Self") {
-                // Sacrifice the source card itself
-                sa.source
                     .filter(|&cid| ctx.game.card(cid).zone == ZoneType::Battlefield)
             } else {
                 // Find valid cards controlled by the sacrificing player
