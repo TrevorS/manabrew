@@ -219,6 +219,8 @@ pub struct GameState {
     pub untap_commands: Vec<(CardId, crate::phase::PhaseCommand)>,
     #[serde(default)]
     pub change_controller_commands: Vec<(CardId, crate::phase::PhaseCommand)>,
+    #[serde(default)]
+    pub facedown_commands: Vec<(CardId, crate::phase::PhaseCommand)>,
 
     // Player order (for turn sequence)
     pub player_order: Vec<PlayerId>,
@@ -366,6 +368,7 @@ impl GameState {
             leaves_play_commands: Vec::new(),
             untap_commands: Vec::new(),
             change_controller_commands: Vec::new(),
+            facedown_commands: Vec::new(),
             player_order,
             game_over: false,
             winner: None,

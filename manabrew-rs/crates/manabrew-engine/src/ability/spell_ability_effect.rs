@@ -809,6 +809,12 @@ pub fn add_until_command(
             };
             game.untap_commands.push((host, until));
         }
+        Some(crate::spellability::AbilityDuration::UntilFacedown) => {
+            let Some(host) = host else {
+                return false;
+            };
+            game.facedown_commands.push((host, until));
+        }
         _ => return false,
     }
     true

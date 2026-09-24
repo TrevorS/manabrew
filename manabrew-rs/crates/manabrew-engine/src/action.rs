@@ -289,6 +289,20 @@ impl GameState {
         }
     }
 
+    pub(crate) fn run_facedown_commands(
+        &mut self,
+        card_id: CardId,
+        rng: &mut dyn crate::game_rng::GameRng,
+    ) {
+        let (commands, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.facedown_commands)
+            .into_iter()
+            .partition(|(host, _)| *host == card_id);
+        self.facedown_commands = kept;
+        for (_, command) in commands {
+            command.run(self, rng);
+        }
+    }
+
     pub(crate) fn forget_on_cast(&mut self, card_id: CardId) {
         let forget_effects: Vec<CardId> = self
             .cards
@@ -612,6 +626,7 @@ impl GameState {
                 }
             }
             self.run_untap_commands(card_id);
+            self.facedown_commands.retain(|(host, _)| *host != card_id);
         }
         if dest_zone == ZoneType::Graveyard && was_permanent && !is_token {
             self.player_record_permanent_put_into_graveyard(self.card(card_id).owner);

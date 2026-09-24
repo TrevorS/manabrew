@@ -3880,9 +3880,6 @@ impl Card {
     pub fn add_faceup_command(&mut self) {
         self.set_s_var("_cmd_faceup", "1");
     }
-    pub fn add_facedown_command(&mut self) {
-        self.set_s_var("_cmd_facedown", "1");
-    }
     pub fn add_change_controller_command(&mut self) {
         self.set_s_var("_cmd_change_controller", "1");
     }
@@ -3917,12 +3914,6 @@ impl Card {
         if self.has_s_var("_cmd_faceup") {
             self.turn_face_up();
             self.remove_s_var("_cmd_faceup");
-        }
-    }
-    pub fn run_facedown_commands(&mut self) {
-        if self.has_s_var("_cmd_facedown") {
-            self.turn_face_down();
-            self.remove_s_var("_cmd_facedown");
         }
     }
     pub fn run_change_controller_commands(&mut self) {

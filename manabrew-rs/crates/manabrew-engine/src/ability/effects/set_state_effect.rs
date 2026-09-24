@@ -227,6 +227,7 @@ fn set_state_for_card(
             if card.face_down || card.is_double_faced() {
                 return;
             }
+            ctx.game.run_facedown_commands(card_id, ctx.rng);
             crate::card::card_factory_util::turn_face_down_with_state(ctx.game.card_mut(card_id));
             if ["FaceDownPower", "FaceDownToughness", "FaceDownSetType"]
                 .iter()
