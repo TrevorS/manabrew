@@ -53,12 +53,16 @@ pub fn can_replace(
     }
     if let Some(valid_target) = effect.ir.valid_target_selector.as_ref() {
         let target_matches = if let Some(target) = target_player {
-            crate::card::valid_filter::matches_valid(
-                &valid_target.as_raw(),
-                None,
-                Some(target),
-                source_card,
+            crate::player::player_property::is_valid(
+                target,
+                valid_target,
+                game,
+                source_card.id,
                 source_card.controller,
+                &crate::spellability::SpellAbility::new_empty(
+                    Some(source_card.id),
+                    source_card.controller,
+                ),
             )
         } else if let Some(target) = target_card {
             effect.matches_compiled_valid_card(valid_target, game.card(target), source_card)
