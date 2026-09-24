@@ -78,9 +78,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     } else {
         for p in tgt_players {
+            let p_choices = filter_controlled_by_player(ctx.game, sa, p, &valid);
             ctx.agents[p.index()].snapshot_state(ctx.game, ctx.mana_pools);
             chosen.extend(
-                ctx.agents[p.index()].choose_cards_for_effect(p, &valid, min_amount, amount),
+                ctx.agents[p.index()].choose_cards_for_effect(p, &p_choices, min_amount, amount),
             );
         }
     }
@@ -107,6 +108,44 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ctx.game.card_mut(source_id).add_imprinted_card(cid);
         }
     }
+}
+
+fn filter_controlled_by_player(
+    game: &crate::game::GameState,
+    sa: &crate::spellability::SpellAbility,
+    chooser: crate::ids::PlayerId,
+    choices: &[crate::ids::CardId],
+) -> Vec<crate::ids::CardId> {
+    let Some(param) = crate::parsing::raw_get(&sa.ability_text, "ControlledByPlayer") else {
+        return choices.to_vec();
+    };
+    let controllers = match param {
+        "Chooser" => vec![chooser],
+        "Left" | "Right" => {
+            let players = game.alive_players();
+            let shift = if param == "Left" {
+                1
+            } else {
+                players.len() - 1
+            };
+            players
+                .iter()
+                .position(|&player| player == chooser)
+                .map(|index| vec![players[(index + shift) % players.len()]])
+                .unwrap_or_default()
+        }
+        _ => crate::ability::ability_utils::resolve_defined_players_with_sa(
+            param,
+            sa,
+            sa.activating_player,
+            game,
+        ),
+    };
+    choices
+        .iter()
+        .copied()
+        .filter(|&card| controllers.contains(&game.card(card).controller))
+        .collect()
 }
 
 fn choose_with_total_power(
