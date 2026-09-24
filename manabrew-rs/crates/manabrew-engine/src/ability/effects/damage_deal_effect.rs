@@ -502,45 +502,52 @@ fn deal_damage_from_source(
         }
     }
 
-    // CR 702.15e: one gain for the whole event. Mirrors the combat lifelink path in
-    // `combat/mod.rs` — the can't-gain check and the GainLife replacement chain apply here too.
-    if lifelink_dealt > 0 && ctx.game.card(source).has_lifelink() {
-        let controller = ctx.game.card(source).controller;
-        if !crate::staticability::static_ability_cant_gain_lose_pay_life::cant_gain_life(
-            ctx.game, controller,
-        ) {
-            let mut gl_event =
-                crate::replacement::replacement_handler::ReplacementEvent::GainLife {
-                    player: controller,
-                    amount: lifelink_dealt,
-                };
-            let gl_result = crate::replacement::replacement_handler::apply_replacements(
-                ctx.game,
-                &mut gl_event,
-            );
-            if gl_result != crate::replacement::ReplacementResult::Skipped
-                && gl_result != crate::replacement::ReplacementResult::Replaced
-            {
-                let final_amount =
-                    if let crate::replacement::replacement_handler::ReplacementEvent::GainLife {
-                        amount,
-                        ..
-                    } = gl_event
-                    {
-                        amount
-                    } else {
-                        lifelink_dealt
-                    };
-                if final_amount > 0 {
-                    ctx.game.player_gain_life(controller, final_amount);
-                    ctx.game
-                        .player_add_team_life_gained(controller, final_amount);
-                }
-            }
-        }
-    }
+    gain_life_from_lifelink(ctx.game, source, lifelink_dealt);
 
     stored_excess
+}
+
+/// CR 702.15e: one gain for the whole event, as the lifelink step of `GameAction.dealDamage`.
+/// Mirrors the combat lifelink path in `combat/mod.rs` — the can't-gain check and the
+/// GainLife replacement chain apply here too.
+pub(crate) fn gain_life_from_lifelink(
+    game: &mut crate::game::GameState,
+    source: crate::ids::CardId,
+    lifelink_dealt: i32,
+) {
+    if lifelink_dealt <= 0 || !game.card(source).has_lifelink() {
+        return;
+    }
+    let controller = game.card(source).controller;
+    if crate::staticability::static_ability_cant_gain_lose_pay_life::cant_gain_life(
+        game, controller,
+    ) {
+        return;
+    }
+    let mut gl_event = crate::replacement::replacement_handler::ReplacementEvent::GainLife {
+        player: controller,
+        amount: lifelink_dealt,
+    };
+    let gl_result =
+        crate::replacement::replacement_handler::apply_replacements(game, &mut gl_event);
+    if gl_result == crate::replacement::ReplacementResult::Skipped
+        || gl_result == crate::replacement::ReplacementResult::Replaced
+    {
+        return;
+    }
+    let final_amount =
+        if let crate::replacement::replacement_handler::ReplacementEvent::GainLife {
+            amount, ..
+        } = gl_event
+        {
+            amount
+        } else {
+            lifelink_dealt
+        };
+    if final_amount > 0 {
+        game.player_gain_life(controller, final_amount);
+        game.player_add_team_life_gained(controller, final_amount);
+    }
 }
 
 /// Resolve the NumDmg$ parameter, supporting both integer literals and SVar

@@ -85,6 +85,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     } else {
         let mut stored_excess = 0;
         let mut excess_damaged: Vec<CardId> = Vec::new();
+        let mut lifelink_dealt: Vec<(CardId, i32)> = Vec::new();
         for (damaged, dealer, damage) in [
             (target, source, source_power),
             (source, target, target_power),
@@ -93,6 +94,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             let before = ctx.game.card(damaged).damage;
             ctx.game.deal_damage_to_card(damaged, damage);
             let landed = (ctx.game.card(damaged).damage - before).max(0);
+            lifelink_dealt.push((dealer, landed));
             if damage > lethal
                 && super::damage_deal_effect::excess_svar_condition(ctx.game, sa, damaged)
             {
@@ -112,6 +114,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 );
                 excess_damaged.push(damaged);
             }
+        }
+        for (dealer, landed) in lifelink_dealt {
+            super::damage_deal_effect::gain_life_from_lifelink(ctx.game, dealer, landed);
         }
         if !excess_damaged.is_empty() {
             ctx.trigger_handler.run_trigger(

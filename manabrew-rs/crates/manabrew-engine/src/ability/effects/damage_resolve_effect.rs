@@ -46,6 +46,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     prevent_map.trigger_prevent_damage(ctx.trigger_handler, false);
 
     let mut counter_table = GameEntityCounterTable::default();
+    let mut dealt_by_source: indexmap::IndexMap<crate::ids::CardId, i32> =
+        indexmap::IndexMap::new();
     for (source, target, amount) in damage_map.entries() {
         if amount <= 0 {
             continue;
@@ -85,13 +87,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                             CounterType::M1M1,
                             amount,
                         );
+                        *dealt_by_source.entry(source).or_default() += amount;
                     } else {
-                        ctx.game.add_damage_after_prevention(
-                            DamageTarget::Card(cid),
-                            amount,
-                            Some(source),
-                            false,
-                        );
+                        *dealt_by_source.entry(source).or_default() +=
+                            ctx.game.add_damage_after_prevention(
+                                DamageTarget::Card(cid),
+                                amount,
+                                Some(source),
+                                false,
+                            );
                     }
                 }
             }
@@ -110,6 +114,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         CounterType::Poison,
                         amount,
                     );
+                    *dealt_by_source.entry(source).or_default() += amount;
                 } else {
                     let dealt = ctx.game.add_damage_after_prevention(
                         DamageTarget::Player(pid),
@@ -119,6 +124,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     );
                     ctx.game
                         .record_player_damage_assignment(Some(source), Some(pid), dealt, false);
+                    *dealt_by_source.entry(source).or_default() += dealt;
                 }
             }
         }
@@ -129,6 +135,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .card_mut(source)
             .damage_history
             .record_damage(amount, false);
+    }
+
+    for (source, dealt) in dealt_by_source {
+        super::damage_deal_effect::gain_life_from_lifelink(ctx.game, source, dealt);
     }
 
     damage_map.trigger_damage_done_once(ctx.game, ctx.trigger_handler, false);
