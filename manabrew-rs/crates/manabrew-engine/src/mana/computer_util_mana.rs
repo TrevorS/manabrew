@@ -2950,7 +2950,7 @@ pub fn can_pay_spell_mana_cost_for_action_space(
     payment_ctx: &crate::mana::ManaPaymentContext,
 ) -> bool {
     if game.action_space_mana_probe == super::ActionSpaceManaProbe::ComputerUtilMana {
-        return can_pay_mana_cost(game, pool, player, current_spell, cost, payment_ctx);
+        return can_pay_mana_cost(game, pool, player, current_spell, cost, payment_ctx, &[]);
     }
     let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
     let mut simulated_pool = pool.clone();
@@ -3087,6 +3087,18 @@ const WUBRG: [u16; 5] = [
     ManaAtom::GREEN,
 ];
 
+pub fn can_pay_ability_mana_cost_for_action_space(
+    game: &GameState,
+    pool: &ManaPool,
+    player: PlayerId,
+    host: CardId,
+    cost: &ManaCost,
+    payment_ctx: &crate::mana::ManaPaymentContext,
+    targeted: &[CardId],
+) -> bool {
+    can_pay_mana_cost(game, pool, player, host, cost, payment_ctx, targeted)
+}
+
 /// `ComputerUtilMana.canPayManaCost`: `payManaCost` with `test` set. Each chosen source's mana
 /// is predicted and paid straight into the cost, and the source is then dropped from every
 /// shard's list; nothing is tapped.
@@ -3097,6 +3109,7 @@ fn can_pay_mana_cost(
     current_spell: CardId,
     cost: &ManaCost,
     payment_ctx: &crate::mana::ManaPaymentContext,
+    targeted: &[CardId],
 ) -> bool {
     let spell = game.card(current_spell);
     let trace = crate::game_loop::GameLoop::card_trace_matches(&spell.card_name).then(|| {
@@ -3201,6 +3214,32 @@ fn can_pay_mana_cost(
             continue;
         };
 
+        let payment_ability = sa_payment.ability_index.and_then(|idx| {
+            game.card(sa_payment.card_id)
+                .activated_abilities
+                .iter()
+                .find(|ab| ab.ability_index == idx)
+        });
+        let sacrifices_targeted_self = targeted.contains(&sa_payment.card_id)
+            && payment_ability.is_some_and(|ab| {
+                ab.cost.parts.iter().any(|part| {
+                    matches!(part, CostPart::Sacrifice { type_filter, .. }
+                        if type_filter == "CARDNAME" || type_filter == "NICKNAME")
+                })
+            });
+        let black_lotus =
+            payment_ability.is_some_and(|ab| ab.params.get("AILogic") == Some("BlackLotus"));
+        if sacrifices_targeted_self
+            || (black_lotus && !special_card_ai_black_lotus_consider(game, player, &unpaid))
+        {
+            for list in sources.values_mut() {
+                list.retain(|ma| {
+                    ma.card_id != sa_payment.card_id || ma.ability_index != sa_payment.ability_index
+                });
+            }
+            continue;
+        }
+
         let energy = sa_payment.ability_index.map_or(0, |idx| {
             game.card(sa_payment.card_id)
                 .activated_abilities
@@ -3249,6 +3288,38 @@ fn can_pay_mana_cost(
         eprintln!("{prefix} paid={}", unpaid.is_paid());
     }
     unpaid.is_paid()
+}
+
+/// `SpecialCardAi.BlackLotus.consider`.
+fn special_card_ai_black_lotus_consider(
+    game: &GameState,
+    player: PlayerId,
+    unpaid: &ManaCostBeingPaid,
+) -> bool {
+    let num_mana_srcs = get_ai_available_mana_sources(game, player).len();
+    let all_cards: Vec<&crate::card::Card> = game
+        .cards
+        .iter()
+        .map(|card| card.as_ref())
+        .filter(|card| {
+            card.owner == player && card.zone != ZoneType::None && !card.is_token && !card.is_land()
+        })
+        .collect();
+    let num_high_cmc = all_cards
+        .iter()
+        .filter(|card| card.mana_cost.cmc() >= 5)
+        .count();
+    let num_low_cmc = all_cards
+        .iter()
+        .filter(|card| card.mana_cost.cmc() <= 3)
+        .count();
+    let is_low_cmc_deck = num_high_cmc <= 6 && num_low_cmc >= 25;
+    let min_cmc = if is_low_cmc_deck { 3 } else { 4 };
+    let paid_cmc = unpaid.to_mana_cost().cmc();
+    if paid_cmc < min_cmc {
+        return paid_cmc == 3 && num_mana_srcs < 3;
+    }
+    true
 }
 
 /// `ComputerUtilMana.adjustManaCostToAvoidNegEffects`.

@@ -333,35 +333,59 @@ impl GameLoop {
             } else {
                 available_mana.clone()
             };
-            let can_pay_cost = if reserved_sacrifices.is_empty() {
-                crate::cost::can_pay_with_ability(
-                    &ab_cost,
-                    game,
-                    &mana_for_check,
-                    card_id,
-                    player,
-                    Some(&sa_for_target_check),
-                )
-            } else {
-                crate::cost::can_pay_ignoring_mana_with_ability(
-                    &ab_cost,
-                    game,
-                    card_id,
-                    player,
-                    &sa_for_target_check,
-                ) && mana::can_pay_mana_cost_with_reserved_sacrifices(
-                    game,
-                    self.pool(player),
-                    player,
-                    card_id,
-                    &ab_cost,
-                    &reserved_sacrifices,
-                    Some(&crate::mana::payment_context_for_sa(
+            let probe_mana = ab_cost
+                .parts
+                .iter()
+                .find_map(crate::cost::cost_part_mana::get_mana)
+                .filter(|_| {
+                    game.action_space_mana_probe == mana::ActionSpaceManaProbe::ComputerUtilMana
+                });
+            let can_pay_cost =
+                if let Some(mana_cost) = probe_mana.filter(|_| reserved_sacrifices.is_empty()) {
+                    crate::cost::can_pay_ignoring_mana_with_ability(
+                        &ab_cost,
                         game,
+                        card_id,
+                        player,
                         &sa_for_target_check,
-                    )),
-                )
-            };
+                    ) && mana::can_pay_ability_mana_cost_for_action_space(
+                        game,
+                        self.pool(player),
+                        player,
+                        card_id,
+                        mana_cost,
+                        &mana::payment_context_for_sa(game, &sa_for_target_check),
+                        &ab.sub_ability_targets,
+                    )
+                } else if reserved_sacrifices.is_empty() {
+                    crate::cost::can_pay_with_ability(
+                        &ab_cost,
+                        game,
+                        &mana_for_check,
+                        card_id,
+                        player,
+                        Some(&sa_for_target_check),
+                    )
+                } else {
+                    crate::cost::can_pay_ignoring_mana_with_ability(
+                        &ab_cost,
+                        game,
+                        card_id,
+                        player,
+                        &sa_for_target_check,
+                    ) && mana::can_pay_mana_cost_with_reserved_sacrifices(
+                        game,
+                        self.pool(player),
+                        player,
+                        card_id,
+                        &ab_cost,
+                        &reserved_sacrifices,
+                        Some(&crate::mana::payment_context_for_sa(
+                            game,
+                            &sa_for_target_check,
+                        )),
+                    )
+                };
             let main_mana_payable = || {
                 let mut mana_only = ab_cost.clone();
                 mana_only
