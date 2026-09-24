@@ -2571,6 +2571,17 @@ pub fn resolve_count_svar_for_sa(
         if sq[0].contains("LifeYouGainedTimesThisTurn") {
             return math(player.life_gained_times_this_turn);
         }
+        if let Some(counter_name) = sq[0].strip_prefix("YourCounters") {
+            let counter_type = crate::card::counter_type::parse_counter_type(counter_name);
+            let count = crate::game_entity_counter_table::GameEntityCounterTable::counters(
+                game,
+                crate::agent::GameEntity::Player(controller),
+            )
+            .into_iter()
+            .find_map(|(kind, amount)| (kind == counter_type).then_some(amount))
+            .unwrap_or(0);
+            return math(count);
+        }
         if sq[0].contains("LifeOppsLostThisTurn") {
             let lost = game
                 .player_order
