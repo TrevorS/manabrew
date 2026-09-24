@@ -817,32 +817,27 @@ pub fn get_affinity_type(card: &Card) -> Option<String> {
     )
 }
 
-/// Count permanents matching an affinity type on the battlefield.
-/// Mirrors Java's affinity permanent counting in `CostAdjustment`.
+/// The `AffinityX` SVar of the static `CardFactoryUtil.addStaticAbility` builds for Affinity:
+/// `Count$Valid <type>.YouCtrl`, or `<type>+YouCtrl` when the type already has a property.
 pub fn count_affinity_permanents(
     game: &GameState,
     player: PlayerId,
     affinity_type: &str,
     exclude_card: CardId,
 ) -> i32 {
-    game.cards_in_zone(ZoneType::Battlefield, player)
+    let valid_type = affinity_type.split(':').next().unwrap_or(affinity_type);
+    let separator = if valid_type.contains('.') { '+' } else { '.' };
+    let selector =
+        crate::parsing::cached_compiled_selector(&format!("{valid_type}{separator}YouCtrl"));
+    let context = valid_filter::MatchContext::from_source(game.card(exclude_card))
+        .with_game(game)
+        .with_source_controller(player);
+    game.cards
         .iter()
-        .filter(|&&cid| {
-            if cid == exclude_card {
-                return false;
-            }
-            let c = game.card(cid);
-            match affinity_type {
-                "Artifact" => c.type_line.is_artifact(),
-                "Creature" => c.is_creature(),
-                "Enchantment" => c.type_line.is_enchantment(),
-                "Land" => c.is_land(),
-                "Planeswalker" => c.type_line.is_planeswalker(),
-                // Java counts through `Count$Valid <type>.YouCtrl`, so a category the valid
-                // filter answers is not a subtype lookup: Outlaw is five creature types.
-                "Outlaw" => c.is_outlaw(),
-                other => c.type_line.has_subtype(other),
-            }
+        .filter(|c| {
+            c.zone == ZoneType::Battlefield
+                && c.id != exclude_card
+                && valid_filter::matches_valid_card_selector_with_context(&selector, c, context)
         })
         .count() as i32
 }
