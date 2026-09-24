@@ -52,6 +52,12 @@ pub fn target_is_protected_from_source(cards: &[Arc<Card>], target: &Card, sourc
                     return true;
                 }
             }
+            "each color" => {
+                if !source_has_color(cards, source, "colorless") {
+                    return true;
+                }
+            }
+            "everything" => return true,
             "artifacts" => {
                 if source.type_line.is_artifact() {
                     return true;
