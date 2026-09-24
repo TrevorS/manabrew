@@ -258,7 +258,7 @@ pub(crate) fn pay_mana_cost_for_effect(
             }
 
             if result.life_paid > 0 {
-                game.player_lose_life(session.player, result.life_paid);
+                let lost = game.player_lose_life(session.player, result.life_paid);
                 ctx.trigger_handler.run_trigger(
                     TriggerType::LifeLost,
                     RunParams {
@@ -268,6 +268,12 @@ pub(crate) fn pay_mana_cost_for_effect(
                     },
                     false,
                 );
+                if lost > 0 {
+                    crate::action::run_life_lost_all(
+                        ctx.trigger_handler,
+                        &[(session.player, lost)],
+                    );
+                }
             }
 
             Some(
@@ -304,7 +310,7 @@ pub(crate) fn pay_mana_cost_for_effect(
                     return false;
                 }
                 if life_to_pay > 0 {
-                    game.player_lose_life(player, life_to_pay);
+                    let lost = game.player_lose_life(player, life_to_pay);
                     ctx.trigger_handler.run_trigger(
                         TriggerType::LifeLost,
                         RunParams {
@@ -314,6 +320,9 @@ pub(crate) fn pay_mana_cost_for_effect(
                         },
                         false,
                     );
+                    if lost > 0 {
+                        crate::action::run_life_lost_all(ctx.trigger_handler, &[(player, lost)]);
+                    }
                 }
                 true
             } else {
@@ -513,7 +522,8 @@ fn try_pay_effect_cost(
                     .lose_life_simultaneously(ctx.trigger_handler, Some(ctx.agents));
             }
             CostPart::PayLife(amount) => {
-                ctx.game
+                let lost = ctx
+                    .game
                     .player_lose_life(payer, amount.resolve(ctx.game, source, payer));
                 ctx.trigger_handler.run_trigger(
                     TriggerType::LifeLost,
@@ -524,6 +534,9 @@ fn try_pay_effect_cost(
                     },
                     false,
                 );
+                if lost > 0 {
+                    crate::action::run_life_lost_all(ctx.trigger_handler, &[(payer, lost)]);
+                }
             }
             CostPart::Mana {
                 cost: mana_cost, ..

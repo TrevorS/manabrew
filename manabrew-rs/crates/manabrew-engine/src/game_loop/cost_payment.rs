@@ -179,7 +179,7 @@ impl GameLoop {
                 return;
             }
         }
-        game.player_lose_life(player, amount);
+        let lost = game.player_lose_life(player, amount);
         self.trigger_handler.run_trigger(
             TriggerType::LifeLost,
             RunParams {
@@ -189,6 +189,9 @@ impl GameLoop {
             },
             false,
         );
+        if lost > 0 {
+            crate::action::run_life_lost_all(&mut self.trigger_handler, &[(player, lost)]);
+        }
     }
 
     /// Discard N cards from hand via agent choice and fire Discarded triggers.
