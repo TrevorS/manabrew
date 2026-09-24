@@ -304,6 +304,9 @@ impl TriggerHandler {
     /// Java `TriggerHandler.runStateTrigger`: `Always` triggers are matched when the state is
     /// checked, before the state-based actions change it, not with the other waiting events.
     pub fn run_state_trigger(&mut self, game: &GameState) {
+        if !self.has_state_triggers(game) {
+            return;
+        }
         let waiting = std::mem::take(&mut self.waiting_triggers);
         self.run_trigger(TriggerType::Always, RunParams::default(), false);
         self.flush_waiting_triggers(game);
@@ -311,6 +314,9 @@ impl TriggerHandler {
     }
 
     pub fn run_static_state_triggers(&mut self, game: &GameState) -> Vec<PendingTrigger> {
+        if !self.has_state_triggers(game) {
+            return Vec::new();
+        }
         let waiting = std::mem::take(&mut self.waiting_triggers);
         self.run_trigger(TriggerType::Always, RunParams::default(), false);
         let matched = self.match_waiting_triggers(game);
@@ -320,6 +326,20 @@ impl TriggerHandler {
             .map(|(pending, ..)| pending)
             .filter(|pending| pending.static_trigger)
             .collect()
+    }
+
+    /// Keep in sync with `match_waiting_triggers`: an `Always` event matches only active or
+    /// delayed triggers of that mode.
+    fn has_state_triggers(&self, game: &GameState) -> bool {
+        self.active_triggers.iter().any(|active| {
+            game.card(active.card_id)
+                .triggers
+                .get(active.trigger_index)
+                .is_some_and(|trigger| trigger.mode.trigger_type() == TriggerType::Always)
+        }) || self
+            .delayed_triggers
+            .iter()
+            .any(|delayed| delayed.mode == TriggerType::Always)
     }
 
     pub fn flush_waiting_triggers(&mut self, game: &GameState) {
