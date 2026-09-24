@@ -86,6 +86,7 @@ enum EffectKind {
     RemoveCreatureTypes,
     RemoveLandTypes,
     RemoveArtifactTypes,
+    ReapplyChangedCardTypes(u64),
     /// Grant a triggered ability (from AddTrigger$). The string is the raw trigger text.
     GrantTrigger {
         text: String,
@@ -576,11 +577,30 @@ pub fn apply_continuous_effects(game: &mut GameState) {
 
                     let add_type = sa.ir.add_type_text.as_deref();
                     let source = game.card(source_id);
-                    for added_type in resolve_added_types(source, add_type) {
+                    let added_types = resolve_added_types(source, add_type);
+                    let changes_type = !added_types.is_empty()
+                        || sa.ir.remove_card_types
+                        || sa.ir.remove_land_types
+                        || sa.ir.remove_creature_types
+                        || sa.ir.remove_artifact_types;
+                    for added_type in added_types {
                         pending.push(PendingEffect {
                             layer: Layer::Type,
                             target,
                             kind: EffectKind::AddType(added_type),
+                        });
+                    }
+                    if changes_type
+                        && game
+                            .card(target)
+                            .changed_card_types
+                            .iter()
+                            .any(|(timestamp, _)| *timestamp > source_card.layer_timestamp)
+                    {
+                        pending.push(PendingEffect {
+                            layer: Layer::Type,
+                            target,
+                            kind: EffectKind::ReapplyChangedCardTypes(source_card.layer_timestamp),
                         });
                     }
 
@@ -1376,6 +1396,20 @@ fn apply_pending_effects(
                     }
                     card.add_type(&t);
                     card.static_added_subtypes.push(t);
+                }
+            }
+            EffectKind::ReapplyChangedCardTypes(after) => {
+                let card = game.card_mut(effect.target);
+                if card.static_type_line_base.is_some() {
+                    let changes: Vec<crate::card::card_changed_type::CardChangedType> = card
+                        .changed_card_types
+                        .iter()
+                        .filter(|(timestamp, _)| *timestamp > after)
+                        .map(|(_, change)| change.clone())
+                        .collect();
+                    for change in &changes {
+                        card.apply_changed_card_type(change);
+                    }
                 }
             }
             EffectKind::GrantAbility {

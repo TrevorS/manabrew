@@ -2,6 +2,7 @@ use forge_foundation::{ColorSet, ZoneType};
 
 use super::trait_animate_effect::parse_animate_params;
 use super::{matches_valid_cards_for_sa, EffectContext};
+use crate::card::card_changed_type::CardChangedType;
 use crate::card::card_trait_changes::CardTraitChanges;
 use crate::card::perpetual::perpetual_interface::PerpetualInterface;
 use crate::card::perpetual::{
@@ -25,7 +26,7 @@ use forge_foundation::ManaCost;
 /// - `Keywords` — `&`-separated keywords to grant (until EOT)
 /// - `Colors` — comma-separated colors to set (e.g. "Blue")
 /// - `OverwriteColors` — if "True", replace color instead of adding
-/// - `RemoveCreatureTypes` — if "True", clear subtypes before adding new types
+/// - `RemoveCreatureTypes` — if "True", remove creature types before adding new types
 /// - `RemoveAllAbilities` — if "True", clear all keywords/abilities
 /// Struct form of this effect so it can participate in the
 /// `SpellAbilityEffect` trait hierarchy — mirrors Java's
@@ -118,6 +119,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
+    let mut type_timestamp: Option<u64> = None;
     for card_id in targets {
         if ctx.game.card(card_id).zone != ZoneType::Battlefield {
             continue;
@@ -193,26 +195,39 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
 
-        // RemoveCreatureTypes — clear subtypes before adding new types
-        if remove_creature_types {
-            ctx.game.card_mut(card_id).clear_subtypes();
+        let changed_type = CardChangedType {
+            add_type: match (&types_str, effect_ts) {
+                (Some(types), None) => types
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|t| !t.is_empty())
+                    .map(str::to_string)
+                    .collect(),
+                _ => Vec::new(),
+            },
+            add_all_creature_types: crate::parsing::raw_has_key(
+                &sa.ability_text,
+                keys::ADD_ALL_CREATURE_TYPES,
+            ),
+            remove_super_types: sa.ir.animate_remove_super_types,
+            remove_card_types: sa.ir.animate_remove_card_types,
+            remove_sub_types: sa.ir.animate_remove_sub_types,
+            remove_creature_types,
+        };
+        if !changed_type.is_empty() {
+            let timestamp = *type_timestamp.get_or_insert_with(|| ctx.game.next_timestamp());
+            ctx.game
+                .card_mut(card_id)
+                .add_changed_card_types(changed_type, timestamp);
         }
 
-        // Apply type changes
-        if let Some(ref types) = types_str {
-            for t in types.split(',') {
-                let t = t.trim();
-                if !t.is_empty() {
-                    if let Some(ts) = effect_ts {
-                        perpetual_types::PerpetualTypes {
-                            timestamp: ts,
-                            add_types: vec![t.to_string()],
-                        }
-                        .apply_effect(ctx.game.card_mut(card_id));
-                    } else {
-                        ctx.game.card_mut(card_id).add_type(t);
-                    }
+        if let (Some(types), Some(ts)) = (&types_str, effect_ts) {
+            for t in types.split(',').map(str::trim).filter(|t| !t.is_empty()) {
+                perpetual_types::PerpetualTypes {
+                    timestamp: ts,
+                    add_types: vec![t.to_string()],
                 }
+                .apply_effect(ctx.game.card_mut(card_id));
             }
         }
 

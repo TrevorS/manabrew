@@ -3,6 +3,7 @@ use forge_foundation::{ColorSet, ZoneType};
 use super::trait_animate_effect::parse_animate_params;
 use super::EffectContext;
 use crate::ability::ability_ir::DefinedRef;
+use crate::card::card_changed_type::CardChangedType;
 use crate::card::card_trait_changes::CardTraitChanges;
 use crate::card::perpetual::perpetual_interface::PerpetualInterface;
 use crate::card::perpetual::{
@@ -164,6 +165,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // Snapshot target IDs for AtEOT$ delayed trigger registration after the loop.
     let eot_targets = target_ids.clone();
 
+    let mut type_timestamp: Option<u64> = None;
     for card_id in target_ids {
         let card = ctx.game.card(card_id);
         if card.phased_out
@@ -281,108 +283,54 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
 
-        if sa.ir.animate_remove_card_types {
+        if overwrite_types && types_str.is_some() {
             let card = ctx.game.card_mut(card_id);
-            card.type_line.core_types.clear();
-            card.update_types();
+            card.set_type_line(forge_foundation::CardTypeLine::new());
             if is_permanent_duration {
                 if let Some(state) = card.animate_state.as_mut() {
-                    state.original_type_line.core_types.clear();
+                    state.original_type_line = forge_foundation::CardTypeLine::new();
                 }
             }
         }
 
-        if sa.ir.animate_remove_super_types {
+        let changed_type = CardChangedType {
+            add_type: match (&types_str, effect_ts) {
+                (Some(types), None) => types
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|t| !t.is_empty())
+                    .map(str::to_string)
+                    .collect(),
+                _ => Vec::new(),
+            },
+            add_all_creature_types: crate::parsing::raw_has_key(
+                &sa.ability_text,
+                crate::parsing::keys::ADD_ALL_CREATURE_TYPES,
+            ),
+            remove_super_types: sa.ir.animate_remove_super_types,
+            remove_card_types: sa.ir.animate_remove_card_types,
+            remove_sub_types: sa.ir.animate_remove_sub_types,
+            remove_creature_types: sa.ir.animate_remove_creature_types,
+        };
+        if !changed_type.is_empty() {
+            let timestamp = *type_timestamp.get_or_insert_with(|| ctx.game.next_timestamp());
             let card = ctx.game.card_mut(card_id);
-            card.type_line.supertypes.clear();
-            card.update_types();
             if is_permanent_duration {
                 if let Some(state) = card.animate_state.as_mut() {
-                    state.original_type_line.supertypes.clear();
+                    changed_type.apply_changes(&mut state.original_type_line);
                 }
             }
+            card.add_changed_card_types(changed_type, timestamp);
         }
 
-        if sa.ir.animate_remove_sub_types {
-            let card = ctx.game.card_mut(card_id);
-            card.type_line.subtypes.clear();
-            card.update_types();
-            if is_permanent_duration {
-                if let Some(state) = card.animate_state.as_mut() {
-                    state.original_type_line.subtypes.clear();
+        if let (Some(types), Some(ts)) = (&types_str, effect_ts) {
+            for t in types.split(',').map(str::trim).filter(|t| !t.is_empty()) {
+                perpetual_types::PerpetualTypes {
+                    timestamp: ts,
+                    add_types: vec![t.to_string()],
                 }
+                .apply_effect(ctx.game.card_mut(card_id));
             }
-        }
-
-        if sa.ir.animate_remove_creature_types {
-            let card = ctx.game.card_mut(card_id);
-            let not_creature_type = |s: &String| {
-                !crate::game::TypeRegistry::creature_types()
-                    .iter()
-                    .any(|ct| ct.eq_ignore_ascii_case(s))
-            };
-            card.type_line.subtypes.retain(not_creature_type);
-            card.type_line.all_creature_types = false;
-            card.update_types();
-            if is_permanent_duration {
-                if let Some(state) = card.animate_state.as_mut() {
-                    state.original_type_line.subtypes.retain(not_creature_type);
-                    state.original_type_line.all_creature_types = false;
-                }
-            }
-        }
-
-        // Apply type changes
-        if let Some(ref types) = types_str {
-            if overwrite_types {
-                let card = ctx.game.card_mut(card_id);
-                card.set_type_line(forge_foundation::CardTypeLine::new());
-                if is_permanent_duration {
-                    if let Some(state) = card.animate_state.as_mut() {
-                        state.original_type_line = forge_foundation::CardTypeLine::new();
-                    }
-                }
-            }
-            for t in types.split(',') {
-                let t = t.trim();
-                if !t.is_empty() {
-                    if let Some(ts) = effect_ts {
-                        perpetual_types::PerpetualTypes {
-                            timestamp: ts,
-                            add_types: vec![t.to_string()],
-                        }
-                        .apply_effect(ctx.game.card_mut(card_id));
-                    } else {
-                        let card = ctx.game.card_mut(card_id);
-                        card.add_type(t);
-                        if is_permanent_duration {
-                            if let Some(state) = card.animate_state.as_mut() {
-                                state.original_type_line.add_type(t);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if crate::parsing::raw_has_key(
-            &sa.ability_text,
-            crate::parsing::keys::ADD_ALL_CREATURE_TYPES,
-        ) {
-            let card = ctx.game.card_mut(card_id);
-            card.type_line.all_creature_types = true;
-            if is_permanent_duration {
-                if let Some(state) = card.animate_state.as_mut() {
-                    state.original_type_line.all_creature_types = true;
-                }
-            }
-        }
-
-        if sa.ir.animate_remove_card_types
-            || sa.ir.animate_remove_super_types
-            || sa.ir.animate_remove_sub_types
-            || types_str.is_some()
-        {
             let card = ctx.game.card_mut(card_id);
             if crate::staticability::layer::sanitize_subtypes(&mut card.type_line) {
                 card.update_types();

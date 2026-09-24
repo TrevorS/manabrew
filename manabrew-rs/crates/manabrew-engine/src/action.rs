@@ -858,6 +858,7 @@ impl GameState {
                 if let Some(type_line) = card.static_type_line_base.take() {
                     card.set_type_line(type_line);
                 }
+                card.changed_card_types.clear();
                 card.static_added_subtypes.clear();
                 card.cant_block_static = false;
                 card.summoning_sick = true;
@@ -947,6 +948,7 @@ impl GameState {
                 if let Some(type_line) = card.static_type_line_base.take() {
                     card.set_type_line(type_line);
                 }
+                card.changed_card_types.clear();
                 card.static_added_subtypes.clear();
                 card.restore_changed_characteristics_baseline();
                 card.cant_block_static = false;

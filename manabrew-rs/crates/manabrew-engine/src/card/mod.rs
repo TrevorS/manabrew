@@ -1,6 +1,7 @@
 pub mod activation_table;
 mod alt_costs;
 mod card_assembly;
+pub mod card_changed_type;
 pub mod card_changed_words;
 pub mod card_clone_states;
 pub mod card_collection;
@@ -405,6 +406,8 @@ pub struct Card {
     pub static_added_subtypes: Vec<String>,
     #[serde(skip)]
     pub static_type_line_base: Option<CardTypeLine>,
+    #[serde(skip)]
+    pub changed_card_types: Vec<(u64, card_changed_type::CardChangedType)>,
     #[serde(skip)]
     pub changed_type_line_base: Option<CardTypeLine>,
     #[serde(skip)]
@@ -934,6 +937,7 @@ impl Card {
             granted_svars: BTreeMap::new(),
             static_added_subtypes: Vec::new(),
             static_type_line_base: None,
+            changed_card_types: Vec::new(),
             changed_type_line_base: None,
             changed_base_power: None,
             changed_base_toughness: None,
@@ -1172,6 +1176,7 @@ impl Card {
             granted_svars: self.granted_svars.clone(),
             static_added_subtypes: self.static_added_subtypes.clone(),
             static_type_line_base: self.static_type_line_base.clone(),
+            changed_card_types: self.changed_card_types.clone(),
             changed_type_line_base: self.changed_type_line_base.clone(),
             changed_base_power: self.changed_base_power,
             changed_base_toughness: self.changed_base_toughness,
@@ -1415,6 +1420,7 @@ impl Card {
         refresh_field(&mut out.granted_svars, &self.granted_svars);
         refresh_field(&mut out.static_added_subtypes, &self.static_added_subtypes);
         refresh_field(&mut out.static_type_line_base, &self.static_type_line_base);
+        refresh_field(&mut out.changed_card_types, &self.changed_card_types);
         refresh_field(
             &mut out.changed_type_line_base,
             &self.changed_type_line_base,
@@ -3219,6 +3225,7 @@ impl Card {
         color: ColorSet,
     ) {
         self.static_type_line_base = None;
+        self.changed_card_types.clear();
         self.set_type_line(type_line);
         self.base_power = base_power;
         self.base_toughness = base_toughness;
@@ -4054,8 +4061,26 @@ impl Card {
     pub fn remove_changed_card_types_by_text(&mut self) {
         self.update_types();
     }
-    pub fn add_changed_card_types(&mut self) {
+    pub fn add_changed_card_types(
+        &mut self,
+        change: card_changed_type::CardChangedType,
+        timestamp: u64,
+    ) {
+        if let Some(base) = self.static_type_line_base.as_mut() {
+            change.apply_changes(base);
+        }
+        self.apply_changed_card_type(&change);
+        if crate::staticability::layer::sanitize_subtypes(&mut self.type_line) {
+            self.update_types();
+        }
+        self.changed_card_types.push((timestamp, change));
+    }
+
+    pub fn apply_changed_card_type(&mut self, change: &card_changed_type::CardChangedType) {
+        change.apply_changes(&mut self.type_line);
+        let all_creature_types = self.type_line.all_creature_types;
         self.update_types();
+        self.type_line.all_creature_types = all_creature_types;
     }
     pub fn remove_changed_card_types(&mut self) {
         self.update_types();
