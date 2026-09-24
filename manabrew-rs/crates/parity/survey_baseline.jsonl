@@ -1,6 +1,6 @@
-{"compared_fields":["turn","phase","active_player","priority_player","game_over","winner","stack","monarch","initiative","day_night","players[i].exists","players[i].name","players[i].life","players[i].poison","players[i].lands_played","players[i].has_lost","players[i].has_won","players[i].library_size","players[i].speed","players[i].counters","players[i].mana_pool","players[i].library_top","players[i].graveyard","players[i].hand","players[i].exile","players[i].battlefield.count","players[i].battlefield.cards","players[i].battlefield[i].tapped","players[i].battlefield[i].power","players[i].battlefield[i].toughness","players[i].battlefield[i].damage","players[i].battlefield[i].summoning_sick","players[i].battlefield[i].counters","players[i].battlefield[i].controller","players[i].battlefield[i].types","players[i].battlefield[i].keywords","players[i].battlefield[i].attached_to","players[i].battlefield[i].token","players[i].battlefield[i].face_down","game_rng_calls","agent_rng_calls","snapshot.exists"],"build":"47ae08450+dirty exe:e15a7a5623a7a762","max_turns":20}
+{"compared_fields":["turn","phase","active_player","priority_player","game_over","winner","stack","monarch","initiative","day_night","players[i].exists","players[i].name","players[i].life","players[i].poison","players[i].lands_played","players[i].has_lost","players[i].has_won","players[i].library_size","players[i].speed","players[i].counters","players[i].mana_pool","players[i].library_top","players[i].graveyard","players[i].hand","players[i].exile","players[i].battlefield.count","players[i].battlefield.cards","players[i].battlefield[i].tapped","players[i].battlefield[i].power","players[i].battlefield[i].toughness","players[i].battlefield[i].damage","players[i].battlefield[i].summoning_sick","players[i].battlefield[i].counters","players[i].battlefield[i].controller","players[i].battlefield[i].types","players[i].battlefield[i].keywords","players[i].battlefield[i].attached_to","players[i].battlefield[i].token","players[i].battlefield[i].face_down","game_rng_calls","agent_rng_calls","snapshot.exists"],"build":"46b7d8100 exe:a02cf0cd0a507aa3","max_turns":20}
 {"deck1":"survey_g000","deck2":"survey_g001","seed":42,"verdict":"PASS"}
-{"deck1":"survey_g010","deck2":"survey_g011","seed":42,"verdict":"FAIL","turn":19,"phase":"Untap","field":"players[i].battlefield[i].tapped","subject":"Edgewall Inn","rust":"true","java":"false","fields":["players[i].battlefield[i].tapped"]}
+{"deck1":"survey_g010","deck2":"survey_g011","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g012","deck2":"survey_g013","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g014","deck2":"survey_g015","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g016","deck2":"survey_g017","seed":42,"verdict":"PASS"}
@@ -10,12 +10,12 @@
 {"deck1":"survey_g032","deck2":"survey_g033","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g034","deck2":"survey_g035","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g036","deck2":"survey_g037","seed":42,"verdict":"PASS"}
-{"deck1":"survey_g046","deck2":"survey_g047","seed":42,"verdict":"PASS","decision":"T20 Main1: Rust P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Undercity Sewers@67, mode: Normal }) | #1 CastSpell(PlayOption { card: Undercity Sewers@75, mode: Normal }) | #2 CastSpell(PlayOption { card: Urban Retreat@77, mode: N / Java P1 $ACTION_SPACE -> [#0 ActivateAbility(AbilityRef { card: Urban Retreat@77, ability_index: 1 }) | #1 CastSpell(PlayOption { card: Undercity Sewers@67, mode: Normal }) | #2 CastSpell(PlayOption { card: Undercity Sewers@7 (after P0 choose_action -> PassPriority)"}
+{"deck1":"survey_g046","deck2":"survey_g047","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g056","deck2":"survey_g057","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g066","deck2":"survey_g067","seed":42,"verdict":"PASS"}
-{"deck1":"survey_g076","deck2":"survey_g077","seed":42,"verdict":"FAIL","turn":15,"phase":"Untap","field":"players[i].life","rust":"12","java":"15","fields":["players[i].life","players[i].library_top","players[i].life","players[i].battlefield.count","players[i].battlefield.cards","players[i].battlefield[i].tapped","agent_rng_calls"],"decision":"T14 Main1: Rust P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Grub, Storied Matriarch@66, mode: Normal }) | #1 CastSpell(PlayOption { card: Gumdrop Poisoner@74, mode: Normal }) | #2 CastSpell(PlayOption { card: HYDRA Troopers@73, / Java P1 choose_single_entity_for_effect -> Card(Villain Token@122) (after P0 choose_action -> PassPriority)"}
+{"deck1":"survey_g076","deck2":"survey_g077","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g086","deck2":"survey_g087","seed":42,"verdict":"PASS"}
-{"deck1":"survey_g096","deck2":"survey_g097","seed":42,"verdict":"PASS","decision":"T20 Main1: Rust P1 $ACTION_SPACE -> [#0 CastSpell(PlayOption { card: Risky Research@106, mode: Normal }) | #1 CastSpell(PlayOption { card: Risky Shortcut@115, mode: Normal }) | #2 CastSpell(PlayOption { card: Robot Domination@78, mode:  / Java P1 choose_action -> PassPriority (after P0 choose_action -> PassPriority)"}
+{"deck1":"survey_g096","deck2":"survey_g097","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g106","deck2":"survey_g107","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g114","deck2":"survey_g115","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g116","deck2":"survey_g117","seed":42,"verdict":"PASS"}
@@ -25,18 +25,18 @@
 {"deck1":"survey_g136","deck2":"survey_g137","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g146","deck2":"survey_g147","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g156","deck2":"survey_g157","seed":42,"verdict":"PASS"}
-{"deck1":"survey_g166","deck2":"survey_g167","seed":42,"verdict":"PASS","decision":"T0 Unknown: Rust P0 confirm_action -> true / Java P0 choose_action -> PassPriority (first decision)"}
-{"deck1":"survey_g170","deck2":"survey_g171","seed":42,"verdict":"PASS","decision":"T15 Main1: Rust P0 pay_mana_cost -> [TapLand { card: Forest@4, mana_ability_index: 0, express_choice: null }, TapLand { card: Forest@7, mana_ability_index: 0, express_choice: null }, Pay] / Java P0 choose_cards_for_effect -> [Mindful Biomancer@13] (after P0 choose_targets_for -> true)"}
+{"deck1":"survey_g166","deck2":"survey_g167","seed":42,"verdict":"PASS"}
+{"deck1":"survey_g170","deck2":"survey_g171","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g176","deck2":"survey_g177","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g178","deck2":"survey_g179","seed":42,"verdict":"PASS"}
-{"deck1":"survey_g184","deck2":"survey_g185","seed":42,"verdict":"PASS","decision":"T11 Upkeep: Rust P0 choose_color -> Some(white) / Java P0 pay_mana_cost -> [TapLand { card: Forest@4, mana_ability_index: 0, express_choice: null }, TapLand { card: Forest@7, mana_ability_index: 0, express_choice: null }, ActivateManaAbility { card: Shang-Chi, Master of Kung (after P0 choose_color -> Some(white))"}
-{"deck1":"survey_g194","deck2":"survey_g195","seed":42,"verdict":"FAIL","turn":17,"phase":"Untap","field":"players[i].graveyard","rust":"[\"Topiary Lecturer\", \"Torgal, A Fine Hound\", \"Tough Cookie\"]","java":"[\"Torgal, A Fine Hound\", \"Tough Cookie\"]","fields":["players[i].graveyard","players[i].battlefield.count","players[i].battlefield.cards","players[i].library_size","players[i].library_top","players[i].hand","players[i].battlefield.count","players[i].battlefield.cards","players[i].battlefield[i].tapped","agent_rng_calls"],"decision":"T12 Upkeep: Rust P1 $ACTION_SPACE -> [#0 ActivateAbility(AbilityRef { card: Clue Token@125, ability_index: 0 }) | PASS] / Java P1 $ACTION_SPACE -> [#0 ActivateAbility(AbilityRef { card: Clue Token@123, ability_index: 0 }) | PASS] (after P1 choose_action -> PassPriority)"}
+{"deck1":"survey_g184","deck2":"survey_g185","seed":42,"verdict":"PASS"}
+{"deck1":"survey_g194","deck2":"survey_g195","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g204","deck2":"survey_g205","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g214","deck2":"survey_g215","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g226","deck2":"survey_g227","seed":42,"verdict":"PASS"}
-{"deck1":"survey_g236","deck2":"survey_g237","seed":42,"verdict":"FAIL","turn":7,"phase":"Untap","field":"players[i].life","rust":"20","java":"19","fields":["players[i].life"],"decision":"T16 CombatDeclareAttackers: Rust P1 choose_attackers -> [(Memorial Team Leader@72, Player(PlayerId(0)))] / Java P1 choose_optional_trigger -> false (after P0 choose_action -> PassPriority)"}
+{"deck1":"survey_g236","deck2":"survey_g237","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g242","deck2":"survey_g243","seed":42,"verdict":"PASS"}
-{"deck1":"survey_g248","deck2":"survey_g249","seed":42,"verdict":"FAIL","turn":11,"phase":"Untap","field":"players[i].life","rust":"20","java":"19","fields":["players[i].life","players[i].graveyard","players[i].battlefield.count","players[i].battlefield.cards","agent_rng_calls"],"decision":"T6 Main2: Rust P1 pay_mana_cost -> [TapLand { card: Mountain@63, mana_ability_index: 0, express_choice: null }, TapLand { card: Mountain@69, mana_ability_index: 0, express_choice: null }, Pay] / Java P1 choose_cards_for_effect -> [Rust Harvester@64] (after P1 choose_targets_for -> true)"}
+{"deck1":"survey_g248","deck2":"survey_g249","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g258","deck2":"survey_g259","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g266","deck2":"survey_g267","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g270","deck2":"survey_g271","seed":42,"verdict":"PASS"}
@@ -44,10 +44,10 @@
 {"deck1":"survey_g292","deck2":"survey_g293","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g302","deck2":"survey_g303","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g314","deck2":"survey_g315","seed":42,"verdict":"PASS"}
-{"deck1":"survey_g316","deck2":"survey_g317","seed":42,"verdict":"FAIL","turn":20,"phase":"Untap","field":"players[i].battlefield[i].power","subject":"Rangers' Refueler","rust":"None","java":"Some(4)","fields":["players[i].battlefield[i].power","players[i].battlefield[i].toughness","players[i].battlefield[i].types"]}
-{"deck1":"survey_g330","deck2":"survey_g331","seed":42,"verdict":"FAIL","turn":15,"phase":"Untap","field":"players[i].library_top","rust":"[\"Sygg, Wanderwine Wisdom\", \"Island\", \"Island\", \"Island\", \"Talion's Messenger\", \"Island\", \"Island\", \"Talion's Messenger\", \"Island\", \"Taigam, Master Opportunist\"]","java":"[\"Island\", \"Talion's Messenger\", \"Island\", \"Island\", \"Talion's Messenger\", \"Island\", \"Island\", \"Talion's Messenger\", \"Island\", \"Taigam, Master Opportunist\"]","fields":["players[i].library_top","players[i].battlefield.cards","players[i].hand","players[i].battlefield.cards","players[i].battlefield[i].tapped","players[i].battlefield[i].types","players[i].battlefield[i].token","agent_rng_calls"],"decision":"T9 Main1: Rust P0 choose_optional_trigger -> true / Java P0 choose_action -> PassPriority (after P1 choose_action -> PassPriority)"}
-{"deck1":"survey_g340","deck2":"survey_g341","seed":42,"verdict":"PASS","decision":"T15 Upkeep: Rust P0 choose_action -> PassPriority / Java P1 choose_action -> PassPriority (after P1 confirm_action -> true)"}
-{"deck1":"survey_g346","deck2":"survey_g347","seed":42,"verdict":"PASS","decision":"T12 Upkeep: Rust P1 choose_number -> Some(0) / Java P1 choose_cards_for_effect -> [] (after P1 choose_action -> ActivateAbility(AbilityRef { card: Winter, Cursed Rider@71, ability_index: 0 }))"}
+{"deck1":"survey_g316","deck2":"survey_g317","seed":42,"verdict":"PASS"}
+{"deck1":"survey_g330","deck2":"survey_g331","seed":42,"verdict":"PASS"}
+{"deck1":"survey_g340","deck2":"survey_g341","seed":42,"verdict":"PASS"}
+{"deck1":"survey_g346","deck2":"survey_g347","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g352","deck2":"survey_g353","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g354","deck2":"survey_g355","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g364","deck2":"survey_g365","seed":42,"verdict":"PASS"}
@@ -55,16 +55,16 @@
 {"deck1":"survey_g368","deck2":"survey_g369","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g378","deck2":"survey_g379","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g380","deck2":"survey_g381","seed":42,"verdict":"PASS"}
-{"deck1":"survey_g390","deck2":"survey_g391","seed":42,"verdict":"FAIL","turn":15,"phase":"Untap","field":"players[i].battlefield[i].tapped","subject":"Fortress Kin-Guard","rust":"true","java":"false","fields":["players[i].battlefield[i].tapped","players[i].battlefield[i].power","players[i].battlefield[i].toughness","players[i].battlefield[i].summoning_sick","players[i].battlefield[i].counters","agent_rng_calls"],"decision":"T14 Main2: Rust P1 choose_action -> PassPriority / Java P1 confirm_action -> true (after P0 choose_action -> PassPriority)"}
+{"deck1":"survey_g390","deck2":"survey_g391","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g400","deck2":"survey_g401","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g404","deck2":"survey_g405","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g412","deck2":"survey_g413","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g422","deck2":"survey_g423","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g424","deck2":"survey_g425","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g434","deck2":"survey_g435","seed":42,"verdict":"PASS"}
-{"deck1":"survey_g436","deck2":"survey_g437","seed":42,"verdict":"PASS","decision":"T18 Main1: Rust P1 choose_number -> Some(2) / Java P1 pay_mana_cost -> [TapLand { card: Plains@67, mana_ability_index: 0, express_choice: null }, TapLand { card: Swamp@64, mana_ability_index: 0, express_choice: null }, TapLand { card: Swamp@61, mana_ability_index: 0, exp (after P1 choose_action -> CastSpell(PlayOption { card: Fix What's Broken@76, mode: Normal }))"}
+{"deck1":"survey_g436","deck2":"survey_g437","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g446","deck2":"survey_g447","seed":42,"verdict":"PASS"}
-{"deck1":"survey_g448","deck2":"survey_g449","seed":42,"verdict":"FAIL","turn":14,"phase":"Untap","field":"players[i].life","rust":"31","java":"28","fields":["players[i].life","players[i].library_size","players[i].library_top","players[i].battlefield.count","players[i].battlefield.cards","players[i].battlefield[i].tapped","players[i].battlefield[i].summoning_sick","players[i].battlefield[i].tapped","players[i].life","game_rng_calls","agent_rng_calls"],"decision":"T13 Main1: Rust P0 pay_mana_cost -> [TapLand { card: Forest@3, mana_ability_index: 0, express_choice: null }, TapLand { card: Plains@5, mana_ability_index: 0, express_choice: null }, TapLand { card: Plains@1, mana_ability_index: 0, expr / Java P0 choose_color -> 8 (after P0 choose_action -> CastSpell(PlayOption { card: Caradora, Heart of Alacria@9, mode: Normal }))"}
+{"deck1":"survey_g448","deck2":"survey_g449","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g458","deck2":"survey_g459","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g460","deck2":"survey_g461","seed":42,"verdict":"PASS"}
 {"deck1":"survey_g466","deck2":"survey_g467","seed":42,"verdict":"PASS"}
