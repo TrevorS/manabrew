@@ -849,7 +849,6 @@ impl GameLoop {
                     card.clear_deathtouch_damage();
                     card.reset_regeneration_shields();
                     card.reset_shield_count();
-                    card.damage_history.new_turn();
                 }
                 // Effects with "until end of turn" duration end at cleanup
                 // (CR 514.2). Pump keywords and "can't have" tags apply to

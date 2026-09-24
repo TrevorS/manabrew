@@ -4646,6 +4646,7 @@ impl Card {
     }
     pub fn on_cleanup_phase(&mut self) {
         self.targeted_from_this_turn.clear();
+        self.damage_history.new_turn();
         self.visited_this_turn = false;
         self.damage_prevention = 0;
     }
