@@ -900,7 +900,12 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 // has >=2 charge counters). Mirrors Java's
                 // StaticAbilityContinuous.getAffectedCards() which validates
                 // all qualifiers even for self-referencing statics.
-                if source_card.zone == ZoneType::Battlefield
+                let in_affected_zone = if sa.ir.affected_zones.is_empty() {
+                    source_card.zone == ZoneType::Battlefield
+                } else {
+                    sa.ir.affected_zones.contains(&source_card.zone)
+                };
+                if in_affected_zone
                     && crate::card::valid_filter::matches_valid_card(
                         affected_str,
                         source_card,
