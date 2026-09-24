@@ -505,7 +505,7 @@ fn deal_damage_from_source(
         }
     }
 
-    gain_life_from_lifelink(ctx.game, source, lifelink_dealt);
+    gain_life_from_lifelink(ctx, sa, source, lifelink_dealt);
 
     stored_excess
 }
@@ -514,10 +514,12 @@ fn deal_damage_from_source(
 /// Mirrors the combat lifelink path in `combat/mod.rs` — the can't-gain check and the
 /// GainLife replacement chain apply here too.
 pub(crate) fn gain_life_from_lifelink(
-    game: &mut crate::game::GameState,
+    ctx: &mut EffectContext,
+    sa: &SpellAbility,
     source: crate::ids::CardId,
     lifelink_dealt: i32,
 ) {
+    let game = &mut *ctx.game;
     if lifelink_dealt <= 0 || !game.card(source).has_lifelink() {
         return;
     }
@@ -550,6 +552,18 @@ pub(crate) fn gain_life_from_lifelink(
     if final_amount > 0 {
         game.player_gain_life(controller, final_amount);
         game.player_add_team_life_gained(controller, final_amount);
+        ctx.trigger_handler.run_trigger(
+            crate::trigger::TriggerType::LifeGained,
+            crate::event::RunParams {
+                player: Some(controller),
+                life_amount: Some(final_amount),
+                first_time: Some(game.player(controller).life_gained_this_turn == final_amount),
+                source_card: Some(source),
+                source_sa: Some(sa.clone()),
+                ..Default::default()
+            },
+            false,
+        );
     }
 }
 

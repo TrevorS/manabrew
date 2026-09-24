@@ -147,7 +147,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
 
     for (source, dealt) in dealt_by_source {
-        super::damage_deal_effect::gain_life_from_lifelink(ctx.game, source, dealt);
+        super::damage_deal_effect::gain_life_from_lifelink(ctx, sa, source, dealt);
     }
 
     damage_map.trigger_damage_done_once(ctx.game, ctx.trigger_handler, false);

@@ -116,7 +116,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
         for (dealer, landed) in lifelink_dealt {
-            super::damage_deal_effect::gain_life_from_lifelink(ctx.game, dealer, landed);
+            super::damage_deal_effect::gain_life_from_lifelink(ctx, sa, dealer, landed);
         }
         if !excess_damaged.is_empty() {
             ctx.trigger_handler.run_trigger(
