@@ -188,6 +188,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
             }
         }
+        crate::ability::spell_ability_effect::sort_in_turn_order(ctx.game, sa, &mut players);
         if crate::parsing::raw_has_key(raw, "ClearRememberedBeforeLoop") {
             ctx.game.card_mut(source_id).clear_remembered();
         }

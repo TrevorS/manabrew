@@ -320,6 +320,37 @@ pub fn get_defined_players_or_targeted(game: &GameState, sa: &SpellAbility) -> V
     get_players(game, sa, true, "Defined")
 }
 
+fn ordered_players(game: &GameState, starter: PlayerId) -> Vec<PlayerId> {
+    let Some(offset) = game.player_order.iter().position(|&pid| pid == starter) else {
+        return game.player_order.clone();
+    };
+
+    (0..game.player_order.len())
+        .map(|idx| game.player_order[(offset + idx) % game.player_order.len()])
+        .collect()
+}
+
+pub(crate) fn sort_in_turn_order(game: &GameState, sa: &SpellAbility, players: &mut [PlayerId]) {
+    let starter = sa
+        .ir
+        .starting_with
+        .as_deref()
+        .and_then(|defined| {
+            ability_utils::resolve_defined_players_with_sa(defined, sa, sa.activating_player, game)
+                .into_iter()
+                .next()
+        })
+        .unwrap_or(game.turn.active_player);
+    let ordered = ordered_players(game, starter);
+
+    players.sort_by_key(|pid| {
+        ordered
+            .iter()
+            .position(|ordered_pid| ordered_pid == pid)
+            .unwrap_or(usize::MAX)
+    });
+}
+
 /// Core player resolution logic.
 /// Mirrors Java's private `SpellAbilityEffect.getPlayers(definedFirst, definedParam, sa)`.
 fn get_players(
@@ -332,42 +363,6 @@ fn get_players(
         if !players.contains(&player) {
             players.push(player);
         }
-    }
-
-    fn ordered_players(game: &GameState, starter: PlayerId) -> Vec<PlayerId> {
-        let Some(offset) = game.player_order.iter().position(|&pid| pid == starter) else {
-            return game.player_order.clone();
-        };
-
-        (0..game.player_order.len())
-            .map(|idx| game.player_order[(offset + idx) % game.player_order.len()])
-            .collect()
-    }
-
-    fn sort_in_turn_order(game: &GameState, sa: &SpellAbility, players: &mut [PlayerId]) {
-        let starter = sa
-            .ir
-            .starting_with
-            .as_deref()
-            .and_then(|defined| {
-                ability_utils::resolve_defined_players_with_sa(
-                    defined,
-                    sa,
-                    sa.activating_player,
-                    game,
-                )
-                .into_iter()
-                .next()
-            })
-            .unwrap_or(game.turn.active_player);
-        let ordered = ordered_players(game, starter);
-
-        players.sort_by_key(|pid| {
-            ordered
-                .iter()
-                .position(|ordered_pid| ordered_pid == pid)
-                .unwrap_or(usize::MAX)
-        });
     }
 
     let ir_defined = ir_defined_param(sa, defined_param);
