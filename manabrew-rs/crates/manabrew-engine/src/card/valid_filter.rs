@@ -1650,7 +1650,7 @@ fn resolve_numeric_property(
 fn effective_mana_value(card: &Card, context: MatchContext<'_>) -> i32 {
     let mut mana_value = card.mana_value();
     if let Some(sa) = context.spell_ability {
-        if sa.source == Some(card.id) {
+        if sa.source == Some(card.id) && card.zone != ZoneType::Stack {
             mana_value += sa.x_mana_cost_paid as i32 * card.mana_cost.count_x() as i32;
         }
     }
