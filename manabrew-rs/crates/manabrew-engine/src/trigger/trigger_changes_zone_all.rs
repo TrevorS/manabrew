@@ -13,8 +13,8 @@ use super::trigger::TriggerBehavior;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TriggerChangesZoneAll {
-    pub origin: Option<forge_foundation::ZoneType>,
-    pub destination: Option<forge_foundation::ZoneType>,
+    pub origin: Option<Vec<forge_foundation::ZoneType>>,
+    pub destination: Option<Vec<forge_foundation::ZoneType>>,
     pub valid_card: Option<crate::parsing::CompiledSelector>,
     pub valid_cause: Option<crate::parsing::CompiledSelector>,
     pub first_time_only: bool,
@@ -23,8 +23,9 @@ pub struct TriggerChangesZoneAll {
 
 impl TriggerChangesZoneAll {
     pub fn parse(params: &Params) -> Box<dyn TriggerBehavior> {
-        let origin = params.zone_type(keys::ORIGIN);
-        let destination = params.zone_type(keys::DESTINATION);
+        let origin = Some(params.zone_types(keys::ORIGIN)).filter(|zones| !zones.is_empty());
+        let destination =
+            Some(params.zone_types(keys::DESTINATION)).filter(|zones| !zones.is_empty());
         let valid_card = params.selector_cloned_any(&[keys::VALID_CARDS, keys::VALID_CARD]);
         let valid_cause = params.selector_cloned(keys::VALID_CAUSE);
         let first_time_only = params.has("FirstTime");
@@ -49,12 +50,10 @@ impl TriggerChangesZoneAll {
         let host_card = trigger.base.card_trait_base.host_card_id();
         let host_controller = trigger.base.card_trait_base.host_controller(game);
         if let Some(table) = table {
-            let origins = self.origin.map(|zone| vec![zone]);
-            let destinations = self.destination.map(|zone| vec![zone]);
             table.filter_cards(
                 game,
-                origins.as_deref(),
-                destinations.as_deref(),
+                self.origin.as_deref(),
+                self.destination.as_deref(),
                 self.valid_card.as_ref(),
                 host_card,
                 host_controller,
@@ -65,10 +64,15 @@ impl TriggerChangesZoneAll {
             };
             zone_changes
                 .iter()
-                .filter(|zc| self.origin.is_none_or(|expected| zc.origin == expected))
+                .filter(|zc| {
+                    self.origin
+                        .as_ref()
+                        .is_none_or(|zones| zones.contains(&zc.origin))
+                })
                 .filter(|zc| {
                     self.destination
-                        .is_none_or(|expected| zc.destination == expected)
+                        .as_ref()
+                        .is_none_or(|zones| zones.contains(&zc.destination))
                 })
                 .filter_map(|zc| {
                     if trigger.matches_optional_valid_card_filter(
@@ -129,8 +133,8 @@ impl TriggerBehavior for TriggerChangesZoneAll {
                 let seen_before = table
                     .filter_cards(
                         game,
-                        self.origin.map(|zone| vec![zone]).as_deref(),
-                        self.destination.map(|zone| vec![zone]).as_deref(),
+                        self.origin.as_deref(),
+                        self.destination.as_deref(),
                         self.valid_card.as_ref(),
                         host_card,
                         host_controller,
@@ -155,7 +159,9 @@ impl TriggerBehavior for TriggerChangesZoneAll {
                         .iter()
                         .filter(|(_, seen_card)| !matching.contains(seen_card))
                         .filter(|(seen_origin, seen_card)| {
-                            self.origin.is_none_or(|expected| *seen_origin == expected)
+                            self.origin
+                                .as_ref()
+                                .is_none_or(|zones| zones.contains(seen_origin))
                                 && trigger.matches_optional_valid_card_filter(
                                     &self.valid_card,
                                     Some(*seen_card),
@@ -198,11 +204,17 @@ impl TriggerBehavior for TriggerChangesZoneAll {
     }
 
     fn origin_zone(&self) -> Option<forge_foundation::ZoneType> {
-        self.origin
+        match self.origin.as_deref() {
+            Some([zone]) => Some(*zone),
+            _ => None,
+        }
     }
 
     fn destination_zone(&self) -> Option<forge_foundation::ZoneType> {
-        self.destination
+        match self.destination.as_deref() {
+            Some([zone]) => Some(*zone),
+            _ => None,
+        }
     }
 
     fn get_important_stack_objects(

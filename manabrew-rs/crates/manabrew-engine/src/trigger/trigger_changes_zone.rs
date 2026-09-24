@@ -34,10 +34,13 @@ impl TriggerBehavior for TriggerChangesZone {
         let host_card = trigger.base.card_trait_base.host_card_id();
         let host_controller = trigger.base.card_trait_base.host_controller(game);
         let current_trigger_id = Some(trigger.id);
-        let origin = trigger.ir.origin_zone;
         let destination = trigger.ir.destination_zone;
-        if !super::trigger::Trigger::matches_zone_filter(&origin, params.origin)
-            || !super::trigger::Trigger::matches_zone_filter(&destination, params.destination)
+        let in_zones = |zones: &[forge_foundation::ZoneType],
+                        zone: Option<forge_foundation::ZoneType>| {
+            zones.is_empty() || zone.is_some_and(|zone| zones.contains(&zone))
+        };
+        if !in_zones(&trigger.ir.origin_zones, params.origin)
+            || !in_zones(&trigger.ir.destination_zones, params.destination)
         {
             return false;
         }
