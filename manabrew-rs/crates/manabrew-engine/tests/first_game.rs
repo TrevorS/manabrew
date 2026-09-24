@@ -522,7 +522,7 @@ fn make_mulldrifter(owner: PlayerId) -> CardInstance {
         vec!["Flying".to_string()],
         vec![],
     );
-    card.triggers = vec![trigger];
+    card.set_triggers(vec![trigger]);
     card.svars = svars;
     card
 }
@@ -678,6 +678,7 @@ fn mulldrifter_etb_draws_two_cards() {
         Box::new(manabrew_engine::agent::PassAgent),
     ];
     game_loop.resolve_stack(&mut game, &mut agents);
+    game_loop.priority_round(&mut game, &mut agents, false);
     game_loop.resolve_stack(&mut game, &mut agents);
 
     // Mulldrifter should be on battlefield

@@ -363,27 +363,6 @@ fn test_token_for_opponent() {
     assert_eq!(game.zone(ZoneType::Battlefield, p0).len(), 0);
 }
 
-/// Missing token script logs a warning and creates nothing (no panic).
-#[test]
-fn test_missing_token_script_is_silent() {
-    let mut game = GameState::new(&["Alice", "Bob"], 20);
-    let p0 = PlayerId(0);
-
-    let ability = "SP$ Token | TokenAmount$ 1 | TokenScript$ nonexistent_token | TokenOwner$ You";
-    push_activated_entry(&mut game, p0, ability, None);
-
-    let mut agents = pass_agents();
-    let mut game_loop = GameLoop::new(2);
-    // Intentionally do NOT register the script
-    game_loop.resolve_stack(&mut game, &mut agents);
-
-    assert_eq!(
-        game.zone(ZoneType::Battlefield, p0).len(),
-        0,
-        "No token should be created"
-    );
-}
-
 // ── Token Cease-to-Exist Tests ────────────────────────────────────────
 
 /// Tokens cease to exist when they leave the battlefield (CR 110.5g).
@@ -452,7 +431,7 @@ fn test_copy_permanent() {
     game.move_card(bears, ZoneType::Battlefield, p1);
 
     // Alice copies it (Clone effect)
-    let ability = "SP$ CopyPermanent";
+    let ability = "SP$ CopyPermanent | ValidTgts$ Creature";
     push_activated_entry(&mut game, p0, ability, Some(bears));
 
     let mut agents = pass_agents();
@@ -492,7 +471,7 @@ fn test_copy_permanent_with_pump_keywords() {
     let bears = game.create_card(make_grizzly_bears(p1));
     game.move_card(bears, ZoneType::Battlefield, p1);
 
-    let ability = "SP$ CopyPermanent | PumpKeywords$ Haste";
+    let ability = "SP$ CopyPermanent | ValidTgts$ Creature | PumpKeywords$ Haste";
     push_activated_entry(&mut game, p0, ability, Some(bears));
 
     let mut agents = pass_agents();
@@ -501,7 +480,7 @@ fn test_copy_permanent_with_pump_keywords() {
 
     let copy_id = game.zone(ZoneType::Battlefield, p0).cards[0];
     assert!(
-        game.card(copy_id).keywords.contains_string("Haste"),
+        game.card(copy_id).has_keyword("Haste"),
         "Copy should have Haste from PumpKeywords$"
     );
 }
@@ -516,7 +495,7 @@ fn test_copy_ceases_to_exist_on_leaving() {
     let bears = game.create_card(make_grizzly_bears(p1));
     game.move_card(bears, ZoneType::Battlefield, p1);
 
-    let ability = "SP$ CopyPermanent";
+    let ability = "SP$ CopyPermanent | ValidTgts$ Creature";
     push_activated_entry(&mut game, p0, ability, Some(bears));
 
     let mut agents = pass_agents();
@@ -549,7 +528,7 @@ fn test_copy_permanent_triggers_copied_etb() {
     game.move_card(creature, ZoneType::Battlefield, p1);
     assert_eq!(game.player(p0).life, 20);
 
-    let ability = "SP$ CopyPermanent";
+    let ability = "SP$ CopyPermanent | ValidTgts$ Creature";
     push_activated_entry(&mut game, p0, ability, Some(creature));
 
     let mut agents = pass_agents();

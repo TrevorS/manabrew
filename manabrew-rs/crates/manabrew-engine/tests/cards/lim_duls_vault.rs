@@ -104,7 +104,7 @@ fn run_lim_duls_vault(pay_answers: Vec<bool>) -> (GameState, PlayerId, Vec<Callb
 }
 
 #[test]
-fn lim_duls_vault_records_reveal_pay_reveal_pay_reorder_callbacks() {
+fn lim_duls_vault_records_reveal_pay_reorder_reveal_pay_reorder_callbacks() {
     let (game, p0, events) = run_lim_duls_vault(vec![true, false]);
     assert_eq!(
         game.player(p0).life,
@@ -112,33 +112,44 @@ fn lim_duls_vault_records_reveal_pay_reveal_pay_reorder_callbacks() {
         "Vault should only charge 1 life for one repeat"
     );
 
-    let expected = vec![
-        CallbackEvent::Reveal(vec![
-            "Foo".to_string(),
-            "Bar".to_string(),
-            "Baz".to_string(),
-            "Quux".to_string(),
-            "Changeling Outcast".to_string(),
-        ]),
-        CallbackEvent::PayCostToPreventEffect("Pay 1 life".to_string()),
-        CallbackEvent::Reveal(vec![
-            "Alpha".to_string(),
-            "Beta".to_string(),
-            "Gamma".to_string(),
-            "Delta".to_string(),
-            "Epsilon".to_string(),
-        ]),
-        CallbackEvent::PayCostToPreventEffect("Pay 1 life".to_string()),
-    ];
-
     assert!(
-        events.len() >= 5,
-        "Expected reveal/pay/reveal/pay/reorder callback chain, got {:?}",
+        events.len() >= 6,
+        "Expected reveal/pay/reorder/reveal/pay/reorder callback chain, got {:?}",
         events
     );
-    assert_eq!(&events[..4], expected.as_slice());
+    assert_eq!(
+        &events[..2],
+        [
+            CallbackEvent::Reveal(vec![
+                "Foo".to_string(),
+                "Bar".to_string(),
+                "Baz".to_string(),
+                "Quux".to_string(),
+                "Changeling Outcast".to_string(),
+            ]),
+            CallbackEvent::PayCostToPreventEffect("Pay 1 life".to_string()),
+        ]
+    );
+    assert!(
+        matches!(&events[2], CallbackEvent::Reorder(ids) if ids.len() == 5),
+        "Paying life should order the five cards going to the bottom: {:?}",
+        events
+    );
+    assert_eq!(
+        &events[3..5],
+        [
+            CallbackEvent::Reveal(vec![
+                "Alpha".to_string(),
+                "Beta".to_string(),
+                "Gamma".to_string(),
+                "Delta".to_string(),
+                "Epsilon".to_string(),
+            ]),
+            CallbackEvent::PayCostToPreventEffect("Pay 1 life".to_string()),
+        ]
+    );
 
-    match &events[4] {
+    match &events[5] {
         CallbackEvent::Reorder(ids) => {
             assert_eq!(ids.len(), 5, "Final reorder must receive five cards")
         }

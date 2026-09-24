@@ -1,30 +1,15 @@
+use forge_carddb::parse_card_script;
 use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 use manabrew_engine::card::CardInstance;
 use manabrew_engine::game::GameState;
 use manabrew_engine::ids::{CardId, PlayerId};
 
 fn make_control_magic(owner: PlayerId) -> CardInstance {
-    // Control Magic: 2UU - Enchant creature, you control enchanted creature
-    let mut card = CardInstance::new(
-        CardId(0),
-        "Control Magic".to_string(),
-        owner,
-        CardTypeLine::parse("Enchantment - Aura"),
-        ManaCost::parse("2 U U"),
-        ColorSet::BLUE,
-        None,
-        None,
-        vec![],
-        vec![],
-    );
-
-    let sa = manabrew_engine::staticability::parse_static_ability(
-        "S$ Mode$ Continuous | Affected$ Card.EnchantedBy | GainControl$ You",
+    let rules = parse_card_script(
+        "Name:Control Magic\nManaCost:2 U U\nTypes:Enchantment Aura\nK:Enchant:Creature\nSVar:AttachAILogic:GainControl\nS:Mode$ Continuous | AffectedDefined$ Enchanted | GainControl$ You | Description$ You control enchanted creature.\nOracle:Enchant creature\\nYou control enchanted creature.",
     )
-    .expect("static ability should parse");
-
-    card.static_abilities.push(sa);
-    card
+    .expect("card script should parse");
+    CardInstance::from_rules(&rules, owner)
 }
 
 fn make_grizzly_bears(owner: PlayerId) -> CardInstance {
@@ -105,38 +90,12 @@ fn test_control_magic_grants_control() {
         "Bears should have Control Magic attached"
     );
 
-    println!("Before applying continuous effects:");
-    println!("  Bears controller: {:?}", game.card(bears).controller);
-    println!(
-        "  Aura controller: {:?}",
-        game.card(control_magic).controller
-    );
-    println!(
-        "  Aura attached to: {:?}",
-        game.card(control_magic).attached_to
-    );
-
-    // Apply static abilities (this should grant control, but doesn't due to missing layer 2)
     manabrew_engine::staticability::layer::apply_continuous_effects(&mut game);
 
-    println!("After applying continuous effects:");
-    println!("  Bears controller: {:?}", game.card(bears).controller);
-
-    // BUG: Control doesn't change because layer 2 (control-changing) is not implemented
-    let bears_after = game.card(bears);
-    if bears_after.controller != p0 {
-        println!("BUG CONFIRMED: Control Magic didn't grant control!");
-        println!(
-            "Expected controller: {:?}, Actual controller: {:?}",
-            p0, bears_after.controller
-        );
-        println!("\nReason: Layer 2 (control-changing) effects are not implemented in the static ability system.");
-    }
-
-    // This assertion will FAIL until layer 2 is implemented
     assert_eq!(
-        bears_after.controller, p0,
-        "BUG: Control Magic should grant control but doesn't - Layer 2 not implemented"
+        game.card(bears).controller,
+        p0,
+        "Control Magic should grant control of the enchanted creature"
     );
 }
 
