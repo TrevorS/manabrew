@@ -827,12 +827,7 @@ impl StaticAbility {
         }
 
         if let Some(phases) = self.ir.phases_text.as_deref() {
-            let current = format!("{:?}", game.turn.phase);
-            if !phases
-                .split(',')
-                .map(str::trim)
-                .any(|p| p.eq_ignore_ascii_case(&current))
-            {
+            if !forge_foundation::PhaseType::parse_range(phases).contains(&game.turn.phase) {
                 return false;
             }
         }
