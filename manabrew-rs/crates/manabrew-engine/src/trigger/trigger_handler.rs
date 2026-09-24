@@ -608,10 +608,10 @@ impl TriggerHandler {
                     continue;
                 }
                 let trigger = &card.triggers[trigger_index];
-                let host_controller = if card.zone != ZoneType::Battlefield
+                let lki_host = card.zone != ZoneType::Battlefield
                     && trigger.get_active_zone().contains(&ZoneType::Battlefield)
-                    && !trigger.get_active_zone().contains(&card.zone)
-                {
+                    && !trigger.get_active_zone().contains(&card.zone);
+                let host_controller = if lki_host {
                     card.lki_controller.unwrap_or(card.controller)
                 } else {
                     card.controller
@@ -684,7 +684,11 @@ impl TriggerHandler {
                         description: trigger.description.clone(),
                         static_trigger: trigger.is_static(),
                     };
-                    let source_ts = card.zone_timestamp;
+                    let source_ts = if lki_host {
+                        card.lki_zone_timestamp.unwrap_or(card.zone_timestamp)
+                    } else {
+                        card.zone_timestamp
+                    };
                     entries.push((pending, host_controller, source_ts, 1, trigger.id));
                     let extra = crate::staticability::static_ability_panharmonicon::extra_triggers(
                         game,
