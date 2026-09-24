@@ -129,6 +129,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         for ability in &mut target.activated_abilities {
             ability.original_host.get_or_insert(clone_source_id);
         }
+        if src.face_down {
+            target.card_name.clear();
+            target
+                .activated_abilities
+                .retain(|ability| !ability.is_turn_face_up());
+        }
         target.static_abilities = src.static_abilities.clone();
         target.replacement_effects = src.replacement_effects.clone();
         for static_ability in &mut target.static_abilities {
