@@ -4875,6 +4875,7 @@ impl Card {
             .collect();
         let mut granted_triggers = Vec::new();
         let mut lasting_trigger_count = 0;
+        let mut animated = None;
         if self.other_part.is_some() {
             let base = self.base_trigger_count.min(self.triggers.len());
             let face = self
@@ -4882,6 +4883,21 @@ impl Card {
                 .map_or(base, |count| count.min(base));
             lasting_trigger_count = base - face;
             granted_triggers = self.triggers.split_off(face);
+            if let Some(type_line) = self.static_type_line_base.take() {
+                self.type_line = type_line;
+            }
+            if let Some(state) = self.animate_state.as_ref() {
+                animated = Some((
+                    (self.base_power != state.original_base_power).then_some(self.base_power),
+                    (self.base_toughness != state.original_base_toughness)
+                        .then_some(self.base_toughness),
+                    (self.color != state.original_color).then_some(self.color),
+                ));
+                self.type_line = state.original_type_line.clone();
+                self.base_power = state.original_base_power;
+                self.base_toughness = state.original_base_toughness;
+                self.color = state.original_color;
+            }
             if let Some(statics) = self.trait_base_static_abilities.clone() {
                 self.static_abilities = statics;
             }
@@ -4942,6 +4958,33 @@ impl Card {
                 self.changed_keywords_base = Some(self.keywords.clone());
                 for kw in &changed_keywords {
                     self.add_intrinsic_keyword(kw);
+                }
+            }
+            if let Some((power, toughness, color)) = animated {
+                if let Some(mut state) = self.animate_state.take() {
+                    state.original_type_line = self.type_line.clone();
+                    state.original_base_power = self.base_power;
+                    state.original_base_toughness = self.base_toughness;
+                    state.original_color = self.color;
+                    state.original_keywords = Some(self.keywords.clone());
+                    self.animate_state = Some(state);
+                }
+                if let Some(power) = power {
+                    self.base_power = power;
+                }
+                if let Some(toughness) = toughness {
+                    self.base_toughness = toughness;
+                }
+                if let Some(color) = color {
+                    self.color = color;
+                }
+            }
+            if !self.changed_card_types.is_empty() {
+                for (_, change) in self.changed_card_types.clone() {
+                    self.apply_changed_card_type(&change);
+                }
+                if crate::staticability::layer::sanitize_subtypes(&mut self.type_line) {
+                    self.update_types();
                 }
             }
 
