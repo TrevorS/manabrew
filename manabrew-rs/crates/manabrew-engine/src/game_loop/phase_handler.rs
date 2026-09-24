@@ -726,6 +726,9 @@ impl GameLoop {
                 break;
             }
             self.step_with_priority(game, agents, false);
+            if game.game_over {
+                break;
+            }
             is_repeat = true;
         }
 
