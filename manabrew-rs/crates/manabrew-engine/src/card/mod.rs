@@ -4847,6 +4847,27 @@ impl Card {
         let room_triggers = is_room.then(|| self.triggers.clone());
         let room_statics = is_room.then(|| self.static_abilities.clone());
         let other_door_svars = is_room.then(|| self.svars.clone());
+        let changed_keywords = if self.other_part.is_some() {
+            self.changed_keywords_base.take().map(|printed| {
+                let mut unmatched = printed.as_string_list();
+                let changed: Vec<String> = self
+                    .keywords
+                    .as_string_list()
+                    .into_iter()
+                    .filter(|kw| match unmatched.iter().position(|p| p == kw) {
+                        Some(index) => {
+                            unmatched.remove(index);
+                            false
+                        }
+                        None => true,
+                    })
+                    .collect();
+                self.keywords = printed;
+                changed
+            })
+        } else {
+            None
+        };
         if let Some(other) = self.other_part.as_mut() {
             std::mem::swap(&mut self.card_name, &mut other.name);
             std::mem::swap(&mut self.oracle_text, &mut other.oracle_text);
@@ -4866,6 +4887,12 @@ impl Card {
             std::mem::swap(&mut self.svars, &mut other.svars);
 
             self.granted_keywords.clear();
+            if let Some(changed_keywords) = changed_keywords {
+                self.changed_keywords_base = Some(self.keywords.clone());
+                for kw in &changed_keywords {
+                    self.add_intrinsic_keyword(kw);
+                }
+            }
 
             // Re-parse activated abilities from new face's abilities
             self.activated_abilities = self
