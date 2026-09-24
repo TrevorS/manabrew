@@ -238,6 +238,10 @@ fn resolve_constrained_multi(
     selected
 }
 
+pub(super) fn sort_fetch_list(game: &crate::game::GameState, fetch_list: &mut [CardId]) {
+    fetch_list.sort_by_cached_key(|cid| (game.card(*cid).card_name.clone(), cid.0));
+}
+
 /// Random selection (AtRandom$).
 pub(super) fn resolve_random_selection(
     ctx: &mut EffectContext,
@@ -245,7 +249,7 @@ pub(super) fn resolve_random_selection(
     count: usize,
 ) -> Vec<CardId> {
     let mut pool = candidates.to_vec();
-    pool.sort_by_cached_key(|cid| (ctx.game.card(*cid).card_name.clone(), cid.0));
+    sort_fetch_list(ctx.game, &mut pool);
     let mut chosen = Vec::new();
     while chosen.len() < count && !pool.is_empty() {
         let index = if pool.len() == 1 {

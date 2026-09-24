@@ -66,11 +66,14 @@ pub fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
         if !is_origin_all && sa.origin().is_some() {
             return;
         }
-        let defined_cards = if is_origin_all {
+        let mut defined_cards = if is_origin_all {
             crate::ability::spell_ability_effect::get_defined_cards_or_targeted(ctx.game, sa)
         } else {
             crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa)
         };
+        if is_origin_all {
+            search::sort_fetch_list(ctx.game, &mut defined_cards);
+        }
         if defined_cards.is_empty() {
             return;
         }
@@ -97,6 +100,7 @@ pub fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
         ir.no_shuffle = true;
         if is_origin_all {
             ir.shuffle = false;
+            ir.hidden = true;
         }
         for zone in zones {
             known::resolve_known_origin(ctx, &sa_no_shuffle, zone, dest_zone);

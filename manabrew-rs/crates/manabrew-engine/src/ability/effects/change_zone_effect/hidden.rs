@@ -123,6 +123,7 @@ pub(super) fn resolve_hidden_origin(
             .collect();
         if !valid.is_empty() {
             let mut ordered = valid;
+            super::search::sort_fetch_list(ctx.game, &mut ordered);
             if sa.ir.reorder && ordered.len() > 1 {
                 ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
                 let reordered = ctx.agents[controller.index()]

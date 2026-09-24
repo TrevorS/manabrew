@@ -203,6 +203,11 @@ pub(super) fn resolve_known_origin(
         cards_to_move
     };
 
+    let mut cards_to_move = cards_to_move;
+    if sa.is_hidden() {
+        super::search::sort_fetch_list(ctx.game, &mut cards_to_move);
+    }
+
     if sa.ir.shuffle_non_mandatory
         && !ctx.agents[controller.index()].confirm_action(
             controller,
