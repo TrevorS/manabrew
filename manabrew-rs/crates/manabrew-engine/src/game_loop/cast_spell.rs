@@ -1656,6 +1656,7 @@ impl GameLoop {
             .insert("XPaid".to_string(), x_value.to_string());
 
         let cast_rollback_snapshot = self.make_snapshot(game, true);
+        let cast_rollback_rng = self.game_rng.save_state();
         let announced_from_zone = game.card_current_zone(card_id);
         if sa.is_spell && announced_from_zone != ZoneType::Hand {
             if let Some((source, index)) =
@@ -2332,6 +2333,14 @@ impl GameLoop {
                         game.card_mut(improvised_id).set_tapped(true);
                     }
                 }
+                let rng_after_payment = if non_undoable.is_empty() {
+                    None
+                } else {
+                    self.game_rng.save_state()
+                };
+                if let (Some(_), Some(state)) = (rng_after_payment, cast_rollback_rng) {
+                    self.game_rng.restore_state(state);
+                }
                 for (source_id, ability_index, chosen_atom) in non_undoable {
                     let mut replacement_pools =
                         (0..game.players.len()).map(|_| ManaPool::new()).collect();
@@ -2347,6 +2356,9 @@ impl GameLoop {
                         ability_index,
                         chosen_atom,
                     );
+                }
+                if let Some(state) = rng_after_payment {
+                    self.game_rng.restore_state(state);
                 }
                 return None;
             }

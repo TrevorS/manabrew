@@ -15,6 +15,13 @@
 
 use crate::ids::CardId;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GameRngState {
+    pub seed: i64,
+    pub call_count: u64,
+    pub api_call_count: u64,
+}
+
 /// Trait for game-level randomness, used by effect resolvers.
 ///
 /// This abstraction lets parity tests inject a Java-compatible RNG
@@ -41,6 +48,12 @@ pub trait GameRng {
     fn call_count(&self) -> u64 {
         0
     }
+
+    fn save_state(&self) -> Option<GameRngState> {
+        None
+    }
+
+    fn restore_state(&mut self, _state: GameRngState) {}
 }
 
 /// Default RNG using `rand::thread_rng()` — non-deterministic, for normal gameplay.

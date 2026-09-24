@@ -65,6 +65,20 @@ impl JavaRandom {
         result
     }
 
+    pub fn save_state(&self) -> GameRngState {
+        GameRngState {
+            seed: self.seed,
+            call_count: self.call_count,
+            api_call_count: self.api_call_count,
+        }
+    }
+
+    pub fn restore_state(&mut self, state: GameRngState) {
+        self.seed = state.seed;
+        self.call_count = state.call_count;
+        self.api_call_count = state.api_call_count;
+    }
+
     /// Equivalent to `java.util.Random.nextBoolean()`.
     pub fn next_boolean(&mut self) -> bool {
         self.next(1) != 0
@@ -87,7 +101,7 @@ impl JavaRandom {
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use manabrew_engine::game_rng::GameRng;
+use manabrew_engine::game_rng::{GameRng, GameRngState};
 use manabrew_engine::ids::CardId;
 
 /// Wraps a shared `JavaRandom` (via `Rc<RefCell<>>`) so it can be used as
@@ -116,6 +130,14 @@ impl GameRng for JavaGameRng {
 
     fn call_count(&self) -> u64 {
         self.0.borrow().call_count
+    }
+
+    fn save_state(&self) -> Option<GameRngState> {
+        Some(self.0.borrow().save_state())
+    }
+
+    fn restore_state(&mut self, state: GameRngState) {
+        self.0.borrow_mut().restore_state(state);
     }
 }
 
