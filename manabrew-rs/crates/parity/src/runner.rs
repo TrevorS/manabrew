@@ -853,6 +853,73 @@ impl PlayerAgent for CapturingAgent {
         result
     }
 
+    fn get_ability_to_play(
+        &mut self,
+        player: PlayerId,
+        abilities: &[manabrew_engine::spellability::SpellAbility],
+    ) -> Option<usize> {
+        self.save_snapshot("get_ability_to_play");
+        let host = abilities.first().and_then(|sa| sa.source).map(|cid| {
+            let fmt = self.fmt_ctx();
+            let name = fmt
+                .as_ref()
+                .and_then(|ctx| ctx.game.cards.get(cid.index()))
+                .map(|card| card.card_name.clone())
+                .unwrap_or_default();
+            format!("{name}@{}", self.parity_map.id(cid))
+        });
+        let cb_args = vec![
+            host.unwrap_or_else(|| "null".to_string()),
+            abilities.len().to_string(),
+        ];
+        let result = self.inner.get_ability_to_play(player, abilities);
+        let outcome = match self.fmt_ctx() {
+            Some(ctx) => result.parity_fmt(&ctx),
+            None => format!("{result:?}"),
+        };
+        self.parity_observer.on_callback(
+            "get_ability_to_play",
+            &outcome,
+            self.player_id.0,
+            self.current_turn,
+            &self.current_phase,
+            cb_args,
+        );
+        result
+    }
+
+    fn choose_optional_trigger(
+        &mut self,
+        player: PlayerId,
+        description: &str,
+        source: Option<CardId>,
+        api: Option<manabrew_engine::ability::api_type::ApiType>,
+    ) -> bool {
+        self.save_snapshot("choose_optional_trigger");
+        let source_name = self
+            .fmt_ctx()
+            .zip(source)
+            .map(|(ctx, cid)| ctx.game.card(cid).card_name.clone())
+            .unwrap_or_else(|| "?".to_string());
+        let cb_args = vec![
+            description.to_string(),
+            source_name,
+            api.callback_arg_display(None),
+        ];
+        let result = self
+            .inner
+            .choose_optional_trigger(player, description, source, api);
+        self.parity_observer.on_callback(
+            "choose_optional_trigger",
+            &result.to_string(),
+            self.player_id.0,
+            self.current_turn,
+            &self.current_phase,
+            cb_args,
+        );
+        result
+    }
+
     parity_agent_callback! {
         fn choose_targets_for(&mut self, sa: &mut manabrew_engine::spellability::SpellAbility, game: &GameState, mana_pools: &[manabrew_engine::mana::ManaPool]) -> bool => "choose_targets_for";
         fn mulligan_decision(&mut self, player: PlayerId, hand: &[CardId], mulligan_count: u32) -> bool => "mulligan_decision";
@@ -892,8 +959,6 @@ impl PlayerAgent for CapturingAgent {
         fn choose_keyword_for_pump(&mut self, player: PlayerId, options: &[String], source_card_id: Option<CardId>) -> Option<usize> => "choose_keyword_for_pump";
         fn choose_spell_abilities_for_effect(&mut self, player: PlayerId, abilities: &[manabrew_engine::spellability::SpellAbility], num: usize) -> Vec<usize> => "choose_spell_abilities_for_effect";
         fn choose_single_entity_for_effect(&mut self, player: PlayerId, valid: &[GameEntity], is_optional: bool) -> Option<GameEntity> => "choose_single_entity_for_effect";
-        fn get_ability_to_play(&mut self, player: PlayerId, abilities: &[manabrew_engine::spellability::SpellAbility]) -> Option<usize> => "get_ability_to_play";
-        fn choose_optional_trigger(&mut self, player: PlayerId, description: &str, source: Option<CardId>, api: Option<manabrew_engine::ability::api_type::ApiType>) -> bool => "choose_optional_trigger";
         fn choose_land_or_spell(&mut self, player: PlayerId) -> Option<bool> => "choose_land_or_spell";
         fn confirm_action(&mut self, player: PlayerId, mode: Option<&str>, message: &str, options: &[String], source: Option<CardId>, api: Option<manabrew_engine::ability::api_type::ApiType>) -> bool => "confirm_action";
         fn confirm_payment(&mut self, player: PlayerId, cost_kind: &str, message: &str, source: Option<CardId>, api: Option<manabrew_engine::ability::api_type::ApiType>) -> bool => "confirm_payment";
