@@ -4873,11 +4873,15 @@ impl Card {
             .filter(|ab| ab.is_unlock_door)
             .cloned()
             .collect();
-        let mut pump_triggers = Vec::new();
+        let mut granted_triggers = Vec::new();
+        let mut lasting_trigger_count = 0;
         if self.other_part.is_some() {
-            let start = self.base_trigger_count.min(self.triggers.len());
-            let end = (start + self.pump_trigger_count).min(self.triggers.len());
-            pump_triggers = self.triggers.drain(start..end).collect();
+            let base = self.base_trigger_count.min(self.triggers.len());
+            let face = self
+                .changed_trigger_count_base
+                .map_or(base, |count| count.min(base));
+            lasting_trigger_count = base - face;
+            granted_triggers = self.triggers.split_off(face);
             if let Some(statics) = self.trait_base_static_abilities.clone() {
                 self.static_abilities = statics;
             }
@@ -4970,8 +4974,11 @@ impl Card {
                 self.svars.entry(key).or_insert(value);
             }
             self.base_ability_count = self.activated_abilities.len();
-            self.base_trigger_count = self.triggers.len();
-            self.triggers.extend(pump_triggers);
+            if self.changed_trigger_count_base.is_some() {
+                self.changed_trigger_count_base = Some(self.triggers.len());
+            }
+            self.base_trigger_count = self.triggers.len() + lasting_trigger_count;
+            self.triggers.extend(granted_triggers);
             self.parsed_svar_cache.clear();
             self.refresh_action_specs();
 

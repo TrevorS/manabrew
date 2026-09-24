@@ -435,8 +435,10 @@ pub(crate) fn assemble_card(
                 generate_other_part_keyword_triggers(&mut card);
             }
             if back_face.type_line.has_subtype("Saga") {
+                card.base_trigger_count = card.triggers.len();
                 card.transform();
                 add_saga_abilities(&mut card);
+                card.base_trigger_count = card.triggers.len();
                 card.transform();
             }
         }
