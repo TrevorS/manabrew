@@ -123,9 +123,9 @@ impl PlayerAgent for DiscardOneAgent {
 
     fn choose_action(
         &mut self,
-        player: PlayerId,
-        action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-        request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
+        _player: PlayerId,
+        _action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
+        _request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
     ) -> PlayerAction {
         PlayerAction::PassPriority
     }

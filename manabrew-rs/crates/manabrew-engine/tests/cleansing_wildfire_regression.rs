@@ -1,6 +1,6 @@
 use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 use manabrew_engine::ability::ability_factory::build_spell_ability;
-use manabrew_engine::agent::{PassAgent, PlayOption, PlayerAgent, TargetChoice};
+use manabrew_engine::agent::{PassAgent, PlayerAgent, TargetChoice};
 use manabrew_engine::card::CardInstance;
 use manabrew_engine::combat::DefenderId;
 use manabrew_engine::game::GameState;
@@ -70,9 +70,9 @@ impl PlayerAgent for AcceptSearchAgent {
 
     fn choose_action(
         &mut self,
-        player: PlayerId,
-        action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-        request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
+        _player: PlayerId,
+        _action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
+        _request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
     ) -> PlayerAction {
         PlayerAction::PassPriority
     }
@@ -136,7 +136,7 @@ impl PlayerAgent for AcceptSearchAgent {
         _: Option<&str>,
         _: &str,
         _: &[String],
-        _: Option<&str>,
+        _: Option<CardId>,
         _: Option<manabrew_engine::ability::api_type::ApiType>,
     ) -> bool {
         true

@@ -565,8 +565,7 @@ mod tests {
         assert!(effect.temp_effect_until_eot);
         assert_eq!(effect.effect_source, Some(host_id));
 
-        let mut spell_abilities = Vec::new();
-        spell_abilities.push("SP$ Permanent | Cost$ 1 G".to_string());
+        let spell_abilities = vec!["SP$ Permanent | Cost$ 1 G".to_string()];
         let fake_creature = Card::new(
             CardId(999),
             "Bear".to_string(),

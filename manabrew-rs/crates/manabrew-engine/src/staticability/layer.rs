@@ -1860,6 +1860,49 @@ fn resolve_added_types(source: &crate::card::Card, add_type: Option<&str>) -> Ve
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
+/// Keep in sync with `CardType.sanisfySubtypes`: after type changes, a subtype stays only
+/// while the card has a card type it belongs to. Returns whether anything was removed.
+pub(crate) fn sanitize_subtypes(type_line: &mut CardTypeLine) -> bool {
+    use crate::game::TypeRegistry;
+    let creature = type_line.core_types.contains(&CoreType::Creature)
+        || type_line.core_types.contains(&CoreType::Kindred);
+    let cleared_all_creature_types = !creature && std::mem::take(&mut type_line.all_creature_types);
+    if type_line.subtypes.is_empty() || !TypeRegistry::subtype_sections_loaded() {
+        return cleared_all_creature_types;
+    }
+    let has = |t: CoreType| type_line.core_types.contains(&t);
+    let land = has(CoreType::Land);
+    let artifact = has(CoreType::Artifact);
+    let enchantment = has(CoreType::Enchantment);
+    let spell = has(CoreType::Instant) || has(CoreType::Sorcery);
+    let walker = has(CoreType::Planeswalker);
+    let dungeon = has(CoreType::Dungeon);
+    let battle = has(CoreType::Battle);
+    let plane = has(CoreType::Plane);
+    let before = type_line.subtypes.len();
+    type_line.subtypes.retain(|s| {
+        (creature && TypeRegistry::is_creature_type(s))
+            || (land && TypeRegistry::is_land_type(s))
+            || (artifact && TypeRegistry::is_subtype_in("ArtifactTypes", s))
+            || (enchantment && TypeRegistry::is_subtype_in("EnchantmentTypes", s))
+            || (spell && TypeRegistry::is_subtype_in("SpellTypes", s))
+            || (walker && TypeRegistry::is_subtype_in("WalkerTypes", s))
+            || (dungeon && TypeRegistry::is_subtype_in("DungeonTypes", s))
+            || (battle && TypeRegistry::is_subtype_in("BattleTypes", s))
+            || (plane && TypeRegistry::is_subtype_in("PlanarTypes", s))
+    });
+    type_line.subtypes.len() != before || cleared_all_creature_types
+}
+
+/// `StringUtils.capitalize`, for the colour name Java splices into a CardColors keyword.
+fn capitalize(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2337,48 +2380,5 @@ mod tests {
             game.card(id).tapped,
             "Card with ReplaceWith$ ETBTapped replacement should enter tapped"
         );
-    }
-}
-
-/// Keep in sync with `CardType.sanisfySubtypes`: after type changes, a subtype stays only
-/// while the card has a card type it belongs to. Returns whether anything was removed.
-pub(crate) fn sanitize_subtypes(type_line: &mut CardTypeLine) -> bool {
-    use crate::game::TypeRegistry;
-    let creature = type_line.core_types.contains(&CoreType::Creature)
-        || type_line.core_types.contains(&CoreType::Kindred);
-    let cleared_all_creature_types = !creature && std::mem::take(&mut type_line.all_creature_types);
-    if type_line.subtypes.is_empty() || !TypeRegistry::subtype_sections_loaded() {
-        return cleared_all_creature_types;
-    }
-    let has = |t: CoreType| type_line.core_types.contains(&t);
-    let land = has(CoreType::Land);
-    let artifact = has(CoreType::Artifact);
-    let enchantment = has(CoreType::Enchantment);
-    let spell = has(CoreType::Instant) || has(CoreType::Sorcery);
-    let walker = has(CoreType::Planeswalker);
-    let dungeon = has(CoreType::Dungeon);
-    let battle = has(CoreType::Battle);
-    let plane = has(CoreType::Plane);
-    let before = type_line.subtypes.len();
-    type_line.subtypes.retain(|s| {
-        (creature && TypeRegistry::is_creature_type(s))
-            || (land && TypeRegistry::is_land_type(s))
-            || (artifact && TypeRegistry::is_subtype_in("ArtifactTypes", s))
-            || (enchantment && TypeRegistry::is_subtype_in("EnchantmentTypes", s))
-            || (spell && TypeRegistry::is_subtype_in("SpellTypes", s))
-            || (walker && TypeRegistry::is_subtype_in("WalkerTypes", s))
-            || (dungeon && TypeRegistry::is_subtype_in("DungeonTypes", s))
-            || (battle && TypeRegistry::is_subtype_in("BattleTypes", s))
-            || (plane && TypeRegistry::is_subtype_in("PlanarTypes", s))
-    });
-    type_line.subtypes.len() != before || cleared_all_creature_types
-}
-
-/// `StringUtils.capitalize`, for the colour name Java splices into a CardColors keyword.
-fn capitalize(s: &str) -> String {
-    let mut chars = s.chars();
-    match chars.next() {
-        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-        None => String::new(),
     }
 }

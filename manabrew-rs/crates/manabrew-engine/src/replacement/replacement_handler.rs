@@ -1909,9 +1909,9 @@ mod tests {
 
         fn choose_action(
             &mut self,
-            player: PlayerId,
-            action_space: Option<&crate::agent::PriorityActionSpace>,
-            request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _player: PlayerId,
+            _action_space: Option<&crate::agent::PriorityActionSpace>,
+            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
         ) -> crate::player::actions::PlayerAction {
             crate::player::actions::PlayerAction::PassPriority
         }

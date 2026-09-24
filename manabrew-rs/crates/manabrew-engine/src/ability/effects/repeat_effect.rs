@@ -175,7 +175,7 @@ fn check_repeat_conditions(ctx: &mut EffectContext, sa: &SpellAbility) -> bool {
 mod tests {
     use super::*;
     use crate::ability::spell_ability_effect::SpellAbilityEffect;
-    use crate::agent::{PlayOption, PlayerAgent, TargetChoice};
+    use crate::agent::{PlayerAgent, TargetChoice};
     use crate::card::Card;
     use crate::combat::DefenderId;
     use crate::game::GameState;
@@ -195,9 +195,9 @@ mod tests {
         }
         fn choose_action(
             &mut self,
-            player: PlayerId,
-            action_space: Option<&crate::agent::PriorityActionSpace>,
-            request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _player: PlayerId,
+            _action_space: Option<&crate::agent::PriorityActionSpace>,
+            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
         ) -> PlayerAction {
             PlayerAction::PassPriority
         }

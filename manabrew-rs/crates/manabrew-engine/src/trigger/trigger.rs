@@ -1493,11 +1493,6 @@ pub fn parse_trigger(raw: &str, next_id: &mut u32) -> Option<Trigger> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::card::Card;
-    use crate::event::RunParams;
-    use crate::ids::{CardId, PlayerId};
-    use crate::spellability::SpellAbility;
-    use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 
     #[test]
     fn parse_pipe_params_basic() {

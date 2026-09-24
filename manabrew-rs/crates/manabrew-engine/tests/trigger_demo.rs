@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
-use manabrew_engine::agent::{PlayCardMode, PlayOption, PlayerAgent, TargetChoice};
+use manabrew_engine::agent::{PlayerAgent, TargetChoice};
 use manabrew_engine::card::CardInstance;
 use manabrew_engine::combat::DefenderId;
 use manabrew_engine::game::GameState;
@@ -226,7 +226,7 @@ impl PlayerAgent for VerboseAgent {
     }
     fn choose_action(
         &mut self,
-        player: PlayerId,
+        _player: PlayerId,
         action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
         request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
     ) -> PlayerAction {
@@ -328,7 +328,7 @@ fn print_board(game: &GameState, p0: PlayerId, p1: PlayerId) {
                 let trigs = if c.triggers.is_empty() {
                     String::new()
                 } else {
-                    format!(" *TRIGGER*")
+                    " *TRIGGER*".to_string()
                 };
                 format!("{} {}/{}{}", c.card_name, c.power(), c.toughness(), trigs)
             } else {
@@ -345,7 +345,7 @@ fn print_board(game: &GameState, p0: PlayerId, p1: PlayerId) {
                 let trigs = if c.triggers.is_empty() {
                     String::new()
                 } else {
-                    format!(" *TRIGGER*")
+                    " *TRIGGER*".to_string()
                 };
                 format!("{} {}/{}{}", c.card_name, c.power(), c.toughness(), trigs)
             } else {

@@ -1900,6 +1900,33 @@ impl Default for TriggerHandler {
     }
 }
 
+fn trace_inactive_triggers(game: &GameState, mode: TriggerType, refs: &[(CardId, usize, usize)]) {
+    for card in &game.cards {
+        if !crate::game_loop::GameLoop::card_trace_matches(&card.card_name) {
+            continue;
+        }
+        for (index, trigger) in card.triggers.iter().enumerate() {
+            if trigger.mode.trigger_type() == mode
+                && trigger.get_active_zone().contains(&card.zone)
+                && !refs
+                    .iter()
+                    .any(|&(id, trigger_index, _)| id == card.id && trigger_index == index)
+            {
+                eprintln!(
+                    "[trigger-trace] T{} {:?} {}#{} trigger {} on {:?}: not active (in {:?})",
+                    game.turn.turn_number,
+                    game.turn.phase,
+                    card.card_name,
+                    card.id.0,
+                    index,
+                    mode,
+                    card.zone
+                );
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1962,32 +1989,5 @@ mod tests {
                 .get_triggering_player(crate::ability::AbilityKey::TriggeredPlayer),
             Some(PlayerId(0))
         );
-    }
-}
-
-fn trace_inactive_triggers(game: &GameState, mode: TriggerType, refs: &[(CardId, usize, usize)]) {
-    for card in &game.cards {
-        if !crate::game_loop::GameLoop::card_trace_matches(&card.card_name) {
-            continue;
-        }
-        for (index, trigger) in card.triggers.iter().enumerate() {
-            if trigger.mode.trigger_type() == mode
-                && trigger.get_active_zone().contains(&card.zone)
-                && !refs
-                    .iter()
-                    .any(|&(id, trigger_index, _)| id == card.id && trigger_index == index)
-            {
-                eprintln!(
-                    "[trigger-trace] T{} {:?} {}#{} trigger {} on {:?}: not active (in {:?})",
-                    game.turn.turn_number,
-                    game.turn.phase,
-                    card.card_name,
-                    card.id.0,
-                    index,
-                    mode,
-                    card.zone
-                );
-            }
-        }
     }
 }

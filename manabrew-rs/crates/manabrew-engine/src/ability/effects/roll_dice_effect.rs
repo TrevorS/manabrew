@@ -1174,6 +1174,91 @@ pub fn get_reroll_cards(
         .collect()
 }
 
+pub fn visit_attractions(
+    game: &mut GameState,
+    trigger_handler: &mut TriggerHandler,
+    player: PlayerId,
+    light: i32,
+) {
+    if light <= 0 {
+        return;
+    }
+    let attractions: Vec<_> = game
+        .cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
+        .iter()
+        .copied()
+        .filter(|&card_id| {
+            let card = game.card(card_id);
+            card.type_line
+                .subtypes
+                .iter()
+                .any(|s| s.eq_ignore_ascii_case("Attraction"))
+                && card.has_attraction_light(light)
+        })
+        .collect();
+
+    for card_id in attractions {
+        let first_visit = !game.card(card_id).was_visited_this_turn();
+        game.card_mut(card_id).visit_attraction();
+        if first_visit {
+            game.player_record_attraction_visit(player, 1);
+        }
+        trigger_handler.run_trigger(
+            TriggerType::VisitAttraction,
+            RunParams {
+                card: Some(card_id),
+                player: Some(player),
+                ..Default::default()
+            },
+            false,
+        );
+    }
+}
+
+fn resolve_result_sub_ability(
+    ctx: &mut EffectContext,
+    _sa: &SpellAbility,
+    source_id: crate::ids::CardId,
+    player: PlayerId,
+    result: i32,
+    result_str: &str,
+) {
+    for entry in result_str.split(',') {
+        let parts: Vec<&str> = entry.splitn(2, ':').collect();
+        if parts.len() != 2 {
+            continue;
+        }
+        let selector = parts[0].trim();
+        let svar_name = parts[1].trim();
+        let matches = if selector.eq_ignore_ascii_case("Else") {
+            true
+        } else if let Some((start, end)) = selector.split_once('-') {
+            let low = start.trim().parse::<i32>().ok();
+            let high = end.trim().parse::<i32>().ok();
+            matches!(low.zip(high), Some((low, high)) if result >= low && result <= high)
+        } else {
+            selector
+                .parse::<i32>()
+                .ok()
+                .map(|value| result == value)
+                .unwrap_or(false)
+        };
+        if matches {
+            if let Some(sub_text) = ctx
+                .game
+                .card(source_id)
+                .get_s_var(svar_name)
+                .map(str::to_string)
+            {
+                let mut sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, player);
+                sub_sa.activating_player = player;
+                super::effect_resolver::resolve_effect_chain(ctx, sub_sa);
+            }
+            break;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1225,9 +1310,9 @@ mod tests {
 
         fn choose_action(
             &mut self,
-            player: PlayerId,
-            action_space: Option<&crate::agent::PriorityActionSpace>,
-            request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _player: PlayerId,
+            _action_space: Option<&crate::agent::PriorityActionSpace>,
+            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
         ) -> crate::player::actions::PlayerAction {
             crate::player::actions::PlayerAction::PassPriority
         }
@@ -1327,9 +1412,9 @@ mod tests {
 
         fn choose_action(
             &mut self,
-            player: PlayerId,
-            action_space: Option<&crate::agent::PriorityActionSpace>,
-            request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _player: PlayerId,
+            _action_space: Option<&crate::agent::PriorityActionSpace>,
+            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
         ) -> crate::player::actions::PlayerAction {
             crate::player::actions::PlayerAction::PassPriority
         }
@@ -1441,9 +1526,9 @@ mod tests {
 
         fn choose_action(
             &mut self,
-            player: PlayerId,
-            action_space: Option<&crate::agent::PriorityActionSpace>,
-            request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _player: PlayerId,
+            _action_space: Option<&crate::agent::PriorityActionSpace>,
+            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
         ) -> crate::player::actions::PlayerAction {
             crate::player::actions::PlayerAction::PassPriority
         }
@@ -1859,90 +1944,5 @@ mod tests {
 
         assert_eq!(result, 7);
         assert_eq!(ctx.game.player(player).num_rolls_this_turn, 2);
-    }
-}
-
-pub fn visit_attractions(
-    game: &mut GameState,
-    trigger_handler: &mut TriggerHandler,
-    player: PlayerId,
-    light: i32,
-) {
-    if light <= 0 {
-        return;
-    }
-    let attractions: Vec<_> = game
-        .cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
-        .iter()
-        .copied()
-        .filter(|&card_id| {
-            let card = game.card(card_id);
-            card.type_line
-                .subtypes
-                .iter()
-                .any(|s| s.eq_ignore_ascii_case("Attraction"))
-                && card.has_attraction_light(light)
-        })
-        .collect();
-
-    for card_id in attractions {
-        let first_visit = !game.card(card_id).was_visited_this_turn();
-        game.card_mut(card_id).visit_attraction();
-        if first_visit {
-            game.player_record_attraction_visit(player, 1);
-        }
-        trigger_handler.run_trigger(
-            TriggerType::VisitAttraction,
-            RunParams {
-                card: Some(card_id),
-                player: Some(player),
-                ..Default::default()
-            },
-            false,
-        );
-    }
-}
-
-fn resolve_result_sub_ability(
-    ctx: &mut EffectContext,
-    _sa: &SpellAbility,
-    source_id: crate::ids::CardId,
-    player: PlayerId,
-    result: i32,
-    result_str: &str,
-) {
-    for entry in result_str.split(',') {
-        let parts: Vec<&str> = entry.splitn(2, ':').collect();
-        if parts.len() != 2 {
-            continue;
-        }
-        let selector = parts[0].trim();
-        let svar_name = parts[1].trim();
-        let matches = if selector.eq_ignore_ascii_case("Else") {
-            true
-        } else if let Some((start, end)) = selector.split_once('-') {
-            let low = start.trim().parse::<i32>().ok();
-            let high = end.trim().parse::<i32>().ok();
-            matches!(low.zip(high), Some((low, high)) if result >= low && result <= high)
-        } else {
-            selector
-                .parse::<i32>()
-                .ok()
-                .map(|value| result == value)
-                .unwrap_or(false)
-        };
-        if matches {
-            if let Some(sub_text) = ctx
-                .game
-                .card(source_id)
-                .get_s_var(svar_name)
-                .map(str::to_string)
-            {
-                let mut sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, player);
-                sub_sa.activating_player = player;
-                super::effect_resolver::resolve_effect_chain(ctx, sub_sa);
-            }
-            break;
-        }
     }
 }

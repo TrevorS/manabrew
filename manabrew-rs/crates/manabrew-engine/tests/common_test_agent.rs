@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use forge_foundation::ZoneType;
-use manabrew_engine::agent::{PlayOption, PlayerAgent, TargetChoice};
+use manabrew_engine::agent::{PlayerAgent, TargetChoice};
 use manabrew_engine::combat::DefenderId;
 use manabrew_engine::game::GameState;
 use manabrew_engine::ids::{CardId, PlayerId};
@@ -48,9 +48,9 @@ impl PlayerAgent for RecordingAgent {
 
     fn choose_action(
         &mut self,
-        player: PlayerId,
-        action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-        request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
+        _player: PlayerId,
+        _action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
+        _request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
     ) -> PlayerAction {
         PlayerAction::PassPriority
     }

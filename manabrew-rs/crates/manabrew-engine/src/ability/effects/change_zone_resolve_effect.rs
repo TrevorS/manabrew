@@ -31,7 +31,6 @@ mod tests {
 
     use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 
-    use crate::ability::effects::change_zone_effect;
     use crate::ability::effects::EffectContext;
     use crate::agent::{PassAgent, PlayerAgent};
     use crate::card::Card;

@@ -1025,100 +1025,6 @@ pub fn resolve_defined_players(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use forge_foundation::{CardTypeLine, ColorSet, ManaCost};
-
-    use crate::card::Card;
-    use crate::ids::{CardId, PlayerId};
-
-    fn make_card(
-        game: &mut GameState,
-        owner: PlayerId,
-        controller: PlayerId,
-        name: &str,
-    ) -> CardId {
-        let mut card = Card::new(
-            CardId(0),
-            name.to_string(),
-            owner,
-            CardTypeLine::parse("Creature"),
-            ManaCost::parse("1"),
-            ColorSet::COLORLESS,
-            Some(1),
-            Some(1),
-            vec![],
-            vec![],
-        );
-        card.controller = controller;
-        game.create_card(card)
-    }
-
-    #[test]
-    fn targeted_controller_ignores_player_targets() {
-        let game = GameState::new(&["P0", "P1"], 20);
-        let p0 = PlayerId(0);
-        let p1 = PlayerId(1);
-
-        let mut sa = SpellAbility::new_simple(None, p0, "DB$ Discard");
-        sa.target_chosen.target_player = Some(p1);
-
-        assert_eq!(
-            resolve_defined_player_with_sa("TargetedController", &sa, p0, &game),
-            None
-        );
-        assert!(resolve_defined_players_with_sa("TargetedController", &sa, p0, &game).is_empty());
-        assert_eq!(
-            resolve_defined_players_with_sa("TargetedOrController", &sa, p0, &game),
-            vec![p1]
-        );
-    }
-
-    #[test]
-    fn targeted_controller_and_owner_use_targeted_card_only() {
-        let mut game = GameState::new(&["P0", "P1"], 20);
-        let p0 = PlayerId(0);
-        let p1 = PlayerId(1);
-        let target = make_card(&mut game, p0, p1, "Borrowed Bear");
-
-        let mut sa = SpellAbility::new_simple(None, p0, "DB$ Draw");
-        sa.target_chosen.target_card = Some(target);
-
-        assert_eq!(
-            resolve_defined_player_with_sa("TargetedController", &sa, p0, &game),
-            Some(p1)
-        );
-        assert_eq!(
-            resolve_defined_player_with_sa("TargetedOwner", &sa, p0, &game),
-            Some(p0)
-        );
-        assert_eq!(
-            resolve_defined_players_with_sa("TargetedController", &sa, p0, &game),
-            vec![p1]
-        );
-        assert_eq!(
-            resolve_defined_players_with_sa("TargetedOwner", &sa, p0, &game),
-            vec![p0]
-        );
-    }
-
-    #[test]
-    fn this_targeted_player_stays_on_current_sa_targets() {
-        let game = GameState::new(&["P0", "P1"], 20);
-        let p0 = PlayerId(0);
-        let p1 = PlayerId(1);
-
-        let mut sa = SpellAbility::new_simple(None, p0, "DB$ Token");
-        sa.target_chosen.target_player = Some(p1);
-
-        assert_eq!(
-            resolve_defined_players_with_sa("ThisTargetedPlayer", &sa, p0, &game),
-            vec![p1]
-        );
-    }
-}
-
 // ── Counter Type Parsing ─────────────────────────────────────────────
 
 /// Parse a counter type string to CounterType enum (case-insensitive).
@@ -2658,4 +2564,98 @@ pub fn is_unlinked_from_cast_sa(sa: &SpellAbility, card: &Card) -> bool {
 /// entry point that the scanner expects to find.
 pub fn resolve(ctx: &mut crate::ability::effects::EffectContext, sa: &SpellAbility) {
     crate::ability::effects::resolve_effect(ctx, sa);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use forge_foundation::{CardTypeLine, ColorSet, ManaCost};
+
+    use crate::card::Card;
+    use crate::ids::{CardId, PlayerId};
+
+    fn make_card(
+        game: &mut GameState,
+        owner: PlayerId,
+        controller: PlayerId,
+        name: &str,
+    ) -> CardId {
+        let mut card = Card::new(
+            CardId(0),
+            name.to_string(),
+            owner,
+            CardTypeLine::parse("Creature"),
+            ManaCost::parse("1"),
+            ColorSet::COLORLESS,
+            Some(1),
+            Some(1),
+            vec![],
+            vec![],
+        );
+        card.controller = controller;
+        game.create_card(card)
+    }
+
+    #[test]
+    fn targeted_controller_ignores_player_targets() {
+        let game = GameState::new(&["P0", "P1"], 20);
+        let p0 = PlayerId(0);
+        let p1 = PlayerId(1);
+
+        let mut sa = SpellAbility::new_simple(None, p0, "DB$ Discard");
+        sa.target_chosen.target_player = Some(p1);
+
+        assert_eq!(
+            resolve_defined_player_with_sa("TargetedController", &sa, p0, &game),
+            None
+        );
+        assert!(resolve_defined_players_with_sa("TargetedController", &sa, p0, &game).is_empty());
+        assert_eq!(
+            resolve_defined_players_with_sa("TargetedOrController", &sa, p0, &game),
+            vec![p1]
+        );
+    }
+
+    #[test]
+    fn targeted_controller_and_owner_use_targeted_card_only() {
+        let mut game = GameState::new(&["P0", "P1"], 20);
+        let p0 = PlayerId(0);
+        let p1 = PlayerId(1);
+        let target = make_card(&mut game, p0, p1, "Borrowed Bear");
+
+        let mut sa = SpellAbility::new_simple(None, p0, "DB$ Draw");
+        sa.target_chosen.target_card = Some(target);
+
+        assert_eq!(
+            resolve_defined_player_with_sa("TargetedController", &sa, p0, &game),
+            Some(p1)
+        );
+        assert_eq!(
+            resolve_defined_player_with_sa("TargetedOwner", &sa, p0, &game),
+            Some(p0)
+        );
+        assert_eq!(
+            resolve_defined_players_with_sa("TargetedController", &sa, p0, &game),
+            vec![p1]
+        );
+        assert_eq!(
+            resolve_defined_players_with_sa("TargetedOwner", &sa, p0, &game),
+            vec![p0]
+        );
+    }
+
+    #[test]
+    fn this_targeted_player_stays_on_current_sa_targets() {
+        let game = GameState::new(&["P0", "P1"], 20);
+        let p0 = PlayerId(0);
+        let p1 = PlayerId(1);
+
+        let mut sa = SpellAbility::new_simple(None, p0, "DB$ Token");
+        sa.target_chosen.target_player = Some(p1);
+
+        assert_eq!(
+            resolve_defined_players_with_sa("ThisTargetedPlayer", &sa, p0, &game),
+            vec![p1]
+        );
+    }
 }

@@ -1212,7 +1212,8 @@ mod tests {
             ("RollDice", ReplacementType::RollDice),
         ] {
             let raw = format!("R$ Event$ {event_str} | Description$ test");
-            let re = parse_replacement_effect(&raw).expect(&format!("should parse {event_str}"));
+            let re = parse_replacement_effect(&raw)
+                .unwrap_or_else(|| panic!("should parse {event_str}"));
             assert_eq!(re.event, expected, "failed for {event_str}");
         }
     }

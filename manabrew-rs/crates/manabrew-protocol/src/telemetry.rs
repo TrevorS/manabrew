@@ -331,28 +331,14 @@ mod tests {
 
     #[test]
     fn rejects_the_shapes_a_hostile_client_sends() {
-        let cases: Vec<(&str, Box<dyn Fn(&mut EnginePlayStats)>)> = vec![
-            (
-                "not a uuid",
-                Box::new(|s: &mut EnginePlayStats| s.report_id = "nope".to_string()),
-            ),
-            (
-                "empty engine",
-                Box::new(|s: &mut EnginePlayStats| s.engine = String::new()),
-            ),
-            (
-                "huge engine",
-                Box::new(|s: &mut EnginePlayStats| s.engine = "x".repeat(41)),
-            ),
-            ("no seats", Box::new(|s: &mut EnginePlayStats| s.seats = 0)),
-            (
-                "too many seats",
-                Box::new(|s: &mut EnginePlayStats| s.seats = 9),
-            ),
-            (
-                "no decisions",
-                Box::new(|s: &mut EnginePlayStats| s.turnaround.n = 0),
-            ),
+        type Breaker = fn(&mut EnginePlayStats);
+        let cases: Vec<(&str, Breaker)> = vec![
+            ("not a uuid", |s| s.report_id = "nope".to_string()),
+            ("empty engine", |s| s.engine = String::new()),
+            ("huge engine", |s| s.engine = "x".repeat(41)),
+            ("no seats", |s| s.seats = 0),
+            ("too many seats", |s| s.seats = 9),
+            ("no decisions", |s| s.turnaround.n = 0),
         ];
         for (name, break_it) in cases {
             let mut report = sample();

@@ -77,7 +77,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 mod tests {
     use crate::HashMap;
 
-    use super::SkipPhaseEffect;
     use crate::ability::effects::EffectContext;
     use crate::ability::spell_ability_effect::SpellAbilityEffect;
     use crate::agent::PassAgent;

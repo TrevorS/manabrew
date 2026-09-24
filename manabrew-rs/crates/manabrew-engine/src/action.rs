@@ -2637,7 +2637,6 @@ pub(crate) struct SbaReplacementParts<'a> {
 mod tests {
     use super::*;
     use crate::card::Card;
-    use crate::player::RegisteredPlayer;
     use forge_foundation::{CardTypeLine, ColorSet, ManaCost};
 
     fn make_creature(game: &mut GameState, name: &str, owner: PlayerId, p: i32, t: i32) -> CardId {

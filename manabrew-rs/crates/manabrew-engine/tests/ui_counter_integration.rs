@@ -1,166 +1,13 @@
-use forge_foundation::{CardTypeLine, ColorSet, ManaCost, PhaseType, ZoneType};
+use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 /// Integration test to verify counterspell and priority system works end-to-end
 /// This validates that the UI components (chooseTargetSpell, stack rendering, priority passing)
 /// have proper backend support
-use manabrew_engine::agent::{PlayCardMode, PlayOption, PlayerAgent, TargetChoice};
+use manabrew_engine::agent::PlayerAgent;
 use manabrew_engine::card::CardInstance;
-use manabrew_engine::combat::DefenderId;
 use manabrew_engine::game::GameState;
 use manabrew_engine::game_loop::GameLoop;
 use manabrew_engine::ids::{CardId, PlayerId};
-use manabrew_engine::player::actions::PlayerAction;
 use manabrew_engine::spellability::{SpellAbility, StackEntry};
-
-/// Mock agent that simulates a human player casting counterspells
-struct CounterspellAgent {
-    step: usize,
-}
-
-impl CounterspellAgent {
-    fn new() -> Self {
-        CounterspellAgent { step: 0 }
-    }
-}
-
-impl PlayerAgent for CounterspellAgent {
-    fn mulligan_decision(
-        &mut self,
-        _player: PlayerId,
-        _hand: &[CardId],
-        _mulligan_count: u32,
-    ) -> bool {
-        true
-    }
-
-    fn choose_action(
-        &mut self,
-        player: PlayerId,
-        action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-        request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
-    ) -> PlayerAction {
-        self.step += 1;
-        let requested_action_space;
-        let action_space = match action_space {
-            Some(action_space) => action_space,
-            None => {
-                requested_action_space = request_action_space();
-                &requested_action_space
-            }
-        };
-        let playable = &action_space.playable;
-
-        match self.step {
-            1 => {
-                // Turn 1: Play first playable card (should be a land)
-                if let Some(&opt) = playable.first() {
-                    PlayerAction::CastSpell(opt)
-                } else {
-                    PlayerAction::PassPriority
-                }
-            }
-            2 => {
-                // Later turn: Cast Counterspell if available
-                if let Some(&opt) = playable.first() {
-                    PlayerAction::CastSpell(opt)
-                } else {
-                    PlayerAction::PassPriority
-                }
-            }
-            _ => PlayerAction::PassPriority,
-        }
-    }
-
-    fn choose_target_spell(
-        &mut self,
-        _player: PlayerId,
-        valid: &[u32],
-        _source: Option<CardId>,
-    ) -> Option<u32> {
-        // Always target the first valid spell (counter the opponent's spell)
-        valid.first().copied()
-    }
-
-    fn choose_attackers(
-        &mut self,
-        _player: PlayerId,
-        _available: &[CardId],
-        _possible_defenders: &[DefenderId],
-    ) -> Vec<(CardId, DefenderId)> {
-        Vec::new()
-    }
-
-    fn choose_blockers(
-        &mut self,
-        _player: PlayerId,
-        _attackers: &[CardId],
-        _available_blockers: &[CardId],
-        _max_blockers: Option<usize>,
-    ) -> Vec<(CardId, CardId)> {
-        Vec::new()
-    }
-
-    fn choose_target_player(
-        &mut self,
-        _player: PlayerId,
-        valid: &[PlayerId],
-        _sa: Option<&manabrew_engine::spellability::SpellAbility>,
-    ) -> Option<PlayerId> {
-        valid.first().copied()
-    }
-
-    fn choose_target_card(
-        &mut self,
-        _player: PlayerId,
-        valid: &[CardId],
-        _sa: Option<&manabrew_engine::spellability::SpellAbility>,
-    ) -> Option<CardId> {
-        valid.first().copied()
-    }
-
-    fn choose_target_any(
-        &mut self,
-        _player: PlayerId,
-        valid_players: &[PlayerId],
-        valid_cards: &[CardId],
-        _sa: Option<&manabrew_engine::spellability::SpellAbility>,
-    ) -> TargetChoice {
-        if let Some(&pid) = valid_players.last() {
-            TargetChoice::Player(pid)
-        } else if let Some(&cid) = valid_cards.first() {
-            TargetChoice::Card(cid)
-        } else {
-            TargetChoice::None
-        }
-    }
-
-    fn choose_land_or_spell(&mut self, _player: PlayerId) -> Option<bool> {
-        None
-    }
-
-    fn choose_targets_for(
-        &mut self,
-        sa: &mut manabrew_engine::spellability::SpellAbility,
-        game: &manabrew_engine::game::GameState,
-        mana_pools: &[manabrew_engine::mana::ManaPool],
-    ) -> bool {
-        manabrew_engine::spellability::choose_targets_by_kind(self, sa, game, mana_pools)
-    }
-}
-
-fn make_island(owner: PlayerId) -> CardInstance {
-    CardInstance::new(
-        CardId(0),
-        "Island".to_string(),
-        owner,
-        CardTypeLine::parse("Basic Land - Island"),
-        ManaCost::no_cost(),
-        ColorSet::COLORLESS,
-        None,
-        None,
-        vec![],
-        vec![],
-    )
-}
 
 fn make_counterspell(owner: PlayerId) -> CardInstance {
     CardInstance::new(
@@ -226,7 +73,7 @@ fn test_priority_passing_during_counter_war() {
         optional_trigger_description: None,
         optional_trigger_source_name: None,
     };
-    let bolt_stack_id = game.stack.push(entry);
+    let _bolt_stack_id = game.stack.push(entry);
 
     // Verify initial state
     assert_eq!(game.stack.len(), 1, "Should start with Bolt on stack");
@@ -254,7 +101,7 @@ fn test_priority_passing_during_counter_war() {
 #[test]
 fn test_valid_counter_target_filtering() {
     let mut game = GameState::new(&["Alice", "Bob"], 20);
-    let p0 = PlayerId(0);
+    let _p0 = PlayerId(0);
     let p1 = PlayerId(1);
 
     // Create spells with different characteristics

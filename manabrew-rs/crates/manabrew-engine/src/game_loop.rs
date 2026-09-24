@@ -862,7 +862,6 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use forge_foundation::{CardTypeLine, ColorSet, ManaCost};
-    use rand::SeedableRng;
 
     use crate::agent::{PlayCardMode, PlayerAgent, TargetChoice};
     use crate::card::Card;
@@ -894,9 +893,9 @@ mod tests {
 
         fn choose_action(
             &mut self,
-            player: PlayerId,
-            action_space: Option<&crate::agent::PriorityActionSpace>,
-            request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _player: PlayerId,
+            _action_space: Option<&crate::agent::PriorityActionSpace>,
+            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
         ) -> PlayerAction {
             PlayerAction::CastSpell(crate::agent::PlayOption {
                 card_id: CardId(u32::MAX),
@@ -1006,8 +1005,8 @@ mod tests {
         fn choose_action(
             &mut self,
             player: PlayerId,
-            action_space: Option<&crate::agent::PriorityActionSpace>,
-            request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _action_space: Option<&crate::agent::PriorityActionSpace>,
+            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
         ) -> PlayerAction {
             if self.last_priority != Some(player) {
                 self.bad_priority_seen.store(true, Ordering::SeqCst);
@@ -1099,9 +1098,9 @@ mod tests {
 
         fn choose_action(
             &mut self,
-            player: PlayerId,
-            action_space: Option<&crate::agent::PriorityActionSpace>,
-            request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _player: PlayerId,
+            _action_space: Option<&crate::agent::PriorityActionSpace>,
+            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
         ) -> PlayerAction {
             PlayerAction::PassPriority
         }
@@ -1217,21 +1216,6 @@ mod tests {
                 "AB$ Mana | Cost$ T | Produced$ {} | SpellDescription$ Add mana.",
                 produced
             )],
-        )
-    }
-
-    fn vanilla_spell(owner: PlayerId, name: &str, cost: &str) -> Card {
-        Card::new(
-            CardId(0),
-            name.to_string(),
-            owner,
-            CardTypeLine::parse("Sorcery"),
-            ManaCost::parse(cost),
-            ColorSet::COLORLESS,
-            None,
-            None,
-            vec![],
-            vec![],
         )
     }
 

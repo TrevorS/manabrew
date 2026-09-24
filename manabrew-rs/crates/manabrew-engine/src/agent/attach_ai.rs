@@ -106,6 +106,6 @@ mod tests {
 
     #[test]
     fn threshold_is_positive() {
-        assert!(MOVE_EQUIPMENT_CREATURE_EVAL_THRESHOLD > 0);
+        const { assert!(MOVE_EQUIPMENT_CREATURE_EVAL_THRESHOLD > 0) };
     }
 }

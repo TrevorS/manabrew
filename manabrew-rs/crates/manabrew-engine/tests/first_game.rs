@@ -6,7 +6,7 @@ use std::sync::{
 
 use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 use manabrew_engine::ability::effects::{resolve_effect, EffectContext};
-use manabrew_engine::agent::{PlayOption, PlayerAgent, TargetChoice};
+use manabrew_engine::agent::{PlayerAgent, TargetChoice};
 use manabrew_engine::card::CardInstance;
 use manabrew_engine::combat::DefenderId;
 use manabrew_engine::game::GameState;
@@ -58,10 +58,10 @@ fn resolve_sa(game: &mut GameState, sa: &manabrew_engine::spellability::SpellAbi
     ];
     let mut trigger_handler = TriggerHandler::new();
     let mut mana_pools = vec![ManaPool::default(), ManaPool::default()];
-    let token_templates = std::collections::HashMap::new();
-    let token_art_variants = std::collections::HashMap::new();
-    let token_fallback = std::collections::HashMap::new();
-    let edition_dates = std::collections::HashMap::new();
+    let token_templates = manabrew_engine::HashMap::default();
+    let token_art_variants = manabrew_engine::HashMap::default();
+    let token_fallback = manabrew_engine::HashMap::default();
+    let edition_dates = manabrew_engine::HashMap::default();
     let mut rng = ThreadRngAdapter::default();
     let mut ctx = EffectContext {
         game,
@@ -91,7 +91,7 @@ impl PlayerAgent for ScriptedAgent {
 
     fn choose_action(
         &mut self,
-        player: PlayerId,
+        _player: PlayerId,
         action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
         request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
     ) -> PlayerAction {
@@ -342,7 +342,7 @@ fn full_game_runs() {
         }
         fn choose_action(
             &mut self,
-            player: PlayerId,
+            _player: PlayerId,
             action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
             request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
         ) -> PlayerAction {
@@ -632,21 +632,6 @@ fn make_island(owner: PlayerId) -> CardInstance {
     )
 }
 
-fn make_plains(owner: PlayerId) -> CardInstance {
-    CardInstance::new(
-        CardId(0),
-        "Plains".to_string(),
-        owner,
-        CardTypeLine::parse("Basic Land - Plains"),
-        ManaCost::no_cost(),
-        ColorSet::COLORLESS,
-        None,
-        None,
-        vec![],
-        vec![],
-    )
-}
-
 // ── Trigger Integration Tests ───────────────────────────────────────
 
 /// Test: Mulldrifter ETB trigger — enters battlefield → draw 2 cards.
@@ -720,7 +705,7 @@ fn mulldrifter_etb_draws_two_cards() {
 fn soul_warden_gains_life_on_other_creature_etb() {
     let mut game = GameState::new(&["Alice", "Bob"], 20);
     let p0 = PlayerId(0);
-    let p1 = PlayerId(1);
+    let _p1 = PlayerId(1);
 
     // Put Soul Warden directly on battlefield first
     let soul_warden = game.create_card(make_soul_warden(p0));
@@ -777,7 +762,7 @@ fn soul_warden_gains_life_on_other_creature_etb() {
 fn soul_warden_does_not_trigger_on_self_etb() {
     let mut game = GameState::new(&["Alice", "Bob"], 20);
     let p0 = PlayerId(0);
-    let p1 = PlayerId(1);
+    let _p1 = PlayerId(1);
 
     let mut game_loop = GameLoop::new(2);
 
@@ -870,82 +855,6 @@ fn upkeep_trigger_fires_each_turn() {
         .trigger_handler
         .register_active_trigger(&game, pinger);
 
-    // Simple agents that just pass
-    struct PassAgent;
-    impl PlayerAgent for PassAgent {
-        fn mulligan_decision(&mut self, _: PlayerId, _: &[CardId], _: u32) -> bool {
-            true
-        }
-        fn choose_action(
-            &mut self,
-            player: PlayerId,
-            action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-            request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
-        ) -> PlayerAction {
-            PlayerAction::PassPriority
-        }
-        fn choose_attackers(
-            &mut self,
-            _: PlayerId,
-            _: &[CardId],
-            _: &[DefenderId],
-        ) -> Vec<(CardId, DefenderId)> {
-            Vec::new()
-        }
-        fn choose_blockers(
-            &mut self,
-            _: PlayerId,
-            _: &[CardId],
-            _: &[CardId],
-            _: Option<usize>,
-        ) -> Vec<(CardId, CardId)> {
-            Vec::new()
-        }
-        fn choose_target_player(
-            &mut self,
-            _: PlayerId,
-            valid: &[PlayerId],
-            _sa: Option<&manabrew_engine::spellability::SpellAbility>,
-        ) -> Option<PlayerId> {
-            valid.first().copied()
-        }
-        fn choose_target_card(
-            &mut self,
-            _: PlayerId,
-            valid: &[CardId],
-            _sa: Option<&manabrew_engine::spellability::SpellAbility>,
-        ) -> Option<CardId> {
-            valid.first().copied()
-        }
-        fn choose_target_any(
-            &mut self,
-            _: PlayerId,
-            p: &[PlayerId],
-            c: &[CardId],
-            _sa: Option<&manabrew_engine::spellability::SpellAbility>,
-        ) -> TargetChoice {
-            if let Some(&pid) = p.last() {
-                TargetChoice::Player(pid)
-            } else if let Some(&cid) = c.first() {
-                TargetChoice::Card(cid)
-            } else {
-                TargetChoice::None
-            }
-        }
-        fn choose_land_or_spell(&mut self, _: PlayerId) -> Option<bool> {
-            None
-        }
-
-        fn choose_targets_for(
-            &mut self,
-            sa: &mut manabrew_engine::spellability::SpellAbility,
-            game: &manabrew_engine::game::GameState,
-            mana_pools: &[manabrew_engine::mana::ManaPool],
-        ) -> bool {
-            manabrew_engine::spellability::choose_targets_by_kind(self, sa, game, mana_pools)
-        }
-    }
-
     let trig_text = game.card(pinger).svars.get("TrigPing").unwrap().clone();
     let trig_sa = manabrew_engine::spellability::build_spell_ability(&game, pinger, &trig_text, p0);
     resolve_sa(&mut game, &trig_sa);
@@ -1001,7 +910,7 @@ fn full_game_with_triggers_runs() {
         }
         fn choose_action(
             &mut self,
-            player: PlayerId,
+            _player: PlayerId,
             action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
             request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
         ) -> PlayerAction {
@@ -1190,7 +1099,7 @@ fn llanowar_elves_taps_for_mana() {
         }
         fn choose_action(
             &mut self,
-            player: PlayerId,
+            _player: PlayerId,
             action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
             request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
         ) -> PlayerAction {
@@ -1317,7 +1226,7 @@ fn summoning_sick_creature_cant_tap() {
         }
         fn choose_action(
             &mut self,
-            player: PlayerId,
+            _player: PlayerId,
             action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
             request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
         ) -> PlayerAction {
@@ -1440,7 +1349,7 @@ fn prodigal_sorcerer_pings_opponent() {
         }
         fn choose_action(
             &mut self,
-            player: PlayerId,
+            _player: PlayerId,
             action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
             request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
         ) -> PlayerAction {
@@ -1583,7 +1492,7 @@ fn sakura_tribe_elder_fetches_land() {
         }
         fn choose_action(
             &mut self,
-            player: PlayerId,
+            _player: PlayerId,
             action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
             request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
         ) -> PlayerAction {
