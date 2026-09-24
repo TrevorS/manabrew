@@ -1553,6 +1553,19 @@ impl GameLoop {
                     }
                     continue;
                 }
+                for _ in 0..self.may_play_secondary_spell_grants(
+                    game,
+                    player,
+                    card_id,
+                    ZoneType::Graveyard,
+                    &chosen_types_by_source,
+                ) {
+                    playable.push(crate::agent::PlayOption {
+                        card_id,
+                        mode: crate::agent::PlayCardMode::Secondary,
+                        alt_cost_index: 0,
+                    });
+                }
                 if must_be_instant {
                     continue;
                 }
@@ -1811,6 +1824,19 @@ impl GameLoop {
                 continue;
             }
             if can_may_play {
+                for _ in 0..self.may_play_secondary_spell_grants(
+                    game,
+                    player,
+                    card_id,
+                    ZoneType::Exile,
+                    &chosen_types_by_source,
+                ) {
+                    playable.push(crate::agent::PlayOption {
+                        card_id,
+                        mode: crate::agent::PlayCardMode::Secondary,
+                        alt_cost_index: 0,
+                    });
+                }
                 if card.is_land() {
                     let land_sa = SpellAbility::new_land(Some(card_id), player);
                     if !must_be_instant
@@ -1824,20 +1850,6 @@ impl GameLoop {
                         ));
                     }
                     continue;
-                }
-
-                for _ in 0..self.may_play_secondary_spell_grants(
-                    game,
-                    player,
-                    card_id,
-                    ZoneType::Exile,
-                    &chosen_types_by_source,
-                ) {
-                    playable.push(crate::agent::PlayOption {
-                        card_id,
-                        mode: crate::agent::PlayCardMode::Secondary,
-                        alt_cost_index: 0,
-                    });
                 }
                 if must_be_instant && !has_flash_permission(card_id) {
                     continue;
@@ -2071,18 +2083,6 @@ impl GameLoop {
             if !can_may_play_from_static(card_id) {
                 continue;
             }
-            if game.card(card_id).is_land() {
-                let land_sa = SpellAbility::new_land(Some(card_id), player);
-                if !must_be_instant && crate::spellability::land_ability::can_play(&land_sa, game) {
-                    playable.extend(Self::may_play_land_options(
-                        game,
-                        player,
-                        card_id,
-                        count_may_play_grants(card_id).max(1),
-                    ));
-                }
-                continue;
-            }
             for _ in 0..self.may_play_secondary_spell_grants(
                 game,
                 player,
@@ -2095,6 +2095,18 @@ impl GameLoop {
                     mode: crate::agent::PlayCardMode::Secondary,
                     alt_cost_index: 0,
                 });
+            }
+            if game.card(card_id).is_land() {
+                let land_sa = SpellAbility::new_land(Some(card_id), player);
+                if !must_be_instant && crate::spellability::land_ability::can_play(&land_sa, game) {
+                    playable.extend(Self::may_play_land_options(
+                        game,
+                        player,
+                        card_id,
+                        count_may_play_grants(card_id).max(1),
+                    ));
+                }
+                continue;
             }
             if must_be_instant && !has_flash_permission(card_id) {
                 continue;
