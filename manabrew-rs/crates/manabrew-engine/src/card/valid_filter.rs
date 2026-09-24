@@ -618,6 +618,7 @@ fn matches_card_predicate(
             card.came_under_control_since_last_upkeep()
         }
         SelectorPredicate::Multicolor => card.color.is_multicolor(),
+        SelectorPredicate::Monocolor => card.color.is_mono_color(),
         SelectorPredicate::Commander => card.is_commander,
         SelectorPredicate::Legendary => card.type_line.is_legendary(),
         SelectorPredicate::PowerLtToughness => card.power() < card.toughness(),
@@ -2952,6 +2953,7 @@ fn matches_player_predicate(
         | SelectorPredicate::Token(_)
         | SelectorPredicate::Color(_)
         | SelectorPredicate::Multicolor
+        | SelectorPredicate::Monocolor
         | SelectorPredicate::Colorless
         | SelectorPredicate::SourceColor(_)
         | SelectorPredicate::SourceColorless

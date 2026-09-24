@@ -239,6 +239,7 @@ pub enum SelectorPredicate {
     Token(bool),
     Color(CardColorSelector),
     Multicolor,
+    Monocolor,
     Colorless,
     SourceColor(CardColorSelector),
     SourceColorless,
@@ -992,6 +993,7 @@ fn selector_predicate_order(predicate: &SelectorPredicate) -> u8 {
         | SelectorPredicate::Token(_)
         | SelectorPredicate::Color(_)
         | SelectorPredicate::Multicolor
+        | SelectorPredicate::Monocolor
         | SelectorPredicate::Colorless
         | SelectorPredicate::Commander
         | SelectorPredicate::Legendary
@@ -1170,6 +1172,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "red" => SelectorPredicate::Color(CardColorSelector::Red),
         "green" => SelectorPredicate::Color(CardColorSelector::Green),
         "multicolor" => SelectorPredicate::Multicolor,
+        "monocolor" => SelectorPredicate::Monocolor,
         "colorless" => SelectorPredicate::Colorless,
         "whitesource" => SelectorPredicate::SourceColor(CardColorSelector::White),
         "bluesource" => SelectorPredicate::SourceColor(CardColorSelector::Blue),
