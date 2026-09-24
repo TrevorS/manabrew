@@ -316,10 +316,15 @@ impl GameLoop {
         if !crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player) {
             return false;
         }
+        // Forge's probe reads `sa.getHostCard()`, the card's current face, which in hand is
+        // still the front one: `CostAdjustment.checkRequirement` tests a static's `ValidCard$`
+        // against it and `AbilityManaPart.meetsManaRestrictions` a `Spell.<Type>` restriction.
+        // The payment itself runs with the card on the stack as this face.
+        let in_hand = game.card(card_id);
         let cost_adj =
-            crate::cost::cost_adjustment::compute_cost_adjustment(game, &host, player, zone);
+            crate::cost::cost_adjustment::compute_cost_adjustment(game, in_hand, player, zone);
         let raise_mana =
-            crate::cost::cost_adjustment::compute_raise_cost_parts(game, &host, player, zone)
+            crate::cost::cost_adjustment::compute_raise_cost_parts(game, in_hand, player, zone)
                 .as_ref()
                 .map(|rc| Self::raise_mana_from_cost(game, rc, card_id, player))
                 .unwrap_or_else(|| forge_foundation::ManaCost::generic(0));
@@ -327,11 +332,7 @@ impl GameLoop {
             .apply(&Self::mana_from_cost(cost).without_x())
             .add(&raise_mana);
         let payable = crate::mana::apply_player_life_payment_keywords(game, player, &base);
-        let reduced = apply_cost_reductions(game, player, card_id, &host, &payable);
-        // `AbilityManaPart.meetsManaRestrictions` tests a `Spell.<Type>` restriction with
-        // `sa.getHostCard().hasProperty`, the card's current face, which in hand is still
-        // the front one. The payment itself runs with the card on the stack as this face.
-        let in_hand = game.card(card_id);
+        let reduced = apply_cost_reductions(game, player, card_id, in_hand, &payable);
         let payment_ctx = mana::ManaPaymentContext {
             is_spell: true,
             is_activated_ability: false,
