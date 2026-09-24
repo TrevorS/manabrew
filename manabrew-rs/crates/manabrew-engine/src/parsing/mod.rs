@@ -1063,7 +1063,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
                 SelectorPredicate::PlayerController(ControllerSelector::Opponent)
             }
             named if named.starts_with("named") => SelectorPredicate::CardType(
-                CardSelectorType::Named(normalized[5..].trim().to_string()),
+                CardSelectorType::Named(normalized[5..].trim().replace(';', ",").replace('_', " ")),
             ),
             _ => SelectorPredicate::CardType(CardSelectorType::Subtype(normalized.to_string())),
         };
@@ -1243,9 +1243,9 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "isringbearer" => SelectorPredicate::CardState(CardStateSelector::RingBearer),
         "wascast" => SelectorPredicate::WasCast { by_you: false },
         "wascastbyyou" => SelectorPredicate::WasCast { by_you: true },
-        named if named.starts_with("named") => {
-            SelectorPredicate::CardType(CardSelectorType::Named(normalized[5..].trim().to_string()))
-        }
+        named if named.starts_with("named") => SelectorPredicate::CardType(
+            CardSelectorType::Named(normalized[5..].trim().replace(';', ",").replace('_', " ")),
+        ),
         cast_origin if cast_origin.starts_with("wascastfrom") => {
             lower_cast_origin_predicate(normalized)
                 .unwrap_or_else(|| SelectorPredicate::Raw(normalized.to_string()))

@@ -1043,7 +1043,7 @@ impl CardFilter {
             "IsRemembered" => f.remembered_only = true,
             "Outlaw" => f.outlaw_only = true,
             s if s.starts_with("named") => {
-                f.card_name = Some(s["named".len()..].to_string());
+                f.card_name = Some(s["named".len()..].replace(';', ",").replace('_', " "));
             }
             s => {
                 // Unknown tokens are treated as subtype filters (e.g. "Goblin").

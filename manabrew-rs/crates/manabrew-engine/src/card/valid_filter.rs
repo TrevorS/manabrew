@@ -2039,9 +2039,9 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         was_cast_from if was_cast_from.starts_with("wascastfrom") => {
             matches_was_cast_from(&value[11..], card, context)
         }
-        named if named.starts_with("named") => {
-            card.card_name.eq_ignore_ascii_case(value[5..].trim())
-        }
+        named if named.starts_with("named") => card
+            .card_name
+            .eq_ignore_ascii_case(&value[5..].trim().replace(';', ",").replace('_', " ")),
         _ if value.starts_with("counters_") => check_counter_condition(value, card),
         _ if value.starts_with("countersReceivedThisTurn_") => {
             check_counters_received_this_turn(value, card, context)
@@ -2325,9 +2325,9 @@ fn matches_type_and_qualifier_parts(
         "noncreature" | "nonCreature" | "NonCreature" => !card.is_creature(),
         "Permanent" => card.is_permanent(),
         "Spell" => card.is_spell_or_on_stack(),
-        named if named.to_ascii_lowercase().starts_with("named") => {
-            card.card_name.eq_ignore_ascii_case(named[5..].trim())
-        }
+        named if named.to_ascii_lowercase().starts_with("named") => card
+            .card_name
+            .eq_ignore_ascii_case(&named[5..].trim().replace(';', ",").replace('_', " ")),
         // Player-type filters: players are not cards, so never match.
         "Player" | "You" | "Opponent" | "Each" | "ActivePlayer" | "NonActivePlayer" => false,
         _ => {
@@ -2697,7 +2697,10 @@ fn matches_type_and_qualifier_parts(
                     }
                 }
                 named if named.starts_with("named") => {
-                    if !card.card_name.eq_ignore_ascii_case(raw[5..].trim()) {
+                    if !card
+                        .card_name
+                        .eq_ignore_ascii_case(&raw[5..].trim().replace(';', ",").replace('_', " "))
+                    {
                         return false;
                     }
                 }
