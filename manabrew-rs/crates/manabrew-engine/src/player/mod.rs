@@ -731,22 +731,53 @@ pub fn static_replace_damage(_game: &GameState, _player: PlayerId, amount: i32) 
 pub fn process_damage(
     game: &mut GameState,
     trigger_handler: &mut TriggerHandler,
+    agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
     player: PlayerId,
 ) -> i32 {
-    let lost = std::mem::take(&mut game.player_mut(player).simultaneous_damage);
-    if lost > 0 {
-        trigger_handler.run_trigger(
-            crate::trigger::TriggerType::LifeLost,
-            crate::event::RunParams {
-                player: Some(player),
-                life_amount: Some(lost),
-                first_time: Some(game.player(player).life_lost_this_turn == lost),
-                ..Default::default()
-            },
-            false,
-        );
+    use crate::replacement::replacement_handler::{
+        apply_replacements, apply_replacements_with_agents, ReplacementEvent,
+    };
+    use crate::replacement::replacement_result::ReplacementResult;
+
+    let to_lose = std::mem::take(&mut game.player_mut(player).simultaneous_damage);
+    if to_lose <= 0
+        || !game.player_can_lose_life(player)
+        || crate::staticability::static_ability_cant_gain_lose_pay_life::cant_lose_life(
+            game, player,
+        )
+    {
+        return 0;
     }
-    lost
+    let mut event = ReplacementEvent::LifeReduced {
+        player,
+        amount: to_lose,
+        is_damage: true,
+    };
+    let result = match agents {
+        Some(agents) => apply_replacements_with_agents(game, agents, &mut event),
+        None => apply_replacements(game, &mut event),
+    };
+    let to_lose = match (result, event) {
+        (ReplacementResult::NotReplaced, _) => to_lose,
+        (ReplacementResult::Updated, ReplacementEvent::LifeReduced { amount, .. }) => amount,
+        _ => return 0,
+    };
+    if to_lose <= 0 {
+        return 0;
+    }
+    let first_lost = game.player(player).life_lost_this_turn == 0;
+    game.player_lose_life(player, to_lose);
+    trigger_handler.run_trigger(
+        crate::trigger::TriggerType::LifeLost,
+        crate::event::RunParams {
+            player: Some(player),
+            life_amount: Some(to_lose),
+            first_time: Some(first_lost),
+            ..Default::default()
+        },
+        false,
+    );
+    to_lose
 }
 
 pub fn can_receive_counters(game: &GameState, player: PlayerId, amount: i32) -> bool {

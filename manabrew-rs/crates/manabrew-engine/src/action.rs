@@ -1163,7 +1163,7 @@ impl GameState {
         amount: i32,
         source: Option<CardId>,
         is_combat: bool,
-        mut agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
+        agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
     ) -> (GameEntity, i32) {
         if amount <= 0 {
             return (GameEntity::Card(target), 0);
@@ -1177,19 +1177,15 @@ impl GameState {
             source,
             is_combat,
         };
-        if let Some(agents) = agents.as_deref_mut() {
+        if let Some(agents) = agents {
             apply_replacements_with_agents(self, agents, &mut event);
         } else {
             apply_replacements(self, &mut event);
         }
-        self.deal_replaced_damage(event, agents)
+        self.deal_replaced_damage(event)
     }
 
-    fn deal_replaced_damage(
-        &mut self,
-        event: ReplacementEvent,
-        agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
-    ) -> (GameEntity, i32) {
+    fn deal_replaced_damage(&mut self, event: ReplacementEvent) -> (GameEntity, i32) {
         match event {
             ReplacementEvent::DamageToCard {
                 target,
@@ -1227,7 +1223,7 @@ impl GameState {
             }
             ReplacementEvent::DamageToPlayer { target, amount, .. } => {
                 let dealt = if amount > 0 {
-                    self.player_deal_damage_with_agents(target, amount, agents)
+                    self.player_deal_damage(target, amount)
                 } else {
                     0
                 };
@@ -1243,7 +1239,6 @@ impl GameState {
         amount: i32,
         source: Option<CardId>,
         is_combat: bool,
-        agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
     ) -> i32 {
         if amount <= 0 {
             return 0;
@@ -1278,7 +1273,7 @@ impl GameState {
                 }
             }
         };
-        self.deal_replaced_damage(event, agents).1
+        self.deal_replaced_damage(event).1
     }
 
     /// Deal damage to a player.
@@ -1313,7 +1308,7 @@ impl GameState {
         amount: i32,
         source: Option<CardId>,
         is_combat: bool,
-        mut agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
+        agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
     ) -> (GameEntity, i32) {
         if amount <= 0 {
             return (GameEntity::Player(target), 0);
@@ -1336,18 +1331,23 @@ impl GameState {
             source,
             is_combat,
         };
-        if let Some(agents) = agents.as_deref_mut() {
+        if let Some(agents) = agents {
             apply_replacements_with_agents(self, agents, &mut event);
         } else {
             apply_replacements(self, &mut event);
         }
-        self.deal_replaced_damage(event, agents)
+        self.deal_replaced_damage(event)
     }
 
-    pub fn process_damage(&mut self, trigger_handler: &mut TriggerHandler) -> Vec<(PlayerId, i32)> {
+    pub fn process_damage(
+        &mut self,
+        trigger_handler: &mut TriggerHandler,
+        mut agents: Option<&mut [Box<dyn PlayerAgent>]>,
+    ) -> Vec<(PlayerId, i32)> {
         let mut life_lost_all_damage_map = Vec::new();
         for player in self.player_order.clone() {
-            let lost = crate::player::process_damage(self, trigger_handler, player);
+            let lost =
+                crate::player::process_damage(self, trigger_handler, agents.as_deref_mut(), player);
             if lost > 0 {
                 life_lost_all_damage_map.push((player, lost));
             }
@@ -1355,8 +1355,12 @@ impl GameState {
         life_lost_all_damage_map
     }
 
-    pub fn lose_life_simultaneously(&mut self, trigger_handler: &mut TriggerHandler) {
-        let life_lost_all_damage_map = self.process_damage(trigger_handler);
+    pub fn lose_life_simultaneously(
+        &mut self,
+        trigger_handler: &mut TriggerHandler,
+        agents: Option<&mut [Box<dyn PlayerAgent>]>,
+    ) {
+        let life_lost_all_damage_map = self.process_damage(trigger_handler, agents);
         run_life_lost_all(trigger_handler, &life_lost_all_damage_map);
     }
 
@@ -2658,6 +2662,7 @@ mod tests {
     fn state_based_actions_zero_life() {
         let mut game = GameState::new(&["Alice", "Bob"], 20);
         game.deal_damage_to_player(PlayerId(0), 20);
+        game.lose_life_simultaneously(&mut TriggerHandler::new(), None);
         game.check_state_based_actions();
         assert!(game.player(PlayerId(0)).has_lost);
         assert!(game.game_over);

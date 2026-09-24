@@ -91,7 +91,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                             amount,
                             Some(source),
                             false,
-                            Some(ctx.agents),
                         );
                     }
                 }
@@ -117,7 +116,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         amount,
                         Some(source),
                         false,
-                        Some(ctx.agents),
                     );
                     ctx.game
                         .record_player_damage_assignment(Some(source), Some(pid), dealt, false);
@@ -231,6 +229,8 @@ mod tests {
         };
 
         super::DamageResolveEffect::resolve(&mut ctx, &sa);
+        ctx.game
+            .lose_life_simultaneously(ctx.trigger_handler, Some(ctx.agents));
 
         assert_eq!(ctx.game.card(tgt).damage, 2);
         assert_eq!(ctx.game.player(p1).life, 19);

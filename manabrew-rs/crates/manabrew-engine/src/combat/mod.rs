@@ -897,7 +897,6 @@ impl CombatState {
                         damage_source.deathtouch,
                         damage_source.controller,
                         damage_source.wither_or_infect,
-                        Some(agents),
                         &mut counter_table,
                     );
                     (None, Some(card))
@@ -911,7 +910,6 @@ impl CombatState {
                         damage_source.controller,
                         damage_source.infect_for_player,
                         damage_source.toxic_count,
-                        Some(agents),
                         &mut counter_table,
                     );
                     if game.player_is_commander(game.card(source).owner, source) {
@@ -1596,7 +1594,6 @@ fn deal_combat_damage_to_player(
     source_controller: PlayerId,
     source_has_infect: bool,
     source_toxic_count: Option<i32>,
-    agents: Option<&mut [Box<dyn PlayerAgent>]>,
     counter_table: &mut crate::game_entity_counter_table::GameEntityCounterTable,
 ) {
     if amount <= 0 {
@@ -1622,7 +1619,6 @@ fn deal_combat_damage_to_player(
             amount,
             Some(source),
             true,
-            agents,
         );
         game.record_player_damage_assignment(Some(source), Some(target), dealt, true);
     }
@@ -1659,7 +1655,6 @@ fn deal_combat_damage_to_card(
     deathtouch: bool,
     source_controller: PlayerId,
     source_has_wither_or_infect: bool,
-    agents: Option<&mut [Box<dyn PlayerAgent>]>,
     counter_table: &mut crate::game_entity_counter_table::GameEntityCounterTable,
 ) {
     if amount <= 0 {
@@ -1687,13 +1682,7 @@ fn deal_combat_damage_to_card(
             );
         }
     } else {
-        game.add_damage_after_prevention(
-            DamageTarget::Card(target),
-            amount,
-            Some(source),
-            true,
-            agents,
-        );
+        game.add_damage_after_prevention(DamageTarget::Card(target), amount, Some(source), true);
     }
     // Track damage source for DamagedBy trigger filters (Sengir Vampire, etc.)
     if !game.card(target).damage_sources_this_turn.contains(&source) {

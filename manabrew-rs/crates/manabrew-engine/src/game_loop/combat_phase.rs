@@ -901,7 +901,7 @@ impl GameLoop {
                         .record_damage(event.amount, true);
                 }
             }
-            self.fire_combat_damage_triggers(game, &fs_events);
+            self.fire_combat_damage_triggers(game, agents, &fs_events);
             fs_counter_table.replace_counter_effect(
                 game,
                 Some(&mut self.trigger_handler),
@@ -978,7 +978,7 @@ impl GameLoop {
             if damage_assigned {
                 self.notify_state_changed(game, agents);
             }
-            self.fire_combat_damage_triggers(game, &dmg_events);
+            self.fire_combat_damage_triggers(game, agents, &dmg_events);
             damage_counter_table.replace_counter_effect(
                 game,
                 Some(&mut self.trigger_handler),

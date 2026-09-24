@@ -903,12 +903,13 @@ impl GameLoop {
     pub(crate) fn fire_combat_damage_triggers(
         &mut self,
         game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
         events: &[combat::CombatDamageEvent],
     ) {
         use crate::card::card_damage_map::{CardDamageMap, DamageTarget};
         use crate::ids::{CardId, PlayerId};
 
-        let life_lost_all_damage_map = game.process_damage(&mut self.trigger_handler);
+        let life_lost_all_damage_map = game.process_damage(&mut self.trigger_handler, Some(agents));
 
         let lifelink_gains = combat::lifelink_gains_by_source(events);
         for (index, event) in events.iter().enumerate() {

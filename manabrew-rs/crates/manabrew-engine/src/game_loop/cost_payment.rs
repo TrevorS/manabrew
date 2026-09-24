@@ -1180,7 +1180,7 @@ impl GameLoop {
                         },
                         false,
                     );
-                    game.lose_life_simultaneously(&mut self.trigger_handler);
+                    game.lose_life_simultaneously(&mut self.trigger_handler, Some(agents));
                 }
                 CostPart::Draw { .. } => {
                     crate::cost::cost_draw::pay_as_decided(
@@ -1978,7 +1978,7 @@ impl GameLoop {
                         },
                         false,
                     );
-                    game.lose_life_simultaneously(&mut self.trigger_handler);
+                    game.lose_life_simultaneously(&mut self.trigger_handler, Some(agents));
                 }
                 CostPart::Draw { .. } => {
                     crate::cost::cost_draw::pay_as_decided(

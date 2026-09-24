@@ -392,6 +392,8 @@ mod tests {
             rng: &mut rng_adapter,
         };
         super::DamageAllEffect::resolve(&mut ctx, &sa);
+        ctx.game
+            .lose_life_simultaneously(ctx.trigger_handler, Some(ctx.agents));
 
         assert_eq!(ctx.game.player(p0).life, 17);
         assert_eq!(ctx.game.player(p1).life, 17);
