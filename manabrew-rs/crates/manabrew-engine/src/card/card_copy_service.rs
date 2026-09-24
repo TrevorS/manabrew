@@ -77,6 +77,7 @@ pub(crate) fn copiable_type_line(copy_from: &Card) -> forge_foundation::CardType
         .as_ref()
         .map(|state| state.original_type_line.clone())
         .or_else(|| copy_from.changed_type_line_base.clone())
+        .or_else(|| copy_from.static_type_line_base.clone())
         .unwrap_or_else(|| copy_from.type_line.clone());
     for ty in &copy_from.static_added_subtypes {
         if let Some(st) = Supertype::from_name(ty) {
