@@ -32,15 +32,23 @@ pub fn build_spell_ability(sa: &mut SpellAbility) {
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let controller = sa.activating_player;
 
-    // Find the targeted spell on the stack
-    let target_spell_card = match sa.target_chosen.target_card {
-        Some(card_id) => card_id,
-        None => return,
+    let Some(target_spell_card) = get_target_spell_card(ctx, sa) else {
+        return;
     };
 
-    // Verify the target is on the stack
-    if ctx.game.card(target_spell_card).zone != ZoneType::Stack {
-        return;
+    if sa.ir.optional {
+        let card_name = ctx.game.card(target_spell_card).card_name.clone();
+        ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        if !ctx.agents[controller.index()].confirm_action(
+            controller,
+            None,
+            &format!("Do you want to change targets for {card_name}?"),
+            &[],
+            sa.source,
+            sa.api,
+        ) {
+            return;
+        }
     }
 
     // Handle RandomTarget mode: pick a random new legal target
@@ -87,35 +95,23 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .card_mut(target_spell_card)
                 .set_s_var("RedirectedTarget", format!("{}", new_tgt.0));
         }
-        return;
     }
+}
 
-    // Default mode: let player choose new targets
-    // In full implementation this would present the controller with legal target choices.
-    // Auto-mode: agent chooses from battlefield permanents
-    let candidates: Vec<CardId> = ctx
-        .game
-        .cards
-        .iter()
-        .filter(|c| c.zone == ZoneType::Battlefield && c.controller != controller)
-        .map(|c| c.id)
-        .collect();
-
-    if candidates.is_empty() {
-        return;
-    }
-
-    // Agent chooses new target
-    ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
-    if let Some(chosen) = ctx.agents[controller.index()].choose_single_card_for_zone_change(
-        ctx.game,
-        controller,
-        &candidates,
-        "Choose new target",
-        false,
-    ) {
-        ctx.game
-            .card_mut(target_spell_card)
-            .set_s_var("RedirectedTarget", format!("{}", chosen.0));
-    }
+fn get_target_spell_card(ctx: &EffectContext, sa: &SpellAbility) -> Option<CardId> {
+    let candidates: Vec<CardId> = if sa.uses_targeting() {
+        sa.target_chosen.target_card.into_iter().collect()
+    } else {
+        sa.defined()
+            .map(|defined| {
+                crate::ability::ability_utils::get_defined_spell_abilities(defined, sa, ctx.game)
+            })
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|spell| spell.source)
+            .collect()
+    };
+    candidates
+        .into_iter()
+        .find(|&card| ctx.game.card(card).zone == ZoneType::Stack)
 }
