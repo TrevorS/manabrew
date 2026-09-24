@@ -1537,6 +1537,7 @@ impl GameLoop {
                     original_zone,
                     &[],
                     &[],
+                    false,
                 );
             let max_x = {
                 let x_is_free_choice = game.card(card_id).get_s_var("X") == Some("Count$xPaid");
@@ -1665,6 +1666,7 @@ impl GameLoop {
             self.move_card_with_runtime(game, card_id, ZoneType::Stack, player, agents);
         }
         if sa.is_spell && sa.alt_cost.is_some_and(|alt| alt.is_morph()) {
+            crate::spellability::spell::set_cast_face_down(&mut sa, true);
             game.card_mut(card_id).set_face_down(true);
             game.card_mut(card_id).set_original_state_as_face_down();
         } else if sa.is_spell && game.card(card_id).face_down {
