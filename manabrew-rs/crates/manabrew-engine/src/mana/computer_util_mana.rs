@@ -4488,12 +4488,15 @@ fn parse_mana_ability_amount_with_game(
     }
     // It's an SVar reference — resolve it using the source card's SVars
     if let (Some(game), Some(cid), Some(pid)) = (game, card_id, player) {
-        if let Some(svar_expr) = game.card(cid).svars.get(amount_str) {
-            if svar_expr.starts_with("Count$") {
-                return crate::ability::effects::resolve_count_svar(svar_expr, game, cid, pid);
-            }
-            return svar_expr.parse::<i32>().unwrap_or(1);
+        let svar_expr = game
+            .card(cid)
+            .svars
+            .get(amount_str)
+            .map_or(amount_str, String::as_str);
+        if svar_expr.starts_with("Count$") {
+            return crate::ability::effects::resolve_count_svar(svar_expr, game, cid, pid);
         }
+        return svar_expr.parse::<i32>().unwrap_or(1);
     }
     1
 }

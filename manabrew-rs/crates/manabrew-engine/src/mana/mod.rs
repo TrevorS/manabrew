@@ -1866,14 +1866,16 @@ pub(crate) fn resolve_mana_ability_amount(
     }
     // SVar reference: look up in card's svars and resolve
     let card = game.card(card_id);
-    if let Some(svar_expr) = card.svars.get(amount_str.trim()) {
-        if svar_expr.starts_with("Count$") {
-            return crate::ability::effects::resolve_count_svar(svar_expr, game, card_id, player)
-                .max(1);
-        }
-        if let Ok(n) = svar_expr.trim().parse::<i32>() {
-            return n.max(1);
-        }
+    let svar_expr = card
+        .svars
+        .get(amount_str.trim())
+        .map_or(amount_str.trim(), String::as_str);
+    if svar_expr.starts_with("Count$") {
+        return crate::ability::effects::resolve_count_svar(svar_expr, game, card_id, player)
+            .max(1);
+    }
+    if let Ok(n) = svar_expr.trim().parse::<i32>() {
+        return n.max(1);
     }
     1
 }
