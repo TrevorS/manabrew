@@ -2027,6 +2027,7 @@ impl GameLoop {
                 card_color: Some(card.color),
                 chosen_types_by_source,
                 is_cast_face_down: card.face_down,
+                cast_from: card.cast_from,
                 ..Default::default()
             }
         };

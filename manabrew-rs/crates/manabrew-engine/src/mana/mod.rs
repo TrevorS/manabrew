@@ -296,19 +296,21 @@ pub struct ManaPaymentContext {
     pub turn_face_up_key: Option<&'static str>,
     pub is_unlock: bool,
     pub is_cast_face_down: bool,
+    pub cast_from: Option<ZoneType>,
 }
 
 pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymentContext {
-    let (type_line, card_name, card_color, face_down) = if let Some(source) = sa.source {
+    let (type_line, card_name, card_color, face_down, cast_from) = if let Some(source) = sa.source {
         let card = game.card(source);
         (
             Some(card.type_line.clone()),
             Some(card.card_name.clone()),
             Some(card.color),
             card.face_down,
+            card.cast_from,
         )
     } else {
-        (None, None, None, false)
+        (None, None, None, false, None)
     };
 
     ManaPaymentContext {
@@ -333,6 +335,7 @@ pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymen
             .find(|key| sa.ability_text.contains(&format!("{key}$ True"))),
         is_unlock: sa.ability_text.contains("Unlock$ True"),
         is_cast_face_down: sa.is_spell && face_down,
+        cast_from,
     }
 }
 
@@ -361,6 +364,12 @@ fn check_single_restriction(restriction: &str, ctx: &ManaPaymentContext) -> bool
                 return false;
             }
             let type_check = &restriction[6..]; // After "Spell."
+            if let Some(zone) = type_check.strip_prefix("!wasCastFrom") {
+                return !spell_was_cast_from(zone, ctx);
+            }
+            if let Some(zone) = type_check.strip_prefix("wasCastFrom") {
+                return spell_was_cast_from(zone, ctx);
+            }
             if let Some(card_type) = type_check.strip_prefix("isCastFaceDown") {
                 return ctx.is_cast_face_down && matches!(card_type, "" | "+Creature");
             }
@@ -458,6 +467,16 @@ fn check_single_restriction(restriction: &str, ctx: &ManaPaymentContext) -> bool
             true
         }
     }
+}
+
+fn spell_was_cast_from(zone: &str, ctx: &ManaPaymentContext) -> bool {
+    let zone = zone
+        .strip_prefix("Your")
+        .or_else(|| zone.strip_prefix("Their"))
+        .unwrap_or(zone);
+    let zone = zone.strip_suffix("ByYou").unwrap_or(zone);
+    ctx.cast_from
+        .is_some_and(|cast_from| ZoneType::from_str_compat(zone) == Some(cast_from))
 }
 
 // ManaPool moved to mana_pool.rs — single source of truth.
