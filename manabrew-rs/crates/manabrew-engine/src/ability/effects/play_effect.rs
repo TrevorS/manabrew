@@ -111,6 +111,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let Some(mut spell_sa) = sa_idx.and_then(|idx| abilities.into_iter().nth(idx)) else {
             continue;
         };
+        let was_transformed = ctx.game.card(card_id).is_transformed;
+        ctx.game
+            .card_mut(card_id)
+            .set_split_state_to_play_ability(&spell_sa);
 
         // ── Step 3: Cost replacement ────────────────────────────────────
         if without_mana_cost {
@@ -152,6 +156,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .get_ability_to_play(controller, &variant_sas)
                 .filter(|&idx| idx < variant_sas.len())
             else {
+                restore_split_state(ctx, card_id, was_transformed);
                 amount -= 1;
                 continue;
             };
@@ -191,6 +196,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 spell_sa.pay_costs.as_ref(),
                 "X",
             ) else {
+                restore_split_state(ctx, card_id, was_transformed);
                 amount -= 1;
                 continue;
             };
@@ -203,6 +209,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 min,
                 max,
             ) else {
+                restore_split_state(ctx, card_id, was_transformed);
                 amount -= 1;
                 continue;
             };
@@ -211,6 +218,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         if !spell_sa.setup_targets(ctx.game, ctx.agents, ctx.mana_pools) {
+            restore_split_state(ctx, card_id, was_transformed);
             amount -= 1;
             continue;
         }
@@ -225,6 +233,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     ctx, &spell_sa, card_id, controller, &non_mana,
                 )
             {
+                restore_split_state(ctx, card_id, was_transformed);
                 amount -= 1;
                 continue;
             }
@@ -276,6 +285,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ) {
                 *ctx.game = saved_game;
                 ctx.mana_pools[controller.index()] = saved_pool;
+                restore_split_state(ctx, card_id, was_transformed);
                 amount -= 1;
                 continue;
             }
@@ -325,6 +335,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
+
+fn restore_split_state(ctx: &mut EffectContext, card_id: CardId, was_transformed: bool) {
+    if ctx.game.card(card_id).is_transformed != was_transformed {
+        ctx.game.card_mut(card_id).transform();
+    }
+}
 
 /// Resolve the target cards from `Valid$` or `Defined$` parameters.
 fn resolve_target_cards(ctx: &EffectContext, sa: &SpellAbility) -> Vec<CardId> {

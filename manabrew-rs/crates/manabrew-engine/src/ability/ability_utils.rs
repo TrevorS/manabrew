@@ -2542,33 +2542,54 @@ pub fn get_spells_from_play_effect(
     valid_sa: Option<(&str, &SpellAbility)>,
 ) -> Vec<SpellAbility> {
     let card = game.card(tgt_card);
-    let mut spell =
-        crate::spellability::build_spell_ability_for_card_cast(game, tgt_card, controller);
-    spell.restriction.variables.set_zone(card.zone);
-    std::sync::Arc::make_mut(&mut spell.ir).cast_from_play_effect = true;
-    if crate::spellability::spell::can_play_from_host(&spell, game).is_none() {
-        return Vec::new();
-    }
-    if let Some((filter, play_sa)) = valid_sa {
-        let Some(source) = play_sa.source.map(|id| game.card(id)) else {
-            return Vec::new();
-        };
-        let context = valid_filter::MatchContext::from_source(source)
-            .with_game(game)
-            .with_spell_ability(play_sa);
-        if card.is_land()
-            || !crate::spellability::valid_sa::matches_valid_sa_with_context(
-                filter,
-                &spell,
-                source,
-                Some(card),
-                Some(context),
-            )
-        {
-            return Vec::new();
+    let mut faces = vec![(
+        None,
+        crate::spellability::build_spell_ability_for_card_cast(game, tgt_card, controller),
+    )];
+    let other_state = card
+        .other_part
+        .as_ref()
+        .map(|other| other.state_name)
+        .filter(|&state| {
+            state == forge_foundation::CardStateName::Secondary
+                || (state == forge_foundation::CardStateName::Backside && card.is_modal())
+        });
+    if let Some((host, spell)) = other_state.and_then(|state| {
+        crate::spellability::build_spell_ability_for_card_state_cast(
+            game, tgt_card, controller, state,
+        )
+    }) {
+        if !host.is_land() {
+            faces.push((Some(host), spell));
         }
     }
-    vec![spell]
+    faces
+        .into_iter()
+        .filter_map(|(host, mut spell)| {
+            let face = host.as_ref().unwrap_or(card);
+            spell.restriction.variables.set_zone(card.zone);
+            std::sync::Arc::make_mut(&mut spell.ir).cast_from_play_effect = true;
+            crate::spellability::spell::can_play_from_host(&spell, game)?;
+            if let Some((filter, play_sa)) = valid_sa {
+                let source = game.card(play_sa.source?);
+                let context = valid_filter::MatchContext::from_source(source)
+                    .with_game(game)
+                    .with_spell_ability(play_sa);
+                if face.is_land()
+                    || !crate::spellability::valid_sa::matches_valid_sa_with_context(
+                        filter,
+                        &spell,
+                        source,
+                        Some(face),
+                        Some(context),
+                    )
+                {
+                    return None;
+                }
+            }
+            Some(spell)
+        })
+        .collect()
 }
 
 /// Mirrors Java `AbilityUtils.getSVar(CardTraitBase, String)`: a granted ability reads the
