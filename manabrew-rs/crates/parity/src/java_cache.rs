@@ -69,6 +69,7 @@ struct Manifest {
 }
 
 const MANIFEST_FILE: &str = "manifest.json";
+const INCOMPLETE_HASH_PREFIX: &str = "incomplete-";
 pub const CACHE_VERSION: u32 = 9;
 
 impl JavaCache {
@@ -91,6 +92,14 @@ impl JavaCache {
         } else {
             false
         };
+
+        if needs_wipe && source_hash.starts_with(INCOMPLETE_HASH_PREFIX) {
+            eprintln!(
+                "[java-cache] Not wiping {}: the source hash is missing inputs (no forge sources under the current directory, as in a git worktree); running without the cache",
+                cache_dir.display()
+            );
+            return Err(std::io::Error::other("incomplete source hash"));
+        }
 
         if needs_wipe {
             eprintln!(
@@ -237,13 +246,18 @@ pub fn compute_source_hash(project_root: &Path, jar_path: Option<&Path>) -> Stri
     ];
 
     let mut files: Vec<(String, PathBuf)> = Vec::new();
+    let mut missing = false;
     for dir in &dirs_to_hash {
         let full = project_root.join(dir);
         if !full.exists() {
+            missing = true;
             continue;
         }
         collect_files(&full, &full, &mut files);
     }
+    missing |= !project_root
+        .join("forge-harness/src/main/java/forge/harness/protocol")
+        .exists();
     files.sort();
 
     let digests: Vec<u64> = files
@@ -261,7 +275,8 @@ pub fn compute_source_hash(project_root: &Path, jar_path: Option<&Path>) -> Stri
     if let Some(jar) = jar_path {
         compute_jar_hash(jar).ok().hash(&mut hasher);
     }
-    format!("{:016x}", hasher.finish())
+    let prefix = if missing { INCOMPLETE_HASH_PREFIX } else { "" };
+    format!("{prefix}{:016x}", hasher.finish())
 }
 
 pub fn compute_jar_hash(jar_path: &Path) -> std::io::Result<String> {
