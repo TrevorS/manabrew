@@ -944,7 +944,14 @@ impl GameLoop {
             &mana_cost.without_x(),
             true,
         );
-        let available_mana = mana::calculate_available_mana(self.pool(player), game, player);
+        let available_mana = mana::calculate_available_mana_with_context(
+            self.pool(player),
+            game,
+            player,
+            None,
+            &[],
+            Some(&mana::payment_context_for_sa(game, sa)),
+        );
         let mut x: u32 = 0;
         while x < 99
             && available_mana.can_pay(&non_x_cost.add(&forge_foundation::ManaCost::generic(
