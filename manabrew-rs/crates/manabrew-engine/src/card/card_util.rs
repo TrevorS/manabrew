@@ -9,7 +9,6 @@ use crate::ability::ability_factory;
 use crate::ability::ability_utils;
 use crate::ability::api_type::ApiType;
 use crate::card::card_collection::CardCollection;
-use crate::card::card_lists::CardLists;
 use crate::card::valid_filter;
 use crate::card::Card;
 use crate::game::GameState;
@@ -108,11 +107,16 @@ pub fn get_this_turn_entered(
                     .cards_added_this_turn
                     .iter()
                     .filter(|(origin, _)| from.is_none_or(|from| *origin == from))
-                    .map(|(_, cid)| *cid),
+                    .map(|&(origin, cid)| (cid, entered_latest_state(game, origin, cid))),
             );
         }
     } else {
-        res.extend(game.stack.get_spells_cast_this_turn().iter().copied());
+        res.extend(
+            game.stack
+                .get_spells_cast_this_turn()
+                .iter()
+                .map(|&cid| (cid, None)),
+        );
     }
     filter_valid_cards(game, res, valid, src, ctb, controller)
 }
@@ -134,11 +138,16 @@ pub fn get_last_turn_entered(
                     .cards_added_last_turn
                     .iter()
                     .filter(|(origin, _)| from.is_none_or(|from| *origin == from))
-                    .map(|(_, cid)| *cid),
+                    .map(|&(origin, cid)| (cid, entered_latest_state(game, origin, cid))),
             );
         }
     } else {
-        res.extend(game.stack.get_spells_cast_last_turn().iter().copied());
+        res.extend(
+            game.stack
+                .get_spells_cast_last_turn()
+                .iter()
+                .map(|&cid| (cid, None)),
+        );
     }
     filter_valid_cards(game, res, valid, src, ctb, controller)
 }
@@ -240,7 +249,11 @@ pub fn get_cast_since_beginning_of_your_last_turn(
 ) -> Vec<CardId> {
     filter_valid_cards(
         game,
-        game.player(controller).cards_cast_this_turn.clone(),
+        game.player(controller)
+            .cards_cast_this_turn
+            .iter()
+            .map(|&card_id| (card_id, None))
+            .collect(),
         valid,
         src,
         None,
@@ -716,34 +729,45 @@ pub fn get_valid_cards_to_target(game: &GameState, ability: &SpellAbility) -> Ve
     candidates
 }
 
+fn entered_latest_state(game: &GameState, origin: ZoneType, card: CardId) -> Option<Card> {
+    (origin == ZoneType::Battlefield)
+        .then(|| crate::lki::battlefield_lki_card(game, card))
+        .flatten()
+}
+
 fn filter_valid_cards(
     game: &GameState,
-    cards: Vec<CardId>,
+    cards: Vec<(CardId, Option<Card>)>,
     valid: &str,
     src: CardId,
     ctb: Option<&SpellAbility>,
     controller: PlayerId,
 ) -> Vec<CardId> {
     if valid.is_empty() {
-        return cards;
+        return cards.into_iter().map(|(card_id, _)| card_id).collect();
     }
     let _ = controller;
-    let Some(sa) = ctb else {
-        return CardLists::filter_as_list_with_source(game, &cards, valid, src);
-    };
     let selector = cached_compiled_selector(valid);
-    let context = valid_filter::MatchContext::from_source(game.card(src))
-        .with_game(game)
-        .with_spell_ability(sa);
+    let source = game.card(src);
+    let context = ctb.map(|sa| {
+        valid_filter::MatchContext::from_source(source)
+            .with_game(game)
+            .with_spell_ability(sa)
+    });
     cards
         .into_iter()
-        .filter(|&card_id| {
-            valid_filter::matches_valid_card_selector_with_context(
-                &selector,
-                game.card(card_id),
-                context,
-            )
+        .filter(|(card_id, latest_state)| {
+            let card = latest_state.as_ref().unwrap_or_else(|| game.card(*card_id));
+            match context {
+                Some(context) => {
+                    valid_filter::matches_valid_card_selector_with_context(&selector, card, context)
+                }
+                None => {
+                    valid_filter::matches_valid_card_selector_in_game(&selector, card, source, game)
+                }
+            }
         })
+        .map(|(card_id, _)| card_id)
         .collect()
 }
 
