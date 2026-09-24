@@ -792,6 +792,11 @@ mod tests {
                 winner: None,
                 players: vec![],
                 stack: vec![],
+                monarch: None,
+                initiative: None,
+                day_night: String::new(),
+                game_rng_calls: 0,
+                agent_rng_calls: 0,
                 timestamp_ms: 0,
             })],
         };

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use manabrew_engine::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::thread;
@@ -282,10 +282,10 @@ fn resolve_effect<E: SpellAbilityEffect>(
 ) {
     let mut agents = pass_agents();
     let mut mana_pools = vec![ManaPool::default(), ManaPool::default()];
-    let token_templates = HashMap::new();
-    let token_art_variants = HashMap::new();
-    let token_fallback = HashMap::new();
-    let edition_dates = HashMap::new();
+    let token_templates = HashMap::default();
+    let token_art_variants = HashMap::default();
+    let token_fallback = HashMap::default();
+    let edition_dates = HashMap::default();
     let mut rng = ThreadRngAdapter::default();
     let mut ctx = EffectContext {
         game,
@@ -684,7 +684,10 @@ fn final_chapter_saga_waiting_trigger_stays_on_battlefield() {
     assert!(!game
         .check_state_based_actions_with_trigger_agents(Some(&mut trigger_handler), &mut agents,));
     assert_eq!(game.card(saga).zone, ZoneType::Battlefield);
-    assert_eq!(trigger_handler.waiting_trigger_count(), 1);
+    assert_eq!(
+        trigger_handler.waiting_trigger_count() + trigger_handler.pre_matched_trigger_count(),
+        1
+    );
 }
 
 #[test]
