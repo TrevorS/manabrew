@@ -86,8 +86,26 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         None => vec![controller],
     };
 
+    let optional = crate::parsing::raw_has_key(&sa.ability_text, "Optional");
     for controller in controllers {
         for original in &originals {
+            if optional {
+                let name = original
+                    .source
+                    .map(|cid| ctx.game.card(cid).card_name.clone())
+                    .unwrap_or_default();
+                ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
+                if !ctx.agents[controller.index()].confirm_action(
+                    controller,
+                    None,
+                    &format!("Do you want to copy {name}?"),
+                    &[],
+                    sa.source,
+                    sa.api,
+                ) {
+                    continue;
+                }
+            }
             for _ in 0..amount {
                 push_copy(ctx, sa, original, controller);
             }
