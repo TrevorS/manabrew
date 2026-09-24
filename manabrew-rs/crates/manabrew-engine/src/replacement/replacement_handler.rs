@@ -1508,13 +1508,15 @@ fn collect_effects(
         .as_deref()
         .filter(|_| matches!(event, ReplacementEvent::Moved { .. }));
     // Keep in sync with `Card::rules_replacement_effects`: it builds only `DamageDone` and
-    // `Moved` replacements, which `can_replace` rejects for any other event.
-    let rules_effects_may_apply = matches!(
-        event,
-        ReplacementEvent::DamageToCard { .. }
-            | ReplacementEvent::DamageToPlayer { .. }
-            | ReplacementEvent::Moved { .. }
-    );
+    // `Moved` replacements in the `Other` layer, which `can_replace` rejects for any other
+    // event and the layer filter below skips in any other layer.
+    let rules_effects_may_apply = layer == ReplacementLayer::Other
+        && matches!(
+            event,
+            ReplacementEvent::DamageToCard { .. }
+                | ReplacementEvent::DamageToPlayer { .. }
+                | ReplacementEvent::Moved { .. }
+        );
     let mut result = Vec::new();
     for (i, card) in game.cards.iter().enumerate() {
         let card_id = CardId(i as u32);
