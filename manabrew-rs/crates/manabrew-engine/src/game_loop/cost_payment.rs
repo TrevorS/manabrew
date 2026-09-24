@@ -1193,6 +1193,8 @@ impl GameLoop {
                 CostPart::Draw { .. } => {
                     crate::cost::cost_draw::pay_as_decided(
                         game,
+                        Some(&mut self.trigger_handler),
+                        Some(agents),
                         player,
                         card_id,
                         sa.as_deref(),
@@ -1999,6 +2001,8 @@ impl GameLoop {
                 CostPart::Draw { .. } => {
                     crate::cost::cost_draw::pay_as_decided(
                         game,
+                        Some(&mut self.trigger_handler),
+                        Some(agents),
                         player,
                         card_id,
                         sa.as_deref(),

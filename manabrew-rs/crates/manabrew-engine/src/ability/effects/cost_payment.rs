@@ -592,7 +592,15 @@ fn try_pay_effect_cost(
                     .player_add_shards(payer, -amount.resolve(ctx.game, source, payer));
             }
             CostPart::Draw { .. } => {
-                crate::cost::cost_draw::pay_as_decided(ctx.game, payer, source, Some(sa), part);
+                crate::cost::cost_draw::pay_as_decided(
+                    ctx.game,
+                    Some(ctx.trigger_handler),
+                    Some(ctx.agents),
+                    payer,
+                    source,
+                    Some(sa),
+                    part,
+                );
             }
             CostPart::Mill(amount) => {
                 for _ in 0..amount.resolve(ctx.game, source, payer) {
