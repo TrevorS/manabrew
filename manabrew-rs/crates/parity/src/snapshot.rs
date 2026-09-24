@@ -28,7 +28,12 @@ pub fn snapshot_game(
         .iter()
         .map(|entry| {
             if let Some(source) = entry.spell_ability.source {
-                game.card(source).card_name.clone()
+                let card = game.card(source);
+                if card.face_down {
+                    String::new()
+                } else {
+                    card.card_name.clone()
+                }
             } else {
                 entry.spell_ability.ability_text.clone()
             }

@@ -1682,10 +1682,10 @@ impl GameLoop {
             game.card_mut(card_id).cast_sa = Some(Box::new(sa.clone()));
             self.move_card_with_runtime(game, card_id, ZoneType::Stack, player, agents);
         }
-        if sa.is_spell
-            && game.card(card_id).face_down
-            && !sa.alt_cost.is_some_and(|alt| alt.is_morph())
-        {
+        if sa.is_spell && sa.alt_cost.is_some_and(|alt| alt.is_morph()) {
+            game.card_mut(card_id).set_face_down(true);
+            game.card_mut(card_id).set_original_state_as_face_down();
+        } else if sa.is_spell && game.card(card_id).face_down {
             game.card_mut(card_id).turn_face_up();
         }
         let pending_stack_id = if sa.is_spell {

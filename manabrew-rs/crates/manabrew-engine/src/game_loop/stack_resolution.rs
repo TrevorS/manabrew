@@ -372,10 +372,20 @@ impl GameLoop {
                 if alt_cost.is_some_and(|ac| ac.is_morph()) {
                     let is_mega = alt_cost == Some(crate::spellability::AlternativeCost::Megamorph);
                     let c = game.card_mut(card_id);
-                    let disguise_cost = c.get_keyword_cost("Disguise");
+                    let face_up_keyword_cost =
+                        |c: &crate::card::Card, keyword: &str| match c.face_down_state.as_deref() {
+                            Some(state) => crate::keyword::extract_keyword_cost_from_all(
+                                [&state.original_keywords, &c.granted_keywords],
+                                keyword,
+                            ),
+                            None => c.get_keyword_cost(keyword),
+                        };
+                    let disguise_cost = face_up_keyword_cost(c, "Disguise");
                     let morph_details = disguise_cost
                         .clone()
-                        .or_else(|| c.get_keyword_cost(if is_mega { "Megamorph" } else { "Morph" }))
+                        .or_else(|| {
+                            face_up_keyword_cost(c, if is_mega { "Megamorph" } else { "Morph" })
+                        })
                         .unwrap_or_else(|| "3".to_string());
                     let mut details = morph_details.split(':');
                     let morph_cost = details
