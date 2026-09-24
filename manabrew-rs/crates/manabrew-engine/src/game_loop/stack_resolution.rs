@@ -243,6 +243,10 @@ impl GameLoop {
                     let player = entry.spell_ability.activating_player;
                     let source = entry.spell_ability.source.unwrap_or(CardId(0));
                     let api = entry.spell_ability.api;
+                    let x_paid_before = game.card(source).svars.get("XPaid").cloned();
+                    if crate::cost::has_x_in_any_cost_part(&cost) {
+                        game.card_mut(source).svars.remove("XPaid");
+                    }
                     let available = crate::mana::calculate_available_mana_excluding(
                         &self.mana_pools[player.index()],
                         game,
@@ -257,6 +261,7 @@ impl GameLoop {
                         player,
                         Some(&entry.spell_ability),
                     ) {
+                        Self::reset_x_mana_cost_paid(game, source, x_paid_before);
                         apply_continuous_effects(game);
                         return;
                     }
@@ -269,6 +274,7 @@ impl GameLoop {
                         Some(&cost),
                         &mut need_x,
                     ) {
+                        Self::reset_x_mana_cost_paid(game, source, x_paid_before);
                         apply_continuous_effects(game);
                         return;
                     }
@@ -283,6 +289,7 @@ impl GameLoop {
                         CostPaymentContext::TriggerResolve,
                         Some(&mut entry.spell_ability),
                     ) {
+                        Self::reset_x_mana_cost_paid(game, source, x_paid_before);
                         apply_continuous_effects(game);
                         return;
                     }

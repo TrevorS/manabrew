@@ -1153,7 +1153,11 @@ impl GameLoop {
         }
     }
 
-    fn reset_x_mana_cost_paid(game: &mut GameState, card_id: CardId, x_paid: Option<String>) {
+    pub(super) fn reset_x_mana_cost_paid(
+        game: &mut GameState,
+        card_id: CardId,
+        x_paid: Option<String>,
+    ) {
         match x_paid {
             Some(value) => {
                 game.card_mut(card_id)
