@@ -88,6 +88,9 @@ impl GameLoop {
         agents: &mut [Box<dyn PlayerAgent>],
     ) {
         for pt in self.trigger_handler.run_static_state_triggers(game) {
+            if !self.trigger_handler.can_run_state_trigger(game, &pt) {
+                continue;
+            }
             let depth = game.stack.len();
             self.trigger_handler
                 .process_pending_triggers(&self.mana_pools, game, agents, vec![pt]);

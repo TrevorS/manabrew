@@ -328,6 +328,23 @@ impl TriggerHandler {
             .collect()
     }
 
+    /// Java `runStateTrigger` tests `canRunTrigger` for each trigger just before running it, so a
+    /// trigger matched in the same pass no longer runs once an earlier one has changed the state.
+    pub fn can_run_state_trigger(&self, game: &GameState, pending: &PendingTrigger) -> bool {
+        let sa = &pending.entry.spell_ability;
+        let (Some(host), Some(index)) = (sa.trigger_source, sa.trigger_index) else {
+            return true;
+        };
+        self.can_run_trigger(
+            game,
+            host,
+            index,
+            game.card(host).controller,
+            &TriggerType::Always,
+            &RunParams::default(),
+        )
+    }
+
     /// Keep in sync with `match_waiting_triggers`: an `Always` event matches only active or
     /// delayed triggers of that mode.
     fn has_state_triggers(&self, game: &GameState) -> bool {
