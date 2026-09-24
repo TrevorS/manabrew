@@ -257,6 +257,7 @@ impl GameLoop {
             if let Some(original_host) = ab.original_host {
                 sa_for_target_check.set_original_host(original_host);
             }
+            sa_for_target_check.original_ability = ab.original_ability;
             if crate::staticability::static_ability_cant_be_cast::cant_be_activated_ability(
                 game,
                 &game.cards,
@@ -975,6 +976,7 @@ impl GameLoop {
         if let Some(original_host) = ab.original_host {
             sa.set_original_host(original_host);
         }
+        sa.original_ability = ab.original_ability;
         sa.is_activated = true;
         let mut activation_cost = ab.cost.clone();
         if let Some(alternate) = ab.params.get(crate::parsing::keys::ALTERNATE_COST) {

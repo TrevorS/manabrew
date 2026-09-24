@@ -6,6 +6,7 @@ use crate::spellability::SpellAbility;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct ActivationKey {
     source: Option<CardId>,
+    original: Option<(CardId, usize)>,
     hash: u64,
 }
 
@@ -32,6 +33,7 @@ impl ActivationTable {
         }
         ActivationKey {
             source: sa.source,
+            original: sa.original_ability,
             hash,
         }
     }

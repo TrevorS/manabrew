@@ -119,6 +119,7 @@ struct GameSnapshot {
     card_owner_controller: Vec<(CardId, (u32, u32))>,
     ability_is_mana: Vec<((CardId, usize), bool)>,
     ability_texts: Vec<((CardId, usize), String)>,
+    gained_copy_abilities: Vec<(CardId, usize)>,
     stack_sources: Vec<(u32, CardId)>,
     phase: PhaseType,
     stack_depth: usize,
@@ -802,6 +803,7 @@ impl DeterministicAgent {
                             parity_order::ability_declaration_sort_key(
                                 self.snapshot_cards(),
                                 &snap.ability_texts,
+                                &snap.gained_copy_abilities,
                                 play.card_id,
                                 ability_idx,
                             )
@@ -841,6 +843,7 @@ impl DeterministicAgent {
                         parity_order::ability_declaration_sort_key(
                             self.snapshot_cards(),
                             &snap.ability_texts,
+                            &snap.gained_copy_abilities,
                             card_id,
                             ability_idx,
                         )
@@ -1123,6 +1126,7 @@ impl PlayerAgent for DeterministicAgent {
             mut card_owner_controller,
             mut ability_is_mana,
             mut ability_texts,
+            mut gained_copy_abilities,
             mut stack_sources,
         ) = match self.last_game_snapshot.take() {
             Some(prev) => (
@@ -1132,6 +1136,7 @@ impl PlayerAgent for DeterministicAgent {
                 prev.card_owner_controller,
                 prev.ability_is_mana,
                 prev.ability_texts,
+                prev.gained_copy_abilities,
                 prev.stack_sources,
             ),
             None => Default::default(),
@@ -1205,6 +1210,15 @@ impl PlayerAgent for DeterministicAgent {
                         .map(move |ab| ((c.id, ab.ability_index), ab.ability_text.as_str()))
                 }),
             );
+            refill(
+                &mut gained_copy_abilities,
+                game.cards.iter().flat_map(|c| {
+                    c.activated_abilities
+                        .iter()
+                        .filter(|ab| ab.original_ability.is_some())
+                        .map(move |ab| (c.id, ab.ability_index))
+                }),
+            );
         };
         {
             let _perf_scope = split_priority_snapshot
@@ -1230,6 +1244,7 @@ impl PlayerAgent for DeterministicAgent {
             card_owner_controller,
             ability_is_mana,
             ability_texts,
+            gained_copy_abilities,
             phase: game.turn.phase,
             stack_depth: game.stack.len(),
         });

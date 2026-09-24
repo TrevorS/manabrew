@@ -152,12 +152,13 @@ pub fn can_exiled_by(game: &GameState, card: CardId, sa: &SpellAbility, effect: 
 }
 
 pub fn can_be_attached(game: &GameState, target: CardId, aura: CardId) -> bool {
-    !crate::staticability::static_ability_cant_attach::cant_attach(
-        &game.cards,
-        game.card(aura),
-        game.card(target),
-        false,
-    )
+    game.card(aura).is_attachment()
+        && !crate::staticability::static_ability_cant_attach::cant_attach(
+            &game.cards,
+            game.card(aura),
+            game.card(target),
+            false,
+        )
 }
 
 pub fn has_cmc(card: &Card, cmc: i32) -> bool {

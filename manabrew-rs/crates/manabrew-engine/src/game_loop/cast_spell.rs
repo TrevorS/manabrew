@@ -80,9 +80,7 @@ impl GameLoop {
 
         if *need_x {
             if let Some(cost) = cost.filter(|c| crate::cost::has_x_in_any_cost_part(c)) {
-                let svar = game
-                    .card(card_id)
-                    .get_s_var("X")
+                let svar = crate::ability::ability_utils::get_s_var(sa, game, "X")
                     .map(str::to_string)
                     .unwrap_or_default();
                 if svar == "Count$xPaid" || svar.is_empty() {

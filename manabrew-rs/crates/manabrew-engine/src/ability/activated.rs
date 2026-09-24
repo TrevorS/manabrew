@@ -92,6 +92,8 @@ pub struct ActivatedAbility {
     /// The card whose static granted this ability (`AddAbility$`); Java's `setOriginalHost`.
     #[serde(default)]
     pub original_host: Option<crate::ids::CardId>,
+    #[serde(default)]
+    pub original_ability: Option<(crate::ids::CardId, usize)>,
     /// The X paid by the ability a `GainThisAbility` copy was made from; Java's
     /// `SpellAbility.copy` keeps `xManaCostPaid`.
     #[serde(default)]
@@ -252,6 +254,7 @@ pub fn parse_activated_ability(raw: &str, index: usize) -> Option<ActivatedAbili
         is_mana_reflected,
         params,
         original_host: None,
+        original_ability: None,
         x_mana_cost_paid: None,
         sub_ability_targets: Vec::new(),
     })

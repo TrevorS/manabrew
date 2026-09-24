@@ -4495,6 +4495,11 @@ impl Card {
     pub fn cant_be_attached_msg(&self) -> Option<String> {
         None
     }
+    pub fn is_attachment(&self) -> bool {
+        self.type_line.has_subtype("Aura")
+            || self.type_line.has_subtype("Equipment")
+            || self.type_line.has_subtype("Fortification")
+    }
     pub fn can_be_sacrificed_by(&self, _player: PlayerId) -> bool {
         true
     }

@@ -78,6 +78,7 @@ enum EffectKind {
         text: String,
         svars: BTreeMap<String, String>,
         original_host: Option<CardId>,
+        original_ability: Option<(CardId, usize)>,
     },
     /// Add a type/subtype to the card (`AddType$`). Mirrors Java layer 4.
     AddType(String),
@@ -676,6 +677,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                                         text: ab_text,
                                         svars: source_card.svars.clone(),
                                         original_host: Some(source_id),
+                                        original_ability: None,
                                     },
                                 });
                             }
@@ -706,6 +708,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                                         text: ab.ability_text.clone(),
                                         svars: gained.svars.clone(),
                                         original_host: None,
+                                        original_ability: Some((gained.id, ab.ability_index)),
                                     },
                                 });
                             }
@@ -772,6 +775,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                                         text,
                                         svars: gained.svars.clone(),
                                         original_host: None,
+                                        original_ability: Some((gained.id, ab.ability_index)),
                                     },
                                 });
                             }
@@ -846,6 +850,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                                     text: ab_text.to_string(),
                                     svars: BTreeMap::new(),
                                     original_host: None,
+                                    original_ability: None,
                                 },
                             });
                         }
@@ -1367,6 +1372,7 @@ fn apply_pending_effects(
                 text,
                 svars,
                 original_host,
+                original_ability,
             } => {
                 // Parse the ability text and add it to the target's activated abilities.
                 // This grants abilities like "{T}: Add one mana of any color."
@@ -1377,6 +1383,7 @@ fn apply_pending_effects(
                     crate::ability::activated::parse_activated_ability(&text, next_idx)
                 {
                     ab.original_host = original_host;
+                    ab.original_ability = original_ability;
                     game.card_mut(effect.target).activated_abilities.push(ab);
                 }
             }

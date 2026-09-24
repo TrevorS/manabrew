@@ -2577,8 +2577,12 @@ pub fn get_spells_from_play_effect(
 /// Mirrors Java `AbilityUtils.getSVar(CardTraitBase, String)`: a granted ability reads the
 /// granting card's SVars before its host's (`CardTraitBase.getSVarFallback`).
 pub fn get_s_var<'a>(sa: &SpellAbility, game: &'a GameState, svar_name: &str) -> Option<&'a str> {
-    sa.original_host
-        .and_then(|host| game.card(host).get_s_var(svar_name))
+    sa.original_ability
+        .and_then(|(card, _)| game.card(card).svars.get(svar_name).map(String::as_str))
+        .or_else(|| {
+            sa.original_host
+                .and_then(|host| game.card(host).get_s_var(svar_name))
+        })
         .or_else(|| {
             sa.source
                 .and_then(|host| game.card(host).get_s_var(svar_name))

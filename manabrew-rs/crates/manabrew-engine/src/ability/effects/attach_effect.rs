@@ -161,12 +161,7 @@ fn attach_to_entity(ctx: &mut EffectContext, attachment: CardId, target: CardId)
     {
         return false;
     }
-    if crate::staticability::static_ability_cant_attach::cant_attach(
-        &ctx.game.cards,
-        ctx.game.card(attachment),
-        ctx.game.card(target),
-        false,
-    ) {
+    if !crate::card::card_predicates::can_be_attached(ctx.game, target, attachment) {
         return false;
     }
     if ctx.game.card(attachment).attached_to == Some(target) {

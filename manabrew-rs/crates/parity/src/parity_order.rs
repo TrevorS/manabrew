@@ -35,6 +35,7 @@ pub fn sort_replacement_descriptions_with_indices(
 pub fn ability_declaration_sort_index(
     cards: &[Arc<Card>],
     ability_texts: &[((CardId, usize), String)],
+    gained_copies: &[(CardId, usize)],
     card_id: CardId,
     ability_idx: usize,
 ) -> usize {
@@ -58,6 +59,20 @@ pub fn ability_declaration_sort_index(
         })
         .collect();
     entries.sort_by_key(|(idx, group)| (*group, *idx));
+    let text_of = |ability_idx: usize| {
+        ability_texts
+            .iter()
+            .find(|((cid, idx), _)| *cid == card_id && *idx == ability_idx)
+            .map(|(_, text)| text)
+    };
+    // ActionSpace.getPossibleActions ends with checkStaticAbilities, which rebuilds every
+    // GainsAbilitiesOf copy, so ParityOrder.abilityDeclarationIndex finds such a copy by text.
+    if gained_copies.contains(&(card_id, ability_idx)) {
+        let text = text_of(ability_idx);
+        if let Some(position) = entries.iter().position(|(idx, _)| text_of(*idx) == text) {
+            return position;
+        }
+    }
     entries
         .iter()
         .position(|(idx, _)| *idx == ability_idx)
@@ -67,6 +82,7 @@ pub fn ability_declaration_sort_index(
 pub fn ability_declaration_sort_key(
     cards: &[Arc<Card>],
     ability_texts: &[((CardId, usize), String)],
+    gained_copies: &[(CardId, usize)],
     card_id: CardId,
     ability_idx: usize,
 ) -> String {
@@ -75,7 +91,13 @@ pub fn ability_declaration_sort_key(
     } else {
         format!(
             "{:05}",
-            ability_declaration_sort_index(cards, ability_texts, card_id, ability_idx)
+            ability_declaration_sort_index(
+                cards,
+                ability_texts,
+                gained_copies,
+                card_id,
+                ability_idx,
+            )
         )
     }
 }
