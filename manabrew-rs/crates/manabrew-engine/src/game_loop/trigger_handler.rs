@@ -60,4 +60,19 @@ impl GameLoop {
             }
         }
     }
+
+    pub(crate) fn run_static_state_triggers(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+    ) {
+        for pt in self.trigger_handler.run_static_state_triggers(game) {
+            let depth = game.stack.len();
+            self.trigger_handler
+                .process_pending_triggers(&self.mana_pools, game, agents, vec![pt]);
+            if game.stack.len() > depth {
+                self.resolve_stack(game, agents);
+            }
+        }
+    }
 }

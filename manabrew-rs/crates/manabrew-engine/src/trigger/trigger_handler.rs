@@ -302,6 +302,18 @@ impl TriggerHandler {
         self.waiting_triggers = waiting;
     }
 
+    pub fn run_static_state_triggers(&mut self, game: &GameState) -> Vec<PendingTrigger> {
+        let waiting = std::mem::take(&mut self.waiting_triggers);
+        self.run_trigger(TriggerType::Always, RunParams::default(), false);
+        let matched = self.match_waiting_triggers(game);
+        self.waiting_triggers = waiting;
+        matched
+            .into_iter()
+            .map(|(pending, ..)| pending)
+            .filter(|pending| pending.static_trigger)
+            .collect()
+    }
+
     pub fn flush_waiting_triggers(&mut self, game: &GameState) {
         if self.waiting_triggers.is_empty() && self.delayed_triggers.is_empty() {
             return;

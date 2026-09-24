@@ -765,6 +765,7 @@ impl GameLoop {
 
         // Continuous effects might change after resolution
         apply_continuous_effects(game);
+        self.run_static_state_triggers(game, agents);
 
         // LKI: Second snapshot after resolution and SBAs, before processing triggers.
         // Mirrors Java MagicStack line 676: game.copyLastState() in finishResolving().
