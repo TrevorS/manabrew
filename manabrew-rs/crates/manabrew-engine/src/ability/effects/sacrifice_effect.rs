@@ -53,11 +53,6 @@ fn do_sacrifice(
         .card_mut(card_id)
         .set_lki_power_toughness(Some(lki_power), Some(lki_toughness));
 
-    // Clear temporary Animate triggers before firing events (CR 400.7).
-    {
-        let card = ctx.game.card_mut(card_id);
-        card.clear_pump_triggers();
-    }
     // Fire Sacrificed trigger
     let sacrificer = ctx.game.card(card_id).controller;
     crate::player::add_sacrificed_this_turn(ctx.game, sacrificer, card_id);

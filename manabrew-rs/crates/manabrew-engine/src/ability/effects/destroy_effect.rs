@@ -1,6 +1,6 @@
 use forge_foundation::ZoneType;
 
-use super::{emit_zone_trigger_with_lki_counters, EffectContext};
+use super::EffectContext;
 use crate::card::card_util;
 use crate::event::RunParams;
 use crate::trigger::TriggerType;
@@ -68,8 +68,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
                 continue;
             }
-            let owner = ctx.game.card(target_card).owner;
-
             // Capture +1/+1 counter count before move (for Modular death triggers)
             let lki_p1p1 = *ctx
                 .game
@@ -101,23 +99,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 false,
             );
 
-            ctx.move_card(target_card, ZoneType::Graveyard, owner);
-
-            emit_zone_trigger_with_lki_counters(
-                ctx.trigger_handler,
-                target_card,
-                ZoneType::Battlefield,
-                ZoneType::Graveyard,
-                lki_p1p1,
-                ctx.game
-                    .card(target_card)
-                    .lki_power
-                    .unwrap_or_else(|| ctx.game.card(target_card).power()),
-                ctx.game
-                    .card(target_card)
-                    .lki_toughness
-                    .unwrap_or_else(|| ctx.game.card(target_card).toughness()),
-            );
+            let lki_power = ctx
+                .game
+                .card(target_card)
+                .lki_power
+                .unwrap_or_else(|| ctx.game.card(target_card).power());
+            let lki_toughness = ctx
+                .game
+                .card(target_card)
+                .lki_toughness
+                .unwrap_or_else(|| ctx.game.card(target_card).toughness());
+            ctx.sacrifice_destroy(target_card, lki_p1p1, lki_power, lki_toughness);
 
             // Track the destroyed card on the source so chained sub-abilities
             // (`Destroyed` triggers in `EffectEffect`, "that card" references)
