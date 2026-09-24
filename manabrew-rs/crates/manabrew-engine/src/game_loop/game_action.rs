@@ -1323,7 +1323,10 @@ impl GameLoop {
         } else {
             ab.ability_kind.as_str()
         };
-        let stack_message = format!("Activated ability: {ability_kind} | source={card_name}");
+        let stack_message = format!(
+            "Activated ability: {ability_kind} | source={}",
+            game.card(card_id).log_name()
+        );
         let sa_for_trigger = self.push_spell_ability_to_stack(
             game,
             agents,

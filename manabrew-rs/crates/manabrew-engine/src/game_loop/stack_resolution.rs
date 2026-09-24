@@ -1255,7 +1255,11 @@ impl GameLoop {
     ) {
         let source_name = sa
             .source
-            .and_then(|cid| game.cards.get(cid.index()).map(|c| c.card_name.clone()))
+            .and_then(|cid| {
+                game.cards
+                    .get(cid.index())
+                    .map(|c| c.log_name().to_string())
+            })
             .unwrap_or_else(|| "Unknown source".to_string());
         let effect_kind = Self::effect_kind_for_sa(sa);
         let mut event = crate::agent::GameLogEvent::stack(format!(

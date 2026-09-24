@@ -524,14 +524,20 @@ impl TriggerHandler {
                 .map(|a| a.name().to_string())
                 .unwrap_or_else(|| "Unknown".to_string());
 
+            let log_source = pt
+                .entry
+                .spell_ability
+                .source
+                .and_then(|id| game.cards.get(id.index()))
+                .map_or(source_name.as_str(), |card| card.log_name());
             let trigger_msg = if pt.description.is_empty() {
                 format!(
-                    "Trigger fired: mode={trigger_mode} | api={trigger_api} | source={source_name}"
+                    "Trigger fired: mode={trigger_mode} | api={trigger_api} | source={log_source}"
                 )
             } else {
                 format!(
                     "Trigger fired: mode={} | api={} | source={} | {}",
-                    trigger_mode, trigger_api, source_name, pt.description
+                    trigger_mode, trigger_api, log_source, pt.description
                 )
             };
             let mut event = GameLogEvent::stack(trigger_msg)

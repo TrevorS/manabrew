@@ -139,7 +139,6 @@ fn push_spell_to_stack(
     let is_creature = ctx.game.card(card_id).is_creature();
     let is_permanent = ctx.game.card(card_id).is_permanent();
     let cast_zone = Some(ctx.game.card(card_id).zone);
-    let card_name = ctx.game.card(card_id).card_name.clone();
     let chosen_target = spell_sa.target_chosen.target_card;
 
     let entry = StackEntry {
@@ -178,9 +177,12 @@ fn push_spell_to_stack(
     );
     super::emit_targeting_triggers(ctx, card_id, &trigger_sa);
 
-    let mut event = GameLogEvent::stack(format!("{label}: cast {card_name}"))
-        .with_player(controller)
-        .with_source_card(card_id);
+    let mut event = GameLogEvent::stack(format!(
+        "{label}: cast {}",
+        ctx.game.card(card_id).log_name()
+    ))
+    .with_player(controller)
+    .with_source_card(card_id);
     if let Some(target_id) = chosen_target {
         event = event.with_target_card(target_id);
     }

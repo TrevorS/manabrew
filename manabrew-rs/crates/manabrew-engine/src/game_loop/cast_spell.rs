@@ -806,9 +806,12 @@ impl GameLoop {
                     );
                     crate::agent::notify_all_agents(
                         agents,
-                        crate::agent::GameLogEvent::rule(format!("Foretold: {card_name}"))
-                            .with_player(player)
-                            .with_card(card_id),
+                        crate::agent::GameLogEvent::rule(format!(
+                            "Foretold: {}",
+                            game.card(card_id).log_name()
+                        ))
+                        .with_player(player)
+                        .with_card(card_id),
                     );
                     return Some(Some((card_id, card_name)));
                 }
@@ -2975,10 +2978,11 @@ impl GameLoop {
             optional_trigger_source_name: None,
         };
         let chosen_target = entry.spell_ability.target_chosen.target_card;
+        let log_name = game.card(card_id).log_name();
         let stack_message = if is_flashback {
-            format!("Cast: {card_name} [Flashback from Graveyard]")
+            format!("Cast: {log_name} [Flashback from Graveyard]")
         } else {
-            format!("Cast: {card_name}")
+            format!("Cast: {log_name}")
         };
         crate::perf::increment(crate::perf::Metric::StackEntryClones, 1);
         let sa_for_trigger = self.push_spell_ability_to_stack(

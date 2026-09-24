@@ -49,6 +49,7 @@ pub const KEYWORD_PLOTTED_PREFIX: &str = "Plotted:";
 /// Marker for cards exiled via Warp's end-of-turn trigger.
 /// These cards can be cast from exile on a later turn for their normal mana cost.
 pub const KEYWORD_WARP_EXILED: &str = "WarpExiled";
+pub const FACE_DOWN_LOG_NAME: &str = "Face-down card";
 pub const OUTLAW_TYPES: [&str; 5] = ["Assassin", "Mercenary", "Pirate", "Rogue", "Warlock"];
 pub const PARTY_TYPES: [&str; 4] = ["Cleric", "Rogue", "Warrior", "Wizard"];
 
@@ -4336,6 +4337,13 @@ impl Card {
     }
     pub fn has_no_name(&self) -> bool {
         self.card_name.trim().is_empty()
+    }
+    pub fn log_name(&self) -> &str {
+        if self.face_down {
+            FACE_DOWN_LOG_NAME
+        } else {
+            &self.card_name
+        }
     }
     pub fn get_name(&self) -> &str {
         if self.zone != ZoneType::Battlefield

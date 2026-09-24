@@ -350,7 +350,7 @@ impl GameLoop {
             let attackers_msg = chosen_attackers
                 .iter()
                 .map(|(attacker_id, defender)| {
-                    let attacker_name = game.card(*attacker_id).card_name.clone();
+                    let attacker_name = game.card(*attacker_id).log_name().to_string();
                     let defender_name = match defender {
                         combat::DefenderId::Player(pid) => game.player(*pid).name.clone(),
                         combat::DefenderId::Permanent(cid) => game.card(*cid).card_name.clone(),
@@ -740,8 +740,8 @@ impl GameLoop {
                         .blockers
                         .iter()
                         .map(|(blocker_id, attacker_id)| {
-                            let blocker_name = game.card(*blocker_id).card_name.clone();
-                            let attacker_name = game.card(*attacker_id).card_name.clone();
+                            let blocker_name = game.card(*blocker_id).log_name().to_string();
+                            let attacker_name = game.card(*attacker_id).log_name().to_string();
                             format!("{blocker_name} -> {attacker_name}")
                         })
                         .collect::<Vec<_>>()

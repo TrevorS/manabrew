@@ -510,11 +510,18 @@ impl PlayerAgent for CapturingAgent {
                 if let Some(card_name) =
                     extract_coverage_card(&log_event.message).filter(|_| self.player_id.0 == 0)
                 {
+                    let card_name = log_event
+                        .source_card
+                        .or(log_event.card)
+                        .filter(|_| card_name == manabrew_engine::card::FACE_DOWN_LOG_NAME)
+                        .and_then(|id| self.inner.snapshot_game()?.cards.get(id.index()))
+                        .map_or(card_name, |card| card.card_name.as_str())
+                        .to_string();
                     *self
                         .shared_card_uses
                         .lock()
                         .unwrap()
-                        .entry(card_name.to_string())
+                        .entry(card_name)
                         .or_default() += 1;
                 }
             }
