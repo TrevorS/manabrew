@@ -254,7 +254,7 @@ impl GameLoop {
             CostPart::PayEnergy(_) => "PayEnergy",
             CostPart::PayShards(_) => "PayShards",
             CostPart::DamageYou(_) => "DamageYou",
-            CostPart::Draw(_) => "Draw",
+            CostPart::Draw { .. } => "Draw",
             CostPart::Mill(_) => "Mill",
             CostPart::Reveal { .. } => "Reveal",
             CostPart::Exert { .. } => "Exert",
@@ -291,7 +291,7 @@ impl GameLoop {
             // HumanCostDecision.confirmAction(...) branches
             CostPart::AddMana { .. } => true,
             CostPart::DamageYou(_) => true,
-            CostPart::Draw(_) => true,
+            CostPart::Draw { .. } => true,
             CostPart::Exile {
                 type_filter, from, ..
             } => {
@@ -1181,10 +1181,14 @@ impl GameLoop {
                     );
                     game.lose_life_simultaneously(&mut self.trigger_handler);
                 }
-                CostPart::Draw(amount) => {
-                    for _ in 0..amount.resolve_for_sa(game, card_id, player, sa.as_deref()) {
-                        game.draw_card(player);
-                    }
+                CostPart::Draw { .. } => {
+                    crate::cost::cost_draw::pay_as_decided(
+                        game,
+                        player,
+                        card_id,
+                        sa.as_deref(),
+                        &part,
+                    );
                 }
                 CostPart::Mill(amount) => {
                     for _ in 0..amount.resolve(game, card_id, player) {
@@ -1975,10 +1979,14 @@ impl GameLoop {
                     );
                     game.lose_life_simultaneously(&mut self.trigger_handler);
                 }
-                CostPart::Draw(amount) => {
-                    for _ in 0..amount.resolve_for_sa(game, card_id, player, sa.as_deref()) {
-                        game.draw_card(player);
-                    }
+                CostPart::Draw { .. } => {
+                    crate::cost::cost_draw::pay_as_decided(
+                        game,
+                        player,
+                        card_id,
+                        sa.as_deref(),
+                        &part,
+                    );
                 }
                 CostPart::Mill(amount) => {
                     for _ in 0..amount.resolve(game, card_id, player) {

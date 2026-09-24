@@ -352,8 +352,11 @@ fn parse_damage_you(inner: &str) -> Option<CostPart> {
 }
 
 fn parse_draw(inner: &str) -> Option<CostPart> {
-    let amount = AmountSpec::parse_or(inner, 1);
-    Some(CostPart::Draw(amount))
+    let (amount, type_filter) = inner.split_once('/').unwrap_or((inner, "You"));
+    Some(CostPart::Draw {
+        amount: AmountSpec::parse_or(amount, 1),
+        type_filter: type_filter.to_string(),
+    })
 }
 
 fn parse_mill(inner: &str) -> Option<CostPart> {

@@ -57,7 +57,7 @@ fn roman_chapter(mut chapter: usize) -> String {
 fn cost_moves_card_to_or_from_library(cost: &crate::cost::Cost) -> bool {
     cost.parts.iter().any(|part| match part {
         crate::cost::CostPart::Mill(_)
-        | crate::cost::CostPart::Draw(_)
+        | crate::cost::CostPart::Draw { .. }
         | crate::cost::CostPart::PutCardToLib { .. } => true,
         crate::cost::CostPart::Exile { from, .. } => *from == forge_foundation::ZoneType::Library,
         _ => false,

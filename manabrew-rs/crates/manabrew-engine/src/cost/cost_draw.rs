@@ -1,13 +1,59 @@
 //! Draw cards as a cost. Mirrors Java's `CostDraw`.
 
 use crate::game::GameState;
-use crate::ids::PlayerId;
+use crate::ids::{CardId, PlayerId};
+use crate::spellability::SpellAbility;
+
+pub fn get_potential_players(
+    game: &GameState,
+    payer: PlayerId,
+    source: CardId,
+    ability: Option<&SpellAbility>,
+    part: &super::CostPart,
+) -> Vec<PlayerId> {
+    let super::CostPart::Draw {
+        amount,
+        type_filter,
+    } = part
+    else {
+        return Vec::new();
+    };
+    let c = amount.resolve_for_sa(game, source, payer, ability);
+    let selector = crate::parsing::cached_compiled_selector(type_filter);
+    let fallback;
+    let sa = match ability {
+        Some(sa) => sa,
+        None => {
+            fallback = SpellAbility::new_simple(Some(source), payer, "");
+            &fallback
+        }
+    };
+    game.alive_players()
+        .into_iter()
+        .filter(|&p| {
+            crate::player::player_property::is_valid(p, &selector, game, source, payer, sa)
+                && crate::staticability::static_ability_cant_draw::can_draw_amount(game, p, c) >= c
+        })
+        .collect()
+}
 
 /// Pay by drawing cards.
 /// Mirrors Java's `CostDraw.payAsDecided()`.
-pub fn pay_as_decided(game: &mut GameState, player: PlayerId, amount: i32) -> bool {
-    for _ in 0..amount {
-        game.draw_card(player);
+pub fn pay_as_decided(
+    game: &mut GameState,
+    payer: PlayerId,
+    source: CardId,
+    ability: Option<&SpellAbility>,
+    part: &super::CostPart,
+) -> bool {
+    let super::CostPart::Draw { amount, .. } = part else {
+        return false;
+    };
+    let c = amount.resolve_for_sa(game, source, payer, ability);
+    for p in get_potential_players(game, payer, source, ability, part) {
+        for _ in 0..c {
+            game.draw_card(p);
+        }
     }
     true
 }
@@ -24,13 +70,7 @@ pub fn can_pay(
     ability: Option<&crate::spellability::SpellAbility>,
     part: &super::CostPart,
 ) -> bool {
-    let super::CostPart::Draw(amount) = part else {
-        return false;
-    };
-    let resolved = amount.resolve_for_sa(game, source, player, ability);
-    let allowed =
-        crate::staticability::static_ability_cant_draw::can_draw_amount(game, player, resolved);
-    allowed >= resolved
+    !get_potential_players(game, player, source, ability, part).is_empty()
 }
 
 pub fn pay_with_decision(
@@ -40,9 +80,5 @@ pub fn pay_with_decision(
     part: &super::CostPart,
     _decision: &crate::cost::payment_decision::PaymentDecision,
 ) -> bool {
-    let super::CostPart::Draw(amount) = part else {
-        return false;
-    };
-    let resolved = amount.resolve(game, source, player);
-    pay_as_decided(game, player, resolved)
+    pay_as_decided(game, player, source, None, part)
 }

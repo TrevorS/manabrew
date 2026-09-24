@@ -328,7 +328,7 @@ fn pay_as_decided_distributed(
         CostPart::DamageYou(_) => {
             crate::cost::cost_damage::pay_with_decision(game, player, source, cost_part, decision)
         }
-        CostPart::Draw(_) => {
+        CostPart::Draw { .. } => {
             crate::cost::cost_draw::pay_with_decision(game, player, source, cost_part, decision)
         }
         CostPart::Mill(_) => {

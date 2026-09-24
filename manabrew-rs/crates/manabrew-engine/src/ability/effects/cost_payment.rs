@@ -391,7 +391,7 @@ fn should_confirm_effect_cost_part(mode: EffectCostPaymentMode, part: &CostPart)
             match part {
                 CostPart::DamageYou(_) => true,
                 CostPart::PayLife(_) => true,
-                CostPart::Draw(_) => true,
+                CostPart::Draw { .. } => true,
                 CostPart::Mill(_) => true,
                 CostPart::AddMana { .. } => true,
                 CostPart::Behold { .. } => true,
@@ -413,7 +413,7 @@ fn should_confirm_effect_cost_part(mode: EffectCostPaymentMode, part: &CostPart)
             part,
             CostPart::DamageYou(_)
                 | CostPart::PayLife(_)
-                | CostPart::Draw(_)
+                | CostPart::Draw { .. }
                 | CostPart::Mill(_)
                 | CostPart::AddMana { .. }
                 | CostPart::FlipCoin(_)
@@ -453,7 +453,7 @@ fn try_pay_effect_cost(
                 | CostPart::Mana { .. }
                 | CostPart::PayEnergy(_)
                 | CostPart::PayShards(_)
-                | CostPart::Draw(_)
+                | CostPart::Draw { .. }
                 | CostPart::Mill(_)
                 | CostPart::Discard { .. }
                 | CostPart::Sacrifice { .. }
@@ -586,10 +586,8 @@ fn try_pay_effect_cost(
                 ctx.game
                     .player_add_shards(payer, -amount.resolve(ctx.game, source, payer));
             }
-            CostPart::Draw(amount) => {
-                for _ in 0..amount.resolve_for_sa(ctx.game, source, payer, Some(sa)) {
-                    ctx.game.draw_card(payer);
-                }
+            CostPart::Draw { .. } => {
+                crate::cost::cost_draw::pay_as_decided(ctx.game, payer, source, Some(sa), part);
             }
             CostPart::Mill(amount) => {
                 for _ in 0..amount.resolve(ctx.game, source, payer) {
@@ -1270,7 +1268,7 @@ fn effect_cost_part_kind(part: &CostPart) -> &'static str {
     match part {
         CostPart::DamageYou(_) => "DamageYou",
         CostPart::PayLife(_) => "PayLife",
-        CostPart::Draw(_) => "Draw",
+        CostPart::Draw { .. } => "Draw",
         CostPart::Mill(_) => "Mill",
         CostPart::AddMana { .. } => "AddMana",
         CostPart::FlipCoin(_) => "FlipCoin",
@@ -1282,7 +1280,7 @@ pub(crate) fn effect_cost_part_display(part: &CostPart) -> String {
     match part {
         CostPart::PayLife(v) => format!("{v} {{LIFE}}"),
         CostPart::DamageYou(v) => format!("{v} damage"),
-        CostPart::Draw(v) => format!("draw {v}"),
+        CostPart::Draw { amount, .. } => format!("draw {amount}"),
         CostPart::Mill(v) => format!("mill {v}"),
         other => effect_cost_part_kind(other).to_string(),
     }

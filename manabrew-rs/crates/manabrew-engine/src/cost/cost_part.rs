@@ -40,7 +40,6 @@ pub fn convert_amount(part: &CostPart) -> Option<&crate::cost::AmountSpec> {
         | CostPart::PayEnergy(v)
         | CostPart::PayShards(v)
         | CostPart::DamageYou(v)
-        | CostPart::Draw(v)
         | CostPart::Mill(v)
         | CostPart::GainLife(v)
         | CostPart::CollectEvidence(v)
@@ -49,6 +48,7 @@ pub fn convert_amount(part: &CostPart) -> Option<&crate::cost::AmountSpec> {
         | CostPart::FlipCoin(v)
         | CostPart::Blight(v) => Some(v),
         CostPart::SubCounter { amount, .. }
+        | CostPart::Draw { amount, .. }
         | CostPart::AddCounter { amount, .. }
         | CostPart::Sacrifice { amount, .. }
         | CostPart::Discard { amount, .. }

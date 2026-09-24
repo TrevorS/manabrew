@@ -942,7 +942,7 @@ fn pay_roll_cost(
             part,
             CostPart::DamageYou(_)
                 | CostPart::PayLife(_)
-                | CostPart::Draw(_)
+                | CostPart::Draw { .. }
                 | CostPart::Mill(_)
                 | CostPart::AddMana { .. }
                 | CostPart::Discard { .. }
@@ -954,7 +954,7 @@ fn pay_roll_cost(
                 match part {
                     CostPart::DamageYou(_) => "DamageYou",
                     CostPart::PayLife(_) => "PayLife",
-                    CostPart::Draw(_) => "Draw",
+                    CostPart::Draw { .. } => "Draw",
                     CostPart::Mill(_) => "Mill",
                     CostPart::AddMana { .. } => "AddMana",
                     CostPart::Discard { .. } => "Discard",

@@ -336,7 +336,10 @@ pub enum CostPart {
     /// Deal damage to the source's controller as cost. Mirrors CostDamage.
     DamageYou(AmountSpec),
     /// Draw cards as cost. Mirrors CostDraw.
-    Draw(AmountSpec),
+    Draw {
+        amount: AmountSpec,
+        type_filter: String,
+    },
     /// Mill cards as cost. Mirrors CostMill.
     Mill(AmountSpec),
     /// Reveal cards as cost. Mirrors CostReveal.
@@ -467,7 +470,7 @@ impl CostPart {
                 RevealFrom::HandOrBattlefield => 5,
                 _ => -1,
             },
-            CostPart::Draw(_) => 20,
+            CostPart::Draw { .. } => 20,
             CostPart::Mill(_) => 20,
             CostPart::Discard { .. } => 10,
             CostPart::Sacrifice { .. } => 15,
@@ -1475,7 +1478,7 @@ fn can_pay_part_distributed(
             cost_pay_shards::can_pay(game, pool, source, player, ability, part)
         }
         CostPart::DamageYou(_) => cost_damage::can_pay(game, pool, source, player, ability, part),
-        CostPart::Draw(_) => cost_draw::can_pay(game, pool, source, player, ability, part),
+        CostPart::Draw { .. } => cost_draw::can_pay(game, pool, source, player, ability, part),
         CostPart::Mill(_) => cost_mill::can_pay(game, pool, source, player, ability, part),
         CostPart::Reveal { .. } => cost_reveal::can_pay(game, pool, source, player, ability, part),
         CostPart::Exert { .. } => cost_exert::can_pay(game, pool, source, player, ability, part),
