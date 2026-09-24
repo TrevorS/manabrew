@@ -334,6 +334,7 @@ pub enum ContextPredicate {
     Blocked,
     Unblocked,
     AttackedThisTurn,
+    AttackedThisCombat,
     BlockingSource,
     BlockedBySource,
     WasCastFrom(CastOrigin),
@@ -1194,6 +1195,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "blocked" => SelectorPredicate::Context(ContextPredicate::Blocked),
         "unblocked" => SelectorPredicate::Context(ContextPredicate::Unblocked),
         "attackedthisturn" => SelectorPredicate::Context(ContextPredicate::AttackedThisTurn),
+        "attackedthiscombat" => SelectorPredicate::Context(ContextPredicate::AttackedThisCombat),
         "blockingsource" => SelectorPredicate::Context(ContextPredicate::BlockingSource),
         "blockedbysource" => SelectorPredicate::Context(ContextPredicate::BlockedBySource),
         "samename" => {

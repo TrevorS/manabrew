@@ -931,6 +931,9 @@ fn matches_context_predicate(
             |combat| combat.is_unblocked(card.id),
         ),
         ContextPredicate::AttackedThisTurn => !card.damage_history.attacked_this_turn.is_empty(),
+        ContextPredicate::AttackedThisCombat => {
+            card.damage_history.creature_attacked_this_combat > 0
+        }
         ContextPredicate::BlockingSource => context.combat.is_some_and(|combat| {
             combat
                 .get_attackers_for(card.id)
@@ -1810,6 +1813,9 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         "unblocked" => matches_context_predicate(&ContextPredicate::Unblocked, card, context),
         "attackedthisturn" => {
             matches_context_predicate(&ContextPredicate::AttackedThisTurn, card, context)
+        }
+        "attackedthiscombat" => {
+            matches_context_predicate(&ContextPredicate::AttackedThisCombat, card, context)
         }
         "blockingsource" => {
             matches_context_predicate(&ContextPredicate::BlockingSource, card, context)
