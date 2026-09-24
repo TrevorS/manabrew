@@ -1,6 +1,10 @@
 use forge_foundation::PhaseType;
 
 use super::{resolve_numeric_svar, EffectContext};
+use crate::parsing::Params;
+use crate::spellability::SpellAbility;
+use crate::trigger::handler::DelayedTrigger;
+use crate::trigger::trigger::parse_trigger;
 
 /// Resolve `SP$ AddPhase` — add extra combat (or main) phases to the current turn.
 ///
@@ -32,10 +36,53 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             _ => PhaseType::from_script_name(extra).into_iter().collect(),
         };
         extra_phase_list.extend(following_extra);
-        ctx.game
+        let del_trig = extra_phase_delayed_trigger(ctx, sa);
+        let extra_phase = ctx
+            .game
             .turn
             .add_extra_phase(after_phase, &extra_phase_list, next_phase);
+        if let (Some(extra_phase), Some(del_trig)) = (extra_phase, del_trig) {
+            extra_phase.add_trigger(del_trig);
+        }
     }
+}
+
+fn extra_phase_delayed_trigger(ctx: &EffectContext, sa: &SpellAbility) -> Option<DelayedTrigger> {
+    let host = sa.source?;
+    let card = ctx.game.card(host);
+    let trigger_text = card
+        .get_s_var(crate::parsing::raw_get(
+            &sa.ability_text,
+            "ExtraPhaseDelayedTrigger",
+        )?)?
+        .to_string();
+    let execute_svar = card
+        .get_s_var(crate::parsing::raw_get(
+            &sa.ability_text,
+            "ExtraPhaseDelayedTriggerExcute",
+        )?)?
+        .to_string();
+    let parsed = parse_trigger(&trigger_text, &mut 0)?;
+    Some(DelayedTrigger {
+        mode: parsed.kind,
+        trigger_mode: parsed.mode,
+        params: Params::from_raw(&trigger_text),
+        execute_svar,
+        controller: sa.activating_player,
+        source_card: host,
+        created_turn: ctx.game.turn.turn_number,
+        created_phase: ctx.game.turn.phase,
+        target_card: None,
+        target_card_zone_timestamp: None,
+        remembered_amount: 0,
+        remembered_cards: Vec::new(),
+        remembered_players: Vec::new(),
+        remembered_lki_cards: Vec::new(),
+        sort_after_active: false,
+        trigger_order: None,
+        source_timestamp: None,
+        spawning_ability: Some(sa.clone()),
+    })
 }
 
 #[cfg(test)]

@@ -304,10 +304,8 @@ impl TurnState {
         after_phase: PhaseType,
         extra_phase_list: &[PhaseType],
         next_phase: PhaseType,
-    ) {
-        let Some(&first) = extra_phase_list.first() else {
-            return;
-        };
+    ) -> Option<&mut ExtraPhase> {
+        let &first = extra_phase_list.first()?;
         for (i, &extra) in extra_phase_list.iter().enumerate() {
             let linked = match extra_phase_list.get(i + 1) {
                 Some(&following) => ExtraPhase::new(following),
@@ -319,14 +317,17 @@ impl TurnState {
             };
             self.extra_phases.entry(extra).or_default().push(linked);
         }
-        self.extra_phases
-            .entry(after_phase)
-            .or_default()
-            .push(ExtraPhase::new(first));
+        let after_entry = self.extra_phases.entry(after_phase).or_default();
+        after_entry.push(ExtraPhase::new(first));
+        after_entry.last_mut()
+    }
+
+    pub fn pop_extra_phase(&mut self, phase: PhaseType) -> Option<ExtraPhase> {
+        self.extra_phases.get_mut(&phase).and_then(Vec::pop)
     }
 
     pub fn next_phase_after(&mut self, phase: PhaseType) -> PhaseType {
-        match self.extra_phases.get_mut(&phase).and_then(Vec::pop) {
+        match self.pop_extra_phase(phase) {
             Some(extra_phase) => extra_phase.get_phase(),
             None => phase.next(),
         }

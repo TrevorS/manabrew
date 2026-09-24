@@ -5,12 +5,15 @@
 use forge_foundation::PhaseType;
 use serde::{Deserialize, Serialize};
 
+use crate::trigger::handler::DelayedTrigger;
+
 /// An extra phase entry — tracks what phase to insert and any delayed triggers.
 /// Mirrors Java's `ExtraPhase` class.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExtraPhase {
     phase: PhaseType,
-    delayed_triggers: Vec<String>,
+    #[serde(skip)]
+    delayed_triggers: Vec<DelayedTrigger>,
 }
 
 impl ExtraPhase {
@@ -25,11 +28,11 @@ impl ExtraPhase {
         self.phase
     }
 
-    pub fn add_trigger(&mut self, del_trigger: String) {
+    pub fn add_trigger(&mut self, del_trigger: DelayedTrigger) {
         self.delayed_triggers.push(del_trigger);
     }
 
-    pub fn get_delayed_triggers(&self) -> &[String] {
+    pub fn get_delayed_triggers(&self) -> &[DelayedTrigger] {
         &self.delayed_triggers
     }
 }
