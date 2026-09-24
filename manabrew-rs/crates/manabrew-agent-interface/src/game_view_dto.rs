@@ -930,6 +930,7 @@ impl GameViewDtoExt for GameViewDto {
                 extra_turn_count: game
                     .extra_turns
                     .iter()
+                    .skip(1)
                     .filter(|extra_turn| extra_turn.player == pid)
                     .count() as u32,
                 controlled_by: ps.controlled_by.map(player_id_str),

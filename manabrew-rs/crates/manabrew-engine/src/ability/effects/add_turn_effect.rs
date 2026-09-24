@@ -1,6 +1,5 @@
 use super::{resolve_numeric_svar, EffectContext};
 use crate::parsing::keys;
-use crate::phase::ExtraTurn;
 use crate::spellability::SpellAbility;
 
 /// Resolve `SP$ AddTurn` — give a player extra turns.
@@ -30,9 +29,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         for _ in 0..num_turns {
-            let mut et = ExtraTurn::new(target);
-            et.set_skip_untap(skip_untap);
-            ctx.game.extra_turns.push_back(et);
+            let game = &mut *ctx.game;
+            let extra = game
+                .turn
+                .add_extra_turn(&mut game.extra_turns, target, &game.player_order);
+            extra.set_skip_untap(skip_untap);
         }
     }
 }
@@ -130,9 +131,10 @@ mod tests {
         };
         super::AddTurnEffect::resolve(&mut ctx, &sa);
 
-        assert_eq!(ctx.game.extra_turns.len(), 2);
-        assert_eq!(ctx.game.extra_turns[0].player, p0);
+        assert_eq!(ctx.game.extra_turns.len(), 3);
+        assert_eq!(ctx.game.extra_turns[0].player, PlayerId(1));
         assert_eq!(ctx.game.extra_turns[1].player, p0);
+        assert_eq!(ctx.game.extra_turns[2].player, p0);
     }
 
     #[test]
@@ -166,8 +168,8 @@ mod tests {
         };
         super::AddTurnEffect::resolve(&mut ctx, &sa);
 
-        assert_eq!(ctx.game.extra_turns.len(), 1);
-        assert_eq!(ctx.game.extra_turns[0].player, p0);
-        assert!(!ctx.game.extra_turns[0].skip_untap);
+        assert_eq!(ctx.game.extra_turns.len(), 2);
+        assert_eq!(ctx.game.extra_turns[1].player, p0);
+        assert!(!ctx.game.extra_turns[1].skip_untap);
     }
 }

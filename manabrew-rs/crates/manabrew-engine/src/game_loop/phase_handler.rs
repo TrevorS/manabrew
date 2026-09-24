@@ -336,7 +336,11 @@ impl GameLoop {
                     game.reset_zone_turn_tracking();
                     game.reset_card_turn_tracking();
                     let player_order = game.player_order.clone();
-                    let extra_turn_player = game.extra_turns.front().map(|et| et.player);
+                    let extra_turn_player = game
+                        .extra_turns
+                        .back()
+                        .filter(|_| game.extra_turns.len() > 1)
+                        .map(|et| et.player);
                     if let Some((player, _skip)) =
                         game.turn.advance_turn(&mut game.extra_turns, &player_order)
                     {

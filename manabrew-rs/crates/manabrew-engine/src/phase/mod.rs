@@ -366,7 +366,7 @@ impl TurnState {
         extra_turns: &std::collections::VecDeque<ExtraTurn>,
         player_order: &[PlayerId],
     ) -> PlayerId {
-        if let Some(extra_turn) = extra_turns.front() {
+        if let Some(extra_turn) = extra_turns.back() {
             return extra_turn.player;
         }
         let pos = player_order
@@ -376,16 +376,30 @@ impl TurnState {
         player_order[(pos + 1) % player_order.len()]
     }
 
+    pub fn add_extra_turn<'a>(
+        &self,
+        extra_turns: &'a mut std::collections::VecDeque<ExtraTurn>,
+        player: PlayerId,
+        player_order: &[PlayerId],
+    ) -> &'a mut ExtraTurn {
+        if extra_turns.is_empty() {
+            let next = self.next_turn_player(extra_turns, player_order);
+            extra_turns.push_back(ExtraTurn::new(next));
+        }
+        extra_turns.push_back(ExtraTurn::new(player));
+        extra_turns.back_mut().unwrap()
+    }
+
     pub fn advance_turn(
         &mut self,
         extra_turns: &mut std::collections::VecDeque<ExtraTurn>,
         player_order: &[PlayerId],
     ) -> Option<(PlayerId, bool)> {
-        if let Some(extra_turn) = extra_turns.pop_front() {
+        if let Some(extra_turn) = extra_turns.pop_back() {
             let player = extra_turn.player;
             self.active_player = player;
             self.priority_player = player;
-            self.is_extra_turn = true;
+            self.is_extra_turn = !extra_turns.is_empty();
             self.turn_number += 1;
             self.combat_attackers_declared = false;
             self.combat_blockers_declared = false;
