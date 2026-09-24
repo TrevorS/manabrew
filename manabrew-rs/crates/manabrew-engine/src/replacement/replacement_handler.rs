@@ -1507,6 +1507,14 @@ fn collect_effects(
         .replacement_last_state_battlefield
         .as_deref()
         .filter(|_| matches!(event, ReplacementEvent::Moved { .. }));
+    // Keep in sync with `Card::rules_replacement_effects`: it builds only `DamageDone` and
+    // `Moved` replacements, which `can_replace` rejects for any other event.
+    let rules_effects_may_apply = matches!(
+        event,
+        ReplacementEvent::DamageToCard { .. }
+            | ReplacementEvent::DamageToPlayer { .. }
+            | ReplacementEvent::Moved { .. }
+    );
     let mut result = Vec::new();
     for (i, card) in game.cards.iter().enumerate() {
         let card_id = CardId(i as u32);
@@ -1532,7 +1540,11 @@ fn collect_effects(
             (None, None) => card,
         };
 
-        let rules_effects = card.rules_replacement_effects();
+        let rules_effects = if rules_effects_may_apply {
+            card.rules_replacement_effects()
+        } else {
+            Vec::new()
+        };
         for (effect_idx_in_card, re) in card
             .replacement_effects
             .iter()
