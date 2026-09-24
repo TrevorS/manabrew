@@ -12,6 +12,8 @@ The relay is the multiplayer trust boundary. Only the room's engine host may emi
 
 Per-seat `State`, `Prompt`, and `Error` envelopes can contain hidden information. A hosted node must set `BroadcastState.target_player` for all three; `forPlayer` inside the envelope is for client dispatch and replay indexing, not transport privacy.
 
+The Rust engine builds each seat's view in `manabrew-agent-interface/src/game_view_dto.rs`, and `can_be_shown_to` (Forge `CardView.canBeShownTo`) decides what that seat sees: another player's hand is sent as a count only, and a face-down exiled card is a `Hidden` entry to everyone but its owner. A hidden hand card must not be sent as `Hidden { id }`: card ids are allocated in decklist order and `GameStarted.player_decks` gives every client every decklist, so the id alone names the card. The same correlation still applies to face-down exile entries. A prompt that shows cards from a hidden zone (a `RevealYouChoose` discard) carries their DTOs in its own input.
+
 ## Replay cache and resync
 
 In-game state is cached per room (`replay.rs`) so reconnecting clients can pull a `RequestResync` replay: GameStarted + the reconnecting seat's last state + its pending prompt. States arrive per-seat via `BroadcastState.target_player` — an address the relay routes on without reading `state` — and are cached per slot with an untargeted public fallback for observers. The room's `reconnect_timeout_s` is clamped ≤ 90s to stay under the engine's 120s auto-pass (`manabrew-game-runtime/src/mpsc_transport.rs`).

@@ -24,12 +24,18 @@ fn card_choice_presentation(title: &str, description: Option<String>) -> PromptP
 }
 
 fn zone_cards_for<T: Responder>(agent: &mut PromptAgent<T>, valid: &[CardId]) -> Vec<CardDto> {
-    let valid_card_ids = PromptAgent::<T>::card_ids(valid);
     let view = agent.view();
     let all_cards: Vec<&CardDto> = view.all_zone_cards().collect();
-    valid_card_ids
+    valid
         .iter()
-        .filter_map(|id| all_cards.iter().find(|c| c.id == *id).map(|c| (*c).clone()))
+        .filter_map(|&cid| {
+            let id = card_id_str(cid);
+            all_cards
+                .iter()
+                .find(|c| c.id == id)
+                .map(|c| (*c).clone())
+                .or_else(|| agent.source_cards.get(&cid).cloned())
+        })
         .collect()
 }
 

@@ -418,6 +418,18 @@ fn day_time_of(game: &GameState) -> DayTime {
     }
 }
 
+fn can_be_shown_to(game: &GameState, cid: CardId, viewer: PlayerId) -> bool {
+    let card = game.card(cid);
+    match card.zone {
+        ZoneType::Hand if card.controller == viewer => true,
+        // The engine does not record Forge's mayLookFaceDownExile grant; the owner stands
+        // in for the player who exiled the card.
+        ZoneType::Exile if !card.face_down || card.owner == viewer => true,
+        ZoneType::Hand | ZoneType::Exile => card.may_player_look(viewer),
+        _ => true,
+    }
+}
+
 fn should_show_command_zone_card(game: &GameState, cid: CardId) -> bool {
     let card = game.card(cid);
     !(card.type_line.core_types.is_empty()
@@ -811,20 +823,33 @@ impl GameViewDtoExt for GameViewDto {
     ) -> Self {
         let mut players = Vec::new();
         let mut zones: Vec<ZoneDto> = Vec::new();
-        let visible_zone = |zone: ZoneType, kind: ZoneKind, pid: PlayerId| -> ZoneDto {
-            let cards: Vec<CardView> = game
-                .cards_in_zone(zone, pid)
+        let zone_view = |zone: ZoneType, kind: ZoneKind, pid: PlayerId| -> ZoneDto {
+            let ids = game.cards_in_zone(zone, pid);
+            // A hidden hand card is dropped rather than sent as Hidden: card ids follow
+            // decklist order and GameStarted carries every decklist, so its id names it.
+            let cards: Vec<CardView> = ids
                 .iter()
-                .map(|&cid| {
-                    CardView::Visible(card_to_dto_for_viewer(game, cid, Some(human_player)))
+                .filter_map(|&cid| {
+                    if can_be_shown_to(game, cid, human_player) {
+                        Some(CardView::Visible(card_to_dto_for_viewer(
+                            game,
+                            cid,
+                            Some(human_player),
+                        )))
+                    } else if zone == ZoneType::Exile {
+                        Some(CardView::Hidden {
+                            id: card_id_str(cid),
+                        })
+                    } else {
+                        None
+                    }
                 })
                 .collect();
-            let count = cards.len();
             ZoneDto {
                 zone: kind,
                 owner_id: player_id_str(pid),
                 cards,
-                count,
+                count: ids.len(),
             }
         };
         for &pid in &game.player_order {
@@ -873,9 +898,9 @@ impl GameViewDtoExt for GameViewDto {
                 }))
             .then_some(ps.team_number);
 
-            zones.push(visible_zone(ZoneType::Hand, ZoneKind::Hand, pid));
-            zones.push(visible_zone(ZoneType::Graveyard, ZoneKind::Graveyard, pid));
-            zones.push(visible_zone(ZoneType::Exile, ZoneKind::Exile, pid));
+            zones.push(zone_view(ZoneType::Hand, ZoneKind::Hand, pid));
+            zones.push(zone_view(ZoneType::Graveyard, ZoneKind::Graveyard, pid));
+            zones.push(zone_view(ZoneType::Exile, ZoneKind::Exile, pid));
             let command_cards: Vec<CardView> = command_zone
                 .iter()
                 .copied()
