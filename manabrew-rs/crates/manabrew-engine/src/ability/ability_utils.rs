@@ -2516,9 +2516,10 @@ pub fn get_defined_entities(
     game: &GameState,
 ) -> (Vec<PlayerId>, Vec<CardId>) {
     let d = if defined.is_empty() { "Self" } else { defined };
-    (
-        resolve_defined_players_with_sa(d, sa, sa.activating_player, game),
-        crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(game, sa, d),
+    crate::ability::spell_ability_effect::get_defined_entities(
+        game,
+        sa,
+        &crate::ability::ability_ir::DefinedExpr::parse(d),
     )
 }
 
