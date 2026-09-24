@@ -2107,6 +2107,10 @@ impl GameState {
                 self.state_based_action_saga(cid, trigger_handler.as_deref(), &mut sacrifice_list);
         }
 
+        if sacrifice_list.len() > 1 {
+            sacrifice_list =
+                self.order_cards_by_their_owners(sacrifice_list, ZoneType::Graveyard, agents);
+        }
         if !sacrifice_list.is_empty() {
             if let (Some(handler), Some(agents), Some(parts)) = (
                 trigger_handler.as_deref_mut(),
