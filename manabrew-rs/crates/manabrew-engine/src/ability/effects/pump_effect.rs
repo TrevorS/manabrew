@@ -187,6 +187,26 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         host.add_remembered_cards(cards);
     }
 
+    if let (Some(imprint), Some(host)) = (
+        crate::parsing::raw_get(&sa.ability_text, "ImprintCards"),
+        sa.source,
+    ) {
+        let cards = crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+            ctx.game, sa, imprint,
+        );
+        ctx.game.card_mut(host).add_imprinted_cards(cards);
+    }
+
+    if let (Some(forget), Some(host)) = (
+        crate::parsing::raw_get(&sa.ability_text, "ForgetImprinted"),
+        sa.source,
+    ) {
+        let cards = crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+            ctx.game, sa, forget,
+        );
+        ctx.game.card_mut(host).remove_imprinted_cards(cards);
+    }
+
     let is_perpetual = sa.ir.perpetual_duration;
     let is_permanent = matches!(
         sa.ir.duration,
