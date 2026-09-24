@@ -362,6 +362,7 @@ pub enum ContextPredicate {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RelationPredicate {
     SharesNameWith(TargetRef),
+    SharesNameWithValid(String),
     DoesNotShareNameWith(TargetRef),
     DoesNotShareNameWithValid(String),
     SharesCardTypeWith(TargetRef),
@@ -962,6 +963,7 @@ fn lower_compiled_selector(alternatives: &[CompiledSelectorAlternative]) -> Sele
                                 || last.starts_with("controlledby ")
                                 || last.starts_with("doesnotsharenamewith ")
                                 || last.starts_with("ownedby ")
+                                || last.starts_with("sharesnamewith ")
                         });
                     match values.last_mut() {
                         Some(last) if nested => {
@@ -1287,11 +1289,18 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
             ContextPredicate::ControlledBy(normalized["ControlledBy ".len()..].trim().to_string()),
         ),
         shares if shares.starts_with("sharesnamewith") => {
-            lower_relation_target_ref(normalized["sharesNameWith".len()..].trim())
-                .map(|target| {
-                    SelectorPredicate::Relation(RelationPredicate::SharesNameWith(target))
-                })
-                .unwrap_or_else(|| SelectorPredicate::Raw(normalized.to_string()))
+            let restriction = normalized["sharesNameWith".len()..].trim();
+            if let Some(valid) = restriction.strip_prefix("Valid ") {
+                SelectorPredicate::Relation(RelationPredicate::SharesNameWithValid(
+                    valid.to_string(),
+                ))
+            } else {
+                lower_relation_target_ref(restriction)
+                    .map(|target| {
+                        SelectorPredicate::Relation(RelationPredicate::SharesNameWith(target))
+                    })
+                    .unwrap_or_else(|| SelectorPredicate::Raw(normalized.to_string()))
+            }
         }
         shares if shares.starts_with("doesnotsharenamewith") => {
             let restriction = normalized["doesNotShareNameWith".len()..].trim();

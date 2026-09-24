@@ -72,17 +72,34 @@ pub fn can_pay(
     let mut matching = game
         .cards_in_zone(ZoneType::Hand, player)
         .iter()
-        .filter(|&&cid| {
-            crate::ability::effects::matches_change_type(game.card(cid), type_filter, &[])
-        })
+        .filter(|&&cid| is_valid_discard(game, cid, type_filter, source))
         .count() as i32;
     if card.zone == ZoneType::Hand
         && card.owner == player
-        && crate::ability::effects::matches_change_type(card, type_filter, &[])
+        && is_valid_discard(game, source, type_filter, source)
     {
         matching -= 1;
     }
     matching >= amount.resolve(game, source, player)
+}
+
+pub fn is_valid_discard(
+    game: &GameState,
+    card_id: CardId,
+    type_filter: &str,
+    source: CardId,
+) -> bool {
+    if type_filter == "Random" || type_filter.contains('X') {
+        return true;
+    }
+    type_filter.split(';').any(|valid| {
+        crate::card::valid_filter::matches_valid_card_selector_in_game(
+            &crate::parsing::cached_compiled_selector(valid),
+            game.card(card_id),
+            game.card(source),
+            game,
+        )
+    })
 }
 
 pub fn pay_with_decision(

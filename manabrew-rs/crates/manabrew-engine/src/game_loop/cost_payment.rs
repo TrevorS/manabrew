@@ -211,7 +211,7 @@ impl GameLoop {
                 .iter()
                 .copied()
                 .filter(|&cid| {
-                    crate::ability::effects::matches_change_type(game.card(cid), type_filter, &[])
+                    crate::cost::cost_discard::is_valid_discard(game, cid, type_filter, source)
                 })
                 .collect()
         };
@@ -471,10 +471,11 @@ impl GameLoop {
                                 .iter()
                                 .copied()
                                 .filter(|&cid| {
-                                    crate::ability::effects::matches_change_type(
-                                        game.card(cid),
+                                    crate::cost::cost_discard::is_valid_discard(
+                                        game,
+                                        cid,
                                         type_filter,
-                                        &[],
+                                        card_id,
                                     )
                                 })
                                 .collect()
@@ -1741,10 +1742,11 @@ impl GameLoop {
                                     .iter()
                                     .copied()
                                     .filter(|&cid| {
-                                        crate::ability::effects::matches_change_type(
-                                            game.card(cid),
+                                        crate::cost::cost_discard::is_valid_discard(
+                                            game,
+                                            cid,
                                             type_filter,
-                                            &[],
+                                            card_id,
                                         )
                                     })
                                     .collect()
@@ -2896,10 +2898,11 @@ impl GameLoop {
                         .iter()
                         .copied()
                         .filter(|&cid| {
-                            crate::ability::effects::matches_change_type(
-                                game.card(cid),
+                            crate::cost::cost_discard::is_valid_discard(
+                                game,
+                                cid,
                                 &type_filter,
-                                &[],
+                                source,
                             )
                         })
                         .collect()

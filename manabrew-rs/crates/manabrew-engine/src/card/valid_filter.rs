@@ -1210,6 +1210,14 @@ fn matches_relation_predicate(
                 target.shares_name_with(card)
             })
         }
+        RelationPredicate::SharesNameWithValid(valid) => context.game.is_some_and(|game| {
+            let selector = crate::parsing::cached_compiled_selector(valid);
+            game.cards_in_all_zones(ZoneType::Battlefield).any(|id| {
+                let other = game.card(id);
+                matches_valid_card_selector_with_context(&selector, other, context)
+                    && other.shares_name_with(card)
+            })
+        }),
         RelationPredicate::DoesNotShareNameWith(target) => {
             !relation_target_card_any(target, card, context, |target| {
                 target.shares_name_with(card)
@@ -1880,7 +1888,15 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
             context,
         ),
         shares if shares.starts_with("sharesnamewith") => {
-            raw_target_ref(&value["sharesNameWith".len()..]).is_some_and(|target| {
+            let restriction = value["sharesNameWith".len()..].trim();
+            if let Some(valid) = restriction.strip_prefix("Valid ") {
+                return matches_relation_predicate(
+                    &RelationPredicate::SharesNameWithValid(valid.to_string()),
+                    card,
+                    context,
+                );
+            }
+            raw_target_ref(restriction).is_some_and(|target| {
                 matches_relation_predicate(
                     &RelationPredicate::SharesNameWith(target),
                     card,

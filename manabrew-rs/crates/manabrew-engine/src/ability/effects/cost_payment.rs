@@ -714,10 +714,11 @@ fn try_pay_effect_cost(
                     .filter(|&cid| {
                         type_filter == "Card"
                             || type_filter.is_empty()
-                            || crate::ability::effects::helpers::matches_change_type(
-                                ctx.game.card(cid),
+                            || crate::cost::cost_discard::is_valid_discard(
+                                ctx.game,
+                                cid,
                                 type_filter,
-                                &[],
+                                source,
                             )
                     })
                     .collect();
