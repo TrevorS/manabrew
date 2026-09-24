@@ -515,9 +515,9 @@ impl GameState {
                 return;
             }
         }
-        let mut trigger_handler = match runtime {
-            Some(runtime) => Some(&mut *runtime.trigger_handler),
-            None => trigger_handler,
+        let (mut trigger_handler, mut rng) = match runtime {
+            Some(runtime) => (Some(&mut *runtime.trigger_handler), Some(&mut *runtime.rng)),
+            None => (trigger_handler, None),
         };
         let (dest_zone, etb_counter_map, counter_cause, after_replacement_static_abilities) =
             match moved_event {
@@ -588,7 +588,10 @@ impl GameState {
                 .partition(|(host, _)| *host == card_id);
             self.leaves_play_commands = kept;
             for (_, command) in commands {
-                command.run(self);
+                match rng.as_deref_mut() {
+                    Some(rng) => command.run(self, rng),
+                    None => command.run(self, &mut crate::game_rng::ThreadRngAdapter::default()),
+                }
             }
         }
         if dest_zone == ZoneType::Graveyard && was_permanent && !is_token {

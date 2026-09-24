@@ -646,6 +646,8 @@ pub struct Card {
     pub clone_state: Option<Box<CloneState>>,
     #[serde(default)]
     pub face_down_state: Option<Box<CloneState>>,
+    #[serde(default)]
+    pub paper_card_backup: bool,
 
     // ── Issue #53: High-priority effect fields ──────────────────────────
     /// Type chosen by ChooseType effect (e.g. "Goblin", "Artifact").
@@ -1016,6 +1018,7 @@ impl Card {
             animate_state: None,
             clone_state: None,
             face_down_state: None,
+            paper_card_backup: false,
             chosen_type: None,
             chosen_type2: None,
             noted_types: Vec::new(),
@@ -1261,6 +1264,7 @@ impl Card {
             animate_state: self.animate_state.clone(),
             clone_state: self.clone_state.clone(),
             face_down_state: self.face_down_state.clone(),
+            paper_card_backup: self.paper_card_backup,
             chosen_type: self.chosen_type.clone(),
             chosen_type2: self.chosen_type2.clone(),
             noted_types: self.noted_types.clone(),
@@ -1548,6 +1552,7 @@ impl Card {
         out.animate_state.clone_from(&self.animate_state);
         out.clone_state.clone_from(&self.clone_state);
         out.face_down_state.clone_from(&self.face_down_state);
+        out.paper_card_backup = self.paper_card_backup;
         refresh_field(&mut out.chosen_type, &self.chosen_type);
         refresh_field(&mut out.chosen_type2, &self.chosen_type2);
         refresh_field(&mut out.noted_types, &self.noted_types);
@@ -2876,9 +2881,6 @@ impl Card {
     pub fn update_blocking_for_view(&mut self) {
         let _ = self.must_block;
     }
-    pub fn update_state_for_view(&mut self) {
-        let _ = (self.zone, self.tapped, self.face_down);
-    }
     pub fn update_namefor_view(&mut self) {
         self.card_name = self.card_name.trim().to_string();
     }
@@ -2901,7 +2903,6 @@ impl Card {
         self.update_mana_cost_for_view();
         self.update_p_tfor_view();
         self.update_rules_view();
-        self.update_state_for_view();
     }
     pub fn dangerously_set_game(&mut self) {
         self.update_card();
@@ -4049,6 +4050,19 @@ impl Card {
     }
     pub fn remove_color(&mut self) {
         self.color = ColorSet::COLORLESS;
+    }
+    pub fn update_state_for_view(
+        &mut self,
+        paper_token: bool,
+        rng: &mut dyn crate::game_rng::GameRng,
+    ) {
+        if self.paper_card_backup {
+            if paper_token {
+                rng.next_int(1);
+            }
+        } else if !self.face_down && self.clone_state.is_some() {
+            self.paper_card_backup = true;
+        }
     }
     pub fn add_clone_state(&mut self) {
         self.set_s_var("CloneState", "True");

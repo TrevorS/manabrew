@@ -290,10 +290,10 @@ impl GameLoop {
                         game.turn.n_end_of_turns_this_turn += 1;
                         let active = game.active_player();
                         for command in game.end_of_turn.execute_until(Some(active)) {
-                            command.run(game);
+                            command.run(game, &mut *self.game_rng);
                         }
                         for command in game.end_of_turn.execute_at() {
-                            command.run(game);
+                            command.run(game, &mut *self.game_rng);
                         }
                     }
                     PhaseType::Cleanup => {
@@ -631,10 +631,10 @@ impl GameLoop {
                     .turn
                     .next_turn_player(&game.extra_turns, &game.player_order);
                 for command in game.cleanup.execute_until(None) {
-                    command.run(game);
+                    command.run(game, &mut *self.game_rng);
                 }
                 for command in game.cleanup.execute_until(Some(next_player)) {
-                    command.run(game);
+                    command.run(game, &mut *self.game_rng);
                 }
             }
 
@@ -742,11 +742,11 @@ impl GameLoop {
             }
         }
         for command in game.end_of_turn.execute_until(None) {
-            command.run(game);
+            command.run(game, &mut *self.game_rng);
         }
         let active = game.active_player();
         for command in game.end_of_turn.execute_until_end_of_phase(active) {
-            command.run(game);
+            command.run(game, &mut *self.game_rng);
         }
         game.end_of_turn.register_until_end_command(active);
 
@@ -816,15 +816,6 @@ impl GameLoop {
                 }
                 if had_animate_state {
                     card.clear_damage();
-                }
-                if card
-                    .clone_state
-                    .as_ref()
-                    .is_some_and(|state| state.expires_at_cleanup)
-                {
-                    if let Some(state) = card.clone_state.take() {
-                        card.restore_clone_snapshot(*state);
-                    }
                 }
 
                 card.reset_turn_modifiers();

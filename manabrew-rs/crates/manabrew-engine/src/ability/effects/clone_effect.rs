@@ -106,6 +106,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             })
             .collect();
         let target = ctx.game.card_mut(clone_target_id);
+        let paper_token = target.get_s_var("TokenScript").is_some();
         let host_svars = (clone_target_id == source_id).then(|| target.svars.clone());
         crate::card::card_copy_service::copy_copiable_characteristics(&src, target);
         // Java keys `ChoiceRestriction$` history by ability object (`Card.getChosenModes`),
@@ -119,6 +120,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             target.svars.entry(name).or_insert(value);
         }
         target.add_clone_state();
+        target.update_state_for_view(paper_token, ctx.rng);
+        target.update_state_for_view(paper_token, ctx.rng);
         target.activated_abilities = src.activated_abilities.clone();
         target.static_abilities = src.static_abilities.clone();
         target.replacement_effects = src.replacement_effects.clone();
@@ -230,6 +233,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     .card_mut(clone_target_id)
                     .add_intrinsic_keyword(&kw);
             }
+        }
+
+        if duration.is_some() || sa.ir.duration.is_some() {
+            ctx.game.end_of_turn.add_until(
+                None,
+                crate::phase::PhaseCommand::Unclone {
+                    card: clone_target_id,
+                },
+            );
         }
 
         {

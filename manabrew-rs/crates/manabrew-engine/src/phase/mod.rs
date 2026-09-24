@@ -57,10 +57,13 @@ pub enum PhaseCommand {
     RestoreAnimate {
         card: CardId,
     },
+    Unclone {
+        card: CardId,
+    },
 }
 
 impl PhaseCommand {
-    pub fn run(self, game: &mut GameState) {
+    pub fn run(self, game: &mut GameState, rng: &mut dyn crate::game_rng::GameRng) {
         match self {
             PhaseCommand::AddController {
                 player,
@@ -115,6 +118,15 @@ impl PhaseCommand {
                     game.card_mut(effect)
                         .set_zone(forge_foundation::ZoneType::None);
                 }
+            }
+            PhaseCommand::Unclone { card } => {
+                let card = game.card_mut(card);
+                if let Some(state) = card.clone_state.take_if(|state| state.expires_at_cleanup) {
+                    card.restore_clone_snapshot(*state);
+                }
+                let paper_token = card.get_s_var("TokenScript").is_some();
+                card.update_state_for_view(paper_token, rng);
+                card.update_state_for_view(paper_token, rng);
             }
         }
     }

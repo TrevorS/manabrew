@@ -16,7 +16,7 @@ impl GameLoop {
         self.set_phase(game, agents, PhaseType::CombatBegin);
         game.turn.n_combats_this_turn += 1;
         for command in game.begin_of_combat.execute_until(Some(active)) {
-            command.run(game);
+            command.run(game, &mut *self.game_rng);
         }
         self.emit_phase_trigger(game, PhaseType::CombatBegin);
         self.step_with_priority(game, agents, false);
@@ -1009,7 +1009,7 @@ impl GameLoop {
             }
         }
         for command in game.end_of_combat.execute_until(None) {
-            command.run(game);
+            command.run(game, &mut *self.game_rng);
         }
         self.emit_phase_trigger(game, PhaseType::CombatEnd);
         // Revert any `ControlGain$ LoseControl$ EndOfCombat` steals (Threaten-
