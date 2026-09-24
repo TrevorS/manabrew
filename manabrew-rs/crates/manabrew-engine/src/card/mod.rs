@@ -4865,10 +4865,6 @@ impl Card {
             );
             std::mem::swap(&mut self.svars, &mut other.svars);
 
-            // Reset per-face transient state
-            self.power_modifier = 0;
-            self.toughness_modifier = 0;
-            self.damage = 0;
             self.granted_keywords.clear();
 
             // Re-parse activated abilities from new face's abilities
