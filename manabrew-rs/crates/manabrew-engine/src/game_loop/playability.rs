@@ -411,6 +411,51 @@ impl GameLoop {
         Some(pre)
     }
 
+    pub(super) fn stack_copy(game: &GameState, mut host: crate::card::Card) -> crate::card::Card {
+        if !game.has_static_ability_affecting_zone(
+            ZoneType::Stack,
+            crate::staticability::Layer::Ability,
+        ) {
+            return host;
+        }
+        host.cast_from = Some(host.zone);
+        host.zone = ZoneType::Stack;
+        crate::spellability::spell::alternate_host_with_statics(game, host)
+    }
+
+    fn can_play_backside_web_slinging(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+        chosen_types_by_source: &crate::HashMap<CardId, String>,
+    ) -> bool {
+        let Some((host, mut sa)) = crate::spellability::build_spell_ability_for_card_state_cast(
+            game,
+            card_id,
+            player,
+            forge_foundation::CardStateName::Backside,
+        ) else {
+            return false;
+        };
+        let Some(web_cost) = Self::stack_copy(game, host.clone()).get_web_slinging_cost() else {
+            return false;
+        };
+        sa.pay_costs = Some(crate::cost::parse_cost(&format!(
+            "{web_cost} Return<1/Creature.tapped/tapped creature>"
+        )));
+        sa.alt_cost = Some(crate::spellability::AlternativeCost::WebSlinging);
+        self.can_play_state_spell(
+            game,
+            player,
+            card_id,
+            host,
+            sa,
+            ZoneType::Hand,
+            chosen_types_by_source,
+        )
+    }
+
     fn may_play_secondary_spell_grants(
         &self,
         game: &GameState,
@@ -593,6 +638,22 @@ impl GameLoop {
                     card_id,
                     mode: crate::agent::PlayCardMode::Secondary,
                     alt_cost_index: 0,
+                });
+            }
+            if card.is_modal()
+                && self.can_play_backside_web_slinging(
+                    game,
+                    player,
+                    card_id,
+                    &chosen_types_by_source,
+                )
+            {
+                playable.push(crate::agent::PlayOption {
+                    card_id,
+                    mode: crate::agent::PlayCardMode::Alternative(
+                        crate::spellability::AlternativeCost::WebSlinging,
+                    ),
+                    alt_cost_index: 1,
                 });
             }
             // A split card that is not a Room offers its right half as a spell of its own,
@@ -930,16 +991,19 @@ impl GameLoop {
                 };
 
                 // Web-slinging: alt cost, and the Return part needs a tapped creature
-                let web_slinging_ok = card.get_web_slinging_cost().is_some_and(|web_cost_str| {
-                    let adjusted = cost_adj
-                        .apply(&forge_foundation::ManaCost::parse(&web_cost_str))
-                        .add(&raise_mana);
-                    available_mana.can_pay(&adjusted)
-                        && game
-                            .cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
-                            .iter()
-                            .any(|id| game.card(*id).tapped && game.card(*id).is_creature())
-                });
+                let web_slinging_ok =
+                    probe_host
+                        .get_web_slinging_cost()
+                        .is_some_and(|web_cost_str| {
+                            let adjusted = cost_adj
+                                .apply(&forge_foundation::ManaCost::parse(&web_cost_str))
+                                .add(&raise_mana);
+                            available_mana.can_pay(&adjusted)
+                                && game
+                                    .cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
+                                    .iter()
+                                    .any(|id| game.card(*id).tapped && game.card(*id).is_creature())
+                        });
 
                 let sneak_ok = sneak_window
                     && card.get_sneak_cost().is_some_and(|sneak_cost_str| {

@@ -626,7 +626,15 @@ impl GameLoop {
                 crate::spellability::AlternativeCost::Flashback,
             )
             && play.alt_cost_index as usize >= game.card(card_id).get_all_flashback_costs().len();
-        let mut sa = if play_mode == crate::agent::PlayCardMode::Secondary || secondary_flashback {
+        let backside_web_slinging = play_mode
+            == crate::agent::PlayCardMode::Alternative(
+                crate::spellability::AlternativeCost::WebSlinging,
+            )
+            && play.alt_cost_index > 0;
+        let mut sa = if play_mode == crate::agent::PlayCardMode::Secondary
+            || secondary_flashback
+            || backside_web_slinging
+        {
             // `PlayCardMode::Secondary` covers both an Adventure/Omen `Secondary` face and a
             // Modal DFC's `Backside` face — a card only ever has one of the two, so which state
             // to build reads off the card itself. See `playability.rs`'s modal-backside check.
@@ -1042,7 +1050,8 @@ impl GameLoop {
                     format!("{cost} Return<1/Creature.attacking+unblocked/unblocked attacker>")
                 })
             } else if is_web_slinging {
-                card.get_web_slinging_cost()
+                Self::stack_copy(game, card.clone())
+                    .get_web_slinging_cost()
                     .map(|cost| format!("{cost} Return<1/Creature.tapped/tapped creature>"))
             } else if is_mayhem {
                 card.get_mayhem_cost()
