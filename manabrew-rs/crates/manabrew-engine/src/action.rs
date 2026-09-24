@@ -2255,23 +2255,11 @@ impl GameState {
 
     /// Reset per-turn state for all cards and players of a given player.
     pub fn new_turn_for_player(&mut self, player: PlayerId) {
-        self.player_new_turn(player);
-        // Reset turn-scoped player stats for ALL non-active players too.
-        // These counters are "this turn" in the global turn sense, not "that
-        // player's own turn". Without this, effects like Resplendent Angel can
-        // incorrectly carry life gained from the previous player's turn.
-        for pid in &self.player_order.clone() {
-            if *pid != player {
-                self.player_reset_drawn_this_turn(*pid);
-                let p = self.player_mut(*pid);
-                p.life_started_this_turn_with = p.life;
-                p.life_gained_this_turn = 0;
-                p.life_gained_by_team_this_turn = 0;
-                p.life_gained_times_this_turn = 0;
-                p.life_lost_last_turn = p.life_lost_this_turn;
-                p.life_lost_this_turn = 0;
-            }
+        for pid in self.player_order.clone() {
+            let hand_size = self.zone(ZoneType::Hand, pid).len() as i32;
+            self.player_mut(pid).on_cleanup_phase(hand_size);
         }
+        self.player_new_turn(player);
 
         let all_card_ids: Vec<CardId> = (0..self.cards.len()).map(|i| CardId(i as u32)).collect();
         for cid in all_card_ids {

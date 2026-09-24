@@ -3336,7 +3336,7 @@ mod tests {
         let attacker_id = game.create_card(attacker);
 
         game.player_mut(p0).life_lost_this_turn = 3;
-        game.player_mut(p0).new_turn();
+        game.player_mut(p0).on_cleanup_phase(0);
         game.player_mut(p0)
             .creatures_attacked_this_turn
             .push((attacker_id, 0));

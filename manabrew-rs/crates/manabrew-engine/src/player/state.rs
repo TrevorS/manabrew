@@ -470,32 +470,45 @@ impl PlayerState {
         self.statistics = PlayerStatistics::default();
     }
 
-    pub fn new_turn(&mut self) {
-        self.statistics.next_turn();
-        self.lands_played_last_turn = self.lands_played_this_turn;
-        self.lands_played_this_turn = 0;
-        self.spells_cast_last_turn = self.spells_cast_this_turn;
-        self.spells_cast_this_turn = 0;
-        self.cards_cast_this_turn.clear();
-        self.life_started_this_turn_with = self.life;
-        self.life_lost_last_turn = self.life_lost_this_turn;
-        self.life_gained_this_turn = 0;
-        self.life_gained_by_team_this_turn = 0;
-        self.life_gained_times_this_turn = 0;
-        self.life_lost_this_turn = 0;
+    pub fn on_cleanup_phase(&mut self, hand_size: i32) {
         self.drawn_last_turn = self.drawn_this_turn;
         self.drawn_this_turn = 0;
-        self.drawn_this_draw_step = 0;
-        self.mana_expended_this_turn = 0;
-        self.surveilled_this_turn = 0;
-        self.tokens_created_this_turn = 0;
-        self.foretold_this_turn = 0;
-        self.investigated_this_turn = 0;
-        self.ventured_this_turn = 0;
-        self.sacrificed_this_turn.clear();
-        self.library_searched_this_turn = 0;
-        self.discarded_this_turn = 0;
+        self.num_rolls_this_turn = 0;
+        self.num_flips_this_turn = 0;
         self.explored_this_turn = 0;
+        self.foretold_this_turn = 0;
+        self.tokens_created_this_turn = 0;
+        self.num_cards_in_hand_started_this_turn_with = hand_size;
+        self.tapped_land_for_mana_this_turn = false;
+        self.lands_played_last_turn = self.lands_played_this_turn;
+        self.lands_played_this_turn = 0;
+        self.investigated_this_turn = 0;
+        self.surveilled_this_turn = 0;
+        self.discarded_this_turn = 0;
+        self.sacrificed_this_turn.clear();
+        self.ventured_this_turn = 0;
+        self.permanents_put_into_graveyard_this_turn = 0;
+        self.spells_cast_last_turn = self.spells_cast_this_turn;
+        self.spells_cast_this_turn = 0;
+        self.life_lost_last_turn = self.life_lost_this_turn;
+        self.life_lost_this_turn = 0;
+        self.life_gained_this_turn = 0;
+        self.life_gained_times_this_turn = 0;
+        self.life_gained_by_team_this_turn = 0;
+        self.life_started_this_turn_with = self.life;
+        self.library_searched_this_turn = 0;
+        self.committed_crime_this_turn = 0;
+        self.dice_rolls_this_turn.clear();
+        self.mana_expended_this_turn = 0;
+        self.attractions_visited_this_turn = 0;
+        self.planeswalked_to_this_turn.clear();
+        self.elemental_bend_triggers.clear();
+    }
+
+    pub fn new_turn(&mut self) {
+        self.statistics.next_turn();
+        self.cards_cast_this_turn.clear();
+        self.drawn_this_draw_step = 0;
         self.assigned_damage_this_turn = 0;
         self.assigned_combat_damage_this_turn = 0;
         self.combat_damage_received_this_turn = 0;
@@ -504,17 +517,8 @@ impl PlayerState {
         self.attacked_players_this_turn.clear();
         self.attacked_players_this_combat.clear();
         self.been_dealt_combat_damage_since_last_turn = false;
-        self.attractions_visited_this_turn = 0;
-        self.num_flips_this_turn = 0;
-        self.num_rolls_this_turn = 0;
-        self.dice_rolls_this_turn.clear();
         self.permanents_left_battlefield_this_turn = 0;
         self.lands_entered_battlefield_this_turn = 0;
-        self.permanents_put_into_graveyard_this_turn = 0;
-        self.tapped_land_for_mana_this_turn = false;
-        self.committed_crime_this_turn = 0;
-        self.elemental_bend_triggers.clear();
-        self.planeswalked_to_this_turn.clear();
         self.statistics.clear_turn_cache();
     }
 }
