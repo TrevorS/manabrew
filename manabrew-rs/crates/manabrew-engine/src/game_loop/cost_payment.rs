@@ -788,10 +788,12 @@ impl GameLoop {
                         |slf, game, agents, session| {
                             let trace = {
                                 let game_ptr: *mut GameState = game;
-                                let trigger_handler_ptr =
-                                    std::ptr::from_mut(&mut slf.trigger_handler);
+                                let mut replacement_pools =
+                                    (0..game.players.len()).map(|_| ManaPool::new()).collect();
+                                let (pool, mut runtime) = slf
+                                    .mana_payment_runtime(session.player, &mut replacement_pools);
                                 let mut callback = Self::make_mana_payment_callback(
-                                    trigger_handler_ptr,
+                                    &mut runtime,
                                     game_ptr,
                                     agents,
                                     session.player,
@@ -808,7 +810,7 @@ impl GameLoop {
                                 match payment_ctx.as_ref() {
                                     Some(ctx) => mana::auto_tap_lands_allow_reserved_source_reuse_trace_with_callbacks_reserved_and_ctx(
                                         game,
-                                        &mut slf.mana_pools[session.player.index()],
+                                        pool,
                                         session.player,
                                         session.mana_cost,
                                         exclude_source,
@@ -818,7 +820,7 @@ impl GameLoop {
                                     ),
                                     None => mana::auto_tap_lands_allow_reserved_source_reuse_trace_with_callbacks_and_reserved_sacrifices(
                                         game,
-                                        &mut slf.mana_pools[session.player.index()],
+                                        pool,
                                         session.player,
                                         session.mana_cost,
                                         exclude_source,

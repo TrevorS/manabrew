@@ -11,7 +11,6 @@ use crate::event::RunParams;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 use crate::spellability::SpellAbility;
-use crate::trigger::handler::TriggerHandler;
 use crate::trigger::TriggerType;
 
 use super::effect_context::EffectContext;
@@ -202,9 +201,20 @@ pub(crate) fn pay_mana_cost_for_effect(
             let payment_ctx = crate::mana::ManaPaymentContext::default();
             let auto_result = {
                 let game_ptr: *mut GameState = game;
-                let trigger_handler_ptr: *mut TriggerHandler = ctx.trigger_handler;
+                let mut replacement_pools = (0..game.players.len())
+                    .map(|_| crate::mana::ManaPool::new())
+                    .collect();
+                let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
+                    trigger_handler: &mut *ctx.trigger_handler,
+                    token_templates: ctx.token_templates,
+                    token_art_variants: ctx.token_art_variants,
+                    token_fallback: ctx.token_fallback,
+                    edition_dates: ctx.edition_dates,
+                    mana_pools: &mut replacement_pools,
+                    rng: &mut *ctx.rng,
+                };
                 let mut callback = crate::game_loop::GameLoop::make_mana_payment_callback(
-                    trigger_handler_ptr,
+                    &mut runtime,
                     game_ptr,
                     agents,
                     session.player,

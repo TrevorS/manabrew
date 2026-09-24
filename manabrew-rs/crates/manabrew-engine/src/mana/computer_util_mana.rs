@@ -1728,6 +1728,8 @@ fn can_pay_non_tap_mana_ability_costs(
 pub(crate) fn reapply_non_undoable_payment_ability(
     game: &mut GameState,
     pool: &mut ManaPool,
+    runtime: &mut crate::replacement::replacement_handler::ReplacementRuntime<'_>,
+    agents: &mut [Box<dyn crate::agent::PlayerAgent>],
     player: PlayerId,
     card_id: CardId,
     ability_index: usize,
@@ -1755,7 +1757,33 @@ pub(crate) fn reapply_non_undoable_payment_ability(
         produced_ir: ab.produced_ir.clone(),
         source_order: 0,
     };
-    if pay_non_tap_mana_ability_costs(game, player, &ma, None, false, &[], &mut None) {
+    let game_ptr: *mut GameState = game;
+    let mut replay = |kind: ManaPayCallback<'_>| -> Option<CardId> {
+        match kind {
+            ManaPayCallback::ConfirmSelfSacrifice(id)
+            | ManaPayCallback::ConfirmSubCounter(id)
+            | ManaPayCallback::ConfirmSourceExile(id)
+            | ManaPayCallback::ConfirmPayLife(id) => Some(id),
+            ManaPayCallback::ChooseSacrifice(valid) => valid.first().copied(),
+            ManaPayCallback::ChooseCards {
+                valid, min, chosen, ..
+            } => {
+                chosen.extend(valid.iter().take(min));
+                chosen.first().copied()
+            }
+            ManaPayCallback::NotifySacrificeForMana(id) => {
+                crate::game_loop::perform_sacrifice(
+                    unsafe { &mut *game_ptr },
+                    runtime,
+                    agents,
+                    &[id],
+                );
+                Some(id)
+            }
+            _ => None,
+        }
+    };
+    if pay_non_tap_mana_ability_costs(game, player, &ma, None, false, &[], &mut Some(&mut replay)) {
         if has_tap_cost {
             game.tap(card_id);
         }

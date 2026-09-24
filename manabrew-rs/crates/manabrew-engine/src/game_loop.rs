@@ -226,6 +226,28 @@ impl GameLoop {
         &mut self.mana_pools[pid.index()]
     }
 
+    pub(crate) fn mana_payment_runtime<'s>(
+        &'s mut self,
+        player: PlayerId,
+        replacement_pools: &'s mut Vec<ManaPool>,
+    ) -> (
+        &'s mut ManaPool,
+        crate::replacement::replacement_handler::ReplacementRuntime<'s>,
+    ) {
+        (
+            &mut self.mana_pools[player.index()],
+            crate::replacement::replacement_handler::ReplacementRuntime {
+                trigger_handler: &mut self.trigger_handler,
+                token_templates: &self.token_templates,
+                token_art_variants: &self.token_art_variants,
+                token_fallback: &self.token_fallback,
+                edition_dates: &self.edition_dates,
+                mana_pools: replacement_pools,
+                rng: &mut *self.game_rng,
+            },
+        )
+    }
+
     pub(crate) fn sba_runtime(
         &mut self,
     ) -> (&mut TriggerHandler, crate::action::SbaReplacementParts<'_>) {

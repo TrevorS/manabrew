@@ -350,13 +350,13 @@ where
 }
 
 impl GameLoop {
-    pub(crate) fn make_mana_payment_callback<'a>(
-        trigger_handler: *mut TriggerHandler,
+    pub(crate) fn make_mana_payment_callback<'a, 'r: 'a>(
+        runtime: &'a mut crate::replacement::replacement_handler::ReplacementRuntime<'r>,
         game: *mut GameState,
         agents: &'a mut [Box<dyn PlayerAgent>],
         player: PlayerId,
         source: CardId,
-    ) -> impl FnMut(mana::ManaPayCallback<'_>) -> Option<CardId> + 'a {
+    ) -> impl FnMut(mana::ManaPayCallback<'_>) -> Option<CardId> + use<'a, 'r> {
         move |kind: mana::ManaPayCallback<'_>| -> Option<CardId> {
             match kind {
                 mana::ManaPayCallback::ChooseSacrifice(valid) => {
@@ -444,51 +444,7 @@ impl GameLoop {
                     }
                 }
                 mana::ManaPayCallback::NotifySacrificeForMana(sacrificed_id) => unsafe {
-                    let game = &mut *game;
-                    let trigger_handler = &mut *trigger_handler;
-                    let owner = game.card(sacrificed_id).owner;
-                    let controller = game.card(sacrificed_id).controller;
-                    let lki_counters = game.card(sacrificed_id).counters.clone();
-                    let lki_power = game.card(sacrificed_id).power();
-                    let lki_toughness = game.card(sacrificed_id).toughness();
-                    let lki_p1p1 = *lki_counters
-                        .get(&crate::card::CounterType::P1P1)
-                        .unwrap_or(&0);
-                    {
-                        let card = game.card_mut(sacrificed_id);
-                        card.lki_counters = Some(lki_counters);
-                        card.set_lki_power_toughness(Some(lki_power), Some(lki_toughness));
-                    }
-                    game.last_sacrificed_card = Some(sacrificed_id);
-                    let sacrificer = game.card(sacrificed_id).controller;
-                    crate::player::add_sacrificed_this_turn(game, sacrificer, sacrificed_id);
-                    trigger_handler.run_trigger(
-                        TriggerType::Sacrificed,
-                        RunParams {
-                            card: Some(sacrificed_id),
-                            player: Some(controller),
-                            ..Default::default()
-                        },
-                        false,
-                    );
-                    crate::ability::effects::emit_zone_trigger_with_lki_counters(
-                        trigger_handler,
-                        sacrificed_id,
-                        ZoneType::Battlefield,
-                        ZoneType::Graveyard,
-                        lki_p1p1,
-                        lki_power,
-                        lki_toughness,
-                    );
-                    trigger_handler.flush_waiting_triggers(game);
-                    game.move_card(sacrificed_id, ZoneType::Graveyard, owner);
-                    let mut by_controller = std::collections::BTreeMap::new();
-                    by_controller.insert(controller, vec![sacrificed_id]);
-                    crate::game_loop::fire_sacrificed_once_for_batch(
-                        game,
-                        trigger_handler,
-                        &by_controller,
-                    );
+                    perform_sacrifice(&mut *game, runtime, agents, &[sacrificed_id]);
                     Some(sacrificed_id)
                 },
                 mana::ManaPayCallback::ApplyProduceManaReplacement {

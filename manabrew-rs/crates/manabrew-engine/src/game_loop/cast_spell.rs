@@ -2102,9 +2102,12 @@ impl GameLoop {
                 |slf, game, agents, session| {
                     let auto_result = {
                         let game_ptr: *mut GameState = game;
-                        let trigger_handler_ptr = std::ptr::from_mut(&mut slf.trigger_handler);
+                        let mut replacement_pools =
+                            (0..game.players.len()).map(|_| ManaPool::new()).collect();
+                        let (pool, mut runtime) =
+                            slf.mana_payment_runtime(session.player, &mut replacement_pools);
                         let mut callback = Self::make_mana_payment_callback(
-                            trigger_handler_ptr,
+                            &mut runtime,
                             game_ptr,
                             agents,
                             session.player,
@@ -2112,7 +2115,7 @@ impl GameLoop {
                         );
                         mana::pay_mana_cost_auto_with_callback_and_reserved_sacrifices(
                             game,
-                            slf.pool_mut(session.player),
+                            pool,
                             session.player,
                             session.mana_cost,
                             Some(session.card_id),
@@ -2292,9 +2295,15 @@ impl GameLoop {
                     }
                 }
                 for (source_id, ability_index, chosen_atom) in non_undoable {
+                    let mut replacement_pools =
+                        (0..game.players.len()).map(|_| ManaPool::new()).collect();
+                    let (pool, mut runtime) =
+                        self.mana_payment_runtime(player, &mut replacement_pools);
                     crate::mana::computer_util_mana::reapply_non_undoable_payment_ability(
                         game,
-                        self.pool_mut(player),
+                        pool,
+                        &mut runtime,
+                        agents,
                         player,
                         source_id,
                         ability_index,
