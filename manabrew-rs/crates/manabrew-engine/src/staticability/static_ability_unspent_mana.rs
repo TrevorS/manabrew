@@ -1,7 +1,6 @@
 use crate::HashSet;
 
 use forge_foundation::ManaAtom;
-use forge_foundation::ZoneType;
 
 use crate::card::valid_filter;
 use crate::game::GameState;
@@ -27,12 +26,12 @@ pub fn get_mana_to_keep(game: &GameState, player: PlayerId) -> HashSet<u16> {
     for card in game
         .cards
         .iter()
-        .filter(|c| c.zone == ZoneType::Battlefield)
+        .filter(|c| c.zone.is_static_ability_source())
     {
         for st_ab in card
             .static_abilities
             .iter()
-            .filter(|sa| sa.check_mode(&StaticMode::UnspentMana))
+            .filter(|sa| sa.check_conditions_full(&StaticMode::UnspentMana, card, game))
         {
             apply_unspent_mana_ability(st_ab, card.controller, player, &mut result);
         }
@@ -51,12 +50,12 @@ pub fn has_mana_burn(game: &GameState, player: PlayerId) -> bool {
     for card in game
         .cards
         .iter()
-        .filter(|c| c.zone == ZoneType::Battlefield)
+        .filter(|c| c.zone.is_static_ability_source())
     {
         if let Some(st_ab) = card
             .static_abilities
             .iter()
-            .find(|sa| sa.check_mode(&StaticMode::ManaBurn))
+            .find(|sa| sa.check_conditions_full(&StaticMode::ManaBurn, card, game))
         {
             // Java short-circuits on the first ManaBurn static found:
             // if (!stAb.matchesValidParam("ValidPlayer", player)) return false;
