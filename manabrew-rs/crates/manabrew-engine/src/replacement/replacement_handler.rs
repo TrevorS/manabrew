@@ -985,7 +985,7 @@ struct ReplaceDamageBatch {
     prevented_amount: HashMap<usize, i32>,
 }
 
-fn damage_run_params(
+pub(crate) fn damage_run_params(
     source: CardId,
     target: DamageTarget,
     amount: i32,
@@ -1039,6 +1039,10 @@ fn damage_replacement_list(
         })
         .filter(|(key, _)| !game.replacements_running.contains(key))
         .collect()
+}
+
+pub(crate) fn has_replace_damage(game: &GameState, event: &ReplacementEvent) -> bool {
+    !damage_replacement_list(game, event).is_empty()
 }
 
 fn get_possible_replace_damage_list(

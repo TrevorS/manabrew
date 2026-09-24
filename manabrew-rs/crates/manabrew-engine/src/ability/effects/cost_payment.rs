@@ -492,8 +492,12 @@ fn try_pay_effect_cost(
                 super::flip_coin_effect::flip_coins(ctx, payer, sa, resolved_amount);
             }
             CostPart::DamageYou(amount) => {
-                ctx.game
-                    .deal_damage_to_player(payer, amount.resolve(ctx.game, source, payer));
+                let damage = amount.resolve(ctx.game, source, payer);
+                ctx.deal_damage(
+                    source,
+                    crate::card::card_damage_map::DamageTarget::Player(payer),
+                    damage,
+                );
                 ctx.trigger_handler.run_trigger(
                     TriggerType::DamageDone,
                     RunParams {

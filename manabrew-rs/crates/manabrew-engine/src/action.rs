@@ -3,14 +3,15 @@ use std::sync::Arc;
 use forge_foundation::{CoreType, ZoneType};
 
 use crate::agent::{GameEntity, PlayerAgent};
-use crate::card::card_damage_map::DamageTarget;
+use crate::card::card_damage_map::{CardDamageMap, DamageTarget};
 use crate::card::{Card, CounterType};
 use crate::event::RunParams;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 use crate::replacement::replacement_handler::{
     apply_replacements, apply_replacements_with_agents, apply_replacements_with_agents_and_runtime,
-    ReplacementEvent, ReplacementRuntime,
+    damage_run_params, has_replace_damage, run_replace_damage, ReplacementEvent,
+    ReplacementRuntime,
 };
 use crate::replacement::GameLossReason;
 use crate::replacement::ReplacementResult;
@@ -1146,52 +1147,59 @@ impl GameState {
         })
     }
 
-    /// Deal damage to a card (creature).
-    ///
-    /// Runs replacement effects (e.g. damage prevention) before applying.
-    /// Mirrors Java `GameAction.addDamage()` calling `ReplacementHandler.run()`.
     pub fn deal_damage_to_card(&mut self, target: CardId, amount: i32) {
-        self.deal_damage_to_card_from(target, amount, None, false);
+        self.add_damage_after_prevention(DamageTarget::Card(target), amount, None, false);
     }
 
-    /// Deal damage to a card with source tracking for replacement effects.
-    pub fn deal_damage_to_card_from(
+    pub fn deal_damage(
         &mut self,
-        target: CardId,
+        source: CardId,
+        target: DamageTarget,
         amount: i32,
-        source: Option<CardId>,
-        is_combat: bool,
-    ) {
-        self.deal_damage_to_card_from_with_agents(target, amount, source, is_combat, None);
-    }
-
-    /// Deal damage to a card with source tracking and optional agents for RNG parity.
-    pub fn deal_damage_to_card_from_with_agents(
-        &mut self,
-        target: CardId,
-        amount: i32,
-        source: Option<CardId>,
-        is_combat: bool,
-        agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
+        agents: &mut [Box<dyn PlayerAgent>],
+        runtime: &mut ReplacementRuntime<'_>,
     ) -> (GameEntity, i32) {
-        if amount <= 0 {
-            return (GameEntity::Card(target), 0);
-        }
-        if !self.card(target).can_be_dealt_damage() {
-            return (GameEntity::Card(target), 0);
-        }
-        let mut event = ReplacementEvent::DamageToCard {
-            target,
-            amount,
-            source,
-            is_combat,
+        let entity = match target {
+            DamageTarget::Card(card) => GameEntity::Card(card),
+            DamageTarget::Player(player) => GameEntity::Player(player),
         };
-        if let Some(agents) = agents {
-            apply_replacements_with_agents(self, agents, &mut event);
-        } else {
-            apply_replacements(self, &mut event);
+        if amount <= 0 {
+            return (entity, 0);
         }
-        self.deal_replaced_damage(event)
+        let can_be_dealt_damage = match target {
+            DamageTarget::Card(card) => self.card(card).can_be_dealt_damage(),
+            DamageTarget::Player(player) => {
+                !crate::staticability::static_ability_cant_gain_lose_pay_life::cant_lose_life(
+                    self, player,
+                ) && !crate::player::has_keyword(self, player, "Protection from everything")
+                    && !crate::player::player_predicates::is_protected_from(self, player, source)
+            }
+        };
+        if !can_be_dealt_damage {
+            return (entity, 0);
+        }
+        let event = damage_run_params(source, target, amount, false);
+        if !has_replace_damage(self, &event) {
+            return self.deal_replaced_damage(event);
+        }
+        let mut damage_map = CardDamageMap::default();
+        damage_map.put(source, target, amount);
+        let mut prevent_map = CardDamageMap::default();
+        run_replace_damage(
+            self,
+            Some(agents),
+            runtime,
+            false,
+            &mut damage_map,
+            &mut prevent_map,
+        );
+        prevent_map.trigger_prevent_damage(runtime.trigger_handler, false);
+        match damage_map.entries().first() {
+            Some(&(source, target, amount)) => {
+                self.deal_replaced_damage(damage_run_params(source, target, amount, false))
+            }
+            None => (entity, 0),
+        }
     }
 
     fn deal_replaced_damage(&mut self, event: ReplacementEvent) -> (GameEntity, i32) {
@@ -1285,67 +1293,8 @@ impl GameState {
         self.deal_replaced_damage(event).1
     }
 
-    /// Deal damage to a player.
-    ///
-    /// Runs replacement effects (e.g. damage prevention) before applying.
-    /// Mirrors Java `GameAction.addDamage()` calling `ReplacementHandler.run()`.
     pub fn deal_damage_to_player(&mut self, target: PlayerId, amount: i32) -> i32 {
-        self.deal_damage_to_player_from(target, amount, None, false)
-    }
-
-    /// Deal damage to a player with source tracking for replacement effects.
-    pub fn deal_damage_to_player_from(
-        &mut self,
-        target: PlayerId,
-        amount: i32,
-        source: Option<CardId>,
-        is_combat: bool,
-    ) -> i32 {
-        match self.deal_damage_to_player_from_with_agents(target, amount, source, is_combat, None) {
-            (GameEntity::Player(_), dealt) => dealt,
-            (GameEntity::Card(_), _) => 0,
-        }
-    }
-
-    /// Deal damage to a player with source tracking and optional agents for RNG parity.
-    /// Used by combat damage and spell damage to pass the source card and
-    /// combat flag so replacement effects like Torbran and Furnace of Rath
-    /// can check ValidSource$ and IsCombat$.
-    pub fn deal_damage_to_player_from_with_agents(
-        &mut self,
-        target: PlayerId,
-        amount: i32,
-        source: Option<CardId>,
-        is_combat: bool,
-        agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
-    ) -> (GameEntity, i32) {
-        if amount <= 0 {
-            return (GameEntity::Player(target), 0);
-        }
-        if crate::staticability::static_ability_cant_gain_lose_pay_life::cant_lose_life(
-            self, target,
-        ) {
-            return (GameEntity::Player(target), 0);
-        }
-        if crate::player::has_keyword(self, target, "Protection from everything")
-            || source.is_some_and(|source| {
-                crate::player::player_predicates::is_protected_from(self, target, source)
-            })
-        {
-            return (GameEntity::Player(target), 0);
-        }
-        let mut event = ReplacementEvent::DamageToPlayer {
-            target,
-            amount,
-            source,
-            is_combat,
-        };
-        if let Some(agents) = agents {
-            apply_replacements_with_agents(self, agents, &mut event);
-        } else {
-            apply_replacements(self, &mut event);
-        }
-        self.deal_replaced_damage(event)
+        self.add_damage_after_prevention(DamageTarget::Player(target), amount, None, false)
     }
 
     pub fn process_damage(

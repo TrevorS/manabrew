@@ -1169,7 +1169,15 @@ impl GameLoop {
                     // Java CostDamage calls game.getAction().dealDamage() — use the
                     // same path so damage prevention, replacement effects, and
                     // DamageDone triggers all fire correctly.
-                    game.deal_damage_to_player(player, amount.resolve(game, card_id, player));
+                    let damage = amount.resolve(game, card_id, player);
+                    let mut runtime = self.replacement_runtime();
+                    game.deal_damage(
+                        card_id,
+                        crate::card::card_damage_map::DamageTarget::Player(player),
+                        damage,
+                        agents,
+                        &mut runtime,
+                    );
                     self.trigger_handler.run_trigger(
                         TriggerType::DamageDone,
                         RunParams {
@@ -1967,7 +1975,15 @@ impl GameLoop {
                     // Java CostDamage calls game.getAction().dealDamage() — use the
                     // same path so damage prevention, replacement effects, and
                     // DamageDone triggers all fire correctly.
-                    game.deal_damage_to_player(player, amount.resolve(game, card_id, player));
+                    let damage = amount.resolve(game, card_id, player);
+                    let mut runtime = self.replacement_runtime();
+                    game.deal_damage(
+                        card_id,
+                        crate::card::card_damage_map::DamageTarget::Player(player),
+                        damage,
+                        agents,
+                        &mut runtime,
+                    );
                     self.trigger_handler.run_trigger(
                         TriggerType::DamageDone,
                         RunParams {

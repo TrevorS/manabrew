@@ -142,8 +142,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         map.put(src_id, DamageTarget::Card(card_id), num_dmg);
                     }
                 }
-            } else {
-                ctx.game.deal_damage_to_card(card_id, num_dmg);
+            } else if let Some(src_id) = source {
+                ctx.deal_damage(src_id, DamageTarget::Card(card_id), num_dmg);
             }
 
             // Fire DamageDone trigger per card
@@ -203,8 +203,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         map.put(src_id, DamageTarget::Player(pid), num_dmg);
                     }
                 }
-            } else {
-                let dealt = ctx.game.deal_damage_to_player(pid, num_dmg);
+            } else if let Some(src_id) = source {
+                let dealt = match ctx.deal_damage(src_id, DamageTarget::Player(pid), num_dmg) {
+                    (crate::agent::GameEntity::Player(_), dealt) => dealt,
+                    (crate::agent::GameEntity::Card(_), _) => 0,
+                };
                 ctx.game
                     .record_player_damage_assignment(source, Some(pid), dealt, false);
             }
@@ -321,9 +324,10 @@ mod tests {
         let c2 = make_creature(&mut game, p1);
         game.move_card(c1, ZoneType::Battlefield, p0);
         game.move_card(c2, ZoneType::Battlefield, p1);
+        let source = make_creature(&mut game, p0);
 
         let sa = SpellAbility::new_simple(
-            None,
+            Some(source),
             p0,
             "A:SP$ DamageAll | NumDmg$ 2 | ValidCards$ Creature",
         );
@@ -363,9 +367,10 @@ mod tests {
         let mut game = GameState::new(&["Alice", "Bob"], 20);
         let p0 = PlayerId(0);
         let p1 = PlayerId(1);
+        let source = make_creature(&mut game, p0);
 
         let sa = SpellAbility::new_simple(
-            None,
+            Some(source),
             p0,
             "A:SP$ DamageAll | NumDmg$ 3 | ValidCards$ | ValidPlayers$ Player",
         );
