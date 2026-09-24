@@ -236,13 +236,7 @@ pub(super) fn check_condition_present(
         let count = defined_cards
             .iter()
             .filter(|&&cid| {
-                matches_condition_filter_no_self_exclude(
-                    game,
-                    cid,
-                    source_id,
-                    player,
-                    &alternatives,
-                )
+                matches_condition_filter_no_self_exclude(game, sa, cid, source_id, &alternatives)
             })
             .count() as i32
             + defined_players
@@ -271,7 +265,7 @@ pub(super) fn check_condition_present(
     let count = cards
         .iter()
         .filter(|&&cid| {
-            matches_condition_filter_no_self_exclude(game, cid, source_id, player, &alternatives)
+            matches_condition_filter_no_self_exclude(game, sa, cid, source_id, &alternatives)
         })
         .count() as i32;
 
@@ -289,13 +283,16 @@ pub(super) fn check_condition_present(
 /// Used by ConditionDefined$ where the defined cards are explicitly specified.
 fn matches_condition_filter_no_self_exclude(
     game: &GameState,
+    sa: &SpellAbility,
     cid: CardId,
     source_id: CardId,
-    player: PlayerId,
     alternatives: &[&str],
 ) -> bool {
     let card = game.card(cid);
     let source = game.card(source_id);
+    let context = crate::card::valid_filter::MatchContext::from_source(source)
+        .with_game(game)
+        .with_spell_ability(sa);
     alternatives.iter().any(|alt| {
         // A `ConditionDefined$` reference can name a card a preceding sub-ability already
         // moved this same resolution (Brackish Blunder bounces its target, then checks
@@ -309,7 +306,11 @@ fn matches_condition_filter_no_self_exclude(
                 return lki_tapped;
             }
         }
-        crate::card::valid_filter::matches_valid(alt, Some(card), None, source, player)
+        crate::card::valid_filter::matches_valid_card_selector_with_context(
+            &crate::parsing::cached_compiled_selector(alt),
+            card,
+            context,
+        )
     })
 }
 
