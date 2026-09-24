@@ -296,6 +296,25 @@ fn resolve_exiled_with(
         .filter(|cid| !result.contains(cid))
         .collect();
     result.extend(exiled);
+    let host = ctx.game.card(source_id);
+    let lki_host = host
+        .triggers
+        .iter()
+        .find(|trigger| Some(trigger.id) == sa.source_trigger_id)
+        .is_some_and(|trigger| trigger.is_lki_host(host));
+    if let Some(lki) = ctx.game.get_lki_snapshot(source_id).filter(|_| lki_host) {
+        let exiled: Vec<_> = lki
+            .exiled_cards
+            .iter()
+            .copied()
+            .filter(|&cid| {
+                let card = ctx.game.card(cid);
+                card.zone == origin_zone && card.exiled_with == Some(source_id)
+            })
+            .filter(|cid| !result.contains(cid))
+            .collect();
+        result.extend(exiled);
+    }
     result
 }
 

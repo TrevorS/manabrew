@@ -39,6 +39,10 @@ impl GameLoop {
         if !host.paid_cost_exiled_cards.contains(&exiled) {
             host.paid_cost_exiled_cards.push(exiled);
         }
+        Self::handle_cost_exiled_with(game, source, exiled);
+    }
+
+    fn handle_cost_exiled_with(game: &mut GameState, source: CardId, exiled: CardId) {
         if game.card(exiled).is_token {
             return;
         }
@@ -3915,14 +3919,7 @@ impl GameLoop {
                 let origin = game.card(chosen).zone;
                 let owner = game.card(chosen).owner;
                 self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
-                // Track the exile-with relationship so "Defined$ ExiledWith"
-                // can find this card later (e.g. Champions of the Shoal's
-                // leave-battlefield trigger returns the exiled card to hand).
-                // We do NOT use `exiled_by` here because that field is reserved
-                // for ChangeZoneAll Duration$ UntilHostLeavesPlay effects which
-                // auto-return to battlefield in move_card.  BeholdExile cards
-                // have their own dedicated leave-trigger to handle the return.
-                game.card_mut(source).add_remembered_card(chosen);
+                Self::handle_cost_exiled_with(game, source, chosen);
                 crate::ability::effects::emit_zone_trigger(
                     &mut self.trigger_handler,
                     chosen,
