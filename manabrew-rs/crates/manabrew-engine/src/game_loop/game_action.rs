@@ -5,19 +5,23 @@ use super::*;
 use crate::player::actions::player_action::STATIC_ALTERNATIVE_ABILITY_INDEX;
 use crate::replacement::replacement_handler::ReplacementRuntime;
 
-/// Single chokepoint for the per-card sequence:
+/// Single chokepoint for sacrificing a batch. First every card still on the
+/// battlefield fires `TriggerType::Sacrificed` with the controller as `player`,
+/// and the waiting triggers are matched while the whole batch is still there:
+/// Java's `GameAction.sacrifice` queues each card's event and collects them
+/// after the batch, with the looks-back-in-time triggers of the cards already
+/// sacrificed still registered from last known information. Then, per card:
 ///   1. capture LKI (counter map, power, toughness) before any zone change
 ///   2. write `lki_counters` and `set_lki_power_toughness` on the card so death
 ///      triggers (Modular, Servant of the Scale, etc.) see pre-move state
 ///   3. record the card on `game.last_sacrificed_card` for `Sacrificed$CardPower`
 ///      SVar lookups (Rite of Consumption, Altar's Reap)
-///   4. fire `TriggerType::Sacrificed` with the controller as `player`
-///   5. emit `ChangesZone(Battlefield → Graveyard)` carrying LKI counters
-///   6. flush waiting triggers — matches against pre-move state, **with pump
+///   4. emit `ChangesZone(Battlefield → Graveyard)` carrying LKI counters
+///   5. flush waiting triggers — matches against pre-move state, **with pump
 ///      triggers still on the card**, so Animate-granted triggers
 ///      (Supernatural Stamina's death-return) fire correctly. `clear_pump_triggers`
 ///      cleanup runs inside `move_card` after the match has already happened.
-///   7. move the card to its owner's graveyard with agent notifications
+///   6. move the card to its owner's graveyard with agent notifications
 ///
 /// After all cards: fire `TriggerType::SacrificedOnce` once per distinct
 /// controller, with the batch payload in `RunParams.cards`.
@@ -44,7 +48,27 @@ pub(crate) fn perform_sacrifice(
     let mut sacrificed: Vec<CardId> = Vec::with_capacity(cards.len());
     let mut by_controller: BTreeMap<PlayerId, Vec<CardId>> = BTreeMap::new();
 
-    for &card_id in cards {
+    let on_battlefield: Vec<CardId> = cards
+        .iter()
+        .copied()
+        .filter(|&card_id| game.card(card_id).zone == ZoneType::Battlefield)
+        .collect();
+    for &card_id in &on_battlefield {
+        let controller = game.card(card_id).controller;
+        crate::player::add_sacrificed_this_turn(game, controller, card_id);
+        runtime.trigger_handler.run_trigger(
+            TriggerType::Sacrificed,
+            RunParams {
+                card: Some(card_id),
+                player: Some(controller),
+                ..Default::default()
+            },
+            false,
+        );
+    }
+    runtime.trigger_handler.flush_waiting_triggers(game);
+
+    for card_id in on_battlefield {
         if game.card(card_id).zone != ZoneType::Battlefield {
             continue;
         }
@@ -64,17 +88,6 @@ pub(crate) fn perform_sacrifice(
         }
         game.last_sacrificed_card = Some(card_id);
 
-        let sacrificer = game.card(card_id).controller;
-        crate::player::add_sacrificed_this_turn(game, sacrificer, card_id);
-        runtime.trigger_handler.run_trigger(
-            TriggerType::Sacrificed,
-            RunParams {
-                card: Some(card_id),
-                player: Some(controller),
-                ..Default::default()
-            },
-            false,
-        );
         game.sacrifice_destroy(card_id, agents, runtime, lki_p1p1, lki_power, lki_toughness);
 
         sacrificed.push(card_id);
