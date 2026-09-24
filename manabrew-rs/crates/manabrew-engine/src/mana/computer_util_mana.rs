@@ -48,7 +48,7 @@ impl ManaAbilityRef {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AutoTapChoice {
     pub card_id: CardId,
     pub mana_ability_index: Option<usize>,
@@ -57,6 +57,7 @@ pub struct AutoTapChoice {
     /// must record an explicit express choice in the trace. Mirrors Java
     /// `AbilityManaPart.getExpressChoice()` being non-null.
     pub needs_express_choice: bool,
+    pub cost_cards: Vec<CardId>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -495,6 +496,7 @@ pub fn next_auto_tap_choice_with_reserved_sacrifices(
         mana_ability_index: sa_payment.ability_index,
         chosen_atom,
         needs_express_choice: sa_payment.atoms.len() > 1,
+        cost_cards: Vec::new(),
     })
 }
 
@@ -751,6 +753,7 @@ fn auto_tap_lands_internal_with_ctx(
             break;
         };
         let ability = mana_ability_of(game, &sa_payment).cloned();
+        let mut cost_cards = Vec::new();
         // Pay non-tap ability costs (sacrifice, counter removal) through callback.
         // If payment fails (e.g. sacrifice declined), remove the candidate and retry.
         if !pay_non_tap_mana_ability_costs(
@@ -761,6 +764,7 @@ fn auto_tap_lands_internal_with_ctx(
             allow_reserved_source_reuse,
             reserved_sacrifices,
             callback,
+            &mut cost_cards,
         ) {
             // Java: candidate became unpayable; remove and continue.
             candidates.retain(|c| c.card_id != sa_payment.card_id);
@@ -819,6 +823,7 @@ fn auto_tap_lands_internal_with_ctx(
                 mana_ability_index: sa_payment.ability_index,
                 chosen_atom: trace_atom,
                 needs_express_choice: is_special_output,
+                cost_cards,
             });
         } else {
             // Sources with more than one possible color require a color
@@ -871,6 +876,7 @@ fn auto_tap_lands_internal_with_ctx(
                 mana_ability_index: sa_payment.ability_index,
                 chosen_atom,
                 needs_express_choice: needs_express,
+                cost_cards,
             });
 
             if consume_incrementally {
@@ -1767,6 +1773,7 @@ pub(crate) fn auto_payment_callback<'a, 'r: 'a>(
     game: *mut GameState,
     runtime: &'a mut crate::replacement::replacement_handler::ReplacementRuntime<'r>,
     agents: &'a mut [Box<dyn crate::agent::PlayerAgent>],
+    cost_cards: &'a [CardId],
 ) -> impl FnMut(ManaPayCallback<'_>) -> Option<CardId> + use<'a, 'r> {
     move |kind: ManaPayCallback<'_>| -> Option<CardId> {
         match kind {
@@ -1778,7 +1785,11 @@ pub(crate) fn auto_payment_callback<'a, 'r: 'a>(
             ManaPayCallback::ChooseCards {
                 valid, min, chosen, ..
             } => {
-                chosen.extend(valid.iter().take(min));
+                if cost_cards.is_empty() {
+                    chosen.extend(valid.iter().take(min));
+                } else {
+                    chosen.extend(valid.iter().filter(|cid| cost_cards.contains(cid)));
+                }
                 chosen.first().copied()
             }
             ManaPayCallback::NotifySacrificeForMana(id) => {
@@ -1799,14 +1810,15 @@ pub(crate) fn reapply_non_undoable_payment_ability(
     card_id: CardId,
     ability_index: usize,
     chosen_atom: u16,
-) {
+    cost_cards: &[CardId],
+) -> bool {
     let Some(ab) = game
         .card(card_id)
         .activated_abilities
         .get(ability_index)
         .cloned()
     else {
-        return;
+        return false;
     };
     let atoms = ab
         .produced_ir
@@ -1828,13 +1840,24 @@ pub(crate) fn reapply_non_undoable_payment_ability(
         source_order: 0,
     };
     let game_ptr: *mut GameState = game;
-    let mut replay = auto_payment_callback(game_ptr, runtime, agents);
-    if pay_non_tap_mana_ability_costs(game, player, &ma, None, false, &[], &mut Some(&mut replay)) {
-        if has_tap_cost {
-            game.tap(card_id);
-        }
-        produce_mana_for_auto_pay(game, pool, player, &ma, Some(&ab), chosen_atom, &mut None);
+    let mut replay = auto_payment_callback(game_ptr, runtime, agents, cost_cards);
+    if !pay_non_tap_mana_ability_costs(
+        game,
+        player,
+        &ma,
+        None,
+        false,
+        &[],
+        &mut Some(&mut replay),
+        &mut Vec::new(),
+    ) {
+        return false;
     }
+    if has_tap_cost {
+        game.tap(card_id);
+    }
+    produce_mana_for_auto_pay(game, pool, player, &ma, Some(&ab), chosen_atom, &mut None);
+    true
 }
 
 fn pay_non_tap_mana_ability_costs(
@@ -1845,6 +1868,7 @@ fn pay_non_tap_mana_ability_costs(
     allow_reserved_source_reuse: bool,
     reserved_sacrifices: &[CardId],
     callback: &mut Option<ManaPayCallbackFn<'_>>,
+    cost_cards: &mut Vec<CardId>,
 ) -> bool {
     let Some(ab_idx) = ma.ability_index else {
         return true;
@@ -2055,11 +2079,61 @@ fn pay_non_tap_mana_ability_costs(
                     } else {
                         chosen.extend(valid.iter().take(required));
                     }
-                    for cid in chosen {
+                    for &cid in &chosen {
                         let owner = game.card(cid).owner;
                         game.move_card(cid, ZoneType::Exile, owner);
                     }
+                    cost_cards.extend(chosen);
                 }
+            }
+            CostPart::CollectEvidence(amount) => {
+                let required = amount.resolve(game, ma.card_id, player);
+                let valid: Vec<CardId> = game
+                    .cards_in_zone(ZoneType::Graveyard, player)
+                    .iter()
+                    .copied()
+                    .filter(|&cid| {
+                        !crate::staticability::static_ability_cant_exile::cant_exile(
+                            &game.cards,
+                            game.card(cid),
+                            None,
+                            true,
+                        )
+                    })
+                    .collect();
+                if valid.is_empty() {
+                    return false;
+                }
+                let mut chosen = Vec::new();
+                if let Some(ref mut cb) = callback {
+                    cb(ManaPayCallback::ChooseCards {
+                        valid: &valid,
+                        min: 0,
+                        max: valid.len(),
+                        chosen: &mut chosen,
+                    });
+                } else {
+                    let mut total = 0;
+                    for &cid in &valid {
+                        if total >= required {
+                            break;
+                        }
+                        total += game.card(cid).mana_cost.cmc();
+                        chosen.push(cid);
+                    }
+                }
+                let total: i32 = chosen
+                    .iter()
+                    .map(|&cid| game.card(cid).mana_cost.cmc())
+                    .sum();
+                if total < required {
+                    return false;
+                }
+                for &cid in &chosen {
+                    let owner = game.card(cid).owner;
+                    game.move_card(cid, ZoneType::Exile, owner);
+                }
+                cost_cards.extend(chosen);
             }
             CostPart::TapType { .. } => {
                 let targets = choose_tap_type_targets_for_mana_ability_with_callback(
@@ -2129,6 +2203,14 @@ fn can_pay_source_paid_mana_cost_part(
             }
         }
         CostPart::Exile { .. } => crate::cost::cost_exile::can_pay(
+            game,
+            &crate::mana::ManaPool::default(),
+            source_id,
+            player,
+            None,
+            part,
+        ),
+        CostPart::CollectEvidence(_) => crate::cost::cost_collect_evidence::can_pay(
             game,
             &crate::mana::ManaPool::default(),
             source_id,

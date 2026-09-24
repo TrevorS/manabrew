@@ -696,7 +696,7 @@ impl GameLoop {
         let mut pre_sac_idx = 0usize;
         let mut failed_auto_pay_taps: Vec<CardId> = Vec::new();
         let mut failed_auto_pay_pool: Option<crate::mana::ManaPool> = None;
-        let mut failed_non_undoable_choices: Vec<(CardId, usize, u16)> = Vec::new();
+        let mut failed_non_undoable_choices: Vec<crate::mana::AutoTapChoice> = Vec::new();
         let outer_change_zone_table = game.pending_change_zone_table.take();
         for (idx, part) in cost.parts.clone().into_iter().enumerate() {
             self.handle_change_zone_trigger(game, sa.as_deref());
@@ -905,16 +905,19 @@ impl GameLoop {
                                     .extend(trace.iter().map(|choice| choice.card_id));
                                 failed_auto_pay_pool =
                                     Some(slf.mana_pools[session.player.index()].clone());
-                                failed_non_undoable_choices.extend(trace.iter().filter_map(
-                                    |choice| {
-                                        let idx = choice.mana_ability_index?;
-                                        game.card(choice.card_id)
-                                            .activated_abilities
-                                            .get(idx)
-                                            .is_some_and(|ab| !ab.is_undoable())
-                                            .then_some((choice.card_id, idx, choice.chosen_atom))
-                                    },
-                                ));
+                                failed_non_undoable_choices.extend(
+                                    trace
+                                        .iter()
+                                        .filter(|choice| {
+                                            choice.mana_ability_index.is_some_and(|idx| {
+                                                game.card(choice.card_id)
+                                                    .activated_abilities
+                                                    .get(idx)
+                                                    .is_some_and(|ab| !ab.is_undoable())
+                                            })
+                                        })
+                                        .cloned(),
+                                );
                                 actions.push(ManaCostAction::AttemptedAndFailed);
                                 Some(actions)
                             }
@@ -1636,21 +1639,33 @@ impl GameLoop {
                     self.mana_pools[player.index()] = pool;
                 }
             } else {
-                for (source_id, ability_index, chosen_atom) in failed_non_undoable_choices {
+                for choice in failed_non_undoable_choices {
+                    let Some(ability_index) = choice.mana_ability_index else {
+                        continue;
+                    };
                     let mut replacement_pools =
                         (0..game.players.len()).map(|_| ManaPool::new()).collect();
                     let (pool, mut runtime) =
                         self.mana_payment_runtime(player, &mut replacement_pools);
-                    crate::mana::computer_util_mana::reapply_non_undoable_payment_ability(
+                    if crate::mana::computer_util_mana::reapply_non_undoable_payment_ability(
                         game,
                         pool,
                         &mut runtime,
                         agents,
                         player,
-                        source_id,
+                        choice.card_id,
                         ability_index,
-                        chosen_atom,
-                    );
+                        choice.chosen_atom,
+                        &choice.cost_cards,
+                    ) {
+                        self.resolve_mana_sub_ability(
+                            game,
+                            agents,
+                            player,
+                            choice.card_id,
+                            ability_index,
+                        );
+                    }
                 }
             }
             return false;

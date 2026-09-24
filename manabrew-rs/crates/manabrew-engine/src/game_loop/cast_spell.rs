@@ -824,6 +824,7 @@ impl GameLoop {
                             game_ptr,
                             &mut runtime,
                             agents,
+                            &[],
                         );
                         mana::auto_tap_lands_with_callbacks(
                             game,
@@ -2122,7 +2123,7 @@ impl GameLoop {
         let paying_mana_to_cast = std::cell::RefCell::new(Vec::new());
         let paying_sources_to_cast = std::cell::RefCell::new(Vec::new());
         let convoked_to_cast = std::cell::RefCell::new(Vec::new());
-        let failed_non_undoable_choices: std::cell::RefCell<Vec<(CardId, usize, u16)>> =
+        let failed_non_undoable_choices: std::cell::RefCell<Vec<mana::AutoTapChoice>> =
             std::cell::RefCell::new(Vec::new());
         let failed_improvised: std::cell::RefCell<Vec<CardId>> =
             std::cell::RefCell::new(Vec::new());
@@ -2211,19 +2212,18 @@ impl GameLoop {
                             .collect();
                         if result.cancelled {
                             failed_non_undoable_choices.borrow_mut().extend(
-                                result.choices.iter().filter_map(|choice| {
-                                    let idx = choice.mana_ability_index?;
-                                    let non_undoable = game
-                                        .card(choice.card_id)
-                                        .activated_abilities
-                                        .get(idx)
-                                        .is_some_and(|ab| !ab.is_undoable());
-                                    non_undoable.then_some((
-                                        choice.card_id,
-                                        idx,
-                                        choice.chosen_atom,
-                                    ))
-                                }),
+                                result
+                                    .choices
+                                    .iter()
+                                    .filter(|choice| {
+                                        choice.mana_ability_index.is_some_and(|idx| {
+                                            game.card(choice.card_id)
+                                                .activated_abilities
+                                                .get(idx)
+                                                .is_some_and(|ab| !ab.is_undoable())
+                                        })
+                                    })
+                                    .cloned(),
                             );
                             failed_improvised.borrow_mut().extend(
                                 result
@@ -2363,21 +2363,33 @@ impl GameLoop {
                 if let (Some(_), Some(state)) = (rng_after_payment, cast_rollback_rng) {
                     self.game_rng.restore_state(state);
                 }
-                for (source_id, ability_index, chosen_atom) in non_undoable {
+                for choice in non_undoable {
+                    let Some(ability_index) = choice.mana_ability_index else {
+                        continue;
+                    };
                     let mut replacement_pools =
                         (0..game.players.len()).map(|_| ManaPool::new()).collect();
                     let (pool, mut runtime) =
                         self.mana_payment_runtime(player, &mut replacement_pools);
-                    crate::mana::computer_util_mana::reapply_non_undoable_payment_ability(
+                    if crate::mana::computer_util_mana::reapply_non_undoable_payment_ability(
                         game,
                         pool,
                         &mut runtime,
                         agents,
                         player,
-                        source_id,
+                        choice.card_id,
                         ability_index,
-                        chosen_atom,
-                    );
+                        choice.chosen_atom,
+                        &choice.cost_cards,
+                    ) {
+                        self.resolve_mana_sub_ability(
+                            game,
+                            agents,
+                            player,
+                            choice.card_id,
+                            ability_index,
+                        );
+                    }
                 }
                 if let Some(state) = rng_after_payment {
                     self.game_rng.restore_state(state);
