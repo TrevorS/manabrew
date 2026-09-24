@@ -6,6 +6,7 @@ use forge_foundation::ZoneType;
 use serde::{Deserialize, Serialize};
 
 use crate::agent::GameEntity;
+use crate::card::card_damage_history::TrackedEntity;
 use crate::card::card_damage_map::CardDamageMap;
 use crate::card::card_zone_table::CardZoneTable;
 use crate::card::Card;
@@ -167,6 +168,20 @@ impl CardDatabaseRegistry {
 
 /// The complete, serializable game state.
 /// All game entities live here — nothing holds references, everything uses IDs.
+#[derive(Debug, Clone)]
+pub struct DamageThisTurnLki {
+    pub history: CardId,
+    pub index: usize,
+    pub source: Arc<Card>,
+    pub target: DamageLkiTarget,
+}
+
+#[derive(Debug, Clone)]
+pub enum DamageLkiTarget {
+    Player(PlayerId),
+    Card(Arc<Card>),
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameState {
     // Arenas
@@ -299,6 +314,10 @@ pub struct GameState {
     #[serde(skip)]
     pub left_graveyard_this_turn: Vec<CardId>,
     #[serde(skip)]
+    pub global_damage_history: Vec<CardId>,
+    #[serde(skip)]
+    pub damage_this_turn_lki: Vec<DamageThisTurnLki>,
+    #[serde(skip)]
     pub granted_trigger_ids: crate::HashMap<(CardId, u64, Option<CardId>, u64, String), u32>,
 }
 
@@ -358,6 +377,8 @@ impl GameState {
             counter_added_this_turn: BTreeMap::new(),
             left_battlefield_this_turn: Vec::new(),
             left_graveyard_this_turn: Vec::new(),
+            global_damage_history: Vec::new(),
+            damage_this_turn_lki: Vec::new(),
             granted_trigger_ids: crate::HashMap::default(),
         }
     }
@@ -482,6 +503,114 @@ impl GameState {
 
     pub fn clear_left_graveyard_this_turn(&mut self) {
         self.left_graveyard_this_turn.clear();
+    }
+
+    pub fn register_damage(
+        &mut self,
+        source: CardId,
+        damage: i32,
+        is_combat: bool,
+        target: TrackedEntity,
+    ) {
+        if damage <= 0 {
+            return;
+        }
+        self.card_mut(source).damage_history.register_damage(
+            damage,
+            is_combat,
+            Some(source),
+            target,
+        );
+        let index = self.card(source).damage_history.damage_done_this_turn.len() - 1;
+        self.add_global_damage_history(source, index, target);
+    }
+
+    fn add_global_damage_history(&mut self, history: CardId, index: usize, target: TrackedEntity) {
+        if !self.global_damage_history.contains(&history) {
+            self.global_damage_history.push(history);
+        }
+        let target = match target {
+            TrackedEntity::Player(player) => DamageLkiTarget::Player(player),
+            TrackedEntity::Card(card) => {
+                DamageLkiTarget::Card(Arc::clone(&self.cards[card.index()]))
+            }
+        };
+        self.damage_this_turn_lki.push(DamageThisTurnLki {
+            history,
+            index,
+            source: Arc::clone(&self.cards[history.index()]),
+            target,
+        });
+    }
+
+    pub fn clear_global_damage_history(&mut self) {
+        self.global_damage_history.clear();
+        self.damage_this_turn_lki.clear();
+    }
+
+    pub fn get_damage_done_this_turn(
+        &self,
+        is_combat: Option<bool>,
+        valid_source_card: &str,
+        valid_target_entity: &str,
+        source: CardId,
+        source_controller: PlayerId,
+    ) -> Vec<i32> {
+        let source_card = self.card(source);
+        let source_selectors: Vec<_> = valid_source_card
+            .split(',')
+            .map(crate::parsing::cached_compiled_selector)
+            .collect();
+        let target_selectors: Vec<_> = valid_target_entity
+            .split(',')
+            .map(crate::parsing::cached_compiled_selector)
+            .collect();
+        let is_valid = |lki: &DamageThisTurnLki| {
+            source_selectors.iter().any(|selector| {
+                crate::card::valid_filter::matches_valid_card_selector_in_game(
+                    selector,
+                    &lki.source,
+                    source_card,
+                    self,
+                )
+            }) && match &lki.target {
+                DamageLkiTarget::Player(player) => crate::card::valid_filter::matches_valid_player(
+                    valid_target_entity,
+                    *player,
+                    source_controller,
+                ),
+                DamageLkiTarget::Card(card) => target_selectors.iter().any(|selector| {
+                    crate::card::valid_filter::matches_valid_card_selector_in_game(
+                        selector,
+                        card,
+                        source_card,
+                        self,
+                    )
+                }),
+            }
+        };
+        self.global_damage_history
+            .iter()
+            .filter_map(|&history| {
+                let dmg: i32 = self
+                    .card(history)
+                    .damage_history
+                    .damage_done_this_turn
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, damage)| {
+                        is_combat.is_none_or(|combat| damage.is_combat == combat)
+                            && self
+                                .damage_this_turn_lki
+                                .iter()
+                                .find(|lki| lki.history == history && lki.index == *index)
+                                .is_none_or(is_valid)
+                    })
+                    .map(|(_, damage)| damage.amount)
+                    .sum();
+                (dmg != 0).then_some(dmg)
+            })
+            .collect()
     }
 
     pub fn is_void(&self) -> bool {

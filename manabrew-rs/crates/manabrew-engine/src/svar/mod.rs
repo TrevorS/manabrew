@@ -2572,6 +2572,26 @@ pub fn resolve_count_svar_for_sa(
                     .unwrap_or(0),
             );
         }
+        if sq[0].contains("DamageThisTurn") {
+            if let [_, valid_source, valid_target, ..] = l0.split(' ').collect::<Vec<_>>()[..] {
+                let is_combat = sq[0]
+                    .contains("CombatDamage")
+                    .then(|| !sq[0].contains("Non"));
+                let dmg_instances = game.get_damage_done_this_turn(
+                    is_combat,
+                    valid_source,
+                    valid_target,
+                    source_id,
+                    controller,
+                );
+                let num = match dmg_instances.iter().max() {
+                    Some(&max) if sq[0].contains("Max") => max,
+                    _ if sq[0].starts_with("Num") => dmg_instances.len() as i32,
+                    _ => dmg_instances.iter().sum(),
+                };
+                return math(num);
+            }
+        }
         if sq[0].starts_with("Morbid") {
             let res = crate::card::card_util::get_this_turn_entered(
                 game,

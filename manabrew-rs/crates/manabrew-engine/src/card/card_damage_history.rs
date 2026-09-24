@@ -81,17 +81,6 @@ impl CardDamageHistory {
         self.creature_got_blocked_this_combat = true;
     }
 
-    /// Record damage dealt by this creature.
-    pub fn record_damage(&mut self, amount: i32, is_combat: bool) {
-        self.record_dealt_damage_to_any(is_combat);
-        self.damage_done_this_turn.push(DamageInstance {
-            amount,
-            is_combat,
-            source: None,
-            target: None,
-        });
-    }
-
     /// Java parity: register a full damage instance with LKI-like source/target ids.
     pub fn register_damage(
         &mut self,

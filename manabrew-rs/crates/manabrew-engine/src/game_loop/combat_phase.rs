@@ -894,14 +894,6 @@ impl GameLoop {
                 true,
                 &fs_unblocked_choices,
             );
-            // Record damage in source damage history for player-targeted combat damage
-            for event in &fs_events {
-                if event.target_player.is_some() && event.amount > 0 {
-                    game.card_mut(event.source)
-                        .damage_history
-                        .record_damage(event.amount, true);
-                }
-            }
             self.fire_combat_damage_triggers(game, agents, &fs_events);
             fs_counter_table.replace_counter_effect(
                 game,
@@ -965,14 +957,6 @@ impl GameLoop {
                 false,
                 &unblocked_choices,
             );
-            // Record damage in source damage history for player-targeted combat damage
-            for event in &dmg_events {
-                if event.target_player.is_some() && event.amount > 0 {
-                    game.card_mut(event.source)
-                        .damage_history
-                        .record_damage(event.amount, true);
-                }
-            }
             // Java parity: skip priority when no damage was assigned
             // (e.g. 0-power attackers). Mirrors PhaseHandler.java lines 335-343
             // where assignCombatDamage returns false → givePriorityToPlayer = false.

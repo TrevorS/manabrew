@@ -317,10 +317,12 @@ fn deal_damage_from_source(
             if let Some(src_id) = Some(source) {
                 if damage > 0 {
                     ctx.game.card_mut(src_id).total_damage_done_this_turn += damage;
-                    ctx.game
-                        .card_mut(src_id)
-                        .damage_history
-                        .record_damage(damage, false);
+                    ctx.game.register_damage(
+                        src_id,
+                        damage,
+                        false,
+                        crate::card::card_damage_history::TrackedEntity::Player(target_player),
+                    );
                 }
             }
         }
@@ -449,10 +451,12 @@ fn deal_damage_from_source(
                 if let Some(src_id) = Some(source) {
                     if damage > 0 {
                         ctx.game.card_mut(src_id).total_damage_done_this_turn += damage;
-                        ctx.game
-                            .card_mut(src_id)
-                            .damage_history
-                            .record_damage(damage, false);
+                        ctx.game.register_damage(
+                            src_id,
+                            damage,
+                            false,
+                            crate::card::card_damage_history::TrackedEntity::Card(target_card),
+                        );
                     }
                 }
             }

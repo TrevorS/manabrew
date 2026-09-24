@@ -131,10 +131,19 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         // Track source total damage for count expressions.
         ctx.game.card_mut(source).total_damage_done_this_turn += amount;
-        ctx.game
-            .card_mut(source)
-            .damage_history
-            .record_damage(amount, false);
+        ctx.game.register_damage(
+            source,
+            amount,
+            false,
+            match target {
+                DamageTarget::Card(card) => {
+                    crate::card::card_damage_history::TrackedEntity::Card(card)
+                }
+                DamageTarget::Player(player) => {
+                    crate::card::card_damage_history::TrackedEntity::Player(player)
+                }
+            },
+        );
     }
 
     for (source, dealt) in dealt_by_source {

@@ -1641,12 +1641,7 @@ fn deal_combat_damage_to_player(
         }
     }
     game.card_mut(source).total_damage_done_this_turn += amount;
-    game.card_mut(source).damage_history.register_damage(
-        amount,
-        true,
-        Some(source),
-        TrackedEntity::Player(target),
-    );
+    game.register_damage(source, amount, true, TrackedEntity::Player(target));
 }
 
 /// Deal combat damage to a card, handling deathtouch, Infect/Wither.
@@ -1695,12 +1690,7 @@ fn deal_combat_damage_to_card(
         game.card_mut(target).mark_deathtouch_damage();
     }
     game.card_mut(source).total_damage_done_this_turn += amount;
-    game.card_mut(source).damage_history.register_damage(
-        amount,
-        true,
-        Some(source),
-        TrackedEntity::Card(target),
-    );
+    game.register_damage(source, amount, true, TrackedEntity::Card(target));
 }
 
 // ── Lure / Must-Block helpers ─────────────────────────────────────────
