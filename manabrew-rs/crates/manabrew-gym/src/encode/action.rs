@@ -85,7 +85,9 @@ pub fn candidates(kind: &DecisionKind) -> Vec<Candidate> {
         DecisionKind::Modes { descriptions, .. } => {
             (0..descriptions.len()).map(Candidate::Mode).collect()
         }
-        DecisionKind::Confirm { .. } => vec![Candidate::Confirm(true), Candidate::Confirm(false)],
+        DecisionKind::Confirm { .. } | DecisionKind::Mulligan { .. } => {
+            vec![Candidate::Confirm(true), Candidate::Confirm(false)]
+        }
     }
 }
 
@@ -98,7 +100,7 @@ pub fn action_from_picks(kind: &DecisionKind, picks: &[usize]) -> Result<Action,
             [pick] => Action::Choose(*pick),
             _ => return Err(ActionError::WrongShape),
         },
-        DecisionKind::Confirm { .. } => match picks {
+        DecisionKind::Confirm { .. } | DecisionKind::Mulligan { .. } => match picks {
             [pick] if *pick < 2 => Action::Confirm(*pick == 0),
             [pick] => {
                 return Err(ActionError::OutOfRange {

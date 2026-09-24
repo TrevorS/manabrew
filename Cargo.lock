@@ -4614,6 +4614,8 @@ version = "0.1.0"
 dependencies = [
  "forge-carddb",
  "forge-foundation",
+ "manabot",
+ "manabrew-agent-interface",
  "manabrew-engine",
  "mimalloc",
  "parity",

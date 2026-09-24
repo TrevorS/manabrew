@@ -1,3 +1,10 @@
+use manabot::BotResponder;
+use manabrew_agent_interface::agent_impl::{PromptAgent, Responder};
+use manabrew_agent_interface::game_log_event::GameLogEntryDto;
+use manabrew_agent_interface::game_snapshot_event::GameSnapshotEventDto;
+use manabrew_agent_interface::prompt::{
+    AgentMessage, AgentPrompt, ClientToServerMessage, PromptInput,
+};
 use manabrew_engine::agent::{
     ActivatableAction, ManaAbilityOption, ManaCostAction, PlayerAgent, PriorityActionSpace,
     TargetChoice,
@@ -12,20 +19,77 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
 use crate::decision::{Action, DecisionKind, LAND_OR_SPELL};
+use crate::game_env::Limits;
+use crate::learner_agent::Stalled;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Opponent {
     Random { play_weight: u32 },
+    SimpleAi,
 }
 
 impl Opponent {
-    pub(crate) fn build(self, seed: u64, player: PlayerId) -> Box<dyn PlayerAgent> {
+    pub(crate) fn build(
+        self,
+        seed: u64,
+        player: PlayerId,
+        limits: &Limits,
+    ) -> Box<dyn PlayerAgent> {
         match self {
             Opponent::Random { play_weight } => Box::new(RandomAgent::new(
                 seed * 2 + u64::from(player.0) + 1,
                 play_weight,
             )),
+            Opponent::SimpleAi => Box::new(PromptAgent::new(
+                player,
+                String::new(),
+                CappedResponder {
+                    inner: BotResponder::default(),
+                    prompts: 0,
+                    max_prompts: limits.max_opponent_prompts,
+                    payment_streak: 0,
+                },
+            )),
         }
+    }
+}
+
+const MAX_PAYMENT_STREAK: u32 = 50;
+
+struct CappedResponder<R> {
+    inner: R,
+    prompts: u32,
+    max_prompts: u32,
+    payment_streak: u32,
+}
+
+impl<R: Responder> Responder for CappedResponder<R> {
+    fn respond(&mut self, prompt: AgentPrompt) -> ClientToServerMessage {
+        self.prompts += 1;
+        self.payment_streak = match prompt.input {
+            PromptInput::PayManaCost(_) => self.payment_streak + 1,
+            _ => 0,
+        };
+        if self.prompts > self.max_prompts || self.payment_streak > MAX_PAYMENT_STREAK {
+            std::panic::resume_unwind(Box::new(Stalled));
+        }
+        self.inner.respond(prompt)
+    }
+
+    fn present(&mut self, message: &AgentMessage) {
+        self.inner.present(message);
+    }
+
+    fn await_ack(&mut self) -> ClientToServerMessage {
+        self.inner.await_ack()
+    }
+
+    fn send_log(&mut self, entry: GameLogEntryDto) {
+        self.inner.send_log(entry);
+    }
+
+    fn send_snapshot(&mut self, snapshot: GameSnapshotEventDto) {
+        self.inner.send_snapshot(snapshot);
     }
 }
 
@@ -276,6 +340,7 @@ impl RandomPolicy {
                 ..
             } => Action::Select(self.subset(descriptions.len(), *min, *max)),
             DecisionKind::Confirm { .. } => Action::Confirm(self.rng.gen_bool(0.5)),
+            DecisionKind::Mulligan { .. } => Action::Confirm(true),
         }
     }
 

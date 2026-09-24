@@ -400,8 +400,24 @@ impl PlayerAgent for LearnerAgent {
         self.combat.observe(game, self.player);
     }
 
-    fn mulligan_decision(&mut self, _player: PlayerId, _hand: &[CardId], _count: u32) -> bool {
-        true
+    fn mulligan_decision(&mut self, _player: PlayerId, hand: &[CardId], count: u32) -> bool {
+        let kind = DecisionKind::Mulligan {
+            hand: hand.to_vec(),
+            mulligans: count,
+        };
+        match self.ask(kind) {
+            Some(Action::Confirm(keep)) => keep,
+            _ => true,
+        }
+    }
+
+    fn choose_cards_to_bottom(
+        &mut self,
+        _player: PlayerId,
+        hand: &[CardId],
+        count: usize,
+    ) -> Vec<CardId> {
+        self.choose_cards(CardPurpose::Bottom, hand, count, count, None)
     }
 
     fn choose_action(

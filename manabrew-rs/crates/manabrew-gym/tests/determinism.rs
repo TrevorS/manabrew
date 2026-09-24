@@ -3,8 +3,8 @@ use std::sync::{Arc, OnceLock};
 use manabrew_gym::data::repo_root;
 use manabrew_gym::encode::CARD_FEATURES;
 use manabrew_gym::{
-    Action, Decision, EndReason, EnvConfig, GameEnv, GameSpec, GymData, Limits, Observation,
-    Outcome, RandomPolicy, Step, VecEnv,
+    Action, Decision, DecisionKind, EndReason, EnvConfig, GameEnv, GameSpec, GymData, Limits,
+    Observation, Opponent, Outcome, RandomPolicy, Step, VecEnv,
 };
 
 fn survey() -> &'static (Arc<GymData>, Vec<[usize; 2]>) {
@@ -176,12 +176,14 @@ fn caps_and_stalls_end_games_as_draws_and_bad_actions_are_rejected() {
             max_decisions: 10_000,
             max_turn_decisions: 3,
             max_turn_calls: 5_000,
+            max_opponent_prompts: 20_000,
         },
         ..config()
     };
     let mut env = GameEnv::new(Arc::clone(&survey().0), config);
     let mut policy = RandomPolicy::new(spec.seed, 2);
     let mut step = env.reset(spec);
+    assert!(matches!(&step, Step::Decision(d) if matches!(d.kind, DecisionKind::Mulligan { .. })));
     let mut rejected = false;
     let outcome = loop {
         match step {
@@ -222,4 +224,31 @@ fn caps_and_stalls_end_games_as_draws_and_bad_actions_are_rejected() {
     let mut env = GameEnv::new(Arc::clone(&survey().0), config);
     assert!(matches!(env.reset(spec), Step::Decision(_)));
     drop(env);
+}
+
+#[test]
+fn a_learner_plays_a_game_against_the_simple_ai() {
+    let spec = GameSpec {
+        learners: [true, false],
+        ..specs()[1]
+    };
+    let config = EnvConfig {
+        opponent: Opponent::SimpleAi,
+        ..config()
+    };
+    let mut env = GameEnv::new(Arc::clone(&survey().0), config);
+    let mut policy = RandomPolicy::new(spec.seed, 2);
+    let mut step = env.reset(spec);
+    let outcome = loop {
+        match step {
+            Step::Decision(decision) => {
+                step = env.step(policy.act(&decision.kind)).expect("valid action")
+            }
+            Step::Done(outcome) => break outcome,
+        }
+    };
+    assert!(matches!(
+        outcome.reason,
+        EndReason::GameOver | EndReason::TurnCap
+    ));
 }

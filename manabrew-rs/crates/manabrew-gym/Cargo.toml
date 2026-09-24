@@ -9,6 +9,8 @@ description = "Reinforcement-learning environment over the manabrew engine"
 [dependencies]
 forge-foundation = { path = "../forge-foundation" }
 forge-carddb = { path = "../forge-carddb" }
+manabot = { path = "../manabot", default-features = false }
+manabrew-agent-interface = { path = "../manabrew-agent-interface" }
 manabrew-engine = { path = "../manabrew-engine" }
 parity = { path = "../parity" }
 rand = "0.8"

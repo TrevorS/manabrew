@@ -31,6 +31,7 @@ pub struct Limits {
     pub max_decisions: u32,
     pub max_turn_decisions: u32,
     pub max_turn_calls: u32,
+    pub max_opponent_prompts: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,6 +50,7 @@ impl Default for EnvConfig {
                 max_decisions: 10_000,
                 max_turn_decisions: 1_000,
                 max_turn_calls: 5_000,
+                max_opponent_prompts: 20_000,
             },
             opponent: Opponent::Random { play_weight: 1 },
             encoder: Some(EncoderConfig::default()),
@@ -221,7 +223,7 @@ fn play(data: &GymData, config: &EnvConfig, spec: &GameSpec, link: &Rc<Link>) ->
                     spec.seed,
                 )) as Box<dyn PlayerAgent>
             } else {
-                config.opponent.build(spec.seed, player)
+                config.opponent.build(spec.seed, player, &config.limits)
             }
         })
         .collect();

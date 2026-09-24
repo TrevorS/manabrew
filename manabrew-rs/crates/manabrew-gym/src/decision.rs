@@ -57,6 +57,10 @@ pub enum DecisionKind {
         text: String,
         source: Option<CardId>,
     },
+    Mulligan {
+        hand: Vec<CardId>,
+        mulligans: u32,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -98,6 +102,7 @@ pub enum CardPurpose {
     Discard,
     Target,
     Dig,
+    Bottom,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -155,7 +160,7 @@ impl fmt::Display for ActionError {
 impl std::error::Error for ActionError {}
 
 impl DecisionKind {
-    pub const COUNT: usize = 9;
+    pub const COUNT: usize = 10;
 
     pub fn id(&self) -> usize {
         match self {
@@ -168,6 +173,7 @@ impl DecisionKind {
             DecisionKind::Cards { .. } => 6,
             DecisionKind::Modes { .. } => 7,
             DecisionKind::Confirm { .. } => 8,
+            DecisionKind::Mulligan { .. } => 9,
         }
     }
 
@@ -202,7 +208,9 @@ impl DecisionKind {
             (DecisionKind::Blockers { legal, max, .. }, Action::Assign(slots)) => {
                 validate_assign(slots, legal, *max)
             }
-            (DecisionKind::Confirm { .. }, Action::Confirm(_)) => Ok(()),
+            (DecisionKind::Confirm { .. } | DecisionKind::Mulligan { .. }, Action::Confirm(_)) => {
+                Ok(())
+            }
             _ => Err(ActionError::WrongShape),
         }
     }
