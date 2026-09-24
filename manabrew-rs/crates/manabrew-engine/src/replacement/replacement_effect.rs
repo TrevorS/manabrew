@@ -134,10 +134,6 @@ pub struct ReplacementEffectIr {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ReplacementChainIr {
-    ReplaceToken {
-        token_type: Option<String>,
-        amount_expr: Option<String>,
-    },
     ReplaceCounter {
         amount_expr: String,
         choose_counter: bool,
@@ -600,7 +596,11 @@ impl ReplacementEffect {
                     );
                     node.set_triggering_object(AbilityKey::Num, count.to_string().as_str());
                 }
-                ReplacementEvent::CreateToken { player, count, .. } => {
+                ReplacementEvent::CreateToken {
+                    player,
+                    token_table,
+                    ..
+                } => {
                     // Java `ReplaceToken.setReplacingObjects`: TokenNum, Token,
                     // Cause, Player.
                     node.set_triggering_value(
@@ -611,6 +611,7 @@ impl ReplacementEffect {
                         AbilityKey::Affected,
                         crate::event::AbilityValue::Player(*player),
                     );
+                    let count: usize = token_table.cells().iter().map(|cell| cell.amount).sum();
                     node.set_triggering_object(AbilityKey::TokenNum, count.to_string().as_str());
                 }
                 ReplacementEvent::GainLife { player, amount }
@@ -1035,10 +1036,6 @@ pub(crate) fn parse_replacement_chain(
     let params = Params::from_raw(raw);
     let db = params.get(keys::DB)?;
     match db {
-        "ReplaceToken" => Some(ReplacementChainIr::ReplaceToken {
-            token_type: params.get("Type").map(str::to_string),
-            amount_expr: params.get("Amount").map(str::to_string),
-        }),
         "ReplaceCounter" => Some(ReplacementChainIr::ReplaceCounter {
             amount_expr: params.get("Amount")?.to_string(),
             choose_counter: params.has("ChooseCounter"),

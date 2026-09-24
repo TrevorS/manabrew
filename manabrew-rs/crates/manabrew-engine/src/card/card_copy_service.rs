@@ -71,7 +71,7 @@ pub fn copy_copiable_characteristics(copy_from: &Card, to: &mut Card) {
     to.refresh_action_specs();
 }
 
-fn copiable_type_line(copy_from: &Card) -> forge_foundation::CardTypeLine {
+pub(crate) fn copiable_type_line(copy_from: &Card) -> forge_foundation::CardTypeLine {
     let mut type_line = copy_from
         .animate_state
         .as_ref()

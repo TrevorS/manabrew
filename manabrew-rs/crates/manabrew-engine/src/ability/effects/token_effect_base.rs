@@ -11,37 +11,101 @@ use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 use super::{emit_zone_trigger, EffectContext};
 use crate::card::card_zone_table::CardZoneTable;
 use crate::card::Card;
+use crate::card_trait_base::CardTrait;
 use crate::event::RunParams;
 use crate::ids::{CardId, PlayerId};
 use crate::parsing::{keys, split_param_list_value};
-use crate::replacement::replacement_handler::{apply_replacements_with_agents, ReplacementEvent};
+use crate::replacement::replacement_handler::{
+    apply_replacements_with_agents_and_runtime, ReplacementEvent, ReplacementRuntime,
+};
 use crate::replacement::replacement_result::ReplacementResult;
 use crate::spellability::SpellAbility;
 use crate::trigger::TriggerType;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TokenTableCell {
     pub owner: PlayerId,
     pub prototype: Card,
     pub amount: usize,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct TokenCreateTable {
     cells: Vec<TokenTableCell>,
 }
 
 impl TokenCreateTable {
     pub fn put(&mut self, owner: PlayerId, prototype: Card, amount: usize) {
-        self.cells.push(TokenTableCell {
-            owner,
-            prototype,
-            amount,
-        });
+        let at = self
+            .cells
+            .iter()
+            .rposition(|cell| cell.owner == owner)
+            .map_or(self.cells.len(), |i| i + 1);
+        self.cells.insert(
+            at,
+            TokenTableCell {
+                owner,
+                prototype,
+                amount,
+            },
+        );
     }
 
     pub fn cells(&self) -> &[TokenTableCell] {
         &self.cells
+    }
+
+    pub fn cells_mut(&mut self) -> &mut Vec<TokenTableCell> {
+        &mut self.cells
+    }
+
+    pub fn row_key_set(&self) -> Vec<PlayerId> {
+        let mut rows = Vec::new();
+        for cell in &self.cells {
+            if !rows.contains(&cell.owner) {
+                rows.push(cell.owner);
+            }
+        }
+        rows
+    }
+
+    pub fn get_filter_amount(
+        &self,
+        valid_owner: Option<&str>,
+        valid_token: Option<&str>,
+        ctb: &impl CardTrait,
+        host: &Card,
+    ) -> usize {
+        let filtered_player = valid_owner.map(|valid| {
+            self.row_key_set()
+                .into_iter()
+                .filter(|&player| ctb.matches_valid_player(valid, player, host))
+                .collect::<Vec<_>>()
+        });
+        if filtered_player.as_ref().is_some_and(Vec::is_empty) {
+            return 0;
+        }
+        let filtered_cards = valid_token.map(|valid| {
+            self.cells
+                .iter()
+                .enumerate()
+                .filter(|(_, cell)| ctb.matches_valid_card(valid, &cell.prototype, host))
+                .map(|(i, _)| i)
+                .collect::<Vec<_>>()
+        });
+        if filtered_cards.as_ref().is_some_and(Vec::is_empty) {
+            return 0;
+        }
+        match (filtered_player, filtered_cards) {
+            (Some(players), Some(cards)) => self
+                .cells
+                .iter()
+                .enumerate()
+                .filter(|(i, cell)| players.contains(&cell.owner) && cards.contains(i))
+                .map(|(_, cell)| cell.amount)
+                .sum(),
+            _ => self.cells.iter().map(|cell| cell.amount).sum(),
+        }
     }
 
     pub fn retain_players(&mut self, keep: impl Fn(PlayerId) -> bool) {
@@ -104,17 +168,28 @@ pub trait TokenEffectBase {
                 continue;
             }
             for script in token_scripts {
-                let mut result = self.require_token_template(ctx.token_templates, script);
-                result.set_owner(owner);
-                result.set_controller(owner);
-                result.set_is_token(true);
-                result.set_s_var("TokenScript", script);
-                result.set_s_var("TokenSpawningAbility", sa.ability_text.clone());
-                self.apply_token_power_toughness(ctx, sa, &mut result);
+                let result = self.get_proto_type(ctx, script, sa, owner);
                 token_table.put(owner, result, final_amount);
             }
         }
         token_table
+    }
+
+    fn get_proto_type(
+        &self,
+        ctx: &EffectContext,
+        script: &str,
+        sa: &SpellAbility,
+        owner: PlayerId,
+    ) -> Card {
+        let mut result = self.require_token_template(ctx.token_templates, script);
+        result.set_owner(owner);
+        result.set_controller(owner);
+        result.set_is_token(true);
+        result.set_s_var("TokenScript", script);
+        result.set_s_var("TokenSpawningAbility", sa.ability_text.clone());
+        self.apply_token_power_toughness(ctx, sa, &mut result);
+        result
     }
 
     fn make_token_table_internal_from_script(
@@ -125,13 +200,7 @@ pub trait TokenEffectBase {
         final_amount: usize,
         sa: &SpellAbility,
     ) -> TokenCreateTable {
-        let mut result = self.require_token_template(ctx.token_templates, script);
-        result.set_owner(owner);
-        result.set_controller(owner);
-        result.set_is_token(true);
-        result.set_s_var("TokenScript", script);
-        result.set_s_var("TokenSpawningAbility", sa.ability_text.clone());
-        self.apply_token_power_toughness(ctx, sa, &mut result);
+        let result = self.get_proto_type(ctx, script, sa, owner);
         self.make_token_table_internal(owner, result, final_amount)
     }
 
@@ -235,6 +304,17 @@ pub trait TokenEffectBase {
         trigger_list: &mut CardZoneTable,
         sa: &SpellAbility,
     ) -> TokenCreateResult {
+        for cell in token_table.cells_mut() {
+            let script = cell.prototype.get_s_var("TokenScript").map(str::to_owned);
+            if let Some(script) = script.as_deref() {
+                if cell.prototype.copied_permanent.is_some() {
+                    // Java builds a copy from the original's PaperToken; its image key is the only draw.
+                    ctx.rng.next_int(1);
+                } else {
+                    cell.prototype.set_code = Some(ctx.sync_token_art_rng(script, sa));
+                }
+            }
+        }
         self.apply_create_token_replacements(ctx, &mut token_table);
 
         let original_tokens: Vec<Card> = token_table
@@ -245,17 +325,7 @@ pub trait TokenEffectBase {
         let pump_keywords = self.pump_keywords(sa);
         let mut result = TokenCreateResult::default();
 
-        for mut cell in token_table.cells().iter().cloned() {
-            let script = cell.prototype.get_s_var("TokenScript").map(str::to_owned);
-            if let Some(script) = script.as_deref() {
-                if cell.prototype.copied_permanent.is_some() {
-                    // Java builds a copy from the original's PaperToken; its image key is the only draw.
-                    ctx.rng.next_int(1);
-                } else {
-                    cell.prototype.set_code = Some(ctx.sync_token_art_rng(script, sa));
-                }
-            }
-
+        for cell in token_table.cells().iter().cloned() {
             let controller = cell.prototype.controller;
             for _ in 0..cell.amount {
                 let Some(token_id) = self.create_single_token(
@@ -611,27 +681,45 @@ pub trait TokenEffectBase {
         ctx: &mut EffectContext,
         token_table: &mut TokenCreateTable,
     ) {
-        let mut retained = Vec::with_capacity(token_table.cells.len());
-        for mut cell in token_table.cells.drain(..) {
+        let mut to_remove = Vec::new();
+        for player in token_table.row_key_set() {
             let mut event = ReplacementEvent::CreateToken {
-                player: cell.owner,
-                count: cell.amount as i32,
+                player,
+                token_table: std::mem::take(token_table),
                 is_effect: true,
             };
-            match apply_replacements_with_agents(&mut *ctx.game, ctx.agents, &mut event) {
-                ReplacementResult::NotReplaced => retained.push(cell),
-                ReplacementResult::Updated => {
-                    if let ReplacementEvent::CreateToken { count, .. } = event {
-                        cell.amount = count.max(0) as usize;
-                    }
-                    retained.push(cell);
-                }
-                ReplacementResult::Replaced
-                | ReplacementResult::Prevented
-                | ReplacementResult::Skipped => {}
+            let mut runtime = ReplacementRuntime {
+                trigger_handler: ctx.trigger_handler,
+                token_templates: ctx.token_templates,
+                token_art_variants: ctx.token_art_variants,
+                token_fallback: ctx.token_fallback,
+                edition_dates: ctx.edition_dates,
+                mana_pools: ctx.mana_pools,
+                rng: ctx.rng,
+            };
+            let result = apply_replacements_with_agents_and_runtime(
+                &mut *ctx.game,
+                ctx.agents,
+                &mut runtime,
+                &mut event,
+            );
+            if let ReplacementEvent::CreateToken {
+                token_table: replaced,
+                ..
+            } = event
+            {
+                *token_table = replaced;
+            }
+            if !matches!(
+                result,
+                ReplacementResult::NotReplaced | ReplacementResult::Updated
+            ) {
+                to_remove.push(player);
             }
         }
-        token_table.cells = retained;
+        token_table
+            .cells
+            .retain(|cell| !to_remove.contains(&cell.owner));
     }
 }
 

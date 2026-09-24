@@ -82,10 +82,7 @@ pub fn get_proto_type(sa: &SpellAbility, original: &Card, new_owner: crate::ids:
         CardId(0),
         original.card_name.clone(),
         new_owner,
-        original
-            .changed_type_line_base
-            .clone()
-            .unwrap_or_else(|| original.type_line.clone()),
+        crate::card::card_copy_service::copiable_type_line(original),
         original.mana_cost.clone(),
         original.color,
         original.changed_base_power.unwrap_or(original.base_power),

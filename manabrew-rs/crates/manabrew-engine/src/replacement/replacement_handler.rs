@@ -102,7 +102,7 @@ pub enum ReplacementEvent {
     /// `is_effect` is `true` when created by a spell/ability effect, `false` for game rules.
     CreateToken {
         player: PlayerId,
-        count: i32,
+        token_table: crate::ability::effects::token_effect_base::TokenCreateTable,
         is_effect: bool,
     },
 
@@ -385,19 +385,8 @@ impl ReplacementHandler {
                 layer,
                 pre_list,
             );
-            match result {
-                ReplacementResult::NotReplaced => continue,
-                ReplacementResult::Updated => {
-                    // Java preserves Updated unless a later replacement fully
-                    // replaces the event during the re-run.
-                    return match self.run_with_pre_list(game, agents, runtime, event, pre_list) {
-                        ReplacementResult::NotReplaced | ReplacementResult::Updated => {
-                            ReplacementResult::Updated
-                        }
-                        other => other,
-                    };
-                }
-                other => return other,
+            if result != ReplacementResult::NotReplaced {
+                return result;
             }
         }
         ReplacementResult::NotReplaced
@@ -417,86 +406,82 @@ impl ReplacementHandler {
         if let Some(counters_pass) = self.etb_counters_pass {
             effects.retain(|(_, re, _)| (re.event == ReplacementType::AddCounter) == counters_pass);
         }
-        let mut declined_effects: HashSet<(CardId, usize)> = HashSet::default();
+        let eligible: Vec<_> = effects
+            .into_iter()
+            .filter(|(card_id, re, effect_idx)| {
+                !self.has_run.contains(&(
+                    *card_id,
+                    layer,
+                    *effect_idx,
+                    crate::core::Identifiable::id(&re.base.card_trait_base),
+                )) && !game.replacements_running.contains(&(
+                    *card_id,
+                    *effect_idx,
+                    crate::core::Identifiable::id(&re.base.card_trait_base),
+                ))
+            })
+            .collect();
 
-        if effects.is_empty() {
+        if eligible.is_empty() {
             return ReplacementResult::NotReplaced;
         }
 
-        loop {
-            let eligible: Vec<_> = effects
-                .iter()
-                .filter(|(card_id, re, effect_idx)| {
-                    !self.has_run.contains(&(
-                        *card_id,
-                        layer,
-                        *effect_idx,
-                        crate::core::Identifiable::id(&re.base.card_trait_base),
-                    )) && !declined_effects.contains(&(*card_id, *effect_idx))
-                        && !game.replacements_running.contains(&(
-                            *card_id,
-                            *effect_idx,
-                            crate::core::Identifiable::id(&re.base.card_trait_base),
-                        ))
-                })
-                .cloned()
-                .collect();
+        let chosen_idx = if eligible.len() > 1 && layer != ReplacementLayer::CantHappen {
+            if let Some(agents) = agents.as_deref_mut() {
+                let descriptions: Vec<String> = eligible
+                    .iter()
+                    .map(|(card_id, re, _)| {
+                        let host = game.card(*card_id);
+                        let card_name = &host.card_name;
+                        let desc = re.description(host, game);
+                        format!("{card_name}: {desc}")
+                    })
+                    .collect();
 
-            if eligible.is_empty() {
-                return ReplacementResult::NotReplaced;
-            }
-
-            let chosen_idx = if eligible.len() > 1 && layer != ReplacementLayer::CantHappen {
-                if let Some(agents) = agents.as_deref_mut() {
-                    let descriptions: Vec<String> = eligible
-                        .iter()
-                        .map(|(card_id, re, _)| {
-                            let host = game.card(*card_id);
-                            let card_name = &host.card_name;
-                            let desc = re.description(host, game);
-                            format!("{card_name}: {desc}")
-                        })
-                        .collect();
-
-                    let hosts: Vec<CardId> =
-                        eligible.iter().map(|(card_id, _, _)| *card_id).collect();
-                    let affected_player = affected_player_for_event(event, game);
-                    let agent = &mut agents[affected_player.index()];
-                    agent
-                        .choose_single_replacement_effect(affected_player, &descriptions, &hosts)
-                        .min(eligible.len() - 1)
-                } else {
-                    0
-                }
+                let hosts: Vec<CardId> = eligible.iter().map(|(card_id, _, _)| *card_id).collect();
+                let affected_player = affected_player_for_event(event, game);
+                let agent = &mut agents[affected_player.index()];
+                agent
+                    .choose_single_replacement_effect(affected_player, &descriptions, &hosts)
+                    .min(eligible.len() - 1)
             } else {
                 0
-            };
+            }
+        } else {
+            0
+        };
 
-            let (source_card_id, ref effect, effect_idx) = eligible[chosen_idx];
-            let effect_id = crate::core::Identifiable::id(&effect.base.card_trait_base);
-            self.has_run
-                .insert((source_card_id, layer, effect_idx, effect_id));
-            let running = (source_card_id, effect_idx, effect_id);
-            let newly_running = game.replacements_running.insert(running);
-            let result = execute_effect(
-                game,
-                source_card_id,
-                effect,
-                event,
-                agents.as_deref_mut(),
-                runtime.as_deref_mut(),
-            );
-            if newly_running {
-                game.replacements_running.remove(&running);
+        let (source_card_id, ref effect, effect_idx) = eligible[chosen_idx];
+        let effect_id = crate::core::Identifiable::id(&effect.base.card_trait_base);
+        let has_run = (source_card_id, layer, effect_idx, effect_id);
+        self.has_run.insert(has_run);
+        let running = (source_card_id, effect_idx, effect_id);
+        let newly_running = game.replacements_running.insert(running);
+        let mut result = execute_effect(
+            game,
+            source_card_id,
+            effect,
+            event,
+            agents.as_deref_mut(),
+            runtime.as_deref_mut(),
+        );
+        if result == ReplacementResult::NotReplaced {
+            if eligible.len() > 1 {
+                result = self.run_with_pre_list(game, agents, runtime, event, pre_list);
             }
-            if result == ReplacementResult::NotReplaced {
-                self.has_run
-                    .remove(&(source_card_id, layer, effect_idx, effect_id));
-                declined_effects.insert((source_card_id, effect_idx));
-                continue;
-            }
-            return result;
+        } else if result == ReplacementResult::Updated {
+            result = match self.run_with_pre_list(game, agents, runtime, event, pre_list) {
+                ReplacementResult::NotReplaced | ReplacementResult::Updated => {
+                    ReplacementResult::Updated
+                }
+                other => other,
+            };
         }
+        self.has_run.remove(&has_run);
+        if newly_running {
+            game.replacements_running.remove(&running);
+        }
+        result
     }
 }
 
@@ -627,7 +612,6 @@ pub(crate) fn replacement_event_amount(event: &ReplacementEvent) -> Option<i32> 
         ReplacementEvent::DamageToPlayer { amount, .. } => Some(*amount),
         ReplacementEvent::GainLife { amount, .. } => Some(*amount),
         ReplacementEvent::LifeReduced { amount, .. } => Some(*amount),
-        ReplacementEvent::CreateToken { count, .. } => Some(*count),
         ReplacementEvent::AddCounter { count, .. } => Some(*count),
         ReplacementEvent::DrawCards { count, .. } => Some(*count),
         ReplacementEvent::Mill { count, .. } => Some(*count),
@@ -647,7 +631,6 @@ pub(crate) fn set_replacement_event_amount(event: &mut ReplacementEvent, value: 
         ReplacementEvent::DamageToPlayer { amount, .. } => *amount = value.max(0),
         ReplacementEvent::GainLife { amount, .. } => *amount = value.max(0),
         ReplacementEvent::LifeReduced { amount, .. } => *amount = value.max(0),
-        ReplacementEvent::CreateToken { count, .. } => *count = value.max(0),
         ReplacementEvent::AddCounter { count, .. } => *count = value.max(0),
         ReplacementEvent::DrawCards { count, .. } => *count = value.max(0),
         ReplacementEvent::Mill { count, .. } => *count = value.max(0),
@@ -750,16 +733,6 @@ pub(crate) fn execute_replace_effect_ir(
     required_var_name: Option<&str>,
 ) -> Option<ReplacementResult> {
     match chain {
-        ReplacementChainIr::ReplaceToken {
-            token_type,
-            amount_expr,
-        } => execute_replace_token_chain(
-            token_type.as_deref(),
-            amount_expr.as_deref(),
-            event,
-            game,
-            source_card_id,
-        ),
         ReplacementChainIr::ReplaceCounter { amount_expr, .. } => {
             execute_replace_counter_chain(amount_expr, event, game, source_card_id)
         }
@@ -890,35 +863,6 @@ pub(crate) fn execute_replace_effect_ir(
     }
 }
 
-/// Handle `DB$ ReplaceToken` SVars.
-///
-/// Mirrors Java `ReplaceTokenEffect.resolve()`.
-/// - `Type$ Amount`: multiplies token count using `Amount$` param (default `Twice`).
-fn execute_replace_token_chain(
-    token_type: Option<&str>,
-    amount_expr: Option<&str>,
-    event: &mut ReplacementEvent,
-    game: &GameState,
-    source_card_id: CardId,
-) -> Option<ReplacementResult> {
-    let token_type = token_type.unwrap_or("Amount");
-    match token_type {
-        "Amount" => {
-            // Get current count from event
-            let current = replacement_event_amount(event)?;
-            // Amount$ param, defaults to "Twice" per Java
-            let amount_expr = amount_expr.unwrap_or("Twice");
-            let new_value = do_x_math(current, amount_expr, game, source_card_id, event);
-            set_replacement_event_amount(event, new_value);
-            Some(ReplacementResult::Updated)
-        }
-        _ => {
-            // Other types (AddToken, ReplaceToken, ReplaceController) not yet needed
-            None
-        }
-    }
-}
-
 /// Handle `DB$ ReplaceCounter` SVars.
 ///
 /// Mirrors Java `ReplaceCounterEffect.resolve()`.
@@ -939,32 +883,6 @@ fn execute_replace_counter_chain(
         set_replacement_event_amount(event, value);
     }
     Some(ReplacementResult::Updated)
-}
-
-/// Simple math evaluation mirroring Java `AbilityUtils.doXMath()`.
-///
-/// Handles common expressions: "Twice", "Thrice", "Half", integer literals,
-/// and `Plus.N` / `Minus.N` style ops.
-fn do_x_math(
-    base: i32,
-    expr: &str,
-    game: &GameState,
-    source_card_id: CardId,
-    event: &ReplacementEvent,
-) -> i32 {
-    match expr {
-        "Twice" => base * 2,
-        "Thrice" => base * 3,
-        "Half" => ((base as f64) / 2.0).ceil() as i32,
-        _ => {
-            // Try resolving as an SVar or ReplaceCount$ expression
-            if let Some(val) = resolve_replace_value(expr, game, source_card_id, event) {
-                val
-            } else {
-                base
-            }
-        }
-    }
 }
 
 fn resolve_replace_player_key(
@@ -1695,7 +1613,9 @@ fn execute_effect(
             replace_moved::execute(effect, event, game, card_id, agents, runtime)
         }
         ReplacementType::GainLife => replace_gain_life::execute(effect, event, game, card_id),
-        ReplacementType::CreateToken => replace_token::execute(effect, event, game, card_id),
+        ReplacementType::CreateToken => {
+            replace_token::execute(effect, event, game, card_id, agents, runtime)
+        }
         ReplacementType::AddCounter => {
             replace_add_counter::execute(effect, event, game, card_id, agents)
         }
