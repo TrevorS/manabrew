@@ -1652,7 +1652,11 @@ impl TriggerHandler {
             && params.destination != Some(ZoneType::Battlefield)
         {
             // LKI active-zone check for "leaves battlefield" self triggers (e.g. dies).
-            ZoneType::Battlefield
+            if self.looks_back_in_time(trigger) {
+                ZoneType::Battlefield
+            } else {
+                params.destination.unwrap_or(card.zone)
+            }
         } else if *mode == TriggerType::ChangesZone
             && params.card == Some(host_card)
             && params.destination == Some(ZoneType::Battlefield)
