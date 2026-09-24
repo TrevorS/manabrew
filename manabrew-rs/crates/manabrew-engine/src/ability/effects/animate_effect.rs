@@ -422,8 +422,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 for kw in &remove_keywords {
                     card.pump_keywords.remove(kw);
                 }
-                for kw in &add_keywords {
-                    card.add_pump_keyword(kw);
+                if until_registered {
+                    trait_keywords = add_keywords;
+                } else {
+                    for kw in &add_keywords {
+                        card.add_pump_keyword(kw);
+                    }
                 }
             }
         }
@@ -513,7 +517,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
 
-        if removes_all_abilities || !added_abilities.is_empty() || !parsed_statics.is_empty() {
+        if removes_all_abilities
+            || !added_abilities.is_empty()
+            || !parsed_statics.is_empty()
+            || !trait_keywords.is_empty()
+        {
             let changes = CardTraitChanges {
                 abilities: added_abilities,
                 static_abilities: parsed_statics.clone(),

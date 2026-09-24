@@ -797,6 +797,12 @@ pub fn add_until_command(
             };
             game.leaves_play_commands.push((host, until));
         }
+        Some(crate::spellability::AbilityDuration::UntilUntaps) => {
+            let Some(host) = host else {
+                return false;
+            };
+            game.untap_commands.push((host, until));
+        }
         _ => return false,
     }
     true

@@ -279,6 +279,16 @@ impl GameState {
         }
     }
 
+    fn run_untap_commands(&mut self, card_id: CardId) {
+        let (commands, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.untap_commands)
+            .into_iter()
+            .partition(|(host, _)| *host == card_id);
+        self.untap_commands = kept;
+        for (_, command) in commands {
+            command.run(self, &mut crate::game_rng::ThreadRngAdapter::default());
+        }
+    }
+
     pub(crate) fn forget_on_cast(&mut self, card_id: CardId) {
         let forget_effects: Vec<CardId> = self
             .cards
@@ -594,6 +604,7 @@ impl GameState {
                     None => command.run(self, &mut crate::game_rng::ThreadRngAdapter::default()),
                 }
             }
+            self.run_untap_commands(card_id);
         }
         if dest_zone == ZoneType::Graveyard && was_permanent && !is_token {
             self.player_record_permanent_put_into_graveyard(self.card(card_id).owner);
@@ -2383,6 +2394,7 @@ impl GameState {
         if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
             return false; // Untap was prevented
         }
+        self.run_untap_commands(card_id);
         self.card_mut(card_id).tapped = false;
         // `ControlGain$ LoseControl$ Untap` — revert scheduled steal now.
         crate::ability::effects::control_gain_effect::untap_hook(self, card_id);
