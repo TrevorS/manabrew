@@ -512,6 +512,47 @@ pub fn next_auto_tap_choice_with_reserved_sacrifices(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn next_auto_float_choice(
+    game: &GameState,
+    pool: &ManaPool,
+    player: PlayerId,
+    cost: &ManaCost,
+    current_spell: Option<CardId>,
+    allow_reserved_source_reuse: bool,
+    reserved_sacrifices: &[CardId],
+    payment_ctx: Option<&crate::mana::ManaPaymentContext>,
+) -> Option<AutoTapChoice> {
+    let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
+    match payment_ctx {
+        Some(ctx) => pay_cost_from_pool(&mut unpaid, &pool.filtered_for_context(ctx)),
+        None => pay_cost_from_pool(&mut unpaid, pool),
+    }
+    if unpaid.is_paid() {
+        return None;
+    }
+    let mana_ability_map =
+        group_sources_by_mana_color(game, player, reserved_sacrifices, payment_ctx, false);
+    let candidates = collect_sorted_candidates(game, player, &mana_ability_map);
+    let (sa_payment, to_pay) = choose_candidate(
+        game,
+        player,
+        current_spell,
+        &candidates,
+        &unpaid,
+        allow_reserved_source_reuse,
+        reserved_sacrifices,
+    )?;
+    let chosen_atom = choose_atom_for_shard(&sa_payment, to_pay)?;
+    Some(AutoTapChoice {
+        card_id: sa_payment.card_id,
+        mana_ability_index: sa_payment.ability_index,
+        chosen_atom,
+        needs_express_choice: sa_payment.atoms.len() > 1,
+        cost_cards: Vec::new(),
+    })
+}
+
 pub fn auto_tap_lands_allow_reserved_source_reuse_with_callbacks(
     game: &mut GameState,
     pool: &mut ManaPool,

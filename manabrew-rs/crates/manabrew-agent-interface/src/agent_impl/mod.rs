@@ -1422,6 +1422,10 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
         true
     }
 
+    fn auto_pay_floats_mana(&self) -> bool {
+        true
+    }
+
     fn notify(&mut self, event: GameNotification) {
         match event {
             GameNotification::Event(log_event) => {

@@ -2148,6 +2148,9 @@ impl GameLoop {
                 cost_checkpoint_str: &cost_checkpoint_str,
                 is_activated_ability: false,
                 reserved_sacrifices: &combined_reserved_sacrifices,
+                current_spell: Some(card_id),
+                allow_reserved_source_reuse: false,
+                payment_ctx: Some(&payment_ctx),
             };
             let mana_payment = self.pay_mana_cost_session(
                 game,

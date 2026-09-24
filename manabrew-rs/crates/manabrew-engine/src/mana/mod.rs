@@ -85,7 +85,7 @@ pub use computer_util_mana::{
     auto_tap_lands_trace, auto_tap_lands_trace_with_callbacks, auto_tap_lands_with_callbacks,
     auto_tap_lands_with_chooser, can_pay_ability_mana_cost_for_action_space,
     can_pay_mana_cost_with_reserved_sacrifices, can_pay_spell_mana_cost_for_action_space,
-    collect_mana_payment_sources, next_auto_tap_choice,
+    collect_mana_payment_sources, next_auto_float_choice, next_auto_tap_choice,
     next_auto_tap_choice_with_reserved_sacrifices, AutoTapChoice, ManaPayCallback,
     ManaPayCallbackFn, ManaPaymentSources, SacrificeChooser,
 };

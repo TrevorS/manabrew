@@ -755,6 +755,9 @@ impl GameLoop {
                     if payable_mana_cost.is_zero() {
                         continue;
                     }
+                    let payment_ctx = sa
+                        .as_deref()
+                        .map(|sa| crate::mana::payment_context_for_sa(game, sa));
                     let session = ManaPaymentSession {
                         player,
                         card_id,
@@ -768,10 +771,11 @@ impl GameLoop {
                             CostPaymentContext::ActivatedAbility
                         ),
                         reserved_sacrifices: &reserved_sacrifices,
+                        current_spell: matches!(context, CostPaymentContext::ManaAbility)
+                            .then_some(card_id),
+                        allow_reserved_source_reuse: true,
+                        payment_ctx: payment_ctx.as_ref(),
                     };
-                    let payment_ctx = sa
-                        .as_deref()
-                        .map(|sa| crate::mana::payment_context_for_sa(game, sa));
                     let pay_from_pool = |pool: &mut crate::mana::ManaPool,
                                          cost: &forge_foundation::ManaCost,
                                          life| {

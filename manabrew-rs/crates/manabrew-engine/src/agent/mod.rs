@@ -1186,6 +1186,10 @@ pub trait PlayerAgent {
         false
     }
 
+    fn auto_pay_floats_mana(&self) -> bool {
+        false
+    }
+
     /// Choose which replacement effect to apply when multiple effects match the same event.
     fn choose_single_replacement_effect(
         &mut self,

@@ -383,6 +383,7 @@ pub(crate) fn pay_mana_cost_for_effect(
         return false;
     }
 
+    let payment_ctx = crate::mana::ManaPaymentContext::default();
     crate::game_loop::mana_payment::pay_mana_cost_session_generic(
         &mut EffectManaPayment {
             ctx,
@@ -399,6 +400,9 @@ pub(crate) fn pay_mana_cost_for_effect(
             cost_checkpoint_str: &cost_str,
             is_activated_ability: false,
             reserved_sacrifices: &[],
+            current_spell: Some(source),
+            allow_reserved_source_reuse: false,
+            payment_ctx: Some(&payment_ctx),
         },
         |game, player, cid, ab, _reserved| {
             crate::game_loop::GameLoop::mana_source_available_for_payment(game, player, cid)

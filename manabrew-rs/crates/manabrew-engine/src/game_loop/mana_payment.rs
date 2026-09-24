@@ -15,6 +15,9 @@ pub(crate) struct ManaPaymentSession<'a> {
     pub cost_checkpoint_str: &'a str,
     pub is_activated_ability: bool,
     pub reserved_sacrifices: &'a [CardId],
+    pub current_spell: Option<CardId>,
+    pub allow_reserved_source_reuse: bool,
+    pub payment_ctx: Option<&'a mana::ManaPaymentContext>,
 }
 
 #[derive(Clone, Copy)]
@@ -159,118 +162,16 @@ where
                     continue;
                 }
                 mana_loop_invalid_count = 0;
-                let mana_ab = {
-                    let c = game.card(land_id);
-                    mana_ability_index
-                        .and_then(|idx| c.activated_abilities.get(idx))
-                        .filter(|ab| {
-                            ab.is_mana_ability
-                                && mana_ability_available(
-                                    game,
-                                    session.player,
-                                    land_id,
-                                    ab,
-                                    session.reserved_sacrifices,
-                                )
-                        })
-                        .cloned()
-                        .or_else(|| {
-                            c.activated_abilities
-                                .iter()
-                                .find(|ab| {
-                                    ab.is_mana_ability
-                                        && mana_ability_available(
-                                            game,
-                                            session.player,
-                                            land_id,
-                                            ab,
-                                            session.reserved_sacrifices,
-                                        )
-                                })
-                                .cloned()
-                        })
-                };
-                if let Some(ab) = mana_ab {
-                    // Snapshot BEFORE the ability produces mana so we can
-                    // capture everything this tap adds to the pool —
-                    // base production, aura-granted mana, doublers, and
-                    // TapsForMana trigger payloads — in a single diff.
-                    // Without this, the untap path below only knows about
-                    // the land's native atoms and leaves the aura-added
-                    // mana orphaned in the pool.
-                    let player_idx = session.player.index();
-                    let undo_record = host.begin_mana_undo(session.player, land_id);
-                    let pool_snapshot = host.parts().2[player_idx].begin_tap_tracking();
-                    let resolved =
-                        host.resolve_mana_ability(session.player, land_id, &ab, express_choice);
-                    let (game, _, mana_pools) = host.parts();
-                    let produced = mana_pools[player_idx].end_tap_tracking(&pool_snapshot);
-                    let produced_count = produced.len();
-                    if resolved {
-                        executed_actions.push(ManaCostAction::TapForMana {
-                            card_id: land_id,
-                            mana_ability_index: Some(mana_ability_index.unwrap_or(0)),
-                            express_choice,
-                        });
-                    }
-                    if resolved && !produced.is_empty() {
-                        game.card_mut(land_id).last_mana_produced = Some(produced);
-                    }
-                    host.finish_mana_undo(undo_record, produced_count);
-                } else if let Some(atom) = basic_land_mana_atom(game.card(land_id)) {
-                    executed_actions.push(ManaCostAction::TapForMana {
-                        card_id: land_id,
-                        mana_ability_index: Some(0),
-                        express_choice: None,
-                    });
-                    let player_idx = session.player.index();
-                    let undo_record = host.begin_mana_undo(session.player, land_id);
-                    let (game, agents, mana_pools) = host.parts();
-                    let pool_snapshot = mana_pools[player_idx].begin_tap_tracking();
-                    game.tap(land_id);
-                    // Fire ProduceMana replacement (e.g. Nyxbloom Ancient triples mana)
-                    // before adding to pool. Mirrors Java AbilityManaPart.produceMana
-                    // which always invokes ReplacementHandler.run(ProduceMana, ...)
-                    // even for the implicit basic-land tap (every land has an
-                    // intrinsic AbilityManaPart in Forge's CardFactoryUtil).
-                    let mana_letter = crate::mana::ManaPool::atom_to_letter(atom).to_string();
-                    let mut event =
-                        crate::replacement::replacement_handler::ReplacementEvent::ProduceMana {
-                            source: land_id,
-                            activator: session.player,
-                            mana: mana_letter.clone(),
-                        };
-                    let result =
-                        crate::replacement::replacement_handler::apply_replacements_with_agents(
-                            game, agents, &mut event,
-                        );
-                    let final_mana = if result == crate::replacement::ReplacementResult::Updated {
-                        if let crate::replacement::replacement_handler::ReplacementEvent::ProduceMana {
-                            mana,
-                            ..
-                        } = event
-                        {
-                            mana
-                        } else {
-                            mana_letter
-                        }
-                    } else {
-                        mana_letter
-                    };
-                    for token in final_mana.split_whitespace() {
-                        if let Some(produced_atom) = crate::mana::mana_atom_from_produced(token) {
-                            mana_pools[player_idx].add(produced_atom, 1);
-                        }
-                    }
-                    host.on_basic_land_tap(session.player, land_id);
-                    let (game, _, mana_pools) = host.parts();
-                    let produced = mana_pools[player_idx].end_tap_tracking(&pool_snapshot);
-                    let produced_count = produced.len();
-                    if !produced.is_empty() {
-                        game.card_mut(land_id).last_mana_produced = Some(produced);
-                    }
-                    host.finish_mana_undo(undo_record, produced_count);
-                }
+                float_mana_from_source(
+                    host,
+                    session,
+                    land_id,
+                    mana_ability_index,
+                    express_choice,
+                    &mana_ability_available,
+                    &mut executed_actions,
+                    false,
+                );
             }
             ManaCostAction::Untap(land_id) => {
                 if !untappable_lands.contains(&land_id) {
@@ -281,7 +182,8 @@ where
                 }
             }
             ManaCostAction::Pay { auto } => {
-                if auto {
+                let floats_mana = auto && agents[session.player.index()].auto_pay_floats_mana();
+                if auto && !floats_mana {
                     let auto_trace = host.auto_pay(session);
                     let (_, agents, mana_pools) = host.parts();
                     if let Some(mut auto_trace) = auto_trace {
@@ -302,12 +204,23 @@ where
                     return ManaPaymentResult::failed();
                 }
 
+                let floated = floats_mana
+                    && float_mana_for_cost(
+                        host,
+                        session,
+                        &mana_ability_available,
+                        &mut executed_actions,
+                    );
                 let paid_from_pool = host.try_pay_from_pool(session.player);
                 let (_, agents, mana_pools) = host.parts();
                 if paid_from_pool {
                     executed_actions.push(ManaCostAction::Pay { auto: false });
                     notify_mana_payment_resolved(agents, session.player, &executed_actions);
                     return ManaPaymentResult::paid();
+                }
+                if floated {
+                    mana_loop_invalid_count = 0;
+                    continue;
                 }
 
                 mana_loop_invalid_count += 1;
@@ -322,9 +235,188 @@ where
                 executed_actions.push(ManaCostAction::AttemptedAndFailed);
                 notify_mana_payment_resolved(agents, session.player, &executed_actions);
                 mana_pools[session.player.index()] = saved_pool.clone();
+                if agents[session.player.index()].auto_pay_floats_mana() {
+                    return ManaPaymentResult::failed();
+                }
                 return ManaPaymentResult::failed_preserving_taps();
             }
         }
+    }
+}
+
+// Keep in sync with the host's `AutoPay.floatManaForCost` (forge-harness common/AutoPay.java).
+fn float_mana_for_cost<H, FAvail>(
+    host: &mut H,
+    session: ManaPaymentSession<'_>,
+    mana_ability_available: &FAvail,
+    executed_actions: &mut Vec<ManaCostAction>,
+) -> bool
+where
+    H: ManaPaymentHost,
+    FAvail: Fn(&GameState, PlayerId, CardId, &ActivatedAbility, &[CardId]) -> bool,
+{
+    let mut floated = false;
+    for _ in 0..128 {
+        let (game, _, mana_pools) = host.parts();
+        let Some(choice) = mana::next_auto_float_choice(
+            game,
+            &mana_pools[session.player.index()],
+            session.player,
+            session.mana_cost,
+            session.current_spell,
+            session.allow_reserved_source_reuse,
+            session.reserved_sacrifices,
+            session.payment_ctx,
+        ) else {
+            break;
+        };
+        if !float_mana_from_source(
+            host,
+            session,
+            choice.card_id,
+            choice.mana_ability_index,
+            choice.needs_express_choice.then_some(choice.chosen_atom),
+            mana_ability_available,
+            executed_actions,
+            true,
+        ) {
+            break;
+        }
+        floated = true;
+    }
+    floated
+}
+
+#[allow(clippy::too_many_arguments)]
+fn float_mana_from_source<H, FAvail>(
+    host: &mut H,
+    session: ManaPaymentSession<'_>,
+    land_id: CardId,
+    mana_ability_index: Option<usize>,
+    express_choice: Option<u16>,
+    mana_ability_available: &FAvail,
+    executed_actions: &mut Vec<ManaCostAction>,
+    keep_undo_on_decline: bool,
+) -> bool
+where
+    H: ManaPaymentHost,
+    FAvail: Fn(&GameState, PlayerId, CardId, &ActivatedAbility, &[CardId]) -> bool,
+{
+    let (game, _, _) = host.parts();
+    let mana_ab = {
+        let c = game.card(land_id);
+        mana_ability_index
+            .and_then(|idx| c.activated_abilities.get(idx))
+            .filter(|ab| {
+                ab.is_mana_ability
+                    && mana_ability_available(
+                        game,
+                        session.player,
+                        land_id,
+                        ab,
+                        session.reserved_sacrifices,
+                    )
+            })
+            .cloned()
+            .or_else(|| {
+                c.activated_abilities
+                    .iter()
+                    .find(|ab| {
+                        ab.is_mana_ability
+                            && mana_ability_available(
+                                game,
+                                session.player,
+                                land_id,
+                                ab,
+                                session.reserved_sacrifices,
+                            )
+                    })
+                    .cloned()
+            })
+    };
+    if let Some(ab) = mana_ab {
+        // Snapshot BEFORE the ability produces mana so we can
+        // capture everything this tap adds to the pool —
+        // base production, aura-granted mana, doublers, and
+        // TapsForMana trigger payloads — in a single diff.
+        // Without this, the untap path below only knows about
+        // the land's native atoms and leaves the aura-added
+        // mana orphaned in the pool.
+        let player_idx = session.player.index();
+        let undo_record = host.begin_mana_undo(session.player, land_id);
+        let pool_snapshot = host.parts().2[player_idx].begin_tap_tracking();
+        let resolved = host.resolve_mana_ability(session.player, land_id, &ab, express_choice);
+        let (game, _, mana_pools) = host.parts();
+        let produced = mana_pools[player_idx].end_tap_tracking(&pool_snapshot);
+        let produced_count = produced.len();
+        if resolved {
+            executed_actions.push(ManaCostAction::TapForMana {
+                card_id: land_id,
+                mana_ability_index: Some(mana_ability_index.unwrap_or(0)),
+                express_choice,
+            });
+        }
+        if resolved && !produced.is_empty() {
+            game.card_mut(land_id).last_mana_produced = Some(produced);
+        }
+        if resolved || !keep_undo_on_decline {
+            host.finish_mana_undo(undo_record, produced_count);
+        }
+        resolved && produced_count > 0
+    } else if let Some(atom) = basic_land_mana_atom(game.card(land_id)) {
+        executed_actions.push(ManaCostAction::TapForMana {
+            card_id: land_id,
+            mana_ability_index: Some(0),
+            express_choice: None,
+        });
+        let player_idx = session.player.index();
+        let undo_record = host.begin_mana_undo(session.player, land_id);
+        let (game, agents, mana_pools) = host.parts();
+        let pool_snapshot = mana_pools[player_idx].begin_tap_tracking();
+        game.tap(land_id);
+        // Fire ProduceMana replacement (e.g. Nyxbloom Ancient triples mana)
+        // before adding to pool. Mirrors Java AbilityManaPart.produceMana
+        // which always invokes ReplacementHandler.run(ProduceMana, ...)
+        // even for the implicit basic-land tap (every land has an
+        // intrinsic AbilityManaPart in Forge's CardFactoryUtil).
+        let mana_letter = crate::mana::ManaPool::atom_to_letter(atom).to_string();
+        let mut event = crate::replacement::replacement_handler::ReplacementEvent::ProduceMana {
+            source: land_id,
+            activator: session.player,
+            mana: mana_letter.clone(),
+        };
+        let result = crate::replacement::replacement_handler::apply_replacements_with_agents(
+            game, agents, &mut event,
+        );
+        let final_mana = if result == crate::replacement::ReplacementResult::Updated {
+            if let crate::replacement::replacement_handler::ReplacementEvent::ProduceMana {
+                mana,
+                ..
+            } = event
+            {
+                mana
+            } else {
+                mana_letter
+            }
+        } else {
+            mana_letter
+        };
+        for token in final_mana.split_whitespace() {
+            if let Some(produced_atom) = crate::mana::mana_atom_from_produced(token) {
+                mana_pools[player_idx].add(produced_atom, 1);
+            }
+        }
+        host.on_basic_land_tap(session.player, land_id);
+        let (game, _, mana_pools) = host.parts();
+        let produced = mana_pools[player_idx].end_tap_tracking(&pool_snapshot);
+        let produced_count = produced.len();
+        if !produced.is_empty() {
+            game.card_mut(land_id).last_mana_produced = Some(produced);
+        }
+        host.finish_mana_undo(undo_record, produced_count);
+        produced_count > 0
+    } else {
+        false
     }
 }
 
