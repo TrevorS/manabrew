@@ -640,6 +640,8 @@ fn matches_card_predicate(
         SelectorPredicate::Goaded => card.goaded_by.is_some(),
         SelectorPredicate::DoubleFaced => card.is_double_faced(),
         SelectorPredicate::Transformed => card.is_transformed,
+        SelectorPredicate::FrontSide => !card.is_transformed,
+        SelectorPredicate::BackSide => card.is_transformed,
         SelectorPredicate::CanProduceMana => {
             card.activated_abilities.iter().any(|a| a.is_mana_ability)
         }
@@ -3055,6 +3057,8 @@ fn matches_player_predicate(
         | SelectorPredicate::Goaded
         | SelectorPredicate::DoubleFaced
         | SelectorPredicate::Transformed
+        | SelectorPredicate::FrontSide
+        | SelectorPredicate::BackSide
         | SelectorPredicate::CanProduceMana
         | SelectorPredicate::NoAbilities
         | SelectorPredicate::CastWith(_)

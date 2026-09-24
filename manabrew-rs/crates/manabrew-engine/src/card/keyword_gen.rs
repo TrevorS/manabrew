@@ -930,6 +930,43 @@ impl Card {
                 });
         }
 
+        let day_time_triggers: &[(&str, &str, &str)] = match kw {
+            "Daybound" => &[
+                (
+                    "Mode$ Always | TriggerZones$ Battlefield | Static$ True | DayTime$ Neither | Secondary$ True | Execute$ DayboundSetDay | TriggerDescription$ Any time a player controls a permanent with daybound, if it's neither day nor night, it becomes day.",
+                    "DayboundSetDay",
+                    "DB$ DayTime | Value$ Day",
+                ),
+                (
+                    "Mode$ Always | TriggerZones$ Battlefield | Static$ True | DayTime$ Night | IsPresent$ Card.Self+FrontSide | Secondary$ True | Execute$ DayboundTransform | TriggerDescription$ As it becomes night, if this permanent is front face up, transform it.",
+                    "DayboundTransform",
+                    "DB$ SetState | Mode$ Transform",
+                ),
+            ],
+            "Nightbound" => &[
+                (
+                    "Mode$ Always | TriggerZones$ Battlefield | Static$ True | DayTime$ Neither | IsPresent$ Card.Daybound | PresentCompare$ EQ0 | Secondary$ True | Execute$ NightboundSetNight | TriggerDescription$ Any time a player controls a permanent with nightbound, if it's neither day nor night and there are no permanents with daybound on the battlefield, it becomes night.",
+                    "NightboundSetNight",
+                    "DB$ DayTime | Value$ Night",
+                ),
+                (
+                    "Mode$ Always | TriggerZones$ Battlefield | Static$ True | DayTime$ Day | IsPresent$ Card.Self+BackSide | Secondary$ True | Execute$ NightboundTransform | TriggerDescription$ As it becomes day, if this permanent is back face up, transform it",
+                    "NightboundTransform",
+                    "DB$ SetState | Mode$ Transform",
+                ),
+            ],
+            _ => &[],
+        };
+        for &(raw, execute, ability) in day_time_triggers {
+            if let Some(mut trig) = parse_trigger(raw, next_id) {
+                trig.execute = execute.to_string();
+                self.add_trigger(trig);
+            }
+            self.svars
+                .entry(execute.to_string())
+                .or_insert_with(|| ability.to_string());
+        }
+
         if kw.starts_with("Impending:") {
             let raw = "Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self+impended+counters_GE1_TIME | Secondary$ True | Execute$ TrigImpending | TriggerDescription$ At the beginning of your end step, remove a time counter from it.";
             if let Some(mut trig) = parse_trigger(raw, next_id) {

@@ -144,15 +144,16 @@ fn set_state_for_card(
                 &mut transform_event,
             );
 
-            // Fire Transformed trigger
-            ctx.trigger_handler.run_trigger(
-                crate::trigger::TriggerType::Transformed,
-                crate::event::RunParams {
-                    card: Some(card_id),
-                    ..Default::default()
-                },
-                false,
-            );
+            if !crate::parsing::raw_has_key(&sa.ability_text, "ETB") {
+                ctx.trigger_handler.run_trigger(
+                    crate::trigger::TriggerType::Transformed,
+                    crate::event::RunParams {
+                        card: Some(card_id),
+                        ..Default::default()
+                    },
+                    false,
+                );
+            }
 
             // Re-scan active triggers so the new face's trigger list takes effect.
             ctx.trigger_handler.reset_active_triggers(ctx.game);

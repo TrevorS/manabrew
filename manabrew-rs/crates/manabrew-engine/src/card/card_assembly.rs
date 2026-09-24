@@ -250,6 +250,8 @@ pub(crate) fn assemble_card(
 
     super::card_factory_util::add_riot_replacement(&mut card);
 
+    super::card_factory_util::add_daybound_replacement(&mut card);
+
     super::card_factory_util::add_devour_replacement(&mut card);
 
     // Add parsed static abilities and replacement effects.

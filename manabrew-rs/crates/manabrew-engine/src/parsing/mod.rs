@@ -232,6 +232,8 @@ pub enum SelectorPredicate {
     Goaded,
     DoubleFaced,
     Transformed,
+    FrontSide,
+    BackSide,
     CanProduceMana,
     NoAbilities,
     CastWith(AlternativeCost),
@@ -1013,6 +1015,8 @@ fn selector_predicate_order(predicate: &SelectorPredicate) -> u8 {
         | SelectorPredicate::Goaded
         | SelectorPredicate::DoubleFaced
         | SelectorPredicate::Transformed
+        | SelectorPredicate::FrontSide
+        | SelectorPredicate::BackSide
         | SelectorPredicate::CanProduceMana
         | SelectorPredicate::NoAbilities
         | SelectorPredicate::CastWith(_)
@@ -1147,6 +1151,8 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "isgoaded" => SelectorPredicate::Goaded,
         "doublefaced" => SelectorPredicate::DoubleFaced,
         "transformed" => SelectorPredicate::Transformed,
+        "frontside" => SelectorPredicate::FrontSide,
+        "backside" => SelectorPredicate::BackSide,
         "canproducemana" => SelectorPredicate::CanProduceMana,
         "noabilities" => SelectorPredicate::NoAbilities,
         "escaped" => SelectorPredicate::CastWith(AlternativeCost::Escape),

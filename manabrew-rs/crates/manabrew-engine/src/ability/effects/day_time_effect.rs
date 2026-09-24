@@ -11,22 +11,11 @@ use crate::ability::ability_ir::DayTimeValue;
 /// `DayTimeEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(DayTimeEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    match sa.ir.day_time_value {
-        Some(DayTimeValue::Day) => {
-            ctx.game.day_night_started = true;
-            ctx.game.is_night = false;
-        }
-        Some(DayTimeValue::Night) => {
-            ctx.game.day_night_started = true;
-            ctx.game.is_night = true;
-        }
-        Some(DayTimeValue::Switch) => {
-            ctx.game.day_night_started = true;
-            ctx.game.is_night = !ctx.game.is_night;
-        }
-        None => {}
-    }
-
-    // Day/Night changes trigger DFC transformations — handled by the game loop's
-    // state-based actions which check is_night against each DFC card.
+    let value = match sa.ir.day_time_value {
+        Some(DayTimeValue::Day) => false,
+        Some(DayTimeValue::Night) => true,
+        Some(DayTimeValue::Switch) => !ctx.game.get_day_time().unwrap_or(false),
+        None => return,
+    };
+    ctx.game.set_day_time(Some(value), ctx.trigger_handler);
 }

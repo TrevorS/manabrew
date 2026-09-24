@@ -352,6 +352,7 @@ impl GameLoop {
                         .back()
                         .filter(|_| game.extra_turns.len() > 1)
                         .map(|et| et.player);
+                    game.turn.player_previous_turn = Some(game.turn.active_player);
                     if let Some((player, _skip)) =
                         game.turn.advance_turn(&mut game.extra_turns, &player_order)
                     {
@@ -385,6 +386,13 @@ impl GameLoop {
 
         // Delegate phasing to the phase module.
         crate::phase::untap::do_phasing(game, active);
+        crate::phase::untap::do_day_time(
+            game,
+            game.turn.player_previous_turn,
+            &mut self.trigger_handler,
+        );
+        crate::staticability::layer::apply_continuous_effects(game);
+        self.run_static_state_triggers(game, agents);
 
         // Untap permanents — uses agent interaction for "may choose not to untap".
         let cards: Vec<crate::ids::CardId> =

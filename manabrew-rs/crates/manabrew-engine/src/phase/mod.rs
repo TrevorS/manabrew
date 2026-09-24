@@ -253,6 +253,8 @@ impl Phase {
 pub struct TurnState {
     pub turn_number: u32,
     pub active_player: PlayerId,
+    #[serde(default)]
+    pub player_previous_turn: Option<PlayerId>,
     pub phase: PhaseType,
     pub priority_player: PlayerId,
     #[serde(default)]
@@ -280,6 +282,7 @@ impl TurnState {
         TurnState {
             turn_number: 1,
             active_player,
+            player_previous_turn: None,
             phase: PhaseType::Untap,
             priority_player: active_player,
             num_players,

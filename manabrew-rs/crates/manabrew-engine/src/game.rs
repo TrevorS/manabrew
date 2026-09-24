@@ -888,6 +888,30 @@ impl GameState {
         !self.day_night_started
     }
 
+    pub fn get_day_time(&self) -> Option<bool> {
+        self.day_night_started.then_some(self.is_night)
+    }
+
+    pub fn set_day_time(
+        &mut self,
+        value: Option<bool>,
+        trigger_handler: &mut crate::trigger::handler::TriggerHandler,
+    ) {
+        if crate::staticability::static_ability_cant_change_day_time::cant_change_day(self, value) {
+            return;
+        }
+        let previous = self.get_day_time();
+        self.day_night_started = value.is_some();
+        self.is_night = value == Some(true);
+        if previous.is_some() && value.is_some() && previous != value {
+            trigger_handler.run_trigger(
+                crate::trigger::TriggerType::DayTimeChanges,
+                crate::event::RunParams::default(),
+                false,
+            );
+        }
+    }
+
     pub fn next_player(&self, player: PlayerId) -> PlayerId {
         let current_idx = self
             .player_order

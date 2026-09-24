@@ -39,42 +39,28 @@ pub fn do_phasing(game: &mut GameState, turn_player: PlayerId) {
     }
 }
 
-/// Handles day/night transitions at the beginning of untap.
-/// Mirrors Java's `Untap.doDayTime()`.
-///
-/// If it's day and previous player cast no spells → becomes night.
-/// If it's night and previous player cast 2+ spells → becomes day.
-pub fn do_day_time(game: &mut GameState, previous_player: Option<PlayerId>) {
-    let previous = match previous_player {
-        Some(p) => p,
-        None => return,
-    };
-
-    let spells_cast = game.player(previous).spells_cast_this_turn;
-
-    if !game.is_night && spells_cast == 0 {
-        game.day_night_started = true;
-        game.is_night = true; // transition to night
-    } else if game.is_night && spells_cast > 1 {
-        game.day_night_started = true;
-        game.is_night = false; // transition to day
-    }
-}
-
-/// Execute the untap step's "at" actions.
-/// Mirrors Java's `Untap.executeAt()` which calls super.executeAt(),
-/// then doPhasing(), doDayTime(), checkStaticAbilities(), and doUntap().
-///
-/// In Rust, the game loop calls these individually, but this provides
-/// the combined entry point matching the Java interface.
-pub fn execute_at(
+/// Mirrors Java's `Untap.doDayTime()`: day becomes night when the previous turn's player cast no
+/// spells that turn, and night becomes day when they cast two or more.
+pub fn do_day_time(
     game: &mut GameState,
-    turn_player: PlayerId,
-    previous_player: Option<PlayerId>,
-) -> Vec<CardId> {
-    do_phasing(game, turn_player);
-    do_day_time(game, previous_player);
-    do_untap(game, turn_player)
+    previous: Option<PlayerId>,
+    trigger_handler: &mut crate::trigger::handler::TriggerHandler,
+) {
+    let Some(previous) = previous else {
+        return;
+    };
+    let casted = game
+        .stack
+        .get_spells_cast_last_turn()
+        .iter()
+        .filter(|&&cid| game.card(cid).controller == previous)
+        .count();
+
+    if game.is_day() && casted == 0 {
+        game.set_day_time(Some(true), trigger_handler);
+    } else if game.is_night && casted > 1 {
+        game.set_day_time(Some(false), trigger_handler);
+    }
 }
 
 /// Performs the untap of permanents for the active player.

@@ -460,6 +460,28 @@ pub fn add_riot_replacement(card: &mut Card) {
     }
 }
 
+pub fn add_daybound_replacement(card: &mut Card) {
+    if !card
+        .keywords
+        .as_string_list()
+        .iter()
+        .any(|kw| kw == "Daybound")
+    {
+        return;
+    }
+    let repl_str = "R$ Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield \
+         | DayTime$ Night | Secondary$ True | Layer$ Transform | ReplacementResult$ Updated \
+         | ReplaceWith$ DayboundEnterTransformed \
+         | Description$ If it is night, this permanent enters transformed.";
+    if let Some(mut repl) = parse_replacement_effect(repl_str) {
+        repl.base.card_trait_base.set_svar(
+            "DayboundEnterTransformed".to_string(),
+            "DB$ SetState | Defined$ ReplacedCard | Mode$ Transform | ETB$ True".to_string(),
+        );
+        card.add_replacement_effect(repl);
+    }
+}
+
 pub fn add_devour_replacement(card: &mut Card) {
     use crate::keyword::keyword_with_type_interface::KeywordWithTypeTrait;
     let keywords = card.keywords.as_string_list();

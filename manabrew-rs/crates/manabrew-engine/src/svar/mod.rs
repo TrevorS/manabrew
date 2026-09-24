@@ -2550,6 +2550,9 @@ pub fn resolve_count_svar_for_sa(
         if sq[0] == "Delirium" {
             return math(calculate_branch(game.player_has_delirium(controller)));
         }
+        if sq[0] == "Night" {
+            return math(calculate_branch(game.is_night));
+        }
         if sq[0] == "CommittedCrimeThisTurn" {
             return math(calculate_branch(player.committed_crime_this_turn > 0));
         }
