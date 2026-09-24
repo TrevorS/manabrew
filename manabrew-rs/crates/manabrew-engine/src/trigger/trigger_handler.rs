@@ -558,29 +558,30 @@ impl TriggerHandler {
 
             let is_optional = pt.optional;
             let is_static = pt.static_trigger;
-            let pushed_entry = pt.entry.clone();
+            let pushed_sa = (pt.entry.spell_ability.is_trigger && !is_static)
+                .then(|| pt.entry.spell_ability.clone());
             game.stack.push(pt.entry);
-            if pushed_entry.spell_ability.is_trigger && !is_static {
-                let source_card = pushed_entry.spell_ability.source;
+            if let Some(pushed_sa) = pushed_sa {
+                let source_card = pushed_sa.source;
                 self.run_trigger(
                     TriggerType::SpellAbilityCast,
                     RunParams {
                         card: source_card,
                         spell_card: source_card,
-                        player: Some(pushed_entry.spell_ability.activating_player),
-                        activator: Some(pushed_entry.spell_ability.activating_player),
-                        spell_controller: Some(pushed_entry.spell_ability.activating_player),
-                        spell_ability: Some(pushed_entry.spell_ability.clone()),
-                        source_sa: Some(pushed_entry.spell_ability.clone()),
-                        cause: Some(pushed_entry.spell_ability.clone()),
+                        player: Some(pushed_sa.activating_player),
+                        activator: Some(pushed_sa.activating_player),
+                        spell_controller: Some(pushed_sa.activating_player),
+                        spell_ability: Some(pushed_sa.clone()),
+                        source_sa: Some(pushed_sa.clone()),
+                        cause: Some(pushed_sa.clone()),
                         cause_card: source_card,
                         ..Default::default()
                     },
                     true,
                 );
-                if let Some(mut ability_triggered) = pt.ability_triggered.clone() {
-                    ability_triggered.spell_ability = Some(pushed_entry.spell_ability.clone());
-                    ability_triggered.source_sa = Some(pushed_entry.spell_ability.clone());
+                if let Some(mut ability_triggered) = pt.ability_triggered {
+                    ability_triggered.spell_ability = Some(pushed_sa.clone());
+                    ability_triggered.source_sa = Some(pushed_sa);
                     if ability_triggered.cause_card.is_none() {
                         ability_triggered.cause_card = source_card;
                     }
