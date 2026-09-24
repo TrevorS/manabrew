@@ -283,6 +283,10 @@ pub struct GameState {
     pub replacements_running: crate::HashSet<(CardId, usize, i32)>,
     #[serde(skip)]
     pub hold_checking_static_abilities: bool,
+    /// Keep in sync with `Card::add_changed_name`, the only writer of the `OriginalName`
+    /// SVar: while this holds, no card carries one.
+    #[serde(skip)]
+    pub card_names_unchanged: bool,
     /// The last state-based check applied static abilities and its final pass changed nothing.
     #[serde(skip)]
     pub statics_current_after_sba: bool,
@@ -381,6 +385,7 @@ impl GameState {
             pending_discard_batch: None,
             replacements_running: crate::HashSet::default(),
             hold_checking_static_abilities: false,
+            card_names_unchanged: true,
             statics_current_after_sba: false,
             token_edition_pins: std::collections::BTreeMap::new(),
             last_state_battlefield: Vec::new(),

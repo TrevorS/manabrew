@@ -200,8 +200,9 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     let _params_lookup_scope =
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::Continuous);
     // ── 1. Reset all derived fields ──────────────────────────────────────
+    let card_names_unchanged = game.card_names_unchanged;
     for card in game.cards.iter_mut() {
-        if static_layer_reset_is_noop(card) {
+        if static_layer_reset_is_noop(card, card_names_unchanged) {
             continue;
         }
         let card = Arc::make_mut(card);
@@ -1095,7 +1096,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
 
 /// Keep in sync with the reset loop at the top of `apply_continuous_effects`: a card this
 /// answers true for is skipped there, so it must be exactly the state that loop would leave.
-fn static_layer_reset_is_noop(card: &crate::card::Card) -> bool {
+fn static_layer_reset_is_noop(card: &crate::card::Card, card_names_unchanged: bool) -> bool {
     card.changed_card_traits
         .keys()
         .all(|(_, static_id)| *static_id >= 0)
@@ -1111,10 +1112,11 @@ fn static_layer_reset_is_noop(card: &crate::card::Card) -> bool {
         && (card.face_down
             || (card.static_set_power.is_none() && card.static_set_toughness.is_none()))
         && card.granted_keywords.has_no_entries()
-        && card
-            .svars
-            .get("OriginalName")
-            .is_none_or(|name| *name == card.card_name)
+        && (card_names_unchanged
+            || card
+                .svars
+                .get("OriginalName")
+                .is_none_or(|name| *name == card.card_name))
         && card.granted_svars.is_empty()
         && card.static_type_line_base.is_none()
         && card.static_added_subtypes.is_empty()
@@ -1201,6 +1203,7 @@ fn apply_pending_effects(
                 );
             }
             EffectKind::SetName(name) => {
+                game.card_names_unchanged = false;
                 game.card_mut(effect.target).add_changed_name(&name);
             }
             EffectKind::GrantKeyword(kw) => {
