@@ -42,6 +42,7 @@ import forge.deck.Deck;
 import forge.deck.DeckSection;
 import forge.game.*;
 import forge.game.card.*;
+import forge.game.combat.AttackConstraints;
 import forge.game.combat.Combat;
 import forge.game.combat.CombatUtil;
 import forge.game.mana.Mana;
@@ -554,9 +555,9 @@ public class DeterministicController extends PlayerController implements Harness
 
     @Override
     public void declareAttackers(Player attacker, Combat combat) {
-        captureDeepCheckpoint("combat_attacker_choice");
-        // PhaseHandler may re-prompt attack declaration after invalid selections
-        // or unpaid attack costs; always rebuild from an empty declaration.
+        // Drafts are checked as CombatUtil.validateAttackers checks them, so PhaseHandler never
+        // re-prompts: each re-prompt left its empty AttackingBands in the combat, and the ~2^n
+        // drafts n must-attack creatures need slowed every addAttacker until the game stalled.
         combat.clearAttackers();
         final List<Card> legalAttackers = new ArrayList<>();
         for (final Card c : attacker.getCreaturesInPlay()) {
@@ -568,53 +569,52 @@ public class DeterministicController extends PlayerController implements Harness
             }
         }
         final List<Card> candidates = ChoiceSpace.sortNative(legalAttackers, ParityOrder.cardComparator());
-        final List<String> attackerLabels = ParityCardMap.disambiguateCards(candidates, Card::getName);
-        for (int cIdx = 0; cIdx < candidates.size(); cIdx++) {
-            final Card c = candidates.get(cIdx);
-            final String attackerLabel = attackerLabels.get(cIdx);
-            List<GameEntity> defenders = new ArrayList<>();
+        final List<List<GameEntity>> candidateDefenders = new ArrayList<>();
+        for (final Card c : candidates) {
+            final List<GameEntity> defenders = new ArrayList<>();
             for (final GameEntity defender : combat.getDefenders()) {
                 if (CombatUtil.canAttack(c, defender)) {
                     defenders.add(defender);
                 }
             }
-            defenders = ParityOrder.sortDefenders(defenders);
-            final List<String> options = new ArrayList<>();
-            options.add("PASS");
-            for (int i = 0; i < defenders.size(); i++) {
-                options.add("ATTACK:" + attackerLabel + "->D" + i);
-            }
-
-            final int roll = ChoiceSpace.pickIndex(2, rng);
-            String choice = "PASS";
-            if (roll == 1) {
-                final GameEntity defender = ChoiceSpace.pickOne(defenders, rng);
-                if (defender != null) {
-                    combat.addAttacker(c, defender);
-                    final int idx = defenders.indexOf(defender);
-                    if (idx >= 0) {
-                        choice = "ATTACK:" + attackerLabel + "->D" + idx;
+            candidateDefenders.add(ParityOrder.sortDefenders(defenders));
+        }
+        final AttackConstraints constraints = combat.getAttackConstraints();
+        Integer bestViolations = null;
+        while (true) {
+            captureDeepCheckpoint("combat_attacker_choice");
+            final Map<Card, GameEntity> declared = new LinkedHashMap<>();
+            for (int cIdx = 0; cIdx < candidates.size(); cIdx++) {
+                final int roll = ChoiceSpace.pickIndex(2, rng);
+                if (roll == 1) {
+                    final GameEntity defender = ChoiceSpace.pickOne(candidateDefenders.get(cIdx), rng);
+                    if (defender != null) {
+                        declared.put(candidates.get(cIdx), defender);
                     }
                 }
             }
-        }
 
-        // Summary callback mirroring Rust's choose_attackers
-        final CardCollectionView declared = combat.getAttackers();
-        final String availableCount = String.valueOf(candidates.size());
-        final String defenderCount = String.valueOf(combat.getDefenders().size());
-        if (declared.isEmpty()) {
-            onCallback("choose_attackers", "[]", availableCount, defenderCount);
-        } else {
+            // Summary callback mirroring Rust's choose_attackers
+            final String availableCount = String.valueOf(candidates.size());
+            final String defenderCount = String.valueOf(combat.getDefenders().size());
             final List<String> names = new ArrayList<>();
-            for (final Card c : declared) {
+            for (final Card c : declared.keySet()) {
                 names.add(formatCard(c));
             }
             onCallback("choose_attackers", "[" + String.join(", ", names) + "]", availableCount, defenderCount);
-        }
 
-        // Intentionally do not "fix up" invalid declarations here.
-        // PhaseHandler is the canonical owner of attacker-validation/re-prompt flow.
+            final int violations = constraints.countViolations(declared);
+            if (violations == -1) {
+                continue;
+            }
+            if (bestViolations == null) {
+                bestViolations = constraints.getLegalAttackers().getRight();
+            }
+            if (violations <= bestViolations) {
+                declared.forEach(combat::addAttacker);
+                return;
+            }
+        }
     }
 
     @Override
