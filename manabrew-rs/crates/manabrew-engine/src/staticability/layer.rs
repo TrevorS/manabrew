@@ -605,6 +605,17 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         });
                     }
 
+                    if sa.ir.remove_all_abilities {
+                        pending.push(PendingEffect {
+                            layer: Layer::Ability,
+                            target,
+                            kind: EffectKind::RemoveAllCardTraits {
+                                timestamp: source_card.layer_timestamp as i64,
+                                static_id: static_layer_trait_id(source_id, sa_idx),
+                            },
+                        });
+                    }
+
                     if let Some(kws) = sa.ir.add_keyword_text.as_deref() {
                         // AddKeyword$ supports multiple keywords separated by " & ".
                         for kw in kws.split('&').map(str::trim).filter(|s| !s.is_empty()) {
@@ -648,17 +659,6 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                                 kind: EffectKind::SetName(resolved),
                             });
                         }
-                    }
-
-                    if sa.ir.remove_all_abilities {
-                        pending.push(PendingEffect {
-                            layer: Layer::Ability,
-                            target,
-                            kind: EffectKind::RemoveAllCardTraits {
-                                timestamp: source_card.layer_timestamp as i64,
-                                static_id: static_layer_trait_id(source_id, sa_idx),
-                            },
-                        });
                     }
 
                     // AddAbility$ — grant an activated ability to the affected card.
@@ -1112,7 +1112,9 @@ fn apply_pending_effects(
                 timestamp,
                 static_id,
             } => {
-                game.card_mut(effect.target).add_changed_card_traits(
+                let card = game.card_mut(effect.target);
+                card.granted_keywords.clear();
+                card.add_changed_card_traits(
                     crate::card::card_trait_changes::CardTraitChanges::remove_all_layer(
                         Vec::new(),
                         Vec::new(),
