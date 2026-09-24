@@ -111,16 +111,24 @@ impl TriggerBehavior for TriggerAttackersDeclared {
 
     fn set_triggering_objects(
         &self,
-        _trigger: &super::trigger::Trigger,
+        trigger: &super::trigger::Trigger,
         sa: &mut SpellAbility,
         params: &RunParams,
-        _game: &GameState,
+        game: &GameState,
     ) {
         // Java: sa.setTriggeringObject(AbilityKey.Attackers, attackers);
         if let Some(attacker_ids) = params.attacker_ids.as_ref() {
+            let attackers = match &self.valid_attackers {
+                Some(filter) => attacker_ids
+                    .iter()
+                    .copied()
+                    .filter(|&attacker| trigger.matches_valid_card_filter(filter, attacker, game))
+                    .collect(),
+                None => attacker_ids.clone(),
+            };
             sa.set_triggering_value(
                 crate::ability::AbilityKey::Attackers,
-                crate::event::AbilityValue::Cards(attacker_ids.clone()),
+                crate::event::AbilityValue::Cards(attackers),
             );
         }
         // Java: sa.setTriggeringObject(AbilityKey.AttackedTarget, attackedTarget);
