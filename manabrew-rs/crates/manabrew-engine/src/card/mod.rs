@@ -249,6 +249,16 @@ pub struct CloneState {
     pub original_base_trigger_count: usize,
     #[serde(default)]
     pub original_other_part: Option<CardOtherPart>,
+    #[serde(skip)]
+    original_trait_base_activated_abilities: Option<Vec<ActivatedAbility>>,
+    #[serde(skip)]
+    original_trait_base_triggers: Option<Vec<Trigger>>,
+    #[serde(skip)]
+    original_trait_base_replacement_effects: Option<Vec<ReplacementEffect>>,
+    #[serde(skip)]
+    original_trait_base_static_abilities: Option<Vec<StaticAbility>>,
+    #[serde(skip)]
+    original_trait_base_keywords: Option<crate::keyword::keyword_collection::KeywordCollection>,
 }
 
 /// A card instance in a game. This is the mutable game-state representation,
@@ -3230,6 +3240,11 @@ impl Card {
             original_base_ability_count: self.base_ability_count,
             original_base_trigger_count: self.base_trigger_count,
             original_other_part: self.other_part.clone(),
+            original_trait_base_activated_abilities: self.trait_base_activated_abilities.clone(),
+            original_trait_base_triggers: self.trait_base_triggers.clone(),
+            original_trait_base_replacement_effects: self.trait_base_replacement_effects.clone(),
+            original_trait_base_static_abilities: self.trait_base_static_abilities.clone(),
+            original_trait_base_keywords: self.trait_base_keywords.clone(),
         }
     }
 
@@ -3267,6 +3282,17 @@ impl Card {
         self.base_ability_count = state.original_base_ability_count;
         self.base_trigger_count = state.original_base_trigger_count;
         self.other_part = state.original_other_part;
+        self.trait_base_activated_abilities = state.original_trait_base_activated_abilities;
+        self.trait_base_triggers = state.original_trait_base_triggers;
+        self.trait_base_replacement_effects = state.original_trait_base_replacement_effects;
+        self.trait_base_static_abilities = state.original_trait_base_static_abilities;
+        self.trait_base_keywords = state.original_trait_base_keywords;
+        if self.changed_card_traits.is_empty() && self.changed_card_traits_by_text.is_empty() {
+            self.clear_changed_card_traits();
+        } else {
+            self.capture_changed_card_traits_baseline_if_needed();
+            self.recompute_changed_card_traits();
+        }
         self.parsed_svar_cache.clear();
         self.refresh_action_specs();
         self.ensure_crew_activated_ability();
