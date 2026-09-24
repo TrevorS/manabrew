@@ -41,6 +41,7 @@ pub struct SimpleAi {
     turn: Option<u32>,
     attempted_actions: HashSet<String>,
     payment_attempt: Option<String>,
+    attempted_mana_abilities: HashSet<String>,
     has_command_cards: bool,
 }
 
@@ -635,6 +636,17 @@ impl SimpleAi {
         }
     }
 
+    fn costs_mana(cost: &str) -> bool {
+        cost.split('{')
+            .skip(1)
+            .filter_map(|rest| rest.split_once('}'))
+            .any(|(symbol, _)| {
+                symbol
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || "WUBRGCXSP/".contains(c))
+            })
+    }
+
     fn wasted_activation(&self, info: &ActivatableAbilityInfo) -> bool {
         let text = info.description.to_ascii_lowercase();
         if info
@@ -1182,6 +1194,7 @@ impl BotAgent for SimpleAi {
             self.turn = Some(view.turn);
             self.attempted_actions.clear();
             self.payment_attempt = None;
+            self.attempted_mana_abilities.clear();
             self.recent_prompts.clear();
             self.failed_attack_targets.clear();
         }
@@ -1269,6 +1282,7 @@ impl BotAgent for SimpleAi {
                     (action.id.clone(), Self::action_key(action))
                 });
                 self.payment_attempt = None;
+                self.attempted_mana_abilities.clear();
                 if let Some((_, key)) = &pick {
                     self.attempted_actions.insert(key.clone());
                 }
@@ -1612,28 +1626,26 @@ impl BotAgent for SimpleAi {
                 Some(PromptOutput::ChooseCombatDamageAssignment(ChooseCombatDamageAssignmentOutput::CombatDamageAssignmentDecision { assignments }))
             }
             PromptInput::PayManaCost(input) => {
-                let manual_action = input.actions.iter().find(|action| {
-                    matches!(
-                        &action.kind,
-                        manabrew_protocol::prompts::common::PaymentActionKind::ActivateManaAbility(
-                            info
-                        ) if info
-                            .cost
-                            .as_deref()
-                            .is_some_and(|cost| cost.chars().any(|c| c.is_ascii_digit()))
-                    ) || matches!(
-                        &action.kind,
-                        manabrew_protocol::prompts::common::PaymentActionKind::UseResource {
-                            resource:
-                                manabrew_protocol::prompts::common::PaymentResourceKind::Waterbend,
-                            ..
-                        }
-                    )
+                let manual_action = input.actions.iter().find_map(|action| match &action.kind {
+                    manabrew_protocol::prompts::common::PaymentActionKind::ActivateManaAbility(
+                        info,
+                    ) => {
+                        let key = format!("{}:{}", info.card_id, info.ability_index);
+                        (info.cost.as_deref().is_some_and(Self::costs_mana)
+                            && !self.attempted_mana_abilities.contains(&key))
+                        .then_some((action, Some(key)))
+                    }
+                    manabrew_protocol::prompts::common::PaymentActionKind::UseResource {
+                        resource: manabrew_protocol::prompts::common::PaymentResourceKind::Waterbend,
+                        ..
+                    } => Some((action, None)),
+                    _ => None,
                 });
                 let payment = if input.can_confirm_from_pool {
                     self.failed_attack_targets.clear();
                     PayManaCostOutput::Pay { auto: false }
-                } else if let Some(action) = manual_action {
+                } else if let Some((action, key)) = manual_action {
+                    self.attempted_mana_abilities.extend(key);
                     PayManaCostOutput::Act {
                         action_id: action.id.clone(),
                     }
