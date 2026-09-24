@@ -1842,12 +1842,16 @@ impl GameState {
             let outer_table = self
                 .pending_change_zone_table
                 .replace(crate::card::card_zone_table::CardZoneTable::default());
+            let outer_last_state = self
+                .replacement_last_state_battlefield
+                .replace(self.pre_sba_battlefield.clone());
             let changed = self.state_based_actions_pass(
                 &mut trigger_handler,
                 &mut legend_keep_fn,
                 &mut agents,
                 &mut parts,
             );
+            self.replacement_last_state_battlefield = outer_last_state;
             let table = std::mem::replace(&mut self.pending_change_zone_table, outer_table);
             if let (Some(handler), Some(table)) = (trigger_handler.as_deref_mut(), table) {
                 table.trigger_changes_zone_all(handler, self, None);

@@ -1499,10 +1499,34 @@ fn collect_effects(
         replace_untap,
     };
 
+    let last_state_battlefield = game
+        .replacement_last_state_battlefield
+        .as_deref()
+        .filter(|_| matches!(event, ReplacementEvent::Moved { .. }));
     let mut result = Vec::new();
     for (i, card) in game.cards.iter().enumerate() {
         let card_id = CardId(i as u32);
-        let card = pre_list.filter(|pre| pre.id == card_id).unwrap_or(card);
+        let pre = pre_list.filter(|pre| pre.id == card_id);
+        let last_state_card;
+        let card: &Card = match (pre, last_state_battlefield) {
+            (Some(pre), _) => pre,
+            (None, Some(last_state)) => {
+                let in_last_state = last_state.contains(&card_id);
+                if card.zone == ZoneType::Battlefield && !in_last_state {
+                    continue;
+                }
+                if in_last_state && card.zone != ZoneType::Battlefield {
+                    let mut lki = crate::lki::battlefield_lki_card(game, card_id)
+                        .unwrap_or_else(|| Card::clone(card));
+                    lki.zone = ZoneType::Battlefield;
+                    last_state_card = lki;
+                    &last_state_card
+                } else {
+                    card
+                }
+            }
+            (None, None) => card,
+        };
 
         let rules_effects = card.rules_replacement_effects();
         for (effect_idx_in_card, re) in card

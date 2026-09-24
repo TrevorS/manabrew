@@ -280,6 +280,9 @@ pub struct GameState {
     #[serde(skip)]
     pub pre_sba_battlefield: Vec<CardId>,
 
+    #[serde(skip)]
+    pub replacement_last_state_battlefield: Option<Vec<CardId>>,
+
     /// Last card sacrificed as a cost (for `Sacrificed$CardPower` SVar resolution).
     /// Mirrors Java's `sa.getPaidList("SacrificedCards")`.
     #[serde(skip)]
@@ -344,6 +347,7 @@ impl GameState {
             token_edition_pins: std::collections::BTreeMap::new(),
             last_state_battlefield: Vec::new(),
             pre_sba_battlefield: Vec::new(),
+            replacement_last_state_battlefield: None,
             last_sacrificed_card: None,
             counter_added_this_turn: BTreeMap::new(),
             left_battlefield_this_turn: Vec::new(),
