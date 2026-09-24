@@ -94,7 +94,16 @@ fn produce_mana_for_player(
     // (e.g. Mirari's Wake: owner chooses mana type but opponent votes).
     let chooser = sa
         .chooser()
-        .and_then(|d| super::resolve_defined_player(d, player, ctx.game))
+        .and_then(|d| {
+            crate::ability::ability_utils::resolve_defined_players_with_sa(
+                d,
+                sa,
+                sa.activating_player,
+                ctx.game,
+            )
+            .into_iter()
+            .next()
+        })
         .unwrap_or(player);
 
     // Read metadata params from the ability. Substitute "ChosenType" with
