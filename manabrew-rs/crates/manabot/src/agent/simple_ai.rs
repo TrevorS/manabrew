@@ -1563,11 +1563,12 @@ impl BotAgent for SimpleAi {
             }
             PromptInput::ChooseNumber(manabrew_protocol::prompts::choose_number::ChooseNumberInput { presentation, min, max }) => {
                 let x_cost = presentation.title.to_ascii_lowercase().ends_with("for x");
+                let least = min.max(1).min(max);
                 let chosen = if x_cost {
                     let fixed = prompt.source_card.as_ref().map_or(0, |card| card.cmc);
-                    (self.available_mana(&deciding_player_id) - fixed).clamp(min.max(1), max)
+                    (self.available_mana(&deciding_player_id) - fixed).clamp(least, max)
                 } else {
-                    min.max(1).min(max)
+                    least
                 };
                 Some(PromptOutput::ChooseNumber(ChooseNumberOutput::NumberDecision {
                     chosen_number: Some(chosen),
