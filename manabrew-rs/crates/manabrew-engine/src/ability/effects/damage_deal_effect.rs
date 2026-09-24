@@ -677,29 +677,7 @@ fn evaluate_svar_expr(ctx: &EffectContext, sa: &SpellAbility, expr: &str) -> i32
         return 0;
     }
     if expr == "TriggeredCard$CardPower" || expr == "TriggeredCard$CardToughness" {
-        let trigger_value_key = if expr.ends_with("CardPower") {
-            "TriggeredCardPower"
-        } else {
-            "TriggeredCardToughness"
-        };
-        if let Some(value) = crate::ability::ability_key::from_string(trigger_value_key)
-            .and_then(|key| sa.get_triggering_value(key))
-            .and_then(|value| value.to_trigger_text().trim().parse::<i32>().ok())
-        {
-            return value;
-        }
-
-        let triggered_card = sa
-            .get_triggering_card(crate::ability::AbilityKey::Card)
-            .or(sa.trigger_source);
-        if let Some(card_id) = triggered_card {
-            return if expr.ends_with("CardPower") {
-                crate::lki::resolve_lki_power(ctx.game, card_id)
-            } else {
-                crate::lki::resolve_lki_toughness(ctx.game, card_id)
-            };
-        }
-        return 0;
+        return crate::lki::resolve_triggered_card_lki_svar(ctx.game, sa, expr).unwrap_or(0);
     }
     match expr {
         // X mana cost paid value

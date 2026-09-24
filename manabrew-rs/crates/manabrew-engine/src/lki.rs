@@ -283,6 +283,19 @@ fn trigger_card_object(sa: &SpellAbility, key: &str) -> Option<CardId> {
         .and_then(|ability_key| sa.get_triggering_card(ability_key))
 }
 
+fn is_trigger_object_on_battlefield(
+    game: &crate::game::GameState,
+    sa: &SpellAbility,
+    card_id: CardId,
+) -> bool {
+    let card = game.card(card_id);
+    card.zone == ZoneType::Battlefield
+        && sa
+            .trigger_object_timestamps
+            .iter()
+            .any(|&(id, timestamp)| id == card_id && timestamp == card.zone_timestamp)
+}
+
 fn trigger_int_object(sa: &SpellAbility, key: &str) -> Option<i32> {
     crate::ability::ability_key::from_string(key)
         .and_then(|ability_key| sa.get_triggering_value(ability_key))
@@ -314,7 +327,13 @@ pub fn resolve_triggered_card_lki_property(
         }
         return trigger_card_object(sa, "Card")
             .or(sa.trigger_source)
-            .map(|trigger_src| resolve_lki_power(game, trigger_src));
+            .map(|trigger_src| {
+                if is_trigger_object_on_battlefield(game, sa, trigger_src) {
+                    game.card(trigger_src).power()
+                } else {
+                    resolve_lki_power(game, trigger_src)
+                }
+            });
     }
 
     if property == "CardToughness" {
@@ -323,12 +342,22 @@ pub fn resolve_triggered_card_lki_property(
         }
         return trigger_card_object(sa, "Card")
             .or(sa.trigger_source)
-            .map(|trigger_src| resolve_lki_toughness(game, trigger_src));
+            .map(|trigger_src| {
+                if is_trigger_object_on_battlefield(game, sa, trigger_src) {
+                    game.card(trigger_src).toughness()
+                } else {
+                    resolve_lki_toughness(game, trigger_src)
+                }
+            });
     }
 
     if let Some(counter_name) = property.strip_prefix("CardCounters.") {
         let trigger_src = trigger_card_object(sa, "Card").or(sa.trigger_source)?;
+        let in_play = is_trigger_object_on_battlefield(game, sa, trigger_src);
         if counter_name.eq_ignore_ascii_case("ALL") {
+            if in_play {
+                return Some(game.card(trigger_src).num_all_counters());
+            }
             return Some(
                 resolve_lki_counters(game, trigger_src)
                     .iter()
@@ -337,6 +366,9 @@ pub fn resolve_triggered_card_lki_property(
             );
         }
         let counter_type = crate::ability::effects::parse_counter_type(counter_name);
+        if in_play {
+            return Some(game.card(trigger_src).counter_count(&counter_type));
+        }
         return Some(resolve_lki_counter_count(game, trigger_src, &counter_type));
     }
 
