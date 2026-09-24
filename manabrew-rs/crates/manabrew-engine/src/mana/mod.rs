@@ -364,6 +364,9 @@ fn check_single_restriction(restriction: &str, ctx: &ManaPaymentContext) -> bool
                 return false;
             }
             let type_check = &restriction[6..]; // After "Spell."
+            if let Some(type_check) = type_check.strip_prefix("non") {
+                return !check_single_restriction(&format!("Spell.{type_check}"), ctx);
+            }
             if let Some(zone) = type_check.strip_prefix("!wasCastFrom") {
                 return !spell_was_cast_from(zone, ctx);
             }
