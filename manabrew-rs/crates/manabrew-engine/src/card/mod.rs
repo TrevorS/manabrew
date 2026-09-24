@@ -5094,6 +5094,14 @@ impl Card {
         self.keywords = keywords;
     }
 
+    pub fn add_intrinsic_activated_ability(&mut self, ability: ActivatedAbility) {
+        if let Some(abilities) = self.trait_base_activated_abilities.as_mut() {
+            abilities.push(ability.clone());
+        }
+        self.activated_abilities.push(ability);
+        self.base_ability_count = self.activated_abilities.len();
+    }
+
     fn reapply_changed_card_traits(&mut self) {
         if self.changed_card_traits.is_empty() && self.changed_card_traits_by_text.is_empty() {
             self.clear_changed_card_traits();

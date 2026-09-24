@@ -562,12 +562,19 @@ impl Card {
         if !self.add_intrinsic_keyword(kw) {
             return;
         }
+        let first_new = self.triggers.len();
         let mut next_id = self.triggers.iter().map(|t| t.id + 1).max().unwrap_or(0);
         self.generate_keyword_trigger_combat(kw, &mut next_id);
         self.generate_keyword_trigger_zone(kw, &mut next_id);
         self.add_keyword_etb_counters(kw);
         self.generate_keyword_trigger_misc(kw, &mut next_id);
         self.base_trigger_count = self.triggers.len();
+        if let Some(keywords) = self.trait_base_keywords.as_mut() {
+            keywords.add(kw);
+        }
+        if let Some(triggers) = self.trait_base_triggers.as_mut() {
+            triggers.extend_from_slice(&self.triggers[first_new..]);
+        }
     }
 
     fn add_keyword_etb_counters(&mut self, kw: &str) {

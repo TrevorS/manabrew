@@ -65,8 +65,7 @@ pub fn ability_morph_up(card: &mut Card, morph_details: &str, mega: bool, disgui
     );
     let index = card.activated_abilities.len();
     if let Some(parsed) = crate::ability::activated::parse_activated_ability(&text, index) {
-        card.activated_abilities.push(parsed);
-        card.base_ability_count = card.activated_abilities.len();
+        card.add_intrinsic_activated_ability(parsed);
     }
 }
 
@@ -124,8 +123,7 @@ pub fn ability_turn_face_up(card: &mut Card, key: &str) {
     }
     let index = card.activated_abilities.len();
     if let Some(parsed) = crate::ability::activated::parse_activated_ability(&text, index) {
-        card.activated_abilities.push(parsed);
-        card.base_ability_count = card.activated_abilities.len();
+        card.add_intrinsic_activated_ability(parsed);
     }
 }
 
