@@ -1237,6 +1237,21 @@ pub fn resolve_numeric_value(
     };
 
     if let Some(source_id) = sa.source {
+        let svar_expr =
+            crate::ability::ability_utils::get_s_var(sa, game, val_str).unwrap_or(val_str);
+        if let (Some(rest), Some(cast_sa)) = (
+            svar_expr.strip_prefix("CastSA>"),
+            game.card(source_id).cast_sa.as_deref(),
+        ) {
+            return sign
+                * resolve_svar_expression(
+                    rest,
+                    game,
+                    source_id,
+                    cast_sa.activating_player,
+                    cast_sa,
+                );
+        }
         if let Some(expression) = parse_script_svar_numeric_expression(val_str) {
             if let Some(value) = resolve_lowered_svar_expression(
                 &expression,
