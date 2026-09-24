@@ -139,7 +139,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .remove_card_from_zone(ZoneType::Library, target_player, card_id);
         }
 
-        let sequential = found_dest == Some(revealed_dest);
+        let sequential = found_dest.is_some() && found_dest == sa.ir.revealed_destination_zone;
         // Move found cards to destination
         if let Some(found_dest) = found_dest {
             let moving = if sequential { &revealed } else { &found };
