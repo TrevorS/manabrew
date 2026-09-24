@@ -415,6 +415,8 @@ pub struct Card {
     pub changed_keywords_base: Option<crate::keyword::keyword_collection::KeywordCollection>,
     #[serde(skip)]
     pub changed_trigger_count_base: Option<usize>,
+    #[serde(skip)]
+    pub changed_name_base: Option<String>,
     /// Keywords granted temporarily by pump effects (`KW$` parameter) until end of turn.
     /// Cleared during step_cleanup alongside power_modifier / toughness_modifier.
     pub pump_keywords: crate::keyword::keyword_collection::KeywordCollection,
@@ -932,6 +934,7 @@ impl Card {
             changed_base_toughness: None,
             changed_keywords_base: None,
             changed_trigger_count_base: None,
+            changed_name_base: None,
             pump_keywords: crate::keyword::keyword_collection::KeywordCollection::new(),
             pump_trigger_count: 0,
             abilities,
@@ -1166,6 +1169,7 @@ impl Card {
             changed_base_toughness: self.changed_base_toughness,
             changed_keywords_base: self.changed_keywords_base.clone(),
             changed_trigger_count_base: self.changed_trigger_count_base,
+            changed_name_base: self.changed_name_base.clone(),
             pump_keywords: self.pump_keywords.clone(),
             pump_trigger_count: self.pump_trigger_count,
             abilities: self.abilities.clone(),
@@ -1411,6 +1415,7 @@ impl Card {
             .clone_from(&self.changed_keywords_base);
         out.changed_trigger_count_base
             .clone_from(&self.changed_trigger_count_base);
+        out.changed_name_base.clone_from(&self.changed_name_base);
         if !out.pump_keywords.eq_in_order(&self.pump_keywords) {
             out.pump_keywords.clone_from(&self.pump_keywords);
         }
@@ -3386,6 +3391,9 @@ impl Card {
                 self.triggers.drain(count.min(end)..end);
                 self.base_trigger_count = count;
             }
+        }
+        if let Some(name) = self.changed_name_base.take() {
+            self.card_name = name;
         }
     }
 

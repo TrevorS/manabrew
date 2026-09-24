@@ -332,6 +332,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
 
+        if let Some(name) = sa.ir.name_text.as_deref() {
+            let card = ctx.game.card_mut(card_id);
+            if card.changed_name_base.is_none() {
+                card.changed_name_base = Some(card.card_name.clone());
+            }
+            card.set_card_name(name);
+        }
+
         if sa
             .ir
             .spell_description_text
