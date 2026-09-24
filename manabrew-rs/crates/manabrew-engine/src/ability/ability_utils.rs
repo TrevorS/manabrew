@@ -797,6 +797,27 @@ pub fn resolve_defined_players_with_sa(
             push_unique_player(&mut players, defending);
             players
         }
+        _ if key.starts_with("Triggered")
+            && key.ends_with("Controller")
+            && crate::ability::ability_key::from_string(
+                &key["Triggered".len()..key.len() - "Controller".len()],
+            )
+            .is_some() =>
+        {
+            let object = &key["Triggered".len()..key.len() - "Controller".len()];
+            let ability_key =
+                crate::ability::ability_key::from_string(object).expect("checked above");
+            let mut players = Vec::new();
+            for cid in sa.get_triggering_cards(ability_key) {
+                push_unique_player(&mut players, game.card(cid).controller);
+            }
+            if players.is_empty() {
+                if let Some(cause) = sa.get_triggering_spell_ability(object) {
+                    players.push(cause.activating_player);
+                }
+            }
+            players
+        }
         // `Player.<Property>`: every player in turn order, filtered by the restriction
         // (the tail of `AbilityUtils.getDefinedPlayers`).
         _ if defined.starts_with("Player.")
