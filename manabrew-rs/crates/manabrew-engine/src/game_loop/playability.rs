@@ -128,6 +128,45 @@ impl GameLoop {
         )
     }
 
+    fn can_pay_graveyard_spell_mana(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+        mana_cost: &forge_foundation::ManaCost,
+        available_mana: &crate::mana::ManaPool,
+        chosen_types_by_source: &crate::HashMap<CardId, String>,
+    ) -> bool {
+        let card = game.card(card_id);
+        let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
+            game,
+            card,
+            player,
+            ZoneType::Graveyard,
+        );
+        let raise_mana = crate::cost::cost_adjustment::compute_raise_cost_parts(
+            game,
+            card,
+            player,
+            ZoneType::Graveyard,
+        )
+        .as_ref()
+        .map(|rc| Self::raise_mana_from_cost(game, rc, card_id, player))
+        .unwrap_or_else(|| forge_foundation::ManaCost::generic(0));
+        let base = cost_adj.apply(&mana_cost.without_x()).add(&raise_mana);
+        let payable = crate::mana::apply_player_life_payment_keywords(game, player, &base);
+        let reduced = apply_cost_reductions(game, player, card_id, card, &payable);
+        crate::mana::can_pay_spell_mana_cost_for_action_space(
+            game,
+            self.pool(player),
+            player,
+            card_id,
+            &reduced,
+            &Self::spell_payment_context(card, chosen_types_by_source),
+        ) || (Self::can_use_source_level_mana_fallback(game, player, available_mana)
+            && available_mana.can_pay(&reduced))
+    }
+
     fn can_cast_may_play_spell(
         &self,
         game: &GameState,
@@ -1595,8 +1634,14 @@ impl GameLoop {
                 .filter(|(_, fb_cost_str)| {
                     let fb_cost = crate::cost::parse_cost(fb_cost_str);
                     let fb_mana = Self::mana_from_cost(&fb_cost);
-                    available_mana.can_pay(&fb_mana)
-                        && sp_additional_ok
+                    self.can_pay_graveyard_spell_mana(
+                        game,
+                        player,
+                        card_id,
+                        &fb_mana,
+                        &available_mana,
+                        &chosen_types_by_source,
+                    ) && sp_additional_ok
                         && crate::cost::can_pay_ignoring_mana_for_spell(
                             &fb_cost, game, card_id, player,
                         )
@@ -1621,7 +1666,14 @@ impl GameLoop {
                     .iter()
                     .filter(|&&cid| cid != card_id)
                     .count() as i32;
-                available_mana.can_pay(&escape_mc) && other_gy_count >= exile_count
+                self.can_pay_graveyard_spell_mana(
+                    game,
+                    player,
+                    card_id,
+                    &escape_mc,
+                    &available_mana,
+                    &chosen_types_by_source,
+                ) && other_gy_count >= exile_count
             } else {
                 false
             };
@@ -1629,7 +1681,14 @@ impl GameLoop {
                 let mayhem_mana = Self::mana_from_cost(&crate::cost::parse_cost(&mayhem_cost_str));
                 card.was_discarded()
                     && card.entered_current_zone_this_turn(game.turn.turn_number)
-                    && available_mana.can_pay(&mayhem_mana)
+                    && self.can_pay_graveyard_spell_mana(
+                        game,
+                        player,
+                        card_id,
+                        &mayhem_mana,
+                        &available_mana,
+                        &chosen_types_by_source,
+                    )
                     && sp_additional_ok
             } else {
                 false
