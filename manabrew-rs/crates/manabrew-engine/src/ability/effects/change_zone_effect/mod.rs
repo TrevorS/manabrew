@@ -77,7 +77,7 @@ pub fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
         let mut zones: Vec<ZoneType> = Vec::new();
         for cid in &defined_cards {
             let zone = ctx.game.card(*cid).zone;
-            if !zones.contains(&zone) {
+            if zone != ZoneType::None && !zones.contains(&zone) {
                 zones.push(zone);
             }
         }
