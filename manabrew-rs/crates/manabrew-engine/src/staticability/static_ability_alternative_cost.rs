@@ -66,6 +66,18 @@ pub fn alternative_costs(
     result
 }
 
+/// Keep in sync with `alternative_costs`: for a source in a static-source zone it collects only
+/// from `AlternativeCost` statics active in their card's static-source zone.
+pub fn any_in_static_source_zones(cards: &[Arc<Card>]) -> bool {
+    cards.iter().any(|card| {
+        card.zone.is_static_ability_source()
+            && card
+                .static_abilities
+                .iter()
+                .any(|st_ab| st_ab.is_active_for(StaticMode::AlternativeCost, card.zone))
+    })
+}
+
 /// Check if any alternative cost static applies to this card for this player.
 /// Convenience wrapper around `alternative_costs` — returns true if at least one
 /// alternative cost is available.

@@ -488,6 +488,10 @@ impl GameLoop {
             verdict.is_ok()
         };
 
+        let alternative_cost_statics =
+            crate::staticability::static_ability_alternative_cost::any_in_static_source_zones(
+                &game.cards,
+            );
         for card_id in battlefield {
             let card = game.card(card_id);
             // Face-down creatures only expose morph turn-face-up ability (game rule).
@@ -512,14 +516,15 @@ impl GameLoop {
                     result.push((card_id, ab.ability_index));
                 }
             }
-            if self
-                .prepare_static_alternative_activated_ability(
-                    game,
-                    player,
-                    card_id,
-                    can_play_sorcery,
-                )
-                .is_some()
+            if alternative_cost_statics
+                && self
+                    .prepare_static_alternative_activated_ability(
+                        game,
+                        player,
+                        card_id,
+                        can_play_sorcery,
+                    )
+                    .is_some()
             {
                 result.push((card_id, STATIC_ALTERNATIVE_ABILITY_INDEX));
             }
