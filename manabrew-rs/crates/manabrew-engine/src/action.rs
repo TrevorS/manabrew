@@ -899,6 +899,7 @@ impl GameState {
                 // turn.
                 card.clear_pump_triggers();
                 card.clear_pump_keywords();
+                card.cant_have_keywords.clear();
                 // Restore intrinsic keywords from the animate snapshot so
                 // Animate-granted keywords (e.g. Sneak Attack's `Keywords$
                 // Haste`) do not persist into the new object the card

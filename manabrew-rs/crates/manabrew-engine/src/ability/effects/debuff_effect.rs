@@ -49,6 +49,19 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 ctx.game.card_mut(target).remove_intrinsic_keyword(&kw);
             } else {
                 ctx.game.card_mut(target).add_cant_have_keyword(&kw);
+                let until = crate::phase::PhaseCommand::RemoveCantHaveKeyword {
+                    card: target,
+                    keyword: kw,
+                };
+                if !crate::ability::spell_ability_effect::add_until_command(
+                    ctx.game,
+                    sa.ir.duration.as_ref(),
+                    sa.activating_player,
+                    sa.source,
+                    until.clone(),
+                ) {
+                    ctx.game.end_of_turn.add_until(None, until);
+                }
             }
         }
     }

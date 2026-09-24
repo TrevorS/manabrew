@@ -823,7 +823,6 @@ impl GameLoop {
                 }
 
                 card.reset_turn_modifiers();
-                card.cant_have_keywords.clear();
                 card.clear_pump_keywords();
                 card.clear_pump_triggers();
                 card.clear_deathtouch_damage();
@@ -842,18 +841,16 @@ impl GameLoop {
                     Arc::make_mut(&mut game.cards[i]).clear_damage();
                 }
                 // Effects with "until end of turn" duration end at cleanup
-                // (CR 514.2). Pump keywords and "can't have" tags apply to
+                // (CR 514.2). Pump keywords apply to
                 // ANY permanent (e.g. Heroic Intervention grants hexproof to
                 // creatures AND artifacts/lands), so the clear must run on
                 // every battlefield card, not just creatures. Without this,
                 // an artifact like Lightning Greaves keeps Heroic
                 // Intervention's hexproof past the turn it was cast.
                 let card = Arc::make_mut(&mut game.cards[i]);
-                card.cant_have_keywords.clear();
                 card.clear_pump_keywords();
                 card.clear_pump_triggers();
             } else {
-                card.cant_have_keywords.clear();
                 card.clear_pump_keywords();
                 card.clear_pump_triggers();
             }
