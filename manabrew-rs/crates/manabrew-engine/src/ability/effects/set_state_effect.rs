@@ -50,6 +50,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
             }
         }
+        if mode == Some(&SpellAbilityMode::Transform) && sa.source == Some(card_id) {
+            if let Some(stored) = crate::parsing::raw_get(&sa.ability_text, "StoredTransform") {
+                if stored.parse().ok() != Some(ctx.game.card(card_id).transform_count) {
+                    continue;
+                }
+            }
+        }
         if sa.param_is_true(keys::OPTIONAL) {
             let message = format!("Transform {}?", ctx.game.card(card_id).card_name);
             if !ctx.agents[sa.activating_player.index()].confirm_action(
@@ -106,6 +113,7 @@ fn set_state_for_card(
 
             // Perform the transform.
             ctx.game.card_mut(card_id).transform();
+            ctx.game.card_mut(card_id).transform_count += 1;
 
             // Fire Transformed trigger
             ctx.trigger_handler.run_trigger(

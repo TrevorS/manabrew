@@ -605,6 +605,7 @@ pub struct Card {
     // Double-faced card (DFC) state
     /// True if this card is currently showing its back face.
     pub is_transformed: bool,
+    pub transform_count: u32,
     /// Back-face characteristics for DFC cards. `None` for single-faced cards.
     pub other_part: Option<CardOtherPart>,
 
@@ -1001,6 +1002,7 @@ impl Card {
             until_host_leaves_origin: None,
             original_controller_eot: None,
             is_transformed: false,
+            transform_count: 0,
             other_part: None,
             set_code: None,
             card_number: None,
@@ -1242,6 +1244,7 @@ impl Card {
             until_host_leaves_origin: self.until_host_leaves_origin,
             original_controller_eot: self.original_controller_eot,
             is_transformed: self.is_transformed,
+            transform_count: self.transform_count,
             other_part: self
                 .other_part
                 .as_ref()
@@ -1525,6 +1528,7 @@ impl Card {
         out.original_controller_eot
             .clone_from(&self.original_controller_eot);
         out.is_transformed.clone_from(&self.is_transformed);
+        out.transform_count.clone_from(&self.transform_count);
         match (&mut out.other_part, &self.other_part) {
             (Some(out_other), Some(other)) => other.refresh_parity_snapshot(out_other),
             (out_other, other) => {

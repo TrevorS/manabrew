@@ -29,6 +29,20 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     } else {
         return;
     };
+    let execute_params = Params::from_raw(&execute_svar);
+    let execute_svar = if ["AB", "DB", "SP"].iter().any(|kind| {
+        execute_params
+            .get(kind)
+            .and_then(crate::ability::api_type::ApiType::smart_value_of)
+            == Some(crate::ability::api_type::ApiType::SetState)
+    }) {
+        format!(
+            "{execute_svar} | StoredTransform$ {}",
+            ctx.game.card(source_id).transform_count
+        )
+    } else {
+        execute_svar
+    };
 
     let mut remembered_amount = 0;
     if sa.ir.remember_number {
