@@ -11,7 +11,7 @@ use crate::shell_bridge::{ShellBridge, ShellCommand};
 use crate::updater::{run_stale_monitor, StaleConfig};
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
-use manabot::{run_bot, AgentKind, BotConfig, BotResponder};
+use manabot::{run_bot, BotConfig, BotResponder};
 use manabrew_agent_interface::agent_impl::Responder;
 use manabrew_agent_interface::ids_codec::{parse_player_slot, player_slot};
 use manabrew_agent_interface::prompt::{AgentMessage, ClientToServerMessage, PromptOutput};
@@ -1036,7 +1036,7 @@ fn spawn_bots(config: &Config, decks: &[DeckSelection], room_id: &str, bot_state
             deck_name: deck.name.clone(),
             deck: deck.deck.clone(),
             commander_name: deck.commander_name.clone(),
-            agent: AgentKind::Simple,
+            agent: config.bot_agent,
             answer_delay_ms: None,
         };
         let shutdown = Arc::new(tokio::sync::Notify::new());
@@ -2301,6 +2301,12 @@ fn patch_against_last(
 
 /// This node's own bot seats, answered in-process with the same agent their
 /// relay connection runs. Saves two relay hops per bot decision.
+///
+/// `config.bot_agent` is what makes that first sentence true rather than a
+/// coincidence: `spawn_bots` gives the seat's relay connection the same value.
+/// Building a fixed agent here instead would silently outrank whatever the
+/// seat is actually configured to play, because the relay's answer arrives
+/// second and is dropped by `is_local_bot_duplicate`.
 fn local_bot_seats(
     config: &Config,
     player_names: &[String],
@@ -2313,7 +2319,15 @@ fn local_bot_seats(
         .iter()
         .enumerate()
         .filter(|(_, name)| bot_usernames.contains(*name))
-        .map(|(index, _)| (index, BotResponder::new(AgentKind::Simple.build())))
+        .map(|(index, name)| {
+            info!(
+                player_index = index,
+                seat = name.as_str(),
+                agent = ?config.bot_agent,
+                "answering this bot seat in-process; its relay answers are dropped"
+            );
+            (index, BotResponder::new(config.bot_agent.build()))
+        })
         .collect()
 }
 

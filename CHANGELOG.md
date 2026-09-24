@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.49.6](https://github.com/witchesofthehill/manabrew/compare/v3.49.5...v3.49.6) (2026-09-24)
+
+### Fixes
+
+* **ui:** community loading skeletons and targeting field reveal ([#948](https://github.com/witchesofthehill/manabrew/issues/948)) ([37eaea2](https://github.com/witchesofthehill/manabrew/commit/37eaea22f6ac9ee8ea44443ed0ed2f78c682aba5))
+
+## [3.49.5](https://github.com/witchesofthehill/manabrew/compare/v3.49.4...v3.49.5) (2026-09-24)
+
+## [3.49.4](https://github.com/witchesofthehill/manabrew/compare/v3.49.3...v3.49.4) (2026-09-23)
+
+### Fixes
+
+* **ui:** load locale-matched card images from cdn ([#982](https://github.com/witchesofthehill/manabrew/issues/982)) ([3325ed1](https://github.com/witchesofthehill/manabrew/commit/3325ed14a3746753764a707e44bac174d5c7ff40))
+
 ## [3.49.3](https://github.com/witchesofthehill/manabrew/compare/v3.49.2...v3.49.3) (2026-09-22)
 
 ### Fixes
