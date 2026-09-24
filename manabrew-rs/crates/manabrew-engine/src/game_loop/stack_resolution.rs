@@ -160,6 +160,7 @@ impl GameLoop {
             }
             apply_continuous_effects(game);
             game.copy_last_state_combat_lki(&self.combat);
+            game.stack.finish_resolving();
             return;
         }
         game.copy_last_state_combat_lki(&self.combat);
@@ -195,6 +196,7 @@ impl GameLoop {
                 false,
             );
             apply_continuous_effects(game);
+            game.stack.finish_resolving();
             return;
         }
 
@@ -202,6 +204,7 @@ impl GameLoop {
             && !Self::trigger_requirements_still_met(game, &entry.spell_ability)
         {
             apply_continuous_effects(game);
+            game.stack.finish_resolving();
             return;
         }
 
@@ -236,6 +239,7 @@ impl GameLoop {
                 );
                 if !accepted {
                     apply_continuous_effects(game);
+                    game.stack.finish_resolving();
                     return;
                 }
             }
@@ -265,6 +269,7 @@ impl GameLoop {
                     ) {
                         Self::reset_x_mana_cost_paid(game, source, x_paid_before);
                         apply_continuous_effects(game);
+                        game.stack.finish_resolving();
                         return;
                     }
                     let mut need_x = true;
@@ -278,6 +283,7 @@ impl GameLoop {
                     ) {
                         Self::reset_x_mana_cost_paid(game, source, x_paid_before);
                         apply_continuous_effects(game);
+                        game.stack.finish_resolving();
                         return;
                     }
                     if !self.pay_ability_cost(
@@ -293,6 +299,7 @@ impl GameLoop {
                     ) {
                         Self::reset_x_mana_cost_paid(game, source, x_paid_before);
                         apply_continuous_effects(game);
+                        game.stack.finish_resolving();
                         return;
                     }
                 }
