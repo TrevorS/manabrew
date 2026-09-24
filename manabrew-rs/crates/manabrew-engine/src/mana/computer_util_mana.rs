@@ -4091,11 +4091,9 @@ fn sort_sources_for_autopay(
 /// - +13 per combat role (attack/block) for creatures
 fn autopay_source_score(game: &GameState, _player: PlayerId, ma: &ManaAbilityRef) -> i32 {
     let card = game.card(ma.card_id);
-    let mut score = if ma
-        .produced_ir
-        .as_ref()
-        .is_some_and(crate::ability::ProducedMana::is_combo_color_identity)
-    {
+    let mut score = if ma.produced_ir.as_ref().is_some_and(|produced| {
+        produced.is_combo_color_identity() || produced.special_kind().is_some()
+    }) {
         score_atoms_for_autopay(&ma.atoms).unwrap_or(2)
     } else if ma
         .produced_ir
