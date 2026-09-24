@@ -189,7 +189,7 @@ public final class HarnessPlayPlumbing {
         final CostPayment pay = new CostPayment(cost, sa);
 
         if (!announceType(sa) || !announceValuesLikeX(sa) || !sa.checkRestrictions(ai)
-                || !sa.setupTargets() || !sa.isLegalAfterStack()) {
+                || !sa.setupTargets() || (!sa.isLandAbility() && !sa.isLegalAfterStack())) {
             if (sa.isSpell() && !source.isCopiedSpell() && hz != null) {
                 GameActionUtil.rollbackAbility(sa, hz, zonePosition, pay, host);
             }
