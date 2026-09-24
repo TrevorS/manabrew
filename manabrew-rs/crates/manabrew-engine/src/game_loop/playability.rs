@@ -824,14 +824,19 @@ impl GameLoop {
                     chosen_types_by_source: chosen_types_by_source.clone(),
                     ..Default::default()
                 };
-                let available_mana = mana::calculate_available_mana_with_context(
-                    self.pool(player),
-                    game,
-                    player,
-                    Some(card_id),
-                    &[],
-                    Some(&payment_ctx),
-                );
+                let available_mana_cell = std::cell::OnceCell::new();
+                let available_mana = || {
+                    available_mana_cell.get_or_init(|| {
+                        mana::calculate_available_mana_with_context(
+                            self.pool(player),
+                            game,
+                            player,
+                            Some(card_id),
+                            &[],
+                            Some(&payment_ctx),
+                        )
+                    })
+                };
 
                 // Apply cost reduction/increase from static abilities
                 let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
@@ -900,16 +905,16 @@ impl GameLoop {
                             let reduced =
                                 apply_cost_reductions(game, player, card_id, probe_host, &colored);
                             if any_color {
-                                available_mana.can_pay_any_color(&reduced)
+                                available_mana().can_pay_any_color(&reduced)
                             } else {
-                                available_mana.can_pay(&reduced)
+                                available_mana().can_pay(&reduced)
                             }
                         }
                     } else {
                         let reduced =
                             apply_cost_reductions(game, player, card_id, probe_host, &payable_base);
                         if any_color {
-                            available_mana.can_pay_any_color(&reduced)
+                            available_mana().can_pay_any_color(&reduced)
                         } else {
                             crate::mana::can_pay_spell_mana_cost_for_action_space(
                                 game,
@@ -927,8 +932,8 @@ impl GameLoop {
                             || (Self::can_use_source_level_mana_fallback(
                                 game,
                                 player,
-                                &available_mana,
-                            ) && available_mana.can_pay(&reduced))
+                                available_mana(),
+                            ) && available_mana().can_pay(&reduced))
                         }
                     }
                 };
@@ -937,9 +942,9 @@ impl GameLoop {
                         let cost = forge_foundation::ManaCost::parse(cost);
                         let adjusted = cost_adj.apply(&cost).add(&raise_mana);
                         if any_color {
-                            available_mana.can_pay_any_color(&adjusted)
+                            available_mana().can_pay_any_color(&adjusted)
                         } else {
-                            available_mana.can_pay(&adjusted)
+                            available_mana().can_pay(&adjusted)
                         }
                     });
 
@@ -949,7 +954,7 @@ impl GameLoop {
                         .apply(&forge_foundation::ManaCost::parse(&spec_cost_str))
                         .add(&raise_mana);
                     game.player_opponents_lost_life_this_turn(player)
-                        && available_mana.can_pay(&adjusted)
+                        && available_mana().can_pay(&adjusted)
                 } else {
                     false
                 };
@@ -971,7 +976,7 @@ impl GameLoop {
                         let evoke_cost = crate::cost::parse_cost(cost_str);
                         let evoke_mana = Self::mana_from_cost(&evoke_cost);
                         let adjusted = cost_adj.apply(&evoke_mana).add(&raise_mana);
-                        available_mana.can_pay(&adjusted)
+                        available_mana().can_pay(&adjusted)
                             && crate::cost::can_pay_ignoring_mana_for_spell(
                                 &evoke_cost,
                                 game,
@@ -987,7 +992,7 @@ impl GameLoop {
                     let adjusted = cost_adj
                         .apply(&forge_foundation::ManaCost::parse(&dash_cost_str))
                         .add(&raise_mana);
-                    available_mana.can_pay(&adjusted)
+                    available_mana().can_pay(&adjusted)
                 } else {
                     false
                 };
@@ -997,7 +1002,7 @@ impl GameLoop {
                     let adjusted = cost_adj
                         .apply(&forge_foundation::ManaCost::parse(&blitz_cost_str))
                         .add(&raise_mana);
-                    available_mana.can_pay(&adjusted)
+                    available_mana().can_pay(&adjusted)
                 } else {
                     false
                 };
@@ -1010,7 +1015,7 @@ impl GameLoop {
                             let adjusted = cost_adj
                                 .apply(&forge_foundation::ManaCost::parse(&web_cost_str))
                                 .add(&raise_mana);
-                            available_mana.can_pay(&adjusted)
+                            available_mana().can_pay(&adjusted)
                                 && game
                                     .cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
                                     .iter()
@@ -1022,7 +1027,7 @@ impl GameLoop {
                         let adjusted = cost_adj
                             .apply(&forge_foundation::ManaCost::parse(&sneak_cost_str))
                             .add(&raise_mana);
-                        available_mana.can_pay(&adjusted)
+                        available_mana().can_pay(&adjusted)
                     });
                 if !normal_timing {
                     if sneak_ok {
@@ -1035,7 +1040,7 @@ impl GameLoop {
                         });
                     }
                     if foretell_window
-                        && available_mana.can_pay(&forge_foundation::ManaCost::generic(2))
+                        && available_mana().can_pay(&forge_foundation::ManaCost::generic(2))
                     {
                         playable.push(crate::agent::PlayOption {
                             card_id,
@@ -1051,7 +1056,7 @@ impl GameLoop {
                     let adjusted = cost_adj
                         .apply(&forge_foundation::ManaCost::parse(&ovl_cost_str))
                         .add(&raise_mana);
-                    available_mana.can_pay(&adjusted)
+                    available_mana().can_pay(&adjusted)
                 } else {
                     false
                 };
@@ -1070,7 +1075,7 @@ impl GameLoop {
                     .filter(|(_, entry)| {
                         let base = Self::mana_from_cost(&entry.cost);
                         let adjusted = cost_adj.apply(&base).add(&raise_mana);
-                        available_mana.can_pay(&adjusted)
+                        available_mana().can_pay(&adjusted)
                             && crate::cost::can_pay_ignoring_mana_for_spell(
                                 &entry.cost,
                                 game,
@@ -1087,7 +1092,7 @@ impl GameLoop {
                 let suspend_ok = if let Some((suspend_cost_str, _counters)) =
                     card.get_suspend_cost()
                 {
-                    available_mana.can_pay(&forge_foundation::ManaCost::parse(&suspend_cost_str))
+                    available_mana().can_pay(&forge_foundation::ManaCost::parse(&suspend_cost_str))
                 } else {
                     false
                 };
@@ -1095,7 +1100,7 @@ impl GameLoop {
                 // Foretell: pay {2} to exile face-down from hand
                 // (This is a special action, not a cast — always costs {2})
                 let foretell_exile_ok = if card.get_foretell_cost().is_some() {
-                    available_mana.can_pay(&forge_foundation::ManaCost::generic(2))
+                    available_mana().can_pay(&forge_foundation::ManaCost::generic(2))
                 } else {
                     false
                 };
@@ -1106,7 +1111,7 @@ impl GameLoop {
                     // (actual cost reduction from sac'd creature computed at cast time)
                     let adjusted =
                         cost_adj.apply(&forge_foundation::ManaCost::parse(&emerge_cost_str));
-                    available_mana.can_pay(&adjusted) || {
+                    available_mana().can_pay(&adjusted) || {
                         // Even if base emerge cost isn't payable, if we have creatures to sac
                         // the reduction might make it payable — approximate check
                         !game
@@ -1151,7 +1156,7 @@ impl GameLoop {
 
                 // Morph: can cast any Morph card face-down for the morph generic cost
                 let morph_ok = card.has_morph
-                    && available_mana.can_pay(&forge_foundation::ManaCost::generic(
+                    && available_mana().can_pay(&forge_foundation::ManaCost::generic(
                         crate::spellability::MORPH_GENERIC_COST,
                     ));
 
@@ -1160,7 +1165,7 @@ impl GameLoop {
                 let bestow_ok = if let Some(bestow_cost_str) = card.get_bestow_cost() {
                     let adjusted =
                         cost_adj.apply(&forge_foundation::ManaCost::parse(&bestow_cost_str));
-                    let can_afford = available_mana.can_pay(&adjusted);
+                    let can_afford = available_mana().can_pay(&adjusted);
                     // Bestow turns the creature into an Aura targeting a creature.
                     // Only offer bestow if at least one creature exists to enchant.
                     let has_creature_target = can_afford
@@ -1178,7 +1183,7 @@ impl GameLoop {
                     let adjusted = cost_adj
                         .apply(&forge_foundation::ManaCost::parse(&warp_cost_str))
                         .add(&raise_mana);
-                    available_mana.can_pay(&adjusted)
+                    available_mana().can_pay(&adjusted)
                 } else {
                     false
                 };
@@ -1187,7 +1192,7 @@ impl GameLoop {
                     let adjusted = cost_adj
                         .apply(&forge_foundation::ManaCost::parse(&impending_cost))
                         .add(&raise_mana);
-                    available_mana.can_pay(&adjusted)
+                    available_mana().can_pay(&adjusted)
                 } else {
                     false
                 };
@@ -1201,7 +1206,7 @@ impl GameLoop {
                     .collect();
                 let may_play_payable =
                     |cost: &crate::cost::Cost, mana: &forge_foundation::ManaCost| {
-                        available_mana.can_pay(mana)
+                        available_mana().can_pay(mana)
                             && crate::cost::can_pay_ignoring_mana_for_spell(
                                 cost, game, card_id, player,
                             )
