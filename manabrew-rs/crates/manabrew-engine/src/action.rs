@@ -221,6 +221,29 @@ impl GameState {
         }
     }
 
+    pub(crate) fn forget_on_cast(&mut self, card_id: CardId) {
+        let forget_effects: Vec<CardId> = self
+            .cards
+            .iter()
+            .filter(|c| {
+                c.zone == ZoneType::Command
+                    && c.forget_on_moved_origin
+                        .is_some_and(|zone| zone != ZoneType::Stack)
+                    && c.remembered_cards.contains(&card_id)
+            })
+            .map(|c| c.id)
+            .collect();
+        for eff_id in forget_effects {
+            let eff = self.card_mut(eff_id);
+            eff.remembered_cards.retain(|&rid| rid != card_id);
+            if eff.exile_when_no_remembered && eff.remembered_cards.is_empty() {
+                let controller = eff.controller;
+                self.remove_card_from_zone(ZoneType::Command, controller, eff_id);
+                self.card_mut(eff_id).zone = ZoneType::None;
+            }
+        }
+    }
+
     fn move_card_internal(
         &mut self,
         card_id: CardId,
@@ -520,6 +543,7 @@ impl GameState {
             .filter(|c| {
                 c.zone == ZoneType::Command
                     && c.forget_on_moved_origin == Some(src_zone)
+                    && dest_zone != ZoneType::Stack
                     && c.remembered_cards.contains(&card_id)
             })
             .map(|c| c.id)

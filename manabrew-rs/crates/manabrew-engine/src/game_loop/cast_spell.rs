@@ -457,6 +457,9 @@ impl GameLoop {
             );
         }
 
+        if trigger_ctx.cast_trigger == TriggerType::SpellCast {
+            game.forget_on_cast(trigger_ctx.source_card);
+        }
         let run_params = match trigger_ctx.cast_trigger {
             TriggerType::SpellCast => RunParams {
                 spell_card: Some(trigger_ctx.source_card),
@@ -1631,6 +1634,7 @@ impl GameLoop {
         }
         if sa.is_spell && !game.card_is_in_zone(card_id, ZoneType::Stack) {
             game.card_mut(card_id).cast_from = Some(announced_from_zone);
+            game.card_mut(card_id).cast_sa = Some(Box::new(sa.clone()));
             self.move_card_with_runtime(game, card_id, ZoneType::Stack, player, agents);
         }
         if sa.is_spell
