@@ -23,6 +23,8 @@ Dependency rule (do not violate): `parity → common`, `host → common`, `Main 
 
 ### Choices Forge never offers are not offered
 
+Parity ids must be assigned at the same points on both sides. `ParityCardMap.syncWithGame` runs at the top of `chooseSpellAbilityToPlay`, as the Rust runner syncs at every priority pass (an empty action space too), and it syncs a Prepare card's copies in exile (tokens in the PreparedSpell state, the ones 704.5d keeps) like cards; `parity_card_map.rs` does the same. `payManaCost` and `applyManaToCost` first restore the pool's color replacements and apply the spell's own (`applyManaConversion`, from `ComputerUtilMana.payManaCost`), because the ActionSpace probe leaves a MayPlay any-type conversion on the pool. `ManaBrewInteractiveController.applyManaConversionMatrix` (host mode) still ORs the matrix without restoring first.
+
 `DeterministicController.chooseSingleEntityForEffect` drops `ChooseSourceEffect`'s four fake divider cards (negative id, name `--...--`) before it picks: Forge never lets one stand as a choice, and picking one would also give it a parity id through `formatEntity` and shift every later id. `HarnessCostPlumbing` answers a zero-amount Exile, Sacrifice, Exert or Reveal with `PaymentDecision.number(0)` without asking, as `HumanCostDecision` does; asking for none of a non-empty pool draws a pick that Forge never makes.
 
 ### Phyrexian life payment is host-only in the action space

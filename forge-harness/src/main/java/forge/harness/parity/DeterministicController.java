@@ -343,6 +343,7 @@ public class DeterministicController extends PlayerController implements Harness
             return null;
         }
         captureDeepCheckpoint("main_action");
+        ParityCardMap.syncWithGame(player.getGame());
         final List<SpellAbility> possible;
         probingPayability = true;
         try {
