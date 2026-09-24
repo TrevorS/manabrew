@@ -62,6 +62,7 @@ pub fn copy_copiable_characteristics(copy_from: &Card, to: &mut Card) {
     to.triggers = copy_from.triggers.clone();
     for trigger in &mut to.triggers {
         trigger.bind_host_card_id(to.id);
+        trigger.original_host.get_or_insert(copy_from.id);
     }
     to.svars = copy_from.svars.clone();
     if copy_from.has_prepared_spell_state() {

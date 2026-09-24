@@ -125,6 +125,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         target.update_state_for_view(paper_token, ctx.rng);
         target.update_state_for_view(paper_token, ctx.rng);
         target.activated_abilities = src.activated_abilities.clone();
+        for ability in &mut target.activated_abilities {
+            ability.original_host.get_or_insert(clone_source_id);
+        }
         target.static_abilities = src.static_abilities.clone();
         target.replacement_effects = src.replacement_effects.clone();
         for static_ability in &mut target.static_abilities {

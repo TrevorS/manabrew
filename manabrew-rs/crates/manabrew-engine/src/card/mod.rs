@@ -4925,6 +4925,9 @@ impl Card {
                     self.controller,
                 );
                 sa.is_activated = true;
+                if let Some(original_host) = ab.original_host {
+                    sa.set_original_host(original_host);
+                }
                 sa
             })
             .collect()
@@ -4933,7 +4936,11 @@ impl Card {
     fn spell_to_activated_abilities(list: &[SpellAbility]) -> Vec<ActivatedAbility> {
         list.iter()
             .enumerate()
-            .filter_map(|(i, sa)| parse_activated_ability(&sa.ability_text, i))
+            .filter_map(|(i, sa)| {
+                let mut ab = parse_activated_ability(&sa.ability_text, i)?;
+                ab.original_host = sa.original_host.filter(|&host| Some(host) != sa.source);
+                Some(ab)
+            })
             .collect()
     }
 
