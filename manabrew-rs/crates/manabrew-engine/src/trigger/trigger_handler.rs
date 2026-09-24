@@ -608,9 +608,7 @@ impl TriggerHandler {
                     continue;
                 }
                 let trigger = &card.triggers[trigger_index];
-                let lki_host = card.zone != ZoneType::Battlefield
-                    && trigger.get_active_zone().contains(&ZoneType::Battlefield)
-                    && !trigger.get_active_zone().contains(&card.zone);
+                let lki_host = trigger.is_lki_host(card);
                 let host_controller = if lki_host {
                     card.lki_controller.unwrap_or(card.controller)
                 } else {

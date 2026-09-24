@@ -141,6 +141,12 @@ impl Trigger {
         self.base.get_active_zone().unwrap_or(&[])
     }
 
+    pub fn is_lki_host(&self, host: &Card) -> bool {
+        host.zone != ZoneType::Battlefield
+            && self.get_active_zone().contains(&ZoneType::Battlefield)
+            && !self.get_active_zone().contains(&host.zone)
+    }
+
     pub fn set_active_zone(&mut self, zones: Vec<ZoneType>) {
         self.base.set_active_zone(zones);
     }
@@ -185,7 +191,11 @@ impl CardTrait for Trigger {
         self.spawning_ability
             .as_ref()
             .map(|sa| sa.activating_player)
-            .unwrap_or(src_card.controller)
+            .unwrap_or(if self.is_lki_host(src_card) {
+                src_card.lki_controller.unwrap_or(src_card.controller)
+            } else {
+                src_card.controller
+            })
     }
 
     fn matches_compiled_valid(
