@@ -11,11 +11,15 @@ pub(crate) fn matches_selector_domain_predicate(
         return Some(!card.activated_abilities.is_empty());
     }
     if lower == "saddledthisturn" {
+        let source = context.source_card;
+        if source.zone == forge_foundation::ZoneType::Battlefield {
+            return Some(source.saddled_by_this_turn().contains(&card.id));
+        }
         return Some(
             context
-                .source_card
-                .saddled_by_this_turn()
-                .contains(&card.id),
+                .game
+                .and_then(|game| game.get_lki_snapshot(source.id))
+                .is_some_and(|lki| lki.saddled_by.contains(&card.id)),
         );
     }
     if lower.starts_with("castsa ")
