@@ -113,7 +113,10 @@ pub fn build_deck_from_spec(
     verbose: bool,
 ) {
     for (name, count) in spec {
-        match db.get_by_card_name(name) {
+        match db
+            .get_by_card_name(name)
+            .filter(|rules| !rules.is_variant())
+        {
             Some(rules) => {
                 let edition = db.card_default_edition(name).map(|s| s.to_string());
                 for _ in 0..*count {

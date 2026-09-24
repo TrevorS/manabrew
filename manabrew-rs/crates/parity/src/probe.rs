@@ -47,6 +47,9 @@ pub fn probe_deck(db: &CardDatabase, card: &str, options: &ProbeOptions) -> Resu
     let rules = db
         .get_by_card_name(card)
         .ok_or_else(|| "not in the card database".to_string())?;
+    if rules.is_variant() {
+        return Err("a variant card, which Forge keeps out of its main card database".to_string());
+    }
     let mut deck: DeckSpec = vec![(card.to_string(), options.copies)];
     deck.extend(options.partners.iter().cloned());
     let colors: Vec<Color> = rules.color_identity.iter().collect();
