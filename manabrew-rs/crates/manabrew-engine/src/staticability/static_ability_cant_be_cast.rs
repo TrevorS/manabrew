@@ -21,13 +21,43 @@ pub fn cant_be_cast_ability(
     cant_be_cast_ability_in_context(cards, spell, card, activator, None)
 }
 
-/// Mirrors Java `AiController.canPlaySa`: `CantBeCast` statics are normally
-/// evaluated after `moveToStack`, so a pre-cast probe has to supply the origin
-/// zone itself or every `Origin$` / `wasCastFrom*` restriction misreads.
-pub fn restriction_host(card: &Card) -> Card {
+fn restriction_host(card: &Card) -> Card {
     let mut host = card.clone();
     host.cast_from = Some(card.zone);
     host
+}
+
+/// Mirrors Java `AiController.canPlaySa`: `CantBeCast` statics are normally
+/// evaluated after `moveToStack`, so a pre-cast probe has to supply the origin
+/// zone itself or every `Origin$` / `wasCastFrom*` restriction misreads.
+pub fn cant_be_cast_ability_from_zone(
+    cards: &[Arc<Card>],
+    spell: &SpellAbility,
+    card: &Card,
+    activator: PlayerId,
+    game: &GameState,
+) -> bool {
+    has_cant_be_cast_ability(cards, card)
+        && cant_be_cast_ability_in_context(
+            cards,
+            spell,
+            &restriction_host(card),
+            activator,
+            Some(game),
+        )
+}
+
+/// Keep in sync with the source and static filters of `cant_be_cast_ability_in_context`.
+fn has_cant_be_cast_ability(cards: &[Arc<Card>], card: &Card) -> bool {
+    cards
+        .iter()
+        .filter(|c| c.zone.is_static_ability_source() || c.id == card.id)
+        .any(|source| {
+            source
+                .static_abilities
+                .iter()
+                .any(|sa| sa.is_active_for(StaticMode::CantBeCast, source.zone))
+        })
 }
 
 /// Context-aware variant used by playability/casting code where full game

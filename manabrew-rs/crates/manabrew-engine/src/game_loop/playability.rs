@@ -180,12 +180,12 @@ impl GameLoop {
         let mut cast_sa =
             crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
         cast_sa.restriction.variables.set_zone(zone);
-        if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_in_context(
+        if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
             &game.cards,
             &cast_sa,
-            &crate::staticability::static_ability_cant_be_cast::restriction_host(card),
+            card,
             player,
-            Some(game),
+            game,
         ) || !crate::spellability::spell::can_play(&cast_sa, game)
         {
             return false;
@@ -329,12 +329,12 @@ impl GameLoop {
         chosen_types_by_source: &crate::HashMap<CardId, String>,
     ) -> bool {
         sa.restriction.variables.set_zone(zone);
-        if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_in_context(
+        if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
             &game.cards,
             &sa,
-            &crate::staticability::static_ability_cant_be_cast::restriction_host(&host),
+            &host,
             player,
-            Some(game),
+            game,
         ) || !crate::spellability::spell::can_play(&sa, game)
             || !target_restrictions::has_candidates_in_spell_ability_chain(game, player, &sa)
             || sa.target_restrictions.as_ref().is_some_and(|tr| {
@@ -763,12 +763,12 @@ impl GameLoop {
                 }
                 let cast_sa =
                     crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
-                if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_in_context(
+                if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
                     &game.cards,
                     &cast_sa,
-                    &crate::staticability::static_ability_cant_be_cast::restriction_host(card),
+                    card,
                     player,
-                    Some(game),
+                    game,
                 ) {
                     continue;
                 }
@@ -2223,12 +2223,12 @@ impl GameLoop {
                     crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
                 sa.restriction.variables.set_zone(zone);
                 let cant_be_cast =
-                    crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_in_context(
+                    crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
                         &game.cards,
                         &sa,
-                        &crate::staticability::static_ability_cant_be_cast::restriction_host(card),
+                        card,
                         player,
-                        Some(game),
+                        game,
                     );
                 let flash = card.type_line.is_instant()
                     || card.has_keyword("Flash")
