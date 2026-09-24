@@ -18,7 +18,11 @@ use crate::trigger::TriggerType;
 /// `MillEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(MillEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let num = resolve_mill_amount(ctx, sa).max(0) as usize;
+    let num = resolve_mill_amount(ctx, sa);
+    if num <= 0 {
+        return;
+    }
+    let num = num as usize;
 
     let mut millers: Vec<crate::ids::PlayerId> =
         crate::ability::spell_ability_effect::get_target_players(ctx.game, sa);
