@@ -1843,8 +1843,8 @@ impl GameState {
         }
 
         for pass in 0..9 {
+            apply_continuous_effects(self);
             if pass > 0 {
-                apply_continuous_effects(self);
                 self.pre_sba_battlefield = self
                     .cards
                     .iter()
