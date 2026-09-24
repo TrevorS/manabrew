@@ -2143,9 +2143,11 @@ pub fn filter_list_by_type(
         // Use the targeted card as the source
         match sa.target_chosen.target_card {
             Some(cid) => {
-                let adjusted = filter_type
-                    .replace("TargetedCard", "Card")
-                    .replace("Targeted", "Card");
+                let adjusted = if filter_type.starts_with("TargetedCard") {
+                    filter_type.replace("TargetedCard", "Card")
+                } else {
+                    filter_type.replace("Targeted", "Card")
+                };
                 (Some(cid), adjusted)
             }
             None => return Vec::new(),
@@ -2166,25 +2168,19 @@ pub fn filter_list_by_type(
     };
 
     let selector = cached_compiled_selector(&effective_filter);
+    let targeted_cards = sa.target_chosen.all_target_cards();
+    let targeted_players = sa.target_chosen.all_target_players();
     cards
         .iter()
         .copied()
         .filter(|&cid| {
             let card = game.card(cid);
-            // If the filter mentions "Self", it means the card being tested is the source
-            if effective_filter.contains(".Self") {
-                if let Some(src) = effective_source {
-                    return cid == src;
-                }
-            }
             if let Some(source_id) = effective_source {
-                matches_valid_cards_for_source(
-                    game,
-                    source_id,
-                    card,
-                    Some(&selector),
-                    &effective_filter,
-                )
+                let context = valid_filter::MatchContext::from_source(game.card(source_id))
+                    .with_game(game)
+                    .with_targets(&targeted_cards, &targeted_players)
+                    .with_spell_ability(sa);
+                valid_filter::matches_valid_card_selector_with_context(&selector, card, context)
             } else {
                 matches_valid_cards(card, &effective_filter, sa.activating_player)
             }
