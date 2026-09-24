@@ -383,6 +383,26 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 if tapped {
                     ctx.game.tap(card_id);
                 }
+                if let Some(counter_type) = sa.ir.with_counters_type.as_ref() {
+                    if ctx.game.card(card_id).zone == ZoneType::Battlefield {
+                        let amount = crate::svar::resolve_numeric_svar(
+                            ctx.game,
+                            sa,
+                            crate::parsing::keys::WITH_COUNTERS_AMOUNT,
+                            1,
+                        );
+                        ctx.add_counter(
+                            card_id,
+                            counter_type,
+                            amount,
+                            sa,
+                            crate::event::RunParams {
+                                source_player: Some(sa.activating_player),
+                                ..Default::default()
+                            },
+                        );
+                    }
+                }
                 ctx.trigger_handler
                     .register_active_trigger(ctx.game, card_id);
             }
