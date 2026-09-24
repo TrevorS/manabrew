@@ -35,7 +35,7 @@ use forge_foundation::ManaCost;
 /// Java builds an `Execute$` ability with its whole `SubAbility$` chain attached, while
 /// this port looks each one up by name on the host when the trigger resolves, so a
 /// granted trigger needs every SVar in the chain, not just the first.
-fn copy_execute_chain_svars(
+pub(super) fn copy_execute_chain_svars(
     source_svars: &std::collections::BTreeMap<String, String>,
     card: &mut crate::card::Card,
     start: &str,
@@ -236,52 +236,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         let removes_all_abilities = sa.ir.animate_remove_all_abilities && effect_ts.is_none();
-        if removes_all_abilities {
-            let keywords: Vec<String> = keywords_str
-                .as_deref()
-                .map(|kws| {
-                    kws.split(',')
-                        .map(str::trim)
-                        .filter(|kw| !kw.is_empty())
-                        .map(str::to_string)
-                        .collect()
-                })
-                .unwrap_or_default();
-            let card = ctx.game.card_mut(card_id);
-            card.clear_pump_keywords();
-            card.clear_static_changed_card_keywords();
-            let first_keyword_ability = card.activated_abilities.len();
-            card.generate_keyword_activated_abilities(&keywords);
-            let keyword_abilities = card.activated_abilities.split_off(first_keyword_ability);
-            let controller = card.controller;
-            let abilities = keyword_abilities
-                .iter()
-                .map(|ab| {
-                    let mut ability =
-                        crate::ability::ability_factory::build_spell_ability_from_host_card(
-                            card,
-                            &ab.ability_text,
-                            controller,
-                        );
-                    ability.is_activated = true;
-                    ability
-                })
-                .collect();
-            card.add_changed_card_traits(
-                CardTraitChanges {
-                    abilities,
-                    static_abilities: parsed_statics.clone(),
-                    keywords,
-                    remove_all: true,
-                    ..Default::default()
-                },
-                resolve_ts,
-                0,
-            );
-            if let Some(state) = card.animate_state.as_mut() {
-                state.trait_change_timestamps.push(resolve_ts);
-            }
-        }
 
         if overwrite_types && types_str.is_some() {
             let card = ctx.game.card_mut(card_id);
@@ -441,7 +395,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     .collect()
             })
             .unwrap_or_default();
-        if !removes_all_abilities && (!add_keywords.is_empty() || !remove_keywords.is_empty()) {
+        let mut trait_keywords = Vec::new();
+        if removes_all_abilities {
+            trait_keywords = add_keywords;
+        } else if !add_keywords.is_empty() || !remove_keywords.is_empty() {
             if let Some(ts) = effect_ts {
                 perpetual_keywords::PerpetualKeywords {
                     timestamp: ts,
@@ -519,9 +476,49 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .register_active_trigger(ctx.game, card_id);
         }
 
-        if !removes_all_abilities && !parsed_statics.is_empty() {
+        let mut added_abilities = Vec::new();
+        if removes_all_abilities {
+            let card = ctx.game.card_mut(card_id);
+            card.clear_pump_keywords();
+            card.clear_static_changed_card_keywords();
+            let first_keyword_ability = card.activated_abilities.len();
+            card.generate_keyword_activated_abilities(&trait_keywords);
+            let card_controller = card.controller;
+            for ab in card.activated_abilities.split_off(first_keyword_ability) {
+                let mut ability =
+                    crate::ability::ability_factory::build_spell_ability_from_host_card(
+                        card,
+                        &ab.ability_text,
+                        card_controller,
+                    );
+                ability.is_activated = true;
+                added_abilities.push(ability);
+            }
+        }
+        if let Some(names) = sa.ir.abilities.as_deref() {
+            let source_svars = ctx
+                .game
+                .card(sa.source.unwrap_or(crate::ids::CardId(0)))
+                .svars
+                .clone();
+            for name in names.split(',').map(str::trim) {
+                if let Some(text) = source_svars.get(name) {
+                    added_abilities.push(crate::spellability::build_spell_ability_from_host_card(
+                        ctx.game.card(card_id),
+                        text,
+                        controller,
+                    ));
+                    copy_execute_chain_svars(&source_svars, ctx.game.card_mut(card_id), name);
+                }
+            }
+        }
+
+        if removes_all_abilities || !added_abilities.is_empty() || !parsed_statics.is_empty() {
             let changes = CardTraitChanges {
+                abilities: added_abilities,
                 static_abilities: parsed_statics.clone(),
+                keywords: trait_keywords,
+                remove_all: removes_all_abilities,
                 ..Default::default()
             };
             if let Some(ts) = effect_ts {

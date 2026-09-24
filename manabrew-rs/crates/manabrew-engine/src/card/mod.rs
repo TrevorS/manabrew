@@ -4949,7 +4949,8 @@ impl Card {
 
     fn capture_changed_card_traits_baseline_if_needed(&mut self) {
         if self.trait_base_activated_abilities.is_none() {
-            self.trait_base_activated_abilities = Some(self.activated_abilities.clone());
+            let own = self.base_ability_count.min(self.activated_abilities.len());
+            self.trait_base_activated_abilities = Some(self.activated_abilities[..own].to_vec());
             self.trait_base_triggers = Some(self.triggers.clone());
             self.trait_base_replacement_effects = Some(self.replacement_effects.clone());
             self.trait_base_static_abilities = Some(self.static_abilities.clone());
@@ -5010,6 +5011,15 @@ impl Card {
             keywords = crate::card::card_state::apply_keywords(layer, keywords);
         }
 
+        self.base_ability_count = self
+            .changed_card_traits_by_text
+            .iter()
+            .chain(self.changed_card_traits.iter())
+            .filter(|((_, static_id), _)| *static_id >= 0)
+            .fold(base_activated.len(), |count, (_, layer)| {
+                let kept = if layer.remove_all { 0 } else { count };
+                kept + layer.abilities.len()
+            });
         self.activated_abilities = Self::spell_to_activated_abilities(&spell_abilities);
         self.triggers = triggers;
         self.replacement_effects = replacements;
@@ -5054,6 +5064,7 @@ impl Card {
         }
         if self.changed_card_traits.is_empty() && self.changed_card_traits_by_text.is_empty() {
             if let Some(v) = self.trait_base_activated_abilities.take() {
+                self.base_ability_count = v.len();
                 self.activated_abilities = v;
             }
             if let Some(v) = self.trait_base_triggers.take() {
@@ -5100,6 +5111,7 @@ impl Card {
         }
         if self.changed_card_traits.is_empty() && self.changed_card_traits_by_text.is_empty() {
             if let Some(v) = self.trait_base_activated_abilities.take() {
+                self.base_ability_count = v.len();
                 self.activated_abilities = v;
             }
             if let Some(v) = self.trait_base_triggers.take() {
@@ -5126,6 +5138,7 @@ impl Card {
         self.changed_card_traits.clear();
         self.changed_card_traits_by_text.clear();
         if let Some(v) = self.trait_base_activated_abilities.take() {
+            self.base_ability_count = v.len();
             self.activated_abilities = v;
         }
         if let Some(v) = self.trait_base_triggers.take() {
@@ -5155,6 +5168,7 @@ impl Card {
         }
         if self.changed_card_traits.is_empty() && self.changed_card_traits_by_text.is_empty() {
             if let Some(v) = self.trait_base_activated_abilities.take() {
+                self.base_ability_count = v.len();
                 self.activated_abilities = v;
             }
             if let Some(v) = self.trait_base_triggers.take() {

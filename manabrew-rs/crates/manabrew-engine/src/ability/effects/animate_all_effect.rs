@@ -180,13 +180,38 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }));
         }
 
-        // RemoveAllAbilities — strip keywords/abilities
-        if remove_all_abilities {
+        let mut added_abilities = Vec::new();
+        if let Some(ref names) = sa.ir.abilities {
+            let source_id = sa.source.unwrap_or(crate::ids::CardId(0));
+            let source_svars = ctx.game.card(source_id).svars.clone();
+            for name in names.split(',').map(str::trim) {
+                if let Some(text) = source_svars.get(name) {
+                    added_abilities.push(crate::spellability::build_spell_ability_from_host_card(
+                        ctx.game.card(card_id),
+                        text,
+                        sa.activating_player,
+                    ));
+                    super::animate_effect::copy_execute_chain_svars(
+                        &source_svars,
+                        ctx.game.card_mut(card_id),
+                        name,
+                    );
+                }
+            }
+        }
+
+        if remove_all_abilities || !added_abilities.is_empty() {
             let card = ctx.game.card_mut(card_id);
-            card.clear_pump_keywords();
-            card.clear_static_changed_card_keywords();
+            if remove_all_abilities {
+                card.clear_pump_keywords();
+                card.clear_static_changed_card_keywords();
+            }
             card.add_changed_card_traits(
-                CardTraitChanges::remove_all_layer(Vec::new(), Vec::new(), Vec::new(), Vec::new()),
+                CardTraitChanges {
+                    abilities: added_abilities,
+                    remove_all: remove_all_abilities,
+                    ..Default::default()
+                },
                 resolve_ts,
                 0,
             );
