@@ -1968,10 +1968,8 @@ impl GameLoop {
                 // and Forge also rejects cards that entered exile this turn.
                 if game.turn.turn_number <= plotted_turn
                     || card.entered_current_zone_this_turn(game.turn.turn_number)
+                    || !crate::player::can_cast_sorcery(game, player)
                 {
-                    continue;
-                }
-                if must_be_instant && !has_flash_permission(card_id) {
                     continue;
                 }
                 playable.push(crate::agent::PlayOption {
