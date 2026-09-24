@@ -93,6 +93,38 @@ impl CardSnapshot {
             saddled_by: card.saddled_by_this_turn(),
         }
     }
+
+    fn update_from_card(&mut self, card: &Card) {
+        let Self {
+            id: _,
+            controller,
+            owner,
+            power,
+            toughness,
+            counters,
+            tapped,
+            type_line,
+            zone,
+            card_name,
+            exiled_cards,
+            saddled_by,
+        } = self;
+        *controller = card.controller;
+        *owner = card.owner;
+        *power = card.power();
+        *toughness = card.toughness();
+        if *counters != card.counters {
+            counters.clone_from(&card.counters);
+        }
+        *tapped = card.tapped;
+        if *type_line != card.type_line {
+            type_line.clone_from(&card.type_line);
+        }
+        *zone = card.zone;
+        card_name.clone_from(&card.card_name);
+        exiled_cards.clone_from(&card.exiled_cards);
+        *saddled_by = card.saddled_by_this_turn();
+    }
 }
 
 /// LKI methods for `GameState`.
@@ -116,7 +148,7 @@ impl crate::game::GameState {
                     .iter_mut()
                     .find(|s| s.id == card.id)
                 {
-                    *existing = CardSnapshot::from_card(card);
+                    existing.update_from_card(card);
                 } else {
                     self.last_state_battlefield
                         .push(CardSnapshot::from_card(card));
