@@ -5,7 +5,6 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
-use crate::ability::ability_ir::DefinedRef;
 use crate::event::RunParams;
 use crate::ids::CardId;
 use crate::trigger::TriggerType;
@@ -84,15 +83,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     let targets: Vec<CardId> = if sa.uses_targeting() {
         sa.target_chosen.all_target_cards()
-    } else if let Some(source) = sa.source {
-        match sa.defined() {
-            Some(defined) if !matches!(sa.defined_ref(), Some(DefinedRef::SelfCard)) => {
-                crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
-                    ctx.game, sa, defined,
-                )
-            }
-            _ => vec![source],
-        }
+    } else if sa.source.is_some() {
+        crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+            ctx.game,
+            sa,
+            sa.defined().unwrap_or("Self"),
+        )
     } else {
         return;
     };
