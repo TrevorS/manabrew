@@ -828,6 +828,7 @@ impl GameLoop {
         let root_trigger_source_zone_timestamp = entry.spell_ability.trigger_source_zone_timestamp;
         let root_trigger_spawning_ability = entry.spell_ability.trigger_spawning_ability.clone();
         let root_discarded_cost_cards = &entry.spell_ability.discarded_cost_cards;
+        let root_paid_hash = &entry.spell_ability.paid_hash;
         let chain_target_cards = entry.spell_ability.chain_target_cards_from_root();
         let mut current = Some(&entry.spell_ability);
         let mut is_first = true;
@@ -862,6 +863,7 @@ impl GameLoop {
                 || (sa.trigger_spawning_ability.is_none()
                     && root_trigger_spawning_ability.is_some())
                 || (sa.discarded_cost_cards.is_empty() && !root_discarded_cost_cards.is_empty())
+                || (sa.paid_hash.is_empty() && !root_paid_hash.is_empty())
                 || sa.chain_target_cards != chain_target_cards;
             let sa_ref = if needs_ctx_clone {
                 sa_with_ctx = sa.clone();
@@ -914,6 +916,9 @@ impl GameLoop {
                     sa_with_ctx
                         .discarded_cost_cards
                         .clone_from(root_discarded_cost_cards);
+                }
+                if sa_with_ctx.paid_hash.is_empty() {
+                    sa_with_ctx.paid_hash.clone_from(root_paid_hash);
                 }
                 sa_with_ctx
                     .chain_target_cards

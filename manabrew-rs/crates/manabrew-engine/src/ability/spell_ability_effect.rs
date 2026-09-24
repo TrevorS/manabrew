@@ -533,7 +533,18 @@ fn resolve_defined_cards_for_sa_ref_inner(
         // discarded slot on `discarded_cost_cards`, sacrificed slot on
         // `GameState.last_sacrificed_card`.
         DefinedRef::Discarded => sa.discarded_cost_cards.clone(),
-        DefinedRef::Sacrificed => game.last_sacrificed_card.into_iter().collect(),
+        DefinedRef::Sacrificed => match sa
+            .paid_hash
+            .get(crate::cost::cost_sacrifice::HASH_LKI)
+            .or_else(|| sa.paid_hash.get(crate::cost::cost_sacrifice::HASH_CARDS))
+        {
+            Some(ids) => ids
+                .iter()
+                .filter_map(|raw| raw.parse::<u32>().ok())
+                .map(CardId)
+                .collect(),
+            None => game.last_sacrificed_card.into_iter().collect(),
+        },
         DefinedRef::Unsupported(raw)
             if !raw.contains('.')
                 && triggered_card_key(raw)
