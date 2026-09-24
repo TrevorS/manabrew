@@ -686,6 +686,13 @@ impl GameState {
             self.card_mut(card_id).cast_from = None;
             self.card_mut(card_id).chosen_charm_modes.clear();
         }
+        if dest_zone != ZoneType::Battlefield && !(src_zone == dest_zone && dest_zone.is_hidden()) {
+            let card = self.card_mut(card_id);
+            card.reset_activations_per_turn();
+            card.reset_ability_resolved_this_turn();
+            card.number_game_activations.clear();
+            card.activations_this_game.clear();
+        }
         if src_zone == ZoneType::Exile && dest_zone != ZoneType::Exile {
             self.card_mut(card_id)
                 .keywords
