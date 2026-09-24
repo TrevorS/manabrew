@@ -945,10 +945,8 @@ pub fn get_sacrifice_targets_for_cost(
             .into_iter()
             .collect();
     }
-    let source = ability.and_then(|sa| sa.source);
     get_sacrifice_targets(game, player, type_filter, ability)
         .into_iter()
-        .filter(|&cid| !is_excluded_as_source(game, cid, source, type_filter))
         .filter(|&cid| !cant_sacrifice(&game.cards, game.card(cid), ability, true))
         .collect()
 }
