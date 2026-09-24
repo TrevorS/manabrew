@@ -560,27 +560,34 @@ impl Trigger {
         match (filter.as_ref(), card) {
             (None, _) => true,
             (Some(_), None) => false,
-            (Some(selector), Some(card)) => {
-                let src = self.base.card_trait_base.host_card(game);
-                let player = self.resolve_source_player(src);
-                let trigger_remembered_cards = self
-                    .trigger_remembered
-                    .iter()
-                    .filter_map(|value| match value {
-                        AbilityValue::Card(card_id) => Some(*card_id),
-                        _ => None,
-                    })
-                    .collect::<Vec<_>>();
-                valid_filter::matches_valid_card_selector_with_context(
-                    selector,
-                    card,
-                    valid_filter::MatchContext::from_source(src)
-                        .with_game(game)
-                        .with_source_controller(player)
-                        .with_trigger_remembered_cards(&trigger_remembered_cards),
-                )
-            }
+            (Some(selector), Some(card)) => self.matches_valid_card_selector(selector, card, game),
         }
+    }
+
+    pub fn matches_valid_card_selector(
+        &self,
+        selector: &CompiledSelector,
+        card: &Card,
+        game: &GameState,
+    ) -> bool {
+        let src = self.base.card_trait_base.host_card(game);
+        let player = self.resolve_source_player(src);
+        let trigger_remembered_cards = self
+            .trigger_remembered
+            .iter()
+            .filter_map(|value| match value {
+                AbilityValue::Card(card_id) => Some(*card_id),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        valid_filter::matches_valid_card_selector_with_context(
+            selector,
+            card,
+            valid_filter::MatchContext::from_source(src)
+                .with_game(game)
+                .with_source_controller(player)
+                .with_trigger_remembered_cards(&trigger_remembered_cards),
+        )
     }
 
     /// Polymorphic `Valid...` check for optional player payloads.

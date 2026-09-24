@@ -91,17 +91,21 @@ impl TriggerBehavior for TriggerChangesZone {
         }
         let valid_card = trigger.ir.valid_card_selector.clone();
         let lki_card = moved_card
-            .filter(|_| params.origin == Some(forge_foundation::ZoneType::Battlefield))
-            .map(|card_id| game.card(card_id))
-            .filter(|card| card.zone != forge_foundation::ZoneType::Battlefield)
-            .and_then(|card| {
-                card.lki_controller
-                    .filter(|&controller| controller != card.controller)
-                    .map(|controller| {
-                        let mut lki = card.clone();
-                        lki.controller = controller;
-                        lki
-                    })
+            .filter(|&card_id| {
+                params.origin == Some(forge_foundation::ZoneType::Battlefield)
+                    && game.card(card_id).zone != forge_foundation::ZoneType::Battlefield
+            })
+            .and_then(|card_id| {
+                crate::lki::battlefield_lki_card(game, card_id).or_else(|| {
+                    let card = game.card(card_id);
+                    card.lki_controller
+                        .filter(|&controller| controller != card.controller)
+                        .map(|controller| {
+                            let mut lki = card.clone();
+                            lki.controller = controller;
+                            lki
+                        })
+                })
             });
         let valid = match lki_card.as_ref() {
             Some(lki) => trigger.matches_optional_valid_card(&valid_card, Some(lki), game),

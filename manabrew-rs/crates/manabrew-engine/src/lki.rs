@@ -161,6 +161,17 @@ impl crate::game::GameState {
     }
 }
 
+/// Java `AbilityKey.CardLKI` for a card that has left the battlefield: the card with the
+/// controller, counters and tapped state `last_state_battlefield` last saw it with.
+pub fn battlefield_lki_card(game: &crate::game::GameState, card_id: CardId) -> Option<Card> {
+    let snapshot = game.get_lki_snapshot(card_id)?;
+    let mut lki = game.card(card_id).clone();
+    lki.controller = snapshot.controller;
+    lki.counters = snapshot.counters.clone();
+    lki.tapped = snapshot.tapped;
+    Some(lki)
+}
+
 /// Resolve LKI power for a trigger source card.
 ///
 /// Checks `card.lki_power` (captured at zone-change time) first, then falls
