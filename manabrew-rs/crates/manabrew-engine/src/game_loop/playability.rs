@@ -193,11 +193,102 @@ impl GameLoop {
         zone: ZoneType,
         chosen_types_by_source: &crate::HashMap<CardId, String>,
     ) -> bool {
-        let Some((host, mut sa)) = crate::spellability::build_spell_ability_for_card_state_cast(
+        let Some((host, sa)) = crate::spellability::build_spell_ability_for_card_state_cast(
             game, card_id, player, state_name,
         ) else {
             return false;
         };
+        self.can_play_state_spell(
+            game,
+            player,
+            card_id,
+            host,
+            sa,
+            zone,
+            chosen_types_by_source,
+        )
+    }
+
+    pub(super) fn secondary_flashback_costs(game: &GameState, card_id: CardId) -> Vec<String> {
+        let card = game.card(card_id);
+        if card.is_transformed
+            || card
+                .other_part
+                .as_ref()
+                .is_none_or(|other| other.state_name != forge_foundation::CardStateName::Secondary)
+            || !game.cards.iter().any(|source| {
+                source.zone.is_static_ability_source()
+                    && source.static_abilities.iter().any(|st| {
+                        st.ir
+                            .add_keyword_text
+                            .as_deref()
+                            .is_some_and(|keywords| keywords.contains("Flashback"))
+                    })
+            })
+        {
+            return Vec::new();
+        }
+        let mut host = card.clone();
+        host.transform();
+        crate::spellability::spell::alternate_host_with_statics(game, host)
+            .get_all_flashback_costs()
+    }
+
+    pub(super) fn flashback_costs(game: &GameState, card_id: CardId) -> Vec<String> {
+        let mut costs = game.card(card_id).get_all_flashback_costs();
+        costs.extend(Self::secondary_flashback_costs(game, card_id));
+        costs
+    }
+
+    fn can_play_secondary_flashback(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+        flashback_cost: &str,
+        chosen_types_by_source: &crate::HashMap<CardId, String>,
+    ) -> bool {
+        let Some((host, mut sa)) = crate::spellability::build_spell_ability_for_card_state_cast(
+            game,
+            card_id,
+            player,
+            forge_foundation::CardStateName::Secondary,
+        ) else {
+            return false;
+        };
+        let Some(mut cost) = sa
+            .pay_costs
+            .as_ref()
+            .map(crate::cost::Cost::copy_with_no_mana)
+        else {
+            return false;
+        };
+        cost.parts
+            .extend(crate::cost::parse_cost(flashback_cost).parts);
+        cost.sort();
+        sa.pay_costs = Some(cost);
+        sa.alt_cost = Some(crate::spellability::AlternativeCost::Flashback);
+        self.can_play_state_spell(
+            game,
+            player,
+            card_id,
+            host,
+            sa,
+            ZoneType::Graveyard,
+            chosen_types_by_source,
+        )
+    }
+
+    fn can_play_state_spell(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+        host: crate::card::Card,
+        mut sa: SpellAbility,
+        zone: ZoneType,
+        chosen_types_by_source: &crate::HashMap<CardId, String>,
+    ) -> bool {
         sa.restriction.variables.set_zone(zone);
         if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_in_context(
             &game.cards,
@@ -1426,10 +1517,30 @@ impl GameLoop {
         let graveyard: Vec<CardId> = game.cards_in_zone(ZoneType::Graveyard, player).to_vec();
         for card_id in graveyard {
             let card = game.card(card_id);
+            let flashback_costs = card.get_all_flashback_costs();
+            for (index, cost) in Self::secondary_flashback_costs(game, card_id)
+                .iter()
+                .enumerate()
+            {
+                if self.can_play_secondary_flashback(
+                    game,
+                    player,
+                    card_id,
+                    cost,
+                    &chosen_types_by_source,
+                ) {
+                    playable.push(crate::agent::PlayOption {
+                        card_id,
+                        mode: crate::agent::PlayCardMode::Alternative(
+                            crate::spellability::AlternativeCost::Flashback,
+                        ),
+                        alt_cost_index: (flashback_costs.len() + index) as u8,
+                    });
+                }
+            }
             if must_be_instant && !has_flash_permission(card_id) {
                 continue;
             }
-            let flashback_costs = card.get_all_flashback_costs();
             if flashback_costs.is_empty()
                 && card.get_harmonize_cost().is_none()
                 && card.get_escape_cost().is_none()

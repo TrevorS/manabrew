@@ -612,7 +612,12 @@ impl GameLoop {
         let play_mode = play.mode;
         let right_split_spell = play_mode == crate::agent::PlayCardMode::RoomRightSplit
             && !game.card(card_id).type_line.has_subtype("Room");
-        let mut sa = if play_mode == crate::agent::PlayCardMode::Secondary {
+        let secondary_flashback = play_mode
+            == crate::agent::PlayCardMode::Alternative(
+                crate::spellability::AlternativeCost::Flashback,
+            )
+            && play.alt_cost_index as usize >= game.card(card_id).get_all_flashback_costs().len();
+        let mut sa = if play_mode == crate::agent::PlayCardMode::Secondary || secondary_flashback {
             // `PlayCardMode::Secondary` covers both an Adventure/Omen `Secondary` face and a
             // Modal DFC's `Backside` face — a card only ever has one of the two, so which state
             // to build reads off the card itself. See `playability.rs`'s modal-backside check.
@@ -873,6 +878,13 @@ impl GameLoop {
         static_alternative_cost_prepared: bool,
     ) -> Option<(CardId, String)> {
         let card_id = sa.source?;
+        let flashback_cost_str =
+            (sa.alt_cost == Some(crate::spellability::AlternativeCost::Flashback)).then(|| {
+                Self::flashback_costs(game, card_id)
+                    .get(sa.alt_cost_index as usize)
+                    .cloned()
+                    .unwrap_or_default()
+            });
         game.card_mut(card_id).set_split_state_to_play_ability(&sa);
         let card = game.card(card_id);
         let card_name = card.card_name.clone();
@@ -954,17 +966,7 @@ impl GameLoop {
         }
 
         // Parse flashback total cost once (can include non-mana parts like Sac<...>).
-        let flashback_total_cost = if is_flashback {
-            let fb_cost_str = game
-                .card(card_id)
-                .get_all_flashback_costs()
-                .get(sa.alt_cost_index as usize)
-                .cloned()
-                .unwrap_or_default();
-            Some(parse_cost(&fb_cost_str))
-        } else {
-            None
-        };
+        let flashback_total_cost = flashback_cost_str.as_deref().map(parse_cost);
 
         let flashback_mana_cost = flashback_total_cost.as_ref().map(|fb_cost| {
             fb_cost
@@ -1578,6 +1580,17 @@ impl GameLoop {
         // target later (for example, sacrificing a Food token used as a target).
         game.card_mut(card_id).cast_with_flashback = is_flashback;
         game.card_mut(card_id).cast_with_harmonize = is_harmonize;
+        if let Some(fb_cost_str) = flashback_cost_str.as_deref().filter(|_| {
+            !game
+                .card(card_id)
+                .replacement_effects
+                .iter()
+                .any(|re| re.ir.flashback_cast == Some(true))
+        }) {
+            if let Some(repl) = crate::card::card_factory_util::flashback_replacement(fb_cost_str) {
+                game.card_mut(card_id).add_replacement_effect(repl);
+            }
+        }
         if is_overload {
             sa.overloaded = true;
         } else if is_bestow && sa.target_restrictions.is_none() {

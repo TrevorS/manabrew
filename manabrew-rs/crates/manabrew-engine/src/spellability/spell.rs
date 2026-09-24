@@ -115,3 +115,12 @@ pub fn is_counterable_by(sa: &SpellAbility, _counter_sa: &SpellAbility) -> bool 
 pub fn set_cast_face_down(sa: &mut SpellAbility, face_down: bool) {
     sa.cast_face_down = face_down;
 }
+
+/// Java `Spell.getAlternateHost` with the statics applied again (CR 601.3e).
+pub fn alternate_host_with_statics(game: &GameState, host: crate::card::Card) -> crate::card::Card {
+    let host_id = host.id;
+    let mut pre = game.clone();
+    *pre.card_mut(host_id) = host;
+    crate::staticability::layer::apply_continuous_effects(&mut pre);
+    pre.card(host_id).clone()
+}

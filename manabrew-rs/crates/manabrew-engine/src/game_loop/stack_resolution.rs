@@ -121,6 +121,8 @@ impl GameLoop {
                     let owner = game.card(card_id).owner;
                     let dest = if entry.spell_ability.alt_cost
                         == Some(crate::spellability::AlternativeCost::Harmonize)
+                        || entry.spell_ability.alt_cost
+                            == Some(crate::spellability::AlternativeCost::Flashback)
                     {
                         apply_moved_replacement(
                             game,
@@ -132,9 +134,7 @@ impl GameLoop {
                             Some(&mut self.replacement_runtime()),
                         )
                     } else if entry.spell_ability.alt_cost
-                        == Some(crate::spellability::AlternativeCost::Flashback)
-                        || entry.spell_ability.alt_cost
-                            == Some(crate::spellability::AlternativeCost::Escape)
+                        == Some(crate::spellability::AlternativeCost::Escape)
                     {
                         ZoneType::Exile
                     } else {
@@ -688,6 +688,7 @@ impl GameLoop {
                 {
                     // Determine destination based on alternative cost / keywords
                     let dest = if alt_cost == Some(crate::spellability::AlternativeCost::Harmonize)
+                        || alt_cost == Some(crate::spellability::AlternativeCost::Flashback)
                     {
                         apply_moved_replacement(
                             game,
@@ -698,9 +699,7 @@ impl GameLoop {
                             Some(agents),
                             Some(&mut self.replacement_runtime()),
                         )
-                    } else if alt_cost == Some(crate::spellability::AlternativeCost::Flashback)
-                        || alt_cost == Some(crate::spellability::AlternativeCost::Escape)
-                    {
+                    } else if alt_cost == Some(crate::spellability::AlternativeCost::Escape) {
                         ZoneType::Exile
                     } else if entry.spell_ability.buyback_paid {
                         // Buyback: return to hand instead of graveyard

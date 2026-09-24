@@ -417,29 +417,25 @@ pub fn add_devour_replacement(card: &mut Card) {
 /// because `castKeyword` matches the keyword's presence, not the cast mode.
 pub fn add_flashback_replacement(card: &mut Card) {
     let keywords = card.keywords.as_string_list();
-    let has_flashback = keywords.iter().any(|kw| kw.starts_with("Flashback:"));
-    if !has_flashback {
-        return;
-    }
-    let cost_display = keywords
+    if let Some(repl) = keywords
         .iter()
         .find_map(|kw| kw.strip_prefix("Flashback:"))
-        .map(|c| {
-            let mc = forge_foundation::ManaCost::parse(c.trim());
-            format!("{mc}")
-        })
-        .unwrap_or_default();
+        .and_then(flashback_replacement)
+    {
+        card.add_replacement_effect(repl);
+    }
+}
+
+pub fn flashback_replacement(cost: &str) -> Option<ReplacementEffect> {
+    let cost_display = forge_foundation::ManaCost::parse(cost.trim());
     let desc = format!(
         "Flashback {cost_display} (You may cast this card from your graveyard for its flashback cost. Then exile it.)"
     );
-    let repl_str = format!(
+    parse_replacement_effect(&format!(
         "R$ Event$ Moved | ValidCard$ Card.Self | Origin$ Stack | ExcludeDestination$ Exile \
          | FlashbackCast$ True | Secondary$ True | NewDestination$ Exile \
          | Description$ {desc}"
-    );
-    if let Some(repl) = parse_replacement_effect(&repl_str) {
-        card.add_replacement_effect(repl);
-    }
+    ))
 }
 
 pub fn add_harmonize_replacement(card: &mut Card) {
