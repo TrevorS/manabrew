@@ -136,6 +136,7 @@ impl GameLoop {
                 continue;
             }
             self.log_waiting_for_priority(game, priority_player);
+            let mut requested_space = None;
             let action = {
                 let _perf_scope = crate::perf::ParamsLookupScopeGuard::enter(
                     crate::perf::ParamsLookupScope::PriorityChoice,
@@ -159,6 +160,7 @@ impl GameLoop {
                     }
                     let space = self.action_space(game, priority_player, is_main_phase);
                     Self::reset_offered_sub_ability_targets(game, &space);
+                    requested_space = Some(space.clone());
                     space
                 };
                 agents[priority_player.index()].choose_action(
@@ -194,12 +196,14 @@ impl GameLoop {
                 MainPhaseAction::Pass
             } else {
                 if action_space.is_none() {
-                    if !std::mem::take(&mut statics_current) {
-                        crate::staticability::layer::apply_continuous_effects(game);
-                    }
-                    let space = self.action_space(game, priority_player, is_main_phase);
-                    Self::reset_offered_sub_ability_targets(game, &space);
-                    action_space = Some(space);
+                    action_space = Some(requested_space.take().unwrap_or_else(|| {
+                        if !std::mem::take(&mut statics_current) {
+                            crate::staticability::layer::apply_continuous_effects(game);
+                        }
+                        let space = self.action_space(game, priority_player, is_main_phase);
+                        Self::reset_offered_sub_ability_targets(game, &space);
+                        space
+                    }));
                 }
                 let action_space = action_space
                     .as_ref()
