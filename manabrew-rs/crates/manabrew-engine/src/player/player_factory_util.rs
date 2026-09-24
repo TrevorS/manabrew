@@ -11,7 +11,7 @@ use crate::player::actions::{
 use crate::replacement::parse_replacement_effect;
 use crate::staticability::parse_static_ability;
 use crate::trigger::{parse_trigger, Trigger};
-use forge_foundation::{CardTypeLine, ColorSet, ManaCost};
+use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 
 pub fn build_priority_actions(
     playable: &[PlayOption],
@@ -100,7 +100,11 @@ pub fn add_trigger(effect: &mut Card, trigger: Trigger) -> bool {
 
 pub fn add_replacement_effect(effect: &mut Card, raw: &str) -> bool {
     parse_replacement_effect(raw)
-        .map(|replacement| effect.add_replacement_effect(replacement))
+        .map(|mut replacement| {
+            replacement.active_zones = vec![ZoneType::Command];
+            replacement.base.set_active_zone(vec![ZoneType::Command]);
+            effect.add_replacement_effect(replacement)
+        })
         .unwrap_or(false)
 }
 
