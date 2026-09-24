@@ -390,14 +390,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         }
     }
 
-    let mut initial: Vec<(
-        CardId,
-        usize,
-        Option<Box<StaticAbility>>,
-        bool,
-        usize,
-        Layer,
-    )> = game
+    let mut effect_order: Vec<(CardId, usize, Layer, bool, u64)> = game
         .cards
         .iter()
         .flat_map(|card| {
@@ -405,10 +398,29 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 .iter()
                 .enumerate()
                 .filter(move |(_, sa)| !card.face_down && sa.zones_check(card.zone))
-                .map(move |(sa_idx, sa)| (card.id, sa_idx, first_static_layer(sa)))
+                .map(move |(sa_idx, sa)| {
+                    (
+                        card.id,
+                        sa_idx,
+                        first_static_layer(sa),
+                        sa.ir.characteristic_defining,
+                        card.layer_timestamp,
+                    )
+                })
         })
+        .collect();
+    effect_order.sort_by_key(|&(_, _, _, cda, timestamp)| (!cda, timestamp));
+    let mut initial: Vec<(
+        CardId,
+        usize,
+        Option<Box<StaticAbility>>,
+        bool,
+        usize,
+        Layer,
+    )> = effect_order
+        .into_iter()
         .enumerate()
-        .map(|(seq, (card_id, sa_idx, layer))| (card_id, sa_idx, None, false, seq, layer))
+        .map(|(seq, (card_id, sa_idx, layer, ..))| (card_id, sa_idx, None, false, seq, layer))
         .collect();
     initial.sort_by_key(|entry| entry.5);
     let mut statics: std::collections::VecDeque<(
@@ -419,14 +431,20 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         usize,
         Layer,
     )> = initial.into();
-    let mut flushed_below: Option<Layer> = None;
     while let Some((source_id, sa_idx, mut owned, is_granted, seq, first_layer)) =
         statics.pop_front()
     {
-        if flushed_below != Some(first_layer) {
+        let before = Some((first_layer, seq));
+        if staged
+            .iter()
+            .any(|(effect_seq, effect)| is_staged_before(*effect_seq, effect, before))
+        {
             let losing_traits: Vec<CardId> = staged
                 .iter()
-                .filter(|(_, effect)| matches!(effect.kind, EffectKind::RemoveAllCardTraits { .. }))
+                .filter(|(effect_seq, effect)| {
+                    is_staged_before(*effect_seq, effect, before)
+                        && matches!(effect.kind, EffectKind::RemoveAllCardTraits { .. })
+                })
                 .map(|(_, effect)| effect.target)
                 .collect();
             if !losing_traits.is_empty() {
@@ -444,11 +462,10 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             flush_pending_effects(
                 game,
                 &mut staged,
-                Some(first_layer),
+                before,
                 &mut type_changed,
                 &mut granted_keyword_replacements,
             );
-            flushed_below = Some(first_layer);
         }
         {
             let pending_before = pending.len();
@@ -638,7 +655,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                             layer: Layer::Ability,
                             target,
                             kind: EffectKind::RemoveAllCardTraits {
-                                timestamp: source_card.zone_timestamp as i64,
+                                timestamp: source_card.layer_timestamp as i64,
                                 static_id: static_layer_trait_id(source_id, sa_idx),
                             },
                         });
@@ -1029,22 +1046,28 @@ fn static_layer_reset_is_noop(card: &crate::card::Card) -> bool {
         && !card.cant_block_static
 }
 
+fn is_staged_before(seq: usize, effect: &PendingEffect, before: Option<(Layer, usize)>) -> bool {
+    before.is_none_or(|bound| (effect.layer, seq) < bound)
+}
+
 fn flush_pending_effects(
     game: &mut GameState,
     staged: &mut Vec<(usize, PendingEffect)>,
-    below: Option<Layer>,
+    before: Option<(Layer, usize)>,
     type_changed: &mut Vec<CardId>,
     granted_keyword_replacements: &mut indexmap::IndexMap<
         CardId,
         Vec<crate::replacement::replacement_effect::ReplacementEffect>,
     >,
 ) {
-    let is_ready = |effect: &PendingEffect| below.is_none_or(|layer| effect.layer < layer);
-    if !staged.iter().any(|(_, effect)| is_ready(effect)) {
+    if !staged
+        .iter()
+        .any(|(seq, effect)| is_staged_before(*seq, effect, before))
+    {
         return;
     }
     staged.sort_by_key(|(seq, effect)| (effect.layer, *seq));
-    let ready = staged.partition_point(|(_, effect)| is_ready(effect));
+    let ready = staged.partition_point(|(seq, effect)| is_staged_before(*seq, effect, before));
     let effects: Vec<PendingEffect> = staged.drain(..ready).map(|(_, effect)| effect).collect();
     type_changed.extend(
         effects

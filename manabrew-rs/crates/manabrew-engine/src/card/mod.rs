@@ -809,6 +809,7 @@ pub struct Card {
     /// Used to order same-player triggers by zone entry order, matching
     /// Java's `Zone.cardList` insertion order used by `forEachCardInGame`.
     pub zone_timestamp: u64,
+    pub layer_timestamp: u64,
 
     /// Baseline snapshots used to recompute live lists when trait-change layers
     /// are removed/cleared.
@@ -1082,6 +1083,7 @@ impl Card {
             activations_this_game: std::collections::BTreeMap::new(),
             is_renowned: false,
             zone_timestamp: 0,
+            layer_timestamp: 0,
             trait_base_activated_abilities: None,
             trait_base_triggers: None,
             trait_base_replacement_effects: None,
@@ -1324,6 +1326,7 @@ impl Card {
             activations_this_game: self.activations_this_game.clone(),
             is_renowned: self.is_renowned,
             zone_timestamp: self.zone_timestamp,
+            layer_timestamp: self.layer_timestamp,
             trait_base_activated_abilities: None,
             trait_base_triggers: None,
             trait_base_replacement_effects: None,
@@ -1633,6 +1636,7 @@ impl Card {
         refresh_field(&mut out.activations_this_game, &self.activations_this_game);
         out.is_renowned.clone_from(&self.is_renowned);
         out.zone_timestamp.clone_from(&self.zone_timestamp);
+        out.layer_timestamp.clone_from(&self.layer_timestamp);
         out.trait_base_activated_abilities = None;
         out.trait_base_triggers = None;
         out.trait_base_replacement_effects = None;

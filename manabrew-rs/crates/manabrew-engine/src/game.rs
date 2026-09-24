@@ -776,9 +776,16 @@ impl GameState {
     /// Assign the next zone timestamp to a card, returning the value.
     /// Called whenever a card enters a new zone to track insertion order.
     pub fn assign_zone_timestamp(&mut self, card_id: CardId) -> u64 {
+        let ts = self.next_timestamp();
+        let card = self.card_mut(card_id);
+        card.zone_timestamp = ts;
+        card.layer_timestamp = ts;
+        ts
+    }
+
+    pub fn next_timestamp(&mut self) -> u64 {
         let ts = self.next_zone_timestamp;
         self.next_zone_timestamp += 1;
-        self.card_mut(card_id).zone_timestamp = ts;
         ts
     }
 

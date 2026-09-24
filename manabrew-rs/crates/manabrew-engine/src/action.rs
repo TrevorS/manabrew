@@ -2403,6 +2403,7 @@ impl GameState {
         self.card_mut(aura_id).attached_to = Some(target_id);
         self.card_mut(aura_id).attached_to_player = None;
         self.card_mut(aura_id).attached_this_turn = true;
+        self.card_mut(aura_id).layer_timestamp = self.next_timestamp();
         self.card_mut(target_id).attachments.push(aura_id);
     }
 
@@ -2411,6 +2412,7 @@ impl GameState {
         self.card_mut(aura_id).attached_to = None;
         self.card_mut(aura_id).attached_to_player = Some(player_id);
         self.card_mut(aura_id).attached_this_turn = true;
+        self.card_mut(aura_id).layer_timestamp = self.next_timestamp();
     }
 
     /// Detach `aura_id` from whatever it is currently attached to.
