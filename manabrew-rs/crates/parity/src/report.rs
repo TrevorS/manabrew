@@ -782,6 +782,7 @@ mod tests {
             variant: "Constructed".into(),
             commanders: vec![],
             covered_cards: vec![],
+            card_uses: Default::default(),
             log: vec![ParityLogEntry::Snapshot(StateSnapshot {
                 turn: 1,
                 phase: "Untap".into(),

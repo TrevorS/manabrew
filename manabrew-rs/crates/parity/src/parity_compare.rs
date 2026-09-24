@@ -152,6 +152,7 @@ fn build_matchup_result(
         error_message: None,
         skip_reason: guard_abort.map(|(turn, reason)| format!("ABORTED AT TURN {turn}: {reason}")),
         covered_cards: vec![],
+        card_uses: Default::default(),
         rust_log,
         java_log,
         finished_turn,

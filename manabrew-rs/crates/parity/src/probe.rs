@@ -72,6 +72,7 @@ pub struct ProbeRun {
     pub seed: u64,
     pub verdict: Verdict,
     pub used: bool,
+    pub uses: usize,
     pub turn: Option<u32>,
     pub field: Option<String>,
     pub subject: Option<String>,
@@ -106,6 +107,10 @@ impl ProbeRun {
                 .covered_cards
                 .iter()
                 .any(|c| names.iter().any(|name| name == c)),
+            uses: names
+                .iter()
+                .filter_map(|name| result.card_uses.get(name))
+                .sum(),
             turn: headline.map(|d| d.turn),
             field: headline.map(|d| normalize_field(&d.field)),
             subject: headline.and_then(|d| d.subject.clone()),
@@ -131,6 +136,10 @@ impl ProbeRow {
 
     pub fn used(&self) -> usize {
         self.runs.iter().filter(|r| r.used).count()
+    }
+
+    pub fn uses(&self) -> usize {
+        self.runs.iter().map(|r| r.uses).sum()
     }
 
     /// `PASS` only counts as evidence when the card was actually cast or played.
@@ -219,13 +228,13 @@ pub fn write_tsv(path: &Path, rows: &[ProbeRow]) -> std::io::Result<()> {
     let mut out = std::io::BufWriter::new(std::fs::File::create(path)?);
     writeln!(
         out,
-        "card\tresult\tpassed\tseeds\tused\tfail_seed\tverdict\tturn\tfield\tsubject\trust\tjava\tdecision\tnote"
+        "card\tresult\tpassed\tseeds\tused\tfail_seed\tverdict\tturn\tfield\tsubject\trust\tjava\tdecision\tnote\tuses"
     )?;
     for row in rows {
         let failure = row.first_failure();
         writeln!(
             out,
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             row.card,
             row.summary(),
             row.passed(),
@@ -243,6 +252,7 @@ pub fn write_tsv(path: &Path, rows: &[ProbeRow]) -> std::io::Result<()> {
             tsv(failure.and_then(|f| f.java.as_deref())),
             tsv(row.first_decision()),
             tsv(row.error.as_deref()),
+            row.uses(),
         )?;
     }
     out.flush()

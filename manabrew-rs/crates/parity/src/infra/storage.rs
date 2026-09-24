@@ -839,6 +839,7 @@ mod tests {
             rust_snapshot: None,
             java_snapshot: None,
             covered_cards: vec!["Lightning Bolt".into()],
+            card_uses: Default::default(),
             rust_log: vec![],
             java_log: vec![],
             finished_turn: None,

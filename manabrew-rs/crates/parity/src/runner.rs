@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
@@ -186,7 +186,7 @@ impl ParityObserver {
 struct CapturingAgent {
     player_id: PlayerId,
     inner: DeterministicAgent,
-    shared_covered_cards: Arc<Mutex<BTreeSet<String>>>,
+    shared_card_uses: Arc<Mutex<BTreeMap<String, usize>>>,
     parity_observer: Arc<ParityObserver>,
     parity_map: Arc<ParityCardMap>,
     capture_snapshots: bool,
@@ -213,7 +213,7 @@ impl CapturingAgent {
         verbose: VerboseMode,
         prefer_actions: bool,
         shared_log: Arc<Mutex<Vec<ParityLogEntry>>>,
-        covered: Arc<Mutex<BTreeSet<String>>>,
+        card_uses: Arc<Mutex<BTreeMap<String, usize>>>,
         snapshot_index: Arc<Mutex<usize>>,
         stream_tx: Option<Sender<ParityLogEntry>>,
         live_log: Option<LiveLogWriter>,
@@ -245,7 +245,7 @@ impl CapturingAgent {
                 Arc::clone(&parity_map),
                 Some(Arc::clone(&observer)),
             ),
-            shared_covered_cards: covered,
+            shared_card_uses: card_uses,
             parity_observer: observer,
             parity_map,
             capture_snapshots,
@@ -507,12 +507,15 @@ impl PlayerAgent for CapturingAgent {
                         &log_event.message,
                     );
                 }
-                let message = &log_event.message;
-                if let Some(card_name) = extract_coverage_card(message) {
-                    self.shared_covered_cards
+                if let Some(card_name) =
+                    extract_coverage_card(&log_event.message).filter(|_| self.player_id.0 == 0)
+                {
+                    *self
+                        .shared_card_uses
                         .lock()
                         .unwrap()
-                        .insert(card_name.to_string());
+                        .entry(card_name.to_string())
+                        .or_default() += 1;
                 }
             }
             GameNotification::TurnChanged { turn_number, .. } => {
@@ -1225,7 +1228,8 @@ pub fn run_with_data_streaming(
 
     // Shared storage for parity log entries captured by CapturingAgent
     let shared_log: Arc<Mutex<Vec<ParityLogEntry>>> = Arc::new(Mutex::new(Vec::new()));
-    let shared_covered_cards: Arc<Mutex<BTreeSet<String>>> = Arc::new(Mutex::new(BTreeSet::new()));
+    let shared_card_uses: Arc<Mutex<BTreeMap<String, usize>>> =
+        Arc::new(Mutex::new(BTreeMap::new()));
     let live_log = config.live_log.as_ref().map(open_live_log).transpose()?;
     if let Some(live_log) = &live_log {
         let mut writer = live_log.lock().unwrap();
@@ -1327,7 +1331,7 @@ pub fn run_with_data_streaming(
             config.verbose.clone(),
             config.prefer_actions,
             Arc::clone(&shared_log),
-            Arc::clone(&shared_covered_cards),
+            Arc::clone(&shared_card_uses),
             Arc::clone(&shared_snapshot_index),
             stream_tx.clone(),
             live_log.clone(),
@@ -1345,7 +1349,7 @@ pub fn run_with_data_streaming(
             config.verbose.clone(),
             config.prefer_actions,
             Arc::clone(&shared_log),
-            Arc::clone(&shared_covered_cards),
+            Arc::clone(&shared_card_uses),
             Arc::clone(&shared_snapshot_index),
             stream_tx,
             live_log.clone(),
@@ -1400,12 +1404,7 @@ pub fn run_with_data_streaming(
     manabrew_engine::census::flush();
 
     let log: Vec<ParityLogEntry> = shared_log.lock().unwrap().clone();
-    let covered_cards: Vec<String> = shared_covered_cards
-        .lock()
-        .unwrap()
-        .iter()
-        .cloned()
-        .collect();
+    let card_uses = shared_card_uses.lock().unwrap().clone();
 
     Ok(GameTrace {
         seed: config.seed,
@@ -1415,7 +1414,8 @@ pub fn run_with_data_streaming(
         variant: config.variant.clone(),
         commanders: config.commanders.clone(),
         log,
-        covered_cards,
+        covered_cards: card_uses.keys().cloned().collect(),
+        card_uses,
     })
 }
 

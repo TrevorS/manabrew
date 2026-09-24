@@ -204,6 +204,8 @@ pub struct GameTrace {
     pub log: Vec<ParityLogEntry>,
     /// Card names that were played/cast during the game.
     pub covered_cards: Vec<String>,
+    #[serde(default)]
+    pub card_uses: BTreeMap<String, usize>,
 }
 
 impl GameTrace {
@@ -651,6 +653,9 @@ pub struct MatchupResult {
     pub java_snapshot: Option<StateSnapshot>,
     /// Card names covered in this matchup (played/cast at least once).
     pub covered_cards: Vec<String>,
+    /// How often each covered card was cast, played or the source of an activated ability.
+    #[serde(default)]
+    pub card_uses: BTreeMap<String, usize>,
     #[serde(default)]
     pub rust_log: Vec<ParityLogEntry>,
     #[serde(default)]
@@ -703,6 +708,7 @@ impl MatchupResult {
             rust_snapshot: None,
             java_snapshot: None,
             covered_cards: vec![],
+            card_uses: BTreeMap::new(),
             rust_log: vec![],
             java_log: vec![],
             finished_turn: None,
@@ -727,6 +733,7 @@ impl MatchupResult {
             rust_snapshot: None,
             java_snapshot: None,
             covered_cards: vec![],
+            card_uses: BTreeMap::new(),
             rust_log: vec![],
             java_log: vec![],
             finished_turn: None,

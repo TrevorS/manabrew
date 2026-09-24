@@ -582,6 +582,7 @@ fn build_rust_only_result(config: &RunConfig, trace: GameTrace) -> MatchupResult
         rust_snapshot: None,
         java_snapshot: None,
         covered_cards: trace.covered_cards,
+        card_uses: trace.card_uses,
         rust_log: trace.log,
         java_log: vec![],
         finished_turn,
@@ -648,6 +649,7 @@ fn compare_and_attach_coverage(
     }
     let mut result = compare_matchup(config, &rust_trace, java_data);
     result.covered_cards = rust_trace.covered_cards;
+    result.card_uses = rust_trace.card_uses;
     result
 }
 
@@ -772,6 +774,7 @@ mod tests {
             commanders: vec![],
             log: vec![guard_decision(3)],
             covered_cards: vec!["Lightning Bolt".to_string()],
+            card_uses: Default::default(),
         };
 
         let result = build_rust_only_result(&config, trace);
