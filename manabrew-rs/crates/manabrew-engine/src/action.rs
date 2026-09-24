@@ -1724,6 +1724,7 @@ impl GameState {
         mut agents: Option<&mut [Box<dyn PlayerAgent>]>,
         mut parts: Option<&mut SbaReplacementParts<'_>>,
     ) -> bool {
+        self.statics_current_after_sba = false;
         // Capture battlefield state before SBA processing. Used by DisableTriggers
         // (Hushbringer) to check LKI — if a creature with DisableTriggers dies in
         // the same SBA batch as another creature, it still suppresses death triggers.
@@ -1853,7 +1854,9 @@ impl GameState {
         }
 
         for pass in 0..9 {
+            let statics_applied = !self.hold_checking_static_abilities;
             apply_continuous_effects(self);
+            self.statics_current_after_sba = statics_applied;
             if pass > 0 {
                 self.pre_sba_battlefield = self
                     .cards
@@ -1877,9 +1880,13 @@ impl GameState {
             self.replacement_last_state_battlefield = outer_last_state;
             let cards = &self.cards;
             let pre_sba_battlefield = &self.pre_sba_battlefield;
+            let combat_lki_len = self.last_state_battlefield_combat_lki.len();
             self.last_state_battlefield_combat_lki.retain(|(id, _)| {
                 !pre_sba_battlefield.contains(id) || cards[id.index()].zone != ZoneType::Graveyard
             });
+            if changed || self.last_state_battlefield_combat_lki.len() != combat_lki_len {
+                self.statics_current_after_sba = false;
+            }
             let table = std::mem::replace(&mut self.pending_change_zone_table, outer_table);
             if let (Some(handler), Some(table)) = (trigger_handler.as_deref_mut(), table) {
                 table.trigger_changes_zone_all(handler, self, None);
@@ -2000,6 +2007,7 @@ impl GameState {
                 continue;
             }
             self.card_mut(cid).has_deathtouch_damage = false;
+            self.statics_current_after_sba = false;
         }
 
         for &pid in &self.player_order.clone() {
@@ -2178,6 +2186,7 @@ impl GameState {
                     continue;
                 }
                 self.card_mut(cid).move_to_command_zone = false;
+                self.statics_current_after_sba = false;
                 let accepted = if let Some(agents) = agents.as_deref_mut() {
                     let name = self.card(cid).card_name.clone();
                     let message = format!(

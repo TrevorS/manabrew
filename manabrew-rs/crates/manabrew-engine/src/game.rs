@@ -283,6 +283,9 @@ pub struct GameState {
     pub replacements_running: crate::HashSet<(CardId, usize, i32)>,
     #[serde(skip)]
     pub hold_checking_static_abilities: bool,
+    /// The last state-based check applied static abilities and its final pass changed nothing.
+    #[serde(skip)]
+    pub statics_current_after_sba: bool,
 
     #[serde(skip)]
     pub token_edition_pins: std::collections::BTreeMap<String, String>,
@@ -378,6 +381,7 @@ impl GameState {
             pending_discard_batch: None,
             replacements_running: crate::HashSet::default(),
             hold_checking_static_abilities: false,
+            statics_current_after_sba: false,
             token_edition_pins: std::collections::BTreeMap::new(),
             last_state_battlefield: Vec::new(),
             last_state_battlefield_combat_lki: Vec::new(),

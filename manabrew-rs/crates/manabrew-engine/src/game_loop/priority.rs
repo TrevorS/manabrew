@@ -88,6 +88,7 @@ impl GameLoop {
             if game.game_over {
                 return;
             }
+            let mut statics_current = std::mem::take(&mut game.statics_current_after_sba);
 
             if let Some(target) = agents[priority_player.index()].get_pass_until() {
                 let current_phase = game.turn.phase;
@@ -117,7 +118,9 @@ impl GameLoop {
             }
 
             let mut action_space = if self.provide_priority_action_space {
-                crate::staticability::layer::apply_continuous_effects(game);
+                if !std::mem::take(&mut statics_current) {
+                    crate::staticability::layer::apply_continuous_effects(game);
+                }
                 let space = self.action_space(game, priority_player, is_main_phase);
                 Self::reset_offered_sub_ability_targets(game, &space);
                 Some(space)
@@ -151,7 +154,9 @@ impl GameLoop {
                     return;
                 }
                 let mut request_action_space = || {
-                    crate::staticability::layer::apply_continuous_effects(game);
+                    if !std::mem::take(&mut statics_current) {
+                        crate::staticability::layer::apply_continuous_effects(game);
+                    }
                     let space = self.action_space(game, priority_player, is_main_phase);
                     Self::reset_offered_sub_ability_targets(game, &space);
                     space
@@ -189,7 +194,9 @@ impl GameLoop {
                 MainPhaseAction::Pass
             } else {
                 if action_space.is_none() {
-                    crate::staticability::layer::apply_continuous_effects(game);
+                    if !std::mem::take(&mut statics_current) {
+                        crate::staticability::layer::apply_continuous_effects(game);
+                    }
                     let space = self.action_space(game, priority_player, is_main_phase);
                     Self::reset_offered_sub_ability_targets(game, &space);
                     action_space = Some(space);
