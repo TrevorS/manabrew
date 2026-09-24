@@ -4,65 +4,28 @@ use super::EffectContext;
 use crate::event::RunParams;
 use crate::trigger::TriggerType;
 
-/// Revert a scheduled control-gain. Mirrors Java `ControlGainEffect`'s
-/// `GameCommand.run()`: restore `original_controller_eot`, drop the
-/// `lose_control_condition`, and clear granted keywords. Zone guard — if the
-/// card has already left the battlefield, the scheduler caller is expected to
-/// have handled cleanup via `leaves_play_hook`.
-pub fn run(game: &mut crate::game::GameState, card_id: crate::ids::CardId) {
-    if game.card(card_id).zone != ZoneType::Battlefield {
+/// Mirrors the command `ControlGainEffect.getLoseControlCommand` builds.
+pub fn lose_control(
+    game: &mut crate::game::GameState,
+    card_id: crate::ids::CardId,
+    timestamp: i64,
+) {
+    if game.card(card_id).zone != ZoneType::Battlefield
+        || !game.card_mut(card_id).remove_temp_controller(timestamp)
+    {
         return;
     }
-    revert(game, card_id);
-}
-
-fn revert(game: &mut crate::game::GameState, card_id: crate::ids::CardId) {
-    if let Some(original) = game.card(card_id).original_controller_eot {
-        game.change_controller(card_id, original);
+    let card = game.card(card_id);
+    let controller = card
+        .temp_controllers
+        .last()
+        .map(|&(_, player)| player)
+        .or(card.original_controller_eot)
+        .unwrap_or(card.owner);
+    if card.temp_controllers.is_empty() {
         game.card_mut(card_id).set_original_controller_eot(None);
     }
-    game.card_mut(card_id).lose_control_condition = None;
-    game.card_mut(card_id).clear_granted_keywords();
-}
-
-/// Hook invoked whenever a card untaps — reverts the steal if the card was
-/// scheduled with `LoseControlCondition::NextUntap`.
-pub fn untap_hook(game: &mut crate::game::GameState, card_id: crate::ids::CardId) {
-    if game.card(card_id).lose_control_condition
-        == Some(crate::card::LoseControlCondition::NextUntap)
-    {
-        revert(game, card_id);
-    }
-}
-
-/// Hook invoked at end of combat — reverts steals scheduled with
-/// `LoseControlCondition::EndOfCombat`.
-pub fn end_of_combat_hook(game: &mut crate::game::GameState) {
-    let targets: Vec<crate::ids::CardId> = game
-        .cards
-        .iter()
-        .filter(|c| {
-            c.lose_control_condition == Some(crate::card::LoseControlCondition::EndOfCombat)
-        })
-        .map(|c| c.id)
-        .collect();
-    for cid in targets {
-        if game.card(cid).zone == ZoneType::Battlefield {
-            revert(game, cid);
-        }
-    }
-}
-
-/// Hook invoked as a permanent leaves the battlefield — reverts scheduled
-/// `LoseControlCondition::LeavesPlay` commands. The card is technically
-/// already in limbo when this fires, so we just clear the schedule.
-pub fn leaves_play_hook(game: &mut crate::game::GameState, card_id: crate::ids::CardId) {
-    if game.card(card_id).lose_control_condition
-        == Some(crate::card::LoseControlCondition::LeavesPlay)
-    {
-        game.card_mut(card_id).lose_control_condition = None;
-        game.card_mut(card_id).set_original_controller_eot(None);
-    }
+    game.change_controller(card_id, controller);
 }
 
 #[cfg(test)]
@@ -146,7 +109,10 @@ mod tests {
         }
 
         assert_eq!(game.card(goblin).original_controller_eot, Some(p0));
-        run(&mut game, goblin);
+        let mut rng = crate::game_rng::ThreadRngAdapter::default();
+        for command in game.end_of_turn.execute_until(None) {
+            command.run(&mut game, &mut rng);
+        }
         assert_eq!(game.card(goblin).controller, p0);
         assert_eq!(game.card(goblin).original_controller_eot, None);
     }
@@ -166,9 +132,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let activator = sa.activating_player;
     let remember = crate::parsing::raw_has_key(&sa.ability_text, "RememberControlled");
     let forget = crate::parsing::raw_has_key(&sa.ability_text, "ForgetControlled");
-    let lose: Vec<&str> = crate::parsing::raw_get(&sa.ability_text, "LoseControl")
-        .map(|raw| raw.split(',').map(str::trim).collect())
-        .unwrap_or_default();
+    let lose: Vec<&str> =
+        crate::parsing::raw_get(&sa.ability_text, crate::parsing::keys::LOSE_CONTROL)
+            .map(|raw| raw.split(',').map(str::trim).collect())
+            .unwrap_or_default();
 
     let controllers = match crate::parsing::raw_get(&sa.ability_text, "NewController") {
         Some(defined) => crate::ability::ability_utils::resolve_defined_players_with_sa(
@@ -253,6 +220,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             new_controller,
             remember,
             forget,
+            &lose,
         );
     }
 }
@@ -265,6 +233,7 @@ fn gain_control_of(
     new_controller: crate::ids::PlayerId,
     remember: bool,
     forget: bool,
+    lose: &[&str],
 ) {
     if ctx.game.card(target_card).zone != ZoneType::Battlefield
         || !ctx
@@ -308,17 +277,47 @@ fn gain_control_of(
         );
     }
 
-    // Schedule the controller-return GameCommand based on the LoseControl$
-    // variant. Only record original_controller on the first steal so repeated
-    // steal → steal-back → EOT reverts to the pre-chain controller.
-    let already_scheduled = ctx.game.card(target_card).original_controller_eot.is_some();
-    if let Some(cond) = sa.ir.lose_control {
-        if !already_scheduled {
+    let timestamp = ctx.game.next_timestamp() as i64;
+    if ctx.game.card(target_card).temp_controllers.is_empty() {
+        ctx.game
+            .card_mut(target_card)
+            .set_original_controller_eot(Some(old_controller));
+    }
+    ctx.game
+        .card_mut(target_card)
+        .add_temp_controller(new_controller, timestamp);
+    let lose_control = crate::phase::PhaseCommand::LoseControl {
+        card: target_card,
+        timestamp,
+    };
+    if lose.contains(&"LeavesPlay") && source != target_card {
+        ctx.game
+            .leaves_play_commands
+            .push((source, lose_control.clone()));
+    }
+    if lose.contains(&"Untap") {
+        ctx.game.untap_commands.push((source, lose_control.clone()));
+    }
+    if lose.contains(&"LoseControl") {
+        ctx.game
+            .change_controller_commands
+            .push((source, lose_control.clone()));
+    }
+    if lose.contains(&"EOT") {
+        ctx.game.end_of_turn.add_until(None, lose_control.clone());
+    }
+    if lose.contains(&"EndOfCombat") {
+        ctx.game.end_of_combat.add_until(None, lose_control.clone());
+    }
+    if lose.contains(&"UntilTheEndOfYourNextTurn") {
+        let activator = sa.activating_player;
+        if ctx.game.active_player() == activator {
             ctx.game
-                .card_mut(target_card)
-                .set_original_controller_eot(Some(old_controller));
+                .end_of_turn
+                .register_until_end(activator, lose_control);
+        } else {
+            ctx.game.end_of_turn.add_until_end(activator, lose_control);
         }
-        ctx.game.card_mut(target_card).lose_control_condition = Some(cond);
     }
 
     // Handle Untap parameter

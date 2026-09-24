@@ -591,9 +591,8 @@ impl GameState {
             if self.card(card_id).is_prepared() {
                 self.set_prepared(card_id, None);
             }
-            // `ControlGain$ LoseControl$ LeavesPlay` — drop the scheduled
-            // revert since the card is no longer on the battlefield.
-            crate::ability::effects::control_gain_effect::leaves_play_hook(self, card_id);
+            self.card_mut(card_id).clear_temp_controllers();
+            self.card_mut(card_id).set_original_controller_eot(None);
             let (commands, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.leaves_play_commands)
                 .into_iter()
                 .partition(|(host, _)| *host == card_id);
@@ -2396,8 +2395,6 @@ impl GameState {
         }
         self.run_untap_commands(card_id);
         self.card_mut(card_id).tapped = false;
-        // `ControlGain$ LoseControl$ Untap` — revert scheduled steal now.
-        crate::ability::effects::control_gain_effect::untap_hook(self, card_id);
         true
     }
 
@@ -2416,6 +2413,14 @@ impl GameState {
         if zone != ZoneType::None {
             self.remove_card_from_zone(zone, old_controller, card_id);
             self.add_card_to_zone(zone, new_controller, card_id);
+        }
+        let (commands, kept): (Vec<_>, Vec<_>) =
+            std::mem::take(&mut self.change_controller_commands)
+                .into_iter()
+                .partition(|(host, _)| *host == card_id);
+        self.change_controller_commands = kept;
+        for (_, command) in commands {
+            command.run(self, &mut crate::game_rng::ThreadRngAdapter::default());
         }
         self.card_mut(card_id).controller = new_controller;
         if zone == ZoneType::Battlefield {

@@ -60,6 +60,10 @@ pub enum PhaseCommand {
     Unclone {
         card: CardId,
     },
+    LoseControl {
+        card: CardId,
+        timestamp: i64,
+    },
 }
 
 impl PhaseCommand {
@@ -118,6 +122,9 @@ impl PhaseCommand {
                     game.card_mut(effect)
                         .set_zone(forge_foundation::ZoneType::None);
                 }
+            }
+            PhaseCommand::LoseControl { card, timestamp } => {
+                crate::ability::effects::control_gain_effect::lose_control(game, card, timestamp);
             }
             PhaseCommand::Unclone { card } => {
                 let card = game.card_mut(card);

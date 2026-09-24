@@ -732,6 +732,31 @@ impl GameLoop {
     /// Rule 514.2: Remove damage from permanents, expire "until end of turn"
     /// effects, and clean up temporary state. Called every cleanup iteration
     /// (including repeats per rule 514.3a), mirroring Java's onPhaseBegin(CLEANUP).
+    fn run_phase_command(&mut self, game: &mut GameState, command: crate::phase::PhaseCommand) {
+        let lost_control = match command {
+            crate::phase::PhaseCommand::LoseControl { card, .. } => {
+                Some((card, game.card(card).controller))
+            }
+            _ => None,
+        };
+        command.run(game, &mut *self.game_rng);
+        if let Some((card, original)) = lost_control {
+            let controller = game.card(card).controller;
+            if controller != original {
+                self.trigger_handler.run_trigger(
+                    TriggerType::ChangesController,
+                    crate::event::RunParams {
+                        card: Some(card),
+                        player: Some(controller),
+                        original_controller: Some(original),
+                        ..Default::default()
+                    },
+                    false,
+                );
+            }
+        }
+    }
+
     fn cleanup_damage_and_eot(&mut self, game: &mut GameState) {
         // Remove temporary command-zone effect cards created by AB$ Effect
         // that expire at end of turn.
@@ -749,40 +774,13 @@ impl GameLoop {
             }
         }
         for command in game.end_of_turn.execute_until(None) {
-            command.run(game, &mut *self.game_rng);
+            self.run_phase_command(game, command);
         }
         let active = game.active_player();
         for command in game.end_of_turn.execute_until_end_of_phase(active) {
-            command.run(game, &mut *self.game_rng);
+            self.run_phase_command(game, command);
         }
         game.end_of_turn.register_until_end_command(active);
-
-        // Return stolen creatures (LoseControl$ EOT) to their original controllers
-        let stolen: Vec<(CardId, crate::ids::PlayerId)> = game
-            .cards
-            .iter()
-            .filter(|c| c.zone == ZoneType::Battlefield && c.original_controller_eot.is_some())
-            .map(|c| (c.id, c.original_controller_eot.unwrap()))
-            .collect();
-        for (card_id, original) in stolen {
-            let current = game.card(card_id).controller;
-            game.card_mut(card_id).clear_original_controller_eot();
-            // Remove granted keywords (e.g. Haste from Act of Aggression)
-            game.card_mut(card_id).clear_granted_keywords();
-            if current != original {
-                game.change_controller(card_id, original);
-                self.trigger_handler.run_trigger(
-                    TriggerType::ChangesController,
-                    crate::event::RunParams {
-                        card: Some(card_id),
-                        player: Some(original),
-                        original_controller: Some(current),
-                        ..Default::default()
-                    },
-                    false,
-                );
-            }
-        }
 
         game.clear_left_battlefield_this_turn();
         game.clear_left_graveyard_this_turn();

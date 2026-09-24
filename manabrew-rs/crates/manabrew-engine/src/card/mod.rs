@@ -193,30 +193,6 @@ pub struct CardActionTargetSpec {
     pub min_targets: Option<i32>,
 }
 
-/// When a `SP$ GainControl` steals a permanent, the revert trigger is stored
-/// here. Fires during the appropriate phase or event handler, at which point
-/// the card's `original_controller_eot` is restored.
-///
-/// Mirrors the subset of Java `ControlGainEffect.LoseControl$` variants that
-/// schedule a `GameCommand`. Java also has variants we intentionally skip
-/// here (`StaticCommandCheck` driven by an SVar comparator, `UntilSourceUnattached`,
-/// `UntilTheEndOfYourNextTurn`) — they require either a scheduler that scans
-/// every tick or a turn-owner counter that the engine doesn't maintain yet.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum_macros::EnumString)]
-#[strum(ascii_case_insensitive)]
-pub enum LoseControlCondition {
-    /// Revert at the end of the current turn (default EOT branch).
-    #[strum(serialize = "EOT", serialize = "UntilEOT", serialize = "EndOfTurn")]
-    EndOfTurn,
-    /// Revert the next time this card untaps.
-    #[strum(serialize = "Untap", serialize = "UntilUntap", serialize = "NextUntap")]
-    NextUntap,
-    /// Revert at end of combat (Threaten-style steal-and-swing).
-    EndOfCombat,
-    /// Revert when the card leaves the battlefield.
-    LeavesPlay,
-}
-
 /// Saved pre-animate state for AnimateEffect, restored at cleanup.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnimateState {
@@ -580,11 +556,6 @@ pub struct Card {
     /// `remembered_cards` (which stores live IDs and drifts).
     #[serde(skip, default)]
     pub remembered_lki_cards: Vec<Card>,
-    /// When set, the card's `original_controller_eot` must be restored on the
-    /// trigger described here. Mirrors the Java `ControlGainEffect` set of
-    /// `LoseControl$` variants that register distinct GameCommands.
-    #[serde(default)]
-    pub lose_control_condition: Option<LoseControlCondition>,
     /// True if this temporary effect expires at end of turn cleanup.
     pub temp_effect_until_eot: bool,
     /// Host card this temporary effect is linked to; when host leaves the
@@ -604,7 +575,7 @@ pub struct Card {
     #[serde(default)]
     pub exiled_with: Option<CardId>,
 
-    /// Original controller to restore at end of turn (for `LoseControl$ EOT`).
+    /// Controller once every temporary controller is gone (Java `Card.controller`).
     pub original_controller_eot: Option<PlayerId>,
 
     // Double-faced card (DFC) state
@@ -762,7 +733,7 @@ pub struct Card {
     /// Tracks if this card became a target this turn.
     pub targeted_from_this_turn: Vec<PlayerId>,
     /// Temporary controllers layered on this card.
-    pub temp_controllers: Vec<PlayerId>,
+    pub temp_controllers: Vec<(i64, PlayerId)>,
     /// Players that may look at this card.
     pub may_look_at: Vec<PlayerId>,
     /// Players that may play this card.
@@ -1000,7 +971,6 @@ impl Card {
             chosen_modes_your_combat: Vec::new(),
             chosen_modes_your_last_combat: Vec::new(),
             remembered_lki_cards: Vec::new(),
-            lose_control_condition: None,
             temp_effect_until_eot: false,
             temp_effect_host: None,
             forget_on_moved_origin: None,
@@ -1245,7 +1215,6 @@ impl Card {
             chosen_modes_your_combat: self.chosen_modes_your_combat.clone(),
             chosen_modes_your_last_combat: self.chosen_modes_your_last_combat.clone(),
             remembered_lki_cards: self.remembered_lki_cards.clone(),
-            lose_control_condition: self.lose_control_condition,
             temp_effect_until_eot: self.temp_effect_until_eot,
             temp_effect_host: self.temp_effect_host,
             forget_on_moved_origin: self.forget_on_moved_origin,
@@ -1522,10 +1491,6 @@ impl Card {
         );
         out.remembered_lki_cards
             .clone_from(&self.remembered_lki_cards);
-        refresh_field(
-            &mut out.lose_control_condition,
-            &self.lose_control_condition,
-        );
         out.temp_effect_until_eot
             .clone_from(&self.temp_effect_until_eot);
         out.temp_effect_host.clone_from(&self.temp_effect_host);
@@ -3953,12 +3918,14 @@ impl Card {
         self.came_under_control_since_last_upkeep
     }
 
-    pub fn add_temp_controller(&mut self, player: PlayerId) {
-        self.temp_controllers.push(player);
+    pub fn add_temp_controller(&mut self, player: PlayerId, timestamp: i64) {
+        self.temp_controllers.push((timestamp, player));
     }
 
-    pub fn remove_temp_controller(&mut self, player: PlayerId) {
-        self.temp_controllers.retain(|&p| p != player);
+    pub fn remove_temp_controller(&mut self, timestamp: i64) -> bool {
+        let before = self.temp_controllers.len();
+        self.temp_controllers.retain(|&(ts, _)| ts != timestamp);
+        before != self.temp_controllers.len()
     }
 
     pub fn clear_temp_controllers(&mut self) {
