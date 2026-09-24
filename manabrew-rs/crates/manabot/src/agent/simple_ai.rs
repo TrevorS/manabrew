@@ -1438,14 +1438,23 @@ impl BotAgent for SimpleAi {
                     presentation.title
                 );
                 let repeated = self.looping_on(signature);
-                let title = presentation.title.to_ascii_lowercase();
+                let title = presentation.title.to_ascii_lowercase().replace("{life}", "life");
                 let always_accept = title.contains("cancel search")
                     || title.starts_with("do you want to draw")
                     || (title.contains("commander")
                         && title.contains("put it into the command zone"));
                 let constructed_duel = self.is_constructed_duel();
-                let duel_cost = title.starts_with("pay 1 life")
+                let life = self.view.as_ref().and_then(|view| {
+                    view.players
+                        .iter()
+                        .find(|player| player.id == deciding_player_id)
+                        .map(|player| player.life)
+                });
+                let life_cost = title.starts_with("pay 1 life")
                     || title.starts_with("pay 2 life")
+                    || title == "pay life for mana";
+                let spare_life = life.is_some_and(|life| !Self::life_in_danger(life, 2, false));
+                let duel_cost = (life_cost && spare_life)
                     || title.starts_with("pay {e}")
                     || title.starts_with("pay return an artifact")
                     || title.starts_with("sacrifice ");
@@ -1455,22 +1464,15 @@ impl BotAgent for SimpleAi {
                         .iter()
                         .any(|key| key.starts_with(&format!("ability:{prompt_source_id}:")))
                         || (title.starts_with("sacrifice ") && self.payment_attempt.is_some()));
-                let life = self.view.as_ref().and_then(|view| {
-                    view.players
-                        .iter()
-                        .find(|player| player.id == deciding_player_id)
-                        .map(|player| player.life)
-                });
                 let untapped_land = presentation
                     .text
                     .as_deref()
                     .is_some_and(|text| text.contains("enters tapped"))
-                    && title.starts_with("pay ")
-                    && life.is_some_and(|life| life >= 20);
+                    && title.starts_with("pay ");
                 let accept_once = title.contains("search your library?")
                     || (constructed_duel && duel_cost)
                     || own_activation_cost
-                    || untapped_land
+                    || ((untapped_land || life_cost) && life.is_some_and(|life| life >= 20))
                     || title.contains("sacrifice evolving wilds")
                     || title.contains("sacrifice bountiful landscape")
                     || title.contains("sacrifice strip mine")
