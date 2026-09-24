@@ -3018,6 +3018,12 @@ impl Card {
         self.replacement_effects.clear();
         self.base_ability_count = 0;
         self.base_trigger_count = 0;
+        self.trait_base_activated_abilities = None;
+        self.trait_base_triggers = None;
+        self.trait_base_replacement_effects = None;
+        self.trait_base_static_abilities = None;
+        self.trait_base_keywords = None;
+        self.reapply_changed_card_traits();
         self.refresh_action_specs();
     }
 
@@ -3287,12 +3293,7 @@ impl Card {
         self.trait_base_replacement_effects = state.original_trait_base_replacement_effects;
         self.trait_base_static_abilities = state.original_trait_base_static_abilities;
         self.trait_base_keywords = state.original_trait_base_keywords;
-        if self.changed_card_traits.is_empty() && self.changed_card_traits_by_text.is_empty() {
-            self.clear_changed_card_traits();
-        } else {
-            self.capture_changed_card_traits_baseline_if_needed();
-            self.recompute_changed_card_traits();
-        }
+        self.reapply_changed_card_traits();
         self.parsed_svar_cache.clear();
         self.refresh_action_specs();
         self.ensure_crew_activated_ability();
@@ -5091,6 +5092,15 @@ impl Card {
         self.replacement_effects = replacements;
         self.static_abilities = static_abilities;
         self.keywords = keywords;
+    }
+
+    fn reapply_changed_card_traits(&mut self) {
+        if self.changed_card_traits.is_empty() && self.changed_card_traits_by_text.is_empty() {
+            self.clear_changed_card_traits();
+        } else {
+            self.capture_changed_card_traits_baseline_if_needed();
+            self.recompute_changed_card_traits();
+        }
     }
 
     /// Java parity: `addChangedCardTraits`.
