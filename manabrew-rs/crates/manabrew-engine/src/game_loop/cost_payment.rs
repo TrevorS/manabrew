@@ -48,6 +48,7 @@ impl GameLoop {
         ) {
             game.card_mut(source).add_exiled_card(exiled);
         }
+        game.card_mut(exiled).exiled_with = Some(source);
     }
 
     fn choose_cost_card_from_zone(

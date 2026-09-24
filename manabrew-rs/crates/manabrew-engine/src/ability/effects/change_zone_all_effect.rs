@@ -374,6 +374,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }) {
                     ctx.game.card_mut(sid).add_exiled_card(card_id);
                 }
+                crate::ability::spell_ability_effect::handle_exiled_with(ctx.game, sa, card_id);
                 // `moveTo(ZoneType.Exile, ...)` goes through `GameAction.exile`.
                 if ctx.game.card(card_id).zone == ZoneType::Exile {
                     ctx.trigger_handler.run_trigger(

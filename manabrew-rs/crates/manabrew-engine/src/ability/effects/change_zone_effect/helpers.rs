@@ -360,6 +360,9 @@ pub(super) fn apply_post_move(
             .filter(|&craft| !ctx.game.card(craft).is_token)
             .collect();
         ctx.game.card_mut(card_id).retain_paid_list(&paid);
+        for &craft in paid.iter().filter(|&&craft| craft != card_id) {
+            ctx.game.card_mut(craft).exiled_with = Some(card_id);
+        }
     }
     let exile_source = sa.source.and_then(|source_id| {
         if sa.ir.exiled_with_effect_source {
@@ -547,22 +550,7 @@ pub(super) fn apply_post_move(
                 if has_return_duration {
                     ctx.game.card_mut(card_id).set_exiled_by(Some(sid));
                 }
-                let src_zone = ctx.game.card(sid).zone;
-                let source_active = matches!(
-                    src_zone,
-                    ZoneType::Battlefield | ZoneType::Stack | ZoneType::Command
-                );
-                // Mirrors Java `SpellAbilityEffect.handleExiledWith` — feeds
-                // `Card.ExiledWithSource` / `Defined$ ExiledWith` selectors.
-                if source_active {
-                    ctx.game.card_mut(sid).add_exiled_card(card_id);
-                } else if sa
-                    .trigger_source_zone_timestamp
-                    .or(sa.source_zone_timestamp)
-                    .is_some_and(|timestamp| timestamp != ctx.game.card(sid).zone_timestamp)
-                {
-                    ctx.game.add_lki_exiled_card(sid, card_id);
-                }
+                crate::ability::spell_ability_effect::handle_exiled_with(ctx.game, sa, card_id);
             }
         }
         ctx.trigger_handler.run_trigger(

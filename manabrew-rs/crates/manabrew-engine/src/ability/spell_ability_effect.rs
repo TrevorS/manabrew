@@ -718,19 +718,42 @@ pub fn run(ctx: &mut super::effects::EffectContext, sa: &SpellAbility) {
     super::effects::resolve_effect(ctx, sa);
 }
 
-/// Track which card exiled another card, for "exile until" effects.
-/// Mirrors Java's `SpellAbilityEffect.handleExiledWith(SpellAbility, Card)`.
-///
-/// Sets the `exiled_with` field on the exiled card and adds it to the
-/// source card's exiled list.
+/// Mirrors Java's `SpellAbilityEffect.handleExiledWith(Card, SpellAbility)`.
 pub fn handle_exiled_with(game: &mut GameState, sa: &SpellAbility, exiled_card_id: CardId) {
-    let source_id = match sa.source {
-        Some(id) => id,
-        None => return,
+    let Some(source_id) = sa.source else {
+        return;
     };
+    if game.card(exiled_card_id).is_token {
+        return;
+    }
+    if matches!(
+        game.card(source_id).zone,
+        forge_foundation::ZoneType::Battlefield
+            | forge_foundation::ZoneType::Stack
+            | forge_foundation::ZoneType::Command
+    ) {
+        game.card_mut(source_id).add_exiled_card(exiled_card_id);
+    } else if sa
+        .trigger_source_zone_timestamp
+        .or(sa.source_zone_timestamp)
+        .is_some_and(|timestamp| timestamp != game.card(source_id).zone_timestamp)
+    {
+        game.add_lki_exiled_card(source_id, exiled_card_id);
+    }
+    let exiling_source = if sa.ir.exiled_with_effect_source {
+        game.card(source_id).effect_source.unwrap_or(source_id)
+    } else {
+        copied_trait_original_host(game, sa).unwrap_or(source_id)
+    };
+    game.card_mut(exiled_card_id).exiled_with = Some(exiling_source);
+}
 
-    game.card_mut(exiled_card_id).set_exiled_by(Some(source_id));
-    game.card_mut(source_id).add_exiled_card(exiled_card_id);
+/// Mirrors Java's `CardTraitBase.getOriginalHost` for a trait that `isCopiedTrait`. An effect
+/// card's own traits carry its effect source as `original_host` and are not copies.
+pub fn copied_trait_original_host(game: &GameState, sa: &SpellAbility) -> Option<CardId> {
+    let source = sa.source?;
+    sa.original_host
+        .filter(|&host| host != source && game.card(source).effect_source != Some(host))
 }
 
 /// Mirrors Java's `SpellAbilityEffect.addUntilCommand` for the durations that end at the

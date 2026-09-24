@@ -336,21 +336,8 @@ fn resolve_for_player(
                 }
             }
         }
-        if dest_zone1 == ZoneType::Exile && !ctx.game.card(id).is_token {
-            if let Some(source_id) = sa.source {
-                if matches!(
-                    ctx.game.card(source_id).zone,
-                    ZoneType::Battlefield | ZoneType::Stack | ZoneType::Command
-                ) {
-                    ctx.game.card_mut(source_id).add_exiled_card(id);
-                } else if sa
-                    .trigger_source_zone_timestamp
-                    .or(sa.source_zone_timestamp)
-                    .is_some_and(|timestamp| timestamp != ctx.game.card(source_id).zone_timestamp)
-                {
-                    ctx.game.add_lki_exiled_card(source_id, id);
-                }
-            }
+        if dest_zone1 == ZoneType::Exile {
+            crate::ability::spell_ability_effect::handle_exiled_with(ctx.game, sa, id);
         }
         if sa.is_exile_face_down() {
             ctx.game.card_mut(id).set_face_down(true);

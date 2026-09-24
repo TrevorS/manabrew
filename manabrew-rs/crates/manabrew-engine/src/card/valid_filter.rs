@@ -974,20 +974,30 @@ fn matches_context_predicate(
             crate::spellability::matches_valid_sa(filter, cast_sa, context.source_card, Some(card))
         }),
         ContextPredicate::ExiledWithSource => {
-            context.source_card.exiled_cards.contains(&card.id)
-                || (context.spell_ability.is_some_and(|sa| {
-                    sa.trigger_source_zone_timestamp
-                        .or(sa.source_zone_timestamp)
-                        .is_some_and(|timestamp| timestamp != context.source_card.zone_timestamp)
-                        || (sa
-                            .get_triggering_value(crate::ability::AbilityKey::NewCard)
-                            .is_some()
-                            && sa.get_triggering_card(crate::ability::AbilityKey::Card)
-                                == Some(context.source_card.id))
-                }) && context
-                    .game
-                    .and_then(|game| game.get_lki_snapshot(context.source_card.id))
-                    .is_some_and(|lki| lki.exiled_cards.contains(&card.id)))
+            let host = context
+                .spell_ability
+                .zip(context.game)
+                .and_then(|(sa, game)| {
+                    crate::ability::spell_ability_effect::copied_trait_original_host(game, sa)
+                })
+                .unwrap_or(context.source_card.id);
+            card.exiled_with == Some(host)
+                && (context.source_card.exiled_cards.contains(&card.id)
+                    || (context.spell_ability.is_some_and(|sa| {
+                        sa.trigger_source_zone_timestamp
+                            .or(sa.source_zone_timestamp)
+                            .is_some_and(|timestamp| {
+                                timestamp != context.source_card.zone_timestamp
+                            })
+                            || (sa
+                                .get_triggering_value(crate::ability::AbilityKey::NewCard)
+                                .is_some()
+                                && sa.get_triggering_card(crate::ability::AbilityKey::Card)
+                                    == Some(context.source_card.id))
+                    }) && context
+                        .game
+                        .and_then(|game| game.get_lki_snapshot(context.source_card.id))
+                        .is_some_and(|lki| lki.exiled_cards.contains(&card.id))))
         }
         // Java `CardProperty:413` compares against the effect's source, not the effect card.
         ContextPredicate::ExiledWithEffectSource => context

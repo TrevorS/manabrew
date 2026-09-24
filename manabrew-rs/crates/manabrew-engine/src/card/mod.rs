@@ -598,6 +598,8 @@ pub struct Card {
     /// when `exiled_by` leaves the battlefield, this card returns to `until_host_leaves_origin`.
     pub exiled_by: Option<CardId>,
     pub until_host_leaves_origin: Option<ZoneType>,
+    #[serde(default)]
+    pub exiled_with: Option<CardId>,
 
     /// Original controller to restore at end of turn (for `LoseControl$ EOT`).
     pub original_controller_eot: Option<PlayerId>,
@@ -1001,6 +1003,7 @@ impl Card {
             exile_on_moved_origins: Vec::new(),
             exile_when_no_remembered: false,
             exiled_by: None,
+            exiled_with: None,
             until_host_leaves_origin: None,
             original_controller_eot: None,
             is_transformed: false,
@@ -1244,6 +1247,7 @@ impl Card {
             exile_on_moved_origins: self.exile_on_moved_origins.clone(),
             exile_when_no_remembered: self.exile_when_no_remembered,
             exiled_by: self.exiled_by,
+            exiled_with: self.exiled_with,
             until_host_leaves_origin: self.until_host_leaves_origin,
             original_controller_eot: self.original_controller_eot,
             is_transformed: self.is_transformed,
@@ -1528,6 +1532,7 @@ impl Card {
         out.exile_when_no_remembered
             .clone_from(&self.exile_when_no_remembered);
         out.exiled_by.clone_from(&self.exiled_by);
+        out.exiled_with.clone_from(&self.exiled_with);
         out.until_host_leaves_origin = self.until_host_leaves_origin;
         out.original_controller_eot
             .clone_from(&self.original_controller_eot);
@@ -3691,6 +3696,7 @@ impl Card {
 
     pub fn cleanup_exiled_with(&mut self) {
         self.exiled_by = None;
+        self.exiled_with = None;
         self.until_host_leaves_origin = None;
     }
 

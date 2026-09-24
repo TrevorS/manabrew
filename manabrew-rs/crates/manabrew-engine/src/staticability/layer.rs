@@ -707,7 +707,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                                     kind: EffectKind::GrantAbility {
                                         text: ab.ability_text.clone(),
                                         svars: gained.svars.clone(),
-                                        original_host: None,
+                                        original_host: Some(gained.id),
                                         original_ability: Some((gained.id, ab.ability_index)),
                                     },
                                 });
@@ -746,7 +746,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                                     kind: EffectKind::GrantTrigger {
                                         text,
                                         svars: gained.svars.clone(),
-                                        original_host: None,
+                                        original_host: Some(gained.id),
                                     },
                                 });
                             }
@@ -774,7 +774,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                                     kind: EffectKind::GrantAbility {
                                         text,
                                         svars: gained.svars.clone(),
-                                        original_host: None,
+                                        original_host: Some(gained.id),
                                         original_ability: Some((gained.id, ab.ability_index)),
                                     },
                                 });
