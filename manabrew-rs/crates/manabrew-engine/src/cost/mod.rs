@@ -79,9 +79,16 @@ pub fn resolve_dynamic_amount(
     if amount != DYNAMIC_X_SENTINEL {
         return amount;
     }
-    let source_card = game.card(source);
+    resolve_x_expression(game, source, player, game.card(source).get_s_var("X"))
+}
 
-    if let Some(x_expr) = source_card.get_s_var("X") {
+fn resolve_x_expression(
+    game: &GameState,
+    source: CardId,
+    player: PlayerId,
+    x_expr: Option<&str>,
+) -> i32 {
+    if let Some(x_expr) = x_expr {
         if let Ok(n) = x_expr.parse::<i32>() {
             return n;
         }
@@ -93,7 +100,7 @@ pub fn resolve_dynamic_amount(
         }
     }
 
-    source_card
+    game.card(source)
         .svars
         .get("XPaid")
         .and_then(|s| s.parse::<i32>().ok())
@@ -162,7 +169,7 @@ impl AmountSpec {
             Some(expr) if !expr.starts_with("Count$") && expr.parse::<i32>().is_err() => {
                 crate::svar::resolve_numeric_value(game, sa, "X", 0)
             }
-            _ => self.resolve(game, source, player),
+            x_expr => resolve_x_expression(game, source, player, x_expr),
         }
     }
 
