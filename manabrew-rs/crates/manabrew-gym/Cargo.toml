@@ -1,0 +1,18 @@
+[package]
+name = "manabrew-gym"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+publish = false
+description = "Reinforcement-learning environment over the manabrew engine"
+
+[dependencies]
+forge-foundation = { path = "../forge-foundation" }
+forge-carddb = { path = "../forge-carddb" }
+manabrew-engine = { path = "../manabrew-engine" }
+parity = { path = "../parity" }
+rand = "0.8"
+rustc-hash = "2"
+
+[dev-dependencies]
+mimalloc = { version = "0.1", default-features = false }

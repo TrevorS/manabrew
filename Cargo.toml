@@ -17,6 +17,7 @@ members = [
     "manabrew-rs/crates/self-hosted-node",
     "manabrew-rs/crates/manabrew-game-runtime",
     "manabrew-rs/crates/parity",
+    "manabrew-rs/crates/manabrew-gym",
     "manabrew-rs/crates/wasm",
     "manabrew-rs/crates/manabrew-agent-interface",
     "manabrew-rs/crates/forge-card-script-lsp",

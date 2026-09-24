@@ -4609,6 +4609,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "manabrew-gym"
+version = "0.1.0"
+dependencies = [
+ "forge-carddb",
+ "forge-foundation",
+ "manabrew-engine",
+ "mimalloc",
+ "parity",
+ "rand 0.8.6",
+ "rustc-hash 2.1.2",
+]
+
+[[package]]
 name = "manabrew-hub"
 version = "0.20.1"
 dependencies = [
