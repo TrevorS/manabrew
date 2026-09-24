@@ -48,7 +48,6 @@ pub(crate) fn perform_sacrifice(
         if game.card(card_id).zone != ZoneType::Battlefield {
             continue;
         }
-        let owner = game.card(card_id).owner;
         let controller = game.card(card_id).controller;
 
         let lki_counters = game.card(card_id).counters.clone();
@@ -76,23 +75,7 @@ pub(crate) fn perform_sacrifice(
             },
             false,
         );
-        crate::ability::effects::emit_zone_trigger_with_lki_counters(
-            runtime.trigger_handler,
-            card_id,
-            ZoneType::Battlefield,
-            ZoneType::Graveyard,
-            lki_p1p1,
-            lki_power,
-            lki_toughness,
-        );
-        runtime.trigger_handler.flush_waiting_triggers(game);
-        game.move_card_with_agents_and_replacement_runtime(
-            card_id,
-            ZoneType::Graveyard,
-            owner,
-            agents,
-            runtime,
-        );
+        game.sacrifice_destroy(card_id, agents, runtime, lki_p1p1, lki_power, lki_toughness);
 
         sacrificed.push(card_id);
         by_controller.entry(controller).or_default().push(card_id);

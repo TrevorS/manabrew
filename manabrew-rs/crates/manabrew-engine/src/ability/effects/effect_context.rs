@@ -152,6 +152,32 @@ impl EffectContext<'_> {
         );
     }
 
+    pub(crate) fn sacrifice_destroy(
+        &mut self,
+        card_id: CardId,
+        lki_p1p1: i32,
+        lki_power: i32,
+        lki_toughness: i32,
+    ) {
+        let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
+            trigger_handler: self.trigger_handler,
+            token_templates: self.token_templates,
+            token_art_variants: self.token_art_variants,
+            token_fallback: self.token_fallback,
+            edition_dates: self.edition_dates,
+            mana_pools: self.mana_pools,
+            rng: self.rng,
+        };
+        self.game.sacrifice_destroy(
+            card_id,
+            self.agents,
+            &mut runtime,
+            lki_p1p1,
+            lki_power,
+            lki_toughness,
+        );
+    }
+
     pub fn discard_card(
         &mut self,
         card_id: CardId,

@@ -101,6 +101,63 @@ impl GameState {
         );
     }
 
+    pub(crate) fn sacrifice_destroy(
+        &mut self,
+        card_id: CardId,
+        agents: &mut [Box<dyn PlayerAgent>],
+        runtime: &mut ReplacementRuntime<'_>,
+        lki_p1p1: i32,
+        lki_power: i32,
+        lki_toughness: i32,
+    ) {
+        let owner = self.card(card_id).owner;
+        let mut moved_event = ReplacementEvent::Moved {
+            card: card_id,
+            origin: ZoneType::Battlefield,
+            destination: ZoneType::Graveyard,
+            is_discard: false,
+            counter_map: None,
+            counter_cause: None,
+            counter_is_effect: false,
+            after_replacement_static_abilities: Vec::new(),
+            stack_sa: None,
+            fizzle: None,
+        };
+        let result =
+            apply_replacements_with_agents_and_runtime(self, agents, runtime, &mut moved_event);
+        if !matches!(
+            result,
+            ReplacementResult::NotReplaced | ReplacementResult::Updated
+        ) {
+            return;
+        }
+        let final_dest = if let ReplacementEvent::Moved { destination, .. } = moved_event {
+            destination
+        } else {
+            ZoneType::Graveyard
+        };
+        crate::ability::effects::emit_zone_trigger_with_lki_counters(
+            runtime.trigger_handler,
+            card_id,
+            ZoneType::Battlefield,
+            final_dest,
+            lki_p1p1,
+            lki_power,
+            lki_toughness,
+        );
+        runtime.trigger_handler.flush_waiting_triggers(self);
+        self.move_card_internal(
+            card_id,
+            final_dest,
+            owner,
+            Some(agents),
+            None,
+            Some(runtime),
+            false,
+            false,
+        );
+    }
+
     fn move_card_without_replacement(
         &mut self,
         card_id: CardId,

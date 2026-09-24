@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use forge_foundation::ZoneType;
 
-use super::{emit_zone_trigger_with_lki_counters, EffectContext};
+use super::EffectContext;
 use crate::ability::spell_ability_effect::get_target_players;
 use crate::card::CounterType;
 use crate::event::RunParams;
@@ -35,8 +35,6 @@ fn do_sacrifice(
     ) {
         return None;
     }
-    let owner = ctx.game.card(card_id).owner;
-
     // Capture +1/+1 counter count BEFORE the card moves to graveyard.
     // Needed for Modular death triggers which move counters to target
     // artifact creature (CR 702.43b). Counters are cleared during move_card.
@@ -72,19 +70,7 @@ fn do_sacrifice(
         },
         false,
     );
-    // Emit ChangesZone before move so LKI state (counters, keywords)
-    // is still available for trigger matching.
-    emit_zone_trigger_with_lki_counters(
-        ctx.trigger_handler,
-        card_id,
-        ZoneType::Battlefield,
-        ZoneType::Graveyard,
-        lki_p1p1,
-        lki_power,
-        lki_toughness,
-    );
-    ctx.trigger_handler.flush_waiting_triggers(ctx.game);
-    ctx.move_card(card_id, ZoneType::Graveyard, owner);
+    ctx.sacrifice_destroy(card_id, lki_p1p1, lki_power, lki_toughness);
     ctx.trigger_handler.flush_waiting_triggers(ctx.game);
     // Fire Exploited trigger when the sacrifice is from the Exploit keyword
     if let Some(source_id) = exploit_source {
