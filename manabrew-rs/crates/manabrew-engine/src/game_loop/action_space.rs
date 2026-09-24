@@ -33,7 +33,7 @@ impl GameLoop {
         allow_reserved_source_reuse: bool,
     ) -> bool {
         let card = game.card(card_id);
-        let summoning_sick = card.is_creature() && card.summoning_sick && !card.has_haste();
+        let summoning_sick = card.is_ability_sick(&game.cards);
 
         let has_usable_mana_ability = card.activated_abilities.iter().any(|ab| {
             let needs_tap = ab

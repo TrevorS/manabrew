@@ -1475,7 +1475,7 @@ fn calculate_available_mana_excluding_with_reserved_impl(
         // Must match Java's ComputerUtilMana.canPayManaCost() behavior so
         // castability probes agree with actual payment and neither engine wastes RNG
         // on uncastable spells.
-        let summoning_sick = card.is_creature() && card.summoning_sick && !card.has_haste();
+        let summoning_sick = card.is_ability_sick(&game.cards);
         if summoning_sick {
             let all_need_tap = card
                 .activated_abilities

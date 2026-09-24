@@ -3898,6 +3898,17 @@ impl Card {
         self.summoning_sick
     }
 
+    pub fn is_sick(&self) -> bool {
+        self.is_creature() && self.summoning_sick && !self.has_haste()
+    }
+
+    pub fn is_ability_sick(&self, cards: &[std::sync::Arc<Card>]) -> bool {
+        self.is_sick()
+            && !crate::staticability::static_ability_activate_ability_as_if_haste::can_activate(
+                cards, self,
+            )
+    }
+
     pub fn has_become_target_this_turn(&self) -> bool {
         !self.targeted_from_this_turn.is_empty()
     }

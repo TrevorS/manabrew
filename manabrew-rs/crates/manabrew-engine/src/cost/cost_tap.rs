@@ -34,7 +34,7 @@ pub fn can_pay(
     if card.tapped || card.phased_out {
         return false;
     }
-    !(card.is_creature() && card.summoning_sick && !card.has_haste())
+    !card.is_ability_sick(&game.cards)
 }
 
 pub fn pay_with_decision(

@@ -32,9 +32,8 @@ pub fn can_pay_extra(game: &GameState, source: CardId) -> bool {
     let stun = CounterType::Named("STUN".to_string());
     // Mirrors Java: source.canUntap(null, false) && !source.isAbilitySick()
     //   && (source.getCounters(STUN) == 0 || source.canRemoveCounters(STUN))
-    // isAbilitySick() = isCreature() && hasSickness() (sickness && !haste)
     card.can_untap()
-        && !(card.is_creature() && card.summoning_sick && !card.has_haste())
+        && !card.is_ability_sick(&game.cards)
         && (card.counter_count(&stun) == 0 || card.can_remove_counters(&stun))
 }
 
