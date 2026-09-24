@@ -423,7 +423,9 @@ pub trait TokenEffectBase {
             }
         }
 
+        let outer_change_zone_table = ctx.game.pending_change_zone_table.take();
         ctx.move_card(token_id, ZoneType::Battlefield, controller);
+        ctx.game.pending_change_zone_table = outer_change_zone_table;
 
         if sa.ir.token_tapped {
             ctx.game.tap(token_id);
