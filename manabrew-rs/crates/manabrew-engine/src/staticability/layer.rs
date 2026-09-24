@@ -1293,7 +1293,12 @@ fn apply_pending_effects(
                     card.granted_svars
                         .insert(check, "Count$OptionalKeywordAmount".to_string());
                 }
-                if kw == "Decayed" {
+                if kw == "Decayed"
+                    && !card
+                        .triggers
+                        .iter()
+                        .any(|trigger| trigger.execute.starts_with("TrigDecayed"))
+                {
                     let next_id = card
                         .triggers
                         .iter()
