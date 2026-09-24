@@ -245,6 +245,8 @@ impl DeterministicAgent {
             &entry.spell_ability.ability_text,
         );
         spell_ability.id = entry.spell_ability.id;
+        spell_ability.is_spell = entry.spell_ability.is_spell;
+        spell_ability.is_copy = entry.spell_ability.is_copy;
         StackEntry {
             id: entry.id,
             spell_ability,

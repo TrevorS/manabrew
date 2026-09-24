@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use forge_foundation::ZoneType;
+use manabrew_engine::card::card_factory::is_copied_spell_host;
 use manabrew_engine::game::GameState;
 use manabrew_engine::ids::{CardId, PlayerId};
 
@@ -162,7 +163,7 @@ impl ParityCardMap {
                 .cards_in_zone(ZoneType::Stack, pid)
                 .iter()
                 .copied()
-                .filter(|&cid| !game.card(cid).is_token)
+                .filter(|&cid| !game.card(cid).is_token || Self::is_copied_spell(game, cid))
                 .collect();
             stack_cards.sort_by(|a, b| {
                 let ca = game.card(*a);
@@ -178,6 +179,13 @@ impl ParityCardMap {
                 Self::assign_if_absent(inner, cid);
             }
         }
+    }
+
+    fn is_copied_spell(game: &GameState, cid: CardId) -> bool {
+        game.stack.iter().any(|entry| {
+            entry.spell_ability.source == Some(cid)
+                && is_copied_spell_host(game, &entry.spell_ability)
+        })
     }
 
     pub fn parity_id(&self, game: &GameState, cid: CardId) -> u32 {
