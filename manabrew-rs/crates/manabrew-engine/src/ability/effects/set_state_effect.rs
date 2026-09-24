@@ -20,7 +20,48 @@ use crate::spellability::SpellAbilityMode;
 #[manabrew_engine_macros::spell_effect(SetStateEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let mode = sa.ir.mode.as_ref();
-    for card_id in crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa) {
+    let cards_to_transform = if let Some(filter) = sa.ir.choices.as_deref() {
+        let valid_amount = sa.ir.amount.as_deref().map_or(1, |amount| {
+            crate::svar::resolve_numeric_value(ctx.game, sa, amount, 1)
+        });
+        let min_amount = sa
+            .ir
+            .min_amount
+            .as_deref()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(valid_amount);
+        if valid_amount <= 0 {
+            return;
+        }
+        let mut choices = Vec::new();
+        for &pid in &ctx.game.player_order {
+            for &cid in ctx
+                .game
+                .cards_in_zone(forge_foundation::ZoneType::Battlefield, pid)
+            {
+                if super::matches_valid_cards_for_sa(
+                    ctx.game,
+                    sa,
+                    ctx.game.card(cid),
+                    sa.ir.choices_selector.as_ref(),
+                    filter,
+                ) {
+                    choices.push(cid);
+                }
+            }
+        }
+        let player = sa.activating_player;
+        ctx.agents[player.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        ctx.agents[player.index()].choose_cards_for_effect(
+            player,
+            &choices,
+            min_amount.max(0) as usize,
+            valid_amount as usize,
+        )
+    } else {
+        crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa)
+    };
+    for card_id in cards_to_transform {
         let face_mode = matches!(
             mode,
             Some(SpellAbilityMode::TurnFaceUp) | Some(SpellAbilityMode::TurnFaceDown)
