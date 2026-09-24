@@ -901,6 +901,7 @@ impl GameState {
                 // After the until-end-of-turn snapshot: that snapshot can hold what a lasting
                 // change (Earthbend) made, and the baseline predates both.
                 card.restore_changed_characteristics_baseline();
+                card.clear_changed_card_traits_keeping_perpetual();
                 if let Some(state) = card.clone_state.take() {
                     card.restore_clone_snapshot_keeping_svars(*state);
                 } else {

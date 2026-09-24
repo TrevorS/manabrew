@@ -5032,6 +5032,20 @@ impl Card {
         true
     }
 
+    pub fn clear_changed_card_traits_keeping_perpetual(&mut self) {
+        let lapsed: Vec<(i64, i64)> = self
+            .changed_card_traits
+            .keys()
+            .copied()
+            .filter(|&(timestamp, static_id)| {
+                static_id >= 0 && !self.perpetual.iter().any(|p| p.timestamp() == timestamp)
+            })
+            .collect();
+        for (timestamp, static_id) in lapsed {
+            self.remove_changed_card_traits(timestamp, static_id);
+        }
+    }
+
     /// Java parity: `removeChangedCardTraitsByText`.
     pub fn remove_changed_card_traits_by_text(&mut self, timestamp: i64, static_id: i64) -> bool {
         if self
