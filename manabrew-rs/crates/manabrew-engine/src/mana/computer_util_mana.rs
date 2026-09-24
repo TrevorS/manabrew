@@ -1895,6 +1895,14 @@ fn pay_non_tap_mana_ability_costs(
                         type_filter,
                         None,
                     );
+                    targets.retain(|&cid| {
+                        !crate::cost::is_excluded_as_source(
+                            game,
+                            cid,
+                            Some(ma.card_id),
+                            type_filter,
+                        )
+                    });
                     targets.retain(|cid| !reserved_sacrifices.contains(cid));
                     if !allow_reserved_source_reuse {
                         if let Some(reserved) = reserved_source {
@@ -2065,6 +2073,7 @@ fn can_pay_source_paid_mana_cost_part(
                 let targets = get_payable_mana_sacrifice_targets(
                     game,
                     player,
+                    source_id,
                     type_filter,
                     reserved_source,
                     allow_reserved_source_reuse,
@@ -2228,12 +2237,16 @@ fn choose_tap_type_targets_for_mana_ability_with_callback(
 fn get_payable_mana_sacrifice_targets(
     game: &GameState,
     player: PlayerId,
+    source_id: CardId,
     type_filter: &str,
     reserved_source: Option<CardId>,
     allow_reserved_source_reuse: bool,
     reserved_sacrifices: &[CardId],
 ) -> Vec<CardId> {
     let mut targets = crate::cost::get_sacrifice_targets_for_cost(game, player, type_filter, None);
+    targets.retain(|&cid| {
+        !crate::cost::is_excluded_as_source(game, cid, Some(source_id), type_filter)
+    });
     targets.retain(|cid| !reserved_sacrifices.contains(cid));
     if !allow_reserved_source_reuse {
         if let Some(reserved) = reserved_source {
