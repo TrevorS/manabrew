@@ -365,6 +365,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     ctx.game.card_mut(card_id).set_exiled_by(Some(src_id));
                     ctx.game.card_mut(card_id).until_host_leaves_origin = Some(old_zone);
                 }
+                if let Some(sid) = sa.source.filter(|&sid| {
+                    !ctx.game.card(card_id).is_token
+                        && matches!(
+                            ctx.game.card(sid).zone,
+                            ZoneType::Battlefield | ZoneType::Stack | ZoneType::Command
+                        )
+                }) {
+                    ctx.game.card_mut(sid).add_exiled_card(card_id);
+                }
                 // `moveTo(ZoneType.Exile, ...)` goes through `GameAction.exile`.
                 if ctx.game.card(card_id).zone == ZoneType::Exile {
                     ctx.trigger_handler.run_trigger(
