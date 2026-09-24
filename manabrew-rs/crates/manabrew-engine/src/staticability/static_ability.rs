@@ -277,6 +277,7 @@ pub struct StaticAbilityIr {
     pub may_play_grants_zone_permissions: bool,
     pub may_play_player: Option<String>,
     pub may_play_limit: Option<i32>,
+    pub may_play_text: Option<String>,
     pub may_play_with_flash: bool,
     pub counter_type_text: Option<String>,
     pub counter_type: Option<CounterType>,
@@ -475,6 +476,7 @@ impl StaticAbilityIr {
             may_play_limit: raw
                 .get(keys::MAY_PLAY_LIMIT)
                 .and_then(|value| value.trim().parse().ok()),
+            may_play_text: raw.get(keys::MAY_PLAY_TEXT).map(String::to_string),
             counter_type_text: raw.get(keys::COUNTER_TYPE).map(String::to_string),
             counter_type: raw
                 .get(keys::COUNTER_TYPE)

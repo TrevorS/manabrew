@@ -255,7 +255,8 @@ pub fn may_play_grant_source(
 }
 
 /// Java `GameActionUtil:381` `newSA.setMayPlay(o)`: a spell paying a grant's alternative cost
-/// names that grant by `alt_cost_index`, any other spell the first grant without one.
+/// names that grant by `alt_cost_index`, and a spell at its own cost the grant without one at
+/// that index.
 pub fn may_play_spell_grant_source(
     game: &GameState,
     player: crate::ids::PlayerId,
@@ -274,9 +275,15 @@ pub fn may_play_spell_grant_source(
             .filter(has_alt_cost)
             .nth(sa.alt_cost_index as usize)
     } else {
+        let nth = if sa.alt_cost.is_none() {
+            sa.alt_cost_index as usize
+        } else {
+            0
+        };
         covering
             .iter()
-            .find(|grant| !has_alt_cost(grant))
+            .filter(|grant| !has_alt_cost(grant))
+            .nth(nth)
             .or(covering.first())
     };
     grant.map(|(source, st_ab)| (source.id, static_index(st_ab, source)))

@@ -1404,11 +1404,11 @@ impl GameLoop {
                             &chosen_types_by_source,
                         )
                     {
-                        for _ in 0..normal_grants {
+                        for grant in 0..normal_grants {
                             playable.push(crate::agent::PlayOption {
                                 card_id,
                                 mode: crate::agent::PlayCardMode::Normal,
-                                alt_cost_index: 0,
+                                alt_cost_index: grant as u8,
                             });
                         }
                     }
@@ -1795,11 +1795,11 @@ impl GameLoop {
                         &chosen_types_by_source,
                     )
                 {
-                    for _ in 0..normal_grants {
+                    for grant in 0..normal_grants {
                         playable.push(crate::agent::PlayOption {
                             card_id,
                             mode: crate::agent::PlayCardMode::Normal,
-                            alt_cost_index: 0,
+                            alt_cost_index: grant as u8,
                         });
                     }
                 }
@@ -2056,11 +2056,11 @@ impl GameLoop {
                     &chosen_types_by_source,
                 )
             {
-                for _ in 0..normal_grants {
+                for grant in 0..normal_grants {
                     playable.push(crate::agent::PlayOption {
                         card_id,
                         mode: crate::agent::PlayCardMode::Normal,
-                        alt_cost_index: 0,
+                        alt_cost_index: grant as u8,
                     });
                 }
             }

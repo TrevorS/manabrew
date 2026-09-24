@@ -126,7 +126,7 @@ struct GameSnapshot {
     stack_depth: usize,
 }
 
-type MayPlayGrants = (CardId, bool, Vec<(bool, Option<CardId>)>);
+type MayPlayGrants = (CardId, bool, Vec<(bool, Option<CardId>, Option<String>)>);
 
 /// The grants Java's `getMayPlaySpellOptions` names per card, in the engine's grant order.
 fn may_play_grants(game: &GameState, player: PlayerId) -> Vec<MayPlayGrants> {
@@ -148,7 +148,7 @@ fn may_play_grants(game: &GameState, player: PlayerId) -> Vec<MayPlayGrants> {
             )
         })
         .filter_map(|card| {
-            let grants: Vec<(bool, Option<CardId>)> =
+            let grants: Vec<(bool, Option<CardId>, Option<String>)> =
                 continuous::may_play_grants(game, player, card)
                     .filter(|(source, st_ab)| {
                         continuous::can_play_or_granted(st_ab, source, card, game)
@@ -158,6 +158,7 @@ fn may_play_grants(game: &GameState, player: PlayerId) -> Vec<MayPlayGrants> {
                             continuous::may_play_alt_mana_cost(st_ab, source, card, game).is_some(),
                             (source.id != card.id)
                                 .then(|| source.effect_source.unwrap_or(source.id)),
+                            st_ab.ir.may_play_text.clone(),
                         )
                     })
                     .collect();
@@ -697,7 +698,8 @@ impl DeterministicAgent {
             PlayCardMode::RoomRightSplit if play.alt_cost_index > 0 => {
                 Some((true, play.alt_cost_index as usize - 1))
             }
-            PlayCardMode::Normal | PlayCardMode::RoomRightSplit => Some((false, 0)),
+            PlayCardMode::Normal => Some((false, play.alt_cost_index as usize)),
+            PlayCardMode::RoomRightSplit => Some((false, 0)),
             _ => None,
         };
         let label = grant.and_then(|(alt, nth)| self.may_play_grant_label(play.card_id, alt, nth));
@@ -726,7 +728,8 @@ impl DeterministicAgent {
     }
 
     /// Java `GameActionUtil.getMayPlaySpellOptions` describes each grant's copy as
-    /// `" by <host>"` plus the grant's cost text, and the harness sorts on that description.
+    /// `" by <host>"`, its `MayPlayText$` and its cost text, and the harness sorts on that
+    /// description.
     fn may_play_grant_label(&self, card_id: CardId, alt_cost: bool, nth: usize) -> Option<String> {
         let snap = self.last_game_snapshot.as_ref()?;
         let (_, in_hand, grants) = snap
@@ -736,14 +739,17 @@ impl DeterministicAgent {
         if *in_hand && !alt_cost {
             return None;
         }
-        let (_, host) = grants
+        let (_, host, text) = grants
             .iter()
-            .filter(|(has_alt_cost, _)| *has_alt_cost == alt_cost)
+            .filter(|(has_alt_cost, _, _)| *has_alt_cost == alt_cost)
             .nth(nth)?;
-        let by = host.map_or(String::new(), |host| {
+        let mut by = host.map_or(String::new(), |host| {
             // Java card ids count from 1, this engine's from 0.
             format!(" by {} ({})", self.card_name(host), host.0 + 1)
         });
+        if let Some(text) = text {
+            by.push_str(&format!(" ({text})"));
+        }
         Some(if alt_cost { format!("{by} (") } else { by })
     }
 
