@@ -724,6 +724,7 @@ fn auto_tap_lands_internal_with_ctx(
         let Some(chosen_atom) = choose_atom_for_shard(&sa_payment, to_pay) else {
             break;
         };
+        let ability = mana_ability_of(game, &sa_payment).cloned();
         // Pay non-tap ability costs (sacrifice, counter removal) through callback.
         // If payment fails (e.g. sacrifice declined), remove the candidate and retry.
         if !pay_non_tap_mana_ability_costs(
@@ -748,8 +749,15 @@ fn auto_tap_lands_internal_with_ctx(
                 chosen_atom
             };
             let pool_before = pool.mana_entries().len();
-            let produced =
-                produce_mana_for_auto_pay(game, pool, player, &sa_payment, chosen_atom, callback);
+            let produced = produce_mana_for_auto_pay(
+                game,
+                pool,
+                player,
+                &sa_payment,
+                ability.as_ref(),
+                chosen_atom,
+                callback,
+            );
             let last_mana_produced = pool.mana_entries()[pool_before..].to_vec();
             let trigger_atoms = add_taps_for_mana_trigger_mana(
                 game,
@@ -816,6 +824,7 @@ fn auto_tap_lands_internal_with_ctx(
                     pool,
                     player,
                     &sa_payment,
+                    ability.as_ref(),
                     chosen_atom,
                     callback,
                 );
@@ -1030,6 +1039,7 @@ fn produce_mana_for_auto_pay(
     pool: &mut ManaPool,
     player: PlayerId,
     ma: &ManaAbilityRef,
+    ab: Option<&crate::ability::activated::ActivatedAbility>,
     chosen_atom: u16,
     callback: &mut Option<ManaPayCallbackFn<'_>>,
 ) -> String {
@@ -1038,9 +1048,6 @@ fn produce_mana_for_auto_pay(
     }
 
     let source = game.card(ma.card_id);
-    let ab = ma
-        .ability_index
-        .and_then(|idx| source.activated_abilities.get(idx));
     let params = ManaProductionParams {
         source_card: ma.card_id,
         is_snow: source.type_line.is_snow(),
@@ -1053,7 +1060,11 @@ fn produce_mana_for_auto_pay(
         triggers_when_spent: ab.and_then(|a| a.triggers_when_spent.clone()),
     };
 
-    let mut mana_string = auto_pay_base_mana_string(game, player, ma, chosen_atom, callback);
+    let base_amount = ab.map_or(1, |ab| {
+        parse_mana_ability_amount_with_game(ab, Some(game), Some(ma.card_id), Some(player))
+    });
+    let mut mana_string =
+        auto_pay_base_mana_string(game, player, ma, base_amount, chosen_atom, callback);
     if let Some(ref mut cb) = callback {
         cb(ManaPayCallback::ApplyProduceManaReplacement {
             activator: player,
@@ -1244,10 +1255,11 @@ fn auto_pay_base_mana_string(
     game: &GameState,
     player: PlayerId,
     ma: &ManaAbilityRef,
+    base_amount: i32,
     chosen_atom: u16,
     callback: &mut Option<ManaPayCallbackFn<'_>>,
 ) -> String {
-    let base_amount = auto_pay_base_amount(game, player, ma).max(1) as usize;
+    let base_amount = base_amount.max(1) as usize;
 
     // Empty Combo ColorIdentity produces nothing — `ManaEffect.resolve`.
     if ma
@@ -1762,7 +1774,12 @@ pub(crate) fn reapply_non_undoable_payment_ability(
     ability_index: usize,
     chosen_atom: u16,
 ) {
-    let Some(ab) = game.card(card_id).activated_abilities.get(ability_index) else {
+    let Some(ab) = game
+        .card(card_id)
+        .activated_abilities
+        .get(ability_index)
+        .cloned()
+    else {
         return;
     };
     let atoms = ab
@@ -1773,7 +1790,7 @@ pub(crate) fn reapply_non_undoable_payment_ability(
                 .unwrap_or_else(|| ir.to_atoms(&game.card(card_id).chosen_colors))
         })
         .unwrap_or_default();
-    let amount = super::resolve_mana_ability_amount(game, card_id, player, ab);
+    let amount = super::resolve_mana_ability_amount(game, card_id, player, &ab);
     let has_tap_cost = ab.cost.parts.iter().any(|p| matches!(p, CostPart::Tap));
     let ma = ManaAbilityRef {
         card_id,
@@ -1790,7 +1807,7 @@ pub(crate) fn reapply_non_undoable_payment_ability(
         if has_tap_cost {
             game.tap(card_id);
         }
-        produce_mana_for_auto_pay(game, pool, player, &ma, chosen_atom, &mut None);
+        produce_mana_for_auto_pay(game, pool, player, &ma, Some(&ab), chosen_atom, &mut None);
     }
 }
 
@@ -3018,71 +3035,77 @@ pub fn can_pay_spell_mana_cost_for_action_space(
         let Some(chosen_atom) = choose_atom_for_shard(&sa_payment, to_pay) else {
             break;
         };
-        let produced = if let Some(fixed_atoms) =
-            fixed_output_atoms_for_payment(game, player, &sa_payment)
-        {
-            let repeats = (sa_payment.amount.max(1) as usize)
-                .checked_div(fixed_atoms.len().max(1))
-                .unwrap_or(1)
-                .max(1);
-            let adjusted_atoms = replacement_adjusted_atoms_for_payment(
-                game,
-                player,
-                sa_payment.card_id,
-                &fixed_atoms,
-                repeats,
-            );
-            let mana_string = atoms_as_mana_string(&adjusted_atoms);
-            let params = ManaProductionParams {
-                source_card: sa_payment.card_id,
-                is_snow: game.card(sa_payment.card_id).type_line.is_snow(),
-                restriction: None,
-                adds_no_counter: false,
-                adds_keywords: None,
-                adds_keywords_valid: None,
-                adds_counters: None,
-                adds_counters_valid: None,
-                triggers_when_spent: None,
-            };
-            add_produced_mana_to_pool(&mut simulated_pool, &mana_string, &params);
-            mana_string
-        } else {
-            let mut callback = None;
-            let mana_string =
-                auto_pay_base_mana_string(game, player, &sa_payment, chosen_atom, &mut callback);
-            let produced_ir = crate::ability::ProducedMana::from_raw_boundary(&mana_string);
-            let adjusted_atoms = produced_ir
-                .fixed_atoms()
-                .unwrap_or_else(|| produced_ir.to_atoms(&[]))
-                .into_iter()
-                .flat_map(|atom| {
-                    super::replacement_adjusted_atoms_for_availability(
-                        game,
-                        player,
-                        sa_payment.card_id,
-                        atom,
-                    )
-                })
-                .collect::<Vec<_>>();
-            let mana_string = if adjusted_atoms.is_empty() {
+        let produced =
+            if let Some(fixed_atoms) = fixed_output_atoms_for_payment(game, player, &sa_payment) {
+                let repeats = (sa_payment.amount.max(1) as usize)
+                    .checked_div(fixed_atoms.len().max(1))
+                    .unwrap_or(1)
+                    .max(1);
+                let adjusted_atoms = replacement_adjusted_atoms_for_payment(
+                    game,
+                    player,
+                    sa_payment.card_id,
+                    &fixed_atoms,
+                    repeats,
+                );
+                let mana_string = atoms_as_mana_string(&adjusted_atoms);
+                let params = ManaProductionParams {
+                    source_card: sa_payment.card_id,
+                    is_snow: game.card(sa_payment.card_id).type_line.is_snow(),
+                    restriction: None,
+                    adds_no_counter: false,
+                    adds_keywords: None,
+                    adds_keywords_valid: None,
+                    adds_counters: None,
+                    adds_counters_valid: None,
+                    triggers_when_spent: None,
+                };
+                add_produced_mana_to_pool(&mut simulated_pool, &mana_string, &params);
                 mana_string
             } else {
-                atoms_as_mana_string(&adjusted_atoms)
+                let mut callback = None;
+                let amount = auto_pay_base_amount(game, player, &sa_payment);
+                let mana_string = auto_pay_base_mana_string(
+                    game,
+                    player,
+                    &sa_payment,
+                    amount,
+                    chosen_atom,
+                    &mut callback,
+                );
+                let produced_ir = crate::ability::ProducedMana::from_raw_boundary(&mana_string);
+                let adjusted_atoms = produced_ir
+                    .fixed_atoms()
+                    .unwrap_or_else(|| produced_ir.to_atoms(&[]))
+                    .into_iter()
+                    .flat_map(|atom| {
+                        super::replacement_adjusted_atoms_for_availability(
+                            game,
+                            player,
+                            sa_payment.card_id,
+                            atom,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                let mana_string = if adjusted_atoms.is_empty() {
+                    mana_string
+                } else {
+                    atoms_as_mana_string(&adjusted_atoms)
+                };
+                let params = ManaProductionParams {
+                    source_card: sa_payment.card_id,
+                    is_snow: game.card(sa_payment.card_id).type_line.is_snow(),
+                    restriction: None,
+                    adds_no_counter: false,
+                    adds_keywords: None,
+                    adds_keywords_valid: None,
+                    adds_counters: None,
+                    adds_counters_valid: None,
+                    triggers_when_spent: None,
+                };
+                add_produced_mana_to_pool(&mut simulated_pool, &mana_string, &params);
+                mana_string
             };
-            let params = ManaProductionParams {
-                source_card: sa_payment.card_id,
-                is_snow: game.card(sa_payment.card_id).type_line.is_snow(),
-                restriction: None,
-                adds_no_counter: false,
-                adds_keywords: None,
-                adds_keywords_valid: None,
-                adds_counters: None,
-                adds_counters_valid: None,
-                triggers_when_spent: None,
-            };
-            add_produced_mana_to_pool(&mut simulated_pool, &mana_string, &params);
-            mana_string
-        };
         add_taps_for_mana_trigger_mana_impl(
             game,
             &mut simulated_pool,
