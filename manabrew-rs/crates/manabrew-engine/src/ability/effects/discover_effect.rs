@@ -73,8 +73,9 @@ fn discover_for_player(ctx: &mut EffectContext, sa: &SpellAbility, player: Playe
             "Cast without paying its mana cost",
             "Put into your hand",
         );
-        if !cast || !cast_from_effect::cast_card_from_effect(ctx, card_id, player, true, "Discover")
-        {
+        if cast {
+            cast_from_effect::cast_card_from_effect(ctx, card_id, player, true, "Discover");
+        } else {
             let old = ctx.game.card(card_id).zone;
             ctx.move_card(card_id, ZoneType::Hand, player);
             emit_zone_trigger(ctx.trigger_handler, card_id, old, ZoneType::Hand);

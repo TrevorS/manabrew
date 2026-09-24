@@ -64,7 +64,9 @@ pub fn cast_card_from_effect(
     }
 
     // Setup targets
-    spell_sa.setup_targets(ctx.game, ctx.agents, ctx.mana_pools);
+    if !spell_sa.setup_targets(ctx.game, ctx.agents, ctx.mana_pools) {
+        return false;
+    }
 
     // Push to stack
     push_spell_to_stack(ctx, card_id, spell_sa, label);
