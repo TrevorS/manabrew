@@ -1127,17 +1127,19 @@ impl SpellAbility {
         let source = self.source?;
         let text = game.card(source).get_s_var(svar_name)?.to_string();
         let mut ability = build_spell_ability(game, source, &text, self.activating_player);
-        ability.trigger_objects.clone_from(&self.trigger_objects);
-        ability
-            .trigger_spell_abilities
-            .clone_from(&self.trigger_spell_abilities);
-        ability.trigger_source = self.trigger_source;
-        ability.trigger_source_zone_timestamp = self.trigger_source_zone_timestamp;
-        ability.trigger_index = self.trigger_index;
-        ability
-            .trigger_spawning_ability
-            .clone_from(&self.trigger_spawning_ability);
+        ability.inherit_trigger_context(self);
         Some(ability)
+    }
+
+    pub fn inherit_trigger_context(&mut self, parent: &SpellAbility) {
+        self.trigger_objects.clone_from(&parent.trigger_objects);
+        self.trigger_spell_abilities
+            .clone_from(&parent.trigger_spell_abilities);
+        self.trigger_source = parent.trigger_source;
+        self.trigger_source_zone_timestamp = parent.trigger_source_zone_timestamp;
+        self.trigger_index = parent.trigger_index;
+        self.trigger_spawning_ability
+            .clone_from(&parent.trigger_spawning_ability);
     }
 
     /// Set an additional ability by key.

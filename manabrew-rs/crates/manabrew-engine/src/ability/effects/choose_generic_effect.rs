@@ -49,6 +49,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .map(|text| {
                 let mut choice_sa = build_spell_ability(ctx.game, source_id, text, player);
                 choice_sa.source = Some(source_id);
+                choice_sa.inherit_trigger_context(sa);
                 choice_sa.trigger_remembered_amount = sa.trigger_remembered_amount;
                 choice_sa
             })
@@ -165,11 +166,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     break;
                 }
             }
-        } else if let Some(fallback_name) = sa.ir.fallback_ability.as_deref() {
-            if let Some(fallback_text) = svars.get(fallback_name) {
-                let mut fallback_sa =
-                    build_spell_ability(ctx.game, source_id, fallback_text, player);
-                fallback_sa.source = Some(source_id);
+        } else if sa.ir.fallback_ability.is_some() {
+            if let Some(fallback_sa) = sa.additional_ability(ctx.game, "FallbackAbility") {
                 super::resolve_effect_chain_with_parent(
                     ctx,
                     fallback_sa,

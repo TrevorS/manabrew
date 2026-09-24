@@ -1311,9 +1311,29 @@ impl Card {
                 trig.execute = "TrigWard".to_string();
                 self.add_trigger(trig);
             }
-            self.svars.entry("TrigWard".to_string()).or_insert_with(|| {
-                format!("DB$ Counter | Defined$ TriggeredSourceSA | UnlessCost$ {cost_str} | UnlessPayer$ TriggeredSourceSAController")
-            });
+            let costs: Vec<&str> = cost_str.split(':').collect();
+            if costs.len() == 1 {
+                self.svars.entry("TrigWard".to_string()).or_insert_with(|| {
+                    format!("DB$ Counter | Defined$ TriggeredSourceSA | UnlessCost$ {cost_str} | UnlessPayer$ TriggeredSourceSAController")
+                });
+            } else {
+                let choices: Vec<String> =
+                    (0..costs.len()).map(|i| format!("WardChoice{i}")).collect();
+                for (name, cost) in choices.iter().zip(&costs) {
+                    self.svars.entry(name.clone()).or_insert_with(|| {
+                        format!("DB$ Counter | Defined$ TriggeredSourceSA | UnlessCost$ {cost} | UnlessPayer$ TriggeredSourceSAController")
+                    });
+                }
+                self.svars
+                    .entry("WardFallback".to_string())
+                    .or_insert_with(|| "DB$ Counter | Defined$ TriggeredSourceSA".to_string());
+                self.svars.entry("TrigWard".to_string()).or_insert_with(|| {
+                    format!(
+                        "DB$ GenericChoice | Defined$ TriggeredSourceSAController | Choices$ {} | FallbackAbility$ WardFallback | AILogic$ PayUnlessCost",
+                        choices.join(",")
+                    )
+                });
+            }
         }
 
         if let Some(rest) = kw.strip_prefix("Cumulative upkeep:") {
