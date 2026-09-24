@@ -4789,6 +4789,13 @@ impl Card {
         self.other_part.as_ref().is_some_and(|other| other.is_modal)
     }
 
+    pub fn get_current_state_name(&self) -> CardStateName {
+        match &self.other_part {
+            Some(other) if self.is_transformed => other.state_name,
+            _ => CardStateName::Original,
+        }
+    }
+
     pub fn set_split_state_to_play_ability(&mut self, sa: &SpellAbility) {
         let state_name = sa
             .ir

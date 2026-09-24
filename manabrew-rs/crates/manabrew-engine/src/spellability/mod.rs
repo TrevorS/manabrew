@@ -161,6 +161,8 @@ pub struct SpellAbility {
     /// Java parity: whether this ability is intrinsic to its host.
     #[serde(default)]
     pub intrinsic: bool,
+    #[serde(default)]
+    pub card_state: Option<forge_foundation::CardStateName>,
     /// Card that owns the trigger (for intervening-if recheck).
     pub trigger_source: Option<CardId>,
     /// Zone timestamp of the trigger source when this triggered ability was created.
@@ -694,6 +696,7 @@ impl SpellAbility {
             is_trigger: false,
             is_activated: false,
             intrinsic: false,
+            card_state: None,
             trigger_source: None,
             trigger_source_zone_timestamp: None,
             source_zone_timestamp: None,
@@ -1773,6 +1776,14 @@ impl SpellAbility {
         for ability in self.trigger_spell_abilities.values_mut() {
             ability.set_keyword(keyword.clone());
         }
+    }
+
+    pub fn card_state_svars<'a>(
+        &self,
+        host: &'a crate::card::Card,
+    ) -> Option<&'a std::collections::BTreeMap<String, String>> {
+        let other = host.other_part.as_ref()?;
+        (self.card_state? != host.get_current_state_name()).then_some(&other.svars)
     }
 
     /// Java parity hook for `SpellAbility.setCardState(CardState)`.

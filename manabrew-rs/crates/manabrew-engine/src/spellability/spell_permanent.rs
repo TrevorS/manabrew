@@ -52,6 +52,7 @@ pub fn create_permanent_spell(
         is_trigger: false,
         is_activated: false,
         intrinsic: false,
+        card_state: None,
         trigger_source: None,
         trigger_source_zone_timestamp: None,
         source_zone_timestamp: None,

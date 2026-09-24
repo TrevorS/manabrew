@@ -2580,8 +2580,13 @@ pub fn get_s_var<'a>(sa: &SpellAbility, game: &'a GameState, svar_name: &str) ->
                 .and_then(|host| game.card(host).get_s_var(svar_name))
         })
         .or_else(|| {
-            sa.source
-                .and_then(|host| game.card(host).get_s_var(svar_name))
+            sa.source.and_then(|host| {
+                let host = game.card(host);
+                sa.card_state_svars(host)
+                    .and_then(|svars| svars.get(svar_name))
+                    .map(String::as_str)
+                    .or_else(|| host.get_s_var(svar_name))
+            })
         })
 }
 

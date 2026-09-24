@@ -110,7 +110,7 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
     // `add_trigger`/`add_replacement_effect` handle deduplication per-card.
     let parsed_static_abilities = static_refs
         .iter()
-        .filter_map(|svar_name| ctx.game.card(source_id).get_s_var(svar_name))
+        .filter_map(|svar_name| ability_utils::get_s_var(sa, ctx.game, svar_name))
         .filter_map(|raw| {
             let mut static_ability = parse_static_ability(&format!("S$ {raw}"))?;
             static_ability.ir.active_zones = vec![ZoneType::Command];
@@ -122,9 +122,9 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
 
     // `Triggers$` / `ReplacementEffects$` / `Abilities$` grants need the raw SVar
     // text — gather it now so each owner's effect card gets a fresh parse.
-    let trigger_svars = collect_svar_texts(ctx, source_id, &triggers);
-    let replacement_svars = collect_svar_texts(ctx, source_id, &replacement_refs);
-    let ability_svars = collect_svar_texts(ctx, source_id, &abilities);
+    let trigger_svars = collect_svar_texts(ctx, sa, &triggers);
+    let replacement_svars = collect_svar_texts(ctx, sa, &replacement_refs);
+    let ability_svars = collect_svar_texts(ctx, sa, &abilities);
 
     // Imprint snapshot — `ImprintCards$` defines cards to imprint on the effect.
     let imprint_cards: Vec<CardId> = sa
@@ -194,8 +194,10 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
         effect.base_ability_count = effect.activated_abilities.len();
 
         // Copy SVars from host so triggers/replacements can resolve Execute$/etc.
-        let host_svars = ctx.game.card(source_id).svars.clone();
-        for (k, v) in host_svars {
+        let host = ctx.game.card(source_id);
+        let host_svars = host.svars.clone();
+        let card_state_svars = sa.card_state_svars(host).cloned().unwrap_or_default();
+        for (k, v) in host_svars.into_iter().chain(card_state_svars) {
             effect.set_s_var_if_absent(k, v);
         }
 
@@ -271,11 +273,10 @@ fn player_has_effect_named(ctx: &EffectContext, player: PlayerId, name: &str) ->
         .any(|cid| ctx.game.card(*cid).card_name == name)
 }
 
-fn collect_svar_texts(ctx: &EffectContext, source_id: CardId, names: &[String]) -> Vec<String> {
-    let host = ctx.game.card(source_id);
+fn collect_svar_texts(ctx: &EffectContext, sa: &SpellAbility, names: &[String]) -> Vec<String> {
     names
         .iter()
-        .filter_map(|n| host.get_s_var(n).map(str::to_string))
+        .filter_map(|n| ability_utils::get_s_var(sa, ctx.game, n).map(str::to_string))
         .collect()
 }
 

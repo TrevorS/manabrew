@@ -388,6 +388,7 @@ fn build_vanilla_spell_ability(card: &Card, card_id: CardId, player: PlayerId) -
         is_trigger: false,
         is_activated: false,
         intrinsic: false,
+        card_state: None,
         trigger_source: None,
         trigger_source_zone_timestamp: None,
         source_zone_timestamp: Some(card.zone_timestamp),
@@ -469,6 +470,7 @@ fn build_spell_ability_for_host(
     sa.original_host = host.effect_source;
     sa.activating_player = player;
     sa.source_zone_timestamp = Some(host.zone_timestamp);
+    sa.card_state = Some(host.get_current_state_name());
     sa.sub_ability = if let Some(sub_svar_name) = sa.ir.sub_ability_name.as_deref() {
         let depth = SUB_ABILITY_CHAIN_DEPTH.with(|d| d.get());
         if depth >= MAX_SUB_ABILITY_CHAIN_DEPTH {
@@ -607,6 +609,7 @@ fn build_spell_ability_of_type_with_params(
         is_trigger: false,
         is_activated: record_type == AbilityRecordType::Ability,
         intrinsic: false,
+        card_state: None,
         trigger_source: None,
         trigger_source_zone_timestamp: None,
         source_zone_timestamp: None,
