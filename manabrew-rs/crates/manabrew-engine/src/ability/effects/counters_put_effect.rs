@@ -453,6 +453,12 @@ fn put_counters_on_card(
         )
     };
 
+    if crate::parsing::raw_has_key(&sa.ability_text, "RememberCards") {
+        if let Some(host) = sa.source {
+            ctx.game.card_mut(host).add_remembered_card(card_id);
+        }
+    }
+
     if sa.ir.renown && count > 0 {
         ctx.game.card_mut(card_id).set_renowned(true);
     }
