@@ -30,6 +30,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         vt.split(',').map(|s| s.trim().to_string()).collect()
     } else {
         match type_category.as_str() {
+            "Card" => forge_foundation::CoreType::ALL
+                .iter()
+                .map(|core_type| core_type.name().to_string())
+                .collect(),
             "Creature" => TypeRegistry::creature_types().to_vec(),
             "Basic Land" | "Land" => vec![
                 "Plains".into(),
