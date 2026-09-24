@@ -301,6 +301,7 @@ fn populate_remember_lists(
                 }
                 "RememberedCard" => out_cards.extend(host_remembered_cards.iter().copied()),
                 "RememberedPlayer" => out_players.extend(host_remembered_players.iter().copied()),
+                "Self" => out_cards.extend(sa.source),
                 "RememberedLKI" => {
                     out_cards.extend(host_remembered_cards.iter().copied());
                     for &cid in host_remembered_cards {
