@@ -988,10 +988,8 @@ fn pay_roll_cost(
                         mana_pools: &mut replacement_pools,
                         rng: &mut *runtime.rng,
                     };
-                    let game_ptr: *mut GameState = game;
                     let mut callback = crate::game_loop::GameLoop::make_mana_payment_callback(
                         &mut sacrifice_runtime,
-                        game_ptr,
                         agents,
                         player,
                         card_id,

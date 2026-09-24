@@ -60,61 +60,42 @@ fn notify_mana_payment_resolved(
     }
 }
 
-pub(crate) fn pay_mana_cost_session_generic<
-    FAvail,
-    FAuto,
-    FTryPay,
-    FResolveAbility,
-    FBasicLandTap,
-    FUndoable,
-    FBeginUndo,
-    FFinishUndo,
-    FUndo,
-    TUndo,
->(
-    game: &mut GameState,
-    agents: &mut [Box<dyn PlayerAgent>],
-    mana_pools: &mut [ManaPool],
+pub(crate) trait ManaPaymentHost {
+    type UndoRecord;
+
+    fn parts(&mut self) -> (&mut GameState, &mut [Box<dyn PlayerAgent>], &mut [ManaPool]);
+    fn auto_pay(&mut self, session: ManaPaymentSession<'_>) -> Option<Vec<ManaCostAction>>;
+    fn try_pay_from_pool(&mut self, player: PlayerId) -> bool;
+    fn resolve_mana_ability(
+        &mut self,
+        player: PlayerId,
+        card_id: CardId,
+        ab: &ActivatedAbility,
+        express_choice: Option<u16>,
+    ) -> bool;
+    fn on_basic_land_tap(&mut self, player: PlayerId, land_id: CardId);
+    fn undoable_mana_sources(&self, player: PlayerId) -> Vec<CardId>;
+    fn begin_mana_undo(&mut self, player: PlayerId, source: CardId) -> Self::UndoRecord;
+    fn finish_mana_undo(&mut self, record: Self::UndoRecord, produced_count: usize);
+    fn undo_mana_action(&mut self, player: PlayerId, source: CardId) -> bool;
+}
+
+pub(crate) fn pay_mana_cost_session_generic<H, FAvail>(
+    host: &mut H,
     session: ManaPaymentSession<'_>,
     mana_ability_available: FAvail,
-    mut auto_pay: FAuto,
-    mut try_pay_from_pool: FTryPay,
-    mut resolve_mana_ability: FResolveAbility,
-    mut on_basic_land_tap: FBasicLandTap,
-    mut undoable_mana_sources: FUndoable,
-    mut begin_mana_undo: FBeginUndo,
-    mut finish_mana_undo: FFinishUndo,
-    mut undo_mana_action: FUndo,
 ) -> ManaPaymentResult
 where
+    H: ManaPaymentHost,
     FAvail: Fn(&GameState, PlayerId, CardId, &ActivatedAbility, &[CardId]) -> bool,
-    FAuto: FnMut(
-        &mut GameState,
-        &mut [Box<dyn PlayerAgent>],
-        &mut [ManaPool],
-        ManaPaymentSession<'_>,
-    ) -> Option<Vec<ManaCostAction>>,
-    FTryPay: FnMut(&mut GameState, &mut [ManaPool], PlayerId) -> bool,
-    FResolveAbility: FnMut(
-        &mut GameState,
-        &mut [Box<dyn PlayerAgent>],
-        &mut [ManaPool],
-        PlayerId,
-        CardId,
-        &ActivatedAbility,
-        Option<u16>,
-    ) -> bool,
-    FBasicLandTap: FnMut(&mut GameState, PlayerId, CardId),
-    FUndoable: FnMut(&GameState, &[ManaPool], PlayerId) -> Vec<CardId>,
-    FBeginUndo: FnMut(&GameState, &[ManaPool], PlayerId, CardId) -> TUndo,
-    FFinishUndo: FnMut(&mut GameState, &mut [ManaPool], TUndo, usize),
-    FUndo: FnMut(&mut GameState, &mut [ManaPool], PlayerId, CardId) -> bool,
 {
-    let saved_pool = mana_pools[session.player.index()].clone();
+    let saved_pool = host.parts().2[session.player.index()].clone();
     let mut mana_loop_invalid_count = 0u32;
     let mut executed_actions: Vec<ManaCostAction> = Vec::new();
 
     loop {
+        let untappable_lands = host.undoable_mana_sources(session.player);
+        let (game, agents, mana_pools) = host.parts();
         let mana_sources =
             mana::collect_mana_payment_sources(game, session.player, session.reserved_sacrifices);
         let lands = mana_sources.source_cards.clone();
@@ -122,7 +103,6 @@ where
         let mut tappable_lands = lands;
         tappable_lands.extend(convoke_sources.iter().copied());
         let mana_ability_options = mana_sources.mana_ability_options;
-        let untappable_lands = undoable_mana_sources(game, mana_pools, session.player);
         let pool_ref = mana_pools[session.player.index()].clone();
         let can_confirm_from_pool = {
             let mut confirm_pool = pool_ref.clone();
@@ -219,17 +199,11 @@ where
                     // the land's native atoms and leaves the aura-added
                     // mana orphaned in the pool.
                     let player_idx = session.player.index();
-                    let undo_record = begin_mana_undo(game, mana_pools, session.player, land_id);
-                    let pool_snapshot = mana_pools[player_idx].begin_tap_tracking();
-                    let resolved = resolve_mana_ability(
-                        game,
-                        agents,
-                        mana_pools,
-                        session.player,
-                        land_id,
-                        &ab,
-                        express_choice,
-                    );
+                    let undo_record = host.begin_mana_undo(session.player, land_id);
+                    let pool_snapshot = host.parts().2[player_idx].begin_tap_tracking();
+                    let resolved =
+                        host.resolve_mana_ability(session.player, land_id, &ab, express_choice);
+                    let (game, _, mana_pools) = host.parts();
                     let produced = mana_pools[player_idx].end_tap_tracking(&pool_snapshot);
                     let produced_count = produced.len();
                     if resolved {
@@ -242,7 +216,7 @@ where
                     if resolved && !produced.is_empty() {
                         game.card_mut(land_id).last_mana_produced = Some(produced);
                     }
-                    finish_mana_undo(game, mana_pools, undo_record, produced_count);
+                    host.finish_mana_undo(undo_record, produced_count);
                 } else if let Some(atom) = basic_land_mana_atom(game.card(land_id)) {
                     executed_actions.push(ManaCostAction::TapForMana {
                         card_id: land_id,
@@ -250,7 +224,8 @@ where
                         express_choice: None,
                     });
                     let player_idx = session.player.index();
-                    let undo_record = begin_mana_undo(game, mana_pools, session.player, land_id);
+                    let undo_record = host.begin_mana_undo(session.player, land_id);
+                    let (game, agents, mana_pools) = host.parts();
                     let pool_snapshot = mana_pools[player_idx].begin_tap_tracking();
                     game.tap(land_id);
                     // Fire ProduceMana replacement (e.g. Nyxbloom Ancient triples mana)
@@ -287,26 +262,29 @@ where
                             mana_pools[player_idx].add(produced_atom, 1);
                         }
                     }
-                    on_basic_land_tap(game, session.player, land_id);
+                    host.on_basic_land_tap(session.player, land_id);
+                    let (game, _, mana_pools) = host.parts();
                     let produced = mana_pools[player_idx].end_tap_tracking(&pool_snapshot);
                     let produced_count = produced.len();
                     if !produced.is_empty() {
                         game.card_mut(land_id).last_mana_produced = Some(produced);
                     }
-                    finish_mana_undo(game, mana_pools, undo_record, produced_count);
+                    host.finish_mana_undo(undo_record, produced_count);
                 }
             }
             ManaCostAction::Untap(land_id) => {
                 if !untappable_lands.contains(&land_id) {
                     continue;
                 }
-                if undo_mana_action(game, mana_pools, session.player, land_id) {
+                if host.undo_mana_action(session.player, land_id) {
                     executed_actions.push(ManaCostAction::Untap(land_id));
                 }
             }
             ManaCostAction::Pay { auto } => {
                 if auto {
-                    if let Some(mut auto_trace) = auto_pay(game, agents, mana_pools, session) {
+                    let auto_trace = host.auto_pay(session);
+                    let (_, agents, mana_pools) = host.parts();
+                    if let Some(mut auto_trace) = auto_trace {
                         let attempted_and_failed =
                             matches!(auto_trace.last(), Some(ManaCostAction::AttemptedAndFailed));
                         executed_actions.append(&mut auto_trace);
@@ -324,7 +302,9 @@ where
                     return ManaPaymentResult::failed();
                 }
 
-                if try_pay_from_pool(game, mana_pools, session.player) {
+                let paid_from_pool = host.try_pay_from_pool(session.player);
+                let (_, agents, mana_pools) = host.parts();
+                if paid_from_pool {
                     executed_actions.push(ManaCostAction::Pay { auto: false });
                     notify_mana_payment_resolved(agents, session.player, &executed_actions);
                     return ManaPaymentResult::paid();
@@ -351,7 +331,6 @@ where
 impl GameLoop {
     pub(crate) fn make_mana_payment_callback<'a, 'r: 'a>(
         runtime: &'a mut crate::replacement::replacement_handler::ReplacementRuntime<'r>,
-        game: *mut GameState,
         agents: &'a mut [Box<dyn PlayerAgent>],
         player: PlayerId,
         source: CardId,
@@ -442,24 +421,25 @@ impl GameLoop {
                         None
                     }
                 }
-                mana::ManaPayCallback::NotifySacrificeForMana(sacrificed_id) => unsafe {
-                    perform_sacrifice(&mut *game, runtime, agents, &[sacrificed_id]);
+                mana::ManaPayCallback::NotifySacrificeForMana(game, sacrificed_id) => {
+                    perform_sacrifice(game, runtime, agents, &[sacrificed_id]);
                     Some(sacrificed_id)
-                },
+                }
                 mana::ManaPayCallback::ExileCostCardsForMana {
+                    game,
                     player,
                     cards,
                     collect_evidence,
-                } => unsafe {
-                    exile_cost_cards(&mut *game, runtime, agents, player, cards, collect_evidence);
+                } => {
+                    exile_cost_cards(game, runtime, agents, player, cards, collect_evidence);
                     cards.first().copied()
-                },
+                }
                 mana::ManaPayCallback::ApplyProduceManaReplacement {
+                    game,
                     activator,
                     source_card,
                     mana,
-                } => unsafe {
-                    let game = &mut *game;
+                } => {
                     let mut event =
                         crate::replacement::replacement_handler::ReplacementEvent::ProduceMana {
                             source: source_card,
@@ -480,7 +460,7 @@ impl GameLoop {
                         }
                     }
                     None
-                },
+                }
             }
         }
     }
@@ -491,8 +471,8 @@ impl GameLoop {
         agents: &mut [Box<dyn PlayerAgent>],
         session: ManaPaymentSession<'_>,
         mana_ability_available: FAvail,
-        mut auto_pay: FAuto,
-        mut try_pay_from_pool: FTryPay,
+        auto_pay: FAuto,
+        try_pay_from_pool: FTryPay,
     ) -> ManaPaymentResult
     where
         FAvail: Fn(&GameState, PlayerId, CardId, &ActivatedAbility, &[CardId]) -> bool,
@@ -504,72 +484,114 @@ impl GameLoop {
         ) -> Option<Vec<ManaCostAction>>,
         FTryPay: FnMut(&mut GameLoop, &mut GameState, PlayerId) -> bool,
     {
-        let self_ptr: *mut GameLoop = self;
-        let agents_ptr: *mut [Box<dyn PlayerAgent>] = std::ptr::from_mut(agents);
-        let paid = pay_mana_cost_session_generic(
+        let mut host = GameLoopManaPayment {
+            game_loop: self,
             game,
             agents,
-            &mut self.mana_pools,
-            session,
-            mana_ability_available,
-            |game, agents, _mana_pools, session| unsafe {
-                auto_pay(&mut *self_ptr, game, agents, session)
-            },
-            |game, _mana_pools, player| unsafe { try_pay_from_pool(&mut *self_ptr, game, player) },
-            |game, agents, _mana_pools, player, card_id, ab, express_choice| unsafe {
-                (&mut *self_ptr).resolve_mana_ability(
-                    game,
-                    agents,
-                    player,
-                    card_id,
-                    ab,
-                    express_choice,
-                )
-            },
-            |game, player, land_id| unsafe {
-                let this = &mut *self_ptr;
-                let agents = &mut *agents_ptr;
-                this.trigger_handler.run_trigger(
-                    TriggerType::TapsForMana,
-                    RunParams {
-                        card: Some(land_id),
-                        player: Some(player),
-                        ..Default::default()
-                    },
-                    false,
-                );
-                this.trigger_handler.run_trigger(
-                    TriggerType::ManaAdded,
-                    RunParams {
-                        card: Some(land_id),
-                        player: Some(player),
-                        activator: Some(player),
-                        ..Default::default()
-                    },
-                    false,
-                );
-                let pending = this.trigger_handler.run_waiting_triggers(game);
-                if !pending.is_empty() {
-                    this.mark_mana_undo_disqualified();
-                }
-                for pt in pending {
-                    this.resolve_single_effect(game, agents, &pt.entry.spell_ability, None);
-                }
-            },
-            |_game, _mana_pools, player| unsafe { (&*self_ptr).undoable_mana_sources(player) },
-            |game, mana_pools, player, card_id| unsafe {
-                (&mut *self_ptr)
-                    .begin_mana_undo_action_with_mana_slice(game, mana_pools, player, card_id)
-            },
-            |_game, _mana_pools, record, produced_count| unsafe {
-                (&mut *self_ptr).finish_mana_undo_action(record, produced_count);
-            },
-            |game, mana_pools, player, card_id| unsafe {
-                (&mut *self_ptr).undo_mana_action_with_mana_slice(game, mana_pools, player, card_id)
-            },
-        );
+            auto_pay,
+            try_pay_from_pool,
+        };
+        let paid = pay_mana_cost_session_generic(&mut host, session, mana_ability_available);
         self.invalidate_mana_undo_for_player(session.player);
         paid
+    }
+}
+
+struct GameLoopManaPayment<'a, FAuto, FTryPay> {
+    game_loop: &'a mut GameLoop,
+    game: &'a mut GameState,
+    agents: &'a mut [Box<dyn PlayerAgent>],
+    auto_pay: FAuto,
+    try_pay_from_pool: FTryPay,
+}
+
+impl<FAuto, FTryPay> ManaPaymentHost for GameLoopManaPayment<'_, FAuto, FTryPay>
+where
+    FAuto: FnMut(
+        &mut GameLoop,
+        &mut GameState,
+        &mut [Box<dyn PlayerAgent>],
+        ManaPaymentSession<'_>,
+    ) -> Option<Vec<ManaCostAction>>,
+    FTryPay: FnMut(&mut GameLoop, &mut GameState, PlayerId) -> bool,
+{
+    type UndoRecord = super::mana_action_undo::ManaUndoRecord;
+
+    fn parts(&mut self) -> (&mut GameState, &mut [Box<dyn PlayerAgent>], &mut [ManaPool]) {
+        (self.game, self.agents, &mut self.game_loop.mana_pools)
+    }
+
+    fn auto_pay(&mut self, session: ManaPaymentSession<'_>) -> Option<Vec<ManaCostAction>> {
+        (self.auto_pay)(self.game_loop, self.game, self.agents, session)
+    }
+
+    fn try_pay_from_pool(&mut self, player: PlayerId) -> bool {
+        (self.try_pay_from_pool)(self.game_loop, self.game, player)
+    }
+
+    fn resolve_mana_ability(
+        &mut self,
+        player: PlayerId,
+        card_id: CardId,
+        ab: &ActivatedAbility,
+        express_choice: Option<u16>,
+    ) -> bool {
+        self.game_loop.resolve_mana_ability(
+            self.game,
+            self.agents,
+            player,
+            card_id,
+            ab,
+            express_choice,
+        )
+    }
+
+    fn on_basic_land_tap(&mut self, player: PlayerId, land_id: CardId) {
+        let this = &mut *self.game_loop;
+        this.trigger_handler.run_trigger(
+            TriggerType::TapsForMana,
+            RunParams {
+                card: Some(land_id),
+                player: Some(player),
+                ..Default::default()
+            },
+            false,
+        );
+        this.trigger_handler.run_trigger(
+            TriggerType::ManaAdded,
+            RunParams {
+                card: Some(land_id),
+                player: Some(player),
+                activator: Some(player),
+                ..Default::default()
+            },
+            false,
+        );
+        let pending = this.trigger_handler.run_waiting_triggers(self.game);
+        if !pending.is_empty() {
+            this.mark_mana_undo_disqualified();
+        }
+        for pt in pending {
+            this.resolve_single_effect(self.game, self.agents, &pt.entry.spell_ability, None);
+        }
+    }
+
+    fn undoable_mana_sources(&self, player: PlayerId) -> Vec<CardId> {
+        self.game_loop.undoable_mana_sources(player)
+    }
+
+    fn begin_mana_undo(&mut self, player: PlayerId, source: CardId) -> Self::UndoRecord {
+        self.game_loop
+            .begin_mana_undo_action(self.game, player, source)
+    }
+
+    fn finish_mana_undo(&mut self, record: Self::UndoRecord, produced_count: usize) {
+        self.game_loop
+            .finish_mana_undo_action(record, produced_count);
+    }
+
+    fn undo_mana_action(&mut self, player: PlayerId, source: CardId) -> bool {
+        self.game_loop.undo_mana_action(self.game, player, source)
     }
 }
 

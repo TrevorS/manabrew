@@ -138,11 +138,12 @@ pub enum ManaPayCallback<'a> {
     /// The callback is responsible for firing Sacrificed/ChangesZone using
     /// battlefield LKI, moving the card, and returning the same card id on
     /// success. Returning `None` cancels the payment.
-    NotifySacrificeForMana(CardId),
+    NotifySacrificeForMana(&'a mut GameState, CardId),
     /// Exile cards to pay a mana ability's cost and run their triggers (Java
     /// `CostExile`/`CostCollectEvidence.doListPayment`). A callback without a game
     /// runtime returns `None`, and the payer moves the cards itself.
     ExileCostCardsForMana {
+        game: &'a mut GameState,
         player: PlayerId,
         cards: &'a [CardId],
         collect_evidence: bool,
@@ -151,6 +152,7 @@ pub enum ManaPayCallback<'a> {
     /// source is about to add to the pool. The callback mutates `mana` after
     /// running replacement choice through the caller's agents.
     ApplyProduceManaReplacement {
+        game: &'a mut GameState,
         activator: PlayerId,
         source_card: CardId,
         mana: &'a mut String,
@@ -250,7 +252,7 @@ pub fn auto_tap_lands_with_chooser(
             ManaPayCallback::ConfirmSubCounter(cid) => Some(cid),
             ManaPayCallback::ConfirmSourceExile(cid) => Some(cid),
             ManaPayCallback::ConfirmPayLife(cid) => Some(cid),
-            ManaPayCallback::NotifySacrificeForMana(cid) => Some(cid),
+            ManaPayCallback::NotifySacrificeForMana(_, cid) => Some(cid),
             ManaPayCallback::ExileCostCardsForMana { .. } => None,
             ManaPayCallback::ApplyProduceManaReplacement { .. } => None,
         }
@@ -289,7 +291,7 @@ pub fn auto_tap_lands_allow_reserved_source_reuse_with_chooser(
             ManaPayCallback::ConfirmSubCounter(cid) => Some(cid),
             ManaPayCallback::ConfirmSourceExile(cid) => Some(cid),
             ManaPayCallback::ConfirmPayLife(cid) => Some(cid),
-            ManaPayCallback::NotifySacrificeForMana(cid) => Some(cid),
+            ManaPayCallback::NotifySacrificeForMana(_, cid) => Some(cid),
             ManaPayCallback::ExileCostCardsForMana { .. } => None,
             ManaPayCallback::ApplyProduceManaReplacement { .. } => None,
         }
@@ -1109,6 +1111,7 @@ fn produce_mana_for_auto_pay(
         auto_pay_base_mana_string(game, player, ma, base_amount, chosen_atom, callback);
     if let Some(ref mut cb) = callback {
         cb(ManaPayCallback::ApplyProduceManaReplacement {
+            game,
             activator: player,
             source_card: ma.card_id,
             mana: &mut mana_string,
@@ -1780,7 +1783,6 @@ fn can_pay_non_tap_mana_ability_costs(
 }
 
 pub(crate) fn auto_payment_callback<'a, 'r: 'a>(
-    game: *mut GameState,
     runtime: &'a mut crate::replacement::replacement_handler::ReplacementRuntime<'r>,
     agents: &'a mut [Box<dyn crate::agent::PlayerAgent>],
     cost_cards: &'a [CardId],
@@ -1802,17 +1804,18 @@ pub(crate) fn auto_payment_callback<'a, 'r: 'a>(
                 }
                 chosen.first().copied()
             }
-            ManaPayCallback::NotifySacrificeForMana(id) => {
-                crate::game_loop::perform_sacrifice(unsafe { &mut *game }, runtime, agents, &[id]);
+            ManaPayCallback::NotifySacrificeForMana(game, id) => {
+                crate::game_loop::perform_sacrifice(game, runtime, agents, &[id]);
                 Some(id)
             }
             ManaPayCallback::ExileCostCardsForMana {
+                game,
                 player,
                 cards,
                 collect_evidence,
             } => {
                 crate::game_loop::exile_cost_cards(
-                    unsafe { &mut *game },
+                    game,
                     runtime,
                     agents,
                     player,
@@ -1864,8 +1867,7 @@ pub(crate) fn reapply_non_undoable_payment_ability(
         produced_ir: ab.produced_ir.clone(),
         source_order: 0,
     };
-    let game_ptr: *mut GameState = game;
-    let mut replay = auto_payment_callback(game_ptr, runtime, agents, cost_cards);
+    let mut replay = auto_payment_callback(runtime, agents, cost_cards);
     if !pay_non_tap_mana_ability_costs(
         game,
         player,
@@ -1971,7 +1973,7 @@ fn pay_non_tap_mana_ability_costs(
                     }
                     if let Some(ref mut cb) = callback {
                         if let Some(sacrificed_id) =
-                            cb(ManaPayCallback::NotifySacrificeForMana(ma.card_id))
+                            cb(ManaPayCallback::NotifySacrificeForMana(game, ma.card_id))
                         {
                             if sacrificed_id != ma.card_id {
                                 return false;
@@ -2024,7 +2026,7 @@ fn pay_non_tap_mana_ability_costs(
                             targets.retain(|&c| c != cid);
                             if let Some(ref mut cb) = callback {
                                 if let Some(sacrificed_id) =
-                                    cb(ManaPayCallback::NotifySacrificeForMana(cid))
+                                    cb(ManaPayCallback::NotifySacrificeForMana(game, cid))
                                 {
                                     if sacrificed_id != cid {
                                         return false;
@@ -2187,6 +2189,7 @@ fn exile_mana_ability_cost_cards(
 ) {
     if let Some(ref mut cb) = callback {
         if cb(ManaPayCallback::ExileCostCardsForMana {
+            game,
             player,
             cards,
             collect_evidence,
@@ -4822,7 +4825,6 @@ mod tests {
         {
             let mut pool = ManaPool::new();
             let tapped = {
-                let game_ptr: *mut GameState = &mut game;
                 let mut callback = |kind: ManaPayCallback<'_>| -> Option<CardId> {
                     match kind {
                         ManaPayCallback::ChooseSacrifice(_) => None,
@@ -4837,12 +4839,11 @@ mod tests {
                         ManaPayCallback::ConfirmSubCounter(cid) => Some(cid),
                         ManaPayCallback::ConfirmSourceExile(cid) => Some(cid),
                         ManaPayCallback::ConfirmPayLife(cid) => Some(cid),
-                        ManaPayCallback::NotifySacrificeForMana(cid) => unsafe {
-                            let game = &mut *game_ptr;
+                        ManaPayCallback::NotifySacrificeForMana(game, cid) => {
                             let owner = game.card(cid).owner;
                             game.move_card(cid, ZoneType::Graveyard, owner);
                             Some(cid)
-                        },
+                        }
                         ManaPayCallback::ExileCostCardsForMana { .. } => None,
                         ManaPayCallback::ApplyProduceManaReplacement { .. } => None,
                     }
@@ -4890,7 +4891,6 @@ mod tests {
         {
             let mut pool = ManaPool::new();
             let tapped = {
-                let game_ptr: *mut GameState = &mut game;
                 let mut callback = |kind: ManaPayCallback<'_>| -> Option<CardId> {
                     match kind {
                         ManaPayCallback::ChooseSacrifice(_) => None,
@@ -4905,12 +4905,11 @@ mod tests {
                         ManaPayCallback::ConfirmSubCounter(cid) => Some(cid),
                         ManaPayCallback::ConfirmSourceExile(cid) => Some(cid),
                         ManaPayCallback::ConfirmPayLife(cid) => Some(cid),
-                        ManaPayCallback::NotifySacrificeForMana(cid) => unsafe {
-                            let game = &mut *game_ptr;
+                        ManaPayCallback::NotifySacrificeForMana(game, cid) => {
                             let owner = game.card(cid).owner;
                             game.move_card(cid, ZoneType::Graveyard, owner);
                             Some(cid)
-                        },
+                        }
                         ManaPayCallback::ExileCostCardsForMana { .. } => None,
                         ManaPayCallback::ApplyProduceManaReplacement { .. } => None,
                     }

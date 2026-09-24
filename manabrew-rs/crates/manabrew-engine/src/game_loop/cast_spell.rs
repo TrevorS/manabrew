@@ -832,9 +832,7 @@ impl GameLoop {
                             (0..game.players.len()).map(|_| ManaPool::new()).collect();
                         let (pool, mut runtime) =
                             self.mana_payment_runtime(player, &mut replacement_pools);
-                        let game_ptr: *mut GameState = game;
                         let mut callback = mana::computer_util_mana::auto_payment_callback(
-                            game_ptr,
                             &mut runtime,
                             agents,
                             &[],
@@ -2176,14 +2174,12 @@ impl GameLoop {
                 },
                 |slf, game, agents, session| {
                     let auto_result = {
-                        let game_ptr: *mut GameState = game;
                         let mut replacement_pools =
                             (0..game.players.len()).map(|_| ManaPool::new()).collect();
                         let (pool, mut runtime) =
                             slf.mana_payment_runtime(session.player, &mut replacement_pools);
                         let mut callback = Self::make_mana_payment_callback(
                             &mut runtime,
-                            game_ptr,
                             agents,
                             session.player,
                             session.card_id,

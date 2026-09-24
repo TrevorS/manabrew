@@ -45,28 +45,6 @@ impl GameLoop {
         }
     }
 
-    pub(crate) fn begin_mana_undo_action_with_mana_slice(
-        &mut self,
-        game: &GameState,
-        mana_pools: &[ManaPool],
-        player: PlayerId,
-        source: CardId,
-    ) -> ManaUndoRecord {
-        self.ensure_mana_undo_slots(player);
-        self.mana_undo_disqualified = false;
-        ManaUndoRecord {
-            player,
-            source,
-            snapshot: GameSnapshot::capture(
-                game,
-                mana_pools,
-                &self.combat,
-                &self.trigger_handler,
-                true,
-            ),
-        }
-    }
-
     pub(crate) fn finish_mana_undo_action(
         &mut self,
         record: ManaUndoRecord,
@@ -105,30 +83,6 @@ impl GameLoop {
         }
         self.mana_undo_stacks[player.index()].pop();
         self.restore_snapshot(game, &record.snapshot);
-        true
-    }
-
-    pub(crate) fn undo_mana_action_with_mana_slice(
-        &mut self,
-        game: &mut GameState,
-        mana_pools: &mut [ManaPool],
-        player: PlayerId,
-        source: CardId,
-    ) -> bool {
-        self.ensure_mana_undo_slots(player);
-        let Some(record) = self.mana_undo_stacks[player.index()].last().cloned() else {
-            return false;
-        };
-        if record.player != player || record.source != source {
-            return false;
-        }
-        self.mana_undo_stacks[player.index()].pop();
-        record.snapshot.restore_game_state_with_mana_slice(
-            game,
-            mana_pools,
-            &mut self.combat,
-            &mut self.trigger_handler,
-        );
         true
     }
 }

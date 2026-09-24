@@ -153,6 +153,215 @@ fn can_auto_pay_mana_cost_for_effect(
     .is_some()
 }
 
+struct EffectManaPayment<'c, 'a> {
+    ctx: &'c mut EffectContext<'a>,
+    payable_mana_cost: &'c forge_foundation::ManaCost,
+    attempt_unpayable: bool,
+}
+
+impl crate::game_loop::mana_payment::ManaPaymentHost for EffectManaPayment<'_, '_> {
+    type UndoRecord = ();
+
+    fn parts(
+        &mut self,
+    ) -> (
+        &mut GameState,
+        &mut [Box<dyn crate::agent::PlayerAgent>],
+        &mut [crate::mana::ManaPool],
+    ) {
+        (self.ctx.game, self.ctx.agents, self.ctx.mana_pools)
+    }
+
+    fn auto_pay(
+        &mut self,
+        session: crate::game_loop::mana_payment::ManaPaymentSession<'_>,
+    ) -> Option<Vec<crate::agent::ManaCostAction>> {
+        let ctx = &mut *self.ctx;
+        let game = &mut *ctx.game;
+        let mana_pools = &mut *ctx.mana_pools;
+        let saved_game = game.clone();
+        let saved_pool = mana_pools[session.player.index()].clone();
+        let payment_ctx = crate::mana::ManaPaymentContext::default();
+        let auto_result = {
+            let mut replacement_pools = (0..game.players.len())
+                .map(|_| crate::mana::ManaPool::new())
+                .collect();
+            let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
+                trigger_handler: &mut *ctx.trigger_handler,
+                token_templates: ctx.token_templates,
+                token_art_variants: ctx.token_art_variants,
+                token_fallback: ctx.token_fallback,
+                edition_dates: ctx.edition_dates,
+                mana_pools: &mut replacement_pools,
+                rng: &mut *ctx.rng,
+            };
+            let mut callback = crate::game_loop::GameLoop::make_mana_payment_callback(
+                &mut runtime,
+                ctx.agents,
+                session.player,
+                session.card_id,
+            );
+            crate::mana::pay_mana_cost_auto_with_callback(
+                game,
+                &mut mana_pools[session.player.index()],
+                session.player,
+                session.mana_cost,
+                Some(session.card_id),
+                0,
+                &payment_ctx,
+                false,
+                &mut callback,
+            )
+        };
+
+        let Some(result) = auto_result else {
+            *game = saved_game;
+            mana_pools[session.player.index()] = saved_pool;
+            return None;
+        };
+        if result.cancelled {
+            if !self.attempt_unpayable {
+                *game = saved_game;
+                mana_pools[session.player.index()] = saved_pool;
+                return None;
+            }
+            let mut trace: Vec<crate::agent::ManaCostAction> = result
+                .choices
+                .iter()
+                .map(|choice| crate::agent::ManaCostAction::TapForMana {
+                    card_id: choice.card_id,
+                    mana_ability_index: Some(choice.mana_ability_index.unwrap_or(0)),
+                    express_choice: choice.mana_ability_index.map(|_| choice.chosen_atom),
+                })
+                .collect();
+            trace.push(crate::agent::ManaCostAction::AttemptedAndFailed);
+            return Some(trace);
+        }
+
+        if result.life_paid > 0 {
+            let lost = game.player_lose_life(session.player, result.life_paid);
+            ctx.trigger_handler.run_trigger(
+                TriggerType::LifeLost,
+                RunParams {
+                    player: Some(session.player),
+                    life_amount: Some(result.life_paid),
+                    ..Default::default()
+                },
+                false,
+            );
+            if lost > 0 {
+                crate::action::run_life_lost_all(ctx.trigger_handler, &[(session.player, lost)]);
+            }
+        }
+
+        Some(
+            result
+                .choices
+                .iter()
+                .map(|choice| crate::agent::ManaCostAction::TapForMana {
+                    card_id: choice.card_id,
+                    mana_ability_index: Some(choice.mana_ability_index.unwrap_or(0)),
+                    express_choice: choice.mana_ability_index.map(|_| choice.chosen_atom),
+                })
+                .chain(std::iter::once(crate::agent::ManaCostAction::Pay {
+                    auto: false,
+                }))
+                .collect(),
+        )
+    }
+
+    fn try_pay_from_pool(&mut self, player: PlayerId) -> bool {
+        let ctx = &mut *self.ctx;
+        let game = &mut *ctx.game;
+        let mana_pools = &mut *ctx.mana_pools;
+        let mut test_pool = mana_pools[player.index()].clone();
+        let Some(test_life_to_pay) = test_pool.try_pay_cost_with_phyrexian_life(
+            self.payable_mana_cost,
+            false,
+            game.player(player).life,
+        ) else {
+            return false;
+        };
+        let life_to_pay = mana_pools[player.index()]
+            .try_pay_cost_with_phyrexian_life(
+                self.payable_mana_cost,
+                false,
+                game.player(player).life,
+            )
+            .expect("tested phyrexian payment should still be legal");
+        if life_to_pay != test_life_to_pay {
+            return false;
+        }
+        if life_to_pay > 0 {
+            let lost = game.player_lose_life(player, life_to_pay);
+            ctx.trigger_handler.run_trigger(
+                TriggerType::LifeLost,
+                RunParams {
+                    player: Some(player),
+                    life_amount: Some(life_to_pay),
+                    ..Default::default()
+                },
+                false,
+            );
+            if lost > 0 {
+                crate::action::run_life_lost_all(ctx.trigger_handler, &[(player, lost)]);
+            }
+        }
+        true
+    }
+
+    fn resolve_mana_ability(
+        &mut self,
+        player: PlayerId,
+        card_id: CardId,
+        ab: &crate::ability::activated::ActivatedAbility,
+        express_choice: Option<u16>,
+    ) -> bool {
+        resolve_mana_ability_for_effect_payment(self.ctx, player, card_id, ab, express_choice);
+        true
+    }
+
+    fn on_basic_land_tap(&mut self, player: PlayerId, land_id: CardId) {
+        let ctx = &mut *self.ctx;
+        ctx.trigger_handler.run_trigger(
+            TriggerType::TapsForMana,
+            RunParams {
+                card: Some(land_id),
+                player: Some(player),
+                activator: Some(player),
+                ..Default::default()
+            },
+            false,
+        );
+        ctx.trigger_handler.run_trigger(
+            TriggerType::ManaAdded,
+            RunParams {
+                card: Some(land_id),
+                player: Some(player),
+                activator: Some(player),
+                ..Default::default()
+            },
+            false,
+        );
+        let pending = ctx.trigger_handler.run_waiting_triggers(ctx.game);
+        for pt in pending {
+            resolve_effect(ctx, &pt.entry.spell_ability);
+        }
+    }
+
+    fn undoable_mana_sources(&self, _player: PlayerId) -> Vec<CardId> {
+        Vec::new()
+    }
+
+    fn begin_mana_undo(&mut self, _player: PlayerId, _source: CardId) {}
+
+    fn finish_mana_undo(&mut self, _record: (), _produced_count: usize) {}
+
+    fn undo_mana_action(&mut self, _player: PlayerId, _source: CardId) -> bool {
+        false
+    }
+}
+
 pub(crate) fn pay_mana_cost_for_effect(
     ctx: &mut EffectContext,
     payer: PlayerId,
@@ -160,7 +369,6 @@ pub(crate) fn pay_mana_cost_for_effect(
     mana_cost: &forge_foundation::ManaCost,
     attempt_unpayable: bool,
 ) -> bool {
-    let ctx_ptr: *mut EffectContext<'_> = ctx;
     let card_name = ctx.game.card(source).card_name.clone();
     let cost_str = mana_cost.to_string();
     let payable_mana_cost =
@@ -176,9 +384,11 @@ pub(crate) fn pay_mana_cost_for_effect(
     }
 
     crate::game_loop::mana_payment::pay_mana_cost_session_generic(
-        ctx.game,
-        ctx.agents,
-        ctx.mana_pools,
+        &mut EffectManaPayment {
+            ctx,
+            payable_mana_cost: &payable_mana_cost,
+            attempt_unpayable,
+        },
         crate::game_loop::mana_payment::ManaPaymentSession {
             player: payer,
             card_id: source,
@@ -194,177 +404,6 @@ pub(crate) fn pay_mana_cost_for_effect(
             crate::game_loop::GameLoop::mana_source_available_for_payment(game, player, cid)
                 && crate::cost::can_pay_ignoring_mana(&ab.cost, game, cid, player)
         },
-        |game, agents, mana_pools, session| unsafe {
-            let ctx = &mut *ctx_ptr;
-            let saved_game = game.clone();
-            let saved_pool = mana_pools[session.player.index()].clone();
-            let payment_ctx = crate::mana::ManaPaymentContext::default();
-            let auto_result = {
-                let game_ptr: *mut GameState = game;
-                let mut replacement_pools = (0..game.players.len())
-                    .map(|_| crate::mana::ManaPool::new())
-                    .collect();
-                let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
-                    trigger_handler: &mut *ctx.trigger_handler,
-                    token_templates: ctx.token_templates,
-                    token_art_variants: ctx.token_art_variants,
-                    token_fallback: ctx.token_fallback,
-                    edition_dates: ctx.edition_dates,
-                    mana_pools: &mut replacement_pools,
-                    rng: &mut *ctx.rng,
-                };
-                let mut callback = crate::game_loop::GameLoop::make_mana_payment_callback(
-                    &mut runtime,
-                    game_ptr,
-                    agents,
-                    session.player,
-                    session.card_id,
-                );
-                crate::mana::pay_mana_cost_auto_with_callback(
-                    game,
-                    &mut mana_pools[session.player.index()],
-                    session.player,
-                    session.mana_cost,
-                    Some(session.card_id),
-                    0,
-                    &payment_ctx,
-                    false,
-                    &mut callback,
-                )
-            };
-
-            let Some(result) = auto_result else {
-                *game = saved_game;
-                mana_pools[session.player.index()] = saved_pool;
-                return None;
-            };
-            if result.cancelled {
-                if !attempt_unpayable {
-                    *game = saved_game;
-                    mana_pools[session.player.index()] = saved_pool;
-                    return None;
-                }
-                let mut trace: Vec<crate::agent::ManaCostAction> = result
-                    .choices
-                    .iter()
-                    .map(|choice| crate::agent::ManaCostAction::TapForMana {
-                        card_id: choice.card_id,
-                        mana_ability_index: Some(choice.mana_ability_index.unwrap_or(0)),
-                        express_choice: choice.mana_ability_index.map(|_| choice.chosen_atom),
-                    })
-                    .collect();
-                trace.push(crate::agent::ManaCostAction::AttemptedAndFailed);
-                return Some(trace);
-            }
-
-            if result.life_paid > 0 {
-                let lost = game.player_lose_life(session.player, result.life_paid);
-                ctx.trigger_handler.run_trigger(
-                    TriggerType::LifeLost,
-                    RunParams {
-                        player: Some(session.player),
-                        life_amount: Some(result.life_paid),
-                        ..Default::default()
-                    },
-                    false,
-                );
-                if lost > 0 {
-                    crate::action::run_life_lost_all(
-                        ctx.trigger_handler,
-                        &[(session.player, lost)],
-                    );
-                }
-            }
-
-            Some(
-                result
-                    .choices
-                    .iter()
-                    .map(|choice| crate::agent::ManaCostAction::TapForMana {
-                        card_id: choice.card_id,
-                        mana_ability_index: Some(choice.mana_ability_index.unwrap_or(0)),
-                        express_choice: choice.mana_ability_index.map(|_| choice.chosen_atom),
-                    })
-                    .chain(std::iter::once(crate::agent::ManaCostAction::Pay {
-                        auto: false,
-                    }))
-                    .collect(),
-            )
-        },
-        |game, mana_pools, player| unsafe {
-            let ctx = &mut *ctx_ptr;
-            let mut test_pool = mana_pools[player.index()].clone();
-            if let Some(test_life_to_pay) = test_pool.try_pay_cost_with_phyrexian_life(
-                &payable_mana_cost,
-                false,
-                game.player(player).life,
-            ) {
-                let life_to_pay = mana_pools[player.index()]
-                    .try_pay_cost_with_phyrexian_life(
-                        &payable_mana_cost,
-                        false,
-                        game.player(player).life,
-                    )
-                    .expect("tested phyrexian payment should still be legal");
-                if life_to_pay != test_life_to_pay {
-                    return false;
-                }
-                if life_to_pay > 0 {
-                    let lost = game.player_lose_life(player, life_to_pay);
-                    ctx.trigger_handler.run_trigger(
-                        TriggerType::LifeLost,
-                        RunParams {
-                            player: Some(player),
-                            life_amount: Some(life_to_pay),
-                            ..Default::default()
-                        },
-                        false,
-                    );
-                    if lost > 0 {
-                        crate::action::run_life_lost_all(ctx.trigger_handler, &[(player, lost)]);
-                    }
-                }
-                true
-            } else {
-                false
-            }
-        },
-        |_game, _agents, _mana_pools, player, card_id, ab, express_choice| unsafe {
-            let ctx = &mut *ctx_ptr;
-            resolve_mana_ability_for_effect_payment(ctx, player, card_id, ab, express_choice);
-            true
-        },
-        |_game, player, land_id| unsafe {
-            let ctx = &mut *ctx_ptr;
-            ctx.trigger_handler.run_trigger(
-                TriggerType::TapsForMana,
-                RunParams {
-                    card: Some(land_id),
-                    player: Some(player),
-                    activator: Some(player),
-                    ..Default::default()
-                },
-                false,
-            );
-            ctx.trigger_handler.run_trigger(
-                TriggerType::ManaAdded,
-                RunParams {
-                    card: Some(land_id),
-                    player: Some(player),
-                    activator: Some(player),
-                    ..Default::default()
-                },
-                false,
-            );
-            let pending = ctx.trigger_handler.run_waiting_triggers(ctx.game);
-            for pt in pending {
-                resolve_effect(ctx, &pt.entry.spell_ability);
-            }
-        },
-        |_game, _mana_pools, _player| Vec::new(),
-        |_game, _mana_pools, _player, _card_id| (),
-        |_game, _mana_pools, _record, _produced_count| {},
-        |_game, _mana_pools, _player, _card_id| false,
     )
     .paid
 }
