@@ -3154,19 +3154,13 @@ pub fn can_pay_spell_mana_cost_for_action_space(
         return true;
     }
 
+    let mana_ability_map = group_sources_by_mana_color(game, player, &[], Some(payment_ctx), true);
+    let mut candidates = collect_sorted_candidates_with_pref(game, player, &mana_ability_map, true);
     let mut used_sources = crate::HashSet::default();
     let mut guard = 0u32;
     while !unpaid.is_paid() && guard < 128 {
         guard += 1;
 
-        let mana_ability_map =
-            group_sources_by_mana_color(game, player, &[], Some(payment_ctx), true);
-        if mana_ability_map.is_empty() {
-            break;
-        }
-
-        let mut candidates =
-            collect_sorted_candidates_with_pref(game, player, &mana_ability_map, true);
         candidates.retain(|candidate| {
             !used_sources.contains(&candidate.card_id) && candidate.card_id != current_spell
         });
