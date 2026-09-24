@@ -905,12 +905,8 @@ impl GameLoop {
                     }
                 }
                 CostPart::PayLife(amount) => {
-                    self.pay_life_cost(
-                        game,
-                        player,
-                        card_id,
-                        amount.resolve(game, card_id, player),
-                    );
+                    let amount = amount.resolve_for_sa(game, card_id, player, sa.as_deref());
+                    self.pay_life_cost(game, player, card_id, amount);
                 }
                 CostPart::Sacrifice {
                     type_filter,

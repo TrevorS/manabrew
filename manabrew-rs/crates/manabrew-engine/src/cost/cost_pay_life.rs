@@ -32,13 +32,13 @@ pub fn can_pay(
     _available_mana: &crate::mana::ManaPool,
     source: crate::ids::CardId,
     player: crate::ids::PlayerId,
-    _ability: Option<&crate::spellability::SpellAbility>,
+    ability: Option<&crate::spellability::SpellAbility>,
     part: &super::CostPart,
 ) -> bool {
     let super::CostPart::PayLife(amount) = part else {
         return false;
     };
-    let resolved_amount = amount.resolve(game, source, player);
+    let resolved_amount = amount.resolve_for_sa(game, source, player, ability);
     if crate::staticability::static_ability_cant_gain_lose_pay_life::cant_pay_life(
         game, player, true, None,
     ) {
