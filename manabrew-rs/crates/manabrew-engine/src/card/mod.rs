@@ -2389,6 +2389,7 @@ impl Card {
         self.attacks_this_turn = 0;
         self.tapped_this_turn = 0;
         self.damage_sources_this_turn.clear();
+        self.clear_assigned_damage();
         self.attacking_player = None;
     }
 

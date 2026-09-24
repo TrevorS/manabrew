@@ -797,6 +797,7 @@ impl GameLoop {
         for i in 0..game.cards.len() {
             let card = Arc::make_mut(&mut game.cards[i]);
             card.tapped_this_turn = 0;
+            card.clear_assigned_damage();
             if card.zone == ZoneType::Battlefield {
                 // Restore animate state before checking creature status (issue #52).
                 let had_animate_state = card.animate_state.is_some();

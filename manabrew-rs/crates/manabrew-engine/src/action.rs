@@ -1132,6 +1132,7 @@ impl GameState {
                         source,
                     };
                     if dealt > 0 {
+                        self.card_mut(target).add_assigned_damage(dealt);
                         apply_replacements(self, &mut dealt_event);
                     }
                 }
