@@ -2337,7 +2337,7 @@ impl Card {
                 true,
             ),
         ];
-        if self.zone != ZoneType::Battlefield {
+        if self.zone != ZoneType::Battlefield || !self.may_have_prevent_all_keyword() {
             return Vec::new();
         }
         let mut effects = Vec::new();
@@ -2360,6 +2360,22 @@ impl Card {
             }
         }
         effects
+    }
+
+    /// Keep in sync with `PREVENT_KEYWORDS`: each starts with `Prevent all `, and
+    /// `card_state::has_keyword` matches an instance equal to it or to `HIDDEN ` plus it.
+    fn may_have_prevent_all_keyword(&self) -> bool {
+        const PREFIX: &[u8] = b"prevent all ";
+        [&self.keywords, &self.granted_keywords, &self.pump_keywords]
+            .into_iter()
+            .flat_map(|keywords| keywords.iter_strings())
+            .any(|keyword| {
+                let keyword = keyword.strip_prefix("HIDDEN ").unwrap_or(keyword);
+                keyword
+                    .as_bytes()
+                    .get(..PREFIX.len())
+                    .is_some_and(|start| start.eq_ignore_ascii_case(PREFIX))
+            })
     }
 
     pub fn add_counter(&mut self, ct: &CounterType, count: i32) {
