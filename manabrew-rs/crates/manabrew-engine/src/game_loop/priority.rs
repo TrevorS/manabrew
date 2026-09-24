@@ -78,11 +78,10 @@ impl GameLoop {
                     game.game_over = true;
                     return;
                 }
-                let stack_before = game.stack.len();
-                self.with_shared_state_mutation(game, agents, |this, game, agents| {
-                    this.process_triggers(game, agents);
-                });
-                let triggers_added = game.stack.len() > stack_before;
+                let triggers_added =
+                    self.with_shared_state_mutation(game, agents, |this, game, agents| {
+                        this.process_triggers(game, agents)
+                    });
                 // Keep looping while either SBA changed state or new triggers were added
                 if !sba_changed && !triggers_added {
                     break;

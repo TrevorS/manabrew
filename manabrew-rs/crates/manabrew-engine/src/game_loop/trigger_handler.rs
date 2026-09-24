@@ -5,11 +5,12 @@ impl GameLoop {
         &mut self,
         game: &mut GameState,
         agents: &mut [Box<dyn PlayerAgent>],
-    ) {
+    ) -> bool {
         let _perf_scope = crate::perf::ParamsLookupScopeGuard::enter(
             crate::perf::ParamsLookupScope::PriorityTrigger,
         );
         let pending = self.trigger_handler.run_waiting_triggers(game);
+        let ran = !pending.is_empty();
         let mut pushed = Vec::new();
         for pt in pending {
             let is_static = pt.static_trigger;
@@ -59,6 +60,7 @@ impl GameLoop {
                 );
             }
         }
+        ran
     }
 
     pub(crate) fn run_static_state_triggers(
