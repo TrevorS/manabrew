@@ -357,10 +357,21 @@ impl GameLoop {
                     let is_mega = alt_cost == Some(crate::spellability::AlternativeCost::Megamorph);
                     let c = game.card_mut(card_id);
                     let disguise_cost = c.get_keyword_cost("Disguise");
-                    let morph_cost = disguise_cost
+                    let morph_details = disguise_cost
                         .clone()
                         .or_else(|| c.get_keyword_cost(if is_mega { "Megamorph" } else { "Morph" }))
                         .unwrap_or_else(|| "3".to_string());
+                    let mut details = morph_details.split(':');
+                    let morph_cost = details
+                        .next()
+                        .and_then(|cost| cost.split('|').next())
+                        .unwrap_or_default()
+                        .trim();
+                    let reduce_param = details
+                        .next()
+                        .filter(|_| disguise_cost.is_some())
+                        .map(|reduce| format!(" | ReduceCost$ {reduce}"))
+                        .unwrap_or_default();
                     c.set_face_down(true);
                     c.set_original_state_as_face_down();
                     // Java's MayPlay copy rebuilds its params from `originalMapParams`
@@ -382,7 +393,7 @@ impl GameLoop {
                         "MorphUp"
                     };
                     let ab_text = format!(
-                        "AB$ SetState | Cost$ {morph_cost} | Mode$ TurnFaceUp | {up_key}$ True{mega_param}"
+                        "AB$ SetState | Cost$ {morph_cost} | Mode$ TurnFaceUp | {up_key}$ True{mega_param}{reduce_param}"
                     );
                     let ab_index = c.activated_abilities.len();
                     if let Some(parsed) =
