@@ -19,6 +19,7 @@ pub struct ManaPaymentOutcome {
     pub colors_spent: u16,
     pub paying_mana: Vec<u16>,
     pub paying_sources: Vec<Option<CardId>>,
+    pub mana_spent: Vec<Mana>,
 }
 
 pub(crate) fn mana_matches_context(mana: &Mana, ctx: &ManaPaymentContext) -> bool {
@@ -1100,6 +1101,7 @@ impl ManaPool {
         mana_spent_to_pay.colors_spent |= mana.color;
         mana_spent_to_pay.paying_mana.push(mana.color);
         mana_spent_to_pay.paying_sources.push(mana.source_card);
+        mana_spent_to_pay.mana_spent.push(mana.clone());
         if let (Some(svar), Some(src)) = (mana.triggers_when_spent.clone(), mana.source_card) {
             self.last_payment_triggers_consumed.push((svar, src));
         }
@@ -1236,6 +1238,7 @@ impl ManaPool {
             colors_spent,
             paying_mana,
             paying_sources,
+            mana_spent: Vec::new(),
         })
     }
 

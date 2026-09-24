@@ -312,7 +312,6 @@ where
                         executed_actions.append(&mut auto_trace);
                         if attempted_and_failed {
                             notify_mana_payment_resolved(agents, session.player, &executed_actions);
-                            mana_pools[session.player.index()] = saved_pool.clone();
                             return ManaPaymentResult::failed();
                         }
                         executed_actions.push(ManaCostAction::Pay { auto: false });

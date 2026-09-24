@@ -222,6 +222,7 @@ pub fn pay_mana_cost_auto_with_callback_and_reserved_sacrifices(
     if !trace.paid {
         // Java parity: keep the partial taps in the returned trace so the
         // agent emits `[TapLand …, Cancel]` and consumes the same RNG.
+        pool.refund_mana(&mut trace.payment.mana_spent);
         return Some(AutoPayResult {
             tapped,
             choices,
