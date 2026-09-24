@@ -113,6 +113,7 @@ pub mod game_loss_effect;
 pub mod game_win_effect;
 pub mod goad_effect;
 pub mod haunt_effect;
+pub mod heal_damage_effect;
 pub mod heist_effect;
 pub mod immediate_trigger_effect;
 pub mod incubate_effect;

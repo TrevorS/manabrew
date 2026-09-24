@@ -103,6 +103,7 @@ effect_dispatch! {
     ApiType::Ascend => ascend_effect::AscendEffect,
     ApiType::DayTime => day_time_effect::DayTimeEffect,
     ApiType::Haunt => haunt_effect::HauntEffect,
+    ApiType::HealDamage => heal_damage_effect::HealDamageEffect,
     ApiType::Unattach => unattach_effect::UnattachEffect,
     ApiType::FlipOntoBattlefield => flip_onto_battlefield_effect::FlipOntoBattlefieldEffect,
     ApiType::ClassLevelUp => class_level_up_effect::ClassLevelUpEffect,
