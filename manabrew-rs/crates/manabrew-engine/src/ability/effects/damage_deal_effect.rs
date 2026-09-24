@@ -520,10 +520,11 @@ pub(crate) fn gain_life_from_lifelink(
     lifelink_dealt: i32,
 ) {
     let game = &mut *ctx.game;
-    if lifelink_dealt <= 0 || !game.card(source).has_lifelink() {
+    let source_lki = game.get_change_zone_lki_info(source);
+    if lifelink_dealt <= 0 || !source_lki.has_lifelink() {
         return;
     }
-    let controller = game.card(source).controller;
+    let controller = source_lki.controller;
     if crate::staticability::static_ability_cant_gain_lose_pay_life::cant_gain_life(
         game, controller,
     ) {

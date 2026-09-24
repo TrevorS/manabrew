@@ -146,6 +146,22 @@ impl crate::game::GameState {
         self.last_state_battlefield.iter().find(|s| s.id == card_id)
     }
 
+    pub fn add_change_zone_lki_info(&mut self, lki: std::sync::Arc<Card>) {
+        self.change_zone_lki_info.insert(lki.id, lki);
+    }
+
+    pub fn get_change_zone_lki_info(&self, card_id: CardId) -> &Card {
+        let card = self.card(card_id);
+        match self.change_zone_lki_info.get(&card_id) {
+            Some(lki) if card.zone != ZoneType::Battlefield => lki,
+            _ => card,
+        }
+    }
+
+    pub fn clear_change_zone_lki_info(&mut self) {
+        self.change_zone_lki_info.clear();
+    }
+
     pub fn add_lki_exiled_card(&mut self, host: CardId, card_id: CardId) {
         if let Some(snapshot) = self
             .last_state_battlefield
