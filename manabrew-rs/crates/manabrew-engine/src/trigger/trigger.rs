@@ -534,14 +534,23 @@ impl Trigger {
 
     /// Mirrors Java Trigger.checkActivationLimit().
     pub fn check_activation_limit(&self, game: &GameState, host_card: CardId) -> bool {
+        self.check_activation_limit_after_runs(game, host_card, 0)
+    }
+
+    pub fn check_activation_limit_after_runs(
+        &self,
+        game: &GameState,
+        host_card: CardId,
+        runs: u32,
+    ) -> bool {
         if let Some(limit) = self.ir.activation_limit {
-            if self.get_activations_this_turn(game, host_card) >= limit {
+            if self.get_activations_this_turn(game, host_card) + runs >= limit {
                 return false;
             }
         }
         if let Some(limit) = self.ir.game_activation_limit {
             let used = self.get_activations_this_game(game, host_card);
-            if used >= limit {
+            if used + runs >= limit {
                 return false;
             }
         }

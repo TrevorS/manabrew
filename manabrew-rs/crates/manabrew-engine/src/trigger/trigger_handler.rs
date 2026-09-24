@@ -326,10 +326,9 @@ impl TriggerHandler {
     /// Drains waiting queue, matches triggers, returns PendingTriggers.
     /// The caller (game_loop) handles OptionalDecider$ prompting.
     pub fn run_waiting_triggers(&mut self, game: &GameState) -> Vec<PendingTrigger> {
-        // Start with any triggers that were pre-matched (flushed before SBA).
-        let mut entries: Vec<MatchedTrigger> = std::mem::take(&mut self.pre_matched_triggers);
-
         if self.waiting_triggers.is_empty() && self.delayed_triggers.is_empty() {
+            // Start with any triggers that were pre-matched (flushed before SBA).
+            let mut entries: Vec<MatchedTrigger> = std::mem::take(&mut self.pre_matched_triggers);
             if entries.is_empty() {
                 return Vec::new();
             }
@@ -351,7 +350,9 @@ impl TriggerHandler {
         }
 
         // Match any remaining waiting triggers (those fired after the flush).
-        entries.extend(self.match_waiting_triggers(game));
+        let matched = self.match_waiting_triggers(game);
+        let mut entries: Vec<MatchedTrigger> = std::mem::take(&mut self.pre_matched_triggers);
+        entries.extend(matched);
 
         // Fire Immediate delayed triggers — these fire "as soon as possible"
         // without waiting for a matching event (mirrors Java registerDelayedTrigger
@@ -541,6 +542,13 @@ impl TriggerHandler {
     fn match_waiting_triggers(&mut self, game: &GameState) -> Vec<MatchedTrigger> {
         let waiting = std::mem::take(&mut self.waiting_triggers);
         let mut entries: Vec<MatchedTrigger> = Vec::new();
+        let mut runs: crate::HashMap<(CardId, usize), u32> = crate::HashMap::default();
+        for (pending, ..) in &self.pre_matched_triggers {
+            let sa = &pending.entry.spell_ability;
+            if let (Some(source), Some(index)) = (sa.trigger_source, sa.trigger_index) {
+                *runs.entry((source, index)).or_default() += 1;
+            }
+        }
 
         for event in &waiting {
             let mut trigger_refs: Vec<(CardId, usize, usize)> =
@@ -613,7 +621,11 @@ impl TriggerHandler {
                     &event.mode,
                     &event.params,
                 );
-                if can_run {
+                let prior_runs = runs.get(&(card_id, trigger_index)).copied().unwrap_or(0);
+                if can_run
+                    && (prior_runs == 0
+                        || trigger.check_activation_limit_after_runs(game, card_id, prior_runs))
+                {
                     let sa = trigger.build_triggered_spell_ability(
                         game,
                         card_id,
@@ -668,6 +680,7 @@ impl TriggerHandler {
                         trigger,
                         &event.params,
                     );
+                    *runs.entry((card_id, trigger_index)).or_default() += 1 + extra.max(0) as u32;
                     for _ in 0..extra {
                         let sa2 = trigger.build_triggered_spell_ability(
                             game,
