@@ -36,12 +36,63 @@ pub fn ability_unlock_room(card: &Card) -> SpellAbility {
     SpellAbility::new_simple(Some(card.id), card.controller, "UnlockRoom")
 }
 
-pub fn ability_morph_up(card: &Card, cost_str: &str, mega: bool, _intrinsic: bool) -> SpellAbility {
-    SpellAbility::new_simple(
-        Some(card.id),
-        card.controller,
-        &format!("MorphUp:{cost_str}:{mega}"),
-    )
+pub fn face_up_keyword_cost(card: &Card, keyword: &str) -> Option<String> {
+    match card.face_down_state.as_deref() {
+        Some(state) => crate::keyword::extract_keyword_cost_from_all(
+            [&state.original_keywords, &card.granted_keywords],
+            keyword,
+        ),
+        None => card.get_keyword_cost(keyword),
+    }
+}
+
+pub fn ability_morph_up(card: &mut Card, morph_details: &str, mega: bool, disguise: bool) {
+    let mut details = morph_details.split(':');
+    let morph_cost = details
+        .next()
+        .and_then(|cost| cost.split('|').next())
+        .unwrap_or_default()
+        .trim();
+    let reduce_param = details
+        .next()
+        .filter(|_| disguise)
+        .map(|reduce| format!(" | ReduceCost$ {reduce}"))
+        .unwrap_or_default();
+    let mega_param = if mega { " | Mega$ True" } else { "" };
+    let up_key = if disguise { "DisguiseUp" } else { "MorphUp" };
+    let text = format!(
+        "AB$ SetState | Cost$ {morph_cost} | Mode$ TurnFaceUp | {up_key}$ True{mega_param}{reduce_param}"
+    );
+    let index = card.activated_abilities.len();
+    if let Some(parsed) = crate::ability::activated::parse_activated_ability(&text, index) {
+        card.activated_abilities.push(parsed);
+        card.base_ability_count = card.activated_abilities.len();
+    }
+}
+
+pub fn set_face_down_state(
+    game: &mut crate::game::GameState,
+    card_id: crate::ids::CardId,
+    sa: &SpellAbility,
+) {
+    let amount = |key: &str| {
+        crate::parsing::raw_get(&sa.ability_text, key)
+            .map(|value| crate::svar::resolve_numeric_value(game, sa, value, 0))
+    };
+    let power = amount("FaceDownPower");
+    let toughness = amount("FaceDownToughness");
+    let card = game.card_mut(card_id);
+    if power.is_some() {
+        card.base_power = power;
+    }
+    if toughness.is_some() {
+        card.base_toughness = toughness;
+    }
+    if let Some(types) = crate::parsing::raw_get(&sa.ability_text, "FaceDownSetType") {
+        card.set_type_line(forge_foundation::CardTypeLine::parse(
+            &types.split(" & ").collect::<Vec<_>>().join(" "),
+        ));
+    }
 }
 
 pub fn ability_disguise_up(card: &Card, cost_str: &str, _intrinsic: bool) -> SpellAbility {

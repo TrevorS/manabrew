@@ -372,14 +372,7 @@ impl GameLoop {
                 if alt_cost.is_some_and(|ac| ac.is_morph()) {
                     let is_mega = alt_cost == Some(crate::spellability::AlternativeCost::Megamorph);
                     let c = game.card_mut(card_id);
-                    let face_up_keyword_cost =
-                        |c: &crate::card::Card, keyword: &str| match c.face_down_state.as_deref() {
-                            Some(state) => crate::keyword::extract_keyword_cost_from_all(
-                                [&state.original_keywords, &c.granted_keywords],
-                                keyword,
-                            ),
-                            None => c.get_keyword_cost(keyword),
-                        };
+                    let face_up_keyword_cost = crate::card::card_factory_util::face_up_keyword_cost;
                     let disguise_cost = face_up_keyword_cost(c, "Disguise");
                     let morph_details = disguise_cost
                         .clone()
@@ -387,17 +380,6 @@ impl GameLoop {
                             face_up_keyword_cost(c, if is_mega { "Megamorph" } else { "Morph" })
                         })
                         .unwrap_or_else(|| "3".to_string());
-                    let mut details = morph_details.split(':');
-                    let morph_cost = details
-                        .next()
-                        .and_then(|cost| cost.split('|').next())
-                        .unwrap_or_default()
-                        .trim();
-                    let reduce_param = details
-                        .next()
-                        .filter(|_| disguise_cost.is_some())
-                        .map(|reduce| format!(" | ReduceCost$ {reduce}"))
-                        .unwrap_or_default();
                     c.set_face_down(true);
                     c.set_original_state_as_face_down();
                     // Java's MayPlay copy rebuilds its params from `originalMapParams`
@@ -415,22 +397,12 @@ impl GameLoop {
                     // Add "turn face up" activated ability (morph cost → SetState TurnFaceUp).
                     // This is a game rule, not a card ability — face-down morph creatures
                     // can always be turned face up by paying the morph cost.
-                    let mega_param = if is_mega { " | Mega$ True" } else { "" };
-                    let up_key = if disguise_cost.is_some() {
-                        "DisguiseUp"
-                    } else {
-                        "MorphUp"
-                    };
-                    let ab_text = format!(
-                        "AB$ SetState | Cost$ {morph_cost} | Mode$ TurnFaceUp | {up_key}$ True{mega_param}{reduce_param}"
+                    crate::card::card_factory_util::ability_morph_up(
+                        c,
+                        &morph_details,
+                        is_mega,
+                        disguise_cost.is_some(),
                     );
-                    let ab_index = c.activated_abilities.len();
-                    if let Some(parsed) =
-                        crate::ability::activated::parse_activated_ability(&ab_text, ab_index)
-                    {
-                        c.activated_abilities.push(parsed);
-                        c.base_ability_count = c.activated_abilities.len();
-                    }
                 }
 
                 if entry.spell_ability.target_chosen.target_card.is_some()

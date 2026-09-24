@@ -223,9 +223,40 @@ fn set_state_for_card(
             }
         }
         Some(SpellAbilityMode::TurnFaceDown) => {
+            let card = ctx.game.card(card_id);
+            if card.face_down || card.is_double_faced() {
+                return;
+            }
             let card = ctx.game.card_mut(card_id);
-            if !card.face_down {
-                card.set_face_down(true);
+            card.set_face_down(true);
+            card.set_original_state_as_face_down();
+            card.set_static_set_pt(None, None);
+            let face_up_keyword_cost = crate::card::card_factory_util::face_up_keyword_cost;
+            let disguise_cost = face_up_keyword_cost(card, "Disguise");
+            let megamorph_cost = face_up_keyword_cost(card, "Megamorph");
+            if let Some(morph_details) = disguise_cost
+                .clone()
+                .or_else(|| megamorph_cost.clone())
+                .or_else(|| face_up_keyword_cost(card, "Morph"))
+            {
+                crate::card::card_factory_util::ability_morph_up(
+                    card,
+                    &morph_details,
+                    disguise_cost.is_none() && megamorph_cost.is_some(),
+                    disguise_cost.is_some(),
+                );
+            }
+            if ["FaceDownPower", "FaceDownToughness", "FaceDownSetType"]
+                .iter()
+                .any(|key| crate::parsing::raw_has_key(&sa.ability_text, key))
+            {
+                crate::card::card_factory_util::set_face_down_state(ctx.game, card_id, sa);
+            }
+            ctx.trigger_handler.reset_active_triggers(ctx.game);
+            if sa.is_remember_changed() {
+                if let Some(host) = sa.source {
+                    ctx.game.card_mut(host).add_remembered_card(card_id);
+                }
             }
         }
         _ => {
