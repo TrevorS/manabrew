@@ -254,7 +254,26 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
             let saved_game = ctx.game.clone();
             let saved_pool = ctx.mana_pools[controller.index()].clone();
-            if !super::cost_payment::pay_mana_cost_for_effect(ctx, controller, card_id, &mc, true) {
+            let mut unpaid =
+                crate::mana::mana_cost_being_paid::ManaCostBeingPaid::from_mana_cost(&mc);
+            if !crate::cost::cost_adjustment::adjust(
+                ctx.game,
+                ctx.agents,
+                ctx.trigger_handler,
+                ctx.mana_pools,
+                &mut unpaid,
+                &mut spell_sa,
+                controller,
+                None,
+                false,
+                false,
+            ) || !super::cost_payment::pay_mana_cost_for_effect(
+                ctx,
+                controller,
+                card_id,
+                &unpaid.to_mana_cost(),
+                true,
+            ) {
                 *ctx.game = saved_game;
                 ctx.mana_pools[controller.index()] = saved_pool;
                 amount -= 1;
