@@ -170,7 +170,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 let mut fallback_sa =
                     build_spell_ability(ctx.game, source_id, fallback_text, player);
                 fallback_sa.source = Some(source_id);
-                super::resolve_effect(ctx, &fallback_sa);
+                super::resolve_effect_chain_with_parent(
+                    ctx,
+                    fallback_sa,
+                    sa.target_chosen.target_card,
+                    sa.target_chosen.target_player,
+                );
             }
         }
 
