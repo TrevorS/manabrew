@@ -1205,7 +1205,20 @@ fn apply_pending_effects(
                 } else {
                     kw.to_string()
                 };
-                card.granted_keywords.add(&kw);
+                let redundant = crate::keyword::keyword_collection::parse_keyword_string(&kw)
+                    .0
+                    .is_multiple_redundant()
+                    && card.keywords.contains_string(&kw);
+                if card.granted_keywords.add(&kw) && !redundant {
+                    let own_svars = std::mem::take(&mut card.svars);
+                    card.generate_keyword_triggers_for(std::slice::from_ref(&kw));
+                    let keyword_svars = std::mem::replace(&mut card.svars, own_svars);
+                    for (name, value) in keyword_svars {
+                        if !card.svars.contains_key(&name) {
+                            card.granted_svars.insert(name, value);
+                        }
+                    }
+                }
                 if kw == "Riot" {
                     if let Some(re) = crate::card::card_factory_util::riot_replacement(false) {
                         granted_keyword_replacements
@@ -1213,160 +1226,6 @@ fn apply_pending_effects(
                             .or_default()
                             .push(re);
                     }
-                }
-                if let Some(cost_str) = crate::keyword::extract_keyword_cost_str(&kw, "Ward") {
-                    let next_id = card
-                        .triggers
-                        .iter()
-                        .map(|t| t.id)
-                        .max()
-                        .unwrap_or(0)
-                        .saturating_add(1);
-                    let mut next_id_mut = next_id;
-                    let execute = format!("TrigWardGranted{next_id}");
-                    let raw = format!(
-                        "Mode$ BecomesTarget | ValidSource$ SpellAbility.OppCtrl | ValidTarget$ Card.Self | Secondary$ True | Execute$ {execute} | TriggerZones$ Battlefield | TriggerDescription$ Ward"
-                    );
-                    if let Some(mut trig) = crate::trigger::parse_trigger(&raw, &mut next_id_mut) {
-                        trig.execute = execute.clone();
-                        card.add_trigger(trig);
-                    }
-                    card.granted_svars.insert(
-                        execute,
-                        format!(
-                            "DB$ Counter | Defined$ TriggeredSourceSA | UnlessCost$ {cost_str}"
-                        ),
-                    );
-                }
-                if kw == "Storm" {
-                    let next_id = card
-                        .triggers
-                        .iter()
-                        .map(|t| t.id)
-                        .max()
-                        .unwrap_or(0)
-                        .saturating_add(1);
-                    let mut next_id_mut = next_id;
-                    let execute = format!("TrigStormGranted{next_id}");
-                    let amount = format!("StormCountGranted{next_id}");
-                    let raw = format!(
-                        "Mode$ SpellCast | ValidCard$ Card.Self | TriggerZones$ Stack | Secondary$ True | Execute$ {execute} | TriggerDescription$ Storm"
-                    );
-                    if let Some(mut trig) = crate::trigger::parse_trigger(&raw, &mut next_id_mut) {
-                        trig.execute = execute.clone();
-                        card.add_trigger(trig);
-                    }
-                    card.granted_svars.insert(
-                        execute,
-                        format!(
-                            "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | Amount$ {amount} | MayChooseTarget$ True"
-                        ),
-                    );
-                    card.granted_svars
-                        .insert(amount, "TriggerCount$CurrentStormCount/Minus.1".to_string());
-                }
-                if let Some(details) = crate::keyword::extract_keyword_cost_str(&kw, "Miracle") {
-                    let next_id = card
-                        .triggers
-                        .iter()
-                        .map(|t| t.id)
-                        .max()
-                        .unwrap_or(0)
-                        .saturating_add(1);
-                    let mut next_id_mut = next_id;
-                    let suffix = format!("Granted{next_id}");
-                    if let Some(mut trig) = crate::trigger::parse_trigger(
-                        crate::card::card_factory_util::MIRACLE_TRIGGER,
-                        &mut next_id_mut,
-                    ) {
-                        trig.execute = format!("TrigMiracle{suffix}");
-                        card.add_trigger(trig);
-                    }
-                    for (name, value) in
-                        crate::card::card_factory_util::miracle_svars(details, &suffix)
-                    {
-                        card.granted_svars.insert(name, value);
-                    }
-                }
-                if kw == "Prowess" {
-                    let next_id = card
-                        .triggers
-                        .iter()
-                        .map(|t| t.id)
-                        .max()
-                        .unwrap_or(0)
-                        .saturating_add(1);
-                    let mut next_id_mut = next_id;
-                    let execute = format!("TrigProwessGranted{next_id}");
-                    let raw = format!(
-                        "Mode$ SpellCast | ValidCard$ Card.nonCreature | ValidActivatingPlayer$ You | Execute$ {execute} | TriggerZones$ Battlefield | TriggerDescription$ Prowess"
-                    );
-                    if let Some(mut trig) = crate::trigger::parse_trigger(&raw, &mut next_id_mut) {
-                        trig.execute = execute.clone();
-                        card.add_trigger(trig);
-                    }
-                    card.granted_svars.insert(
-                        execute,
-                        "DB$ Pump | Defined$ Self | NumAtt$ +1 | NumDef$ +1".to_string(),
-                    );
-                }
-                if kw == "Conspire" {
-                    let next_id = card
-                        .triggers
-                        .iter()
-                        .map(|t| t.id)
-                        .max()
-                        .unwrap_or(0)
-                        .saturating_add(1);
-                    let mut next_id_mut = next_id;
-                    let execute = format!("TrigConspireGranted{next_id}");
-                    let check = format!("ConspireGranted{next_id}");
-                    let raw = format!(
-                        "Mode$ SpellCast | ValidCard$ Card.Self | CheckSVar$ {check} | TriggerZones$ Stack | Secondary$ True | Execute$ {execute} | TriggerDescription$ Copy CARDNAME if its conspire cost was paid"
-                    );
-                    if let Some(mut trig) = crate::trigger::parse_trigger(&raw, &mut next_id_mut) {
-                        trig.execute = execute.clone();
-                        card.add_trigger(trig);
-                    }
-                    card.granted_svars.insert(
-                        execute,
-                        "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | MayChooseTarget$ True"
-                            .to_string(),
-                    );
-                    card.granted_svars
-                        .insert(check, "Count$OptionalKeywordAmount".to_string());
-                }
-                if kw == "Decayed"
-                    && !card
-                        .triggers
-                        .iter()
-                        .any(|trigger| trigger.execute.starts_with("TrigDecayed"))
-                {
-                    let next_id = card
-                        .triggers
-                        .iter()
-                        .map(|t| t.id)
-                        .max()
-                        .unwrap_or(0)
-                        .saturating_add(1);
-                    let mut next_id_mut = next_id;
-                    let execute = format!("TrigDecayedGranted{next_id}");
-                    let sacrifice = format!("TrigDecayedSacGranted{next_id}");
-                    let raw = format!(
-                        "Mode$ Attacks | ValidCard$ Card.Self | Secondary$ True | Execute$ {execute} | TriggerDescription$ When a creature with decayed attacks, sacrifice it at end of combat."
-                    );
-                    if let Some(mut trig) = crate::trigger::parse_trigger(&raw, &mut next_id_mut) {
-                        trig.execute = execute.clone();
-                        card.add_trigger(trig);
-                    }
-                    card.granted_svars.insert(
-                        execute,
-                        format!(
-                            "DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | Execute$ {sacrifice} | TriggerDescription$ At end of combat, sacrifice CARDNAME."
-                        ),
-                    );
-                    card.granted_svars
-                        .insert(sacrifice, "DB$ Sacrifice".to_string());
                 }
             }
             EffectKind::RemoveCardTypes => {
