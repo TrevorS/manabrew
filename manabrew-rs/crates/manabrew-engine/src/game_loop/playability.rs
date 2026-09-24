@@ -423,11 +423,13 @@ impl GameLoop {
         if card.face_down {
             return 0;
         }
+        let state_name = if card.is_modal() {
+            forge_foundation::CardStateName::Backside
+        } else {
+            forge_foundation::CardStateName::Secondary
+        };
         let Some((host, sa)) = crate::spellability::build_spell_ability_for_card_state_cast(
-            game,
-            card_id,
-            player,
-            forge_foundation::CardStateName::Secondary,
+            game, card_id, player, state_name,
         ) else {
             return 0;
         };
@@ -444,7 +446,7 @@ impl GameLoop {
                 game,
                 player,
                 card_id,
-                forge_foundation::CardStateName::Secondary,
+                state_name,
                 zone,
                 chosen_types_by_source,
             )
