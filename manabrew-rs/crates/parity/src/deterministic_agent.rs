@@ -1032,34 +1032,25 @@ impl DeterministicAgent {
             .collect()
     }
 
-    fn snapshot_max_blockers_for_attacker(&self, snap: &GameSnapshot, attacker: CardId) -> usize {
-        let Some(attacker_card) = self.snapshot_card(snap, attacker) else {
+    fn snapshot_max_blockers_for_attacker(
+        &self,
+        snap: &GameSnapshot,
+        attacker: CardId,
+        defender: PlayerId,
+    ) -> usize {
+        let (Some(game), Some(attacker_card)) =
+            (self.snapshot_game(), self.snapshot_card(snap, attacker))
+        else {
             return usize::MAX;
         };
-        let mut max = usize::MAX;
-        for source in self.snapshot_cards().iter().filter(|c| {
-            c.zone == forge_foundation::ZoneType::Battlefield
-                || c.zone == forge_foundation::ZoneType::Command
-        }) {
-            for st_ab in &source.static_abilities {
-                if !st_ab.check_mode(&manabrew_engine::staticability::StaticMode::MinMaxBlocker) {
-                    continue;
-                }
-                if !manabrew_engine::card::valid_filter::matches_valid_card_selector_opt(
-                    st_ab.ir.valid_card.as_ref(),
-                    attacker_card,
-                    source,
-                ) {
-                    continue;
-                }
-                if let Some(max_text) = st_ab.ir.max_text.as_deref() {
-                    if let Ok(value) = max_text.trim().parse::<usize>() {
-                        max = max.min(value);
-                    }
-                }
-            }
-        }
-        max
+        let (_, max) =
+            manabrew_engine::staticability::static_ability_cant_attack_block::get_min_max_blocker(
+                game,
+                &game.cards,
+                attacker_card,
+                defender,
+            );
+        usize::try_from(max).unwrap_or(0)
     }
 
     /// Pick a random index in [0, len) from the shared RNG.
@@ -1621,7 +1612,7 @@ impl PlayerAgent for DeterministicAgent {
                         .get(attacker)
                         .copied()
                         .unwrap_or(0);
-                    current < self.snapshot_max_blockers_for_attacker(snap, *attacker)
+                    current < self.snapshot_max_blockers_for_attacker(snap, *attacker, player)
                 });
             }
             if let Some(game) = self.snapshot_game.as_ref() {
