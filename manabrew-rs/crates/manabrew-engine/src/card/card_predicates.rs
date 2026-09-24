@@ -152,13 +152,43 @@ pub fn can_exiled_by(game: &GameState, card: CardId, sa: &SpellAbility, effect: 
 }
 
 pub fn can_be_attached(game: &GameState, target: CardId, aura: CardId) -> bool {
-    game.card(aura).is_attachment()
+    let attach = game.card(aura);
+    let entity = game.card(target);
+    if entity.phased_out && !attach.phased_out {
+        return false;
+    }
+    attach.is_attachment()
+        && target != aura
+        && (!attach.is_creature() || attach.has_keyword("Reconfigure"))
+        && !attach.phased_out
+        && (!attach.type_line.has_subtype("Aura") || can_be_enchanted_by(entity, attach))
+        && (!attach.type_line.has_subtype("Equipment") || can_be_equipped_by(entity))
+        && (!attach.type_line.has_subtype("Fortification") || can_be_fortified_by(entity, attach))
         && !crate::staticability::static_ability_cant_attach::cant_attach(
             &game.cards,
-            game.card(aura),
-            game.card(target),
+            attach,
+            entity,
             false,
         )
+}
+
+fn can_be_enchanted_by(entity: &Card, aura: &Card) -> bool {
+    let mut enchants = aura
+        .keywords
+        .iter_strings()
+        .filter_map(|kw| crate::keyword::extract_keyword_cost_str(kw, "Enchant"))
+        .peekable();
+    enchants.peek().is_some()
+        && enchants
+            .all(|valid| crate::parsing::enchant_type_matches_card(valid, entity, Some(aura)))
+}
+
+fn can_be_equipped_by(entity: &Card) -> bool {
+    entity.zone == ZoneType::Battlefield && entity.is_creature()
+}
+
+fn can_be_fortified_by(entity: &Card, fort: &Card) -> bool {
+    entity.is_land() && entity.zone == ZoneType::Battlefield && !fort.is_land()
 }
 
 pub fn has_cmc(card: &Card, cmc: i32) -> bool {
