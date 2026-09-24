@@ -1125,6 +1125,14 @@ fn matches_controlled_by_reference(
         context.targeted_players.contains(&card.controller)
     } else if let Some(target) = raw_target_ref(reference) {
         relation_target_player_any(&target, context, |player| card.controller == player)
+    } else if context.game.is_none() && (reference.starts_with("Player") || reference.contains('.'))
+    {
+        matches_valid_player_selector_with_source(
+            &crate::parsing::cached_compiled_selector(reference),
+            card.controller,
+            context.source_controller,
+            context.source_card,
+        )
     } else if let (Some(game), true) = (
         context.game,
         reference.starts_with("Player") || reference.contains('.'),
