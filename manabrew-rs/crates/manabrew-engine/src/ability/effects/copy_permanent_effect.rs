@@ -128,6 +128,9 @@ pub fn get_proto_type(sa: &SpellAbility, original: &Card, new_owner: crate::ids:
                 copy.add_type(t);
             }
         }
+        if crate::staticability::layer::sanitize_subtypes(&mut copy.type_line) {
+            copy.update_types();
+        }
     }
 
     // Apply SetPower$/SetToughness$ (e.g. Eternalize sets to 4/4).
