@@ -984,10 +984,12 @@ impl CombatState {
 
     /// Add an attacker to combat, targeting a defender.
     /// Mirrors Java `Combat.addAttacker()`.
-    pub fn add_attacker(&mut self, attacker: CardId, defender: DefenderId) {
+    pub fn add_attacker(&mut self, attacker: CardId, defender: DefenderId, zone_timestamp: u64) {
         // Remove from any existing band first (Java parity)
         self.attackers.retain(|(a, _)| *a != attacker);
         self.attackers.push((attacker, defender));
+        self.attacker_zone_timestamps
+            .insert(attacker, zone_timestamp);
     }
 
     /// Add a blocker assignment.

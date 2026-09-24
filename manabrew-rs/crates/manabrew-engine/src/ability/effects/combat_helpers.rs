@@ -150,7 +150,7 @@ pub(crate) fn add_to_combat(
     }
 
     combat.remove_from_combat(card_id, ctx.game);
-    combat.add_attacker(card_id, defender);
+    combat.add_attacker(card_id, defender, ctx.game.card(card_id).zone_timestamp);
 
     let defending_player = defender.controlling_player(ctx.game);
     let tracked_defender = match defender {

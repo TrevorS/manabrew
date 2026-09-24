@@ -445,7 +445,7 @@ pub(super) fn apply_post_move(
                     .get_defender_by_attacker(returned)
                     .or_else(|| combat.get_combat_lki(returned).and_then(|lki| lki.defender))
                 {
-                    combat.add_attacker(card_id, defender);
+                    combat.add_attacker(card_id, defender, ctx.game.card(card_id).zone_timestamp);
                     let defending_player = defender.controlling_player(ctx.game);
                     ctx.game
                         .card_mut(card_id)
