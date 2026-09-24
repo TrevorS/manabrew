@@ -1502,7 +1502,13 @@ impl GameLoop {
             // until canPayManaCost fails, then return the last payable X.
             // This correctly handles multi-color sources that inflate
             // pool.total_mana() but can only produce one mana per activation.
-            let available_mana = mana::calculate_available_mana(self.pool(player), game, player);
+            let chosen_types_by_source = game
+                .cards
+                .iter()
+                .filter_map(|c| c.chosen_type.clone().map(|chosen| (c.id, chosen)))
+                .collect();
+            let available_mana =
+                self.available_mana_for_spell_card(game, player, card_id, &chosen_types_by_source);
             let non_x_cost = mana_cost.without_x();
             let x_cost_adjustment =
                 crate::cost::cost_adjustment::compute_cost_adjustment_for_payment(

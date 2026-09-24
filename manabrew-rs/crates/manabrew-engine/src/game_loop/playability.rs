@@ -110,7 +110,7 @@ impl GameLoop {
         }
     }
 
-    fn available_mana_for_spell_card(
+    pub(super) fn available_mana_for_spell_card(
         &self,
         game: &GameState,
         player: PlayerId,
