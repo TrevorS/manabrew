@@ -1123,12 +1123,18 @@ impl SpellAbility {
         let svar_name = params.get(key)?;
         let source = self.source?;
         let text = game.card(source).get_s_var(svar_name)?.to_string();
-        Some(build_spell_ability(
-            game,
-            source,
-            &text,
-            self.activating_player,
-        ))
+        let mut ability = build_spell_ability(game, source, &text, self.activating_player);
+        ability.trigger_objects.clone_from(&self.trigger_objects);
+        ability
+            .trigger_spell_abilities
+            .clone_from(&self.trigger_spell_abilities);
+        ability.trigger_source = self.trigger_source;
+        ability.trigger_source_zone_timestamp = self.trigger_source_zone_timestamp;
+        ability.trigger_index = self.trigger_index;
+        ability
+            .trigger_spawning_ability
+            .clone_from(&self.trigger_spawning_ability);
+        Some(ability)
     }
 
     /// Set an additional ability by key.
