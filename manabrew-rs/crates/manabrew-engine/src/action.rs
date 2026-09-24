@@ -717,7 +717,9 @@ impl GameState {
                 .remove(crate::card::KEYWORD_WARP_EXILED);
         }
         if dest_zone != ZoneType::Stack {
-            self.card_mut(card_id).exiled_with = None;
+            if let Some(exiled_with) = self.card_mut(card_id).exiled_with.take() {
+                self.card_mut(exiled_with).remove_exiled_card(card_id);
+            }
         }
 
         // Remove from source zone
