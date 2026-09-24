@@ -293,11 +293,10 @@ pub fn resolve_effect(ctx: &mut EffectContext, sa: &SpellAbility) {
     }
 
     // Check ConditionPresent$ / ConditionZone$ / ConditionCompare$ conditions
-    let source_id = match sa.source {
-        Some(id) => id,
-        None => return, // No source card — skip condition check
-    };
-    if !check_condition_present(ctx.game, sa, sa.activating_player, source_id) {
+    if sa.source.is_none() {
+        return;
+    }
+    if !check_condition_present(ctx.game, sa, sa.activating_player) {
         return;
     }
 

@@ -195,7 +195,6 @@ pub(super) fn check_condition_present(
     game: &GameState,
     sa: &SpellAbility,
     player: PlayerId,
-    source_id: CardId,
 ) -> bool {
     let condition = match sa.ir.condition_present.as_deref() {
         Some(c) => c,
@@ -235,9 +234,7 @@ pub(super) fn check_condition_present(
         // Self-exclusion only makes sense for the zone-scan path below.
         let count = defined_cards
             .iter()
-            .filter(|&&cid| {
-                matches_condition_filter_no_self_exclude(game, sa, cid, source_id, &alternatives)
-            })
+            .filter(|&&cid| matches_condition_filter_no_self_exclude(game, sa, cid, &alternatives))
             .count() as i32
             + defined_players
                 .iter()
@@ -264,9 +261,7 @@ pub(super) fn check_condition_present(
         .collect();
     let count = cards
         .iter()
-        .filter(|&&cid| {
-            matches_condition_filter_no_self_exclude(game, sa, cid, source_id, &alternatives)
-        })
+        .filter(|&&cid| matches_condition_filter_no_self_exclude(game, sa, cid, &alternatives))
         .count() as i32;
 
     // Check ConditionCompare$ (e.g. "GE2", "EQ0")
@@ -285,14 +280,9 @@ fn matches_condition_filter_no_self_exclude(
     game: &GameState,
     sa: &SpellAbility,
     cid: CardId,
-    source_id: CardId,
     alternatives: &[&str],
 ) -> bool {
     let card = game.card(cid);
-    let source = game.card(source_id);
-    let context = crate::card::valid_filter::MatchContext::from_source(source)
-        .with_game(game)
-        .with_spell_ability(sa);
     alternatives.iter().any(|alt| {
         // A `ConditionDefined$` reference can name a card a preceding sub-ability already
         // moved this same resolution (Brackish Blunder bounces its target, then checks
@@ -306,11 +296,7 @@ fn matches_condition_filter_no_self_exclude(
                 return lki_tapped;
             }
         }
-        crate::card::valid_filter::matches_valid_card_selector_with_context(
-            &crate::parsing::cached_compiled_selector(alt),
-            card,
-            context,
-        )
+        crate::ability::ability_utils::matches_valid_cards_for_sa(game, sa, card, None, alt)
     })
 }
 
@@ -375,6 +361,6 @@ mod tests {
         );
         sa.target_chosen.target_card = Some(target);
 
-        assert!(check_condition_present(&game, &sa, player, spell_source));
+        assert!(check_condition_present(&game, &sa, player));
     }
 }
