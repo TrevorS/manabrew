@@ -789,7 +789,7 @@ impl GameLoop {
                             )
                         },
                         |slf, game, agents, session| {
-                            let trace = {
+                            let (trace, incremental_payment) = {
                                 let game_ptr: *mut GameState = game;
                                 let mut replacement_pools =
                                     (0..game.players.len()).map(|_| ManaPool::new()).collect();
@@ -811,24 +811,51 @@ impl GameLoop {
                                     None
                                 };
                                 match payment_ctx.as_ref() {
-                                    Some(ctx) => mana::auto_tap_lands_allow_reserved_source_reuse_trace_with_callbacks_reserved_and_ctx(
-                                        game,
-                                        pool,
-                                        session.player,
-                                        session.mana_cost,
-                                        exclude_source,
-                                        session.reserved_sacrifices,
-                                        &mut callback,
-                                        ctx,
+                                    Some(ctx)
+                                        if matches!(
+                                            context,
+                                            CostPaymentContext::ActivatedAbility
+                                        ) =>
+                                    {
+                                        let paid = mana::auto_tap_lands_allow_reserved_source_reuse_pay_incremental_with_callbacks_reserved_and_ctx(
+                                            game,
+                                            pool,
+                                            session.player,
+                                            session.mana_cost,
+                                            exclude_source,
+                                            session.reserved_sacrifices,
+                                            &mut callback,
+                                            ctx,
+                                        );
+                                        (
+                                            paid.choices,
+                                            Some(paid.paid.then_some(paid.payment.life_paid)),
+                                        )
+                                    }
+                                    Some(ctx) => (
+                                        mana::auto_tap_lands_allow_reserved_source_reuse_trace_with_callbacks_reserved_and_ctx(
+                                            game,
+                                            pool,
+                                            session.player,
+                                            session.mana_cost,
+                                            exclude_source,
+                                            session.reserved_sacrifices,
+                                            &mut callback,
+                                            ctx,
+                                        ),
+                                        None,
                                     ),
-                                    None => mana::auto_tap_lands_allow_reserved_source_reuse_trace_with_callbacks_and_reserved_sacrifices(
-                                        game,
-                                        pool,
-                                        session.player,
-                                        session.mana_cost,
-                                        exclude_source,
-                                        session.reserved_sacrifices,
-                                        &mut callback,
+                                    None => (
+                                        mana::auto_tap_lands_allow_reserved_source_reuse_trace_with_callbacks_and_reserved_sacrifices(
+                                            game,
+                                            pool,
+                                            session.player,
+                                            session.mana_cost,
+                                            exclude_source,
+                                            session.reserved_sacrifices,
+                                            &mut callback,
+                                        ),
+                                        None,
                                     ),
                                 }
                             };
@@ -852,11 +879,14 @@ impl GameLoop {
                                     },
                                 })
                                 .collect();
-                            if let Some(life_to_pay) = pay_from_pool(
-                                &mut slf.mana_pools[session.player.index()],
-                                session.mana_cost,
-                                game.player(session.player).life,
-                            ) {
+                            let life_paid = incremental_payment.unwrap_or_else(|| {
+                                pay_from_pool(
+                                    &mut slf.mana_pools[session.player.index()],
+                                    session.mana_cost,
+                                    game.player(session.player).life,
+                                )
+                            });
+                            if let Some(life_to_pay) = life_paid {
                                 if life_to_pay > 0 {
                                     slf.pay_life_cost(
                                         game,

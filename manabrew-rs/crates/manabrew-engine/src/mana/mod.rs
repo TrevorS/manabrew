@@ -75,6 +75,7 @@ pub(crate) fn mana_ability_meets_script_requirements(
 
 pub use computer_util_mana::{
     auto_tap_lands, auto_tap_lands_allow_reserved_source_reuse,
+    auto_tap_lands_allow_reserved_source_reuse_pay_incremental_with_callbacks_reserved_and_ctx,
     auto_tap_lands_allow_reserved_source_reuse_trace,
     auto_tap_lands_allow_reserved_source_reuse_trace_with_callbacks_and_reserved_sacrifices,
     auto_tap_lands_allow_reserved_source_reuse_trace_with_callbacks_reserved_and_ctx,

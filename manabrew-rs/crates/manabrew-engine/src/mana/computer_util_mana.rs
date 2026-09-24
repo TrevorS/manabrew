@@ -569,6 +569,32 @@ pub fn auto_tap_lands_allow_reserved_source_reuse_trace_with_callbacks_reserved_
     .choices
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn auto_tap_lands_allow_reserved_source_reuse_pay_incremental_with_callbacks_reserved_and_ctx(
+    game: &mut GameState,
+    pool: &mut ManaPool,
+    player: PlayerId,
+    cost: &ManaCost,
+    current_spell: Option<CardId>,
+    reserved_sacrifices: &[CardId],
+    callback: ManaPayCallbackFn<'_>,
+    payment_ctx: &crate::mana::ManaPaymentContext,
+) -> AutoTapPaymentTrace {
+    auto_tap_lands_internal_with_ctx(
+        game,
+        pool,
+        player,
+        cost,
+        current_spell,
+        true,
+        reserved_sacrifices,
+        &mut Some(callback),
+        Some(payment_ctx),
+        true,
+        false,
+    )
+}
+
 pub fn auto_tap_lands_allow_reserved_source_reuse_with_callbacks_and_reserved_sacrifices(
     game: &mut GameState,
     pool: &mut ManaPool,
