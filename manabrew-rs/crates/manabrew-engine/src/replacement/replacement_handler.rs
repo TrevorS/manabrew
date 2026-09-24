@@ -1748,7 +1748,9 @@ fn execute_effect(
             replace_set_in_motion::execute(effect, event, game, card_id)
         }
         ReplacementType::Tap => replace_tap::execute(effect, event, game, card_id),
-        ReplacementType::Transform => replace_transform::execute(effect, event, game, card_id),
+        ReplacementType::Transform => {
+            replace_transform::execute(effect, event, game, card_id, agents, runtime)
+        }
         ReplacementType::TurnFaceUp => {
             replace_turn_face_up::execute(effect, event, game, card_id, agents, runtime)
         }

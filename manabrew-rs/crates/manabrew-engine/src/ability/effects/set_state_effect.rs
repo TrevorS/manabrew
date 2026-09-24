@@ -1,8 +1,9 @@
 use super::EffectContext;
 use crate::ids::CardId;
 use crate::parsing::keys;
-use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
-use crate::replacement::ReplacementResult;
+use crate::replacement::replacement_handler::{
+    apply_replacements_with_agents_and_runtime, ReplacementEvent, ReplacementRuntime,
+};
 use crate::spellability::SpellAbilityMode;
 
 /// Mirrors Java's `SetStateEffect.java`.
@@ -102,18 +103,25 @@ fn set_state_for_card(
                 }
             }
 
-            // Run Transform replacement effects before transforming.
-            let mut transform_event = ReplacementEvent::Transform { card: card_id };
-            let transform_result = apply_replacements(ctx.game, &mut transform_event);
-            if transform_result == ReplacementResult::Skipped
-                || transform_result == ReplacementResult::Replaced
-            {
-                return;
-            }
-
-            // Perform the transform.
             ctx.game.card_mut(card_id).transform();
             ctx.game.card_mut(card_id).transform_count += 1;
+
+            let mut transform_event = ReplacementEvent::Transform { card: card_id };
+            let mut runtime = ReplacementRuntime {
+                trigger_handler: ctx.trigger_handler,
+                token_templates: ctx.token_templates,
+                token_art_variants: ctx.token_art_variants,
+                token_fallback: ctx.token_fallback,
+                edition_dates: ctx.edition_dates,
+                mana_pools: ctx.mana_pools,
+                rng: ctx.rng,
+            };
+            apply_replacements_with_agents_and_runtime(
+                ctx.game,
+                ctx.agents,
+                &mut runtime,
+                &mut transform_event,
+            );
 
             // Fire Transformed trigger
             ctx.trigger_handler.run_trigger(
