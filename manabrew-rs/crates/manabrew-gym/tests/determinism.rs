@@ -217,6 +217,7 @@ fn caps_and_stalls_end_games_as_draws_and_bad_actions_are_rejected() {
         }
     };
     assert_eq!(outcome.reason, EndReason::Stalled);
+    assert!(outcome.phase.is_some());
 
     let mut env = GameEnv::new(Arc::clone(&survey().0), config);
     assert!(matches!(env.reset(spec), Step::Decision(_)));

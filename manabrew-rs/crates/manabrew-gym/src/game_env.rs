@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
+use forge_foundation::PhaseType;
 use manabrew_engine::agent::PlayerAgent;
 use manabrew_engine::game::GameState;
 use manabrew_engine::game_loop::GameLoop;
@@ -84,6 +85,7 @@ pub struct Outcome {
     pub winner: Option<PlayerId>,
     pub reason: EndReason,
     pub turns: u32,
+    pub phase: Option<PhaseType>,
     pub life: [i32; 2],
     pub decisions: u32,
     pub checksum: u64,
@@ -138,6 +140,7 @@ impl Worker {
                             EndReason::EnginePanic(panic_message(panic))
                         },
                         turns: link.turn(),
+                        phase: link.phase(),
                         life: [0, 0],
                         decisions: link.decisions(),
                         checksum: 0,
@@ -238,6 +241,7 @@ fn play(data: &GymData, config: &EnvConfig, spec: &GameSpec, link: &Rc<Link>) ->
         winner,
         reason,
         turns: game.turn.turn_number,
+        phase: Some(game.turn.phase),
         life: [game.player(PlayerId(0)).life, game.player(PlayerId(1)).life],
         decisions: link.decisions(),
         checksum: state_checksum(game),

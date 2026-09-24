@@ -42,6 +42,7 @@ pub(crate) struct Link {
 struct LinkState {
     decisions: u32,
     turn: u32,
+    phase: Option<PhaseType>,
     turn_decisions: u32,
     turn_calls: u32,
     stop: Option<EndReason>,
@@ -115,8 +116,9 @@ impl Link {
         self.abort.store(true, Ordering::Relaxed);
     }
 
-    fn observe_turn(&self, turn: u32) {
+    fn observe_turn(&self, turn: u32, phase: PhaseType) {
         let mut state = self.state.borrow_mut();
+        state.phase = Some(phase);
         if state.turn != turn {
             state.turn = turn;
             state.turn_decisions = 0;
@@ -126,6 +128,10 @@ impl Link {
 
     pub(crate) fn turn(&self) -> u32 {
         self.state.borrow().turn
+    }
+
+    pub(crate) fn phase(&self) -> Option<PhaseType> {
+        self.state.borrow().phase
     }
 
     fn count_call(&self) {
@@ -381,7 +387,7 @@ impl LearnerAgent {
 impl PlayerAgent for LearnerAgent {
     fn snapshot_state(&mut self, game: &GameState, mana_pools: &[ManaPool]) {
         self.turn = game.turn.turn_number;
-        self.link.observe_turn(self.turn);
+        self.link.observe_turn(self.turn, game.turn.phase);
         self.link.count_call();
         if self.link.stopped() {
             return;
