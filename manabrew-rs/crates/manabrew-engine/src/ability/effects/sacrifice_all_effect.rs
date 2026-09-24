@@ -114,6 +114,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ctx.game.card_mut(source_id).clear_remembered();
         }
     }
+    to_sacrifice.retain(|&cid| {
+        !crate::staticability::static_ability_cant_sacrifice::cant_sacrifice(
+            &ctx.game.cards,
+            ctx.game.card(cid),
+            Some(sa),
+            false,
+        )
+    });
     if let Some(controller_text) = sa.ir.controller_text.as_deref() {
         let controllers = crate::ability::ability_utils::resolve_defined_players_with_sa(
             controller_text,
