@@ -426,6 +426,9 @@ fn push_spell_to_stack(
     ctx.game.turn.priority_player = controller;
     ctx.game.card_mut(card_id).cast_from = cast_zone;
     ctx.move_card(card_id, ZoneType::Stack, controller);
+    if ctx.game.card(card_id).face_down && !trigger_sa.alt_cost.is_some_and(|alt| alt.is_morph()) {
+        ctx.game.card_mut(card_id).turn_face_up();
+    }
     ctx.game.player_record_spell_cast(controller, card_id);
     ctx.game.stack.record_spell_cast(card_id, cast_zone, None);
 
