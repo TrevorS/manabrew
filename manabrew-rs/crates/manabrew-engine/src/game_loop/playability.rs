@@ -463,10 +463,10 @@ impl GameLoop {
         card_id: CardId,
         zone: ZoneType,
         chosen_types_by_source: &crate::HashMap<CardId, String>,
-    ) -> usize {
+    ) -> Vec<u8> {
         let card = game.card(card_id);
         if card.face_down {
-            return 0;
+            return Vec::new();
         }
         let state_name = if card.is_modal() {
             forge_foundation::CardStateName::Backside
@@ -476,29 +476,41 @@ impl GameLoop {
         let Some((host, sa)) = crate::spellability::build_spell_ability_for_card_state_cast(
             game, card_id, player, state_name,
         ) else {
-            return 0;
+            return Vec::new();
         };
-        let grants =
-            crate::staticability::static_ability_continuous::may_play_grants(game, player, card)
-                .filter(|(source, st_ab)| {
-                    crate::staticability::static_ability_continuous::grants_zone_permissions_for(
-                        st_ab, source, &host, game, &sa,
-                    )
-                })
-                .count();
-        if grants == 0
-            || !self.can_play_card_state_spell(
+        let mut alt_costs = 0u8;
+        let mut options = Vec::new();
+        for (source, st_ab) in
+            crate::staticability::static_ability_continuous::may_play_grants(game, player, &host)
+        {
+            let alt_cost = crate::staticability::static_ability_continuous::may_play_alt_mana_cost(
+                st_ab, source, &host, game,
+            );
+            if alt_cost.is_some() {
+                alt_costs += 1;
+            }
+            if !crate::staticability::static_ability_continuous::grants_zone_permissions_for(
+                st_ab, source, &host, game, &sa,
+            ) {
+                continue;
+            }
+            let mut option_sa = sa.clone();
+            if let Some(ref cost) = alt_cost {
+                option_sa.pay_costs = Some(crate::cost::parse_cost(cost));
+            }
+            if self.can_play_state_spell(
                 game,
                 player,
                 card_id,
-                state_name,
+                host.clone(),
+                option_sa,
                 zone,
                 chosen_types_by_source,
-            )
-        {
-            return 0;
+            ) {
+                options.push(if alt_cost.is_some() { alt_costs } else { 0 });
+            }
         }
-        grants
+        options
     }
 
     /// Get cards the active player can play.
@@ -1476,7 +1488,7 @@ impl GameLoop {
                             });
                         }
                     }
-                    for _ in 0..self.may_play_secondary_spell_grants(
+                    for alt_cost_index in self.may_play_secondary_spell_grants(
                         game,
                         player,
                         card_id,
@@ -1486,7 +1498,7 @@ impl GameLoop {
                         playable.push(crate::agent::PlayOption {
                             card_id,
                             mode: crate::agent::PlayCardMode::Secondary,
-                            alt_cost_index: 0,
+                            alt_cost_index,
                         });
                     }
                     if let Some(warp_cost) = card.get_warp_cost() {
@@ -1553,7 +1565,7 @@ impl GameLoop {
                     }
                     continue;
                 }
-                for _ in 0..self.may_play_secondary_spell_grants(
+                for alt_cost_index in self.may_play_secondary_spell_grants(
                     game,
                     player,
                     card_id,
@@ -1563,7 +1575,7 @@ impl GameLoop {
                     playable.push(crate::agent::PlayOption {
                         card_id,
                         mode: crate::agent::PlayCardMode::Secondary,
-                        alt_cost_index: 0,
+                        alt_cost_index,
                     });
                 }
                 if must_be_instant {
@@ -1824,7 +1836,7 @@ impl GameLoop {
                 continue;
             }
             if can_may_play {
-                for _ in 0..self.may_play_secondary_spell_grants(
+                for alt_cost_index in self.may_play_secondary_spell_grants(
                     game,
                     player,
                     card_id,
@@ -1834,7 +1846,7 @@ impl GameLoop {
                     playable.push(crate::agent::PlayOption {
                         card_id,
                         mode: crate::agent::PlayCardMode::Secondary,
-                        alt_cost_index: 0,
+                        alt_cost_index,
                     });
                 }
                 if card.is_land() {
@@ -2103,7 +2115,7 @@ impl GameLoop {
             if !can_may_play_from_static(card_id) {
                 continue;
             }
-            for _ in 0..self.may_play_secondary_spell_grants(
+            for alt_cost_index in self.may_play_secondary_spell_grants(
                 game,
                 player,
                 card_id,
@@ -2113,7 +2125,7 @@ impl GameLoop {
                 playable.push(crate::agent::PlayOption {
                     card_id,
                     mode: crate::agent::PlayCardMode::Secondary,
-                    alt_cost_index: 0,
+                    alt_cost_index,
                 });
             }
             if game.card(card_id).is_land() {

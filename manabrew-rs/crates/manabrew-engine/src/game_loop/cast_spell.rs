@@ -644,10 +644,19 @@ impl GameLoop {
                 .as_ref()
                 .map(|other| other.state_name)
                 .unwrap_or(forge_foundation::CardStateName::Secondary);
-            crate::spellability::build_spell_ability_for_card_state_cast(
+            let (host, mut sa) = crate::spellability::build_spell_ability_for_card_state_cast(
                 game, card_id, player, state_name,
-            )?
-            .1
+            )?;
+            if play_mode == crate::agent::PlayCardMode::Secondary && play.alt_cost_index > 0 {
+                let alt_cost = crate::staticability::static_ability_continuous::may_play_alt_costs(
+                    game, player, &host,
+                )
+                .into_iter()
+                .nth(play.alt_cost_index as usize - 1)?;
+                sa.cast_with_may_play = true;
+                sa.pay_costs = Some(parse_cost(&alt_cost));
+            }
+            sa
         } else if right_split_spell {
             crate::spellability::build_spell_ability_for_card_state_cast(
                 game,
@@ -662,6 +671,10 @@ impl GameLoop {
         sa.alt_cost_index = play.alt_cost_index;
         let mut static_alternative_cost_prepared = false;
         match play_mode {
+            crate::agent::PlayCardMode::Secondary if sa.cast_with_may_play => {
+                sa.alt_cost_index = play.alt_cost_index - 1;
+                static_alternative_cost_prepared = true;
+            }
             crate::agent::PlayCardMode::Normal | crate::agent::PlayCardMode::Secondary => {}
             crate::agent::PlayCardMode::RoomRightSplit => {
                 if !right_split_spell {

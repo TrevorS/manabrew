@@ -697,7 +697,7 @@ impl DeterministicAgent {
     fn play_option_fallback(&self, play: PlayOption) -> String {
         let grant = match play.mode {
             PlayCardMode::MayPlay(_) => Some((true, play.alt_cost_index as usize)),
-            PlayCardMode::RoomRightSplit if play.alt_cost_index > 0 => {
+            PlayCardMode::RoomRightSplit | PlayCardMode::Secondary if play.alt_cost_index > 0 => {
                 Some((true, play.alt_cost_index as usize - 1))
             }
             PlayCardMode::Normal => Some((false, play.alt_cost_index as usize)),
