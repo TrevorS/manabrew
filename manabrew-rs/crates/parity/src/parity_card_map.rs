@@ -140,7 +140,10 @@ impl ParityCardMap {
                 .cards_in_zone(ZoneType::Exile, pid)
                 .iter()
                 .copied()
-                .filter(|&cid| !game.card(cid).is_token)
+                .filter(|&cid| {
+                    let card = game.card(cid);
+                    !card.is_token || card.is_in_prepared_spell_state()
+                })
                 .collect();
             exile_cards.sort_by(|a, b| {
                 let ca = game.card(*a);

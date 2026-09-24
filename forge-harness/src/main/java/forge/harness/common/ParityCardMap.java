@@ -1,5 +1,6 @@
 package forge.harness.common;
 
+import forge.card.CardStateName;
 import forge.game.Game;
 import forge.game.card.Card;
 import forge.game.card.CardCollection;
@@ -155,11 +156,15 @@ public final class ParityCardMap {
             .thenComparingInt(c -> c.getId());
         cards.sort(comparator);
         for (final Card c : cards) {
-            if (!includeTokens && c.isToken()) {
+            if (!includeTokens && c.isToken() && !isPreparedSpellInExile(c)) {
                 continue;
             }
             assignIfAbsent(c);
         }
+    }
+
+    private static boolean isPreparedSpellInExile(final Card c) {
+        return c.isInZone(ZoneType.Exile) && c.getCurrentStateName() == CardStateName.PreparedSpell;
     }
 
     private static <T> List<String> appendKey(
