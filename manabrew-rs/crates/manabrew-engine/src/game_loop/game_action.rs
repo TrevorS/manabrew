@@ -241,7 +241,7 @@ impl GameLoop {
         can_play_sorcery: bool,
     ) -> Vec<(CardId, usize)> {
         let mut result = Vec::new();
-        let available_mana = mana::calculate_available_mana(self.pool(player), game, player);
+        let available_mana = std::cell::OnceCell::new();
         let mut battlefield = game.cards_in_zone(ZoneType::Battlefield, player).to_vec();
         for &other_player in &game.player_order {
             if other_player == player {
@@ -370,7 +370,9 @@ impl GameLoop {
                     Some(&mana::payment_context_for_sa(game, &sa_for_target_check)),
                 )
             } else {
-                available_mana.clone()
+                available_mana
+                    .get_or_init(|| mana::calculate_available_mana(self.pool(player), game, player))
+                    .clone()
             };
             let probe_mana = ab_cost
                 .parts
