@@ -1002,7 +1002,7 @@ impl GameLoop {
                         };
                         let to_discard: Vec<CardId> =
                             pre_picked_discards.drain(..discard_count).collect();
-                        for cid in to_discard {
+                        for &cid in &to_discard {
                             game.discard_card(
                                 cid,
                                 player,
@@ -1010,11 +1010,12 @@ impl GameLoop {
                                 Some(agents),
                                 &mut self.replacement_runtime(),
                             );
-                            // Store discarded card for SVar evaluation
-                            game.card_mut(card_id).add_remembered_card(cid);
+                        }
+                        if let Some(sa) = sa.as_deref_mut() {
+                            sa.discarded_cost_cards.extend(to_discard);
                         }
                     } else {
-                        self.pay_discard_cost(
+                        let discarded = self.pay_discard_cost(
                             game,
                             agents,
                             player,
@@ -1022,6 +1023,9 @@ impl GameLoop {
                             type_filter,
                             amount.resolve(game, card_id, player),
                         );
+                        if let Some(sa) = sa.as_deref_mut() {
+                            sa.discarded_cost_cards.extend(discarded);
+                        }
                     }
                     game.end_discard_batch(&mut self.trigger_handler);
                 }
@@ -1796,9 +1800,9 @@ impl GameLoop {
                             payment_ok = false;
                             break;
                         }
-                        // Store discarded cards on the source card for SVar evaluation
-                        // (e.g. Grab the Prize: X = Discarded$Valid Card.nonLand/Times.2)
-                        game.card_mut(card_id).add_remembered_cards(discarded);
+                        if let Some(sa) = sa.as_deref_mut() {
+                            sa.discarded_cost_cards.extend(discarded);
+                        }
                     }
                 }
                 CostPart::ExileFromAnyGrave {

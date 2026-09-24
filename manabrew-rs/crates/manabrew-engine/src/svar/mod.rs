@@ -537,9 +537,9 @@ fn resolve_lowered_svar_expression(
             controller,
             sa,
         )),
-        ScriptSVarNumericExpression::DiscardedValid { filter, times } => Some(
-            resolve_discarded_valid_svar(game, source_id, filter, *times),
-        ),
+        ScriptSVarNumericExpression::DiscardedValid { filter, times } => {
+            Some(resolve_discarded_valid_svar(game, sa, filter, *times))
+        }
         ScriptSVarNumericExpression::ObjectProperty { object, property } => match object {
             ScriptSVarObjectRef::Sacrificed => {
                 let (base, operators) = property.split_once('/').unwrap_or((property, ""));
@@ -598,17 +598,13 @@ fn resolve_lowered_svar_expression(
 
 fn resolve_discarded_valid_svar(
     game: &GameState,
-    source_id: CardId,
+    sa: &SpellAbility,
     filter: &str,
     times: i32,
 ) -> i32 {
-    let remembered = &game.card(source_id).remembered_cards;
-    if remembered.is_empty() {
-        return 0;
-    }
-    for &rem_id in remembered {
-        let rem_card = game.card(rem_id);
-        let matches = !filter.contains("nonLand") || !rem_card.is_land();
+    for &discarded_id in &sa.discarded_cost_cards {
+        let discarded_card = game.card(discarded_id);
+        let matches = !filter.contains("nonLand") || !discarded_card.is_land();
         if matches {
             return times;
         }
