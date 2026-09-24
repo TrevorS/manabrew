@@ -431,6 +431,9 @@ pub(crate) fn assemble_card(
                 replacement_effects: back_replacement_effects,
                 svars: back_face.svars.clone(),
             });
+            if rules.split_type.is_dual_faced() {
+                generate_other_part_keyword_triggers(&mut card);
+            }
             if back_face.type_line.has_subtype("Saga") {
                 card.transform();
                 add_saga_abilities(&mut card);
@@ -450,6 +453,26 @@ pub(crate) fn assemble_card(
     card.base_trigger_count = card.triggers.len();
 
     card
+}
+
+fn generate_other_part_keyword_triggers(card: &mut Card) {
+    let Some(mut other) = card.other_part.take() else {
+        return;
+    };
+    swap_keyword_trigger_face(card, &mut other);
+    let keywords = card.keywords.as_string_list();
+    card.generate_keyword_triggers_for(&keywords);
+    swap_keyword_trigger_face(card, &mut other);
+    card.other_part = Some(other);
+}
+
+fn swap_keyword_trigger_face(card: &mut Card, other: &mut CardOtherPart) {
+    std::mem::swap(&mut card.card_name, &mut other.name);
+    std::mem::swap(&mut card.type_line, &mut other.type_line);
+    std::mem::swap(&mut card.keywords, &mut other.keywords);
+    std::mem::swap(&mut card.abilities, &mut other.abilities);
+    std::mem::swap(&mut card.triggers, &mut other.triggers);
+    std::mem::swap(&mut card.svars, &mut other.svars);
 }
 
 fn add_saga_abilities(card: &mut Card) {
