@@ -1115,6 +1115,29 @@ fn matches_controlled_by_reference(
         context.targeted_players.contains(&card.controller)
     } else if let Some(target) = raw_target_ref(reference) {
         relation_target_player_any(&target, context, |player| card.controller == player)
+    } else if let (Some(game), true) = (
+        context.game,
+        reference.starts_with("Player") || reference.contains('.'),
+    ) {
+        let empty;
+        let sa = match context.spell_ability {
+            Some(sa) => sa,
+            None => {
+                empty = crate::spellability::SpellAbility::new_empty(
+                    Some(context.source_card.id),
+                    context.source_controller,
+                );
+                &empty
+            }
+        };
+        crate::player::player_property::is_valid(
+            card.controller,
+            &crate::parsing::cached_compiled_selector(reference),
+            game,
+            context.source_card.id,
+            context.source_controller,
+            sa,
+        )
     } else if let (Some(game), Some(sa)) = (context.game, context.spell_ability) {
         crate::ability::ability_utils::resolve_defined_players_with_sa(
             reference,

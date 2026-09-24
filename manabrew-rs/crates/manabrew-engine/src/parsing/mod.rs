@@ -958,6 +958,7 @@ fn lower_compiled_selector(alternatives: &[CompiledSelectorAlternative]) -> Sele
                             let last = last.strip_prefix('!').unwrap_or(&last);
                             last.starts_with("attachedto ")
                                 || last.starts_with("castsa ")
+                                || last.starts_with("controlledby ")
                                 || last.starts_with("doesnotsharenamewith ")
                                 || last.starts_with("ownedby ")
                         });
