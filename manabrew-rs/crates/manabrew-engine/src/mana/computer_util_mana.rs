@@ -2149,9 +2149,10 @@ fn pay_non_tap_mana_ability_costs(
                 if targets.is_empty() {
                     return false;
                 }
-                for cid in targets {
+                for &cid in &targets {
                     game.tap(cid);
                 }
+                cost_cards.extend(targets);
             }
             _ => return false,
         }
