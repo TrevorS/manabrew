@@ -1815,53 +1815,6 @@ fn calculate_available_mana_excluding_with_reserved_impl(
         }
     }
 
-    // Count extra mana from aura enchantments with TapsForMana triggers
-    // (e.g. Utopia Sprawl, Wild Growth). When an untapped land has an attached
-    // aura that produces mana on tap, that extra mana should be counted in
-    // the playability check.
-    for &card_id in battlefield {
-        let card = game.card(card_id);
-        if card.tapped || card.attachments.is_empty() {
-            continue;
-        }
-        for &aura_id in &card.attachments {
-            if aura_id.index() >= game.cards.len() {
-                continue;
-            }
-            let aura = game.card(aura_id);
-            if aura.zone != ZoneType::Battlefield {
-                continue;
-            }
-            for trigger in &aura.triggers {
-                if trigger.kind == crate::trigger::TriggerType::TapsForMana {
-                    // This aura produces extra mana when the host is tapped.
-                    // Determine what color from the Execute$ SVar.
-                    if let Some(svar_text) = aura.svars.get(&trigger.execute) {
-                        let params = crate::parsing::Params::from_raw(svar_text);
-                        if let Some(produced) = params.get(crate::parsing::keys::PRODUCED) {
-                            let produced_ir = ProducedMana::from_raw_boundary(produced);
-                            let atoms = if matches!(produced_ir, ProducedMana::Chosen) {
-                                // Use aura's chosen color
-                                aura.chosen_colors
-                                    .first()
-                                    .and_then(|c| color_name_to_mana_atom(c))
-                                    .into_iter()
-                                    .collect::<Vec<_>>()
-                            } else {
-                                produced_ir.to_atoms(&aura.chosen_colors)
-                            };
-                            for atom in atoms {
-                                available.add(atom, 1);
-                                source_count += 1;
-                                source_colors.push(atom);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     // Set total_sources so can_pay enforces the real total mana cap
     available.total_sources = Some(pool.total_mana() + source_count);
     available.source_colors = Some(source_colors);
