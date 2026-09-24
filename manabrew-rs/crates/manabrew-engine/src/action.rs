@@ -1246,6 +1246,11 @@ impl GameState {
                     };
                     if dealt > 0 {
                         self.card_mut(target).add_assigned_damage(dealt);
+                        if self.card(target).is_creature()
+                            && source.is_some_and(|source| self.card(source).has_deathtouch())
+                        {
+                            self.card_mut(target).mark_deathtouch_damage();
+                        }
                         apply_replacements(self, &mut dealt_event);
                     }
                 }
