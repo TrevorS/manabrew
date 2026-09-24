@@ -166,7 +166,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     for card_id in target_ids {
         let card = ctx.game.card(card_id);
-        if card.phased_out || !matches!(card.zone, ZoneType::Battlefield | ZoneType::Stack) {
+        if card.phased_out
+            || (sa.source == Some(card_id)
+                && !matches!(card.zone, ZoneType::Battlefield | ZoneType::Stack))
+        {
             continue;
         }
 
