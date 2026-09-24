@@ -577,6 +577,7 @@ impl GameState {
             if let Some(table) = self.pending_change_zone_table.as_mut() {
                 table.put(Some(src_zone), Some(dest_zone), card_id);
             }
+            self.save_zone_lki(dest_zone, dest_owner, card_id, src_zone);
             let mut exile_effects = Vec::new();
             for eff_id in forget_effects.iter().copied() {
                 let eff = self.card_mut(eff_id);
