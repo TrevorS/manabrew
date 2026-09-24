@@ -8,7 +8,7 @@
 use manabrew_agent_interface::agent_impl::Responder;
 use manabrew_agent_interface::game_view_dto::GameViewDto;
 use manabrew_agent_interface::prompt::{
-    AgentPrompt, ChooseActionOutput, ClientToServerMessage, PromptOutput,
+    AgentMessage, AgentPrompt, ChooseActionOutput, ClientToServerMessage, PromptOutput,
 };
 use serde::{Deserialize, Serialize};
 
@@ -70,5 +70,11 @@ impl Responder for BotResponder {
                 exhaust_stack: false,
             }));
         ClientToServerMessage::Response { prompt_id, action }
+    }
+
+    fn present(&mut self, message: &AgentMessage) {
+        if let AgentMessage::State(update) = message {
+            self.observe(update.game_view.clone());
+        }
     }
 }
