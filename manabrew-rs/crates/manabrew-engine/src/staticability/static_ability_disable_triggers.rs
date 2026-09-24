@@ -51,6 +51,19 @@ pub fn is_disabled(
     false
 }
 
+/// Keep in sync with the source and static filters of `is_disabled`.
+pub fn has_disable_triggers_ability(game: &GameState) -> bool {
+    game.cards
+        .iter()
+        .filter(|c| c.zone == ZoneType::Battlefield)
+        .any(|source| {
+            source
+                .static_abilities
+                .iter()
+                .any(|sa| sa.check_mode(&crate::staticability::StaticMode::DisableTriggers))
+        })
+}
+
 pub fn disabled(
     game: &GameState,
     trigger_host: CardId,

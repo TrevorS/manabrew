@@ -591,6 +591,10 @@ impl TriggerHandler {
             }
         }
 
+        let may_disable_triggers = !waiting.is_empty()
+            && crate::staticability::static_ability_disable_triggers::has_disable_triggers_ability(
+                game,
+            );
         for event in &waiting {
             let mut trigger_refs: Vec<(CardId, usize, usize)> =
                 if let Some(stored_refs) = &event.trigger_refs {
@@ -643,12 +647,14 @@ impl TriggerHandler {
                 } else {
                     card.controller
                 };
-                if crate::staticability::static_ability_disable_triggers::is_disabled(
-                    game,
-                    card_id,
-                    trigger,
-                    &event.params,
-                ) {
+                if may_disable_triggers
+                    && crate::staticability::static_ability_disable_triggers::is_disabled(
+                        game,
+                        card_id,
+                        trigger,
+                        &event.params,
+                    )
+                {
                     continue;
                 }
 
