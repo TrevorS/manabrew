@@ -717,6 +717,8 @@ impl GameLoop {
         game.end_combat_requested = false;
         game.turn.extra_phases.clear();
         game.stack.reset_max_distinct_sources();
+        let active = game.active_player();
+        game.player_mut(active).creatures_attacked_this_turn.clear();
 
         self.clear_mana_pools_on_phase_end(game);
         self.trigger_handler.clear_this_turn_delayed_trigger();

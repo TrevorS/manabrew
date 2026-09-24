@@ -206,9 +206,6 @@ impl GameState {
     pub fn player_cleanup_turn_state(&mut self, player: PlayerId) {
         self.player_clear_damage_prevention(player);
         self.player_mut(player).committed_crime_this_turn = 0;
-        if self.active_player() == player {
-            self.player_mut(player).creatures_attacked_this_turn.clear();
-        }
     }
 
     pub fn player_mark_lost(&mut self, player: PlayerId, reason: GameLossReason) {
