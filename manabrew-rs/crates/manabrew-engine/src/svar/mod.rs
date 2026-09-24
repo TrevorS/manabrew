@@ -2570,6 +2570,7 @@ pub fn resolve_count_svar_for_sa(
                 Some(ZoneType::Battlefield),
                 "Creature",
                 source_id,
+                Some(sa),
                 controller,
             );
             return math(calculate_branch(!res.is_empty()));
@@ -2896,6 +2897,7 @@ pub fn resolve_count_svar_for_sa(
                         origin,
                         valid_filter,
                         source_id,
+                        Some(sa),
                         controller,
                     )
                 } else {
@@ -2905,6 +2907,7 @@ pub fn resolve_count_svar_for_sa(
                         origin,
                         valid_filter,
                         source_id,
+                        Some(sa),
                         controller,
                     )
                 });

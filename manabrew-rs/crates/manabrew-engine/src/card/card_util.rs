@@ -97,6 +97,7 @@ pub fn get_this_turn_entered(
     from: Option<ZoneType>,
     valid: &str,
     src: CardId,
+    ctb: Option<&SpellAbility>,
     controller: PlayerId,
 ) -> Vec<CardId> {
     let mut res = Vec::new();
@@ -113,7 +114,7 @@ pub fn get_this_turn_entered(
     } else {
         res.extend(game.stack.get_spells_cast_this_turn().iter().copied());
     }
-    filter_valid_cards(game, res, valid, src, controller)
+    filter_valid_cards(game, res, valid, src, ctb, controller)
 }
 
 pub fn get_last_turn_entered(
@@ -122,6 +123,7 @@ pub fn get_last_turn_entered(
     from: Option<ZoneType>,
     valid: &str,
     src: CardId,
+    ctb: Option<&SpellAbility>,
     controller: PlayerId,
 ) -> Vec<CardId> {
     let mut res = Vec::new();
@@ -138,7 +140,7 @@ pub fn get_last_turn_entered(
     } else {
         res.extend(game.stack.get_spells_cast_last_turn().iter().copied());
     }
-    filter_valid_cards(game, res, valid, src, controller)
+    filter_valid_cards(game, res, valid, src, ctb, controller)
 }
 
 pub fn get_this_turn_cast(
@@ -241,6 +243,7 @@ pub fn get_cast_since_beginning_of_your_last_turn(
         game.player(controller).cards_cast_this_turn.clone(),
         valid,
         src,
+        None,
         controller,
     )
 }
@@ -718,13 +721,30 @@ fn filter_valid_cards(
     cards: Vec<CardId>,
     valid: &str,
     src: CardId,
+    ctb: Option<&SpellAbility>,
     controller: PlayerId,
 ) -> Vec<CardId> {
     if valid.is_empty() {
         return cards;
     }
     let _ = controller;
-    CardLists::filter_as_list_with_source(game, &cards, valid, src)
+    let Some(sa) = ctb else {
+        return CardLists::filter_as_list_with_source(game, &cards, valid, src);
+    };
+    let selector = cached_compiled_selector(valid);
+    let context = valid_filter::MatchContext::from_source(game.card(src))
+        .with_game(game)
+        .with_spell_ability(sa);
+    cards
+        .into_iter()
+        .filter(|&card_id| {
+            valid_filter::matches_valid_card_selector_with_context(
+                &selector,
+                game.card(card_id),
+                context,
+            )
+        })
+        .collect()
 }
 
 fn color_long_name(color: Color) -> &'static str {

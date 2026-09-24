@@ -994,6 +994,7 @@ fn matches_context_predicate(
         ContextPredicate::TargetedPlayerCtrl => context.targeted_players.contains(&card.controller),
         // Java `CardProperty:270` asks `sa.getRootAbility().isTargeting(card)`.
         ContextPredicate::TargetedBy => context.targeted_cards.contains(&card.id),
+        ContextPredicate::Triggered(key) => is_triggered_object(*key, card, context),
         ContextPredicate::ControlledBy(reference) => {
             matches_controlled_by_reference(reference, card, context)
         }
@@ -1683,6 +1684,16 @@ fn compare_selector_value(actual: i32, operator: SelectorCompareOperator, expect
     }
 }
 
+fn is_triggered_object(
+    key: crate::ability::AbilityKey,
+    card: &Card,
+    context: MatchContext<'_>,
+) -> bool {
+    context
+        .spell_ability
+        .is_some_and(|sa| sa.get_triggering_cards(key).contains(&card.id))
+}
+
 fn matches_raw_card_predicate(raw: &str, card: &Card, context: MatchContext<'_>) -> bool {
     crate::perf::increment(crate::perf::Metric::SelectorRawPredicates, 1);
     if let Some(result) = matches_domain_predicate(raw, card, context) {
@@ -1706,6 +1717,9 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         (false, raw)
     };
     let value_lower = value.to_ascii_lowercase();
+    if let Some(key) = crate::parsing::triggered_property_key(value) {
+        return is_triggered_object(key, card, context) != negated;
+    }
     if negated {
         let positive_match = match value_lower.as_str() {
             "token" => card.is_token,
@@ -2369,6 +2383,12 @@ fn matches_type_and_qualifier_parts(
                 (false, *sub)
             };
             let sub_lower = raw.to_ascii_lowercase();
+            if let Some(key) = crate::parsing::triggered_property_key(raw) {
+                if is_triggered_object(key, card, context) == negated {
+                    return false;
+                }
+                continue;
+            }
             // If negated, invert the boolean result of the positive match.
             // "!token" is equivalent to "nontoken", "!Creature" to "nonCreature", etc.
             if negated {

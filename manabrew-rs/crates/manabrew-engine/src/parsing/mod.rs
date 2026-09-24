@@ -355,6 +355,7 @@ pub enum ContextPredicate {
     GreatestPower(Option<String>),
     LeastPower(Option<String>),
     NotDefinedTargeted,
+    Triggered(crate::ability::AbilityKey),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1073,6 +1074,9 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         let predicate = lower_selector_part(stripped, false);
         return SelectorPredicate::Not(Box::new(predicate));
     }
+    if let Some(key) = triggered_property_key(normalized) {
+        return SelectorPredicate::Context(ContextPredicate::Triggered(key));
+    }
 
     match lower.as_str() {
         "self" | "strictlyself" => SelectorPredicate::CardIdentity(CardIdentitySelector::Self_),
@@ -1406,6 +1410,10 @@ fn controlled_by_suffix(property: &str) -> Option<String> {
     property
         .split_once("ControlledBy")
         .map(|(_, defined)| defined.to_string())
+}
+
+pub(crate) fn triggered_property_key(property: &str) -> Option<crate::ability::AbilityKey> {
+    property.strip_prefix("Triggered")?.parse().ok()
 }
 
 fn lower_relation_target_ref(value: &str) -> Option<TargetRef> {
