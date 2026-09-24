@@ -835,20 +835,13 @@ impl GameLoop {
                 card.reset_saddled();
                 card.on_cleanup_phase();
 
-                if card.is_creature() {
-                    let keep_damage =
-                        crate::staticability::static_ability_no_cleanup_damage::damage_not_removed(
-                            &game.cards,
-                            &game.cards[i],
-                        );
-                    let card = Arc::make_mut(&mut game.cards[i]);
-                    if !keep_damage {
-                        card.clear_damage();
-                    }
-                    card.reset_turn_modifiers();
-                    card.clear_deathtouch_damage();
-                    card.reset_regeneration_shields();
-                    card.reset_shield_count();
+                let keep_damage =
+                    crate::staticability::static_ability_no_cleanup_damage::damage_not_removed(
+                        &game.cards,
+                        &game.cards[i],
+                    );
+                if !keep_damage {
+                    Arc::make_mut(&mut game.cards[i]).clear_damage();
                 }
                 // Effects with "until end of turn" duration end at cleanup
                 // (CR 514.2). Pump keywords and "can't have" tags apply to
