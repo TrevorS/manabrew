@@ -26,7 +26,7 @@ struct ActiveTrigger {
 #[derive(Debug, Clone)]
 struct TriggerWaiting {
     mode: TriggerType,
-    params: RunParams,
+    params: Box<RunParams>,
     trigger_refs: Option<Vec<(CardId, usize)>>,
 }
 
@@ -1041,7 +1041,7 @@ impl TriggerHandler {
 
         TriggerWaiting {
             mode,
-            params,
+            params: Box::new(params),
             trigger_refs,
         }
     }
