@@ -677,8 +677,7 @@ impl GameLoop {
     ) -> bool {
         let mut x_sa =
             crate::spellability::build_spell_ability(game, card_id, &ab.ability_text, player);
-        let has_x =
-            self.preset_max_x_for_activation(game, player, card_id, ab, &mut x_sa, &ab.cost);
+        self.preset_max_x_for_activation(game, player, card_id, ab, &mut x_sa, &ab.cost);
         // Pay costs
         if !self.pay_ability_cost(
             game,
@@ -689,7 +688,7 @@ impl GameLoop {
             ab.ability_api,
             ab.cost.mandatory,
             CostPaymentContext::ActivatedAbility,
-            has_x.then_some(&mut x_sa),
+            Some(&mut x_sa),
         ) {
             return false;
         }
