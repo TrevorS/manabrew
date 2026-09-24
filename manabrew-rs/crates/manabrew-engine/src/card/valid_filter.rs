@@ -1647,7 +1647,7 @@ fn resolve_selector_operand(
         SelectorNumericOperand::Symbol(symbol) => {
             if symbol.eq_ignore_ascii_case("X") {
                 if let Some(sa) = context.spell_ability.filter(|_| x_is_paid_x(context)) {
-                    return Some(sa.x_mana_cost_paid as i32);
+                    return Some(paid_x(sa, context));
                 }
             }
             let value = context.source_card.get_s_var(symbol)?;
@@ -3238,6 +3238,19 @@ pub(crate) fn check_cmc_condition_with_context(
     true // fallback: unknown format passes
 }
 
+fn paid_x(sa: &crate::spellability::SpellAbility, context: MatchContext<'_>) -> i32 {
+    match context.game {
+        Some(game) if sa.x_mana_cost_paid == 0 => crate::svar::resolve_svar_expression(
+            "Count$xPaid",
+            game,
+            context.source_card.id,
+            context.source_controller,
+            sa,
+        ),
+        _ => sa.x_mana_cost_paid as i32,
+    }
+}
+
 fn x_is_paid_x(context: MatchContext<'_>) -> bool {
     context
         .source_card
@@ -3255,7 +3268,7 @@ fn parse_cmc_threshold(value: &str, context: Option<MatchContext<'_>>) -> Option
     // calculateAmount), not the host SVar evaluated without it.
     if value.eq_ignore_ascii_case("X") {
         if let Some(sa) = context.spell_ability.filter(|_| x_is_paid_x(context)) {
-            return Some(sa.x_mana_cost_paid as i32);
+            return Some(paid_x(sa, context));
         }
     }
     let raw = context.source_card.get_s_var(value)?;
