@@ -50,6 +50,7 @@ pub fn convert_amount(part: &CostPart) -> Option<&crate::cost::AmountSpec> {
         CostPart::SubCounter { amount, .. }
         | CostPart::Draw { amount, .. }
         | CostPart::AddCounter { amount, .. }
+        | CostPart::PutCounterYou { amount, .. }
         | CostPart::Sacrifice { amount, .. }
         | CostPart::Discard { amount, .. }
         | CostPart::Exile { amount, .. }

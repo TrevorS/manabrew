@@ -7,6 +7,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CostTokenKind {
     AddCounter,
+    AddCounterYou,
     AddMana,
     Behold,
     BeholdExile,
@@ -101,6 +102,7 @@ impl CostTokenKind {
             (Self::PayLife, "PayLife<"),
             (Self::SubCounter, "SubCounter<"),
             (Self::AddCounter, "AddCounter<"),
+            (Self::AddCounterYou, "AddCounterYou<"),
             (Self::PayEnergy, "PayEnergy<"),
             (Self::PayShards, "PayShards<"),
             (Self::ChooseColor, "ChooseColor<"),

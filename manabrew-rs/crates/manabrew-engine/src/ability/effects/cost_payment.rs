@@ -458,6 +458,7 @@ fn try_pay_effect_cost(
                 | CostPart::Discard { .. }
                 | CostPart::Sacrifice { .. }
                 | CostPart::AddCounter { .. }
+                | CostPart::PutCounterYou { .. }
                 | CostPart::Blight(_)
                 | CostPart::AddMana { .. }
                 | CostPart::Behold { exile: false, .. }
@@ -678,6 +679,17 @@ fn try_pay_effect_cost(
                         true,
                     );
                 }
+            }
+            CostPart::PutCounterYou { .. } => {
+                crate::cost::cost_put_counter_you::pay_as_decided(
+                    ctx.game,
+                    Some(ctx.trigger_handler),
+                    Some(ctx.agents),
+                    payer,
+                    source,
+                    Some(sa),
+                    part,
+                );
             }
             CostPart::Discard {
                 amount,

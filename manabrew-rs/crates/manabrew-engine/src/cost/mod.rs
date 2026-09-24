@@ -32,6 +32,7 @@ pub mod cost_payment;
 pub mod cost_promise_gift;
 pub mod cost_put_card_to_lib;
 pub mod cost_put_counter;
+pub mod cost_put_counter_you;
 pub mod cost_remove_any_counter;
 pub mod cost_remove_counter;
 pub mod cost_return;
@@ -298,6 +299,10 @@ pub enum CostPart {
         counter_type: CounterType,
         type_filter: String,
     },
+    PutCounterYou {
+        amount: AmountSpec,
+        counter_type: CounterType,
+    },
     /// Exile cards from a specific zone (own zone) as cost. Mirrors CostExile.
     Exile {
         amount: AmountSpec,
@@ -469,6 +474,7 @@ impl CostPart {
             CostPart::PayShards(_) => 7,
             CostPart::SubCounter { .. } => 8,
             CostPart::AddCounter { .. } => 6,
+            CostPart::PutCounterYou { .. } => 8,
             CostPart::PayLife(_) => 7,
             CostPart::DamageYou(_) => 8,
             CostPart::GainLife(_) => 5,
@@ -1483,6 +1489,9 @@ fn can_pay_part_distributed(
             cost_pay_shards::can_pay(game, pool, source, player, ability, part)
         }
         CostPart::DamageYou(_) => cost_damage::can_pay(game, pool, source, player, ability, part),
+        CostPart::PutCounterYou { .. } => {
+            cost_put_counter_you::can_pay(game, pool, source, player, ability, part)
+        }
         CostPart::Draw { .. } => cost_draw::can_pay(game, pool, source, player, ability, part),
         CostPart::Mill(_) => cost_mill::can_pay(game, pool, source, player, ability, part),
         CostPart::Reveal { .. } => cost_reveal::can_pay(game, pool, source, player, ability, part),

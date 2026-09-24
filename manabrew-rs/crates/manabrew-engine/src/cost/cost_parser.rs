@@ -43,6 +43,7 @@ pub(super) fn parse_cost_token(token: &str) -> TokenResult {
             };
             let Some(part) = (match kind {
                 CostTokenKind::AddCounter => parse_add_counter(inner),
+                CostTokenKind::AddCounterYou => parse_add_counter_you(inner),
                 CostTokenKind::AddMana => parse_add_mana(inner),
                 CostTokenKind::Behold => parse_behold(inner),
                 CostTokenKind::BeholdExile => parse_behold_exile(inner),
@@ -180,6 +181,14 @@ fn parse_sub_counter(inner: &str) -> Option<CostPart> {
         amount,
         counter_type: parse_counter_type(counter_type_str),
         type_filter,
+    })
+}
+
+fn parse_add_counter_you(inner: &str) -> Option<CostPart> {
+    let (amount, counter_type) = inner.split_once('/')?;
+    Some(CostPart::PutCounterYou {
+        amount: AmountSpec::parse_or(amount, 1),
+        counter_type: parse_counter_type(counter_type),
     })
 }
 

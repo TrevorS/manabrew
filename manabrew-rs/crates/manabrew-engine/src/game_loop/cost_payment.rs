@@ -248,6 +248,7 @@ impl GameLoop {
             CostPart::ExileFromSameGrave { .. } => "ExileFromSameGrave",
             CostPart::SubCounter { .. } => "SubCounter",
             CostPart::AddCounter { .. } => "AddCounter",
+            CostPart::PutCounterYou { .. } => "PutCounterYou",
             CostPart::Exile { .. } => "Exile",
             CostPart::Return { .. } => "Return",
             CostPart::TapType { .. } => "TapType",
@@ -1445,6 +1446,17 @@ impl GameLoop {
                         break;
                     }
                 }
+                CostPart::PutCounterYou { .. } => {
+                    crate::cost::cost_put_counter_you::pay_as_decided(
+                        game,
+                        Some(&mut self.trigger_handler),
+                        Some(agents),
+                        player,
+                        card_id,
+                        sa.as_deref(),
+                        &part,
+                    );
+                }
                 CostPart::Forage => {
                     if !self.pay_forage_cost(game, agents, player, card_id, sa.as_deref(), decided)
                     {
@@ -2251,6 +2263,17 @@ impl GameLoop {
                         payment_ok = false;
                         break;
                     }
+                }
+                CostPart::PutCounterYou { .. } => {
+                    crate::cost::cost_put_counter_you::pay_as_decided(
+                        game,
+                        Some(&mut self.trigger_handler),
+                        Some(agents),
+                        player,
+                        card_id,
+                        sa.as_deref(),
+                        &part,
+                    );
                 }
                 CostPart::Forage => {
                     if !self.pay_forage_cost(game, agents, player, card_id, sa.as_deref(), decided)
