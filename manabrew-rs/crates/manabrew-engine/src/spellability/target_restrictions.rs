@@ -950,7 +950,11 @@ fn can_be_targeted_by_internal(
             target,
             source_controller,
         );
-    if target.has_hexproof() && target.controller != source_controller && !ignore_hexproof {
+    if target.has_hexproof()
+        && target.controller != source_controller
+        && !ignore_hexproof
+        && hexproof_cant_target(game, target, source_card, source_sa)
+    {
         return false;
     }
     if let Some(src_id) = source_card {
@@ -978,6 +982,61 @@ fn can_be_targeted_by_internal(
         }
     }
     true
+}
+
+/// The `Mode$ CantTarget | ValidSource$ <type>` static that `CardFactoryUtil.addStaticAbility`
+/// builds for each Hexproof instance, with the type `KeywordWithType.parse` reads off it
+/// (`ValidSA$` when the description names abilities).
+fn hexproof_cant_target(
+    game: &GameState,
+    target: &crate::card::Card,
+    source_card: Option<CardId>,
+    source_sa: Option<&SpellAbility>,
+) -> bool {
+    [
+        &target.keywords,
+        &target.granted_keywords,
+        &target.pump_keywords,
+    ]
+    .into_iter()
+    .flat_map(|keywords| {
+        keywords.get_values_for(crate::keyword::keyword_instance::Keyword::Hexproof)
+    })
+    .any(|hexproof| {
+        let Some((_, details)) = hexproof.original.split_once(':') else {
+            return true;
+        };
+        let (valid_type, description) = match details.split_once(':') {
+            Some((valid_type, description)) => (valid_type.to_string(), description),
+            None => match forge_foundation::Color::from_name(details) {
+                Some(color) => {
+                    let name = color.long_name();
+                    (
+                        format!("Card.{}{}", name[..1].to_ascii_uppercase(), &name[1..]),
+                        "",
+                    )
+                }
+                None => (details.to_string(), ""),
+            },
+        };
+        if description.contains("abilities") {
+            return source_sa.is_some_and(|sa| {
+                crate::spellability::matches_valid_sa(
+                    &valid_type,
+                    sa,
+                    target,
+                    source_card.map(|id| game.card(id)),
+                )
+            });
+        }
+        source_card.is_some_and(|source| {
+            valid_filter::matches_valid_card_selector_opt(
+                Some(&cached_compiled_selector(&valid_type)),
+                game.card(source),
+                target,
+            )
+        })
+    })
 }
 
 /// Get all creatures on the battlefield (any player).
