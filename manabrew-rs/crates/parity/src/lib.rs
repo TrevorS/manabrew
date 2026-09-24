@@ -37,6 +37,7 @@ pub mod parity_id;
 pub mod parity_log;
 pub mod parity_order;
 pub mod probe;
+pub mod probe_support;
 pub mod protocol;
 pub mod report;
 pub mod runner;

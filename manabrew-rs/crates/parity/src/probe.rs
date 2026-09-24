@@ -17,6 +17,7 @@ use rayon::prelude::*;
 
 use crate::comparator::normalize_field;
 use crate::deck_generator::{format_inline, DeckSpec};
+use crate::probe_support::{Support, SupportPool};
 use crate::protocol::{MatchupResult, Verdict};
 
 pub const DEFAULT_PARTNERS: &str = "Memnite*4|Bronze Sable*4";
@@ -28,6 +29,7 @@ pub struct ProbeOptions {
     pub lands: usize,
     pub partners: DeckSpec,
     pub opponent: DeckSpec,
+    pub support: Option<SupportPool>,
 }
 
 fn basic_land(color: Color) -> &'static str {
@@ -60,6 +62,27 @@ pub fn probe_deck(db: &CardDatabase, card: &str, options: &ProbeOptions) -> Resu
         }
     }
     Ok(format!("inline:{}", format_inline(&deck)))
+}
+
+fn probe_decks(
+    db: &CardDatabase,
+    card: &str,
+    options: &ProbeOptions,
+) -> Result<(String, String), String> {
+    let Some(pool) = &options.support else {
+        let opponent = format!("inline:{}", format_inline(&options.opponent));
+        return Ok((probe_deck(db, card, options)?, opponent));
+    };
+    let support = Support::for_card(db, pool, card)?;
+    let deck = format!("inline:{}", format_inline(&support.deck));
+    let opponent = format!("inline:{}", format_inline(&support.opponent));
+    let reasons = if support.reasons.is_empty() {
+        "default shell".to_string()
+    } else {
+        support.reasons.join("; ")
+    };
+    eprintln!("[probe-support] {card}: {reasons}\n  deck {deck}\n  opponent {opponent}");
+    Ok((deck, opponent))
 }
 
 pub struct ProbeRow {
@@ -177,18 +200,17 @@ pub fn probe_cards<F>(
 where
     F: Fn(&str, &str, u64) -> MatchupResult + Sync,
 {
-    let opponent = format!("inline:{}", format_inline(&options.opponent));
     let done = std::sync::atomic::AtomicUsize::new(0);
     cards
         .par_iter()
         .map(|card| {
-            let row = match probe_deck(db, card, options) {
+            let row = match probe_decks(db, card, options) {
                 Err(error) => ProbeRow {
                     card: card.clone(),
                     error: Some(error),
                     runs: vec![],
                 },
-                Ok(deck) => {
+                Ok((deck, opponent)) => {
                     let names = coverage_names(db, card);
                     ProbeRow {
                         card: card.clone(),

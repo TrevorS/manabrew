@@ -35,7 +35,7 @@ pub struct TraitLine<'a> {
     pub params: Vec<(&'a str, &'a str)>,
 }
 
-impl TraitLine<'_> {
+impl<'a> TraitLine<'a> {
     /// The API, trigger mode or replacement event the line belongs to. Matches
     /// `manabrew_engine::census`, which derives the same name at run time.
     pub fn owner(&self) -> String {
@@ -53,7 +53,7 @@ impl TraitLine<'_> {
         "?".to_string()
     }
 
-    pub fn param(&self, key: &str) -> Option<&str> {
+    pub fn param(&self, key: &str) -> Option<&'a str> {
         self.params
             .iter()
             .find(|(k, _)| *k == key)

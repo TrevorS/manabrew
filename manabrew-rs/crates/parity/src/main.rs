@@ -316,6 +316,15 @@ struct Cli {
     #[arg(long, default_value = parity::probe::DEFAULT_OPPONENT)]
     probe_opponent: String,
 
+    /// `auto` derives each probed card's copies, partners, lands and opponent from its script,
+    /// in place of the four options above
+    #[arg(long, value_parser = ["auto"], requires = "probe_support_pool")]
+    probe_support: Option<String>,
+
+    /// Probe TSV whose PASS cards `--probe-support auto` may choose partners from
+    #[arg(long)]
+    probe_support_pool: Option<PathBuf>,
+
     /// Shrink --deck1/--deck2 at --seed to the cards needed to keep the
     /// matchup diverging
     #[arg(long)]
@@ -1176,15 +1185,26 @@ fn run_probe_mode(cli: &Cli) {
             std::process::exit(2);
         })
     };
+    let data = load_data_or_exit(cli);
+    let support = cli
+        .probe_support
+        .as_ref()
+        .and(cli.probe_support_pool.as_deref())
+        .map(|pool| {
+            parity::probe_support::SupportPool::read(&data.db, pool).unwrap_or_else(|e| {
+                eprintln!("[parity] --probe-support-pool {e}");
+                std::process::exit(2);
+            })
+        });
     let options = parity::probe::ProbeOptions {
         seeds: cli.seeds.clone().unwrap_or_else(|| vec![42, 43, 44]),
         copies: cli.probe_copies,
         lands: cli.probe_lands,
         partners: parse("--probe-partners", &cli.probe_partners),
         opponent: parse("--probe-opponent", &cli.probe_opponent),
+        support,
     };
 
-    let data = load_data_or_exit(cli);
     let java = java_runtime_or_exit(cli);
     if let Some(dir) = &cli.probe_reports {
         if let Err(e) = std::fs::create_dir_all(dir) {
