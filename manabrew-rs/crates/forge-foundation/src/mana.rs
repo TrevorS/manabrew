@@ -666,11 +666,33 @@ impl ManaCost {
         Self::combine(self, other)
     }
 
-    /// Reduce the generic portion of this cost by `amount` (floor at 0).
-    /// Used for Emerge (cost reduced by sacrificed creature's mana value).
+    /// Mirrors Java `ManaCostBeingPaid.decreaseGenericMana`: what the generic part cannot
+    /// absorb removes `{2/X}` shards, one per two mana, in `ManaCostShard` order.
     pub fn reduce_generic(&self, amount: i32) -> ManaCost {
+        let mut shards = self.shards.clone();
+        let mut shard_amount = (amount - self.generic_cost.max(0)).max(0) / 2;
+        let mut or_2_generic: Vec<ManaCostShard> = shards
+            .iter()
+            .copied()
+            .filter(|s| s.is_or_2_generic())
+            .collect();
+        or_2_generic.sort();
+        or_2_generic.dedup();
+        for kind in or_2_generic {
+            let count = shards.iter().filter(|s| **s == kind).count() as i32;
+            let take = count.min(shard_amount);
+            for _ in 0..take {
+                if let Some(pos) = shards.iter().rposition(|s| *s == kind) {
+                    shards.remove(pos);
+                }
+            }
+            shard_amount -= take;
+            if take < count {
+                break;
+            }
+        }
         ManaCost {
-            shards: self.shards.clone(),
+            shards,
             generic_cost: (self.generic_cost - amount).max(0),
             has_no_cost: self.has_no_cost,
         }
