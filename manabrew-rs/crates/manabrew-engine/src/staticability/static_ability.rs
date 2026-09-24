@@ -319,6 +319,7 @@ pub struct StaticAbilityIr {
     pub gains_abilities_of_zones: Vec<ZoneType>,
     pub gains_abilities_of_defined: Option<String>,
     pub gains_abilities_limit_per_turn: Option<String>,
+    pub gains_trigger_abs_of: Option<String>,
     pub add_trigger_text: Option<String>,
     pub add_replacement_effect_text: Option<String>,
     pub add_static_ability_text: Option<String>,
@@ -533,6 +534,7 @@ impl StaticAbilityIr {
             gains_abilities_limit_per_turn: raw
                 .get(keys::GAINS_ABILITIES_LIMIT_PER_TURN)
                 .map(String::to_string),
+            gains_trigger_abs_of: raw.get(keys::GAINS_TRIGGER_ABS_OF).map(String::to_string),
             add_trigger_text: raw.get(keys::ADD_TRIGGER).map(String::to_string),
             add_replacement_effect_text: raw
                 .get(keys::ADD_REPLACEMENT_EFFECT)

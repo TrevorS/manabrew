@@ -712,6 +712,44 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         }
                     }
 
+                    if let Some(filter) = sa.ir.gains_trigger_abs_of.as_deref() {
+                        let zones = if sa.ir.gains_abilities_of_zones.is_empty() {
+                            vec![ZoneType::Battlefield]
+                        } else {
+                            sa.ir.gains_abilities_of_zones.clone()
+                        };
+                        let selector = crate::parsing::cached_compiled_selector(filter);
+                        for gained in game.cards.iter().filter(|card| zones.contains(&card.zone)) {
+                            if !crate::card::valid_filter::matches_valid_card_selector_in_game(
+                                &selector,
+                                gained,
+                                source_card,
+                                game,
+                            ) {
+                                continue;
+                            }
+                            for trig in &gained.triggers {
+                                let mut params: Vec<_> =
+                                    trig.base.card_trait_base.get_map_params().iter().collect();
+                                params.sort();
+                                let text = params
+                                    .into_iter()
+                                    .map(|(key, value)| format!("{key}$ {value}"))
+                                    .collect::<Vec<_>>()
+                                    .join(" | ");
+                                pending.push(PendingEffect {
+                                    layer: Layer::Ability,
+                                    target,
+                                    kind: EffectKind::GrantTrigger {
+                                        text,
+                                        svars: gained.svars.clone(),
+                                        original_host: None,
+                                    },
+                                });
+                            }
+                        }
+                    }
+
                     if let Some(defined) = sa.ir.gains_abilities_of_defined.as_deref() {
                         for gained in crate::ability::ability_utils::get_defined_cards(
                             game,
