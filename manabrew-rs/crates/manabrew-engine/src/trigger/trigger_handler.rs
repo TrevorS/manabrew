@@ -495,6 +495,18 @@ impl TriggerHandler {
             }
             notify_all_agents(agents, event);
 
+            let trigger_cards: Vec<CardId> = pt
+                .entry
+                .spell_ability
+                .trigger_objects
+                .keys()
+                .flat_map(|&key| pt.entry.spell_ability.get_triggering_cards(key))
+                .collect();
+            pt.entry.spell_ability.trigger_object_timestamps = trigger_cards
+                .into_iter()
+                .map(|card_id| (card_id, game.card(card_id).zone_timestamp))
+                .collect();
+
             let is_optional = pt.optional;
             let is_static = pt.static_trigger;
             let pushed_entry = pt.entry.clone();

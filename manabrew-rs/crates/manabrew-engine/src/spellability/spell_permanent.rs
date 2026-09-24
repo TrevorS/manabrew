@@ -91,6 +91,7 @@ pub fn create_permanent_spell(
         is_land_ability: false,
         cast_face_down: false,
         trigger_objects: HashMap::default(),
+        trigger_object_timestamps: Vec::new(),
         trigger_spell_abilities: HashMap::default(),
         trigger_spawning_ability: None,
         root_ability_text: None,

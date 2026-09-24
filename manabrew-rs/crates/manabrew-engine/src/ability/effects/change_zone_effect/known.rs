@@ -187,6 +187,22 @@ pub(super) fn resolve_known_origin(
         Vec::new()
     };
 
+    let cards_to_move: Vec<CardId> = if defined.starts_with("Triggered")
+        && defined.contains("LKICopy")
+    {
+        cards_to_move
+            .into_iter()
+            .filter(|&cid| {
+                sa.trigger_object_timestamps
+                    .iter()
+                    .find(|(card_id, _)| *card_id == cid)
+                    .is_none_or(|&(_, timestamp)| timestamp == ctx.game.card(cid).zone_timestamp)
+            })
+            .collect()
+    } else {
+        cards_to_move
+    };
+
     if sa.ir.shuffle_non_mandatory
         && !ctx.agents[controller.index()].confirm_action(
             controller,
