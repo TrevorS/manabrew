@@ -141,6 +141,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             if let Some(svar_text) = source_svars.get(trig_name) {
                 if let Some(mut trig) = parse_trigger(svar_text, &mut next_trig_id) {
                     trig.execute = trig.execute.clone();
+                    trig.original_host = sa.original_host.or(sa.source);
                     parsed_triggers.push(trig);
                 }
             }
