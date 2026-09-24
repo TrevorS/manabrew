@@ -237,17 +237,17 @@ fn resolve_originals(
                 .next()
             })
             .unwrap_or(sa.activating_player);
-        ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
-        return ctx.agents[chooser.index()]
-            .choose_single_card_for_zone_change(
-                ctx.game,
-                chooser,
-                &candidates,
-                "Choose a card",
-                false,
-            )
+        let choices: Vec<crate::agent::GameEntity> = candidates
             .into_iter()
+            .map(crate::agent::GameEntity::Card)
             .collect();
+        ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        return match ctx.agents[chooser.index()]
+            .choose_single_entity_for_effect(chooser, &choices, false)
+        {
+            Some(crate::agent::GameEntity::Card(chosen)) => vec![chosen],
+            _ => Vec::new(),
+        };
     }
 
     if let Some(defined_name) = sa.ir.defined_name_text.as_deref() {
