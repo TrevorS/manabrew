@@ -736,12 +736,6 @@ pub struct Card {
     /// Last-known information: toughness when this card last left the battlefield.
     /// `None` means LKI was never captured; `Some(0)` means toughness was 0.
     pub lki_toughness: Option<i32>,
-    /// Last-known information: whether this card was tapped when it last left the
-    /// battlefield. Java keeps the pre-move `Card` object alive on a `Defined$` reference
-    /// (`ConditionDefined$ Targeted` after a `DB$ ChangeZone` bounce reads the same object it
-    /// targeted, still showing its old state); this port has one `Card` per id, so a
-    /// `Card.tapped` condition checked after such a move needs this instead.
-    pub lki_tapped: Option<bool>,
     #[serde(default)]
     pub lki_controller: Option<PlayerId>,
     #[serde(default)]
@@ -1071,7 +1065,6 @@ impl Card {
             total_damage_done_this_turn: 0,
             lki_power: None,
             lki_toughness: None,
-            lki_tapped: None,
             lki_controller: None,
             lki_attached_to: None,
             lki_zone_timestamp: None,
@@ -1317,7 +1310,6 @@ impl Card {
             total_damage_done_this_turn: self.total_damage_done_this_turn,
             lki_power: self.lki_power,
             lki_toughness: self.lki_toughness,
-            lki_tapped: self.lki_tapped,
             lki_controller: self.lki_controller,
             lki_attached_to: self.lki_attached_to,
             lki_zone_timestamp: self.lki_zone_timestamp,
@@ -1612,7 +1604,6 @@ impl Card {
             .clone_from(&self.total_damage_done_this_turn);
         out.lki_power.clone_from(&self.lki_power);
         out.lki_toughness.clone_from(&self.lki_toughness);
-        out.lki_tapped.clone_from(&self.lki_tapped);
         out.lki_controller.clone_from(&self.lki_controller);
         out.lki_attached_to.clone_from(&self.lki_attached_to);
         out.lki_zone_timestamp.clone_from(&self.lki_zone_timestamp);

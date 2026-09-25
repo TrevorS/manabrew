@@ -1298,8 +1298,8 @@ impl DefinedRef {
             return parsed;
         }
         // Java reads any `Triggered<X>LKICopy` from the same triggering object as
-        // `Triggered<X>` (`AbilityUtils.getDefinedCards`, the `Triggered` branch). One `Card`
-        // per id here, so the LKI copy is that card.
+        // `Triggered<X>` (`AbilityUtils.getDefinedCards`, the `Triggered` branch). Both name the
+        // same id here; `get_defined_card_objects` reads the pre-move object off the raw string.
         if let Some(stripped) = raw
             .strip_suffix("LKICopy")
             .filter(|stripped| stripped.starts_with("Triggered"))

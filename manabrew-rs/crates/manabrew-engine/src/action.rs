@@ -852,12 +852,10 @@ impl GameState {
                     let card = &self.cards[card_id.index()];
                     let lki_p = card.power();
                     let lki_t = card.toughness();
-                    let lki_tapped = card.tapped;
                     let lki_attached_to = card.attached_to;
                     let card = self.card_mut(card_id);
                     card.lki_power = Some(lki_p);
                     card.lki_toughness = Some(lki_t);
-                    card.lki_tapped = Some(lki_tapped);
                     card.lki_attached_to = lki_attached_to;
                 }
 

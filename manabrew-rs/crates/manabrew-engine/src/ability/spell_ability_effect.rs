@@ -9,6 +9,7 @@ use crate::ability::ability_ir::{DefinedExpr, DefinedRef};
 use crate::ability::api_type::ApiType;
 use crate::ability::AbilityKey;
 use crate::agent::PlayerAgent;
+use crate::card::Card;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 use crate::parsing::keys;
@@ -441,6 +442,43 @@ pub(crate) fn resolve_defined_cards_for_sa(
     resolve_defined_cards_for_sa_ref_inner(game, sa, &defined_ref)
 }
 
+/// Java `AbilityUtils.getDefinedCards` returns objects: a target through
+/// `Game.getChangeZoneLKIInfo`, and a `Triggered<X>LKICopy` or `*LKI` reference as the object
+/// it was recorded as. A card that has since left the battlefield reads its state from before it
+/// left.
+pub(crate) fn get_defined_card_objects<'a>(
+    game: &'a GameState,
+    sa: &SpellAbility,
+    defined: &str,
+) -> Vec<&'a Card> {
+    resolve_defined_cards_for_sa(game, sa, defined)
+        .into_iter()
+        .map(|card_id| defined_card_object(game, defined, card_id))
+        .collect()
+}
+
+fn defined_card_object<'a>(game: &'a GameState, defined: &str, card_id: CardId) -> &'a Card {
+    let defined = defined.strip_prefix("Spawner>").unwrap_or(defined);
+    let defined = defined.split_once('.').map_or(defined, |(head, _)| head);
+    let last_known = match defined {
+        "Targeted"
+        | "TargetedCard"
+        | "ThisTargetedCard"
+        | "ParentTarget"
+        | "RememberedLKI"
+        | "DelayTriggerRememberedLKI"
+        | "ImprintedLKI" => true,
+        // `NewCard` is the object the move created, while the LKI is the one that left.
+        "TriggeredNewCardLKICopy" => false,
+        _ => defined.starts_with("Triggered") && defined.contains("LKICopy"),
+    };
+    if last_known {
+        game.get_change_zone_lki_info(card_id)
+    } else {
+        game.card(card_id)
+    }
+}
+
 fn resolve_defined_cards_for_sa_ref_inner(
     game: &GameState,
     sa: &SpellAbility,
@@ -564,11 +602,12 @@ fn resolve_defined_cards_for_sa_ref_inner(
             resolve_defined_cards_for_sa_ref_inner(game, sa, &DefinedRef::parse(head))
                 .into_iter()
                 .filter(|&card_id| {
+                    let card = defined_card_object(game, head, card_id);
                     valids.split(',').any(|valid| {
                         ability_utils::matches_valid_cards_for_sa(
                             game,
                             sa,
-                            game.card(card_id),
+                            card,
                             None,
                             &format!("Card.{valid}"),
                         )

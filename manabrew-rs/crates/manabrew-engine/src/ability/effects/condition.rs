@@ -206,15 +206,14 @@ pub(super) fn check_condition_present(
 
     // ── ConditionDefined$ — check specific defined cards, not a zone ──
     if let Some(cond_defined) = sa.ir.condition_defined.as_ref() {
-        let defined_cards: Vec<CardId> = cond_defined
-            .refs
+        let defined_cards: Vec<&Card> = sa
+            .ir
+            .condition_defined_text
             .iter()
+            .flat_map(|text| text.split(" & ").map(str::trim))
+            .filter(|defined| !defined.is_empty())
             .flat_map(|defined| {
-                crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
-                    game,
-                    sa,
-                    defined.as_legacy_str(),
-                )
+                crate::ability::spell_ability_effect::get_defined_card_objects(game, sa, defined)
             })
             .collect();
         let defined_players: Vec<PlayerId> = cond_defined
@@ -234,7 +233,9 @@ pub(super) fn check_condition_present(
         // Self-exclusion only makes sense for the zone-scan path below.
         let count = defined_cards
             .iter()
-            .filter(|&&cid| matches_condition_filter_no_self_exclude(game, sa, cid, &alternatives))
+            .filter(|&&card| {
+                matches_condition_filter_no_self_exclude(game, sa, card, &alternatives)
+            })
             .count() as i32
             + defined_players
                 .iter()
@@ -261,7 +262,9 @@ pub(super) fn check_condition_present(
         .collect();
     let count = cards
         .iter()
-        .filter(|&&cid| matches_condition_filter_no_self_exclude(game, sa, cid, &alternatives))
+        .filter(|&&cid| {
+            matches_condition_filter_no_self_exclude(game, sa, game.card(cid), &alternatives)
+        })
         .count() as i32;
 
     // Check ConditionCompare$ (e.g. "GE2", "EQ0")
@@ -279,41 +282,12 @@ pub(super) fn check_condition_present(
 fn matches_condition_filter_no_self_exclude(
     game: &GameState,
     sa: &SpellAbility,
-    cid: CardId,
+    card: &Card,
     alternatives: &[&str],
 ) -> bool {
-    let card = game.card(cid);
     alternatives.iter().any(|alt| {
-        // A `ConditionDefined$` reference can name a card a preceding sub-ability already
-        // moved this same resolution (Brackish Blunder bounces its target, then checks
-        // `Card.tapped`). Java's target still holds the pre-move object and reads its old
-        // state; this port has one `Card` per id, so a bare tapped check on a card no longer
-        // on the battlefield reads the LKI captured as it left instead of the live (always
-        // untapped) state. Any other property on the moved card still reads live — Java's
-        // staleness only reaches as far as evidence has shown this one does.
-        if card.zone != ZoneType::Battlefield {
-            if let Some(lki_tapped) = tapped_alt_override(alt, card) {
-                return lki_tapped;
-            }
-        }
         crate::ability::ability_utils::matches_valid_cards_for_sa(game, sa, card, None, alt)
     })
-}
-
-/// `alt` is exactly a (possibly negated) `tapped` property with no other qualifier — the only
-/// shape safe to answer from LKI instead of the general matcher. Returns `None` for anything
-/// else, deferring to `matches_valid` unchanged.
-fn tapped_alt_override(alt: &str, card: &Card) -> Option<bool> {
-    let (_, property) = alt.split_once('.')?;
-    let (negated, property) = match property.strip_prefix('!') {
-        Some(rest) => (true, rest),
-        None => (false, property),
-    };
-    if !property.eq_ignore_ascii_case("tapped") {
-        return None;
-    }
-    let tapped = card.lki_tapped?;
-    Some(tapped != negated)
 }
 
 #[cfg(test)]
