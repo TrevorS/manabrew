@@ -67,13 +67,6 @@ impl GameEntityCounterTable {
         self.cells.is_empty()
     }
 
-    fn total_values(&self) -> i32 {
-        self.cells
-            .iter()
-            .flat_map(|cell| cell.counters.values())
-            .sum()
-    }
-
     pub fn get(
         &self,
         source: Option<PlayerId>,
@@ -163,7 +156,7 @@ impl GameEntityCounterTable {
         params: RunParams,
         already_replaced: bool,
     ) -> GameEntityCounterTable {
-        let remember_amount = self.total_values();
+        let mut remember_amount = 0;
         let mut result = GameEntityCounterTable::default();
         let mut remembered_objects = Vec::new();
         let mut objects = Vec::new();
@@ -224,6 +217,10 @@ impl GameEntityCounterTable {
                 else {
                     continue;
                 };
+                remember_amount += counter_map
+                    .iter()
+                    .flat_map(|entry| entry.counters.values())
+                    .sum::<i32>();
                 for entry in counter_map {
                     for (counter_type, count) in entry.counters {
                         let count = match (object, cause.and_then(|cause| cause.ir.max_from_effect))
@@ -260,6 +257,15 @@ impl GameEntityCounterTable {
                         static_abilities,
                     );
                 }
+            } else {
+                // Java sums its own table, which a replacement edits in place and a prevented
+                // object keeps.
+                remember_amount += self
+                    .cells
+                    .iter()
+                    .filter(|cell| cell.object == object)
+                    .flat_map(|cell| cell.counters.values())
+                    .sum::<i32>();
             }
             if result.cells.iter().any(|cell| cell.object == object) {
                 if let Some(handler) = trigger_handler.as_deref_mut() {
