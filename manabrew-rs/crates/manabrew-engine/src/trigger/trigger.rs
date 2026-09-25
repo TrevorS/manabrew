@@ -813,16 +813,15 @@ impl Trigger {
             if !host.is_creature() {
                 return false;
             }
-            let Some(sp) = run_params.spell_ability.as_ref() else {
+            let (Some(spell_card), Some(activator)) = (run_params.spell_card, run_params.activator)
+            else {
                 return false;
             };
-            let p = host.controller;
-            let v = sp
-                .source
-                .filter(|_| sp.activating_player == p)
-                .map_or(0, |source| {
-                    game.card(source).paying_mana_to_cast.len() as i32
-                });
+            let v = if activator == host.controller {
+                game.card(spell_card).paying_mana_to_cast.len() as i32
+            } else {
+                0
+            };
             if v <= host.power() && v <= host.toughness() {
                 return false;
             }
