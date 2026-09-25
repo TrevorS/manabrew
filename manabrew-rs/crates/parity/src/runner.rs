@@ -32,7 +32,7 @@ use crate::java_random::JavaRandom;
 use crate::parity_card_map::ParityCardMap;
 use crate::protocol::{CallbackRecord, DecisionRecord, GameTrace, ParityLogEntry};
 use crate::snapshot::snapshot_game;
-use crate::utils::decks::{build_deck_from_spec, resolve_deck_spec};
+use crate::utils::decks::{build_deck_from_templates, resolve_deck_spec, CardTemplates};
 
 /// Directories searched, in order, when no `--decks-dir` override is given.
 /// `parity_decks/` holds decks referenced by the regression suite; `public/preset_decks/`
@@ -1035,6 +1035,7 @@ pub struct LoadedData {
     pub token_art_variants: Arc<manabrew_engine::HashMap<(String, String), usize>>,
     pub token_fallback: Arc<manabrew_engine::HashMap<String, String>>,
     pub edition_dates: Arc<manabrew_engine::HashMap<String, String>>,
+    pub card_templates: Arc<CardTemplates>,
 }
 
 impl LoadedData {
@@ -1166,6 +1167,7 @@ pub fn load_data(cards_dir: Option<&str>, verbose: bool) -> Result<LoadedData, S
         token_art_variants: Arc::new(db.token_art_variants().clone().into_iter().collect()),
         token_fallback: Arc::new(db.token_fallback().clone().into_iter().collect()),
         edition_dates: Arc::new(db.edition_dates().clone().into_iter().collect()),
+        card_templates: Arc::default(),
         db,
     })
 }
@@ -1202,15 +1204,17 @@ pub fn run_with_data_streaming(
     game.action_space_mana_probe = config.mana_probe;
 
     let _t_build = Instant::now();
-    build_deck_from_spec(
+    build_deck_from_templates(
         &mut game,
+        &data.card_templates,
         &data.db,
         p0,
         &deck1_spec,
         config.verbose.is_any(),
     );
-    build_deck_from_spec(
+    build_deck_from_templates(
         &mut game,
+        &data.card_templates,
         &data.db,
         p1,
         &deck2_spec,

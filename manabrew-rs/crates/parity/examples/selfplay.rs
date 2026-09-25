@@ -18,7 +18,7 @@ use manabrew_engine::player::actions::{AbilityRef, PlayerAction};
 use manabrew_engine::spellability::SpellAbility;
 use parity::runner::{load_data, DEFAULT_DECKS_DIRS};
 use parity::runtime::PARITY_THREAD_STACK_SIZE;
-use parity::utils::decks::{build_deck_from_spec, resolve_deck_spec};
+use parity::utils::decks::{build_deck_from_templates, resolve_deck_spec};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
@@ -285,8 +285,9 @@ fn main() {
         .map(|seed| {
             let setup = Instant::now();
             let mut game = GameState::new(&["P1", "P2"], 20);
-            build_deck_from_spec(&mut game, &data.db, PlayerId(0), &s1, false);
-            build_deck_from_spec(&mut game, &data.db, PlayerId(1), &s2, false);
+            let templates = &data.card_templates;
+            build_deck_from_templates(&mut game, templates, &data.db, PlayerId(0), &s1, false);
+            build_deck_from_templates(&mut game, templates, &data.db, PlayerId(1), &s2, false);
             let mut gl = GameLoop::new(2);
             gl.set_provide_priority_action_space(false);
             gl.game_rng = Box::new(SeededGameRng(StdRng::seed_from_u64(

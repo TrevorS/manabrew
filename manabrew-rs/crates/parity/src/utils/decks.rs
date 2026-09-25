@@ -1,9 +1,12 @@
 use crate::deck_generator;
-use forge_carddb::CardDatabase;
+use std::sync::RwLock;
+
+use forge_carddb::{CardDatabase, CardRules};
 use forge_foundation::ZoneType;
 use manabrew_engine::card::CardInstance;
 use manabrew_engine::game::GameState;
 use manabrew_engine::ids::PlayerId;
+use manabrew_engine::HashMap;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -112,6 +115,62 @@ pub fn build_deck_from_spec(
     spec: &[(String, usize)],
     verbose: bool,
 ) {
+    build_deck(game, db, owner, spec, verbose, |_, rules, edition| {
+        let mut card = CardInstance::from_rules(rules, owner);
+        card.set_code = edition.clone();
+        card
+    });
+}
+
+/// Keep in sync with `Card::from_rules`: it reads only the rules and the owner and draws no
+/// global ids, so a clone of the card it built for one game equals a fresh build for the next.
+#[derive(Default)]
+pub struct CardTemplates(RwLock<HashMap<(String, PlayerId), CardInstance>>);
+
+impl CardTemplates {
+    fn card(
+        &self,
+        name: &str,
+        rules: &CardRules,
+        edition: &Option<String>,
+        owner: PlayerId,
+    ) -> CardInstance {
+        let key = (name.to_string(), owner);
+        if let Some(card) = self.0.read().expect("card templates lock").get(&key) {
+            return card.clone();
+        }
+        let mut card = CardInstance::from_rules(rules, owner);
+        card.set_code = edition.clone();
+        self.0
+            .write()
+            .expect("card templates lock")
+            .entry(key)
+            .or_insert(card)
+            .clone()
+    }
+}
+
+pub fn build_deck_from_templates(
+    game: &mut GameState,
+    templates: &CardTemplates,
+    db: &CardDatabase,
+    owner: PlayerId,
+    spec: &[(String, usize)],
+    verbose: bool,
+) {
+    build_deck(game, db, owner, spec, verbose, |name, rules, edition| {
+        templates.card(name, rules, edition, owner)
+    });
+}
+
+fn build_deck(
+    game: &mut GameState,
+    db: &CardDatabase,
+    owner: PlayerId,
+    spec: &[(String, usize)],
+    verbose: bool,
+    mut make_card: impl FnMut(&str, &CardRules, &Option<String>) -> CardInstance,
+) {
     for (name, count) in spec {
         match db
             .get_by_card_name(name)
@@ -120,9 +179,7 @@ pub fn build_deck_from_spec(
             Some(rules) => {
                 let edition = db.card_default_edition(name).map(|s| s.to_string());
                 for _ in 0..*count {
-                    let mut card = CardInstance::from_rules(rules, owner);
-                    card.set_code = edition.clone();
-                    let id = game.create_card(card);
+                    let id = game.create_card(make_card(name, rules, &edition));
                     game.move_card(id, ZoneType::Library, owner);
                 }
             }

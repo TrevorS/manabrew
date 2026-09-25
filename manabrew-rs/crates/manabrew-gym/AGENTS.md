@@ -18,7 +18,7 @@ Reinforcement-learning environment over the Rust engine. The trainer is meant to
 
 ## How a game runs
 
-`VecEnv::reset` spawns one OS thread per game (`PARITY_THREAD_STACK_SIZE` stack), built exactly like the selfplay example: `build_deck_from_spec`, lazy priority action space, `SeededGameRng(seed ^ 0x9e37_79b9_7f4a_7c15)`, `GameRuntime::run(StdRng(seed), max_turns)`. With no learner seats the bench reproduces the selfplay checksum for the same deck pair and seeds; keep it that way, it is the check that game setup has not drifted.
+`VecEnv::reset` spawns one OS thread per game (`PARITY_THREAD_STACK_SIZE` stack), built exactly like the selfplay example: `build_deck_from_templates` (each card cloned from the one `LoadedData::card_templates` built from its rules), lazy priority action space, `SeededGameRng(seed ^ 0x9e37_79b9_7f4a_7c15)`, `GameRuntime::run(StdRng(seed), max_turns)`. With no learner seats the bench reproduces the selfplay checksum for the same deck pair and seeds; keep it that way, it is the check that game setup has not drifted.
 
 A learner seat's agent sends a `Decision` and blocks on the action channel. The action is validated on the game thread; an invalid one comes back as `Err(ActionError)` and the decision stays open. Dropping the env (or `reset` on a running env) sets the game loop's abort signal and closes the channel; the agent then answers every call with its default and the loop exits at its next abort check. A panic inside the engine ends the game with `EndReason::EnginePanic`.
 

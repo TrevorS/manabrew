@@ -15,7 +15,7 @@ use manabrew_engine::game_rng::GameRng;
 use manabrew_engine::game_runtime::GameRuntime;
 use manabrew_engine::ids::{CardId, PlayerId};
 use parity::runtime::PARITY_THREAD_STACK_SIZE;
-use parity::utils::decks::build_deck_from_spec;
+use parity::utils::decks::build_deck_from_templates;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
@@ -197,8 +197,9 @@ impl GameRng for SeededGameRng {
 fn play(data: &GymData, config: &EnvConfig, spec: &GameSpec, link: &Rc<Link>) -> Outcome {
     let mut game = GameState::new(&["P1", "P2"], 20);
     for (p, &deck) in spec.decks.iter().enumerate() {
-        build_deck_from_spec(
+        build_deck_from_templates(
             &mut game,
+            &data.loaded.card_templates,
             &data.loaded.db,
             PlayerId(p as u32),
             &data.decks[deck].cards,
