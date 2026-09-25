@@ -586,6 +586,21 @@ impl GameLoop {
     ) -> Vec<crate::agent::PlayOption> {
         let mut playable = Vec::new();
         let hand = game.cards_in_zone(ZoneType::Hand, player);
+        let cast_with_flash_source = std::cell::OnceCell::new();
+        let cast_with_flash = |card: &Card| {
+            let any_source = *cast_with_flash_source.get_or_init(|| {
+                crate::staticability::static_ability_cast_with_flash::any_cast_with_flash_source(
+                    game,
+                )
+            });
+            (any_source
+                || crate::staticability::static_ability_cast_with_flash::has_cast_with_flash_static(
+                    card,
+                ))
+                && crate::staticability::static_ability_cast_with_flash::any_with_flash_for_card(
+                    game, card, player,
+                )
+        };
         let has_flash_permission = |card_id: CardId| {
             let card = game.card(card_id);
             card.type_line.is_instant()
@@ -599,9 +614,7 @@ impl GameLoop {
                         player,
                     )
                 })
-                || crate::staticability::static_ability_cast_with_flash::any_with_flash_for_card(
-                    game, card, player,
-                )
+                || cast_with_flash(card)
                 || crate::staticability::static_ability_continuous::may_play_with_flash(
                     game, player, card,
                 )

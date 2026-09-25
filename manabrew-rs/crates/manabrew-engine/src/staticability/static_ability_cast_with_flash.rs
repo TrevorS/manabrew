@@ -51,6 +51,20 @@ pub fn any_with_flash(
     false
 }
 
+/// Keep in sync with the sources and static filter of `any_with_flash_for_card`.
+pub fn has_cast_with_flash_static(card: &Card) -> bool {
+    card.static_abilities
+        .iter()
+        .any(|sa| sa.check_mode(&StaticMode::CastWithFlash))
+}
+
+pub fn any_cast_with_flash_source(game: &GameState) -> bool {
+    game.cards.iter().any(|c| {
+        (c.zone == ZoneType::Battlefield || c.zone == ZoneType::Command)
+            && has_cast_with_flash_static(c)
+    })
+}
+
 pub fn any_with_flash_for_card(game: &GameState, spell_card: &Card, caster: PlayerId) -> bool {
     for source in game.cards.iter().filter(|c| {
         c.zone == ZoneType::Battlefield || c.zone == ZoneType::Command || c.id == spell_card.id
