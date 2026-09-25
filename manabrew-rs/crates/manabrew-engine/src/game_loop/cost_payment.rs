@@ -42,6 +42,22 @@ impl GameLoop {
         Self::handle_cost_exiled_with(game, source, exiled);
     }
 
+    fn report_paid_cost_exiles(
+        game: &GameState,
+        source: CardId,
+        from: usize,
+        sa: Option<&mut SpellAbility>,
+    ) {
+        let Some(sa) = sa else {
+            return;
+        };
+        for exiled in &game.card(source).paid_cost_exiled_cards[from..] {
+            let value = exiled.0.to_string();
+            sa.add_cost_to_hash_list(crate::cost::cost_exile::HASH_LKI, &value);
+            sa.add_cost_to_hash_list(crate::cost::cost_exile::HASH_CARDS, &value);
+        }
+    }
+
     fn handle_cost_exiled_with(game: &mut GameState, source: CardId, exiled: CardId) {
         if game.card(exiled).is_token {
             return;
@@ -1044,6 +1060,7 @@ impl GameLoop {
                     amount,
                     type_filter,
                 } => {
+                    let exiled_before = game.card(card_id).paid_cost_exiled_cards.len();
                     self.pay_exile_from_any_grave_cost(
                         game,
                         agents,
@@ -1053,11 +1070,13 @@ impl GameLoop {
                         amount.resolve(game, card_id, player),
                         decided,
                     );
+                    Self::report_paid_cost_exiles(game, card_id, exiled_before, sa.as_deref_mut());
                 }
                 CostPart::ExileFromSameGrave {
                     amount,
                     type_filter,
                 } => {
+                    let exiled_before = game.card(card_id).paid_cost_exiled_cards.len();
                     self.pay_exile_from_same_grave_cost(
                         game,
                         agents,
@@ -1066,6 +1085,7 @@ impl GameLoop {
                         type_filter,
                         amount.resolve(game, card_id, player),
                     );
+                    Self::report_paid_cost_exiles(game, card_id, exiled_before, sa.as_deref_mut());
                 }
                 CostPart::SubCounter {
                     amount,
@@ -1122,6 +1142,7 @@ impl GameLoop {
                     type_filter,
                     from,
                 } => {
+                    let exiled_before = game.card(card_id).paid_cost_exiled_cards.len();
                     if type_filter == "CARDNAME"
                         || type_filter == "NICKNAME"
                         || type_filter == "OriginalHost"
@@ -1146,6 +1167,7 @@ impl GameLoop {
                             decided,
                         );
                     }
+                    Self::report_paid_cost_exiles(game, card_id, exiled_before, sa.as_deref_mut());
                 }
                 CostPart::Return {
                     amount,
@@ -1835,6 +1857,7 @@ impl GameLoop {
                     amount,
                     type_filter,
                 } => {
+                    let exiled_before = game.card(card_id).paid_cost_exiled_cards.len();
                     self.pay_exile_from_any_grave_cost(
                         game,
                         agents,
@@ -1844,11 +1867,13 @@ impl GameLoop {
                         amount.resolve(game, card_id, player),
                         decided,
                     );
+                    Self::report_paid_cost_exiles(game, card_id, exiled_before, sa.as_deref_mut());
                 }
                 CostPart::ExileFromSameGrave {
                     amount,
                     type_filter,
                 } => {
+                    let exiled_before = game.card(card_id).paid_cost_exiled_cards.len();
                     self.pay_exile_from_same_grave_cost(
                         game,
                         agents,
@@ -1857,6 +1882,7 @@ impl GameLoop {
                         type_filter,
                         amount.resolve(game, card_id, player),
                     );
+                    Self::report_paid_cost_exiles(game, card_id, exiled_before, sa.as_deref_mut());
                 }
                 CostPart::SubCounter {
                     amount,
@@ -1917,6 +1943,7 @@ impl GameLoop {
                     type_filter,
                     from,
                 } => {
+                    let exiled_before = game.card(card_id).paid_cost_exiled_cards.len();
                     if type_filter == "CARDNAME"
                         || type_filter == "NICKNAME"
                         || type_filter == "OriginalHost"
@@ -1944,6 +1971,7 @@ impl GameLoop {
                             decided,
                         );
                     }
+                    Self::report_paid_cost_exiles(game, card_id, exiled_before, sa.as_deref_mut());
                 }
                 CostPart::Return {
                     amount,
