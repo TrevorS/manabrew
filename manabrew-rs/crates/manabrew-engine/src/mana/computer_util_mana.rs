@@ -1459,19 +1459,18 @@ fn collect_sorted_candidates_with_pref(
     mana_ability_map: &IndexMap<i32, Vec<ManaAbilityRef>>,
     prefer_higher_amount: bool,
 ) -> Vec<ManaAbilityRef> {
-    let mut out: Vec<ManaAbilityRef> = mana_ability_map
-        .values()
-        .flat_map(|v| v.iter().cloned())
-        .collect();
     // Deduplicate by (card_id, ability_index) — same ability may appear under multiple color keys.
     let mut seen = crate::HashSet::default();
-    out.retain(|ma| seen.insert((ma.card_id, ma.ability_index, ma.source_order)));
+    let mut out: Vec<(i32, ManaAbilityRef)> = mana_ability_map
+        .values()
+        .flatten()
+        .filter(|ma| seen.insert((ma.card_id, ma.ability_index, ma.source_order)))
+        .map(|ma| (autopay_source_score(game, player, ma) * 1000, ma.clone()))
+        .collect();
     // Sort by score, then by the source's place in the battlefield list, as
     // Java's AutoPay does (`score * 1000 + sourceOrder`).
-    out.sort_by(|a, b| {
-        let score_a = autopay_source_score(game, player, a);
-        let score_b = autopay_source_score(game, player, b);
-        (score_a * 1000).cmp(&(score_b * 1000)).then_with(|| {
+    out.sort_by(|(score_a, a), (score_b, b)| {
+        score_a.cmp(score_b).then_with(|| {
             // Probe-only tiebreak: prefer the higher-amount ability of
             // the same source so the greedy picker doesn't shadow it.
             if prefer_higher_amount && a.card_id == b.card_id {
@@ -1482,7 +1481,7 @@ fn collect_sorted_candidates_with_pref(
             .then_with(|| a.source_order.cmp(&b.source_order))
         })
     });
-    out
+    out.into_iter().map(|(_, ma)| ma).collect()
 }
 
 /// Returns the chosen source and the shard it will pay.
