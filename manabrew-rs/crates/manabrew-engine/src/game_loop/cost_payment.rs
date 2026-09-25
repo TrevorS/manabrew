@@ -300,6 +300,7 @@ impl GameLoop {
             // HumanCostDecision.confirmAction(...) branches
             CostPart::AddMana { .. } => true,
             CostPart::DamageYou(_) => true,
+            CostPart::Discard { type_filter, .. } => type_filter == "Hand",
             CostPart::Draw { .. } => true,
             CostPart::Exile {
                 type_filter, from, ..
@@ -334,9 +335,6 @@ impl GameLoop {
             CostPart::Unattach { .. } => true,
 
             // HumanPlay.payCostDuringAbilityResolve(...) explicit branches
-            CostPart::Discard { type_filter, .. } => {
-                type_filter == "Hand" || type_filter == "Random"
-            }
             CostPart::Mana {
                 cost: mana_cost, ..
             } => mana_cost.is_zero(),
