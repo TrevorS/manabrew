@@ -595,8 +595,6 @@ impl TriggerHandler {
                         activator: Some(pushed_sa.activating_player),
                         spell_controller: Some(pushed_sa.activating_player),
                         spell_ability: Some(pushed_sa.clone()),
-                        source_sa: Some(pushed_sa.clone()),
-                        cause: Some(pushed_sa.clone()),
                         cause_card: source_card,
                         ..Default::default()
                     },

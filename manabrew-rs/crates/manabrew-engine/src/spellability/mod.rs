@@ -293,7 +293,7 @@ pub struct SpellAbility {
     pub trigger_object_timestamps: Vec<(CardId, u64)>,
     /// Java parity: non-scalar trigger objects that carry spell/ability context.
     #[serde(default)]
-    pub trigger_spell_abilities: HashMap<AbilityKey, SpellAbility>,
+    pub trigger_spell_abilities: HashMap<AbilityKey, std::sync::Arc<SpellAbility>>,
     /// Java parity: additional ability lists used by mode/charm-style abilities.
     #[serde(default)]
     pub additional_ability_lists: HashMap<String, Vec<SpellAbility>>,
@@ -1146,6 +1146,7 @@ impl SpellAbility {
     pub fn get_additional_ability<K: TriggerKeyInput>(&self, key: K) -> Option<&SpellAbility> {
         key.into_ability_key()
             .and_then(|parsed| self.trigger_spell_abilities.get(&parsed))
+            .map(std::sync::Arc::as_ref)
     }
 
     /// Java `SpellAbility.getAdditionalAbility`: the ability set for `key`, or the one built
@@ -1178,7 +1179,8 @@ impl SpellAbility {
     /// Mirrors Java's `SpellAbility.setAdditionalAbility(String, SpellAbility)`.
     pub fn set_additional_ability<K: TriggerKeyInput>(&mut self, key: K, ability: SpellAbility) {
         if let Some(parsed) = key.into_ability_key() {
-            self.trigger_spell_abilities.insert(parsed, ability);
+            self.trigger_spell_abilities
+                .insert(parsed, std::sync::Arc::new(ability));
         }
     }
 
@@ -1316,12 +1318,12 @@ impl SpellAbility {
         for (name, ability) in &self.trigger_spell_abilities {
             clone.trigger_spell_abilities.insert(
                 *name,
-                ability.copy_with_host_activating_lki_keep_text_changes(
+                std::sync::Arc::new(ability.copy_with_host_activating_lki_keep_text_changes(
                     host.clone(),
                     activ,
                     lki,
                     keep_text_changes,
-                ),
+                )),
             );
         }
 
@@ -1823,7 +1825,7 @@ impl SpellAbility {
         }
 
         for ability in self.trigger_spell_abilities.values_mut() {
-            ability.apply_text_change(original, replacement);
+            std::sync::Arc::make_mut(ability).apply_text_change(original, replacement);
         }
     }
 
@@ -1883,7 +1885,7 @@ impl SpellAbility {
         }
 
         for ability in self.trigger_spell_abilities.values_mut() {
-            ability.set_host_card_id(card_id);
+            std::sync::Arc::make_mut(ability).set_host_card_id(card_id);
         }
     }
 
@@ -1894,7 +1896,7 @@ impl SpellAbility {
         }
 
         for ability in self.trigger_spell_abilities.values_mut() {
-            ability.set_keyword(keyword.clone());
+            std::sync::Arc::make_mut(ability).set_keyword(keyword.clone());
         }
     }
 
@@ -1914,7 +1916,7 @@ impl SpellAbility {
         }
 
         for ability in self.trigger_spell_abilities.values_mut() {
-            ability.set_card_state(state);
+            std::sync::Arc::make_mut(ability).set_card_state(state);
         }
     }
 
@@ -1930,7 +1932,7 @@ impl SpellAbility {
 
         for ability in self.trigger_spell_abilities.values_mut() {
             if ability.is_intrinsic() != intrinsic {
-                ability.set_intrinsic(intrinsic);
+                std::sync::Arc::make_mut(ability).set_intrinsic(intrinsic);
             }
         }
     }
@@ -2119,7 +2121,8 @@ impl SpellAbility {
         value: SpellAbility,
     ) {
         if let Some(parsed) = key.into_ability_key() {
-            self.trigger_spell_abilities.insert(parsed, value);
+            self.trigger_spell_abilities
+                .insert(parsed, std::sync::Arc::new(value));
         }
     }
 
@@ -2130,6 +2133,7 @@ impl SpellAbility {
     ) -> Option<&SpellAbility> {
         key.into_ability_key()
             .and_then(|parsed| self.trigger_spell_abilities.get(&parsed))
+            .map(std::sync::Arc::as_ref)
     }
 
     /// Update an existing triggering object.
