@@ -767,15 +767,17 @@ impl GameLoop {
                 });
             }
             if card.is_land() {
-                if crate::staticability::static_ability_cant_be_cast::cant_play_land_ability(
-                    &game.cards,
-                    card,
-                    player,
-                ) {
+                if must_be_instant
+                    || crate::staticability::static_ability_cant_be_cast::cant_play_land_ability(
+                        &game.cards,
+                        card,
+                        player,
+                    )
+                {
                     continue;
                 }
                 let land_sa = SpellAbility::new_land(Some(card_id), player);
-                if !must_be_instant && crate::spellability::land_ability::can_play(&land_sa, game) {
+                if crate::spellability::land_ability::can_play(&land_sa, game) {
                     playable.push(crate::agent::PlayOption {
                         card_id,
                         mode: crate::agent::PlayCardMode::Normal,
@@ -797,7 +799,6 @@ impl GameLoop {
                 // whatever its types are, so a land with Disguise is castable face down
                 // as well as playable as a land.
                 if card.has_morph
-                    && !must_be_instant
                     && !crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
                         &game.cards,
                         &crate::spellability::build_spell_ability_for_card_cast(game, card_id, player),
