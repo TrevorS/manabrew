@@ -91,6 +91,21 @@ pub struct TargetRestrictions {
 }
 
 impl TargetRestrictions {
+    /// Keep in sync with `SpellAbility::relational_target_ok`.
+    pub fn has_relational_restrictions(&self) -> bool {
+        self.same_controller
+            || self.different_controllers
+            || self.for_each_player
+            || self.different_names
+            || self.with_same_creature_type
+            || self.without_same_creature_type
+            || self.with_same_card_type
+            || self.different_cmc
+            || self.equal_toughness
+            || self.max_total_cmc.is_some()
+            || self.max_total_power.is_some()
+    }
+
     pub fn new_from_parsed(parsed: &ParsedParams<'_>, params: &Params) -> Option<Self> {
         let valid_tgts_str = parsed.get(keys::VALID_TGTS)?;
         let valid_tgts: Vec<String> = valid_tgts_str

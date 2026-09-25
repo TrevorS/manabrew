@@ -2285,6 +2285,43 @@ pub fn has_split_second_on_stack(game: &GameState) -> bool {
     false
 }
 
+/// Java `TargetSelection`: with relational restrictions the candidates are re-filtered through
+/// `SpellAbility.canTarget` after every pick (`SpellAbility.java:1496-1592`), so each pick sees
+/// the targets already chosen.
+fn choose_target_cards_for(
+    agent: &mut dyn PlayerAgent,
+    player: PlayerId,
+    valid: &[CardId],
+    min: usize,
+    max: usize,
+    sa: &SpellAbility,
+    game: &GameState,
+) -> Vec<CardId> {
+    if !sa
+        .target_restrictions
+        .as_ref()
+        .is_some_and(TargetRestrictions::has_relational_restrictions)
+    {
+        return agent.choose_target_cards(player, valid, min, max, sa);
+    }
+    let mut probe = sa.clone();
+    let mut chosen: Vec<CardId> = Vec::new();
+    let mut remaining = valid.to_vec();
+    while chosen.len() < max && remaining.iter().any(|cid| !chosen.contains(cid)) {
+        let Some(pick) =
+            agent.choose_next_target_card(player, &remaining, &chosen, min, max, &probe)
+        else {
+            break;
+        };
+        if !chosen.contains(&pick) {
+            chosen.push(pick);
+            probe.target_chosen.add(Some(pick), None);
+        }
+        remaining.retain(|&cid| probe.relational_target_ok(cid, game));
+    }
+    chosen
+}
+
 pub fn choose_targets_by_kind(
     agent: &mut dyn PlayerAgent,
     sa: &mut SpellAbility,
@@ -2424,12 +2461,14 @@ pub fn choose_targets_by_kind(
                 .collect();
             agent.snapshot_state(game, mana_pools);
             if max_targets > 1 && valid_players.is_empty() {
-                let chosen = agent.choose_target_cards(
+                let chosen = choose_target_cards_for(
+                    agent,
                     player,
                     &valid_cards,
                     min_targets.max(0) as usize,
                     max_targets as usize,
-                    &*sa,
+                    sa,
+                    game,
                 );
                 if let Some(&first) = chosen.first() {
                     sa.target_chosen.target_card = Some(first);
@@ -2462,12 +2501,14 @@ pub fn choose_targets_by_kind(
                 .collect();
             agent.snapshot_state(game, mana_pools);
             if max_targets > 1 {
-                let chosen = agent.choose_target_cards(
+                let chosen = choose_target_cards_for(
+                    agent,
                     player,
                     &valid,
                     min_targets.max(0) as usize,
                     max_targets as usize,
-                    &*sa,
+                    sa,
+                    game,
                 );
                 if let Some(&first) = chosen.first() {
                     sa.target_chosen.target_card = Some(first);
@@ -2494,12 +2535,14 @@ pub fn choose_targets_by_kind(
                 .collect();
             agent.snapshot_state(game, mana_pools);
             if max_targets > 1 {
-                let chosen = agent.choose_target_cards(
+                let chosen = choose_target_cards_for(
+                    agent,
                     player,
                     &valid,
                     min_targets.max(0) as usize,
                     max_targets as usize,
-                    &*sa,
+                    sa,
+                    game,
                 );
                 if let Some(&first) = chosen.first() {
                     sa.target_chosen.target_card = Some(first);
@@ -2529,12 +2572,14 @@ pub fn choose_targets_by_kind(
             }
             agent.snapshot_state(game, mana_pools);
             if max_targets > 1 {
-                let chosen = agent.choose_target_cards(
+                let chosen = choose_target_cards_for(
+                    agent,
                     player,
                     &valid,
                     min_targets.max(0) as usize,
                     max_targets as usize,
-                    &*sa,
+                    sa,
+                    game,
                 );
                 if let Some(&first) = chosen.first() {
                     sa.target_chosen.target_card = Some(first);

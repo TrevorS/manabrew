@@ -392,46 +392,6 @@ impl DeterministicAgent {
         chosen
     }
 
-    /// The loop above, with Java's re-filter: `chooseTargetsFor` rebuilds its candidate list
-    /// every iteration and keeps only what `SpellAbility.canTarget` still accepts, so the
-    /// relational restrictions see the targets chosen so far.
-    fn choose_targets_relational(
-        &mut self,
-        mut remaining: Vec<CardId>,
-        min: usize,
-        max: usize,
-        sa: &manabrew_engine::spellability::SpellAbility,
-    ) -> Vec<CardId> {
-        let Some(game) = self.snapshot_game.as_ref() else {
-            return self.choose_targets_like_java(remaining, min, max);
-        };
-        let mut probe = sa.clone();
-        let mut chosen: Vec<CardId> = Vec::new();
-        let mut rng = self.rng.borrow_mut();
-        while !target_number_valid(chosen.len(), min, max)
-            && remaining.iter().any(|cid| !chosen.contains(cid))
-        {
-            let Some(pick) = choice_space::pick_one(&remaining, &mut rng) else {
-                break;
-            };
-            if !chosen.contains(&pick) {
-                chosen.push(pick);
-                probe.target_chosen.add(Some(pick), None);
-            }
-            if chosen.len() >= max {
-                break;
-            }
-            remaining.retain(|&cid| probe.relational_target_ok(cid, game));
-            if chosen.len() >= min {
-                self.target_loop_drew_continue = true;
-                if !choice_space::pick_bool(&mut rng) {
-                    break;
-                }
-            }
-        }
-        chosen
-    }
-
     pub(crate) fn should_skip_priority_action_space(&self) -> bool {
         self.last_game_snapshot
             .as_ref()
@@ -2417,7 +2377,7 @@ impl PlayerAgent for DeterministicAgent {
         valid: &[CardId],
         min: usize,
         max: usize,
-        sa: &manabrew_engine::spellability::SpellAbility,
+        _sa: &manabrew_engine::spellability::SpellAbility,
     ) -> Vec<CardId> {
         if valid.is_empty() {
             return vec![];
@@ -2427,9 +2387,51 @@ impl PlayerAgent for DeterministicAgent {
         });
         if self.choosing_targets {
             self.log_target_candidates(&[], &sorted);
-            return self.choose_targets_relational(sorted, min, max, sa);
+            return self.choose_targets_like_java(sorted, min, max);
         }
         self.choose_cards_for_effect(player, valid, min, max)
+    }
+
+    /// One iteration of `DeterministicController.chooseTargetsFor`, whose candidates the engine
+    /// re-filters between picks. Java draws its stop-or-continue bool right after the pick that
+    /// meets the minimum while another target could still be added, and its loop then ends.
+    fn choose_next_target_card(
+        &mut self,
+        player: PlayerId,
+        candidates: &[CardId],
+        chosen: &[CardId],
+        min: usize,
+        max: usize,
+        sa: &manabrew_engine::spellability::SpellAbility,
+    ) -> Option<CardId> {
+        if !self.choosing_targets {
+            let fresh: Vec<CardId> = candidates
+                .iter()
+                .copied()
+                .filter(|cid| !chosen.contains(cid))
+                .collect();
+            return self
+                .choose_target_cards(player, &fresh, usize::from(chosen.len() < min), 1, sa)
+                .into_iter()
+                .next();
+        }
+        if chosen.len() >= min {
+            return None;
+        }
+        let sorted = choice_space::sort_native(candidates, |a, b| {
+            self.target_sort_key(*a).cmp(&self.target_sort_key(*b))
+        });
+        if chosen.is_empty() {
+            self.log_target_candidates(&[], &sorted);
+        }
+        let mut rng = self.rng.borrow_mut();
+        let pick = choice_space::pick_one(&sorted, &mut rng)?;
+        let reached = chosen.len() + usize::from(!chosen.contains(&pick));
+        if reached >= min && reached < max {
+            self.target_loop_drew_continue = true;
+            choice_space::pick_bool(&mut rng);
+        }
+        Some(pick)
     }
 
     fn choose_tap_type_for_cost(

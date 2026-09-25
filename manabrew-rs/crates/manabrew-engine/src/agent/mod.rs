@@ -859,6 +859,28 @@ pub trait PlayerAgent {
         self.choose_cards_for_effect(player, valid, min, max)
     }
 
+    /// Choose the next target of a node with relational restrictions, or stop. The engine
+    /// re-filters `candidates` after every pick, so they include the targets already `chosen`,
+    /// as Java's candidate list does.
+    fn choose_next_target_card(
+        &mut self,
+        player: PlayerId,
+        candidates: &[CardId],
+        chosen: &[CardId],
+        min: usize,
+        _max: usize,
+        sa: &crate::spellability::SpellAbility,
+    ) -> Option<CardId> {
+        let fresh: Vec<CardId> = candidates
+            .iter()
+            .copied()
+            .filter(|cid| !chosen.contains(cid))
+            .collect();
+        self.choose_target_cards(player, &fresh, usize::from(chosen.len() < min), 1, sa)
+            .into_iter()
+            .next()
+    }
+
     /// Choose cards to tap for a `tapXType` cost that has a total-power floor
     /// such as Crew. `card_powers` carries the effective tap-power value for
     /// each candidate under the active ability; `card_sort_powers` carries the
