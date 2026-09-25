@@ -339,6 +339,10 @@ pub enum ContextPredicate {
     AttackedThisCombat,
     BlockingSource,
     BlockedBySource,
+    BlockingAlone,
+    BlockingCreatureYouCtrl,
+    BlockingDefined(String),
+    IsBlockedByRemembered,
     WasCastFrom(CastOrigin),
     EnteredThisTurnFrom(ZoneType),
     EnteredUnder(TargetRef),
@@ -1208,6 +1212,14 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "attackedthiscombat" => SelectorPredicate::Context(ContextPredicate::AttackedThisCombat),
         "blockingsource" => SelectorPredicate::Context(ContextPredicate::BlockingSource),
         "blockedbysource" => SelectorPredicate::Context(ContextPredicate::BlockedBySource),
+        "blockedbysourcelki" => SelectorPredicate::Context(ContextPredicate::BlockedBySource),
+        "blockingalone" => SelectorPredicate::Context(ContextPredicate::BlockingAlone),
+        "blockingcreatureyouctrl" => {
+            SelectorPredicate::Context(ContextPredicate::BlockingCreatureYouCtrl)
+        }
+        "isblockedbyremembered" => {
+            SelectorPredicate::Context(ContextPredicate::IsBlockedByRemembered)
+        }
         "samename" => {
             SelectorPredicate::Relation(RelationPredicate::SharesNameWith(TargetRef::Source))
         }
@@ -1387,6 +1399,9 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
                 .map(|target| SelectorPredicate::Context(ContextPredicate::Blocking(Some(target))))
                 .unwrap_or_else(|| SelectorPredicate::Raw(normalized.to_string()))
         }
+        blocking if blocking.starts_with("blocking") => SelectorPredicate::Context(
+            ContextPredicate::BlockingDefined(normalized["blocking".len()..].to_string()),
+        ),
         attached if attached.starts_with("attachedto ") => {
             lower_attached_to_relation(normalized["AttachedTo ".len()..].trim())
                 .unwrap_or_else(|| SelectorPredicate::Raw(normalized.to_string()))

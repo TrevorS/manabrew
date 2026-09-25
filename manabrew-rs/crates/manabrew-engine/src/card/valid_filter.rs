@@ -945,16 +945,52 @@ fn matches_context_predicate(
         ContextPredicate::AttackedThisCombat => {
             card.damage_history.creature_attacked_this_combat > 0
         }
-        ContextPredicate::BlockingSource => context.combat.is_some_and(|combat| {
-            combat
-                .get_attackers_for(card.id)
-                .contains(&context.source_card.id)
+        ContextPredicate::BlockingSource => {
+            combat_blocks(context).contains(&(card.id, context.source_card.id))
+        }
+        ContextPredicate::BlockedBySource => {
+            combat_blocks(context).contains(&(context.source_card.id, card.id))
+        }
+        ContextPredicate::BlockingAlone => {
+            matches_blocking_predicate(None, card, context)
+                && context.game.is_some_and(|game| {
+                    game.last_state_battlefield_combat_lki
+                        .iter()
+                        .filter(|(_, combat_lki)| *combat_lki == Some(false))
+                        .count()
+                        == 1
+                })
+        }
+        ContextPredicate::BlockingCreatureYouCtrl => context.game.is_some_and(|game| {
+            combat_blocks(context).iter().any(|&(blocker, attacker)| {
+                let attacker = game.card(attacker);
+                blocker == card.id
+                    && attacker.zone == ZoneType::Battlefield
+                    && attacker.is_creature()
+                    && attacker.controller == context.source_controller
+            })
         }),
-        ContextPredicate::BlockedBySource => context.combat.is_some_and(|combat| {
-            combat
-                .get_blockers_for(card.id)
-                .contains(&context.source_card.id)
+        ContextPredicate::BlockingDefined(defined) => context.game.is_some_and(|game| {
+            let defined_cards = match context.spell_ability {
+                Some(sa) => crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                    game, sa, defined,
+                ),
+                None => crate::ability::ability_utils::get_defined_cards(
+                    game,
+                    Some(context.source_card.id),
+                    defined,
+                    Some(context.source_controller),
+                ),
+            };
+            combat_blocks(context)
+                .iter()
+                .any(|(blocker, attacker)| *blocker == card.id && defined_cards.contains(attacker))
         }),
+        ContextPredicate::IsBlockedByRemembered => {
+            combat_blocks(context).iter().any(|(blocker, attacker)| {
+                *attacker == card.id && context.remembered_cards.contains(blocker)
+            })
+        }
         ContextPredicate::WasCastFrom(origin) => {
             let suffix = match origin {
                 CastOrigin::Hand => "Hand",
@@ -1492,14 +1528,18 @@ fn matches_blocking_predicate(
                 combat.was_blocking(card.id)
             });
     };
-    let Some(combat) = context.combat else {
-        return false;
-    };
-    combat
-        .blockers
+    combat_blocks(context)
         .iter()
         .filter(|(blocker, _)| *blocker == card.id)
         .any(|(_, attacker)| relation_target_contains_id(target, *attacker, context))
+}
+
+fn combat_blocks<'a>(context: MatchContext<'a>) -> &'a [(CardId, CardId)] {
+    match (context.combat, context.game) {
+        (Some(combat), _) => &combat.blockers,
+        (None, Some(game)) => &game.turn.combat_block_assignments,
+        (None, None) => &[],
+    }
 }
 
 fn matches_blocked_by_valid_this_turn_target(
@@ -1880,8 +1920,17 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         "blockingsource" => {
             matches_context_predicate(&ContextPredicate::BlockingSource, card, context)
         }
-        "blockedbysource" => {
+        "blockedbysource" | "blockedbysourcelki" => {
             matches_context_predicate(&ContextPredicate::BlockedBySource, card, context)
+        }
+        "blockingalone" => {
+            matches_context_predicate(&ContextPredicate::BlockingAlone, card, context)
+        }
+        "blockingcreatureyouctrl" => {
+            matches_context_predicate(&ContextPredicate::BlockingCreatureYouCtrl, card, context)
+        }
+        "isblockedbyremembered" => {
+            matches_context_predicate(&ContextPredicate::IsBlockedByRemembered, card, context)
         }
         "samename" => matches_relation_predicate(
             &RelationPredicate::SharesNameWith(TargetRef::Source),
@@ -1982,6 +2031,11 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
                 matches_context_predicate(&ContextPredicate::Blocking(Some(target)), card, context)
             })
         }
+        blocking if blocking.starts_with("blocking") => matches_context_predicate(
+            &ContextPredicate::BlockingDefined(value["blocking".len()..].to_string()),
+            card,
+            context,
+        ),
         controlled if controlled.starts_with("controlledby ") => {
             matches_controlled_by_reference(value["ControlledBy ".len()..].trim(), card, context)
         }
@@ -2691,6 +2745,10 @@ fn matches_type_and_qualifier_parts(
                 | "attackedthisturn"
                 | "blockingsource"
                 | "blockedbysource"
+                | "blockedbysourcelki"
+                | "blockingalone"
+                | "blockingcreatureyouctrl"
+                | "isblockedbyremembered"
                 | "toplibrary"
                 | "exiledwithsource"
                 | "rememberedplayerctrl" => {
@@ -2699,6 +2757,11 @@ fn matches_type_and_qualifier_parts(
                     }
                 }
                 controlled if controlled.starts_with("controlledby ") => {
+                    if !legacy_matches_card_atom(raw, card, context) {
+                        return false;
+                    }
+                }
+                blocking if blocking.starts_with("blocking") => {
                     if !legacy_matches_card_atom(raw, card, context) {
                         return false;
                     }

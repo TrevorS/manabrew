@@ -1103,6 +1103,9 @@ impl CombatState {
     /// Remove a combatant (attacker or blocker) from combat.
     /// Mirrors Java `Combat.removeFromCombat()`.
     pub fn remove_from_combat(&mut self, card: CardId, game: &mut GameState) {
+        game.turn
+            .combat_block_assignments
+            .retain(|&(blocker, attacker)| blocker != card && attacker != card);
         // Check if attacker
         if self.attackers.iter().any(|(a, _)| *a == card) {
             self.unregister_attacker(card);
