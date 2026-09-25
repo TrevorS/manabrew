@@ -1532,12 +1532,26 @@ impl SpellAbility {
     /// Mirrors Java's `SpellAbility.setupNewTargets()`.
     pub fn setup_new_targets(
         &mut self,
+        force_targeting_player: PlayerId,
         game: &GameState,
         agents: &mut [Box<dyn PlayerAgent>],
         mana_pools: &[ManaPool],
-    ) -> bool {
-        self.clear_targets();
-        self.setup_targets(game, agents, mana_pools)
+    ) {
+        let mut ancestor_targets = Vec::new();
+        let mut current = Some(self);
+        while let Some(sa) = current {
+            if sa.uses_targeting() {
+                sa.unique_targets = ancestor_targets.clone();
+                let old_targets = sa.target_chosen.clone();
+                if !agents[force_targeting_player.index()]
+                    .choose_new_targets_for(sa, game, mana_pools, true)
+                {
+                    sa.target_chosen = old_targets;
+                }
+                collect_target_entities(&sa.target_chosen, &mut ancestor_targets);
+            }
+            current = sa.sub_ability.as_deref_mut();
+        }
     }
 
     // ── Convoke / Emerge / Offering ───────────────────────────────────────

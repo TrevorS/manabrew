@@ -506,6 +506,23 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
         self.targeting_cancellable = cancellable;
     }
 
+    fn choose_new_targets_for(
+        &mut self,
+        sa: &mut manabrew_engine::spellability::SpellAbility,
+        game: &GameState,
+        mana_pools: &[ManaPool],
+        optional: bool,
+    ) -> bool {
+        let old_targets = std::mem::take(&mut sa.target_chosen);
+        let cancellable = std::mem::replace(&mut self.targeting_cancellable, optional);
+        let chosen = self.choose_targets_for(sa, game, mana_pools);
+        self.targeting_cancellable = cancellable;
+        if !chosen {
+            sa.target_chosen = old_targets;
+        }
+        chosen
+    }
+
     fn get_pass_until(&self) -> Option<manabrew_engine::agent::PassUntilTarget> {
         self.pass_until
     }

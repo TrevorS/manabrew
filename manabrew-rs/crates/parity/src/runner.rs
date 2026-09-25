@@ -929,6 +929,7 @@ impl PlayerAgent for CapturingAgent {
 
     parity_agent_callback! {
         fn choose_targets_for(&mut self, sa: &mut manabrew_engine::spellability::SpellAbility, game: &GameState, mana_pools: &[manabrew_engine::mana::ManaPool]) -> bool => "choose_targets_for";
+        fn choose_new_targets_for(&mut self, sa: &mut manabrew_engine::spellability::SpellAbility, game: &GameState, mana_pools: &[manabrew_engine::mana::ManaPool], optional: bool) -> bool => "choose_new_targets_for";
         fn mulligan_decision(&mut self, player: PlayerId, hand: &[CardId], mulligan_count: u32) -> bool => "mulligan_decision";
         fn choose_cards_to_bottom(&mut self, player: PlayerId, hand: &[CardId], count: usize) -> Vec<CardId> => "choose_cards_to_bottom";
         fn choose_attackers(&mut self, player: PlayerId, available: &[CardId], possible_defenders: &[DefenderId]) -> Vec<(CardId, DefenderId)> => "choose_attackers";

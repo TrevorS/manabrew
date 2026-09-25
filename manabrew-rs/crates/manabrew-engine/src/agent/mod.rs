@@ -291,6 +291,16 @@ pub trait PlayerAgent {
 
     fn set_targeting_cancellable(&mut self, _cancellable: bool) {}
 
+    fn choose_new_targets_for(
+        &mut self,
+        _sa: &mut SpellAbility,
+        _game: &GameState,
+        _mana_pools: &[ManaPool],
+        _optional: bool,
+    ) -> bool {
+        false
+    }
+
     /// Choose a target player (e.g. for Lightning Bolt targeting a player).
     /// `sa` is the active spell ability context (source card, API type, etc.) for UI display.
     fn choose_target_player(

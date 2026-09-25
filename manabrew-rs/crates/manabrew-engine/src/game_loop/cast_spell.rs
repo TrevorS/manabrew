@@ -3023,7 +3023,7 @@ impl GameLoop {
                     agents[player.index()].notify(
                         crate::agent::notification::GameNotification::Event(
                             crate::agent::GameLogEvent::stack(format!(
-                                "Choose target for Replicate copy {}/{}",
+                                "Choose new targets for Replicate copy {}/{}",
                                 i + 1,
                                 replicate_count
                             ))
@@ -3032,7 +3032,7 @@ impl GameLoop {
                         ),
                     );
                     copy.spell_ability
-                        .setup_targets(game, agents, &self.mana_pools);
+                        .setup_new_targets(player, game, agents, &self.mana_pools);
                     crate::ability::effects::emit_targeting_triggers_for_sa(
                         &mut self.trigger_handler,
                         game,

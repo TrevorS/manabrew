@@ -20,7 +20,6 @@ pub fn build_spell_ability(sa: &mut SpellAbility) {
 ///
 /// Mirrors Java's `CopySpellAbilityEffect.java` (basic version).
 /// Creates a clone of the topmost spell on the stack with the same targets.
-/// Full retargeting support deferred.
 ///
 /// # Card script examples
 /// ```text
@@ -119,9 +118,14 @@ fn push_copy(
     original: &crate::spellability::SpellAbility,
     controller: crate::ids::PlayerId,
 ) {
-    let copy = crate::card::card_factory::copy_spell_ability_and_possibly_host(
+    let mut copy = crate::card::card_factory::copy_spell_ability_and_possibly_host(
         ctx.game, sa, original, controller,
     );
+    copy.may_choose_new_targets = crate::parsing::raw_has_key(&sa.ability_text, "MayChooseTarget");
+    if copy.may_choose_new_targets {
+        ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        copy.setup_new_targets(controller, ctx.game, ctx.agents, ctx.mana_pools);
+    }
 
     // Push the copy onto the stack (it will resolve like a normal spell)
     let copy_entry = crate::spellability::StackEntry {
