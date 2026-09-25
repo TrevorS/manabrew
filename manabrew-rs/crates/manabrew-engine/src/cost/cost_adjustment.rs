@@ -730,6 +730,16 @@ fn check_requirement(
         }
     }
 
+    if !st_ab.ir.affected_zones.is_empty() {
+        let zone = match (ability, spell_card.cast_from) {
+            (None, Some(cast_from)) => cast_from,
+            _ => spell_card.zone,
+        };
+        if !st_ab.ir.affected_zones.contains(&zone) {
+            return false;
+        }
+    }
+
     if let Some(valid_target) = st_ab.ir.valid_target.as_ref() {
         let target_valid = targets.iter().any(|&tid| {
             matches_valid_card(Some(valid_target), game.card(tid), source, game, targets)
