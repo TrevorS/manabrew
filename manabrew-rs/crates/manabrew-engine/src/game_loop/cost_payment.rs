@@ -1519,6 +1519,7 @@ impl GameLoop {
                         player,
                         resolved_amount,
                         decided,
+                        sa.as_deref_mut(),
                     ) {
                         payment_ok = false;
                         break;
@@ -2358,6 +2359,7 @@ impl GameLoop {
                         player,
                         resolved_amount,
                         prechosen_evidence,
+                        sa.as_deref_mut(),
                     ) {
                         payment_ok = false;
                         break;
@@ -3360,7 +3362,35 @@ impl GameLoop {
         player: PlayerId,
         amount: i32,
         prechosen: Option<&[CardId]>,
+        sa: Option<&mut SpellAbility>,
     ) -> bool {
+        if let (Some(picks), true) = (prechosen, game.mirror_forge_bugs) {
+            // Forge bug: `CostCollectEvidence.doListPayment` re-exiles without rechecking the total.
+            let (already_exiled, chosen): (Vec<CardId>, Vec<CardId>) = picks
+                .iter()
+                .partition(|&&cid| game.card(cid).zone == ZoneType::Exile);
+            if let Some(sa) = sa {
+                for key in [
+                    crate::cost::cost_exile::HASH_LKI,
+                    crate::cost::cost_exile::HASH_CARDS,
+                ] {
+                    if let Some(paid) = sa.paid_hash.get_mut(key) {
+                        paid.retain(|id| {
+                            !already_exiled.iter().any(|cid| id == &cid.0.to_string())
+                        });
+                    }
+                }
+            }
+            super::exile_cost_cards(
+                game,
+                &mut self.replacement_runtime(),
+                agents,
+                player,
+                &chosen,
+                true,
+            );
+            return true;
+        }
         let valid: Vec<CardId> = game
             .cards_in_zone(ZoneType::Graveyard, player)
             .iter()
