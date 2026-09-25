@@ -266,6 +266,7 @@ pub const ENTWINE: &str = "Entwine";
 pub const REMEMBER_OBJECTS: &str = "RememberObjects";
 pub const REMEMBER_PLAYERS: &str = "RememberPlayers";
 pub const REMEMBER_REMOVED_CARDS: &str = "RememberRemovedCards";
+pub const REMEMBER_EACH: &str = "RememberEach";
 pub const REMEMBER_SVAR_AMOUNT: &str = "RememberSVarAmount";
 pub const REMEMBER_TAPPED: &str = "RememberTapped";
 
@@ -376,6 +377,7 @@ pub const PHASES: &str = "Phases";
 pub const ACTIVE_PHASES: &str = "ActivePhases";
 pub const STEP: &str = "Step";
 pub const TRIGGER: &str = "Trigger";
+pub const TRIGGER_AMOUNT: &str = "TriggerAmount";
 pub const TRIGGER_DESCRIPTION: &str = "TriggerDescription";
 pub const TRIGGER_ZONES: &str = "TriggerZones";
 pub const TRIGGERS: &str = "Triggers";

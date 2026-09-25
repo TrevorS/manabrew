@@ -305,6 +305,8 @@ pub struct SpellAbilityIr {
     pub remember_objects_triggered_attacker_lki_copy: bool,
     pub remember_number: bool,
     pub remember_svar_amount: Option<String>,
+    pub remember_each: bool,
+    pub trigger_amount: Option<String>,
     pub remember_exiled: bool,
     pub delayed_trigger_defined_player: Option<DefinedExpr>,
     pub delayed_trigger_defined_player_text: Option<String>,
@@ -881,6 +883,8 @@ impl SpellAbilityIr {
             ),
             remember_number: params.has(keys::REMEMBER_NUMBER),
             remember_svar_amount: params.get(keys::REMEMBER_SVAR_AMOUNT).map(str::to_string),
+            remember_each: params.has(keys::REMEMBER_EACH),
+            trigger_amount: params.get(keys::TRIGGER_AMOUNT).map(str::to_string),
             remember_exiled: params.has("RememberExiled"),
             delayed_trigger_defined_player: params
                 .get(keys::DELAYED_TRIGGER_DEFINED_PLAYER)
