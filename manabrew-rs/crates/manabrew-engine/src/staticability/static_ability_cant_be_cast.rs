@@ -142,8 +142,10 @@ pub fn apply_cant_be_cast_ability(
     // restriction does not apply.
     if st_ab.ir.sorcery_speed || st_ab.ir.only_sorcery_speed {
         if let Some(g) = game {
-            let can_cast_sorcery =
-                activator == g.active_player() && g.turn.is_main_phase() && g.stack.is_empty();
+            // The spell being cast is not on Java's stack until `MagicStack.add`.
+            let can_cast_sorcery = activator == g.active_player()
+                && g.turn.is_main_phase()
+                && g.stack.iter().all(|entry| entry.is_pending_cast);
             if can_cast_sorcery {
                 return false;
             }

@@ -1798,6 +1798,18 @@ impl GameLoop {
             None
         };
 
+        if sa.is_spell
+            && crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_in_context(
+                &game.cards,
+                &sa,
+                game.card(card_id),
+                player,
+                Some(game),
+            )
+        {
+            rollback_cast!();
+        }
+
         if !sa.overloaded {
             agents[player.index()].set_targeting_cancellable(true);
             let targets_ok = sa.setup_targets(game, agents, &self.mana_pools);

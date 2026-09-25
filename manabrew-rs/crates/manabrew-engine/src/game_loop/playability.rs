@@ -783,6 +783,13 @@ impl GameLoop {
                 // as well as playable as a land.
                 if card.has_morph
                     && !must_be_instant
+                    && !crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
+                        &game.cards,
+                        &crate::spellability::build_spell_ability_for_card_cast(game, card_id, player),
+                        card,
+                        player,
+                        game,
+                    )
                     && self.can_pay_face_down_cast(
                         game,
                         player,
@@ -2434,7 +2441,15 @@ impl GameLoop {
         chosen_types_by_source: &crate::HashMap<CardId, String>,
     ) -> Vec<crate::agent::PlayOption> {
         let card = game.card(card_id);
-        if !card.has_morph {
+        if !card.has_morph
+            || crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
+                &game.cards,
+                &crate::spellability::build_spell_ability_for_card_cast(game, card_id, player),
+                card,
+                player,
+                game,
+            )
+        {
             return Vec::new();
         }
         let morph = crate::agent::PlayOption {
