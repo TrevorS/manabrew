@@ -1051,6 +1051,7 @@ impl GameLoop {
                         card_id,
                         type_filter,
                         amount.resolve(game, card_id, player),
+                        decided,
                     );
                 }
                 CostPart::ExileFromSameGrave {
@@ -1840,6 +1841,7 @@ impl GameLoop {
                         card_id,
                         type_filter,
                         amount.resolve(game, card_id, player),
+                        decided,
                     );
                 }
                 CostPart::ExileFromSameGrave {
@@ -2727,6 +2729,7 @@ impl GameLoop {
                 ..
             } => min_total_power.is_none() && type_filter != "OriginalHost",
             CostPart::ExileCtrlOrGrave { .. }
+            | CostPart::ExileFromAnyGrave { .. }
             | CostPart::CollectEvidence(_)
             | CostPart::Reveal { .. }
             | CostPart::Blight(_)
@@ -2760,6 +2763,20 @@ impl GameLoop {
                     &Self::exile_cost_candidates(game, player, source, type_filter, *from),
                     amount,
                 )
+            }
+            CostPart::ExileFromAnyGrave {
+                amount,
+                type_filter,
+            } => {
+                let amount = amount.resolve(game, source, player);
+                Some(self.choose_exile_from_any_grave_cards(
+                    game,
+                    agents,
+                    player,
+                    source,
+                    type_filter,
+                    amount,
+                ))
             }
             CostPart::ExileCtrlOrGrave {
                 amount,
@@ -2863,6 +2880,7 @@ impl GameLoop {
                 part,
                 CostPart::Exile { .. }
                     | CostPart::ExileCtrlOrGrave { .. }
+                    | CostPart::ExileFromAnyGrave { .. }
                     | CostPart::Reveal { .. }
                     | CostPart::Blight(_)
                     | CostPart::Forage
@@ -3037,6 +3055,7 @@ impl GameLoop {
 
     /// Exile `amount` cards from ANY player's graveyard matching `type_filter`.
     /// Mirrors Java's CostExile with zoneMode=-1 (ExileAnyGrave).
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn pay_exile_from_any_grave_cost(
         &mut self,
         game: &mut GameState,
@@ -3045,35 +3064,58 @@ impl GameLoop {
         source: CardId,
         type_filter: &str,
         amount: i32,
+        decided: Option<&[CardId]>,
     ) {
+        let chosen = match decided {
+            Some(cards) => cards.to_vec(),
+            None => self.choose_exile_from_any_grave_cards(
+                game,
+                agents,
+                player,
+                source,
+                type_filter,
+                amount,
+            ),
+        };
+        for chosen in chosen {
+            let owner = game.card(chosen).owner;
+            self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
+            self.record_paid_cost_exile(game, source, chosen);
+            crate::ability::effects::emit_zone_trigger(
+                &mut self.trigger_handler,
+                chosen,
+                ZoneType::Graveyard,
+                ZoneType::Exile,
+            );
+        }
+    }
+
+    fn choose_exile_from_any_grave_cards(
+        &mut self,
+        game: &GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        source: CardId,
+        type_filter: &str,
+        amount: i32,
+    ) -> Vec<CardId> {
         let base_filter = crate::cost::normalize_exile_base_filter(type_filter);
         // TriggeredNewCard → the source card (it just entered the new zone,
         // e.g. Greenwarden's graveyard instance for its death trigger).
         if base_filter.contains("TriggeredNewCard") {
             let src = game.card(source);
             if src.zone != ZoneType::Graveyard || !can_exile_for_cost(game, source) {
-                return;
+                return Vec::new();
             }
             // Java uses chooseCardsForEffect here (pick_count+pick_index+
             // pick_many_unique) — match the RNG pattern even with 1 option.
-            let valid = vec![source];
-            let chosen = agents[player.index()]
-                .choose_cards_for_effect(player, &valid, 1, 1)
+            return agents[player.index()]
+                .choose_cards_for_effect(player, &[source], 1, 1)
                 .into_iter()
-                .next();
-            if let Some(chosen) = chosen {
-                let owner = game.card(chosen).owner;
-                self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
-                self.record_paid_cost_exile(game, source, chosen);
-                crate::ability::effects::emit_zone_trigger(
-                    &mut self.trigger_handler,
-                    chosen,
-                    ZoneType::Graveyard,
-                    ZoneType::Exile,
-                );
-            }
-            return;
+                .take(1)
+                .collect();
         }
+        let mut chosen = Vec::new();
         for _ in 0..amount {
             let valid: Vec<CardId> = game
                 .players
@@ -3081,20 +3123,21 @@ impl GameLoop {
                 .map(|p| p.id)
                 .flat_map(|pid| game.cards_in_zone(ZoneType::Graveyard, pid).to_vec())
                 .filter(|&cid| {
-                    (base_filter == "Card"
-                        || base_filter.is_empty()
-                        || crate::ability::effects::matches_change_type(
-                            game.card(cid),
-                            &base_filter,
-                            &[],
-                        ))
+                    !chosen.contains(&cid)
+                        && (base_filter == "Card"
+                            || base_filter.is_empty()
+                            || crate::ability::effects::matches_change_type(
+                                game.card(cid),
+                                &base_filter,
+                                &[],
+                            ))
                         && can_exile_for_cost(game, cid)
                 })
                 .collect();
             if valid.is_empty() {
                 break;
             }
-            if let Some(chosen) = self.choose_cost_card_from_zone(
+            if let Some(card) = self.choose_cost_card_from_zone(
                 game,
                 agents,
                 player,
@@ -3102,17 +3145,10 @@ impl GameLoop {
                 ZoneType::Graveyard,
                 source,
             ) {
-                let owner = game.card(chosen).owner;
-                self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
-                self.record_paid_cost_exile(game, source, chosen);
-                crate::ability::effects::emit_zone_trigger(
-                    &mut self.trigger_handler,
-                    chosen,
-                    ZoneType::Graveyard,
-                    ZoneType::Exile,
-                );
+                chosen.push(card);
             }
         }
+        chosen
     }
 
     /// Exile `amount` cards from the same graveyard matching `type_filter`.
