@@ -49,10 +49,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
 
-        let lib_len = ctx.game.cards_in_zone(ZoneType::Library, target).len();
-        if lib_len == 0 || num == 0 {
-            return;
+        if num == 0 {
+            continue;
         }
+        let lib_len = ctx.game.cards_in_zone(ZoneType::Library, target).len();
 
         let count = num.min(lib_len);
 
