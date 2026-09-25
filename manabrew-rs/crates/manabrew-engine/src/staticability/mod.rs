@@ -21,6 +21,7 @@ pub mod static_ability_cant_draw;
 pub mod static_ability_cant_exile;
 pub mod static_ability_cant_gain_lose_pay_life;
 pub mod static_ability_cant_phase;
+pub mod static_ability_cant_prevent_damage;
 pub mod static_ability_cant_put_counter;
 pub mod static_ability_cant_regenerate;
 pub mod static_ability_cant_sacrifice;

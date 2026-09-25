@@ -1,41 +1,27 @@
-use std::sync::Arc;
-
-use forge_foundation::ZoneType;
-
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::ids::CardId;
 use crate::staticability::StaticMode;
 
 /// Check whether damage from `source_id` cannot be prevented.
 /// Mirrors Java's StaticAbilityCantPreventDamage.cantPreventDamage().
-pub fn cant_prevent_damage(cards: &[Arc<Card>], source_id: CardId, is_combat: bool) -> bool {
-    let source_card = &cards[source_id.index()];
-
-    for static_source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {
-        for st_ab in static_source
+pub fn cant_prevent_damage(game: &GameState, source_id: CardId, is_combat: bool) -> bool {
+    let source_card = game.card(source_id);
+    for host in game
+        .cards
+        .iter()
+        .filter(|c| c.zone.is_static_ability_source() || c.id == source_id)
+    {
+        for st_ab in host
             .static_abilities
             .iter()
-            .filter(|sa| sa.check_mode(&StaticMode::CantPreventDamage))
+            .filter(|sa| sa.check_conditions_full(&StaticMode::CantPreventDamage, host, game))
         {
-            if applies(st_ab, source_card, static_source, is_combat) {
+            if applies(st_ab, source_card, host, is_combat) {
                 return true;
             }
         }
     }
-
-    // Java also considers the damage source itself as a potential host.
-    if source_card.zone != ZoneType::Battlefield {
-        for st_ab in source_card
-            .static_abilities
-            .iter()
-            .filter(|sa| sa.check_mode(&StaticMode::CantPreventDamage))
-        {
-            if applies(st_ab, source_card, source_card, is_combat) {
-                return true;
-            }
-        }
-    }
-
     false
 }
 

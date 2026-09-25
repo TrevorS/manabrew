@@ -983,6 +983,7 @@ struct ReplaceDamageBatch {
     executed_damage_map: indexmap::IndexMap<ReplaceDamageKey, Vec<usize>>,
     replacement_result_map: HashMap<(ReplaceDamageKey, usize), ReplacementResult>,
     prevented_amount: HashMap<usize, i32>,
+    no_prevent_damage: HashSet<usize>,
 }
 
 pub(crate) fn damage_run_params(
@@ -1062,6 +1063,11 @@ fn get_possible_replace_damage_list(
             }
             let run_params = damage_run_params(source, target, damage, is_combat);
             let index = batch.run_params.len();
+            if crate::staticability::static_ability_cant_prevent_damage::cant_prevent_damage(
+                game, source, is_combat,
+            ) {
+                batch.no_prevent_damage.insert(index);
+            }
             for (key, re) in damage_replacement_list(game, &run_params) {
                 batch.replace_damage_list[player_index]
                     .entry(key)
@@ -1088,14 +1094,28 @@ fn run_single_replace_damage_effect(
     let effect = batch.effects[&re].clone();
     let source = batch.run_params[index].0;
     let (target, damage) = replaced_damage(&batch.run_params[index].1);
-    let res = execute_effect(
-        game,
-        re.0,
-        &effect,
-        &mut batch.run_params[index].1,
-        agents,
-        None,
-    );
+    let is_prevention =
+        effect.prevents() || effect.base.card_trait_base.has_param("PreventionEffect");
+    let res = if is_prevention && batch.no_prevent_damage.contains(&index) {
+        if confirm_optional_replacement(game, re.0, &effect, &batch.run_params[index].1, agents) {
+            let prevented = if effect.base.card_trait_base.has_param("AlwaysReplace") {
+                damage
+            } else {
+                0
+            };
+            batch.prevented_amount.insert(index, prevented);
+        }
+        ReplacementResult::NotReplaced
+    } else {
+        execute_effect(
+            game,
+            re.0,
+            &effect,
+            &mut batch.run_params[index].1,
+            agents,
+            None,
+        )
+    };
     let (new_target, new_damage) = replaced_damage(&batch.run_params[index].1);
 
     if res != ReplacementResult::NotReplaced {
@@ -1141,7 +1161,7 @@ fn run_single_replace_damage_effect(
         }
         _ => {
             damage_map.remove(source, target);
-            if effect.prevents() || effect.base.card_trait_base.has_param("PreventionEffect") {
+            if is_prevention {
                 prevent_map.put(source, target, damage);
                 batch.prevented_amount.insert(index, damage);
             }
@@ -1187,7 +1207,9 @@ fn execute_replace_damage_buffered_sa(
             let mut damage_sum = 0;
 
             executed_param_list.retain(|&index| {
-                if batch.replacement_result_map[&(re, index)] == ReplacementResult::NotReplaced {
+                if batch.replacement_result_map[&(re, index)] == ReplacementResult::NotReplaced
+                    && (!is_prevention || !batch.no_prevent_damage.contains(&index))
+                {
                     return false;
                 }
                 let (source, ref event) = batch.run_params[index];
@@ -1261,6 +1283,7 @@ pub fn run_replace_damage(
         executed_damage_map: indexmap::IndexMap::new(),
         replacement_result_map: HashMap::default(),
         prevented_amount: HashMap::default(),
+        no_prevent_damage: HashSet::default(),
     };
 
     get_possible_replace_damage_list(game, &mut batch, is_combat, damage_map);
@@ -1667,6 +1690,31 @@ fn collect_effects(
     result
 }
 
+fn confirm_optional_replacement(
+    game: &GameState,
+    card_id: CardId,
+    effect: &ReplacementEffect,
+    event: &ReplacementEvent,
+    agents: Option<&mut [Box<dyn PlayerAgent>]>,
+) -> bool {
+    if !effect.ir.optional {
+        return true;
+    }
+    let decider = optional_decider_for_effect(effect, game, card_id, event)
+        .unwrap_or_else(|| affected_player_for_event(event, game));
+    let host = game.card(card_id);
+    let question = replacement_question(effect, host, game, event);
+    match agents {
+        Some(agents) => agents[decider.index()].confirm_replacement_effect(
+            decider,
+            &question,
+            &effect.description(host, game),
+            Some(card_id),
+        ),
+        None => true,
+    }
+}
+
 /// Execute a single replacement effect, mutating the event parameters.
 ///
 /// Dispatches to the per-type module's `execute()` function.
@@ -1724,24 +1772,8 @@ fn execute_effect(
         replace_untap,
     };
 
-    if effect.ir.optional {
-        let decider = optional_decider_for_effect(effect, game, card_id, event)
-            .unwrap_or_else(|| affected_player_for_event(event, game));
-        let host = game.card(card_id);
-        let question = replacement_question(effect, host, game, event);
-        let confirmed = if let Some(agents) = agents.as_deref_mut() {
-            agents[decider.index()].confirm_replacement_effect(
-                decider,
-                &question,
-                &effect.description(host, game),
-                Some(card_id),
-            )
-        } else {
-            true
-        };
-        if !confirmed {
-            return ReplacementResult::NotReplaced;
-        }
+    if !confirm_optional_replacement(game, card_id, effect, event, agents.as_deref_mut()) {
+        return ReplacementResult::NotReplaced;
     }
 
     match effect.event {
