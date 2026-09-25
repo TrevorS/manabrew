@@ -1440,6 +1440,45 @@ impl SpellAbility {
         true
     }
 
+    /// The `hasParam` block of Java `SpellAbility.canTarget` (`SpellAbility.java:1420-1449`).
+    pub fn param_target_ok(&self, candidate: CardId, game: &GameState) -> bool {
+        let cand = game.card(candidate);
+        if let Some(defined) = self.ir.targets_with_defined_controller_text.as_deref() {
+            let players = crate::ability::ability_utils::resolve_defined_players_with_sa(
+                defined,
+                self,
+                self.activating_player,
+                game,
+            );
+            if !players.is_empty() && !players.contains(&cand.controller) {
+                return false;
+            }
+        }
+        if let Some(defined) =
+            crate::parsing::raw_get(&self.ability_text, "TargetsWithSharedCardType")
+        {
+            let types = crate::parsing::raw_get(&self.ability_text, "TargetsWithSharedTypes");
+            let shares = |other: &crate::card::Card| match types {
+                Some(types) => types
+                    .split(',')
+                    .map(str::trim)
+                    .any(|t| cand.has_string_type(t) && other.has_string_type(t)),
+                None => cand.shares_card_type_with(other),
+            };
+            if !crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                game,
+                self,
+                defined.trim(),
+            )
+            .into_iter()
+            .all(|other| shares(game.card(other)))
+            {
+                return false;
+            }
+        }
+        true
+    }
+
     pub fn can_target(&self, card: CardId, game: &GameState) -> bool {
         if let Some(ref tr) = self.target_restrictions {
             let target = game.card(card);
@@ -1458,23 +1497,8 @@ impl SpellAbility {
                         "Card",
                     ))
                 && card_allowed_by_unique(self, card)
+                && self.param_target_ok(card, game)
                 && self.relational_target_ok(card, game)
-                && self
-                    .ir
-                    .targets_with_defined_controller_text
-                    .as_deref()
-                    .map(|defined| {
-                        crate::ability::ability_utils::resolve_defined_players_with_sa(
-                            defined,
-                            self,
-                            self.activating_player,
-                            game,
-                        )
-                    })
-                    .map(|players| {
-                        players.is_empty() || players.contains(&game.card(card).controller)
-                    })
-                    .unwrap_or(true)
                 && target_restrictions::can_be_targeted_by_sa(
                     game,
                     card,
@@ -2242,7 +2266,7 @@ pub fn choose_targets_by_kind(
         let cards: Vec<CardId> = card_util::get_valid_cards_to_target(game, sa)
             .into_iter()
             .filter(|&cid| game.card(cid).zone != forge_foundation::ZoneType::Stack)
-            .filter(|&cid| target_allowed_by_defined_controller(game, sa, cid))
+            .filter(|&cid| sa.param_target_ok(cid, game))
             .filter(|&cid| card_allowed_by_unique(sa, cid))
             .collect();
         let stack = target_restrictions::get_stack_target_candidates(game, sa);
@@ -2373,7 +2397,7 @@ pub fn choose_targets_by_kind(
         TargetKind::Creature(_) => {
             let valid: Vec<CardId> = card_util::get_valid_cards_to_target(game, sa)
                 .into_iter()
-                .filter(|&cid| target_allowed_by_defined_controller(game, sa, cid))
+                .filter(|&cid| sa.param_target_ok(cid, game))
                 .filter(|&cid| card_allowed_by_unique(sa, cid))
                 .filter(|&cid| card_allowed_by_unique(sa, cid))
                 .collect();
@@ -2405,7 +2429,7 @@ pub fn choose_targets_by_kind(
         TargetKind::Permanent(_) => {
             let valid: Vec<CardId> = card_util::get_valid_cards_to_target(game, sa)
                 .into_iter()
-                .filter(|&cid| target_allowed_by_defined_controller(game, sa, cid))
+                .filter(|&cid| sa.param_target_ok(cid, game))
                 .filter(|&cid| card_allowed_by_unique(sa, cid))
                 .filter(|&cid| card_allowed_by_unique(sa, cid))
                 .collect();
@@ -2437,7 +2461,7 @@ pub fn choose_targets_by_kind(
         TargetKind::CardInZone { zone, .. } => {
             let valid: Vec<CardId> = card_util::get_valid_cards_to_target(game, sa)
                 .into_iter()
-                .filter(|&cid| target_allowed_by_defined_controller(game, sa, cid))
+                .filter(|&cid| sa.param_target_ok(cid, game))
                 .filter(|&cid| card_allowed_by_unique(sa, cid))
                 .filter(|&cid| card_allowed_by_unique(sa, cid))
                 .collect();
@@ -2531,23 +2555,6 @@ fn target_allowed_by_unique(sa: &SpellAbility, entity: crate::agent::GameEntity)
 
 fn card_allowed_by_unique(sa: &SpellAbility, card_id: CardId) -> bool {
     target_allowed_by_unique(sa, crate::agent::GameEntity::Card(card_id))
-}
-
-fn target_allowed_by_defined_controller(
-    game: &GameState,
-    sa: &SpellAbility,
-    card_id: CardId,
-) -> bool {
-    let Some(defined) = sa.ir.targets_with_defined_controller_text.as_deref() else {
-        return true;
-    };
-    let players = crate::ability::ability_utils::resolve_defined_players_with_sa(
-        defined,
-        sa,
-        sa.activating_player,
-        game,
-    );
-    players.is_empty() || players.contains(&game.card(card_id).controller)
 }
 
 fn choose_targeting_player(
