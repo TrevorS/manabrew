@@ -19,6 +19,8 @@ pub struct TriggerSpellAbilityCastOrCopy {
     pub valid_sa_on_card: Option<String>,
     #[serde(default)]
     pub targets_valid: Option<crate::parsing::CompiledSelector>,
+    #[serde(default)]
+    pub is_single_target: bool,
 }
 
 impl TriggerSpellAbilityCastOrCopy {
@@ -28,6 +30,7 @@ impl TriggerSpellAbilityCastOrCopy {
         let valid_sa = params.get_cloned(keys::VALID_SA);
         let valid_sa_on_card = params.get_cloned(keys::VALID_SA_ON_CARD);
         let targets_valid = params.selector_cloned(keys::TARGETS_VALID);
+        let is_single_target = params.has("IsSingleTarget");
         let trigger_type = match mode_str {
             "SpellCast" => TriggerType::SpellCast,
             "AbilityCast" => TriggerType::AbilityCast,
@@ -48,6 +51,7 @@ impl TriggerSpellAbilityCastOrCopy {
             valid_sa,
             valid_sa_on_card,
             targets_valid,
+            is_single_target,
         })
     }
 }
@@ -143,10 +147,18 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
             false
         });
 
+        let single_target_matches = !self.is_single_target
+            || params
+                .source_sa
+                .as_ref()
+                .or(params.spell_ability.as_ref())
+                .is_some_and(has_single_target);
+
         valid_card_matches
             && valid_sa_matches
             && valid_sa_on_card_matches
             && targets_valid_matches
+            && single_target_matches
             && trigger.matches_optional_valid_player_filter(
                 &self.valid_activating_player,
                 params.activator.or(params.spell_controller),
@@ -205,6 +217,31 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
                 .unwrap_or_default()
         )
     }
+}
+
+fn has_single_target(sa: &SpellAbility) -> bool {
+    let mut cards = Vec::new();
+    let mut players = Vec::new();
+    let mut spells = Vec::new();
+    for tc in sa.get_all_target_choices() {
+        for card in tc.all_target_cards() {
+            if !cards.contains(&card) {
+                cards.push(card);
+            }
+        }
+        for player in tc.all_target_players() {
+            if !players.contains(&player) {
+                players.push(player);
+            }
+        }
+        if let Some(spell) = tc
+            .target_stack_entry
+            .filter(|spell| !spells.contains(spell))
+        {
+            spells.push(spell);
+        }
+    }
+    cards.len() + players.len() + spells.len() == 1
 }
 
 /// Keep in sync with `SpellAbilityProperty.hasProperty`: a property it does not know falls back to
