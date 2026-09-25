@@ -360,19 +360,25 @@ impl GameLoop {
                 Some(without_x) => ab_cost.copy_with_defined_mana(without_x),
                 None => ab_cost,
             };
-            let mana_for_check = if needs_mana {
-                mana::calculate_available_mana_with_context(
-                    self.pool(player),
-                    game,
-                    player,
-                    Some(card_id),
-                    &ab.sub_ability_targets,
-                    Some(&mana::payment_context_for_sa(game, &sa_for_target_check)),
-                )
-            } else {
-                available_mana
-                    .get_or_init(|| mana::calculate_available_mana(self.pool(player), game, player))
-                    .clone()
+            let ability_mana = std::cell::OnceCell::new();
+            let no_mana = crate::mana::ManaPool::new();
+            let mana_for_check = || {
+                if needs_mana {
+                    ability_mana.get_or_init(|| {
+                        mana::calculate_available_mana_with_context(
+                            self.pool(player),
+                            game,
+                            player,
+                            Some(card_id),
+                            &ab.sub_ability_targets,
+                            Some(&mana::payment_context_for_sa(game, &sa_for_target_check)),
+                        )
+                    })
+                } else {
+                    available_mana.get_or_init(|| {
+                        mana::calculate_available_mana(self.pool(player), game, player)
+                    })
+                }
             };
             let probe_mana = ab_cost
                 .parts
@@ -402,7 +408,11 @@ impl GameLoop {
                     crate::cost::can_pay_with_ability(
                         &ab_cost,
                         game,
-                        &mana_for_check,
+                        if crate::cost::reads_available_mana(&ab_cost) {
+                            mana_for_check()
+                        } else {
+                            &no_mana
+                        },
                         card_id,
                         player,
                         Some(&sa_for_target_check),
@@ -436,7 +446,7 @@ impl GameLoop {
                 crate::cost::can_pay_with_ability(
                     &mana_only,
                     game,
-                    &mana_for_check,
+                    mana_for_check(),
                     card_id,
                     player,
                     Some(&sa_for_target_check),
@@ -459,7 +469,7 @@ impl GameLoop {
                             && crate::cost::can_pay_with_ability(
                                 &alternate_cost,
                                 game,
-                                &mana_for_check,
+                                mana_for_check(),
                                 card_id,
                                 player,
                                 Some(&sa_for_target_check),

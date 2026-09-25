@@ -1439,6 +1439,16 @@ pub fn can_pay_ignoring_mana_for_spell(
     can_pay(cost, game, None, source, player, Some(&stub))
 }
 
+/// Keep in sync with `can_pay_part_distributed`: these are the parts that read the available mana.
+pub fn reads_available_mana(cost: &Cost) -> bool {
+    cost.parts.iter().any(|part| {
+        matches!(
+            part,
+            CostPart::Mana { .. } | CostPart::Waterbend { .. } | CostPart::Behold { .. }
+        )
+    })
+}
+
 fn can_pay_part_distributed(
     part: &CostPart,
     game: &GameState,
