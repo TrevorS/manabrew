@@ -2305,7 +2305,8 @@ impl Card {
     }
 
     /// Keep in sync with the rules-host block of `Card.getReplacementEffects`. Stun
-    /// counters are handled in `GameState::untap`. A shield counter's `Destroy` half is not
+    /// counters are handled in `GameState::untap`: an Untap replacement runs without agents
+    /// here and nothing executes its `ReplaceWith`, so the stun `RemoveCounter` would not run. A shield counter's `Destroy` half is not
     /// ported: this engine's `Destroy` event carries no cause for its `ValidCause$ SpellAbility`.
     pub fn rules_replacement_effects(&self) -> Vec<crate::replacement::ReplacementEffect> {
         let mut effects = Vec::new();
