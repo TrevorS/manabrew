@@ -453,29 +453,34 @@ pub(crate) fn get_defined_card_objects<'a>(
 ) -> Vec<&'a Card> {
     resolve_defined_cards_for_sa(game, sa, defined)
         .into_iter()
-        .map(|card_id| defined_card_object(game, defined, card_id))
+        .map(|card_id| defined_card_object(game, sa, defined, card_id))
         .collect()
 }
 
-fn defined_card_object<'a>(game: &'a GameState, defined: &str, card_id: CardId) -> &'a Card {
+fn defined_card_object<'a>(
+    game: &'a GameState,
+    sa: &SpellAbility,
+    defined: &str,
+    card_id: CardId,
+) -> &'a Card {
     let defined = defined.strip_prefix("Spawner>").unwrap_or(defined);
     let defined = defined.split_once('.').map_or(defined, |(head, _)| head);
-    let last_known = match defined {
-        "Targeted"
-        | "TargetedCard"
-        | "ThisTargetedCard"
-        | "ParentTarget"
-        | "RememberedLKI"
-        | "DelayTriggerRememberedLKI"
-        | "ImprintedLKI" => true,
+    match defined {
+        "Targeted" | "TargetedCard" | "ThisTargetedCard" | "ParentTarget" => {
+            match sa.target_zone_timestamp(card_id) {
+                Some(zone_timestamp) => game.get_change_zone_lki_info_at(card_id, zone_timestamp),
+                None => game.get_change_zone_lki_info(card_id),
+            }
+        }
+        "RememberedLKI" | "DelayTriggerRememberedLKI" | "ImprintedLKI" => {
+            game.get_change_zone_lki_info(card_id)
+        }
         // `NewCard` is the object the move created, while the LKI is the one that left.
-        "TriggeredNewCardLKICopy" => false,
-        _ => defined.starts_with("Triggered") && defined.contains("LKICopy"),
-    };
-    if last_known {
-        game.get_change_zone_lki_info(card_id)
-    } else {
-        game.card(card_id)
+        "TriggeredNewCardLKICopy" => game.card(card_id),
+        _ if defined.starts_with("Triggered") && defined.contains("LKICopy") => {
+            game.get_change_zone_lki_info(card_id)
+        }
+        _ => game.card(card_id),
     }
 }
 
@@ -499,7 +504,7 @@ fn resolve_defined_cards_for_sa_ref_inner(
             sa.source.into_iter().collect()
         }
         DefinedRef::Targeted | DefinedRef::TargetedCard if !sa.chain_target_cards.is_empty() => {
-            sa.chain_target_cards.clone()
+            sa.chain_target_cards.iter().map(|&(id, _)| id).collect()
         }
         DefinedRef::Targeted | DefinedRef::TargetedCard | DefinedRef::ThisTargetedCard => {
             sa.target_chosen.all_target_cards()
@@ -602,7 +607,7 @@ fn resolve_defined_cards_for_sa_ref_inner(
             resolve_defined_cards_for_sa_ref_inner(game, sa, &DefinedRef::parse(head))
                 .into_iter()
                 .filter(|&card_id| {
-                    let card = defined_card_object(game, head, card_id);
+                    let card = defined_card_object(game, sa, head, card_id);
                     valids.split(',').any(|valid| {
                         ability_utils::matches_valid_cards_for_sa(
                             game,

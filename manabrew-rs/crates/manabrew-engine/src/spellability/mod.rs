@@ -150,7 +150,7 @@ pub struct SpellAbility {
     #[serde(skip)]
     pub unique_targets: Vec<crate::agent::GameEntity>,
     #[serde(skip)]
-    pub chain_target_cards: Vec<CardId>,
+    pub chain_target_cards: Vec<(CardId, Option<u64>)>,
     /// Java parity: payload carried by `WrappedAbility`.
     #[serde(default)]
     pub wrapped_ability: Option<Box<SpellAbility>>,
@@ -388,16 +388,30 @@ impl SpellAbility {
         res
     }
 
-    pub fn chain_target_cards_from_root(&self) -> Vec<CardId> {
-        let mut cards = Vec::new();
+    pub fn chain_target_cards_from_root(&self) -> Vec<(CardId, Option<u64>)> {
+        let mut cards: Vec<(CardId, Option<u64>)> = Vec::new();
         for tc in self.get_all_target_choices() {
             for card in tc.all_target_cards() {
-                if !cards.contains(&card) {
-                    cards.push(card);
+                if !cards.iter().any(|&(id, _)| id == card) {
+                    let zone_timestamp = tc
+                        .target_card_zone_timestamp
+                        .filter(|_| tc.target_card == Some(card));
+                    cards.push((card, zone_timestamp));
                 }
             }
         }
         cards
+    }
+
+    /// The zone timestamp the card had when this chain targeted it, where it was recorded.
+    pub fn target_zone_timestamp(&self, card_id: CardId) -> Option<u64> {
+        if self.target_chosen.target_card == Some(card_id) {
+            return self.target_chosen.target_card_zone_timestamp;
+        }
+        self.chain_target_cards
+            .iter()
+            .find(|&&(id, _)| id == card_id)
+            .and_then(|&(_, zone_timestamp)| zone_timestamp)
     }
 
     pub fn uses_targeting(&self) -> bool {

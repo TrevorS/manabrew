@@ -190,6 +190,15 @@ impl crate::game::GameState {
         }
     }
 
+    /// Java `Game.getChangeZoneLKIInfo` keyed by `(id, gameTimestamp)`: the LKI only when it is
+    /// the object that had `zone_timestamp`.
+    pub fn get_change_zone_lki_info_at(&self, card_id: CardId, zone_timestamp: u64) -> &Card {
+        match self.change_zone_lki_info.get(&card_id) {
+            Some(lki) if lki.zone_timestamp == zone_timestamp => lki,
+            _ => self.card(card_id),
+        }
+    }
+
     pub fn clear_change_zone_lki_info(&mut self) {
         self.change_zone_lki_info.clear();
     }
