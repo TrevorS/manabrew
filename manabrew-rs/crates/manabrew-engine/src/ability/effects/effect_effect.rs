@@ -223,6 +223,9 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
             None,
             crate::phase::PhaseCommand::ExileEffect { effect: effect_id },
         );
+        if crate::parsing::raw_has_key(&sa.ability_text, "ImprintOnHost") {
+            ctx.game.card_mut(source_id).add_imprinted_card(effect_id);
+        }
         ctx.move_card(effect_id, ZoneType::Command, owner);
     }
 
