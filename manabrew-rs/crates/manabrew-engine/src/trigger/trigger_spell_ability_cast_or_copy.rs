@@ -180,7 +180,6 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
                 crate::event::AbilityValue::Card(card),
             );
         }
-        // TODO: port SpellAbility triggering object (AbilityKey.SpellAbility = cause)
         // TODO: port SpellAbilityTargets triggering object (from cause.getAllTargetChoices)
         if let Some(amount) = params.life_amount {
             sa.set_triggering_object(crate::ability::AbilityKey::LifeAmount, amount.to_string());

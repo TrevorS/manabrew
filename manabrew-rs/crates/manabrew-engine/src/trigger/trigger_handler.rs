@@ -1873,7 +1873,12 @@ impl TriggerHandler {
         if !trigger.mode.perform_test(trigger, params, game) {
             return Err("perform_test");
         }
-        if !trigger.meets_requirements_on_triggered_objects(game, params, host_card) {
+        if !trigger.meets_requirements_on_triggered_objects(
+            game,
+            params,
+            params.spell_ability.as_ref(),
+            host_card,
+        ) {
             return Err("triggered objects");
         }
         if let Some(cond) = trigger.ir.activator_this_turn_cast_each.as_deref() {

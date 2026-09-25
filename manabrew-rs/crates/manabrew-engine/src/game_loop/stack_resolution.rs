@@ -18,14 +18,11 @@ impl GameLoop {
         if trigger.kind == crate::trigger::TriggerType::Always || trigger.ir.no_resolving_check {
             return true;
         }
-        let card = sa
-            .get_triggering_cards(crate::ability::AbilityKey::Card)
-            .first()
-            .copied();
         let triggering_objects = crate::event::RunParams {
-            card,
-            spell_card: card,
-            activator: sa.get_triggering_player(crate::ability::AbilityKey::Activator),
+            card: sa
+                .get_triggering_cards(crate::ability::AbilityKey::Card)
+                .first()
+                .copied(),
             attacked_player: sa
                 .get_triggering_player(crate::ability::AbilityKey::Attacked)
                 .or_else(|| sa.get_triggering_player(crate::ability::AbilityKey::Defender)),
@@ -33,7 +30,12 @@ impl GameLoop {
             ..Default::default()
         };
         trigger.requirements_check(game, host)
-            && trigger.meets_requirements_on_triggered_objects(game, &triggering_objects, host)
+            && trigger.meets_requirements_on_triggered_objects(
+                game,
+                &triggering_objects,
+                sa.get_triggering_spell_ability(crate::ability::AbilityKey::SpellAbility),
+                host,
+            )
     }
 
     fn effect_kind_for_sa(sa: &SpellAbility) -> String {

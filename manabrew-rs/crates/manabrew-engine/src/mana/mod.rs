@@ -1358,7 +1358,12 @@ fn add_taps_for_mana_trigger_mana_for_availability(
                 || !trigger.requirements_check(game, host.id)
                 || !trigger.check_activation_limit(game, host.id)
                 || !trigger.mode.perform_test(trigger, &params, game)
-                || !trigger.meets_requirements_on_triggered_objects(game, &params, host.id)
+                || !trigger.meets_requirements_on_triggered_objects(
+                    game,
+                    &params,
+                    params.spell_ability.as_ref(),
+                    host.id,
+                )
             {
                 continue;
             }

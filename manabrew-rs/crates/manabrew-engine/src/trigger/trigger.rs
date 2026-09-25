@@ -782,6 +782,7 @@ impl Trigger {
         &self,
         game: &GameState,
         run_params: &RunParams,
+        spell_ability: Option<&SpellAbility>,
         host_card: CardId,
     ) -> bool {
         let condition = self.ir.condition.as_ref();
@@ -813,15 +814,16 @@ impl Trigger {
             if !host.is_creature() {
                 return false;
             }
-            let (Some(spell_card), Some(activator)) = (run_params.spell_card, run_params.activator)
-            else {
+            let Some(sp) = spell_ability else {
                 return false;
             };
-            let v = if activator == host.controller {
-                game.card(spell_card).paying_mana_to_cast.len() as i32
-            } else {
-                0
-            };
+            let p = host.controller;
+            let v = sp
+                .source
+                .filter(|_| sp.activating_player == p)
+                .map_or(0, |source| {
+                    game.card(source).paying_mana_to_cast.len() as i32
+                });
             if v <= host.power() && v <= host.toughness() {
                 return false;
             }
@@ -833,7 +835,7 @@ impl Trigger {
 
         match condition {
             TriggerCondition::LifePaid => {
-                if let Some(sa) = run_params.spell_ability.as_ref() {
+                if let Some(sa) = spell_ability {
                     sa.get_amount_life_paid() > 0
                 } else {
                     true
@@ -852,9 +854,7 @@ impl Trigger {
                     .filter(|opp| *opp != attacked_player)
                     .any(|opp| game.player(opp).life > life)
             }
-            TriggerCondition::Sacrificed => run_params
-                .spell_ability
-                .as_ref()
+            TriggerCondition::Sacrificed => spell_ability
                 .map(|sa| {
                     !sa.paid_hash
                         .get("Sacrificed")

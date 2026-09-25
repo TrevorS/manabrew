@@ -1230,7 +1230,12 @@ fn add_taps_for_mana_trigger_mana_impl(
                 || !trigger.requirements_check(game, host_id)
                 || !trigger.check_activation_limit(game, host_id)
                 || !trigger.get_mode().perform_test(trigger, &params, game)
-                || !trigger.meets_requirements_on_triggered_objects(game, &params, host_id)
+                || !trigger.meets_requirements_on_triggered_objects(
+                    game,
+                    &params,
+                    params.spell_ability.as_ref(),
+                    host_id,
+                )
             {
                 continue;
             }
