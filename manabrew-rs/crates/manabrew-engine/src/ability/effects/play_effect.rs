@@ -429,6 +429,9 @@ fn push_spell_to_stack(
     };
     let trigger_sa = entry.spell_ability.clone();
 
+    if crate::zone::magic_stack::stop_infinite_loop(ctx.game) {
+        return;
+    }
     ctx.game.stack.push(entry);
     ctx.game.turn.priority_player = controller;
     ctx.game.card_mut(card_id).cast_from = cast_zone;

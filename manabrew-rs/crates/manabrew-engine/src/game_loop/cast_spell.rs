@@ -384,6 +384,9 @@ impl GameLoop {
                 .collect();
             game.card_mut(stack_push.source_card).cast_sa = Some(Box::new(cause));
         }
+        if crate::zone::magic_stack::stop_infinite_loop(game) {
+            return stack_push.entry.spell_ability;
+        }
         if let Some(pending_stack_id) = stack_push.pending_stack_id {
             game.stack
                 .complete_pending_cast(pending_stack_id, stack_push.entry.clone())
@@ -3059,6 +3062,9 @@ impl GameLoop {
                         card_id,
                         &copy.spell_ability,
                     );
+                }
+                if crate::zone::magic_stack::stop_infinite_loop(game) {
+                    break;
                 }
                 game.stack.push(copy);
                 self.log_stack_push(

@@ -55,6 +55,19 @@ pub(crate) fn commit_crime_check(game: &GameState, p: PlayerId, sa: &SpellAbilit
 
 /// An entry on the game stack (spell or ability waiting to resolve).
 /// Mirrors Java's `SpellAbilityStackInstance` which wraps a `SpellAbility`.
+/// Mirrors the head of Java's `MagicStack.add`.
+pub fn stop_infinite_loop(game: &mut GameState) -> bool {
+    if game.stack.size() <= 999 {
+        return false;
+    }
+    for player in game.player_order.clone() {
+        crate::player::intentional_draw(game, player);
+    }
+    game.game_over = true;
+    game.winner = None;
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StackEntry {
     pub id: u32,

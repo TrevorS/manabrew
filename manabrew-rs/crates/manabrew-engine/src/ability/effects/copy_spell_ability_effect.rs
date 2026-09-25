@@ -147,6 +147,9 @@ fn push_copy(
     };
 
     let trigger_sa = copy_entry.spell_ability.clone();
+    if crate::zone::magic_stack::stop_infinite_loop(ctx.game) {
+        return;
+    }
     ctx.game.stack.push(copy_entry);
     if !trigger_sa.is_trigger {
         ctx.game.turn.priority_player = controller;

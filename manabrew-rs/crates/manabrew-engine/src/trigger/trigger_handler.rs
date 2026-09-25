@@ -583,6 +583,9 @@ impl TriggerHandler {
             let is_static = pt.static_trigger;
             let pushed_sa = (pt.entry.spell_ability.is_trigger && !is_static)
                 .then(|| pt.entry.spell_ability.clone());
+            if crate::zone::magic_stack::stop_infinite_loop(game) {
+                break;
+            }
             game.stack.push(pt.entry);
             if let Some(pushed_sa) = pushed_sa {
                 let source_card = pushed_sa.source;
