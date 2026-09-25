@@ -1087,13 +1087,13 @@ impl ManaPool {
         any_color: bool,
     ) -> bool {
         let possible_uses = Self::get_possible_color_uses(mana.color, any_color);
-        if !mana_cost.is_needed(possible_uses) {
+        if !mana_cost.is_needed(mana, possible_uses) {
             return false;
         }
         if !self.remove_mana(mana) {
             return false;
         }
-        mana_cost.try_pay_mana(possible_uses, possible_uses as u8);
+        mana_cost.pay_mana(mana, possible_uses);
         true
     }
 

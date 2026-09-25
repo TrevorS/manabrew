@@ -103,10 +103,10 @@ impl ManaCostBeingPaid {
         result
     }
 
-    pub fn is_needed(&self, possible_uses: u16) -> bool {
+    pub fn is_needed(&self, mana: &Mana, possible_uses: u16) -> bool {
         self.unpaid_shards
             .keys()
-            .any(|&shard| can_pay_for_shard_with_color(shard, possible_uses))
+            .any(|&shard| can_be_paid_with(shard, mana, possible_uses))
     }
 
     /// Whether any unpaid shard has the given kind bitmask.
@@ -225,8 +225,16 @@ impl ManaCostBeingPaid {
             .into_iter()
             .filter(|&s| can_pay_for_shard_with_color(s, color_mask))
             .collect();
+        self.pay_one_of(&payable, color_mask, possible_uses)
+    }
 
-        let chosen = self.get_shard_to_pay_by_priority(&payable, possible_uses)?;
+    fn pay_one_of(
+        &mut self,
+        payable: &[ManaCostShard],
+        color_mask: u16,
+        possible_uses: u8,
+    ) -> Option<ManaCostShard> {
+        let chosen = self.get_shard_to_pay_by_priority(payable, possible_uses)?;
 
         // Track X color payment before decreasing
         if let Some(sc) = self.unpaid_shards.get_mut(&chosen) {
@@ -386,8 +394,13 @@ impl ManaCostBeingPaid {
 
     /// Pay a mana shard using a Mana object from the pool.
     /// Mirrors Java's `ManaCostBeingPaid.payMana()`.
-    pub fn pay_mana(&mut self, mana: &Mana, possible_uses: u8) -> Option<ManaCostShard> {
-        self.try_pay_mana(mana.color, possible_uses)
+    pub fn pay_mana(&mut self, mana: &Mana, possible_uses: u16) -> Option<ManaCostShard> {
+        let payable: Vec<ManaCostShard> = self
+            .get_distinct_shards()
+            .into_iter()
+            .filter(|&s| can_be_paid_with(s, mana, possible_uses))
+            .collect();
+        self.pay_one_of(&payable, mana.color, possible_uses as u8)
     }
 
     pub fn pay_specific_shard(
@@ -517,6 +530,13 @@ fn color_mask_to_short(mask: u16) -> String {
         return "G".into();
     }
     String::new()
+}
+
+fn can_be_paid_with(shard: ManaCostShard, mana: &Mana, possible_uses: u16) -> bool {
+    if shard.is_snow() {
+        return mana.is_snow;
+    }
+    can_pay_for_shard_with_color(shard, possible_uses)
 }
 
 pub fn can_pay_for_shard_with_color(shard: ManaCostShard, color: u16) -> bool {
