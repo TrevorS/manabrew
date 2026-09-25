@@ -586,6 +586,16 @@ impl GameLoop {
     ) -> Vec<crate::agent::PlayOption> {
         let mut playable = Vec::new();
         let hand = game.cards_in_zone(ZoneType::Hand, player);
+        let may_play_statics: Vec<(&Card, &crate::staticability::StaticAbility)> =
+            crate::staticability::static_ability_continuous::may_play_statics(game).collect();
+        let may_play_grants = |card_id: CardId| {
+            crate::staticability::static_ability_continuous::may_play_grants_among(
+                may_play_statics.iter().copied(),
+                game,
+                player,
+                game.card(card_id),
+            )
+        };
         let cast_with_flash_source = std::cell::OnceCell::new();
         let cast_with_flash = |card: &Card| {
             let any_source = *cast_with_flash_source.get_or_init(|| {
@@ -616,21 +626,22 @@ impl GameLoop {
                 })
                 || cast_with_flash(card)
                 || crate::staticability::static_ability_continuous::may_play_with_flash(
-                    game, player, card,
+                    may_play_grants(card_id),
+                    card,
+                    game,
                 )
         };
         let can_may_play_from_static = |card_id: CardId| {
             let card = game.card(card_id);
-            crate::staticability::static_ability_continuous::may_play_grants(game, player, card)
-                .any(|(source, sa)| {
-                    crate::staticability::static_ability_continuous::grants_zone_permissions(
-                        sa, source, card, game,
-                    )
-                })
+            may_play_grants(card_id).any(|(source, sa)| {
+                crate::staticability::static_ability_continuous::grants_zone_permissions(
+                    sa, source, card, game,
+                )
+            })
         };
         let accepting_may_play_grants = |card_id: CardId, sa: &SpellAbility| -> usize {
             let card = game.card(card_id);
-            crate::staticability::static_ability_continuous::may_play_grants(game, player, card)
+            may_play_grants(card_id)
                 .filter(|(source, st_ab)| {
                     crate::staticability::static_ability_continuous::grants_zone_permissions_for(
                         st_ab, source, card, game, sa,
@@ -654,15 +665,14 @@ impl GameLoop {
         // granted to `card_id`. Returns the cost string if any.
         let may_play_alt_cost = |card_id: CardId| -> Option<String> {
             let card = game.card(card_id);
-            crate::staticability::static_ability_continuous::may_play_grants(game, player, card)
-                .find_map(|(source, sa)| {
-                    crate::staticability::static_ability_continuous::may_play_alt_mana_cost(
-                        sa, source, card, game,
-                    )
-                    .filter(|cost| {
-                        crate::staticability::static_ability_continuous::is_mana_alt_cost(cost)
-                    })
+            may_play_grants(card_id).find_map(|(source, sa)| {
+                crate::staticability::static_ability_continuous::may_play_alt_mana_cost(
+                    sa, source, card, game,
+                )
+                .filter(|cost| {
+                    crate::staticability::static_ability_continuous::is_mana_alt_cost(cost)
                 })
+            })
         };
         // Count distinct MayPlay statics that grant permission to cast
         // `card_id`. Java's `GameActionUtil.getMayPlaySpellOptions` enumerates
@@ -672,7 +682,7 @@ impl GameLoop {
         // multiple airbend Effects each remembering it).
         let count_may_play_grants = |card_id: CardId| -> usize {
             let card = game.card(card_id);
-            crate::staticability::static_ability_continuous::may_play_grants(game, player, card)
+            may_play_grants(card_id)
                 .filter(|(source, sa)| {
                     crate::staticability::static_ability_continuous::can_play_or_granted(
                         sa, source, card, game,
@@ -1593,10 +1603,7 @@ impl GameLoop {
             for &card_id in &gy_cards {
                 let card = game.card(card_id);
                 if !card.is_land() {
-                    if !crate::staticability::static_ability_continuous::may_play_grants(
-                        game, player, card,
-                    )
-                    .any(|(source, st_ab)| {
+                    if !may_play_grants(card_id).any(|(source, st_ab)| {
                         crate::staticability::static_ability_continuous::grants_zone_permissions(
                             st_ab, source, card, game,
                         )
@@ -1732,10 +1739,7 @@ impl GameLoop {
                 if must_be_instant {
                     continue;
                 }
-                let may_play_grants =
-                    crate::staticability::static_ability_continuous::may_play_grants(
-                        game, player, card,
-                    )
+                let may_play_grants = may_play_grants(card_id)
                     .filter(|(source, sa)| {
                         crate::staticability::static_ability_continuous::can_play_or_granted(
                             sa, source, card, game,

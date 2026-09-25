@@ -160,6 +160,21 @@ pub fn may_play_grants<'a>(
     player: crate::ids::PlayerId,
     card: &'a Card,
 ) -> impl Iterator<Item = (&'a Card, &'a StaticAbility)> + 'a {
+    may_play_grants_among(may_play_statics(game), game, player, card)
+}
+
+pub fn may_play_grants_among<'a>(
+    statics: impl Iterator<Item = (&'a Card, &'a StaticAbility)> + 'a,
+    game: &'a GameState,
+    player: crate::ids::PlayerId,
+    card: &'a Card,
+) -> impl Iterator<Item = (&'a Card, &'a StaticAbility)> + 'a {
+    statics.filter(move |(source, st_ab)| may_play_player(st_ab, source, card, game) == player)
+}
+
+pub fn may_play_statics<'a>(
+    game: &'a GameState,
+) -> impl Iterator<Item = (&'a Card, &'a StaticAbility)> + 'a {
     game.player_order
         .iter()
         .flat_map(move |&pid| {
@@ -181,7 +196,6 @@ pub fn may_play_grants<'a>(
                 .filter(|st_ab| st_ab.ir.may_play || st_ab.ir.add_static_ability_text.is_some())
                 .map(move |st_ab| (source, st_ab))
         })
-        .filter(move |(source, st_ab)| may_play_player(st_ab, source, card, game) == player)
 }
 
 /// Java `GameActionUtil:371` copies a grant's `ValidAfterStack$` onto the ability it builds for
@@ -313,8 +327,12 @@ pub fn may_play_raise_cost(
     Some(raise.to_string())
 }
 
-pub fn may_play_with_flash(game: &GameState, player: crate::ids::PlayerId, card: &Card) -> bool {
-    may_play_grants(game, player, card)
+pub fn may_play_with_flash<'a>(
+    mut grants: impl Iterator<Item = (&'a Card, &'a StaticAbility)>,
+    card: &Card,
+    game: &GameState,
+) -> bool {
+    grants
         .any(|(source, st_ab)| st_ab.ir.may_play_with_flash && can_play(st_ab, source, card, game))
 }
 

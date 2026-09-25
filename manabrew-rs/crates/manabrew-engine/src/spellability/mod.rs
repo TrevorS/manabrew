@@ -2036,9 +2036,13 @@ impl SpellAbility {
             }
             if self.is_spell
                 && crate::staticability::static_ability_continuous::may_play_with_flash(
-                    game,
-                    self.activating_player,
+                    crate::staticability::static_ability_continuous::may_play_grants(
+                        game,
+                        self.activating_player,
+                        card,
+                    ),
                     card,
+                    game,
                 )
             {
                 return true;
