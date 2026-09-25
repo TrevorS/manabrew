@@ -436,6 +436,27 @@ fn compute_cost_adjustment_inner(
     adj
 }
 
+/// Keep in sync with the mode filters of `compute_cost_adjustment_inner` and
+/// `compute_raise_cost_parts_with_targets`.
+pub fn has_cost_adjusting_static(card: &Card) -> bool {
+    card.static_abilities.iter().any(|st_ab| {
+        st_ab.check_mode(&StaticMode::ReduceCost)
+            || st_ab.check_mode(&StaticMode::RaiseCost)
+            || st_ab.check_mode(&StaticMode::SetCost)
+    })
+}
+
+/// Keep in sync with the source filters of `compute_cost_adjustment_inner` and
+/// `compute_raise_cost_parts_with_targets`.
+pub fn any_cost_adjusting_source(game: &GameState) -> bool {
+    game.cards.iter().any(|card| {
+        matches!(
+            card.zone,
+            ZoneType::Battlefield | ZoneType::Stack | ZoneType::Command
+        ) && has_cost_adjusting_static(card)
+    })
+}
+
 // ── Public API: compute_raise_cost_parts ─────────────────────────────
 
 /// Compute additional non-standard cost parts contributed by `Mode$ RaiseCost`

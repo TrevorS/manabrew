@@ -686,6 +686,8 @@ impl GameLoop {
             .filter_map(|c| c.chosen_type.clone().map(|chosen| (c.id, chosen)))
             .collect();
         let stack_statics = Self::apply_stack_statics(game, hand);
+        let cost_adjusting_source = std::cell::OnceCell::new();
+        let alternative_cost_statics = std::cell::OnceCell::new();
 
         for &card_id in hand {
             let card = game.card(card_id);
@@ -926,18 +928,29 @@ impl GameLoop {
                 };
 
                 // Apply cost reduction/increase from static abilities
-                let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
-                    game,
-                    card,
-                    player,
-                    ZoneType::Hand,
-                );
-                let raise_cost = crate::cost::cost_adjustment::compute_raise_cost_parts(
-                    game,
-                    card,
-                    player,
-                    ZoneType::Hand,
-                );
+                let adjusts_cost = *cost_adjusting_source
+                    .get_or_init(|| crate::cost::cost_adjustment::any_cost_adjusting_source(game))
+                    || crate::cost::cost_adjustment::has_cost_adjusting_static(card);
+                let cost_adj = if adjusts_cost {
+                    crate::cost::cost_adjustment::compute_cost_adjustment(
+                        game,
+                        card,
+                        player,
+                        ZoneType::Hand,
+                    )
+                } else {
+                    crate::cost::cost_adjustment::CostAdjustment::default()
+                };
+                let raise_cost = if adjusts_cost {
+                    crate::cost::cost_adjustment::compute_raise_cost_parts(
+                        game,
+                        card,
+                        player,
+                        ZoneType::Hand,
+                    )
+                } else {
+                    None
+                };
                 let raise_mana = raise_cost
                     .as_ref()
                     .map(|rc| Self::raise_mana_from_cost(game, rc, card_id, player))
@@ -1149,7 +1162,14 @@ impl GameLoop {
                 };
 
                 // StaticAbilityAlternativeCost (Mode$ AlternativeCost)
-                let static_alt_indices: Vec<usize> =
+                let has_alternative_costs = *alternative_cost_statics.get_or_init(|| {
+                    crate::staticability::static_ability_alternative_cost::any_in_static_source_zones(
+                        &game.cards,
+                    )
+                }) || crate::staticability::static_ability_alternative_cost::has_active_alternative_cost(
+                    card,
+                );
+                let static_alt_indices: Vec<usize> = if has_alternative_costs {
                     crate::staticability::static_ability_alternative_cost::alternative_costs(
                         game,
                         &game.cards,
@@ -1171,7 +1191,10 @@ impl GameLoop {
                             )
                     })
                     .map(|(index, _)| index)
-                    .collect();
+                    .collect()
+                } else {
+                    Vec::new()
+                };
                 let static_alt_ok = !static_alt_indices.is_empty();
 
                 // Suspend: special action, pay suspend cost to exile with time counters
