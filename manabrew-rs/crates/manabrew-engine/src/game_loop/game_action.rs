@@ -242,6 +242,7 @@ impl GameLoop {
     ) -> Vec<(CardId, usize)> {
         let mut result = Vec::new();
         let available_mana = std::cell::OnceCell::new();
+        let cant_be_activated_source = std::cell::OnceCell::new();
         let mut battlefield = game.cards_in_zone(ZoneType::Battlefield, player).to_vec();
         for &other_player in &game.player_order {
             if other_player == player {
@@ -297,7 +298,11 @@ impl GameLoop {
                 sa_for_target_check.set_original_host(original_host);
             }
             sa_for_target_check.original_ability = ab.original_ability;
-            if crate::staticability::static_ability_cant_be_cast::cant_be_activated_ability(
+            if *cant_be_activated_source.get_or_init(|| {
+                crate::staticability::static_ability_cant_be_cast::any_cant_be_activated_source(
+                    &game.cards,
+                )
+            }) && crate::staticability::static_ability_cant_be_cast::cant_be_activated_ability(
                 game,
                 &game.cards,
                 &sa_for_target_check,

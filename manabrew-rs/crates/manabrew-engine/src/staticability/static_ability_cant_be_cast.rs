@@ -210,6 +210,17 @@ pub fn apply_cant_be_cast_ability(
     true
 }
 
+/// Keep in sync with the source and static filters of `cant_be_activated_ability`.
+pub fn any_cant_be_activated_source(cards: &[Arc<Card>]) -> bool {
+    cards.iter().any(|source| {
+        source.zone.is_static_ability_source()
+            && source
+                .static_abilities
+                .iter()
+                .any(|sa| sa.is_active_for(StaticMode::CantBeActivated, source.zone))
+    })
+}
+
 /// Mirrors Java's `StaticAbilityCantBeCast.cantBeActivatedAbility`.
 ///
 /// If the spell is a trigger, it cannot be blocked by CantBeActivated.
