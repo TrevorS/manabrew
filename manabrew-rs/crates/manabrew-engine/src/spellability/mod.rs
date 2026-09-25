@@ -615,13 +615,19 @@ impl SpellAbility {
         }
 
         let mut ancestor_targets = Vec::new();
+        let mut parent_targeting_card = None;
+        let mut parent_targeting_player = None;
         if self.uses_targeting() {
             collect_target_entities(&self.target_chosen, &mut ancestor_targets);
+            parent_targeting_card = self.target_chosen.all_target_cards().first().copied();
+            parent_targeting_player = self.target_chosen.all_target_players().first().copied();
         }
 
         // Walk sub-ability chain
         let mut current = self.sub_ability.as_deref_mut();
         while let Some(sa) = current {
+            sa.parent_targeting_card = parent_targeting_card;
+            sa.parent_targeting_player = parent_targeting_player;
             if sa.uses_targeting() {
                 sa.clear_targets();
                 sa.unique_targets = ancestor_targets.clone();
@@ -631,6 +637,12 @@ impl SpellAbility {
                     return false;
                 }
                 collect_target_entities(&sa.target_chosen, &mut ancestor_targets);
+                if let Some(&card) = sa.target_chosen.all_target_cards().first() {
+                    parent_targeting_card = Some(card);
+                }
+                if let Some(&player) = sa.target_chosen.all_target_players().first() {
+                    parent_targeting_player = Some(player);
+                }
             }
             current = sa.sub_ability.as_deref_mut();
         }
@@ -1590,6 +1602,8 @@ impl SpellAbility {
         mana_pools: &[ManaPool],
     ) {
         let mut ancestor_targets = Vec::new();
+        let mut parent_targeting_card = None;
+        let mut parent_targeting_player = None;
         let mut current = Some(self);
         while let Some(sa) = current {
             if sa.uses_targeting() {
@@ -1601,8 +1615,18 @@ impl SpellAbility {
                     sa.target_chosen = old_targets;
                 }
                 collect_target_entities(&sa.target_chosen, &mut ancestor_targets);
+                if let Some(&card) = sa.target_chosen.all_target_cards().first() {
+                    parent_targeting_card = Some(card);
+                }
+                if let Some(&player) = sa.target_chosen.all_target_players().first() {
+                    parent_targeting_player = Some(player);
+                }
             }
             current = sa.sub_ability.as_deref_mut();
+            if let Some(sub) = current.as_mut() {
+                sub.parent_targeting_card = parent_targeting_card;
+                sub.parent_targeting_player = parent_targeting_player;
+            }
         }
     }
 
