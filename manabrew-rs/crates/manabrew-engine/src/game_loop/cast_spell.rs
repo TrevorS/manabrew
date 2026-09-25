@@ -1127,9 +1127,17 @@ impl GameLoop {
         // Do not apply compute_cost_adjustment here.
         // We still need raise_cost for its non-mana cost parts.
         let cast_zone = game.card_current_zone(card_id);
+        let face_down_host = is_morph_facedown.then(|| {
+            let mut host = game.card(card_id).clone();
+            host.turn_face_down_no_update();
+            host.set_original_state_as_face_down();
+            host
+        });
         let raise_cost = crate::cost::cost_adjustment::compute_raise_cost_parts(
             game,
-            game.card(card_id),
+            face_down_host
+                .as_ref()
+                .unwrap_or_else(|| game.card(card_id)),
             player,
             cast_zone,
         );

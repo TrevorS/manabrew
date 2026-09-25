@@ -1491,24 +1491,6 @@ impl GameLoop {
                                 alt_cost_index: 0,
                             });
                         }
-                        if morph_ok {
-                            playable.push(crate::agent::PlayOption {
-                                card_id,
-                                mode: crate::agent::PlayCardMode::Alternative(
-                                    crate::spellability::AlternativeCost::Morph,
-                                ),
-                                alt_cost_index: 0,
-                            });
-                        }
-                        for &alt_cost_index in &may_play_morph_ok {
-                            playable.push(crate::agent::PlayOption {
-                                card_id,
-                                mode: crate::agent::PlayCardMode::MayPlay(Some(
-                                    crate::spellability::AlternativeCost::Morph,
-                                )),
-                                alt_cost_index,
-                            });
-                        }
                         if bestow_ok {
                             playable.push(crate::agent::PlayOption {
                                 card_id,
@@ -1537,6 +1519,24 @@ impl GameLoop {
                             });
                         }
                     }
+                }
+                if morph_ok {
+                    playable.push(crate::agent::PlayOption {
+                        card_id,
+                        mode: crate::agent::PlayCardMode::Alternative(
+                            crate::spellability::AlternativeCost::Morph,
+                        ),
+                        alt_cost_index: 0,
+                    });
+                }
+                for &alt_cost_index in &may_play_morph_ok {
+                    playable.push(crate::agent::PlayOption {
+                        card_id,
+                        mode: crate::agent::PlayCardMode::MayPlay(Some(
+                            crate::spellability::AlternativeCost::Morph,
+                        )),
+                        alt_cost_index,
+                    });
                 }
             }
         }
