@@ -58,7 +58,7 @@ pub use valid_sa::matches_valid_sa;
 
 static NEXT_SPELL_ABILITY_ID: AtomicU32 = AtomicU32::new(1);
 
-fn next_spell_ability_id() -> u32 {
+pub(crate) fn next_spell_ability_id() -> u32 {
     NEXT_SPELL_ABILITY_ID.fetch_add(1, Ordering::Relaxed)
 }
 

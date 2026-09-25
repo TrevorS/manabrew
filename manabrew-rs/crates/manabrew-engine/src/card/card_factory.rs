@@ -36,6 +36,11 @@ pub fn from_rules(rules: &CardRules, owner: PlayerId) -> Card {
 /// module so effects can call one canonical implementation.
 pub fn copy_spell_ability(target_sa: &SpellAbility, controller: PlayerId) -> SpellAbility {
     let mut copy = target_sa.clone();
+    let mut node = Some(&mut copy);
+    while let Some(sa) = node {
+        sa.id = crate::spellability::next_spell_ability_id();
+        node = sa.sub_ability.as_deref_mut();
+    }
     copy.set_activating_player(controller);
     copy.is_copy = true;
     // Copied spells/abilities are not re-cast and should not require paying costs.
