@@ -167,6 +167,70 @@ impl GameLoop {
             && available_mana.can_pay(&reduced))
     }
 
+    fn can_pay_face_down_cast(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+        alt_cost: Option<&crate::cost::Cost>,
+        chosen_types_by_source: &crate::HashMap<CardId, String>,
+    ) -> bool {
+        let mut host = game.card(card_id).clone();
+        host.turn_face_down_no_update();
+        host.set_original_state_as_face_down();
+        let zone = host.zone;
+        let raise_cost =
+            crate::cost::cost_adjustment::compute_raise_cost_parts(game, &host, player, zone);
+        let raise_mana = raise_cost
+            .as_ref()
+            .map(|rc| Self::raise_mana_from_cost(game, rc, card_id, player))
+            .unwrap_or_else(|| forge_foundation::ManaCost::generic(0));
+        let mana = crate::cost::cost_adjustment::compute_cost_adjustment_for_payment(
+            game,
+            &host,
+            player,
+            zone,
+            &[],
+            &[],
+            true,
+        )
+        .apply(&alt_cost.map_or_else(
+            || forge_foundation::ManaCost::generic(crate::spellability::MORPH_GENERIC_COST),
+            Self::mana_from_cost,
+        ))
+        .add(&raise_mana);
+        let payment_ctx = mana::ManaPaymentContext {
+            is_cast_face_down: true,
+            ..Self::spell_payment_context(&host, chosen_types_by_source)
+        };
+        let mana_ok = crate::mana::can_pay_spell_mana_cost_for_action_space(
+            game,
+            self.pool(player),
+            player,
+            card_id,
+            &mana,
+            &payment_ctx,
+        ) || {
+            let available = mana::calculate_available_mana_with_context(
+                self.pool(player),
+                game,
+                player,
+                Some(card_id),
+                &[],
+                Some(&payment_ctx),
+            );
+            Self::can_use_source_level_mana_fallback(game, player, &available)
+                && available.can_pay(&mana)
+        };
+        mana_ok
+            && alt_cost.is_none_or(|cost| {
+                crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player)
+            })
+            && raise_cost.as_ref().is_none_or(|rc| {
+                crate::cost::can_pay_ignoring_mana_for_spell(rc, game, card_id, player)
+            })
+    }
+
     fn can_cast_may_play_spell(
         &self,
         game: &GameState,
@@ -717,20 +781,23 @@ impl GameLoop {
                 // Java `Card.getAllPossibleAbilities` walks the card's spell abilities
                 // whatever its types are, so a land with Disguise is castable face down
                 // as well as playable as a land.
-                if card.has_morph && !must_be_instant {
-                    let available_mana =
-                        mana::calculate_available_mana(self.pool(player), game, player);
-                    if available_mana.can_pay(&forge_foundation::ManaCost::generic(
-                        crate::spellability::MORPH_GENERIC_COST,
-                    )) {
-                        playable.push(crate::agent::PlayOption {
-                            card_id,
-                            mode: crate::agent::PlayCardMode::Alternative(
-                                crate::spellability::AlternativeCost::Morph,
-                            ),
-                            alt_cost_index: 0,
-                        });
-                    }
+                if card.has_morph
+                    && !must_be_instant
+                    && self.can_pay_face_down_cast(
+                        game,
+                        player,
+                        card_id,
+                        None,
+                        &chosen_types_by_source,
+                    )
+                {
+                    playable.push(crate::agent::PlayOption {
+                        card_id,
+                        mode: crate::agent::PlayCardMode::Alternative(
+                            crate::spellability::AlternativeCost::Morph,
+                        ),
+                        alt_cost_index: 0,
+                    });
                 }
             } else {
                 // MDFC: emit both the back-face LAND and the front-face SPELL
@@ -1156,9 +1223,13 @@ impl GameLoop {
 
                 // Morph: can cast any Morph card face-down for the morph generic cost
                 let morph_ok = card.has_morph
-                    && available_mana().can_pay(&forge_foundation::ManaCost::generic(
-                        crate::spellability::MORPH_GENERIC_COST,
-                    ));
+                    && self.can_pay_face_down_cast(
+                        game,
+                        player,
+                        card_id,
+                        None,
+                        &chosen_types_by_source,
+                    );
 
                 // Bestow: cast as an Aura for bestow cost.
                 // Requires a valid creature target on the battlefield (Aura targeting).
@@ -1224,7 +1295,15 @@ impl GameLoop {
                     may_play_costs
                         .iter()
                         .enumerate()
-                        .filter(|(_, cost)| may_play_payable(cost, &Self::mana_from_cost(cost)))
+                        .filter(|(_, cost)| {
+                            self.can_pay_face_down_cast(
+                                game,
+                                player,
+                                card_id,
+                                Some(cost),
+                                &chosen_types_by_source,
+                            )
+                        })
                         .map(|(idx, _)| idx as u8)
                         .collect()
                 } else {
@@ -1941,6 +2020,7 @@ impl GameLoop {
                         player,
                         card_id,
                         normal_grants,
+                        &chosen_types_by_source,
                     ));
                 }
                 let room_right_split_cost = card
@@ -2215,7 +2295,13 @@ impl GameLoop {
                 }
             }
             if !must_be_instant {
-                playable.extend(self.may_play_morph_options(game, player, card_id, normal_grants));
+                playable.extend(self.may_play_morph_options(
+                    game,
+                    player,
+                    card_id,
+                    normal_grants,
+                    &chosen_types_by_source,
+                ));
             }
         }
 
@@ -2345,12 +2431,12 @@ impl GameLoop {
         player: PlayerId,
         card_id: CardId,
         normal_grants: usize,
+        chosen_types_by_source: &crate::HashMap<CardId, String>,
     ) -> Vec<crate::agent::PlayOption> {
         let card = game.card(card_id);
         if !card.has_morph {
             return Vec::new();
         }
-        let available_mana = mana::calculate_available_mana(self.pool(player), game, player);
         let morph = crate::agent::PlayOption {
             card_id,
             mode: crate::agent::PlayCardMode::Alternative(
@@ -2358,13 +2444,12 @@ impl GameLoop {
             ),
             alt_cost_index: 0,
         };
-        let mut options = if available_mana.can_pay(&forge_foundation::ManaCost::generic(
-            crate::spellability::MORPH_GENERIC_COST,
-        )) {
-            vec![morph; normal_grants]
-        } else {
-            Vec::new()
-        };
+        let mut options =
+            if self.can_pay_face_down_cast(game, player, card_id, None, chosen_types_by_source) {
+                vec![morph; normal_grants]
+            } else {
+                Vec::new()
+            };
         let alt_cost_grants =
             crate::staticability::static_ability_continuous::may_play_grants(game, player, card)
                 .filter_map(|(source, st_ab)| {
@@ -2376,8 +2461,13 @@ impl GameLoop {
         for (alt_cost_index, (without_mana_cost, cost)) in alt_cost_grants.enumerate() {
             let cost = crate::cost::parse_cost(&cost);
             if !without_mana_cost
-                && available_mana.can_pay(&Self::mana_from_cost(&cost))
-                && crate::cost::can_pay_ignoring_mana_for_spell(&cost, game, card_id, player)
+                && self.can_pay_face_down_cast(
+                    game,
+                    player,
+                    card_id,
+                    Some(&cost),
+                    chosen_types_by_source,
+                )
             {
                 options.push(crate::agent::PlayOption {
                     card_id,
