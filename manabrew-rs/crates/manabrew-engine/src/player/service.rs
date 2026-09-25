@@ -53,6 +53,13 @@ impl GameState {
         self.initialize_player_commanders_from_registered(player, registered, trigger_handler);
     }
 
+    fn add_player_effect_card(&mut self, player: PlayerId, effect: crate::card::Card) -> CardId {
+        let effect_id = self.create_card(effect);
+        self.card_mut(effect_id).zone = ZoneType::Command;
+        self.add_card_to_zone(ZoneType::Command, player, effect_id);
+        effect_id
+    }
+
     fn remove_player_effect_card(&mut self, player: PlayerId, effect_id: Option<CardId>) {
         let Some(effect_id) = effect_id else {
             return;
@@ -83,8 +90,7 @@ impl GameState {
             [("SpeedUp", "DB$ ChangeSpeed")],
         );
 
-        let effect_id = self.create_card(effect);
-        self.move_card(effect_id, ZoneType::Command, player);
+        let effect_id = self.add_player_effect_card(player, effect);
         self.player_mut(player).speed_effect_card = Some(effect_id);
         Some(effect_id)
     }
@@ -107,8 +113,7 @@ impl GameState {
                 "DB$ BecomeMonarch | Defined$ TriggeredSourceController",
             )],
         );
-        let effect_id = self.create_card(effect);
-        self.move_card(effect_id, ZoneType::Command, player);
+        let effect_id = self.add_player_effect_card(player, effect);
         self.player_mut(player).monarch_effect_card = Some(effect_id);
         effect_id
     }
@@ -142,8 +147,7 @@ impl GameState {
             "Mode$ TakesInitiative | ValidPlayer$ You | TriggerZones$ Command | Execute$ VentureUndercity | TriggerDescription$ Whenever you take the initiative, venture into Undercity.",
             [("VentureUndercity", "DB$ Venture | Dungeon$ Undercity")],
         );
-        let effect_id = self.create_card(effect);
-        self.move_card(effect_id, ZoneType::Command, player);
+        let effect_id = self.add_player_effect_card(player, effect);
         self.player_mut(player).initiative_effect_card = Some(effect_id);
         effect_id
     }
@@ -165,8 +169,7 @@ impl GameState {
             return Some(effect_id);
         }
         let effect = new_player_effect_card(player, "City's Blessing", None);
-        let effect_id = self.create_card(effect);
-        self.move_card(effect_id, ZoneType::Command, player);
+        let effect_id = self.add_player_effect_card(player, effect);
         self.player_mut(player).blessing_effect_card = Some(effect_id);
         Some(effect_id)
     }
@@ -187,8 +190,7 @@ impl GameState {
             "Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | TriggerZones$ Command | Execute$ ProcessRadiation | TriggerDescription$ At the beginning of your precombat main phase, if you have any rad counters, mill that many cards. For each nonland card milled this way, you lose 1 life and a rad counter.",
             [("ProcessRadiation", "DB$ InternalRadiation")],
         );
-        let effect_id = self.create_card(effect);
-        self.move_card(effect_id, ZoneType::Command, player);
+        let effect_id = self.add_player_effect_card(player, effect);
         self.player_mut(player).radiation_effect_card = Some(effect_id);
         Some(effect_id)
     }
@@ -318,8 +320,7 @@ impl GameState {
         }
         if story {
             let effect = new_player_effect_card(player, "An Enduring Story", set_code);
-            let effect_id = self.create_card(effect);
-            self.move_card(effect_id, ZoneType::Command, player);
+            let effect_id = self.add_player_effect_card(player, effect);
             self.player_mut(player).enduring_story_effect_card = Some(effect_id);
         } else {
             let effect_id = self.player(player).enduring_story_effect_card;
