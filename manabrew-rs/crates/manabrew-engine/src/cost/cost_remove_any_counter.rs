@@ -49,12 +49,43 @@ pub fn valid_cards(
         .collect()
 }
 
+/// FORGE BUG, mirrored under `mirror_forge_bugs`: Forge pays from the ability's host object, so a
+/// triggered ability whose host has changed zones since it triggered still removes counters from
+/// the old object (CR 400.7 says the new object has none).
+pub fn pays_from_lki(
+    game: &GameState,
+    card_id: CardId,
+    source: CardId,
+    ability: Option<&crate::spellability::SpellAbility>,
+) -> bool {
+    let card = game.card(card_id);
+    game.mirror_forge_bugs
+        && card_id == source
+        && card.lki_counters.is_some()
+        && ability
+            .and_then(|sa| sa.trigger_source_zone_timestamp)
+            .is_some_and(|ts| ts != card.zone_timestamp)
+}
+
+pub fn counters_of<'a>(
+    game: &'a GameState,
+    card_id: CardId,
+    source: CardId,
+    ability: Option<&crate::spellability::SpellAbility>,
+) -> &'a std::collections::BTreeMap<CounterType, i32> {
+    let card = game.card(card_id);
+    match &card.lki_counters {
+        Some(lki) if pays_from_lki(game, card_id, source, ability) => lki,
+        _ => &card.counters,
+    }
+}
+
 pub fn can_pay(
     game: &crate::game::GameState,
     _available_mana: &crate::mana::ManaPool,
     source: crate::ids::CardId,
     player: crate::ids::PlayerId,
-    _ability: Option<&crate::spellability::SpellAbility>,
+    ability: Option<&crate::spellability::SpellAbility>,
     part: &super::CostPart,
 ) -> bool {
     let super::CostPart::RemoveAnyCounter {
@@ -68,10 +99,10 @@ pub fn can_pay(
     let total: i32 = valid_cards(game, player, source, type_filter)
         .iter()
         .map(|&cid| {
-            let c = game.card(cid);
+            let counters = counters_of(game, cid, source, ability);
             match counter_type {
-                Some(ct) => c.counter_count(ct),
-                None => c.counters.values().sum(),
+                Some(ct) => counters.get(ct).copied().unwrap_or(0),
+                None => counters.values().sum(),
             }
         })
         .sum();

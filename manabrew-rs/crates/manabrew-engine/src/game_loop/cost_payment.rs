@@ -1347,6 +1347,7 @@ impl GameLoop {
                         type_filter,
                         amount.resolve(game, card_id, player),
                         counter_type.as_ref(),
+                        sa.as_deref(),
                     );
                 }
                 CostPart::Unattach { type_filter, .. } => {
@@ -2179,6 +2180,7 @@ impl GameLoop {
                         type_filter,
                         amount.resolve(game, card_id, player),
                         counter_type.as_ref(),
+                        sa.as_deref(),
                     );
                 }
                 CostPart::Unattach { type_filter, .. } => {
@@ -4413,20 +4415,39 @@ impl GameLoop {
         type_filter: &str,
         amount: i32,
         counter_type: Option<&crate::card::CounterType>,
+        ability: Option<&SpellAbility>,
     ) {
+        use crate::cost::cost_remove_any_counter::counters_of;
         let mut remaining = amount;
         for card_id in
             crate::cost::cost_remove_any_counter::valid_cards(game, player, source, type_filter)
         {
+            let from_lki =
+                crate::cost::cost_remove_any_counter::pays_from_lki(game, card_id, source, ability);
             let types: Vec<crate::card::CounterType> = match counter_type {
                 Some(ct) => vec![ct.clone()],
-                None => game.card(card_id).counters.keys().cloned().collect(),
+                None => counters_of(game, card_id, source, ability)
+                    .keys()
+                    .cloned()
+                    .collect(),
             };
             for ct in types {
-                let remove = remaining.min(game.card(card_id).counter_count(&ct));
+                let count = |game: &GameState| {
+                    counters_of(game, card_id, source, ability)
+                        .get(&ct)
+                        .copied()
+                        .unwrap_or(0)
+                };
+                let remove = remaining.min(count(game));
                 for _ in 0..remove {
-                    game.card_mut(card_id).remove_counter(&ct, 1);
-                    let new_counter_amount = game.card(card_id).counter_count(&ct);
+                    if from_lki {
+                        if let Some(lki) = game.card_mut(card_id).lki_counters.as_mut() {
+                            *lki.entry(ct.clone()).or_insert(0) -= 1;
+                        }
+                    } else {
+                        game.card_mut(card_id).remove_counter(&ct, 1);
+                    }
+                    let new_counter_amount = count(game);
                     self.trigger_handler.run_trigger(
                         TriggerType::CounterRemoved,
                         RunParams {
