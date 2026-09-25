@@ -695,15 +695,20 @@ impl GameLoop {
             .iter()
             .filter_map(|c| c.chosen_type.clone().map(|chosen| (c.id, chosen)))
             .collect();
-        let stack_statics = Self::apply_stack_statics(game, hand);
+        let stack_statics = std::cell::OnceCell::new();
         let cost_adjusting_source = std::cell::OnceCell::new();
         let alternative_cost_statics = std::cell::OnceCell::new();
 
         for &card_id in hand {
             let card = game.card(card_id);
-            let probe_host = stack_statics
-                .as_ref()
-                .map_or(card, |stack_statics| stack_statics.card(card_id));
+            let probe_host = || {
+                stack_statics
+                    .get_or_init(|| Self::apply_stack_statics(game, hand))
+                    .as_ref()
+                    .map_or(card, |stack_statics: &GameState| {
+                        stack_statics.card(card_id)
+                    })
+            };
             if self.can_play_card_state_spell(
                 game,
                 player,
@@ -1013,8 +1018,13 @@ impl GameLoop {
                             )
                         } else {
                             let colored = payable_base.phyrexian_to_colored();
-                            let reduced =
-                                apply_cost_reductions(game, player, card_id, probe_host, &colored);
+                            let reduced = apply_cost_reductions(
+                                game,
+                                player,
+                                card_id,
+                                probe_host(),
+                                &colored,
+                            );
                             if any_color {
                                 available_mana().can_pay_any_color(&reduced)
                             } else {
@@ -1022,8 +1032,13 @@ impl GameLoop {
                             }
                         }
                     } else {
-                        let reduced =
-                            apply_cost_reductions(game, player, card_id, probe_host, &payable_base);
+                        let reduced = apply_cost_reductions(
+                            game,
+                            player,
+                            card_id,
+                            probe_host(),
+                            &payable_base,
+                        );
                         if any_color {
                             available_mana().can_pay_any_color(&reduced)
                         } else {
@@ -1120,7 +1135,7 @@ impl GameLoop {
 
                 // Web-slinging: alt cost, and the Return part needs a tapped creature
                 let web_slinging_ok =
-                    probe_host
+                    probe_host()
                         .get_web_slinging_cost()
                         .is_some_and(|web_cost_str| {
                             let adjusted = cost_adj
