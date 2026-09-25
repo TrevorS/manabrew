@@ -40,6 +40,7 @@ pub struct TriggerIr {
     pub game_activation_limit: Option<u32>,
     pub valid_phases: Option<Vec<PhaseType>>,
     pub activator_this_turn_cast: Option<String>,
+    pub activator_this_turn_cast_each: Option<String>,
 }
 
 impl TriggerIr {
@@ -124,6 +125,9 @@ impl TriggerIr {
             valid_phases: params.get(keys::PHASE).map(PhaseType::parse_range),
             activator_this_turn_cast: params
                 .get(keys::ACTIVATOR_THIS_TURN_CAST)
+                .map(str::to_string),
+            activator_this_turn_cast_each: params
+                .get(keys::ACTIVATOR_THIS_TURN_CAST_EACH)
                 .map(str::to_string),
         }
     }

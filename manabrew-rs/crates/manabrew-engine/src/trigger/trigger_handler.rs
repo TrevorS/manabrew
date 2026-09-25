@@ -1876,6 +1876,43 @@ impl TriggerHandler {
         if !trigger.meets_requirements_on_triggered_objects(game, params, host_card) {
             return Err("triggered objects");
         }
+        if let Some(cond) = trigger.ir.activator_this_turn_cast_each.as_deref() {
+            let caster = params.spell_controller.unwrap_or(host_controller);
+            let valid = trigger
+                .ir
+                .valid_card_selector
+                .as_ref()
+                .map_or_else(|| "Card".to_string(), |selector| selector.as_raw());
+            let found = params.spell_card.is_some_and(|cast| {
+                valid.split(',').any(|clause| {
+                    let mut context = valid_filter::MatchContext::from_source(game.card(host_card))
+                        .with_game(game);
+                    if let Some(sa) = params.source_sa.as_ref().or(params.spell_ability.as_ref()) {
+                        context = context.with_spell_ability(sa);
+                    }
+                    valid_filter::matches_valid_card_selector_with_context(
+                        &crate::parsing::CompiledSelector::parse(clause),
+                        game.card(cast),
+                        context,
+                    ) && compare_expr(
+                        crate::card::card_util::get_this_turn_cast(
+                            game,
+                            clause,
+                            host_card,
+                            None,
+                            host_controller,
+                        )
+                        .into_iter()
+                        .filter(|&spell| game.card(spell).controller == caster)
+                        .count() as i32,
+                        cond.trim(),
+                    )
+                })
+            });
+            if !found {
+                return Err("ActivatorThisTurnCastEach");
+            }
+        }
 
         // ── ActivatorThisTurnCast$ condition ──────────────────────────
         // Mirrors Java's TriggerSpellAbilityCastOrCopy.performTest: the activator's spells

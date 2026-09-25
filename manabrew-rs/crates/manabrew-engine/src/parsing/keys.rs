@@ -384,6 +384,7 @@ pub const TRIGGERS: &str = "Triggers";
 pub const ANIMATE_STATIC_ABILITIES: &str = "staticAbilities";
 pub const ACTIVATOR: &str = "Activator";
 pub const ACTIVATOR_THIS_TURN_CAST: &str = "ActivatorThisTurnCast";
+pub const ACTIVATOR_THIS_TURN_CAST_EACH: &str = "ActivatorThisTurnCastEach";
 pub const CASTER: &str = "Caster";
 pub const CONTROLLER: &str = "Controller";
 pub const PLAYER: &str = "Player";
