@@ -2784,6 +2784,15 @@ fn group_mana_sources_by_color(
 ) -> IndexMap<i32, Vec<ManaAbilityRef>> {
     let mut mana_map: IndexMap<i32, Vec<ManaAbilityRef>> = IndexMap::new();
     let mut source_order = 0usize;
+    let produce_mana_replaced = super::has_active_produce_mana_replacement(game);
+    let replacement_units = |card_id: CardId, atom: u16| {
+        if produce_mana_replaced {
+            super::replacement_adjusted_atoms_for_availability(game, player, card_id, atom).len()
+                as i32
+        } else {
+            1
+        }
+    };
 
     for &card_id in sources {
         let card = game.card(card_id);
@@ -2903,11 +2912,13 @@ fn group_mana_sources_by_color(
                     );
                 special_atom_multiplier = Some(special_atoms.len().max(1) as i32);
                 special_atoms
-            } else {
+            } else if produce_mana_replaced {
                 let intrinsic = produced_ir.to_atoms(&card.chosen_colors);
                 super::java_replacement_filtered_atoms_for_availability(
                     game, player, card_id, ab, &intrinsic,
                 )
+            } else {
+                produced_ir.to_atoms(&card.chosen_colors)
             };
             if atoms.is_empty()
                 && !ab
@@ -2924,10 +2935,7 @@ fn group_mana_sources_by_color(
                 .unwrap_or(1);
             let replacement_multiplier = atoms
                 .iter()
-                .map(|&atom| {
-                    super::replacement_adjusted_atoms_for_availability(game, player, card_id, atom)
-                        .len() as i32
-                })
+                .map(|&atom| replacement_units(card_id, atom))
                 .max()
                 .unwrap_or(1)
                 .max(1);
@@ -2962,9 +2970,7 @@ fn group_mana_sources_by_color(
                 }
             }
             for atom in atoms {
-                let replacement_multiplier =
-                    super::replacement_adjusted_atoms_for_availability(game, player, card_id, atom)
-                        .len() as i32;
+                let replacement_multiplier = replacement_units(card_id, atom);
                 let ma = ManaAbilityRef {
                     card_id,
                     ability_index: None,

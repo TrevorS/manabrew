@@ -1242,7 +1242,7 @@ pub(crate) fn reflected_atoms_for_availability(
     java_replacement_filtered_atoms_for_availability(game, player, source, ab, &reflected)
 }
 
-fn has_active_produce_mana_replacement(game: &GameState) -> bool {
+pub(crate) fn has_active_produce_mana_replacement(game: &GameState) -> bool {
     use crate::replacement::ReplacementType;
 
     game.cards.iter().any(|card| {
@@ -1426,6 +1426,14 @@ fn calculate_available_mana_excluding_with_reserved_impl(
         None => pool,
     };
     let mut available = pool.clone();
+    let produce_mana_replaced = has_active_produce_mana_replacement(game);
+    let adjusted_atoms_for = |card_id: CardId, atom: u16| {
+        if produce_mana_replaced {
+            replacement_adjusted_atoms_for_availability(game, player, card_id, atom)
+        } else {
+            vec![atom]
+        }
+    };
     let battlefield = game.cards_in_zone(ZoneType::Battlefield, player);
     let hand_cards = if include_hand_sources {
         game.cards_in_zone(ZoneType::Hand, player).to_vec()
@@ -1570,9 +1578,7 @@ fn calculate_available_mana_excluding_with_reserved_impl(
                     let mut src_mask: u16 = 0;
                     let mut source_units = 0usize;
                     for atom in subtype_atoms {
-                        let adjusted_atoms = replacement_adjusted_atoms_for_availability(
-                            game, player, card_id, atom,
-                        );
+                        let adjusted_atoms = adjusted_atoms_for(card_id, atom);
                         source_units = source_units.max(adjusted_atoms.len());
                         for adjusted_atom in adjusted_atoms {
                             avail_add!(available, card_is_snow, adjusted_atom);
@@ -1593,8 +1599,7 @@ fn calculate_available_mana_excluding_with_reserved_impl(
                         &atoms_mask_to_letters(src_mask),
                     );
                 } else if let Some(atom) = basic_land_mana_atom(card) {
-                    let adjusted_atoms =
-                        replacement_adjusted_atoms_for_availability(game, player, card_id, atom);
+                    let adjusted_atoms = adjusted_atoms_for(card_id, atom);
                     let mut src_mask: u16 = 0;
                     for adjusted_atom in &adjusted_atoms {
                         avail_add!(available, card_is_snow, *adjusted_atom);
@@ -1681,9 +1686,7 @@ fn calculate_available_mana_excluding_with_reserved_impl(
                     if !special_atoms.is_empty() {
                         for &atom in &special_atoms {
                             if !added_atoms.contains(&atom) {
-                                let adjusted_atoms = replacement_adjusted_atoms_for_availability(
-                                    game, player, card_id, atom,
-                                );
+                                let adjusted_atoms = adjusted_atoms_for(card_id, atom);
                                 for adjusted_atom in adjusted_atoms {
                                     avail_add!(available, card_is_snow, adjusted_atom);
                                     src_mask |= adjusted_atom;
@@ -1709,9 +1712,7 @@ fn calculate_available_mana_excluding_with_reserved_impl(
                     if let Some(fixed_atoms) = produced_ir.fixed_atoms() {
                         for atom in fixed_atoms {
                             for _ in 0..amount {
-                                let adjusted_atoms = replacement_adjusted_atoms_for_availability(
-                                    game, player, card_id, atom,
-                                );
+                                let adjusted_atoms = adjusted_atoms_for(card_id, atom);
                                 for adjusted_atom in adjusted_atoms {
                                     avail_add!(available, card_is_snow, adjusted_atom);
                                     src_mask |= adjusted_atom;
@@ -1725,16 +1726,17 @@ fn calculate_available_mana_excluding_with_reserved_impl(
                     } else {
                         let mut source_units = 0usize;
                         let intrinsic = produced_ir.to_atoms(&card.chosen_colors);
-                        let allowed = java_replacement_filtered_atoms_for_availability(
-                            game, player, card_id, ab, &intrinsic,
-                        );
+                        let allowed = if produce_mana_replaced {
+                            java_replacement_filtered_atoms_for_availability(
+                                game, player, card_id, ab, &intrinsic,
+                            )
+                        } else {
+                            intrinsic
+                        };
                         for atom in allowed {
                             if !added_atoms.contains(&atom) {
                                 for _ in 0..amount {
-                                    let adjusted_atoms =
-                                        replacement_adjusted_atoms_for_availability(
-                                            game, player, card_id, atom,
-                                        );
+                                    let adjusted_atoms = adjusted_atoms_for(card_id, atom);
                                     source_units =
                                         source_units.max(adjusted_atoms.len() * amount as usize);
                                     for adjusted_atom in adjusted_atoms {
