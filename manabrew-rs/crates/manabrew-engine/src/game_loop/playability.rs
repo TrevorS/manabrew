@@ -2360,6 +2360,9 @@ impl GameLoop {
         must_be_instant: bool,
         playable: &[crate::agent::PlayOption],
     ) {
+        if !Self::card_trace_enabled() {
+            return;
+        }
         for zone in [
             ZoneType::Hand,
             ZoneType::Graveyard,
