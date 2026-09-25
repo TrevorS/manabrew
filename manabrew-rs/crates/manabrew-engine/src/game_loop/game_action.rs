@@ -580,14 +580,17 @@ impl GameLoop {
             .filter_map(|&owner| game.zone(ZoneType::Library, owner).peek_top())
             .collect();
         for card_id in library_tops {
-            if !crate::staticability::static_ability_plot_zone::plot_zone(game, game.card(card_id))
+            let card = game.card(card_id);
+            let is_plot = |ab: &crate::ability::ActivatedAbility| {
+                ab.ability_api == Some(crate::ability::api_type::ApiType::Plot)
+            };
+            if !card.activated_abilities.iter().any(is_plot)
+                || !crate::staticability::static_ability_plot_zone::plot_zone(game, card)
             {
                 continue;
             }
-            for ab in &game.card(card_id).activated_abilities {
-                if ab.ability_api == Some(crate::ability::api_type::ApiType::Plot)
-                    && can_activate(card_id, ab)
-                {
+            for ab in &card.activated_abilities {
+                if is_plot(ab) && can_activate(card_id, ab) {
                     result.push((card_id, ab.ability_index));
                 }
             }
