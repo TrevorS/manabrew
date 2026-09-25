@@ -696,6 +696,9 @@ impl GameLoop {
             .filter_map(|c| c.chosen_type.clone().map(|chosen| (c.id, chosen)))
             .collect();
         let stack_statics = std::cell::OnceCell::new();
+        let probe_sources = std::cell::OnceCell::new();
+        let probe_sources =
+            || probe_sources.get_or_init(|| crate::mana::SpellProbeSources::new(game, player));
         let cost_adjusting_source = std::cell::OnceCell::new();
         let alternative_cost_statics = std::cell::OnceCell::new();
 
@@ -1008,13 +1011,14 @@ impl GameLoop {
                             _ => true,
                         };
                         if phyrexian_life_allowed {
-                            crate::mana::can_pay_spell_mana_cost_for_action_space(
+                            crate::mana::can_pay_spell_mana_cost_with_sources(
                                 game,
                                 self.pool(player),
                                 player,
                                 card_id,
                                 &payable_base,
                                 &payment_ctx,
+                                probe_sources,
                             )
                         } else {
                             let colored = payable_base.phyrexian_to_colored();
@@ -1042,13 +1046,14 @@ impl GameLoop {
                         if any_color {
                             available_mana().can_pay_any_color(&reduced)
                         } else {
-                            crate::mana::can_pay_spell_mana_cost_for_action_space(
+                            crate::mana::can_pay_spell_mana_cost_with_sources(
                                 game,
                                 self.pool(player),
                                 player,
                                 card_id,
                                 &reduced,
                                 &payment_ctx,
+                                probe_sources,
                             )
                             // The incremental simulator mirrors payment choice order.
                             // If it misses an availability-only source (e.g.

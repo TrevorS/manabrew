@@ -3187,6 +3187,32 @@ pub fn can_pay_mana_cost_with_reserved_sacrifices(
     source_masks.len() - committed.len() >= generic_count as usize
 }
 
+/// Keep in sync with `group_mana_sources_by_color`: a spell's payment context changes the probe's
+/// sources only through a `RestrictValid$`, so without one every spell cast from one game state
+/// can share them.
+pub struct SpellProbeSources(Option<Vec<ManaAbilityRef>>);
+
+impl SpellProbeSources {
+    pub fn new(game: &GameState, player: PlayerId) -> Self {
+        let sources = get_available_mana_sources(game, player, &[]);
+        if sources.iter().any(|&card_id| {
+            game.card(card_id)
+                .activated_abilities
+                .iter()
+                .any(|ab| ab.restrict_valid.is_some())
+        }) {
+            return Self(None);
+        }
+        let mana_ability_map = group_mana_sources_by_color(game, player, &sources, &[], None, true);
+        Self(Some(collect_sorted_candidates_with_pref(
+            game,
+            player,
+            &mana_ability_map,
+            true,
+        )))
+    }
+}
+
 pub fn can_pay_spell_mana_cost_for_action_space(
     game: &GameState,
     pool: &ManaPool,
@@ -3194,6 +3220,26 @@ pub fn can_pay_spell_mana_cost_for_action_space(
     current_spell: CardId,
     cost: &forge_foundation::ManaCost,
     payment_ctx: &crate::mana::ManaPaymentContext,
+) -> bool {
+    can_pay_spell_mana_cost_with_sources(
+        game,
+        pool,
+        player,
+        current_spell,
+        cost,
+        payment_ctx,
+        || &SpellProbeSources(None),
+    )
+}
+
+pub fn can_pay_spell_mana_cost_with_sources<'a>(
+    game: &GameState,
+    pool: &ManaPool,
+    player: PlayerId,
+    current_spell: CardId,
+    cost: &forge_foundation::ManaCost,
+    payment_ctx: &crate::mana::ManaPaymentContext,
+    shared_sources: impl FnOnce() -> &'a SpellProbeSources,
 ) -> bool {
     if game.action_space_mana_probe == super::ActionSpaceManaProbe::ComputerUtilMana {
         return can_pay_mana_cost(game, pool, player, current_spell, cost, payment_ctx, &[]);
@@ -3205,8 +3251,14 @@ pub fn can_pay_spell_mana_cost_for_action_space(
         return true;
     }
 
-    let mana_ability_map = group_sources_by_mana_color(game, player, &[], Some(payment_ctx), true);
-    let mut candidates = collect_sorted_candidates_with_pref(game, player, &mana_ability_map, true);
+    let mut candidates = match &shared_sources().0 {
+        Some(candidates) => candidates.clone(),
+        None => {
+            let mana_ability_map =
+                group_sources_by_mana_color(game, player, &[], Some(payment_ctx), true);
+            collect_sorted_candidates_with_pref(game, player, &mana_ability_map, true)
+        }
+    };
     let mut used_sources = crate::HashSet::default();
     let mut guard = 0u32;
     while !unpaid.is_paid() && guard < 128 {
