@@ -457,7 +457,7 @@ pub(crate) fn get_defined_card_objects<'a>(
         .collect()
 }
 
-fn defined_card_object<'a>(
+pub(crate) fn defined_card_object<'a>(
     game: &'a GameState,
     sa: &SpellAbility,
     defined: &str,

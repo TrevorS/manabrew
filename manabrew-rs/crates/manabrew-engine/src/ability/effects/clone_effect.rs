@@ -39,9 +39,19 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         Some(id) => id,
         None => return,
     };
+    let src = match sa.defined().filter(|_| sa.ir.choices.is_none()) {
+        Some(defined) => crate::ability::spell_ability_effect::defined_card_object(
+            ctx.game,
+            sa,
+            defined,
+            clone_source_id,
+        )
+        .clone(),
+        None => ctx.game.card(clone_source_id).clone(),
+    };
 
     if sa.ir.optional {
-        let card_name = ctx.game.card(clone_source_id).card_name.clone();
+        let card_name = src.card_name.clone();
         ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
         if !ctx.agents[controller.index()].confirm_action(
             controller,
@@ -73,7 +83,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             vec![source_id]
         };
 
-    let src = ctx.game.card(clone_source_id).clone();
     for clone_target_id in clone_targets {
         if ctx.game.card(clone_target_id).phased_out {
             continue;

@@ -26,10 +26,20 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         let originals = resolve_originals(ctx, sa, controller);
+        let defined = sa
+            .defined()
+            .filter(|_| sa.ir.choices.is_none() && sa.ir.defined_name_text.is_none());
         for original_id in originals {
-            if ctx.game.card(original_id).type_line.is_instant()
-                || ctx.game.card(original_id).type_line.is_sorcery()
-            {
+            let original = match defined {
+                Some(defined) => crate::ability::spell_ability_effect::defined_card_object(
+                    ctx.game,
+                    sa,
+                    defined,
+                    original_id,
+                ),
+                None => ctx.game.card(original_id),
+            };
+            if original.type_line.is_instant() || original.type_line.is_sorcery() {
                 continue;
             }
             if sa.ir.defined_text.is_none()
@@ -48,13 +58,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     ctx.game,
                 );
                 for player in players {
-                    let mut proto = get_proto_type(sa, ctx.game.card(original_id), controller);
+                    let mut proto = get_proto_type(sa, original, controller);
                     proto.copied_permanent = Some(original_id);
                     proto.add_remembered_player(player);
                     token_table.put(controller, proto, amount);
                 }
             } else {
-                let mut proto = get_proto_type(sa, ctx.game.card(original_id), controller);
+                let mut proto = get_proto_type(sa, original, controller);
                 proto.copied_permanent = Some(original_id);
                 token_table.put(controller, proto, amount);
             }
