@@ -109,6 +109,14 @@ impl ActivatedAbility {
             .any(|key| self.params.get(key).is_some())
     }
 
+    /// Java builds Plot, `ST$ UnlockDoor` and the turn-face-up `ST$ SetState` as `AbilityStatic`,
+    /// which is not an activated ability, so `Activated` and `Type$ Ability` never match them.
+    pub fn is_ability_static(&self) -> bool {
+        self.ability_api == Some(ApiType::Plot)
+            || self.params.has("Unlock")
+            || self.is_turn_face_up()
+    }
+
     pub fn display_description(&self, card_name: &str) -> String {
         self.spell_description
             .as_deref()

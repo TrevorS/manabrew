@@ -1800,7 +1800,21 @@ impl GameLoop {
                     if !door.is_some_and(|state| card.room_door_locked(state)) {
                         continue;
                     }
-                    let mana_cost = Self::mana_from_cost(&ab.cost);
+                    let sa = crate::spellability::build_spell_ability(
+                        game,
+                        card_id,
+                        &ab.ability_text,
+                        player,
+                    );
+                    let mana_cost = crate::cost::cost_adjustment::adjust_ability_mana_cost(
+                        game,
+                        &sa,
+                        ab,
+                        player,
+                        &[],
+                        &Self::mana_from_cost(&ab.cost),
+                        true,
+                    );
                     let available_mana =
                         mana::calculate_available_mana(self.pool(player), game, player);
                     if available_mana.can_pay(&mana_cost)

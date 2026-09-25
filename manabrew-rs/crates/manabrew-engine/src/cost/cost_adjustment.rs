@@ -276,7 +276,12 @@ fn check_valid_ability(
 ) -> bool {
     valid_spell.split(',').any(|option| {
         let mut parts = option.trim().split('.');
-        if parts.next() != Some("Activated") {
+        let category = match parts.next() {
+            Some("Activated") => !ability.is_ability_static(),
+            Some("Static") => ability.is_ability_static(),
+            _ => false,
+        };
+        if !category {
             return false;
         }
         parts.all(|attr| {
@@ -295,6 +300,11 @@ fn check_valid_ability(
                 "Loyalty" => ability.params.has("Planeswalker"),
                 "Boast" => ability.params.has("Boast"),
                 "YouCtrl" => activator == controller,
+                "Plotting" => ability.ability_api == Some(crate::ability::api_type::ApiType::Plot),
+                "Unlock" => ability.params.has("Unlock"),
+                "MorphUp" => ability.params.has("MorphUp"),
+                "ManifestUp" => ability.params.has("ManifestUp"),
+                "isTurnFaceUp" => ability.is_turn_face_up(),
                 _ => {
                     crate::census::unhandled("valid-ability-attribute-ignored", attr);
                     return false;
@@ -675,7 +685,8 @@ fn check_requirement(
 ) -> bool {
     if let Some(type_filter) = st_ab.ir.type_filter.as_deref() {
         match (type_filter.to_ascii_lowercase().as_str(), ability) {
-            ("spell", None) | ("ability", Some(_)) => {}
+            ("spell", None) => {}
+            ("ability", Some(ab)) if !ab.is_ability_static() => {}
             _ => return false,
         }
     }
