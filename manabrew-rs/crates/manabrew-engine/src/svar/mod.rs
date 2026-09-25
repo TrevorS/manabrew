@@ -526,6 +526,7 @@ fn resolve_lowered_svar_expression(
                 &game.card(source_id).remembered_cards,
                 property,
                 source_id,
+                false,
             );
             Some(do_x_math(value, operators, game, source_id, controller, sa))
         }
@@ -699,6 +700,7 @@ fn resolve_svar_expression_inner(
             &game.card(source_id).remembered_cards,
             property,
             source_id,
+            false,
         );
         return do_x_math(value, operators, game, source_id, controller, sa);
     }
@@ -1460,6 +1462,7 @@ fn resolve_paid_hash_property(
         &paid_cards,
         property,
         source_id,
+        true,
     ))
 }
 
@@ -2995,6 +2998,7 @@ pub fn resolve_count_svar_for_sa(
                     &some_cards,
                     property,
                     source_id,
+                    true,
                 ),
                 None => some_cards.len() as i32,
             };

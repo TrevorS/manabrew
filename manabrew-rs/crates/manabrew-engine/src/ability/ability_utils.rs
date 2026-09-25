@@ -1827,16 +1827,21 @@ pub fn handle_remembering(game: &mut GameState, sa: &SpellAbility) {
 /// Mirrors Java's `AbilityUtils.handlePaid(Iterable<Card>, String, Card, CardTraitBase)`.
 ///
 /// Evaluates properties of cards that were paid as costs (e.g. sacrificed, discarded).
+/// `last_known` is false for a list Java reads through `getCardState` (`Remembered`), whose
+/// cards have no last-known power of their own.
 pub fn handle_paid(
     game: &GameState,
     paid_cards: &[CardId],
     property: &str,
     source_id: CardId,
+    last_known: bool,
 ) -> i32 {
     let (property, operators) = property.split_once('/').unwrap_or((property, ""));
     if paid_cards.is_empty() {
         return do_x_math(0, operators);
     }
+    let lki_power = |card: &Card| card.lki_power.filter(|_| last_known);
+    let lki_toughness = |card: &Card| card.lki_toughness.filter(|_| last_known);
 
     let value = match property {
         "Amount" | "Count" => paid_cards.len() as i32,
@@ -1847,7 +1852,7 @@ pub fn handle_paid(
             .iter()
             .map(|&cid| {
                 let card = game.card(cid);
-                card.lki_power.unwrap_or_else(|| card.power())
+                lki_power(card).unwrap_or_else(|| card.power())
             })
             .sum(),
         "CardBasePower" => paid_cards
@@ -1858,15 +1863,15 @@ pub fn handle_paid(
             .iter()
             .map(|&cid| {
                 let card = game.card(cid);
-                card.lki_toughness.unwrap_or_else(|| card.toughness())
+                lki_toughness(card).unwrap_or_else(|| card.toughness())
             })
             .sum(),
         "CardSumPT" => paid_cards
             .iter()
             .map(|&cid| {
                 let card = game.card(cid);
-                card.lki_power.unwrap_or_else(|| card.power())
-                    + card.lki_toughness.unwrap_or_else(|| card.toughness())
+                lki_power(card).unwrap_or_else(|| card.power())
+                    + lki_toughness(card).unwrap_or_else(|| card.toughness())
             })
             .sum(),
         "CardManaCost" | "ManaCost" => paid_cards
@@ -1877,15 +1882,14 @@ pub fn handle_paid(
             .iter()
             .map(|&cid| {
                 let card = game.card(cid);
-                card.lki_power.unwrap_or(card.base_power.unwrap_or(0))
+                lki_power(card).unwrap_or(card.base_power.unwrap_or(0))
             })
             .sum(),
         "TotalToughness" | "SumToughness" => paid_cards
             .iter()
             .map(|&cid| {
                 let card = game.card(cid);
-                card.lki_toughness
-                    .unwrap_or(card.base_toughness.unwrap_or(0))
+                lki_toughness(card).unwrap_or(card.base_toughness.unwrap_or(0))
             })
             .sum(),
         "TotalCMC" | "SumCMC" => paid_cards
