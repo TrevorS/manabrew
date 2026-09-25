@@ -50,7 +50,7 @@ pub fn run(
     game.card_mut(card_id).power_modifier -= att_bonus;
     game.card_mut(card_id).toughness_modifier -= def_bonus;
     for kw in keywords {
-        game.card_mut(card_id).pump_keywords.remove(kw);
+        game.card_mut(card_id).remove_pump_keyword(kw);
     }
 }
 
@@ -490,8 +490,9 @@ pub(super) fn apply_pump_to_card(
         }
     } else {
         ctx.game.card_mut(card_id).add_pt_boost(att, def);
+        let timestamp = ctx.game.next_timestamp();
         for kw in keywords {
-            ctx.game.card_mut(card_id).add_pump_keyword(kw);
+            ctx.game.card_mut(card_id).add_pump_keyword(kw, timestamp);
         }
     }
 }

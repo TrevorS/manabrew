@@ -18,7 +18,7 @@ pub fn run(
     }
     game.card_mut(card_id).add_pt_boost(-att_bonus, -def_bonus);
     for kw in keywords {
-        game.card_mut(card_id).pump_keywords.remove(kw);
+        game.card_mut(card_id).remove_pump_keyword(kw);
     }
 }
 

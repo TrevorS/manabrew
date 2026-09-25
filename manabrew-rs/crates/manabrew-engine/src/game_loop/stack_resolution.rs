@@ -541,7 +541,8 @@ impl GameLoop {
 
                 // Dash: grant haste, register delayed trigger to return to hand at EOT
                 if alt_cost == Some(crate::spellability::AlternativeCost::Dash) {
-                    game.card_mut(card_id).pump_keywords.add("Haste");
+                    let timestamp = game.next_timestamp();
+                    game.card_mut(card_id).add_pump_keyword("Haste", timestamp);
                     self.trigger_handler.register_delayed_trigger(
                         crate::trigger::handler::DelayedTrigger {
                             mode: TriggerType::Phase,
@@ -617,7 +618,8 @@ impl GameLoop {
 
                 // Blitz: grant haste + "dies: draw a card" + sacrifice at EOT
                 if alt_cost == Some(crate::spellability::AlternativeCost::Blitz) {
-                    game.card_mut(card_id).pump_keywords.add("Haste");
+                    let timestamp = game.next_timestamp();
+                    game.card_mut(card_id).add_pump_keyword("Haste", timestamp);
                     let trig_id = game.card(card_id).triggers.len() as u32;
                     let params = crate::parsing::Params::from_raw(
                         "Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self"

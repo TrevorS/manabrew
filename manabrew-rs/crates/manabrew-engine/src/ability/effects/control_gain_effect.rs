@@ -328,8 +328,11 @@ fn gain_control_of(
     // Handle AddKWs parameter (add keywords)
     if let Some(kws_str) = sa.ir.add_kws.as_deref() {
         let keywords: Vec<String> = kws_str.split(" & ").map(|s| s.to_string()).collect();
+        let timestamp = ctx.game.next_timestamp();
         for kw in keywords {
-            ctx.game.card_mut(target_card).add_pump_keyword(&kw);
+            ctx.game
+                .card_mut(target_card)
+                .add_pump_keyword(&kw, timestamp);
         }
     }
 

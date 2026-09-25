@@ -488,7 +488,7 @@ impl GameLoop {
         let hidden_next_untap_keyword = format!("HIDDEN {next_untap_keyword}");
         for &cid in &cards {
             let card = game.card_mut(cid);
-            card.pump_keywords.remove(&hidden_next_untap_keyword);
+            card.remove_pump_keyword(&hidden_next_untap_keyword);
             card.remove_changed_card_keywords(&hidden_next_untap_keyword);
         }
 

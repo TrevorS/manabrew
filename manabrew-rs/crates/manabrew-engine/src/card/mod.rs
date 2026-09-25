@@ -446,6 +446,11 @@ pub struct Card {
     /// Keywords granted temporarily by pump effects (`KW$` parameter) until end of turn.
     /// Cleared during step_cleanup alongside power_modifier / toughness_modifier.
     pub pump_keywords: crate::keyword::keyword_collection::KeywordCollection,
+    /// Pump keywords a newer `RemoveAllAbilities$` static took away in this layer pass; the next
+    /// pass puts them back before the statics apply again.
+    #[serde(skip)]
+    pub pump_keywords_removed_by_statics:
+        Vec<crate::keyword::keyword_instance::KeywordInstanceData>,
     /// Number of triggers added temporarily by `DB$ Animate | Triggers$` effects.
     /// At cleanup, this many triggers are popped from the end of the `triggers` vec.
     pub pump_trigger_count: usize,
@@ -955,6 +960,7 @@ impl Card {
             changed_trigger_count_base: None,
             changed_name_base: None,
             pump_keywords: crate::keyword::keyword_collection::KeywordCollection::new(),
+            pump_keywords_removed_by_statics: Vec::new(),
             pump_trigger_count: 0,
             abilities,
             action_spell_specs: Vec::new(),
@@ -1191,6 +1197,7 @@ impl Card {
             changed_trigger_count_base: self.changed_trigger_count_base,
             changed_name_base: self.changed_name_base.clone(),
             pump_keywords: self.pump_keywords.clone(),
+            pump_keywords_removed_by_statics: self.pump_keywords_removed_by_statics.clone(),
             pump_trigger_count: self.pump_trigger_count,
             abilities: self.abilities.clone(),
             action_spell_specs: self.action_spell_specs.clone(),
@@ -1440,6 +1447,10 @@ impl Card {
         if !out.pump_keywords.eq_in_order(&self.pump_keywords) {
             out.pump_keywords.clone_from(&self.pump_keywords);
         }
+        refresh_field(
+            &mut out.pump_keywords_removed_by_statics,
+            &self.pump_keywords_removed_by_statics,
+        );
         out.pump_trigger_count.clone_from(&self.pump_trigger_count);
         refresh_field(&mut out.abilities, &self.abilities);
         out.action_spell_specs.clone_from(&self.action_spell_specs);
@@ -3510,6 +3521,13 @@ impl Card {
 
     pub fn clear_pump_keywords(&mut self) {
         self.pump_keywords.clear();
+        self.pump_keywords_removed_by_statics.clear();
+    }
+
+    pub fn remove_pump_keyword(&mut self, keyword: &str) {
+        self.pump_keywords.remove(keyword);
+        self.pump_keywords_removed_by_statics
+            .retain(|inst| !inst.original.starts_with(keyword));
     }
 
     pub fn add_pump_trigger(&mut self, mut trigger: Trigger) {
@@ -3542,8 +3560,8 @@ impl Card {
         }
     }
 
-    pub fn add_pump_keyword(&mut self, keyword: &str) {
-        self.pump_keywords.add(keyword);
+    pub fn add_pump_keyword(&mut self, keyword: &str, timestamp: u64) {
+        self.pump_keywords.add_at(keyword, timestamp);
     }
 
     pub fn add_granted_keyword(&mut self, keyword: &str) {

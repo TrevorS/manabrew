@@ -455,7 +455,10 @@ pub(super) fn apply_post_move(
             }
         }
         if sa.ir.unearth {
-            ctx.game.card_mut(card_id).add_pump_keyword("Haste");
+            let timestamp = ctx.game.next_timestamp();
+            ctx.game
+                .card_mut(card_id)
+                .add_pump_keyword("Haste", timestamp);
             ctx.game.card_mut(card_id).set_summoning_sick(false);
             ctx.game.card_mut(card_id).set_unearthed(true);
             ctx.trigger_handler

@@ -417,21 +417,22 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 for kw in &remove_keywords {
                     card.remove_changed_card_keywords(kw);
                     card.remove_hidden_extrinsic_keywords(kw);
-                    card.pump_keywords.remove(kw);
+                    card.remove_pump_keyword(kw);
                 }
                 for kw in &add_keywords {
                     card.add_changed_card_keywords(kw);
                 }
             } else {
+                let timestamp = ctx.game.next_timestamp();
                 let card = ctx.game.card_mut(card_id);
                 for kw in &remove_keywords {
-                    card.pump_keywords.remove(kw);
+                    card.remove_pump_keyword(kw);
                 }
                 if until_registered {
                     trait_keywords = add_keywords;
                 } else {
                     for kw in &add_keywords {
-                        card.add_pump_keyword(kw);
+                        card.add_pump_keyword(kw, timestamp);
                     }
                 }
             }

@@ -448,8 +448,11 @@ pub trait TokenEffectBase {
         }
 
         if !pump_keywords.is_empty() {
+            let timestamp = ctx.game.next_timestamp();
             for keyword in pump_keywords {
-                ctx.game.card_mut(token_id).add_pump_keyword(keyword);
+                ctx.game
+                    .card_mut(token_id)
+                    .add_pump_keyword(keyword, timestamp);
             }
             self.add_pump_until(ctx, sa, token_id);
         }

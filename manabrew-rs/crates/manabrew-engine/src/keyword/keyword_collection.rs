@@ -106,6 +106,27 @@ impl KeywordCollection {
         self.insert(inst)
     }
 
+    pub fn add_at(&mut self, k: &str, timestamp: u64) -> bool {
+        let (keyword, _details) = parse_keyword_string(k);
+        let mut inst = KeywordInstanceData::new(keyword, k.to_string());
+        inst.timestamp = Some(timestamp);
+        self.insert(inst)
+    }
+
+    /// Takes out every instance granted before `timestamp`.
+    pub fn take_older_than(&mut self, timestamp: u64) -> Vec<KeywordInstanceData> {
+        let mut taken = Vec::new();
+        for list in self.map.values_mut() {
+            let (older, kept): (Vec<_>, Vec<_>) = std::mem::take(list)
+                .into_iter()
+                .partition(|inst| inst.timestamp.is_some_and(|ts| ts < timestamp));
+            *list = kept;
+            taken.extend(older);
+        }
+        self.map.retain(|_, list| !list.is_empty());
+        taken
+    }
+
     /// Add all keywords from string iterator.
     pub fn add_all<'a>(&mut self, keywords: impl IntoIterator<Item = &'a str>) {
         for k in keywords {

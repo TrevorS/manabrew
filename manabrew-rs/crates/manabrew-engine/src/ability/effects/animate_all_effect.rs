@@ -317,7 +317,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         }
                         .apply_effect(ctx.game.card_mut(card_id));
                     } else {
-                        ctx.game.card_mut(card_id).add_pump_keyword(kw);
+                        let timestamp = ctx.game.next_timestamp();
+                        ctx.game.card_mut(card_id).add_pump_keyword(kw, timestamp);
                     }
                 }
             }

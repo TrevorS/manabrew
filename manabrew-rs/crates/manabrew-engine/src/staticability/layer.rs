@@ -227,6 +227,9 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             card.static_set_toughness = None;
         }
         card.granted_keywords.clear();
+        for inst in std::mem::take(&mut card.pump_keywords_removed_by_statics) {
+            card.pump_keywords.insert(inst);
+        }
         card.remove_changed_name();
         card.granted_svars.clear();
         // Restore the pre-layer type line before applying AddType$ statics.
@@ -1112,6 +1115,7 @@ fn static_layer_reset_is_noop(card: &crate::card::Card, card_names_unchanged: bo
         && (card.face_down
             || (card.static_set_power.is_none() && card.static_set_toughness.is_none()))
         && card.granted_keywords.has_no_entries()
+        && card.pump_keywords_removed_by_statics.is_empty()
         && (card_names_unchanged
             || card
                 .svars
@@ -1191,6 +1195,8 @@ fn apply_pending_effects(
             } => {
                 let card = game.card_mut(effect.target);
                 card.granted_keywords.clear();
+                let removed = card.pump_keywords.take_older_than(timestamp as u64);
+                card.pump_keywords_removed_by_statics.extend(removed);
                 card.add_changed_card_traits(
                     crate::card::card_trait_changes::CardTraitChanges::remove_all_layer(
                         Vec::new(),

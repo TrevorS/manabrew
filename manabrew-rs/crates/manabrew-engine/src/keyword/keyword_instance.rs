@@ -17,6 +17,8 @@ pub struct KeywordInstanceData {
     pub intrinsic: bool,
     /// Unique index for this keyword instance.
     pub idx: i64,
+    /// The timestamp of the effect that granted it (Java `KeywordsChange`, keyed by timestamp).
+    pub timestamp: Option<u64>,
 }
 
 impl KeywordInstanceData {
@@ -27,6 +29,7 @@ impl KeywordInstanceData {
             original,
             intrinsic: false,
             idx: -1,
+            timestamp: None,
         }
     }
 }

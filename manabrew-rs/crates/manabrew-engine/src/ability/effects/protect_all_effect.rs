@@ -10,7 +10,7 @@ use crate::ids::CardId;
 /// Removes the specified protection keyword from the card's pump_keywords.
 pub fn run(game: &mut crate::game::GameState, card_id: crate::ids::CardId, keyword: &str) {
     if game.card(card_id).zone == ZoneType::Battlefield {
-        game.card_mut(card_id).pump_keywords.remove(keyword);
+        game.card_mut(card_id).remove_pump_keyword(keyword);
     }
 }
 
@@ -91,9 +91,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
+    let timestamp = ctx.game.next_timestamp();
     for cid in targets {
         if ctx.game.card(cid).zone == ZoneType::Battlefield {
-            ctx.game.card_mut(cid).pump_keywords.add(&prot_keyword);
+            ctx.game
+                .card_mut(cid)
+                .add_pump_keyword(&prot_keyword, timestamp);
         }
     }
 }

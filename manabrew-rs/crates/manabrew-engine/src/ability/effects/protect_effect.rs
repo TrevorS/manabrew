@@ -56,7 +56,7 @@ pub fn get_protection_list(sa: &SpellAbility) -> Vec<String> {
 /// effect duration expires.
 pub fn run(game: &mut crate::game::GameState, card_id: crate::ids::CardId, keyword: &str) {
     if game.card(card_id).zone == ZoneType::Battlefield {
-        game.card_mut(card_id).pump_keywords.remove(keyword);
+        game.card_mut(card_id).remove_pump_keyword(keyword);
     }
 }
 
@@ -108,14 +108,20 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let chosen = ctx.agents[controller.index()].choose_color(controller, &choices);
         if let Some(color) = chosen {
             let prot_kw = format!("Protection from {}", color.to_lowercase());
+            let timestamp = ctx.game.next_timestamp();
             for card_id in targets {
-                ctx.game.card_mut(card_id).add_pump_keyword(&prot_kw);
+                ctx.game
+                    .card_mut(card_id)
+                    .add_pump_keyword(&prot_kw, timestamp);
             }
         }
     } else {
         // Static protection grant
+        let timestamp = ctx.game.next_timestamp();
         for card_id in targets {
-            ctx.game.card_mut(card_id).add_pump_keyword(&gains);
+            ctx.game
+                .card_mut(card_id)
+                .add_pump_keyword(&gains, timestamp);
         }
     }
 }
