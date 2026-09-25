@@ -47,6 +47,7 @@ pub const COMPARED_CALLBACKS: &[&str] = &[
     "choose_keyword_for_pump",
     "choose_mana_from_pool",
     "choose_mode",
+    "choose_new_targets_for",
     "choose_number",
     "choose_number_for_keyword_cost",
     "choose_number_from_list",
