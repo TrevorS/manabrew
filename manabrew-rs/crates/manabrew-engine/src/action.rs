@@ -373,6 +373,7 @@ impl GameState {
         if indirect_aura && self.aura_attach_candidates(card_id).is_empty() {
             return;
         }
+        self.card_mut(card_id).stale_face_down = false;
         if dest_zone == ZoneType::Battlefield
             && !matches!(src_zone, ZoneType::Stack | ZoneType::Battlefield)
         {

@@ -176,8 +176,10 @@ impl GameLoop {
         chosen_types_by_source: &crate::HashMap<CardId, String>,
     ) -> bool {
         let mut host = game.card(card_id).clone();
-        host.turn_face_down_no_update();
-        host.set_original_state_as_face_down();
+        if !host.stale_face_down {
+            host.turn_face_down_no_update();
+            host.set_original_state_as_face_down();
+        }
         let zone = host.zone;
         let raise_cost =
             crate::cost::cost_adjustment::compute_raise_cost_parts(game, &host, player, zone);

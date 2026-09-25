@@ -24,6 +24,13 @@ pub fn cant_be_cast_ability(
 fn restriction_host(card: &Card) -> Card {
     let mut host = card.clone();
     host.cast_from = Some(card.zone);
+    if card.stale_face_down {
+        host.turn_face_down_no_update();
+        host.set_original_state_as_face_down();
+        host.color = card.color;
+        host.base_power = card.base_power;
+        host.base_toughness = card.base_toughness;
+    }
     host
 }
 

@@ -553,6 +553,20 @@ impl GameLoop {
         }
     }
 
+    fn restore_cast_rollback(
+        &mut self,
+        game: &mut GameState,
+        snapshot: &GameSnapshot,
+        card_id: CardId,
+        leaves_face_down: bool,
+    ) {
+        self.restore_snapshot(game, snapshot);
+        if leaves_face_down {
+            // Forge rollbackAbility leaves facedown set
+            game.card_mut(card_id).stale_face_down = true;
+        }
+    }
+
     pub(crate) fn play_spell_ability(
         &mut self,
         game: &mut GameState,
@@ -1683,6 +1697,7 @@ impl GameLoop {
         } else if sa.is_spell && game.card(card_id).face_down {
             game.card_mut(card_id).turn_face_up();
         }
+        let rollback_leaves_face_down = game.mirror_forge_bugs && sa.cast_face_down;
         let pending_stack_id = if sa.is_spell {
             Some(game.stack.begin_pending_cast(StackEntry {
                 id: 0,
@@ -1702,7 +1717,12 @@ impl GameLoop {
         macro_rules! rollback_cast {
             () => {{
                 Self::trace_cast_rollback(game, card_id, line!());
-                self.restore_snapshot(game, &cast_rollback_snapshot);
+                self.restore_cast_rollback(
+                    game,
+                    &cast_rollback_snapshot,
+                    card_id,
+                    rollback_leaves_face_down,
+                );
                 return None;
             }};
         }
@@ -1721,7 +1741,12 @@ impl GameLoop {
         macro_rules! rollback_failed_payment {
             () => {{
                 Self::trace_cast_rollback(game, card_id, line!());
-                self.restore_snapshot(game, &cast_rollback_snapshot);
+                self.restore_cast_rollback(
+                    game,
+                    &cast_rollback_snapshot,
+                    card_id,
+                    rollback_leaves_face_down,
+                );
                 notify_payment_failed!();
                 return None;
             }};
@@ -1729,7 +1754,12 @@ impl GameLoop {
         macro_rules! rollback_cast_preserving_taps {
             ($tapped_cards:expr) => {{
                 Self::trace_cast_rollback(game, card_id, line!());
-                self.restore_snapshot(game, &cast_rollback_snapshot);
+                self.restore_cast_rollback(
+                    game,
+                    &cast_rollback_snapshot,
+                    card_id,
+                    rollback_leaves_face_down,
+                );
                 notify_payment_failed!();
                 for tapped_id in $tapped_cards {
                     if game.card_is_in_zone(tapped_id, ZoneType::Battlefield) {
@@ -2368,7 +2398,12 @@ impl GameLoop {
                 }
                 let non_undoable = std::mem::take(&mut *failed_non_undoable_choices.borrow_mut());
                 Self::trace_cast_rollback(game, card_id, line!());
-                self.restore_snapshot(game, &cast_rollback_snapshot);
+                self.restore_cast_rollback(
+                    game,
+                    &cast_rollback_snapshot,
+                    card_id,
+                    rollback_leaves_face_down,
+                );
                 for improvised_id in failed_improvised.take() {
                     if game.card_is_in_zone(improvised_id, ZoneType::Battlefield) {
                         game.card_mut(improvised_id).set_tapped(true);

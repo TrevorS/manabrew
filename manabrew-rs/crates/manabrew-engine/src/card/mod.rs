@@ -373,6 +373,8 @@ pub struct Card {
     pub last_mana_produced: Option<Vec<u16>>,
     pub flipped: bool,
     pub face_down: bool,
+    #[serde(default)]
+    pub stale_face_down: bool,
     /// True if this card has Morph, Megamorph or Disguise and can be cast face-down for {3}.
     pub has_morph: bool,
     /// True if this card was discarded (CR 400.7k, for TrackDiscarded$ effects).
@@ -928,6 +930,7 @@ impl Card {
             last_mana_produced: None,
             flipped: false,
             face_down: false,
+            stale_face_down: false,
             has_morph: false,
             discarded: false,
             unearthed: false,
@@ -1167,6 +1170,7 @@ impl Card {
             last_mana_produced: self.last_mana_produced.clone(),
             flipped: self.flipped,
             face_down: self.face_down,
+            stale_face_down: self.stale_face_down,
             has_morph: self.has_morph,
             discarded: self.discarded,
             unearthed: self.unearthed,
@@ -1403,6 +1407,7 @@ impl Card {
         refresh_field(&mut out.last_mana_produced, &self.last_mana_produced);
         out.flipped.clone_from(&self.flipped);
         out.face_down.clone_from(&self.face_down);
+        out.stale_face_down.clone_from(&self.stale_face_down);
         out.has_morph.clone_from(&self.has_morph);
         out.discarded.clone_from(&self.discarded);
         out.unearthed.clone_from(&self.unearthed);
