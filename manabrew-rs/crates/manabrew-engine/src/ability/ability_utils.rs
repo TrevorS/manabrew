@@ -2517,10 +2517,31 @@ pub fn get_spells_from_play_effect(
     valid_sa: Option<(&str, &SpellAbility)>,
 ) -> Vec<SpellAbility> {
     let card = game.card(tgt_card);
-    let mut faces = vec![(
-        None,
-        crate::spellability::build_spell_ability_for_card_cast(game, tgt_card, controller),
-    )];
+    let can_play_land = valid_sa.is_none()
+        && game.turn.active_player == controller
+        && !crate::staticability::static_ability_cant_be_cast::cant_play_land_ability(
+            &game.cards,
+            card,
+            controller,
+        )
+        && (game.player(controller).unlimited_land_plays
+            || game.player(controller).can_play_land());
+    let land_ability = |state: Option<forge_foundation::CardStateName>| {
+        can_play_land.then(|| {
+            let mut land = SpellAbility::new_land(Some(tgt_card), controller);
+            land.card_state = state;
+            land
+        })
+    };
+    let mut faces = Vec::new();
+    if card.is_land() {
+        faces.push(land_ability(None).map(|land| (None, land)));
+    } else {
+        faces.push(Some((
+            None,
+            crate::spellability::build_spell_ability_for_card_cast(game, tgt_card, controller),
+        )));
+    }
     let other_state = card
         .other_part
         .as_ref()
@@ -2529,18 +2550,25 @@ pub fn get_spells_from_play_effect(
             state == forge_foundation::CardStateName::Secondary
                 || (state == forge_foundation::CardStateName::Backside && card.is_modal())
         });
-    if let Some((host, spell)) = other_state.and_then(|state| {
+    if let Some((state, (host, spell))) = other_state.and_then(|state| {
         crate::spellability::build_spell_ability_for_card_state_cast(
             game, tgt_card, controller, state,
         )
+        .map(|face| (state, face))
     }) {
-        if !host.is_land() {
-            faces.push((Some(host), spell));
+        if host.is_land() {
+            faces.push(land_ability(Some(state)).map(|land| (None, land)));
+        } else {
+            faces.push(Some((Some(host), spell)));
         }
     }
     faces
         .into_iter()
+        .flatten()
         .filter_map(|(host, mut spell)| {
+            if spell.is_land_ability {
+                return Some(spell);
+            }
             let face = host.as_ref().unwrap_or(card);
             spell.restriction.variables.set_zone(card.zone);
             std::sync::Arc::make_mut(&mut spell.ir).cast_from_play_effect = true;

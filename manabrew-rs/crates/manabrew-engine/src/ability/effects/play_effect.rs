@@ -111,6 +111,23 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let Some(mut spell_sa) = sa_idx.and_then(|idx| abilities.into_iter().nth(idx)) else {
             continue;
         };
+        if spell_sa.is_land_ability {
+            play_land(ctx, controller, card_id, &spell_sa);
+            amount -= 1;
+            if let Some(source_id) = sa.source {
+                let source = ctx.game.card_mut(source_id);
+                if remember {
+                    source.remembered_cards.push(card_id);
+                }
+                if sa.ir.imprint_played {
+                    source.add_imprinted_card(card_id);
+                }
+                if sa.ir.forget_played {
+                    source.remove_remembered(card_id);
+                }
+            }
+            continue;
+        }
         let was_transformed = ctx.game.card(card_id).is_transformed;
         ctx.game
             .card_mut(card_id)
@@ -343,6 +360,46 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
+
+/// Mirrors Java `LandAbility.resolve` and `Player.playLand`.
+fn play_land(
+    ctx: &mut EffectContext,
+    player: crate::ids::PlayerId,
+    card_id: CardId,
+    land: &SpellAbility,
+) {
+    let card = ctx.game.card(card_id);
+    let other_face = land.card_state.is_some()
+        && !card.is_transformed
+        && card.other_part.as_ref().map(|other| other.state_name) == land.card_state;
+    let origin_zone = card.zone;
+    if card.face_down {
+        ctx.game.card_mut(card_id).turn_face_up();
+    }
+    if other_face {
+        ctx.game.card_mut(card_id).transform();
+    }
+    ctx.move_card(card_id, ZoneType::Battlefield, player);
+    ctx.game.player_record_land_play(player);
+    ctx.trigger_handler
+        .register_active_trigger(ctx.game, card_id);
+    super::emit_zone_trigger(
+        ctx.trigger_handler,
+        card_id,
+        origin_zone,
+        ZoneType::Battlefield,
+    );
+    ctx.trigger_handler.run_trigger(
+        TriggerType::LandPlayed,
+        RunParams {
+            card: Some(card_id),
+            player: Some(player),
+            origin: Some(origin_zone),
+            ..Default::default()
+        },
+        false,
+    );
+}
 
 fn restore_split_state(ctx: &mut EffectContext, card_id: CardId, was_transformed: bool) {
     if ctx.game.card(card_id).is_transformed != was_transformed {
