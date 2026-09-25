@@ -1087,6 +1087,9 @@ pub(crate) fn replacement_adjusted_atoms_for_availability(
 }
 
 pub(crate) fn has_replacement_adjusted_available_mana(game: &GameState, player: PlayerId) -> bool {
+    if !has_active_produce_mana_replacement(game) {
+        return false;
+    }
     fn is_adjusted(game: &GameState, player: PlayerId, source: CardId, atom: u16) -> bool {
         let adjusted = replacement_adjusted_atoms_for_availability(game, player, source, atom);
         adjusted.len() != 1 || adjusted.first().copied() != Some(atom)

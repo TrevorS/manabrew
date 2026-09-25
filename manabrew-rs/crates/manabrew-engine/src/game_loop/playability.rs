@@ -33,15 +33,15 @@ impl GameLoop {
         out
     }
 
-    fn can_use_source_level_mana_fallback(
+    fn can_use_source_level_mana_fallback<'a>(
         game: &GameState,
         player: PlayerId,
-        available_mana: &crate::mana::mana_pool::ManaPool,
+        available_mana: impl FnOnce() -> &'a crate::mana::mana_pool::ManaPool,
     ) -> bool {
         if game.action_space_mana_probe == crate::mana::ActionSpaceManaProbe::ComputerUtilMana {
             return false;
         }
-        let has_all_color_source = available_mana
+        let has_all_color_source = available_mana()
             .source_colors
             .as_ref()
             .is_some_and(|sources| {
@@ -163,7 +163,7 @@ impl GameLoop {
             card_id,
             &reduced,
             &Self::spell_payment_context(card, chosen_types_by_source),
-        ) || (Self::can_use_source_level_mana_fallback(game, player, available_mana)
+        ) || (Self::can_use_source_level_mana_fallback(game, player, || available_mana)
             && available_mana.can_pay(&reduced))
     }
 
@@ -219,7 +219,7 @@ impl GameLoop {
                 &[],
                 Some(&payment_ctx),
             );
-            Self::can_use_source_level_mana_fallback(game, player, &available)
+            Self::can_use_source_level_mana_fallback(game, player, || &available)
                 && available.can_pay(&mana)
         };
         mana_ok
@@ -1006,7 +1006,7 @@ impl GameLoop {
                             || (Self::can_use_source_level_mana_fallback(
                                 game,
                                 player,
-                                available_mana(),
+                                available_mana,
                             ) && available_mana().can_pay(&reduced))
                         }
                     }
