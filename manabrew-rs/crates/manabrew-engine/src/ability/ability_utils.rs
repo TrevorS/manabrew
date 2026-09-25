@@ -1840,11 +1840,13 @@ pub fn handle_remembering(game: &mut GameState, sa: &SpellAbility) {
 pub fn handle_paid(
     game: &GameState,
     paid_cards: &[CardId],
-    property: &str,
+    def: &str,
     source_id: CardId,
+    controller: PlayerId,
+    sa: &SpellAbility,
     last_known: bool,
 ) -> i32 {
-    let (property, operators) = property.split_once('/').unwrap_or((property, ""));
+    let (property, operators) = def.split_once('/').unwrap_or((def, ""));
     if paid_cards.is_empty() {
         return do_x_math(0, operators);
     }
@@ -1904,6 +1906,30 @@ pub fn handle_paid(
             .iter()
             .map(|&cid| game.card(cid).mana_value())
             .sum(),
+        "Colors" => paid_cards
+            .iter()
+            .fold(0u8, |mask, &cid| mask | game.card(cid).color.mask())
+            .count_ones() as i32,
+        _ if property.starts_with("DifferentCardNames") => {
+            let mut names: Vec<&str> = Vec::new();
+            for &cid in paid_cards {
+                let card = game.card(cid);
+                if !card.face_down && !names.contains(&card.card_name.as_str()) {
+                    names.push(card.card_name.as_str());
+                }
+            }
+            names.len() as i32
+        }
+        "DifferentColorPair" => {
+            let mut pairs: Vec<u8> = Vec::new();
+            for &cid in paid_cards {
+                let mask = game.card(cid).color.mask();
+                if mask.count_ones() == 2 && !pairs.contains(&mask) {
+                    pairs.push(mask);
+                }
+            }
+            pairs.len() as i32
+        }
         _ if property.starts_with("Valid ") => {
             let filter = property.strip_prefix("Valid ").unwrap_or("");
             let source = game.card(source_id);
@@ -1922,7 +1948,17 @@ pub fn handle_paid(
                 })
                 .count() as i32
         }
-        _ => paid_cards.len() as i32,
+        _ => {
+            let (fold, card_def) = crate::svar::list_property_fold(def);
+            return fold(
+                paid_cards
+                    .iter()
+                    .map(|&cid| {
+                        crate::svar::card_x_property(cid, card_def, game, source_id, controller, sa)
+                    })
+                    .collect(),
+            );
+        }
     };
     do_x_math(value, operators)
 }

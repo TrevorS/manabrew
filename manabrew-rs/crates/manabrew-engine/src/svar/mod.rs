@@ -204,7 +204,7 @@ fn spell_ability_x_property(spell_ability: &SpellAbility, expr: &str, game: &Gam
     )
 }
 
-fn card_x_property(
+pub(crate) fn card_x_property(
     card_id: CardId,
     expr: &str,
     game: &GameState,
@@ -236,6 +236,16 @@ fn card_x_property(
         "CardToughness" => net_toughness,
         "CardBaseToughness" => card.base_toughness.unwrap_or(0),
         "CardSumPT" => net_power + net_toughness,
+        _ if value.starts_with("CardMulticolor") => {
+            let mut amounts = value.split('.').skip(1).map(|n| n.parse().unwrap_or(0));
+            let multi = amounts.next().unwrap_or(0);
+            let not_multi = amounts.next().unwrap_or(0);
+            if card.color.count_colors() > 1 {
+                multi
+            } else {
+                not_multi
+            }
+        }
         _ if value.starts_with("CardManaCost") || value == "ManaCost" => {
             let mut cmc = card.mana_value();
             if value.contains("LKI") && card.zone != forge_foundation::ZoneType::Stack {
@@ -332,7 +342,7 @@ fn resolve_card_list_property(
     ))
 }
 
-fn list_property_fold(property: &str) -> (fn(Vec<i32>) -> i32, &str) {
+pub(crate) fn list_property_fold(property: &str) -> (fn(Vec<i32>) -> i32, &str) {
     if let Some(rest) = property.strip_prefix("Least") {
         (|values| values.into_iter().min().unwrap_or(0), rest)
     } else if let Some(rest) = property.strip_prefix("Greatest") {
@@ -526,6 +536,8 @@ fn resolve_lowered_svar_expression(
                 &game.card(source_id).remembered_cards,
                 property,
                 source_id,
+                controller,
+                sa,
                 false,
             );
             Some(do_x_math(value, operators, game, source_id, controller, sa))
@@ -700,6 +712,8 @@ fn resolve_svar_expression_inner(
             &game.card(source_id).remembered_cards,
             property,
             source_id,
+            controller,
+            sa,
             false,
         );
         return do_x_math(value, operators, game, source_id, controller, sa);
@@ -1462,6 +1476,8 @@ fn resolve_paid_hash_property(
         &paid_cards,
         property,
         source_id,
+        sa.activating_player,
+        sa,
         true,
     ))
 }
@@ -2998,6 +3014,8 @@ pub fn resolve_count_svar_for_sa(
                     &some_cards,
                     property,
                     source_id,
+                    controller,
+                    sa,
                     true,
                 ),
                 None => some_cards.len() as i32,
