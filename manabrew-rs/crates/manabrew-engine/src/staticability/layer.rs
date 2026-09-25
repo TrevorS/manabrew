@@ -41,7 +41,7 @@ use crate::agent::PlayerAgent;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 use crate::replacement::replacement_effect::ReplacementType;
-use crate::staticability::{CardFilter, Layer, StaticAbility, StaticMode};
+use crate::staticability::{Layer, StaticAbility, StaticMode};
 
 // ── Effect collection ────────────────────────────────────────────────────────
 
@@ -1526,13 +1526,27 @@ fn applicable_etb_tapped_replacement_sources(
             let tapped = if filter_str == "Card.Self" || filter_str.is_empty() {
                 source_id == entering_card
             } else {
-                let source = &game.cards[source_id.index()];
-                let filter = CardFilter::parse(&filter_str);
-                filter.matches_with_game(&game.cards[entering_card.index()], source, game)
+                etb_tapped_filter_matches(game, &filter_str, entering_card, source_id)
             };
             tapped.then_some((source_id, desc))
         })
         .collect()
+}
+
+fn etb_tapped_filter_matches(
+    game: &GameState,
+    filter: &str,
+    entering_card: CardId,
+    source_id: CardId,
+) -> bool {
+    let source = game.card(source_id);
+    crate::card::valid_filter::matches_valid_card_selector_with_context(
+        &crate::parsing::cached_compiled_selector(filter),
+        game.card(entering_card),
+        crate::card::valid_filter::MatchContext::from_source(source)
+            .with_game(game)
+            .with_source_controller(source.controller),
+    )
 }
 
 pub fn prompt_etb_tapped_replacement_with_agents(
@@ -1590,9 +1604,7 @@ pub fn apply_etb_tapped_with_agents(
         let tapped = if filter_str == "Card.Self" || filter_str.is_empty() {
             source_id == entering_card
         } else {
-            let source = &game.cards[source_id.index()];
-            let filter = CardFilter::parse(&filter_str);
-            filter.matches_with_game(&game.cards[entering_card.index()], source, game)
+            etb_tapped_filter_matches(game, &filter_str, entering_card, source_id)
         };
 
         if tapped {
