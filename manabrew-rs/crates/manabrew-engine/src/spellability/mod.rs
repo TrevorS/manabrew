@@ -1452,7 +1452,7 @@ impl SpellAbility {
         true
     }
 
-    /// The `hasParam` block of Java `SpellAbility.canTarget` (`SpellAbility.java:1420-1449`).
+    /// The `hasParam` block of Java `SpellAbility.canTarget` (`SpellAbility.java:1420-1486`).
     pub fn param_target_ok(&self, candidate: CardId, game: &GameState) -> bool {
         let cand = game.card(candidate);
         if let Some(defined) = self.ir.targets_with_defined_controller_text.as_deref() {
@@ -1486,6 +1486,33 @@ impl SpellAbility {
             .all(|other| shares(game.card(other)))
             {
                 return false;
+            }
+        }
+        if let Some(property) =
+            crate::parsing::raw_get(&self.ability_text, "TargetsWithControllerProperty")
+        {
+            let graveyard = game
+                .cards_in_zone(forge_foundation::ZoneType::Graveyard, cand.controller)
+                .len() as i32;
+            match property.trim() {
+                "cmcLECardsInGraveyard" if cand.mana_value() > graveyard => return false,
+                "powerLECardsInGraveyard" if cand.power() > graveyard => return false,
+                _ => {}
+            }
+        }
+        if let Some(related) =
+            crate::parsing::raw_get(&self.ability_text, "TargetsWithRelatedProperty")
+        {
+            let Some(parent) = self.unique_targets.iter().find_map(|target| match target {
+                crate::agent::GameEntity::Card(card) => Some(game.card(*card)),
+                _ => None,
+            }) else {
+                return false;
+            };
+            match related.trim() {
+                "LEPower" if cand.power() > parent.power() => return false,
+                "LECMC" if cand.mana_value() > parent.mana_value() => return false,
+                _ => {}
             }
         }
         true
