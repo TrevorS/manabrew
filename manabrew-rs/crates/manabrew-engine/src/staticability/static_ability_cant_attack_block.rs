@@ -77,6 +77,12 @@ pub fn cant_attack(
         return true;
     }
 
+    if attacker.has_defender()
+        && !can_attack_defender(game, cards, attacker, defender.controlling_player(game))
+    {
+        return true;
+    }
+
     for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
         for st_ab in source
             .static_abilities

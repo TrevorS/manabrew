@@ -252,8 +252,7 @@ impl CombatOptions {
                     .attack
                     .iter()
                     .find(|(c, _)| c == a)
-                    .map(|(_, allowed)| allowed)
-                    .filter(|allowed| !allowed.is_empty());
+                    .map(|(_, allowed)| allowed);
                 (0..defenders.len())
                     .filter(|&d| allowed.is_none_or(|allowed| allowed.contains(&defenders[d])))
                     .collect()

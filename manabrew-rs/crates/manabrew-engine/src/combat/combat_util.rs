@@ -66,18 +66,6 @@ pub fn can_attack_defender(game: &GameState, attacker_id: CardId, defender: Defe
         return false;
     }
 
-    // Check per-defender CantAttack static abilities
-    if let DefenderId::Player(pid) = defender {
-        if !crate::staticability::static_ability_cant_attack_block::can_attack_defender(
-            game,
-            &game.cards,
-            card,
-            pid,
-        ) {
-            return false;
-        }
-    }
-
     true
 }
 
@@ -423,16 +411,6 @@ pub fn can_attack_next_turn(game: &GameState, attacker_id: CardId, defender: Def
         defender,
     ) {
         return false;
-    }
-    if let DefenderId::Player(pid) = defender {
-        if !crate::staticability::static_ability_cant_attack_block::can_attack_defender(
-            game,
-            &game.cards,
-            card,
-            pid,
-        ) {
-            return false;
-        }
     }
     true
 }
