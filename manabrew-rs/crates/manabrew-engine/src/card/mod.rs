@@ -1918,9 +1918,12 @@ impl Card {
     }
 
     pub fn remove_s_var(&mut self, key: &str) {
+        let present = self.svars.contains_key(key);
         crate::card::card_state::remove_s_var(self, key);
         self.parsed_svar_cache.remove(key);
-        self.refresh_action_specs_after_svar_change();
+        if present {
+            self.refresh_action_specs_after_svar_change();
+        }
     }
 
     pub fn set_s_var(&mut self, key: impl Into<String>, value: impl Into<String>) {
