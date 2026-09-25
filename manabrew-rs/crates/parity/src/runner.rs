@@ -1202,6 +1202,7 @@ pub fn run_with_data_streaming(
     let p1 = PlayerId(1);
     let mut game = GameState::new(&["Player1", "Player2"], starting_life);
     game.action_space_mana_probe = config.mana_probe;
+    game.mirror_forge_bugs = true;
 
     let _t_build = Instant::now();
     build_deck_from_templates(

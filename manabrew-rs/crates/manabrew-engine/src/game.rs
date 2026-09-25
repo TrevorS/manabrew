@@ -253,6 +253,9 @@ pub struct GameState {
     #[serde(default)]
     pub action_space_mana_probe: crate::mana::ActionSpaceManaProbe,
 
+    #[serde(default)]
+    pub mirror_forge_bugs: bool,
+
     // Next card ID counter
     next_card_id: u32,
 
@@ -379,6 +382,7 @@ impl GameState {
             end_turn_requested: false,
             end_combat_requested: false,
             action_space_mana_probe: crate::mana::ActionSpaceManaProbe::default(),
+            mirror_forge_bugs: false,
             next_card_id: 0,
             next_zone_timestamp: 0,
             next_effect_timestamp: 1,
