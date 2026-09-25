@@ -1,10 +1,8 @@
 //! Attack cost computation (Propaganda, Ghostly Prison, etc.).
 //!
-//! Mirrors Java Forge's `CombatUtil.getAttackCost()` — scans battlefield for
-//! `CantAttackUnless` static abilities and accumulates the mana cost an
-//! attacker must pay to attack a given defender.
-
-use forge_foundation::ZoneType;
+//! Mirrors Java Forge's `CombatUtil.getAttackCost()` — scans the static ability
+//! source zones for `CantAttackUnless` static abilities and accumulates the mana
+//! cost an attacker must pay to attack a given defender.
 
 use crate::card::{valid_filter, Card};
 use crate::combat::DefenderId;
@@ -13,7 +11,6 @@ use crate::staticability::StaticMode;
 /// Compute the total generic mana cost required for `attacker` to attack `defender`.
 ///
 /// Returns the accumulated cost as a generic mana amount, or 0 if no cost.
-/// Scans all battlefield permanents for `Mode$ CantAttackUnless` statics.
 ///
 /// Card script example (Propaganda):
 /// ```text
@@ -27,15 +24,11 @@ pub fn get_attack_cost(
     let cards = &game.cards;
     let mut total_cost = 0;
 
-    for source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {
+    for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
         for sa in &source.static_abilities {
-            if !sa.check_mode(&StaticMode::CantAttackUnless) {
-                continue;
-            }
-
             // Java `StaticAbility.getAttackCost:310` bails on checkConditions, which is
             // what makes Archangel of Tithes stop taxing once it is tapped (IsPresent$).
-            if !sa.check_conditions(source, game) {
+            if !sa.check_conditions_full(&StaticMode::CantAttackUnless, source, game) {
                 continue;
             }
 

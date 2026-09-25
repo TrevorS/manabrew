@@ -1553,18 +1553,26 @@ impl TriggerHandler {
         // battlefield at the start of the current SBA check (pre_sba_battlefield).
         // This handles the case where a DisableTriggers source (e.g. Hushbringer)
         // dies in the same SBA batch as the trigger source — Hushbringer was on the
-        // battlefield when the batch started, so its DisableTriggers still applies.
+        // battlefield when the batch started, so its DisableTriggers still applies,
+        // unconditionally: Java checks the conditions on its battlefield LKI copy.
         // Mirrors Java's StaticAbilityDisableTriggers.disabled() which uses
         // lastStateBattlefield for LTB triggers (lines 20-27).
         let is_ltb = params.origin == Some(ZoneType::Battlefield);
         for card in game.cards.iter() {
-            let on_battlefield = card.zone == ZoneType::Battlefield;
-            let was_on_battlefield = is_ltb && game.pre_sba_battlefield.contains(&card.id);
-            if !on_battlefield && !was_on_battlefield {
+            let looked_back = is_ltb
+                && card.zone != ZoneType::Battlefield
+                && game.pre_sba_battlefield.contains(&card.id);
+            if !looked_back && !card.zone.is_static_ability_source() {
                 continue;
             }
             for sa in &card.static_abilities {
-                if !sa.check_mode(&crate::staticability::StaticMode::DisableTriggers) {
+                let mode = crate::staticability::StaticMode::DisableTriggers;
+                let applies = if looked_back {
+                    sa.check_mode(&mode)
+                } else {
+                    sa.check_conditions_full(&mode, card, game)
+                };
+                if !applies {
                     continue;
                 }
 

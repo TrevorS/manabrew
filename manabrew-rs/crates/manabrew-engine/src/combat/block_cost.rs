@@ -1,10 +1,8 @@
 //! Block cost computation (War Cadence, etc.).
 //!
-//! Mirrors Java Forge's `CombatUtil.getBlockCost()` — scans battlefield for
-//! `CantBlockUnless` static abilities and accumulates the mana cost a
-//! blocker must pay to block a given attacker.
-
-use forge_foundation::ZoneType;
+//! Mirrors Java Forge's `CombatUtil.getBlockCost()` — scans the static ability
+//! source zones for `CantBlockUnless` static abilities and accumulates the mana
+//! cost a blocker must pay to block a given attacker.
 
 use crate::card::{valid_filter, Card};
 use crate::game::GameState;
@@ -24,14 +22,10 @@ pub fn get_block_cost(game: &GameState, blocker: &Card, _attacker: &Card) -> i32
     for source in game
         .cards
         .iter()
-        .filter(|c| c.zone == ZoneType::Battlefield)
+        .filter(|c| c.zone.is_static_ability_source())
     {
         for sa in &source.static_abilities {
-            if !sa.check_mode(&StaticMode::CantBlockUnless) {
-                continue;
-            }
-
-            if !sa.check_conditions(source, game) {
+            if !sa.check_conditions_full(&StaticMode::CantBlockUnless, source, game) {
                 continue;
             }
 

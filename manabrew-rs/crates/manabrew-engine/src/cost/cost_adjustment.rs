@@ -2,9 +2,10 @@
 //!
 //! Mirrors Java's `forge.game.cost.CostAdjustment`.
 //!
-//! Scans static abilities on the battlefield (and the spell's own card) to
-//! compute mana cost reductions, increases, set-cost floors (Trinisphere),
-//! and additional non-mana cost parts (e.g. sacrifice from `Cost$` params).
+//! Scans static abilities on the battlefield, the stack and the command zone
+//! (and the spell's own card) to compute mana cost reductions, increases,
+//! set-cost floors (Trinisphere), and additional non-mana cost parts (e.g.
+//! sacrifice from `Cost$` params).
 
 use std::sync::Arc;
 
@@ -15,7 +16,6 @@ use forge_foundation::ZoneType;
 
 use crate::agent::PlayerAgent;
 use crate::card::{valid_filter, Card};
-use crate::card_trait_base::CardTraitIrOwner;
 use crate::cost::{parse_cost, Cost, CostPart};
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
@@ -343,95 +343,18 @@ fn compute_cost_adjustment_inner(
                 continue;
             }
 
-            // ── checkRequirement: Type$ filter ───────────────────────
-            if let Some(type_filter) = st_ab.ir.type_filter.as_deref() {
-                match (type_filter.to_ascii_lowercase().as_str(), ability) {
-                    ("spell", None) | ("ability", Some(_)) => {}
-                    _ => continue,
-                }
-            }
-
-            // ── checkRequirement: Activator$ ─────────────────────────
-            if let Some(activator) = st_ab.ir.activator.as_ref() {
-                let sa = SpellAbility::new_simple(Some(source.id), source.controller, "");
-                if !crate::player::player_property::is_valid(
-                    caster,
-                    activator,
-                    game,
-                    source.id,
-                    source.controller,
-                    &sa,
-                ) {
-                    continue;
-                }
-            }
-
-            // ── checkRequirement: ValidCard$ ─────────────────────────
-            if !matches_valid_card(
-                st_ab.ir.valid_card.as_ref(),
-                spell_card,
-                source,
+            if !check_requirement(
                 game,
+                st_ab,
+                source,
+                spell_card,
+                caster,
                 targets,
+                optional_costs,
+                cast_face_down,
+                ability,
             ) {
                 continue;
-            }
-
-            if !st_ab.check_conditions(source, game) {
-                continue;
-            }
-
-            // ── checkRequirement: OnlyFirstSpell$ ────────────────────
-            if st_ab.ir.only_first_spell {
-                // Java `CostAdjustment:541` narrows the spells cast this turn to the
-                // static's own `ValidCard$` before asking whether the activator cast
-                // one, so "the first creature spell" ignores every other spell.
-                let cast_this_turn = match st_ab.ir.valid_card_text.as_deref() {
-                    Some(valid) => crate::card::card_util::get_this_turn_cast(
-                        game,
-                        valid,
-                        source.id,
-                        None,
-                        source.controller,
-                    ),
-                    None => game.stack.get_spells_cast_this_turn().to_vec(),
-                };
-                if cast_this_turn
-                    .iter()
-                    .any(|&cid| game.card(cid).controller == caster)
-                {
-                    continue;
-                }
-            }
-
-            // ── checkRequirement: ValidTarget$ ───────────────────────
-            if let Some(valid_target) = st_ab.ir.valid_target.as_ref() {
-                let target_valid = if targets.is_empty() {
-                    false
-                } else {
-                    targets.iter().any(|&tid| {
-                        let target = game.card(tid);
-                        matches_valid_card(Some(valid_target), target, source, game, targets)
-                    })
-                };
-                if st_ab.ir.unless_valid_target {
-                    if target_valid {
-                        continue;
-                    }
-                } else if !target_valid {
-                    continue;
-                }
-            }
-
-            // ── checkRequirement: ValidSpell$ ────────────────────────
-            if let Some(valid_spell) = st_ab.ir.valid_spell.as_deref() {
-                let valid = match ability {
-                    Some(ab) => check_valid_ability(valid_spell, ab, caster, source.controller),
-                    None => check_valid_spell(valid_spell, optional_costs, cast_face_down),
-                };
-                if !valid {
-                    continue;
-                }
             }
 
             // ── applyReduceCostAbility / increase: ForEachShard$ ─────
@@ -535,7 +458,7 @@ pub fn compute_raise_cost_parts_with_targets(
     game: &GameState,
     spell_card: &Card,
     caster: PlayerId,
-    cast_zone: ZoneType,
+    _cast_zone: ZoneType,
     targets: &[CardId],
     optional_costs: &[OptionalCost],
 ) -> Option<Cost> {
@@ -554,12 +477,12 @@ pub fn compute_raise_cost_parts_with_targets(
         }
     }
 
-    for source in game
-        .cards
-        .iter()
-        .map(Arc::as_ref)
-        .filter(|c| c.zone == ZoneType::Battlefield || c.id == spell_card.id)
-    {
+    for source in game.cards.iter().map(Arc::as_ref).filter(|c| {
+        matches!(
+            c.zone,
+            ZoneType::Battlefield | ZoneType::Stack | ZoneType::Command
+        ) || c.id == spell_card.id
+    }) {
         for st_ab in source.static_abilities.iter() {
             if !st_ab.check_mode(&StaticMode::RaiseCost) {
                 continue;
@@ -569,73 +492,18 @@ pub fn compute_raise_cost_parts_with_targets(
                 continue;
             };
 
-            // ── checkRequirement ─────────────────────────────────────
-            if let Some(type_filter) = st_ab.ir.type_filter.as_deref() {
-                match type_filter.to_ascii_lowercase().as_str() {
-                    "spell" => {}
-                    _ => continue,
-                }
-            }
-
-            if let Some(activator) = st_ab.ir.activator.as_ref() {
-                let sa = SpellAbility::new_simple(Some(source.id), source.controller, "");
-                if !crate::player::player_property::is_valid(
-                    caster,
-                    activator,
-                    game,
-                    source.id,
-                    source.controller,
-                    &sa,
-                ) {
-                    continue;
-                }
-            }
-
-            if !matches_valid_card(
-                st_ab.ir.valid_card.as_ref(),
-                spell_card,
-                source,
+            if !check_requirement(
                 game,
+                st_ab,
+                source,
+                spell_card,
+                caster,
                 targets,
+                optional_costs,
+                false,
+                None,
             ) {
                 continue;
-            }
-
-            if !st_ab.ir.effect_zone_all
-                && !st_ab.ir.effect_zones.is_empty()
-                && !st_ab.ir.effect_zones.contains(&cast_zone)
-            {
-                continue;
-            }
-
-            if !st_ab.meets_card_trait_requirements(game, source, source) {
-                continue;
-            }
-
-            if st_ab.ir.only_first_spell && game.player(caster).spells_cast_this_turn > 0 {
-                continue;
-            }
-
-            if let Some(valid_target) = st_ab.ir.valid_target.as_ref() {
-                let target_valid = if targets.is_empty() {
-                    false
-                } else {
-                    targets.iter().any(|&tid| {
-                        let target = game.card(tid);
-                        matches_valid_card(Some(valid_target), target, source, game, targets)
-                    })
-                };
-                if (st_ab.ir.unless_valid_target && target_valid)
-                    || (!st_ab.ir.unless_valid_target && !target_valid)
-                {
-                    continue;
-                }
-            }
-
-            if let Some(valid_spell) = st_ab.ir.valid_spell.as_deref() {
-                if !check_valid_spell(valid_spell, optional_costs, false) {
-                    continue;
-                }
             }
 
             // ── applyRaiseCostAbility: compute count ─────────────────
@@ -771,6 +639,97 @@ fn substitute_part_amount(part: &CostPart, amount: i32) -> CostPart {
 }
 
 // ── checkRequirement helpers (mirrors Java CostAdjustment.checkRequirement) ──
+
+#[allow(clippy::too_many_arguments)]
+fn check_requirement(
+    game: &GameState,
+    st_ab: &crate::staticability::StaticAbility,
+    source: &Card,
+    spell_card: &Card,
+    caster: PlayerId,
+    targets: &[CardId],
+    optional_costs: &[OptionalCost],
+    cast_face_down: bool,
+    ability: Option<&crate::ability::activated::ActivatedAbility>,
+) -> bool {
+    if let Some(type_filter) = st_ab.ir.type_filter.as_deref() {
+        match (type_filter.to_ascii_lowercase().as_str(), ability) {
+            ("spell", None) | ("ability", Some(_)) => {}
+            _ => return false,
+        }
+    }
+
+    if let Some(activator) = st_ab.ir.activator.as_ref() {
+        let sa = SpellAbility::new_simple(Some(source.id), source.controller, "");
+        if !crate::player::player_property::is_valid(
+            caster,
+            activator,
+            game,
+            source.id,
+            source.controller,
+            &sa,
+        ) {
+            return false;
+        }
+    }
+
+    if !matches_valid_card(
+        st_ab.ir.valid_card.as_ref(),
+        spell_card,
+        source,
+        game,
+        targets,
+    ) {
+        return false;
+    }
+
+    if !st_ab.check_conditions(source, game) {
+        return false;
+    }
+
+    if st_ab.ir.only_first_spell {
+        // Java `CostAdjustment:541` narrows the spells cast this turn to the
+        // static's own `ValidCard$` before asking whether the activator cast
+        // one, so "the first creature spell" ignores every other spell.
+        let cast_this_turn = match st_ab.ir.valid_card_text.as_deref() {
+            Some(valid) => crate::card::card_util::get_this_turn_cast(
+                game,
+                valid,
+                source.id,
+                None,
+                source.controller,
+            ),
+            None => game.stack.get_spells_cast_this_turn().to_vec(),
+        };
+        if cast_this_turn
+            .iter()
+            .any(|&cid| game.card(cid).controller == caster)
+        {
+            return false;
+        }
+    }
+
+    if let Some(valid_target) = st_ab.ir.valid_target.as_ref() {
+        let target_valid = targets.iter().any(|&tid| {
+            matches_valid_card(Some(valid_target), game.card(tid), source, game, targets)
+        });
+        if target_valid == st_ab.ir.unless_valid_target {
+            return false;
+        }
+    }
+
+    if let Some(valid_spell) = st_ab.ir.valid_spell.as_deref() {
+        let valid = match ability {
+            Some(ab) => check_valid_ability(valid_spell, ab, caster, source.controller),
+            None => check_valid_spell(valid_spell, optional_costs, cast_face_down),
+        };
+        if !valid {
+            return false;
+        }
+    }
+
+    true
+}
 
 /// Check a ValidSpell$ parameter against the cast's chosen optional costs, which are empty
 /// before the cast (the action-space probe): `Bargain` is `sa.isBargained()`.

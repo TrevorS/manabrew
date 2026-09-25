@@ -18,13 +18,15 @@ pub fn is_disabled(
     for source in game
         .cards
         .iter()
-        .filter(|c| c.zone == ZoneType::Battlefield)
+        .filter(|c| c.zone.is_static_ability_source())
     {
-        for st_ab in source
-            .static_abilities
-            .iter()
-            .filter(|sa| sa.check_mode(&crate::staticability::StaticMode::DisableTriggers))
-        {
+        for st_ab in source.static_abilities.iter().filter(|sa| {
+            sa.check_conditions_full(
+                &crate::staticability::StaticMode::DisableTriggers,
+                source,
+                game,
+            )
+        }) {
             if let Some(valid_mode) = st_ab.ir.valid_mode.as_deref() {
                 let modes = valid_mode.split(',').map(|s| s.trim());
                 let trig_mode = regtrig.kind.name();
@@ -55,12 +57,15 @@ pub fn is_disabled(
 pub fn has_disable_triggers_ability(game: &GameState) -> bool {
     game.cards
         .iter()
-        .filter(|c| c.zone == ZoneType::Battlefield)
+        .filter(|c| c.zone.is_static_ability_source())
         .any(|source| {
-            source
-                .static_abilities
-                .iter()
-                .any(|sa| sa.check_mode(&crate::staticability::StaticMode::DisableTriggers))
+            source.static_abilities.iter().any(|sa| {
+                sa.check_conditions_full(
+                    &crate::staticability::StaticMode::DisableTriggers,
+                    source,
+                    game,
+                )
+            })
         })
 }
 
