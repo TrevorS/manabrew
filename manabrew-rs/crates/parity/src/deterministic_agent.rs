@@ -1872,6 +1872,17 @@ impl PlayerAgent for DeterministicAgent {
             .unwrap_or(CardOrStackTarget::None)
     }
 
+    fn choose_target(
+        &mut self,
+        _player: PlayerId,
+        _sa: &SpellAbility,
+        all_targets: &[(usize, manabrew_engine::agent::GameObject)],
+        _game: &GameState,
+    ) -> Option<usize> {
+        let indices: Vec<usize> = (0..all_targets.len()).collect();
+        choice_space::pick_one(&indices, &mut self.rng.borrow_mut())
+    }
+
     fn choose_target_spell(
         &mut self,
         _player: PlayerId,

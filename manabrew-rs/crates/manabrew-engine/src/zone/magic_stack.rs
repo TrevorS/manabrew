@@ -739,10 +739,12 @@ impl MagicStack {
         self.max_distinct_sources
     }
 
-    /// Find a stack entry whose spell ability ID matches the given stack entry ID.
     /// Mirrors Java's `MagicStack.getInstanceMatchingSpellAbilityID()`.
-    pub fn get_instance_matching_spell_ability_id(&self, id: u32) -> Option<&StackEntry> {
-        self.entries.iter().find(|si| si.id == id)
+    pub fn get_instance_matching_spell_ability_id(&self, sa_id: u32) -> Option<&StackEntry> {
+        self.entries
+            .iter()
+            .rev()
+            .find(|si| si.spell_ability.id == sa_id)
     }
 
     /// Find a spell on the stack whose host card matches the given card.

@@ -12,6 +12,12 @@ pub enum GameEntity {
     Card(CardId),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GameObject {
+    Entity(GameEntity),
+    Spell(u32),
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlayOption {
     pub card_id: CardId,

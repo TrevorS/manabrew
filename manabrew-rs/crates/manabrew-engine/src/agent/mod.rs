@@ -301,6 +301,16 @@ pub trait PlayerAgent {
         false
     }
 
+    fn choose_target(
+        &mut self,
+        _player: PlayerId,
+        _sa: &SpellAbility,
+        all_targets: &[(usize, GameObject)],
+        _game: &GameState,
+    ) -> Option<usize> {
+        (!all_targets.is_empty()).then_some(0)
+    }
+
     /// Choose a target player (e.g. for Lightning Bolt targeting a player).
     /// `sa` is the active spell ability context (source card, API type, etc.) for UI display.
     fn choose_target_player(

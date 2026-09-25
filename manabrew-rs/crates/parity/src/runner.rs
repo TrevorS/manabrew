@@ -963,6 +963,7 @@ impl PlayerAgent for CapturingAgent {
         fn choose_tap_type_for_cost(&mut self, player: PlayerId, valid: &[CardId], min_total_power: i32, card_powers: &[(CardId, i32)], card_sort_powers: &[(CardId, i32)], sa: Option<&manabrew_engine::spellability::SpellAbility>) -> Vec<CardId> => "choose_tap_type_for_cost";
         fn choose_cards_for_zone_change(&mut self, game: &GameState, player: PlayerId, valid: &[CardId], min: usize, max: usize, select_prompt: &str) -> Vec<CardId> => "choose_cards_for_zone_change";
         fn choose_target_spell(&mut self, player: PlayerId, valid: &[u32], source: Option<CardId>) -> Option<u32> => "choose_target_spell";
+        fn choose_target(&mut self, player: PlayerId, sa: &manabrew_engine::spellability::SpellAbility, all_targets: &[(usize, manabrew_engine::agent::GameObject)], game: &GameState) -> Option<usize> => "choose_target_spell";
         fn choose_mode(&mut self, player: PlayerId, descriptions: &[String], min: usize, max: usize, source_card_id: Option<CardId>) -> Vec<usize> => "choose_mode";
         fn choose_keyword_for_pump(&mut self, player: PlayerId, options: &[String], source_card_id: Option<CardId>) -> Option<usize> => "choose_keyword_for_pump";
         fn choose_spell_abilities_for_effect(&mut self, player: PlayerId, abilities: &[manabrew_engine::spellability::SpellAbility], num: usize) -> Vec<usize> => "choose_spell_abilities_for_effect";

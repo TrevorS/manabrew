@@ -1428,7 +1428,21 @@ impl SpellAbility {
 
     pub fn can_target(&self, card: CardId, game: &GameState) -> bool {
         if let Some(ref tr) = self.target_restrictions {
-            tr.has_candidates(game, self.activating_player, self.source)
+            let target = game.card(card);
+            let in_target_zone = if tr.tgt_zone.is_empty() {
+                target.zone == forge_foundation::ZoneType::Battlefield
+            } else {
+                tr.tgt_zone.contains(&target.zone)
+            };
+            in_target_zone
+                && (tr.valid_tgts.is_empty()
+                    || crate::ability::ability_utils::matches_valid_cards_for_sa(
+                        game,
+                        self,
+                        target,
+                        Some(&tr.compiled_valid_tgts()),
+                        "Card",
+                    ))
                 && card_allowed_by_unique(self, card)
                 && self.relational_target_ok(card, game)
                 && self

@@ -988,6 +988,32 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
         choices::choose_single_entity_for_effect(self, player, valid, is_optional)
     }
 
+    fn choose_target(
+        &mut self,
+        player: PlayerId,
+        sa: &manabrew_engine::spellability::SpellAbility,
+        all_targets: &[(usize, manabrew_engine::agent::GameObject)],
+        game: &GameState,
+    ) -> Option<usize> {
+        use manabrew_engine::agent::GameObject;
+        let descriptions: Vec<String> = all_targets
+            .iter()
+            .map(|&(_, target)| match target {
+                GameObject::Entity(GameEntity::Card(card)) => game.card(card).card_name.clone(),
+                GameObject::Entity(GameEntity::Player(player)) => game.player(player).name.clone(),
+                GameObject::Spell(stack_id) => game
+                    .stack
+                    .find_by_id(stack_id)
+                    .and_then(|si| si.spell_ability.source)
+                    .map(|host| game.card(host).card_name.clone())
+                    .unwrap_or_default(),
+            })
+            .collect();
+        self.choose_mode(player, &descriptions, 1, 1, sa.source)
+            .first()
+            .copied()
+    }
+
     fn choose_entities_for_effect(
         &mut self,
         player: PlayerId,
