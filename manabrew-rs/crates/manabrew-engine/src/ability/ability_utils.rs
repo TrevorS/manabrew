@@ -426,10 +426,18 @@ pub fn resolve_defined_player_with_sa(
     ) -> Option<PlayerId> {
         // Try card parsing first — trigger object values are typically CardIds,
         // and parse_player_object would misinterpret a CardId as a PlayerId.
+        let lki =
+            key == AbilityKey::Card && !sa.get_triggering_cards(AbilityKey::NewCard).is_empty();
         sa.get_triggering_cards(key)
             .into_iter()
             .next()
-            .map(|cid| game.card(cid).controller)
+            .map(|cid| {
+                let card = game.card(cid);
+                match card.lki_controller {
+                    Some(controller) if lki => controller,
+                    _ => card.controller,
+                }
+            })
             .or_else(|| parse_player_object(sa, key))
     }
 

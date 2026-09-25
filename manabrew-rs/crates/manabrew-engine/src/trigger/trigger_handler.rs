@@ -715,13 +715,37 @@ impl TriggerHandler {
                     && (prior_runs == 0
                         || trigger.check_activation_limit_after_runs(game, card_id, prior_runs))
                 {
-                    let sa = trigger.build_triggered_spell_ability(
+                    let mut sa = trigger.build_triggered_spell_ability(
                         game,
                         card_id,
                         host_controller,
                         trigger_index,
                         &event.params,
                     );
+                    let controller = trigger
+                        .ir
+                        .trigger_controller
+                        .as_deref()
+                        .and_then(|defined| {
+                            crate::ability::ability_utils::resolve_defined_players_with_sa(
+                                defined,
+                                &sa,
+                                host_controller,
+                                game,
+                            )
+                            .first()
+                            .copied()
+                        })
+                        .unwrap_or(host_controller);
+                    if controller != host_controller {
+                        sa = trigger.build_triggered_spell_ability(
+                            game,
+                            card_id,
+                            controller,
+                            trigger_index,
+                            &event.params,
+                        );
+                    }
 
                     let entry = StackEntry {
                         id: 0,
@@ -757,7 +781,7 @@ impl TriggerHandler {
                         entry,
                         optional: (trigger.optional && !effect_optional_decider)
                             || trigger_cost_optional,
-                        decider: host_controller,
+                        decider: controller,
                         description: trigger.description.clone(),
                         static_trigger: trigger.is_static(),
                     };
@@ -766,7 +790,7 @@ impl TriggerHandler {
                     } else {
                         card.zone_timestamp
                     };
-                    entries.push((pending, host_controller, source_ts, 1, trigger.id));
+                    entries.push((pending, controller, source_ts, 1, trigger.id));
                     let extra = crate::staticability::static_ability_panharmonicon::extra_triggers(
                         game,
                         card_id,
@@ -778,7 +802,7 @@ impl TriggerHandler {
                         let sa2 = trigger.build_triggered_spell_ability(
                             game,
                             card_id,
-                            host_controller,
+                            controller,
                             trigger_index,
                             &event.params,
                         );
@@ -814,11 +838,11 @@ impl TriggerHandler {
                                 entry: extra_entry,
                                 optional: (trigger.optional && !effect_optional_decider)
                                     || trigger_cost_optional,
-                                decider: host_controller,
+                                decider: controller,
                                 description: trigger.description.clone(),
                                 static_trigger: trigger.is_static(),
                             },
-                            host_controller,
+                            controller,
                             source_ts,
                             1,
                             trigger.id,

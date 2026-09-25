@@ -19,6 +19,7 @@ pub struct TriggerIr {
     pub a_player_has_more_life_than_each_other: bool,
     pub a_player_has_most_cards_in_hand: bool,
     pub no_resolving_check: bool,
+    pub trigger_controller: Option<String>,
     pub condition: Option<TriggerCondition>,
     pub chapter: Option<i32>,
     pub origin_zone: Option<ZoneType>,
@@ -61,6 +62,7 @@ impl TriggerIr {
             a_player_has_more_life_than_each_other: params.has("APlayerHasMoreLifeThanEachOther"),
             a_player_has_most_cards_in_hand: params.has("APlayerHasMostCardsInHand"),
             no_resolving_check: params.has("NoResolvingCheck"),
+            trigger_controller: params.get("TriggerController").map(str::to_string),
             condition: params.get(keys::CONDITION).map(TriggerCondition::parse),
             chapter: params.get("Chapter").and_then(|v| v.parse().ok()),
             origin_zone: params
