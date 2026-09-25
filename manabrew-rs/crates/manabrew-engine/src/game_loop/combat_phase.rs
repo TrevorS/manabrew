@@ -52,7 +52,7 @@ impl GameLoop {
             Vec::new()
         } else {
             let requirements = combat::attack_requirement::compute_attack_requirements(
-                &game.cards,
+                game,
                 &available_attackers,
                 defending,
             );

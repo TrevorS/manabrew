@@ -1,10 +1,11 @@
-use std::sync::Arc;
+use forge_foundation::{CoreType, ZoneType};
 
 use crate::HashMap;
 
 use super::DefenderId;
-use crate::card::Card;
+use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
+use crate::player::player_predicates::is_opponent_of;
 use crate::staticability::static_ability_must_attack;
 
 /// Represents a requirement for a creature to attack.
@@ -15,8 +16,6 @@ pub struct AttackRequirement {
     pub attacker: CardId,
     /// True if the creature must attack any legal defender.
     pub must_attack_any: bool,
-    /// If set, the creature must attack this specific defender (if able).
-    pub must_attack_defender: Option<PlayerId>,
     /// The player that goaded this creature (it can't attack that player).
     pub goaded_by: Option<PlayerId>,
     /// Per-defender requirement counts: defender → number of reasons to attack it.
@@ -73,77 +72,72 @@ impl AttackRequirement {
 /// 1. Static abilities with `MustAttack` mode (existing `must_attack()` check)
 /// 2. Goad: creature is goaded and must attack a player other than the goader
 pub fn compute_attack_requirements(
-    cards: &[Arc<Card>],
+    game: &GameState,
     available: &[CardId],
     defending: PlayerId,
 ) -> Vec<AttackRequirement> {
-    compute_attack_requirements_with_defenders(cards, available, &[DefenderId::Player(defending)])
+    compute_attack_requirements_with_defenders(game, available, &[DefenderId::Player(defending)])
 }
 
 /// Compute attack requirements with a full list of possible defenders.
+/// Mirrors the Java `AttackRequirement` constructor.
 pub fn compute_attack_requirements_with_defenders(
-    cards: &[Arc<Card>],
+    game: &GameState,
     available: &[CardId],
     possible_defenders: &[DefenderId],
 ) -> Vec<AttackRequirement> {
     let mut requirements = Vec::new();
 
     for &attacker_id in available {
-        let card = &cards[attacker_id.index()];
-
-        let must_entities =
-            static_ability_must_attack::entities_must_attack(cards, card, card.controller);
-        let must_from_static = must_entities
-            .iter()
-            .any(|e| matches!(e, static_ability_must_attack::MustAttackEntity::Any));
-        let must_static_player = must_entities.iter().find_map(|e| match e {
-            static_ability_must_attack::MustAttackEntity::Player(pid) => Some(*pid),
-            static_ability_must_attack::MustAttackEntity::Any => None,
-        });
+        let card = game.card(attacker_id);
         let goaded = card.goaded_by;
 
-        let must_attack_any = must_from_static || must_static_player.is_some() || goaded.is_some();
-
-        // Build defender_specific map: each defender gets credit for
-        // generic "must attack anything" requirements.
         let mut n_attack_anything: i32 = 0;
         if goaded.is_some() {
             n_attack_anything += 1;
         }
-        if must_from_static {
-            n_attack_anything += 1;
-        }
-        if must_static_player.is_some() {
-            n_attack_anything += 1;
+
+        let mut defender_specific: HashMap<DefenderId, i32> = HashMap::default();
+        for entity in static_ability_must_attack::entities_must_attack(game, card) {
+            let defender = match entity {
+                static_ability_must_attack::MustAttackEntity::Any => {
+                    n_attack_anything += 1;
+                    continue;
+                }
+                static_ability_must_attack::MustAttackEntity::Player(pid) => {
+                    DefenderId::Player(pid)
+                }
+                static_ability_must_attack::MustAttackEntity::Card(cid) => {
+                    DefenderId::Permanent(cid)
+                }
+            };
+            *defender_specific.entry(defender).or_insert(0) += 1;
         }
 
-        let mut defender_specific = HashMap::default();
         for &defender in possible_defenders {
-            defender_specific.insert(defender, n_attack_anything);
+            *defender_specific.entry(defender).or_insert(0) += n_attack_anything;
         }
 
-        let goaded_by_player = goaded;
-        let defending = possible_defenders
-            .iter()
-            .find_map(|d| d.as_player())
-            .unwrap_or(PlayerId(0));
-        let must_attack_defender = if let Some(pid) = must_static_player {
-            Some(pid)
-        } else if goaded.is_some() && goaded != Some(defending) {
-            Some(defending)
-        } else {
-            None
-        };
+        defender_specific.retain(|defender, _| match *defender {
+            DefenderId::Player(pid) => game.player(pid).is_alive(),
+            DefenderId::Permanent(cid) => {
+                let defender_card = game.card(cid);
+                defender_card.zone == ZoneType::Battlefield
+                    && game.player(defender_card.controller).is_alive()
+                    && (defender_card
+                        .type_line
+                        .core_types
+                        .contains(&CoreType::Battle)
+                        || is_opponent_of(game, defender_card.controller, card.controller))
+            }
+        });
 
-        if must_attack_any || !defender_specific.is_empty() {
-            requirements.push(AttackRequirement {
-                attacker: attacker_id,
-                must_attack_any,
-                must_attack_defender,
-                goaded_by: goaded_by_player,
-                defender_specific,
-            });
-        }
+        requirements.push(AttackRequirement {
+            attacker: attacker_id,
+            must_attack_any: n_attack_anything > 0,
+            goaded_by: goaded,
+            defender_specific,
+        });
     }
 
     requirements
@@ -153,7 +147,7 @@ pub fn compute_attack_requirements_with_defenders(
 pub fn must_attack_ids(requirements: &[AttackRequirement]) -> Vec<CardId> {
     requirements
         .iter()
-        .filter(|r| r.must_attack_any)
+        .filter(|r| r.has_requirement())
         .map(|r| r.attacker)
         .collect()
 }

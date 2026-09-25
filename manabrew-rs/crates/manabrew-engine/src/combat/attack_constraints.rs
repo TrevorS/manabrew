@@ -177,7 +177,7 @@ impl AttackConstraints {
         }
 
         let reqs = attack_requirement::compute_attack_requirements_with_defenders(
-            &game.cards,
+            game,
             &possible_attackers,
             possible_defenders,
         );

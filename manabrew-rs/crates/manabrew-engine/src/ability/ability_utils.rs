@@ -83,6 +83,14 @@ fn add_players_from_remembered(
     }
 }
 
+fn add_player(players: &mut Vec<PlayerId>, game: &GameState, card_id: CardId, def: &str) {
+    if def.ends_with("Controller") {
+        push_unique_player(players, game.card(card_id).controller);
+    } else if def.ends_with("Owner") {
+        push_unique_player(players, game.card(card_id).owner);
+    }
+}
+
 fn imprinted_players_for_def(def: &str, sa: &SpellAbility, game: &GameState) -> Vec<PlayerId> {
     let mut players = Vec::new();
     let Some(source) = sa.source else {
@@ -643,6 +651,30 @@ pub fn resolve_defined_players_with_sa(
         "Enchanted" | "Equipped" => sa
             .source
             .and_then(|source| game.card(source).attached_to_player)
+            .into_iter()
+            .collect(),
+        _ if key.starts_with("Enchanted") || key.starts_with("Equipped") => {
+            let mut players = Vec::new();
+            if let Some(source) = sa.source.map(|source| game.card(source)) {
+                if let Some(player) = source.attached_to_player {
+                    push_unique_player(&mut players, player);
+                }
+                if let Some(card) = source.attached_to {
+                    add_player(&mut players, game, card, key);
+                }
+            }
+            players
+        }
+        _ if key.starts_with("EffectSource") => {
+            let mut players = Vec::new();
+            if let Some(root) = sa.source.and_then(|source| find_effect_root(game, source)) {
+                add_player(&mut players, game, root, key);
+            }
+            players
+        }
+        "CardOwner" => sa
+            .source
+            .map(|source| game.card(source).owner)
             .into_iter()
             .collect(),
         _ if key.starts_with("ChosenCard")
