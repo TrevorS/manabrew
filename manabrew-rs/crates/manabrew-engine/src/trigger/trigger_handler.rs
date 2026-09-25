@@ -990,13 +990,18 @@ impl TriggerHandler {
                 // Replicate the same check so that when Yarok's own Panharmonicon
                 // fires during its Evoke-on-ETB sacrifice, it doubles the trigger
                 // (matching Java's `amt=2` on `valid=Card.Self+evoked`).
-                let extra_delayed =
+                // A delayed trigger that an ability created is never doubled (CR 603.2e,
+                // `StaticAbilityPanharmonicon.handlePanharmonicon`).
+                let extra_delayed = if delayed.spawning_ability.is_some() {
+                    0
+                } else {
                     crate::staticability::static_ability_panharmonicon::extra_triggers(
                         game,
                         delayed.source_card,
                         &tmp_trigger,
                         event_payload,
-                    );
+                    )
+                };
                 if delayed.sort_after_active {
                     // Push to end of entries (above active triggers → resolves first).
                     entries.push((
