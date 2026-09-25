@@ -25,7 +25,8 @@ use forge_foundation::ManaCost;
 /// - `Toughness` — set base toughness
 /// - `Types` — comma-separated types to add (e.g. "Creature,Land")
 /// - `Keywords` — comma-separated keywords to grant (until EOT)
-/// - `Colors` — comma-separated colors to set (e.g. "White,Blue")
+/// - `Colors` — comma-separated colors to add (e.g. "White,Blue")
+/// - `OverwriteColors` — if "True", replace color instead of adding
 /// - `OverwriteTypes` — if "True", replace type_line instead of adding
 ///
 /// The animate_state is saved so step_cleanup can restore the original card state.
@@ -112,6 +113,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     };
     let remove_keywords_str = sa.ir.animate_remove_keywords_text.clone();
     let colors_str = anim_params.colors.map(|c| c.join(","));
+    let overwrite_colors = sa.ir.overwrite_colors;
     let triggers_str = sa.ir.animate_triggers_text.clone();
     let overwrite_types = anim_params.overwrite_types;
     let incorporate_cost = sa.ir.animate_incorporate_text.clone();
@@ -577,17 +579,25 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 perpetual_colors::PerpetualColors {
                     timestamp: ts,
                     colors: new_color,
-                    overwrite: true,
+                    overwrite: overwrite_colors,
                 }
                 .apply_effect(ctx.game.card_mut(card_id));
             } else {
                 let card = ctx.game.card_mut(card_id);
-                card.set_color(new_color);
+                if overwrite_colors {
+                    card.set_color(new_color);
+                } else {
+                    card.set_color(card.color.union(new_color));
+                }
                 if let Some(state) = card.animate_state.as_mut() {
                     if is_permanent_duration {
-                        state.original_color = new_color;
+                        state.original_color = if overwrite_colors {
+                            new_color
+                        } else {
+                            state.original_color.union(new_color)
+                        };
                     } else {
-                        state.add_color(new_color, false);
+                        state.add_color(new_color, !overwrite_colors);
                     }
                 }
             }
