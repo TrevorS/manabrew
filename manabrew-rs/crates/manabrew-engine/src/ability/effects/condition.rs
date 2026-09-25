@@ -240,8 +240,17 @@ pub(super) fn check_condition_present(
             + defined_players
                 .iter()
                 .filter(|&&pid| {
-                    alternatives.iter().any(|alt| {
-                        crate::card::valid_filter::matches_valid_player(alt, pid, player)
+                    alternatives.iter().any(|alt| match sa.source {
+                        Some(source) => {
+                            crate::card::valid_filter::matches_valid_player_selector_in_game(
+                                &crate::parsing::cached_compiled_selector(alt),
+                                pid,
+                                game.card(source),
+                                player,
+                                game,
+                            )
+                        }
+                        None => crate::card::valid_filter::matches_valid_player(alt, pid, player),
                     })
                 })
                 .count() as i32;

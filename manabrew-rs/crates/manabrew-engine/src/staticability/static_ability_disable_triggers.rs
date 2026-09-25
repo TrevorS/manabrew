@@ -44,7 +44,7 @@ pub fn is_disabled(
                     continue;
                 }
             }
-            if !mode_specific_matches(st_ab, game, regtrig, _run_params, source.controller) {
+            if !mode_specific_matches(st_ab, game, regtrig, _run_params, source) {
                 continue;
             }
             return true;
@@ -83,8 +83,9 @@ fn mode_specific_matches(
     game: &GameState,
     regtrig: &Trigger,
     run_params: &RunParams,
-    source_controller: crate::ids::PlayerId,
+    source: &Card,
 ) -> bool {
+    let source_controller = source.controller;
     match regtrig.kind {
         TriggerType::ChangesZone => {
             let origin = regtrig.origin_zone();
@@ -166,7 +167,13 @@ fn mode_specific_matches(
                 let Some(pid) = run_params.spell_controller else {
                     return false;
                 };
-                if !matches_valid_player(valid_activator, pid, source_controller) {
+                if !valid_filter::matches_valid_player_selector_in_game(
+                    valid_activator,
+                    pid,
+                    source,
+                    source_controller,
+                    game,
+                ) {
                     return false;
                 }
             }
@@ -215,7 +222,13 @@ fn mode_specific_matches(
                         return false;
                     }
                 } else if let Some(target_player) = run_params.damage_target_player {
-                    if !matches_valid_player(valid_target, target_player, source_controller) {
+                    if !valid_filter::matches_valid_player_selector_in_game(
+                        valid_target,
+                        target_player,
+                        source,
+                        source_controller,
+                        game,
+                    ) {
                         return false;
                     }
                 }
@@ -238,14 +251,6 @@ fn matches_valid_card_for_controller(
     let mut dummy_source = card.clone();
     dummy_source.controller = source_controller;
     valid_filter::matches_valid_card_selector(valid, card, &dummy_source)
-}
-
-fn matches_valid_player(
-    valid: &CompiledSelector,
-    player: crate::ids::PlayerId,
-    source_controller: crate::ids::PlayerId,
-) -> bool {
-    valid_filter::matches_valid_player_selector(valid, player, source_controller)
 }
 
 pub(crate) fn trigger_matches(

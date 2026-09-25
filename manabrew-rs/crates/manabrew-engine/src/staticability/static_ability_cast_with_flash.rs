@@ -27,7 +27,13 @@ pub fn any_with_flash(
             if !matches_valid_card(st_ab.ir.valid_card.as_ref(), spell_card, source) {
                 continue;
             }
-            if !matches_valid_player(st_ab.ir.caster.as_ref(), caster, source.controller) {
+            if !valid_filter::matches_valid_player_selector_opt_in_game(
+                st_ab.ir.caster.as_ref(),
+                caster,
+                source,
+                source.controller,
+                game,
+            ) {
                 continue;
             }
             if let Some(valid_sa) = st_ab.ir.valid_sa.as_deref() {
@@ -80,7 +86,13 @@ pub fn any_with_flash_for_card(game: &GameState, spell_card: &Card, caster: Play
             if !matches_valid_card(st_ab.ir.valid_card.as_ref(), spell_card, source) {
                 continue;
             }
-            if !matches_valid_player(st_ab.ir.caster.as_ref(), caster, source.controller) {
+            if !valid_filter::matches_valid_player_selector_opt_in_game(
+                st_ab.ir.caster.as_ref(),
+                caster,
+                source,
+                source.controller,
+                game,
+            ) {
                 continue;
             }
             if let Some(valid_sa) = st_ab.ir.valid_sa.as_deref() {

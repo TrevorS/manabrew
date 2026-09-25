@@ -22,7 +22,13 @@ pub fn can_draw_amount(game: &GameState, player: PlayerId, start_amount: i32) ->
             .filter(|sa| sa.check_mode(&StaticMode::CantDraw))
         {
             let valid_player = st_ab.ir.valid_player.as_ref();
-            if !matches_valid_player(valid_player, player, card.controller) {
+            if !valid_filter::matches_valid_player_selector_opt_in_game(
+                valid_player,
+                player,
+                card,
+                card.controller,
+                game,
+            ) {
                 continue;
             }
             let limit = st_ab.ir.draw_limit.unwrap_or(0);

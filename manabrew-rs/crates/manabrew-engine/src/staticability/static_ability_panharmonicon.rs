@@ -47,7 +47,7 @@ pub fn extra_triggers(
             if !st_ab.ir.valid_zone.is_empty() && !st_ab.ir.valid_zone.contains(&trig_host.zone) {
                 continue;
             }
-            if !mode_specific_matches(st_ab, trigger, _run_params, game, source.controller) {
+            if !mode_specific_matches(st_ab, trigger, _run_params, game, source) {
                 continue;
             }
             n += 1;
@@ -83,8 +83,9 @@ fn mode_specific_matches(
     trigger: &Trigger,
     run_params: &RunParams,
     game: &GameState,
-    source_controller: crate::ids::PlayerId,
+    source: &Card,
 ) -> bool {
+    let source_controller = source.controller;
     match trigger.kind {
         TriggerType::ChangesZone => {
             let origin = trigger.origin_zone();
@@ -181,7 +182,13 @@ fn mode_specific_matches(
                 let Some(spell_controller) = run_params.spell_controller else {
                     return false;
                 };
-                if !matches_valid_player(valid_activator, spell_controller, source_controller) {
+                if !valid_filter::matches_valid_player_selector_in_game(
+                    valid_activator,
+                    spell_controller,
+                    source,
+                    source_controller,
+                    game,
+                ) {
                     return false;
                 }
             }
@@ -215,7 +222,13 @@ fn mode_specific_matches(
                         return false;
                     }
                 } else if let Some(target_player) = run_params.damage_target_player {
-                    if !matches_valid_player(valid_target, target_player, source_controller) {
+                    if !valid_filter::matches_valid_player_selector_in_game(
+                        valid_target,
+                        target_player,
+                        source,
+                        source_controller,
+                        game,
+                    ) {
                         return false;
                     }
                 }
@@ -249,14 +262,6 @@ fn matches_zones(filters: &[ZoneType], zone: Option<ZoneType>) -> bool {
         return false;
     };
     filters.contains(&zone)
-}
-
-fn matches_valid_player(
-    valid: &CompiledSelector,
-    player: crate::ids::PlayerId,
-    source_controller: crate::ids::PlayerId,
-) -> bool {
-    valid_filter::matches_valid_player_selector(valid, player, source_controller)
 }
 
 fn matches_valid_card(valid: &CompiledSelector, card: &Card, source: &Card) -> bool {

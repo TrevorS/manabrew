@@ -115,11 +115,15 @@ pub fn apply_cant_attack_ability(
     }
 
     let target_ok = match defender {
-        DefenderId::Player(pid) => valid_filter::matches_valid_player_opt(
-            st_ab.ir.target_text.as_deref(),
-            pid,
-            source.controller,
-        ),
+        DefenderId::Player(pid) => st_ab.ir.target_text.as_deref().is_none_or(|target| {
+            valid_filter::matches_valid_player_selector_in_game(
+                &crate::parsing::cached_compiled_selector(target),
+                pid,
+                source,
+                source.controller,
+                game,
+            )
+        }),
         DefenderId::Permanent(cid) => st_ab.ir.target_text.as_deref().is_none_or(|target| {
             valid_filter::matches_valid_card_selector_in_game(
                 &crate::parsing::cached_compiled_selector(target),

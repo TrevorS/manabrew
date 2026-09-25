@@ -3161,6 +3161,72 @@ fn matches_player_controller(
 }
 
 /// Convenience wrapper: None means "no filter" -> always matches.
+/// Java `Player.isValid`. The compiled matcher answers `You`, `Opponent` and the other properties
+/// it knows without a game; a filter with any other property (`Active`, `IsRemembered`,
+/// `EnchantedBy`, `Chosen`) goes through `player_property::is_valid`.
+pub fn matches_valid_player_selector_in_game(
+    selector: &CompiledSelector,
+    player: PlayerId,
+    source: &Card,
+    source_controller: PlayerId,
+    game: &crate::game::GameState,
+) -> bool {
+    if selector.ir.alternatives.iter().all(|alternative| {
+        alternative
+            .predicates
+            .iter()
+            .all(player_predicate_is_game_free)
+    }) {
+        return matches_valid_player_selector(selector, player, source_controller);
+    }
+    let sa = crate::spellability::SpellAbility::new_simple(Some(source.id), source_controller, "");
+    crate::player::player_property::is_valid(
+        player,
+        selector,
+        game,
+        source.id,
+        source_controller,
+        &sa,
+    )
+}
+
+fn player_predicate_is_game_free(predicate: &SelectorPredicate) -> bool {
+    match predicate {
+        SelectorPredicate::Any
+        | SelectorPredicate::Player
+        | SelectorPredicate::PlayerController(_)
+        | SelectorPredicate::CardController(_) => true,
+        SelectorPredicate::Raw(raw) => {
+            let raw = raw.to_ascii_lowercase();
+            matches!(
+                raw.strip_prefix("player.").unwrap_or(&raw),
+                "you"
+                    | "youctrl"
+                    | "opponent"
+                    | "oppctrl"
+                    | "opponentctrl"
+                    | "any"
+                    | "each"
+                    | "player"
+                    | "ingame"
+            )
+        }
+        _ => false,
+    }
+}
+
+pub fn matches_valid_player_selector_opt_in_game(
+    selector: Option<&CompiledSelector>,
+    player: PlayerId,
+    source: &Card,
+    source_controller: PlayerId,
+    game: &crate::game::GameState,
+) -> bool {
+    selector.is_none_or(|selector| {
+        matches_valid_player_selector_in_game(selector, player, source, source_controller, game)
+    })
+}
+
 pub fn matches_valid_player_selector_opt(
     selector: Option<&CompiledSelector>,
     player: PlayerId,
