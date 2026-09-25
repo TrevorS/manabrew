@@ -370,15 +370,15 @@ impl GameLoop {
 
                 // Morph/Megamorph: enter face-down as a 2/2 creature
                 if alt_cost.is_some_and(|ac| ac.is_morph()) {
-                    let is_mega = alt_cost == Some(crate::spellability::AlternativeCost::Megamorph);
                     let c = game.card_mut(card_id);
                     let face_up_keyword_cost = crate::card::card_factory_util::face_up_keyword_cost;
                     let disguise_cost = face_up_keyword_cost(c, "Disguise");
+                    let megamorph_cost = face_up_keyword_cost(c, "Megamorph");
+                    let is_mega = disguise_cost.is_none() && megamorph_cost.is_some();
                     let morph_details = disguise_cost
                         .clone()
-                        .or_else(|| {
-                            face_up_keyword_cost(c, if is_mega { "Megamorph" } else { "Morph" })
-                        })
+                        .or(megamorph_cost)
+                        .or_else(|| face_up_keyword_cost(c, "Morph"))
                         .unwrap_or_else(|| "3".to_string());
                     c.set_face_down(true);
                     c.set_original_state_as_face_down();
