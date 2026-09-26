@@ -190,7 +190,7 @@ impl SimpleAi {
 
     fn action_key(action: &AvailableAction) -> String {
         match &action.kind {
-            AvailableActionKind::Cast { card_id, mode, .. } => format!("cast:{card_id}:{mode:?}"),
+            AvailableActionKind::Cast { .. } => action.id.clone(),
             AvailableActionKind::ActivateAbility(info) => {
                 format!("ability:{}:{}", info.card_id, info.description)
             }
@@ -858,6 +858,7 @@ impl SimpleAi {
         &self,
         attackers: &[manabrew_protocol::prompts::choose_blockers::BlockableAttackerDto],
         available_blocker_ids: &[String],
+        block_requirements: &[manabrew_protocol::prompts::choose_blockers::BlockRequirementDto],
         player_id: &str,
     ) -> Vec<BlockAssignment> {
         let life = self.view.as_ref().map_or(20, |view| {
@@ -885,9 +886,6 @@ impl SimpleAi {
             .collect::<Vec<_>>();
         blockers.sort_by_key(|blocker| (blocker.power, blocker.value));
 
-        let mut assignments: Vec<BlockAssignment> = Vec::new();
-        let mut blocked: HashSet<String> = HashSet::new();
-        let mut used: HashSet<String> = HashSet::new();
         let unblocked_damage = |blocked: &HashSet<String>| {
             attackers
                 .iter()
@@ -1015,6 +1013,62 @@ impl SimpleAi {
             }
         };
 
+        let mut required: Vec<BlockAssignment> = Vec::new();
+        let mut required_blocked: HashSet<String> = HashSet::new();
+        let mut required_used: HashSet<String> = HashSet::new();
+        for requirement in block_requirements {
+            let blocker = blockers
+                .iter()
+                .find(|blocker| blocker.id == requirement.blocker_id);
+            let attacker = attackers
+                .iter()
+                .find(|(attacker, _, _)| requirement.attacker_ids.contains(&attacker.attacker_id));
+            if let (Some(blocker), Some((attacker, _, _))) = (blocker, attacker) {
+                assign(
+                    &attacker.attacker_id,
+                    blocker,
+                    &mut required,
+                    &mut required_blocked,
+                    &mut required_used,
+                );
+            }
+        }
+        for (attacker, _, _) in &attackers {
+            let assigned = required
+                .iter()
+                .filter(|block| block.attacker_id == attacker.attacker_id)
+                .count();
+            let need = (attacker.min_blockers as usize).saturating_sub(assigned);
+            if assigned == 0 || need == 0 {
+                continue;
+            }
+            let extra = candidates(attacker, &required_used)
+                .into_iter()
+                .take(need)
+                .collect::<Vec<_>>();
+            if extra.len() == need {
+                for blocker in extra {
+                    assign(
+                        &attacker.attacker_id,
+                        blocker,
+                        &mut required,
+                        &mut required_blocked,
+                        &mut required_used,
+                    );
+                }
+            } else {
+                required.retain(|block| block.attacker_id != attacker.attacker_id);
+                required_blocked.remove(&attacker.attacker_id);
+                required_used = required
+                    .iter()
+                    .map(|block| block.blocker_id.clone())
+                    .collect();
+            }
+        }
+
+        let mut assignments = required.clone();
+        let mut blocked = required_blocked.clone();
+        let mut used = required_used.clone();
         good_blocks(&mut assignments, &mut blocked, &mut used);
         gang_blocks(&mut assignments, &mut blocked, &mut used);
         let danger = Self::life_in_danger(life, unblocked_damage(&blocked), false);
@@ -1023,9 +1077,9 @@ impl SimpleAi {
             chump_blocks(false, &mut assignments, &mut blocked, &mut used);
         }
         if Self::life_in_danger(life, unblocked_damage(&blocked), true) {
-            assignments.clear();
-            blocked.clear();
-            used.clear();
+            assignments = required;
+            blocked = required_blocked;
+            used = required_used;
             chump_blocks(true, &mut assignments, &mut blocked, &mut used);
             trade_blocks(true, &mut assignments, &mut blocked, &mut used);
             good_blocks(&mut assignments, &mut blocked, &mut used);
@@ -1348,15 +1402,20 @@ impl BotAgent for SimpleAi {
                         if keep.contains(&a.attacker_id) && !a.must_attack {
                             continue;
                         }
-                        let target_id = match a
-                            .valid_target_ids
-                            .iter()
-                            .filter(|target| !self.failed_attack_targets.contains(*target))
-                            .max_by_key(|target| self.attack_target_score(target))
-                        {
-                            Some(t) => t.clone(),
-                            None if a.valid_target_ids.is_empty() => default_target.clone(),
-                            None => continue,
+                        let best_target = |targets: &[String]| {
+                            targets
+                                .iter()
+                                .filter(|target| !self.failed_attack_targets.contains(*target))
+                                .max_by_key(|target| self.attack_target_score(target))
+                                .cloned()
+                        };
+                        let Some(target_id) = a
+                            .must_attack_target_ids
+                            .as_deref()
+                            .and_then(best_target)
+                            .or_else(|| best_target(&a.valid_target_ids))
+                        else {
+                            continue;
                         };
                         if a.must_attack
                             || (lethal_target && target_id == default_target)
@@ -1380,10 +1439,15 @@ impl BotAgent for SimpleAi {
             PromptInput::ChooseBlockers(manabrew_protocol::prompts::choose_blockers::ChooseBlockersInput {
                 attackers,
                 available_blocker_ids,
+                block_requirements,
                 ..
             }) => {
-                let assignments =
-                    self.declare_blockers(&attackers, &available_blocker_ids, &deciding_player_id);
+                let assignments = self.declare_blockers(
+                    &attackers,
+                    &available_blocker_ids,
+                    block_requirements.as_deref().unwrap_or_default(),
+                    &deciding_player_id,
+                );
                 Some(PromptOutput::ChooseBlockers(ChooseBlockersOutput::DeclareBlockers { assignments }))
             }
             PromptInput::ChooseBoardTargets(manabrew_protocol::prompts::choose_board_targets::ChooseBoardTargetsInput {
