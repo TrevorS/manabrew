@@ -314,8 +314,12 @@ fn resolve_card_list_property(
     sa: &SpellAbility,
 ) -> Option<i32> {
     let cards = resolve_defined_cards_for_svar(defined, game, source_id, sa);
-    if cards.is_empty() && defined != "AllTargeted" {
-        return None;
+    if cards.is_empty() {
+        if !always_handle_paid(defined) {
+            return None;
+        }
+        let operators = property.split('/').nth(1).unwrap_or("");
+        return Some(do_x_math(0, operators, game, source_id, controller, sa));
     }
     if let Some(rest) = property.strip_prefix("Valid ") {
         let (valid, operators) = rest.split_once('/').unwrap_or((rest, ""));
@@ -340,6 +344,19 @@ fn resolve_card_list_property(
             .map(|cid| card_x_property(cid, property, game, source_id, controller, sa))
             .collect(),
     ))
+}
+
+fn always_handle_paid(defined: &str) -> bool {
+    matches!(defined, "Enchanted" | "Equipped" | "AllTargeted")
+        || [
+            "ExiledWith",
+            "Crewed",
+            "ChosenCard",
+            "Remembered",
+            "Imprinted",
+        ]
+        .iter()
+        .any(|list| defined.starts_with(list))
 }
 
 pub(crate) fn list_property_fold(property: &str) -> (fn(Vec<i32>) -> i32, &str) {
@@ -384,6 +401,9 @@ fn resolve_defined_cards_for_svar(
         return crate::ability::ability_key::from_string(key)
             .map(|key| sa.get_triggering_cards(key))
             .unwrap_or_default();
+    }
+    if defined.starts_with("Crewed") {
+        return game.card(source_id).crewed_by_this_turn.clone();
     }
 
     let defined_ref = DefinedRef::parse(defined);
