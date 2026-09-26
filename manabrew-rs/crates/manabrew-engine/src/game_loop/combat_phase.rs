@@ -91,6 +91,7 @@ impl GameLoop {
                 let agent = &mut agents[active.index()];
                 let picked =
                     agent.choose_attackers(active, &available_attackers, &possible_defenders);
+                self.apply_hand_offs(game, agents);
                 if self.apply_pending_snapshot_restore(game, agents) {
                     return;
                 }
@@ -620,6 +621,7 @@ impl GameLoop {
                         max_blockers,
                     )
                 };
+                self.apply_hand_offs(game, agents);
                 if self.apply_pending_snapshot_restore(game, agents) {
                     return;
                 }

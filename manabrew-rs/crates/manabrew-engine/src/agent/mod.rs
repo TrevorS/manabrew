@@ -39,6 +39,12 @@ pub trait PlayerAgent {
         None
     }
 
+    /// Polled after each priority, attack and block answer: an agent may edit
+    /// the game and return the agent that takes over its seat.
+    fn hand_off(&mut self, _game: &mut GameState) -> Option<Box<dyn PlayerAgent>> {
+        None
+    }
+
     fn reveal_cards(
         &mut self,
         _game: &GameState,

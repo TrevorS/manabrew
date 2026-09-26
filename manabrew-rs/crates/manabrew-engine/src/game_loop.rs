@@ -401,6 +401,19 @@ impl GameLoop {
         (checkpoint_id, label)
     }
 
+    pub(crate) fn apply_hand_offs(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+    ) {
+        for agent in agents.iter_mut() {
+            if let Some(successor) = agent.hand_off(game) {
+                *agent = successor;
+                agent.snapshot_state(game, &self.mana_pools);
+            }
+        }
+    }
+
     pub(crate) fn apply_pending_snapshot_restore(
         &mut self,
         game: &mut GameState,

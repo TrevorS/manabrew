@@ -186,6 +186,7 @@ impl GameLoop {
                 continue;
             }
 
+            self.apply_hand_offs(game, agents);
             if self.apply_pending_snapshot_restore(game, agents) {
                 passed_count = 0;
                 priority_player = game.turn.priority_player;
