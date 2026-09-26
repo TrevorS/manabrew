@@ -115,6 +115,17 @@ where
         };
 
         agents[session.player.index()].snapshot_state(game, mana_pools);
+        agents[session.player.index()].observe_mana_payment(
+            game,
+            &pool_ref,
+            session.player,
+            session.card_id,
+            session.mana_cost,
+            session.current_spell,
+            session.allow_reserved_source_reuse,
+            session.reserved_sacrifices,
+            session.payment_ctx,
+        );
         let action = agents[session.player.index()].pay_mana_cost(
             session.player,
             session.card_id,

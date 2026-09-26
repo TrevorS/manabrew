@@ -1131,6 +1131,21 @@ pub trait PlayerAgent {
         vec![]
     }
 
+    #[allow(clippy::too_many_arguments)]
+    fn observe_mana_payment(
+        &mut self,
+        _game: &GameState,
+        _mana_pool: &ManaPool,
+        _player: PlayerId,
+        _card_id: CardId,
+        _mana_cost: &forge_foundation::ManaCost,
+        _current_spell: Option<CardId>,
+        _allow_reserved_source_reuse: bool,
+        _reserved_sacrifices: &[CardId],
+        _payment_ctx: Option<&crate::mana::ManaPaymentContext>,
+    ) {
+    }
+
     /// Pay a mana cost within a single payment session.
     /// Called in a loop for manual interaction: tap lands to build mana, then
     /// `Pay { auto: false }` or `Cancel`. Agents can also return
