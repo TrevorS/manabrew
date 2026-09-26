@@ -818,6 +818,11 @@ impl GameLoop {
     }
 
     fn continue_turn(&mut self, game: &mut GameState, agents: &mut [Box<dyn PlayerAgent>]) {
+        for agent in agents.iter_mut() {
+            if let Some(successor) = agent.hand_off_at_turn_start(game) {
+                *agent = successor;
+            }
+        }
         let active = game.active_player();
         // Snapshot + notify all agents of the turn change (display-only, before any actions)
         let turn_number = game.turn.turn_number;

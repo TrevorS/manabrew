@@ -80,6 +80,20 @@ pub trait Responder {
     }
     fn send_log(&mut self, _entry: GameLogEntryDto) {}
     fn send_snapshot(&mut self, _snapshot: GameSnapshotEventDto) {}
+    fn observe_state(&mut self, _game: &GameState, _mana_pools: &[ManaPool]) {}
+    fn notify(&mut self, _event: &GameNotification) {}
+    fn observe_reveal(
+        &mut self,
+        _game: &GameState,
+        _player: PlayerId,
+        _cards: &[CardId],
+        _zone: ZoneType,
+        _owner: PlayerId,
+    ) {
+    }
+    fn hand_off_at_turn_start(&mut self, _game: &GameState) -> Option<Box<dyn PlayerAgent>> {
+        None
+    }
 }
 
 pub struct PromptAgent<R: Responder> {
@@ -497,6 +511,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
     }
 
     fn snapshot_state(&mut self, game: &GameState, mana_pools: &[ManaPool]) {
+        self.responder.observe_state(game, mana_pools);
         self.source_cards = game
             .cards
             .iter()
@@ -852,12 +867,14 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
     fn reveal_cards(
         &mut self,
         game: &GameState,
-        _player: PlayerId,
+        player: PlayerId,
         cards: &[CardId],
         zone: ZoneType,
         owner: PlayerId,
         message_prefix: Option<&str>,
     ) {
+        self.responder
+            .observe_reveal(game, player, cards, zone, owner);
         choices::reveal_cards(self, game, cards, zone, owner, message_prefix)
     }
 
@@ -1433,6 +1450,10 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         Some(self)
     }
 
+    fn hand_off_at_turn_start(&mut self, game: &GameState) -> Option<Box<dyn PlayerAgent>> {
+        self.responder.hand_off_at_turn_start(game)
+    }
+
     fn enforces_block_requirements(&self) -> bool {
         true
     }
@@ -1442,6 +1463,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
     }
 
     fn notify(&mut self, event: GameNotification) {
+        self.responder.notify(&event);
         match event {
             GameNotification::Event(log_event) => {
                 self.responder

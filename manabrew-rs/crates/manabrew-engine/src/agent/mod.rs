@@ -45,6 +45,10 @@ pub trait PlayerAgent {
         None
     }
 
+    fn hand_off_at_turn_start(&mut self, _game: &GameState) -> Option<Box<dyn PlayerAgent>> {
+        None
+    }
+
     fn as_any(&self) -> Option<&dyn std::any::Any> {
         None
     }
