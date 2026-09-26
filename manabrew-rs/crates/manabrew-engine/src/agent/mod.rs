@@ -45,6 +45,10 @@ pub trait PlayerAgent {
         None
     }
 
+    fn as_any(&self) -> Option<&dyn std::any::Any> {
+        None
+    }
+
     fn reveal_cards(
         &mut self,
         _game: &GameState,

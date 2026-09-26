@@ -117,6 +117,24 @@ impl<R: Responder> PromptAgent<R> {
         }
     }
 
+    pub fn fork_with<S: Responder>(&self, responder: S) -> PromptAgent<S> {
+        PromptAgent {
+            player_id: self.player_id,
+            game_id: self.game_id.clone(),
+            responder,
+            pending_prompt: self.pending_prompt.clone(),
+            latest_view: self.latest_view.clone(),
+            combat_game: self.combat_game.clone(),
+            source_cards: self.source_cards.clone(),
+            pending_restore_checkpoint: self.pending_restore_checkpoint,
+            pass_until: self.pass_until,
+            conceded: self.conceded,
+            next_prompt_id: self.next_prompt_id,
+            targeting_cancellable: self.targeting_cancellable,
+            targeting_cancelled: self.targeting_cancelled,
+        }
+    }
+
     fn build_prompt(&mut self, inner: PromptInput, source: Option<CardId>) -> AgentPrompt {
         self.next_prompt_id += 1;
         let source_card = source.and_then(|card_id| self.source_cards.get(&card_id).cloned());
@@ -437,7 +455,7 @@ impl<R: Responder> PromptAgent<R> {
     }
 }
 
-impl<R: Responder> PlayerAgent for PromptAgent<R> {
+impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
     fn choose_targets_for(
         &mut self,
         sa: &mut manabrew_engine::spellability::SpellAbility,
@@ -1409,6 +1427,10 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
 
     fn supports_checkpoints(&self) -> bool {
         true
+    }
+
+    fn as_any(&self) -> Option<&dyn std::any::Any> {
+        Some(self)
     }
 
     fn enforces_block_requirements(&self) -> bool {

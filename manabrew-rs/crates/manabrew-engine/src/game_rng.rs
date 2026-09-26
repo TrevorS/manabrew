@@ -13,6 +13,9 @@
 //! ```
 //! This enables `thread_rng()` to work in browser environments.
 
+use std::any::Any;
+use std::sync::Arc;
+
 use crate::ids::CardId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,6 +57,12 @@ pub trait GameRng {
     }
 
     fn restore_state(&mut self, _state: GameRngState) {}
+
+    fn checkpoint_state(&self) -> Option<Arc<dyn Any + Send + Sync>> {
+        None
+    }
+
+    fn restore_checkpoint_state(&mut self, _state: &dyn Any) {}
 }
 
 /// Default RNG using `rand::thread_rng()` — non-deterministic, for normal gameplay.

@@ -25,6 +25,9 @@ pub use simple_ai::SimpleAi;
 pub trait BotAgent: Send {
     fn observe(&mut self, _view: GameViewDto) {}
     fn decide(&mut self, prompt: AgentPrompt) -> Option<PromptOutput>;
+    fn fork(&self) -> Option<Box<dyn BotAgent + Send>> {
+        None
+    }
 }
 
 /// Wire-level selector for which built-in agent the bot should use.
@@ -50,6 +53,10 @@ pub struct BotResponder {
 impl BotResponder {
     pub fn new(agent: Box<dyn BotAgent + Send>) -> Self {
         Self { agent }
+    }
+
+    pub fn fork(&self) -> Option<Self> {
+        self.agent.fork().map(Self::new)
     }
 }
 

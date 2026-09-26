@@ -1,6 +1,6 @@
 use crate::agent::PlayerAgent;
 use crate::game::GameState;
-use crate::game_loop::GameLoop;
+use crate::game_loop::{GameLoop, TurnCheckpoint};
 use crate::ids::PlayerId;
 
 /// Owns the live state and runtime services for one game session.
@@ -30,6 +30,11 @@ impl GameRuntime {
     pub fn run(&mut self, rng: &mut impl rand::Rng, max_turns: u32) -> Option<PlayerId> {
         self.loop_state
             .run(&mut self.game, &mut self.agents, rng, max_turns)
+    }
+
+    pub fn resume(&mut self, checkpoint: &TurnCheckpoint, max_turns: u32) -> Option<PlayerId> {
+        self.loop_state
+            .resume(&mut self.game, &mut self.agents, checkpoint, max_turns)
     }
 
     pub fn run_opening_hand_actions(&mut self) {

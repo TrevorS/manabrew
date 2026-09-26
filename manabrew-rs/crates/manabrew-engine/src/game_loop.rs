@@ -1,5 +1,6 @@
 use crate::HashMap;
 use rustc_hash::FxHasher;
+use std::any::Any;
 use std::collections::VecDeque;
 use std::hash::Hasher;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -83,6 +84,20 @@ pub struct GameLoop {
     /// `PlayerAgent::choose_action`. UI agents use the default `true`; parity
     /// disables it and requests action space explicitly only when needed.
     pub provide_priority_action_space: bool,
+    turn_checkpoint_sink: Option<TurnCheckpointSink>,
+}
+
+pub type TurnCheckpointSink = Box<dyn FnMut(TurnCheckpoint, &[Box<dyn PlayerAgent>])>;
+
+pub struct TurnCheckpoint {
+    snapshot: GameSnapshot,
+    rng: Option<Arc<dyn Any + Send + Sync>>,
+    previous_game_state: Option<GameSnapshot>,
+    next_checkpoint_id: u64,
+    reserved_sacrifice_stack: Vec<Vec<CardId>>,
+    reserved_source_reuse_stack: Vec<bool>,
+    mana_undo_stacks: Vec<Vec<ManaUndoRecord>>,
+    mana_undo_disqualified: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -177,7 +192,12 @@ impl GameLoop {
             mana_undo_disqualified: false,
             abort_signal: None,
             provide_priority_action_space: true,
+            turn_checkpoint_sink: None,
         }
+    }
+
+    pub fn set_turn_checkpoint_sink(&mut self, sink: TurnCheckpointSink) {
+        self.turn_checkpoint_sink = Some(sink);
     }
 
     pub fn set_provide_priority_action_space(&mut self, provide: bool) {
@@ -399,6 +419,32 @@ impl GameLoop {
             self.checkpoints.pop_front();
         }
         (checkpoint_id, label)
+    }
+
+    fn turn_checkpoint(&self, game: &GameState) -> TurnCheckpoint {
+        TurnCheckpoint {
+            snapshot: self.make_snapshot(game, true),
+            rng: self.game_rng.checkpoint_state(),
+            previous_game_state: self.previous_game_state.clone(),
+            next_checkpoint_id: self.next_checkpoint_id,
+            reserved_sacrifice_stack: self.reserved_sacrifice_stack.clone(),
+            reserved_source_reuse_stack: self.reserved_source_reuse_stack.clone(),
+            mana_undo_stacks: self.mana_undo_stacks.clone(),
+            mana_undo_disqualified: self.mana_undo_disqualified,
+        }
+    }
+
+    fn restore_turn_checkpoint(&mut self, game: &mut GameState, checkpoint: &TurnCheckpoint) {
+        self.restore_snapshot(game, &checkpoint.snapshot);
+        if let Some(state) = &checkpoint.rng {
+            self.game_rng.restore_checkpoint_state(state.as_ref());
+        }
+        self.previous_game_state = checkpoint.previous_game_state.clone();
+        self.next_checkpoint_id = checkpoint.next_checkpoint_id;
+        self.reserved_sacrifice_stack = checkpoint.reserved_sacrifice_stack.clone();
+        self.reserved_source_reuse_stack = checkpoint.reserved_source_reuse_stack.clone();
+        self.mana_undo_stacks = checkpoint.mana_undo_stacks.clone();
+        self.mana_undo_disqualified = checkpoint.mana_undo_disqualified;
     }
 
     pub(crate) fn apply_hand_offs(
@@ -694,6 +740,32 @@ impl GameLoop {
         self.trigger_handler
             .run_trigger(TriggerType::NewGame, RunParams::default(), true);
 
+        self.run_turns(game, agents, max_turns)
+    }
+
+    pub fn resume(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        checkpoint: &TurnCheckpoint,
+        max_turns: u32,
+    ) -> Option<PlayerId> {
+        self.restore_turn_checkpoint(game, checkpoint);
+        {
+            let _perf_scope = crate::perf::ParamsLookupScopeGuard::enter(
+                crate::perf::ParamsLookupScope::GameLoop,
+            );
+            self.continue_turn(game, agents);
+        }
+        self.run_turns(game, agents, max_turns)
+    }
+
+    fn run_turns(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        max_turns: u32,
+    ) -> Option<PlayerId> {
         while !game.game_over && game.turn.turn_number <= max_turns {
             if self.is_aborted() {
                 // Host requested a shutdown (user conceded / returned to
@@ -702,7 +774,7 @@ impl GameLoop {
                 game.game_over = true;
                 break;
             }
-            self.run_turn(game, agents, rng);
+            self.begin_turn(game, agents);
         }
 
         game.winner
@@ -715,6 +787,10 @@ impl GameLoop {
         agents: &mut [Box<dyn PlayerAgent>],
         _rng: &mut impl rand::Rng,
     ) {
+        self.begin_turn(game, agents);
+    }
+
+    fn begin_turn(&mut self, game: &mut GameState, agents: &mut [Box<dyn PlayerAgent>]) {
         let _perf_scope =
             crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::GameLoop);
         let active = game.active_player();
@@ -732,6 +808,17 @@ impl GameLoop {
         game.new_turn_for_player(active);
         self.log_turn_begin(&active_name, game.turn.turn_number);
 
+        if self.turn_checkpoint_sink.is_some() {
+            let checkpoint = self.turn_checkpoint(game);
+            if let Some(sink) = &mut self.turn_checkpoint_sink {
+                sink(checkpoint, agents);
+            }
+        }
+        self.continue_turn(game, agents);
+    }
+
+    fn continue_turn(&mut self, game: &mut GameState, agents: &mut [Box<dyn PlayerAgent>]) {
+        let active = game.active_player();
         // Snapshot + notify all agents of the turn change (display-only, before any actions)
         let turn_number = game.turn.turn_number;
         for agent in agents.iter_mut() {

@@ -30,7 +30,7 @@ fn bot_warn(msg: &str) {
 /// Baseline AI: casts spells when possible, otherwise passes priority, with a
 /// memoized anti-loop heuristic so a stuck `ChooseAction` doesn't repeat the
 /// same non-pass choice indefinitely.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct SimpleAi {
     recent_prompts: VecDeque<String>,
     last_attack_declaration: Vec<(String, String)>,
@@ -1238,6 +1238,10 @@ impl SimpleAi {
 }
 
 impl BotAgent for SimpleAi {
+    fn fork(&self) -> Option<Box<dyn BotAgent + Send>> {
+        Some(Box::new(self.clone()))
+    }
+
     fn observe(&mut self, view: GameViewDto) {
         self.pending_view = None;
         self.has_command_cards |= view
