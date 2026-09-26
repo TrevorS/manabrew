@@ -9,6 +9,7 @@ import forge.game.cost.Cost;
 import forge.game.player.Player;
 import forge.game.player.PlayerController.FullControlFlag;
 import forge.game.spellability.SpellAbility;
+import forge.game.staticability.StaticAbilityMustBlock;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -114,6 +115,29 @@ public final class EngineHandler {
                 }
             }
             out.put(attacker, eligible);
+        }
+        return out;
+    }
+
+    public static Map<Card, List<Card>> blockRequirements(
+            final Combat combat,
+            final List<Card> blockers,
+            final Map<Card, List<Card>> validBlockersByAttacker) {
+        final Map<Card, List<Card>> out = new LinkedHashMap<>();
+        for (final Card blocker : blockers) {
+            if (!CombatUtil.mustBlockAnAttacker(blocker, combat, null)
+                    && !StaticAbilityMustBlock.blocksEachCombatIfAble(blocker)) {
+                continue;
+            }
+            final List<Card> required = new ArrayList<>();
+            for (final Map.Entry<Card, List<Card>> entry : validBlockersByAttacker.entrySet()) {
+                if (entry.getValue().contains(blocker)) {
+                    required.add(entry.getKey());
+                }
+            }
+            if (!required.isEmpty()) {
+                out.put(blocker, required);
+            }
         }
         return out;
     }

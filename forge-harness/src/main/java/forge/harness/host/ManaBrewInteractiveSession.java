@@ -18,6 +18,7 @@ import forge.game.card.Card;
 import forge.game.card.CardCollection;
 import forge.game.card.CardCollectionView;
 import forge.game.card.CardView;
+import forge.game.combat.AttackRequirement;
 import forge.game.combat.Combat;
 import forge.game.combat.CombatUtil;
 import forge.game.cost.Cost;
@@ -27,7 +28,6 @@ import forge.game.spellability.AbilityManaPart;
 import forge.game.spellability.AlternativeCost;
 import forge.game.spellability.SpellAbility;
 import forge.game.staticability.StaticAbilityCantAttackBlock;
-import forge.game.staticability.StaticAbilityMustAttack;
 import forge.game.zone.ZoneType;
 import forge.item.PaperCard;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -43,6 +43,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.locks.ReentrantLock;
 
 public final class ManaBrewInteractiveSession {
 
@@ -50,6 +51,7 @@ public final class ManaBrewInteractiveSession {
     private Match match;
     private Game game;
     private final BlockingQueue<JsonObject> actions = new LinkedBlockingQueue<>();
+    private final ReentrantLock stateLock = new ReentrantLock();
     private volatile String latestPromptJson;
     private volatile int promptedPlayerIndex = -1;
     private long promptSeq;
@@ -88,23 +90,26 @@ public final class ManaBrewInteractiveSession {
         Objects.requireNonNull(rng, "rng");
         if (bridge != null) {
             forge.util.MyRandom.setRandom(rng);
-            try {
-                match.startGame(game);
-            } catch (RuntimeException | Error error) {
-                recordEngineError(error);
-            }
+            runGame();
             return;
         }
         gameThread = new Thread(() -> {
             forge.util.MyRandom.setRandom(rng);
-            try {
-                match.startGame(game);
-            } catch (RuntimeException | Error error) {
-                recordEngineError(error);
-            }
+            runGame();
         }, "mana-brew-forge-" + sessionId);
         gameThread.setDaemon(true);
         gameThread.start();
+    }
+
+    private void runGame() {
+        stateLock.lock();
+        try {
+            match.startGame(game);
+        } catch (RuntimeException | Error error) {
+            recordEngineError(error);
+        } finally {
+            stateLock.unlock();
+        }
     }
 
     public void close() {
@@ -160,8 +165,13 @@ public final class ManaBrewInteractiveSession {
 
     public String getSnapshotJson(final int viewer) {
         requireAttached();
-        return InteractiveSnapshotExtractor.snapshotJson(
-                game, castingAbility, sessionId, viewer, secretChoiceVisibility);
+        stateLock.lock();
+        try {
+            return InteractiveSnapshotExtractor.snapshotJson(
+                    game, castingAbility, sessionId, viewer, secretChoiceVisibility);
+        } finally {
+            stateLock.unlock();
+        }
     }
 
     void rememberSecretNumberViewer(final String sourceCardId, final Player viewer) {
@@ -939,10 +949,12 @@ public final class ManaBrewInteractiveSession {
             final List<Card> attackers,
             final List<Card> availableBlockers,
             final Map<Card, List<Card>> validBlockersByAttacker,
+            final Map<Card, List<Card>> blockRequirements,
             final String error
     ) {
         requireAttached();
-        publishBlockersPrompt(playerId, attackers, availableBlockers, validBlockersByAttacker, error);
+        publishBlockersPrompt(
+                playerId, attackers, availableBlockers, validBlockersByAttacker, blockRequirements, error);
         while (!closed && !game.isGameOver()) {
             final JsonObject action = takeActionOrNull();
             if (action == null) {
@@ -1870,10 +1882,7 @@ public final class ManaBrewInteractiveSession {
 
     private JsonObject takeAction() throws InterruptedException {
         while (true) {
-            if (bridge != null && actions.isEmpty() && !closed && !game.isGameOver()) {
-                submitAction(bridge.exchange(promptedPlayerIndex, latestPromptJson));
-            }
-            final JsonObject action = actions.poll(1, java.util.concurrent.TimeUnit.SECONDS);
+            final JsonObject action = parkForAction();
             if (action == null) {
                 if (closed || game.isGameOver()) {
                     return syntheticPass();
@@ -1892,6 +1901,23 @@ public final class ManaBrewInteractiveSession {
                 continue;
             }
             return syntheticPass();
+        }
+    }
+
+    private JsonObject parkForAction() throws InterruptedException {
+        final int holds = stateLock.getHoldCount();
+        for (int i = 0; i < holds; i++) {
+            stateLock.unlock();
+        }
+        try {
+            if (bridge != null && actions.isEmpty() && !closed && !game.isGameOver()) {
+                submitAction(bridge.exchange(promptedPlayerIndex, latestPromptJson));
+            }
+            return actions.poll(1, java.util.concurrent.TimeUnit.SECONDS);
+        } finally {
+            for (int i = 0; i < holds; i++) {
+                stateLock.lock();
+            }
         }
     }
 
@@ -2310,14 +2336,32 @@ public final class ManaBrewInteractiveSession {
     ) {
         final List<AttackerOptionDto> attackers = new java.util.ArrayList<>();
         for (final Card a : availableAttackers) {
+            final List<GameEntity> legalDefenders = CombatChoiceSpace.legalDefendersForAttacker(a, combat);
             final List<String> validTargetIds = new java.util.ArrayList<>();
-            for (final GameEntity d : CombatChoiceSpace.legalDefendersForAttacker(a, combat)) {
+            for (final GameEntity d : legalDefenders) {
                 validTargetIds.add(defenderId(d));
             }
-            final boolean mustAttack =
-                    a.isGoaded() || !StaticAbilityMustAttack.entitiesMustAttack(a).isEmpty();
+            final AttackRequirement requirement = combat.getAttackConstraints().getRequirements().get(a);
+            List<String> mustAttackTargetIds = null;
+            if (requirement.hasRequirement()) {
+                final Map<GameEntity, Integer> credit = new java.util.HashMap<>();
+                for (final Pair<GameEntity, Integer> entry : requirement.getSortedRequirements()) {
+                    credit.put(entry.getLeft(), entry.getRight());
+                }
+                int best = 0;
+                for (final GameEntity d : legalDefenders) {
+                    best = Math.max(best, credit.getOrDefault(d, 0));
+                }
+                mustAttackTargetIds = new java.util.ArrayList<>();
+                for (final GameEntity d : legalDefenders) {
+                    if (credit.getOrDefault(d, 0) == best) {
+                        mustAttackTargetIds.add(defenderId(d));
+                    }
+                }
+            }
             attackers.add(new AttackerOptionDto(
-                    SnapshotExtractor.javaCardId(a), validTargetIds, mustAttack));
+                    SnapshotExtractor.javaCardId(a), validTargetIds,
+                    mustAttackTargetIds != null, mustAttackTargetIds));
         }
         final List<AttackTargetDto> attackTargets = new java.util.ArrayList<>();
         for (final GameEntity defender : combat.getDefenders()) {
@@ -2333,6 +2377,7 @@ public final class ManaBrewInteractiveSession {
             final List<Card> attackers,
             final List<Card> availableBlockers,
             final Map<Card, List<Card>> validBlockersByAttacker,
+            final Map<Card, List<Card>> blockRequirements,
             final String error
     ) {
         final Player defendingPlayer = game.getRegisteredPlayers().get(playerId);
@@ -2355,8 +2400,17 @@ public final class ManaBrewInteractiveSession {
         for (final Card blocker : availableBlockers) {
             availableBlockerIds.add(SnapshotExtractor.javaCardId(blocker));
         }
-        publishAgentPrompt("player-" + playerId, null,
-                new ChooseBlockersInput(attackerOptions, availableBlockerIds, error));
+        final List<BlockRequirementDto> requirements = new java.util.ArrayList<>();
+        for (final Map.Entry<Card, List<Card>> requirement : blockRequirements.entrySet()) {
+            final List<String> attackerIds = new java.util.ArrayList<>();
+            for (final Card attacker : requirement.getValue()) {
+                attackerIds.add(SnapshotExtractor.javaCardId(attacker));
+            }
+            requirements.add(new BlockRequirementDto(
+                    SnapshotExtractor.javaCardId(requirement.getKey()), attackerIds));
+        }
+        publishAgentPrompt("player-" + playerId, null, new ChooseBlockersInput(
+                attackerOptions, availableBlockerIds, requirements.isEmpty() ? null : requirements, error));
     }
 
     private void publishDamageAssignmentOrderPrompt(

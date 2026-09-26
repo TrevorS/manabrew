@@ -398,11 +398,13 @@ public final class ManaBrewInteractiveController extends PlayerController implem
                 CombatChoiceSpace.legalBlockers(defender, combat), ParityOrder.cardComparator());
         final Map<Card, List<Card>> validByAttacker =
                 EngineHandler.validBlockersByAttacker(combat, attackers, blockers);
+        final Map<Card, List<Card>> requirements =
+                EngineHandler.blockRequirements(combat, blockers, validByAttacker);
         final int defenderIndex = SnapshotExtractor.playerIndex(game, defender);
         String error = null;
         while (true) {
-            final List<Pair<Card, Card>> assignments =
-                    session.awaitBlockers(defenderIndex, attackers, blockers, validByAttacker, error);
+            final List<Pair<Card, Card>> assignments = session.awaitBlockers(
+                    defenderIndex, attackers, blockers, validByAttacker, requirements, error);
             error = EngineHandler.applyBlockerAssignments(combat, defender, assignments);
             if (error == null || session.isClosed() || game.isGameOver()) {
                 return;

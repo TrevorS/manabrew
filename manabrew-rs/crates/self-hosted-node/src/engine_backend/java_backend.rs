@@ -1211,7 +1211,9 @@ fn drive_game_via_handle(
             let prompt: AgentPrompt = serde_json::from_str(&prompt_json)
                 .map_err(|error| format!("failed to parse concurrent prompt: {error}"))?;
             let player = player_index(&prompt.deciding_player_id);
-            if let Some(action) = bots.entry(player).or_default().decide(prompt) {
+            let bot = bots.entry(player).or_default();
+            bot.observe_lazy(handle.get_snapshot(session_id, Some(player))?);
+            if let Some(action) = bot.decide(prompt) {
                 let action_json = serde_json::to_string(&action).map_err(|err| err.to_string())?;
                 handle.submit_action(session_id, &action_json)?;
                 acted += 1;
@@ -2234,7 +2236,9 @@ fn run_concede_game<B: JavaBridge>(
             continue;
         }
 
-        if let Some(action) = bots.entry(player).or_default().decide(prompt) {
+        let bot = bots.entry(player).or_default();
+        bot.observe_lazy(session.get_snapshot(Some(player))?);
+        if let Some(action) = bot.decide(prompt) {
             submit_player_action(session, &action)?;
             acted += 1;
             if conceded {
@@ -2328,7 +2332,9 @@ fn run_self_play_loop<B: JavaBridge>(
             let raw_value: Value = serde_json::from_str(&prompt_json).unwrap_or(Value::Null);
             let normalized = raw_value.clone();
 
-            match bots.entry(player).or_default().decide(prompt) {
+            let bot = bots.entry(player).or_default();
+            bot.observe_lazy(session.get_snapshot(Some(player))?);
+            match bot.decide(prompt) {
                 Some(action) => {
                     if let Err(err) = submit_player_action(session, &action) {
                         dump_stuck(

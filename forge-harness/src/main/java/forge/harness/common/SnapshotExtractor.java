@@ -28,7 +28,7 @@ public final class SnapshotExtractor {
      * Extract a snapshot and return it as a JSON string (single line).
      */
     public static String snapshotJson(Game game) {
-        Map<String, Object> snapshot = extractSnapshot(game);
+        Map<String, Object> snapshot = extractSnapshot(game, true);
         return GSON.toJson(snapshot);
     }
 
@@ -36,6 +36,10 @@ public final class SnapshotExtractor {
      * Extract a normalized snapshot as a Map matching the Rust StateSnapshot.
      */
     public static Map<String, Object> extractSnapshot(Game game) {
+        return extractSnapshot(game, false);
+    }
+
+    private static Map<String, Object> extractSnapshot(Game game, boolean rngCallCounts) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
 
         snapshot.put("turn", game.getPhaseHandler().getTurn());
@@ -48,12 +52,14 @@ public final class SnapshotExtractor {
         snapshot.put("monarch", game.getMonarch() == null ? null : playerIndex(game, game.getMonarch()));
         snapshot.put("initiative", game.getHasInitiative() == null ? null : playerIndex(game, game.getHasInitiative()));
         snapshot.put("day_night", game.getDayTime() == null ? "none" : game.isNight() ? "night" : "day");
-        java.util.Random gameRandom = forge.util.MyRandom.getRandom();
-        if (!(gameRandom instanceof CountingRandom countingRandom)) {
-            throw new IllegalStateException("game RNG is not a CountingRandom");
+        if (rngCallCounts) {
+            java.util.Random gameRandom = forge.util.MyRandom.getRandom();
+            if (!(gameRandom instanceof CountingRandom countingRandom)) {
+                throw new IllegalStateException("game RNG is not a CountingRandom");
+            }
+            snapshot.put("game_rng_calls", countingRandom.getCallCount());
+            snapshot.put("agent_rng_calls", ParityLog.rngCallCount());
         }
-        snapshot.put("game_rng_calls", countingRandom.getCallCount());
-        snapshot.put("agent_rng_calls", ParityLog.rngCallCount());
 
         // players — use getRegisteredPlayers() to include lost players
         List<Map<String, Object>> players = new ArrayList<>();
