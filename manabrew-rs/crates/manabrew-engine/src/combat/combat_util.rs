@@ -3,10 +3,13 @@ use forge_foundation::ZoneType;
 
 use super::attack_constraints::AttackConstraints;
 use super::{CombatState, DefenderId, LureType};
+use crate::card::valid_filter;
 use crate::card::Card;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
-use crate::staticability::static_ability_cant_attack_block;
+use crate::staticability::{
+    static_ability_block_restrict, static_ability_cant_attack_block, static_ability_must_block,
+};
 
 pub fn get_available_attackers(game: &GameState, player: PlayerId) -> Vec<CardId> {
     let defending = game.opponent_of(player);
@@ -215,41 +218,138 @@ pub fn validate_blocks(game: &GameState, combat: &CombatState, defender: PlayerI
     }
 }
 
-pub fn must_block_an_attacker(game: &GameState, combat: &CombatState, blocker_id: CardId) -> bool {
+pub fn must_block_an_attacker(
+    game: &GameState,
+    combat: &CombatState,
+    blocker_id: CardId,
+    free_blockers: Option<&[CardId]>,
+) -> bool {
+    let blocker = game.card(blocker_id);
+    let defender = blocker.controller;
     let has_block_cost = |attacker_id: CardId| {
-        super::block_cost::get_block_cost(game, game.card(blocker_id), game.card(attacker_id)) > 0
+        super::block_cost::get_block_cost(game, blocker, game.card(attacker_id)) > 0
     };
     let mut requirement_cards = Vec::new();
     for &(attacker_id, _) in &combat.attackers {
-        if !has_block_cost(attacker_id)
-            && !attacker_lure_satisfied(game, attacker_id, &combat.get_blockers_for(attacker_id))
+        if has_block_cost(attacker_id)
+            || attacker_lure_satisfied(
+                game,
+                attacker_id,
+                blocker_id,
+                &combat.get_blockers_for(attacker_id),
+            )
+        {
+            continue;
+        }
+        if can_be_blocked(game, combat, attacker_id, defender)
             && can_creature_block(game, blocker_id, attacker_id)
+            && can_be_blocked_without(game, combat, attacker_id, blocker_id, None)
         {
             requirement_cards.push(attacker_id);
         }
     }
-    for &attacker_id in &game.card(blocker_id).must_block_cards {
+    for &attacker_id in &blocker.must_block_cards {
         if !has_block_cost(attacker_id)
-            && combat.is_attacking(attacker_id)
+            && can_be_blocked(game, combat, attacker_id, defender)
             && can_creature_block(game, blocker_id, attacker_id)
+            && combat.is_attacking(attacker_id)
+            && can_be_blocked_without(game, combat, attacker_id, blocker_id, free_blockers)
             && !requirement_cards.contains(&attacker_id)
         {
             requirement_cards.push(attacker_id);
         }
     }
+    if requirement_cards.is_empty() {
+        return false;
+    }
     let blocking = combat.get_attackers_for(blocker_id);
-    !requirement_cards.is_empty()
-        && requirement_cards
-            .iter()
-            .all(|attacker_id| !blocking.contains(attacker_id))
+    if requirement_cards.iter().all(|a| blocking.contains(a)) {
+        return false;
+    }
+    if !can_block_in_combat(game, combat, blocker_id) {
+        for &(attacker_id, _) in &combat.attackers {
+            let mut blockers = combat.get_blockers_for(attacker_id);
+            if blockers.contains(&blocker_id)
+                && attacker_lure_satisfied(game, attacker_id, blocker_id, &blockers)
+            {
+                blockers.retain(|&b| b != blocker_id);
+                if !attacker_lure_satisfied(game, attacker_id, blocker_id, &blockers) {
+                    return false;
+                }
+            }
+        }
+    }
+    requirement_cards.iter().all(|a| !blocking.contains(a))
 }
 
-fn attacker_lure_satisfied(game: &GameState, attacker_id: CardId, blockers: &[CardId]) -> bool {
-    match get_lure_type(game.card(attacker_id)) {
-        LureType::AllMustBlock => false,
-        LureType::MustBeBlockedIfAble => !blockers.is_empty(),
-        LureType::None => true,
+fn can_be_blocked_without(
+    game: &GameState,
+    combat: &CombatState,
+    attacker_id: CardId,
+    blocker_id: CardId,
+    free_blockers: Option<&[CardId]>,
+) -> bool {
+    let defending = defending_player_of(game, combat, attacker_id);
+    if get_min_num_blockers_for_attacker(game, attacker_id, defending) <= 1 {
+        return true;
     }
+    let mut blockers = free_blockers.map_or_else(
+        || game.creatures_on_battlefield(defending),
+        <[CardId]>::to_vec,
+    );
+    blockers.retain(|&b| b != blocker_id);
+    can_be_blocked_with(game, combat, attacker_id, &blockers)
+}
+
+fn defending_player_of(game: &GameState, combat: &CombatState, attacker_id: CardId) -> PlayerId {
+    combat
+        .get_defender_player_by_attacker(attacker_id, game)
+        .unwrap_or_else(|| game.opponent_of(game.card(attacker_id).controller))
+}
+
+fn attacker_lure_satisfied(
+    game: &GameState,
+    attacker_id: CardId,
+    blocker_id: CardId,
+    blockers: &[CardId],
+) -> bool {
+    let attacker = game.card(attacker_id);
+    let keywords: Vec<&str> = attacker
+        .keywords
+        .iter_strings()
+        .chain(attacker.granted_keywords.iter_strings())
+        .chain(attacker.pump_keywords.iter_strings())
+        .map(|kw| kw.strip_prefix("HIDDEN ").unwrap_or(kw))
+        .collect();
+    let has_start_of = |prefix: &str| keywords.iter().any(|kw| kw.starts_with(prefix));
+    if has_start_of("All creatures able to block CARDNAME do so.")
+        || (has_start_of("CARDNAME must be blocked if able.") && blockers.is_empty())
+        || (has_start_of("CARDNAME must be blocked by exactly one creature if able.")
+            && blockers.len() != 1)
+        || (has_start_of("CARDNAME must be blocked by two or more creatures if able.")
+            && blockers.len() < 2)
+    {
+        return false;
+    }
+    let blocker = game.card(blocker_id);
+    let is_valid =
+        |card: &Card, valid: &str| valid_filter::matches_valid_card(valid, card, attacker);
+    for keyword in keywords {
+        if let Some(valid) = keyword.strip_prefix("MustBeBlockedBy ") {
+            if is_valid(blocker, valid) && !blockers.iter().any(|&b| is_valid(game.card(b), valid))
+            {
+                return false;
+            }
+        }
+        if keyword.starts_with("MustBeBlockedByAll") {
+            if let Some(valid) = keyword.split(':').nth(1) {
+                if is_valid(blocker, valid) {
+                    return false;
+                }
+            }
+        }
+    }
+    true
 }
 
 pub fn lure_forbids_block(
@@ -258,12 +358,16 @@ pub fn lure_forbids_block(
     attacker_id: CardId,
     blocker_id: CardId,
 ) -> bool {
-    attacker_lure_satisfied(game, attacker_id, &combat.get_blockers_for(attacker_id))
-        && !game
-            .card(blocker_id)
-            .must_block_cards
-            .contains(&attacker_id)
-        && must_block_an_attacker(game, combat, blocker_id)
+    attacker_lure_satisfied(
+        game,
+        attacker_id,
+        blocker_id,
+        &combat.get_blockers_for(attacker_id),
+    ) && !game
+        .card(blocker_id)
+        .must_block_cards
+        .contains(&attacker_id)
+        && must_block_an_attacker(game, combat, blocker_id, None)
 }
 
 /// Determine the lure type of an attacker.
@@ -285,91 +389,70 @@ pub fn get_lure_type(card: &Card) -> LureType {
     LureType::None
 }
 
-/// Get attackers that `blocker_id` MUST block (if able).
 pub fn compute_must_block_targets(
     game: &GameState,
     combat: &CombatState,
     blocker_id: CardId,
 ) -> Vec<CardId> {
-    let mut targets = Vec::new();
-    let blocker = game.card(blocker_id);
-
-    for &(attacker_id, _) in &combat.attackers {
-        let attacker = game.card(attacker_id);
-        let lure = get_lure_type(attacker);
-        match lure {
-            LureType::AllMustBlock | LureType::MustBeBlockedIfAble => {
-                if can_creature_block(game, blocker_id, attacker_id) {
-                    targets.push(attacker_id);
-                }
-            }
-            LureType::None => {}
-        }
+    let required = must_block_an_attacker(game, combat, blocker_id, None)
+        || (!combat.is_blocking(blocker_id)
+            && static_ability_must_block::blocks_each_combat_if_able(
+                &game.cards,
+                game.card(blocker_id),
+            ));
+    if !required {
+        return Vec::new();
     }
-
-    // Check explicit must_block_cards on the blocker
-    for &attacker_id in &blocker.must_block_cards {
-        if combat.is_attacking(attacker_id)
-            && can_creature_block(game, blocker_id, attacker_id)
-            && !targets.contains(&attacker_id)
-        {
-            targets.push(attacker_id);
-        }
-    }
-
-    targets
+    combat
+        .attackers
+        .iter()
+        .map(|&(attacker_id, _)| attacker_id)
+        .filter(|&attacker_id| can_creature_block_in_combat(game, combat, blocker_id, attacker_id))
+        .collect()
 }
 
-/// Check if blocker can block more creatures than it currently is.
 pub fn can_block_more_creatures(
     game: &GameState,
-    combat: &CombatState,
     blocker_id: CardId,
+    blocked_by: &[CardId],
 ) -> bool {
-    let currently_blocking = combat
-        .blockers
-        .iter()
-        .filter(|(b, _)| *b == blocker_id)
-        .count();
-    if currently_blocking == 0 {
-        return true;
-    }
-    // Check for "can block additional creature" type keywords
-    let card = game.card(blocker_id);
-    for kw in card
-        .keywords
-        .iter_strings()
-        .chain(card.granted_keywords.iter_strings())
-        .chain(card.pump_keywords.iter_strings())
-    {
-        let lower = kw.to_lowercase();
-        if lower.contains("can block any number of creatures") {
-            return true;
-        }
-        if lower.contains("can block an additional creature") && currently_blocking < 2 {
-            return true;
-        }
-    }
-    false
+    let blocker = game.card(blocker_id);
+    blocked_by.is_empty()
+        || blocker.can_block_any()
+        || usize::try_from(blocker.can_block_additional()).unwrap_or(0) >= blocked_by.len()
 }
 
-/// Get the minimum number of blockers required to block an attacker.
-pub fn get_min_num_blockers_for_attacker(game: &GameState, attacker_id: CardId) -> usize {
-    let card = game.card(attacker_id);
-    if card.has_menace() {
-        2
-    } else {
-        1
-    }
+pub fn get_min_num_blockers_for_attacker(
+    game: &GameState,
+    attacker_id: CardId,
+    defender: PlayerId,
+) -> i32 {
+    static_ability_cant_attack_block::get_min_max_blocker(
+        game,
+        &game.cards,
+        game.card(attacker_id),
+        defender,
+    )
+    .0
 }
 
-/// Check if a creature can be blocked with a given number of blockers.
 pub fn can_attacker_be_blocked_with_amount(
     game: &GameState,
+    combat: &CombatState,
     attacker_id: CardId,
     amount: usize,
 ) -> bool {
-    amount >= get_min_num_blockers_for_attacker(game, attacker_id)
+    if amount == 0 {
+        return false;
+    }
+    let (min, max) = static_ability_cant_attack_block::get_min_max_blocker(
+        game,
+        &game.cards,
+        game.card(attacker_id),
+        defending_player_of(game, combat, attacker_id),
+    );
+    let amount = i64::try_from(amount).unwrap_or(i64::MAX);
+    i64::from(min) <= amount && amount <= i64::from(max)
 }
 
 /// Declared-attacker trigger helper.
@@ -473,15 +556,76 @@ pub fn can_block(game: &GameState, blocker_id: CardId) -> bool {
     blocker.zone == ZoneType::Battlefield
 }
 
-/// Check if an attacker can be blocked by the given set of potential blockers.
 pub fn can_be_blocked(
     game: &GameState,
+    combat: &CombatState,
     attacker_id: CardId,
-    potential_blockers: &[CardId],
+    defending: PlayerId,
 ) -> bool {
-    potential_blockers
+    let attacker = game.card(attacker_id);
+    let (_, max) = static_ability_cant_attack_block::get_min_max_blocker(
+        game,
+        &game.cards,
+        attacker,
+        defending,
+    );
+    if usize::try_from(max).is_ok_and(|max| max == combat.get_blockers_for(attacker_id).len()) {
+        return false;
+    }
+    if combat
+        .get_defender_player_by_attacker(attacker_id, game)
+        .is_some_and(|attacked| attacked != defending)
+    {
+        return false;
+    }
+    !static_ability_cant_attack_block::cant_block_by(game, &game.cards, attacker, None)
+}
+
+pub fn can_be_blocked_with(
+    game: &GameState,
+    combat: &CombatState,
+    attacker_id: CardId,
+    blockers: &[CardId],
+) -> bool {
+    let blocks = blockers
         .iter()
-        .any(|&blocker_id| can_creature_block(game, blocker_id, attacker_id))
+        .filter(|&&blocker_id| can_creature_block(game, blocker_id, attacker_id))
+        .count();
+    can_attacker_be_blocked_with_amount(game, combat, attacker_id, blocks)
+}
+
+pub fn can_block_in_combat(game: &GameState, combat: &CombatState, blocker_id: CardId) -> bool {
+    if !can_block_more_creatures(game, blocker_id, &combat.get_attackers_for(blocker_id)) {
+        return false;
+    }
+    let controller = game.card(blocker_id).controller;
+    let other_blockers = combat
+        .get_all_blockers()
+        .into_iter()
+        .filter(|&b| b != blocker_id && game.card(b).controller == controller)
+        .count();
+    if i64::try_from(other_blockers).unwrap_or(i64::MAX)
+        >= i64::from(static_ability_block_restrict::block_restrict_num(
+            &game.cards,
+            controller,
+        ))
+    {
+        return false;
+    }
+    can_block(game, blocker_id)
+}
+
+pub fn can_creature_block_in_combat(
+    game: &GameState,
+    combat: &CombatState,
+    blocker_id: CardId,
+    attacker_id: CardId,
+) -> bool {
+    can_block_in_combat(game, combat, blocker_id)
+        && can_be_blocked(game, combat, attacker_id, game.card(blocker_id).controller)
+        && !combat.is_blocking_attacker(blocker_id, attacker_id)
+        && !lure_forbids_block(game, combat, attacker_id, blocker_id)
+        && can_creature_block(game, blocker_id, attacker_id)
 }
 
 /// Check if a blocker can block at least one attacker from a list.
