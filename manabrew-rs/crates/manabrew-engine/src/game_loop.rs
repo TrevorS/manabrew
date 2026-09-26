@@ -100,6 +100,29 @@ pub struct TurnCheckpoint {
     mana_undo_disqualified: bool,
 }
 
+impl TurnCheckpoint {
+    pub fn rng_state(&self) -> Option<&(dyn Any + Send + Sync)> {
+        self.rng.as_deref()
+    }
+}
+
+impl std::fmt::Debug for TurnCheckpoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TurnCheckpoint")
+            .field("snapshot", &self.snapshot)
+            .field("previous_game_state", &self.previous_game_state)
+            .field("next_checkpoint_id", &self.next_checkpoint_id)
+            .field("reserved_sacrifice_stack", &self.reserved_sacrifice_stack)
+            .field(
+                "reserved_source_reuse_stack",
+                &self.reserved_source_reuse_stack,
+            )
+            .field("mana_undo_stacks", &self.mana_undo_stacks)
+            .field("mana_undo_disqualified", &self.mana_undo_disqualified)
+            .finish_non_exhaustive()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct PreparedSpellAbility {
     pub spell_ability: SpellAbility,
