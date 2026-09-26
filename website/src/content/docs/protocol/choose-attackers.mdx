@@ -29,6 +29,13 @@ Return one `AttackAssignment` per attacking creature: each assignment sends one
 creature at one target. Creatures the player chooses not to attack with are
 simply omitted.
 
+Each attacker may only attack a target in its own `validTargetIds`. The engine
+rejects an assignment outside that list, or a creature assigned twice, with an
+`illegalAssignment` error and sends the prompt again. A creature with
+`mustAttack` has to attack if able; `mustAttackTargetIds` names the targets that
+meet its requirement (all of them when any target will do). Leaving such a
+creature out makes the engine ask again.
+
 ## Example
 
 ```json
@@ -38,8 +45,13 @@ simply omitted.
   "input": {
     "type": "chooseAttackers",
     "attackers": [
-      { "attackerId": "bf-3", "validTargetIds": ["player-1", "pw-1"] },
-      { "attackerId": "bf-4", "validTargetIds": ["player-1", "pw-1"] }
+      { "attackerId": "bf-3", "validTargetIds": ["player-1", "pw-1"], "mustAttack": false },
+      {
+        "attackerId": "bf-4",
+        "validTargetIds": ["player-1", "pw-1"],
+        "mustAttack": true,
+        "mustAttackTargetIds": ["pw-1"]
+      }
     ],
     "attackTargets": [
       { "id": "player-1", "label": "Opponent", "kind": "player" },

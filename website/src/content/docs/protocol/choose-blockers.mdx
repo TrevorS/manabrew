@@ -29,6 +29,12 @@ Return one `BlockAssignment` for each blocking creature, naming the attacker it
 blocks. A single blocker may block one attacker; to gang-block, return multiple
 assignments that share the same `attackerId`. Creatures left back are omitted.
 
+A blocker may only block an attacker whose `validBlockerIds` lists it. The
+engine rejects any other pair with an `illegalAssignment` error and sends the
+prompt again. `blockRequirements`, when present, names each blocker that must
+block one of its `attackerIds` if able (a lure, or a creature told to block a
+given attacker).
+
 ## Example
 
 ```json
@@ -51,7 +57,8 @@ assignments that share the same `attackerId`. Creatures left back are omitted.
         "mustBeBlocked": false
       }
     ],
-    "availableBlockerIds": ["bf-7", "bf-8"]
+    "availableBlockerIds": ["bf-7", "bf-8"],
+    "blockRequirements": [{ "blockerId": "bf-8", "attackerIds": ["bf-3"] }]
   }
 }
 ```

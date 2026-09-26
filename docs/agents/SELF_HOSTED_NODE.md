@@ -18,6 +18,8 @@ Under the `java-forge` backend, `SubprocessBridge::spawn` sizes the engine JVM e
 
 A background `updater` monitor (`updater.rs`) polls the version manifest (default `play.manabrew.app/manifest.json`) and compares its own `CARGO_PKG_VERSION` against `packages["self-hosted-node"]`; when behind it logs a warning, or — with `--shutdown-on-stale` / `SELF_HOSTED_NODE_SHUTDOWN_ON_STALE` — gracefully cancels its rooms (relay sockets get a proper WebSocket close) and `exit(0)`s once idle (no `engine_session` active in any room) so a pull-on-restart supervisor respawns it updated. SIGTERM/SIGINT trigger the same graceful room shutdown. Do not enable the flag under plain `restart: unless-stopped` (re-runs the same image → crash loop); it needs a supervisor that pulls latest on restart.
 
+The java-forge self-play and smoke loops (`run_self_play_loop`, `drive_game_via_handle`, `run_concede_game`) hand each SimpleAi seat its own snapshot (`observe_lazy`) before it decides, as `BotResponder` does in process; without it SimpleAi decided blind. A Forge `getSnapshot` waits until the game thread parks at a prompt or finishes (`ManaBrewInteractiveSession.stateLock`), so a read during a Forge AI seat's turn, right after a `submit_action`, or while game-over processing runs blocks instead of racing the game thread (`ConcurrentModificationException`).
+
 ## The direct data plane
 
 A headless node offers no plane; its rooms stay on the relay. Under `forge-room` a desktop host
