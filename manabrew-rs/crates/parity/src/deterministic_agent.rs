@@ -9,7 +9,7 @@ use manabrew_engine::agent::{
     PriorityActionSpace, TargetChoice,
 };
 use manabrew_engine::card::Card;
-use manabrew_engine::combat::DefenderId;
+use manabrew_engine::combat::{combat_util, DefenderId};
 use manabrew_engine::game::GameState;
 use manabrew_engine::ids::{CardId, PlayerId};
 use manabrew_engine::mana::ManaPool;
@@ -1561,7 +1561,22 @@ impl PlayerAgent for DeterministicAgent {
                 an.cmp(&bn)
                     .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
             });
-            for &id in &sorted_available {
+            let candidates: Vec<(CardId, Vec<DefenderId>)> = sorted_available
+                .iter()
+                .filter_map(|&id| {
+                    let defenders: Vec<DefenderId> = sorted_defenders
+                        .iter()
+                        .copied()
+                        .filter(|&defender| {
+                            self.snapshot_game().is_none_or(|game| {
+                                combat_util::can_attack_defender(game, id, defender)
+                            })
+                        })
+                        .collect();
+                    (!defenders.is_empty()).then_some((id, defenders))
+                })
+                .collect();
+            for (id, defenders) in candidates {
                 let roll = choice_space::pick_index(2, &mut self.rng.borrow_mut());
                 if self.is_verbose() {
                     eprintln!(
@@ -1572,20 +1587,18 @@ impl PlayerAgent for DeterministicAgent {
                     );
                 }
                 if roll == 1 {
-                    let def_idx = choice_space::pick_index(
-                        sorted_defenders.len(),
-                        &mut self.rng.borrow_mut(),
-                    );
+                    let def_idx =
+                        choice_space::pick_index(defenders.len(), &mut self.rng.borrow_mut());
                     if self.is_verbose() {
                         eprintln!(
                             "[parity-agent p{}] atk defender {} idx={}/{}",
                             self.player_id.0,
                             self.card_name(id),
                             def_idx,
-                            sorted_defenders.len()
+                            defenders.len()
                         );
                     }
-                    attackers.push((id, sorted_defenders[def_idx]));
+                    attackers.push((id, defenders[def_idx]));
                 }
             }
         }
