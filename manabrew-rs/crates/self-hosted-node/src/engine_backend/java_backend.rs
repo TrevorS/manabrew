@@ -1634,6 +1634,16 @@ fn run_hosted_engine_game_inner(
                                     );
                                     continue;
                                 }
+                                Err(ResponseViolation::IllegalAssignment(pair)) => {
+                                    reject_response(
+                                        &remote_prompt_tx,
+                                        *player_index,
+                                        Some(prompt),
+                                        ProtocolErrorCode::IllegalAssignment,
+                                        pair,
+                                    );
+                                    continue;
+                                }
                             }
                         }
                         decision_received = Some(Instant::now());

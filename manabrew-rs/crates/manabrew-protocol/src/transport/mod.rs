@@ -55,6 +55,7 @@ pub enum ProtocolErrorCode {
     UnknownActionId,
     CancelNotAllowed,
     InvalidShape,
+    IllegalAssignment,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

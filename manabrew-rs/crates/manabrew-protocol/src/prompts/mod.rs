@@ -111,12 +111,13 @@ pub enum ResponseViolation {
     WrongPromptType,
     UnknownActionId(String),
     CancelNotAllowed,
+    IllegalAssignment(String),
 }
 
 impl PromptInput {
     /// The formal prompt/response contract: a response is valid only if its
-    /// output family matches this prompt and every echoed action id was
-    /// advertised by it. Engines reject anything else with a `ProtocolError`.
+    /// output family matches this prompt and every echoed action id and combat
+    /// pair was advertised by it. Engines reject anything else with a `ProtocolError`.
     pub fn validate_response(&self, output: &PromptOutput) -> Result<(), ResponseViolation> {
         use PromptInput as I;
         use PromptOutput as O;
@@ -143,10 +144,43 @@ impl PromptInput {
                 }
                 _ => Ok(()),
             },
+            (I::ChooseAttackers(input), O::ChooseAttackers(out)) => {
+                let ChooseAttackersOutput::DeclareAttackers { assignments } = out;
+                for (index, assignment) in assignments.iter().enumerate() {
+                    let offered = input.attackers.iter().any(|option| {
+                        option.attacker_id == assignment.attacker_id
+                            && option.valid_target_ids.contains(&assignment.target_id)
+                    });
+                    let repeated = assignments[..index]
+                        .iter()
+                        .any(|earlier| earlier.attacker_id == assignment.attacker_id);
+                    if !offered || repeated {
+                        return Err(ResponseViolation::IllegalAssignment(format!(
+                            "{} cannot attack {}",
+                            assignment.attacker_id, assignment.target_id
+                        )));
+                    }
+                }
+                Ok(())
+            }
+            (I::ChooseBlockers(input), O::ChooseBlockers(out)) => {
+                let ChooseBlockersOutput::DeclareBlockers { assignments } = out;
+                for assignment in assignments {
+                    let offered = input.attackers.iter().any(|option| {
+                        option.attacker_id == assignment.attacker_id
+                            && option.valid_blocker_ids.contains(&assignment.blocker_id)
+                    });
+                    if !offered {
+                        return Err(ResponseViolation::IllegalAssignment(format!(
+                            "{} cannot block {}",
+                            assignment.blocker_id, assignment.attacker_id
+                        )));
+                    }
+                }
+                Ok(())
+            }
             (I::Mulligan(_), O::Mulligan(_))
             | (I::MulliganPutBack(_), O::MulliganPutBack(_))
-            | (I::ChooseAttackers(_), O::ChooseAttackers(_))
-            | (I::ChooseBlockers(_), O::ChooseBlockers(_))
             | (I::ChooseBoolean(_), O::ChooseBoolean(_))
             | (I::ChooseFromSelection(_), O::ChooseFromSelection(_))
             | (I::RevealCards(_), O::RevealCards(_))

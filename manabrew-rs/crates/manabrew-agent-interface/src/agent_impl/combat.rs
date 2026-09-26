@@ -1,14 +1,27 @@
 use manabrew_engine::agent::{CombatCostAction, ManaAbilityOption};
-use manabrew_engine::combat::DefenderId;
+use manabrew_engine::combat::attack_requirement::compute_attack_requirements_with_defenders;
+use manabrew_engine::combat::{self, combat_util, CombatState, DefenderId, LureType};
 use manabrew_engine::ids::{CardId, PlayerId};
+use manabrew_engine::staticability::static_ability_cant_attack_block;
+use manabrew_protocol::prompts::choose_attackers::{AttackerOptionDto, ChooseAttackersInput};
+use manabrew_protocol::prompts::choose_blockers::{
+    BlockRequirementDto, BlockableAttackerDto, ChooseBlockersInput,
+};
 
 use crate::game_view_dto::{CardDto, GameViewDtoExt, TargetingIntent};
-use crate::ids_codec::{card_id_str, parse_card_id};
+use crate::ids_codec::{card_id_str, parse_card_id, player_id_str};
 use crate::mana_action_id::parse_tap_action_id;
 use crate::prompt::*;
 
 use super::costs::mana_payment_actions;
 use super::{parse_express_mana_choice, PromptAgent, Responder};
+
+fn defender_id_str(defender: DefenderId) -> String {
+    match defender {
+        DefenderId::Player(pid) => player_id_str(pid),
+        DefenderId::Permanent(cid) => card_id_str(cid),
+    }
+}
 
 fn fallback_combat_assignment(
     blockers_in_order: &[CardId],
@@ -33,32 +46,53 @@ pub(super) fn choose_attackers<T: Responder>(
     available: &[CardId],
     possible_defenders: &[DefenderId],
 ) -> Vec<(CardId, DefenderId)> {
-    use manabrew_protocol::prompts::choose_attackers::AttackerOptionDto;
-    let attack_targets = PromptAgent::<T>::attack_targets_to_dtos(possible_defenders);
-    // The Rust engine doesn't restrict which target each attacker may hit, so
-    // every attacker is offered every target.
-    let all_target_ids: Vec<String> = attack_targets.iter().map(|t| t.id.clone()).collect();
-    let attackers = PromptAgent::<T>::card_ids(available)
-        .into_iter()
-        .map(|attacker_id| AttackerOptionDto {
-            attacker_id,
-            valid_target_ids: all_target_ids.clone(),
-            must_attack: false,
+    let game = agent
+        .combat_game
+        .take()
+        .expect("snapshot_state runs before the attack declaration");
+    let requirements =
+        compute_attack_requirements_with_defenders(&game, available, possible_defenders);
+    let attackers = requirements
+        .iter()
+        .map(|requirement| {
+            let legal: Vec<DefenderId> = possible_defenders
+                .iter()
+                .copied()
+                .filter(|&defender| {
+                    combat_util::can_attack_defender(&game, requirement.attacker, defender)
+                })
+                .collect();
+            let credit = |defender: &DefenderId| {
+                requirement
+                    .defender_specific
+                    .get(defender)
+                    .copied()
+                    .unwrap_or(0)
+            };
+            let best = legal.iter().map(credit).max().unwrap_or(0);
+            let must_attack_target_ids = requirement.has_requirement().then(|| {
+                legal
+                    .iter()
+                    .filter(|defender| credit(defender) == best)
+                    .copied()
+                    .map(defender_id_str)
+                    .collect()
+            });
+            AttackerOptionDto {
+                attacker_id: card_id_str(requirement.attacker),
+                valid_target_ids: legal.into_iter().map(defender_id_str).collect(),
+                must_attack: must_attack_target_ids.is_some(),
+                must_attack_target_ids,
+            }
         })
         .collect();
     agent.send_prompt(
-        PromptInput::ChooseAttackers(
-            manabrew_protocol::prompts::choose_attackers::ChooseAttackersInput {
-                attackers,
-                attack_targets,
-            },
-        ),
+        PromptInput::ChooseAttackers(ChooseAttackersInput {
+            attackers,
+            attack_targets: PromptAgent::<T>::attack_targets_to_dtos(possible_defenders),
+        }),
         None,
     );
-    let default_defender = possible_defenders
-        .first()
-        .copied()
-        .unwrap_or(DefenderId::Player(PlayerId(1)));
     match agent.recv_action() {
         PromptOutput::ChooseAttackers(ChooseAttackersOutput::DeclareAttackers { assignments }) => {
             assignments
@@ -66,8 +100,7 @@ pub(super) fn choose_attackers<T: Responder>(
                 .filter_map(|a| {
                     let attacker = parse_card_id(&a.attacker_id)?;
                     let defender =
-                        PromptAgent::<T>::parse_defender_id(&a.target_id, possible_defenders)
-                            .unwrap_or(default_defender);
+                        PromptAgent::<T>::parse_defender_id(&a.target_id, possible_defenders)?;
                     Some((attacker, defender))
                 })
                 .collect()
@@ -78,33 +111,71 @@ pub(super) fn choose_attackers<T: Responder>(
 
 pub(super) fn choose_blockers<T: Responder>(
     agent: &mut PromptAgent<T>,
-    _player: PlayerId,
+    player: PlayerId,
     attackers: &[CardId],
     available_blockers: &[CardId],
     _max_blockers: Option<usize>,
 ) -> Vec<(CardId, CardId)> {
-    use manabrew_protocol::prompts::choose_blockers::BlockableAttackerDto;
-    let available_blocker_ids = PromptAgent::<T>::card_ids(available_blockers);
-    // The Rust engine doesn't surface per-attacker block legality yet, so every
-    // available blocker may block every attacker (min 1, no must-block).
-    let attackers = PromptAgent::<T>::card_ids(attackers)
-        .into_iter()
-        .map(|attacker_id| BlockableAttackerDto {
-            attacker_id,
-            valid_blocker_ids: available_blocker_ids.clone(),
-            min_blockers: 1,
-            max_blockers: None,
-            must_be_blocked: false,
+    let game = agent
+        .combat_game
+        .take()
+        .expect("snapshot_state runs before the block declaration");
+    let mut combat = CombatState::new();
+    for &attacker in attackers {
+        combat.declare_attacker(attacker, DefenderId::Player(player), 0);
+    }
+    let can_block = |blocker: CardId, attacker: CardId| {
+        combat::can_creature_block(&game, blocker, attacker)
+            && !combat_util::lure_forbids_block(&game, &combat, attacker, blocker)
+    };
+    let blockers: Vec<CardId> = available_blockers
+        .iter()
+        .copied()
+        .filter(|&blocker| {
+            attackers
+                .iter()
+                .any(|&attacker| can_block(blocker, attacker))
+        })
+        .collect();
+    let attacker_options = attackers
+        .iter()
+        .map(|&attacker| {
+            let (min, max) = static_ability_cant_attack_block::get_min_max_blocker(
+                &game,
+                &game.cards,
+                game.card(attacker),
+                player,
+            );
+            BlockableAttackerDto {
+                attacker_id: card_id_str(attacker),
+                valid_blocker_ids: blockers
+                    .iter()
+                    .filter(|&&blocker| can_block(blocker, attacker))
+                    .map(|&blocker| card_id_str(blocker))
+                    .collect(),
+                min_blockers: min as u32,
+                max_blockers: (max != i32::MAX).then_some(max as u32),
+                must_be_blocked: combat_util::get_lure_type(game.card(attacker)) != LureType::None,
+            }
+        })
+        .collect();
+    let block_requirements: Vec<BlockRequirementDto> = blockers
+        .iter()
+        .filter_map(|&blocker| {
+            let targets = combat_util::compute_must_block_targets(&game, &combat, blocker);
+            (!targets.is_empty()).then(|| BlockRequirementDto {
+                blocker_id: card_id_str(blocker),
+                attacker_ids: PromptAgent::<T>::card_ids(&targets),
+            })
         })
         .collect();
     agent.send_prompt(
-        PromptInput::ChooseBlockers(
-            manabrew_protocol::prompts::choose_blockers::ChooseBlockersInput {
-                attackers,
-                available_blocker_ids,
-                error: None,
-            },
-        ),
+        PromptInput::ChooseBlockers(ChooseBlockersInput {
+            attackers: attacker_options,
+            available_blocker_ids: PromptAgent::<T>::card_ids(&blockers),
+            block_requirements: (!block_requirements.is_empty()).then_some(block_requirements),
+            error: None,
+        }),
         None,
     );
     match agent.recv_action() {
@@ -178,10 +249,7 @@ pub(super) fn choose_combat_damage_assignment<T: Responder>(
     }
     let attacker_id = card_id_str(attacker);
     let blocker_ids: Vec<String> = blockers_in_order.iter().map(|&b| card_id_str(b)).collect();
-    let defender_id = defender.map(|d| match d {
-        DefenderId::Player(pid) => format!("player-{}", pid.0),
-        DefenderId::Permanent(cid) => format!("card-{}", cid.0),
-    });
+    let defender_id = defender.map(defender_id_str);
     agent.send_prompt(
         PromptInput::ChooseCombatDamageAssignment(manabrew_protocol::prompts::choose_combat_damage_assignment::ChooseCombatDamageAssignmentInput {
             attacker_id,

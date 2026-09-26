@@ -20,9 +20,20 @@ pub struct BlockableAttackerDto {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "prompts/chooseBlockers.ts")]
+pub struct BlockRequirementDto {
+    pub blocker_id: String,
+    pub attacker_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "prompts/chooseBlockers.ts")]
 pub struct ChooseBlockersInput {
     pub attackers: Vec<BlockableAttackerDto>,
     pub available_blocker_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub block_requirements: Option<Vec<BlockRequirementDto>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub error: Option<String>,

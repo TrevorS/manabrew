@@ -85,12 +85,27 @@ fn main() {
             ],
         }),
         ChooseAttackers(choose_attackers::ChooseAttackersInput {
-            attackers: vec![],
+            attackers: vec![choose_attackers::AttackerOptionDto {
+                attacker_id: "card-2".into(),
+                valid_target_ids: vec!["player-1".into(), "card-4".into()],
+                must_attack: true,
+                must_attack_target_ids: Some(vec!["card-4".into()]),
+            }],
             attack_targets: vec![],
         }),
         ChooseBlockers(choose_blockers::ChooseBlockersInput {
-            attackers: vec![],
-            available_blocker_ids: vec![],
+            attackers: vec![choose_blockers::BlockableAttackerDto {
+                attacker_id: "card-2".into(),
+                valid_blocker_ids: vec!["card-3".into()],
+                min_blockers: 1,
+                max_blockers: None,
+                must_be_blocked: true,
+            }],
+            available_blocker_ids: vec!["card-3".into()],
+            block_requirements: Some(vec![choose_blockers::BlockRequirementDto {
+                blocker_id: "card-3".into(),
+                attacker_ids: vec!["card-2".into()],
+            }]),
             error: None,
         }),
         ChooseBoardTargets(choose_board_targets::ChooseBoardTargetsInput {

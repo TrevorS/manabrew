@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use forge_foundation::{ManaAtom, ZoneType};
+use forge_foundation::{ManaAtom, PhaseType, ZoneType};
 use manabrew_engine::agent::notification::GameNotification;
 use manabrew_engine::agent::{
     BinaryChoiceKind, CombatCostAction, GameEntity, ManaCostAction, PlayerAgent,
@@ -88,6 +88,7 @@ pub struct PromptAgent<R: Responder> {
     pub responder: R,
     pending_prompt: Option<AgentPrompt>,
     pub(crate) latest_view: Option<GameViewDto>,
+    pub(crate) combat_game: Option<GameState>,
     source_cards: HashMap<CardId, CardDto>,
     pub(crate) pending_restore_checkpoint: Option<u64>,
     pub pass_until: Option<manabrew_engine::agent::PassUntilTarget>,
@@ -105,6 +106,7 @@ impl<R: Responder> PromptAgent<R> {
             responder,
             pending_prompt: None,
             latest_view: None,
+            combat_game: None,
             source_cards: HashMap::new(),
             pending_restore_checkpoint: None,
             pass_until: None,
@@ -192,6 +194,9 @@ impl<R: Responder> PromptAgent<R> {
                                 ProtocolErrorCode::CancelNotAllowed,
                                 "this prompt is not cancellable".to_string(),
                             );
+                        }
+                        Err(ResponseViolation::IllegalAssignment(pair)) => {
+                            self.reject(&prompt, ProtocolErrorCode::IllegalAssignment, pair);
                         }
                     }
                 }
@@ -365,64 +370,6 @@ impl<R: Responder> PromptAgent<R> {
         }
     }
 
-    fn parse_play_mode(mode_str: &str) -> Option<manabrew_engine::agent::PlayCardMode> {
-        use manabrew_engine::agent::PlayCardMode;
-        use manabrew_engine::spellability::AlternativeCost as A;
-        match mode_str {
-            "normal" => Some(PlayCardMode::Normal),
-            "backFaceLand" => Some(PlayCardMode::BackFaceLand),
-            "staticAlternative" => Some(PlayCardMode::StaticAlternative),
-            "foretellExile" => Some(PlayCardMode::ForetellExile),
-            "unlockDoor" => Some(PlayCardMode::UnlockDoor),
-            "roomRightSplit" => Some(PlayCardMode::RoomRightSplit),
-            "secondary" => Some(PlayCardMode::Secondary),
-            "mayPlay" => Some(PlayCardMode::MayPlay(None)),
-            s if s.starts_with("mayPlay:") => {
-                match Self::parse_play_mode(&format!("alternative:{}", &s["mayPlay:".len()..]))? {
-                    PlayCardMode::Alternative(alt) => Some(PlayCardMode::MayPlay(Some(alt))),
-                    _ => None,
-                }
-            }
-            s if s.starts_with("alternative:") => {
-                let alt = match &s["alternative:".len()..] {
-                    "flashback" => A::Flashback,
-                    "spectacle" => A::Spectacle,
-                    "evoke" => A::Evoke,
-                    "dash" => A::Dash,
-                    "blitz" => A::Blitz,
-                    "escape" => A::Escape,
-                    "overload" => A::Overload,
-                    "madness" => A::Madness,
-                    "foretell" => A::Foretell,
-                    "emerge" => A::Emerge,
-                    "suspend" => A::Suspend,
-                    "morph" => A::Morph,
-                    "megamorph" => A::Megamorph,
-                    "bestow" => A::Bestow,
-                    "warp" => A::Warp,
-                    "sacrificealt" => A::SacrificeAlt,
-                    "plot" => A::Plot,
-                    "awaken" => A::Awaken,
-                    "disturb" => A::Disturb,
-                    "harmonize" => A::Harmonize,
-                    "freerunning" => A::Freerunning,
-                    "impending" => A::Impending,
-                    "mayhem" => A::Mayhem,
-                    "mtmte" => A::MTMtE,
-                    "mutate" => A::Mutate,
-                    "prowl" => A::Prowl,
-                    "sneak" => A::Sneak,
-                    "surge" => A::Surge,
-                    "webslinging" => A::WebSlinging,
-                    "plotted" => A::Plotted,
-                    _ => return None,
-                };
-                Some(PlayCardMode::Alternative(alt))
-            }
-            _ => None,
-        }
-    }
-
     pub(crate) fn parse_defender_id(id: &str, possible: &[DefenderId]) -> Option<DefenderId> {
         if let Some(rest) = id.strip_prefix("player-") {
             let idx: u32 = rest.parse().ok()?;
@@ -548,6 +495,14 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
             self.player_id,
             &self.game_id,
         ));
+        let declaring = match game.turn.phase {
+            PhaseType::CombatDeclareAttackers => game.active_player() == self.player_id,
+            PhaseType::CombatDeclareBlockers => {
+                game.opponent_of(game.active_player()) == self.player_id
+            }
+            _ => false,
+        };
+        self.combat_game = declaring.then(|| game.clone());
     }
 
     fn mulligan_decision(
@@ -618,12 +573,18 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
             untappable_lands.iter().map(|&c| card_id_str(c)).collect();
 
         let mut actions: Vec<AvailableAction> = Vec::new();
+        let mut cast_options: HashMap<String, manabrew_engine::agent::PlayOption> = HashMap::new();
         for play in playable.iter() {
             let card_id = card_id_str(play.card_id);
             let (mode, label) = Self::play_mode_dto(&play.mode);
             let key = Self::play_mode_key(&play.mode);
+            let id = match play.alt_cost_index {
+                0 => format!("cast:{card_id}:{key}"),
+                index => format!("cast:{card_id}:{key}#{index}"),
+            };
+            cast_options.entry(id.clone()).or_insert(*play);
             actions.push(AvailableAction {
-                id: format!("cast:{card_id}:{key}"),
+                id,
                 kind: AvailableActionKind::Cast {
                     card_id: card_id.clone(),
                     mode,
@@ -676,6 +637,8 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
                 },
             });
         }
+        let mut advertised = HashSet::new();
+        actions.retain(|action| advertised.insert(action.id.clone()));
 
         self.send_prompt(
             PromptInput::ChooseAction(
@@ -695,21 +658,8 @@ impl<R: Responder> PlayerAgent for PromptAgent<R> {
         };
         match action {
             PromptOutput::ChooseAction(ChooseActionOutput::Act { action_id }) => {
-                if let Some(rest) = action_id.strip_prefix("cast:") {
-                    let (id_part, mode) = rest.split_once(':').unwrap_or((rest, "normal"));
-                    let resolved = parse_card_id(id_part).and_then(|cid| {
-                        Self::parse_play_mode(mode)
-                            .and_then(|m| {
-                                playable
-                                    .iter()
-                                    .copied()
-                                    .find(|play| play.card_id == cid && play.mode == m)
-                            })
-                            .or_else(|| playable.iter().copied().find(|play| play.card_id == cid))
-                    });
-                    resolved
-                        .map(EnginePlayerAction::CastSpell)
-                        .unwrap_or(EnginePlayerAction::PassPriority)
+                if let Some(&play) = cast_options.get(&action_id) {
+                    EnginePlayerAction::CastSpell(play)
                 } else if let Some(rest) = action_id.strip_prefix("tap:") {
                     let tap = parse_tap_action_id(rest);
                     match parse_card_id(tap.card_id) {
