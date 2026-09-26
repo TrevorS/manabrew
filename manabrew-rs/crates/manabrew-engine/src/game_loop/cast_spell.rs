@@ -3074,8 +3074,11 @@ impl GameLoop {
                 }
                 crate::perf::increment(crate::perf::Metric::StackEntryClones, 1);
                 let mut copy = entry.clone();
-                copy.spell_ability =
-                    crate::card::card_factory::copy_spell_ability(&entry.spell_ability, player);
+                copy.spell_ability = crate::card::card_factory::copy_spell_ability(
+                    game,
+                    &entry.spell_ability,
+                    player,
+                );
                 if copy.spell_ability.uses_targeting() {
                     agents[player.index()].snapshot_state(game, &self.mana_pools);
                     agents[player.index()].notify(

@@ -464,9 +464,10 @@ fn resolve_target_cards(ctx: &EffectContext, sa: &SpellAbility) -> Vec<CardId> {
 fn push_spell_to_stack(
     ctx: &mut EffectContext,
     card_id: CardId,
-    spell_sa: SpellAbility,
+    mut spell_sa: SpellAbility,
     label: &str,
 ) {
+    ctx.game.stack.number_spell_abilities(&mut spell_sa);
     let controller = spell_sa.activating_player;
     let is_creature = ctx.game.card(card_id).is_creature();
     let is_permanent = ctx.game.card(card_id).is_permanent();

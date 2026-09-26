@@ -354,7 +354,7 @@ fn build_vanilla_spell_ability(card: &Card, card_id: CardId, player: PlayerId) -
     };
 
     SpellAbility {
-        id: crate::spellability::next_spell_ability_id(),
+        id: 0,
         api: None,
         source: Some(card_id),
         original_host: card.effect_source,
@@ -467,7 +467,6 @@ fn build_spell_ability_for_host(
     record_type: Option<AbilityRecordType>,
 ) -> SpellAbility {
     let mut sa = cached_spell_ability_template(ability_text, record_type);
-    sa.id = crate::spellability::next_spell_ability_id();
     sa.source = Some(host.id);
     sa.original_host = host.effect_source;
     sa.activating_player = player;

@@ -29,7 +29,7 @@ pub fn create_permanent_spell(
     };
 
     SpellAbility {
-        id: super::next_spell_ability_id(),
+        id: 0,
         api: Some(api),
         source: Some(card_id),
         original_host: None,

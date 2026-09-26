@@ -97,14 +97,6 @@ pub struct StackEntry {
 }
 
 impl StackEntry {
-    /// Get the next unique ID for a stack entry.
-    /// Mirrors Java's `SpellAbilityStackInstance.nextId()`.
-    pub fn next_id() -> u64 {
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static COUNTER: AtomicU64 = AtomicU64::new(1);
-        COUNTER.fetch_add(1, Ordering::Relaxed)
-    }
-
     /// Update a target card in this stack entry's spell ability.
     /// Mirrors Java's `SpellAbilityStackInstance.updateTarget(Card, Card)`.
     pub fn update_target(&mut self, old: CardId, new: CardId) {
@@ -138,6 +130,8 @@ impl StackEntry {
 pub struct MagicStack {
     entries: Vec<StackEntry>,
     next_id: u32,
+    #[serde(default)]
+    max_spell_ability_id: u32,
 
     /// Whether the stack is frozen (during declare attackers/blockers).
     /// While frozen, new non-mana abilities are queued in `frozen_stack`.
@@ -222,6 +216,7 @@ impl MagicStack {
         MagicStack {
             entries: Vec::new(),
             next_id: 0,
+            max_spell_ability_id: 0,
             frozen: false,
             frozen_stack: Vec::new(),
             resolving: false,
@@ -242,11 +237,27 @@ impl MagicStack {
         }
     }
 
+    pub(crate) fn next_spell_ability_id(&mut self) -> u32 {
+        self.max_spell_ability_id += 1;
+        self.max_spell_ability_id
+    }
+
+    pub(crate) fn number_spell_abilities(&mut self, sa: &mut SpellAbility) {
+        let mut node = Some(sa);
+        while let Some(sa) = node {
+            if sa.id == 0 {
+                sa.id = self.next_spell_ability_id();
+            }
+            node = sa.sub_ability.as_deref_mut();
+        }
+    }
+
     pub fn push(&mut self, mut entry: StackEntry) -> u32 {
         let id = self.next_id;
         self.next_id += 1;
         entry.is_pending_cast = false;
         entry.id = id;
+        self.number_spell_abilities(&mut entry.spell_ability);
         self.entries.push(entry);
         self.update_max_distinct_sources();
         id
@@ -257,12 +268,14 @@ impl MagicStack {
         self.next_id += 1;
         entry.id = id;
         entry.is_pending_cast = true;
+        self.number_spell_abilities(&mut entry.spell_ability);
         self.entries.push(entry);
         self.update_max_distinct_sources();
         id
     }
 
     pub fn complete_pending_cast(&mut self, id: u32, mut entry: StackEntry) -> Option<&StackEntry> {
+        self.number_spell_abilities(&mut entry.spell_ability);
         let pending = self
             .entries
             .iter_mut()

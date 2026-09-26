@@ -34,11 +34,15 @@ pub fn from_rules(rules: &CardRules, owner: PlayerId) -> Card {
 /// The full host-card cloning path is not yet present in the Rust engine, but
 /// this preserves current copy semantics and centralizes them in the card
 /// module so effects can call one canonical implementation.
-pub fn copy_spell_ability(target_sa: &SpellAbility, controller: PlayerId) -> SpellAbility {
+pub fn copy_spell_ability(
+    game: &mut GameState,
+    target_sa: &SpellAbility,
+    controller: PlayerId,
+) -> SpellAbility {
     let mut copy = target_sa.clone();
     let mut node = Some(&mut copy);
     while let Some(sa) = node {
-        sa.id = crate::spellability::next_spell_ability_id();
+        sa.id = game.stack.next_spell_ability_id();
         node = sa.sub_ability.as_deref_mut();
     }
     copy.set_activating_player(controller);
@@ -86,7 +90,7 @@ pub fn copy_spell_ability_and_possibly_host(
     } else {
         None
     };
-    let mut copy = copy_spell_ability(target_sa, controller);
+    let mut copy = copy_spell_ability(game, target_sa, controller);
     if let Some(host) = host {
         copy.set_host_card_id(host);
     }

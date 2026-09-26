@@ -10,13 +10,6 @@ use crate::ids::{CardId, PlayerId};
 use crate::spellability::target_choices::TargetChoices;
 use crate::spellability::SpellAbility;
 
-/// Get the next unique stack instance ID.
-/// Mirrors Java's `SpellAbilityStackInstance.nextId()`.
-/// Delegates to `StackEntry::next_id()` in zone/magic_stack.rs.
-pub fn next_id() -> u64 {
-    StackEntry::next_id()
-}
-
 /// Extension methods on `StackEntry` mirroring Java's `SpellAbilityStackInstance`.
 /// These are implemented directly on StackEntry so callers can use them
 /// without needing a separate wrapper.

@@ -493,6 +493,8 @@ impl TriggerHandler {
             if !setup_result {
                 continue;
             }
+            game.stack
+                .number_spell_abilities(&mut pt.entry.spell_ability);
             if let Some(source_id) = pt.entry.spell_ability.source {
                 crate::ability::effects::emit_targeting_triggers_for_sa(
                     self,

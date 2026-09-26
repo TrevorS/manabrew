@@ -22,7 +22,6 @@ pub mod trait_spell_ability;
 pub mod valid_sa;
 
 use crate::HashMap;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 use serde::{Deserialize, Serialize};
 
@@ -55,12 +54,6 @@ pub use spell_ability_variables::SpellAbilityVariables;
 pub use target_choices::TargetChoices;
 pub use target_restrictions::{TargetKind, TargetRestrictions};
 pub use valid_sa::matches_valid_sa;
-
-static NEXT_SPELL_ABILITY_ID: AtomicU32 = AtomicU32::new(1);
-
-pub(crate) fn next_spell_ability_id() -> u32 {
-    NEXT_SPELL_ABILITY_ID.fetch_add(1, Ordering::Relaxed)
-}
 
 pub trait TriggerKeyInput {
     fn into_ability_key(self) -> Option<AbilityKey>;
@@ -672,7 +665,6 @@ impl SpellAbility {
                 .insert(ability_text.into(), sa.clone());
             sa
         });
-        sa.id = next_spell_ability_id();
         sa.source = source;
         sa.activating_player = player;
         sa
@@ -1271,11 +1263,9 @@ impl SpellAbility {
     ) -> Self {
         crate::perf::increment(crate::perf::Metric::SpellAbilityClones, 1);
         let mut clone = self.clone();
-        clone.id = if lki {
-            self.id
-        } else {
-            next_spell_ability_id()
-        };
+        if !lki {
+            clone.id = 0;
+        }
 
         clone.source = Some(host.id);
         clone.may_choose_new_targets = false;
