@@ -2454,6 +2454,7 @@ impl GameLoop {
                 if let Some(state) = rng_after_payment {
                     self.game_rng.restore_state(state);
                 }
+                notify_payment_failed!();
                 return None;
             }
         }
