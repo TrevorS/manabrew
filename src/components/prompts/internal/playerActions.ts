@@ -25,15 +25,18 @@ export function declareAttackersOutput(
   attackerIds: string[],
   targetId?: string,
 ): PromptOutput["output"] {
-  const defaultTarget =
-    prompt?.input.type === "chooseAttackers"
-      ? (prompt.input.attackTargets[0]?.id ?? "player-1")
-      : "player-1";
+  const options = prompt?.input.type === "chooseAttackers" ? prompt.input.attackers : [];
   return {
     type: "declareAttackers",
-    assignments: attackerIds.map((id) => ({
-      attackerId: id,
-      targetId: targetId ?? defaultTarget,
-    })),
+    assignments: attackerIds.flatMap((attackerId) => {
+      const option = options.find((a) => a.attackerId === attackerId);
+      const valid = option?.validTargetIds ?? [];
+      const required = option?.mustAttackTargetIds ?? [];
+      const target =
+        required.find((id) => id === targetId) ??
+        required[0] ??
+        (targetId != null && valid.includes(targetId) ? targetId : valid[0]);
+      return target == null ? [] : [{ attackerId, targetId: target }];
+    }),
   };
 }

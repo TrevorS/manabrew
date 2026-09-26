@@ -732,9 +732,17 @@ export default function Game({ exitTo }: GameProps = {}) {
     const must = chooseAttackersInput?.attackers.filter((a) => a.mustAttack) ?? [];
     if (must.length === 0) return null;
     const nameOf = (id: string) =>
-      gameView?.battlefield.find((c) => c.id === id)?.identity.name ?? `A creature`;
-    return `Must attack if able — ${must.map((a) => nameOf(a.attackerId)).join(", ")}`;
-  }, [chooseAttackersInput, gameView?.battlefield]);
+      gameView?.battlefield.find((c) => c.id === id)?.identity.name ??
+      gameView?.players.find((p) => p.id === id)?.name ??
+      `A creature`;
+    const describe = (a: (typeof must)[number]) => {
+      const required = a.mustAttackTargetIds ?? [];
+      return required.length > 0 && required.length < a.validTargetIds.length
+        ? `${nameOf(a.attackerId)} (${required.map(nameOf).join(" or ")})`
+        : nameOf(a.attackerId);
+    };
+    return `Must attack if able — ${must.map(describe).join(", ")}`;
+  }, [chooseAttackersInput, gameView?.battlefield, gameView?.players]);
   const blockRestrictionHint = useMemo<string | null>(() => {
     const attackers = chooseBlockersInput?.attackers ?? [];
     const nameOf = (id: string) =>
@@ -752,6 +760,13 @@ export default function Game({ exitTo }: GameProps = {}) {
     const mustBlock = attackers.filter((a) => a.mustBeBlocked && a.validBlockerIds.length > 0);
     if (mustBlock.length > 0) {
       parts.push(`Must be blocked — ${mustBlock.map((a) => nameOf(a.attackerId)).join(", ")}`);
+    }
+    const blockerRequirements = chooseBlockersInput?.blockRequirements ?? [];
+    if (blockerRequirements.length > 0) {
+      const requirements = blockerRequirements
+        .map((r) => `${nameOf(r.blockerId)} (${r.attackerIds.map(nameOf).join(" or ")})`)
+        .join(", ");
+      parts.push(`Must block if able — ${requirements}`);
     }
     return parts.length > 0 ? parts.join(" · ") : null;
   }, [chooseBlockersInput, gameView?.battlefield]);
