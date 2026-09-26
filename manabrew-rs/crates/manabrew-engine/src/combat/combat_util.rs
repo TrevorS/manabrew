@@ -173,7 +173,11 @@ pub fn filter_legal_blockers(
         .collect()
 }
 
-pub fn validate_blocks(game: &GameState, combat: &CombatState, defender: PlayerId) -> Vec<CardId> {
+pub fn blockers_missing_group_block(
+    game: &GameState,
+    combat: &CombatState,
+    defender: PlayerId,
+) -> Vec<CardId> {
     let mut removed: Vec<CardId> = Vec::new();
     loop {
         let mut remaining_blockers: Vec<CardId> = Vec::new();
@@ -216,6 +220,137 @@ pub fn validate_blocks(game: &GameState, combat: &CombatState, defender: PlayerI
             return removed;
         }
     }
+}
+
+pub fn validate_blocks(
+    game: &GameState,
+    combat: &CombatState,
+    defending: PlayerId,
+) -> Option<String> {
+    let defenders_army = game.creatures_on_battlefield(defending);
+    let blockers: Vec<CardId> = combat
+        .get_all_blockers()
+        .into_iter()
+        .filter(|&b| game.card(b).controller == defending)
+        .collect();
+    let mut free_blockers = find_free_blockers(game, &defenders_army, combat);
+    let has_block_cost = |blocker: &Card, attacker_id: CardId| {
+        super::block_cost::get_block_cost(game, blocker, game.card(attacker_id)) > 0
+    };
+
+    for &blocker_id in &defenders_army {
+        let blocker = game.card(blocker_id);
+        let blocked_so_far = combat.get_attackers_for(blocker_id);
+        for &to_be_blocked in &blocker.must_block_cards {
+            if has_block_cost(blocker, to_be_blocked) {
+                continue;
+            }
+            let additional_blockers =
+                get_min_num_blockers_for_attacker(game, to_be_blocked, defending) - 1;
+            let mut potential_blockers = 0;
+            for _ in 0..additional_blockers {
+                for free_blocker in free_blockers.clone() {
+                    if free_blocker != blocker_id
+                        && can_creature_block(game, free_blocker, to_be_blocked)
+                    {
+                        free_blockers.retain(|&b| b != free_blocker);
+                        potential_blockers += 1;
+                    }
+                }
+            }
+            if potential_blockers >= additional_blockers
+                && !blocked_so_far.contains(&to_be_blocked)
+                && (can_block_more_creatures(game, blocker_id, &blocked_so_far)
+                    || free_blockers.contains(&blocker_id))
+                && combat.is_attacking(to_be_blocked)
+                && can_creature_block(game, blocker_id, to_be_blocked)
+            {
+                return Some(format!(
+                    "{} must still block {}.",
+                    blocker.log_name(),
+                    game.card(to_be_blocked).log_name()
+                ));
+            }
+        }
+        if must_block_an_attacker(game, combat, blocker_id, Some(&free_blockers)) {
+            let which = if blockers.contains(&blocker_id) {
+                "the right ones."
+            } else {
+                "any."
+            };
+            return Some(format!(
+                "{} must block an attacker, but has not been assigned to block {which}",
+                blocker.log_name()
+            ));
+        }
+        if !blockers.contains(&blocker_id)
+            && static_ability_must_block::blocks_each_combat_if_able(&game.cards, blocker)
+        {
+            for &(attacker_id, _) in &combat.attackers {
+                if has_block_cost(blocker, attacker_id)
+                    || !can_creature_block_in_combat(game, combat, blocker_id, attacker_id)
+                {
+                    continue;
+                }
+                let must = get_min_num_blockers_for_attacker(game, attacker_id, defending) <= 1
+                    || {
+                        let mut possible_blockers = free_blockers.clone();
+                        possible_blockers.extend(combat.get_blockers_for(attacker_id));
+                        can_be_blocked_with(game, combat, attacker_id, &possible_blockers)
+                    };
+                if must {
+                    return Some(format!(
+                        "{} must block each combat but was not assigned to block any attacker now.",
+                        blocker.log_name()
+                    ));
+                }
+            }
+        }
+    }
+
+    for &blocker_id in &blockers {
+        let blocker = game.card(blocker_id);
+        let cant_block_alone = blocker.has_keyword("CARDNAME can't attack or block alone.")
+            || blocker.has_keyword("CARDNAME can't block alone.");
+        if blockers.len() < 2 && cant_block_alone {
+            return Some(format!("{} can't block alone.", blocker.log_name()));
+        } else if blockers.len() < 3
+            && blocker
+                .has_keyword("CARDNAME can't block unless at least two other creatures block.")
+        {
+            return Some(format!(
+                "{} can't block unless at least two other creatures block.",
+                blocker.log_name()
+            ));
+        } else if blocker
+            .has_keyword("CARDNAME can't block unless a creature with greater power also blocks.")
+        {
+            let power = blocker.power();
+            if !blockers
+                .iter()
+                .any(|&other| game.card(other).power() > power)
+            {
+                return Some(format!(
+                    "{} can't block unless a creature with greater power also blocks.",
+                    blocker.log_name()
+                ));
+            }
+        }
+    }
+
+    for &(attacker_id, _) in &combat.attackers {
+        let blocker_count = combat.get_blockers_for(attacker_id).len();
+        if blocker_count > 0
+            && !can_attacker_be_blocked_with_amount(game, combat, attacker_id, blocker_count)
+        {
+            return Some(format!(
+                "{} cannot be blocked with {blocker_count} creatures you've assigned",
+                game.card(attacker_id).log_name()
+            ));
+        }
+    }
+
+    None
 }
 
 pub fn must_block_an_attacker(
@@ -635,15 +770,28 @@ pub fn can_block_at_least_one(game: &GameState, blocker_id: CardId, attackers: &
         .any(|&attacker_id| can_creature_block(game, blocker_id, attacker_id))
 }
 
-/// Find blockers that are not yet assigned to block anything.
 pub fn find_free_blockers(
     game: &GameState,
+    defenders_army: &[CardId],
     combat: &CombatState,
-    defending_player: PlayerId,
 ) -> Vec<CardId> {
-    let available = get_available_blockers(game, defending_player);
-    available
-        .into_iter()
-        .filter(|&blocker_id| !combat.is_blocking(blocker_id))
+    defenders_army
+        .iter()
+        .copied()
+        .filter(|&blocker_id| {
+            if !can_block(game, blocker_id)
+                || must_block_an_attacker(game, combat, blocker_id, None)
+            {
+                return false;
+            }
+            let blocked_attackers = combat.get_attackers_for(blocker_id);
+            blocked_attackers.is_empty()
+                || blocked_attackers.iter().any(|&attacker_id| {
+                    let mut blockers_reduced = combat.get_blockers_for(attacker_id);
+                    blockers_reduced.retain(|&b| b != blocker_id);
+                    can_block_more_creatures(game, blocker_id, &blocked_attackers)
+                        || can_be_blocked_with(game, combat, attacker_id, &blockers_reduced)
+                })
+        })
         .collect()
 }

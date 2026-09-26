@@ -106,7 +106,10 @@ impl GameLoop {
                 );
 
                 let attacker_ids: Vec<CardId> = picked.iter().map(|(a, _)| *a).collect();
-                let mut invalid = !combat::attack_restriction::validate_attack_restrictions(
+                let mut invalid = picked.iter().any(|&(attacker, defender)| {
+                    !possible_defenders.contains(&defender)
+                        || !combat::combat_util::can_attack_defender(game, attacker, defender)
+                }) || !combat::attack_restriction::validate_attack_restrictions(
                     &attacker_ids,
                     &game.cards,
                 )
@@ -591,15 +594,6 @@ impl GameLoop {
             let has_any_legal_blocker = !legal_blockers.is_empty();
 
             if has_any_legal_blocker {
-                agents[defending.index()].snapshot_state(game, &self.mana_pools);
-                self.game_log.log(
-                    GameLogEntryType::PriorityWaiting,
-                    2,
-                    format!(
-                        "Waiting for {} blocker declaration",
-                        game.player(defending).name
-                    ),
-                );
                 let max_blockers = {
                     let raw =
                         crate::staticability::static_ability_block_restrict::block_restrict_num(
@@ -612,37 +606,99 @@ impl GameLoop {
                         None
                     }
                 };
-                let mut chosen_blockers = {
-                    let def_agent = &mut agents[defending.index()];
-                    def_agent.choose_blockers(
-                        defending,
-                        &attacker_card_ids,
-                        &available_blockers,
-                        max_blockers,
-                    )
-                };
-                self.apply_hand_offs(game, agents);
-                if self.apply_pending_snapshot_restore(game, agents) {
-                    return;
-                }
-                // Ignore duplicate blocker assignments; first assignment wins.
-                let mut seen_blockers = crate::HashSet::default();
-                chosen_blockers.retain(|(blocker, _)| seen_blockers.insert(*blocker));
-                self.game_log.log(
-                    GameLogEntryType::PriorityResponse,
-                    2,
-                    format!(
-                        "{} declared {} blocker assignment(s)",
-                        game.player(defending).name,
-                        chosen_blockers.len()
-                    ),
-                );
-
-                for (blocker, attacker) in chosen_blockers.into_iter() {
-                    // Validate: use comprehensive evasion check
-                    if !combat::can_creature_block(game, blocker, attacker) {
-                        continue; // illegal block
+                let enforces_block_requirements =
+                    agents[defending.index()].enforces_block_requirements();
+                let max_attempts = 5000;
+                let mut declared_blockers = Vec::new();
+                for _attempt in 0..max_attempts {
+                    agents[defending.index()].snapshot_state(game, &self.mana_pools);
+                    self.game_log.log(
+                        GameLogEntryType::PriorityWaiting,
+                        2,
+                        format!(
+                            "Waiting for {} blocker declaration",
+                            game.player(defending).name
+                        ),
+                    );
+                    let mut chosen_blockers = {
+                        let def_agent = &mut agents[defending.index()];
+                        def_agent.choose_blockers(
+                            defending,
+                            &attacker_card_ids,
+                            &available_blockers,
+                            max_blockers,
+                        )
+                    };
+                    self.apply_hand_offs(game, agents);
+                    if self.apply_pending_snapshot_restore(game, agents) {
+                        return;
                     }
+                    // Ignore duplicate blocker assignments; first assignment wins.
+                    let mut seen_blockers = crate::HashSet::default();
+                    chosen_blockers.retain(|(blocker, _)| seen_blockers.insert(*blocker));
+                    self.game_log.log(
+                        GameLogEntryType::PriorityResponse,
+                        2,
+                        format!(
+                            "{} declared {} blocker assignment(s)",
+                            game.player(defending).name,
+                            chosen_blockers.len()
+                        ),
+                    );
+
+                    chosen_blockers.retain(|&(blocker, attacker)| {
+                        combat::can_creature_block(game, blocker, attacker)
+                    });
+                    let mut declaration = self.combat.clone();
+                    for &(blocker, attacker) in &chosen_blockers {
+                        declaration.declare_blocker(
+                            blocker,
+                            attacker,
+                            game.card(blocker).zone_timestamp,
+                        );
+                    }
+                    if enforces_block_requirements {
+                        for &blocker_id in &available_blockers {
+                            let target =
+                                combat::compute_must_block_targets(game, &declaration, blocker_id)
+                                    .into_iter()
+                                    .find(|&attacker_id| {
+                                        combat::combat_util::can_attacker_be_blocked_with_amount(
+                                            game,
+                                            &declaration,
+                                            attacker_id,
+                                            declaration.get_blockers_for(attacker_id).len() + 1,
+                                        )
+                                    });
+                            if let Some(attacker_id) = target {
+                                declaration.declare_blocker(
+                                    blocker_id,
+                                    attacker_id,
+                                    game.card(blocker_id).zone_timestamp,
+                                );
+                                chosen_blockers.push((blocker_id, attacker_id));
+                            }
+                        }
+                    }
+                    let error = if game.mirror_forge_bugs {
+                        None
+                    } else {
+                        combat::validate_blocks(game, &declaration, defending)
+                    };
+                    match error {
+                        None => {
+                            declared_blockers = chosen_blockers;
+                            break;
+                        }
+                        Some(error) => agents[defending.index()].notify(
+                            crate::agent::notification::GameNotification::Event(
+                                crate::agent::GameLogEvent::warning(error),
+                            ),
+                        ),
+                    }
+                }
+
+                for (blocker, attacker) in declared_blockers {
                     self.combat.declare_blocker(
                         blocker,
                         attacker,
@@ -694,23 +750,10 @@ impl GameLoop {
                         .retain(|pair| !block_cost_failures.contains(pair));
                 }
 
-                for blocker_id in combat::validate_blocks(game, &self.combat, defending) {
+                for blocker_id in
+                    combat::combat_util::blockers_missing_group_block(game, &self.combat, defending)
+                {
                     self.combat.undo_blocking_assignment(blocker_id);
-                }
-
-                if agents[defending.index()].enforces_block_requirements() {
-                    for &blocker_id in &available_blockers {
-                        if let Some(&attacker_id) =
-                            combat::compute_must_block_targets(game, &self.combat, blocker_id)
-                                .first()
-                        {
-                            self.combat.declare_blocker(
-                                blocker_id,
-                                attacker_id,
-                                game.card(blocker_id).zone_timestamp,
-                            );
-                        }
-                    }
                 }
 
                 // Record damage history for blockers

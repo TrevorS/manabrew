@@ -1726,6 +1726,10 @@ pub fn compute_must_block_targets(
     combat_util::compute_must_block_targets(game, combat, blocker_id)
 }
 
-pub fn validate_blocks(game: &GameState, combat: &CombatState, defender: PlayerId) -> Vec<CardId> {
-    combat_util::validate_blocks(game, combat, defender)
+pub fn validate_blocks(
+    game: &GameState,
+    combat: &CombatState,
+    defending: PlayerId,
+) -> Option<String> {
+    combat_util::validate_blocks(game, combat, defending)
 }

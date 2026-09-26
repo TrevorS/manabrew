@@ -945,6 +945,7 @@ impl SimpleAi {
                            used: &mut HashSet<String>| {
             for (attacker, combatant, _) in &attackers {
                 if blocked.contains(&attacker.attacker_id)
+                    || attacker.min_blockers > 2
                     || attacker.max_blockers.is_some_and(|max| max < 2)
                 {
                     continue;
