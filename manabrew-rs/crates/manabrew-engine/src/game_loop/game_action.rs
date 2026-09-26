@@ -745,7 +745,7 @@ impl GameLoop {
     ) -> bool {
         let mut x_sa =
             crate::spellability::build_spell_ability(game, card_id, &ab.ability_text, player);
-        self.preset_max_x_for_activation(game, player, card_id, ab, &mut x_sa, &ab.cost);
+        self.preset_max_x_for_activation(game, agents, player, card_id, ab, &mut x_sa, &ab.cost);
         let cost = Self::adjusted_activation_cost(game, &x_sa, ab, player, ab.cost.clone(), false);
         if !self.pay_ability_cost(
             game,
@@ -993,9 +993,11 @@ impl GameLoop {
 
     /// Keep in sync with `DeterministicController.playChosenSpellAbility`: the harness sets X to
     /// the most it can pay (`ComputerUtilCost.setMaxXValue`) before playing a chosen action.
+    #[allow(clippy::too_many_arguments)]
     fn preset_max_x_for_activation(
         &self,
         game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
         player: PlayerId,
         card_id: CardId,
         ab: &crate::ability::activated::ActivatedAbility,
@@ -1047,6 +1049,12 @@ impl GameLoop {
         {
             x = x.min(crate::card::card_util::get_valid_cards_to_target(game, sa).len() as u32);
         }
+        let x_min = Self::announce_bounds(game, player, sa, Some(cost), "X")
+            .map_or(0, |(min, _)| min.max(0) as u32)
+            .min(x);
+        let x = agents[player.index()]
+            .announce_requirements_x(player, Some(card_id), x_min, x)
+            .clamp(x_min, x);
         sa.x_mana_cost_paid = x;
         game.card_mut(card_id)
             .svars
@@ -1112,8 +1120,15 @@ impl GameLoop {
             return false;
         }
         let x_paid_before = game.card(card_id).svars.get("XPaid").cloned();
-        let mut need_x =
-            !self.preset_max_x_for_activation(game, player, card_id, ab, &mut sa, &activation_cost);
+        let mut need_x = !self.preset_max_x_for_activation(
+            game,
+            agents,
+            player,
+            card_id,
+            ab,
+            &mut sa,
+            &activation_cost,
+        );
         if !self.announce_values_like_x(
             game,
             agents,
@@ -1165,8 +1180,15 @@ impl GameLoop {
         }
         let announce_cost = sa.pay_costs.clone().unwrap_or_else(|| ab.cost.clone());
         let x_paid_before = game.card(card_id).svars.get("XPaid").cloned();
-        let mut need_x =
-            !self.preset_max_x_for_activation(game, player, card_id, ab, &mut sa, &announce_cost);
+        let mut need_x = !self.preset_max_x_for_activation(
+            game,
+            agents,
+            player,
+            card_id,
+            ab,
+            &mut sa,
+            &announce_cost,
+        );
         if !self.announce_values_like_x(
             game,
             agents,

@@ -995,6 +995,16 @@ pub trait PlayerAgent {
         Some(min)
     }
 
+    fn announce_requirements_x(
+        &mut self,
+        _player: PlayerId,
+        _source: Option<CardId>,
+        _min: u32,
+        max: u32,
+    ) -> u32 {
+        max
+    }
+
     /// Choose how many times to pay an optional keyword cost.
     /// Default: decline optional keyword costs.
     fn choose_number_for_keyword_cost(

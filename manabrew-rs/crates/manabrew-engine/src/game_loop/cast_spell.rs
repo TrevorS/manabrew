@@ -1618,6 +1618,12 @@ impl GameLoop {
                     }
                 }
             }
+            let x_min = Self::announce_bounds(game, player, &sa, spell_cost.as_ref(), "X")
+                .map_or(0, |(min, _)| min.max(0) as u32)
+                .min(x_value);
+            x_value = agents[player.index()]
+                .announce_requirements_x(player, Some(card_id), x_min, x_value)
+                .clamp(x_min, x_value);
             let payment_x_value = x_value;
             non_x_cost.add(&forge_foundation::ManaCost::generic(
                 (payment_x_value * x_count as u32) as i32,
