@@ -28,6 +28,7 @@
     "AttackTargetKind",
     "AttackerOptionDto",
     "AvailableAction",
+    "BlockRequirementDto",
     "BlockableAttackerDto",
     "DiceRollEntry",
     "PaymentAction",
@@ -111,14 +112,19 @@
       "refs": []
     },
     "AttackerOptionDto": {
-      "ts": "interface AttackerOptionDto {\n  attackerId: string;\n  validTargetIds: Array<string>;\n  mustAttack: boolean;\n}",
-      "rust": "#[serde(rename_all = \"camelCase\")]\npub struct AttackerOptionDto {\n    pub attacker_id: String,\n    pub valid_target_ids: Vec<String>,\n    pub must_attack: bool,\n}",
+      "ts": "interface AttackerOptionDto {\n  attackerId: string;\n  validTargetIds: Array<string>;\n  mustAttack: boolean;\n  mustAttackTargetIds?: Array<string>;\n}",
+      "rust": "#[serde(rename_all = \"camelCase\")]\npub struct AttackerOptionDto {\n    pub attacker_id: String,\n    pub valid_target_ids: Vec<String>,\n    pub must_attack: bool,\n    #[serde(default, skip_serializing_if = \"Option::is_none\")]\n    pub must_attack_target_ids: Option<Vec<String>>,\n}",
       "refs": []
     },
     "AvailableAction": {
       "ts": "type AvailableAction = { id: string } & (\n  | { type: \"cast\"; cardId: string; mode: PlayCardMode; label: string }\n  | ({ type: \"activateAbility\" } & ActivatableAbilityInfo)\n  | { type: \"undoMana\"; cardId: string }\n);",
       "rust": "pub struct AvailableAction {\n    pub id: String,\n    #[serde(flatten)]\n    pub kind: AvailableActionKind,\n}",
       "refs": ["ActivatableAbilityInfo", "PlayCardMode"]
+    },
+    "BlockRequirementDto": {
+      "ts": "interface BlockRequirementDto {\n  blockerId: string;\n  attackerIds: Array<string>;\n}",
+      "rust": "#[serde(rename_all = \"camelCase\")]\npub struct BlockRequirementDto {\n    pub blocker_id: String,\n    pub attacker_ids: Vec<String>,\n}",
+      "refs": []
     },
     "BlockableAttackerDto": {
       "ts": "interface BlockableAttackerDto {\n  attackerId: string;\n  validBlockerIds: Array<string>;\n  minBlockers: number;\n  maxBlockers?: number;\n  mustBeBlocked: boolean;\n}",
@@ -181,9 +187,9 @@
       "refs": ["AttackTargetDto", "AttackerOptionDto"]
     },
     "ChooseBlockersInput": {
-      "ts": "interface ChooseBlockersInput {\n  attackers: Array<BlockableAttackerDto>;\n  availableBlockerIds: Array<string>;\n  error?: string;\n}",
-      "rust": "#[serde(rename_all = \"camelCase\")]\npub struct ChooseBlockersInput {\n    pub attackers: Vec<BlockableAttackerDto>,\n    pub available_blocker_ids: Vec<String>,\n    #[serde(default, skip_serializing_if = \"Option::is_none\")]\n    pub error: Option<String>,\n}",
-      "refs": ["BlockableAttackerDto"]
+      "ts": "interface ChooseBlockersInput {\n  attackers: Array<BlockableAttackerDto>;\n  availableBlockerIds: Array<string>;\n  blockRequirements?: Array<BlockRequirementDto>;\n  error?: string;\n}",
+      "rust": "#[serde(rename_all = \"camelCase\")]\npub struct ChooseBlockersInput {\n    pub attackers: Vec<BlockableAttackerDto>,\n    pub available_blocker_ids: Vec<String>,\n    #[serde(default, skip_serializing_if = \"Option::is_none\")]\n    pub block_requirements: Option<Vec<BlockRequirementDto>>,\n    #[serde(default, skip_serializing_if = \"Option::is_none\")]\n    pub error: Option<String>,\n}",
+      "refs": ["BlockRequirementDto", "BlockableAttackerDto"]
     },
     "ChooseBoardTargetsInput": {
       "ts": "interface ChooseBoardTargetsInput {\n  presentation: PromptPresentation;\n  candidates: Array<TargetRef>;\n  hostile: boolean;\n  intent: TargetingIntent;\n  minTargets: number;\n  maxTargets: number;\n  chosenTargets: number;\n  cancellable: boolean;\n}",
