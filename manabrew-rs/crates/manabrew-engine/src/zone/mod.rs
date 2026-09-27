@@ -25,7 +25,7 @@ pub use zone_store::ZoneStore;
 /// Battlefield and Stack are shared but cards still track their controller.
 ///
 /// Mirrors Java's `Zone.java`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Zone {
     pub zone_type: ZoneType,
     pub owner: PlayerId,

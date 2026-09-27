@@ -34,7 +34,7 @@ pub const STORED_ZONE_TYPES: [ZoneType; 16] = [
 /// The old representation was `HashMap<ZoneKey, Zone>`. Most callers already
 /// route through `GameState::zone`, `zone_mut`, and `cards_in_zone`, so this
 /// store preserves that API while avoiding hash lookup on hot zone access.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ZoneStore {
     zones: Vec<Zone>,
     card_locations: Vec<Option<ZoneKey>>,

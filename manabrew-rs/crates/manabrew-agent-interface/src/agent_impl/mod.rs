@@ -1,3 +1,4 @@
+use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -18,7 +19,7 @@ use manabrew_engine::player::actions::PlayerAction as EnginePlayerAction;
 use crate::game_log_event::GameLogEntryDto;
 use crate::game_snapshot_event::GameSnapshotEventDto;
 use crate::game_view_dto::{
-    card_to_dto_for_viewer, CardDto, GameViewDto, GameViewDtoExt, StepKind,
+    card_to_dto_for_viewer, shows_command_cards, CardDto, GameViewDto, GameViewDtoExt, StepKind,
 };
 use crate::ids_codec::{card_id_str, parse_card_id, parse_player_id, player_id_str};
 use crate::mana_action_id::{mana_ability_actions, parse_tap_action_id};
@@ -68,6 +69,11 @@ pub(crate) fn parse_express_mana_choice(color: Option<&str>) -> Option<u16> {
         .filter(|&atom| atom != 0)
 }
 
+pub struct StateSummary {
+    pub turn: u32,
+    pub shows_command_cards: bool,
+}
+
 /// Answers the prompts a `PromptAgent` builds.
 ///
 pub trait Responder {
@@ -78,6 +84,12 @@ pub trait Responder {
             game_view: GameViewDto::clone(view),
         }));
     }
+    /// A responder that defers views gets a summary of each state update, and the view of the
+    /// last one just before it answers a prompt.
+    fn defers_views(&self) -> bool {
+        false
+    }
+    fn present_state_summary(&mut self, _summary: StateSummary) {}
     fn await_ack(&mut self) -> ClientToServerMessage {
         ClientToServerMessage::Response {
             prompt_id: 0,
@@ -102,13 +114,28 @@ pub trait Responder {
     }
 }
 
+#[derive(Clone)]
+struct Snapshot {
+    game: GameState,
+    mana_pools: Vec<ManaPool>,
+    view: OnceCell<Arc<GameViewDto>>,
+}
+
+#[derive(Clone, Default)]
+enum OwedView {
+    #[default]
+    None,
+    Latest,
+    Held(Arc<GameViewDto>),
+}
+
 pub struct PromptAgent<R: Responder> {
     pub player_id: PlayerId,
     pub game_id: String,
     pub responder: R,
     pending_prompt: Option<AgentPrompt>,
-    pub(crate) latest_view: Option<Arc<GameViewDto>>,
-    snapshot: Option<GameState>,
+    snapshot: Option<Snapshot>,
+    owed_view: OwedView,
     declaring: bool,
     pub(crate) pending_restore_checkpoint: Option<u64>,
     pub pass_until: Option<manabrew_engine::agent::PassUntilTarget>,
@@ -125,8 +152,8 @@ impl<R: Responder> PromptAgent<R> {
             game_id,
             responder,
             pending_prompt: None,
-            latest_view: None,
             snapshot: None,
+            owed_view: OwedView::None,
             declaring: false,
             pending_restore_checkpoint: None,
             pass_until: None,
@@ -143,8 +170,8 @@ impl<R: Responder> PromptAgent<R> {
             game_id: self.game_id.clone(),
             responder,
             pending_prompt: self.pending_prompt.clone(),
-            latest_view: self.latest_view.clone(),
             snapshot: self.snapshot.clone(),
+            owed_view: self.owed_view.clone(),
             declaring: self.declaring,
             pending_restore_checkpoint: self.pending_restore_checkpoint,
             pass_until: self.pass_until,
@@ -159,8 +186,7 @@ impl<R: Responder> PromptAgent<R> {
         self.next_prompt_id += 1;
         let source_card = source.and_then(|card_id| self.source_card(card_id));
         let source_ability_text = source_card.as_ref().and_then(|card| {
-            self.latest_view
-                .as_ref()?
+            self.latest_view()?
                 .stack
                 .iter()
                 .rev()
@@ -193,6 +219,7 @@ impl<R: Responder> PromptAgent<R> {
         if self.conceded {
             return Self::default_pass();
         }
+        self.present_owed_view();
         loop {
             match self.responder.respond(prompt.clone()) {
                 ClientToServerMessage::Response { prompt_id: 0, .. } => {
@@ -276,12 +303,57 @@ impl<R: Responder> PromptAgent<R> {
     }
 
     pub(crate) fn emit_state(&mut self) {
-        match &self.latest_view {
-            Some(view) => self.responder.present_state(view),
-            None => {
-                let view = Arc::new(self.view());
-                self.responder.present_state(&view);
-            }
+        if self.responder.defers_views() {
+            self.owed_view = OwedView::Latest;
+            let summary = match &self.snapshot {
+                Some(snapshot) => StateSummary {
+                    turn: snapshot.game.turn.turn_number,
+                    shows_command_cards: shows_command_cards(&snapshot.game),
+                },
+                None => StateSummary {
+                    turn: 0,
+                    shows_command_cards: false,
+                },
+            };
+            self.responder.present_state_summary(summary);
+        } else {
+            let view = self.current_view();
+            self.responder.present_state(&view);
+        }
+    }
+
+    fn present_owed_view(&mut self) {
+        let view = match std::mem::take(&mut self.owed_view) {
+            OwedView::None => return,
+            OwedView::Latest => self.current_view(),
+            OwedView::Held(view) => view,
+        };
+        self.responder.present_state(&view);
+    }
+
+    pub(crate) fn latest_view(&self) -> Option<&Arc<GameViewDto>> {
+        let snapshot = self.snapshot.as_ref()?;
+        Some(snapshot.view.get_or_init(|| {
+            Arc::new(GameViewDto::from_engine(
+                &snapshot.game,
+                &snapshot.mana_pools,
+                self.player_id,
+                &self.game_id,
+            ))
+        }))
+    }
+
+    fn current_view(&self) -> Arc<GameViewDto> {
+        self.latest_view()
+            .cloned()
+            .unwrap_or_else(|| Arc::new(self.default_view()))
+    }
+
+    fn default_view(&self) -> GameViewDto {
+        GameViewDto {
+            game_id: self.game_id.clone(),
+            step: StepKind::Main1,
+            ..Default::default()
         }
     }
 
@@ -290,7 +362,7 @@ impl<R: Responder> PromptAgent<R> {
     }
 
     pub(crate) fn source_card(&self, card_id: CardId) -> Option<CardDto> {
-        let game = self.snapshot.as_ref()?;
+        let game = &self.snapshot.as_ref()?.game;
         game.cards
             .get(card_id.index())
             .filter(|card| card.id == card_id)?;
@@ -299,19 +371,14 @@ impl<R: Responder> PromptAgent<R> {
 
     pub(crate) fn combat_game(&mut self) -> Option<GameState> {
         std::mem::take(&mut self.declaring)
-            .then(|| self.snapshot.clone())
+            .then(|| self.snapshot.as_ref().map(|snapshot| snapshot.game.clone()))
             .flatten()
     }
 
     pub(crate) fn view(&self) -> GameViewDto {
-        self.latest_view
-            .as_deref()
-            .cloned()
-            .unwrap_or_else(|| GameViewDto {
-                game_id: self.game_id.clone(),
-                step: StepKind::Main1,
-                ..Default::default()
-            })
+        self.latest_view()
+            .map(|view| GameViewDto::clone(view))
+            .unwrap_or_else(|| self.default_view())
     }
 
     pub(crate) fn card_ids(cards: &[CardId]) -> Vec<String> {
@@ -539,12 +606,9 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn snapshot_state(&mut self, game: &GameState, mana_pools: &[ManaPool]) {
         self.responder.observe_state(game, mana_pools);
-        self.latest_view = Some(Arc::new(GameViewDto::from_engine(
-            game,
-            mana_pools,
-            self.player_id,
-            &self.game_id,
-        )));
+        if self.pending_prompt.is_some() && matches!(self.owed_view, OwedView::Latest) {
+            self.owed_view = OwedView::Held(self.current_view());
+        }
         let declaring = match game.turn.phase {
             PhaseType::CombatDeclareAttackers => game.active_player() == self.player_id,
             PhaseType::CombatDeclareBlockers => {
@@ -553,7 +617,21 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
             _ => false,
         };
         self.declaring = declaring;
-        self.snapshot = Some(game.clone());
+        match &mut self.snapshot {
+            Some(snapshot) => {
+                snapshot.game.clone_from_sharing_cards(game);
+                snapshot.mana_pools.clear();
+                snapshot.mana_pools.extend_from_slice(mana_pools);
+                snapshot.view = OnceCell::new();
+            }
+            None => {
+                self.snapshot = Some(Snapshot {
+                    game: game.clone(),
+                    mana_pools: mana_pools.to_vec(),
+                    view: OnceCell::new(),
+                });
+            }
+        }
     }
 
     fn mulligan_decision(
@@ -701,6 +779,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
             .pending_prompt
             .take()
             .expect("choose_action called without a pending prompt");
+        self.present_owed_view();
         let action = match self.responder.respond(prompt) {
             ClientToServerMessage::Response { action, .. } => action,
             ClientToServerMessage::Directive {
@@ -1514,8 +1593,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
             } => {
                 let player_id = player_id_str(active_player);
                 let active_player_name = self
-                    .latest_view
-                    .as_ref()
+                    .latest_view()
                     .and_then(|v| v.players.iter().find(|p| p.id == player_id))
                     .map(|p| p.name.clone())
                     .unwrap_or_else(|| format!("Player {}", active_player.0));
@@ -1619,7 +1697,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
                 checkpoint_id,
                 label,
             } => {
-                if let Some(view) = self.latest_view.as_deref().cloned() {
+                if let Some(view) = self.latest_view().map(|view| GameViewDto::clone(view)) {
                     self.responder.send_snapshot(GameSnapshotEventDto::new(
                         checkpoint_id,
                         label,

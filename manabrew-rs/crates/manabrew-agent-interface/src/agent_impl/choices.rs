@@ -83,8 +83,7 @@ fn recv_selection<T: Responder>(agent: &mut PromptAgent<T>) -> Option<Vec<usize>
 fn card_name<T: Responder>(agent: &PromptAgent<T>, card_id: CardId) -> String {
     let id = crate::ids_codec::card_id_str(card_id);
     agent
-        .latest_view
-        .as_ref()
+        .latest_view()
         .and_then(|view| {
             view.all_zone_cards()
                 .find(|card| card.id == id)
@@ -96,8 +95,7 @@ fn card_name<T: Responder>(agent: &PromptAgent<T>, card_id: CardId) -> String {
 fn player_name<T: Responder>(agent: &PromptAgent<T>, player_id: PlayerId) -> String {
     let id = crate::ids_codec::player_id_str(player_id);
     agent
-        .latest_view
-        .as_ref()
+        .latest_view()
         .and_then(|view| view.players.iter().find(|player| player.id == id))
         .map(|player| player.name.clone())
         .unwrap_or(id)

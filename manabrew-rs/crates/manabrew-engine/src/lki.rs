@@ -59,7 +59,7 @@ use std::collections::BTreeMap;
 
 /// Lightweight snapshot of a card's state on the battlefield.
 /// Captured by `GameState::copy_last_state()` at key checkpoints.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CardSnapshot {
     pub id: CardId,
     pub controller: PlayerId,

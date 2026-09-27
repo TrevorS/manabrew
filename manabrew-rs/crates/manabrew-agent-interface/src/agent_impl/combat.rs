@@ -300,8 +300,7 @@ pub(super) fn pay_combat_cost<T: Responder>(
 ) -> CombatCostAction {
     let attacker_id = card_id_str(attacker);
     let attacker_name = agent
-        .latest_view
-        .as_ref()
+        .latest_view()
         .and_then(|v| v.all_zone_cards().find(|c| c.id == attacker_id))
         .map(|c| c.identity.name.clone())
         .unwrap_or_default();

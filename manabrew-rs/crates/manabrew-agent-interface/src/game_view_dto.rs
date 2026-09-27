@@ -460,6 +460,14 @@ fn card_identity(card: &Card) -> CardIdentity {
     }
 }
 
+pub(crate) fn shows_command_cards(game: &GameState) -> bool {
+    game.player_order.iter().any(|&pid| {
+        game.cards_in_zone(ZoneType::Command, pid)
+            .iter()
+            .any(|&cid| should_show_command_zone_card(game, cid))
+    })
+}
+
 fn should_show_command_zone_card(game: &GameState, cid: CardId) -> bool {
     let card = game.card(cid);
     !(card.type_line.core_types.is_empty()
