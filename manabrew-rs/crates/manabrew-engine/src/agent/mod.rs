@@ -336,6 +336,8 @@ pub trait PlayerAgent {
 
     fn set_targeting_cancellable(&mut self, _cancellable: bool) {}
 
+    fn set_targeting_optional(&mut self, _optional: bool) {}
+
     fn choose_new_targets_for(
         &mut self,
         _sa: &mut SpellAbility,

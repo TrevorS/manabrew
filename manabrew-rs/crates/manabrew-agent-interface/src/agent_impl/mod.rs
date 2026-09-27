@@ -588,6 +588,10 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         self.targeting_cancellable = cancellable;
     }
 
+    fn set_targeting_optional(&mut self, optional: bool) {
+        self.targeting_optional = optional;
+    }
+
     fn choose_new_targets_for(
         &mut self,
         sa: &mut manabrew_engine::spellability::SpellAbility,
