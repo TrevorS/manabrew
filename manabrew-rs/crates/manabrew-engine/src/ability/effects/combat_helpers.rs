@@ -11,6 +11,7 @@ use crate::ids::CardId;
 use crate::spellability::SpellAbility;
 
 use super::effect_context::EffectContext;
+use crate::agent::DecisionContext;
 
 pub(super) fn choose_defender(
     ctx: &mut EffectContext,
@@ -29,7 +30,12 @@ pub(super) fn choose_defender(
         })
         .collect();
     ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
-    match ctx.agents[chooser.index()].choose_single_entity_for_effect(chooser, &choices, false)? {
+    match ctx.agents[chooser.index()].choose_single_entity_for_effect(
+        DecisionContext::new(ctx.game, ctx.mana_pools),
+        chooser,
+        &choices,
+        false,
+    )? {
         GameEntity::Player(pid) => Some(DefenderId::Player(pid)),
         GameEntity::Card(cid) => Some(DefenderId::Permanent(cid)),
     }

@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{matches_valid_cards_for_sa, EffectContext};
+use crate::agent::DecisionContext;
 
 /// `SP$ ChooseCard` — player chooses card(s) from a filtered set in a zone.
 ///
@@ -80,9 +81,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         for p in tgt_players {
             let p_choices = filter_controlled_by_player(ctx.game, sa, p, &valid);
             ctx.agents[p.index()].snapshot_state(ctx.game, ctx.mana_pools);
-            chosen.extend(
-                ctx.agents[p.index()].choose_cards_for_effect(p, &p_choices, min_amount, amount),
-            );
+            chosen.extend(ctx.agents[p.index()].choose_cards_for_effect(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                p,
+                &p_choices,
+                min_amount,
+                amount,
+            ));
         }
     }
 
@@ -182,6 +187,7 @@ fn choose_with_total_power(
             .collect();
         ctx.agents[player.index()].snapshot_state(ctx.game, ctx.mana_pools);
         match ctx.agents[player.index()].choose_single_entity_for_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             player,
             &options,
             chosen_p <= total_power,
@@ -202,6 +208,7 @@ fn choose_with_total_power(
             }
             _ => {
                 if ctx.agents[player.index()].confirm_action(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
                     player,
                     Some("OptionalChoose"),
                     "Cancel choosing?",

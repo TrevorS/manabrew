@@ -24,6 +24,7 @@ use crate::game_view_dto::{
 use crate::ids_codec::{card_id_str, parse_card_id, parse_player_id, player_id_str};
 use crate::mana_action_id::{mana_ability_actions, parse_tap_action_id};
 use crate::prompt::*;
+use manabrew_engine::agent::{DecisionContext, PriorityContext};
 
 mod choices;
 mod combat;
@@ -644,6 +645,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn mulligan_decision(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         mulligan_count: u32,
@@ -651,12 +653,19 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         choices::mulligan_decision(self, player, hand, mulligan_count)
     }
 
-    fn mulligan_decision_send(&mut self, player: PlayerId, hand: &[CardId], mulligan_count: u32) {
+    fn mulligan_decision_send(
+        &mut self,
+        _context: DecisionContext<'_>,
+        player: PlayerId,
+        hand: &[CardId],
+        mulligan_count: u32,
+    ) {
         choices::mulligan_decision_send(self, player, hand, mulligan_count);
     }
 
     fn mulligan_decision_recv(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         mulligan_count: u32,
@@ -666,6 +675,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_cards_to_bottom(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         count: usize,
@@ -673,12 +683,19 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         choices::choose_cards_to_bottom(self, player, hand, count)
     }
 
-    fn choose_cards_to_bottom_send(&mut self, player: PlayerId, hand: &[CardId], count: usize) {
+    fn choose_cards_to_bottom_send(
+        &mut self,
+        _context: DecisionContext<'_>,
+        player: PlayerId,
+        hand: &[CardId],
+        count: usize,
+    ) {
         choices::choose_cards_to_bottom_send(self, player, hand, count);
     }
 
     fn choose_cards_to_bottom_recv(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         count: usize,
@@ -690,7 +707,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         &mut self,
         _player: PlayerId,
         action_space: Option<&PriorityActionSpace>,
-        request_action_space: &mut dyn FnMut() -> PriorityActionSpace,
+        priority: &mut dyn PriorityContext,
     ) -> EnginePlayerAction {
         if self.conceded {
             return EnginePlayerAction::Concede;
@@ -699,7 +716,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         let action_space = match action_space {
             Some(action_space) => action_space,
             None => {
-                requested_action_space = request_action_space();
+                requested_action_space = priority.action_space();
                 &requested_action_space
             }
         };
@@ -847,6 +864,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_attackers(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         available: &[CardId],
         possible_defenders: &[DefenderId],
@@ -856,6 +874,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_blockers(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         attackers: &[CardId],
         available_blockers: &[CardId],
@@ -866,6 +885,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_damage_assignment_order(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         attacker: CardId,
         blockers: &[CardId],
@@ -896,6 +916,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_target_player(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[PlayerId],
         sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -910,6 +931,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_target_card(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[CardId],
         sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -924,6 +946,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_target_card_from_zone(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         zone: ZoneType,
         valid: &[CardId],
@@ -939,6 +962,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_target_any(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         valid_players: &[PlayerId],
         valid_cards: &[CardId],
@@ -962,6 +986,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_sacrifice(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[CardId],
         source: Option<CardId>,
@@ -1014,12 +1039,19 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         library::choose_dig(self, game, player, valid, max, optional)
     }
 
-    fn choose_discard(&mut self, player: PlayerId, hand: &[CardId], num: usize) -> Vec<CardId> {
+    fn choose_discard(
+        &mut self,
+        _context: DecisionContext<'_>,
+        player: PlayerId,
+        hand: &[CardId],
+        num: usize,
+    ) -> Vec<CardId> {
         choices::choose_discard(self, player, hand, num)
     }
 
     fn choose_discard_any_number(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         min: usize,
@@ -1028,12 +1060,18 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         choices::choose_discard_any_number(self, player, hand, min, max)
     }
 
-    fn choose_legend_keep(&mut self, player: PlayerId, duplicates: &[CardId]) -> CardId {
+    fn choose_legend_keep(
+        &mut self,
+        _context: DecisionContext<'_>,
+        player: PlayerId,
+        duplicates: &[CardId],
+    ) -> CardId {
         choices::choose_legend_keep(self, player, duplicates)
     }
 
     fn choose_target_spell(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[u32],
         source: Option<CardId>,
@@ -1043,6 +1081,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_mode(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         descriptions: &[String],
         min: usize,
@@ -1054,6 +1093,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_spell_abilities_for_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         abilities: &[manabrew_engine::spellability::SpellAbility],
         num: usize,
@@ -1063,6 +1103,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn get_ability_to_play(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         abilities: &[manabrew_engine::spellability::SpellAbility],
     ) -> Option<usize> {
@@ -1071,6 +1112,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_single_entity_for_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[GameEntity],
         is_optional: bool,
@@ -1099,13 +1141,21 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
                     .unwrap_or_default(),
             })
             .collect();
-        self.choose_mode(player, &descriptions, 1, 1, sa.source)
-            .first()
-            .copied()
+        self.choose_mode(
+            DecisionContext::new(game, &[]),
+            player,
+            &descriptions,
+            1,
+            1,
+            sa.source,
+        )
+        .first()
+        .copied()
     }
 
     fn choose_entities_for_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         candidates: &[GameEntity],
         min: usize,
@@ -1116,6 +1166,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_single_replacement_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         descriptions: &[String],
         _hosts: &[CardId],
@@ -1125,6 +1176,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn confirm_replacement_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         question: &str,
         effect_description: &str,
@@ -1135,6 +1187,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_optional_trigger(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         description: &str,
         source: Option<CardId>,
@@ -1145,6 +1198,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn confirm_action(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         mode: Option<&str>,
         message: &str,
@@ -1157,6 +1211,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn confirm_payment(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         cost_kind: &str,
         message: &str,
@@ -1168,6 +1223,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn pay_cost_to_prevent_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         cost_kind: &str,
         message: &str,
@@ -1192,6 +1248,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_binary(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         question: &str,
         kind: BinaryChoiceKind,
@@ -1204,6 +1261,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_phyrexian_pay_life(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         color: &str,
         source: Option<CardId>,
@@ -1213,6 +1271,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_kicker(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         kicker_cost: &str,
         source: Option<CardId>,
@@ -1222,6 +1281,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_buyback(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         buyback_cost: &str,
         source: Option<CardId>,
@@ -1231,6 +1291,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_multikicker(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         cost: &str,
         max_kicks: u32,
@@ -1241,6 +1302,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_replicate(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         cost: &str,
         max_replicates: u32,
@@ -1249,12 +1311,18 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         costs::choose_replicate(self, player, cost, max_replicates, source)
     }
 
-    fn choose_color(&mut self, player: PlayerId, valid_colors: &[String]) -> Option<String> {
+    fn choose_color(
+        &mut self,
+        _context: DecisionContext<'_>,
+        player: PlayerId,
+        valid_colors: &[String],
+    ) -> Option<String> {
         choices::choose_color(self, player, valid_colors)
     }
 
     fn choose_colors(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         valid_colors: &[String],
         min: usize,
@@ -1265,6 +1333,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_cards_for_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[CardId],
         min: usize,
@@ -1305,6 +1374,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_type(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         type_category: &str,
         valid_types: &[String],
@@ -1314,6 +1384,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_counter_type(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         options: &[CounterType],
         prompt: &str,
@@ -1321,12 +1392,18 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         choices::choose_counter_type(self, player, options, prompt)
     }
 
-    fn choose_card_name(&mut self, player: PlayerId, valid_names: &[String]) -> Option<String> {
+    fn choose_card_name(
+        &mut self,
+        _context: DecisionContext<'_>,
+        player: PlayerId,
+        valid_names: &[String],
+    ) -> Option<String> {
         choices::choose_card_name(self, player, valid_names)
     }
 
     fn choose_number(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         source: Option<CardId>,
         title: &str,
@@ -1339,6 +1416,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_number_from_list(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         choices: &[i32],
         message: &str,
@@ -1349,6 +1427,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_roll_to_ignore(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         rolls: &[i32],
         source: Option<CardId>,
@@ -1358,6 +1437,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_roll_to_swap(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         rolls: &[i32],
         source: Option<CardId>,
@@ -1367,6 +1447,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_dice_to_reroll(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         rolls: &[i32],
         source: Option<CardId>,
@@ -1376,6 +1457,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_roll_to_modify(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         rolls: &[i32],
         source: Option<CardId>,
@@ -1385,6 +1467,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_roll_swap_value(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         current_result: i32,
         power: i32,
@@ -1394,12 +1477,13 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         choices::choose_roll_swap_value(self, player, current_result, power, toughness, source)
     }
 
-    fn flip_coin_call(&mut self, player: PlayerId) -> bool {
+    fn flip_coin_call(&mut self, _context: DecisionContext<'_>, player: PlayerId) -> bool {
         choices::flip_coin_call(self, player)
     }
 
     fn pay_combat_cost(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         attacker: CardId,
         cost: i32,
@@ -1424,6 +1508,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_improvise(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         untapped_artifacts: &[CardId],
         remaining_cost: &forge_foundation::ManaCost,
@@ -1434,6 +1519,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_convoke(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         untapped_creatures: &[CardId],
         remaining_cost: &forge_foundation::ManaCost,
@@ -1444,6 +1530,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn pay_mana_cost(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         card_id: CardId,
         card_name: &str,
@@ -1484,6 +1571,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn specify_mana_combo(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         available_colors: &[String],
         amount: usize,
@@ -1500,11 +1588,21 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         )
     }
 
-    fn exert_attackers(&mut self, player: PlayerId, attackers: &[CardId]) -> Vec<CardId> {
+    fn exert_attackers(
+        &mut self,
+        _context: DecisionContext<'_>,
+        player: PlayerId,
+        attackers: &[CardId],
+    ) -> Vec<CardId> {
         combat::exert_attackers(self, player, attackers)
     }
 
-    fn enlist_attackers(&mut self, player: PlayerId, attackers: &[CardId]) -> Vec<CardId> {
+    fn enlist_attackers(
+        &mut self,
+        _context: DecisionContext<'_>,
+        player: PlayerId,
+        attackers: &[CardId],
+    ) -> Vec<CardId> {
         combat::enlist_attackers(self, player, attackers)
     }
 
@@ -1530,11 +1628,21 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         }
     }
 
-    fn help_pay_assist(&mut self, player: PlayerId, card_name: &str, max_generic: u32) -> u32 {
+    fn help_pay_assist(
+        &mut self,
+        _context: DecisionContext<'_>,
+        player: PlayerId,
+        card_name: &str,
+        max_generic: u32,
+    ) -> u32 {
         choices::help_pay_assist(self, player, card_name, max_generic)
     }
 
-    fn choose_land_or_spell(&mut self, player: PlayerId) -> Option<bool> {
+    fn choose_land_or_spell(
+        &mut self,
+        _context: DecisionContext<'_>,
+        player: PlayerId,
+    ) -> Option<bool> {
         choices::choose_land_or_spell(self, player)
     }
 

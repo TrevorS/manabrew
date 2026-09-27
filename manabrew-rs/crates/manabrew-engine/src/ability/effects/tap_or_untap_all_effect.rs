@@ -2,6 +2,7 @@ use forge_foundation::ZoneType;
 
 use super::{matches_valid_cards_for_sa, resolve_defined_players, EffectContext};
 use crate::agent::BinaryChoiceKind;
+use crate::agent::DecisionContext;
 use crate::ids::{CardId, PlayerId};
 
 /// `SP$ TapOrUntapAll` — choose tap or untap, then apply to all matching cards.
@@ -20,6 +21,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     let prompt = "Tap or untap all matching permanents?";
     let to_tap = ctx.agents[controller.index()].choose_binary(
+        DecisionContext::new(ctx.game, ctx.mana_pools),
         controller,
         prompt,
         BinaryChoiceKind::TapOrUntap,

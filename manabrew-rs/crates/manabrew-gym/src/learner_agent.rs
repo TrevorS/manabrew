@@ -7,8 +7,8 @@ use std::time::{Duration, Instant};
 
 use forge_foundation::{PhaseType, ZoneType};
 use manabrew_engine::agent::{
-    CardOrStackTarget, ManaAbilityOption, ManaCostAction, PlayerAgent, PriorityActionSpace,
-    TargetChoice,
+    CardOrStackTarget, DecisionContext, ManaAbilityOption, ManaCostAction, PlayerAgent,
+    PriorityActionSpace, PriorityContext, TargetChoice,
 };
 use manabrew_engine::combat::{self, combat_util, DefenderId};
 use manabrew_engine::game::GameState;
@@ -394,7 +394,13 @@ impl PlayerAgent for LearnerAgent {
         self.combat.observe(game, self.player);
     }
 
-    fn mulligan_decision(&mut self, _player: PlayerId, hand: &[CardId], count: u32) -> bool {
+    fn mulligan_decision(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        hand: &[CardId],
+        count: u32,
+    ) -> bool {
         let kind = DecisionKind::Mulligan {
             hand: hand.to_vec(),
             mulligans: count,
@@ -407,6 +413,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn choose_cards_to_bottom(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         hand: &[CardId],
         count: usize,
@@ -418,14 +425,14 @@ impl PlayerAgent for LearnerAgent {
         &mut self,
         _player: PlayerId,
         space: Option<&PriorityActionSpace>,
-        request: &mut dyn FnMut() -> PriorityActionSpace,
+        priority: &mut dyn PriorityContext,
     ) -> PlayerAction {
         self.last_replacement = None;
         let owned;
         let space = match space {
             Some(s) => s,
             None => {
-                owned = request();
+                owned = priority.action_space();
                 &owned
             }
         };
@@ -455,7 +462,11 @@ impl PlayerAgent for LearnerAgent {
         }
     }
 
-    fn choose_land_or_spell(&mut self, _player: PlayerId) -> Option<bool> {
+    fn choose_land_or_spell(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+    ) -> Option<bool> {
         match self.ask(DecisionKind::LandOrSpell) {
             Some(Action::Choose(i)) => LAND_OR_SPELL[i],
             _ => None,
@@ -464,6 +475,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn get_ability_to_play(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         abilities: &[SpellAbility],
     ) -> Option<usize> {
@@ -487,6 +499,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn choose_attackers(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         available: &[CardId],
         defenders: &[DefenderId],
@@ -512,6 +525,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn choose_blockers(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         attackers: &[CardId],
         available: &[CardId],
@@ -548,6 +562,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn choose_target_player(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[PlayerId],
         sa: Option<&SpellAbility>,
@@ -561,6 +576,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn choose_target_card(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         sa: Option<&SpellAbility>,
@@ -574,6 +590,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn choose_target_any(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid_players: &[PlayerId],
         valid_cards: &[CardId],
@@ -593,6 +610,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn choose_target_card_or_stack(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         cards: &[CardId],
         stack: &[(u32, CardId)],
@@ -612,6 +630,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn choose_target_spell(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[u32],
         source: Option<CardId>,
@@ -625,6 +644,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn choose_target_cards(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         min: usize,
@@ -636,6 +656,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn choose_cards_for_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         min: usize,
@@ -658,6 +679,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn choose_sacrifice(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         source: Option<CardId>,
@@ -669,6 +691,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn choose_permanents_to_sacrifice(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         min: usize,
         max: usize,
@@ -678,12 +701,19 @@ impl PlayerAgent for LearnerAgent {
         self.choose_cards(CardPurpose::Sacrifice, valid, min, max, source)
     }
 
-    fn choose_discard(&mut self, _player: PlayerId, hand: &[CardId], num: usize) -> Vec<CardId> {
+    fn choose_discard(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        hand: &[CardId],
+        num: usize,
+    ) -> Vec<CardId> {
         self.choose_cards(CardPurpose::Discard, hand, num, num, None)
     }
 
     fn choose_discard_any_number(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         hand: &[CardId],
         min: usize,
@@ -694,6 +724,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn choose_tap_type_for_cost(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         min_total_power: i32,
@@ -721,6 +752,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn choose_mode(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         descriptions: &[String],
         min: usize,
@@ -746,6 +778,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn choose_optional_trigger(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         description: &str,
         source: Option<CardId>,
@@ -756,6 +789,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn confirm_replacement_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         question: &str,
         _effect_description: &str,
@@ -771,6 +805,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn confirm_action(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         mode: Option<&str>,
         message: &str,
@@ -788,6 +823,7 @@ impl PlayerAgent for LearnerAgent {
 
     fn pay_mana_cost(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _card_id: CardId,
         _card_name: &str,

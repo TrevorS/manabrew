@@ -112,8 +112,8 @@ pub fn resolve_token_table(
                     return;
                 }
                 let agent = ctx.agents[p.index()].as_mut();
-                let mut controller = PlayerController::new(ctx.game, p, agent);
-                controller.snapshot_state(ctx.mana_pools);
+                let mut controller = PlayerController::new(ctx.game, ctx.mana_pools, p, agent);
+                controller.snapshot_state();
                 chosen = match controller.choose_single_entity_for_effect(&choices) {
                     Some(GameEntity::Card(card_id)) => Some(card_id),
                     _ => None,

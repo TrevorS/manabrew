@@ -2,6 +2,7 @@ use forge_foundation::mana::ManaAtom;
 use forge_foundation::ZoneType;
 
 use crate::ability::{ProducedMana, ProducedManaCombo};
+use crate::agent::DecisionContext;
 use crate::agent::PlayerAgent;
 use crate::card::Card;
 use crate::cost::CostPart;
@@ -844,6 +845,7 @@ pub fn determine_mana_production_ir(
         };
         if !available.is_empty() {
             let chosen = agents[player.index()].specify_mana_combo(
+                DecisionContext::new(game, &[]),
                 player,
                 &available,
                 amount.unwrap_or(1) as usize,
@@ -856,7 +858,11 @@ pub fn determine_mana_production_ir(
         let colors = game.player_commander_color_identity(player);
 
         if !colors.is_empty() {
-            if let Some(chosen) = agents[player.index()].choose_color(player, &colors) {
+            if let Some(chosen) = agents[player.index()].choose_color(
+                DecisionContext::new(game, &[]),
+                player,
+                &colors,
+            ) {
                 if let Some(atom) = color_name_to_mana_atom(&chosen) {
                     mana_string = Some(ManaPool::atom_to_letter(atom).to_string());
                 }
@@ -880,10 +886,18 @@ pub fn determine_mana_production_ir(
                 // presenting the forced color as a single-option choice.
                 // Consume the RNG pick for parity.
                 let single = vec![forced.clone()];
-                let _ = agents[player.index()].choose_color(player, &single);
+                let _ = agents[player.index()].choose_color(
+                    DecisionContext::new(game, &[]),
+                    player,
+                    &single,
+                );
                 Some(forced)
             } else {
-                agents[player.index()].choose_color(player, &colors)
+                agents[player.index()].choose_color(
+                    DecisionContext::new(game, &[]),
+                    player,
+                    &colors,
+                )
             };
             if let Some(chosen) = chosen {
                 if let Some(atom) = color_name_to_mana_atom(&chosen) {

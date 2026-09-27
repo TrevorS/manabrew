@@ -11,6 +11,7 @@ use super::move_cards::move_cards;
 use super::search::resolve_defined_player_choice;
 use super::stack::resolve_stack_removal;
 use crate::ability::ability_ir::DefinedRef;
+use crate::agent::DecisionContext;
 use crate::ids::CardId;
 use crate::spellability::SpellAbility;
 
@@ -210,6 +211,7 @@ pub(super) fn resolve_known_origin(
 
     if sa.ir.shuffle_non_mandatory
         && !ctx.agents[controller.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             controller,
             None,
             "Do you want to shuffle the library?",
@@ -236,6 +238,7 @@ pub(super) fn resolve_known_origin(
                 let prompt =
                     format!("Do you want to move {card_name} from {origin_zone} to {dest_zone}?",);
                 ctx.agents[chooser.index()].confirm_action(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
                     chooser,
                     None,
                     &prompt,

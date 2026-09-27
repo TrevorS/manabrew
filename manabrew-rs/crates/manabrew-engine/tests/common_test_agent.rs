@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use forge_foundation::ZoneType;
+use manabrew_engine::agent::{DecisionContext, PriorityContext};
 use manabrew_engine::agent::{PlayerAgent, TargetChoice};
 use manabrew_engine::combat::DefenderId;
 use manabrew_engine::game::GameState;
@@ -42,7 +43,13 @@ impl RecordingAgent {
 }
 
 impl PlayerAgent for RecordingAgent {
-    fn mulligan_decision(&mut self, _: PlayerId, _: &[CardId], _: u32) -> bool {
+    fn mulligan_decision(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _: PlayerId,
+        _: &[CardId],
+        _: u32,
+    ) -> bool {
         true
     }
 
@@ -50,13 +57,14 @@ impl PlayerAgent for RecordingAgent {
         &mut self,
         _player: PlayerId,
         _action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-        _request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
+        _priority: &mut dyn PriorityContext,
     ) -> PlayerAction {
         PlayerAction::PassPriority
     }
 
     fn choose_attackers(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         _: &[CardId],
         _: &[DefenderId],
@@ -66,6 +74,7 @@ impl PlayerAgent for RecordingAgent {
 
     fn choose_blockers(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         _: &[CardId],
         _: &[CardId],
@@ -85,6 +94,7 @@ impl PlayerAgent for RecordingAgent {
 
     fn choose_target_player(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         valid: &[PlayerId],
         _: Option<&SpellAbility>,
@@ -94,6 +104,7 @@ impl PlayerAgent for RecordingAgent {
 
     fn choose_target_card(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         valid: &[CardId],
         _: Option<&SpellAbility>,
@@ -103,6 +114,7 @@ impl PlayerAgent for RecordingAgent {
 
     fn choose_target_any(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         valid_players: &[PlayerId],
         valid_cards: &[CardId],
@@ -134,6 +146,7 @@ impl PlayerAgent for RecordingAgent {
 
     fn pay_cost_to_prevent_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         cost_kind: &str,
         _: &str,
@@ -179,7 +192,7 @@ impl PlayerAgent for RecordingAgent {
         valid.first().copied()
     }
 
-    fn choose_land_or_spell(&mut self, _: PlayerId) -> Option<bool> {
+    fn choose_land_or_spell(&mut self, _context: DecisionContext<'_>, _: PlayerId) -> Option<bool> {
         None
     }
 }

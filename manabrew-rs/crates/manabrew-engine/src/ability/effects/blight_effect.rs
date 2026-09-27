@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::agent::GameEntity;
 use crate::card::CounterType;
 use crate::game_entity_counter_table::GameEntityCounterTable;
@@ -42,9 +43,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             })
             .collect();
         let options: Vec<GameEntity> = valid.iter().copied().map(GameEntity::Card).collect();
-        let chosen = match ctx.agents[player.index()]
-            .choose_single_entity_for_effect(player, &options, false)
-        {
+        let chosen = match ctx.agents[player.index()].choose_single_entity_for_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
+            player,
+            &options,
+            false,
+        ) {
             Some(GameEntity::Card(card)) => Some(card),
             _ => None,
         };

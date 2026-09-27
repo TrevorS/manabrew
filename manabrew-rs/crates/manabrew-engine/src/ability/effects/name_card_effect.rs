@@ -5,6 +5,7 @@ use forge_carddb::{CardDatabase, CardFace, CardRules};
 use forge_foundation::CardSplitType;
 
 use super::{matches_valid_cards_for_sa, EffectContext};
+use crate::agent::DecisionContext;
 use crate::card::Card;
 use crate::game::{CardDatabaseRegistry, GameState};
 use crate::ids::{CardId, PlayerId};
@@ -152,7 +153,11 @@ fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
         }
         chosen
     } else {
-        ctx.agents[controller.index()].choose_card_name(controller, &valid_names)
+        ctx.agents[controller.index()].choose_card_name(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
+            controller,
+            &valid_names,
+        )
     };
 
     if let (Some(chosen_name), Some(source_id)) = (chosen, sa.source) {

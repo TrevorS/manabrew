@@ -2,6 +2,7 @@
 //! Ported from Java's AbandonEffect: sets player as lost.
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::event::RunParams;
 use crate::parsing::keys;
 use crate::trigger::TriggerType;
@@ -20,6 +21,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if sa.param_is_true(keys::OPTIONAL) {
         let source_name = ctx.game.card(source_id).card_name.clone();
         let confirmed = ctx.agents[controller.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             controller,
             None,
             &format!("Would you like to abandon {source_name}?"),

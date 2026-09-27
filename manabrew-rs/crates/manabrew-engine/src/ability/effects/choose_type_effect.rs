@@ -1,4 +1,5 @@
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::game::TypeRegistry;
 
 /// `SP$ ChooseType` — the activating player chooses a creature type, card type, etc.
@@ -69,8 +70,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         return;
     }
 
-    let chosen =
-        ctx.agents[controller.index()].choose_type(controller, &type_category, &valid_types);
+    let chosen = ctx.agents[controller.index()].choose_type(
+        DecisionContext::new(ctx.game, ctx.mana_pools),
+        controller,
+        &type_category,
+        &valid_types,
+    );
 
     if let Some(chosen_type) = chosen {
         if let Some(source_id) = sa.source {

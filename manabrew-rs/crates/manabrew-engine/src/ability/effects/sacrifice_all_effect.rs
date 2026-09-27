@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{emit_zone_trigger_with_lki_counters, matches_change_type, EffectContext};
+use crate::agent::DecisionContext;
 use crate::card::valid_filter;
 use crate::event::RunParams;
 use crate::ids::CardId;
@@ -47,6 +48,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             };
             ctx.agents[payer.index()].snapshot_state(ctx.game, ctx.mana_pools);
             let wants_to_pay = ctx.agents[payer.index()].pay_cost_to_prevent_effect(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 payer,
                 if cost_kind.is_empty() {
                     "UnlessCost"

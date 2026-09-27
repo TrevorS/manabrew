@@ -2,6 +2,7 @@ use forge_foundation::ZoneType;
 
 use super::{matches_valid_cards_for_sa, EffectContext};
 use crate::ability::spell_ability_effect::get_target_cards;
+use crate::agent::DecisionContext;
 use crate::agent::GameEntity;
 use crate::event::RunParams;
 use crate::ids::CardId;
@@ -48,6 +49,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
             ctx.agents[controller.index()]
                 .choose_entities_for_effect(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
                     controller,
                     &choices,
                     min.max(0) as usize,

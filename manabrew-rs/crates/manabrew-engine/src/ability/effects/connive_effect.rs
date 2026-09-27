@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{emit_zone_trigger, resolve_numeric_svar, EffectContext};
+use crate::agent::DecisionContext;
 use crate::agent::GameEntity;
 use crate::event::RunParams;
 use crate::ids::CardId;
@@ -54,7 +55,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             let conniver = if connivers.len() > 1 {
                 let options: Vec<GameEntity> =
                     connivers.iter().copied().map(GameEntity::Card).collect();
-                match ctx.agents[p.index()].choose_single_entity_for_effect(p, &options, false) {
+                match ctx.agents[p.index()].choose_single_entity_for_effect(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
+                    p,
+                    &options,
+                    false,
+                ) {
                     Some(GameEntity::Card(card)) => card,
                     _ => connivers[0],
                 }
@@ -113,7 +119,12 @@ fn connive_one(
     }
 
     let amt = hand.len().min(num);
-    let to_discard = ctx.agents[controller.index()].choose_discard(controller, &hand, amt);
+    let to_discard = ctx.agents[controller.index()].choose_discard(
+        DecisionContext::new(ctx.game, ctx.mana_pools),
+        controller,
+        &hand,
+        amt,
+    );
 
     // Count nonland cards discarded (for +1/+1 counters).
     let mut nonland_count = 0i32;

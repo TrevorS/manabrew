@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{emit_zone_trigger, EffectContext};
+use crate::agent::DecisionContext;
 use crate::card::CounterType;
 use crate::event::RunParams;
 use crate::parsing::keys;
@@ -124,6 +125,7 @@ fn explore_one(
             let _explorer_name = ctx.game.card(explorer_id).card_name.clone();
             let msg = format!("Put {card_name} into your graveyard?");
             let put_in_gy = ctx.agents[controller.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 controller,
                 None,
                 &msg,

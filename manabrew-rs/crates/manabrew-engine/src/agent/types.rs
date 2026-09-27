@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
+use crate::mana::ManaPool;
 use crate::spellability::AlternativeCost;
 
 /// A game entity that can be a player or a card (permanent).
@@ -10,6 +12,23 @@ use crate::spellability::AlternativeCost;
 pub enum GameEntity {
     Player(PlayerId),
     Card(CardId),
+}
+
+#[derive(Clone, Copy)]
+pub struct DecisionContext<'a> {
+    pub game: &'a GameState,
+    pub mana_pools: &'a [ManaPool],
+}
+
+impl<'a> DecisionContext<'a> {
+    pub fn new(game: &'a GameState, mana_pools: &'a [ManaPool]) -> Self {
+        Self { game, mana_pools }
+    }
+}
+
+pub trait PriorityContext {
+    fn action_space(&mut self) -> PriorityActionSpace;
+    fn context(&self) -> DecisionContext<'_>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

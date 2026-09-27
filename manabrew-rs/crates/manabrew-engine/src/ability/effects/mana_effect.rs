@@ -1,6 +1,7 @@
 use forge_foundation::mana::ManaAtom;
 
 use super::{mana_atom_from_produced, EffectContext};
+use crate::agent::DecisionContext;
 use crate::spellability::SpellAbility;
 
 /// Build/configure the spell ability after construction.
@@ -51,6 +52,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if sa.ir.optional {
         let _card_name = ctx.game.card(source_id).card_name.clone();
         if !ctx.agents[player.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             player,
             Some("ProduceMana"),
             "Produce mana?",
@@ -278,7 +280,11 @@ fn produce_mana_for_player(
             } else {
                 chosen_mana_letter(
                     ctx.agents[chooser.index()]
-                        .choose_color(chooser, &available)
+                        .choose_color(
+                            DecisionContext::new(ctx.game, ctx.mana_pools),
+                            chooser,
+                            &available,
+                        )
                         .or_else(|| available.first().cloned())
                         .unwrap_or_else(|| "C".to_string()),
                 )
@@ -290,6 +296,7 @@ fn produce_mana_for_player(
         // ignored; the per-unit `choose_color` results above are authoritative.
         if amount > 1 {
             let _summary = ctx.agents[chooser.index()].specify_mana_combo(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 chooser,
                 &per_unit,
                 amount as usize,
@@ -303,7 +310,11 @@ fn produce_mana_for_player(
         let available = ["W", "U", "B", "R", "G"].map(String::from).to_vec();
         let pick = chosen_mana_letter(
             ctx.agents[chooser.index()]
-                .choose_color(chooser, &available)
+                .choose_color(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
+                    chooser,
+                    &available,
+                )
                 .unwrap_or_else(|| "W".to_string()),
         );
         final_mana = vec![pick; amount as usize].join(" ");

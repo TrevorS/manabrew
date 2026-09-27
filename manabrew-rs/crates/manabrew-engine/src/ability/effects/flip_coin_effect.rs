@@ -1,5 +1,6 @@
 use super::{resolve_defined_players, resolve_numeric_svar, EffectContext};
 use crate::agent::notification::GameNotification;
+use crate::agent::DecisionContext;
 use crate::agent::{BinaryChoiceKind, GameLogEvent};
 use crate::ids::{CardId, PlayerId};
 use crate::spellability::SpellAbility;
@@ -132,6 +133,7 @@ fn flip_single_coin(
         Some(true)
     } else {
         Some(ctx.agents[flipper.index()].choose_binary(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             flipper,
             "Call the coin flip",
             BinaryChoiceKind::HeadsOrTails,
@@ -151,6 +153,7 @@ fn flip_single_coin(
         results[0]
     } else {
         ctx.agents[flipper.index()].choose_binary(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             flipper,
             "Choose a coin result to keep",
             BinaryChoiceKind::HeadsOrTails,

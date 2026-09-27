@@ -2,6 +2,7 @@
 
 use super::EffectContext;
 use crate::ability::spell_ability_effect::get_defined_players_or_targeted;
+use crate::agent::DecisionContext;
 use crate::spellability::{build_spell_ability, SpellAbility};
 
 /// Struct form of this effect so it can participate in the
@@ -119,8 +120,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         } else if !abilities.is_empty() {
             ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
-            let chosen_indices = ctx.agents[chooser.index()]
-                .choose_spell_abilities_for_effect(chooser, &abilities, amount);
+            let chosen_indices = ctx.agents[chooser.index()].choose_spell_abilities_for_effect(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                chooser,
+                &abilities,
+                amount,
+            );
 
             chosen_sas = chosen_indices
                 .into_iter()

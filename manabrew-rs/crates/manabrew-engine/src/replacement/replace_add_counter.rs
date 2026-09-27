@@ -13,6 +13,7 @@ use super::replacement_effect::ReplacementEffect;
 use super::replacement_handler::ReplacementEvent;
 use super::replacement_result::ReplacementResult;
 use super::replacement_type::ReplacementType;
+use crate::agent::DecisionContext;
 use crate::card_trait_base::CardTrait;
 
 /// Check if the effect has a `ValidCounterType$` that matches the given counter type.
@@ -350,7 +351,12 @@ fn selected_counter_sources(
                 .filter_map(|entry| entry.source)
                 .collect();
             let source = if let Some(agents) = agents.as_deref_mut() {
-                agents[chooser.index()].choose_target_player(chooser, &sources, None)
+                agents[chooser.index()].choose_target_player(
+                    DecisionContext::new(game, &[]),
+                    chooser,
+                    &sources,
+                    None,
+                )
             } else {
                 sources.first().copied()
             };

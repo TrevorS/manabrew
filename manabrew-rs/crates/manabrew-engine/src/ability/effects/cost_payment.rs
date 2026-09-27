@@ -16,6 +16,7 @@ use crate::trigger::TriggerType;
 use super::effect_context::EffectContext;
 use super::effect_resolver::resolve_effect;
 use super::zone_triggers::emit_zone_trigger;
+use crate::agent::DecisionContext;
 
 pub(super) fn resolve_mana_ability_for_effect_payment(
     ctx: &mut EffectContext,
@@ -531,8 +532,14 @@ fn try_pay_effect_cost(
                 effect_cost_part_display(part),
                 card_name.as_deref().unwrap_or("unknown")
             );
-            if !ctx.agents[payer.index()].confirm_payment(payer, kind, &message, sa.source, sa.api)
-            {
+            if !ctx.agents[payer.index()].confirm_payment(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                payer,
+                kind,
+                &message,
+                sa.source,
+                sa.api,
+            ) {
                 return false;
             }
         }
@@ -609,6 +616,7 @@ fn try_pay_effect_cost(
                 if !untapped.is_empty() && remaining > 0 {
                     ctx.agents[payer.index()].snapshot_state(ctx.game, ctx.mana_pools);
                     let to_tap = ctx.agents[payer.index()].choose_convoke(
+                        DecisionContext::new(ctx.game, ctx.mana_pools),
                         payer,
                         &untapped,
                         &forge_foundation::ManaCost::generic(remaining),
@@ -706,7 +714,12 @@ fn try_pay_effect_cost(
                     }
                     ctx.agents[payer.index()].snapshot_state(ctx.game, ctx.mana_pools);
                     let Some(crate::agent::GameEntity::Card(chosen)) = ctx.agents[payer.index()]
-                        .choose_single_entity_for_effect(payer, &choices, false)
+                        .choose_single_entity_for_effect(
+                            DecisionContext::new(ctx.game, ctx.mana_pools),
+                            payer,
+                            &choices,
+                            false,
+                        )
                     else {
                         return false;
                     };
@@ -785,7 +798,13 @@ fn try_pay_effect_cost(
                 let chosen = if amount == 0 {
                     Vec::new()
                 } else {
-                    ctx.agents[payer.index()].choose_cards_for_effect(payer, &valid, amount, amount)
+                    ctx.agents[payer.index()].choose_cards_for_effect(
+                        DecisionContext::new(ctx.game, ctx.mana_pools),
+                        payer,
+                        &valid,
+                        amount,
+                        amount,
+                    )
                 };
                 if chosen.len() < amount {
                     ctx.game.end_discard_batch(ctx.trigger_handler);
@@ -814,7 +833,12 @@ fn try_pay_effect_cost(
                     Vec::new()
                 } else {
                     ctx.agents[payer.index()].choose_permanents_to_sacrifice(
-                        payer, required, required, &valid, sa.source,
+                        DecisionContext::new(ctx.game, ctx.mana_pools),
+                        payer,
+                        required,
+                        required,
+                        &valid,
+                        sa.source,
                     )
                 };
                 if chosen_cards.len() < required {
@@ -850,7 +874,12 @@ fn try_pay_effect_cost(
                         .collect();
                 ctx.agents[payer.index()].snapshot_state(ctx.game, ctx.mana_pools);
                 let Some(crate::agent::GameEntity::Card(chosen)) = ctx.agents[payer.index()]
-                    .choose_single_entity_for_effect(payer, &choices, false)
+                    .choose_single_entity_for_effect(
+                        DecisionContext::new(ctx.game, ctx.mana_pools),
+                        payer,
+                        &choices,
+                        false,
+                    )
                 else {
                     return false;
                 };
@@ -903,8 +932,13 @@ fn try_pay_effect_cost(
                 if valid.len() < amount {
                     return false;
                 }
-                let chosen = ctx.agents[payer.index()]
-                    .choose_cards_for_effect(payer, &valid, amount, amount);
+                let chosen = ctx.agents[payer.index()].choose_cards_for_effect(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
+                    payer,
+                    &valid,
+                    amount,
+                    amount,
+                );
                 for cid in chosen {
                     let owner = ctx.game.card(cid).owner;
                     ctx.move_card(cid, ZoneType::Exile, owner);
@@ -937,8 +971,13 @@ fn try_pay_effect_cost(
                 if amount == 0 || pool.len() < amount {
                     return false;
                 }
-                let chosen =
-                    ctx.agents[payer.index()].choose_cards_for_effect(payer, &pool, amount, amount);
+                let chosen = ctx.agents[payer.index()].choose_cards_for_effect(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
+                    payer,
+                    &pool,
+                    amount,
+                    amount,
+                );
                 if chosen.len() < amount {
                     return false;
                 }
@@ -967,8 +1006,13 @@ fn try_pay_effect_cost(
                 if amount == 0 || pool.len() < amount {
                     return false;
                 }
-                let chosen =
-                    ctx.agents[payer.index()].choose_cards_for_effect(payer, &pool, amount, amount);
+                let chosen = ctx.agents[payer.index()].choose_cards_for_effect(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
+                    payer,
+                    &pool,
+                    amount,
+                    amount,
+                );
                 if chosen.len() < amount {
                     return false;
                 }
@@ -1137,8 +1181,14 @@ pub(super) fn resolve_effect_with_unless_cost(
                 effect_cost_part_display(&cost.parts[0]),
                 card_name.unwrap_or("unknown")
             );
-            if !ctx.agents[payer.index()].confirm_payment(payer, kind, &message, sa.source, sa.api)
-            {
+            if !ctx.agents[payer.index()].confirm_payment(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                payer,
+                kind,
+                &message,
+                sa.source,
+                sa.api,
+            ) {
                 continue;
             }
         }
@@ -1160,6 +1210,7 @@ pub(super) fn resolve_effect_with_unless_cost(
             sa.stack_description.clone()
         };
         if !ctx.agents[payer.index()].pay_cost_to_prevent_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             payer,
             if cost_kind.is_empty() {
                 "UnlessCost"
@@ -1221,6 +1272,7 @@ pub(super) fn resolve_effect_with_unless_cost(
                 .unwrap_or("Use this optional effect?");
             ctx.agents[decider.index()].snapshot_state(ctx.game, ctx.mana_pools);
             if !ctx.agents[decider.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 decider,
                 Some("OptionalEffect"),
                 prompt,

@@ -1,4 +1,5 @@
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::ids::CardId;
 use crate::parsing::keys;
 use crate::replacement::replacement_handler::{
@@ -53,6 +54,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let player = sa.activating_player;
         ctx.agents[player.index()].snapshot_state(ctx.game, ctx.mana_pools);
         ctx.agents[player.index()].choose_cards_for_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             player,
             &choices,
             min_amount.max(0) as usize,
@@ -102,6 +104,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if sa.param_is_true(keys::OPTIONAL) {
             let message = format!("Transform {}?", ctx.game.card(card_id).card_name);
             if !ctx.agents[sa.activating_player.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 sa.activating_player,
                 Some("Random"),
                 &message,

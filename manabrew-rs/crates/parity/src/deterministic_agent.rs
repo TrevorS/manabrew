@@ -25,6 +25,7 @@ use crate::gui_repro;
 use crate::java_random::JavaRandom;
 use crate::parity_card_map::ParityCardMap;
 use crate::parity_order;
+use manabrew_engine::agent::{DecisionContext, PriorityContext};
 
 #[allow(dead_code)]
 const ANSI_RESET: &str = "\x1b[0m";
@@ -1362,6 +1363,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn mulligan_decision(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _hand: &[CardId],
         _mulligan_count: u32,
@@ -1373,7 +1375,7 @@ impl PlayerAgent for DeterministicAgent {
         &mut self,
         _player: PlayerId,
         action_space: Option<&PriorityActionSpace>,
-        request_action_space: &mut dyn FnMut() -> PriorityActionSpace,
+        priority: &mut dyn PriorityContext,
     ) -> PlayerAction {
         if self.should_skip_priority_action_space() {
             return PlayerAction::PassPriority;
@@ -1382,7 +1384,7 @@ impl PlayerAgent for DeterministicAgent {
         let action_space = match action_space {
             Some(action_space) => action_space,
             None => {
-                requested_action_space = request_action_space();
+                requested_action_space = priority.action_space();
                 &requested_action_space
             }
         };
@@ -1510,6 +1512,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn pay_mana_cost(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _card_id: CardId,
         _card_name: &str,
@@ -1529,6 +1532,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn pay_combat_cost(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _attacker: CardId,
         _cost: i32,
@@ -1543,6 +1547,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_attackers(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         available: &[CardId],
         possible_defenders: &[DefenderId],
@@ -1609,7 +1614,12 @@ impl PlayerAgent for DeterministicAgent {
         attackers
     }
 
-    fn exert_attackers(&mut self, _player: PlayerId, attackers: &[CardId]) -> Vec<CardId> {
+    fn exert_attackers(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        attackers: &[CardId],
+    ) -> Vec<CardId> {
         if attackers.is_empty() {
             return vec![];
         }
@@ -1623,7 +1633,12 @@ impl PlayerAgent for DeterministicAgent {
         out
     }
 
-    fn enlist_attackers(&mut self, _player: PlayerId, attackers: &[CardId]) -> Vec<CardId> {
+    fn enlist_attackers(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        attackers: &[CardId],
+    ) -> Vec<CardId> {
         if attackers.is_empty() {
             return vec![];
         }
@@ -1634,6 +1649,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_blockers(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         attackers: &[CardId],
         available_blockers: &[CardId],
@@ -1711,6 +1727,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_blocker_for(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         attackers: &[CardId],
         blocker: CardId,
@@ -1739,6 +1756,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_damage_assignment_order(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _attacker: CardId,
         blockers: &[CardId],
@@ -1817,6 +1835,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_target_card_or_stack(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         cards: &[CardId],
         stack: &[(u32, CardId)],
@@ -1855,6 +1874,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_target_spell(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[u32],
         _source: Option<CardId>,
@@ -1885,6 +1905,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_target_player(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[PlayerId],
         _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -1899,6 +1920,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_target_card(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -1918,6 +1940,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_target_card_from_zone(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _zone: forge_foundation::ZoneType,
         valid: &[CardId],
@@ -1935,6 +1958,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_target_any(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid_players: &[PlayerId],
         valid_cards: &[CardId],
@@ -1991,6 +2015,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_optional_trigger(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _description: &str,
         _source: Option<CardId>,
@@ -2002,6 +2027,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn confirm_action(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _mode: Option<&str>,
         _message: &str,
@@ -2015,6 +2041,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn confirm_replacement_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _question: &str,
         _effect_description: &str,
@@ -2026,6 +2053,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn confirm_payment(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _cost_kind: &str,
         _message: &str,
@@ -2038,6 +2066,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn pay_cost_to_prevent_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _cost_kind: &str,
         _message: &str,
@@ -2056,6 +2085,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_binary(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _question: &str,
         _kind: BinaryChoiceKind,
@@ -2069,7 +2099,12 @@ impl PlayerAgent for DeterministicAgent {
 
     // ── Fixed overrides that sort alphabetically (matching Java) but use no RNG ──
 
-    fn choose_legend_keep(&mut self, _player: PlayerId, duplicates: &[CardId]) -> CardId {
+    fn choose_legend_keep(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        duplicates: &[CardId],
+    ) -> CardId {
         // Sort by (card_name, parity_id) for deterministic cross-engine parity.
         // Both Java and Rust sort identically to avoid HashMap ordering issues.
         let sorted = choice_space::sort_native(duplicates, |a, b| {
@@ -2082,6 +2117,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_sacrifice(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         _source: Option<CardId>,
@@ -2104,6 +2140,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_permanents_to_sacrifice(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         min: usize,
         max: usize,
@@ -2118,7 +2155,13 @@ impl PlayerAgent for DeterministicAgent {
         gui_repro::pick_many_unique(&sorted, min, max, &mut self.rng.borrow_mut())
     }
 
-    fn choose_discard(&mut self, _player: PlayerId, hand: &[CardId], num: usize) -> Vec<CardId> {
+    fn choose_discard(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        hand: &[CardId],
+        num: usize,
+    ) -> Vec<CardId> {
         if hand.is_empty() || num == 0 {
             return vec![];
         }
@@ -2133,6 +2176,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_discard_any_number(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         hand: &[CardId],
         min: usize,
@@ -2173,7 +2217,13 @@ impl PlayerAgent for DeterministicAgent {
         gui_repro::pick_many_unique(&sorted, min, max, &mut self.rng.borrow_mut())
     }
 
-    fn vote(&mut self, _player: PlayerId, options: &[String], optional: bool) -> Option<usize> {
+    fn vote(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        options: &[String],
+        optional: bool,
+    ) -> Option<usize> {
         let mut rng = self.rng.borrow_mut();
         if optional && choice_space::pick_bool(&mut rng) {
             return None;
@@ -2183,6 +2233,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_cards_to_reveal(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         min: usize,
@@ -2198,6 +2249,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_cards_pile(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _pile1: &[CardId],
         _pile2: &[CardId],
@@ -2208,6 +2260,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_cards_for_effect_multiple(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         pools: &[Vec<CardId>],
         _optional: bool,
@@ -2234,18 +2287,28 @@ impl PlayerAgent for DeterministicAgent {
         chosen
     }
 
-    fn choose_land_or_spell(&mut self, _player: PlayerId) -> Option<bool> {
+    fn choose_land_or_spell(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+    ) -> Option<bool> {
         // TODO: engine does not currently expose a typed choice list here.
         None
     }
 
-    fn choose_color(&mut self, _player: PlayerId, valid_colors: &[String]) -> Option<String> {
+    fn choose_color(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        valid_colors: &[String],
+    ) -> Option<String> {
         let sorted = parity_order::sort_color_names_like_java(valid_colors);
         gui_repro::choose_color(&sorted, &mut self.rng.borrow_mut())
     }
 
     fn choose_mana_from_pool(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         mana_choices: &[manabrew_engine::mana::Mana],
     ) -> usize {
@@ -2255,6 +2318,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_colors(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid_colors: &[String],
         min: usize,
@@ -2266,6 +2330,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_type(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _type_category: &str,
         valid_types: &[String],
@@ -2273,12 +2338,18 @@ impl PlayerAgent for DeterministicAgent {
         gui_repro::choose_type(valid_types, &mut self.rng.borrow_mut())
     }
 
-    fn choose_card_name(&mut self, _player: PlayerId, valid_names: &[String]) -> Option<String> {
+    fn choose_card_name(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        valid_names: &[String],
+    ) -> Option<String> {
         gui_repro::choose_card_name(valid_names, &mut self.rng.borrow_mut())
     }
 
     fn choose_counter_type(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         options: &[manabrew_engine::card::CounterType],
         _prompt: &str,
@@ -2292,6 +2363,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_number(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _source: Option<CardId>,
         _title: &str,
@@ -2308,6 +2380,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_number_for_keyword_cost(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         max: i32,
         _prompt: &str,
@@ -2321,6 +2394,7 @@ impl PlayerAgent for DeterministicAgent {
     /// shards with life when no colored mana source is available.
     fn choose_phyrexian_pay_life(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _color: &str,
         _source: Option<CardId>,
@@ -2330,6 +2404,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_cards_for_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         min: usize,
@@ -2353,6 +2428,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_target_cards(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[CardId],
         min: usize,
@@ -2369,7 +2445,7 @@ impl PlayerAgent for DeterministicAgent {
             self.log_target_candidates(&[], &sorted);
             return self.choose_targets_like_java(sorted, min, max);
         }
-        self.choose_cards_for_effect(player, valid, min, max)
+        self.choose_cards_for_effect(context, player, valid, min, max)
     }
 
     /// One iteration of `DeterministicController.chooseTargetsFor`, whose candidates the engine
@@ -2377,6 +2453,7 @@ impl PlayerAgent for DeterministicAgent {
     /// meets the minimum while another target could still be added, and its loop then ends.
     fn choose_next_target_card(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         candidates: &[CardId],
         chosen: &[CardId],
@@ -2391,7 +2468,14 @@ impl PlayerAgent for DeterministicAgent {
                 .filter(|cid| !chosen.contains(cid))
                 .collect();
             return self
-                .choose_target_cards(player, &fresh, usize::from(chosen.len() < min), 1, sa)
+                .choose_target_cards(
+                    context,
+                    player,
+                    &fresh,
+                    usize::from(chosen.len() < min),
+                    1,
+                    sa,
+                )
                 .into_iter()
                 .next();
         }
@@ -2416,6 +2500,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_next_target_player(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         candidates: &[PlayerId],
         chosen: &[PlayerId],
@@ -2425,11 +2510,12 @@ impl PlayerAgent for DeterministicAgent {
         if chosen.len() >= min {
             return None;
         }
-        self.choose_target_player(player, candidates, Some(sa))
+        self.choose_target_player(context, player, candidates, Some(sa))
     }
 
     fn choose_tap_type_for_cost(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         min_total_power: i32,
@@ -2470,6 +2556,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_entities_for_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         candidates: &[GameEntity],
         min: usize,
@@ -2517,7 +2604,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_cards_for_zone_change(
         &mut self,
-        _game: &GameState,
+        game: &GameState,
         player: PlayerId,
         valid: &[CardId],
         min: usize,
@@ -2529,11 +2616,12 @@ impl PlayerAgent for DeterministicAgent {
                 .cmp(&self.card_name(*b))
                 .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
         });
-        self.choose_cards_for_effect(player, &sorted, min, max)
+        self.choose_cards_for_effect(DecisionContext::new(game, &[]), player, &sorted, min, max)
     }
 
     fn choose_delve(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         max: usize,
@@ -2549,6 +2637,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_keyword_for_pump(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         options: &[String],
         _source_card_id: Option<CardId>,
@@ -2559,6 +2648,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_mode(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         descriptions: &[String],
         min: usize,
@@ -2584,6 +2674,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_spell_abilities_for_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         abilities: &[SpellAbility],
         num: usize,
@@ -2607,6 +2698,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_single_entity_for_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[GameEntity],
         _is_optional: bool,
@@ -2632,6 +2724,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn get_ability_to_play(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         abilities: &[SpellAbility],
     ) -> Option<usize> {
@@ -2732,6 +2825,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_single_replacement_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         descriptions: &[String],
         hosts: &[CardId],

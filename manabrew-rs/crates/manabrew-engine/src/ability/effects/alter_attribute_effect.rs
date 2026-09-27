@@ -5,6 +5,7 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::event::RunParams;
 use crate::ids::CardId;
 use crate::trigger::TriggerType;
@@ -97,6 +98,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let activator = sa.activating_player;
         ctx.agents[activator.index()].snapshot_state(ctx.game, ctx.mana_pools);
         if !ctx.agents[activator.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             activator,
             None,
             &sa.description,

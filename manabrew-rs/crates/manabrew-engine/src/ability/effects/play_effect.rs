@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::agent::{GameEntity, GameLogEvent};
 use crate::event::RunParams;
 use crate::ids::CardId;
@@ -52,6 +53,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     while !candidates.is_empty() && amount > 0 {
         let tgt_cards: Vec<_> = candidates.iter().copied().map(GameEntity::Card).collect();
         let chosen = ctx.agents[controller.index()].choose_single_entity_for_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             controller,
             &tgt_cards,
             !single_option && optional,
@@ -67,6 +69,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if single_option {
             let card_name = ctx.game.card(card_id).card_name.clone();
             let accepted = ctx.agents[controller.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 controller,
                 None,
                 &format!("Do you want to play {card_name}?"),
@@ -107,7 +110,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if abilities.is_empty() {
             continue;
         }
-        let sa_idx = ctx.agents[controller.index()].get_ability_to_play(controller, &abilities);
+        let sa_idx = ctx.agents[controller.index()].get_ability_to_play(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
+            controller,
+            &abilities,
+        );
         let Some(mut spell_sa) = sa_idx.and_then(|idx| abilities.into_iter().nth(idx)) else {
             continue;
         };
@@ -170,7 +177,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
             }
             let Some(idx) = ctx.agents[controller.index()]
-                .get_ability_to_play(controller, &variant_sas)
+                .get_ability_to_play(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
+                    controller,
+                    &variant_sas,
+                )
                 .filter(|&idx| idx < variant_sas.len())
             else {
                 restore_split_state(ctx, card_id, was_transformed);
@@ -227,6 +238,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             };
             ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
             let Some(x) = ctx.agents[controller.index()].choose_number(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 controller,
                 Some(card_id),
                 "Choose a value for X",

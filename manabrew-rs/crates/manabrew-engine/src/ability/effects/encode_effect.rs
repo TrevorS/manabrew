@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 
 /// `SP$ Encode` — exile the spell card and encode it onto a creature (Cipher).
 ///
@@ -47,8 +48,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             return None;
         }
 
-        let chosen =
-            ctx.agents[controller.index()].choose_cards_for_effect(controller, &creatures, 1, 1);
+        let chosen = ctx.agents[controller.index()].choose_cards_for_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
+            controller,
+            &creatures,
+            1,
+            1,
+        );
         chosen.into_iter().next()
     });
 

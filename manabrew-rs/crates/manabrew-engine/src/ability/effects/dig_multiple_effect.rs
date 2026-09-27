@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{emit_zone_trigger, resolve_numeric_svar, EffectContext};
+use crate::agent::DecisionContext;
 use crate::ids::CardId;
 
 /// Mirrors Java's `DigEffect.java`.
@@ -95,6 +96,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .as_deref()
             .unwrap_or("Would you like to proceed with this optional ability?");
         let accepted = ctx.agents[dig_player.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             dig_player,
             None,
             prompt,
@@ -118,7 +120,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     } else {
         ctx.agents[dig_player.index()].snapshot_state(ctx.game, ctx.mana_pools);
         ctx.agents[dig_player.index()]
-            .choose_cards_for_effect_multiple(dig_player, &pools, optional)
+            .choose_cards_for_effect_multiple(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                dig_player,
+                &pools,
+                optional,
+            )
             .into_iter()
             .filter(|id| valid.contains(id))
             .collect()
@@ -219,6 +226,7 @@ fn java_hash_map_order<'a>(keys: impl Iterator<Item = &'a str>) -> Vec<&'a str> 
 #[cfg(test)]
 mod tests {
     use crate::ability::spell_ability_effect::SpellAbilityEffect;
+    use crate::agent::{DecisionContext, PriorityContext};
     use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 
     use crate::ability::effects::EffectContext;
@@ -251,19 +259,26 @@ mod tests {
     /// Agent that always picks the first card offered during dig.
     struct TakeFirstAgent;
     impl PlayerAgent for TakeFirstAgent {
-        fn mulligan_decision(&mut self, _: PlayerId, _: &[CardId], _: u32) -> bool {
+        fn mulligan_decision(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+            _: &[CardId],
+            _: u32,
+        ) -> bool {
             true
         }
         fn choose_action(
             &mut self,
             _player: PlayerId,
             _action_space: Option<&crate::agent::PriorityActionSpace>,
-            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _priority: &mut dyn PriorityContext,
         ) -> crate::player::actions::PlayerAction {
             crate::player::actions::PlayerAction::PassPriority
         }
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[DefenderId],
@@ -272,6 +287,7 @@ mod tests {
         }
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[CardId],
@@ -281,6 +297,7 @@ mod tests {
         }
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             v: &[PlayerId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -289,6 +306,7 @@ mod tests {
         }
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             v: &[CardId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -297,6 +315,7 @@ mod tests {
         }
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             vp: &[PlayerId],
             vc: &[CardId],
@@ -308,7 +327,11 @@ mod tests {
                 .or_else(|| vc.first().copied().map(crate::agent::TargetChoice::Card))
                 .unwrap_or(crate::agent::TargetChoice::None)
         }
-        fn choose_land_or_spell(&mut self, _: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+        ) -> Option<bool> {
             None
         }
         fn choose_dig(

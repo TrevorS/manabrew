@@ -2,6 +2,7 @@ use forge_foundation::ZoneType;
 
 use super::helpers::matches_valid_cards_for_sa;
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::agent::GameEntity;
 use crate::ids::{CardId, PlayerId};
 use crate::parsing::Params;
@@ -64,6 +65,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
             ctx.agents[separator.index()].snapshot_state(ctx.game, ctx.mana_pools);
             let pile1 = ctx.agents[separator.index()].choose_cards_for_effect(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 separator,
                 &pool,
                 0,
@@ -75,7 +77,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         let pile1_chosen = is_left_right_pile || {
             ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
-            ctx.agents[chooser.index()].choose_cards_pile(chooser, &pile1, &pile2, &face_down)
+            ctx.agents[chooser.index()].choose_cards_pile(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                chooser,
+                &pile1,
+                &pile2,
+                &face_down,
+            )
         };
         let (chosen_pile, unchosen_pile) = if pile1_chosen {
             (pile1, pile2)
@@ -118,8 +126,12 @@ fn choose_defined_player(
     let entities: Vec<GameEntity> = choices.into_iter().map(GameEntity::Player).collect();
     let activator = sa.activating_player;
     ctx.agents[activator.index()].snapshot_state(ctx.game, ctx.mana_pools);
-    match ctx.agents[activator.index()].choose_single_entity_for_effect(activator, &entities, false)
-    {
+    match ctx.agents[activator.index()].choose_single_entity_for_effect(
+        DecisionContext::new(ctx.game, ctx.mana_pools),
+        activator,
+        &entities,
+        false,
+    ) {
         Some(GameEntity::Player(pid)) => Some(pid),
         _ => None,
     }

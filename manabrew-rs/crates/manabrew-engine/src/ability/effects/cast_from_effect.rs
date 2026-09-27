@@ -11,6 +11,7 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::agent::GameLogEvent;
 use crate::event::RunParams;
 use crate::ids::{CardId, PlayerId};
@@ -116,6 +117,7 @@ pub fn offer_cast_or_alternative(
     let card_name = ctx.game.card(card_id).card_name.clone();
     ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
     ctx.agents[controller.index()].confirm_action(
+        DecisionContext::new(ctx.game, ctx.mana_pools),
         controller,
         Some("CastFromEffect"),
         &format!("{card_name}: {cast_label} or {alt_label}?"),

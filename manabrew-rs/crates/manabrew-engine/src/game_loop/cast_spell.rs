@@ -1,5 +1,6 @@
 use super::mana_payment::ManaPaymentSession;
 use super::*;
+use crate::agent::DecisionContext;
 use crate::mana::mana_cost_being_paid::ManaCostBeingPaid;
 
 impl GameLoop {
@@ -87,7 +88,15 @@ impl GameLoop {
         let (min, max) = Self::announce_bounds(game, player, sa, cost, announce)?;
         agents[player.index()].snapshot_state(game, &self.mana_pools);
         let title = format!("Choose a value for {announce}");
-        agents[player.index()].choose_number(player, sa.source, &title, None, min, max)
+        agents[player.index()].choose_number(
+            DecisionContext::new(game, &self.mana_pools),
+            player,
+            sa.source,
+            &title,
+            None,
+            min,
+            max,
+        )
     }
 
     pub(crate) fn announce_bounds(
@@ -925,6 +934,7 @@ impl GameLoop {
         for _ in 0..conspire_count {
             agents[player.index()].snapshot_state(game, &self.mana_pools);
             if agents[player.index()].choose_number_for_keyword_cost(
+                DecisionContext::new(game, &self.mana_pools),
                 player,
                 1,
                 &format!("Pay for Conspire? {conspire_cost}"),
@@ -1027,6 +1037,7 @@ impl GameLoop {
             Some(cost_str) if !sa.can_cast_timing(game) => {
                 agents[player.index()].snapshot_state(game, &self.mana_pools);
                 agents[player.index()].choose_kicker(
+                    DecisionContext::new(game, &self.mana_pools),
                     player,
                     &format!("MayFlashCost:{cost_str}"),
                     Some(card_id),
@@ -1178,7 +1189,12 @@ impl GameLoop {
             if available_mana.can_pay(&combined) {
                 let _name = game.card(card_id).card_name.clone();
                 agents[player.index()].snapshot_state(game, &self.mana_pools);
-                agents[player.index()].choose_kicker(player, &kicker_cost_str, Some(card_id))
+                agents[player.index()].choose_kicker(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
+                    &kicker_cost_str,
+                    Some(card_id),
+                )
             } else {
                 false
             }
@@ -1204,7 +1220,12 @@ impl GameLoop {
             if available_mana.can_pay(&combined) {
                 let _name = game.card(card_id).card_name.clone();
                 agents[player.index()].snapshot_state(game, &self.mana_pools);
-                agents[player.index()].choose_buyback(player, &buyback_cost_str, Some(card_id))
+                agents[player.index()].choose_buyback(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
+                    &buyback_cost_str,
+                    Some(card_id),
+                )
             } else {
                 false
             }
@@ -1239,6 +1260,7 @@ impl GameLoop {
             {
                 agents[player.index()].snapshot_state(game, &self.mana_pools);
                 agents[player.index()].choose_kicker(
+                    DecisionContext::new(game, &self.mana_pools),
                     player,
                     &format!("Teamwork<{amount}>"),
                     Some(card_id),
@@ -1269,6 +1291,7 @@ impl GameLoop {
                 let _name = game.card(card_id).card_name.clone();
                 agents[player.index()].snapshot_state(game, &self.mana_pools);
                 agents[player.index()].choose_multikicker(
+                    DecisionContext::new(game, &self.mana_pools),
                     player,
                     &mk_cost_str,
                     max_kicks,
@@ -1319,6 +1342,7 @@ impl GameLoop {
                 let _name = game.card(card_id).card_name.clone();
                 agents[player.index()].snapshot_state(game, &self.mana_pools);
                 agents[player.index()].choose_replicate(
+                    DecisionContext::new(game, &self.mana_pools),
                     player,
                     &rep_cost_str,
                     max_reps,
@@ -1388,6 +1412,7 @@ impl GameLoop {
                     .unwrap_or(1);
                 let max_modes = mode_descriptions.len();
                 let chosen = agents[player.index()].choose_mode(
+                    DecisionContext::new(game, &self.mana_pools),
                     player,
                     &mode_descriptions,
                     min_modes,
@@ -1422,7 +1447,12 @@ impl GameLoop {
             if available_mana.can_pay(&combined) {
                 let _name = game.card(card_id).card_name.clone();
                 agents[player.index()].snapshot_state(game, &self.mana_pools);
-                agents[player.index()].choose_kicker(player, &entwine_cost_str, Some(card_id))
+                agents[player.index()].choose_kicker(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
+                    &entwine_cost_str,
+                    Some(card_id),
+                )
             } else {
                 false
             }
@@ -1455,6 +1485,7 @@ impl GameLoop {
                 if let Some(opp) = opponent {
                     agents[opp.index()].snapshot_state(game, &self.mana_pools);
                     let assisted = agents[opp.index()].help_pay_assist(
+                        DecisionContext::new(game, &self.mana_pools),
                         opp,
                         &game.card(card_id).card_name,
                         generic as u32,
@@ -1508,7 +1539,11 @@ impl GameLoop {
                 return None;
             }
             let chosen_idx = agents[player.index()]
-                .get_ability_to_play(player, &variant_sas)
+                .get_ability_to_play(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
+                    &variant_sas,
+                )
                 .unwrap_or(0)
                 .min(variant_costs.len() - 1);
             let chosen = variant_costs.swap_remove(chosen_idx);
@@ -1622,7 +1657,13 @@ impl GameLoop {
                 .map_or(0, |(min, _)| min.max(0) as u32)
                 .min(x_value);
             x_value = agents[player.index()]
-                .announce_requirements_x(player, Some(card_id), x_min, x_value)
+                .announce_requirements_x(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
+                    Some(card_id),
+                    x_min,
+                    x_value,
+                )
                 .clamp(x_min, x_value);
             let payment_x_value = x_value;
             non_x_cost.add(&forge_foundation::ManaCost::generic(
@@ -1814,6 +1855,7 @@ impl GameLoop {
                 agents[player.index()].snapshot_state(game, &self.mana_pools);
                 let chosen_power = agents[player.index()]
                     .choose_number(
+                        DecisionContext::new(game, &self.mana_pools),
                         player,
                         Some(card_id),
                         "Harmonize",
@@ -1824,6 +1866,7 @@ impl GameLoop {
                     .unwrap_or(0)
                     .clamp(0, max_power);
                 let pay_keyword_cost = agents[player.index()].choose_number_for_keyword_cost(
+                    DecisionContext::new(game, &self.mana_pools),
                     player,
                     1,
                     "Tap creature?",
@@ -1944,6 +1987,7 @@ impl GameLoop {
             if let Some(offspring_cost) = game.card(card_id).get_keyword_cost("Offspring") {
                 agents[player.index()].snapshot_state(game, &self.mana_pools);
                 if agents[player.index()].choose_number_for_keyword_cost(
+                    DecisionContext::new(game, &self.mana_pools),
                     player,
                     1,
                     &format!("Pay for Offspring? {offspring_cost}"),

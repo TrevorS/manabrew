@@ -2,6 +2,7 @@ use forge_foundation::ZoneType;
 
 use super::EffectContext;
 use crate::ability::ability_ir::DefinedRef;
+use crate::agent::DecisionContext;
 use crate::card::card_util;
 use crate::card::perpetual::perpetual_interface::PerpetualInterface;
 use crate::card::perpetual::{perpetual_keywords, perpetual_pt_boost};
@@ -78,6 +79,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .unwrap_or("Apply pump to target?");
         let activator = sa.activating_player;
         if !ctx.agents[activator.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             activator,
             Some("OptionalPump"),
             prompt,
@@ -126,9 +128,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .collect();
         if !options.is_empty() {
             let activator = sa.activating_player;
-            if let Some(idx) = ctx.agents[activator.index()]
-                .choose_keyword_for_pump(activator, &options, sa.source)
-            {
+            if let Some(idx) = ctx.agents[activator.index()].choose_keyword_for_pump(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                activator,
+                &options,
+                sa.source,
+            ) {
                 if let Some(kw) = options.get(idx) {
                     keywords.push(kw.clone());
                 }

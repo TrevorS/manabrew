@@ -14,6 +14,7 @@ use forge_foundation::color::Color;
 use forge_foundation::mana::ManaCost;
 use forge_foundation::ZoneType;
 
+use crate::agent::DecisionContext;
 use crate::agent::PlayerAgent;
 use crate::card::{valid_filter, Card};
 use crate::cost::{parse_cost, Cost, CostPart};
@@ -1127,7 +1128,12 @@ fn apply_offering_reduction(
         return true;
     }
     agents[player.index()].snapshot_state(game, mana_pools);
-    if let Some(chosen) = agents[player.index()].choose_sacrifice(player, &candidates, sa.source) {
+    if let Some(chosen) = agents[player.index()].choose_sacrifice(
+        DecisionContext::new(game, mana_pools),
+        player,
+        &candidates,
+        sa.source,
+    ) {
         sa.sacrificed_as_offering = Some(chosen);
         cost.decrease_generic_mana(game.card(chosen).mana_cost.cmc());
     }
@@ -1186,7 +1192,12 @@ fn apply_emerge_reduction(
         return true;
     }
     agents[player.index()].snapshot_state(game, mana_pools);
-    if let Some(chosen) = agents[player.index()].choose_sacrifice(player, &candidates, sa.source) {
+    if let Some(chosen) = agents[player.index()].choose_sacrifice(
+        DecisionContext::new(game, mana_pools),
+        player,
+        &candidates,
+        sa.source,
+    ) {
         sa.sacrificed_as_emerge = Some(chosen);
         cost.decrease_generic_mana(game.card(chosen).mana_cost.cmc());
     }
@@ -1232,7 +1243,13 @@ fn apply_delve_reduction(
         .collect();
     let max_delve = generic.min(graveyard.len());
     agents[player.index()].snapshot_state(game, mana_pools);
-    let chosen = agents[player.index()].choose_delve(player, &graveyard, max_delve, Some(source));
+    let chosen = agents[player.index()].choose_delve(
+        DecisionContext::new(game, mana_pools),
+        player,
+        &graveyard,
+        max_delve,
+        Some(source),
+    );
     game.card_mut(source).clear_delved();
     match cards_to_delve_out {
         Some(out) => {
@@ -1298,9 +1315,21 @@ fn apply_convoke_or_improvise_reduction(
     let _card_name = game.card(source).card_name.clone();
     agents[payer.index()].snapshot_state(game, mana_pools);
     let chosen = if artifacts && !creatures {
-        agents[payer.index()].choose_improvise(payer, &untapped, &remaining_cost, Some(source))
+        agents[payer.index()].choose_improvise(
+            DecisionContext::new(game, mana_pools),
+            payer,
+            &untapped,
+            &remaining_cost,
+            Some(source),
+        )
     } else {
-        agents[payer.index()].choose_convoke(payer, &untapped, &remaining_cost, Some(source))
+        agents[payer.index()].choose_convoke(
+            DecisionContext::new(game, mana_pools),
+            payer,
+            &untapped,
+            &remaining_cost,
+            Some(source),
+        )
     };
     let mut reduced = 0i32;
     for &cid in &chosen {

@@ -2,6 +2,7 @@ use forge_foundation::ZoneType;
 
 use super::{resolve_numeric_svar, EffectContext};
 use crate::ability::ability_ir::EffectIr;
+use crate::agent::DecisionContext;
 use crate::card::card_damage_map::DamageTarget;
 use crate::card::card_util;
 use crate::parsing::amount::AmountExpr;
@@ -44,6 +45,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }) {
         ctx.agents[decider.index()].snapshot_state(ctx.game, ctx.mana_pools);
         if !ctx.agents[decider.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             decider,
             None,
             &format!("Do you want to deal {damage} damage?"),

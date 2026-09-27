@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use super::cost_payment::CostPaymentContext;
 use super::*;
+use crate::agent::DecisionContext;
 use crate::player::actions::player_action::STATIC_ALTERNATIVE_ABILITY_INDEX;
 use crate::replacement::replacement_handler::ReplacementRuntime;
 
@@ -1053,7 +1054,13 @@ impl GameLoop {
             .map_or(0, |(min, _)| min.max(0) as u32)
             .min(x);
         let x = agents[player.index()]
-            .announce_requirements_x(player, Some(card_id), x_min, x)
+            .announce_requirements_x(
+                DecisionContext::new(game, &self.mana_pools),
+                player,
+                Some(card_id),
+                x_min,
+                x,
+            )
             .clamp(x_min, x);
         sa.x_mana_cost_paid = x;
         game.card_mut(card_id)
@@ -1102,7 +1109,11 @@ impl GameLoop {
             ) {
                 abilities.push(new_sa2);
             }
-            let chosen = match agents[player.index()].get_ability_to_play(player, &abilities) {
+            let chosen = match agents[player.index()].get_ability_to_play(
+                DecisionContext::new(game, &self.mana_pools),
+                player,
+                &abilities,
+            ) {
                 Some(idx) => abilities.into_iter().nth(idx),
                 None => None,
             };

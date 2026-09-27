@@ -6,6 +6,7 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::ids::CardId;
 
 /// Struct form of this effect so it can participate in the
@@ -46,6 +47,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if sa.is_optional() {
         ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
         if !ctx.agents[controller.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             controller,
             Some("Bond"),
             "Pair with a creature?",

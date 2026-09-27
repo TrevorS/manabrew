@@ -8,6 +8,7 @@ use forge_foundation::ZoneType;
 use super::manifest_base_effect::parse_manifest_params;
 use super::manifest_effect::manifest_single_card;
 use super::{emit_zone_trigger, EffectContext};
+use crate::agent::DecisionContext;
 use crate::agent::GameEntity;
 use crate::event::RunParams;
 use crate::ids::{CardId, PlayerId};
@@ -47,9 +48,12 @@ fn manifest_dread_once(ctx: &mut EffectContext, sa: &SpellAbility, player: Playe
     if !tgt_cards.is_empty() {
         ctx.agents[player.index()].snapshot_state(ctx.game, ctx.mana_pools);
         let entities: Vec<GameEntity> = tgt_cards.iter().copied().map(GameEntity::Card).collect();
-        let manifest = match ctx.agents[player.index()]
-            .choose_single_entity_for_effect(player, &entities, false)
-        {
+        let manifest = match ctx.agents[player.index()].choose_single_entity_for_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
+            player,
+            &entities,
+            false,
+        ) {
             Some(GameEntity::Card(cid)) => cid,
             _ => tgt_cards[0],
         };

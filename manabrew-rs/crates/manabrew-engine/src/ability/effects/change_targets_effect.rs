@@ -6,6 +6,7 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::agent::{GameEntity, GameObject};
 use crate::event::RunParams;
 use crate::ids::CardId;
@@ -62,6 +63,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .unwrap_or_default();
             ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
             if !ctx.agents[chooser.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 chooser,
                 None,
                 &format!("Do you want to change targets for {card_name}?"),

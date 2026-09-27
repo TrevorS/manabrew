@@ -1,4 +1,5 @@
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::event::RunParams;
 use crate::trigger::TriggerType;
 
@@ -24,6 +25,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     for pid in players {
         if optional {
             let accepted = ctx.agents[sa.activating_player.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 sa.activating_player,
                 None,
                 &format!("Have player {} shuffle their library?", pid.0),

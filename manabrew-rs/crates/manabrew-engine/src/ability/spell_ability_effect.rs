@@ -20,6 +20,7 @@ use crate::spellability::{AbilityDuration, ReplaceDyingCondition};
 use super::ability_factory::AbilityRecordType;
 use super::ability_utils;
 use super::effects::EffectContext;
+use crate::agent::DecisionContext;
 
 /// Base trait for all spell ability effect implementations.
 ///
@@ -1092,7 +1093,12 @@ pub fn get_new_chooser(
     if options.is_empty() {
         return None;
     }
-    agents[activator.index()].choose_target_player(activator, &options, Some(sa))
+    agents[activator.index()].choose_target_player(
+        DecisionContext::new(game, &[]),
+        activator,
+        &options,
+        Some(sa),
+    )
 }
 
 /// `AtEOT$ <action>` — delayed-trigger action token.

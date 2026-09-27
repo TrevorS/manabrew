@@ -5,6 +5,7 @@
 //! to resolve against them. The opponent picks their punishment.
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 
 /// Struct form of this effect so it can participate in the
 /// `SpellAbilityEffect` trait hierarchy — mirrors Java's
@@ -34,6 +35,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         // Player chooses which ability resolves (opponent picks their punishment)
         ctx.agents[pid.index()].snapshot_state(ctx.game, ctx.mana_pools);
         let chose_first = ctx.agents[pid.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             pid,
             Some("VillainousChoice"),
             &format!("Choose: {}", choice_names.join(" or ")),

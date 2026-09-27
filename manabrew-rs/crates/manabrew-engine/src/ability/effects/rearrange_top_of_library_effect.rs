@@ -2,6 +2,7 @@ use forge_foundation::ZoneType;
 
 use super::{resolve_numeric_svar, EffectContext};
 
+use crate::agent::DecisionContext;
 use crate::event::RunParams;
 use crate::parsing::keys;
 use crate::trigger::TriggerType;
@@ -73,6 +74,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if may_shuffle {
             let _source_name = sa.source.map(|cid| ctx.game.card(cid).card_name.as_str());
             let wants_shuffle = ctx.agents[sa.activating_player.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 sa.activating_player,
                 None,
                 "Do you want to shuffle the library?",

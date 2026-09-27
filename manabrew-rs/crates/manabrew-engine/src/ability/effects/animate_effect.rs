@@ -3,6 +3,7 @@ use forge_foundation::{ColorSet, ZoneType};
 use super::trait_animate_effect::parse_animate_params;
 use super::EffectContext;
 use crate::ability::ability_ir::DefinedRef;
+use crate::agent::DecisionContext;
 use crate::card::card_changed_type::CardChangedType;
 use crate::card::card_trait_changes::CardTraitChanges;
 use crate::card::perpetual::perpetual_interface::PerpetualInterface;
@@ -78,6 +79,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if sa.ir.optional {
         ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
         if !ctx.agents[controller.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             controller,
             None,
             "Do you want to animate?",

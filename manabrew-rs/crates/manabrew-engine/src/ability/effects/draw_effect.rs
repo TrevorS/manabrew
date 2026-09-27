@@ -1,6 +1,7 @@
 use super::{resolve_numeric_svar, EffectContext};
 use crate::ability::ability_ir::EffectIr;
 use crate::ability::spell_ability_effect::get_defined_players_or_targeted;
+use crate::agent::DecisionContext;
 use crate::event::RunParams;
 use crate::parsing::keys;
 use crate::replacement::replacement_handler::{apply_replacements_with_agents, ReplacementEvent};
@@ -52,6 +53,7 @@ pub(crate) fn draw_for_player(
     if optional {
         let _source_name = sa.source.map(|cid| ctx.game.card(cid).card_name.as_str());
         let accepted = ctx.agents[target.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             target,
             None,
             &format!("Do you want to draw {actual_num} card(s)?"),
@@ -66,6 +68,7 @@ pub(crate) fn draw_for_player(
     if upto {
         let prompt = format!("Draw up to {actual_num} card(s).");
         match ctx.agents[target.index()].choose_number(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             target,
             sa.source,
             "Draw cards",

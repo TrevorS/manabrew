@@ -1,4 +1,5 @@
 use super::{resolve_numeric_svar, EffectContext};
+use crate::agent::DecisionContext;
 use crate::agent::PlayerAgent;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
@@ -149,6 +150,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         valid_mode_indices.clone()
     } else {
         let agent_choices = ctx.agents[player.index()].choose_mode(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             player,
             &valid_descriptions,
             min_charm_num,
@@ -309,6 +311,7 @@ pub fn make_choices_precast_with_count(
         valid_mode_indices.clone()
     } else {
         let chosen = agents[player.index()].choose_mode(
+            DecisionContext::new(game, &[]),
             player,
             &valid_descriptions,
             min_charm_num,

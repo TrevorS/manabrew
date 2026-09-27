@@ -1,4 +1,5 @@
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::event::RunParams;
 use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
 use crate::replacement::ReplacementResult;
@@ -95,6 +96,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     .unwrap_or_default();
                 ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
                 if !ctx.agents[controller.index()].confirm_action(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
                     controller,
                     None,
                     &format!("Do you want to copy {name}?"),

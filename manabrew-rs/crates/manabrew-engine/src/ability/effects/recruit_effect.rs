@@ -3,6 +3,7 @@ use forge_foundation::ZoneType;
 use super::token_effect_base::{TokenEffectBase, TOKEN_EFFECT_BASE};
 use super::EffectContext;
 use crate::ability::spell_ability_effect::get_target_players;
+use crate::agent::DecisionContext;
 use crate::card::card_zone_table::CardZoneTable;
 
 #[manabrew_engine_macros::spell_effect(RecruitEffect)]
@@ -20,7 +21,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             )
         {
             let amt = hand.len().min(1);
-            let to_be_discarded = ctx.agents[p.index()].choose_discard(p, &hand, amt);
+            let to_be_discarded = ctx.agents[p.index()].choose_discard(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                p,
+                &hand,
+                amt,
+            );
             let discarded_non_land = to_be_discarded
                 .iter()
                 .any(|&card_id| !ctx.game.card(card_id).is_land());

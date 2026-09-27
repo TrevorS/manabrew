@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::event::RunParams;
 use crate::trigger::TriggerType;
 
@@ -183,7 +184,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if valid.is_empty() {
             return;
         }
-        ctx.agents[chooser.index()].choose_cards_for_effect(chooser, &valid, 1, 1)
+        ctx.agents[chooser.index()].choose_cards_for_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
+            chooser,
+            &valid,
+            1,
+            1,
+        )
     } else if let Some(all_valid) = sa.ir.all_valid_selector.as_ref() {
         battlefield
             .into_iter()
@@ -248,6 +255,7 @@ fn gain_control_of(
         let activator = sa.activating_player;
         ctx.agents[activator.index()].snapshot_state(ctx.game, ctx.mana_pools);
         if !ctx.agents[activator.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             activator,
             None,
             "Do you want to gain control of that card?",

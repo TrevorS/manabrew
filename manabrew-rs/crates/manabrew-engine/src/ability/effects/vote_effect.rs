@@ -6,6 +6,7 @@ use forge_foundation::ZoneType;
 
 use super::helpers::matches_valid_cards_for_sa;
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::event::RunParams;
 use crate::ids::{CardId, PlayerId};
 use crate::parsing::Params;
@@ -89,6 +90,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         ctx.agents[voter.index()].snapshot_state(ctx.game, ctx.mana_pools);
         let extra = ctx.agents[voter.index()]
             .choose_number(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 voter,
                 sa.source,
                 "How many additional votes do you want?",
@@ -102,8 +104,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .map(|o| option_label(ctx, &choice_abilities, o))
             .collect();
         for _ in 0..(1 + extra) {
-            let Some(index) = ctx.agents[voter.index()].vote(voter, &labels, params.has("UpTo"))
-            else {
+            let Some(index) = ctx.agents[voter.index()].vote(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                voter,
+                &labels,
+                params.has("UpTo"),
+            ) else {
                 continue;
             };
             let Some(option) = options.get(index).cloned() else {

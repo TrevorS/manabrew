@@ -3,6 +3,7 @@ use forge_foundation::ZoneType;
 use super::EffectContext;
 use crate::ability::ability_ir::DefinedRef;
 use crate::agent::BinaryChoiceKind;
+use crate::agent::DecisionContext;
 use crate::ids::CardId;
 
 /// `SP$ TapOrUntap` — choose tap or untap for the targeted/defined permanent.
@@ -37,6 +38,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         } else {
             let prompt = format!("Tap or untap {}?", ctx.game.card(card_id).card_name);
             ctx.agents[controller.index()].choose_binary(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 controller,
                 &prompt,
                 BinaryChoiceKind::TapOrUntap,

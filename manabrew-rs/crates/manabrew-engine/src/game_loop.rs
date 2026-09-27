@@ -1,3 +1,4 @@
+use crate::agent::DecisionContext;
 use crate::HashMap;
 use rustc_hash::FxHasher;
 use std::any::Any;
@@ -657,8 +658,11 @@ impl GameLoop {
             let mut accepted_sas = Vec::new();
             if !usable.is_empty() {
                 agents[takes_action.index()].snapshot_state(game, &self.mana_pools);
-                let chosen = agents[takes_action.index()]
-                    .choose_sa_to_activate_from_opening_hand(takes_action, &usable);
+                let chosen = agents[takes_action.index()].choose_sa_to_activate_from_opening_hand(
+                    DecisionContext::new(game, &self.mana_pools),
+                    takes_action,
+                    &usable,
+                );
                 accepted_sas = usable
                     .into_iter()
                     .enumerate()
@@ -986,6 +990,7 @@ mod trigger_handler;
 
 #[cfg(test)]
 mod tests {
+    use crate::agent::PriorityContext;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
 
@@ -1012,6 +1017,7 @@ mod tests {
     impl PlayerAgent for InvalidPlayAgent {
         fn mulligan_decision(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _hand: &[CardId],
             _mulligan_count: u32,
@@ -1023,7 +1029,7 @@ mod tests {
             &mut self,
             _player: PlayerId,
             _action_space: Option<&crate::agent::PriorityActionSpace>,
-            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _priority: &mut dyn PriorityContext,
         ) -> PlayerAction {
             PlayerAction::CastSpell(crate::agent::PlayOption {
                 card_id: CardId(u32::MAX),
@@ -1034,6 +1040,7 @@ mod tests {
 
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _available: &[CardId],
             _possible_defenders: &[crate::combat::DefenderId],
@@ -1043,6 +1050,7 @@ mod tests {
 
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _attackers: &[CardId],
             _available_blockers: &[CardId],
@@ -1053,6 +1061,7 @@ mod tests {
 
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             valid: &[PlayerId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -1062,6 +1071,7 @@ mod tests {
 
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             valid: &[CardId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -1071,6 +1081,7 @@ mod tests {
 
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             valid_players: &[PlayerId],
             valid_cards: &[CardId],
@@ -1085,7 +1096,11 @@ mod tests {
             }
         }
 
-        fn choose_land_or_spell(&mut self, _player: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _player: PlayerId,
+        ) -> Option<bool> {
             None
         }
 
@@ -1123,6 +1138,7 @@ mod tests {
 
         fn mulligan_decision(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _hand: &[CardId],
             _mulligan_count: u32,
@@ -1134,7 +1150,7 @@ mod tests {
             &mut self,
             player: PlayerId,
             _action_space: Option<&crate::agent::PriorityActionSpace>,
-            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _priority: &mut dyn PriorityContext,
         ) -> PlayerAction {
             if self.last_priority != Some(player) {
                 self.bad_priority_seen.store(true, Ordering::SeqCst);
@@ -1147,6 +1163,7 @@ mod tests {
 
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _available: &[CardId],
             _possible_defenders: &[crate::combat::DefenderId],
@@ -1156,6 +1173,7 @@ mod tests {
 
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _attackers: &[CardId],
             _available_blockers: &[CardId],
@@ -1166,6 +1184,7 @@ mod tests {
 
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             valid: &[PlayerId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -1175,6 +1194,7 @@ mod tests {
 
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             valid: &[CardId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -1184,6 +1204,7 @@ mod tests {
 
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             valid_players: &[PlayerId],
             valid_cards: &[CardId],
@@ -1198,7 +1219,11 @@ mod tests {
             }
         }
 
-        fn choose_land_or_spell(&mut self, _player: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _player: PlayerId,
+        ) -> Option<bool> {
             None
         }
 
@@ -1217,6 +1242,7 @@ mod tests {
     impl PlayerAgent for OpeningHandAgent {
         fn mulligan_decision(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _hand: &[CardId],
             _mulligan_count: u32,
@@ -1228,13 +1254,14 @@ mod tests {
             &mut self,
             _player: PlayerId,
             _action_space: Option<&crate::agent::PriorityActionSpace>,
-            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _priority: &mut dyn PriorityContext,
         ) -> PlayerAction {
             PlayerAction::PassPriority
         }
 
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _available: &[CardId],
             _possible_defenders: &[crate::combat::DefenderId],
@@ -1244,6 +1271,7 @@ mod tests {
 
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _attackers: &[CardId],
             _available_blockers: &[CardId],
@@ -1254,6 +1282,7 @@ mod tests {
 
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             valid: &[PlayerId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -1263,6 +1292,7 @@ mod tests {
 
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             valid: &[CardId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -1272,6 +1302,7 @@ mod tests {
 
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             valid_players: &[PlayerId],
             valid_cards: &[CardId],
@@ -1286,12 +1317,17 @@ mod tests {
             }
         }
 
-        fn choose_land_or_spell(&mut self, _player: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _player: PlayerId,
+        ) -> Option<bool> {
             None
         }
 
         fn confirm_action(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _mode: Option<&str>,
             _message: &str,

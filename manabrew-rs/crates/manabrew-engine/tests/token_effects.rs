@@ -1,6 +1,7 @@
 use forge_carddb::parse_card_script;
 use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 use manabrew_engine::ability::AbilityKey;
+use manabrew_engine::agent::{DecisionContext, PriorityContext};
 /// Integration tests for Token Creation and Copy Effects (Issue #14).
 use manabrew_engine::agent::{PassAgent, PlayerAgent};
 use manabrew_engine::card::CardInstance;
@@ -114,6 +115,7 @@ struct DiscardOneAgent;
 impl PlayerAgent for DiscardOneAgent {
     fn mulligan_decision(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _hand: &[CardId],
         _mulligan_count: u32,
@@ -125,13 +127,14 @@ impl PlayerAgent for DiscardOneAgent {
         &mut self,
         _player: PlayerId,
         _action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-        _request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
+        _priority: &mut dyn PriorityContext,
     ) -> PlayerAction {
         PlayerAction::PassPriority
     }
 
     fn choose_attackers(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _available: &[CardId],
         _possible_defenders: &[manabrew_engine::combat::DefenderId],
@@ -141,6 +144,7 @@ impl PlayerAgent for DiscardOneAgent {
 
     fn choose_blockers(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _attackers: &[CardId],
         _available_blockers: &[CardId],
@@ -151,6 +155,7 @@ impl PlayerAgent for DiscardOneAgent {
 
     fn choose_discard_any_number(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         hand: &[CardId],
         _min: usize,
@@ -170,6 +175,7 @@ impl PlayerAgent for DiscardOneAgent {
 
     fn choose_target_player(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[PlayerId],
         _sa: Option<&SpellAbility>,
@@ -179,6 +185,7 @@ impl PlayerAgent for DiscardOneAgent {
 
     fn choose_target_card(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         _sa: Option<&SpellAbility>,
@@ -188,6 +195,7 @@ impl PlayerAgent for DiscardOneAgent {
 
     fn choose_target_any(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid_players: &[PlayerId],
         valid_cards: &[CardId],
@@ -202,7 +210,11 @@ impl PlayerAgent for DiscardOneAgent {
         }
     }
 
-    fn choose_land_or_spell(&mut self, _player: PlayerId) -> Option<bool> {
+    fn choose_land_or_spell(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+    ) -> Option<bool> {
         None
     }
 }

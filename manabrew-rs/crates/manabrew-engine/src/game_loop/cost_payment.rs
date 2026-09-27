@@ -1,5 +1,6 @@
 use super::mana_payment::ManaPaymentSession;
 use super::*;
+use crate::agent::DecisionContext;
 
 #[derive(Clone, Copy)]
 pub(crate) enum CostPaymentContext {
@@ -73,7 +74,7 @@ impl GameLoop {
 
     fn choose_cost_card_from_zone(
         &mut self,
-        _game: &GameState,
+        game: &GameState,
         agents: &mut [Box<dyn PlayerAgent>],
         player: PlayerId,
         valid: &[CardId],
@@ -81,11 +82,20 @@ impl GameLoop {
         source: CardId,
     ) -> Option<CardId> {
         match zone {
-            ZoneType::Battlefield => {
-                agents[player.index()].choose_sacrifice(player, valid, Some(source))
-            }
+            ZoneType::Battlefield => agents[player.index()].choose_sacrifice(
+                DecisionContext::new(game, &self.mana_pools),
+                player,
+                valid,
+                Some(source),
+            ),
             _ => agents[player.index()]
-                .choose_cards_for_effect(player, valid, 1, 1)
+                .choose_cards_for_effect(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
+                    valid,
+                    1,
+                    1,
+                )
                 .into_iter()
                 .next(),
         }
@@ -106,7 +116,13 @@ impl GameLoop {
             }
         }
         agents[player.index()]
-            .choose_cards_for_effect(player, valid, 1, 1)
+            .choose_cards_for_effect(
+                DecisionContext::new(game, &self.mana_pools),
+                player,
+                valid,
+                1,
+                1,
+            )
             .into_iter()
             .next()
     }
@@ -245,7 +261,12 @@ impl GameLoop {
         let chosen = if type_filter == "Hand" {
             eligible
         } else {
-            agents[player.index()].choose_discard(player, &eligible, amount as usize)
+            agents[player.index()].choose_discard(
+                DecisionContext::new(game, &self.mana_pools),
+                player,
+                &eligible,
+                amount as usize,
+            )
         };
         for &cid in &chosen {
             game.discard_card(
@@ -380,7 +401,13 @@ impl GameLoop {
         }
 
         agents[player.index()]
-            .choose_cards_for_effect(player, &candidates, 1, 1)
+            .choose_cards_for_effect(
+                DecisionContext::new(game, &self.mana_pools),
+                player,
+                &candidates,
+                1,
+                1,
+            )
             .into_iter()
             .next()
             .unwrap_or(candidates[0])
@@ -420,7 +447,14 @@ impl GameLoop {
             crate::ability::effects::cost_payment::effect_cost_part_display(part),
             card_name
         );
-        agents[player.index()].confirm_payment(player, kind, &message, Some(source), api)
+        agents[player.index()].confirm_payment(
+            DecisionContext::new(game, &self.mana_pools),
+            player,
+            kind,
+            &message,
+            Some(source),
+            api,
+        )
     }
 
     /// Pay the cost parts of an activated ability (tap, mana, life, sacrifice, etc.).
@@ -516,6 +550,7 @@ impl GameLoop {
                             eligible
                         } else {
                             agents[player.index()].choose_discard(
+                                DecisionContext::new(game, &self.mana_pools),
                                 player,
                                 &eligible,
                                 amount.resolve(game, card_id, player) as usize,
@@ -594,6 +629,7 @@ impl GameLoop {
                     }
                     if required > 0 {
                         let chosen = agents[player.index()].choose_permanents_to_sacrifice(
+                            DecisionContext::new(game, &self.mana_pools),
                             player,
                             required,
                             required,
@@ -1448,18 +1484,23 @@ impl GameLoop {
                     ];
                     game.card_mut(card_id).clear_chosen_colors();
                     for _ in 0..resolved_amount {
-                        if let Some(color) =
-                            agents[player.index()].choose_color(player, &valid_colors)
-                        {
+                        if let Some(color) = agents[player.index()].choose_color(
+                            DecisionContext::new(game, &self.mana_pools),
+                            player,
+                            &valid_colors,
+                        ) {
                             game.card_mut(card_id).add_chosen_color(color);
                         }
                     }
                 }
                 CostPart::ChooseCreatureType(_) => {
                     let valid_types = crate::game::TypeRegistry::creature_types().to_vec();
-                    if let Some(chosen) =
-                        agents[player.index()].choose_type(player, "Creature", &valid_types)
-                    {
+                    if let Some(chosen) = agents[player.index()].choose_type(
+                        DecisionContext::new(game, &self.mana_pools),
+                        player,
+                        "Creature",
+                        &valid_types,
+                    ) {
                         game.card_mut(card_id)
                             .set_chosen_type(Some(chosen), None, true);
                     }
@@ -1586,7 +1627,12 @@ impl GameLoop {
                         .into_iter()
                         .filter(|&pid| pid != player)
                         .collect();
-                    let chosen = agents[player.index()].choose_target_player(player, &opps, None);
+                    let chosen = agents[player.index()].choose_target_player(
+                        DecisionContext::new(game, &self.mana_pools),
+                        player,
+                        &opps,
+                        None,
+                    );
                     game.card_mut(card_id).set_promised_gift(chosen);
                 }
                 CostPart::RevealChosen { reveal_type } => {
@@ -2288,18 +2334,23 @@ impl GameLoop {
                     ];
                     game.card_mut(card_id).clear_chosen_colors();
                     for _ in 0..resolved_amount {
-                        if let Some(color) =
-                            agents[player.index()].choose_color(player, &valid_colors)
-                        {
+                        if let Some(color) = agents[player.index()].choose_color(
+                            DecisionContext::new(game, &self.mana_pools),
+                            player,
+                            &valid_colors,
+                        ) {
                             game.card_mut(card_id).add_chosen_color(color);
                         }
                     }
                 }
                 CostPart::ChooseCreatureType(_) => {
                     let valid_types = crate::game::TypeRegistry::creature_types().to_vec();
-                    if let Some(chosen) =
-                        agents[player.index()].choose_type(player, "Creature", &valid_types)
-                    {
+                    if let Some(chosen) = agents[player.index()].choose_type(
+                        DecisionContext::new(game, &self.mana_pools),
+                        player,
+                        "Creature",
+                        &valid_types,
+                    ) {
                         game.card_mut(card_id)
                             .set_chosen_type(Some(chosen), None, true);
                     }
@@ -2426,7 +2477,12 @@ impl GameLoop {
                         .into_iter()
                         .filter(|&pid| pid != player)
                         .collect();
-                    let chosen = agents[player.index()].choose_target_player(player, &opps, None);
+                    let chosen = agents[player.index()].choose_target_player(
+                        DecisionContext::new(game, &self.mana_pools),
+                        player,
+                        &opps,
+                        None,
+                    );
                     game.card_mut(card_id).set_promised_gift(chosen);
                 }
                 CostPart::RevealChosen { reveal_type } => {
@@ -2523,7 +2579,12 @@ impl GameLoop {
             return None;
         }
         agents[player.index()].snapshot_state(game, &self.mana_pools);
-        match agents[player.index()].choose_single_entity_for_effect(player, &choices, false) {
+        match agents[player.index()].choose_single_entity_for_effect(
+            DecisionContext::new(game, &self.mana_pools),
+            player,
+            &choices,
+            false,
+        ) {
             Some(crate::agent::GameEntity::Card(chosen)) => Some(chosen),
             _ => None,
         }
@@ -2559,6 +2620,7 @@ impl GameLoop {
                     }
                     if type_filter == "OriginalHost" {
                         let confirmed = agents[player.index()].confirm_payment(
+                            DecisionContext::new(game, &self.mana_pools),
                             player,
                             "Sacrifice",
                             "Confirm sacrifice cost",
@@ -2571,6 +2633,7 @@ impl GameLoop {
                     }
                     if amount_n > 0 {
                         let chosen = agents[player.index()].choose_permanents_to_sacrifice(
+                            DecisionContext::new(game, &self.mana_pools),
                             player,
                             amount_n as usize,
                             amount_n as usize,
@@ -2602,7 +2665,13 @@ impl GameLoop {
                     }
                     for _ in 0..amount_n {
                         let chosen = agents[player.index()]
-                            .choose_cards_for_effect(player, &valid, 1, 1)
+                            .choose_cards_for_effect(
+                                DecisionContext::new(game, &self.mana_pools),
+                                player,
+                                &valid,
+                                1,
+                                1,
+                            )
                             .into_iter()
                             .next()?;
                         picked.push(chosen);
@@ -2637,8 +2706,13 @@ impl GameLoop {
                 if valid.len() < needed {
                     return None;
                 }
-                let chosen =
-                    agents[player.index()].choose_cards_for_effect(player, &valid, needed, needed);
+                let chosen = agents[player.index()].choose_cards_for_effect(
+                    DecisionContext::new(game, &[]),
+                    player,
+                    &valid,
+                    needed,
+                    needed,
+                );
                 if chosen.len() < needed
                     || !chosen.iter().take(needed).all(|cid| valid.contains(cid))
                 {
@@ -2716,7 +2790,13 @@ impl GameLoop {
             return None;
         }
         let chosen: Vec<CardId> = agents[player.index()]
-            .choose_cards_for_effect(player, &valid, 0, valid.len())
+            .choose_cards_for_effect(
+                DecisionContext::new(game, &[]),
+                player,
+                &valid,
+                0,
+                valid.len(),
+            )
             .into_iter()
             .filter(|cid| valid.contains(cid))
             .collect();
@@ -2731,6 +2811,7 @@ impl GameLoop {
     }
 
     fn choose_cost_cards_exactly(
+        context: DecisionContext<'_>,
         agents: &mut [Box<dyn PlayerAgent>],
         player: PlayerId,
         valid: &[CardId],
@@ -2740,7 +2821,8 @@ impl GameLoop {
         if valid.len() < amount {
             return None;
         }
-        let chosen = agents[player.index()].choose_cards_for_effect(player, valid, amount, amount);
+        let chosen =
+            agents[player.index()].choose_cards_for_effect(context, player, valid, amount, amount);
         (chosen.len() >= amount).then_some(chosen)
     }
 
@@ -2790,6 +2872,7 @@ impl GameLoop {
                     return Some(Vec::new());
                 }
                 Self::choose_cost_cards_exactly(
+                    DecisionContext::new(game, &self.mana_pools),
                     agents,
                     player,
                     &Self::exile_cost_candidates(game, player, source, type_filter, *from),
@@ -2819,6 +2902,7 @@ impl GameLoop {
                     return Some(Vec::new());
                 }
                 Self::choose_cost_cards_exactly(
+                    DecisionContext::new(game, &self.mana_pools),
                     agents,
                     player,
                     &Self::exile_ctrl_or_grave_candidates(game, player, source, type_filter),
@@ -2829,6 +2913,7 @@ impl GameLoop {
                 amount,
                 type_filter,
             } => Self::choose_cost_cards_exactly(
+                DecisionContext::new(game, &self.mana_pools),
                 agents,
                 player,
                 &cost::get_sacrifice_targets_for_cost(game, player, type_filter, sa),
@@ -2845,6 +2930,7 @@ impl GameLoop {
                     return Some(Vec::new());
                 }
                 Self::choose_cost_cards_exactly(
+                    DecisionContext::new(game, &self.mana_pools),
                     agents,
                     player,
                     &cost::get_tap_type_targets_for_cost(
@@ -2885,9 +2971,12 @@ impl GameLoop {
                 if choices.is_empty() {
                     return None;
                 }
-                match agents[player.index()]
-                    .choose_single_entity_for_effect(player, &choices, false)
-                {
+                match agents[player.index()].choose_single_entity_for_effect(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
+                    &choices,
+                    false,
+                ) {
                     Some(crate::agent::GameEntity::Card(chosen)) => Some(vec![chosen]),
                     _ => None,
                 }
@@ -2984,8 +3073,12 @@ impl GameLoop {
                 if eligible.len() < amount_n as usize {
                     return None;
                 }
-                let chosen =
-                    agents[player.index()].choose_discard(player, &eligible, amount_n as usize);
+                let chosen = agents[player.index()].choose_discard(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
+                    &eligible,
+                    amount_n as usize,
+                );
                 if chosen.len() < amount_n as usize {
                     return None;
                 }
@@ -3037,6 +3130,7 @@ impl GameLoop {
             let generic_cost = forge_foundation::ManaCost::generic(remaining);
             agents[player.index()].snapshot_state(game, &self.mana_pools);
             let to_tap = agents[player.index()].choose_convoke(
+                DecisionContext::new(game, &self.mana_pools),
                 player,
                 &untapped,
                 &generic_cost,
@@ -3142,7 +3236,13 @@ impl GameLoop {
             // Java uses chooseCardsForEffect here (pick_count+pick_index+
             // pick_many_unique) — match the RNG pattern even with 1 option.
             return agents[player.index()]
-                .choose_cards_for_effect(player, &[source], 1, 1)
+                .choose_cards_for_effect(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
+                    &[source],
+                    1,
+                    1,
+                )
                 .into_iter()
                 .take(1)
                 .collect();
@@ -3286,7 +3386,13 @@ impl GameLoop {
                 if valid.len() < amount {
                     return;
                 }
-                agents[player.index()].choose_cards_for_effect(player, &valid, amount, amount)
+                agents[player.index()].choose_cards_for_effect(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
+                    &valid,
+                    amount,
+                    amount,
+                )
             }
         };
         for chosen in chosen {
@@ -3334,9 +3440,12 @@ impl GameLoop {
             if valid_entries.is_empty() {
                 break;
             }
-            let Some(chosen_entry) =
-                agents[player.index()].choose_target_spell(player, &valid_entries, Some(source))
-            else {
+            let Some(chosen_entry) = agents[player.index()].choose_target_spell(
+                DecisionContext::new(game, &self.mana_pools),
+                player,
+                &valid_entries,
+                Some(source),
+            ) else {
                 break;
             };
             if let Some(entry) = game.stack.remove_by_id(chosen_entry) {
@@ -3403,7 +3512,13 @@ impl GameLoop {
 
         let selected = match prechosen {
             Some(picks) => picks.to_vec(),
-            None => agents[player.index()].choose_cards_for_effect(player, &valid, 0, valid.len()),
+            None => agents[player.index()].choose_cards_for_effect(
+                DecisionContext::new(game, &self.mana_pools),
+                player,
+                &valid,
+                0,
+                valid.len(),
+            ),
         };
         let chosen: Vec<CardId> = selected
             .into_iter()
@@ -3469,6 +3584,7 @@ impl GameLoop {
         let choose_food = !foods.is_empty()
             && (!can_exile
                 || agents[player.index()].choose_binary(
+                    DecisionContext::new(game, &[]),
                     player,
                     "Forage: sacrifice Food instead of exiling three cards?",
                     crate::agent::BinaryChoiceKind::AddOrRemove,
@@ -3478,10 +3594,21 @@ impl GameLoop {
                 ));
         if choose_food {
             return agents[player.index()]
-                .choose_sacrifice(player, &foods, Some(source))
+                .choose_sacrifice(
+                    DecisionContext::new(game, &[]),
+                    player,
+                    &foods,
+                    Some(source),
+                )
                 .map(|food| vec![food]);
         }
-        let chosen = agents[player.index()].choose_cards_for_effect(player, &gy, 3, 3);
+        let chosen = agents[player.index()].choose_cards_for_effect(
+            DecisionContext::new(game, &[]),
+            player,
+            &gy,
+            3,
+            3,
+        );
         (chosen.len() == 3).then_some(chosen)
     }
 
@@ -3617,6 +3744,7 @@ impl GameLoop {
             let candidates =
                 crate::cost::reveal_candidates(game, player, source, type_filter, from);
             revealed = agents[player.index()].choose_cards_for_effect(
+                DecisionContext::new(game, &self.mana_pools),
                 player,
                 &candidates,
                 amount as usize,
@@ -3802,9 +3930,12 @@ impl GameLoop {
             if valid.is_empty() {
                 break;
             }
-            let Some(chosen) =
-                agents[player.index()].choose_sacrifice(player, &valid, Some(source))
-            else {
+            let Some(chosen) = agents[player.index()].choose_sacrifice(
+                DecisionContext::new(game, &self.mana_pools),
+                player,
+                &valid,
+                Some(source),
+            ) else {
                 break;
             };
             game.card_mut(chosen).exert();
@@ -3846,9 +3977,12 @@ impl GameLoop {
             if valid.is_empty() {
                 break;
             }
-            let Some(chosen) =
-                agents[player.index()].choose_sacrifice(player, &valid, Some(source))
-            else {
+            let Some(chosen) = agents[player.index()].choose_sacrifice(
+                DecisionContext::new(game, &self.mana_pools),
+                player,
+                &valid,
+                Some(source),
+            ) else {
                 break;
             };
             let enlisted_power = game.card(chosen).power();
@@ -3959,7 +4093,13 @@ impl GameLoop {
             if pool.is_empty() {
                 return Vec::new();
             }
-            let first_pick = agents[player.index()].choose_cards_for_effect(player, &pool, 1, 1);
+            let first_pick = agents[player.index()].choose_cards_for_effect(
+                DecisionContext::new(game, &[]),
+                player,
+                &pool,
+                1,
+                1,
+            );
             if first_pick.is_empty() {
                 return Vec::new();
             }
@@ -3972,6 +4112,7 @@ impl GameLoop {
                 return Vec::new();
             }
             agents[player.index()].choose_cards_for_effect(
+                DecisionContext::new(game, &[]),
                 player,
                 &same_type,
                 amount as usize,
@@ -3984,6 +4125,7 @@ impl GameLoop {
                 return Vec::new();
             }
             agents[player.index()].choose_cards_for_effect(
+                DecisionContext::new(game, &[]),
                 player,
                 &pool,
                 amount as usize,
@@ -4053,9 +4195,12 @@ impl GameLoop {
                 if choices.is_empty() {
                     return;
                 }
-                match agents[player.index()]
-                    .choose_single_entity_for_effect(player, &choices, false)
-                {
+                match agents[player.index()].choose_single_entity_for_effect(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
+                    &choices,
+                    false,
+                ) {
                     Some(crate::agent::GameEntity::Card(chosen)) => Some(chosen),
                     _ => None,
                 }
@@ -4125,7 +4270,13 @@ impl GameLoop {
             Some(picks) => picks.to_vec(),
             None => {
                 let valid = Self::exile_ctrl_or_grave_candidates(game, player, source, type_filter);
-                match Self::choose_cost_cards_exactly(agents, player, &valid, amount) {
+                match Self::choose_cost_cards_exactly(
+                    DecisionContext::new(game, &self.mana_pools),
+                    agents,
+                    player,
+                    &valid,
+                    amount,
+                ) {
                     Some(picks) => picks,
                     None => return false,
                 }
@@ -4163,7 +4314,13 @@ impl GameLoop {
             Some(picks) => picks.to_vec(),
             None => {
                 let valid = cost::get_sacrifice_targets_for_cost(game, player, type_filter, sa);
-                Self::choose_cost_cards_exactly(agents, player, &valid, amount)?
+                Self::choose_cost_cards_exactly(
+                    DecisionContext::new(game, &self.mana_pools),
+                    agents,
+                    player,
+                    &valid,
+                    amount,
+                )?
             }
         };
         for &chosen in &chosen {
@@ -4211,7 +4368,13 @@ impl GameLoop {
                 }
             } else {
                 agents[player.index()]
-                    .choose_cards_for_effect(player, &valid, 1, 1)
+                    .choose_cards_for_effect(
+                        DecisionContext::new(game, &self.mana_pools),
+                        player,
+                        &valid,
+                        1,
+                        1,
+                    )
                     .into_iter()
                     .next()
             };
@@ -4275,6 +4438,7 @@ impl GameLoop {
                     .map(|&cid| (cid, game.card(cid).power()))
                     .collect();
                 let mut chosen = agents[player.index()].choose_tap_type_for_cost(
+                    DecisionContext::new(game, &self.mana_pools),
                     player,
                     &valid,
                     power_threshold,
@@ -4340,6 +4504,7 @@ impl GameLoop {
                 Vec::new()
             } else {
                 agents[player.index()].choose_cards_for_effect(
+                    DecisionContext::new(game, &self.mana_pools),
                     player,
                     &valid,
                     amount.max(0) as usize,
@@ -4410,9 +4575,12 @@ impl GameLoop {
             if valid.is_empty() {
                 break;
             }
-            if let Some(chosen) =
-                agents[player.index()].choose_sacrifice(player, &valid, Some(source))
-            {
+            if let Some(chosen) = agents[player.index()].choose_sacrifice(
+                DecisionContext::new(game, &self.mana_pools),
+                player,
+                &valid,
+                Some(source),
+            ) {
                 let was_tapped = game.card(chosen).tapped;
                 game.untap(chosen);
                 if was_tapped {
@@ -4455,9 +4623,12 @@ impl GameLoop {
             if valid.is_empty() {
                 break;
             }
-            if let Some(chosen) =
-                agents[player.index()].choose_sacrifice(player, &valid, Some(source))
-            {
+            if let Some(chosen) = agents[player.index()].choose_sacrifice(
+                DecisionContext::new(game, &self.mana_pools),
+                player,
+                &valid,
+                Some(source),
+            ) {
                 game.change_controller(chosen, player);
             }
         }
@@ -4543,9 +4714,12 @@ impl GameLoop {
             if valid.is_empty() {
                 break;
             }
-            if let Some(chosen) =
-                agents[player.index()].choose_sacrifice(player, &valid, Some(source))
-            {
+            if let Some(chosen) = agents[player.index()].choose_sacrifice(
+                DecisionContext::new(game, &self.mana_pools),
+                player,
+                &valid,
+                Some(source),
+            ) {
                 let owner = game.card(chosen).owner;
                 self.move_card_with_runtime(game, chosen, ZoneType::Graveyard, owner, agents);
                 crate::ability::effects::emit_zone_trigger(
@@ -4599,6 +4773,7 @@ impl GameLoop {
                 }
             } else {
                 agents[player.index()].choose_sacrifice(
+                    DecisionContext::new(game, &self.mana_pools),
                     player,
                     &valid,
                     sa.as_deref().and_then(|s| s.source),

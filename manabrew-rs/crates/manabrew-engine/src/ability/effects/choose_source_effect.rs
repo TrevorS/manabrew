@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{matches_valid_cards_for_sa, EffectContext};
+use crate::agent::DecisionContext;
 use crate::agent::GameEntity;
 use crate::event::AbilityValue;
 use crate::ids::CardId;
@@ -109,8 +110,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let mut chosen = Vec::new();
         for _ in 0..amount {
             ctx.agents[p.index()].snapshot_state(ctx.game, ctx.mana_pools);
-            let Some(GameEntity::Card(card)) =
-                ctx.agents[p.index()].choose_single_entity_for_effect(p, &options, false)
+            let Some(GameEntity::Card(card)) = ctx.agents[p.index()]
+                .choose_single_entity_for_effect(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
+                    p,
+                    &options,
+                    false,
+                )
             else {
                 break;
             };

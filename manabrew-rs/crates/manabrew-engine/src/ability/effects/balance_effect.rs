@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{emit_zone_trigger, matches_valid_cards_for_sa, EffectContext};
+use crate::agent::DecisionContext;
 use crate::event::RunParams;
 use crate::trigger::TriggerType;
 
@@ -86,9 +87,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     }
 
                     ctx.agents[pid.index()].snapshot_state(ctx.game, ctx.mana_pools);
-                    if let Some(card_id) =
-                        ctx.agents[pid.index()].choose_sacrifice(pid, &valid, sa.source)
-                    {
+                    if let Some(card_id) = ctx.agents[pid.index()].choose_sacrifice(
+                        DecisionContext::new(ctx.game, ctx.mana_pools),
+                        pid,
+                        &valid,
+                        sa.source,
+                    ) {
                         if ctx.game.card(card_id).zone == ZoneType::Battlefield {
                             let owner = ctx.game.card(card_id).owner;
                             let sacrificer = ctx.game.card(card_id).controller;
@@ -117,7 +121,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 // Discard excess cards
                 let hand: Vec<_> = ctx.game.cards_in_zone(ZoneType::Hand, pid).to_vec();
                 ctx.agents[pid.index()].snapshot_state(ctx.game, ctx.mana_pools);
-                let to_discard = ctx.agents[pid.index()].choose_discard(pid, &hand, excess);
+                let to_discard = ctx.agents[pid.index()].choose_discard(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
+                    pid,
+                    &hand,
+                    excess,
+                );
 
                 for &card_id in to_discard.iter().take(excess) {
                     if ctx.game.card(card_id).zone == ZoneType::Hand {

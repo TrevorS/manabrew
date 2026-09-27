@@ -127,6 +127,7 @@ where
             session.payment_ctx,
         );
         let action = agents[session.player.index()].pay_mana_cost(
+            DecisionContext::new(game, mana_pools),
             session.player,
             session.card_id,
             session.card_name,
@@ -440,40 +441,67 @@ impl GameLoop {
     ) -> impl FnMut(mana::ManaPayCallback<'_>) -> Option<CardId> + use<'a, 'r> {
         move |kind: mana::ManaPayCallback<'_>| -> Option<CardId> {
             match kind {
-                mana::ManaPayCallback::ChooseSacrifice(valid) => {
-                    agents[player.index()].choose_sacrifice(player, valid, Some(source))
-                }
-                mana::ManaPayCallback::ChooseColor(valid_colors) => {
+                mana::ManaPayCallback::ChooseSacrifice(game, valid) => agents[player.index()]
+                    .choose_sacrifice(
+                        DecisionContext::new(game, runtime.mana_pools),
+                        player,
+                        valid,
+                        Some(source),
+                    ),
+                mana::ManaPayCallback::ChooseColor(game, valid_colors) => {
                     // Always invoke the agent — humans go through their
                     // interactive `ChooseColor` modal, AI returns a
                     // default. The engine never branches on agent kind.
-                    let _ = agents[player.index()].choose_color(player, valid_colors);
+                    let _ = agents[player.index()].choose_color(
+                        DecisionContext::new(game, runtime.mana_pools),
+                        player,
+                        valid_colors,
+                    );
                     None
                 }
-                mana::ManaPayCallback::ChooseManaColor { options, chosen } => {
-                    *chosen = agents[player.index()].choose_color(player, options);
+                mana::ManaPayCallback::ChooseManaColor {
+                    game,
+                    options,
+                    chosen,
+                } => {
+                    *chosen = agents[player.index()].choose_color(
+                        DecisionContext::new(game, runtime.mana_pools),
+                        player,
+                        options,
+                    );
                     None
                 }
                 mana::ManaPayCallback::ChooseManaFromPool {
+                    game,
                     mana_choices,
                     chosen,
                 } => {
-                    *chosen = agents[player.index()].choose_mana_from_pool(player, mana_choices);
+                    *chosen = agents[player.index()].choose_mana_from_pool(
+                        DecisionContext::new(game, runtime.mana_pools),
+                        player,
+                        mana_choices,
+                    );
                     None
                 }
                 mana::ManaPayCallback::ChooseCards {
+                    game,
                     valid,
                     min,
                     max,
                     chosen,
                 } => {
-                    chosen.extend(
-                        agents[player.index()].choose_cards_for_effect(player, valid, min, max),
-                    );
+                    chosen.extend(agents[player.index()].choose_cards_for_effect(
+                        DecisionContext::new(game, runtime.mana_pools),
+                        player,
+                        valid,
+                        min,
+                        max,
+                    ));
                     chosen.first().copied()
                 }
-                mana::ManaPayCallback::ConfirmSelfSacrifice(source_id) => {
+                mana::ManaPayCallback::ConfirmSelfSacrifice(game, source_id) => {
                     if agents[player.index()].confirm_payment(
+                        DecisionContext::new(game, runtime.mana_pools),
                         player,
                         "Sacrifice",
                         "Sacrifice for mana",
@@ -485,8 +513,9 @@ impl GameLoop {
                         None
                     }
                 }
-                mana::ManaPayCallback::ConfirmSubCounter(source_id) => {
+                mana::ManaPayCallback::ConfirmSubCounter(game, source_id) => {
                     if agents[player.index()].confirm_payment(
+                        DecisionContext::new(game, runtime.mana_pools),
                         player,
                         "SubCounter",
                         "Remove counter for mana",
@@ -498,8 +527,9 @@ impl GameLoop {
                         None
                     }
                 }
-                mana::ManaPayCallback::ConfirmSourceExile(source_id) => {
+                mana::ManaPayCallback::ConfirmSourceExile(game, source_id) => {
                     if agents[player.index()].confirm_payment(
+                        DecisionContext::new(game, runtime.mana_pools),
                         player,
                         "Exile",
                         "Exile for mana",
@@ -511,8 +541,9 @@ impl GameLoop {
                         None
                     }
                 }
-                mana::ManaPayCallback::ConfirmPayLife(source_id) => {
+                mana::ManaPayCallback::ConfirmPayLife(game, source_id) => {
                     if agents[player.index()].confirm_payment(
+                        DecisionContext::new(game, runtime.mana_pools),
                         player,
                         "PayLife",
                         "Pay life for mana",

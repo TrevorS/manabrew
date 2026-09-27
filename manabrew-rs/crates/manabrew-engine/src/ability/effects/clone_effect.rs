@@ -1,6 +1,7 @@
 use forge_foundation::{CardTypeLine, ColorSet, ZoneType};
 
 use super::{matches_valid_cards_for_sa, EffectContext};
+use crate::agent::DecisionContext;
 use crate::parsing::{keys, split_param_list_value};
 use crate::spellability::SpellAbility;
 
@@ -54,6 +55,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let card_name = src.card_name.clone();
         ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
         if !ctx.agents[controller.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             controller,
             None,
             &format!("Do you want to copy {card_name}?"),
@@ -393,6 +395,7 @@ fn resolve_clone_source(
         let choice_optional =
             crate::parsing::raw_has_key(&sa.ability_text, crate::parsing::keys::CHOICE_OPTIONAL);
         return match ctx.agents[controller.index()].choose_single_entity_for_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             controller,
             &choices,
             choice_optional,

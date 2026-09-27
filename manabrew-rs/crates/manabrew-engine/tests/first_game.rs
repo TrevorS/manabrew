@@ -6,6 +6,7 @@ use std::sync::{
 
 use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 use manabrew_engine::ability::effects::{resolve_effect, EffectContext};
+use manabrew_engine::agent::{DecisionContext, PriorityContext};
 use manabrew_engine::agent::{PlayerAgent, TargetChoice};
 use manabrew_engine::card::CardInstance;
 use manabrew_engine::combat::DefenderId;
@@ -82,6 +83,7 @@ fn resolve_sa(game: &mut GameState, sa: &manabrew_engine::spellability::SpellAbi
 impl PlayerAgent for ScriptedAgent {
     fn mulligan_decision(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _hand: &[CardId],
         _mulligan_count: u32,
@@ -93,7 +95,7 @@ impl PlayerAgent for ScriptedAgent {
         &mut self,
         _player: PlayerId,
         action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-        request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
+        priority: &mut dyn PriorityContext,
     ) -> PlayerAction {
         if self.action_idx >= self.actions.len() {
             return PlayerAction::PassPriority;
@@ -104,7 +106,7 @@ impl PlayerAgent for ScriptedAgent {
         let action_space = match action_space {
             Some(action_space) => action_space,
             None => {
-                requested_action_space = request_action_space();
+                requested_action_space = priority.action_space();
                 &requested_action_space
             }
         };
@@ -123,6 +125,7 @@ impl PlayerAgent for ScriptedAgent {
 
     fn choose_attackers(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         available: &[CardId],
         possible_defenders: &[DefenderId],
@@ -140,6 +143,7 @@ impl PlayerAgent for ScriptedAgent {
 
     fn choose_blockers(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         attackers: &[CardId],
         available_blockers: &[CardId],
@@ -161,6 +165,7 @@ impl PlayerAgent for ScriptedAgent {
 
     fn choose_target_player(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[PlayerId],
         _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -170,6 +175,7 @@ impl PlayerAgent for ScriptedAgent {
 
     fn choose_target_card(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -179,6 +185,7 @@ impl PlayerAgent for ScriptedAgent {
 
     fn choose_target_any(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid_players: &[PlayerId],
         valid_cards: &[CardId],
@@ -193,7 +200,11 @@ impl PlayerAgent for ScriptedAgent {
         }
     }
 
-    fn choose_land_or_spell(&mut self, _player: PlayerId) -> Option<bool> {
+    fn choose_land_or_spell(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+    ) -> Option<bool> {
         None
     }
 
@@ -337,20 +348,26 @@ fn full_game_runs() {
     // Simple agents that play the first available card and attack with everything
     struct SimpleAgent;
     impl PlayerAgent for SimpleAgent {
-        fn mulligan_decision(&mut self, _: PlayerId, _: &[CardId], _: u32) -> bool {
+        fn mulligan_decision(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+            _: &[CardId],
+            _: u32,
+        ) -> bool {
             true
         }
         fn choose_action(
             &mut self,
             _player: PlayerId,
             action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-            request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
+            priority: &mut dyn PriorityContext,
         ) -> PlayerAction {
             let requested_action_space;
             let action_space = match action_space {
                 Some(action_space) => action_space,
                 None => {
-                    requested_action_space = request_action_space();
+                    requested_action_space = priority.action_space();
                     &requested_action_space
                 }
             };
@@ -363,6 +380,7 @@ fn full_game_runs() {
         }
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             available: &[CardId],
             possible_defenders: &[DefenderId],
@@ -374,6 +392,7 @@ fn full_game_runs() {
         }
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[CardId],
@@ -383,6 +402,7 @@ fn full_game_runs() {
         }
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid: &[PlayerId],
             _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -391,6 +411,7 @@ fn full_game_runs() {
         }
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid: &[CardId],
             _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -399,6 +420,7 @@ fn full_game_runs() {
         }
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid_players: &[PlayerId],
             valid_cards: &[CardId],
@@ -412,7 +434,11 @@ fn full_game_runs() {
                 TargetChoice::None
             }
         }
-        fn choose_land_or_spell(&mut self, _: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+        ) -> Option<bool> {
             None
         }
 
@@ -906,20 +932,26 @@ fn full_game_with_triggers_runs() {
 
     struct SimpleAgent;
     impl PlayerAgent for SimpleAgent {
-        fn mulligan_decision(&mut self, _: PlayerId, _: &[CardId], _: u32) -> bool {
+        fn mulligan_decision(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+            _: &[CardId],
+            _: u32,
+        ) -> bool {
             true
         }
         fn choose_action(
             &mut self,
             _player: PlayerId,
             action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-            request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
+            priority: &mut dyn PriorityContext,
         ) -> PlayerAction {
             let requested_action_space;
             let action_space = match action_space {
                 Some(action_space) => action_space,
                 None => {
-                    requested_action_space = request_action_space();
+                    requested_action_space = priority.action_space();
                     &requested_action_space
                 }
             };
@@ -932,6 +964,7 @@ fn full_game_with_triggers_runs() {
         }
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             available: &[CardId],
             possible_defenders: &[DefenderId],
@@ -943,6 +976,7 @@ fn full_game_with_triggers_runs() {
         }
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[CardId],
@@ -952,6 +986,7 @@ fn full_game_with_triggers_runs() {
         }
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid: &[PlayerId],
             _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -960,6 +995,7 @@ fn full_game_with_triggers_runs() {
         }
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid: &[CardId],
             _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -968,6 +1004,7 @@ fn full_game_with_triggers_runs() {
         }
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             p: &[PlayerId],
             c: &[CardId],
@@ -981,7 +1018,11 @@ fn full_game_with_triggers_runs() {
                 TargetChoice::None
             }
         }
-        fn choose_land_or_spell(&mut self, _: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+        ) -> Option<bool> {
             None
         }
 
@@ -1095,20 +1136,26 @@ fn llanowar_elves_taps_for_mana() {
         saw_elves_as_mana_source: Arc<AtomicBool>,
     }
     impl PlayerAgent for ElvesAgent {
-        fn mulligan_decision(&mut self, _: PlayerId, _: &[CardId], _: u32) -> bool {
+        fn mulligan_decision(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+            _: &[CardId],
+            _: u32,
+        ) -> bool {
             true
         }
         fn choose_action(
             &mut self,
             _player: PlayerId,
             action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-            request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
+            priority: &mut dyn PriorityContext,
         ) -> PlayerAction {
             let requested_action_space;
             let action_space = match action_space {
                 Some(action_space) => action_space,
                 None => {
-                    requested_action_space = request_action_space();
+                    requested_action_space = priority.action_space();
                     &requested_action_space
                 }
             };
@@ -1120,6 +1167,7 @@ fn llanowar_elves_taps_for_mana() {
         }
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[DefenderId],
@@ -1128,6 +1176,7 @@ fn llanowar_elves_taps_for_mana() {
         }
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[CardId],
@@ -1137,6 +1186,7 @@ fn llanowar_elves_taps_for_mana() {
         }
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid: &[PlayerId],
             _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -1145,6 +1195,7 @@ fn llanowar_elves_taps_for_mana() {
         }
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid: &[CardId],
             _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -1153,6 +1204,7 @@ fn llanowar_elves_taps_for_mana() {
         }
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             p: &[PlayerId],
             c: &[CardId],
@@ -1166,7 +1218,11 @@ fn llanowar_elves_taps_for_mana() {
                 TargetChoice::None
             }
         }
-        fn choose_land_or_spell(&mut self, _: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+        ) -> Option<bool> {
             None
         }
 
@@ -1222,20 +1278,26 @@ fn summoning_sick_creature_cant_tap() {
         saw_activatable: bool,
     }
     impl PlayerAgent for CheckAgent {
-        fn mulligan_decision(&mut self, _: PlayerId, _: &[CardId], _: u32) -> bool {
+        fn mulligan_decision(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+            _: &[CardId],
+            _: u32,
+        ) -> bool {
             true
         }
         fn choose_action(
             &mut self,
             _player: PlayerId,
             action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-            request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
+            priority: &mut dyn PriorityContext,
         ) -> PlayerAction {
             let requested_action_space;
             let action_space = match action_space {
                 Some(action_space) => action_space,
                 None => {
-                    requested_action_space = request_action_space();
+                    requested_action_space = priority.action_space();
                     &requested_action_space
                 }
             };
@@ -1244,6 +1306,7 @@ fn summoning_sick_creature_cant_tap() {
         }
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[DefenderId],
@@ -1252,6 +1315,7 @@ fn summoning_sick_creature_cant_tap() {
         }
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[CardId],
@@ -1261,6 +1325,7 @@ fn summoning_sick_creature_cant_tap() {
         }
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid: &[PlayerId],
             _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -1269,6 +1334,7 @@ fn summoning_sick_creature_cant_tap() {
         }
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid: &[CardId],
             _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -1277,6 +1343,7 @@ fn summoning_sick_creature_cant_tap() {
         }
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             p: &[PlayerId],
             c: &[CardId],
@@ -1290,7 +1357,11 @@ fn summoning_sick_creature_cant_tap() {
                 TargetChoice::None
             }
         }
-        fn choose_land_or_spell(&mut self, _: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+        ) -> Option<bool> {
             None
         }
 
@@ -1345,14 +1416,20 @@ fn prodigal_sorcerer_pings_opponent() {
         activated: bool,
     }
     impl PlayerAgent for PingAgent {
-        fn mulligan_decision(&mut self, _: PlayerId, _: &[CardId], _: u32) -> bool {
+        fn mulligan_decision(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+            _: &[CardId],
+            _: u32,
+        ) -> bool {
             true
         }
         fn choose_action(
             &mut self,
             _player: PlayerId,
             action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-            request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
+            priority: &mut dyn PriorityContext,
         ) -> PlayerAction {
             if !self.activated {
                 self.activated = true;
@@ -1360,7 +1437,7 @@ fn prodigal_sorcerer_pings_opponent() {
                 let action_space = match action_space {
                     Some(action_space) => action_space,
                     None => {
-                        requested_action_space = request_action_space();
+                        requested_action_space = priority.action_space();
                         &requested_action_space
                     }
                 };
@@ -1375,6 +1452,7 @@ fn prodigal_sorcerer_pings_opponent() {
         }
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[DefenderId],
@@ -1383,6 +1461,7 @@ fn prodigal_sorcerer_pings_opponent() {
         }
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[CardId],
@@ -1392,6 +1471,7 @@ fn prodigal_sorcerer_pings_opponent() {
         }
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid: &[PlayerId],
             _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -1400,6 +1480,7 @@ fn prodigal_sorcerer_pings_opponent() {
         }
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid: &[CardId],
             _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -1408,6 +1489,7 @@ fn prodigal_sorcerer_pings_opponent() {
         }
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             p: &[PlayerId],
             c: &[CardId],
@@ -1422,7 +1504,11 @@ fn prodigal_sorcerer_pings_opponent() {
                 TargetChoice::None
             }
         }
-        fn choose_land_or_spell(&mut self, _: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+        ) -> Option<bool> {
             None
         }
 
@@ -1488,14 +1574,20 @@ fn sakura_tribe_elder_fetches_land() {
         activated: bool,
     }
     impl PlayerAgent for SacAgent {
-        fn mulligan_decision(&mut self, _: PlayerId, _: &[CardId], _: u32) -> bool {
+        fn mulligan_decision(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+            _: &[CardId],
+            _: u32,
+        ) -> bool {
             true
         }
         fn choose_action(
             &mut self,
             _player: PlayerId,
             action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-            request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
+            priority: &mut dyn PriorityContext,
         ) -> PlayerAction {
             if !self.activated {
                 self.activated = true;
@@ -1503,7 +1595,7 @@ fn sakura_tribe_elder_fetches_land() {
                 let action_space = match action_space {
                     Some(action_space) => action_space,
                     None => {
-                        requested_action_space = request_action_space();
+                        requested_action_space = priority.action_space();
                         &requested_action_space
                     }
                 };
@@ -1518,6 +1610,7 @@ fn sakura_tribe_elder_fetches_land() {
         }
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[DefenderId],
@@ -1526,6 +1619,7 @@ fn sakura_tribe_elder_fetches_land() {
         }
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[CardId],
@@ -1535,6 +1629,7 @@ fn sakura_tribe_elder_fetches_land() {
         }
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid: &[PlayerId],
             _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -1543,6 +1638,7 @@ fn sakura_tribe_elder_fetches_land() {
         }
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid: &[CardId],
             _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -1551,6 +1647,7 @@ fn sakura_tribe_elder_fetches_land() {
         }
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             p: &[PlayerId],
             c: &[CardId],
@@ -1564,7 +1661,11 @@ fn sakura_tribe_elder_fetches_land() {
                 TargetChoice::None
             }
         }
-        fn choose_land_or_spell(&mut self, _: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+        ) -> Option<bool> {
             None
         }
 

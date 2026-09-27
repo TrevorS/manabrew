@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::card::card_damage_map::DamageTarget;
 use crate::event::RunParams;
 use crate::ids::CardId;
@@ -39,6 +40,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .unwrap_or(sa.activating_player);
         ctx.agents[decider.index()].snapshot_state(ctx.game, ctx.mana_pools);
         if !ctx.agents[decider.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             decider,
             Some("Fight"),
             "Would you like those creatures to fight?",

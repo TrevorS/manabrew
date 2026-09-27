@@ -16,6 +16,7 @@ use super::search::{
     resolve_random_selection, resolve_single_search,
 };
 use crate::ability::ability_ir::DefinedRef;
+use crate::agent::DecisionContext;
 use crate::agent::GameEntity;
 use crate::ids::PlayerId;
 use crate::spellability::SpellAbility;
@@ -147,6 +148,7 @@ pub(super) fn resolve_hidden_origin(
                         "Do you want to move {card_name} from {origin_zone} to {dest_zone}?",
                     );
                     ctx.agents[chooser.index()].confirm_action(
+                        DecisionContext::new(ctx.game, ctx.mana_pools),
                         chooser,
                         None,
                         &prompt,
@@ -200,6 +202,7 @@ pub(super) fn resolve_hidden_origin(
             ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
             Some(
                 match ctx.agents[controller.index()].choose_single_entity_for_effect(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
                     controller,
                     &chooser_entities,
                     false,
@@ -240,6 +243,7 @@ pub(super) fn resolve_hidden_origin(
                 );
                 ctx.agents[effective_chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
                 let accepted = ctx.agents[effective_chooser.index()].confirm_action(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
                     effective_chooser,
                     Some("ChangeZoneGeneral"),
                     &message,
@@ -378,6 +382,7 @@ pub(super) fn resolve_hidden_origin(
             alt_fetch_list.len()
         );
         if !ctx.agents[chooser.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             chooser,
             Some("ChangeZoneFromAltSource"),
             &message,
@@ -395,6 +400,7 @@ pub(super) fn resolve_hidden_origin(
                 z.to_string().to_lowercase()
             );
             if ctx.agents[chooser.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 chooser,
                 Some("ChangeZoneFromAltSource"),
                 &message,
@@ -437,6 +443,7 @@ pub(super) fn resolve_hidden_origin(
         };
         ctx.agents[effective_chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
         let accepted = ctx.agents[effective_chooser.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             effective_chooser,
             Some("ChangeZoneGeneral"),
             &message,
@@ -672,6 +679,7 @@ fn offer_panglacial_cast(
     for pg_id in panglacial {
         let name = ctx.game.card(pg_id).card_name.clone();
         let cast = ctx.agents[controller.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             controller,
             Some("PanglacialCast"),
             &format!("Cast {name} from library while searching?"),

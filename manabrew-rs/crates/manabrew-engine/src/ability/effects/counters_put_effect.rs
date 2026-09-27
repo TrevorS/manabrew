@@ -2,6 +2,7 @@ use forge_foundation::ZoneType;
 
 use super::{matches_valid_cards_for_sa, parse_counter_type, resolve_numeric_svar, EffectContext};
 use crate::ability::ability_ir::DefinedRef;
+use crate::agent::DecisionContext;
 use crate::agent::GameEntity;
 use crate::event::RunParams;
 use crate::game_entity_counter_table::GameEntityCounterTable;
@@ -177,6 +178,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
         ctx.agents[placer.index()].snapshot_state(ctx.game, ctx.mana_pools);
         match ctx.agents[placer.index()].choose_counter_type(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             placer,
             &options,
             "Select counter type",
@@ -206,6 +208,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let activator = sa.activating_player;
         ctx.agents[activator.index()].snapshot_state(ctx.game, ctx.mana_pools);
         if !ctx.agents[activator.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             activator,
             None,
             "Do you want to put the counter?",
@@ -297,6 +300,7 @@ fn resolve_per_type(
         }
         ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
         let chosen = ctx.agents[chooser.index()].choose_cards_for_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             chooser,
             &valid,
             m.max(0) as usize,
@@ -314,6 +318,7 @@ fn resolve_per_type(
                 } else {
                     ctx.agents[activator.index()]
                         .choose_number(
+                            DecisionContext::new(ctx.game, ctx.mana_pools),
                             activator,
                             sa.source,
                             "How many counters",

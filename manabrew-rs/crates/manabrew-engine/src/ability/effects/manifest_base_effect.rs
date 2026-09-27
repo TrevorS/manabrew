@@ -11,6 +11,7 @@ use crate::ids::{CardId, PlayerId};
 use crate::spellability::SpellAbility;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 
 /// Common manifest parameters parsed from a spell ability.
 pub struct ManifestParams {
@@ -58,9 +59,13 @@ pub fn manifest_target_cards(
             return None;
         }
         ctx.agents[player.index()].snapshot_state(ctx.game, ctx.mana_pools);
-        return Some(
-            ctx.agents[player.index()].choose_cards_for_effect(player, &choices, amount, amount),
-        );
+        return Some(ctx.agents[player.index()].choose_cards_for_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
+            player,
+            &choices,
+            amount,
+            amount,
+        ));
     }
     if sa.defined().is_none_or(|d| d == "TopOfLibrary") {
         let lib = ctx.game.cards_in_zone(ZoneType::Library, player).to_vec();

@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{emit_zone_trigger, resolve_defined_player, resolve_numeric_svar, EffectContext};
+use crate::agent::DecisionContext;
 use crate::event::RunParams;
 use crate::parsing::keys;
 use crate::trigger::TriggerType;
@@ -25,6 +26,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if sa.ir.optional {
         let _source_name = sa.source.map(|cid| ctx.game.card(cid).card_name.as_str());
         let accepted = ctx.agents[target.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             target,
             None,
             "Do you want to surveil?",
@@ -100,6 +102,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 #[cfg(test)]
 mod tests {
     use crate::ability::spell_ability_effect::SpellAbilityEffect;
+    use crate::agent::{DecisionContext, PriorityContext};
     use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 
     use crate::ability::effects::EffectContext;
@@ -132,19 +135,26 @@ mod tests {
     /// Agent that puts all surveiled cards into graveyard.
     struct GraveyardAllAgent;
     impl PlayerAgent for GraveyardAllAgent {
-        fn mulligan_decision(&mut self, _: PlayerId, _: &[CardId], _: u32) -> bool {
+        fn mulligan_decision(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+            _: &[CardId],
+            _: u32,
+        ) -> bool {
             true
         }
         fn choose_action(
             &mut self,
             _player: PlayerId,
             _action_space: Option<&crate::agent::PriorityActionSpace>,
-            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _priority: &mut dyn PriorityContext,
         ) -> crate::player::actions::PlayerAction {
             crate::player::actions::PlayerAction::PassPriority
         }
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[DefenderId],
@@ -153,6 +163,7 @@ mod tests {
         }
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[CardId],
@@ -162,6 +173,7 @@ mod tests {
         }
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             v: &[PlayerId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -170,6 +182,7 @@ mod tests {
         }
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             v: &[CardId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -178,6 +191,7 @@ mod tests {
         }
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             vp: &[PlayerId],
             vc: &[CardId],
@@ -189,7 +203,11 @@ mod tests {
                 .or_else(|| vc.first().copied().map(crate::agent::TargetChoice::Card))
                 .unwrap_or(crate::agent::TargetChoice::None)
         }
-        fn choose_land_or_spell(&mut self, _: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+        ) -> Option<bool> {
             None
         }
         fn choose_surveil(

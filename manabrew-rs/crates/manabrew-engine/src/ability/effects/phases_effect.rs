@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::event::RunParams;
 use crate::ids::CardId;
 use crate::staticability::static_ability_cant_phase::{cant_phase_in, cant_phase_out};
@@ -52,8 +53,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     };
     if crate::parsing::raw_has_key(raw, "AnyNumber") {
         let max = tgt_cards.len();
-        tgt_cards =
-            ctx.agents[activator.index()].choose_cards_for_effect(activator, &tgt_cards, 0, max);
+        tgt_cards = ctx.agents[activator.index()].choose_cards_for_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
+            activator,
+            &tgt_cards,
+            0,
+            max,
+        );
     }
 
     let mut phased_out = Vec::new();

@@ -2,6 +2,7 @@ use super::{resolve_defined_players, resolve_numeric_svar, EffectContext};
 use crate::{HashMap, HashSet};
 
 use crate::agent::notification::GameNotification;
+use crate::agent::DecisionContext;
 use crate::agent::GameLogEvent;
 use crate::cost::{parse_cost, Cost, CostPart};
 use crate::event::RunParams;
@@ -322,6 +323,7 @@ pub(crate) fn roll_for_player(
             if !kept_rolls.is_empty() {
                 let chosen = ctx.agents[player.index()]
                     .choose_number_from_list(
+                        DecisionContext::new(ctx.game, ctx.mana_pools),
                         player,
                         &kept_rolls,
                         "Choose a result",
@@ -444,6 +446,7 @@ fn reroll_stored_results(
     let mut replacements = Vec::new();
     for old_roll in stored_rolls {
         if ctx.agents[player.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             player,
             Some("RerollResult"),
             &format!("Reroll result {old_roll}?"),
@@ -509,6 +512,7 @@ pub fn roll_to_visit_attractions(
     let ignore_count = ignore_lowest.min(natural_rolls.len() as i32) as usize;
     let ignored_rolls: Vec<i32> = natural_rolls.drain(..ignore_count).collect();
     let (ignored_by_choice, _) = apply_chosen_ignores(
+        DecisionContext::new(game, runtime.mana_pools),
         agents,
         "Attraction roll",
         &mut natural_rolls,
@@ -606,6 +610,7 @@ pub fn roll_to_visit_attractions(
 }
 
 fn apply_chosen_ignores(
+    context: DecisionContext<'_>,
     agents: &mut [Box<dyn crate::agent::PlayerAgent>],
     _card_name: &str,
     natural_rolls: &mut Vec<i32>,
@@ -618,7 +623,7 @@ fn apply_chosen_ignores(
                 break;
             }
             let choice = agents[chooser.index()]
-                .choose_roll_to_ignore(chooser, natural_rolls, None)
+                .choose_roll_to_ignore(context, chooser, natural_rolls, None)
                 .unwrap_or(natural_rolls[0]);
             let position = natural_rolls
                 .iter()
@@ -687,8 +692,13 @@ fn roll_action(
     let ignore_count = ignore_lowest.min(natural_rolls.len() as i32) as usize;
     ignored_rolls.extend(natural_rolls.drain(..ignore_count));
 
-    let (ignored_by_choice, _) =
-        apply_chosen_ignores(agents, "Roll", &mut natural_rolls, &ignore_chosen);
+    let (ignored_by_choice, _) = apply_chosen_ignores(
+        DecisionContext::new(game, &[]),
+        agents,
+        "Roll",
+        &mut natural_rolls,
+        &ignore_chosen,
+    );
     ignored_rolls.extend(ignored_by_choice);
     natural_rolls
 }
@@ -706,7 +716,12 @@ fn apply_dice_pt_exchanges(
             .iter()
             .map(|roll| roll.modified_value)
             .collect();
-        let roll = agents[player.index()].choose_roll_to_swap(player, &current_rolls, None);
+        let roll = agents[player.index()].choose_roll_to_swap(
+            DecisionContext::new(game, &[]),
+            player,
+            &current_rolls,
+            None,
+        );
         let Some(roll_value) = roll else { break };
         let Some(roll_index) = results_list
             .iter()
@@ -718,6 +733,7 @@ fn apply_dice_pt_exchanges(
         let current_power = game.card(card_id).power();
         let current_toughness = game.card(card_id).toughness();
         let choice = agents[player.index()].choose_roll_swap_value(
+            DecisionContext::new(game, &[]),
             player,
             roll_value,
             current_power,
@@ -805,7 +821,12 @@ fn apply_simple_roll_modifiers(
             break;
         }
 
-        let roll = agents[player.index()].choose_roll_to_modify(player, natural_rolls, None);
+        let roll = agents[player.index()].choose_roll_to_modify(
+            DecisionContext::new(game, runtime.mana_pools),
+            player,
+            natural_rolls,
+            None,
+        );
         let Some(mut roll_value) = roll else { break };
         let Some(roll_index) = natural_rolls.iter().position(|value| *value == roll_value) else {
             break;
@@ -843,6 +864,7 @@ fn apply_simple_roll_modifiers(
                 continue;
             }
             let increase = agents[player.index()].choose_binary(
+                DecisionContext::new(game, runtime.mana_pools),
                 player,
                 "Increase or decrease the roll?",
                 crate::agent::BinaryChoiceKind::IncreaseOrDecrease,
@@ -950,6 +972,7 @@ fn pay_roll_cost(
         );
         if should_ask
             && !agents[player.index()].confirm_payment(
+                DecisionContext::new(game, runtime.mana_pools),
                 player,
                 match part {
                     CostPart::DamageYou(_) => "DamageYou",
@@ -1078,6 +1101,7 @@ fn apply_keyword_roll_rerolls(
         }
 
         let dice_to_reroll = ctx.agents[player.index()].choose_dice_to_reroll(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             player,
             natural_rolls,
             Some(sa.source.unwrap_or(reroll_cards[0])),
@@ -1263,6 +1287,7 @@ fn resolve_result_sub_ability(
 mod tests {
     use super::*;
     use crate::agent::PlayerAgent;
+    use crate::agent::PriorityContext;
     use crate::card::Card;
     use crate::game_rng::GameRng;
     use crate::ids::{CardId, PlayerId};
@@ -1301,6 +1326,7 @@ mod tests {
     impl PlayerAgent for SwapAgent {
         fn mulligan_decision(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _hand: &[CardId],
             _mulligan_count: u32,
@@ -1312,13 +1338,14 @@ mod tests {
             &mut self,
             _player: PlayerId,
             _action_space: Option<&crate::agent::PriorityActionSpace>,
-            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _priority: &mut dyn PriorityContext,
         ) -> crate::player::actions::PlayerAction {
             crate::player::actions::PlayerAction::PassPriority
         }
 
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _available: &[CardId],
             _possible_defenders: &[crate::combat::DefenderId],
@@ -1328,6 +1355,7 @@ mod tests {
 
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _attackers: &[CardId],
             _available_blockers: &[CardId],
@@ -1338,6 +1366,7 @@ mod tests {
 
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _valid: &[PlayerId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -1347,6 +1376,7 @@ mod tests {
 
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _valid: &[CardId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -1356,6 +1386,7 @@ mod tests {
 
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _valid_players: &[PlayerId],
             _valid_cards: &[CardId],
@@ -1366,6 +1397,7 @@ mod tests {
 
         fn choose_roll_to_swap(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             rolls: &[i32],
             _source: Option<crate::ids::CardId>,
@@ -1375,6 +1407,7 @@ mod tests {
 
         fn choose_roll_swap_value(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _current_result: i32,
             _power: i32,
@@ -1384,7 +1417,11 @@ mod tests {
             Some(crate::agent::RollSwapChoice::Power)
         }
 
-        fn choose_land_or_spell(&mut self, _player: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _player: PlayerId,
+        ) -> Option<bool> {
             Some(true)
         }
 
@@ -1403,6 +1440,7 @@ mod tests {
     impl PlayerAgent for ModifyAgent {
         fn mulligan_decision(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _hand: &[CardId],
             _mulligan_count: u32,
@@ -1414,13 +1452,14 @@ mod tests {
             &mut self,
             _player: PlayerId,
             _action_space: Option<&crate::agent::PriorityActionSpace>,
-            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _priority: &mut dyn PriorityContext,
         ) -> crate::player::actions::PlayerAction {
             crate::player::actions::PlayerAction::PassPriority
         }
 
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _available: &[CardId],
             _possible_defenders: &[crate::combat::DefenderId],
@@ -1430,6 +1469,7 @@ mod tests {
 
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _attackers: &[CardId],
             _available_blockers: &[CardId],
@@ -1440,6 +1480,7 @@ mod tests {
 
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _valid: &[PlayerId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -1449,6 +1490,7 @@ mod tests {
 
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _valid: &[CardId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -1458,6 +1500,7 @@ mod tests {
 
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _valid_players: &[PlayerId],
             _valid_cards: &[CardId],
@@ -1468,6 +1511,7 @@ mod tests {
 
         fn choose_roll_to_modify(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             rolls: &[i32],
             _source: Option<crate::ids::CardId>,
@@ -1488,6 +1532,7 @@ mod tests {
 
         fn choose_binary(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _question: &str,
             _kind: crate::agent::BinaryChoiceKind,
@@ -1498,7 +1543,11 @@ mod tests {
             true
         }
 
-        fn choose_land_or_spell(&mut self, _player: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _player: PlayerId,
+        ) -> Option<bool> {
             Some(true)
         }
 
@@ -1517,6 +1566,7 @@ mod tests {
     impl PlayerAgent for RerollAgent {
         fn mulligan_decision(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _hand: &[CardId],
             _mulligan_count: u32,
@@ -1528,13 +1578,14 @@ mod tests {
             &mut self,
             _player: PlayerId,
             _action_space: Option<&crate::agent::PriorityActionSpace>,
-            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _priority: &mut dyn PriorityContext,
         ) -> crate::player::actions::PlayerAction {
             crate::player::actions::PlayerAction::PassPriority
         }
 
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _available: &[CardId],
             _possible_defenders: &[crate::combat::DefenderId],
@@ -1544,6 +1595,7 @@ mod tests {
 
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _attackers: &[CardId],
             _available_blockers: &[CardId],
@@ -1554,6 +1606,7 @@ mod tests {
 
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _valid: &[PlayerId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -1563,6 +1616,7 @@ mod tests {
 
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _valid: &[CardId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -1572,6 +1626,7 @@ mod tests {
 
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _valid_players: &[PlayerId],
             _valid_cards: &[CardId],
@@ -1582,6 +1637,7 @@ mod tests {
 
         fn choose_dice_to_reroll(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             rolls: &[i32],
             _source: Option<crate::ids::CardId>,
@@ -1600,7 +1656,11 @@ mod tests {
             valid.first().copied()
         }
 
-        fn choose_land_or_spell(&mut self, _player: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _player: PlayerId,
+        ) -> Option<bool> {
             Some(true)
         }
 

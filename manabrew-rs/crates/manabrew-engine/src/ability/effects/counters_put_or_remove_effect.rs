@@ -2,6 +2,7 @@ use forge_foundation::ZoneType;
 
 use super::{resolve_numeric_svar, EffectContext};
 use crate::agent::BinaryChoiceKind;
+use crate::agent::DecisionContext;
 use crate::parsing::keys;
 
 /// `SP$ CountersPutOrRemove` — choose add/remove on target card counters.
@@ -55,6 +56,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ctx.game.card(target_id).card_name
         );
         ctx.agents[controller.index()].choose_binary(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             controller,
             &prompt,
             BinaryChoiceKind::AddOrRemove,

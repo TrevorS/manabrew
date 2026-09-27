@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
+use manabrew_engine::agent::{DecisionContext, PriorityContext};
 use manabrew_engine::agent::{PlayerAgent, TargetChoice};
 use manabrew_engine::card::CardInstance;
 use manabrew_engine::combat::DefenderId;
@@ -221,20 +222,26 @@ impl VerboseAgent {
 }
 
 impl PlayerAgent for VerboseAgent {
-    fn mulligan_decision(&mut self, _: PlayerId, _: &[CardId], _: u32) -> bool {
+    fn mulligan_decision(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _: PlayerId,
+        _: &[CardId],
+        _: u32,
+    ) -> bool {
         true
     }
     fn choose_action(
         &mut self,
         _player: PlayerId,
         action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-        request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
+        priority: &mut dyn PriorityContext,
     ) -> PlayerAction {
         let requested_action_space;
         let action_space = match action_space {
             Some(action_space) => action_space,
             None => {
-                requested_action_space = request_action_space();
+                requested_action_space = priority.action_space();
                 &requested_action_space
             }
         };
@@ -247,6 +254,7 @@ impl PlayerAgent for VerboseAgent {
     }
     fn choose_attackers(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         available: &[CardId],
         possible_defenders: &[DefenderId],
@@ -258,6 +266,7 @@ impl PlayerAgent for VerboseAgent {
     }
     fn choose_blockers(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         _: &[CardId],
         _: &[CardId],
@@ -267,6 +276,7 @@ impl PlayerAgent for VerboseAgent {
     }
     fn choose_target_player(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         valid: &[PlayerId],
         _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -275,6 +285,7 @@ impl PlayerAgent for VerboseAgent {
     }
     fn choose_target_card(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         valid: &[CardId],
         _sa: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -283,6 +294,7 @@ impl PlayerAgent for VerboseAgent {
     }
     fn choose_target_any(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         p: &[PlayerId],
         c: &[CardId],
@@ -296,7 +308,7 @@ impl PlayerAgent for VerboseAgent {
             TargetChoice::None
         }
     }
-    fn choose_land_or_spell(&mut self, _: PlayerId) -> Option<bool> {
+    fn choose_land_or_spell(&mut self, _context: DecisionContext<'_>, _: PlayerId) -> Option<bool> {
         None
     }
     fn notify(&mut self, msg: manabrew_engine::agent::notification::GameNotification) {

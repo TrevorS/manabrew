@@ -6,8 +6,8 @@ use manabrew_agent_interface::prompt::{
     AgentMessage, AgentPrompt, ClientToServerMessage, PromptInput,
 };
 use manabrew_engine::agent::{
-    ActivatableAction, ManaAbilityOption, ManaCostAction, PlayerAgent, PriorityActionSpace,
-    TargetChoice,
+    ActivatableAction, DecisionContext, ManaAbilityOption, ManaCostAction, PlayerAgent,
+    PriorityActionSpace, PriorityContext, TargetChoice,
 };
 use manabrew_engine::combat::DefenderId;
 use manabrew_engine::game::GameState;
@@ -120,7 +120,13 @@ impl RandomAgent {
 }
 
 impl PlayerAgent for RandomAgent {
-    fn mulligan_decision(&mut self, _p: PlayerId, _h: &[CardId], _m: u32) -> bool {
+    fn mulligan_decision(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _p: PlayerId,
+        _h: &[CardId],
+        _m: u32,
+    ) -> bool {
         true
     }
 
@@ -128,14 +134,14 @@ impl PlayerAgent for RandomAgent {
         &mut self,
         _p: PlayerId,
         space: Option<&PriorityActionSpace>,
-        request: &mut dyn FnMut() -> PriorityActionSpace,
+        priority: &mut dyn PriorityContext,
     ) -> PlayerAction {
         self.last_replacement = None;
         let owned;
         let s = match space {
             Some(s) => s,
             None => {
-                owned = request();
+                owned = priority.action_space();
                 &owned
             }
         };
@@ -173,6 +179,7 @@ impl PlayerAgent for RandomAgent {
 
     fn choose_attackers(
         &mut self,
+        _context: DecisionContext<'_>,
         _p: PlayerId,
         avail: &[CardId],
         defs: &[DefenderId],
@@ -191,6 +198,7 @@ impl PlayerAgent for RandomAgent {
 
     fn choose_blockers(
         &mut self,
+        _context: DecisionContext<'_>,
         _p: PlayerId,
         attackers: &[CardId],
         blockers: &[CardId],
@@ -222,6 +230,7 @@ impl PlayerAgent for RandomAgent {
 
     fn choose_target_player(
         &mut self,
+        _context: DecisionContext<'_>,
         _p: PlayerId,
         valid: &[PlayerId],
         _sa: Option<&SpellAbility>,
@@ -231,6 +240,7 @@ impl PlayerAgent for RandomAgent {
 
     fn choose_target_card(
         &mut self,
+        _context: DecisionContext<'_>,
         _p: PlayerId,
         valid: &[CardId],
         _sa: Option<&SpellAbility>,
@@ -240,6 +250,7 @@ impl PlayerAgent for RandomAgent {
 
     fn choose_target_any(
         &mut self,
+        _context: DecisionContext<'_>,
         _p: PlayerId,
         vp: &[PlayerId],
         vc: &[CardId],
@@ -259,6 +270,7 @@ impl PlayerAgent for RandomAgent {
 
     fn confirm_replacement_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _p: PlayerId,
         question: &str,
         _d: &str,
@@ -270,12 +282,17 @@ impl PlayerAgent for RandomAgent {
         !repeated
     }
 
-    fn choose_land_or_spell(&mut self, _p: PlayerId) -> Option<bool> {
+    fn choose_land_or_spell(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _p: PlayerId,
+    ) -> Option<bool> {
         Some(self.rng.gen_bool(0.5))
     }
 
     fn pay_mana_cost(
         &mut self,
+        _context: DecisionContext<'_>,
         _p: PlayerId,
         _c: CardId,
         _n: &str,

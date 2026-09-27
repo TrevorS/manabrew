@@ -49,6 +49,7 @@ use crate::deck_generator::{format_inline, parse_inline, DeckSpec};
 use crate::runner::LoadedData;
 use crate::script_index::read_card_list;
 use crate::utils::decks::build_deck_from_spec;
+use manabrew_engine::agent::{DecisionContext, PriorityContext};
 
 const LOOP_REPEATS: u32 = 200;
 
@@ -202,7 +203,13 @@ impl PlayerAgent for Agent {
         }
     }
 
-    fn mulligan_decision(&mut self, _p: PlayerId, _h: &[CardId], _m: u32) -> bool {
+    fn mulligan_decision(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _p: PlayerId,
+        _h: &[CardId],
+        _m: u32,
+    ) -> bool {
         true
     }
 
@@ -210,7 +217,7 @@ impl PlayerAgent for Agent {
         &mut self,
         _player: PlayerId,
         space: Option<&PriorityActionSpace>,
-        request: &mut dyn FnMut() -> PriorityActionSpace,
+        priority: &mut dyn PriorityContext,
     ) -> PlayerAction {
         {
             let mut shared = self.shared.lock().unwrap();
@@ -242,7 +249,7 @@ impl PlayerAgent for Agent {
         let space = match space {
             Some(space) => space,
             None => {
-                owned = request();
+                owned = priority.action_space();
                 &owned
             }
         };
@@ -304,6 +311,7 @@ impl PlayerAgent for Agent {
 
     fn choose_attackers(
         &mut self,
+        _context: DecisionContext<'_>,
         _p: PlayerId,
         available: &[CardId],
         defenders: &[DefenderId],
@@ -322,6 +330,7 @@ impl PlayerAgent for Agent {
 
     fn choose_blockers(
         &mut self,
+        _context: DecisionContext<'_>,
         _p: PlayerId,
         attackers: &[CardId],
         blockers: &[CardId],
@@ -353,6 +362,7 @@ impl PlayerAgent for Agent {
 
     fn choose_target_player(
         &mut self,
+        _context: DecisionContext<'_>,
         _p: PlayerId,
         valid: &[PlayerId],
         _sa: Option<&SpellAbility>,
@@ -362,6 +372,7 @@ impl PlayerAgent for Agent {
 
     fn choose_target_card(
         &mut self,
+        _context: DecisionContext<'_>,
         _p: PlayerId,
         valid: &[CardId],
         _sa: Option<&SpellAbility>,
@@ -371,6 +382,7 @@ impl PlayerAgent for Agent {
 
     fn choose_target_any(
         &mut self,
+        _context: DecisionContext<'_>,
         _p: PlayerId,
         players: &[PlayerId],
         cards: &[CardId],
@@ -388,12 +400,17 @@ impl PlayerAgent for Agent {
         }
     }
 
-    fn choose_land_or_spell(&mut self, _p: PlayerId) -> Option<bool> {
+    fn choose_land_or_spell(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _p: PlayerId,
+    ) -> Option<bool> {
         Some(self.rng.gen_bool(0.5))
     }
 
     fn pay_mana_cost(
         &mut self,
+        _context: DecisionContext<'_>,
         _p: PlayerId,
         _card: CardId,
         _name: &str,

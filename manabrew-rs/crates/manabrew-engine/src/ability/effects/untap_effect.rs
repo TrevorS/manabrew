@@ -2,6 +2,7 @@ use forge_foundation::ZoneType;
 
 use super::{resolve_numeric_svar, EffectContext};
 use crate::ability::ability_ir::DefinedRef;
+use crate::agent::DecisionContext;
 use crate::card::card_util;
 use crate::event::RunParams;
 use crate::ids::CardId;
@@ -106,7 +107,13 @@ fn choose_untap_type_targets(
     let amount = resolve_numeric_svar(ctx.game, sa, "Amount", valid.len() as i32).max(0) as usize;
     let max = amount.min(valid.len());
     let min = if sa.ir.untap_up_to { 0 } else { max };
-    ctx.agents[controller.index()].choose_cards_for_effect(controller, &valid, min, max)
+    ctx.agents[controller.index()].choose_cards_for_effect(
+        DecisionContext::new(ctx.game, ctx.mana_pools),
+        controller,
+        &valid,
+        min,
+        max,
+    )
 }
 
 fn untap_card(

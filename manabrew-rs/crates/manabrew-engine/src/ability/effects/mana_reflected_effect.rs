@@ -1,6 +1,7 @@
 use forge_foundation::mana::ManaAtom;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::card::card_util;
 use crate::mana::{color_name_to_mana_atom, Mana};
 
@@ -108,8 +109,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     let best_color = if let Some(atom) = express_choice {
         atom
-    } else if let Some(chosen_name) = ctx.agents[player.index()].choose_color(player, &color_names)
-    {
+    } else if let Some(chosen_name) = ctx.agents[player.index()].choose_color(
+        DecisionContext::new(ctx.game, ctx.mana_pools),
+        player,
+        &color_names,
+    ) {
         color_name_to_mana_atom(&chosen_name).unwrap_or(sorted_colors[0])
     } else {
         sorted_colors[0]

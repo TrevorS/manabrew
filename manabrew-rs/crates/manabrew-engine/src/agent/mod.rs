@@ -82,14 +82,20 @@ pub trait PlayerAgent {
     /// Choose whether to keep the current opening hand or mulligan.
     /// `mulligan_count` is the number of mulligans already taken this game.
     /// Returns true to keep, false to mulligan.
-    fn mulligan_decision(&mut self, player: PlayerId, hand: &[CardId], mulligan_count: u32)
-        -> bool;
+    fn mulligan_decision(
+        &mut self,
+        context: DecisionContext<'_>,
+        player: PlayerId,
+        hand: &[CardId],
+        mulligan_count: u32,
+    ) -> bool;
 
     /// Fire the mulligan prompt without blocking for a response.
     /// Default: no-op. UI agents override to decouple prompt dispatch from
     /// response collection so multiple players can be prompted in parallel.
     fn mulligan_decision_send(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _hand: &[CardId],
         _mulligan_count: u32,
@@ -101,11 +107,12 @@ pub trait PlayerAgent {
     /// `mulligan_decision` so agents that don't split send/recv still work.
     fn mulligan_decision_recv(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         mulligan_count: u32,
     ) -> bool {
-        self.mulligan_decision(player, hand, mulligan_count)
+        self.mulligan_decision(context, player, hand, mulligan_count)
     }
 
     /// London Mulligan: after keeping, choose `count` cards from hand to put
@@ -113,6 +120,7 @@ pub trait PlayerAgent {
     /// Default: picks the first `count` cards (suitable for simple AI agents).
     fn choose_cards_to_bottom(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         hand: &[CardId],
         count: usize,
@@ -121,17 +129,25 @@ pub trait PlayerAgent {
     }
 
     /// Fire the put-back prompt without blocking. Default: no-op.
-    fn choose_cards_to_bottom_send(&mut self, _player: PlayerId, _hand: &[CardId], _count: usize) {}
+    fn choose_cards_to_bottom_send(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        _hand: &[CardId],
+        _count: usize,
+    ) {
+    }
 
     /// Block waiting for the put-back response. Default falls back to the
     /// blocking `choose_cards_to_bottom`.
     fn choose_cards_to_bottom_recv(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         count: usize,
     ) -> Vec<CardId> {
-        self.choose_cards_to_bottom(player, hand, count)
+        self.choose_cards_to_bottom(context, player, hand, count)
     }
 
     /// Choose a main-phase action: play a card from hand, tap a land for mana, untap a land,
@@ -143,7 +159,7 @@ pub trait PlayerAgent {
         &mut self,
         player: PlayerId,
         action_space: Option<&PriorityActionSpace>,
-        request_action_space: &mut dyn FnMut() -> PriorityActionSpace,
+        priority: &mut dyn PriorityContext,
     ) -> PlayerAction;
 
     /// Choose attackers from available creatures, assigning each to a defender.
@@ -151,6 +167,7 @@ pub trait PlayerAgent {
     /// Returns (attacker, defender) pairs.
     fn choose_attackers(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         available: &[CardId],
         possible_defenders: &[DefenderId],
@@ -160,7 +177,12 @@ pub trait PlayerAgent {
     /// Input is the subset of already-declared attackers that can pay an Exert
     /// optional attack cost. Return a subset of `attackers`.
     /// Default: choose none.
-    fn exert_attackers(&mut self, _player: PlayerId, _attackers: &[CardId]) -> Vec<CardId> {
+    fn exert_attackers(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        _attackers: &[CardId],
+    ) -> Vec<CardId> {
         vec![]
     }
 
@@ -168,7 +190,12 @@ pub trait PlayerAgent {
     /// Input is the subset of already-declared attackers that can pay an Enlist
     /// optional attack cost. Return a subset of `attackers`.
     /// Default: choose none.
-    fn enlist_attackers(&mut self, _player: PlayerId, _attackers: &[CardId]) -> Vec<CardId> {
+    fn enlist_attackers(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        _attackers: &[CardId],
+    ) -> Vec<CardId> {
         vec![]
     }
 
@@ -176,6 +203,7 @@ pub trait PlayerAgent {
     /// `max_blockers` is the BlockRestrict limit (if any) — agent should stop after this many.
     fn choose_blockers(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         attackers: &[CardId],
         available_blockers: &[CardId],
@@ -189,11 +217,12 @@ pub trait PlayerAgent {
     /// blocker, preserving existing agent behavior when not overridden.
     fn choose_blocker_for(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         attackers: &[CardId],
         blocker: CardId,
     ) -> Option<CardId> {
-        let pairs = self.choose_blockers(player, attackers, &[blocker], None);
+        let pairs = self.choose_blockers(context, player, attackers, &[blocker], None);
         pairs
             .into_iter()
             .find_map(|(b, a)| if b == blocker { Some(a) } else { None })
@@ -206,6 +235,7 @@ pub trait PlayerAgent {
     /// Default: return blockers as-is (no reordering).
     fn choose_damage_assignment_order(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _attacker: CardId,
         blockers: &[CardId],
@@ -330,6 +360,7 @@ pub trait PlayerAgent {
     /// `sa` is the active spell ability context (source card, API type, etc.) for UI display.
     fn choose_target_player(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[PlayerId],
         sa: Option<&SpellAbility>,
@@ -338,6 +369,7 @@ pub trait PlayerAgent {
     /// Choose a target card (e.g. for Lightning Bolt targeting a creature).
     fn choose_target_card(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[CardId],
         sa: Option<&SpellAbility>,
@@ -346,17 +378,19 @@ pub trait PlayerAgent {
     /// Choose a target card from a specific zone (e.g. Raise Dead from graveyard).
     fn choose_target_card_from_zone(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         _zone: forge_foundation::ZoneType,
         valid: &[CardId],
         sa: Option<&SpellAbility>,
     ) -> Option<CardId> {
-        self.choose_target_card(player, valid, sa)
+        self.choose_target_card(context, player, valid, sa)
     }
 
     /// Choose a target that can be a player or a card (e.g. "any target").
     fn choose_target_any(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid_players: &[PlayerId],
         valid_cards: &[CardId],
@@ -368,6 +402,7 @@ pub trait PlayerAgent {
     /// Default picks the first (used by AI agents).
     fn choose_sacrifice(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         _source: Option<CardId>,
@@ -377,6 +412,7 @@ pub trait PlayerAgent {
 
     fn choose_permanents_to_sacrifice(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         min: usize,
         max: usize,
@@ -384,12 +420,12 @@ pub trait PlayerAgent {
         source: Option<CardId>,
     ) -> Vec<CardId> {
         if min < max {
-            return self.choose_cards_for_effect(player, valid, min, max);
+            return self.choose_cards_for_effect(context, player, valid, min, max);
         }
         let mut remaining = valid.to_vec();
         let mut chosen = Vec::new();
         while chosen.len() < max {
-            let Some(card_id) = self.choose_sacrifice(player, &remaining, source) else {
+            let Some(card_id) = self.choose_sacrifice(context, player, &remaining, source) else {
                 break;
             };
             remaining.retain(|&cid| cid != card_id);
@@ -437,12 +473,19 @@ pub trait PlayerAgent {
         valid.iter().copied().take(max).collect()
     }
 
-    fn vote(&mut self, _player: PlayerId, _options: &[String], _optional: bool) -> Option<usize> {
+    fn vote(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        _options: &[String],
+        _optional: bool,
+    ) -> Option<usize> {
         Some(0)
     }
 
     fn choose_cards_to_reveal(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         min: usize,
@@ -453,6 +496,7 @@ pub trait PlayerAgent {
 
     fn choose_cards_pile(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _pile1: &[CardId],
         _pile2: &[CardId],
@@ -463,6 +507,7 @@ pub trait PlayerAgent {
 
     fn choose_cards_for_effect_multiple(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         pools: &[Vec<CardId>],
         _optional: bool,
@@ -504,7 +549,13 @@ pub trait PlayerAgent {
     /// Choose which cards to discard from hand (for SP$ Discard effects).
     /// `hand` is the full hand, `num` is how many must be discarded.
     /// Default: discard the first `num` cards.
-    fn choose_discard(&mut self, _player: PlayerId, hand: &[CardId], num: usize) -> Vec<CardId> {
+    fn choose_discard(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        hand: &[CardId],
+        num: usize,
+    ) -> Vec<CardId> {
         hand.iter().copied().take(num).collect()
     }
 
@@ -512,12 +563,13 @@ pub trait PlayerAgent {
     /// or a single card of one of `unless_types`. Default: `min` cards.
     fn choose_cards_to_discard_unless_type(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         min: usize,
         _unless_types: &[String],
     ) -> Vec<CardId> {
-        self.choose_discard(player, hand, min)
+        self.choose_discard(context, player, hand, min)
     }
 
     /// Choose any number of cards to discard (for `AnyNumber$ True` on
@@ -525,6 +577,7 @@ pub trait PlayerAgent {
     /// Default: discard `min` cards (the minimum forced amount).
     fn choose_discard_any_number(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         hand: &[CardId],
         min: usize,
@@ -538,6 +591,7 @@ pub trait PlayerAgent {
     /// entry id with its host card). The default offers the cards only.
     fn choose_target_card_or_stack(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         cards: &[CardId],
         stack: &[(u32, CardId)],
@@ -546,10 +600,10 @@ pub trait PlayerAgent {
         if cards.is_empty() {
             let ids: Vec<u32> = stack.iter().map(|(id, _)| *id).collect();
             return self
-                .choose_target_spell(player, &ids, sa.and_then(|sa| sa.source))
+                .choose_target_spell(context, player, &ids, sa.and_then(|sa| sa.source))
                 .map_or(CardOrStackTarget::None, CardOrStackTarget::Stack);
         }
-        self.choose_target_card(player, cards, sa)
+        self.choose_target_card(context, player, cards, sa)
             .map_or(CardOrStackTarget::None, CardOrStackTarget::Card)
     }
 
@@ -558,6 +612,7 @@ pub trait PlayerAgent {
     /// Default: target the first (topmost) spell.
     fn choose_target_spell(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[u32],
         _source: Option<CardId>,
@@ -575,6 +630,7 @@ pub trait PlayerAgent {
     /// Default: choose the first `min` modes (index 0, 1, …).
     fn choose_mode(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         descriptions: &[String],
         min: usize,
@@ -586,17 +642,19 @@ pub trait PlayerAgent {
 
     fn choose_keyword_for_pump(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         options: &[String],
         source_card_id: Option<CardId>,
     ) -> Option<usize> {
-        self.choose_mode(player, options, 1, 1, source_card_id)
+        self.choose_mode(context, player, options, 1, 1, source_card_id)
             .first()
             .copied()
     }
 
     fn choose_spell_abilities_for_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         abilities: &[SpellAbility],
         num: usize,
@@ -607,6 +665,7 @@ pub trait PlayerAgent {
     /// Choose exactly one entity (Card or Player) from a candidate list.
     fn choose_single_entity_for_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[GameEntity],
         _is_optional: bool,
@@ -616,6 +675,7 @@ pub trait PlayerAgent {
 
     fn get_ability_to_play(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         abilities: &[SpellAbility],
     ) -> Option<usize> {
@@ -629,7 +689,12 @@ pub trait PlayerAgent {
     /// Choose which legendary permanent to keep when the legend rule applies.
     /// `duplicates` contains all legendaries with the same name controlled by this player.
     /// Returns the CardId of the one to keep; the rest are sacrificed.
-    fn choose_legend_keep(&mut self, _player: PlayerId, duplicates: &[CardId]) -> CardId {
+    fn choose_legend_keep(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        duplicates: &[CardId],
+    ) -> CardId {
         duplicates[0]
     }
 
@@ -641,6 +706,7 @@ pub trait PlayerAgent {
     /// Default: always allow (non-interactive agents accept all optional triggers).
     fn choose_optional_trigger(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _description: &str,
         _source: Option<CardId>,
@@ -651,6 +717,7 @@ pub trait PlayerAgent {
 
     fn confirm_replacement_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _question: &str,
         _effect_description: &str,
@@ -665,6 +732,7 @@ pub trait PlayerAgent {
     /// Returns true to accept/confirm, false to decline.
     fn confirm_action(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _mode: Option<&str>,
         _message: &str,
@@ -677,6 +745,7 @@ pub trait PlayerAgent {
 
     fn choose_sa_to_activate_from_opening_hand(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         usable: &[SpellAbility],
     ) -> Vec<usize> {
@@ -685,6 +754,7 @@ pub trait PlayerAgent {
             .enumerate()
             .filter(|(_, sa)| {
                 self.confirm_action(
+                    context,
                     player,
                     Some("FromOpeningHand"),
                     sa.ir
@@ -702,6 +772,7 @@ pub trait PlayerAgent {
 
     fn confirm_payment(
         &mut self,
+        _context: DecisionContext<'_>,
         player: PlayerId,
         cost_kind: &str,
         message: &str,
@@ -714,6 +785,7 @@ pub trait PlayerAgent {
 
     fn pay_cost_to_prevent_effect(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         cost_kind: &str,
         message: &str,
@@ -727,11 +799,12 @@ pub trait PlayerAgent {
         if !can_pay {
             return false;
         }
-        self.confirm_payment(player, cost_kind, message, source, api)
+        self.confirm_payment(context, player, cost_kind, message, source, api)
     }
 
     fn choose_binary(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         question: &str,
         kind: BinaryChoiceKind,
@@ -741,6 +814,7 @@ pub trait PlayerAgent {
     ) -> bool {
         let (left, right) = kind.labels();
         self.confirm_action(
+            context,
             player,
             Some(kind.as_str()),
             question,
@@ -757,6 +831,7 @@ pub trait PlayerAgent {
     /// Default: don't kick (AI default).
     fn choose_kicker(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _kicker_cost: &str,
         _source: Option<CardId>,
@@ -766,7 +841,13 @@ pub trait PlayerAgent {
 
     /// Assist: another player asks if we'll help pay generic mana.
     /// Returns how much generic mana to pay (0 = decline). Default: decline.
-    fn help_pay_assist(&mut self, _player: PlayerId, _card_name: &str, _max_generic: u32) -> u32 {
+    fn help_pay_assist(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        _card_name: &str,
+        _max_generic: u32,
+    ) -> u32 {
         0
     }
 
@@ -775,6 +856,7 @@ pub trait PlayerAgent {
     /// Default: don't pay buyback.
     fn choose_buyback(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _buyback_cost: &str,
         _source: Option<CardId>,
@@ -788,6 +870,7 @@ pub trait PlayerAgent {
     /// Default: 0 (don't multikick).
     fn choose_multikicker(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _cost: &str,
         _max_kicks: u32,
@@ -802,6 +885,7 @@ pub trait PlayerAgent {
     /// Default: 0.
     fn choose_replicate(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _cost: &str,
         _max_replicates: u32,
@@ -813,17 +897,28 @@ pub trait PlayerAgent {
     /// Choose a color (for ChooseColorEffect).
     /// `valid_colors` lists the legal color choices (e.g. ["White","Blue","Black","Red","Green"]).
     /// Default: pick the first valid color.
-    fn choose_color(&mut self, _player: PlayerId, valid_colors: &[String]) -> Option<String> {
+    fn choose_color(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        valid_colors: &[String],
+    ) -> Option<String> {
         valid_colors.first().cloned()
     }
 
-    fn choose_mana_from_pool(&mut self, _player: PlayerId, _mana_choices: &[Mana]) -> usize {
+    fn choose_mana_from_pool(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        _mana_choices: &[Mana],
+    ) -> usize {
         0
     }
 
     /// Choose one or more colors.
     fn choose_colors(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid_colors: &[String],
         min: usize,
@@ -839,6 +934,7 @@ pub trait PlayerAgent {
     /// Default: pick up to `max` from the front of `valid`.
     fn choose_cards_for_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         _min: usize,
@@ -852,13 +948,14 @@ pub trait PlayerAgent {
     /// relational restrictions can see the targets already chosen.
     fn choose_target_cards(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[CardId],
         min: usize,
         max: usize,
         _sa: &crate::spellability::SpellAbility,
     ) -> Vec<CardId> {
-        self.choose_cards_for_effect(player, valid, min, max)
+        self.choose_cards_for_effect(context, player, valid, min, max)
     }
 
     /// Choose the next target of a node with relational restrictions, or stop. The engine
@@ -866,6 +963,7 @@ pub trait PlayerAgent {
     /// as Java's candidate list does.
     fn choose_next_target_card(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         candidates: &[CardId],
         chosen: &[CardId],
@@ -878,15 +976,23 @@ pub trait PlayerAgent {
             .copied()
             .filter(|cid| !chosen.contains(cid))
             .collect();
-        self.choose_target_cards(player, &fresh, usize::from(chosen.len() < min), 1, sa)
-            .into_iter()
-            .next()
+        self.choose_target_cards(
+            context,
+            player,
+            &fresh,
+            usize::from(chosen.len() < min),
+            1,
+            sa,
+        )
+        .into_iter()
+        .next()
     }
 
     /// Choose the next target player, or stop. `candidates` include the players already
     /// `chosen`, as the list `DeterministicController.chooseTargetsFor` draws from does.
     fn choose_next_target_player(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         candidates: &[PlayerId],
         chosen: &[PlayerId],
@@ -898,7 +1004,7 @@ pub trait PlayerAgent {
             .copied()
             .filter(|pid| !chosen.contains(pid))
             .collect();
-        self.choose_target_player(player, &fresh, Some(sa))
+        self.choose_target_player(context, player, &fresh, Some(sa))
     }
 
     /// Choose cards to tap for a `tapXType` cost that has a total-power floor
@@ -908,6 +1014,7 @@ pub trait PlayerAgent {
     /// ordering candidates.
     fn choose_tap_type_for_cost(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[CardId],
         _min_total_power: i32,
@@ -915,12 +1022,13 @@ pub trait PlayerAgent {
         _card_sort_powers: &[(CardId, i32)],
         _sa: Option<&SpellAbility>,
     ) -> Vec<CardId> {
-        self.choose_cards_for_effect(player, valid, 1, valid.len())
+        self.choose_cards_for_effect(context, player, valid, 1, valid.len())
     }
 
     /// Choose game entities (players and/or permanents) for an effect like Proliferate.
     fn choose_entities_for_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         candidates: &[GameEntity],
         _min: usize,
@@ -932,13 +1040,13 @@ pub trait PlayerAgent {
     /// Choose a single card for hidden-origin zone changes (e.g. library search).
     fn choose_single_card_for_zone_change(
         &mut self,
-        _game: &GameState,
+        game: &GameState,
         player: PlayerId,
         valid: &[CardId],
         _select_prompt: &str,
         _is_optional: bool,
     ) -> Option<CardId> {
-        self.choose_cards_for_effect(player, valid, 1, 1)
+        self.choose_cards_for_effect(DecisionContext::new(game, &[]), player, valid, 1, 1)
             .into_iter()
             .next()
     }
@@ -946,14 +1054,14 @@ pub trait PlayerAgent {
     /// Choose multiple cards for hidden-origin zone changes (e.g. tutor multi-select).
     fn choose_cards_for_zone_change(
         &mut self,
-        _game: &GameState,
+        game: &GameState,
         player: PlayerId,
         valid: &[CardId],
         min: usize,
         max: usize,
         _select_prompt: &str,
     ) -> Vec<CardId> {
-        self.choose_cards_for_effect(player, valid, min, max)
+        self.choose_cards_for_effect(DecisionContext::new(game, &[]), player, valid, min, max)
     }
 
     /// Choose a creature/card type (for ChooseType effect).
@@ -962,6 +1070,7 @@ pub trait PlayerAgent {
     /// Default: pick the first valid type.
     fn choose_type(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _type_category: &str,
         valid_types: &[String],
@@ -972,6 +1081,7 @@ pub trait PlayerAgent {
     /// Choose a counter type.
     fn choose_counter_type(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         options: &[CounterType],
         _prompt: &str,
@@ -982,7 +1092,12 @@ pub trait PlayerAgent {
     /// Choose a card name (for NameCard effect).
     /// `valid_names` lists the legal card name choices (for ChooseFromList mode).
     /// Default: pick the first valid name.
-    fn choose_card_name(&mut self, _player: PlayerId, valid_names: &[String]) -> Option<String> {
+    fn choose_card_name(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        valid_names: &[String],
+    ) -> Option<String> {
         valid_names.first().cloned()
     }
 
@@ -991,6 +1106,7 @@ pub trait PlayerAgent {
     /// Default: pick the minimum.
     fn choose_number(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _source: Option<CardId>,
         _title: &str,
@@ -1003,6 +1119,7 @@ pub trait PlayerAgent {
 
     fn announce_requirements_x(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _source: Option<CardId>,
         _min: u32,
@@ -1015,6 +1132,7 @@ pub trait PlayerAgent {
     /// Default: decline optional keyword costs.
     fn choose_number_for_keyword_cost(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _max: i32,
         _prompt: &str,
@@ -1026,6 +1144,7 @@ pub trait PlayerAgent {
     /// Choose one number from an explicit list of legal rolled values.
     fn choose_number_from_list(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         choices: &[i32],
         _message: &str,
@@ -1037,6 +1156,7 @@ pub trait PlayerAgent {
     /// Choose one die result from a rolled list to ignore.
     fn choose_roll_to_ignore(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         rolls: &[i32],
         _source: Option<CardId>,
@@ -1047,6 +1167,7 @@ pub trait PlayerAgent {
     /// Choose one rolled result to exchange with a card's power or toughness.
     fn choose_roll_to_swap(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         rolls: &[i32],
         _source: Option<CardId>,
@@ -1057,6 +1178,7 @@ pub trait PlayerAgent {
     /// Choose one or more dice to reroll from the current natural roll list.
     fn choose_dice_to_reroll(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _rolls: &[i32],
         _source: Option<CardId>,
@@ -1067,6 +1189,7 @@ pub trait PlayerAgent {
     /// Choose one rolled result to increment or decrement by 1.
     fn choose_roll_to_modify(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         rolls: &[i32],
         _source: Option<CardId>,
@@ -1077,6 +1200,7 @@ pub trait PlayerAgent {
     /// Choose whether a swap should use power or toughness.
     fn choose_roll_swap_value(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _current_result: i32,
         _power: i32,
@@ -1089,7 +1213,7 @@ pub trait PlayerAgent {
     /// Choose heads or tails for a coin flip.
     /// Returns true for heads, false for tails.
     /// Default: always call heads.
-    fn flip_coin_call(&mut self, _player: PlayerId) -> bool {
+    fn flip_coin_call(&mut self, _context: DecisionContext<'_>, _player: PlayerId) -> bool {
         true
     }
 
@@ -1098,6 +1222,7 @@ pub trait PlayerAgent {
     /// Default: always pay color (never pay life).
     fn choose_phyrexian_pay_life(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _color: &str,
         _source: Option<CardId>,
@@ -1109,6 +1234,7 @@ pub trait PlayerAgent {
     /// Called in a loop: tap lands to build mana, then Pay or Decline.
     fn pay_combat_cost(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _attacker: CardId,
         _cost: i32,
@@ -1127,6 +1253,7 @@ pub trait PlayerAgent {
     /// resolves delve inside the mana-payment session, not via this callback.
     fn choose_delve(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         max: usize,
@@ -1140,6 +1267,7 @@ pub trait PlayerAgent {
     /// Default: don't improvise (AI default — auto-tap handles mana).
     fn choose_improvise(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _untapped_artifacts: &[CardId],
         _remaining_cost: &forge_foundation::ManaCost,
@@ -1153,6 +1281,7 @@ pub trait PlayerAgent {
     /// Default: don't convoke (AI default — auto-tap handles mana).
     fn choose_convoke(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _untapped_creatures: &[CardId],
         _remaining_cost: &forge_foundation::ManaCost,
@@ -1184,6 +1313,7 @@ pub trait PlayerAgent {
     /// Default: always cancel.
     fn pay_mana_cost(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _card_id: CardId,
         _card_name: &str,
@@ -1243,6 +1373,7 @@ pub trait PlayerAgent {
     /// Default: picks the color with least mana in pool for each unit (AI heuristic).
     fn specify_mana_combo(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         available_colors: &[String],
         amount: usize,
@@ -1259,7 +1390,11 @@ pub trait PlayerAgent {
 
     /// Choose whether to play a land or cast a spell when both are possible.
     /// Returns true for land, false for spell, None to pass.
-    fn choose_land_or_spell(&mut self, player: PlayerId) -> Option<bool>;
+    fn choose_land_or_spell(
+        &mut self,
+        context: DecisionContext<'_>,
+        player: PlayerId,
+    ) -> Option<bool>;
 
     /// Receive engine notifications for UI/game-log observers.
     /// Default is a no-op so simple agents do not need to handle them.
@@ -1280,6 +1415,7 @@ pub trait PlayerAgent {
     /// Choose which replacement effect to apply when multiple effects match the same event.
     fn choose_single_replacement_effect(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _descriptions: &[String],
         _hosts: &[CardId],
@@ -1304,6 +1440,7 @@ impl PlayerAgent for PassAgent {
 
     fn mulligan_decision(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _hand: &[CardId],
         _mulligan_count: u32,
@@ -1315,13 +1452,14 @@ impl PlayerAgent for PassAgent {
         &mut self,
         _player: PlayerId,
         _action_space: Option<&PriorityActionSpace>,
-        _request_action_space: &mut dyn FnMut() -> PriorityActionSpace,
+        _priority: &mut dyn PriorityContext,
     ) -> PlayerAction {
         PlayerAction::PassPriority
     }
 
     fn choose_attackers(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _available: &[CardId],
         _possible_defenders: &[DefenderId],
@@ -1331,6 +1469,7 @@ impl PlayerAgent for PassAgent {
 
     fn choose_blockers(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _attackers: &[CardId],
         _available_blockers: &[CardId],
@@ -1341,6 +1480,7 @@ impl PlayerAgent for PassAgent {
 
     fn choose_target_player(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[PlayerId],
         _sa: Option<&SpellAbility>,
@@ -1350,6 +1490,7 @@ impl PlayerAgent for PassAgent {
 
     fn choose_target_card(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         _sa: Option<&SpellAbility>,
@@ -1359,6 +1500,7 @@ impl PlayerAgent for PassAgent {
 
     fn choose_target_any(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid_players: &[PlayerId],
         valid_cards: &[CardId],
@@ -1375,6 +1517,7 @@ impl PlayerAgent for PassAgent {
 
     fn choose_sacrifice(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         _source: Option<CardId>,
@@ -1382,7 +1525,11 @@ impl PlayerAgent for PassAgent {
         valid.first().copied()
     }
 
-    fn choose_land_or_spell(&mut self, _player: PlayerId) -> Option<bool> {
+    fn choose_land_or_spell(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+    ) -> Option<bool> {
         None
     }
 }

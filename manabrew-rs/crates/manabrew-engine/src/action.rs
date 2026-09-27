@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use forge_foundation::{CoreType, ZoneType};
 
+use crate::agent::DecisionContext;
 use crate::agent::{GameEntity, PlayerAgent};
 use crate::card::card_damage_map::{CardDamageMap, DamageTarget};
 use crate::card::{Card, CounterType};
@@ -459,6 +460,7 @@ impl GameState {
                         .as_deref_mut()
                         .and_then(|agents| {
                             agents[dest_owner.index()].choose_number(
+                                DecisionContext::new(self, &[]),
                                 dest_owner,
                                 Some(card_id),
                                 "How many lore counters?",
@@ -1959,7 +1961,7 @@ impl GameState {
                 chooser(pid, &ids)
             } else if let Some(agents) = agents.as_deref_mut() {
                 agents[pid.index()].snapshot_state(self, &[]);
-                agents[pid.index()].choose_legend_keep(pid, &ids)
+                agents[pid.index()].choose_legend_keep(DecisionContext::new(self, &[]), pid, &ids)
             } else {
                 ids[0]
             };
@@ -2209,6 +2211,7 @@ impl GameState {
                         "{name}: If a commander is in a graveyard or in exile and that card was put into that zone since the last time state-based actions were checked, its owner may put it into the command zone."
                     );
                     agents[pid.index()].confirm_action(
+                        DecisionContext::new(self, &[]),
                         pid,
                         Some("ChangeZoneToAltDestination"),
                         &message,
@@ -2542,6 +2545,7 @@ impl GameState {
             return;
         }
         match agents[controller.index()].choose_single_entity_for_effect(
+            DecisionContext::new(self, &[]),
             controller,
             &candidates,
             false,

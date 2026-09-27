@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{matches_valid_cards_for_sa, EffectContext};
+use crate::agent::DecisionContext;
 use crate::spellability::build_spell_ability;
 
 /// `SP$ RepeatEach` — loop a sub-ability over cards or players.
@@ -158,9 +159,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let stored_type = ctx.game.card(source_id).chosen_type.clone();
         while !valid_types.is_empty() {
             ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
-            let Some(chosen) =
-                ctx.agents[chooser.index()].choose_type(chooser, "Card", &valid_types)
-            else {
+            let Some(chosen) = ctx.agents[chooser.index()].choose_type(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                chooser,
+                "Card",
+                &valid_types,
+            ) else {
                 break;
             };
             ctx.game.card_mut(source_id).chosen_type = Some(chosen.clone());
@@ -198,6 +202,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             if optional {
                 ctx.agents[pid.index()].snapshot_state(ctx.game, ctx.mana_pools);
                 if !ctx.agents[pid.index()].confirm_action(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
                     pid,
                     None,
                     message,

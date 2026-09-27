@@ -6,6 +6,7 @@ use forge_foundation::ZoneType;
 
 use super::token_effect_base::{TokenEffectBase, TOKEN_EFFECT_BASE};
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::card::card_zone_table::CardZoneTable;
 use crate::ids::CardId;
 
@@ -37,6 +38,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     ctx.game.card(card_id).card_name
                 );
                 ctx.agents[controller.index()].confirm_action(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
                     controller,
                     None,
                     &message,

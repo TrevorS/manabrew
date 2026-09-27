@@ -5,6 +5,7 @@ use crate::agent::types::{
     BinaryChoiceKind, CombatCostAction, GameEntity, ManaAbilityOption, ManaCostAction, PlayOption,
     RollSwapChoice, TargetChoice,
 };
+use crate::agent::DecisionContext;
 use crate::agent::PlayerAgent;
 use crate::combat::DefenderId;
 use crate::cost::{payment_decision::PaymentDecision, CostPart};
@@ -29,23 +30,30 @@ pub enum FullControlFlag {
 
 pub struct PlayerController<'a, A: PlayerAgent + ?Sized> {
     pub game: &'a GameState,
+    pub mana_pools: &'a [ManaPool],
     pub player: PlayerId,
     pub agent: &'a mut A,
     pub full_controls: BTreeSet<FullControlFlag>,
 }
 
 impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
-    pub fn new(game: &'a GameState, player: PlayerId, agent: &'a mut A) -> Self {
+    pub fn new(
+        game: &'a GameState,
+        mana_pools: &'a [ManaPool],
+        player: PlayerId,
+        agent: &'a mut A,
+    ) -> Self {
         Self {
             game,
+            mana_pools,
             player,
             agent,
             full_controls: BTreeSet::new(),
         }
     }
 
-    pub fn snapshot_state(&mut self, mana_pools: &[ManaPool]) {
-        self.agent.snapshot_state(self.game, mana_pools);
+    pub fn snapshot_state(&mut self) {
+        self.agent.snapshot_state(self.game, self.mana_pools);
     }
 
     pub fn available_priority_actions(
@@ -121,8 +129,12 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         available: &[CardId],
         possible_defenders: &[DefenderId],
     ) -> Vec<(CardId, DefenderId)> {
-        self.agent
-            .choose_attackers(self.player, available, possible_defenders)
+        self.agent.choose_attackers(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            available,
+            possible_defenders,
+        )
     }
 
     pub fn choose_blockers(
@@ -131,21 +143,38 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         available_blockers: &[CardId],
         max_blockers: Option<usize>,
     ) -> Vec<(CardId, CardId)> {
-        self.agent
-            .choose_blockers(self.player, attackers, available_blockers, max_blockers)
+        self.agent.choose_blockers(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            attackers,
+            available_blockers,
+            max_blockers,
+        )
     }
 
     pub fn choose_blocker_for(&mut self, attackers: &[CardId], blocker: CardId) -> Option<CardId> {
-        self.agent
-            .choose_blocker_for(self.player, attackers, blocker)
+        self.agent.choose_blocker_for(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            attackers,
+            blocker,
+        )
     }
 
     pub fn exert_attackers(&mut self, attackers: &[CardId]) -> Vec<CardId> {
-        self.agent.exert_attackers(self.player, attackers)
+        self.agent.exert_attackers(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            attackers,
+        )
     }
 
     pub fn enlist_attackers(&mut self, attackers: &[CardId]) -> Vec<CardId> {
-        self.agent.enlist_attackers(self.player, attackers)
+        self.agent.enlist_attackers(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            attackers,
+        )
     }
 
     pub fn choose_damage_assignment_order(
@@ -153,8 +182,12 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         attacker: CardId,
         blockers: &[CardId],
     ) -> Vec<CardId> {
-        self.agent
-            .choose_damage_assignment_order(self.player, attacker, blockers)
+        self.agent.choose_damage_assignment_order(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            attacker,
+            blockers,
+        )
     }
 
     pub fn assign_combat_damage(
@@ -179,7 +212,12 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         valid: &[PlayerId],
         sa: Option<&SpellAbility>,
     ) -> Option<PlayerId> {
-        self.agent.choose_target_player(self.player, valid, sa)
+        self.agent.choose_target_player(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            valid,
+            sa,
+        )
     }
 
     pub fn choose_target_card(
@@ -187,7 +225,12 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         valid: &[CardId],
         sa: Option<&SpellAbility>,
     ) -> Option<CardId> {
-        self.agent.choose_target_card(self.player, valid, sa)
+        self.agent.choose_target_card(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            valid,
+            sa,
+        )
     }
 
     pub fn choose_target_any(
@@ -196,8 +239,13 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         valid_cards: &[CardId],
         sa: Option<&SpellAbility>,
     ) -> TargetChoice {
-        self.agent
-            .choose_target_any(self.player, valid_players, valid_cards, sa)
+        self.agent.choose_target_any(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            valid_players,
+            valid_cards,
+            sa,
+        )
     }
 
     pub fn choose_entities_for_effect(
@@ -206,8 +254,13 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         min: usize,
         max: usize,
     ) -> Vec<GameEntity> {
-        self.agent
-            .choose_entities_for_effect(self.player, candidates, min, max)
+        self.agent.choose_entities_for_effect(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            candidates,
+            min,
+            max,
+        )
     }
 
     pub fn choose_single_entity_for_effect(
@@ -221,8 +274,12 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         // candidate for size-1 lists, but the callback log lines and RNG
         // consumption differ — the single-entity variant matches Java's
         // `chooseSingleEntityForEffect` behaviour.
-        self.agent
-            .choose_single_entity_for_effect(self.player, candidates, false)
+        self.agent.choose_single_entity_for_effect(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            candidates,
+            false,
+        )
     }
 
     pub fn choose_cards_for_effect(
@@ -231,8 +288,13 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         min: usize,
         max: usize,
     ) -> Vec<CardId> {
-        self.agent
-            .choose_cards_for_effect(self.player, valid, min, max)
+        self.agent.choose_cards_for_effect(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            valid,
+            min,
+            max,
+        )
     }
 
     pub fn choose_cards_for_zone_change(
@@ -268,8 +330,12 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
     }
 
     pub fn choose_type(&mut self, type_category: &str, valid_types: &[String]) -> Option<String> {
-        self.agent
-            .choose_type(self.player, type_category, valid_types)
+        self.agent.choose_type(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            type_category,
+            valid_types,
+        )
     }
 
     pub fn choose_some_type(
@@ -286,8 +352,13 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         message: &str,
         source_card_id: Option<CardId>,
     ) -> Option<i32> {
-        self.agent
-            .choose_number_from_list(self.player, choices, message, source_card_id)
+        self.agent.choose_number_from_list(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            choices,
+            message,
+            source_card_id,
+        )
     }
 
     pub fn choose_binary(
@@ -298,8 +369,15 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         source: Option<CardId>,
         api: Option<crate::ability::api_type::ApiType>,
     ) -> bool {
-        self.agent
-            .choose_binary(self.player, question, kind, default_choice, source, api)
+        self.agent.choose_binary(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            question,
+            kind,
+            default_choice,
+            source,
+            api,
+        )
     }
 
     pub fn confirm_action(
@@ -310,8 +388,15 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         source: Option<CardId>,
         api: Option<crate::ability::api_type::ApiType>,
     ) -> bool {
-        self.agent
-            .confirm_action(self.player, mode, message, options, source, api)
+        self.agent.confirm_action(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            mode,
+            message,
+            options,
+            source,
+            api,
+        )
     }
 
     pub fn confirm_payment(
@@ -321,8 +406,14 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         source: Option<CardId>,
         api: Option<crate::ability::api_type::ApiType>,
     ) -> bool {
-        self.agent
-            .confirm_payment(self.player, cost_kind, message, source, api)
+        self.agent.confirm_payment(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            cost_kind,
+            message,
+            source,
+            api,
+        )
     }
 
     pub fn pay_cost_to_prevent_effect(
@@ -336,6 +427,7 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         effect_text: &str,
     ) -> bool {
         self.agent.pay_cost_to_prevent_effect(
+            DecisionContext::new(self.game, self.mana_pools),
             self.player,
             cost_kind,
             message,
@@ -385,8 +477,13 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         source: Option<CardId>,
         api: Option<crate::ability::api_type::ApiType>,
     ) -> bool {
-        self.agent
-            .choose_optional_trigger(self.player, description, source, api)
+        self.agent.choose_optional_trigger(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            description,
+            source,
+            api,
+        )
     }
 
     pub fn choose_target_spell(
@@ -394,8 +491,12 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         valid_entries: &[u32],
         source: Option<CardId>,
     ) -> Option<u32> {
-        self.agent
-            .choose_target_spell(self.player, valid_entries, source)
+        self.agent.choose_target_spell(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            valid_entries,
+            source,
+        )
     }
 
     pub fn choose_mode(
@@ -405,8 +506,14 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         max: usize,
         source_card_id: Option<CardId>,
     ) -> Vec<usize> {
-        self.agent
-            .choose_mode(self.player, descriptions, min, max, source_card_id)
+        self.agent.choose_mode(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            descriptions,
+            min,
+            max,
+            source_card_id,
+        )
     }
 
     pub fn pay_mana_cost(
@@ -425,6 +532,7 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         mana_pool: &ManaPool,
     ) -> ManaCostAction {
         self.agent.pay_mana_cost(
+            DecisionContext::new(self.game, self.mana_pools),
             self.player,
             card_id,
             card_name,
@@ -452,6 +560,7 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         mana_pool_total: i32,
     ) -> CombatCostAction {
         self.agent.pay_combat_cost(
+            DecisionContext::new(self.game, self.mana_pools),
             self.player,
             attacker,
             cost,
@@ -477,11 +586,19 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
     }
 
     pub fn choose_color(&mut self, valid_colors: &[String]) -> Option<String> {
-        self.agent.choose_color(self.player, valid_colors)
+        self.agent.choose_color(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            valid_colors,
+        )
     }
 
     pub fn choose_card_name(&mut self, valid_names: &[String]) -> Option<String> {
-        self.agent.choose_card_name(self.player, valid_names)
+        self.agent.choose_card_name(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            valid_names,
+        )
     }
 
     pub fn choose_scry(&mut self, source: Option<CardId>, cards: &[CardId]) -> Vec<Vec<CardId>> {
@@ -500,7 +617,12 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
     }
 
     pub fn choose_discard(&mut self, hand: &[CardId], num: usize) -> Vec<CardId> {
-        self.agent.choose_discard(self.player, hand, num)
+        self.agent.choose_discard(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            hand,
+            num,
+        )
     }
 
     pub fn choose_delve(
@@ -509,7 +631,13 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         max: usize,
         source: Option<CardId>,
     ) -> Vec<CardId> {
-        self.agent.choose_delve(self.player, valid, max, source)
+        self.agent.choose_delve(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            valid,
+            max,
+            source,
+        )
     }
 
     pub fn choose_improvise(
@@ -518,8 +646,13 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         remaining_cost: &ManaCost,
         source: Option<CardId>,
     ) -> Vec<CardId> {
-        self.agent
-            .choose_improvise(self.player, untapped_artifacts, remaining_cost, source)
+        self.agent.choose_improvise(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            untapped_artifacts,
+            remaining_cost,
+            source,
+        )
     }
 
     pub fn choose_convoke(
@@ -528,8 +661,13 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         remaining_cost: &ManaCost,
         source: Option<CardId>,
     ) -> Vec<CardId> {
-        self.agent
-            .choose_convoke(self.player, untapped_creatures, remaining_cost, source)
+        self.agent.choose_convoke(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            untapped_creatures,
+            remaining_cost,
+            source,
+        )
     }
 
     pub fn specify_mana_combo(
@@ -540,6 +678,7 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         express_choice: Option<u16>,
     ) -> Vec<String> {
         self.agent.specify_mana_combo(
+            DecisionContext::new(self.game, self.mana_pools),
             self.player,
             available_colors,
             amount,
@@ -555,8 +694,14 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         toughness: i32,
         source: Option<CardId>,
     ) -> Option<RollSwapChoice> {
-        self.agent
-            .choose_roll_swap_value(self.player, current_result, power, toughness, source)
+        self.agent.choose_roll_swap_value(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            current_result,
+            power,
+            toughness,
+            source,
+        )
     }
 
     pub fn reveal(
@@ -580,12 +725,19 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         descriptions: &[String],
         hosts: &[CardId],
     ) -> usize {
-        self.agent
-            .choose_single_replacement_effect(self.player, descriptions, hosts)
+        self.agent.choose_single_replacement_effect(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+            descriptions,
+            hosts,
+        )
     }
 
     pub fn choose_land_or_spell(&mut self) -> Option<bool> {
-        self.agent.choose_land_or_spell(self.player)
+        self.agent.choose_land_or_spell(
+            DecisionContext::new(self.game, self.mana_pools),
+            self.player,
+        )
     }
 
     pub fn choose_sector(&mut self, sectors: &[String]) -> Option<String> {

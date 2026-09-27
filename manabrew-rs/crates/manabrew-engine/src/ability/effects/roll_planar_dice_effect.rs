@@ -1,5 +1,6 @@
 use super::EffectContext;
 use crate::agent::notification::{GameNotification, PlanarDieFace};
+use crate::agent::DecisionContext;
 use crate::agent::GameLogEvent;
 use crate::event::RunParams;
 use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
@@ -63,6 +64,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .collect::<Vec<_>>();
         let chosen = ctx.agents[player.index()]
             .choose_number_from_list(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 player,
                 &choices,
                 "Choose a planar die result to ignore",

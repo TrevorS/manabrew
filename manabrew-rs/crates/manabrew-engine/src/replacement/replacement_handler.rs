@@ -13,6 +13,7 @@ use crate::{HashMap, HashSet};
 use forge_foundation::{PhaseType, ZoneType};
 
 use crate::ability::api_type::ApiType;
+use crate::agent::DecisionContext;
 use crate::agent::GameEntity;
 use crate::card::card_damage_map::{CardDamageMap, DamageTarget};
 use crate::card::Card;
@@ -443,7 +444,12 @@ impl ReplacementHandler {
                 let affected_player = affected_player_for_event(event, game);
                 let agent = &mut agents[affected_player.index()];
                 agent
-                    .choose_single_replacement_effect(affected_player, &descriptions, &hosts)
+                    .choose_single_replacement_effect(
+                        DecisionContext::new(game, &[]),
+                        affected_player,
+                        &descriptions,
+                        &hosts,
+                    )
                     .min(eligible.len() - 1)
             } else {
                 0
@@ -1312,7 +1318,12 @@ pub fn run_replace_damage(
                     .collect();
                 let hosts: Vec<CardId> = possible_replacers.iter().map(|key| key.0).collect();
                 agents[decider.index()]
-                    .choose_single_replacement_effect(decider, &descriptions, &hosts)
+                    .choose_single_replacement_effect(
+                        DecisionContext::new(game, runtime.mana_pools),
+                        decider,
+                        &descriptions,
+                        &hosts,
+                    )
                     .min(possible_replacers.len() - 1)
             }
             _ => 0,
@@ -1706,6 +1717,7 @@ fn confirm_optional_replacement(
     let question = replacement_question(effect, host, game, event);
     match agents {
         Some(agents) => agents[decider.index()].confirm_replacement_effect(
+            DecisionContext::new(game, &[]),
             decider,
             &question,
             &effect.description(host, game),
@@ -1890,6 +1902,7 @@ fn replacement_question(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agent::PriorityContext;
     use forge_foundation::{CardTypeLine, ColorSet, ManaCost};
 
     use crate::agent::PlayerAgent;
@@ -1934,6 +1947,7 @@ mod tests {
     impl PlayerAgent for ConfirmReplacementAgent {
         fn mulligan_decision(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _hand: &[CardId],
             _mulligan_count: u32,
@@ -1945,13 +1959,14 @@ mod tests {
             &mut self,
             _player: PlayerId,
             _action_space: Option<&crate::agent::PriorityActionSpace>,
-            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _priority: &mut dyn PriorityContext,
         ) -> crate::player::actions::PlayerAction {
             crate::player::actions::PlayerAction::PassPriority
         }
 
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _available: &[CardId],
             _possible_defenders: &[crate::combat::DefenderId],
@@ -1961,6 +1976,7 @@ mod tests {
 
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _attackers: &[CardId],
             _available_blockers: &[CardId],
@@ -1971,6 +1987,7 @@ mod tests {
 
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             valid: &[PlayerId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -1980,6 +1997,7 @@ mod tests {
 
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             valid: &[CardId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -1989,6 +2007,7 @@ mod tests {
 
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             valid_players: &[PlayerId],
             valid_cards: &[CardId],
@@ -2003,12 +2022,17 @@ mod tests {
             }
         }
 
-        fn choose_land_or_spell(&mut self, _player: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _player: PlayerId,
+        ) -> Option<bool> {
             Some(true)
         }
 
         fn confirm_replacement_effect(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _question: &str,
             _effect_description: &str,

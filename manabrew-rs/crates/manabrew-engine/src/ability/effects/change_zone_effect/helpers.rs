@@ -9,6 +9,7 @@ use super::super::{
     emit_zone_trigger, matches_change_type, parse_counter_type, parse_zone_type,
     resolve_defined_players, EffectContext,
 };
+use crate::agent::DecisionContext;
 use crate::card::valid_filter::{matches_valid_card_selector_with_context, MatchContext};
 use crate::card::Card;
 use crate::event::RunParams;
@@ -215,6 +216,7 @@ pub(super) fn resolve_destination(
             ctx.agents[decider.index()].snapshot_state(ctx.game, ctx.mana_pools);
             let options = vec![format!("{:?}", dest_zone), format!("{:?}", alt_zone)];
             let keep_first = ctx.agents[decider.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 decider,
                 Some("ChangeZoneToAltDestination"),
                 "Choose destination",

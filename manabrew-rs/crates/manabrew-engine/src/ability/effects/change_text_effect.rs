@@ -3,6 +3,7 @@
 //! Ported from Java's `ChangeTextEffect.java`.
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::game::TypeRegistry;
 use crate::ids::{CardId, PlayerId};
 use crate::spellability::{AbilityDuration, SpellAbility};
@@ -148,7 +149,11 @@ fn choose_color<'a>(
     if choices.is_empty() {
         return None;
     }
-    ctx.agents[player.index()].choose_color(player, &choices)
+    ctx.agents[player.index()].choose_color(
+        DecisionContext::new(ctx.game, ctx.mana_pools),
+        player,
+        &choices,
+    )
 }
 
 fn choose_type(
@@ -160,7 +165,12 @@ fn choose_type(
     if valid_types.is_empty() {
         return None;
     }
-    ctx.agents[player.index()].choose_type(player, type_category, &valid_types)
+    ctx.agents[player.index()].choose_type(
+        DecisionContext::new(ctx.game, ctx.mana_pools),
+        player,
+        type_category,
+        &valid_types,
+    )
 }
 
 fn basic_land_types() -> Vec<String> {

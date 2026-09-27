@@ -3,6 +3,7 @@ use forge_foundation::ZoneType;
 use super::helpers::matches_valid_cards_for_sa;
 use super::EffectContext;
 use crate::agent::types::GameEntity;
+use crate::agent::DecisionContext;
 use crate::ids::{CardId, PlayerId};
 use crate::parsing::keys;
 use crate::player::player_controller::PlayerController;
@@ -94,6 +95,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 ctx.game.card(target).card_name
             );
             if !ctx.agents[chooser.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 chooser,
                 None,
                 &message,
@@ -150,8 +152,8 @@ fn choose_single_entity(
     candidates: &[GameEntity],
 ) -> Option<GameEntity> {
     let agent = ctx.agents[chooser.index()].as_mut();
-    let mut controller = PlayerController::new(ctx.game, chooser, agent);
-    controller.snapshot_state(ctx.mana_pools);
+    let mut controller = PlayerController::new(ctx.game, ctx.mana_pools, chooser, agent);
+    controller.snapshot_state();
     controller.choose_single_entity_for_effect(candidates)
 }
 

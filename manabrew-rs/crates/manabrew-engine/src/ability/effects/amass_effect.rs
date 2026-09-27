@@ -11,6 +11,7 @@ use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 
 use super::token_effect_base::{TokenEffectBase, TOKEN_EFFECT_BASE};
 use super::{parse_counter_type, EffectContext};
+use crate::agent::DecisionContext;
 use crate::agent::GameEntity;
 use crate::card::card_zone_table::CardZoneTable;
 use crate::card::Card;
@@ -59,9 +60,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
     let entities: Vec<GameEntity> = armies.iter().copied().map(GameEntity::Card).collect();
-    let target = match ctx.agents[controller.index()]
-        .choose_single_entity_for_effect(controller, &entities, false)
-    {
+    let target = match ctx.agents[controller.index()].choose_single_entity_for_effect(
+        DecisionContext::new(ctx.game, ctx.mana_pools),
+        controller,
+        &entities,
+        false,
+    ) {
         Some(GameEntity::Card(card)) => card,
         _ => armies[0],
     };

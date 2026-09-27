@@ -4,6 +4,7 @@ use forge_foundation::ZoneType;
 
 use super::EffectContext;
 use crate::ability::spell_ability_effect::get_target_players;
+use crate::agent::DecisionContext;
 use crate::card::CounterType;
 use crate::event::RunParams;
 use crate::ids::{CardId, PlayerId};
@@ -117,6 +118,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         };
         ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
         let wants_to_pay = ctx.agents[controller.index()].pay_cost_to_prevent_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             controller,
             if cost_kind.is_empty() {
                 "Echo"
@@ -326,6 +328,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             && ctx.game.card(host).zone == ZoneType::Battlefield
             && (!optional
                 || ctx.agents[activator.index()].confirm_action(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
                     activator,
                     None,
                     "Do you want to sacrifice?",
@@ -395,6 +398,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             let chosen = if not_enough_targets
                 || (optional
                     && !ctx.agents[sacrificing_player.index()].confirm_action(
+                        DecisionContext::new(ctx.game, ctx.mana_pools),
                         sacrificing_player,
                         None,
                         "Do you want to sacrifice?",
@@ -405,6 +409,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 Vec::new()
             } else {
                 ctx.agents[sacrificing_player.index()].choose_permanents_to_sacrifice(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
                     sacrificing_player,
                     min_targets,
                     amount,
@@ -433,6 +438,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if optional {
             let _source_name = sa.source.map(|cid| ctx.game.card(cid).card_name.as_str());
             let accepted = ctx.agents[sacrificing_player.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 sacrificing_player,
                 None,
                 "Do you want to sacrifice?",
@@ -478,6 +484,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     crate::util::aggregates::random(&valid, 1, ctx.rng).pop()
                 } else {
                     ctx.agents[sacrificing_player.index()].choose_sacrifice(
+                        DecisionContext::new(ctx.game, ctx.mana_pools),
                         sacrificing_player,
                         &valid,
                         sa.source,

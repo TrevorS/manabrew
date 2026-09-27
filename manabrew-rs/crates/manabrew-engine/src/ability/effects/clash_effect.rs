@@ -7,6 +7,7 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::ids::{CardId, PlayerId};
 use crate::parsing::keys;
 
@@ -92,6 +93,7 @@ fn clash_move(ctx: &mut EffectContext, player: PlayerId, card: Option<CardId>) {
     // Ask player: top or bottom?
     ctx.agents[player.index()].snapshot_state(ctx.game, ctx.mana_pools);
     let put_on_top = ctx.agents[player.index()].confirm_action(
+        DecisionContext::new(ctx.game, ctx.mana_pools),
         player,
         Some("ClashTopOrBottom"),
         &format!(

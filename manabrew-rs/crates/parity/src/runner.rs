@@ -33,6 +33,7 @@ use crate::parity_card_map::ParityCardMap;
 use crate::protocol::{CallbackRecord, DecisionRecord, GameTrace, ParityLogEntry};
 use crate::snapshot::snapshot_game;
 use crate::utils::decks::{build_deck_from_templates, resolve_deck_spec, CardTemplates};
+use manabrew_engine::agent::{DecisionContext, PriorityContext};
 
 /// Directories searched, in order, when no `--decks-dir` override is given.
 /// `parity_decks/` holds decks referenced by the regression suite; `public/preset_decks/`
@@ -422,6 +423,49 @@ impl CapturingAgent {
 }
 
 macro_rules! parity_agent_callback {
+    ($(fn $name:ident (&mut self, context: DecisionContext<'_> $(, $arg:ident : $ty:ty )* ) -> $ret:ty => $kind:expr, format_with $format:expr;)+) => {
+        $(
+            fn $name(&mut self, context: DecisionContext<'_> $(, $arg: $ty)*) -> $ret {
+                self.save_snapshot($kind);
+                let fmt = self.fmt_ctx();
+                let cb_args: Vec<String> = vec![$($arg.callback_arg_display(fmt.as_ref())),*];
+                let result = self.inner.$name(context, $($arg),*);
+                let outcome = $format(&result, self.fmt_ctx());
+                self.parity_observer.on_callback(
+                    $kind,
+                    &outcome,
+                    self.player_id.0,
+                    self.current_turn,
+                    &self.current_phase,
+                    cb_args,
+                );
+                result
+            }
+        )+
+    };
+    ($(fn $name:ident (&mut self, context: DecisionContext<'_> $(, $arg:ident : $ty:ty )* ) -> $ret:ty => $kind:expr;)+) => {
+        $(
+            fn $name(&mut self, context: DecisionContext<'_> $(, $arg: $ty)*) -> $ret {
+                self.save_snapshot($kind);
+                let fmt = self.fmt_ctx();
+                let cb_args: Vec<String> = vec![$($arg.callback_arg_display(fmt.as_ref())),*];
+                let result = self.inner.$name(context, $($arg),*);
+                let outcome = match self.fmt_ctx() {
+                    Some(ctx) => result.parity_fmt(&ctx),
+                    None => format!("{:?}", result),
+                };
+                self.parity_observer.on_callback(
+                    $kind,
+                    &outcome,
+                    self.player_id.0,
+                    self.current_turn,
+                    &self.current_phase,
+                    cb_args,
+                );
+                result
+            }
+        )+
+    };
     ($(fn $name:ident (&mut self $(, $arg:ident : $ty:ty )* ) -> $ret:ty => $kind:expr, format_with $format:expr;)+) => {
         $(
             fn $name(&mut self $(, $arg: $ty)*) -> $ret {
@@ -643,7 +687,7 @@ impl PlayerAgent for CapturingAgent {
         &mut self,
         player: PlayerId,
         action_space: Option<&PriorityActionSpace>,
-        request_action_space: &mut dyn FnMut() -> PriorityActionSpace,
+        priority: &mut dyn PriorityContext,
     ) -> manabrew_engine::player::actions::PlayerAction {
         let action_space_was_provided = action_space.is_some();
         if !action_space_was_provided && self.inner.should_skip_priority_action_space() {
@@ -655,15 +699,13 @@ impl PlayerAgent for CapturingAgent {
                 &self.current_phase,
                 Vec::new(),
             );
-            return self
-                .inner
-                .choose_action(player, action_space, request_action_space);
+            return self.inner.choose_action(player, action_space, priority);
         }
         let requested_action_space;
         let action_space = match action_space {
             Some(action_space) => Some(action_space),
             None => {
-                requested_action_space = request_action_space();
+                requested_action_space = priority.action_space();
                 Some(&requested_action_space)
             }
         };
@@ -697,9 +739,7 @@ impl PlayerAgent for CapturingAgent {
                 );
             }
         }
-        let result = self
-            .inner
-            .choose_action(player, action_space, request_action_space);
+        let result = self.inner.choose_action(player, action_space, priority);
         let cb_args = if action_space_was_provided {
             let action_space = action_space.expect("provided action space");
             let fmt = self.fmt_ctx();
@@ -752,10 +792,13 @@ impl PlayerAgent for CapturingAgent {
                 (None, _) => "null".to_string(),
             }
         };
-        fn choose_sa_to_activate_from_opening_hand(&mut self, player: PlayerId, usable: &[manabrew_engine::spellability::SpellAbility]) -> Vec<usize> => "choose_sa_from_opening_hand", format_with |result: &Vec<usize>, _fmt: Option<FmtCtx<'_>>| {
+    }
+
+    parity_agent_callback! {
+        fn choose_sa_to_activate_from_opening_hand(&mut self, context: DecisionContext<'_>, player: PlayerId, usable: &[manabrew_engine::spellability::SpellAbility]) -> Vec<usize> => "choose_sa_from_opening_hand", format_with |result: &Vec<usize>, _fmt: Option<FmtCtx<'_>>| {
             result.len().to_string()
         };
-        fn choose_counter_type(&mut self, player: PlayerId, options: &[manabrew_engine::card::CounterType], prompt: &str) -> Option<manabrew_engine::card::CounterType> => "choose_counter_type", format_with |result: &Option<manabrew_engine::card::CounterType>, _fmt: Option<FmtCtx<'_>>| {
+        fn choose_counter_type(&mut self, context: DecisionContext<'_>, player: PlayerId, options: &[manabrew_engine::card::CounterType], prompt: &str) -> Option<manabrew_engine::card::CounterType> => "choose_counter_type", format_with |result: &Option<manabrew_engine::card::CounterType>, _fmt: Option<FmtCtx<'_>>| {
             match result {
                 Some(manabrew_engine::card::CounterType::Named(name)) => name.clone(),
                 Some(other) => format!("{other:?}").to_uppercase(),
@@ -770,6 +813,7 @@ impl PlayerAgent for CapturingAgent {
 
     fn pay_mana_cost(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         card_id: CardId,
         card_name: &str,
@@ -802,6 +846,7 @@ impl PlayerAgent for CapturingAgent {
             mana_pool.callback_arg_display(fmt.as_ref()),
         ];
         let result = self.inner.pay_mana_cost(
+            context,
             player,
             card_id,
             card_name,
@@ -839,12 +884,15 @@ impl PlayerAgent for CapturingAgent {
 
     fn choose_mana_from_pool(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         mana_choices: &[manabrew_engine::mana::Mana],
     ) -> usize {
         self.save_snapshot("choose_mana_from_pool");
         let cb_args = vec![mana_choices.len().to_string()];
-        let result = self.inner.choose_mana_from_pool(player, mana_choices);
+        let result = self
+            .inner
+            .choose_mana_from_pool(context, player, mana_choices);
         let outcome = mana_choices.get(result).map_or("null", |mana| {
             manabrew_engine::mana::ManaPool::atom_to_letter(mana.color)
         });
@@ -861,6 +909,7 @@ impl PlayerAgent for CapturingAgent {
 
     fn get_ability_to_play(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         abilities: &[manabrew_engine::spellability::SpellAbility],
     ) -> Option<usize> {
@@ -878,7 +927,7 @@ impl PlayerAgent for CapturingAgent {
             host.unwrap_or_else(|| "null".to_string()),
             abilities.len().to_string(),
         ];
-        let result = self.inner.get_ability_to_play(player, abilities);
+        let result = self.inner.get_ability_to_play(context, player, abilities);
         let outcome = match self.fmt_ctx() {
             Some(ctx) => result.parity_fmt(&ctx),
             None => format!("{result:?}"),
@@ -896,6 +945,7 @@ impl PlayerAgent for CapturingAgent {
 
     fn choose_optional_trigger(
         &mut self,
+        context: DecisionContext<'_>,
         player: PlayerId,
         description: &str,
         source: Option<CardId>,
@@ -914,7 +964,7 @@ impl PlayerAgent for CapturingAgent {
         ];
         let result = self
             .inner
-            .choose_optional_trigger(player, description, source, api);
+            .choose_optional_trigger(context, player, description, source, api);
         self.parity_observer.on_callback(
             "choose_optional_trigger",
             &result.to_string(),
@@ -929,74 +979,77 @@ impl PlayerAgent for CapturingAgent {
     parity_agent_callback! {
         fn choose_targets_for(&mut self, sa: &mut manabrew_engine::spellability::SpellAbility, game: &GameState, mana_pools: &[manabrew_engine::mana::ManaPool]) -> bool => "choose_targets_for";
         fn choose_new_targets_for(&mut self, sa: &mut manabrew_engine::spellability::SpellAbility, game: &GameState, mana_pools: &[manabrew_engine::mana::ManaPool], optional: bool) -> bool => "choose_new_targets_for";
-        fn mulligan_decision(&mut self, player: PlayerId, hand: &[CardId], mulligan_count: u32) -> bool => "mulligan_decision";
-        fn choose_cards_to_bottom(&mut self, player: PlayerId, hand: &[CardId], count: usize) -> Vec<CardId> => "choose_cards_to_bottom";
-        fn choose_attackers(&mut self, player: PlayerId, available: &[CardId], possible_defenders: &[DefenderId]) -> Vec<(CardId, DefenderId)> => "choose_attackers";
-        fn exert_attackers(&mut self, player: PlayerId, attackers: &[CardId]) -> Vec<CardId> => "exert_attackers";
-        fn enlist_attackers(&mut self, player: PlayerId, attackers: &[CardId]) -> Vec<CardId> => "enlist_attackers";
-        fn choose_blockers(&mut self, player: PlayerId, attackers: &[CardId], available_blockers: &[CardId], max_blockers: Option<usize>) -> Vec<(CardId, CardId)> => "choose_blockers";
-        fn choose_blocker_for(&mut self, player: PlayerId, attackers: &[CardId], blocker: CardId) -> Option<CardId> => "choose_blocker_for";
-        fn choose_damage_assignment_order(&mut self, player: PlayerId, attacker: CardId, blockers: &[CardId]) -> Vec<CardId> => "choose_damage_assignment_order";
         fn assign_combat_damage(&mut self, game: &GameState, player: PlayerId, attacker: CardId, blockers_in_order: &[CardId], defender: Option<manabrew_engine::combat::DefenderId>, damage_to_assign: i32) -> Vec<(Option<CardId>, i32)> => "assign_combat_damage";
-        fn choose_target_player(&mut self, player: PlayerId, valid: &[PlayerId], sa: Option<&manabrew_engine::spellability::SpellAbility>) -> Option<PlayerId> => "choose_target_player";
-        fn choose_target_card(&mut self, player: PlayerId, valid: &[CardId], sa: Option<&manabrew_engine::spellability::SpellAbility>) -> Option<CardId> => "choose_target_card";
-        fn choose_target_card_from_zone(&mut self, player: PlayerId, zone: ZoneType, valid: &[CardId], sa: Option<&manabrew_engine::spellability::SpellAbility>) -> Option<CardId> => "choose_target_card_from_zone";
-        fn choose_target_any(&mut self, player: PlayerId, valid_players: &[PlayerId], valid_cards: &[CardId], sa: Option<&manabrew_engine::spellability::SpellAbility>) -> manabrew_engine::agent::TargetChoice => "choose_target_any";
-        fn choose_legend_keep(&mut self, player: PlayerId, duplicates: &[CardId]) -> CardId => "choose_single_entity_for_effect";
-        fn choose_sacrifice(&mut self, player: PlayerId, valid: &[CardId], source: Option<CardId>) -> Option<CardId> => "choose_sacrifice";
-        fn choose_permanents_to_sacrifice(&mut self, player: PlayerId, min: usize, max: usize, valid: &[CardId], source: Option<CardId>) -> Vec<CardId> => "choose_sacrifice";
-        fn choose_type(&mut self, player: PlayerId, type_category: &str, valid_types: &[String]) -> Option<String> => "choose_type";
         fn choose_scry(&mut self, game: &GameState, player: PlayerId, source: Option<CardId>, cards: &[CardId]) -> Vec<Vec<CardId>> => "choose_scry";
         fn choose_surveil(&mut self, game: &GameState, player: PlayerId, source: Option<CardId>, cards: &[CardId]) -> Vec<Vec<CardId>> => "choose_surveil";
         fn choose_dig(&mut self, game: &GameState, player: PlayerId, valid: &[CardId], max: usize, optional: bool) -> Vec<CardId> => "choose_dig";
-        fn choose_cards_for_effect_multiple(&mut self, player: PlayerId, pools: &[Vec<CardId>], optional: bool) -> Vec<CardId> => "choose_cards_for_effect_multiple";
-        fn choose_cards_pile(&mut self, player: PlayerId, pile1: &[CardId], pile2: &[CardId], face_down: &str) -> bool => "choose_cards_pile";
-        fn vote(&mut self, player: PlayerId, options: &[String], optional: bool) -> Option<usize> => "vote";
-        fn choose_cards_to_reveal(&mut self, player: PlayerId, valid: &[CardId], min: usize, max: usize) -> Vec<CardId> => "choose_cards_to_reveal";
         fn choose_reorder_library(&mut self, game: &GameState, player: PlayerId, cards: &[CardId]) -> Vec<CardId> => "choose_reorder_library";
-        fn choose_discard(&mut self, player: PlayerId, hand: &[CardId], num: usize) -> Vec<CardId> => "choose_discard";
-        fn choose_cards_to_discard_unless_type(&mut self, player: PlayerId, hand: &[CardId], min: usize, unless_types: &[String]) -> Vec<CardId> => "choose_discard_unless_type";
-        fn choose_discard_any_number(&mut self, player: PlayerId, hand: &[CardId], min: usize, max: usize) -> Vec<CardId> => "choose_discard";
-        fn choose_cards_for_effect(&mut self, player: PlayerId, valid: &[CardId], min: usize, max: usize) -> Vec<CardId> => "choose_cards_for_effect";
-        fn choose_tap_type_for_cost(&mut self, player: PlayerId, valid: &[CardId], min_total_power: i32, card_powers: &[(CardId, i32)], card_sort_powers: &[(CardId, i32)], sa: Option<&manabrew_engine::spellability::SpellAbility>) -> Vec<CardId> => "choose_tap_type_for_cost";
         fn choose_cards_for_zone_change(&mut self, game: &GameState, player: PlayerId, valid: &[CardId], min: usize, max: usize, select_prompt: &str) -> Vec<CardId> => "choose_cards_for_zone_change";
-        fn choose_target_spell(&mut self, player: PlayerId, valid: &[u32], source: Option<CardId>) -> Option<u32> => "choose_target_spell";
         fn choose_target(&mut self, player: PlayerId, sa: &manabrew_engine::spellability::SpellAbility, all_targets: &[(usize, manabrew_engine::agent::GameObject)], game: &GameState) -> Option<usize> => "choose_target_spell";
-        fn choose_mode(&mut self, player: PlayerId, descriptions: &[String], min: usize, max: usize, source_card_id: Option<CardId>) -> Vec<usize> => "choose_mode";
-        fn choose_keyword_for_pump(&mut self, player: PlayerId, options: &[String], source_card_id: Option<CardId>) -> Option<usize> => "choose_keyword_for_pump";
-        fn choose_spell_abilities_for_effect(&mut self, player: PlayerId, abilities: &[manabrew_engine::spellability::SpellAbility], num: usize) -> Vec<usize> => "choose_spell_abilities_for_effect";
-        fn choose_single_entity_for_effect(&mut self, player: PlayerId, valid: &[GameEntity], is_optional: bool) -> Option<GameEntity> => "choose_single_entity_for_effect";
-        fn choose_land_or_spell(&mut self, player: PlayerId) -> Option<bool> => "choose_land_or_spell";
-        fn confirm_action(&mut self, player: PlayerId, mode: Option<&str>, message: &str, options: &[String], source: Option<CardId>, api: Option<manabrew_engine::ability::api_type::ApiType>) -> bool => "confirm_action";
-        fn confirm_payment(&mut self, player: PlayerId, cost_kind: &str, message: &str, source: Option<CardId>, api: Option<manabrew_engine::ability::api_type::ApiType>) -> bool => "confirm_payment";
-        fn pay_cost_to_prevent_effect(&mut self, player: PlayerId, cost_kind: &str, message: &str, source: Option<CardId>, api: Option<manabrew_engine::ability::api_type::ApiType>, can_pay: bool, targets: &[GameEntity], effect_text: &str) -> bool => "pay_cost_to_prevent_effect";
-        fn confirm_replacement_effect(&mut self, player: PlayerId, question: &str, effect_description: &str, source: Option<CardId>) -> bool => "confirm_replacement_effect";
-        fn choose_binary(&mut self, player: PlayerId, question: &str, kind: BinaryChoiceKind, default_choice: Option<bool>, source: Option<CardId>, api: Option<manabrew_engine::ability::api_type::ApiType>) -> bool => "choose_binary";
-        fn choose_color(&mut self, player: PlayerId, valid_colors: &[String]) -> Option<String> => "choose_color";
-        fn choose_colors(&mut self, player: PlayerId, valid_colors: &[String], min: usize, max: usize) -> Vec<String> => "choose_colors";
-        fn choose_card_name(&mut self, player: PlayerId, valid_names: &[String]) -> Option<String> => "choose_card_name";
-        fn choose_number(&mut self, player: PlayerId, source: Option<CardId>, title: &str, description: Option<&str>, min: i32, max: i32) -> Option<i32> => "choose_number";
-        fn choose_number_for_keyword_cost(&mut self, player: PlayerId, max: i32, prompt: &str, source: Option<CardId>) -> i32 => "choose_number_for_keyword_cost";
-        fn choose_number_from_list(&mut self, player: PlayerId, choices: &[i32], message: &str, source_card_id: Option<CardId>) -> Option<i32> => "choose_number_from_list";
-        fn choose_roll_to_ignore(&mut self, player: PlayerId, rolls: &[i32], source: Option<CardId>) -> Option<i32> => "choose_roll_to_ignore";
-        fn choose_roll_to_swap(&mut self, player: PlayerId, rolls: &[i32], source: Option<CardId>) -> Option<i32> => "choose_roll_to_swap";
-        fn choose_dice_to_reroll(&mut self, player: PlayerId, rolls: &[i32], source: Option<CardId>) -> Vec<i32> => "choose_dice_to_reroll";
-        fn choose_roll_to_modify(&mut self, player: PlayerId, rolls: &[i32], source: Option<CardId>) -> Option<i32> => "choose_roll_to_modify";
-        fn choose_roll_swap_value(&mut self, player: PlayerId, current_result: i32, power: i32, toughness: i32, source: Option<CardId>) -> Option<manabrew_engine::agent::RollSwapChoice> => "choose_roll_swap_value";
-        fn flip_coin_call(&mut self, player: PlayerId) -> bool => "flip_coin_call";
-        fn choose_phyrexian_pay_life(&mut self, player: PlayerId, color: &str, source: Option<CardId>) -> bool => "choose_phyrexian_pay_life";
-        fn pay_combat_cost(&mut self, player: PlayerId, attacker: CardId, cost: i32, description: &str, mana_ability_options: &[manabrew_engine::agent::ManaAbilityOption], tappable_lands: &[CardId], untappable_lands: &[CardId], mana_pool_total: i32) -> manabrew_engine::agent::CombatCostAction => "pay_combat_cost";
-        fn choose_delve(&mut self, player: PlayerId, valid: &[CardId], max: usize, source: Option<CardId>) -> Vec<CardId> => "choose_delve";
-        fn choose_improvise(&mut self, player: PlayerId, untapped_artifacts: &[CardId], remaining_cost: &forge_foundation::ManaCost, source: Option<CardId>) -> Vec<CardId> => "choose_improvise";
-        fn choose_convoke(&mut self, player: PlayerId, untapped_creatures: &[CardId], remaining_cost: &forge_foundation::ManaCost, source: Option<CardId>) -> Vec<CardId> => "choose_convoke";
-        fn specify_mana_combo(&mut self, player: PlayerId, available_colors: &[String], amount: usize, source: Option<CardId>, express_choice: Option<u16>) -> Vec<String> => "specify_mana_combo";
-        fn choose_kicker(&mut self, player: PlayerId, kicker_cost: &str, source: Option<CardId>) -> bool => "choose_kicker";
-        fn help_pay_assist(&mut self, player: PlayerId, card_name: &str, max_generic: u32) -> u32 => "help_pay_assist";
-        fn choose_buyback(&mut self, player: PlayerId, buyback_cost: &str, source: Option<CardId>) -> bool => "choose_buyback";
-        fn choose_multikicker(&mut self, player: PlayerId, cost: &str, max_kicks: u32, source: Option<CardId>) -> u32 => "choose_multikicker";
-        fn choose_replicate(&mut self, player: PlayerId, cost: &str, max_replicates: u32, source: Option<CardId>) -> u32 => "choose_replicate";
-        fn choose_single_replacement_effect(&mut self, player: PlayerId, descriptions: &[String], hosts: &[CardId]) -> usize => "choose_single_replacement_effect";
-        fn choose_entities_for_effect(&mut self, player: PlayerId, candidates: &[GameEntity], min: usize, ax: usize) -> Vec<GameEntity> => "choose_entities_for_effect";
+    }
+
+    parity_agent_callback! {
+        fn mulligan_decision(&mut self, context: DecisionContext<'_>, player: PlayerId, hand: &[CardId], mulligan_count: u32) -> bool => "mulligan_decision";
+        fn choose_cards_to_bottom(&mut self, context: DecisionContext<'_>, player: PlayerId, hand: &[CardId], count: usize) -> Vec<CardId> => "choose_cards_to_bottom";
+        fn choose_attackers(&mut self, context: DecisionContext<'_>, player: PlayerId, available: &[CardId], possible_defenders: &[DefenderId]) -> Vec<(CardId, DefenderId)> => "choose_attackers";
+        fn exert_attackers(&mut self, context: DecisionContext<'_>, player: PlayerId, attackers: &[CardId]) -> Vec<CardId> => "exert_attackers";
+        fn enlist_attackers(&mut self, context: DecisionContext<'_>, player: PlayerId, attackers: &[CardId]) -> Vec<CardId> => "enlist_attackers";
+        fn choose_blockers(&mut self, context: DecisionContext<'_>, player: PlayerId, attackers: &[CardId], available_blockers: &[CardId], max_blockers: Option<usize>) -> Vec<(CardId, CardId)> => "choose_blockers";
+        fn choose_blocker_for(&mut self, context: DecisionContext<'_>, player: PlayerId, attackers: &[CardId], blocker: CardId) -> Option<CardId> => "choose_blocker_for";
+        fn choose_damage_assignment_order(&mut self, context: DecisionContext<'_>, player: PlayerId, attacker: CardId, blockers: &[CardId]) -> Vec<CardId> => "choose_damage_assignment_order";
+        fn choose_target_player(&mut self, context: DecisionContext<'_>, player: PlayerId, valid: &[PlayerId], sa: Option<&manabrew_engine::spellability::SpellAbility>) -> Option<PlayerId> => "choose_target_player";
+        fn choose_target_card(&mut self, context: DecisionContext<'_>, player: PlayerId, valid: &[CardId], sa: Option<&manabrew_engine::spellability::SpellAbility>) -> Option<CardId> => "choose_target_card";
+        fn choose_target_card_from_zone(&mut self, context: DecisionContext<'_>, player: PlayerId, zone: ZoneType, valid: &[CardId], sa: Option<&manabrew_engine::spellability::SpellAbility>) -> Option<CardId> => "choose_target_card_from_zone";
+        fn choose_target_any(&mut self, context: DecisionContext<'_>, player: PlayerId, valid_players: &[PlayerId], valid_cards: &[CardId], sa: Option<&manabrew_engine::spellability::SpellAbility>) -> manabrew_engine::agent::TargetChoice => "choose_target_any";
+        fn choose_legend_keep(&mut self, context: DecisionContext<'_>, player: PlayerId, duplicates: &[CardId]) -> CardId => "choose_single_entity_for_effect";
+        fn choose_sacrifice(&mut self, context: DecisionContext<'_>, player: PlayerId, valid: &[CardId], source: Option<CardId>) -> Option<CardId> => "choose_sacrifice";
+        fn choose_permanents_to_sacrifice(&mut self, context: DecisionContext<'_>, player: PlayerId, min: usize, max: usize, valid: &[CardId], source: Option<CardId>) -> Vec<CardId> => "choose_sacrifice";
+        fn choose_type(&mut self, context: DecisionContext<'_>, player: PlayerId, type_category: &str, valid_types: &[String]) -> Option<String> => "choose_type";
+        fn choose_cards_for_effect_multiple(&mut self, context: DecisionContext<'_>, player: PlayerId, pools: &[Vec<CardId>], optional: bool) -> Vec<CardId> => "choose_cards_for_effect_multiple";
+        fn choose_cards_pile(&mut self, context: DecisionContext<'_>, player: PlayerId, pile1: &[CardId], pile2: &[CardId], face_down: &str) -> bool => "choose_cards_pile";
+        fn vote(&mut self, context: DecisionContext<'_>, player: PlayerId, options: &[String], optional: bool) -> Option<usize> => "vote";
+        fn choose_cards_to_reveal(&mut self, context: DecisionContext<'_>, player: PlayerId, valid: &[CardId], min: usize, max: usize) -> Vec<CardId> => "choose_cards_to_reveal";
+        fn choose_discard(&mut self, context: DecisionContext<'_>, player: PlayerId, hand: &[CardId], num: usize) -> Vec<CardId> => "choose_discard";
+        fn choose_cards_to_discard_unless_type(&mut self, context: DecisionContext<'_>, player: PlayerId, hand: &[CardId], min: usize, unless_types: &[String]) -> Vec<CardId> => "choose_discard_unless_type";
+        fn choose_discard_any_number(&mut self, context: DecisionContext<'_>, player: PlayerId, hand: &[CardId], min: usize, max: usize) -> Vec<CardId> => "choose_discard";
+        fn choose_cards_for_effect(&mut self, context: DecisionContext<'_>, player: PlayerId, valid: &[CardId], min: usize, max: usize) -> Vec<CardId> => "choose_cards_for_effect";
+        fn choose_tap_type_for_cost(&mut self, context: DecisionContext<'_>, player: PlayerId, valid: &[CardId], min_total_power: i32, card_powers: &[(CardId, i32)], card_sort_powers: &[(CardId, i32)], sa: Option<&manabrew_engine::spellability::SpellAbility>) -> Vec<CardId> => "choose_tap_type_for_cost";
+        fn choose_target_spell(&mut self, context: DecisionContext<'_>, player: PlayerId, valid: &[u32], source: Option<CardId>) -> Option<u32> => "choose_target_spell";
+        fn choose_mode(&mut self, context: DecisionContext<'_>, player: PlayerId, descriptions: &[String], min: usize, max: usize, source_card_id: Option<CardId>) -> Vec<usize> => "choose_mode";
+        fn choose_keyword_for_pump(&mut self, context: DecisionContext<'_>, player: PlayerId, options: &[String], source_card_id: Option<CardId>) -> Option<usize> => "choose_keyword_for_pump";
+        fn choose_spell_abilities_for_effect(&mut self, context: DecisionContext<'_>, player: PlayerId, abilities: &[manabrew_engine::spellability::SpellAbility], num: usize) -> Vec<usize> => "choose_spell_abilities_for_effect";
+        fn choose_single_entity_for_effect(&mut self, context: DecisionContext<'_>, player: PlayerId, valid: &[GameEntity], is_optional: bool) -> Option<GameEntity> => "choose_single_entity_for_effect";
+        fn choose_land_or_spell(&mut self, context: DecisionContext<'_>, player: PlayerId) -> Option<bool> => "choose_land_or_spell";
+        fn confirm_action(&mut self, context: DecisionContext<'_>, player: PlayerId, mode: Option<&str>, message: &str, options: &[String], source: Option<CardId>, api: Option<manabrew_engine::ability::api_type::ApiType>) -> bool => "confirm_action";
+        fn confirm_payment(&mut self, context: DecisionContext<'_>, player: PlayerId, cost_kind: &str, message: &str, source: Option<CardId>, api: Option<manabrew_engine::ability::api_type::ApiType>) -> bool => "confirm_payment";
+        fn pay_cost_to_prevent_effect(&mut self, context: DecisionContext<'_>, player: PlayerId, cost_kind: &str, message: &str, source: Option<CardId>, api: Option<manabrew_engine::ability::api_type::ApiType>, can_pay: bool, targets: &[GameEntity], effect_text: &str) -> bool => "pay_cost_to_prevent_effect";
+        fn confirm_replacement_effect(&mut self, context: DecisionContext<'_>, player: PlayerId, question: &str, effect_description: &str, source: Option<CardId>) -> bool => "confirm_replacement_effect";
+        fn choose_binary(&mut self, context: DecisionContext<'_>, player: PlayerId, question: &str, kind: BinaryChoiceKind, default_choice: Option<bool>, source: Option<CardId>, api: Option<manabrew_engine::ability::api_type::ApiType>) -> bool => "choose_binary";
+        fn choose_color(&mut self, context: DecisionContext<'_>, player: PlayerId, valid_colors: &[String]) -> Option<String> => "choose_color";
+        fn choose_colors(&mut self, context: DecisionContext<'_>, player: PlayerId, valid_colors: &[String], min: usize, max: usize) -> Vec<String> => "choose_colors";
+        fn choose_card_name(&mut self, context: DecisionContext<'_>, player: PlayerId, valid_names: &[String]) -> Option<String> => "choose_card_name";
+        fn choose_number(&mut self, context: DecisionContext<'_>, player: PlayerId, source: Option<CardId>, title: &str, description: Option<&str>, min: i32, max: i32) -> Option<i32> => "choose_number";
+        fn choose_number_for_keyword_cost(&mut self, context: DecisionContext<'_>, player: PlayerId, max: i32, prompt: &str, source: Option<CardId>) -> i32 => "choose_number_for_keyword_cost";
+        fn choose_number_from_list(&mut self, context: DecisionContext<'_>, player: PlayerId, choices: &[i32], message: &str, source_card_id: Option<CardId>) -> Option<i32> => "choose_number_from_list";
+        fn choose_roll_to_ignore(&mut self, context: DecisionContext<'_>, player: PlayerId, rolls: &[i32], source: Option<CardId>) -> Option<i32> => "choose_roll_to_ignore";
+        fn choose_roll_to_swap(&mut self, context: DecisionContext<'_>, player: PlayerId, rolls: &[i32], source: Option<CardId>) -> Option<i32> => "choose_roll_to_swap";
+        fn choose_dice_to_reroll(&mut self, context: DecisionContext<'_>, player: PlayerId, rolls: &[i32], source: Option<CardId>) -> Vec<i32> => "choose_dice_to_reroll";
+        fn choose_roll_to_modify(&mut self, context: DecisionContext<'_>, player: PlayerId, rolls: &[i32], source: Option<CardId>) -> Option<i32> => "choose_roll_to_modify";
+        fn choose_roll_swap_value(&mut self, context: DecisionContext<'_>, player: PlayerId, current_result: i32, power: i32, toughness: i32, source: Option<CardId>) -> Option<manabrew_engine::agent::RollSwapChoice> => "choose_roll_swap_value";
+        fn flip_coin_call(&mut self, context: DecisionContext<'_>, player: PlayerId) -> bool => "flip_coin_call";
+        fn choose_phyrexian_pay_life(&mut self, context: DecisionContext<'_>, player: PlayerId, color: &str, source: Option<CardId>) -> bool => "choose_phyrexian_pay_life";
+        fn pay_combat_cost(&mut self, context: DecisionContext<'_>, player: PlayerId, attacker: CardId, cost: i32, description: &str, mana_ability_options: &[manabrew_engine::agent::ManaAbilityOption], tappable_lands: &[CardId], untappable_lands: &[CardId], mana_pool_total: i32) -> manabrew_engine::agent::CombatCostAction => "pay_combat_cost";
+        fn choose_delve(&mut self, context: DecisionContext<'_>, player: PlayerId, valid: &[CardId], max: usize, source: Option<CardId>) -> Vec<CardId> => "choose_delve";
+        fn choose_improvise(&mut self, context: DecisionContext<'_>, player: PlayerId, untapped_artifacts: &[CardId], remaining_cost: &forge_foundation::ManaCost, source: Option<CardId>) -> Vec<CardId> => "choose_improvise";
+        fn choose_convoke(&mut self, context: DecisionContext<'_>, player: PlayerId, untapped_creatures: &[CardId], remaining_cost: &forge_foundation::ManaCost, source: Option<CardId>) -> Vec<CardId> => "choose_convoke";
+        fn specify_mana_combo(&mut self, context: DecisionContext<'_>, player: PlayerId, available_colors: &[String], amount: usize, source: Option<CardId>, express_choice: Option<u16>) -> Vec<String> => "specify_mana_combo";
+        fn choose_kicker(&mut self, context: DecisionContext<'_>, player: PlayerId, kicker_cost: &str, source: Option<CardId>) -> bool => "choose_kicker";
+        fn help_pay_assist(&mut self, context: DecisionContext<'_>, player: PlayerId, card_name: &str, max_generic: u32) -> u32 => "help_pay_assist";
+        fn choose_buyback(&mut self, context: DecisionContext<'_>, player: PlayerId, buyback_cost: &str, source: Option<CardId>) -> bool => "choose_buyback";
+        fn choose_multikicker(&mut self, context: DecisionContext<'_>, player: PlayerId, cost: &str, max_kicks: u32, source: Option<CardId>) -> u32 => "choose_multikicker";
+        fn choose_replicate(&mut self, context: DecisionContext<'_>, player: PlayerId, cost: &str, max_replicates: u32, source: Option<CardId>) -> u32 => "choose_replicate";
+        fn choose_single_replacement_effect(&mut self, context: DecisionContext<'_>, player: PlayerId, descriptions: &[String], hosts: &[CardId]) -> usize => "choose_single_replacement_effect";
+        fn choose_entities_for_effect(&mut self, context: DecisionContext<'_>, player: PlayerId, candidates: &[GameEntity], min: usize, ax: usize) -> Vec<GameEntity> => "choose_entities_for_effect";
     }
 }
 

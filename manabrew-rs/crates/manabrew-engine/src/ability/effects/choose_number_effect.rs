@@ -1,4 +1,5 @@
 use super::{resolve_numeric_svar, EffectContext};
+use crate::agent::DecisionContext;
 
 /// `SP$ ChooseNumber` — the activating player chooses a number.
 /// Stores the result in `source.chosen_number` for subsequent effects.
@@ -28,6 +29,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         Some(ctx.rng.next_int(range) + min)
     } else {
         ctx.agents[controller.index()].choose_number(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             controller,
             sa.source,
             "Choose a number",

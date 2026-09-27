@@ -10,7 +10,9 @@ use manabrew_engine::ability::effects::counters_put_effect::CountersPutEffect;
 use manabrew_engine::ability::effects::move_counter_effect::MoveCounterEffect;
 use manabrew_engine::ability::effects::EffectContext;
 use manabrew_engine::ability::spell_ability_effect::SpellAbilityEffect;
-use manabrew_engine::agent::{PassAgent, PlayerAgent, PriorityActionSpace, TargetChoice};
+use manabrew_engine::agent::{
+    DecisionContext, PassAgent, PlayerAgent, PriorityActionSpace, PriorityContext, TargetChoice,
+};
 use manabrew_engine::card::{Card, CounterType};
 use manabrew_engine::combat::DefenderId;
 use manabrew_engine::event::RunParams;
@@ -57,6 +59,7 @@ struct ChooseMaximumAgent;
 impl PlayerAgent for ChooseMaximumAgent {
     fn mulligan_decision(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _hand: &[CardId],
         _mulligan_count: u32,
@@ -68,13 +71,14 @@ impl PlayerAgent for ChooseMaximumAgent {
         &mut self,
         _player: PlayerId,
         _action_space: Option<&PriorityActionSpace>,
-        _request_action_space: &mut dyn FnMut() -> PriorityActionSpace,
+        _priority: &mut dyn PriorityContext,
     ) -> PlayerAction {
         PlayerAction::PassPriority
     }
 
     fn choose_attackers(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _available: &[CardId],
         _possible_defenders: &[DefenderId],
@@ -84,6 +88,7 @@ impl PlayerAgent for ChooseMaximumAgent {
 
     fn choose_blockers(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _attackers: &[CardId],
         _available_blockers: &[CardId],
@@ -103,6 +108,7 @@ impl PlayerAgent for ChooseMaximumAgent {
 
     fn choose_target_player(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[PlayerId],
         _sa: Option<&SpellAbility>,
@@ -112,6 +118,7 @@ impl PlayerAgent for ChooseMaximumAgent {
 
     fn choose_target_card(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[CardId],
         _sa: Option<&SpellAbility>,
@@ -121,6 +128,7 @@ impl PlayerAgent for ChooseMaximumAgent {
 
     fn choose_target_any(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         valid_players: &[PlayerId],
         valid_cards: &[CardId],
@@ -135,12 +143,17 @@ impl PlayerAgent for ChooseMaximumAgent {
         }
     }
 
-    fn choose_land_or_spell(&mut self, _player: PlayerId) -> Option<bool> {
+    fn choose_land_or_spell(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+    ) -> Option<bool> {
         None
     }
 
     fn choose_number(
         &mut self,
+        _context: DecisionContext<'_>,
         _player: PlayerId,
         _source: Option<manabrew_engine::ids::CardId>,
         _title: &str,

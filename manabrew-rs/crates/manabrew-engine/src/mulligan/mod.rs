@@ -23,6 +23,7 @@
 //! timing, so networked multiplayer clients can respond simultaneously
 //! instead of waiting in queue.
 
+use crate::agent::DecisionContext;
 use crate::agent::PlayerAgent;
 use crate::game::GameState;
 use crate::game_log::GameLog;
@@ -72,7 +73,12 @@ pub fn run_london_mulligans(
         for (i, pid, hand) in &active {
             agents[pid.index()].snapshot_state(game, mana_pools);
             if !hand.is_empty() {
-                agents[pid.index()].mulligan_decision_send(*pid, hand, mulligan_count[*i]);
+                agents[pid.index()].mulligan_decision_send(
+                    DecisionContext::new(game, mana_pools),
+                    *pid,
+                    hand,
+                    mulligan_count[*i],
+                );
             }
         }
 
@@ -84,7 +90,12 @@ pub fn run_london_mulligans(
                 if hand.is_empty() {
                     true
                 } else {
-                    agents[pid.index()].mulligan_decision_recv(*pid, hand, mulligan_count[*i])
+                    agents[pid.index()].mulligan_decision_recv(
+                        DecisionContext::new(game, mana_pools),
+                        *pid,
+                        hand,
+                        mulligan_count[*i],
+                    )
                 }
             })
             .collect();
@@ -136,7 +147,12 @@ fn run_put_back_phase(
             }
             agents[pid.index()].snapshot_state(game, mana_pools);
             let hand = game.cards_in_zone(ZoneType::Hand, pid).to_vec();
-            agents[pid.index()].choose_cards_to_bottom_send(pid, &hand, count);
+            agents[pid.index()].choose_cards_to_bottom_send(
+                DecisionContext::new(game, mana_pools),
+                pid,
+                &hand,
+                count,
+            );
             Some(PutBackJob {
                 player: pid,
                 hand,
@@ -146,8 +162,12 @@ fn run_put_back_phase(
         .collect();
 
     for job in jobs {
-        let picks = agents[job.player.index()]
-            .choose_cards_to_bottom_recv(job.player, &job.hand, job.count);
+        let picks = agents[job.player.index()].choose_cards_to_bottom_recv(
+            DecisionContext::new(game, mana_pools),
+            job.player,
+            &job.hand,
+            job.count,
+        );
         for &card_id in &picks {
             game.put_on_bottom_of_library(card_id, job.player);
         }
@@ -202,6 +222,7 @@ fn mulligan_order(player_order: &[PlayerId], first_player: PlayerId) -> Vec<Play
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agent::PriorityContext;
     use crate::agent::{PlayerAgent, TargetChoice};
     use crate::card::Card;
     use crate::combat::DefenderId;
@@ -237,6 +258,7 @@ mod tests {
     impl PlayerAgent for TestAgent {
         fn mulligan_decision(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             _hand: &[CardId],
             mulligan_count: u32,
@@ -246,6 +268,7 @@ mod tests {
 
         fn choose_cards_to_bottom(
             &mut self,
+            _context: DecisionContext<'_>,
             _player: PlayerId,
             hand: &[CardId],
             count: usize,
@@ -261,13 +284,14 @@ mod tests {
             &mut self,
             _player: PlayerId,
             _action_space: Option<&crate::agent::PriorityActionSpace>,
-            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _priority: &mut dyn PriorityContext,
         ) -> PlayerAction {
             PlayerAction::PassPriority
         }
 
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[DefenderId],
@@ -277,6 +301,7 @@ mod tests {
 
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[CardId],
@@ -287,6 +312,7 @@ mod tests {
 
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             v: &[PlayerId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -296,6 +322,7 @@ mod tests {
 
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             v: &[CardId],
             _sa: Option<&crate::spellability::SpellAbility>,
@@ -305,6 +332,7 @@ mod tests {
 
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[PlayerId],
             _: &[CardId],
@@ -313,7 +341,11 @@ mod tests {
             TargetChoice::None
         }
 
-        fn choose_land_or_spell(&mut self, _: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+        ) -> Option<bool> {
             None
         }
 

@@ -1,5 +1,6 @@
 use super::{resolve_defined_players, EffectContext};
 use crate::agent::BinaryChoiceKind;
+use crate::agent::DecisionContext;
 use crate::ids::PlayerId;
 
 /// `SP$ ChooseEvenOdd` — chosen player picks odd or even.
@@ -26,6 +27,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             continue;
         }
         let odd = ctx.agents[pid.index()].choose_binary(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             pid,
             "Odd or even?",
             BinaryChoiceKind::OddsOrEvens,

@@ -1,4 +1,5 @@
 use super::{resolve_defined_players, EffectContext};
+use crate::agent::DecisionContext;
 
 /// `SP$ ChooseColor` — player(s) choose a color.
 ///
@@ -62,8 +63,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     for player in players {
         ctx.agents[player.index()].snapshot_state(ctx.game, ctx.mana_pools);
-        let chosen =
-            ctx.agents[player.index()].choose_colors(player, &valid_colors, count_min, count_max);
+        let chosen = ctx.agents[player.index()].choose_colors(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
+            player,
+            &valid_colors,
+            count_min,
+            count_max,
+        );
         if chosen.is_empty() {
             return;
         }

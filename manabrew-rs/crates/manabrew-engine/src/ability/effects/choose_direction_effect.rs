@@ -1,5 +1,6 @@
 use super::EffectContext;
 use crate::agent::BinaryChoiceKind;
+use crate::agent::DecisionContext;
 
 /// `SP$ ChooseDirection` — choose left or right and remember it on source.
 ///
@@ -13,6 +14,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let Some(source_id) = sa.source else { return };
     let _source_name = ctx.game.card(source_id).card_name.clone();
     let choose_left = ctx.agents[controller.index()].choose_binary(
+        DecisionContext::new(ctx.game, ctx.mana_pools),
         controller,
         "Choose direction",
         BinaryChoiceKind::LeftOrRight,

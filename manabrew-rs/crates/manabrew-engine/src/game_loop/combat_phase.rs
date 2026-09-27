@@ -1,4 +1,5 @@
 use super::*;
+use crate::agent::DecisionContext;
 use crate::card::card_damage_history::TrackedEntity;
 
 impl GameLoop {
@@ -89,8 +90,12 @@ impl GameLoop {
                     ),
                 );
                 let agent = &mut agents[active.index()];
-                let picked =
-                    agent.choose_attackers(active, &available_attackers, &possible_defenders);
+                let picked = agent.choose_attackers(
+                    DecisionContext::new(game, &self.mana_pools),
+                    active,
+                    &available_attackers,
+                    &possible_defenders,
+                );
                 if self.apply_pending_snapshot_restore(game, agents) {
                     return;
                 }
@@ -256,7 +261,11 @@ impl GameLoop {
                 .filter(|cid| optional_exert_by_attacker.contains_key(cid))
                 .collect();
             if !possible_exerters.is_empty() {
-                let chosen = agents[active.index()].exert_attackers(active, &possible_exerters);
+                let chosen = agents[active.index()].exert_attackers(
+                    DecisionContext::new(game, &self.mana_pools),
+                    active,
+                    &possible_exerters,
+                );
                 for attacker in chosen {
                     // Exert is paid unconditionally once chosen via exert_attackers
                     // (mirrors HumanPlay.payCostDuringAbilityResolve's CostExert case).
@@ -291,7 +300,11 @@ impl GameLoop {
             };
 
             if !possible_enlisters.is_empty() {
-                let chosen = agents[active.index()].enlist_attackers(active, &possible_enlisters);
+                let chosen = agents[active.index()].enlist_attackers(
+                    DecisionContext::new(game, &self.mana_pools),
+                    active,
+                    &possible_enlisters,
+                );
                 for attacker in chosen {
                     if let Some(parts) = optional_enlist_by_attacker.get(&attacker).cloned() {
                         for (resolved, type_filter) in parts {
@@ -623,6 +636,7 @@ impl GameLoop {
                     let mut chosen_blockers = {
                         let def_agent = &mut agents[defending.index()];
                         def_agent.choose_blockers(
+                            DecisionContext::new(game, &self.mana_pools),
                             defending,
                             &attacker_card_ids,
                             &available_blockers,
@@ -1083,6 +1097,7 @@ impl GameLoop {
 
             agents[controller.index()].snapshot_state(game, &self.mana_pools);
             let action = agents[controller.index()].pay_combat_cost(
+                DecisionContext::new(game, &self.mana_pools),
                 controller,
                 card_id,
                 cost,
@@ -1244,6 +1259,7 @@ impl GameLoop {
             );
             agents[controller.index()].snapshot_state(game, &self.mana_pools);
             if agents[controller.index()].choose_optional_trigger(
+                DecisionContext::new(game, &self.mana_pools),
                 controller,
                 &desc,
                 Some(attacker_id),

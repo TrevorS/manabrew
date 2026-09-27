@@ -3,6 +3,7 @@ use forge_foundation::ZoneType;
 
 use super::token_effect_base::{TokenCreateTable, TokenEffectBase, TOKEN_EFFECT_BASE};
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::card::card_zone_table::CardZoneTable;
 use crate::card::Card;
 use crate::ids::CardId;
@@ -255,9 +256,12 @@ fn resolve_originals(
             .map(crate::agent::GameEntity::Card)
             .collect();
         ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
-        return match ctx.agents[chooser.index()]
-            .choose_single_entity_for_effect(chooser, &choices, false)
-        {
+        return match ctx.agents[chooser.index()].choose_single_entity_for_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
+            chooser,
+            &choices,
+            false,
+        ) {
             Some(crate::agent::GameEntity::Card(chosen)) => vec![chosen],
             _ => Vec::new(),
         };

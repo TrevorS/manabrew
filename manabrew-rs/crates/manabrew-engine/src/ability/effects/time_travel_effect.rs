@@ -3,6 +3,7 @@ use forge_foundation::ZoneType;
 use super::resolve_numeric_svar;
 use super::EffectContext;
 use crate::agent::BinaryChoiceKind;
+use crate::agent::DecisionContext;
 use crate::card::CounterType;
 use crate::ids::CardId;
 use crate::parsing::keys;
@@ -41,6 +42,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         let chosen = ctx.agents[controller.index()].choose_cards_for_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             controller,
             &valid,
             0,
@@ -52,6 +54,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 ctx.game.card(cid).card_name
             );
             let add = ctx.agents[controller.index()].choose_binary(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 controller,
                 &prompt,
                 BinaryChoiceKind::AddOrRemove,

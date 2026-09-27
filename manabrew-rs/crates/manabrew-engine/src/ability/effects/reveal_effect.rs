@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{resolve_numeric_svar, EffectContext};
+use crate::agent::DecisionContext;
 use crate::agent::GameLogEvent;
 use crate::ids::CardId;
 use crate::parsing::{keys, Params};
@@ -83,7 +84,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             } else if optional {
                 min = 0;
             }
-            ctx.agents[p.index()].choose_cards_to_reveal(p, &valid, min, cnt)
+            ctx.agents[p.index()].choose_cards_to_reveal(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                p,
+                &valid,
+                min,
+                cnt,
+            )
         };
 
         for agent in ctx.agents.iter_mut() {

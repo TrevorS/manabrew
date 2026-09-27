@@ -99,16 +99,18 @@ pub type SacrificeChooser<'a> = &'a mut dyn FnMut(&[CardId]) -> Option<CardId>;
 pub enum ManaPayCallback<'a> {
     /// Choose which permanent to sacrifice from the given list.
     /// Return the chosen card, or None to cancel.
-    ChooseSacrifice(&'a [CardId]),
+    ChooseSacrifice(&'a GameState, &'a [CardId]),
     /// Notify the caller that auto-pay is making a color-choice prompt.
     /// The callback may use this to preserve parity-visible prompt ordering.
     /// The return value is ignored for this variant.
-    ChooseColor(&'a [String]),
+    ChooseColor(&'a GameState, &'a [String]),
     ChooseManaColor {
+        game: &'a GameState,
         options: &'a [String],
         chosen: &'a mut Option<String>,
     },
     ChooseManaFromPool {
+        game: &'a GameState,
         mana_choices: &'a [Mana],
         chosen: &'a mut usize,
     },
@@ -116,6 +118,7 @@ pub enum ManaPayCallback<'a> {
     /// The callback writes the selected cards into `chosen`; the return value
     /// is only used as a success/cancel signal to fit the unified callback shape.
     ChooseCards {
+        game: &'a GameState,
         valid: &'a [CardId],
         min: usize,
         max: usize,
@@ -124,16 +127,16 @@ pub enum ManaPayCallback<'a> {
     /// Confirm whether to sacrifice the given card for a mana ability.
     /// Return true to proceed, false to cancel.
     /// Mirrors Java's DeterministicCostDecision.confirmPayment() path.
-    ConfirmSelfSacrifice(CardId),
+    ConfirmSelfSacrifice(&'a GameState, CardId),
     /// Confirm whether to remove counters from the source for a mana ability.
     /// Mirrors Java CostPayment confirm for CostRemoveCounter (SubCounter).
-    ConfirmSubCounter(CardId),
+    ConfirmSubCounter(&'a GameState, CardId),
     /// Confirm whether to exile the source for a mana ability.
     /// Mirrors Java CostPayment confirm for source-paid CostExile.
-    ConfirmSourceExile(CardId),
+    ConfirmSourceExile(&'a GameState, CardId),
     /// Confirm whether to pay life for a mana ability.
     /// Mirrors Java CostPayment confirm for CostPayLife.
-    ConfirmPayLife(CardId),
+    ConfirmPayLife(&'a GameState, CardId),
     /// Execute the sacrifice of the given permanent for a mana ability.
     /// The callback is responsible for firing Sacrificed/ChangesZone using
     /// battlefield LKI, moving the card, and returning the same card id on
@@ -243,15 +246,15 @@ pub fn auto_tap_lands_with_chooser(
 ) -> Vec<CardId> {
     let mut callback = |kind: ManaPayCallback<'_>| -> Option<CardId> {
         match kind {
-            ManaPayCallback::ChooseSacrifice(valid) => sacrifice_chooser(valid),
-            ManaPayCallback::ChooseColor(_) => None,
+            ManaPayCallback::ChooseSacrifice(_, valid) => sacrifice_chooser(valid),
+            ManaPayCallback::ChooseColor(..) => None,
             ManaPayCallback::ChooseManaColor { .. } => None,
             ManaPayCallback::ChooseManaFromPool { .. } => None,
             ManaPayCallback::ChooseCards { .. } => None,
-            ManaPayCallback::ConfirmSelfSacrifice(cid) => Some(cid),
-            ManaPayCallback::ConfirmSubCounter(cid) => Some(cid),
-            ManaPayCallback::ConfirmSourceExile(cid) => Some(cid),
-            ManaPayCallback::ConfirmPayLife(cid) => Some(cid),
+            ManaPayCallback::ConfirmSelfSacrifice(_, cid) => Some(cid),
+            ManaPayCallback::ConfirmSubCounter(_, cid) => Some(cid),
+            ManaPayCallback::ConfirmSourceExile(_, cid) => Some(cid),
+            ManaPayCallback::ConfirmPayLife(_, cid) => Some(cid),
             ManaPayCallback::NotifySacrificeForMana(_, cid) => Some(cid),
             ManaPayCallback::ExileCostCardsForMana { .. } => None,
             ManaPayCallback::ApplyProduceManaReplacement { .. } => None,
@@ -282,15 +285,15 @@ pub fn auto_tap_lands_allow_reserved_source_reuse_with_chooser(
 ) -> Vec<CardId> {
     let mut callback = |kind: ManaPayCallback<'_>| -> Option<CardId> {
         match kind {
-            ManaPayCallback::ChooseSacrifice(valid) => sacrifice_chooser(valid),
-            ManaPayCallback::ChooseColor(_) => None,
+            ManaPayCallback::ChooseSacrifice(_, valid) => sacrifice_chooser(valid),
+            ManaPayCallback::ChooseColor(..) => None,
             ManaPayCallback::ChooseManaColor { .. } => None,
             ManaPayCallback::ChooseManaFromPool { .. } => None,
             ManaPayCallback::ChooseCards { .. } => None,
-            ManaPayCallback::ConfirmSelfSacrifice(cid) => Some(cid),
-            ManaPayCallback::ConfirmSubCounter(cid) => Some(cid),
-            ManaPayCallback::ConfirmSourceExile(cid) => Some(cid),
-            ManaPayCallback::ConfirmPayLife(cid) => Some(cid),
+            ManaPayCallback::ConfirmSelfSacrifice(_, cid) => Some(cid),
+            ManaPayCallback::ConfirmSubCounter(_, cid) => Some(cid),
+            ManaPayCallback::ConfirmSourceExile(_, cid) => Some(cid),
+            ManaPayCallback::ConfirmPayLife(_, cid) => Some(cid),
             ManaPayCallback::NotifySacrificeForMana(_, cid) => Some(cid),
             ManaPayCallback::ExileCostCardsForMana { .. } => None,
             ManaPayCallback::ApplyProduceManaReplacement { .. } => None,
@@ -752,7 +755,7 @@ fn auto_tap_lands_internal_with_ctx(
             any_color_conversion,
             has_converge,
             &mut payment,
-            &mut |mana_choices: &[Mana]| choose_mana_from_pool(callback, mana_choices),
+            &mut |mana_choices: &[Mana]| choose_mana_from_pool(game, callback, mana_choices),
         );
     } else if let Some(ctx) = payment_ctx {
         pay_cost_from_pool(&mut unpaid, &pool.filtered_for_context(ctx));
@@ -864,7 +867,9 @@ fn auto_tap_lands_internal_with_ctx(
                     any_color_conversion,
                     has_converge,
                     &mut payment,
-                    &mut |mana_choices: &[Mana]| choose_mana_from_pool(callback, mana_choices),
+                    &mut |mana_choices: &[Mana]| {
+                        choose_mana_from_pool(game, callback, mana_choices)
+                    },
                 );
             } else {
                 for &atom in &trigger_atoms {
@@ -946,7 +951,9 @@ fn auto_tap_lands_internal_with_ctx(
                         any_color_conversion,
                         has_converge,
                         &mut payment,
-                        &mut |mana_choices: &[Mana]| choose_mana_from_pool(callback, mana_choices),
+                        &mut |mana_choices: &[Mana]| {
+                            choose_mana_from_pool(game, callback, mana_choices)
+                        },
                     );
                 }
             } else if !is_empty_combo_color_identity {
@@ -1007,12 +1014,14 @@ fn auto_tap_lands_internal_with_ctx(
 }
 
 fn choose_mana_from_pool(
+    game: &GameState,
     callback: &mut Option<ManaPayCallbackFn<'_>>,
     mana_choices: &[Mana],
 ) -> usize {
     let mut chosen = 0;
     if let Some(ref mut cb) = callback {
         cb(ManaPayCallback::ChooseManaFromPool {
+            game,
             mana_choices,
             chosen: &mut chosen,
         });
@@ -1261,6 +1270,7 @@ fn add_taps_for_mana_trigger_mana_impl(
                         let options = ["W", "U", "B", "R", "G"].map(String::from);
                         let mut chosen = None;
                         cb(ManaPayCallback::ChooseManaColor {
+                            game,
                             options: &options,
                             chosen: &mut chosen,
                         });
@@ -1391,7 +1401,7 @@ fn auto_pay_base_mana_string(
                     .is_some_and(|produced| produced.is_any_like() && !produced.is_combo_mana());
                 let color_choices = if is_any_mana { 1 } else { base_amount };
                 for _ in 0..color_choices {
-                    cb(ManaPayCallback::ChooseColor(&forced));
+                    cb(ManaPayCallback::ChooseColor(game, &forced));
                 }
             }
         }
@@ -1834,11 +1844,11 @@ pub(crate) fn auto_payment_callback<'a, 'r: 'a>(
 ) -> impl FnMut(ManaPayCallback<'_>) -> Option<CardId> + use<'a, 'r> {
     move |kind: ManaPayCallback<'_>| -> Option<CardId> {
         match kind {
-            ManaPayCallback::ConfirmSelfSacrifice(id)
-            | ManaPayCallback::ConfirmSubCounter(id)
-            | ManaPayCallback::ConfirmSourceExile(id)
-            | ManaPayCallback::ConfirmPayLife(id) => Some(id),
-            ManaPayCallback::ChooseSacrifice(valid) => valid.first().copied(),
+            ManaPayCallback::ConfirmSelfSacrifice(_, id)
+            | ManaPayCallback::ConfirmSubCounter(_, id)
+            | ManaPayCallback::ConfirmSourceExile(_, id)
+            | ManaPayCallback::ConfirmPayLife(_, id) => Some(id),
+            ManaPayCallback::ChooseSacrifice(_, valid) => valid.first().copied(),
             ManaPayCallback::ChooseCards {
                 valid, min, chosen, ..
             } => {
@@ -1962,7 +1972,9 @@ fn pay_non_tap_mana_ability_costs(
                     return false;
                 }
                 if let Some(ref mut cb) = callback {
-                    if let Some(confirmed_id) = cb(ManaPayCallback::ConfirmPayLife(ma.card_id)) {
+                    if let Some(confirmed_id) =
+                        cb(ManaPayCallback::ConfirmPayLife(game, ma.card_id))
+                    {
                         if confirmed_id != ma.card_id {
                             return false;
                         }
@@ -1983,7 +1995,9 @@ fn pay_non_tap_mana_ability_costs(
                     return false;
                 }
                 if let Some(ref mut cb) = callback {
-                    if let Some(confirmed_id) = cb(ManaPayCallback::ConfirmSubCounter(ma.card_id)) {
+                    if let Some(confirmed_id) =
+                        cb(ManaPayCallback::ConfirmSubCounter(game, ma.card_id))
+                    {
                         if confirmed_id != ma.card_id {
                             return false;
                         }
@@ -2007,7 +2021,7 @@ fn pay_non_tap_mana_ability_costs(
                     }
                     if let Some(ref mut cb) = callback {
                         if let Some(confirmed_id) =
-                            cb(ManaPayCallback::ConfirmSelfSacrifice(ma.card_id))
+                            cb(ManaPayCallback::ConfirmSelfSacrifice(game, ma.card_id))
                         {
                             if confirmed_id != ma.card_id {
                                 return false;
@@ -2063,7 +2077,7 @@ fn pay_non_tap_mana_ability_costs(
                     }
                     for _ in 0..required {
                         let chosen = if let Some(ref mut cb) = callback {
-                            cb(ManaPayCallback::ChooseSacrifice(&targets))
+                            cb(ManaPayCallback::ChooseSacrifice(game, &targets))
                         } else {
                             targets.first().copied()
                         };
@@ -2101,7 +2115,7 @@ fn pay_non_tap_mana_ability_costs(
                     }
                     if let Some(ref mut cb) = callback {
                         if let Some(confirmed_id) =
-                            cb(ManaPayCallback::ConfirmSourceExile(ma.card_id))
+                            cb(ManaPayCallback::ConfirmSourceExile(game, ma.card_id))
                         {
                             if confirmed_id != ma.card_id {
                                 return false;
@@ -2138,6 +2152,7 @@ fn pay_non_tap_mana_ability_costs(
                     let mut chosen = Vec::new();
                     if let Some(ref mut cb) = callback {
                         if cb(ManaPayCallback::ChooseCards {
+                            game,
                             valid: &valid,
                             min: required,
                             max: required,
@@ -2175,6 +2190,7 @@ fn pay_non_tap_mana_ability_costs(
                 let mut chosen = Vec::new();
                 if let Some(ref mut cb) = callback {
                     cb(ManaPayCallback::ChooseCards {
+                        game,
                         valid: &valid,
                         min: 0,
                         max: valid.len(),
@@ -2387,6 +2403,7 @@ fn choose_tap_type_targets_for_mana_ability_with_callback(
         if let Some(cb) = callback {
             let mut chosen = Vec::new();
             if cb(ManaPayCallback::ChooseCards {
+                game,
                 valid: &targets,
                 min: 1,
                 max: targets.len(),
@@ -2432,6 +2449,7 @@ fn choose_tap_type_targets_for_mana_ability_with_callback(
     if let Some(cb) = callback {
         let mut chosen = Vec::new();
         if cb(ManaPayCallback::ChooseCards {
+            game,
             valid: &targets,
             min: required,
             max: required,
@@ -4924,18 +4942,18 @@ mod tests {
             let tapped = {
                 let mut callback = |kind: ManaPayCallback<'_>| -> Option<CardId> {
                     match kind {
-                        ManaPayCallback::ChooseSacrifice(_) => None,
-                        ManaPayCallback::ChooseColor(_) => None,
+                        ManaPayCallback::ChooseSacrifice(..) => None,
+                        ManaPayCallback::ChooseColor(..) => None,
                         ManaPayCallback::ChooseManaColor { .. } => None,
                         ManaPayCallback::ChooseManaFromPool { .. } => None,
                         ManaPayCallback::ChooseCards { .. } => None,
-                        ManaPayCallback::ConfirmSelfSacrifice(cid) => {
+                        ManaPayCallback::ConfirmSelfSacrifice(_, cid) => {
                             assert_eq!(cid, treasure); // should be asking about Treasure
                             Some(cid) // confirm
                         }
-                        ManaPayCallback::ConfirmSubCounter(cid) => Some(cid),
-                        ManaPayCallback::ConfirmSourceExile(cid) => Some(cid),
-                        ManaPayCallback::ConfirmPayLife(cid) => Some(cid),
+                        ManaPayCallback::ConfirmSubCounter(_, cid) => Some(cid),
+                        ManaPayCallback::ConfirmSourceExile(_, cid) => Some(cid),
+                        ManaPayCallback::ConfirmPayLife(_, cid) => Some(cid),
                         ManaPayCallback::NotifySacrificeForMana(game, cid) => {
                             let owner = game.card(cid).owner;
                             game.move_card(cid, ZoneType::Graveyard, owner);
@@ -4990,18 +5008,18 @@ mod tests {
             let tapped = {
                 let mut callback = |kind: ManaPayCallback<'_>| -> Option<CardId> {
                     match kind {
-                        ManaPayCallback::ChooseSacrifice(_) => None,
-                        ManaPayCallback::ChooseColor(_) => None,
+                        ManaPayCallback::ChooseSacrifice(..) => None,
+                        ManaPayCallback::ChooseColor(..) => None,
                         ManaPayCallback::ChooseManaColor { .. } => None,
                         ManaPayCallback::ChooseManaFromPool { .. } => None,
                         ManaPayCallback::ChooseCards { .. } => None,
-                        ManaPayCallback::ConfirmSelfSacrifice(cid) => {
+                        ManaPayCallback::ConfirmSelfSacrifice(_, cid) => {
                             assert_eq!(cid, treasure2);
                             None // decline
                         }
-                        ManaPayCallback::ConfirmSubCounter(cid) => Some(cid),
-                        ManaPayCallback::ConfirmSourceExile(cid) => Some(cid),
-                        ManaPayCallback::ConfirmPayLife(cid) => Some(cid),
+                        ManaPayCallback::ConfirmSubCounter(_, cid) => Some(cid),
+                        ManaPayCallback::ConfirmSourceExile(_, cid) => Some(cid),
+                        ManaPayCallback::ConfirmPayLife(_, cid) => Some(cid),
                         ManaPayCallback::NotifySacrificeForMana(game, cid) => {
                             let owner = game.card(cid).owner;
                             game.move_card(cid, ZoneType::Graveyard, owner);

@@ -1,5 +1,6 @@
 use super::cost_payment::CostPaymentContext;
 use super::*;
+use crate::agent::DecisionContext;
 use crate::replacement::replacement_handler::apply_moved_replacement;
 
 impl GameLoop {
@@ -249,6 +250,7 @@ impl GameLoop {
                 }
                 let api = entry.spell_ability.api;
                 let accepted = agents[decider.index()].choose_optional_trigger(
+                    DecisionContext::new(game, &self.mana_pools),
                     decider,
                     &description,
                     entry.spell_ability.source,
@@ -1078,6 +1080,7 @@ impl GameLoop {
             if !candidates.is_empty() {
                 let chooser = entry.spell_ability.activating_player;
                 let chosen = agents[chooser.index()].choose_single_entity_for_effect(
+                    DecisionContext::new(game, &[]),
                     chooser,
                     &candidates,
                     false,

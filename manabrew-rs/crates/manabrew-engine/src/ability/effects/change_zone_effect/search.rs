@@ -6,6 +6,7 @@ use forge_foundation::ZoneType;
 
 use super::super::{resolve_defined_players_with_sa, EffectContext};
 use super::helpers::{get_land_subtypes, matches_with_context};
+use crate::agent::DecisionContext;
 use crate::ids::{CardId, PlayerId};
 use crate::spellability::SpellAbility;
 
@@ -79,6 +80,7 @@ pub(super) fn resolve_single_search(
         let _source_name = sa.source.map(|cid| ctx.game.card(cid).card_name.as_str());
         ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
         let _ = ctx.agents[chooser.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             chooser,
             Some("ChangeZoneGeneral"),
             "Cancel search and select up to 1 cards?",

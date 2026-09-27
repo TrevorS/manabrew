@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{matches_valid_cards_for_sa, EffectContext};
+use crate::agent::DecisionContext;
 use crate::ids::CardId;
 
 /// End-of-turn revert for ProtectionAll. Mirrors the `GameCommand.run()` in Java
@@ -60,7 +61,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     "Green".into(),
                 ]
             });
-        let chosen = ctx.agents[controller.index()].choose_color(controller, &choices);
+        let chosen = ctx.agents[controller.index()].choose_color(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
+            controller,
+            &choices,
+        );
         match chosen {
             Some(color) => format!("Protection from {}", color.to_lowercase()),
             None => return,

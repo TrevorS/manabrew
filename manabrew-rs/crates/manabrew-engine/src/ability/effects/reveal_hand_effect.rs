@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::agent::GameLogEvent;
 
 /// Mirrors Java's `RevealHandEffect.java`.
@@ -17,6 +18,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if sa.ir.optional {
             let _source_name = sa.source.map(|cid| ctx.game.card(cid).card_name.as_str());
             let accepted = ctx.agents[target.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 target,
                 None,
                 "Do you want to reveal your hand?",

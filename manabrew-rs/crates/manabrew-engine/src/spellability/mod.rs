@@ -1,3 +1,4 @@
+use crate::agent::DecisionContext;
 pub mod ability;
 pub mod ability_activated;
 pub mod ability_mana_part;
@@ -2292,15 +2293,28 @@ fn choose_target_cards_for(
         .as_ref()
         .is_some_and(TargetRestrictions::has_relational_restrictions)
     {
-        return agent.choose_target_cards(player, valid, min, max, sa);
+        return agent.choose_target_cards(
+            DecisionContext::new(game, &[]),
+            player,
+            valid,
+            min,
+            max,
+            sa,
+        );
     }
     let mut probe = sa.clone();
     let mut chosen: Vec<CardId> = Vec::new();
     let mut remaining = valid.to_vec();
     while chosen.len() < max && remaining.iter().any(|cid| !chosen.contains(cid)) {
-        let Some(pick) =
-            agent.choose_next_target_card(player, &remaining, &chosen, min, max, &probe)
-        else {
+        let Some(pick) = agent.choose_next_target_card(
+            DecisionContext::new(game, &[]),
+            player,
+            &remaining,
+            &chosen,
+            min,
+            max,
+            &probe,
+        ) else {
             break;
         };
         if !chosen.contains(&pick) {
@@ -2357,7 +2371,13 @@ pub fn choose_targets_by_kind(
             .collect();
         let stack = target_restrictions::get_stack_target_candidates(game, sa);
         agent.snapshot_state(game, mana_pools);
-        match agent.choose_target_card_or_stack(player, &cards, &stack, Some(&*sa)) {
+        match agent.choose_target_card_or_stack(
+            DecisionContext::new(game, mana_pools),
+            player,
+            &cards,
+            &stack,
+            Some(&*sa),
+        ) {
             crate::agent::CardOrStackTarget::Card(cid) => {
                 sa.target_chosen.target_card = Some(cid);
                 sa.target_chosen.target_card_zone_timestamp = Some(game.card(cid).zone_timestamp);
@@ -2410,6 +2430,7 @@ pub fn choose_targets_by_kind(
                     && valid_players.iter().any(|pid| !chosen.contains(pid))
                 {
                     let Some(pid) = agent.choose_next_target_player(
+                        DecisionContext::new(game, mana_pools),
                         player,
                         &valid_players,
                         &chosen,
@@ -2425,8 +2446,12 @@ pub fn choose_targets_by_kind(
                 sa.target_chosen.target_player = chosen.first().copied();
                 sa.target_chosen.additional_target_players = chosen.into_iter().skip(1).collect();
             } else {
-                sa.target_chosen.target_player =
-                    agent.choose_target_player(player, &valid_players, Some(&*sa));
+                sa.target_chosen.target_player = agent.choose_target_player(
+                    DecisionContext::new(game, mana_pools),
+                    player,
+                    &valid_players,
+                    Some(&*sa),
+                );
             }
         }
         TargetKind::Any => {
@@ -2476,7 +2501,13 @@ pub fn choose_targets_by_kind(
                     }
                 }
             } else {
-                match agent.choose_target_any(player, &valid_players, &valid_cards, Some(&*sa)) {
+                match agent.choose_target_any(
+                    DecisionContext::new(game, mana_pools),
+                    player,
+                    &valid_players,
+                    &valid_cards,
+                    Some(&*sa),
+                ) {
                     crate::agent::TargetChoice::Player(pid) => {
                         sa.target_chosen.target_player = Some(pid)
                     }
@@ -2516,7 +2547,12 @@ pub fn choose_targets_by_kind(
                     }
                 }
             } else {
-                sa.target_chosen.target_card = agent.choose_target_card(player, &valid, Some(&*sa));
+                sa.target_chosen.target_card = agent.choose_target_card(
+                    DecisionContext::new(game, mana_pools),
+                    player,
+                    &valid,
+                    Some(&*sa),
+                );
                 if let Some(cid) = sa.target_chosen.target_card {
                     sa.target_chosen.target_card_zone_timestamp =
                         Some(game.card(cid).zone_timestamp);
@@ -2550,7 +2586,12 @@ pub fn choose_targets_by_kind(
                     }
                 }
             } else {
-                sa.target_chosen.target_card = agent.choose_target_card(player, &valid, Some(&*sa));
+                sa.target_chosen.target_card = agent.choose_target_card(
+                    DecisionContext::new(game, mana_pools),
+                    player,
+                    &valid,
+                    Some(&*sa),
+                );
                 if let Some(cid) = sa.target_chosen.target_card {
                     sa.target_chosen.target_card_zone_timestamp =
                         Some(game.card(cid).zone_timestamp);
@@ -2587,8 +2628,13 @@ pub fn choose_targets_by_kind(
                     }
                 }
             } else {
-                sa.target_chosen.target_card =
-                    agent.choose_target_card_from_zone(player, *zone, &valid, Some(&*sa));
+                sa.target_chosen.target_card = agent.choose_target_card_from_zone(
+                    DecisionContext::new(game, mana_pools),
+                    player,
+                    *zone,
+                    &valid,
+                    Some(&*sa),
+                );
                 if let Some(cid) = sa.target_chosen.target_card {
                     sa.target_chosen.target_card_zone_timestamp =
                         Some(game.card(cid).zone_timestamp);
@@ -2609,8 +2655,12 @@ pub fn choose_targets_by_kind(
                 valid
             };
             agent.snapshot_state(game, mana_pools);
-            sa.target_chosen.target_stack_entry =
-                agent.choose_target_spell(player, &valid, sa.source);
+            sa.target_chosen.target_stack_entry = agent.choose_target_spell(
+                DecisionContext::new(game, mana_pools),
+                player,
+                &valid,
+                sa.source,
+            );
         }
     }
 
@@ -2674,6 +2724,7 @@ fn choose_targeting_player(
             return None;
         }
         return agents[sa.activating_player.index()].choose_target_player(
+            DecisionContext::new(game, &[]),
             sa.activating_player,
             &candidates,
             None,

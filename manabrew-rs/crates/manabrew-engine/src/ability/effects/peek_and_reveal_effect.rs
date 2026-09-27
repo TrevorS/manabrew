@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{resolve_numeric_svar, EffectContext};
+use crate::agent::DecisionContext;
 
 /// Mirrors Java's `PeekAndRevealEffect.java`.
 #[manabrew_engine_macros::spell_effect(PeekAndRevealEffect)]
@@ -69,6 +70,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let mut do_reveal = !no_reveal && !revealable.is_empty();
         if do_reveal && reveal_optional {
             do_reveal = ctx.agents[peeking_player.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 peeking_player,
                 None,
                 "Reveal the card to other players?",

@@ -1,4 +1,5 @@
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::agent::GameEntity;
 use crate::parsing::keys;
 
@@ -58,6 +59,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .collect();
             ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
             match ctx.agents[chooser.index()].choose_single_entity_for_effect(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 chooser,
                 &entities,
                 sa.ir.optional,

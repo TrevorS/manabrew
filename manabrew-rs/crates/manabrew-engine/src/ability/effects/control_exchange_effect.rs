@@ -6,6 +6,7 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::ids::CardId;
 use crate::parsing::keys;
 
@@ -66,6 +67,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let name2 = c2.card_name.clone();
         ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
         let confirm = ctx.agents[controller.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             controller,
             Some("ControlExchange"),
             &format!("Exchange control of {name1} and {name2}?"),

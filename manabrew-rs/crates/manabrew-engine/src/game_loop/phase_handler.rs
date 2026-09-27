@@ -1,4 +1,5 @@
 use super::*;
+use crate::agent::DecisionContext;
 
 impl GameLoop {
     pub(crate) fn run_turn_state_machine(
@@ -414,6 +415,7 @@ impl GameLoop {
                         let question = format!("Untap {}?", game.card(cid).card_name);
                         let _source_name = game.card(cid).card_name.clone();
                         agents[active.index()].choose_binary(
+                            DecisionContext::new(game, &self.mana_pools),
                             active,
                             &question,
                             crate::agent::BinaryChoiceKind::UntapOrLeaveTapped,
@@ -681,7 +683,12 @@ impl GameLoop {
                         to_discard
                     ),
                 );
-                let chosen = agents[active.index()].choose_discard(active, &hand, to_discard);
+                let chosen = agents[active.index()].choose_discard(
+                    DecisionContext::new(game, &self.mana_pools),
+                    active,
+                    &hand,
+                    to_discard,
+                );
                 self.game_log.log(
                     GameLogEntryType::PriorityResponse,
                     2,

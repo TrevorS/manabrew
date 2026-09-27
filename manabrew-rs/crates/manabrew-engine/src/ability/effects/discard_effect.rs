@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::EffectContext;
 use crate::ability::spell_ability_effect::get_target_players;
+use crate::agent::DecisionContext;
 
 /// `Mode$` vocabulary for `DB$ Discard`. Mirrors Java
 /// `DiscardEffect.resolve`'s mode dispatch. Default is [`Self::TgtChoose`].
@@ -106,6 +107,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             let amount = super::resolve_numeric_value(ctx.game, sa, raw_amount, 0).max(0) as usize;
             ctx.agents[target_player.index()].snapshot_state(ctx.game, ctx.mana_pools);
             hand = ctx.agents[target_player.index()].choose_cards_to_reveal(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 target_player,
                 &hand,
                 amount,
@@ -131,6 +133,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         if sa.ir.optional && !any_number && !chooser_style_optional {
             let accepted = ctx.agents[target_player.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 target_player,
                 None,
                 "Do you want to discard?",
@@ -225,6 +228,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     .map(|t| t.trim().to_string())
                     .collect();
                 ctx.agents[target_player.index()].choose_cards_to_discard_unless_type(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
                     target_player,
                     &hand,
                     num,
@@ -232,17 +236,32 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 )
             }
             _ if any_number => ctx.agents[chooser.index()].choose_discard_any_number(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 target_player,
                 &hand,
                 0,
                 hand.len(),
             ),
             _ if sa.ir.optional && chooser_style_optional => ctx.agents[chooser.index()]
-                .choose_discard_any_number(target_player, &hand, 0, num.min(hand.len())),
-            _ if chooser_style_optional => {
-                ctx.agents[chooser.index()].choose_discard(target_player, &hand, num)
-            }
-            _ => ctx.agents[target_player.index()].choose_discard(target_player, &hand, num),
+                .choose_discard_any_number(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
+                    target_player,
+                    &hand,
+                    0,
+                    num.min(hand.len()),
+                ),
+            _ if chooser_style_optional => ctx.agents[chooser.index()].choose_discard(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                target_player,
+                &hand,
+                num,
+            ),
+            _ => ctx.agents[target_player.index()].choose_discard(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                target_player,
+                &hand,
+                num,
+            ),
         };
 
         // RememberDiscarded$ — source remembers each card actually discarded

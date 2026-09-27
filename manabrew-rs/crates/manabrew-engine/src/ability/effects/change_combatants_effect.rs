@@ -7,6 +7,7 @@ use forge_foundation::ZoneType;
 
 use super::EffectContext;
 use crate::ability::api_type::ApiType;
+use crate::agent::DecisionContext;
 use crate::parsing::keys;
 
 /// Struct form of this effect so it can participate in the
@@ -27,6 +28,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if sa.ir.optional_present {
             let card_name = ctx.game.card(card_id).card_name.clone();
             let accepted = ctx.agents[sa.activating_player.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 sa.activating_player,
                 Some("ChangeCombatants"),
                 &format!("Reselect the defender of {card_name}?"),

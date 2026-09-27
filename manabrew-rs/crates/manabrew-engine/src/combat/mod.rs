@@ -1,3 +1,4 @@
+use crate::agent::DecisionContext;
 pub mod attack_constraints;
 pub mod attack_cost;
 pub mod attack_requirement;
@@ -536,6 +537,7 @@ impl CombatState {
                 let use_divide_as_choose = can_divide_damage_as_choose
                     && !defending_creatures.is_empty()
                     && agents[attacker_controller.index()].confirm_action(
+                        DecisionContext::new(game, runtime.mana_pools),
                         attacker_controller,
                         Some("AlternativeDamageAssignment"),
                         &format!(
@@ -754,6 +756,7 @@ impl CombatState {
                 if can_divide_damage_as_choose
                     && !defending_creatures.is_empty()
                     && agents[attacker_controller.index()].confirm_action(
+                        DecisionContext::new(game, runtime.mana_pools),
                         attacker_controller,
                         Some("AlternativeDamageAssignment"),
                         &format!(
@@ -799,6 +802,7 @@ impl CombatState {
                     && !attacker_was_blocked
                     && !defending_creatures.is_empty()
                     && agents[attacker_controller.index()].confirm_action(
+                        DecisionContext::new(game, runtime.mana_pools),
                         attacker_controller,
                         Some("AlternativeDamageAssignment"),
                         &format!(
@@ -811,6 +815,7 @@ impl CombatState {
                     )
                 {
                     if let Some(chosen) = agents[attacker_controller.index()].choose_target_card(
+                        DecisionContext::new(game, runtime.mana_pools),
                         attacker_controller,
                         &defending_creatures,
                         None,

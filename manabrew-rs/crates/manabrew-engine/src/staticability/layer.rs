@@ -37,6 +37,7 @@ use std::sync::Arc;
 
 use forge_foundation::{CardTypeLine, CoreType, Supertype, ZoneType};
 
+use crate::agent::DecisionContext;
 use crate::agent::PlayerAgent;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
@@ -1566,7 +1567,12 @@ pub fn prompt_etb_tapped_replacement_with_agents(
         .collect();
     let hosts: Vec<CardId> = applicable.iter().map(|(source_id, _)| *source_id).collect();
     let _chosen = agents[affected_player.index()]
-        .choose_single_replacement_effect(affected_player, &descriptions, &hosts)
+        .choose_single_replacement_effect(
+            DecisionContext::new(game, &[]),
+            affected_player,
+            &descriptions,
+            &hosts,
+        )
         .min(applicable.len().saturating_sub(1));
 }
 

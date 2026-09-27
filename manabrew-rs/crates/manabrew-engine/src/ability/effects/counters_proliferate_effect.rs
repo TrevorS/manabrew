@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::EffectContext;
+use crate::agent::DecisionContext;
 use crate::agent::GameEntity;
 use crate::game_entity_counter_table::GameEntityCounterTable;
 use crate::replacement::replacement_handler::{apply_replacements_with_agents, ReplacementEvent};
@@ -41,6 +42,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         let chosen = ctx.agents[controller.index()].choose_entities_for_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             controller,
             &candidates,
             0,

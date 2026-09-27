@@ -1,4 +1,5 @@
 use super::*;
+use crate::agent::{DecisionContext, PriorityActionSpace, PriorityContext};
 use crate::player::actions::player_action::STATIC_ALTERNATIVE_ABILITY_INDEX;
 use crate::player::actions::{PlayerAction, PlayerActionOutcome};
 use crate::player::PlayerController;
@@ -147,26 +148,26 @@ impl GameLoop {
                     );
                     crate::perf::increment_priority_snapshot();
                     let agent = agents[priority_player.index()].as_mut();
-                    let mut controller = PlayerController::new(game, priority_player, agent);
-                    controller.snapshot_state(&self.mana_pools);
+                    let mut controller =
+                        PlayerController::new(game, &self.mana_pools, priority_player, agent);
+                    controller.snapshot_state();
                 }
                 if self.is_aborted() {
                     game.game_over = true;
                     return;
                 }
-                let mut request_action_space = || {
-                    if !std::mem::take(&mut statics_current) {
-                        crate::staticability::layer::apply_continuous_effects(game);
-                    }
-                    let space = self.action_space(game, priority_player, is_main_phase);
-                    Self::reset_offered_sub_ability_targets(game, &space);
-                    requested_space = Some(space.clone());
-                    space
+                let mut priority = PriorityRequest {
+                    game_loop: self,
+                    game,
+                    player: priority_player,
+                    is_main_phase,
+                    statics_current: &mut statics_current,
+                    requested: &mut requested_space,
                 };
                 agents[priority_player.index()].choose_action(
                     priority_player,
                     action_space.as_ref(),
-                    &mut request_action_space,
+                    &mut priority,
                 )
             };
 
@@ -210,7 +211,8 @@ impl GameLoop {
                     .as_ref()
                     .expect("non-pass priority action requires action space");
                 let agent = agents[priority_player.index()].as_mut();
-                let mut controller = PlayerController::new(game, priority_player, agent);
+                let mut controller =
+                    PlayerController::new(game, &self.mana_pools, priority_player, agent);
                 let activatable_ids: Vec<(CardId, usize)> = action_space
                     .activatable
                     .iter()
@@ -511,7 +513,11 @@ impl GameLoop {
                                     Some(0usize)
                                 } else {
                                     agents[priority_player.index()]
-                                        .choose_color(priority_player, &color_names)
+                                        .choose_color(
+                                            DecisionContext::new(game, &self.mana_pools),
+                                            priority_player,
+                                            &color_names,
+                                        )
                                         .and_then(|chosen| {
                                             color_options.iter().position(|(n, _)| *n == chosen)
                                         })
@@ -750,5 +756,32 @@ impl GameLoop {
             }
         }
         game.turn.priority_player = game.active_player();
+    }
+}
+
+struct PriorityRequest<'a> {
+    game_loop: &'a GameLoop,
+    game: &'a mut GameState,
+    player: PlayerId,
+    is_main_phase: bool,
+    statics_current: &'a mut bool,
+    requested: &'a mut Option<PriorityActionSpace>,
+}
+
+impl PriorityContext for PriorityRequest<'_> {
+    fn action_space(&mut self) -> PriorityActionSpace {
+        if !std::mem::take(self.statics_current) {
+            crate::staticability::layer::apply_continuous_effects(self.game);
+        }
+        let space = self
+            .game_loop
+            .action_space(self.game, self.player, self.is_main_phase);
+        GameLoop::reset_offered_sub_ability_targets(self.game, &space);
+        *self.requested = Some(space.clone());
+        space
+    }
+
+    fn context(&self) -> DecisionContext<'_> {
+        DecisionContext::new(self.game, &self.game_loop.mana_pools)
     }
 }

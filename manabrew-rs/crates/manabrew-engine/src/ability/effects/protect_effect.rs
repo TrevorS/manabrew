@@ -2,6 +2,7 @@ use forge_foundation::ZoneType;
 
 use super::EffectContext;
 use crate::ability::ability_ir::DefinedRef;
+use crate::agent::DecisionContext;
 use crate::card::card_util;
 use crate::spellability::SpellAbility;
 
@@ -105,7 +106,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     if is_choice {
         let choices = get_protection_list(sa);
-        let chosen = ctx.agents[controller.index()].choose_color(controller, &choices);
+        let chosen = ctx.agents[controller.index()].choose_color(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
+            controller,
+            &choices,
+        );
         if let Some(color) = chosen {
             let prot_kw = format!("Protection from {}", color.to_lowercase());
             let timestamp = ctx.game.next_timestamp();

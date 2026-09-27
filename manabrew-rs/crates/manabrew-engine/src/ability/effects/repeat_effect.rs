@@ -6,6 +6,7 @@
 
 use super::EffectContext;
 use crate::ability::ability_ir::DefinedRef;
+use crate::agent::DecisionContext;
 use crate::parsing::compare::compare_expr;
 use crate::spellability::{build_spell_ability, SpellAbility};
 
@@ -159,6 +160,7 @@ fn check_repeat_conditions(ctx: &mut EffectContext, sa: &SpellAbility) -> bool {
             })
             .unwrap_or(sa.activating_player);
         return ctx.agents[decider.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             decider,
             Some("Repeat"),
             "Do you want to repeat this process again?",
@@ -175,6 +177,7 @@ fn check_repeat_conditions(ctx: &mut EffectContext, sa: &SpellAbility) -> bool {
 mod tests {
     use super::*;
     use crate::ability::spell_ability_effect::SpellAbilityEffect;
+    use crate::agent::PriorityContext;
     use crate::agent::{PlayerAgent, TargetChoice};
     use crate::card::Card;
     use crate::combat::DefenderId;
@@ -190,22 +193,33 @@ mod tests {
     }
 
     impl PlayerAgent for RepeatAgent {
-        fn mulligan_decision(&mut self, _: PlayerId, _: &[CardId], _: u32) -> bool {
+        fn mulligan_decision(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+            _: &[CardId],
+            _: u32,
+        ) -> bool {
             true
         }
         fn choose_action(
             &mut self,
             _player: PlayerId,
             _action_space: Option<&crate::agent::PriorityActionSpace>,
-            _request_action_space: &mut dyn FnMut() -> crate::agent::PriorityActionSpace,
+            _priority: &mut dyn PriorityContext,
         ) -> PlayerAction {
             PlayerAction::PassPriority
         }
-        fn choose_land_or_spell(&mut self, _: PlayerId) -> Option<bool> {
+        fn choose_land_or_spell(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _: PlayerId,
+        ) -> Option<bool> {
             None
         }
         fn choose_attackers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[DefenderId],
@@ -214,6 +228,7 @@ mod tests {
         }
         fn choose_blockers(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: &[CardId],
             _: &[CardId],
@@ -223,6 +238,7 @@ mod tests {
         }
         fn choose_target_player(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid: &[PlayerId],
             _: Option<&SpellAbility>,
@@ -231,6 +247,7 @@ mod tests {
         }
         fn choose_target_card(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid: &[CardId],
             _: Option<&SpellAbility>,
@@ -239,6 +256,7 @@ mod tests {
         }
         fn choose_target_any(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             valid_players: &[PlayerId],
             valid_cards: &[CardId],
@@ -262,6 +280,7 @@ mod tests {
         }
         fn confirm_action(
             &mut self,
+            _context: DecisionContext<'_>,
             _: PlayerId,
             _: Option<&str>,
             _: &str,

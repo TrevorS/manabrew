@@ -2,6 +2,7 @@ use forge_foundation::ZoneType;
 
 use super::{emit_zone_trigger, resolve_numeric_svar, EffectContext};
 use crate::ability::ability_ir::EffectIr;
+use crate::agent::DecisionContext;
 use crate::event::RunParams;
 use crate::parsing::keys;
 use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
@@ -34,6 +35,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
             ctx.agents[player.index()].snapshot_state(ctx.game, ctx.mana_pools);
             ctx.agents[player.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 player,
                 None,
                 &format!("Do you want to mill {num} cards?"),

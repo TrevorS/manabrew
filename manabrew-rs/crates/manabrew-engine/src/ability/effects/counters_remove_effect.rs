@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{parse_counter_type, EffectContext};
+use crate::agent::DecisionContext;
 use crate::card::CounterType;
 use crate::event::RunParams;
 use crate::ids::CardId;
@@ -27,6 +28,7 @@ fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
     if sa.ir.optional {
         ctx.agents[activator.index()].snapshot_state(ctx.game, ctx.mana_pools);
         if !ctx.agents[activator.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             activator,
             None,
             "Remove counters?",
@@ -82,8 +84,13 @@ fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
             return;
         }
         ctx.agents[activator.index()].snapshot_state(ctx.game, ctx.mana_pools);
-        src_cards =
-            ctx.agents[activator.index()].choose_cards_for_effect(activator, &src_cards, min, max);
+        src_cards = ctx.agents[activator.index()].choose_cards_for_effect(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
+            activator,
+            &src_cards,
+            min,
+            max,
+        );
     }
 
     for card_id in src_cards {
@@ -127,6 +134,7 @@ fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
                 ctx.agents[activator.index()].snapshot_state(ctx.game, ctx.mana_pools);
                 remove_from_card = ctx.agents[activator.index()]
                     .choose_number(
+                        DecisionContext::new(ctx.game, ctx.mana_pools),
                         activator,
                         sa.source,
                         "Select the number of counters to remove",
@@ -186,6 +194,7 @@ fn remove_any_type(
         let options: Vec<CounterType> = tgt_counters.iter().map(|(ct, _)| ct.clone()).collect();
         ctx.agents[activator.index()].snapshot_state(ctx.game, ctx.mana_pools);
         let Some(chosen_type) = ctx.agents[activator.index()].choose_counter_type(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             activator,
             &options,
             "Select type of counters to remove",
@@ -206,6 +215,7 @@ fn remove_any_type(
         ctx.agents[activator.index()].snapshot_state(ctx.game, ctx.mana_pools);
         let chosen_amount = ctx.agents[activator.index()]
             .choose_number(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 activator,
                 sa.source,
                 "Select the number of counters to remove",

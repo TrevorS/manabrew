@@ -1,5 +1,6 @@
 use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 use manabrew_engine::ability::ability_factory::build_spell_ability;
+use manabrew_engine::agent::{DecisionContext, PriorityContext};
 use manabrew_engine::agent::{PassAgent, PlayerAgent, TargetChoice};
 use manabrew_engine::card::CardInstance;
 use manabrew_engine::combat::DefenderId;
@@ -64,7 +65,13 @@ fn make_cleansing_wildfire(owner: PlayerId) -> CardInstance {
 struct AcceptSearchAgent;
 
 impl PlayerAgent for AcceptSearchAgent {
-    fn mulligan_decision(&mut self, _: PlayerId, _: &[CardId], _: u32) -> bool {
+    fn mulligan_decision(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _: PlayerId,
+        _: &[CardId],
+        _: u32,
+    ) -> bool {
         true
     }
 
@@ -72,13 +79,14 @@ impl PlayerAgent for AcceptSearchAgent {
         &mut self,
         _player: PlayerId,
         _action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
-        _request_action_space: &mut dyn FnMut() -> manabrew_engine::agent::PriorityActionSpace,
+        _priority: &mut dyn PriorityContext,
     ) -> PlayerAction {
         PlayerAction::PassPriority
     }
 
     fn choose_attackers(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         _: &[CardId],
         _: &[DefenderId],
@@ -88,6 +96,7 @@ impl PlayerAgent for AcceptSearchAgent {
 
     fn choose_blockers(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         _: &[CardId],
         _: &[CardId],
@@ -98,6 +107,7 @@ impl PlayerAgent for AcceptSearchAgent {
 
     fn choose_target_player(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         valid: &[PlayerId],
         _: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -107,6 +117,7 @@ impl PlayerAgent for AcceptSearchAgent {
 
     fn choose_target_card(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         valid: &[CardId],
         _: Option<&manabrew_engine::spellability::SpellAbility>,
@@ -116,6 +127,7 @@ impl PlayerAgent for AcceptSearchAgent {
 
     fn choose_target_any(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         valid_players: &[PlayerId],
         valid_cards: &[CardId],
@@ -132,6 +144,7 @@ impl PlayerAgent for AcceptSearchAgent {
 
     fn confirm_action(
         &mut self,
+        _context: DecisionContext<'_>,
         _: PlayerId,
         _: Option<&str>,
         _: &str,
@@ -142,7 +155,7 @@ impl PlayerAgent for AcceptSearchAgent {
         true
     }
 
-    fn choose_land_or_spell(&mut self, _: PlayerId) -> Option<bool> {
+    fn choose_land_or_spell(&mut self, _context: DecisionContext<'_>, _: PlayerId) -> Option<bool> {
         None
     }
 

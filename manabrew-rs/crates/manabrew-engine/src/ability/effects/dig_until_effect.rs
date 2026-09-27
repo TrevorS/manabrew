@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{emit_zone_trigger, matches_change_type, resolve_numeric_svar, EffectContext};
+use crate::agent::DecisionContext;
 use crate::card::valid_filter;
 use crate::parsing::keys;
 
@@ -98,6 +99,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             for &cid in &found {
                 ctx.agents[target_player.index()].snapshot_state(ctx.game, ctx.mana_pools);
                 if ctx.agents[target_player.index()].confirm_action(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
                     target_player,
                     None,
                     &format!("Do you want to put that card to {found_dest:?}?"),
