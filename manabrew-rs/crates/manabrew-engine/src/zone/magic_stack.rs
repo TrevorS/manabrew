@@ -547,6 +547,11 @@ impl MagicStack {
         self.resolving_entry.as_ref()
     }
 
+    /// Java keeps the resolving instance on top of the stack until `finishResolving`.
+    pub fn iter_with_resolving(&self) -> impl Iterator<Item = &StackEntry> {
+        self.entries.iter().chain(self.resolving_entry.as_ref())
+    }
+
     // ── Undo stack ───────────────────────────────────────────────────
 
     /// Check if undo is available for the given player.

@@ -434,7 +434,7 @@ pub fn get_stack_target_candidates(game: &GameState, sa: &SpellAbility) -> Vec<(
     }
     let default_filter = tr.valid_tgts.first().map(String::as_str).unwrap_or("Card");
     game.stack
-        .iter()
+        .iter_with_resolving()
         .filter(|entry| !entry.is_pending_cast)
         .filter_map(|entry| {
             let host = entry.spell_ability.source?;
@@ -550,7 +550,7 @@ pub fn filter_spells_for_target_restrictions(
     {
         filtered.retain(|&id| {
             game.stack
-                .iter()
+                .iter_with_resolving()
                 .find(|entry| entry.id == id)
                 .is_some_and(|entry| {
                     spell_host_is_valid(
@@ -566,7 +566,7 @@ pub fn filter_spells_for_target_restrictions(
     if let Some(valid_targeting) = restrictions.sa_valid_targeting.as_deref() {
         filtered.retain(|&id| {
             game.stack
-                .iter()
+                .iter_with_resolving()
                 .find(|entry| entry.id == id)
                 .is_some_and(|entry| {
                     spell_targets_valid(
@@ -664,7 +664,11 @@ pub fn filter_spells_by_type(
     candidates
         .iter()
         .filter(|&&id| {
-            let Some(entry) = game.stack.iter().find(|entry| entry.id == id) else {
+            let Some(entry) = game
+                .stack
+                .iter_with_resolving()
+                .find(|entry| entry.id == id)
+            else {
                 return false;
             };
             stack_entry_matches_filter(game, targeting_player, &entry.spell_ability, filter)
@@ -1456,7 +1460,7 @@ fn candidate_zone_cards(
 pub fn get_all_candidates_spells(game: &GameState) -> Vec<u32> {
     let mut ids: Vec<u32> = game
         .stack
-        .iter()
+        .iter_with_resolving()
         .filter(|entry| !entry.is_pending_cast)
         .map(|entry| entry.id)
         .collect();

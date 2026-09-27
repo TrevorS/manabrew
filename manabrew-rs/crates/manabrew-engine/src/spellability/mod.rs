@@ -2363,7 +2363,10 @@ pub fn choose_targets_by_kind(
                 sa.target_chosen.target_card_zone_timestamp = Some(game.card(cid).zone_timestamp);
             }
             crate::agent::CardOrStackTarget::Stack(id) => {
-                let entry = game.stack.iter().find(|entry| entry.id == id);
+                let entry = game
+                    .stack
+                    .iter_with_resolving()
+                    .find(|entry| entry.id == id);
                 match entry.and_then(|entry| {
                     entry
                         .spell_ability
