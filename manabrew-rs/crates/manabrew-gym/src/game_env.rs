@@ -217,12 +217,8 @@ fn play(data: &GymData, config: &EnvConfig, spec: &GameSpec, link: &Rc<Link>) ->
         .map(|p| {
             let player = PlayerId(p);
             if spec.learners[p as usize] {
-                Box::new(LearnerAgent::new(
-                    player,
-                    Rc::clone(link),
-                    config.encoder,
-                    spec.seed,
-                )) as Box<dyn PlayerAgent>
+                Box::new(LearnerAgent::new(player, Rc::clone(link), config.encoder))
+                    as Box<dyn PlayerAgent>
             } else {
                 config.opponent.build(spec.seed, player, &config.limits)
             }

@@ -16,8 +16,6 @@ use manabrew_engine::ids::{CardId, PlayerId};
 use manabrew_engine::mana::ManaPool;
 use manabrew_engine::player::actions::{AbilityRef, PlayerAction};
 use manabrew_engine::spellability::SpellAbility;
-use rand::rngs::StdRng;
-use rand::SeedableRng;
 
 use crate::decision::{
     AbilityOption, Action, CardPurpose, ConfirmPurpose, Decision, DecisionKind, PriorityOption,
@@ -280,7 +278,6 @@ pub(crate) struct LearnerAgent {
     turn: u32,
     combat: CombatOptions,
     last_replacement: Option<(Option<CardId>, String)>,
-    rng: StdRng,
 }
 
 impl LearnerAgent {
@@ -288,7 +285,6 @@ impl LearnerAgent {
         player: PlayerId,
         link: Rc<Link>,
         encoder: Option<EncoderConfig>,
-        seed: u64,
     ) -> LearnerAgent {
         LearnerAgent {
             player,
@@ -297,7 +293,6 @@ impl LearnerAgent {
             turn: 0,
             combat: CombatOptions::default(),
             last_replacement: None,
-            rng: StdRng::seed_from_u64(seed * 2 + u64::from(player.0) + 1),
         }
     }
 
@@ -695,18 +690,6 @@ impl PlayerAgent for LearnerAgent {
         max: usize,
     ) -> Vec<CardId> {
         self.choose_cards(CardPurpose::Discard, hand, min, max, None)
-    }
-
-    fn choose_random_discard(
-        &mut self,
-        _player: PlayerId,
-        hand: &[CardId],
-        num: usize,
-    ) -> Vec<CardId> {
-        rand::seq::index::sample(&mut self.rng, hand.len(), num.min(hand.len()))
-            .into_iter()
-            .map(|i| hand[i])
-            .collect()
     }
 
     fn choose_tap_type_for_cost(

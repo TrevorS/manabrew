@@ -235,12 +235,11 @@ impl CapturingAgent {
         Self {
             player_id,
             agent_rng_ref: Rc::clone(&rng),
-            game_rng_ref: Rc::clone(&game_rng),
+            game_rng_ref: game_rng,
             inner: DeterministicAgent::new(
                 player_id,
                 verbose.clone(),
                 rng,
-                game_rng,
                 prefer_actions,
                 Arc::clone(&parity_map),
                 Some(Arc::clone(&observer)),
@@ -958,7 +957,6 @@ impl PlayerAgent for CapturingAgent {
         fn choose_discard(&mut self, player: PlayerId, hand: &[CardId], num: usize) -> Vec<CardId> => "choose_discard";
         fn choose_cards_to_discard_unless_type(&mut self, player: PlayerId, hand: &[CardId], min: usize, unless_types: &[String]) -> Vec<CardId> => "choose_discard_unless_type";
         fn choose_discard_any_number(&mut self, player: PlayerId, hand: &[CardId], min: usize, max: usize) -> Vec<CardId> => "choose_discard";
-        fn choose_random_discard(&mut self, player: PlayerId, hand: &[CardId], num: usize) -> Vec<CardId> => "choose_random_discard";
         fn choose_cards_for_effect(&mut self, player: PlayerId, valid: &[CardId], min: usize, max: usize) -> Vec<CardId> => "choose_cards_for_effect";
         fn choose_tap_type_for_cost(&mut self, player: PlayerId, valid: &[CardId], min_total_power: i32, card_powers: &[(CardId, i32)], card_sort_powers: &[(CardId, i32)], sa: Option<&manabrew_engine::spellability::SpellAbility>) -> Vec<CardId> => "choose_tap_type_for_cost";
         fn choose_cards_for_zone_change(&mut self, game: &GameState, player: PlayerId, valid: &[CardId], min: usize, max: usize, select_prompt: &str) -> Vec<CardId> => "choose_cards_for_zone_change";

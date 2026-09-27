@@ -1138,19 +1138,6 @@ pub(super) fn help_pay_assist<T: Responder>(
     .clamp(0, max_generic as i32) as u32
 }
 
-pub(super) fn choose_random_discard<T: Responder>(
-    _agent: &mut PromptAgent<T>,
-    _player: PlayerId,
-    hand: &[CardId],
-    num: usize,
-) -> Vec<CardId> {
-    use rand::seq::SliceRandom;
-    let mut v = hand.to_vec();
-    v.shuffle(&mut rand::thread_rng());
-    v.truncate(num);
-    v
-}
-
 pub(super) fn choose_land_or_spell<T: Responder>(
     agent: &mut PromptAgent<T>,
     _player: PlayerId,

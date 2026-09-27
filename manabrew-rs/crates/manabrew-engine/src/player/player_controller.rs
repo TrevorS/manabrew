@@ -503,10 +503,6 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         self.agent.choose_discard(self.player, hand, num)
     }
 
-    pub fn choose_random_discard(&mut self, hand: &[CardId], num: usize) -> Vec<CardId> {
-        self.agent.choose_random_discard(self.player, hand, num)
-    }
-
     pub fn choose_delve(
         &mut self,
         valid: &[CardId],

@@ -103,7 +103,6 @@ pub struct DeterministicAgent {
     /// place; `CapturingAgent` reads it too, so a decision refreshes one copy of the game.
     snapshot_game: Option<GameState>,
     rng: Rc<RefCell<JavaRandom>>,
-    game_rng: Rc<RefCell<JavaRandom>>,
     prefer_actions: bool,
     parity_map: Arc<ParityCardMap>,
     parity_sync_pending: Cell<bool>,
@@ -328,7 +327,6 @@ impl DeterministicAgent {
         player_id: PlayerId,
         verbose: VerboseMode,
         rng: Rc<RefCell<JavaRandom>>,
-        game_rng: Rc<RefCell<JavaRandom>>,
         prefer_actions: bool,
         parity_map: Arc<ParityCardMap>,
         parity_observer: Option<Arc<crate::runner::ParityObserver>>,
@@ -341,7 +339,6 @@ impl DeterministicAgent {
             last_game_snapshot: None,
             snapshot_game: None,
             rng,
-            game_rng,
             prefer_actions,
             parity_map,
             parity_sync_pending: Cell::new(false),
@@ -2151,36 +2148,6 @@ impl PlayerAgent for DeterministicAgent {
         });
         let clamped_max = max.min(sorted.len());
         gui_repro::pick_many_unique(&sorted, min, clamped_max, &mut self.rng.borrow_mut())
-    }
-
-    fn choose_random_discard(
-        &mut self,
-        _player: PlayerId,
-        hand: &[CardId],
-        num: usize,
-    ) -> Vec<CardId> {
-        if hand.is_empty() || num == 0 {
-            return vec![];
-        }
-        // Reservoir sampling with the game RNG, mirroring Java's Aggregates.random()
-        // which uses MyRandom.getRandom().nextInt(i) for reservoir replacement.
-        // We use game_rng (not agent rng) to match Java's architecture where
-        // Aggregates.random() uses MyRandom (the game-level RNG) rather than
-        // the agent's decision RNG.
-        // IMPORTANT: Do NOT sort — Java iterates cards in zone order (the order
-        // they were added to hand), not alphabetically. Sorting would change the
-        // reservoir sampling input sequence and produce different results.
-        let count = num.min(hand.len());
-        let mut rng = self.game_rng.borrow_mut();
-        let mut result: Vec<CardId> = hand[..count].to_vec();
-        for (offset, &card) in hand[count..].iter().enumerate() {
-            let i = count + offset;
-            let j = choice_space::pick_index(i + 1, &mut rng);
-            if j < count {
-                result[j] = card;
-            }
-        }
-        result
     }
 
     fn choose_dig(

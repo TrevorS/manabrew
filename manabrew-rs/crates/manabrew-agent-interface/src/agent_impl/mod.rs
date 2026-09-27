@@ -1526,15 +1526,6 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         choices::help_pay_assist(self, player, card_name, max_generic)
     }
 
-    fn choose_random_discard(
-        &mut self,
-        player: PlayerId,
-        hand: &[CardId],
-        num: usize,
-    ) -> Vec<CardId> {
-        choices::choose_random_discard(self, player, hand, num)
-    }
-
     fn choose_land_or_spell(&mut self, player: PlayerId) -> Option<bool> {
         choices::choose_land_or_spell(self, player)
     }

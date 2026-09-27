@@ -214,9 +214,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         let to_discard = match mode {
-            DiscardMode::Random => {
-                ctx.agents[target_player.index()].choose_random_discard(target_player, &hand, num)
-            }
+            DiscardMode::Random => crate::util::aggregates::random(&hand, num, ctx.rng),
             DiscardMode::TgtChoose if sa.ir.unless_type.is_some() => {
                 let unless_types: Vec<String> = sa
                     .ir
