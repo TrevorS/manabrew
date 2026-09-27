@@ -143,6 +143,7 @@ pub struct PromptAgent<R: Responder> {
     next_prompt_id: u32,
     pub(crate) targeting_cancellable: bool,
     pub(crate) targeting_cancelled: bool,
+    pub(crate) targeting_optional: bool,
 }
 
 impl<R: Responder> PromptAgent<R> {
@@ -161,6 +162,7 @@ impl<R: Responder> PromptAgent<R> {
             next_prompt_id: 0,
             targeting_cancellable: false,
             targeting_cancelled: false,
+            targeting_optional: false,
         }
     }
 
@@ -179,6 +181,7 @@ impl<R: Responder> PromptAgent<R> {
             next_prompt_id: self.next_prompt_id,
             targeting_cancellable: self.targeting_cancellable,
             targeting_cancelled: self.targeting_cancelled,
+            targeting_optional: self.targeting_optional,
         }
     }
 
@@ -571,7 +574,12 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         mana_pools: &[ManaPool],
     ) -> bool {
         self.targeting_cancelled = false;
+        self.targeting_optional = sa
+            .target_restrictions
+            .as_ref()
+            .is_some_and(|tr| tr.get_min_targets(game, sa) <= 0);
         let ok = manabrew_engine::spellability::choose_targets_by_kind(self, sa, game, mana_pools);
+        self.targeting_optional = false;
         ok && !self.targeting_cancelled
     }
 
