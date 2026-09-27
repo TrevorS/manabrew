@@ -883,6 +883,24 @@ pub trait PlayerAgent {
             .next()
     }
 
+    /// Choose the next target player, or stop. `candidates` include the players already
+    /// `chosen`, as the list `DeterministicController.chooseTargetsFor` draws from does.
+    fn choose_next_target_player(
+        &mut self,
+        player: PlayerId,
+        candidates: &[PlayerId],
+        chosen: &[PlayerId],
+        _min: usize,
+        sa: &crate::spellability::SpellAbility,
+    ) -> Option<PlayerId> {
+        let fresh: Vec<PlayerId> = candidates
+            .iter()
+            .copied()
+            .filter(|pid| !chosen.contains(pid))
+            .collect();
+        self.choose_target_player(player, &fresh, Some(sa))
+    }
+
     /// Choose cards to tap for a `tapXType` cost that has a total-power floor
     /// such as Crew. `card_powers` carries the effective tap-power value for
     /// each candidate under the active ability; `card_sort_powers` carries the

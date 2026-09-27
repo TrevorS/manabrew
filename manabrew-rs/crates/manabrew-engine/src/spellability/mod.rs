@@ -2406,16 +2406,20 @@ pub fn choose_targets_by_kind(
                 .collect();
             if max_targets > 1 {
                 let mut chosen = Vec::new();
-                while (chosen.len() as i32) < max_targets {
-                    let Some(pid) = agent.choose_target_player(player, &valid_players, Some(&*sa))
-                    else {
+                while (chosen.len() as i32) < max_targets
+                    && valid_players.iter().any(|pid| !chosen.contains(pid))
+                {
+                    let Some(pid) = agent.choose_next_target_player(
+                        player,
+                        &valid_players,
+                        &chosen,
+                        min_targets.max(0) as usize,
+                        sa,
+                    ) else {
                         break;
                     };
                     if !chosen.contains(&pid) {
                         chosen.push(pid);
-                    }
-                    if chosen.len() == valid_players.len() {
-                        break;
                     }
                 }
                 sa.target_chosen.target_player = chosen.first().copied();

@@ -2414,6 +2414,20 @@ impl PlayerAgent for DeterministicAgent {
         Some(pick)
     }
 
+    fn choose_next_target_player(
+        &mut self,
+        player: PlayerId,
+        candidates: &[PlayerId],
+        chosen: &[PlayerId],
+        min: usize,
+        sa: &manabrew_engine::spellability::SpellAbility,
+    ) -> Option<PlayerId> {
+        if chosen.len() >= min {
+            return None;
+        }
+        self.choose_target_player(player, candidates, Some(sa))
+    }
+
     fn choose_tap_type_for_cost(
         &mut self,
         _player: PlayerId,
