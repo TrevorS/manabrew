@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use forge_foundation::{ManaAtom, PhaseType, ZoneType};
 use manabrew_engine::agent::notification::GameNotification;
@@ -72,6 +73,11 @@ pub(crate) fn parse_express_mana_choice(color: Option<&str>) -> Option<u16> {
 pub trait Responder {
     fn respond(&mut self, prompt: AgentPrompt) -> ClientToServerMessage;
     fn present(&mut self, _message: &AgentMessage) {}
+    fn present_state(&mut self, view: &Arc<GameViewDto>) {
+        self.present(&AgentMessage::State(StateUpdate {
+            game_view: GameViewDto::clone(view),
+        }));
+    }
     fn await_ack(&mut self) -> ClientToServerMessage {
         ClientToServerMessage::Response {
             prompt_id: 0,
@@ -101,9 +107,9 @@ pub struct PromptAgent<R: Responder> {
     pub game_id: String,
     pub responder: R,
     pending_prompt: Option<AgentPrompt>,
-    pub(crate) latest_view: Option<GameViewDto>,
-    pub(crate) combat_game: Option<GameState>,
-    source_cards: HashMap<CardId, CardDto>,
+    pub(crate) latest_view: Option<Arc<GameViewDto>>,
+    snapshot: Option<GameState>,
+    declaring: bool,
     pub(crate) pending_restore_checkpoint: Option<u64>,
     pub pass_until: Option<manabrew_engine::agent::PassUntilTarget>,
     conceded: bool,
@@ -120,8 +126,8 @@ impl<R: Responder> PromptAgent<R> {
             responder,
             pending_prompt: None,
             latest_view: None,
-            combat_game: None,
-            source_cards: HashMap::new(),
+            snapshot: None,
+            declaring: false,
             pending_restore_checkpoint: None,
             pass_until: None,
             conceded: false,
@@ -138,8 +144,8 @@ impl<R: Responder> PromptAgent<R> {
             responder,
             pending_prompt: self.pending_prompt.clone(),
             latest_view: self.latest_view.clone(),
-            combat_game: self.combat_game.clone(),
-            source_cards: self.source_cards.clone(),
+            snapshot: self.snapshot.clone(),
+            declaring: self.declaring,
             pending_restore_checkpoint: self.pending_restore_checkpoint,
             pass_until: self.pass_until,
             conceded: self.conceded,
@@ -151,7 +157,7 @@ impl<R: Responder> PromptAgent<R> {
 
     fn build_prompt(&mut self, inner: PromptInput, source: Option<CardId>) -> AgentPrompt {
         self.next_prompt_id += 1;
-        let source_card = source.and_then(|card_id| self.source_cards.get(&card_id).cloned());
+        let source_card = source.and_then(|card_id| self.source_card(card_id));
         let source_ability_text = source_card.as_ref().and_then(|card| {
             self.latest_view
                 .as_ref()?
@@ -270,21 +276,42 @@ impl<R: Responder> PromptAgent<R> {
     }
 
     pub(crate) fn emit_state(&mut self) {
-        let game_view = self.view();
-        self.responder
-            .present(&AgentMessage::State(StateUpdate { game_view }));
+        match &self.latest_view {
+            Some(view) => self.responder.present_state(view),
+            None => {
+                let view = Arc::new(self.view());
+                self.responder.present_state(&view);
+            }
+        }
     }
 
     pub(crate) fn emit_display(&mut self, event: DisplayEvent) {
         self.responder.present(&AgentMessage::Display(event));
     }
 
+    pub(crate) fn source_card(&self, card_id: CardId) -> Option<CardDto> {
+        let game = self.snapshot.as_ref()?;
+        game.cards
+            .get(card_id.index())
+            .filter(|card| card.id == card_id)?;
+        Some(card_to_dto_for_viewer(game, card_id, Some(self.player_id)))
+    }
+
+    pub(crate) fn combat_game(&mut self) -> Option<GameState> {
+        std::mem::take(&mut self.declaring)
+            .then(|| self.snapshot.clone())
+            .flatten()
+    }
+
     pub(crate) fn view(&self) -> GameViewDto {
-        self.latest_view.clone().unwrap_or_else(|| GameViewDto {
-            game_id: self.game_id.clone(),
-            step: StepKind::Main1,
-            ..Default::default()
-        })
+        self.latest_view
+            .as_deref()
+            .cloned()
+            .unwrap_or_else(|| GameViewDto {
+                game_id: self.game_id.clone(),
+                step: StepKind::Main1,
+                ..Default::default()
+            })
     }
 
     pub(crate) fn card_ids(cards: &[CardId]) -> Vec<String> {
@@ -512,22 +539,12 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn snapshot_state(&mut self, game: &GameState, mana_pools: &[ManaPool]) {
         self.responder.observe_state(game, mana_pools);
-        self.source_cards = game
-            .cards
-            .iter()
-            .map(|card| {
-                (
-                    card.id,
-                    card_to_dto_for_viewer(game, card.id, Some(self.player_id)),
-                )
-            })
-            .collect();
-        self.latest_view = Some(GameViewDto::from_engine(
+        self.latest_view = Some(Arc::new(GameViewDto::from_engine(
             game,
             mana_pools,
             self.player_id,
             &self.game_id,
-        ));
+        )));
         let declaring = match game.turn.phase {
             PhaseType::CombatDeclareAttackers => game.active_player() == self.player_id,
             PhaseType::CombatDeclareBlockers => {
@@ -535,7 +552,8 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
             }
             _ => false,
         };
-        self.combat_game = declaring.then(|| game.clone());
+        self.declaring = declaring;
+        self.snapshot = Some(game.clone());
     }
 
     fn mulligan_decision(
@@ -1476,8 +1494,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
                 set_code,
             } => {
                 let face_hidden = self
-                    .source_cards
-                    .get(&card_id)
+                    .source_card(card_id)
                     .is_some_and(|card| card.is_face_down && card.identity.name.is_empty());
                 self.emit_display(DisplayEvent::CardPlayed {
                     card_id: card_id_str(card_id),
@@ -1602,7 +1619,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
                 checkpoint_id,
                 label,
             } => {
-                if let Some(view) = self.latest_view.clone() {
+                if let Some(view) = self.latest_view.as_deref().cloned() {
                     self.responder.send_snapshot(GameSnapshotEventDto::new(
                         checkpoint_id,
                         label,

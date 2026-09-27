@@ -2470,6 +2470,20 @@ impl Card {
         self.total_damage_done_this_turn = 0;
     }
 
+    /// Keep in sync with `clear_global_turn_state`: true when it would change nothing.
+    pub fn global_turn_state_is_clear(&self) -> bool {
+        self.static_abilities
+            .iter()
+            .all(|st_ab| st_ab.may_play_turn == 0)
+            && !self.entered_battlefield_this_turn
+            && !self.attacked_this_turn
+            && self.attacks_this_turn == 0
+            && !self.attached_this_turn
+            && !self.has_deathtouch_damage
+            && self.damage_sources_this_turn.is_empty()
+            && self.total_damage_done_this_turn == 0
+    }
+
     /// Reset controller-specific state at the start of that player's turn.
     pub fn new_turn(&mut self) {
         self.clear_global_turn_state();
@@ -4828,6 +4842,16 @@ impl Card {
         self.number_turn_activations.clear();
         self.planeswalker_abilities_activated = 0;
         self.planeswalker_activation_limit_used = false;
+    }
+    /// Keep in sync with `reset_activations_per_turn` and `reset_ability_resolved_this_turn`:
+    /// true when both would change nothing.
+    pub fn turn_tracking_is_clear(&self) -> bool {
+        self.ability_activated_this_turn == 0
+            && self.number_turn_activations.is_empty()
+            && self.planeswalker_abilities_activated == 0
+            && !self.planeswalker_activation_limit_used
+            && self.ability_resolved_this_turn == 0
+            && self.number_ability_resolved.is_empty()
     }
     pub fn add_can_block_additional(&mut self, n: i32) {
         self.can_block_additional += n;

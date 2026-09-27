@@ -34,7 +34,7 @@ fn zone_cards_for<T: Responder>(agent: &mut PromptAgent<T>, valid: &[CardId]) ->
                 .iter()
                 .find(|c| c.id == id)
                 .map(|c| (*c).clone())
-                .or_else(|| agent.source_cards.get(&cid).cloned())
+                .or_else(|| agent.source_card(cid))
         })
         .collect()
 }

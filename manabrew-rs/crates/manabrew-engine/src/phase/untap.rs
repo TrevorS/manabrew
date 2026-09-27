@@ -108,7 +108,7 @@ pub fn do_untap(game: &mut GameState, active: PlayerId) -> Vec<CardId> {
 
     // Remove exerted-by flags from all battlefield permanents
     for i in 0..game.cards.len() {
-        if game.cards[i].zone == ZoneType::Battlefield {
+        if game.cards[i].zone == ZoneType::Battlefield && game.cards[i].exerted {
             Arc::make_mut(&mut game.cards[i]).exerted = false;
         }
     }

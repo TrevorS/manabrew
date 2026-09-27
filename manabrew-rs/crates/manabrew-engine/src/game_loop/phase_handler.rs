@@ -828,6 +828,20 @@ impl GameLoop {
 
         // Remove damage and reset until-end-of-turn effects on all battlefield permanents
         for i in 0..game.cards.len() {
+            let card = &game.cards[i];
+            if card.zone != ZoneType::Battlefield
+                && card.tapped_this_turn == 0
+                && card.assigned_damage == 0
+                && card
+                    .animate_state
+                    .as_ref()
+                    .is_none_or(|state| !state.ends_at_end_of_turn)
+                && card.pump_keywords.has_no_entries()
+                && card.pump_keywords_removed_by_statics.is_empty()
+                && card.pump_trigger_count == 0
+            {
+                continue;
+            }
             let card = Arc::make_mut(&mut game.cards[i]);
             card.tapped_this_turn = 0;
             card.clear_assigned_damage();

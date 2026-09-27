@@ -47,8 +47,7 @@ pub(super) fn choose_attackers<T: Responder>(
     possible_defenders: &[DefenderId],
 ) -> Vec<(CardId, DefenderId)> {
     let game = agent
-        .combat_game
-        .take()
+        .combat_game()
         .expect("snapshot_state runs before the attack declaration");
     let requirements =
         compute_attack_requirements_with_defenders(&game, available, possible_defenders);
@@ -117,8 +116,7 @@ pub(super) fn choose_blockers<T: Responder>(
     _max_blockers: Option<usize>,
 ) -> Vec<(CardId, CardId)> {
     let game = agent
-        .combat_game
-        .take()
+        .combat_game()
         .expect("snapshot_state runs before the block declaration");
     let mut combat = CombatState::new();
     for &attacker in attackers {

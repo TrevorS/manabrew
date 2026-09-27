@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
+use std::sync::OnceLock;
 
-use forge_carddb::{CardFace, CardRules};
+use forge_carddb::{CardDatabase, CardFace, CardRules};
 use forge_foundation::CardSplitType;
 
 use super::{matches_valid_cards_for_sa, EffectContext};
@@ -37,19 +38,27 @@ fn insert_face(names: &mut BTreeSet<String>, game: &GameState, sa: &SpellAbility
     insert_name(names, game, sa, &card_from_face(face, sa.activating_player));
 }
 
-fn insert_all_rules_faces(
-    names: &mut BTreeSet<String>,
-    game: &GameState,
-    sa: &SpellAbility,
-    rules: &CardRules,
-) {
-    insert_face(names, game, sa, &rules.main_part);
-    if let Some(other) = rules.other_part.as_ref() {
-        insert_face(names, game, sa, other);
-    }
-    for face in rules.specialized_parts.values() {
-        insert_face(names, game, sa, face);
-    }
+struct AllFaces {
+    faces: Vec<&'static CardFace>,
+    flavor_faces: Vec<String>,
+}
+
+static ALL_FACES: OnceLock<AllFaces> = OnceLock::new();
+
+fn all_faces(database: &'static CardDatabase) -> &'static AllFaces {
+    ALL_FACES.get_or_init(|| AllFaces {
+        faces: database
+            .iter()
+            .into_iter()
+            .filter(|(_, rules)| !rules.is_variant())
+            .flat_map(|(_, rules)| {
+                std::iter::once(&rules.main_part)
+                    .chain(rules.other_part.iter())
+                    .chain(rules.specialized_parts.values())
+            })
+            .collect(),
+        flavor_faces: database.flavor_name_faces(),
+    })
 }
 
 fn insert_defined_rules_faces(
@@ -107,15 +116,15 @@ fn valid_names(ctx: &EffectContext, sa: &SpellAbility) -> Vec<String> {
     } else {
         let database =
             CardDatabaseRegistry::all().expect("card database must be loaded for card naming");
-        for (_, rules) in database.iter() {
-            if !rules.is_variant() {
-                insert_all_rules_faces(&mut names, ctx.game, sa, rules);
-            }
+        let all = all_faces(database);
+        for face in &all.faces {
+            insert_face(&mut names, ctx.game, sa, face);
         }
-        let flavor_faces: Vec<String> = database
-            .flavor_name_faces()
-            .into_iter()
-            .filter(|face| names.contains(face))
+        let flavor_faces: Vec<String> = all
+            .flavor_faces
+            .iter()
+            .filter(|face| names.contains(*face))
+            .cloned()
             .collect();
         let mut valid: Vec<String> = names.into_iter().chain(flavor_faces).collect();
         valid.sort();

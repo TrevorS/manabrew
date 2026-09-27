@@ -2390,6 +2390,14 @@ impl GameState {
 
         let all_card_ids: Vec<CardId> = (0..self.cards.len()).map(|i| CardId(i as u32)).collect();
         for cid in all_card_ids {
+            let card = &self.cards[cid.index()];
+            let battlefield = card.zone == ZoneType::Battlefield;
+            if (!battlefield || card.started_turn_tapped == card.tapped)
+                && !(battlefield && card.controller == player && card.summoning_sick)
+                && card.global_turn_state_is_clear()
+            {
+                continue;
+            }
             if self.cards[cid.index()].zone == ZoneType::Battlefield {
                 self.card_mut(cid).started_turn_tapped = self.cards[cid.index()].tapped;
             }

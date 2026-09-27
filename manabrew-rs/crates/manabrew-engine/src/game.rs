@@ -660,6 +660,9 @@ impl GameState {
     pub fn reset_card_turn_tracking(&mut self) {
         self.counter_added_this_turn.clear();
         for card in &mut self.cards {
+            if card.turn_tracking_is_clear() {
+                continue;
+            }
             let card = Arc::make_mut(card);
             card.reset_activations_per_turn();
             card.reset_ability_resolved_this_turn();
