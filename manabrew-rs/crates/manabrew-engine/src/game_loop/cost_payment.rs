@@ -494,6 +494,8 @@ impl GameLoop {
         let mut pre_picked_discards: Vec<CardId> = Vec::new();
         let mut pre_picked_sacrifices: Vec<CardId> = Vec::new();
         let mut decided_cards: Vec<Option<Vec<CardId>>> = vec![None; cost.parts.len()];
+        let mut decided_counters: Vec<Option<Vec<(CardId, crate::card::CounterType)>>> =
+            vec![None; cost.parts.len()];
         let mut reserved_sacrifices: Vec<CardId> = self.current_reserved_sacrifices().to_vec();
         let allow_reserved_source_reuse = self.current_allow_reserved_source_reuse();
         for (idx, part) in cost.parts.clone().into_iter().enumerate() {
@@ -685,6 +687,42 @@ impl GameLoop {
                     {
                         payment_ok = false;
                         break;
+                    }
+                }
+                CostPart::RemoveAnyCounter {
+                    amount,
+                    type_filter,
+                    counter_type,
+                } => {
+                    if !self.confirm_cost_part_payment(
+                        game,
+                        agents,
+                        player,
+                        card_id,
+                        &part,
+                        api,
+                        mandatory,
+                        &context,
+                        sa.as_deref(),
+                    ) {
+                        payment_ok = false;
+                        break;
+                    }
+                    match self.decide_remove_any_counter(
+                        game,
+                        agents,
+                        player,
+                        card_id,
+                        type_filter,
+                        amount.resolve(game, card_id, player),
+                        counter_type.as_ref(),
+                        sa.as_deref(),
+                    ) {
+                        Some(removals) => decided_counters[idx] = Some(removals),
+                        None => {
+                            payment_ok = false;
+                            break;
+                        }
                     }
                 }
                 _ if Self::decides_cost_part_cards(&part) => {
@@ -1393,18 +1431,12 @@ impl GameLoop {
                         amount.resolve(game, card_id, player),
                     );
                 }
-                CostPart::RemoveAnyCounter {
-                    amount,
-                    type_filter,
-                    counter_type,
-                } => {
+                CostPart::RemoveAnyCounter { .. } => {
                     self.pay_remove_any_counter_cost(
                         game,
                         player,
                         card_id,
-                        type_filter,
-                        amount.resolve(game, card_id, player),
-                        counter_type.as_ref(),
+                        decided_counters[idx].as_deref().unwrap_or_default(),
                         sa.as_deref(),
                     );
                 }
@@ -2248,13 +2280,24 @@ impl GameLoop {
                     type_filter,
                     counter_type,
                 } => {
-                    self.pay_remove_any_counter_cost(
+                    let Some(removals) = self.decide_remove_any_counter(
                         game,
+                        agents,
                         player,
                         card_id,
                         type_filter,
                         amount.resolve(game, card_id, player),
                         counter_type.as_ref(),
+                        sa.as_deref(),
+                    ) else {
+                        payment_ok = false;
+                        break;
+                    };
+                    self.pay_remove_any_counter_cost(
+                        game,
+                        player,
+                        card_id,
+                        &removals,
                         sa.as_deref(),
                     );
                 }
@@ -4662,66 +4705,130 @@ impl GameLoop {
         }
     }
 
-    /// Remove `amount` counters (of `counter_type` or any type if None) from permanents
-    /// matching `type_filter` as cost. Mirrors Java's `CostRemoveAnyCounter.payAsDecided()`.
-    pub(crate) fn pay_remove_any_counter_cost(
+    /// Java `HarnessCostDecision.visit(CostRemoveAnyCounter)`: one card and then one counter type
+    /// per counter, among the candidates that still hold a counter the decision has not taken.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn decide_remove_any_counter(
         &mut self,
-        game: &mut GameState,
+        game: &GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
         player: PlayerId,
         source: CardId,
         type_filter: &str,
         amount: i32,
         counter_type: Option<&crate::card::CounterType>,
         ability: Option<&SpellAbility>,
+    ) -> Option<Vec<(CardId, crate::card::CounterType)>> {
+        use crate::cost::cost_remove_any_counter::counters_of;
+        if amount <= 0 {
+            return None;
+        }
+        let candidates =
+            crate::cost::cost_remove_any_counter::valid_cards(game, player, source, type_filter);
+        let removable = |removals: &[(CardId, crate::card::CounterType)], card_id: CardId| {
+            counters_of(game, card_id, source, ability)
+                .iter()
+                .filter(|&(ct, &count)| {
+                    counter_type.is_none_or(|wanted| wanted == ct)
+                        && count
+                            > removals
+                                .iter()
+                                .filter(|(card, taken)| *card == card_id && taken == ct)
+                                .count() as i32
+                })
+                .map(|(ct, _)| ct.clone())
+                .collect::<Vec<_>>()
+        };
+        let mut removals: Vec<(CardId, crate::card::CounterType)> = Vec::new();
+        for _ in 0..amount {
+            let available: Vec<CardId> = candidates
+                .iter()
+                .copied()
+                .filter(|&card_id| !removable(&removals, card_id).is_empty())
+                .collect();
+            if available.is_empty() {
+                return None;
+            }
+            let selected = agents[player.index()].choose_cards_for_effect(
+                DecisionContext::new(game, &self.mana_pools),
+                player,
+                &available,
+                1,
+                1,
+            );
+            let [card_id] = selected[..] else {
+                return None;
+            };
+            if !available.contains(&card_id) {
+                return None;
+            }
+            let types = removable(&removals, card_id);
+            let chosen = if types.len() == 1 {
+                types[0].clone()
+            } else {
+                agents[player.index()].choose_counter_type(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
+                    &types,
+                    "Choose a counter to remove",
+                )?
+            };
+            if !types.contains(&chosen) {
+                return None;
+            }
+            removals.push((card_id, chosen));
+        }
+        Some(removals)
+    }
+
+    /// Java `CostRemoveAnyCounter.payAsDecided`: removes the decided counters, grouped by card and
+    /// type in the order they were first chosen.
+    pub(crate) fn pay_remove_any_counter_cost(
+        &mut self,
+        game: &mut GameState,
+        player: PlayerId,
+        source: CardId,
+        removals: &[(CardId, crate::card::CounterType)],
+        ability: Option<&SpellAbility>,
     ) {
         use crate::cost::cost_remove_any_counter::counters_of;
-        let mut remaining = amount;
-        for card_id in
-            crate::cost::cost_remove_any_counter::valid_cards(game, player, source, type_filter)
-        {
+        let mut grouped: Vec<(CardId, crate::card::CounterType, i32)> = Vec::new();
+        for (card_id, ct) in removals {
+            match grouped
+                .iter_mut()
+                .find(|(card, taken, _)| card == card_id && taken == ct)
+            {
+                Some(entry) => entry.2 += 1,
+                None => grouped.push((*card_id, ct.clone(), 1)),
+            }
+        }
+        for (card_id, ct, amount) in grouped {
             let from_lki =
                 crate::cost::cost_remove_any_counter::pays_from_lki(game, card_id, source, ability);
-            let types: Vec<crate::card::CounterType> = match counter_type {
-                Some(ct) => vec![ct.clone()],
-                None => counters_of(game, card_id, source, ability)
-                    .keys()
-                    .cloned()
-                    .collect(),
-            };
-            for ct in types {
-                let count = |game: &GameState| {
-                    counters_of(game, card_id, source, ability)
-                        .get(&ct)
-                        .copied()
-                        .unwrap_or(0)
-                };
-                let remove = remaining.min(count(game));
-                for _ in 0..remove {
-                    if from_lki {
-                        if let Some(lki) = game.card_mut(card_id).lki_counters.as_mut() {
-                            *lki.entry(ct.clone()).or_insert(0) -= 1;
-                        }
-                    } else {
-                        game.card_mut(card_id).remove_counter(&ct, 1);
+            for _ in 0..amount {
+                if from_lki {
+                    if let Some(lki) = game.card_mut(card_id).lki_counters.as_mut() {
+                        *lki.entry(ct.clone()).or_insert(0) -= 1;
                     }
-                    let new_counter_amount = count(game);
-                    self.trigger_handler.run_trigger(
-                        TriggerType::CounterRemoved,
-                        RunParams {
-                            card: Some(card_id),
-                            player: Some(player),
-                            counter_type: Some(ct.to_string()),
-                            counter_amount: Some(1),
-                            new_counter_amount: Some(new_counter_amount),
-                            ..Default::default()
-                        },
-                        false,
-                    );
+                } else {
+                    game.card_mut(card_id).remove_counter(&ct, 1);
                 }
-                remaining -= remove.max(0);
-                if remaining <= 0 {
-                    return;
-                }
+                let new_counter_amount = counters_of(game, card_id, source, ability)
+                    .get(&ct)
+                    .copied()
+                    .unwrap_or(0);
+                self.trigger_handler.run_trigger(
+                    TriggerType::CounterRemoved,
+                    RunParams {
+                        card: Some(card_id),
+                        player: Some(player),
+                        counter_type: Some(ct.to_string()),
+                        counter_amount: Some(1),
+                        new_counter_amount: Some(new_counter_amount),
+                        ..Default::default()
+                    },
+                    false,
+                );
             }
         }
     }
