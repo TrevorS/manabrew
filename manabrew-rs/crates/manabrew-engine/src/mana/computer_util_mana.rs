@@ -3057,6 +3057,75 @@ pub fn collect_mana_payment_sources(
     }
 }
 
+fn merge_alternative_mana_ability(current: Vec<u16>, candidate: Vec<u16>) -> Vec<u16> {
+    if candidate.is_empty() || candidate.len() < current.len() {
+        return current;
+    }
+    if current.is_empty() || candidate.len() > current.len() {
+        return candidate;
+    }
+    current
+        .iter()
+        .zip(&candidate)
+        .map(|(current, candidate)| current | candidate)
+        .collect()
+}
+
+fn produced_mana_masks(
+    game: &GameState,
+    player: PlayerId,
+    card_id: CardId,
+    ab: &crate::ability::activated::ActivatedAbility,
+) -> Vec<u16> {
+    let any = ManaAtom::WHITE | ManaAtom::BLUE | ManaAtom::BLACK | ManaAtom::RED | ManaAtom::GREEN;
+    let amount = super::resolve_mana_ability_amount(game, card_id, player, ab).max(0) as usize;
+    if ab.is_mana_reflected {
+        let mask = super::compute_reflected_atoms(game, player, card_id, ab)
+            .into_iter()
+            .fold(0, |mask, atom| mask | atom);
+        return if mask == 0 {
+            Vec::new()
+        } else {
+            vec![mask; amount]
+        };
+    }
+    let Some(produced_ir) = ab.produced_ir.as_ref() else {
+        return Vec::new();
+    };
+    let chosen_colors = &game.card(card_id).chosen_colors;
+    if produced_ir.is_combo_mana() {
+        let atoms = if produced_ir.is_combo_color_identity() {
+            chosen_colors_to_atoms(&game.player_commander_color_identity(player))
+        } else {
+            produced_ir.to_atoms(chosen_colors)
+        };
+        let mask = atoms.into_iter().fold(0, |mask, atom| mask | atom);
+        return if mask == 0 { Vec::new() } else { vec![mask] };
+    }
+    let token_mask = |token: &str| {
+        if token.eq_ignore_ascii_case("Any") {
+            Some(any)
+        } else {
+            super::mana_atom_from_produced(token)
+        }
+    };
+    let unit: Vec<u16> = match produced_ir {
+        crate::ability::produced_mana::ProducedMana::Any => vec![any],
+        crate::ability::produced_mana::ProducedMana::Chosen => produced_ir.to_atoms(chosen_colors),
+        crate::ability::produced_mana::ProducedMana::Fixed(tokens) => tokens
+            .iter()
+            .flat_map(|token| token.split_whitespace())
+            .filter_map(token_mask)
+            .collect(),
+        crate::ability::produced_mana::ProducedMana::Raw(raw) => {
+            raw.split_whitespace().filter_map(token_mask).collect()
+        }
+        crate::ability::produced_mana::ProducedMana::Special(_)
+        | crate::ability::produced_mana::ProducedMana::Combo(_) => Vec::new(),
+    };
+    unit.repeat(amount)
+}
+
 pub fn can_pay_mana_cost_with_reserved_sacrifices(
     game: &GameState,
     pool: &ManaPool,
@@ -3091,7 +3160,7 @@ pub fn can_pay_mana_cost_with_reserved_sacrifices(
             continue;
         }
         let card = game.card(card_id);
-        let mut source_mask = 0u16;
+        let mut card_source_masks: Vec<u16> = Vec::new();
         for ab in &card.activated_abilities {
             if !ab.is_mana_ability
                 || ab
@@ -3106,36 +3175,14 @@ pub fn can_pay_mana_cost_with_reserved_sacrifices(
             {
                 continue;
             }
-            if ab.is_mana_reflected {
-                for atom in super::compute_reflected_atoms(game, player, card_id, ab) {
-                    source_mask |= atom;
-                }
-            } else if let Some(produced_ir) = ab.produced_ir.as_ref() {
-                if produced_ir.is_combo_color_identity() {
-                    let colors = game.player_commander_color_identity(player);
-                    if !colors.is_empty() {
-                        let mut combo = 0u16;
-                        for atom in chosen_colors_to_atoms(&colors) {
-                            combo |= atom;
-                        }
-                        source_mask |= combo;
-                    }
-                } else if let Some(fixed_atoms) = produced_ir.fixed_atoms() {
-                    for atom in fixed_atoms {
-                        source_masks.push(atom);
-                    }
-                    source_mask = 0;
-                    break;
-                } else {
-                    for atom in produced_ir.to_atoms(&card.chosen_colors) {
-                        source_mask |= atom;
-                    }
-                }
-            }
+            card_source_masks = merge_alternative_mana_ability(
+                card_source_masks,
+                produced_mana_masks(game, player, card_id, ab),
+            );
         }
 
-        if source_mask != 0 {
-            source_masks.push(source_mask);
+        if !card_source_masks.is_empty() {
+            source_masks.extend(card_source_masks);
             continue;
         }
 
