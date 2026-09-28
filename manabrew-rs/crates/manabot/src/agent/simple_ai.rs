@@ -35,6 +35,7 @@ pub struct SimpleAi {
     recent_prompts: VecDeque<String>,
     last_attack_declaration: Vec<(String, String)>,
     failed_attack_targets: HashSet<String>,
+    attack_reprompts: usize,
     view: Option<GameViewDto>,
     pending_view: Option<String>,
     card_locations: HashMap<String, (usize, usize)>,
@@ -1393,6 +1394,11 @@ impl BotAgent for SimpleAi {
                         .join(",")
                 );
                 let reprompted = self.looping_on_consecutive(signature);
+                self.attack_reprompts = if reprompted {
+                    self.attack_reprompts + 1
+                } else {
+                    0
+                };
                 let keep = if lethal_target {
                     HashSet::new()
                 } else {
@@ -1401,19 +1407,19 @@ impl BotAgent for SimpleAi {
                         &attackers.iter().map(|a| a.attacker_id.clone()).collect::<Vec<_>>(),
                     )
                 };
+                let best_target = |targets: &[String]| {
+                    targets
+                        .iter()
+                        .filter(|target| !self.failed_attack_targets.contains(*target))
+                        .max_by_key(|target| self.attack_target_score(target))
+                        .cloned()
+                };
                 let mut assignments = Vec::new();
                 if !reprompted {
                     for a in &attackers {
                         if keep.contains(&a.attacker_id) && !a.must_attack {
                             continue;
                         }
-                        let best_target = |targets: &[String]| {
-                            targets
-                                .iter()
-                                .filter(|target| !self.failed_attack_targets.contains(*target))
-                                .max_by_key(|target| self.attack_target_score(target))
-                                .cloned()
-                        };
                         let Some(target_id) = a
                             .must_attack_target_ids
                             .as_deref()
@@ -1432,6 +1438,24 @@ impl BotAgent for SimpleAi {
                             });
                         }
                     }
+                } else {
+                    let forced: Vec<AttackAssignment> = attackers
+                        .iter()
+                        .filter(|a| a.must_attack)
+                        .filter_map(|a| {
+                            let target_id = a
+                                .must_attack_target_ids
+                                .as_deref()
+                                .and_then(best_target)
+                                .or_else(|| best_target(&a.valid_target_ids))?;
+                            Some(AttackAssignment {
+                                attacker_id: a.attacker_id.clone(),
+                                target_id,
+                            })
+                        })
+                        .collect();
+                    let kept = forced.len().saturating_sub(self.attack_reprompts - 1);
+                    assignments.extend(forced.into_iter().take(kept));
                 }
                 self.last_attack_declaration = assignments
                     .iter()
