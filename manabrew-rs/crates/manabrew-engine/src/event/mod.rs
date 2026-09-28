@@ -232,6 +232,7 @@ pub struct RunParams {
     pub explored: Option<CardId>,
     /// SpellAbility that was countered
     pub spell_ability: Option<crate::spellability::SpellAbility>,
+    pub target_sa: Option<crate::spellability::SpellAbility>,
     /// Java AbilityKey.SourceSA.
     pub source_sa: Option<crate::spellability::SpellAbility>,
     /// Java AbilityKey.AbilityMana.

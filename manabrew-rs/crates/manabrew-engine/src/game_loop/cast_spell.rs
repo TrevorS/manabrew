@@ -293,6 +293,7 @@ impl GameLoop {
     ) {
         let mut target_cards: Vec<CardId> = Vec::new();
         let mut target_players: Vec<PlayerId> = Vec::new();
+        let mut target_spells: Vec<u32> = Vec::new();
         let mut node = Some(source_sa);
         while let Some(sa) = node {
             for target_id in sa.target_chosen.all_target_cards() {
@@ -303,6 +304,11 @@ impl GameLoop {
             for target_id in sa.target_chosen.all_target_players() {
                 if !target_players.contains(&target_id) {
                     target_players.push(target_id);
+                }
+            }
+            if let Some(entry_id) = sa.target_chosen.target_stack_entry {
+                if !target_spells.contains(&entry_id) {
+                    target_spells.push(entry_id);
                 }
             }
             node = sa.get_sub_ability();
@@ -343,7 +349,23 @@ impl GameLoop {
                 false,
             );
         }
-        if !target_cards.is_empty() || !target_players.is_empty() {
+        for &entry_id in &target_spells {
+            let Some(entry) = game.stack.find_by_id(entry_id) else {
+                continue;
+            };
+            self.trigger_handler.run_trigger(
+                TriggerType::BecomesTarget,
+                RunParams {
+                    target_sa: Some(entry.spell_ability.clone()),
+                    cause_player: Some(cause_player),
+                    cause_card: Some(cause_card),
+                    source_sa: Some(source_sa.clone()),
+                    ..Default::default()
+                },
+                false,
+            );
+        }
+        if !target_cards.is_empty() || !target_players.is_empty() || !target_spells.is_empty() {
             self.trigger_handler.run_trigger(
                 TriggerType::BecomesTargetOnce,
                 RunParams {

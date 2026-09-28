@@ -85,7 +85,16 @@ impl TriggerBehavior for TriggerBecomesTarget {
             let target_card = params.target_card.or(params.card);
             let target_player = params.target_player.or(params.player);
             let host = game.card(trigger.host_card_id());
-            if !valid_filter::matches_valid(
+            if let Some(target_sa) = params.target_sa.as_ref() {
+                if !crate::spellability::matches_valid_sa(
+                    &filter.as_raw(),
+                    target_sa,
+                    host,
+                    target_sa.source.map(|card| game.card(card)),
+                ) {
+                    return false;
+                }
+            } else if !valid_filter::matches_valid(
                 &filter.as_raw(),
                 target_card.map(|id| game.card(id)),
                 target_player,
@@ -121,7 +130,9 @@ impl TriggerBehavior for TriggerBecomesTarget {
             }
             sa.set_triggering_spell_ability("SourceSA", source_sa.clone());
         }
-        if let Some(card) = params.target_card.or(params.card) {
+        if let Some(target_sa) = params.target_sa.as_ref() {
+            sa.set_triggering_spell_ability("Target", target_sa.clone());
+        } else if let Some(card) = params.target_card.or(params.card) {
             sa.set_triggering_value(
                 crate::ability::AbilityKey::Target,
                 crate::event::AbilityValue::Card(card),
