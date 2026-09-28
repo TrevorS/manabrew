@@ -1528,6 +1528,31 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         choices::choose_number(self, &live, player, source, title, description, min, max)
     }
 
+    fn announce_requirements_x(
+        &mut self,
+        context: DecisionContext<'_>,
+        player: PlayerId,
+        source: Option<CardId>,
+        min: u32,
+        max: u32,
+    ) -> u32 {
+        if min >= max {
+            return max;
+        }
+        let live = Live::new(context);
+        choices::choose_number(
+            self,
+            &live,
+            player,
+            source,
+            "Choose a value for X",
+            None,
+            min as i32,
+            max as i32,
+        )
+        .map_or(max, |chosen| chosen.clamp(min as i32, max as i32) as u32)
+    }
+
     fn choose_number_from_list(
         &mut self,
         context: DecisionContext<'_>,
