@@ -770,6 +770,7 @@ impl GameLoop {
         };
         crate::agent::notify_all_agents(
             agents,
+            DecisionContext::new(game, &self.mana_pools),
             crate::agent::GameLogEvent::action(format!(
                 "Activated ability: {ability_kind} | source={card_name}"
             ))
@@ -941,6 +942,7 @@ impl GameLoop {
             let mana_string = crate::mana::determine_mana_production_ir(
                 game,
                 agents,
+                &self.mana_pools,
                 player,
                 card_id,
                 produced_ir,
@@ -1126,7 +1128,12 @@ impl GameLoop {
             }
         }
         if sa.api == Some(crate::ability::api_type::ApiType::Charm)
-            && !crate::ability::effects::charm_effect::make_choices_precast(game, agents, &mut sa)
+            && !crate::ability::effects::charm_effect::make_choices_precast(
+                game,
+                agents,
+                &self.mana_pools,
+                &mut sa,
+            )
         {
             return false;
         }
@@ -1185,7 +1192,12 @@ impl GameLoop {
         mut sa: crate::spellability::SpellAbility,
     ) -> bool {
         if sa.api == Some(crate::ability::api_type::ApiType::Charm)
-            && !crate::ability::effects::charm_effect::make_choices_precast(game, agents, &mut sa)
+            && !crate::ability::effects::charm_effect::make_choices_precast(
+                game,
+                agents,
+                &self.mana_pools,
+                &mut sa,
+            )
         {
             return false;
         }
@@ -1325,7 +1337,10 @@ impl GameLoop {
                     ability_index: ab.ability_index,
                 };
             for agent in agents.iter_mut() {
-                agent.notify(notification.clone());
+                agent.notify(
+                    DecisionContext::new(game, &self.mana_pools),
+                    notification.clone(),
+                );
             }
             return false;
         }

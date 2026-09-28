@@ -211,7 +211,10 @@ impl GameLoop {
                         card_id,
                     };
                 for agent in agents.iter_mut() {
-                    agent.notify(notification.clone());
+                    agent.notify(
+                        DecisionContext::new(game, &self.mana_pools),
+                        notification.clone(),
+                    );
                 }
                 return None;
             }
@@ -250,6 +253,7 @@ impl GameLoop {
         game.player_record_land_play(player);
         crate::agent::notify_all_agents(
             agents,
+            DecisionContext::new(game, &self.mana_pools),
             crate::agent::GameLogEvent::action(format!("Played land: {play_name}"))
                 .with_player(player)
                 .with_card(card_id),
@@ -414,7 +418,11 @@ impl GameLoop {
         if let Some(target_id) = stack_push.target_card {
             event = event.with_target_card(target_id);
         }
-        crate::agent::notify_all_agents(agents, event);
+        crate::agent::notify_all_agents(
+            agents,
+            DecisionContext::new(game, &self.mana_pools),
+            event,
+        );
 
         if stack_push.move_source_to_stack {
             self.move_card_with_runtime(
@@ -832,6 +840,7 @@ impl GameLoop {
                     );
                     crate::agent::notify_all_agents(
                         agents,
+                        DecisionContext::new(game, &self.mana_pools),
                         crate::agent::GameLogEvent::rule(format!(
                             "Foretold: {}",
                             game.card(card_id).log_name()
@@ -893,6 +902,7 @@ impl GameLoop {
                     );
                     crate::agent::notify_all_agents(
                         agents,
+                        DecisionContext::new(game, &self.mana_pools),
                         crate::agent::GameLogEvent::rule(format!(
                             "Suspended: {card_name} with {counters} time counters"
                         ))
@@ -1781,7 +1791,10 @@ impl GameLoop {
                         card_id,
                     };
                 for agent in agents.iter_mut() {
-                    agent.notify(notification.clone());
+                    agent.notify(
+                        DecisionContext::new(game, &self.mana_pools),
+                        notification.clone(),
+                    );
                 }
             }};
         }
@@ -1819,7 +1832,10 @@ impl GameLoop {
         let selected_charm_mode_count =
             if !sa.overloaded && sa.api == Some(crate::ability::api_type::ApiType::Charm) {
                 match crate::ability::effects::charm_effect::make_choices_precast_with_count(
-                    game, agents, &mut sa,
+                    game,
+                    agents,
+                    &self.mana_pools,
+                    &mut sa,
                 ) {
                     Some(count) => Some(count),
                     None => rollback_cast!(),
@@ -2041,12 +2057,26 @@ impl GameLoop {
             None
         };
         let prechosen_spell_beholds = if let Some(ref sc) = spell_cost {
-            Self::prechoose_additional_cost_beholds(game, agents, player, card_id, sc)
+            Self::prechoose_additional_cost_beholds(
+                game,
+                agents,
+                &self.mana_pools,
+                player,
+                card_id,
+                sc,
+            )
         } else {
             None
         };
         let prechosen_spell_evidence = if let Some(ref sc) = spell_cost {
-            match Self::prechoose_additional_cost_evidence(game, agents, player, card_id, sc) {
+            match Self::prechoose_additional_cost_evidence(
+                game,
+                agents,
+                &self.mana_pools,
+                player,
+                card_id,
+                sc,
+            ) {
                 Some(picks) => Some(picks),
                 None => rollback_failed_payment!(),
             }
@@ -2073,7 +2103,14 @@ impl GameLoop {
                     )
                 }) =>
             {
-                match Self::prechoose_additional_cost_taps(game, agents, player, card_id, sc) {
+                match Self::prechoose_additional_cost_taps(
+                    game,
+                    agents,
+                    &self.mana_pools,
+                    player,
+                    card_id,
+                    sc,
+                ) {
                     Some(picks) => Some(picks),
                     None => rollback_failed_payment!(),
                 }
@@ -2081,12 +2118,26 @@ impl GameLoop {
             _ => None,
         };
         let prechosen_raise_beholds = if let Some(ref rc) = raise_cost {
-            Self::prechoose_additional_cost_beholds(game, agents, player, card_id, rc)
+            Self::prechoose_additional_cost_beholds(
+                game,
+                agents,
+                &self.mana_pools,
+                player,
+                card_id,
+                rc,
+            )
         } else {
             None
         };
         let prechosen_flashback_beholds = if let Some(ref fb_cost) = flashback_total_cost {
-            Self::prechoose_additional_cost_beholds(game, agents, player, card_id, fb_cost)
+            Self::prechoose_additional_cost_beholds(
+                game,
+                agents,
+                &self.mana_pools,
+                player,
+                card_id,
+                fb_cost,
+            )
         } else {
             None
         };
@@ -2115,7 +2166,14 @@ impl GameLoop {
             None
         };
         let prechosen_harmonize_taps = if let Some(ref cost) = harmonize_tap_cost {
-            match Self::prechoose_additional_cost_taps(game, agents, player, card_id, cost) {
+            match Self::prechoose_additional_cost_taps(
+                game,
+                agents,
+                &self.mana_pools,
+                player,
+                card_id,
+                cost,
+            ) {
                 Some(picks) => Some(picks),
                 None => rollback_failed_payment!(),
             }
@@ -2123,7 +2181,14 @@ impl GameLoop {
             None
         };
         let prechosen_conspire_taps = if let Some(ref cost) = conspire_tap_cost {
-            match Self::prechoose_additional_cost_taps(game, agents, player, card_id, cost) {
+            match Self::prechoose_additional_cost_taps(
+                game,
+                agents,
+                &self.mana_pools,
+                player,
+                card_id,
+                cost,
+            ) {
                 Some(picks) => Some(picks),
                 None => rollback_failed_payment!(),
             }
@@ -3112,6 +3177,7 @@ impl GameLoop {
         if replicate_count > 0 {
             crate::agent::notify_all_agents(
                 agents,
+                DecisionContext::new(game, &self.mana_pools),
                 crate::agent::GameLogEvent::stack(format!("Replicate: {replicate_count} copies"))
                     .with_player(player)
                     .with_card(card_id),
@@ -3133,6 +3199,7 @@ impl GameLoop {
                 if copy.spell_ability.uses_targeting() {
                     agents[player.index()].snapshot_state(game, &self.mana_pools);
                     agents[player.index()].notify(
+                        DecisionContext::new(game, &self.mana_pools),
                         crate::agent::notification::GameNotification::Event(
                             crate::agent::GameLogEvent::stack(format!(
                                 "Choose new targets for Replicate copy {}/{}",

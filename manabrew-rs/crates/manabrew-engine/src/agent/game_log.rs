@@ -1,7 +1,7 @@
 use crate::ids::{CardId, PlayerId};
 
 use super::notification::GameNotification;
-use super::PlayerAgent;
+use super::{DecisionContext, PlayerAgent};
 
 #[derive(Debug, Clone)]
 pub struct GameLogEvent {
@@ -23,16 +23,24 @@ pub enum GameLogKind {
     Warning,
 }
 
-pub fn notify_all_agents(agents: &mut [Box<dyn PlayerAgent>], event: GameLogEvent) {
+pub fn notify_all_agents(
+    agents: &mut [Box<dyn PlayerAgent>],
+    context: DecisionContext<'_>,
+    event: GameLogEvent,
+) {
     for agent in agents.iter_mut() {
-        agent.notify(GameNotification::Event(event.clone()));
+        agent.notify(context, GameNotification::Event(event.clone()));
     }
 }
 
 /// Broadcast a `GameNotification` (other than `Event`) to every agent.
-pub fn broadcast_notification(agents: &mut [Box<dyn PlayerAgent>], event: GameNotification) {
+pub fn broadcast_notification(
+    agents: &mut [Box<dyn PlayerAgent>],
+    context: DecisionContext<'_>,
+    event: GameNotification,
+) {
     for agent in agents.iter_mut() {
-        agent.notify(event.clone());
+        agent.notify(context, event.clone());
     }
 }
 

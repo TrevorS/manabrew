@@ -178,8 +178,10 @@ impl GameLoop {
                 });
                 if game.alive_players().len() > 1 {
                     agents[priority_player.index()].snapshot_state(game, &self.mana_pools);
-                    agents[priority_player.index()]
-                        .notify(crate::agent::notification::GameNotification::GameOver);
+                    agents[priority_player.index()].notify(
+                        DecisionContext::new(game, &self.mana_pools),
+                        crate::agent::notification::GameNotification::GameOver,
+                    );
                 }
                 passed_count = 0;
                 priority_player = game.next_player(priority_player);
@@ -229,6 +231,7 @@ impl GameLoop {
                     PlayerActionOutcome::Pending | PlayerActionOutcome::Target(_) => {
                         crate::agent::notify_all_agents(
                             agents,
+                            DecisionContext::new(game, &self.mana_pools),
                             crate::agent::GameLogEvent::warning(
                                 "Illegal action ignored: unsupported priority action",
                             )
@@ -266,6 +269,7 @@ impl GameLoop {
                     if !action_space.playable.contains(&play) {
                         crate::agent::notify_all_agents(
                             agents,
+                            DecisionContext::new(game, &self.mana_pools),
                             crate::agent::GameLogEvent::warning(
                                 "Illegal action ignored: unplayable card",
                             )
@@ -395,6 +399,7 @@ impl GameLoop {
                         for agent in agents.iter_mut() {
                             agent.snapshot_state(game, &self.mana_pools);
                             agent.notify(
+                                DecisionContext::new(game, &self.mana_pools),
                                 crate::agent::notification::GameNotification::CardPlayed {
                                     player: priority_player,
                                     card_id: played_id,
@@ -425,6 +430,7 @@ impl GameLoop {
                     } else {
                         crate::agent::notify_all_agents(
                             agents,
+                            DecisionContext::new(game, &self.mana_pools),
                             crate::agent::GameLogEvent::warning("Card play failed")
                                 .with_player(priority_player),
                         );
@@ -443,6 +449,7 @@ impl GameLoop {
                     if !action_space.tappable_lands.contains(&land_id) {
                         crate::agent::notify_all_agents(
                             agents,
+                            DecisionContext::new(game, &self.mana_pools),
                             crate::agent::GameLogEvent::warning(
                                 "Illegal action ignored: permanent can't tap for mana",
                             )
@@ -650,6 +657,7 @@ impl GameLoop {
                     if !action_space.untappable_lands.contains(&land_id) {
                         crate::agent::notify_all_agents(
                             agents,
+                            DecisionContext::new(game, &self.mana_pools),
                             crate::agent::GameLogEvent::warning(
                                 "Illegal action ignored: land can't be untapped for mana rollback",
                             )
@@ -683,6 +691,7 @@ impl GameLoop {
                     {
                         crate::agent::notify_all_agents(
                             agents,
+                            DecisionContext::new(game, &self.mana_pools),
                             crate::agent::GameLogEvent::warning(
                                 "Illegal action ignored: ability not activatable",
                             )

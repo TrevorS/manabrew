@@ -208,7 +208,11 @@ impl PlayerAgent for ScriptedAgent {
         None
     }
 
-    fn notify(&mut self, message: manabrew_engine::agent::notification::GameNotification) {
+    fn notify(
+        &mut self,
+        _context: DecisionContext<'_>,
+        message: manabrew_engine::agent::notification::GameNotification,
+    ) {
         self.log.push(format!("[{}] {:?}", self.name, message));
     }
 

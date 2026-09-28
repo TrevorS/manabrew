@@ -3,6 +3,7 @@ use crate::agent::DecisionContext;
 use crate::agent::PlayerAgent;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
+use crate::mana::ManaPool;
 use crate::parsing::keys;
 use crate::parsing::Params;
 use crate::spellability::{build_spell_ability, SpellAbility};
@@ -214,14 +215,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 pub fn make_choices_precast(
     game: &mut GameState,
     agents: &mut [Box<dyn PlayerAgent>],
+    mana_pools: &[ManaPool],
     sa: &mut SpellAbility,
 ) -> bool {
-    make_choices_precast_with_count(game, agents, sa).is_some()
+    make_choices_precast_with_count(game, agents, mana_pools, sa).is_some()
 }
 
 pub fn make_choices_precast_with_count(
     game: &mut GameState,
     agents: &mut [Box<dyn PlayerAgent>],
+    mana_pools: &[ManaPool],
     sa: &mut SpellAbility,
 ) -> Option<usize> {
     let source_id = match sa.source {
@@ -311,7 +314,7 @@ pub fn make_choices_precast_with_count(
         valid_mode_indices.clone()
     } else {
         let chosen = agents[player.index()].choose_mode(
-            DecisionContext::new(game, &[]),
+            DecisionContext::new(game, mana_pools),
             player,
             &valid_descriptions,
             min_charm_num,
@@ -496,9 +499,10 @@ pub fn make_formated_description(
 pub fn make_choices(
     game: &mut GameState,
     agents: &mut [Box<dyn PlayerAgent>],
+    mana_pools: &[ManaPool],
     sa: &mut SpellAbility,
 ) -> bool {
-    make_choices_precast(game, agents, sa)
+    make_choices_precast(game, agents, mana_pools, sa)
 }
 
 /// Chain a list of sub-abilities (modes) onto a root spell ability.
@@ -815,7 +819,12 @@ mod tests {
         let mut agents: Vec<Box<dyn crate::agent::PlayerAgent>> =
             vec![Box::new(PassAgent), Box::new(PassAgent)];
 
-        assert!(super::make_choices_precast(&mut game, &mut agents, &mut sa));
+        assert!(super::make_choices_precast(
+            &mut game,
+            &mut agents,
+            &[],
+            &mut sa
+        ));
         assert!(game.card(ghast_id).chosen_modes.is_none());
         assert_eq!(
             sa.sub_ability.as_ref().and_then(|sub| sub.api),

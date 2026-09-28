@@ -2,6 +2,7 @@ use crate::HashSet;
 
 use forge_foundation::ZoneType;
 
+use crate::agent::DecisionContext;
 use crate::agent::{notify_all_agents, GameLogEvent, PlayerAgent};
 use crate::card::valid_filter;
 use crate::event::RunParams;
@@ -480,6 +481,7 @@ impl TriggerHandler {
                 && !crate::ability::effects::charm_effect::make_choices_precast(
                     game,
                     agents,
+                    mana_pools,
                     &mut pt.entry.spell_ability,
                 )
             {
@@ -567,7 +569,7 @@ impl TriggerHandler {
             if let Some(target_id) = pt.entry.spell_ability.target_chosen.target_card {
                 event = event.with_target_card(target_id);
             }
-            notify_all_agents(agents, event);
+            notify_all_agents(agents, DecisionContext::new(game, mana_pools), event);
 
             let trigger_cards: Vec<CardId> = pt
                 .entry

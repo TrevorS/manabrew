@@ -2616,7 +2616,7 @@ impl PlayerAgent for DeterministicAgent {
                 .cmp(&self.card_name(*b))
                 .then_with(|| self.parity_id(*a).cmp(&self.parity_id(*b)))
         });
-        self.choose_cards_for_effect(DecisionContext::new(game, &[]), player, &sorted, min, max)
+        self.choose_cards_for_effect(DecisionContext::game_only(game), player, &sorted, min, max)
     }
 
     fn choose_delve(
@@ -2786,7 +2786,11 @@ impl PlayerAgent for DeterministicAgent {
         cards.to_vec()
     }
 
-    fn notify(&mut self, event: manabrew_engine::agent::notification::GameNotification) {
+    fn notify(
+        &mut self,
+        _context: DecisionContext<'_>,
+        event: manabrew_engine::agent::notification::GameNotification,
+    ) {
         use manabrew_engine::agent::notification::GameNotification;
         match &event {
             GameNotification::Event(log_event) => {

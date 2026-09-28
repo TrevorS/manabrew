@@ -445,7 +445,12 @@ impl ReplacementHandler {
                 let agent = &mut agents[affected_player.index()];
                 agent
                     .choose_single_replacement_effect(
-                        DecisionContext::new(game, &[]),
+                        DecisionContext {
+                            game,
+                            mana_pools: runtime
+                                .as_deref()
+                                .map(|runtime| runtime.mana_pools.as_slice()),
+                        },
                         affected_player,
                         &descriptions,
                         &hosts,
@@ -1090,6 +1095,7 @@ fn get_possible_replace_damage_list(
 fn run_single_replace_damage_effect(
     game: &mut GameState,
     agents: Option<&mut [Box<dyn PlayerAgent>]>,
+    mana_pools: &[ManaPool],
     batch: &mut ReplaceDamageBatch,
     re: ReplaceDamageKey,
     index: usize,
@@ -1103,7 +1109,14 @@ fn run_single_replace_damage_effect(
     let is_prevention =
         effect.prevents() || effect.base.card_trait_base.has_param("PreventionEffect");
     let res = if is_prevention && batch.no_prevent_damage.contains(&index) {
-        if confirm_optional_replacement(game, re.0, &effect, &batch.run_params[index].1, agents) {
+        if confirm_optional_replacement(
+            game,
+            re.0,
+            &effect,
+            &batch.run_params[index].1,
+            agents,
+            Some(mana_pools),
+        ) {
             let prevented = if effect.base.card_trait_base.has_param("AlwaysReplace") {
                 damage
             } else {
@@ -1337,6 +1350,7 @@ pub fn run_replace_damage(
             run_single_replace_damage_effect(
                 game,
                 agents.as_deref_mut(),
+                runtime.mana_pools,
                 &mut batch,
                 chosen_re,
                 index,
@@ -1707,6 +1721,7 @@ fn confirm_optional_replacement(
     effect: &ReplacementEffect,
     event: &ReplacementEvent,
     agents: Option<&mut [Box<dyn PlayerAgent>]>,
+    mana_pools: Option<&[ManaPool]>,
 ) -> bool {
     if !effect.ir.optional {
         return true;
@@ -1717,7 +1732,7 @@ fn confirm_optional_replacement(
     let question = replacement_question(effect, host, game, event);
     match agents {
         Some(agents) => agents[decider.index()].confirm_replacement_effect(
-            DecisionContext::new(game, &[]),
+            DecisionContext { game, mana_pools },
             decider,
             &question,
             &effect.description(host, game),
@@ -1784,7 +1799,16 @@ fn execute_effect(
         replace_untap,
     };
 
-    if !confirm_optional_replacement(game, card_id, effect, event, agents.as_deref_mut()) {
+    if !confirm_optional_replacement(
+        game,
+        card_id,
+        effect,
+        event,
+        agents.as_deref_mut(),
+        runtime
+            .as_deref()
+            .map(|runtime| runtime.mana_pools.as_slice()),
+    ) {
         return ReplacementResult::NotReplaced;
     }
 
@@ -1799,9 +1823,16 @@ fn execute_effect(
         ReplacementType::CreateToken => {
             replace_token::execute(effect, event, game, card_id, agents, runtime)
         }
-        ReplacementType::AddCounter => {
-            replace_add_counter::execute(effect, event, game, card_id, agents)
-        }
+        ReplacementType::AddCounter => replace_add_counter::execute(
+            effect,
+            event,
+            game,
+            card_id,
+            agents,
+            runtime
+                .as_deref()
+                .map(|runtime| runtime.mana_pools.as_slice()),
+        ),
         ReplacementType::GameLoss => replace_game_loss::execute(effect, event, game, card_id),
         ReplacementType::GameWin => replace_game_win::execute(effect, event, game, card_id),
         ReplacementType::Counter => replace_counter::execute(effect, event, game, card_id),

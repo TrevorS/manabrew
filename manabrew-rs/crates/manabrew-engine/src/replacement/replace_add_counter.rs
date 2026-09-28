@@ -180,6 +180,7 @@ pub fn execute(
     _game: &mut GameState,
     _source_card_id: CardId,
     agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
+    mana_pools: Option<&[crate::mana::ManaPool]>,
 ) -> ReplacementResult {
     let etb = matches!(event, ReplacementEvent::Moved { .. });
     let (target, cause, is_effect, counter_map, after_replacement_static_abilities) = match event {
@@ -236,7 +237,7 @@ pub fn execute(
             _ => {
                 let original = counter_map.clone();
                 let selected_sources =
-                    selected_counter_sources(effect, &original, target, _game, agents);
+                    selected_counter_sources(effect, &original, target, _game, agents, mana_pools);
                 for entry in original {
                     for (counter_type, amount) in entry.counters {
                         if !entry_matches(
@@ -314,6 +315,7 @@ fn selected_counter_sources(
     target: GameEntity,
     game: &GameState,
     mut agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
+    mana_pools: Option<&[crate::mana::ManaPool]>,
 ) -> Vec<(crate::card::CounterType, Option<crate::ids::PlayerId>)> {
     let choose_counter = matches!(
         crate::replacement::replacement_effect::resolve_replace_with_chain(
@@ -352,7 +354,7 @@ fn selected_counter_sources(
                 .collect();
             let source = if let Some(agents) = agents.as_deref_mut() {
                 agents[chooser.index()].choose_target_player(
-                    DecisionContext::new(game, &[]),
+                    DecisionContext { game, mana_pools },
                     chooser,
                     &sources,
                     None,

@@ -311,7 +311,11 @@ impl PlayerAgent for VerboseAgent {
     fn choose_land_or_spell(&mut self, _context: DecisionContext<'_>, _: PlayerId) -> Option<bool> {
         None
     }
-    fn notify(&mut self, msg: manabrew_engine::agent::notification::GameNotification) {
+    fn notify(
+        &mut self,
+        _context: DecisionContext<'_>,
+        msg: manabrew_engine::agent::notification::GameNotification,
+    ) {
         println!("    [{}] {:?}", self.name, msg);
     }
 

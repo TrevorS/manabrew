@@ -2,7 +2,7 @@ use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use forge_foundation::{ManaAtom, PhaseType, ZoneType};
+use forge_foundation::{ManaAtom, ZoneType};
 use manabrew_engine::agent::notification::GameNotification;
 use manabrew_engine::agent::{
     BinaryChoiceKind, CombatCostAction, GameEntity, ManaCostAction, PlayerAgent,
@@ -19,7 +19,7 @@ use manabrew_engine::player::actions::PlayerAction as EnginePlayerAction;
 use crate::game_log_event::GameLogEntryDto;
 use crate::game_snapshot_event::GameSnapshotEventDto;
 use crate::game_view_dto::{
-    card_to_dto_for_viewer, shows_command_cards, CardDto, GameViewDto, GameViewDtoExt, StepKind,
+    card_to_dto_for_viewer, shows_command_cards, CardDto, GameViewDto, GameViewDtoExt,
 };
 use crate::ids_codec::{card_id_str, parse_card_id, parse_player_id, player_id_str};
 use crate::mana_action_id::{mana_ability_actions, parse_tap_action_id};
@@ -100,7 +100,10 @@ pub trait Responder {
     fn send_log(&mut self, _entry: GameLogEntryDto) {}
     fn send_snapshot(&mut self, _snapshot: GameSnapshotEventDto) {}
     fn observe_state(&mut self, _game: &GameState, _mana_pools: &[ManaPool]) {}
-    fn notify(&mut self, _event: &GameNotification) {}
+    fn present_game(&mut self, _context: DecisionContext<'_>, _viewer: PlayerId) -> bool {
+        false
+    }
+    fn notify(&mut self, _context: DecisionContext<'_>, _event: &GameNotification) {}
     fn observe_reveal(
         &mut self,
         _game: &GameState,
@@ -115,11 +118,20 @@ pub trait Responder {
     }
 }
 
-#[derive(Clone)]
-struct Snapshot {
-    game: GameState,
-    mana_pools: Vec<ManaPool>,
+pub(crate) struct Live<'a> {
+    pub(crate) game: &'a GameState,
+    mana_pools: Option<&'a [ManaPool]>,
     view: OnceCell<Arc<GameViewDto>>,
+}
+
+impl<'a> Live<'a> {
+    pub(crate) fn new(context: DecisionContext<'a>) -> Self {
+        Live {
+            game: context.game,
+            mana_pools: context.mana_pools,
+            view: OnceCell::new(),
+        }
+    }
 }
 
 #[derive(Clone, Default)]
@@ -135,9 +147,8 @@ pub struct PromptAgent<R: Responder> {
     pub game_id: String,
     pub responder: R,
     pending_prompt: Option<AgentPrompt>,
-    snapshot: Option<Snapshot>,
+    mana_pools: Vec<ManaPool>,
     owed_view: OwedView,
-    declaring: bool,
     pub(crate) pending_restore_checkpoint: Option<u64>,
     pub pass_until: Option<manabrew_engine::agent::PassUntilTarget>,
     conceded: bool,
@@ -154,9 +165,8 @@ impl<R: Responder> PromptAgent<R> {
             game_id,
             responder,
             pending_prompt: None,
-            snapshot: None,
+            mana_pools: Vec::new(),
             owed_view: OwedView::None,
-            declaring: false,
             pending_restore_checkpoint: None,
             pass_until: None,
             conceded: false,
@@ -173,9 +183,8 @@ impl<R: Responder> PromptAgent<R> {
             game_id: self.game_id.clone(),
             responder,
             pending_prompt: self.pending_prompt.clone(),
-            snapshot: self.snapshot.clone(),
+            mana_pools: self.mana_pools.clone(),
             owed_view: self.owed_view.clone(),
-            declaring: self.declaring,
             pending_restore_checkpoint: self.pending_restore_checkpoint,
             pass_until: self.pass_until,
             conceded: self.conceded,
@@ -186,11 +195,16 @@ impl<R: Responder> PromptAgent<R> {
         }
     }
 
-    fn build_prompt(&mut self, inner: PromptInput, source: Option<CardId>) -> AgentPrompt {
+    fn build_prompt(
+        &mut self,
+        live: &Live<'_>,
+        inner: PromptInput,
+        source: Option<CardId>,
+    ) -> AgentPrompt {
         self.next_prompt_id += 1;
-        let source_card = source.and_then(|card_id| self.source_card(card_id));
+        let source_card = source.and_then(|card_id| self.source_card(live, card_id));
         let source_ability_text = source_card.as_ref().and_then(|card| {
-            self.latest_view()?
+            self.latest_view(live)
                 .stack
                 .iter()
                 .rev()
@@ -207,15 +221,20 @@ impl<R: Responder> PromptAgent<R> {
         }
     }
 
-    pub(crate) fn send_prompt(&mut self, inner: PromptInput, source: Option<CardId>) {
-        let prompt = self.build_prompt(inner, source);
-        self.emit_state();
+    pub(crate) fn send_prompt(
+        &mut self,
+        live: &Live<'_>,
+        inner: PromptInput,
+        source: Option<CardId>,
+    ) {
+        let prompt = self.build_prompt(live, inner, source);
+        self.emit_state(live);
         self.responder
             .present(&AgentMessage::Prompt(prompt.clone()));
         self.pending_prompt = Some(prompt);
     }
 
-    pub(crate) fn recv_action(&mut self) -> PromptOutput {
+    pub(crate) fn recv_action(&mut self, live: &Live<'_>) -> PromptOutput {
         let prompt = self
             .pending_prompt
             .take()
@@ -223,7 +242,7 @@ impl<R: Responder> PromptAgent<R> {
         if self.conceded {
             return Self::default_pass();
         }
-        self.present_owed_view();
+        self.present_owed_view(live);
         loop {
             match self.responder.respond(prompt.clone()) {
                 ClientToServerMessage::Response { prompt_id: 0, .. } => {
@@ -300,89 +319,79 @@ impl<R: Responder> PromptAgent<R> {
         }
     }
 
-    pub(crate) fn present_prompt(&mut self, inner: PromptInput, source: Option<CardId>) {
-        let prompt = self.build_prompt(inner, source);
-        self.emit_state();
+    pub(crate) fn present_prompt(
+        &mut self,
+        live: &Live<'_>,
+        inner: PromptInput,
+        source: Option<CardId>,
+    ) {
+        let prompt = self.build_prompt(live, inner, source);
+        self.emit_state(live);
         self.responder.present(&AgentMessage::Prompt(prompt));
     }
 
-    pub(crate) fn emit_state(&mut self) {
+    pub(crate) fn emit_state(&mut self, live: &Live<'_>) {
         if self.responder.defers_views() {
             self.owed_view = OwedView::Latest;
-            let summary = match &self.snapshot {
-                Some(snapshot) => StateSummary {
-                    turn: snapshot.game.turn.turn_number,
-                    shows_command_cards: shows_command_cards(&snapshot.game),
-                },
-                None => StateSummary {
-                    turn: 0,
-                    shows_command_cards: false,
-                },
-            };
-            self.responder.present_state_summary(summary);
+            self.responder.present_state_summary(StateSummary {
+                turn: live.game.turn.turn_number,
+                shows_command_cards: shows_command_cards(live.game),
+            });
         } else {
-            let view = self.current_view();
+            let view = self.latest_view(live).clone();
             self.responder.present_state(&view);
         }
     }
 
-    fn present_owed_view(&mut self) {
+    fn present_owed_view(&mut self, live: &Live<'_>) {
         let view = match std::mem::take(&mut self.owed_view) {
             OwedView::None => return,
-            OwedView::Latest => self.current_view(),
+            OwedView::Latest => {
+                let mana_pools = live.mana_pools.unwrap_or(&self.mana_pools);
+                if self
+                    .responder
+                    .present_game(DecisionContext::new(live.game, mana_pools), self.player_id)
+                {
+                    return;
+                }
+                self.latest_view(live).clone()
+            }
             OwedView::Held(view) => view,
         };
         self.responder.present_state(&view);
     }
 
-    pub(crate) fn latest_view(&self) -> Option<&Arc<GameViewDto>> {
-        let snapshot = self.snapshot.as_ref()?;
-        Some(snapshot.view.get_or_init(|| {
+    pub(crate) fn hold_owed_view(&mut self, live: &Live<'_>) {
+        if matches!(self.owed_view, OwedView::Latest) {
+            self.owed_view = OwedView::Held(self.latest_view(live).clone());
+        }
+    }
+
+    pub(crate) fn latest_view<'l>(&self, live: &'l Live<'_>) -> &'l Arc<GameViewDto> {
+        live.view.get_or_init(|| {
             Arc::new(GameViewDto::from_engine(
-                &snapshot.game,
-                &snapshot.mana_pools,
+                live.game,
+                live.mana_pools.unwrap_or(&self.mana_pools),
                 self.player_id,
                 &self.game_id,
             ))
-        }))
-    }
-
-    fn current_view(&self) -> Arc<GameViewDto> {
-        self.latest_view()
-            .cloned()
-            .unwrap_or_else(|| Arc::new(self.default_view()))
-    }
-
-    fn default_view(&self) -> GameViewDto {
-        GameViewDto {
-            game_id: self.game_id.clone(),
-            step: StepKind::Main1,
-            ..Default::default()
-        }
+        })
     }
 
     pub(crate) fn emit_display(&mut self, event: DisplayEvent) {
         self.responder.present(&AgentMessage::Display(event));
     }
 
-    pub(crate) fn source_card(&self, card_id: CardId) -> Option<CardDto> {
-        let game = &self.snapshot.as_ref()?.game;
+    pub(crate) fn source_card(&self, live: &Live<'_>, card_id: CardId) -> Option<CardDto> {
+        let game = live.game;
         game.cards
             .get(card_id.index())
             .filter(|card| card.id == card_id)?;
         Some(card_to_dto_for_viewer(game, card_id, Some(self.player_id)))
     }
 
-    pub(crate) fn combat_game(&mut self) -> Option<GameState> {
-        std::mem::take(&mut self.declaring)
-            .then(|| self.snapshot.as_ref().map(|snapshot| snapshot.game.clone()))
-            .flatten()
-    }
-
-    pub(crate) fn view(&self) -> GameViewDto {
-        self.latest_view()
-            .map(|view| GameViewDto::clone(view))
-            .unwrap_or_else(|| self.default_view())
+    pub(crate) fn view(&self, live: &Live<'_>) -> GameViewDto {
+        GameViewDto::clone(self.latest_view(live))
     }
 
     pub(crate) fn card_ids(cards: &[CardId]) -> Vec<String> {
@@ -518,8 +527,12 @@ impl<R: Responder> PromptAgent<R> {
         }
     }
 
-    pub(crate) fn recv_card_choice_or_first(&mut self, valid: &[CardId]) -> Option<CardId> {
-        match self.recv_action() {
+    pub(crate) fn recv_card_choice_or_first(
+        &mut self,
+        live: &Live<'_>,
+        valid: &[CardId],
+    ) -> Option<CardId> {
+        match self.recv_action(live) {
             PromptOutput::ChooseBoardTargets(ChooseBoardTargetsOutput::Cancel) => {
                 self.targeting_cancelled = true;
                 None
@@ -534,8 +547,12 @@ impl<R: Responder> PromptAgent<R> {
         }
     }
 
-    pub(crate) fn recv_player_choice_or_first(&mut self, valid: &[PlayerId]) -> Option<PlayerId> {
-        match self.recv_action() {
+    pub(crate) fn recv_player_choice_or_first(
+        &mut self,
+        live: &Live<'_>,
+        valid: &[PlayerId],
+    ) -> Option<PlayerId> {
+        match self.recv_action(live) {
             PromptOutput::ChooseBoardTargets(ChooseBoardTargetsOutput::Cancel) => {
                 self.targeting_cancelled = true;
                 None
@@ -550,8 +567,12 @@ impl<R: Responder> PromptAgent<R> {
         }
     }
 
-    pub(crate) fn recv_spell_choice_or_first(&mut self, valid: &[u32]) -> Option<u32> {
-        match self.recv_action() {
+    pub(crate) fn recv_spell_choice_or_first(
+        &mut self,
+        live: &Live<'_>,
+        valid: &[u32],
+    ) -> Option<u32> {
+        match self.recv_action(live) {
             PromptOutput::ChooseBoardTargets(ChooseBoardTargetsOutput::Cancel) => {
                 self.targeting_cancelled = true;
                 None
@@ -619,92 +640,74 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn snapshot_state(&mut self, game: &GameState, mana_pools: &[ManaPool]) {
         self.responder.observe_state(game, mana_pools);
-        if self.pending_prompt.is_some() && matches!(self.owed_view, OwedView::Latest) {
-            self.owed_view = OwedView::Held(self.current_view());
-        }
-        let declaring = match game.turn.phase {
-            PhaseType::CombatDeclareAttackers => game.active_player() == self.player_id,
-            PhaseType::CombatDeclareBlockers => {
-                game.opponent_of(game.active_player()) == self.player_id
-            }
-            _ => false,
-        };
-        self.declaring = declaring;
-        match &mut self.snapshot {
-            Some(snapshot) => {
-                snapshot.game.clone_from_sharing_cards(game);
-                snapshot.mana_pools.clear();
-                snapshot.mana_pools.extend_from_slice(mana_pools);
-                snapshot.view = OnceCell::new();
-            }
-            None => {
-                self.snapshot = Some(Snapshot {
-                    game: game.clone(),
-                    mana_pools: mana_pools.to_vec(),
-                    view: OnceCell::new(),
-                });
-            }
-        }
+        self.mana_pools.clear();
+        self.mana_pools.extend_from_slice(mana_pools);
     }
 
     fn mulligan_decision(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         mulligan_count: u32,
     ) -> bool {
-        choices::mulligan_decision(self, player, hand, mulligan_count)
+        let live = Live::new(context);
+        choices::mulligan_decision(self, &live, player, hand, mulligan_count)
     }
 
     fn mulligan_decision_send(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         mulligan_count: u32,
     ) {
-        choices::mulligan_decision_send(self, player, hand, mulligan_count);
+        let live = Live::new(context);
+        choices::mulligan_decision_send(self, &live, player, hand, mulligan_count);
     }
 
     fn mulligan_decision_recv(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         mulligan_count: u32,
     ) -> bool {
-        choices::mulligan_decision_recv(self, player, hand, mulligan_count)
+        let live = Live::new(context);
+        choices::mulligan_decision_recv(self, &live, player, hand, mulligan_count)
     }
 
     fn choose_cards_to_bottom(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         count: usize,
     ) -> Vec<CardId> {
-        choices::choose_cards_to_bottom(self, player, hand, count)
+        let live = Live::new(context);
+        choices::choose_cards_to_bottom(self, &live, player, hand, count)
     }
 
     fn choose_cards_to_bottom_send(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         count: usize,
     ) {
-        choices::choose_cards_to_bottom_send(self, player, hand, count);
+        let live = Live::new(context);
+        choices::choose_cards_to_bottom_send(self, &live, player, hand, count);
     }
 
     fn choose_cards_to_bottom_recv(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         count: usize,
     ) -> Vec<CardId> {
-        choices::choose_cards_to_bottom_recv(self, player, hand, count)
+        let live = Live::new(context);
+        choices::choose_cards_to_bottom_recv(self, &live, player, hand, count)
     }
 
     fn choose_action(
@@ -798,7 +801,9 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         let mut advertised = HashSet::new();
         actions.retain(|action| advertised.insert(action.id.clone()));
 
+        let live = Live::new(priority.context());
         self.send_prompt(
+            &live,
             PromptInput::ChooseAction(
                 manabrew_protocol::prompts::choose_action::ChooseActionInput { actions },
             ),
@@ -808,7 +813,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
             .pending_prompt
             .take()
             .expect("choose_action called without a pending prompt");
-        self.present_owed_view();
+        self.present_owed_view(&live);
         let action = match self.responder.respond(prompt) {
             ClientToServerMessage::Response { action, .. } => action,
             ClientToServerMessage::Directive {
@@ -868,33 +873,43 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_attackers(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         available: &[CardId],
         possible_defenders: &[DefenderId],
     ) -> Vec<(CardId, DefenderId)> {
-        combat::choose_attackers(self, player, available, possible_defenders)
+        let live = Live::new(context);
+        combat::choose_attackers(self, &live, player, available, possible_defenders)
     }
 
     fn choose_blockers(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         attackers: &[CardId],
         available_blockers: &[CardId],
         max_blockers: Option<usize>,
     ) -> Vec<(CardId, CardId)> {
-        combat::choose_blockers(self, player, attackers, available_blockers, max_blockers)
+        let live = Live::new(context);
+        combat::choose_blockers(
+            self,
+            &live,
+            player,
+            attackers,
+            available_blockers,
+            max_blockers,
+        )
     }
 
     fn choose_damage_assignment_order(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         attacker: CardId,
         blockers: &[CardId],
     ) -> Vec<CardId> {
-        combat::choose_damage_assignment_order(self, player, attacker, blockers)
+        let live = Live::new(context);
+        combat::choose_damage_assignment_order(self, &live, player, attacker, blockers)
     }
 
     fn assign_combat_damage(
@@ -906,9 +921,11 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         defender_id: Option<DefenderId>,
         damage_to_assign: i32,
     ) -> Vec<(Option<CardId>, i32)> {
+        let live = Live::new(DecisionContext::game_only(game));
         let attacker_has_deathtouch = game.card(attacker).has_deathtouch();
         combat::choose_combat_damage_assignment(
             self,
+            &live,
             player,
             attacker,
             blockers_in_order,
@@ -920,58 +937,64 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_target_player(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[PlayerId],
         sa: Option<&manabrew_engine::spellability::SpellAbility>,
     ) -> Option<PlayerId> {
+        let live = Live::new(context);
         let source = sa.and_then(|s| s.source);
         let intent = sa
             .map(crate::game_view_dto::targeting_intent_of)
             .unwrap_or(crate::game_view_dto::TargetingIntent::Hostile);
         let hostile = crate::game_view_dto::intent_is_hostile(intent);
-        targeting::choose_target_player(self, player, valid, source, hostile, intent)
+        targeting::choose_target_player(self, &live, player, valid, source, hostile, intent)
     }
 
     fn choose_target_card(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[CardId],
         sa: Option<&manabrew_engine::spellability::SpellAbility>,
     ) -> Option<CardId> {
+        let live = Live::new(context);
         let source = sa.and_then(|s| s.source);
         let intent = sa
             .map(crate::game_view_dto::targeting_intent_of)
             .unwrap_or(crate::game_view_dto::TargetingIntent::Hostile);
         let hostile = crate::game_view_dto::intent_is_hostile(intent);
-        targeting::choose_target_card(self, player, valid, source, hostile, intent)
+        targeting::choose_target_card(self, &live, player, valid, source, hostile, intent)
     }
 
     fn choose_target_card_from_zone(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         zone: ZoneType,
         valid: &[CardId],
         sa: Option<&manabrew_engine::spellability::SpellAbility>,
     ) -> Option<CardId> {
+        let live = Live::new(context);
         let source = sa.and_then(|s| s.source);
         let intent = sa
             .map(crate::game_view_dto::targeting_intent_of)
             .unwrap_or(crate::game_view_dto::TargetingIntent::Hostile);
         let hostile = crate::game_view_dto::intent_is_hostile(intent);
-        targeting::choose_target_card_from_zone(self, player, zone, valid, source, hostile, intent)
+        targeting::choose_target_card_from_zone(
+            self, &live, player, zone, valid, source, hostile, intent,
+        )
     }
 
     fn choose_target_any(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid_players: &[PlayerId],
         valid_cards: &[CardId],
         sa: Option<&manabrew_engine::spellability::SpellAbility>,
     ) -> TargetChoice {
+        let live = Live::new(context);
         let source = sa.and_then(|s| s.source);
         let intent = sa
             .map(crate::game_view_dto::targeting_intent_of)
@@ -979,6 +1002,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         let hostile = crate::game_view_dto::intent_is_hostile(intent);
         targeting::choose_target_any(
             self,
+            &live,
             player,
             valid_players,
             valid_cards,
@@ -990,12 +1014,13 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_sacrifice(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[CardId],
         source: Option<CardId>,
     ) -> Option<CardId> {
-        targeting::choose_sacrifice(self, player, valid, source)
+        let live = Live::new(context);
+        targeting::choose_sacrifice(self, &live, player, valid, source)
     }
 
     fn reveal_cards(
@@ -1007,9 +1032,10 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         owner: PlayerId,
         message_prefix: Option<&str>,
     ) {
+        let live = Live::new(DecisionContext::game_only(game));
         self.responder
             .observe_reveal(game, player, cards, zone, owner);
-        choices::reveal_cards(self, game, cards, zone, owner, message_prefix)
+        choices::reveal_cards(self, &live, game, cards, zone, owner, message_prefix)
     }
 
     fn choose_scry(
@@ -1019,7 +1045,8 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         source: Option<CardId>,
         cards: &[CardId],
     ) -> Vec<Vec<CardId>> {
-        library::choose_scry(self, game, player, source, cards)
+        let live = Live::new(DecisionContext::game_only(game));
+        library::choose_scry(self, &live, game, player, source, cards)
     }
 
     fn choose_surveil(
@@ -1029,7 +1056,8 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         source: Option<CardId>,
         cards: &[CardId],
     ) -> Vec<Vec<CardId>> {
-        library::choose_surveil(self, game, player, source, cards)
+        let live = Live::new(DecisionContext::game_only(game));
+        library::choose_surveil(self, &live, game, player, source, cards)
     }
 
     fn choose_dig(
@@ -1040,88 +1068,97 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         max: usize,
         optional: bool,
     ) -> Vec<CardId> {
-        library::choose_dig(self, game, player, valid, max, optional)
+        let live = Live::new(DecisionContext::game_only(game));
+        library::choose_dig(self, &live, game, player, valid, max, optional)
     }
 
     fn choose_discard(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         num: usize,
     ) -> Vec<CardId> {
-        choices::choose_discard(self, player, hand, num)
+        let live = Live::new(context);
+        choices::choose_discard(self, &live, player, hand, num)
     }
 
     fn choose_discard_any_number(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         hand: &[CardId],
         min: usize,
         max: usize,
     ) -> Vec<CardId> {
-        choices::choose_discard_any_number(self, player, hand, min, max)
+        let live = Live::new(context);
+        choices::choose_discard_any_number(self, &live, player, hand, min, max)
     }
 
     fn choose_legend_keep(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         duplicates: &[CardId],
     ) -> CardId {
-        choices::choose_legend_keep(self, player, duplicates)
+        let live = Live::new(context);
+        choices::choose_legend_keep(self, &live, player, duplicates)
     }
 
     fn choose_target_spell(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[u32],
         source: Option<CardId>,
     ) -> Option<u32> {
-        targeting::choose_target_spell(self, player, valid, source)
+        let live = Live::new(context);
+        targeting::choose_target_spell(self, &live, player, valid, source)
     }
 
     fn choose_mode(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         descriptions: &[String],
         min: usize,
         max: usize,
         source_card_id: Option<CardId>,
     ) -> Vec<usize> {
-        choices::choose_mode(self, player, descriptions, min, max, source_card_id)
+        let live = Live::new(context);
+        choices::choose_mode(self, &live, player, descriptions, min, max, source_card_id)
     }
 
     fn choose_spell_abilities_for_effect(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         abilities: &[manabrew_engine::spellability::SpellAbility],
         num: usize,
     ) -> Vec<usize> {
-        choices::choose_spell_abilities_for_effect(self, player, abilities, num)
+        let live = Live::new(context);
+        choices::choose_spell_abilities_for_effect(self, &live, player, abilities, num)
     }
 
     fn get_ability_to_play(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         abilities: &[manabrew_engine::spellability::SpellAbility],
     ) -> Option<usize> {
-        choices::get_ability_to_play(self, player, abilities)
+        let live = Live::new(context);
+        choices::get_ability_to_play(self, &live, player, abilities)
     }
 
     fn choose_single_entity_for_effect(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[GameEntity],
         is_optional: bool,
     ) -> Option<GameEntity> {
-        choices::choose_single_entity_for_effect(self, player, valid, is_optional)
+        let live = Live::new(context);
+        choices::choose_single_entity_for_effect(self, &live, player, valid, is_optional)
     }
 
     fn choose_target(
@@ -1146,7 +1183,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
             })
             .collect();
         self.choose_mode(
-            DecisionContext::new(game, &[]),
+            DecisionContext::game_only(game),
             player,
             &descriptions,
             1,
@@ -1159,50 +1196,61 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_entities_for_effect(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         candidates: &[GameEntity],
         min: usize,
         max: usize,
     ) -> Vec<GameEntity> {
-        choices::choose_entities_for_effect(self, player, candidates, min, max)
+        let live = Live::new(context);
+        choices::choose_entities_for_effect(self, &live, player, candidates, min, max)
     }
 
     fn choose_single_replacement_effect(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         descriptions: &[String],
         _hosts: &[CardId],
     ) -> usize {
-        choices::choose_single_replacement_effect(self, player, descriptions)
+        let live = Live::new(context);
+        choices::choose_single_replacement_effect(self, &live, player, descriptions)
     }
 
     fn confirm_replacement_effect(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         question: &str,
         effect_description: &str,
         source: Option<CardId>,
     ) -> bool {
-        choices::confirm_replacement_effect(self, player, question, effect_description, source)
+        let live = Live::new(context);
+        choices::confirm_replacement_effect(
+            self,
+            &live,
+            player,
+            question,
+            effect_description,
+            source,
+        )
     }
 
     fn choose_optional_trigger(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         description: &str,
         source: Option<CardId>,
         api: Option<manabrew_engine::ability::api_type::ApiType>,
     ) -> bool {
-        choices::choose_optional_trigger(self, player, description, source, api)
+        let live = Live::new(context);
+        choices::choose_optional_trigger(self, &live, player, description, source, api)
     }
 
     fn confirm_action(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         mode: Option<&str>,
         message: &str,
@@ -1210,24 +1258,26 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         source: Option<CardId>,
         api: Option<manabrew_engine::ability::api_type::ApiType>,
     ) -> bool {
-        choices::confirm_action(self, player, mode, message, options, source, api)
+        let live = Live::new(context);
+        choices::confirm_action(self, &live, player, mode, message, options, source, api)
     }
 
     fn confirm_payment(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         cost_kind: &str,
         message: &str,
         source: Option<CardId>,
         api: Option<manabrew_engine::ability::api_type::ApiType>,
     ) -> bool {
-        choices::confirm_payment(self, player, cost_kind, message, source, api)
+        let live = Live::new(context);
+        choices::confirm_payment(self, &live, player, cost_kind, message, source, api)
     }
 
     fn pay_cost_to_prevent_effect(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         cost_kind: &str,
         message: &str,
@@ -1237,8 +1287,10 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         targets: &[manabrew_engine::agent::GameEntity],
         effect_text: &str,
     ) -> bool {
+        let live = Live::new(context);
         choices::pay_cost_to_prevent_effect(
             self,
+            &live,
             player,
             cost_kind,
             message,
@@ -1252,7 +1304,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn choose_binary(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         question: &str,
         kind: BinaryChoiceKind,
@@ -1260,90 +1312,108 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         source: Option<CardId>,
         api: Option<manabrew_engine::ability::api_type::ApiType>,
     ) -> bool {
-        choices::choose_binary(self, player, question, kind, default_choice, source, api)
+        let live = Live::new(context);
+        choices::choose_binary(
+            self,
+            &live,
+            player,
+            question,
+            kind,
+            default_choice,
+            source,
+            api,
+        )
     }
 
     fn choose_phyrexian_pay_life(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         color: &str,
         source: Option<CardId>,
     ) -> bool {
-        costs::choose_phyrexian_pay_life(self, player, color, source)
+        let live = Live::new(context);
+        costs::choose_phyrexian_pay_life(self, &live, player, color, source)
     }
 
     fn choose_kicker(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         kicker_cost: &str,
         source: Option<CardId>,
     ) -> bool {
-        costs::choose_kicker(self, player, kicker_cost, source)
+        let live = Live::new(context);
+        costs::choose_kicker(self, &live, player, kicker_cost, source)
     }
 
     fn choose_buyback(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         buyback_cost: &str,
         source: Option<CardId>,
     ) -> bool {
-        costs::choose_buyback(self, player, buyback_cost, source)
+        let live = Live::new(context);
+        costs::choose_buyback(self, &live, player, buyback_cost, source)
     }
 
     fn choose_multikicker(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         cost: &str,
         max_kicks: u32,
         source: Option<CardId>,
     ) -> u32 {
-        costs::choose_multikicker(self, player, cost, max_kicks, source)
+        let live = Live::new(context);
+        costs::choose_multikicker(self, &live, player, cost, max_kicks, source)
     }
 
     fn choose_replicate(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         cost: &str,
         max_replicates: u32,
         source: Option<CardId>,
     ) -> u32 {
-        costs::choose_replicate(self, player, cost, max_replicates, source)
+        let live = Live::new(context);
+        costs::choose_replicate(self, &live, player, cost, max_replicates, source)
     }
 
     fn choose_color(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid_colors: &[String],
     ) -> Option<String> {
-        choices::choose_color(self, player, valid_colors)
+        let live = Live::new(context);
+        choices::choose_color(self, &live, player, valid_colors)
     }
 
     fn choose_colors(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid_colors: &[String],
         min: usize,
         max: usize,
     ) -> Vec<String> {
-        choices::choose_colors(self, player, valid_colors, min, max)
+        let live = Live::new(context);
+        choices::choose_colors(self, &live, player, valid_colors, min, max)
     }
 
     fn choose_cards_for_effect(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid: &[CardId],
         min: usize,
         max: usize,
     ) -> Vec<CardId> {
-        choices::choose_cards_for_effect(self, player, valid, min, max)
+        let live = Live::new(context);
+        choices::choose_cards_for_effect(self, &live, player, valid, min, max)
     }
 
     fn choose_single_card_for_zone_change(
@@ -1354,8 +1424,10 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         select_prompt: &str,
         is_optional: bool,
     ) -> Option<CardId> {
+        let live = Live::new(DecisionContext::game_only(game));
         choices::choose_single_card_for_zone_change(
             self,
+            &live,
             game,
             player,
             valid,
@@ -1373,41 +1445,54 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         max: usize,
         select_prompt: &str,
     ) -> Vec<CardId> {
-        choices::choose_cards_for_zone_change(self, game, player, valid, min, max, select_prompt)
+        let live = Live::new(DecisionContext::game_only(game));
+        choices::choose_cards_for_zone_change(
+            self,
+            &live,
+            game,
+            player,
+            valid,
+            min,
+            max,
+            select_prompt,
+        )
     }
 
     fn choose_type(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         type_category: &str,
         valid_types: &[String],
     ) -> Option<String> {
-        choices::choose_type(self, player, type_category, valid_types)
+        let live = Live::new(context);
+        choices::choose_type(self, &live, player, type_category, valid_types)
     }
 
     fn choose_counter_type(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         options: &[CounterType],
         prompt: &str,
     ) -> Option<CounterType> {
-        choices::choose_counter_type(self, player, options, prompt)
+        let live = Live::new(context);
+        choices::choose_counter_type(self, &live, player, options, prompt)
     }
 
     fn choose_card_name(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         valid_names: &[String],
     ) -> Option<String> {
-        choices::choose_card_name(self, player, valid_names)
+        let live = Live::new(context);
+        choices::choose_card_name(self, &live, player, valid_names)
     }
 
     fn choose_number(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         source: Option<CardId>,
         title: &str,
@@ -1415,79 +1500,95 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         min: i32,
         max: i32,
     ) -> Option<i32> {
-        choices::choose_number(self, player, source, title, description, min, max)
+        let live = Live::new(context);
+        choices::choose_number(self, &live, player, source, title, description, min, max)
     }
 
     fn choose_number_from_list(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         choices: &[i32],
         message: &str,
         source_card_id: Option<CardId>,
     ) -> Option<i32> {
-        choices::choose_number_from_list(self, player, choices, message, source_card_id)
+        let live = Live::new(context);
+        choices::choose_number_from_list(self, &live, player, choices, message, source_card_id)
     }
 
     fn choose_roll_to_ignore(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         rolls: &[i32],
         source: Option<CardId>,
     ) -> Option<i32> {
-        choices::choose_roll_to_ignore(self, player, rolls, source)
+        let live = Live::new(context);
+        choices::choose_roll_to_ignore(self, &live, player, rolls, source)
     }
 
     fn choose_roll_to_swap(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         rolls: &[i32],
         source: Option<CardId>,
     ) -> Option<i32> {
-        choices::choose_roll_to_swap(self, player, rolls, source)
+        let live = Live::new(context);
+        choices::choose_roll_to_swap(self, &live, player, rolls, source)
     }
 
     fn choose_dice_to_reroll(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         rolls: &[i32],
         source: Option<CardId>,
     ) -> Vec<i32> {
-        choices::choose_dice_to_reroll(self, player, rolls, source)
+        let live = Live::new(context);
+        choices::choose_dice_to_reroll(self, &live, player, rolls, source)
     }
 
     fn choose_roll_to_modify(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         rolls: &[i32],
         source: Option<CardId>,
     ) -> Option<i32> {
-        choices::choose_roll_to_modify(self, player, rolls, source)
+        let live = Live::new(context);
+        choices::choose_roll_to_modify(self, &live, player, rolls, source)
     }
 
     fn choose_roll_swap_value(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         current_result: i32,
         power: i32,
         toughness: i32,
         source: Option<CardId>,
     ) -> Option<RollSwapChoice> {
-        choices::choose_roll_swap_value(self, player, current_result, power, toughness, source)
+        let live = Live::new(context);
+        choices::choose_roll_swap_value(
+            self,
+            &live,
+            player,
+            current_result,
+            power,
+            toughness,
+            source,
+        )
     }
 
-    fn flip_coin_call(&mut self, _context: DecisionContext<'_>, player: PlayerId) -> bool {
-        choices::flip_coin_call(self, player)
+    fn flip_coin_call(&mut self, context: DecisionContext<'_>, player: PlayerId) -> bool {
+        let live = Live::new(context);
+        choices::flip_coin_call(self, &live, player)
     }
 
     fn pay_combat_cost(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         attacker: CardId,
         cost: i32,
@@ -1497,8 +1598,10 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         untappable_lands: &[CardId],
         mana_pool_total: i32,
     ) -> CombatCostAction {
+        let live = Live::new(context);
         combat::pay_combat_cost(
             self,
+            &live,
             player,
             attacker,
             cost,
@@ -1534,7 +1637,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn pay_mana_cost(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         card_id: CardId,
         card_name: &str,
@@ -1549,8 +1652,10 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         untappable_lands: &[CardId],
         mana_pool: &ManaPool,
     ) -> ManaCostAction {
+        let live = Live::new(context);
         costs::pay_mana_cost(
             self,
+            &live,
             player,
             card_id,
             card_name,
@@ -1575,15 +1680,17 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn specify_mana_combo(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         available_colors: &[String],
         amount: usize,
         source: Option<CardId>,
         express_choice: Option<u16>,
     ) -> Vec<String> {
+        let live = Live::new(context);
         costs::specify_mana_combo(
             self,
+            &live,
             player,
             available_colors,
             amount,
@@ -1594,20 +1701,22 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
 
     fn exert_attackers(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         attackers: &[CardId],
     ) -> Vec<CardId> {
-        combat::exert_attackers(self, player, attackers)
+        let live = Live::new(context);
+        combat::exert_attackers(self, &live, player, attackers)
     }
 
     fn enlist_attackers(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         attackers: &[CardId],
     ) -> Vec<CardId> {
-        combat::enlist_attackers(self, player, attackers)
+        let live = Live::new(context);
+        combat::enlist_attackers(self, &live, player, attackers)
     }
 
     fn choose_reorder_library(
@@ -1616,7 +1725,8 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         player: PlayerId,
         cards: &[CardId],
     ) -> Vec<CardId> {
-        library::choose_reorder_library(self, game, player, cards)
+        let live = Live::new(DecisionContext::game_only(game));
+        library::choose_reorder_library(self, &live, game, player, cards)
     }
 
     fn order_move_to_zone_list(
@@ -1626,28 +1736,31 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         cards: &[CardId],
         destination: ZoneType,
     ) -> Vec<CardId> {
+        let live = Live::new(DecisionContext::game_only(game));
         match destination {
             ZoneType::Hand | ZoneType::Graveyard => cards.to_vec(),
-            _ => library::choose_reorder_library(self, game, player, cards),
+            _ => library::choose_reorder_library(self, &live, game, player, cards),
         }
     }
 
     fn help_pay_assist(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
         card_name: &str,
         max_generic: u32,
     ) -> u32 {
-        choices::help_pay_assist(self, player, card_name, max_generic)
+        let live = Live::new(context);
+        choices::help_pay_assist(self, &live, player, card_name, max_generic)
     }
 
     fn choose_land_or_spell(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         player: PlayerId,
     ) -> Option<bool> {
-        choices::choose_land_or_spell(self, player)
+        let live = Live::new(context);
+        choices::choose_land_or_spell(self, &live, player)
     }
 
     fn supports_checkpoints(&self) -> bool {
@@ -1670,8 +1783,9 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         true
     }
 
-    fn notify(&mut self, event: GameNotification) {
-        self.responder.notify(&event);
+    fn notify(&mut self, context: DecisionContext<'_>, event: GameNotification) {
+        let live = Live::new(context);
+        self.responder.notify(context, &event);
         match event {
             GameNotification::Event(log_event) => {
                 self.responder
@@ -1684,7 +1798,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
                 set_code,
             } => {
                 let face_hidden = self
-                    .source_card(card_id)
+                    .source_card(&live, card_id)
                     .is_some_and(|card| card.is_face_down && card.identity.name.is_empty());
                 self.emit_display(DisplayEvent::CardPlayed {
                     card_id: card_id_str(card_id),
@@ -1696,7 +1810,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
                     set_code: if face_hidden { String::new() } else { set_code },
                     player_id: player_id_str(player),
                 });
-                self.emit_state();
+                self.emit_state(&live);
             }
             GameNotification::TurnChanged {
                 active_player,
@@ -1704,8 +1818,10 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
             } => {
                 let player_id = player_id_str(active_player);
                 let active_player_name = self
-                    .latest_view()
-                    .and_then(|v| v.players.iter().find(|p| p.id == player_id))
+                    .latest_view(&live)
+                    .players
+                    .iter()
+                    .find(|p| p.id == player_id)
                     .map(|p| p.name.clone())
                     .unwrap_or_else(|| format!("Player {}", active_player.0));
                 self.responder.send_log(GameLogEntryDto::from_event(
@@ -1719,20 +1835,20 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
                     active_player_name,
                     turn_number,
                 });
-                self.emit_state();
+                self.emit_state(&live);
             }
             GameNotification::PhaseChanged { .. } | GameNotification::StateChanged => {
-                self.emit_state();
+                self.emit_state(&live);
             }
             GameNotification::PriorityChanged { .. } => {
-                self.emit_state();
+                self.emit_state(&live);
             }
             GameNotification::FirstPlayerRoll {
                 sides,
                 rounds,
                 winner,
             } => {
-                let view = self.view();
+                let view = self.view(&live);
                 let winner_id = player_id_str(winner);
                 let mut entries = Vec::new();
                 let last_round = rounds.len().saturating_sub(1);
@@ -1757,6 +1873,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
                     }
                 }
                 self.present_prompt(
+                    &live,
                     PromptInput::DiceRolled(
                         manabrew_protocol::prompts::dice_rolled::DiceRolledInput {
                             presentation: PromptPresentation {
@@ -1781,6 +1898,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
                 source_card_id,
             } => {
                 self.present_prompt(
+                    &live,
                     PromptInput::DiceRolled(
                         manabrew_protocol::prompts::dice_rolled::DiceRolledInput {
                             presentation: PromptPresentation {
@@ -1808,17 +1926,14 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
                 checkpoint_id,
                 label,
             } => {
-                if let Some(view) = self.latest_view().map(|view| GameViewDto::clone(view)) {
-                    self.responder.send_snapshot(GameSnapshotEventDto::new(
-                        checkpoint_id,
-                        label,
-                        view,
-                    ));
-                }
+                let view = self.view(&live);
+                self.responder
+                    .send_snapshot(GameSnapshotEventDto::new(checkpoint_id, label, view));
             }
             GameNotification::GameOver => {
-                self.emit_state();
+                self.emit_state(&live);
                 self.present_prompt(
+                    &live,
                     PromptInput::GameOver(manabrew_protocol::prompts::game_over::GameOverInput {}),
                     None,
                 );
@@ -1826,7 +1941,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
             GameNotification::ManaPaymentResolved { .. } => {}
             GameNotification::ActivatedAbilityPaymentFailed { .. }
             | GameNotification::SpellPaymentFailed { .. } => {
-                self.emit_state();
+                self.emit_state(&live);
             }
         }
     }

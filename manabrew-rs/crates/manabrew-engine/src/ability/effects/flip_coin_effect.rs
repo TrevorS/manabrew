@@ -191,6 +191,7 @@ fn flip_single_coin(
     };
     crate::agent::notify_all_agents(
         ctx.agents,
+        DecisionContext::new(ctx.game, ctx.mana_pools),
         GameLogEvent::rule(format!("Coin flip: {outcome}")).with_player(flipper),
     );
     let result_number = |heads| if heads { 1 } else { 2 };
@@ -210,6 +211,7 @@ fn flip_single_coin(
         .collect();
     crate::agent::game_log::broadcast_notification(
         ctx.agents,
+        DecisionContext::new(ctx.game, ctx.mana_pools),
         GameNotification::DiceRolled {
             player: flipper,
             sides: 2,

@@ -178,6 +178,7 @@ impl GameLoop {
                 if invalid {
                     // Declaration invalid — re-prompt like Java's PhaseHandler.
                     agents[active.index()].notify(
+                        DecisionContext::new(game, &self.mana_pools),
                         crate::agent::notification::GameNotification::Event(
                             crate::agent::GameLogEvent::warning("Attack declaration invalid"),
                         ),
@@ -362,6 +363,7 @@ impl GameLoop {
         if !chosen_attackers.is_empty() {
             crate::agent::notify_all_agents(
                 agents,
+                DecisionContext::new(game, &self.mana_pools),
                 crate::agent::GameLogEvent::action("Combat phase begins").with_player(active),
             );
             let attackers_msg = chosen_attackers
@@ -378,6 +380,7 @@ impl GameLoop {
                 .join(", ");
             crate::agent::notify_all_agents(
                 agents,
+                DecisionContext::new(game, &self.mana_pools),
                 crate::agent::GameLogEvent::action(format!("Attackers: {attackers_msg}"))
                     .with_player(active),
             );
@@ -705,6 +708,7 @@ impl GameLoop {
                             break;
                         }
                         Some(error) => agents[defending.index()].notify(
+                            DecisionContext::new(game, &self.mana_pools),
                             crate::agent::notification::GameNotification::Event(
                                 crate::agent::GameLogEvent::warning(error),
                             ),
@@ -795,6 +799,7 @@ impl GameLoop {
                         .join(", ");
                     crate::agent::notify_all_agents(
                         agents,
+                        DecisionContext::new(game, &self.mana_pools),
                         crate::agent::GameLogEvent::action(format!("Blockers: {blockers_msg}"))
                             .with_player(defending),
                     );

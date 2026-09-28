@@ -65,6 +65,7 @@ pub(super) fn resolve_mana_ability_for_effect_payment(
         let mana_string = crate::mana::determine_mana_production_ir(
             ctx.game,
             ctx.agents,
+            ctx.mana_pools,
             player,
             card_id,
             produced_ir,

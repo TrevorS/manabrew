@@ -51,6 +51,7 @@ impl ManaPaymentResult {
 
 fn notify_mana_payment_resolved(
     agents: &mut [Box<dyn PlayerAgent>],
+    context: DecisionContext<'_>,
     player: PlayerId,
     actions: &[ManaCostAction],
 ) {
@@ -59,7 +60,7 @@ fn notify_mana_payment_resolved(
         actions: actions.to_vec(),
     };
     for agent in agents.iter_mut() {
-        agent.notify(notification.clone());
+        agent.notify(context, notification.clone());
     }
 }
 
@@ -197,21 +198,36 @@ where
                 let floats_mana = auto && agents[session.player.index()].auto_pay_floats_mana();
                 if auto && !floats_mana {
                     let auto_trace = host.auto_pay(session);
-                    let (_, agents, mana_pools) = host.parts();
+                    let (game, agents, mana_pools) = host.parts();
                     if let Some(mut auto_trace) = auto_trace {
                         let attempted_and_failed =
                             matches!(auto_trace.last(), Some(ManaCostAction::AttemptedAndFailed));
                         executed_actions.append(&mut auto_trace);
                         if attempted_and_failed {
-                            notify_mana_payment_resolved(agents, session.player, &executed_actions);
+                            notify_mana_payment_resolved(
+                                agents,
+                                DecisionContext::new(game, mana_pools),
+                                session.player,
+                                &executed_actions,
+                            );
                             return ManaPaymentResult::failed();
                         }
                         executed_actions.push(ManaCostAction::Pay { auto: false });
-                        notify_mana_payment_resolved(agents, session.player, &executed_actions);
+                        notify_mana_payment_resolved(
+                            agents,
+                            DecisionContext::new(game, mana_pools),
+                            session.player,
+                            &executed_actions,
+                        );
                         return ManaPaymentResult::paid();
                     }
                     executed_actions.push(ManaCostAction::AttemptedAndFailed);
-                    notify_mana_payment_resolved(agents, session.player, &executed_actions);
+                    notify_mana_payment_resolved(
+                        agents,
+                        DecisionContext::new(game, mana_pools),
+                        session.player,
+                        &executed_actions,
+                    );
                     mana_pools[session.player.index()] = saved_pool.clone();
                     return ManaPaymentResult::failed();
                 }
@@ -224,10 +240,15 @@ where
                         &mut executed_actions,
                     );
                 let paid_from_pool = host.try_pay_from_pool(session.player);
-                let (_, agents, mana_pools) = host.parts();
+                let (game, agents, mana_pools) = host.parts();
                 if paid_from_pool {
                     executed_actions.push(ManaCostAction::Pay { auto: false });
-                    notify_mana_payment_resolved(agents, session.player, &executed_actions);
+                    notify_mana_payment_resolved(
+                        agents,
+                        DecisionContext::new(game, mana_pools),
+                        session.player,
+                        &executed_actions,
+                    );
                     return ManaPaymentResult::paid();
                 }
                 if floated {
@@ -238,14 +259,24 @@ where
                 mana_loop_invalid_count += 1;
                 if mana_loop_invalid_count > 3 {
                     executed_actions.push(ManaCostAction::AttemptedAndFailed);
-                    notify_mana_payment_resolved(agents, session.player, &executed_actions);
+                    notify_mana_payment_resolved(
+                        agents,
+                        DecisionContext::new(game, mana_pools),
+                        session.player,
+                        &executed_actions,
+                    );
                     mana_pools[session.player.index()] = saved_pool.clone();
                     return ManaPaymentResult::failed();
                 }
             }
             ManaCostAction::AttemptedAndFailed => {
                 executed_actions.push(ManaCostAction::AttemptedAndFailed);
-                notify_mana_payment_resolved(agents, session.player, &executed_actions);
+                notify_mana_payment_resolved(
+                    agents,
+                    DecisionContext::new(game, mana_pools),
+                    session.player,
+                    &executed_actions,
+                );
                 mana_pools[session.player.index()] = saved_pool.clone();
                 if agents[session.player.index()].auto_pay_floats_mana() {
                     return ManaPaymentResult::failed();

@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use forge_carddb::CardDatabase;
 use manabrew_engine::agent::notification::GameNotification;
-use manabrew_engine::agent::PlayerAgent;
+use manabrew_engine::agent::{DecisionContext, PlayerAgent};
 use manabrew_engine::card::Card;
 use manabrew_engine::game::GameState;
 use manabrew_engine::game_loop::GameLoop;
@@ -81,7 +81,10 @@ where
 
     for agent in agents.iter_mut() {
         agent.snapshot_state(&game, &game_loop.mana_pools);
-        agent.notify(GameNotification::GameOver);
+        agent.notify(
+            DecisionContext::new(&game, &game_loop.mana_pools),
+            GameNotification::GameOver,
+        );
     }
 
     HostedGameOutcome {

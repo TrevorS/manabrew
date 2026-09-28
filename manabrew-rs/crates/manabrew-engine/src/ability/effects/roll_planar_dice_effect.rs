@@ -129,6 +129,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     crate::agent::notify_all_agents(
         ctx.agents,
+        DecisionContext::new(ctx.game, ctx.mana_pools),
         GameLogEvent::rule(format!("Planar die: {result_name}")).with_player(player),
     );
     let final_results = results
@@ -137,6 +138,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .collect::<Vec<_>>();
     crate::agent::game_log::broadcast_notification(
         ctx.agents,
+        DecisionContext::new(ctx.game, ctx.mana_pools),
         GameNotification::DiceRolled {
             player,
             sides: 3,

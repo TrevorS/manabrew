@@ -2687,6 +2687,7 @@ impl GameLoop {
     pub(crate) fn prechoose_additional_cost_taps(
         game: &GameState,
         agents: &mut [Box<dyn PlayerAgent>],
+        mana_pools: &[ManaPool],
         player: PlayerId,
         source: CardId,
         spell_cost: &crate::cost::Cost,
@@ -2707,7 +2708,7 @@ impl GameLoop {
                     return None;
                 }
                 let chosen = agents[player.index()].choose_cards_for_effect(
-                    DecisionContext::new(game, &[]),
+                    DecisionContext::new(game, mana_pools),
                     player,
                     &valid,
                     needed,
@@ -2727,6 +2728,7 @@ impl GameLoop {
     pub(crate) fn prechoose_additional_cost_beholds(
         game: &GameState,
         agents: &mut [Box<dyn PlayerAgent>],
+        mana_pools: &[ManaPool],
         player: PlayerId,
         source: CardId,
         spell_cost: &crate::cost::Cost,
@@ -2743,6 +2745,7 @@ impl GameLoop {
                 picked.extend(Self::choose_behold_cards(
                     game,
                     agents,
+                    mana_pools,
                     player,
                     source,
                     &type_filter,
@@ -2756,6 +2759,7 @@ impl GameLoop {
     pub(crate) fn prechoose_additional_cost_evidence(
         game: &GameState,
         agents: &mut [Box<dyn PlayerAgent>],
+        mana_pools: &[ManaPool],
         player: PlayerId,
         source: CardId,
         spell_cost: &crate::cost::Cost,
@@ -2766,6 +2770,7 @@ impl GameLoop {
                 picked.extend(Self::choose_evidence_cost_cards(
                     game,
                     agents,
+                    mana_pools,
                     player,
                     amount.resolve(game, source, player),
                 )?);
@@ -2777,6 +2782,7 @@ impl GameLoop {
     fn choose_evidence_cost_cards(
         game: &GameState,
         agents: &mut [Box<dyn PlayerAgent>],
+        mana_pools: &[ManaPool],
         player: PlayerId,
         amount: i32,
     ) -> Option<Vec<CardId>> {
@@ -2791,7 +2797,7 @@ impl GameLoop {
         }
         let chosen: Vec<CardId> = agents[player.index()]
             .choose_cards_for_effect(
-                DecisionContext::new(game, &[]),
+                DecisionContext::new(game, mana_pools),
                 player,
                 &valid,
                 0,
@@ -2947,6 +2953,7 @@ impl GameLoop {
             CostPart::CollectEvidence(amount) => Self::choose_evidence_cost_cards(
                 game,
                 agents,
+                &self.mana_pools,
                 player,
                 amount.resolve(game, source, player),
             ),
@@ -2981,7 +2988,9 @@ impl GameLoop {
                     _ => None,
                 }
             }
-            CostPart::Forage => Self::choose_forage_cost_cards(game, agents, player, source, sa),
+            CostPart::Forage => {
+                Self::choose_forage_cost_cards(game, agents, &self.mana_pools, player, source, sa)
+            }
             _ => Some(Vec::new()),
         }
     }
@@ -3547,6 +3556,7 @@ impl GameLoop {
     fn choose_forage_cost_cards(
         game: &GameState,
         agents: &mut [Box<dyn PlayerAgent>],
+        mana_pools: &[ManaPool],
         player: PlayerId,
         source: CardId,
         sa: Option<&SpellAbility>,
@@ -3584,7 +3594,7 @@ impl GameLoop {
         let choose_food = !foods.is_empty()
             && (!can_exile
                 || agents[player.index()].choose_binary(
-                    DecisionContext::new(game, &[]),
+                    DecisionContext::new(game, mana_pools),
                     player,
                     "Forage: sacrifice Food instead of exiling three cards?",
                     crate::agent::BinaryChoiceKind::AddOrRemove,
@@ -3595,7 +3605,7 @@ impl GameLoop {
         if choose_food {
             return agents[player.index()]
                 .choose_sacrifice(
-                    DecisionContext::new(game, &[]),
+                    DecisionContext::new(game, mana_pools),
                     player,
                     &foods,
                     Some(source),
@@ -3603,7 +3613,7 @@ impl GameLoop {
                 .map(|food| vec![food]);
         }
         let chosen = agents[player.index()].choose_cards_for_effect(
-            DecisionContext::new(game, &[]),
+            DecisionContext::new(game, mana_pools),
             player,
             &gy,
             3,
@@ -3624,7 +3634,14 @@ impl GameLoop {
     ) -> bool {
         let chosen = match prechosen {
             Some(picks) => picks.to_vec(),
-            None => match Self::choose_forage_cost_cards(game, agents, player, source, sa) {
+            None => match Self::choose_forage_cost_cards(
+                game,
+                agents,
+                &self.mana_pools,
+                player,
+                source,
+                sa,
+            ) {
                 Some(picks) => picks,
                 None => return false,
             },
@@ -3802,6 +3819,7 @@ impl GameLoop {
             .join(", ");
         crate::agent::notify_all_agents(
             agents,
+            DecisionContext::new(game, &self.mana_pools),
             crate::agent::GameLogEvent::action(format!(
                 "{} reveals {}",
                 game.player(player).name,
@@ -4051,7 +4069,15 @@ impl GameLoop {
     ) {
         let chosen_cards = match prechosen {
             Some(picks) => picks.to_vec(),
-            None => Self::choose_behold_cards(game, agents, player, source, type_filter, amount),
+            None => Self::choose_behold_cards(
+                game,
+                agents,
+                &self.mana_pools,
+                player,
+                source,
+                type_filter,
+                amount,
+            ),
         };
         self.apply_behold_cost(game, agents, source, exile, chosen_cards);
     }
@@ -4059,6 +4085,7 @@ impl GameLoop {
     pub(crate) fn choose_behold_cards(
         game: &GameState,
         agents: &mut [Box<dyn PlayerAgent>],
+        mana_pools: &[ManaPool],
         player: PlayerId,
         source: CardId,
         type_filter: &str,
@@ -4094,7 +4121,7 @@ impl GameLoop {
                 return Vec::new();
             }
             let first_pick = agents[player.index()].choose_cards_for_effect(
-                DecisionContext::new(game, &[]),
+                DecisionContext::new(game, mana_pools),
                 player,
                 &pool,
                 1,
@@ -4112,7 +4139,7 @@ impl GameLoop {
                 return Vec::new();
             }
             agents[player.index()].choose_cards_for_effect(
-                DecisionContext::new(game, &[]),
+                DecisionContext::new(game, mana_pools),
                 player,
                 &same_type,
                 amount as usize,
@@ -4125,7 +4152,7 @@ impl GameLoop {
                 return Vec::new();
             }
             agents[player.index()].choose_cards_for_effect(
-                DecisionContext::new(game, &[]),
+                DecisionContext::new(game, mana_pools),
                 player,
                 &pool,
                 amount as usize,

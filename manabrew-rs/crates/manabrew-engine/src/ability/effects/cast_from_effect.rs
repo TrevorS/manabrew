@@ -192,5 +192,9 @@ fn push_spell_to_stack(
     if let Some(target_id) = chosen_target {
         event = event.with_target_card(target_id);
     }
-    crate::agent::notify_all_agents(ctx.agents, event);
+    crate::agent::notify_all_agents(
+        ctx.agents,
+        DecisionContext::new(ctx.game, ctx.mana_pools),
+        event,
+    );
 }

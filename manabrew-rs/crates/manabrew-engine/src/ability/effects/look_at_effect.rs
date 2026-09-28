@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{resolve_defined_player, resolve_numeric_svar, EffectContext};
+use crate::agent::DecisionContext;
 use crate::agent::GameLogEvent;
 
 /// Mirrors Java's `LookAtEffect.java`.
@@ -48,6 +49,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     );
     // Only the activating player can see these.
     ctx.agents[sa.activating_player.index()].notify(
+        DecisionContext::new(ctx.game, ctx.mana_pools),
         crate::agent::notification::GameNotification::Event(
             GameLogEvent::info(msg).with_player(sa.activating_player),
         ),

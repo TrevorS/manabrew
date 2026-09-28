@@ -502,7 +502,10 @@ impl GameLoop {
         if restored {
             for agent in agents.iter_mut() {
                 agent.snapshot_state(game, &self.mana_pools);
-                agent.notify(crate::agent::notification::GameNotification::StateChanged);
+                agent.notify(
+                    DecisionContext::new(game, &self.mana_pools),
+                    crate::agent::notification::GameNotification::StateChanged,
+                );
             }
         }
         restored
@@ -622,6 +625,7 @@ impl GameLoop {
         }
         crate::agent::game_log::broadcast_notification(
             agents,
+            DecisionContext::new(game, &self.mana_pools),
             crate::agent::notification::GameNotification::FirstPlayerRoll {
                 sides: SIDES,
                 rounds,
@@ -860,6 +864,7 @@ impl GameLoop {
             let (checkpoint_id, label) = self.record_checkpoint(game, true);
             for agent in agents.iter_mut() {
                 agent.notify(
+                    DecisionContext::new(game, &self.mana_pools),
                     crate::agent::notification::GameNotification::SnapshotCreated {
                         checkpoint_id,
                         label: label.clone(),
@@ -868,10 +873,13 @@ impl GameLoop {
             }
         }
         for agent in agents.iter_mut() {
-            agent.notify(crate::agent::notification::GameNotification::TurnChanged {
-                active_player: active,
-                turn_number,
-            });
+            agent.notify(
+                DecisionContext::new(game, &self.mana_pools),
+                crate::agent::notification::GameNotification::TurnChanged {
+                    active_player: active,
+                    turn_number,
+                },
+            );
         }
 
         // Recompute continuous static effects for the new turn.
@@ -1113,7 +1121,12 @@ mod tests {
             false
         }
 
-        fn notify(&mut self, _message: crate::agent::notification::GameNotification) {}
+        fn notify(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _message: crate::agent::notification::GameNotification,
+        ) {
+        }
     }
 
     impl RecordingPassAgent {
@@ -1236,7 +1249,12 @@ mod tests {
             false
         }
 
-        fn notify(&mut self, _message: crate::agent::notification::GameNotification) {}
+        fn notify(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _message: crate::agent::notification::GameNotification,
+        ) {
+        }
     }
 
     impl PlayerAgent for OpeningHandAgent {
@@ -1347,7 +1365,12 @@ mod tests {
             false
         }
 
-        fn notify(&mut self, _message: crate::agent::notification::GameNotification) {}
+        fn notify(
+            &mut self,
+            _context: DecisionContext<'_>,
+            _message: crate::agent::notification::GameNotification,
+        ) {
+        }
     }
 
     fn zero_cost_instant(owner: PlayerId) -> Card {

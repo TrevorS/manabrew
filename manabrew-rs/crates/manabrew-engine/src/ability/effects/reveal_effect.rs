@@ -96,9 +96,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         for agent in ctx.agents.iter_mut() {
             for &id in &revealed {
                 let name = ctx.game.card(id).card_name.clone();
-                agent.notify(crate::agent::notification::GameNotification::Event(
-                    GameLogEvent::rule(format!("Revealed: {name}")).with_card(id),
-                ));
+                agent.notify(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
+                    crate::agent::notification::GameNotification::Event(
+                        GameLogEvent::rule(format!("Revealed: {name}")).with_card(id),
+                    ),
+                );
             }
         }
         let source_name = sa.source.map(|cid| ctx.game.card(cid).card_name.clone());

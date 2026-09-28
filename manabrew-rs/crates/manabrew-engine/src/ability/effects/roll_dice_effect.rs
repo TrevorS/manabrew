@@ -229,6 +229,7 @@ pub(crate) fn roll_for_player(
         ctx.game,
         ctx.rng,
         ctx.agents,
+        ctx.mana_pools,
         player,
         sides,
         amount,
@@ -265,6 +266,7 @@ pub(crate) fn roll_for_player(
     apply_dice_pt_exchanges(
         ctx.agents,
         ctx.game,
+        ctx.mana_pools,
         player,
         &mut results_list,
         &dice_pt_exchanges,
@@ -392,6 +394,7 @@ pub(crate) fn roll_for_player(
         .join(", ");
     crate::agent::notify_all_agents(
         ctx.agents,
+        DecisionContext::new(ctx.game, ctx.mana_pools),
         GameLogEvent::rule(format!("Rolled {rolled_text} (d{sides})")).with_player(player),
     );
     if !ignored_rolls.is_empty() {
@@ -402,11 +405,13 @@ pub(crate) fn roll_for_player(
             .join(", ");
         crate::agent::notify_all_agents(
             ctx.agents,
+            DecisionContext::new(ctx.game, ctx.mana_pools),
             GameLogEvent::rule(format!("Ignored rolls: {ignored_text}")).with_player(player),
         );
     }
     crate::agent::game_log::broadcast_notification(
         ctx.agents,
+        DecisionContext::new(ctx.game, ctx.mana_pools),
         GameNotification::DiceRolled {
             player,
             sides,
@@ -533,7 +538,14 @@ pub fn roll_to_visit_attractions(
             modified_value: unmodified,
         });
     }
-    apply_dice_pt_exchanges(agents, game, player, &mut results_list, &dice_pt_exchanges);
+    apply_dice_pt_exchanges(
+        agents,
+        game,
+        runtime.mana_pools,
+        player,
+        &mut results_list,
+        &dice_pt_exchanges,
+    );
     let kept_rolls: Vec<i32> = results_list
         .iter()
         .map(|roll| roll.modified_value)
@@ -577,6 +589,7 @@ pub fn roll_to_visit_attractions(
         .join(", ");
     crate::agent::notify_all_agents(
         agents,
+        DecisionContext::new(game, runtime.mana_pools),
         GameLogEvent::rule(format!("Rolled {rolled_text} (d6)")).with_player(player),
     );
     if !ignored_rolls.is_empty() {
@@ -587,12 +600,14 @@ pub fn roll_to_visit_attractions(
             .join(", ");
         crate::agent::notify_all_agents(
             agents,
+            DecisionContext::new(game, runtime.mana_pools),
             GameLogEvent::rule(format!("Ignored rolls: {ignored_text}")).with_player(player),
         );
     }
     let natural_results: Vec<i32> = results_list.iter().map(|r| r.natural_value).collect();
     crate::agent::game_log::broadcast_notification(
         agents,
+        DecisionContext::new(game, runtime.mana_pools),
         GameNotification::DiceRolled {
             player,
             sides: 6,
@@ -639,6 +654,7 @@ fn roll_action(
     game: &mut GameState,
     rng: &mut (impl GameRng + ?Sized),
     agents: &mut [Box<dyn crate::agent::PlayerAgent>],
+    mana_pools: &[crate::mana::ManaPool],
     player: PlayerId,
     sides: i32,
     amount: i32,
@@ -693,7 +709,7 @@ fn roll_action(
     ignored_rolls.extend(natural_rolls.drain(..ignore_count));
 
     let (ignored_by_choice, _) = apply_chosen_ignores(
-        DecisionContext::new(game, &[]),
+        DecisionContext::new(game, mana_pools),
         agents,
         "Roll",
         &mut natural_rolls,
@@ -706,6 +722,7 @@ fn roll_action(
 fn apply_dice_pt_exchanges(
     agents: &mut [Box<dyn crate::agent::PlayerAgent>],
     game: &mut GameState,
+    mana_pools: &[crate::mana::ManaPool],
     player: PlayerId,
     results_list: &mut [DieRollResult],
     dice_pt_exchanges: &HashSet<crate::ids::CardId>,
@@ -717,7 +734,7 @@ fn apply_dice_pt_exchanges(
             .map(|roll| roll.modified_value)
             .collect();
         let roll = agents[player.index()].choose_roll_to_swap(
-            DecisionContext::new(game, &[]),
+            DecisionContext::new(game, mana_pools),
             player,
             &current_rolls,
             None,
@@ -733,7 +750,7 @@ fn apply_dice_pt_exchanges(
         let current_power = game.card(card_id).power();
         let current_toughness = game.card(card_id).toughness();
         let choice = agents[player.index()].choose_roll_swap_value(
-            DecisionContext::new(game, &[]),
+            DecisionContext::new(game, mana_pools),
             player,
             roll_value,
             current_power,
@@ -1157,6 +1174,7 @@ fn apply_keyword_roll_rerolls(
             ctx.game,
             ctx.rng,
             ctx.agents,
+            ctx.mana_pools,
             player,
             sides,
             dice_to_reroll.len() as i32,
@@ -1708,7 +1726,7 @@ mod tests {
         let mut swaps = HashSet::default();
         swaps.insert(card_id);
 
-        apply_dice_pt_exchanges(&mut agents, &mut game, player, &mut rolls, &swaps);
+        apply_dice_pt_exchanges(&mut agents, &mut game, &[], player, &mut rolls, &swaps);
 
         assert_eq!(
             rolls

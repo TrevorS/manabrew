@@ -8,7 +8,7 @@ use crate::game_view_dto::{
 use crate::ids_codec::{parse_card_id, parse_player_id, stack_id_str};
 use crate::prompt::*;
 
-use super::{PromptAgent, Responder};
+use super::{Live, PromptAgent, Responder};
 
 fn board_targets(
     candidates: Vec<TargetRef>,
@@ -39,6 +39,7 @@ fn board_targets(
 
 pub(super) fn choose_board_targets_multi<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     valid: &[CardId],
     intent: TargetingIntent,
     label: &str,
@@ -53,6 +54,7 @@ pub(super) fn choose_board_targets_multi<T: Responder>(
             .map(target_ref_card)
             .collect();
         agent.send_prompt(
+            live,
             PromptInput::ChooseBoardTargets(
                 manabrew_protocol::prompts::choose_board_targets::ChooseBoardTargetsInput {
                     presentation: PromptPresentation {
@@ -72,7 +74,7 @@ pub(super) fn choose_board_targets_multi<T: Responder>(
             ),
             source,
         );
-        match agent.recv_action() {
+        match agent.recv_action(live) {
             PromptOutput::ChooseBoardTargets(ChooseBoardTargetsOutput::Cancel) => {
                 agent.targeting_cancelled = true;
                 break;
@@ -113,6 +115,7 @@ fn player_target_title(intent: TargetingIntent) -> String {
 
 pub(super) fn choose_target_player<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     valid: &[PlayerId],
     source: Option<CardId>,
@@ -124,6 +127,7 @@ pub(super) fn choose_target_player<T: Responder>(
         .map(target_ref_player)
         .collect();
     agent.send_prompt(
+        live,
         board_targets(
             candidates,
             hostile,
@@ -134,11 +138,12 @@ pub(super) fn choose_target_player<T: Responder>(
         ),
         source,
     );
-    agent.recv_player_choice_or_first(valid)
+    agent.recv_player_choice_or_first(live, valid)
 }
 
 pub(super) fn choose_target_card<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     valid: &[CardId],
     source: Option<CardId>,
@@ -150,6 +155,7 @@ pub(super) fn choose_target_card<T: Responder>(
         .map(target_ref_card)
         .collect();
     agent.send_prompt(
+        live,
         board_targets(
             candidates,
             hostile,
@@ -160,11 +166,12 @@ pub(super) fn choose_target_card<T: Responder>(
         ),
         source,
     );
-    agent.recv_card_choice_or_first(valid)
+    agent.recv_card_choice_or_first(live, valid)
 }
 
 pub(super) fn choose_target_card_from_zone<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     _zone: ZoneType,
     valid: &[CardId],
@@ -177,6 +184,7 @@ pub(super) fn choose_target_card_from_zone<T: Responder>(
         .map(target_ref_card)
         .collect();
     agent.send_prompt(
+        live,
         board_targets(
             candidates,
             intent_is_hostile(intent),
@@ -187,11 +195,12 @@ pub(super) fn choose_target_card_from_zone<T: Responder>(
         ),
         source,
     );
-    agent.recv_card_choice_or_first(valid)
+    agent.recv_card_choice_or_first(live, valid)
 }
 
 pub(super) fn choose_target_any<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     valid_players: &[PlayerId],
     valid_cards: &[CardId],
@@ -209,6 +218,7 @@ pub(super) fn choose_target_any<T: Responder>(
             .map(target_ref_card),
     );
     agent.send_prompt(
+        live,
         board_targets(
             candidates,
             hostile,
@@ -219,7 +229,7 @@ pub(super) fn choose_target_any<T: Responder>(
         ),
         source,
     );
-    match agent.recv_action() {
+    match agent.recv_action(live) {
         PromptOutput::ChooseBoardTargets(ChooseBoardTargetsOutput::Cancel) => {
             agent.targeting_cancelled = true;
             TargetChoice::None
@@ -248,6 +258,7 @@ pub(super) fn choose_target_any<T: Responder>(
 
 pub(super) fn choose_target_spell<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     valid: &[u32],
     source: Option<CardId>,
@@ -258,6 +269,7 @@ pub(super) fn choose_target_spell<T: Responder>(
         .map(|&id| target_ref_spell(stack_id_str(id)))
         .collect();
     agent.send_prompt(
+        live,
         board_targets(
             candidates,
             intent_is_hostile(intent),
@@ -268,11 +280,12 @@ pub(super) fn choose_target_spell<T: Responder>(
         ),
         source,
     );
-    agent.recv_spell_choice_or_first(valid)
+    agent.recv_spell_choice_or_first(live, valid)
 }
 
 pub(super) fn choose_sacrifice<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     valid: &[CardId],
     source: Option<CardId>,
@@ -282,6 +295,7 @@ pub(super) fn choose_sacrifice<T: Responder>(
         .map(target_ref_card)
         .collect();
     agent.send_prompt(
+        live,
         board_targets(
             candidates,
             true,
@@ -292,5 +306,5 @@ pub(super) fn choose_sacrifice<T: Responder>(
         ),
         source,
     );
-    agent.recv_card_choice_or_first(valid)
+    agent.recv_card_choice_or_first(live, valid)
 }

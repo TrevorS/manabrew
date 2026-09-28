@@ -9,9 +9,12 @@ impl GameLoop {
     ) {
         for agent in agents.iter_mut() {
             agent.snapshot_state(game, &self.mana_pools);
-            agent.notify(GameNotification::PhaseChanged {
-                phase: game.turn.phase,
-            });
+            agent.notify(
+                DecisionContext::new(game, &self.mana_pools),
+                GameNotification::PhaseChanged {
+                    phase: game.turn.phase,
+                },
+            );
         }
     }
 
@@ -29,9 +32,12 @@ impl GameLoop {
                 crate::perf::increment_priority_snapshot();
                 agent.snapshot_state(game, &self.mana_pools);
             }
-            agent.notify(GameNotification::PriorityChanged {
-                player: priority_player,
-            });
+            agent.notify(
+                DecisionContext::new(game, &self.mana_pools),
+                GameNotification::PriorityChanged {
+                    player: priority_player,
+                },
+            );
         }
     }
 
@@ -42,7 +48,10 @@ impl GameLoop {
     ) {
         for agent in agents.iter_mut() {
             agent.snapshot_state(game, &self.mana_pools);
-            agent.notify(GameNotification::StateChanged);
+            agent.notify(
+                DecisionContext::new(game, &self.mana_pools),
+                GameNotification::StateChanged,
+            );
         }
     }
 

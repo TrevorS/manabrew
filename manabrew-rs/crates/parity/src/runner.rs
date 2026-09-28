@@ -539,7 +539,11 @@ macro_rules! parity_agent_callback {
 }
 
 impl PlayerAgent for CapturingAgent {
-    fn notify(&mut self, event: manabrew_engine::agent::notification::GameNotification) {
+    fn notify(
+        &mut self,
+        context: DecisionContext<'_>,
+        event: manabrew_engine::agent::notification::GameNotification,
+    ) {
         use manabrew_engine::agent::notification::GameNotification;
         match &event {
             GameNotification::Event(log_event) => {
@@ -670,7 +674,7 @@ impl PlayerAgent for CapturingAgent {
             }
             _ => {}
         }
-        self.inner.notify(event.clone());
+        self.inner.notify(context, event.clone());
     }
 
     fn snapshot_state(&mut self, game: &GameState, mana_pools: &[manabrew_engine::mana::ManaPool]) {

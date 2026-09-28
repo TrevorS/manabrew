@@ -206,7 +206,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         if spell_sa.api == Some(crate::ability::api_type::ApiType::Charm)
-            && !super::charm_effect::make_choices_precast(ctx.game, ctx.agents, &mut spell_sa)
+            && !super::charm_effect::make_choices_precast(
+                ctx.game,
+                ctx.agents,
+                ctx.mana_pools,
+                &mut spell_sa,
+            )
         {
             restore_split_state(ctx, card_id, was_transformed);
             amount -= 1;
@@ -534,7 +539,11 @@ fn push_spell_to_stack(
     if let Some(target_id) = chosen_target {
         event = event.with_target_card(target_id);
     }
-    crate::agent::notify_all_agents(ctx.agents, event);
+    crate::agent::notify_all_agents(
+        ctx.agents,
+        DecisionContext::new(ctx.game, ctx.mana_pools),
+        event,
+    );
 }
 
 /// Create a one-shot replacement effect on a Command-zone effect card that

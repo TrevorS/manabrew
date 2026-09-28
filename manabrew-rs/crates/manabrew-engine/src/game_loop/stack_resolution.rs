@@ -123,6 +123,7 @@ impl GameLoop {
         if Self::has_fizzled(&mut entry.spell_ability, game) {
             crate::agent::notify_all_agents(
                 agents,
+                DecisionContext::new(game, &self.mana_pools),
                 crate::agent::GameLogEvent::warning(format!(
                     "{stack_item_name} fizzles (all targets invalid)"
                 ))
@@ -427,7 +428,13 @@ impl GameLoop {
                 if entry.spell_ability.target_chosen.target_card.is_some()
                     || entry.spell_ability.target_chosen.target_player.is_some()
                 {
-                    Self::attach_aura_on_resolution(game, agents, &entry, card_id);
+                    Self::attach_aura_on_resolution(
+                        game,
+                        agents,
+                        &self.mana_pools,
+                        &entry,
+                        card_id,
+                    );
                 }
                 game.ensure_pending_change_zone_table();
                 if origin != ZoneType::Battlefield {
@@ -452,7 +459,7 @@ impl GameLoop {
                 // can include a *second* legendary creature (e.g. a mirror-match
                 // Ashling controlled by the opponent), and the agent ends up
                 // attaching the Aura to the wrong card.
-                Self::attach_aura_on_resolution(game, agents, &entry, card_id);
+                Self::attach_aura_on_resolution(game, agents, &self.mana_pools, &entry, card_id);
 
                 // Evoke: register a one-shot ETB trigger that sacrifices this creature.
                 // This mirrors Forge Java semantics where Evoke uses a ChangesZone trigger
@@ -1005,6 +1012,7 @@ impl GameLoop {
     fn attach_aura_on_resolution(
         game: &mut GameState,
         agents: &mut [Box<dyn PlayerAgent>],
+        mana_pools: &[ManaPool],
         entry: &StackEntry,
         card_id: CardId,
     ) {
@@ -1080,7 +1088,7 @@ impl GameLoop {
             if !candidates.is_empty() {
                 let chooser = entry.spell_ability.activating_player;
                 let chosen = agents[chooser.index()].choose_single_entity_for_effect(
-                    DecisionContext::new(game, &[]),
+                    DecisionContext::new(game, mana_pools),
                     chooser,
                     &candidates,
                     false,
@@ -1294,7 +1302,11 @@ impl GameLoop {
         if let Some(target_id) = sa.target_chosen.target_card {
             event = event.with_target_card(target_id);
         }
-        crate::agent::notify_all_agents(agents, event);
+        crate::agent::notify_all_agents(
+            agents,
+            DecisionContext::new(game, &self.mana_pools),
+            event,
+        );
 
         let mut ctx = EffectContext {
             game,

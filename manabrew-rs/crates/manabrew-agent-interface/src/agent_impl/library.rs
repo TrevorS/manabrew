@@ -6,7 +6,7 @@ use crate::game_view_dto::{card_to_dto, CardDto};
 use crate::ids_codec::{card_id_str, parse_card_id};
 use crate::prompt::*;
 
-use super::{PromptAgent, Responder};
+use super::{Live, PromptAgent, Responder};
 
 fn library_dtos(game: &GameState, cards: &[CardId]) -> Vec<CardDto> {
     cards.iter().map(|&id| card_to_dto(game, id)).collect()
@@ -14,6 +14,7 @@ fn library_dtos(game: &GameState, cards: &[CardId]) -> Vec<CardDto> {
 
 fn send_scry<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     game: &GameState,
     source: Option<CardId>,
     cards: &[CardId],
@@ -22,6 +23,7 @@ fn send_scry<T: Responder>(
     zones: Vec<ScryDestination>,
 ) -> Vec<Vec<CardId>> {
     agent.send_prompt(
+        live,
         PromptInput::Scry(ScryInput {
             presentation: PromptPresentation {
                 title: title.to_string(),
@@ -34,7 +36,7 @@ fn send_scry<T: Responder>(
         }),
         source,
     );
-    match agent.recv_action() {
+    match agent.recv_action(live) {
         PromptOutput::Scry(ScryOutput::ScryDecision { zone_card_ids }) => zone_card_ids
             .into_iter()
             .map(|zone| zone.iter().filter_map(|id| parse_card_id(id)).collect())
@@ -45,6 +47,7 @@ fn send_scry<T: Responder>(
 
 pub(super) fn choose_scry<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     game: &GameState,
     _player: PlayerId,
     source: Option<CardId>,
@@ -52,6 +55,7 @@ pub(super) fn choose_scry<T: Responder>(
 ) -> Vec<Vec<CardId>> {
     send_scry(
         agent,
+        live,
         game,
         source,
         cards,
@@ -63,6 +67,7 @@ pub(super) fn choose_scry<T: Responder>(
 
 pub(super) fn choose_surveil<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     game: &GameState,
     _player: PlayerId,
     source: Option<CardId>,
@@ -70,6 +75,7 @@ pub(super) fn choose_surveil<T: Responder>(
 ) -> Vec<Vec<CardId>> {
     send_scry(
         agent,
+        live,
         game,
         source,
         cards,
@@ -81,6 +87,7 @@ pub(super) fn choose_surveil<T: Responder>(
 
 pub(super) fn choose_dig<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     game: &GameState,
     _player: PlayerId,
     valid: &[CardId],
@@ -90,6 +97,7 @@ pub(super) fn choose_dig<T: Responder>(
     let cards = library_dtos(game, valid);
     let min = if optional { 0 } else { max.min(1) };
     agent.send_prompt(
+        live,
         PromptInput::ChooseCards(manabrew_protocol::prompts::choose_cards::ChooseCardsInput {
             presentation: PromptPresentation {
                 title: "Dig".to_string(),
@@ -103,7 +111,7 @@ pub(super) fn choose_dig<T: Responder>(
         }),
         None,
     );
-    match agent.recv_action() {
+    match agent.recv_action(live) {
         PromptOutput::ChooseCards(ChooseCardsOutput::ChooseCardsDecision { chosen_card_ids }) => {
             chosen_card_ids
                 .iter()
@@ -116,6 +124,7 @@ pub(super) fn choose_dig<T: Responder>(
 
 pub(super) fn choose_reorder_library<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     game: &GameState,
     _player: PlayerId,
     cards: &[CardId],
@@ -129,6 +138,7 @@ pub(super) fn choose_reorder_library<T: Responder>(
         })
         .collect();
     agent.send_prompt(
+        live,
         PromptInput::Reorder(manabrew_protocol::prompts::reorder::ReorderInput {
             presentation: PromptPresentation {
                 title: "Reorder".to_string(),
@@ -140,7 +150,7 @@ pub(super) fn choose_reorder_library<T: Responder>(
         }),
         None,
     );
-    match agent.recv_action() {
+    match agent.recv_action(live) {
         PromptOutput::Reorder(ReorderOutput::ReorderDecision { ordered_ids }) => {
             let parsed: Vec<CardId> = ordered_ids
                 .iter()

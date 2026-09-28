@@ -1094,7 +1094,7 @@ pub fn get_new_chooser(
         return None;
     }
     agents[activator.index()].choose_target_player(
-        DecisionContext::new(game, &[]),
+        DecisionContext::game_only(game),
         activator,
         &options,
         Some(sa),

@@ -79,7 +79,8 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
     }
 
     pub fn notify(&mut self, event: crate::agent::notification::GameNotification) {
-        self.agent.notify(event);
+        self.agent
+            .notify(DecisionContext::new(self.game, self.mana_pools), event);
     }
 
     pub fn reveal_cards(
@@ -98,12 +99,14 @@ impl<'a, A: PlayerAgent + ?Sized> PlayerController<'a, A> {
         }
         message.push_str("Reveal ");
         message.push_str(&format!("{zone:?} cards"));
-        self.agent
-            .notify(crate::agent::notification::GameNotification::Event(
+        self.agent.notify(
+            DecisionContext::new(self.game, self.mana_pools),
+            crate::agent::notification::GameNotification::Event(
                 GameLogEvent::rule(message)
                     .with_player(owner)
                     .with_card(*cards.first().unwrap_or(&CardId(0))),
-            ));
+            ),
+        );
     }
 
     pub fn temp_show_cards(&mut self, cards: &[CardId]) {

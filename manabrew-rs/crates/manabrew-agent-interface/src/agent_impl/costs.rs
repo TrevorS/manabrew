@@ -6,16 +6,18 @@ use crate::ids_codec::{card_id_str, parse_card_id};
 use crate::mana_action_id::{mana_ability_actions, parse_tap_action_id};
 use crate::prompt::*;
 
-use super::{parse_express_mana_choice, PromptAgent, Responder};
+use super::{parse_express_mana_choice, Live, PromptAgent, Responder};
 
 fn choose_boolean<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     presentation: PromptPresentation,
     confirm_label: &str,
     deny_label: &str,
     source: Option<CardId>,
 ) -> bool {
     agent.send_prompt(
+        live,
         PromptInput::ChooseBoolean(ChooseBooleanInput {
             presentation,
             confirm_label: confirm_label.to_string(),
@@ -23,7 +25,7 @@ fn choose_boolean<T: Responder>(
         }),
         source,
     );
-    match agent.recv_action() {
+    match agent.recv_action(live) {
         PromptOutput::ChooseBoolean(ChooseBooleanOutput::Decision { value }) => value,
         _ => false,
     }
@@ -31,6 +33,7 @@ fn choose_boolean<T: Responder>(
 
 pub(super) fn choose_phyrexian_pay_life<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     color: &str,
     source: Option<CardId>,
@@ -44,6 +47,7 @@ pub(super) fn choose_phyrexian_pay_life<T: Responder>(
         .collect();
     choose_boolean(
         agent,
+        live,
         PromptPresentation {
             title: "Pay Phyrexian?".to_string(),
             description: Some(format!(
@@ -60,12 +64,14 @@ pub(super) fn choose_phyrexian_pay_life<T: Responder>(
 
 pub(super) fn choose_kicker<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     kicker_cost: &str,
     source: Option<CardId>,
 ) -> bool {
     choose_boolean(
         agent,
+        live,
         PromptPresentation {
             title: "Pay Kicker?".to_string(),
             description: Some(format!("Pay additional kicker cost: {kicker_cost}")),
@@ -80,12 +86,14 @@ pub(super) fn choose_kicker<T: Responder>(
 
 pub(super) fn choose_buyback<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     buyback_cost: &str,
     source: Option<CardId>,
 ) -> bool {
     choose_boolean(
         agent,
+        live,
         PromptPresentation {
             title: "Pay Buyback?".to_string(),
             description: Some(format!("Pay additional buyback cost: {buyback_cost}")),
@@ -103,6 +111,7 @@ pub(super) fn choose_buyback<T: Responder>(
 
 pub(super) fn choose_multikicker<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     player: PlayerId,
     cost: &str,
     max_kicks: u32,
@@ -111,6 +120,7 @@ pub(super) fn choose_multikicker<T: Responder>(
     let description = format!("Pay {cost} for each additional kicker.");
     super::choices::choose_number(
         agent,
+        live,
         player,
         source,
         "Multikicker",
@@ -124,6 +134,7 @@ pub(super) fn choose_multikicker<T: Responder>(
 
 pub(super) fn choose_replicate<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     player: PlayerId,
     cost: &str,
     max_replicates: u32,
@@ -132,6 +143,7 @@ pub(super) fn choose_replicate<T: Responder>(
     let description = format!("Pay {cost} for each copy.");
     super::choices::choose_number(
         agent,
+        live,
         player,
         source,
         "Replicate",
@@ -145,6 +157,7 @@ pub(super) fn choose_replicate<T: Responder>(
 
 pub(super) fn pay_mana_cost<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     card_id: CardId,
     card_name: &str,
@@ -167,6 +180,7 @@ pub(super) fn pay_mana_cost<T: Responder>(
     }
 
     agent.send_prompt(
+        live,
         PromptInput::PayManaCost(
             manabrew_protocol::prompts::pay_mana_cost::PayManaCostInput {
                 presentation: PromptPresentation {
@@ -184,7 +198,7 @@ pub(super) fn pay_mana_cost<T: Responder>(
         ),
         Some(card_id),
     );
-    match agent.recv_action() {
+    match agent.recv_action(live) {
         PromptOutput::PayManaCost(PayManaCostOutput::Act { action_id }) => {
             parse_mana_cost_action(&action_id)
         }
@@ -237,6 +251,7 @@ pub(super) fn parse_mana_cost_action(action_id: &str) -> ManaCostAction {
 
 pub(super) fn specify_mana_combo<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     available_colors: &[String],
     amount: usize,
@@ -251,6 +266,7 @@ pub(super) fn specify_mana_combo<T: Responder>(
     }
 
     agent.send_prompt(
+        live,
         PromptInput::ChooseColor(manabrew_protocol::prompts::choose_color::ChooseColorInput {
             presentation: PromptPresentation {
                 title: "Choose mana color".to_string(),
@@ -264,7 +280,7 @@ pub(super) fn specify_mana_combo<T: Responder>(
         }),
         source,
     );
-    let action = agent.recv_action();
+    let action = agent.recv_action(live);
     match action {
         PromptOutput::ChooseColor(ChooseColorOutput::ColorDecision { chosen_colors }) => {
             let mut result: Vec<String> = chosen_colors

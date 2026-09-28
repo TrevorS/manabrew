@@ -805,6 +805,7 @@ pub struct ManaProductionParams {
 pub fn determine_mana_production_ir(
     game: &mut GameState,
     agents: &mut [Box<dyn PlayerAgent>],
+    mana_pools: &[ManaPool],
     player: PlayerId,
     card_id: CardId,
     produced_ir: &ProducedMana,
@@ -845,7 +846,7 @@ pub fn determine_mana_production_ir(
         };
         if !available.is_empty() {
             let chosen = agents[player.index()].specify_mana_combo(
-                DecisionContext::new(game, &[]),
+                DecisionContext::new(game, mana_pools),
                 player,
                 &available,
                 amount.unwrap_or(1) as usize,
@@ -859,7 +860,7 @@ pub fn determine_mana_production_ir(
 
         if !colors.is_empty() {
             if let Some(chosen) = agents[player.index()].choose_color(
-                DecisionContext::new(game, &[]),
+                DecisionContext::new(game, mana_pools),
                 player,
                 &colors,
             ) {
@@ -887,14 +888,14 @@ pub fn determine_mana_production_ir(
                 // Consume the RNG pick for parity.
                 let single = vec![forced.clone()];
                 let _ = agents[player.index()].choose_color(
-                    DecisionContext::new(game, &[]),
+                    DecisionContext::new(game, mana_pools),
                     player,
                     &single,
                 );
                 Some(forced)
             } else {
                 agents[player.index()].choose_color(
-                    DecisionContext::new(game, &[]),
+                    DecisionContext::new(game, mana_pools),
                     player,
                     &colors,
                 )
@@ -2084,6 +2085,7 @@ mod tests {
         let produced = determine_mana_production_ir(
             &mut game,
             &mut agents,
+            &[],
             p0,
             commander_id,
             &ProducedMana::Combo(ProducedManaCombo::ColorIdentity),

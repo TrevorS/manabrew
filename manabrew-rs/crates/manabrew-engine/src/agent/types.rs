@@ -17,12 +17,22 @@ pub enum GameEntity {
 #[derive(Clone, Copy)]
 pub struct DecisionContext<'a> {
     pub game: &'a GameState,
-    pub mana_pools: &'a [ManaPool],
+    pub mana_pools: Option<&'a [ManaPool]>,
 }
 
 impl<'a> DecisionContext<'a> {
     pub fn new(game: &'a GameState, mana_pools: &'a [ManaPool]) -> Self {
-        Self { game, mana_pools }
+        Self {
+            game,
+            mana_pools: Some(mana_pools),
+        }
+    }
+
+    pub fn game_only(game: &'a GameState) -> Self {
+        Self {
+            game,
+            mana_pools: None,
+        }
     }
 }
 

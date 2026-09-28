@@ -1048,7 +1048,7 @@ pub trait PlayerAgent {
         _select_prompt: &str,
         _is_optional: bool,
     ) -> Option<CardId> {
-        self.choose_cards_for_effect(DecisionContext::new(game, &[]), player, valid, 1, 1)
+        self.choose_cards_for_effect(DecisionContext::game_only(game), player, valid, 1, 1)
             .into_iter()
             .next()
     }
@@ -1063,7 +1063,7 @@ pub trait PlayerAgent {
         max: usize,
         _select_prompt: &str,
     ) -> Vec<CardId> {
-        self.choose_cards_for_effect(DecisionContext::new(game, &[]), player, valid, min, max)
+        self.choose_cards_for_effect(DecisionContext::game_only(game), player, valid, min, max)
     }
 
     /// Choose a creature/card type (for ChooseType effect).
@@ -1400,7 +1400,7 @@ pub trait PlayerAgent {
 
     /// Receive engine notifications for UI/game-log observers.
     /// Default is a no-op so simple agents do not need to handle them.
-    fn notify(&mut self, _event: GameNotification) {}
+    fn notify(&mut self, _context: DecisionContext<'_>, _event: GameNotification) {}
 
     fn supports_checkpoints(&self) -> bool {
         false

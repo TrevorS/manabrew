@@ -1568,7 +1568,7 @@ pub fn prompt_etb_tapped_replacement_with_agents(
     let hosts: Vec<CardId> = applicable.iter().map(|(source_id, _)| *source_id).collect();
     let _chosen = agents[affected_player.index()]
         .choose_single_replacement_effect(
-            DecisionContext::new(game, &[]),
+            DecisionContext::game_only(game),
             affected_player,
             &descriptions,
             &hosts,

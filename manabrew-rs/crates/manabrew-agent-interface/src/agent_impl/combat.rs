@@ -14,7 +14,7 @@ use crate::mana_action_id::parse_tap_action_id;
 use crate::prompt::*;
 
 use super::costs::mana_payment_actions;
-use super::{parse_express_mana_choice, PromptAgent, Responder};
+use super::{parse_express_mana_choice, Live, PromptAgent, Responder};
 
 fn defender_id_str(defender: DefenderId) -> String {
     match defender {
@@ -42,15 +42,14 @@ fn fallback_combat_assignment(
 
 pub(super) fn choose_attackers<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     available: &[CardId],
     possible_defenders: &[DefenderId],
 ) -> Vec<(CardId, DefenderId)> {
-    let game = agent
-        .combat_game()
-        .expect("snapshot_state runs before the attack declaration");
+    let game = live.game;
     let requirements =
-        compute_attack_requirements_with_defenders(&game, available, possible_defenders);
+        compute_attack_requirements_with_defenders(game, available, possible_defenders);
     let attackers = requirements
         .iter()
         .map(|requirement| {
@@ -58,7 +57,7 @@ pub(super) fn choose_attackers<T: Responder>(
                 .iter()
                 .copied()
                 .filter(|&defender| {
-                    combat_util::can_attack_defender(&game, requirement.attacker, defender)
+                    combat_util::can_attack_defender(game, requirement.attacker, defender)
                 })
                 .collect();
             let credit = |defender: &DefenderId| {
@@ -86,13 +85,14 @@ pub(super) fn choose_attackers<T: Responder>(
         })
         .collect();
     agent.send_prompt(
+        live,
         PromptInput::ChooseAttackers(ChooseAttackersInput {
             attackers,
             attack_targets: PromptAgent::<T>::attack_targets_to_dtos(possible_defenders),
         }),
         None,
     );
-    match agent.recv_action() {
+    match agent.recv_action(live) {
         PromptOutput::ChooseAttackers(ChooseAttackersOutput::DeclareAttackers { assignments }) => {
             assignments
                 .iter()
@@ -110,21 +110,20 @@ pub(super) fn choose_attackers<T: Responder>(
 
 pub(super) fn choose_blockers<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     player: PlayerId,
     attackers: &[CardId],
     available_blockers: &[CardId],
     _max_blockers: Option<usize>,
 ) -> Vec<(CardId, CardId)> {
-    let game = agent
-        .combat_game()
-        .expect("snapshot_state runs before the block declaration");
+    let game = live.game;
     let mut combat = CombatState::new();
     for &attacker in attackers {
         combat.declare_attacker(attacker, DefenderId::Player(player), 0);
     }
     let can_block = |blocker: CardId, attacker: CardId| {
-        combat::can_creature_block(&game, blocker, attacker)
-            && !combat_util::lure_forbids_block(&game, &combat, attacker, blocker)
+        combat::can_creature_block(game, blocker, attacker)
+            && !combat_util::lure_forbids_block(game, &combat, attacker, blocker)
     };
     let blockers: Vec<CardId> = available_blockers
         .iter()
@@ -139,7 +138,7 @@ pub(super) fn choose_blockers<T: Responder>(
         .iter()
         .map(|&attacker| {
             let (min, max) = static_ability_cant_attack_block::get_min_max_blocker(
-                &game,
+                game,
                 &game.cards,
                 game.card(attacker),
                 player,
@@ -160,7 +159,7 @@ pub(super) fn choose_blockers<T: Responder>(
     let block_requirements: Vec<BlockRequirementDto> = blockers
         .iter()
         .filter_map(|&blocker| {
-            let targets = combat_util::compute_must_block_targets(&game, &combat, blocker);
+            let targets = combat_util::compute_must_block_targets(game, &combat, blocker);
             (!targets.is_empty()).then(|| BlockRequirementDto {
                 blocker_id: card_id_str(blocker),
                 attacker_ids: PromptAgent::<T>::card_ids(&targets),
@@ -168,6 +167,7 @@ pub(super) fn choose_blockers<T: Responder>(
         })
         .collect();
     agent.send_prompt(
+        live,
         PromptInput::ChooseBlockers(ChooseBlockersInput {
             attackers: attacker_options,
             available_blocker_ids: PromptAgent::<T>::card_ids(&blockers),
@@ -176,7 +176,7 @@ pub(super) fn choose_blockers<T: Responder>(
         }),
         None,
     );
-    match agent.recv_action() {
+    match agent.recv_action(live) {
         PromptOutput::ChooseBlockers(ChooseBlockersOutput::DeclareBlockers { assignments }) => {
             assignments
                 .iter()
@@ -198,6 +198,7 @@ pub(super) fn choose_blockers<T: Responder>(
 
 pub(super) fn choose_damage_assignment_order<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     attacker: CardId,
     blockers: &[CardId],
@@ -206,6 +207,7 @@ pub(super) fn choose_damage_assignment_order<T: Responder>(
     let blocker_ids: Vec<String> = blockers.iter().map(|&b| card_id_str(b)).collect();
     let blocker_cards: Vec<CardDto> = Vec::new(); // Blocker info available from gameView
     agent.send_prompt(
+ live,
         PromptInput::ChooseDamageAssignmentOrder(manabrew_protocol::prompts::choose_damage_assignment_order::ChooseDamageAssignmentOrderInput {
             attacker_id,
             blocker_ids,
@@ -213,7 +215,7 @@ pub(super) fn choose_damage_assignment_order<T: Responder>(
         }),
         None,
     );
-    match agent.recv_action() {
+    match agent.recv_action(live) {
         PromptOutput::ChooseDamageAssignmentOrder(
             ChooseDamageAssignmentOrderOutput::DamageAssignmentOrderDecision {
                 ordered_blocker_ids,
@@ -235,6 +237,7 @@ pub(super) fn choose_damage_assignment_order<T: Responder>(
 
 pub(super) fn choose_combat_damage_assignment<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     attacker: CardId,
     blockers_in_order: &[CardId],
@@ -249,6 +252,7 @@ pub(super) fn choose_combat_damage_assignment<T: Responder>(
     let blocker_ids: Vec<String> = blockers_in_order.iter().map(|&b| card_id_str(b)).collect();
     let defender_id = defender.map(defender_id_str);
     agent.send_prompt(
+ live,
         PromptInput::ChooseCombatDamageAssignment(manabrew_protocol::prompts::choose_combat_damage_assignment::ChooseCombatDamageAssignmentInput {
             attacker_id,
             blocker_ids: blocker_ids.clone(),
@@ -259,7 +263,7 @@ pub(super) fn choose_combat_damage_assignment<T: Responder>(
         None,
     );
 
-    match agent.recv_action() {
+    match agent.recv_action(live) {
         PromptOutput::ChooseCombatDamageAssignment(
             ChooseCombatDamageAssignmentOutput::CombatDamageAssignmentDecision { assignments },
         ) => assignments
@@ -289,6 +293,7 @@ pub(super) fn choose_combat_damage_assignment<T: Responder>(
 
 pub(super) fn pay_combat_cost<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     attacker: CardId,
     cost: i32,
@@ -300,8 +305,9 @@ pub(super) fn pay_combat_cost<T: Responder>(
 ) -> CombatCostAction {
     let attacker_id = card_id_str(attacker);
     let attacker_name = agent
-        .latest_view()
-        .and_then(|v| v.all_zone_cards().find(|c| c.id == attacker_id))
+        .latest_view(live)
+        .all_zone_cards()
+        .find(|c| c.id == attacker_id)
         .map(|c| c.identity.name.clone())
         .unwrap_or_default();
     let mut actions = mana_payment_actions(mana_ability_options);
@@ -314,6 +320,7 @@ pub(super) fn pay_combat_cost<T: Responder>(
     }
 
     agent.send_prompt(
+        live,
         PromptInput::PayManaCost(
             manabrew_protocol::prompts::pay_mana_cost::PayManaCostInput {
                 presentation: PromptPresentation {
@@ -331,7 +338,7 @@ pub(super) fn pay_combat_cost<T: Responder>(
         ),
         Some(attacker),
     );
-    match agent.recv_action() {
+    match agent.recv_action(live) {
         PromptOutput::PayManaCost(PayManaCostOutput::Act { action_id }) => {
             parse_combat_cost_action(&action_id)
         }
@@ -362,11 +369,13 @@ fn parse_combat_cost_action(action_id: &str) -> CombatCostAction {
 
 pub(super) fn exert_attackers<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     attackers: &[CardId],
 ) -> Vec<CardId> {
     super::targeting::choose_board_targets_multi(
         agent,
+        live,
         attackers,
         TargetingIntent::Tap,
         "Exert",
@@ -376,11 +385,13 @@ pub(super) fn exert_attackers<T: Responder>(
 
 pub(super) fn enlist_attackers<T: Responder>(
     agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
     _player: PlayerId,
     attackers: &[CardId],
 ) -> Vec<CardId> {
     super::targeting::choose_board_targets_multi(
         agent,
+        live,
         attackers,
         TargetingIntent::Tap,
         "Enlist",

@@ -177,6 +177,7 @@ fn resolve_for_player(
         for &card_id in &top_n {
             notify_all_agents(
                 ctx.agents,
+                DecisionContext::new(ctx.game, ctx.mana_pools),
                 GameLogEvent::rule("Reveal Library cards")
                     .with_player(dig_player)
                     .with_card(card_id),

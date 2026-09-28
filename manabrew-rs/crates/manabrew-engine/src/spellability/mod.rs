@@ -601,7 +601,7 @@ impl SpellAbility {
         // Walk self, then sub_ability chain — mirrors Java's do/while
         if self.uses_targeting() {
             self.clear_targets();
-            self.targeting_player = choose_targeting_player(self, game, agents);
+            self.targeting_player = choose_targeting_player(self, game, agents, mana_pools);
             let player = self.targeting_player.unwrap_or(self.activating_player);
             if !agents[player.index()].choose_targets_for(self, game, mana_pools) {
                 return false;
@@ -625,7 +625,7 @@ impl SpellAbility {
             if sa.uses_targeting() {
                 sa.clear_targets();
                 sa.unique_targets = ancestor_targets.clone();
-                sa.targeting_player = choose_targeting_player(sa, game, agents);
+                sa.targeting_player = choose_targeting_player(sa, game, agents, mana_pools);
                 let player = sa.targeting_player.unwrap_or(sa.activating_player);
                 if !agents[player.index()].choose_targets_for(sa, game, mana_pools) {
                     return false;
@@ -2287,6 +2287,7 @@ fn choose_target_cards_for(
     max: usize,
     sa: &SpellAbility,
     game: &GameState,
+    mana_pools: &[ManaPool],
 ) -> Vec<CardId> {
     if !sa
         .target_restrictions
@@ -2294,7 +2295,7 @@ fn choose_target_cards_for(
         .is_some_and(TargetRestrictions::has_relational_restrictions)
     {
         return agent.choose_target_cards(
-            DecisionContext::new(game, &[]),
+            DecisionContext::new(game, mana_pools),
             player,
             valid,
             min,
@@ -2307,7 +2308,7 @@ fn choose_target_cards_for(
     let mut remaining = valid.to_vec();
     while chosen.len() < max && remaining.iter().any(|cid| !chosen.contains(cid)) {
         let Some(pick) = agent.choose_next_target_card(
-            DecisionContext::new(game, &[]),
+            DecisionContext::new(game, mana_pools),
             player,
             &remaining,
             &chosen,
@@ -2491,6 +2492,7 @@ pub fn choose_targets_by_kind(
                     max_targets as usize,
                     sa,
                     game,
+                    mana_pools,
                 );
                 if let Some(&first) = chosen.first() {
                     sa.target_chosen.target_card = Some(first);
@@ -2537,6 +2539,7 @@ pub fn choose_targets_by_kind(
                     max_targets as usize,
                     sa,
                     game,
+                    mana_pools,
                 );
                 if let Some(&first) = chosen.first() {
                     sa.target_chosen.target_card = Some(first);
@@ -2576,6 +2579,7 @@ pub fn choose_targets_by_kind(
                     max_targets as usize,
                     sa,
                     game,
+                    mana_pools,
                 );
                 if let Some(&first) = chosen.first() {
                     sa.target_chosen.target_card = Some(first);
@@ -2618,6 +2622,7 @@ pub fn choose_targets_by_kind(
                     max_targets as usize,
                     sa,
                     game,
+                    mana_pools,
                 );
                 if let Some(&first) = chosen.first() {
                     sa.target_chosen.target_card = Some(first);
@@ -2712,6 +2717,7 @@ fn choose_targeting_player(
     sa: &SpellAbility,
     game: &GameState,
     agents: &mut [Box<dyn PlayerAgent>],
+    mana_pools: &[ManaPool],
 ) -> Option<PlayerId> {
     if let Some(defined) = sa.ir.targeting_player_text.as_deref() {
         let candidates = crate::ability::ability_utils::resolve_defined_players_with_sa(
@@ -2724,7 +2730,7 @@ fn choose_targeting_player(
             return None;
         }
         return agents[sa.activating_player.index()].choose_target_player(
-            DecisionContext::new(game, &[]),
+            DecisionContext::new(game, mana_pools),
             sa.activating_player,
             &candidates,
             None,

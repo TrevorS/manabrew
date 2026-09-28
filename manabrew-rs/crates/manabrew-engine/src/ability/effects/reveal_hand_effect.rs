@@ -43,9 +43,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             names.join(", ")
         );
         for agent in ctx.agents.iter_mut() {
-            agent.notify(crate::agent::notification::GameNotification::Event(
-                GameLogEvent::rule(msg.clone()).with_player(target),
-            ));
+            agent.notify(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                crate::agent::notification::GameNotification::Event(
+                    GameLogEvent::rule(msg.clone()).with_player(target),
+                ),
+            );
         }
 
         // Mirrors `host.getGame().getAction().reveal(hand, p)` in
