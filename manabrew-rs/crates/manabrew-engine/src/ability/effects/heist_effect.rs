@@ -37,6 +37,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if let Some(sid) = sa.source {
             ctx.game.card_mut(top).set_exiled_by(Some(sid));
         }
+        ctx.game
+            .card_mut(top)
+            .add_may_look_face_down_exile(controller);
 
         emit_zone_trigger(ctx.trigger_handler, top, old_zone, ZoneType::Exile);
     }

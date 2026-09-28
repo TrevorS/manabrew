@@ -365,6 +365,11 @@ fn resolve_for_player(
         if sa.is_exile_face_down() {
             ctx.game.card_mut(id).set_face_down(true);
         }
+        if sa.ir.with_may_look {
+            ctx.game
+                .card_mut(id)
+                .add_may_look_face_down_exile(sa.activating_player);
+        }
         if sa.param_is_true(keys::IMPRINT) {
             if let Some(source_id) = sa.source {
                 ctx.game.card_mut(source_id).add_imprinted_card(id);

@@ -98,6 +98,10 @@ enum EffectKind {
         text: String,
         svars: BTreeMap<String, String>,
     },
+    MayLookAt {
+        static_id: i64,
+        players: Vec<PlayerId>,
+    },
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
@@ -239,6 +243,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         }
         card.static_added_subtypes.clear();
         card.cant_block_static = false;
+        card.may_look.retain(|&(timestamp, _)| timestamp >= 0);
     }
     for player in game.players.iter_mut() {
         player.max_land_plays_per_turn = 1;
@@ -887,6 +892,46 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                             });
                         }
                     }
+
+                    if let Some(look) = sa.ir.may_look_at.as_deref() {
+                        let players = if look == "True" {
+                            let may_play = sa.ir.may_play
+                                && sa.ir.may_play_limit.is_none_or(|limit| {
+                                    crate::staticability::static_ability_continuous::may_play_turn(
+                                        sa,
+                                        source_card,
+                                        game,
+                                    ) < limit
+                                });
+                            if may_play {
+                                vec![
+                                    crate::staticability::static_ability_continuous::may_play_player(
+                                        sa,
+                                        source_card,
+                                        game.card(target),
+                                        game,
+                                    ),
+                                ]
+                            } else {
+                                Vec::new()
+                            }
+                        } else {
+                            crate::ability::ability_utils::get_defined_players(
+                                game,
+                                Some(source_id),
+                                look,
+                                Some(source_card.controller),
+                            )
+                        };
+                        pending.push(PendingEffect {
+                            layer: Layer::Rules,
+                            target,
+                            kind: EffectKind::MayLookAt {
+                                static_id: static_layer_trait_id(source_id, sa_idx),
+                                players,
+                            },
+                        });
+                    }
                 }
 
                 if sa.check_mode(&StaticMode::CantBlock) {
@@ -1126,6 +1171,7 @@ fn static_layer_reset_is_noop(card: &crate::card::Card, card_names_unchanged: bo
         && card.static_type_line_base.is_none()
         && card.static_added_subtypes.is_empty()
         && !card.cant_block_static
+        && card.may_look.iter().all(|&(timestamp, _)| timestamp >= 0)
 }
 
 fn is_staged_before(seq: usize, effect: &PendingEffect, before: Option<(Layer, usize)>) -> bool {
@@ -1371,6 +1417,10 @@ fn apply_pending_effects(
                         .or_default()
                         .push(re);
                 }
+            }
+            EffectKind::MayLookAt { static_id, players } => {
+                game.card_mut(effect.target)
+                    .add_may_look_at(static_id, players);
             }
         }
     }

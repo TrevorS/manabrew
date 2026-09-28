@@ -780,8 +780,8 @@ pub struct Card {
     pub targeted_from_this_turn: Vec<PlayerId>,
     /// Temporary controllers layered on this card.
     pub temp_controllers: Vec<(i64, PlayerId)>,
-    /// Players that may look at this card.
-    pub may_look_at: Vec<PlayerId>,
+    pub may_look: Vec<(i64, Vec<PlayerId>)>,
+    pub may_look_face_down_exile: Vec<PlayerId>,
     /// Players that may play this card.
     pub may_play: Vec<PlayerId>,
     /// Additional blockers this creature can declare.
@@ -1089,7 +1089,8 @@ impl Card {
             chosen_modes: None,
             targeted_from_this_turn: Vec::new(),
             temp_controllers: Vec::new(),
-            may_look_at: Vec::new(),
+            may_look: Vec::new(),
+            may_look_face_down_exile: Vec::new(),
             may_play: Vec::new(),
             can_block_additional: 0,
             can_block_any: false,
@@ -1336,7 +1337,8 @@ impl Card {
             chosen_modes: self.chosen_modes.clone(),
             targeted_from_this_turn: self.targeted_from_this_turn.clone(),
             temp_controllers: self.temp_controllers.clone(),
-            may_look_at: self.may_look_at.clone(),
+            may_look: self.may_look.clone(),
+            may_look_face_down_exile: self.may_look_face_down_exile.clone(),
             may_play: self.may_play.clone(),
             can_block_additional: self.can_block_additional,
             can_block_any: self.can_block_any,
@@ -1638,7 +1640,11 @@ impl Card {
             &self.targeted_from_this_turn,
         );
         refresh_field(&mut out.temp_controllers, &self.temp_controllers);
-        refresh_field(&mut out.may_look_at, &self.may_look_at);
+        refresh_field(&mut out.may_look, &self.may_look);
+        refresh_field(
+            &mut out.may_look_face_down_exile,
+            &self.may_look_face_down_exile,
+        );
         refresh_field(&mut out.may_play, &self.may_play);
         out.can_block_additional
             .clone_from(&self.can_block_additional);
@@ -4042,36 +4048,31 @@ impl Card {
     }
 
     pub fn may_player_look(&self, player: PlayerId) -> bool {
-        self.may_look_at.contains(&player)
+        self.may_look_face_down_exile.contains(&player)
+            || self
+                .may_look
+                .iter()
+                .any(|(_, players)| players.contains(&player))
     }
 
     pub fn add_may_look_face_down_exile(&mut self, player: PlayerId) {
-        if !self.may_look_at.contains(&player) {
-            self.may_look_at.push(player);
+        if !self.may_look_face_down_exile.contains(&player) {
+            self.may_look_face_down_exile.push(player);
         }
     }
 
-    pub fn add_may_look_at(&mut self, player: PlayerId) {
-        if !self.may_look_at.contains(&player) {
-            self.may_look_at.push(player);
+    pub fn add_may_look_at(&mut self, timestamp: i64, players: Vec<PlayerId>) {
+        if self.face_down && self.zone == ZoneType::Exile {
+            for &player in &players {
+                self.add_may_look_face_down_exile(player);
+            }
         }
+        self.remove_may_look_at(timestamp);
+        self.may_look.push((timestamp, players));
     }
 
-    pub fn remove_may_look_at(&mut self, player: PlayerId) {
-        self.may_look_at.retain(|&p| p != player);
-    }
-
-    pub fn add_may_look_temp(&mut self, player: PlayerId) {
-        self.add_may_look_at(player);
-    }
-
-    pub fn remove_may_look_temp(&mut self, player: PlayerId) {
-        self.remove_may_look_at(player);
-    }
-
-    pub fn update_may_look(&mut self) {
-        let mut seen = HashSet::default();
-        self.may_look_at.retain(|p| seen.insert(*p));
+    pub fn remove_may_look_at(&mut self, timestamp: i64) {
+        self.may_look.retain(|&(ts, _)| ts != timestamp);
     }
     pub fn update_may_play(&mut self) {
         let mut seen = HashSet::default();

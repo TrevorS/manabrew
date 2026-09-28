@@ -729,6 +729,8 @@ impl GameState {
             card.reset_ability_resolved_this_turn();
             card.number_game_activations.clear();
             card.activations_this_game.clear();
+            card.may_look.clear();
+            card.may_look_face_down_exile.clear();
         }
         if src_zone == ZoneType::Exile && dest_zone != ZoneType::Exile {
             self.card_mut(card_id)

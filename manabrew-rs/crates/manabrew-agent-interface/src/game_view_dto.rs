@@ -439,9 +439,6 @@ pub fn can_face_down_be_shown_to(card: &Card, viewer: PlayerId) -> bool {
     match card.zone {
         _ if !card.face_down || card.may_player_look(viewer) => true,
         ZoneType::Battlefield | ZoneType::Stack | ZoneType::Sideboard => card.controller == viewer,
-        // The engine does not record Forge's mayLookFaceDownExile grant; the owner stands
-        // in for the player who exiled the card.
-        ZoneType::Exile => card.owner == viewer,
         _ => false,
     }
 }

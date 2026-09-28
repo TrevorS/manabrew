@@ -829,6 +829,7 @@ impl GameLoop {
                     }
                     self.move_card_with_runtime(game, card_id, ZoneType::Exile, player, agents);
                     game.card_mut(card_id).set_face_down(true);
+                    game.card_mut(card_id).add_may_look_face_down_exile(player);
                     self.trigger_handler.run_trigger(
                         TriggerType::Foretell,
                         RunParams {

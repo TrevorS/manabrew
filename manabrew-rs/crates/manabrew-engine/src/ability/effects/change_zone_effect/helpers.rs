@@ -594,6 +594,11 @@ pub(super) fn apply_post_move(
                 ctx.game.card_mut(card_id).set_foretold_cost_by_effect(true);
             }
         }
+        if sa.ir.with_may_look || sa.ir.foretold {
+            ctx.game
+                .card_mut(card_id)
+                .add_may_look_face_down_exile(sa.activating_player);
+        }
 
         // Warp keyword
         let is_warp = sa.ir.warp
