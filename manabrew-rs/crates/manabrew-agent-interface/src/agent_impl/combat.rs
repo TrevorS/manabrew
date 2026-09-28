@@ -8,7 +8,7 @@ use manabrew_protocol::prompts::choose_blockers::{
     BlockRequirementDto, BlockableAttackerDto, ChooseBlockersInput,
 };
 
-use crate::game_view_dto::{CardDto, GameViewDtoExt, TargetingIntent};
+use crate::game_view_dto::{CardDto, TargetingIntent};
 use crate::ids_codec::{card_id_str, parse_card_id, player_id_str};
 use crate::mana_action_id::parse_tap_action_id;
 use crate::prompt::*;
@@ -305,10 +305,8 @@ pub(super) fn pay_combat_cost<T: Responder>(
 ) -> CombatCostAction {
     let attacker_id = card_id_str(attacker);
     let attacker_name = agent
-        .latest_view(live)
-        .all_zone_cards()
-        .find(|c| c.id == attacker_id)
-        .map(|c| c.identity.name.clone())
+        .shown_card(live, attacker)
+        .map(|card| card.identity.name)
         .unwrap_or_default();
     let mut actions = mana_payment_actions(mana_ability_options);
     for &land in untappable_lands {

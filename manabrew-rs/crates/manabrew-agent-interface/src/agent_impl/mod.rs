@@ -19,7 +19,8 @@ use manabrew_engine::player::actions::PlayerAction as EnginePlayerAction;
 use crate::game_log_event::GameLogEntryDto;
 use crate::game_snapshot_event::GameSnapshotEventDto;
 use crate::game_view_dto::{
-    card_to_dto_for_viewer, shows_command_cards, CardDto, GameViewDto, GameViewDtoExt,
+    card_to_dto_for_viewer, shows_command_cards, shows_in_zones, stack_source_ability_text,
+    CardDto, GameViewDto, GameViewDtoExt,
 };
 use crate::ids_codec::{card_id_str, parse_card_id, parse_player_id, player_id_str};
 use crate::mana_action_id::{mana_ability_actions, parse_tap_action_id};
@@ -100,8 +101,16 @@ pub trait Responder {
     fn send_log(&mut self, _entry: GameLogEntryDto) {}
     fn send_snapshot(&mut self, _snapshot: GameSnapshotEventDto) {}
     fn observe_state(&mut self, _game: &GameState, _mana_pools: &[ManaPool]) {}
-    fn present_game(&mut self, _context: DecisionContext<'_>, _viewer: PlayerId) -> bool {
+    fn reads_game(&self) -> bool {
         false
+    }
+    fn respond_to_game(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _viewer: PlayerId,
+        prompt: AgentPrompt,
+    ) -> ClientToServerMessage {
+        self.respond(prompt)
     }
     fn notify(&mut self, _context: DecisionContext<'_>, _event: &GameNotification) {}
     fn observe_reveal(
@@ -203,15 +212,17 @@ impl<R: Responder> PromptAgent<R> {
     ) -> AgentPrompt {
         self.next_prompt_id += 1;
         let source_card = source.and_then(|card_id| self.source_card(live, card_id));
-        let source_ability_text = source_card.as_ref().and_then(|card| {
-            self.latest_view(live)
-                .stack
-                .iter()
-                .rev()
-                .find(|entry| entry.source_id == card.id)?
-                .source_ability_text
-                .clone()
-        });
+        let source_ability_text = source
+            .filter(|_| source_card.is_some())
+            .and_then(|card_id| {
+                let entry = live
+                    .game
+                    .stack
+                    .iter()
+                    .filter(|entry| entry.spell_ability.source == Some(card_id))
+                    .last()?;
+                stack_source_ability_text(live.game, &entry.spell_ability, self.player_id)
+            });
         AgentPrompt {
             prompt_id: self.next_prompt_id,
             deciding_player_id: player_id_str(self.player_id),
@@ -244,7 +255,12 @@ impl<R: Responder> PromptAgent<R> {
         }
         self.present_owed_view(live);
         loop {
-            match self.responder.respond(prompt.clone()) {
+            let context =
+                DecisionContext::new(live.game, live.mana_pools.unwrap_or(&self.mana_pools));
+            match self
+                .responder
+                .respond_to_game(context, self.player_id, prompt.clone())
+            {
                 ClientToServerMessage::Response { prompt_id: 0, .. } => {
                     return Self::default_pass();
                 }
@@ -346,23 +362,15 @@ impl<R: Responder> PromptAgent<R> {
     fn present_owed_view(&mut self, live: &Live<'_>) {
         let view = match std::mem::take(&mut self.owed_view) {
             OwedView::None => return,
-            OwedView::Latest => {
-                let mana_pools = live.mana_pools.unwrap_or(&self.mana_pools);
-                if self
-                    .responder
-                    .present_game(DecisionContext::new(live.game, mana_pools), self.player_id)
-                {
-                    return;
-                }
-                self.latest_view(live).clone()
-            }
+            OwedView::Latest if self.responder.reads_game() => return,
+            OwedView::Latest => self.latest_view(live).clone(),
             OwedView::Held(view) => view,
         };
         self.responder.present_state(&view);
     }
 
     pub(crate) fn hold_owed_view(&mut self, live: &Live<'_>) {
-        if matches!(self.owed_view, OwedView::Latest) {
+        if !self.responder.reads_game() && matches!(self.owed_view, OwedView::Latest) {
             self.owed_view = OwedView::Held(self.latest_view(live).clone());
         }
     }
@@ -390,8 +398,20 @@ impl<R: Responder> PromptAgent<R> {
         Some(card_to_dto_for_viewer(game, card_id, Some(self.player_id)))
     }
 
-    pub(crate) fn view(&self, live: &Live<'_>) -> GameViewDto {
-        GameViewDto::clone(self.latest_view(live))
+    pub(crate) fn shown_card(&self, live: &Live<'_>, card_id: CardId) -> Option<CardDto> {
+        live.game
+            .cards
+            .get(card_id.index())
+            .filter(|card| card.id == card_id)?;
+        shows_in_zones(live.game, card_id, self.player_id)
+            .then(|| card_to_dto_for_viewer(live.game, card_id, Some(self.player_id)))
+    }
+
+    pub(crate) fn player_name(&self, live: &Live<'_>, player_id: PlayerId) -> Option<String> {
+        live.game
+            .player_order
+            .contains(&player_id)
+            .then(|| live.game.player(player_id).name.clone())
     }
 
     pub(crate) fn card_ids(cards: &[CardId]) -> Vec<String> {
@@ -814,7 +834,11 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
             .take()
             .expect("choose_action called without a pending prompt");
         self.present_owed_view(&live);
-        let action = match self.responder.respond(prompt) {
+        let context = DecisionContext::new(live.game, live.mana_pools.unwrap_or(&self.mana_pools));
+        let action = match self
+            .responder
+            .respond_to_game(context, self.player_id, prompt)
+        {
             ClientToServerMessage::Response { action, .. } => action,
             ClientToServerMessage::Directive {
                 directive: DirectiveInput::Concede,
@@ -1818,11 +1842,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
             } => {
                 let player_id = player_id_str(active_player);
                 let active_player_name = self
-                    .latest_view(&live)
-                    .players
-                    .iter()
-                    .find(|p| p.id == player_id)
-                    .map(|p| p.name.clone())
+                    .player_name(&live, active_player)
                     .unwrap_or_else(|| format!("Player {}", active_player.0));
                 self.responder.send_log(GameLogEntryDto::from_event(
                     manabrew_engine::agent::GameLogEvent::rule(format!(
@@ -1848,19 +1868,13 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
                 rounds,
                 winner,
             } => {
-                let view = self.view(&live);
                 let winner_id = player_id_str(winner);
                 let mut entries = Vec::new();
                 let last_round = rounds.len().saturating_sub(1);
                 for (round_index, round) in rounds.into_iter().enumerate() {
                     for (pid, value) in round {
                         let id = player_id_str(pid);
-                        let name = view
-                            .players
-                            .iter()
-                            .find(|p| p.id == id)
-                            .map(|p| p.name.clone())
-                            .unwrap_or_else(|| id.clone());
+                        let name = self.player_name(&live, pid).unwrap_or_else(|| id.clone());
                         entries.push(manabrew_protocol::prompts::dice_rolled::DiceRollEntry {
                             label: Some(name),
                             highlighted: round_index == last_round && id == winner_id,
@@ -1926,9 +1940,14 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
                 checkpoint_id,
                 label,
             } => {
-                let view = self.view(&live);
-                self.responder
-                    .send_snapshot(GameSnapshotEventDto::new(checkpoint_id, label, view));
+                if !self.responder.reads_game() {
+                    let view = GameViewDto::clone(self.latest_view(&live));
+                    self.responder.send_snapshot(GameSnapshotEventDto::new(
+                        checkpoint_id,
+                        label,
+                        view,
+                    ));
+                }
             }
             GameNotification::GameOver => {
                 self.emit_state(&live);

@@ -6,8 +6,7 @@ use manabrew_engine::spellability::SpellAbility;
 use manabrew_engine::game::GameState;
 
 use crate::game_view_dto::{
-    card_to_dto, target_ref_card, target_ref_player, zone_kind_of, CardDto, GameViewDtoExt,
-    TargetingIntent,
+    card_to_dto, target_ref_card, target_ref_player, zone_kind_of, CardDto, TargetingIntent,
 };
 use crate::ids_codec::{card_id_str, parse_card_id};
 use crate::prompt::*;
@@ -28,18 +27,9 @@ fn zone_cards_for<T: Responder>(
     live: &Live<'_>,
     valid: &[CardId],
 ) -> Vec<CardDto> {
-    let view = agent.view(live);
-    let all_cards: Vec<&CardDto> = view.all_zone_cards().collect();
     valid
         .iter()
-        .filter_map(|&cid| {
-            let id = card_id_str(cid);
-            all_cards
-                .iter()
-                .find(|c| c.id == id)
-                .map(|c| (*c).clone())
-                .or_else(|| agent.source_card(live, cid))
-        })
+        .filter_map(|&cid| agent.source_card(live, cid))
         .collect()
 }
 
@@ -87,13 +77,10 @@ fn recv_selection<T: Responder>(agent: &mut PromptAgent<T>, live: &Live<'_>) -> 
 }
 
 fn card_name<T: Responder>(agent: &PromptAgent<T>, live: &Live<'_>, card_id: CardId) -> String {
-    let id = crate::ids_codec::card_id_str(card_id);
     agent
-        .latest_view(live)
-        .all_zone_cards()
-        .find(|card| card.id == id)
-        .map(|card| card.identity.name.clone())
-        .unwrap_or(id)
+        .shown_card(live, card_id)
+        .map(|card| card.identity.name)
+        .unwrap_or_else(|| crate::ids_codec::card_id_str(card_id))
 }
 
 fn player_name<T: Responder>(
@@ -101,14 +88,9 @@ fn player_name<T: Responder>(
     live: &Live<'_>,
     player_id: PlayerId,
 ) -> String {
-    let id = crate::ids_codec::player_id_str(player_id);
     agent
-        .latest_view(live)
-        .players
-        .iter()
-        .find(|player| player.id == id)
-        .map(|player| player.name.clone())
-        .unwrap_or(id)
+        .player_name(live, player_id)
+        .unwrap_or_else(|| crate::ids_codec::player_id_str(player_id))
 }
 
 fn entity_label<T: Responder>(
@@ -216,14 +198,10 @@ pub(super) fn choose_cards_to_bottom_send<T: Responder>(
     hand: &[CardId],
     count: usize,
 ) {
-    let view = agent.view(live);
     let hand_card_ids = PromptAgent::<T>::card_ids(hand);
     let cards: Vec<CardDto> = hand
         .iter()
-        .filter_map(|&cid| {
-            let id_str = crate::ids_codec::card_id_str(cid);
-            view.all_zone_cards().find(|c| c.id == id_str).cloned()
-        })
+        .filter_map(|&cid| agent.shown_card(live, cid))
         .collect();
     agent.send_prompt(
         live,
@@ -1116,17 +1094,11 @@ pub(super) fn choose_single_card_for_zone_change<T: Responder>(
     select_prompt: &str,
     is_optional: bool,
 ) -> Option<CardId> {
-    let view = agent.view(live);
-
-    let all_cards: Vec<&CardDto> = view.all_zone_cards().collect();
     let mut zone_cards: Vec<CardDto> = valid
         .iter()
         .map(|&cid| {
-            let id = crate::ids_codec::card_id_str(cid);
-            all_cards
-                .iter()
-                .find(|c| c.id == id)
-                .map(|c| (*c).clone())
+            agent
+                .shown_card(live, cid)
                 .unwrap_or_else(|| card_to_dto(game, cid))
         })
         .collect();
@@ -1172,17 +1144,11 @@ pub(super) fn choose_cards_for_zone_change<T: Responder>(
     if valid.is_empty() {
         return Vec::new();
     }
-    let view = agent.view(live);
-
-    let all_cards: Vec<&CardDto> = view.all_zone_cards().collect();
     let mut zone_cards: Vec<CardDto> = valid
         .iter()
         .map(|&cid| {
-            let id = crate::ids_codec::card_id_str(cid);
-            all_cards
-                .iter()
-                .find(|c| c.id == id)
-                .map(|c| (*c).clone())
+            agent
+                .shown_card(live, cid)
                 .unwrap_or_else(|| card_to_dto(game, cid))
         })
         .collect();

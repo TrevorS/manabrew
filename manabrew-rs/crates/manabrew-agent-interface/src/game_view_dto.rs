@@ -170,7 +170,7 @@ fn collect_stack_targets(root: &SpellAbility) -> Vec<TargetRef> {
     out
 }
 
-fn stack_source_ability_text(
+pub fn stack_source_ability_text(
     game: &GameState,
     sa: &SpellAbility,
     viewer: PlayerId,
@@ -339,7 +339,7 @@ fn card_choices(game: &GameState, card: &Card, viewer: Option<PlayerId>) -> Vec<
     choices
 }
 
-fn phase_to_step(phase: forge_foundation::PhaseType) -> StepKind {
+pub fn phase_to_step(phase: forge_foundation::PhaseType) -> StepKind {
     use forge_foundation::PhaseType::*;
     match phase {
         Untap => StepKind::Untap,
@@ -358,7 +358,7 @@ fn phase_to_step(phase: forge_foundation::PhaseType) -> StepKind {
     }
 }
 
-pub(crate) fn step_to_phase(step: StepKind) -> forge_foundation::PhaseType {
+pub fn step_to_phase(step: StepKind) -> forge_foundation::PhaseType {
     use forge_foundation::PhaseType::*;
     match step {
         StepKind::Untap => Untap,
@@ -425,7 +425,7 @@ fn day_time_of(game: &GameState) -> DayTime {
     }
 }
 
-fn can_be_shown_to(game: &GameState, cid: CardId, viewer: PlayerId) -> bool {
+pub fn can_be_shown_to(game: &GameState, cid: CardId, viewer: PlayerId) -> bool {
     let card = game.card(cid);
     match card.zone {
         ZoneType::Hand if card.controller == viewer => true,
@@ -435,7 +435,7 @@ fn can_be_shown_to(game: &GameState, cid: CardId, viewer: PlayerId) -> bool {
     }
 }
 
-fn can_face_down_be_shown_to(card: &Card, viewer: PlayerId) -> bool {
+pub fn can_face_down_be_shown_to(card: &Card, viewer: PlayerId) -> bool {
     match card.zone {
         _ if !card.face_down || card.may_player_look(viewer) => true,
         ZoneType::Battlefield | ZoneType::Stack | ZoneType::Sideboard => card.controller == viewer,
@@ -460,7 +460,7 @@ fn card_identity(card: &Card) -> CardIdentity {
     }
 }
 
-pub(crate) fn shows_command_cards(game: &GameState) -> bool {
+pub fn shows_command_cards(game: &GameState) -> bool {
     game.player_order.iter().any(|&pid| {
         game.cards_in_zone(ZoneType::Command, pid)
             .iter()
@@ -468,7 +468,18 @@ pub(crate) fn shows_command_cards(game: &GameState) -> bool {
     })
 }
 
-fn should_show_command_zone_card(game: &GameState, cid: CardId) -> bool {
+pub fn shows_in_zones(game: &GameState, cid: CardId, viewer: PlayerId) -> bool {
+    match game.card(cid).zone {
+        ZoneType::Hand | ZoneType::Graveyard | ZoneType::Exile => {
+            can_be_shown_to(game, cid, viewer)
+        }
+        ZoneType::Command => should_show_command_zone_card(game, cid),
+        ZoneType::Battlefield => true,
+        _ => false,
+    }
+}
+
+pub fn should_show_command_zone_card(game: &GameState, cid: CardId) -> bool {
     let card = game.card(cid);
     !(card.type_line.core_types.is_empty()
         && card
@@ -616,15 +627,31 @@ fn visible_saga_chapters(card: &Card) -> Vec<SagaChapterDto> {
     chapters
 }
 
+pub fn card_text(card: &Card) -> String {
+    if card.oracle_text.is_empty() {
+        card.abilities
+            .iter()
+            .filter_map(|a| {
+                for part in a.split('|') {
+                    let part = part.trim();
+                    if let Some(desc) = part.strip_prefix("SpellDescription$ ") {
+                        return Some(desc.to_string());
+                    }
+                }
+                None
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    } else {
+        card.oracle_text.clone()
+    }
+}
+
 pub fn card_to_dto(game: &GameState, cid: CardId) -> CardDto {
     card_to_dto_for_viewer(game, cid, None)
 }
 
-pub(crate) fn card_to_dto_for_viewer(
-    game: &GameState,
-    cid: CardId,
-    viewer: Option<PlayerId>,
-) -> CardDto {
+pub fn card_to_dto_for_viewer(game: &GameState, cid: CardId, viewer: Option<PlayerId>) -> CardDto {
     let card = game.card(cid);
     let face_shown = viewer.is_none_or(|viewer| can_face_down_be_shown_to(card, viewer));
     let types: Vec<String> = card
@@ -654,23 +681,7 @@ pub(crate) fn card_to_dto_for_viewer(
         .map(|(k, &v)| (format!("{k:?}"), v as u32))
         .collect();
 
-    let text = if card.oracle_text.is_empty() {
-        card.abilities
-            .iter()
-            .filter_map(|a| {
-                for part in a.split('|') {
-                    let part = part.trim();
-                    if let Some(desc) = part.strip_prefix("SpellDescription$ ") {
-                        return Some(desc.to_string());
-                    }
-                }
-                None
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
-    } else {
-        card.oracle_text.clone()
-    };
+    let text = card_text(card);
     let class_levels = visible_class_levels(card);
     let saga_chapters = visible_saga_chapters(card);
 
@@ -863,7 +874,7 @@ impl GameViewDtoExt for GameViewDto {
             let cards: Vec<CardView> = ids
                 .iter()
                 .filter_map(|&cid| {
-                    if can_be_shown_to(game, cid, human_player) {
+                    if shows_in_zones(game, cid, human_player) {
                         Some(CardView::Visible(card_to_dto_for_viewer(
                             game,
                             cid,
@@ -937,7 +948,7 @@ impl GameViewDtoExt for GameViewDto {
             let command_cards: Vec<CardView> = command_zone
                 .iter()
                 .copied()
-                .filter(|&cid| should_show_command_zone_card(game, cid))
+                .filter(|&cid| shows_in_zones(game, cid, human_player))
                 .map(|cid| CardView::Visible(card_to_dto_for_viewer(game, cid, Some(human_player))))
                 .collect();
             zones.push(ZoneDto {
