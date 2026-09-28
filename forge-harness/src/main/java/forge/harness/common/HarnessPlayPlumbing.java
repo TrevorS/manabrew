@@ -116,7 +116,7 @@ public final class HarnessPlayPlumbing {
         final CostPayment pay = new CostPayment(cost, sa);
 
         if (!sa.checkRestrictions(ai)) {
-            GameActionUtil.rollbackAbility(sa, fromZone, zonePosition, pay, source);
+            GameActionUtil.rollbackAbility(sa, sa.isSpell() ? fromZone : null, zonePosition, pay, source);
             return false;
         }
 
@@ -226,8 +226,8 @@ public final class HarnessPlayPlumbing {
         System.out.println("[" + sa.getActivatingPlayer() + "] AI failed to play "
                 + sa.getHostCard() + " [" + sa.getHostCard().getZone() + "]");
         sa.setSkip(true);
+        GameActionUtil.rollbackAbility(sa, sa.isSpell() ? hz : null, zonePosition, pay, host);
         if (host != null && hz != null) {
-            GameActionUtil.rollbackAbility(sa, sa.isSpell() ? hz : null, zonePosition, pay, host);
             final Card rolledBackHost = sa.getHostCard();
             if (rolledBackHost != null) {
                 hooks.markFailedPaymentCard(rolledBackHost);

@@ -70,6 +70,7 @@ fn extra_phase_delayed_trigger(ctx: &EffectContext, sa: &SpellAbility) -> Option
         execute_svar,
         controller: sa.activating_player,
         source_card: host,
+        source_zone_timestamp: None,
         created_turn: ctx.game.turn.turn_number,
         created_phase: ctx.game.turn.phase,
         target_card: None,

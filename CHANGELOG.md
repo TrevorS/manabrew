@@ -1,5 +1,33 @@
 # Changelog
 
+## [3.51.0](https://github.com/witchesofthehill/manabrew/compare/v3.50.2...v3.51.0) (2026-09-28)
+
+### Features
+
+* **forge-wasm:** report the engine gate and retry timed-out trials ([#989](https://github.com/witchesofthehill/manabrew/issues/989)) ([8f1d454](https://github.com/witchesofthehill/manabrew/commit/8f1d4547f5bc7c10d862f0fe6083fbec66c23c03))
+
+### Fixes
+
+* protect hub deploys and correct engine health reporting ([#988](https://github.com/witchesofthehill/manabrew/issues/988)) ([d48d4eb](https://github.com/witchesofthehill/manabrew/commit/d48d4eba55635b5e4b3c65eb3bd03ae7b9ae7c25))
+
+## [3.50.2](https://github.com/witchesofthehill/manabrew/compare/v3.50.1...v3.50.2) (2026-09-27)
+
+### Fixes
+
+* repair post-battlefield gameplay regressions ([#994](https://github.com/witchesofthehill/manabrew/issues/994)) ([68c3b87](https://github.com/witchesofthehill/manabrew/commit/68c3b8741a8b61fcc5bc91a387c5c4026c97dfed))
+
+## [3.50.1](https://github.com/witchesofthehill/manabrew/compare/v3.50.0...v3.50.1) (2026-09-26)
+
+### Fixes
+
+* **forge:** restore submodule pin rolled back in #948 ([#993](https://github.com/witchesofthehill/manabrew/issues/993)) ([48076b4](https://github.com/witchesofthehill/manabrew/commit/48076b40682e08663d19dcd7e94c732be62b34de))
+
+## [3.50.0](https://github.com/witchesofthehill/manabrew/compare/v3.49.6...v3.50.0) (2026-09-26)
+
+### Features
+
+* **ui:** add set study tools for draft preparation ([#983](https://github.com/witchesofthehill/manabrew/issues/983)) ([0f2e788](https://github.com/witchesofthehill/manabrew/commit/0f2e788b191d87c25c2dd1e30d3ccf68b60bc6c1))
+
 ## [3.49.6](https://github.com/witchesofthehill/manabrew/compare/v3.49.5...v3.49.6) (2026-09-24)
 
 ### Fixes

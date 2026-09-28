@@ -40,6 +40,7 @@ pub struct DelayedTrigger {
     pub execute_svar: String,
     pub controller: PlayerId,
     pub source_card: CardId,
+    pub source_zone_timestamp: Option<u64>,
     /// Turn number when this delayed trigger was registered.
     pub created_turn: u32,
     /// Phase during which this delayed trigger was registered.
@@ -91,6 +92,17 @@ impl DelayedTrigger {
             None if self.mode == TriggerType::Phase => 0,
             None => game.card(self.source_card).zone_timestamp,
         }
+    }
+
+    fn matches_source_identity(&self, game: &GameState) -> bool {
+        self.source_zone_timestamp.is_none_or(|timestamp| {
+            game.card(self.source_card).zone_timestamp == timestamp
+                || !["IsPresent", "IsPresent2"].iter().any(|key| {
+                    self.params
+                        .get(key)
+                        .is_some_and(|filter| filter.contains("StrictlySelf"))
+                })
+        })
     }
 
     /// Build a temporary `Trigger` wrapper for calling `TriggerBehavior` trait methods
@@ -904,6 +916,12 @@ impl TriggerHandler {
                         continue;
                     }
                 }
+                if !delayed.matches_source_identity(game) {
+                    continue;
+                }
+                if !tmp_trigger.phases_check(game, delayed.source_card, event_payload.phase) {
+                    continue;
+                }
                 let mut sa = build_spell_ability(
                     game,
                     delayed.source_card,
@@ -1112,6 +1130,13 @@ impl TriggerHandler {
         let mut fired_indices = Vec::new();
         for (idx, delayed) in self.delayed_triggers.iter().enumerate() {
             if delayed.mode != TriggerType::Immediate {
+                continue;
+            }
+            if !delayed.matches_source_identity(game) {
+                continue;
+            }
+            let trigger = delayed.as_trigger(game);
+            if !trigger.requirements_check(game, delayed.source_card) {
                 continue;
             }
             let svar_text = match delayed.spawning_ability.as_ref() {

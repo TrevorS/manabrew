@@ -559,7 +559,8 @@ fn resolve_defined_cards_for_sa_ref_inner(
                 cards
             }
         }
-        DefinedRef::TriggeredNewCard | DefinedRef::TriggeredNewCardLkiCopy => {
+        DefinedRef::TriggeredNewCardLkiCopy => sa.get_triggering_cards(AbilityKey::NewCard),
+        DefinedRef::TriggeredNewCard => {
             let cards = sa.get_triggering_cards(AbilityKey::NewCard);
             if cards.is_empty() {
                 sa.trigger_source.into_iter().collect()
@@ -1179,6 +1180,7 @@ pub fn register_at_eot(
         execute_svar,
         controller: sa.activating_player,
         source_card,
+        source_zone_timestamp: None,
         created_turn: game.turn.turn_number,
         created_phase: game.turn.phase,
         target_card: None,

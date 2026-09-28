@@ -53,6 +53,7 @@ src-tauri/target/
 **/.env
 **/.env.*
 !**/.env.example
+.envrc.local
 
 public/status.json
 
@@ -117,6 +118,8 @@ ops/hub-data/
 # build (tauri.conf.json resources map); scaffolding stays tracked, assets not.
 src-tauri/gen/android/app/src/main/assets/
 src-tauri/gen/apple/assets/
+# Tauri ACL schemas — rewritten by tauri-build on every build, per host platform.
+src-tauri/gen/schemas/
 
 
 # Early-deploy manifest hold marker (deploy.sh, prod host only)
