@@ -838,16 +838,33 @@ pub fn add_until_command(
         Some(crate::spellability::AbilityDuration::UntilYourNextEndStep) => {
             game.end_of_turn.add_until(Some(controller), until);
         }
-        Some(
-            crate::spellability::AbilityDuration::UntilHostLeavesPlay
-            | crate::spellability::AbilityDuration::UntilLoseControlOfHost
-            | crate::spellability::AbilityDuration::AsLongAsControl
-            | crate::spellability::AbilityDuration::AsLongAsInPlay,
-        ) => {
+        Some(crate::spellability::AbilityDuration::UntilHostLeavesPlay) => {
             let Some(host) = host else {
                 return false;
             };
             game.leaves_play_commands.push((host, until));
+        }
+        Some(crate::spellability::AbilityDuration::UntilLoseControlOfHost) => {
+            let Some(host) = host else {
+                return false;
+            };
+            game.leaves_play_commands.push((host, until.clone()));
+            game.change_controller_commands.push((host, until));
+        }
+        Some(crate::spellability::AbilityDuration::AsLongAsControl) => {
+            let Some(host) = host else {
+                return false;
+            };
+            game.leaves_play_commands.push((host, until.clone()));
+            game.change_controller_commands.push((host, until.clone()));
+            game.phase_out_commands.push((host, until));
+        }
+        Some(crate::spellability::AbilityDuration::AsLongAsInPlay) => {
+            let Some(host) = host else {
+                return false;
+            };
+            game.leaves_play_commands.push((host, until.clone()));
+            game.phase_out_commands.push((host, until));
         }
         Some(crate::spellability::AbilityDuration::UntilUntaps) => {
             let Some(host) = host else {

@@ -290,6 +290,16 @@ impl GameState {
         }
     }
 
+    pub(crate) fn run_phase_out_commands(&mut self, card_id: CardId) {
+        let (commands, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.phase_out_commands)
+            .into_iter()
+            .partition(|(host, _)| *host == card_id);
+        self.phase_out_commands = kept;
+        for (_, command) in commands {
+            command.run(self, &mut crate::game_rng::ThreadRngAdapter::default());
+        }
+    }
+
     pub(crate) fn run_facedown_commands(
         &mut self,
         card_id: CardId,

@@ -34,6 +34,7 @@ pub fn do_phasing(game: &mut GameState, turn_player: PlayerId) {
             && game.cards[i].zone == ZoneType::Battlefield
             && game.cards[i].has_keyword("Phasing")
         {
+            game.run_phase_out_commands(game.cards[i].id);
             Arc::make_mut(&mut game.cards[i]).phased_out = true;
         }
     }

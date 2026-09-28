@@ -142,6 +142,7 @@ fn apply_phase(ctx: &mut EffectContext, card_id: crate::ids::CardId, mode: &str)
         }
         _ => {
             if !ctx.game.card(card_id).phased_out {
+                ctx.game.run_phase_out_commands(card_id);
                 ctx.game.card_mut(card_id).set_phased_out(true);
                 ctx.trigger_handler.run_trigger(
                     TriggerType::PhasedOut,

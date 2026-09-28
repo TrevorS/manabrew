@@ -220,7 +220,7 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
             ctx.game,
             duration,
             owner,
-            None,
+            Some(source_id),
             crate::phase::PhaseCommand::ExileEffect { effect: effect_id },
         );
         if crate::parsing::raw_has_key(&sa.ability_text, "ImprintOnHost") {
