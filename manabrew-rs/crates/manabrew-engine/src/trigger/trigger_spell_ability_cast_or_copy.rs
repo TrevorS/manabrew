@@ -202,7 +202,12 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
                 crate::event::AbilityValue::Int(count),
             );
         }
-        // TODO: port CurrentCastSpells triggering object - not yet in RunParams
+        if let Some(cards) = &params.current_cast_spells {
+            sa.set_triggering_value(
+                crate::ability::AbilityKey::CurrentCastSpells,
+                crate::event::AbilityValue::Cards(cards.clone()),
+            );
+        }
     }
 
     fn get_important_stack_objects(&self, _trigger: &Trigger, sa: &SpellAbility) -> String {

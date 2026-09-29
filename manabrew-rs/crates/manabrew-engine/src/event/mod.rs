@@ -339,6 +339,7 @@ pub struct RunParams {
     /// Java AbilityKey.RolledToVisitAttractions.
     pub rolled_to_visit_attractions: Option<bool>,
     pub current_storm_count: Option<i32>,
+    pub current_cast_spells: Option<Vec<CardId>>,
 }
 
 impl RunParams {

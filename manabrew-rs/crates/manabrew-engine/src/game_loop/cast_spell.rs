@@ -518,6 +518,7 @@ impl GameLoop {
                 cause: Some(sa_for_trigger.clone()),
                 cause_card: Some(trigger_ctx.source_card),
                 current_storm_count: Some(game.stack.spells_cast_this_turn() as i32),
+                current_cast_spells: Some(game.stack.get_spells_cast_this_turn().to_vec()),
                 ..Default::default()
             },
             TriggerType::AbilityCast => RunParams {
@@ -531,6 +532,7 @@ impl GameLoop {
                 cause: Some(sa_for_trigger.clone()),
                 cause_card: Some(trigger_ctx.source_card),
                 current_storm_count: Some(game.stack.spells_cast_this_turn() as i32),
+                current_cast_spells: Some(game.stack.get_spells_cast_this_turn().to_vec()),
                 ..Default::default()
             },
             _ => return,
