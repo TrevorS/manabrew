@@ -15,7 +15,7 @@ pub fn pay_as_decided(game: &mut GameState, source: CardId) -> bool {
 /// Refund the tap cost by untapping the source.
 /// Mirrors Java's `CostTap.refund()`.
 pub fn refund(game: &mut GameState, source: CardId) {
-    game.untap(source);
+    game.card_mut(source).set_tapped(false);
 }
 
 pub fn payment_order(part: &super::CostPart) -> i32 {

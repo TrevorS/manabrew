@@ -816,9 +816,7 @@ impl GameLoop {
                     );
                 }
                 CostPart::Untap => {
-                    let was_tapped = game.card(card_id).tapped;
-                    game.untap(card_id);
-                    if was_tapped {
+                    if game.untap(card_id, &mut self.trigger_handler) {
                         self.emit_untap_all_cost_trigger(player, card_id);
                     }
                 }
@@ -4679,9 +4677,7 @@ impl GameLoop {
                 &valid,
                 Some(source),
             ) {
-                let was_tapped = game.card(chosen).tapped;
-                game.untap(chosen);
-                if was_tapped {
+                if game.untap(chosen, &mut self.trigger_handler) {
                     untapped_ids.push(chosen);
                 }
             }

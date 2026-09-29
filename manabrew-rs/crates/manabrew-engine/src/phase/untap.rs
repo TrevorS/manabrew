@@ -69,7 +69,11 @@ pub fn do_day_time(
 ///
 /// Untaps all tapped permanents controlled by the active player,
 /// respecting "doesn't untap" and "you may choose not to untap" keywords.
-pub fn do_untap(game: &mut GameState, active: PlayerId) -> Vec<CardId> {
+pub fn do_untap(
+    game: &mut GameState,
+    active: PlayerId,
+    trigger_handler: &mut crate::trigger::handler::TriggerHandler,
+) -> Vec<CardId> {
     let cards: Vec<CardId> = game.cards_in_zone(ZoneType::Battlefield, active).to_vec();
     let mut untapped = Vec::new();
 
@@ -103,8 +107,9 @@ pub fn do_untap(game: &mut GameState, active: PlayerId) -> Vec<CardId> {
             continue;
         }
 
-        game.untap_during_untap_step(cid, active);
-        untapped.push(cid);
+        if game.untap_during_untap_step(cid, active, trigger_handler) {
+            untapped.push(cid);
+        }
     }
 
     // Remove exerted-by flags from all battlefield permanents

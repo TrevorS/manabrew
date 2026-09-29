@@ -13,8 +13,12 @@ pub fn to_string() -> String {
 /// Pay the untap cost by untapping the source.
 /// Mirrors Java's `CostUntap.payAsDecided()`.
 /// NOTE: Trigger firing (UntapAll) is handled by the caller.
-pub fn pay_as_decided(game: &mut GameState, source: CardId) -> bool {
-    game.untap(source);
+pub fn pay_as_decided(
+    game: &mut GameState,
+    source: CardId,
+    trigger_handler: &mut crate::trigger::handler::TriggerHandler,
+) -> bool {
+    game.untap(source, trigger_handler);
     true
 }
 
@@ -75,6 +79,7 @@ pub fn pay_with_decision(
     source: CardId,
     _part: &super::CostPart,
     _decision: &crate::cost::payment_decision::PaymentDecision,
+    trigger_handler: &mut crate::trigger::handler::TriggerHandler,
 ) -> bool {
-    pay_as_decided(game, source)
+    pay_as_decided(game, source, trigger_handler)
 }

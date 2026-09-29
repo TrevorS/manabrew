@@ -40,19 +40,23 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
+    let mut untapped = Vec::new();
     for card_id in to_untap {
-        if ctx.game.card(card_id).zone == ZoneType::Battlefield {
-            ctx.game.untap(card_id);
-            // Fire Untaps trigger per card
-            ctx.trigger_handler.run_trigger(
-                crate::trigger::TriggerType::Untaps,
-                crate::event::RunParams {
-                    card: Some(card_id),
-                    ..Default::default()
-                },
-                false,
-            );
+        if ctx.game.card(card_id).zone == ZoneType::Battlefield
+            && ctx.game.untap(card_id, ctx.trigger_handler)
+        {
+            untapped.push(card_id);
         }
+    }
+    if !untapped.is_empty() {
+        ctx.trigger_handler.run_trigger(
+            crate::trigger::TriggerType::UntapAll,
+            crate::event::RunParams {
+                map: Some(vec![(sa.activating_player, untapped)]),
+                ..Default::default()
+            },
+            false,
+        );
     }
 }
 

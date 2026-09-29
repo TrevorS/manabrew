@@ -37,10 +37,26 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     targets.sort_unstable_by_key(|cid| cid.0);
     targets.dedup();
 
+    let mut untapped = Vec::new();
     for card_id in targets {
-        if ctx.game.card(card_id).zone == ZoneType::Battlefield {
-            untap_card(ctx, card_id, controller, etb);
+        if ctx.game.card(card_id).zone != ZoneType::Battlefield {
+            continue;
         }
+        if etb {
+            ctx.game.card_mut(card_id).set_tapped(false);
+        } else if ctx.game.untap(card_id, ctx.trigger_handler) {
+            untapped.push(card_id);
+        }
+    }
+    if !untapped.is_empty() {
+        ctx.trigger_handler.run_trigger(
+            TriggerType::UntapAll,
+            RunParams {
+                map: Some(vec![(controller, untapped)]),
+                ..Default::default()
+            },
+            false,
+        );
     }
 }
 
@@ -114,31 +130,6 @@ fn choose_untap_type_targets(
         min,
         max,
     )
-}
-
-fn untap_card(
-    ctx: &mut EffectContext,
-    card_id: CardId,
-    controller: crate::ids::PlayerId,
-    etb: bool,
-) {
-    if etb {
-        // ETB: directly set untapped without firing trigger
-        ctx.game.card_mut(card_id).set_tapped(false);
-    } else {
-        let untapped = ctx.game.untap(card_id);
-        if untapped {
-            ctx.trigger_handler.run_trigger(
-                TriggerType::Untaps,
-                RunParams {
-                    card: Some(card_id),
-                    player: Some(controller),
-                    ..Default::default()
-                },
-                false,
-            );
-        }
-    }
 }
 
 #[cfg(test)]

@@ -60,8 +60,17 @@ pub fn pay_as_decided(
     part: &super::CostPart,
     decision: &crate::cost::payment_decision::PaymentDecision,
     is_effect: bool,
+    trigger_handler: &mut crate::trigger::handler::TriggerHandler,
 ) -> bool {
-    crate::cost::cost_payment::pay_as_decided(game, player, source, part, decision, is_effect)
+    crate::cost::cost_payment::pay_as_decided(
+        game,
+        player,
+        source,
+        part,
+        decision,
+        is_effect,
+        trigger_handler,
+    )
 }
 
 pub fn pay_with_decision(

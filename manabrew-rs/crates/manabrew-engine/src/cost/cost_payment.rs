@@ -55,7 +55,12 @@ impl CostPayment {
         self.paid_cost_parts.clear();
     }
 
-    pub fn pay_cost(&mut self, game: &mut GameState, agent: &mut dyn PlayerAgent) -> bool {
+    pub fn pay_cost(
+        &mut self,
+        game: &mut GameState,
+        agent: &mut dyn PlayerAgent,
+        trigger_handler: &mut crate::trigger::handler::TriggerHandler,
+    ) -> bool {
         // TODO: self.adjusted_cost = CostAdjustment::adjust(&self.cost, ...);
         let mut parts = self.adjusted_cost.parts.clone();
 
@@ -76,7 +81,15 @@ impl CostPayment {
 
             match decision {
                 Some(pd) => {
-                    if !pay_as_decided(game, self.player, self.source, part, &pd, self.is_effect) {
+                    if !pay_as_decided(
+                        game,
+                        self.player,
+                        self.source,
+                        part,
+                        &pd,
+                        self.is_effect,
+                        trigger_handler,
+                    ) {
                         return false;
                     }
                     self.paid_cost_parts.push(part.clone());
@@ -95,6 +108,7 @@ impl CostPayment {
         &mut self,
         game: &mut GameState,
         agent: &mut dyn PlayerAgent,
+        trigger_handler: &mut crate::trigger::handler::TriggerHandler,
     ) -> bool {
         // TODO: adjust cost via CostAdjustment::adjust()
         let parts = self.adjusted_cost.parts.clone();
@@ -121,6 +135,7 @@ impl CostPayment {
                             part,
                             &pd,
                             self.is_effect,
+                            trigger_handler,
                         )
                     {
                         return false;
@@ -133,7 +148,15 @@ impl CostPayment {
 
         // Phase 2: Execute all decisions
         for (part, pd) in &decisions {
-            if !pay_as_decided(game, self.player, self.source, part, pd, self.is_effect) {
+            if !pay_as_decided(
+                game,
+                self.player,
+                self.source,
+                part,
+                pd,
+                self.is_effect,
+                trigger_handler,
+            ) {
                 return false;
             }
         }
@@ -264,8 +287,9 @@ pub fn pay_as_decided(
     cost_part: &CostPart,
     decision: &PaymentDecision,
     _is_effect: bool,
+    trigger_handler: &mut crate::trigger::handler::TriggerHandler,
 ) -> bool {
-    pay_as_decided_distributed(game, player, source, cost_part, decision)
+    pay_as_decided_distributed(game, player, source, cost_part, decision, trigger_handler)
 }
 
 fn pay_as_decided_distributed(
@@ -274,14 +298,20 @@ fn pay_as_decided_distributed(
     source: CardId,
     cost_part: &CostPart,
     decision: &PaymentDecision,
+    trigger_handler: &mut crate::trigger::handler::TriggerHandler,
 ) -> bool {
     match cost_part {
         CostPart::Tap => {
             crate::cost::cost_tap::pay_with_decision(game, player, source, cost_part, decision)
         }
-        CostPart::Untap => {
-            crate::cost::cost_untap::pay_with_decision(game, player, source, cost_part, decision)
-        }
+        CostPart::Untap => crate::cost::cost_untap::pay_with_decision(
+            game,
+            player,
+            source,
+            cost_part,
+            decision,
+            trigger_handler,
+        ),
         CostPart::Mana { .. } => crate::cost::cost_part_mana::pay_with_decision(
             game, player, source, cost_part, decision,
         ),
@@ -317,7 +347,12 @@ fn pay_as_decided_distributed(
             crate::cost::cost_tap_type::pay_with_decision(game, player, source, cost_part, decision)
         }
         CostPart::UntapType { .. } => crate::cost::cost_untap_type::pay_with_decision(
-            game, player, source, cost_part, decision,
+            game,
+            player,
+            source,
+            cost_part,
+            decision,
+            trigger_handler,
         ),
         CostPart::PayEnergy(_) => crate::cost::cost_pay_energy::pay_with_decision(
             game, player, source, cost_part, decision,

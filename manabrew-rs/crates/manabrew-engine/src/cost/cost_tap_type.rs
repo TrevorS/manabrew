@@ -37,7 +37,7 @@ pub fn pay_as_decided_cards(game: &mut GameState, cards: &[CardId]) -> bool {
 
 pub fn refund(game: &mut GameState, cards: &[CardId]) {
     for &cid in cards {
-        game.untap(cid);
+        game.card_mut(cid).set_tapped(false);
     }
 }
 

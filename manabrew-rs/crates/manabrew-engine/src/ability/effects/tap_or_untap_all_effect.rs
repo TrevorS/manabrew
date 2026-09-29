@@ -72,6 +72,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
+    let mut untapped = Vec::new();
     for cid in cards {
         if ctx.game.card(cid).zone != ZoneType::Battlefield {
             continue;
@@ -88,16 +89,18 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     false,
                 );
             }
-        } else if ctx.game.untap(cid) {
-            ctx.trigger_handler.run_trigger(
-                crate::trigger::TriggerType::Untaps,
-                crate::event::RunParams {
-                    card: Some(cid),
-                    player: Some(controller),
-                    ..Default::default()
-                },
-                false,
-            );
+        } else if ctx.game.untap(cid, ctx.trigger_handler) {
+            untapped.push(cid);
         }
+    }
+    if !untapped.is_empty() {
+        ctx.trigger_handler.run_trigger(
+            crate::trigger::TriggerType::UntapAll,
+            crate::event::RunParams {
+                map: Some(vec![(controller, untapped)]),
+                ..Default::default()
+            },
+            false,
+        );
     }
 }

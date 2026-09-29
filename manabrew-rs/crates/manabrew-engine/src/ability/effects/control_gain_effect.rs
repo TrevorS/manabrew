@@ -218,6 +218,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         return;
     }
 
+    let mut untapped = Vec::new();
     for target_card in tgt_cards {
         gain_control_of(
             ctx,
@@ -228,6 +229,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             remember,
             forget,
             &lose,
+            &mut untapped,
+        );
+    }
+    if !untapped.is_empty() {
+        ctx.trigger_handler.run_trigger(
+            crate::trigger::TriggerType::UntapAll,
+            crate::event::RunParams {
+                map: Some(vec![(activator, untapped)]),
+                ..Default::default()
+            },
+            false,
         );
     }
 }
@@ -241,6 +253,7 @@ fn gain_control_of(
     remember: bool,
     forget: bool,
     lose: &[&str],
+    untapped: &mut Vec<crate::ids::CardId>,
 ) {
     if ctx.game.card(target_card).zone != ZoneType::Battlefield
         || !ctx
@@ -329,8 +342,8 @@ fn gain_control_of(
     }
 
     // Handle Untap parameter
-    if sa.ir.untap_on_resolve {
-        ctx.game.untap(target_card);
+    if sa.ir.untap_on_resolve && ctx.game.untap(target_card, ctx.trigger_handler) {
+        untapped.push(target_card);
     }
 
     // Handle AddKWs parameter (add keywords)

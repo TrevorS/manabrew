@@ -2601,11 +2601,11 @@ impl GameState {
 
     /// Untap all permanents controlled by a player.
     /// Runs Untap replacement effects for each permanent.
-    pub fn untap_all(&mut self, player: PlayerId) {
+    pub fn untap_all(&mut self, player: PlayerId, trigger_handler: &mut TriggerHandler) {
         let cards: Vec<CardId> = self.cards_in_zone(ZoneType::Battlefield, player).to_vec();
         for cid in cards {
             // Use untap() which runs replacement effects
-            self.untap_during_untap_step(cid, player);
+            self.untap_during_untap_step(cid, player, trigger_handler);
         }
     }
 
@@ -2688,15 +2688,25 @@ impl GameState {
 
     /// Untap a card. Returns true if it was tapped.
     /// Runs Untap replacement effects before untapping.
-    pub fn untap(&mut self, card_id: CardId) -> bool {
-        self.untap_internal(card_id, None)
+    pub fn untap(&mut self, card_id: CardId, trigger_handler: &mut TriggerHandler) -> bool {
+        self.untap_internal(card_id, None, trigger_handler)
     }
 
-    pub fn untap_during_untap_step(&mut self, card_id: CardId, player: PlayerId) -> bool {
-        self.untap_internal(card_id, Some(player))
+    pub fn untap_during_untap_step(
+        &mut self,
+        card_id: CardId,
+        player: PlayerId,
+        trigger_handler: &mut TriggerHandler,
+    ) -> bool {
+        self.untap_internal(card_id, Some(player), trigger_handler)
     }
 
-    fn untap_internal(&mut self, card_id: CardId, player: Option<PlayerId>) -> bool {
+    fn untap_internal(
+        &mut self,
+        card_id: CardId,
+        player: Option<PlayerId>,
+        trigger_handler: &mut TriggerHandler,
+    ) -> bool {
         let card = &self.cards[card_id.index()];
         if !card.tapped {
             return false;
@@ -2723,6 +2733,14 @@ impl GameState {
         }
         self.run_untap_commands(card_id);
         self.card_mut(card_id).tapped = false;
+        trigger_handler.run_trigger(
+            TriggerType::Untaps,
+            RunParams {
+                card: Some(card_id),
+                ..Default::default()
+            },
+            false,
+        );
         true
     }
 
@@ -3017,7 +3035,7 @@ mod tests {
         assert!(game.tap(cid));
         assert!(game.card(cid).tapped);
         assert!(!game.tap(cid)); // already tapped
-        assert!(game.untap(cid));
+        assert!(game.untap(cid, &mut TriggerHandler::new()));
         assert!(!game.card(cid).tapped);
     }
 
@@ -3030,7 +3048,7 @@ mod tests {
         game.card_mut(cid)
             .add_counter(&CounterType::Named("STUN".to_string()), 1);
 
-        assert!(!game.untap(cid));
+        assert!(!game.untap(cid, &mut TriggerHandler::new()));
         assert!(game.card(cid).tapped);
         assert_eq!(
             game.card(cid)
