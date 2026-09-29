@@ -108,6 +108,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             valid_sa,
         );
         if abilities.is_empty() {
+            if ctx.game.mirror_forge_bugs && ctx.game.card(card_id).face_down {
+                ctx.game.card_mut(card_id).turn_face_up();
+            }
             continue;
         }
         let sa_idx = ctx.agents[controller.index()].get_ability_to_play(
