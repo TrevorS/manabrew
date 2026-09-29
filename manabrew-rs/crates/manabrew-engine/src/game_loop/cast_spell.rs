@@ -1244,30 +1244,21 @@ impl GameLoop {
         // Do not apply compute_cost_adjustment here.
         // We still need raise_cost for its non-mana cost parts.
         let cast_zone = game.card_current_zone(card_id);
-        let face_down_host = is_morph_facedown.then(|| {
-            let mut host = game.card(card_id).clone();
-            host.turn_face_down_no_update();
-            host.set_original_state_as_face_down();
-            host
-        });
-        let raise_cost = crate::cost::cost_adjustment::compute_raise_cost_parts(
-            game,
-            face_down_host
-                .as_ref()
-                .unwrap_or_else(|| game.card(card_id)),
-            player,
-            cast_zone,
-        );
-        let raise_waterbend = raise_cost.as_ref().is_some_and(|rc| {
-            rc.parts
-                .iter()
-                .any(|p| matches!(p, crate::cost::CostPart::Waterbend { .. }))
-        });
-        let raise_cost = raise_cost.and_then(|mut rc| {
-            rc.parts
-                .retain(|p| !matches!(p, crate::cost::CostPart::Waterbend { .. }));
-            (!rc.parts.is_empty()).then_some(rc)
-        });
+        let mut raise_host = game.card(card_id).clone();
+        if is_morph_facedown {
+            raise_host.turn_face_down_no_update();
+            raise_host.set_original_state_as_face_down();
+        }
+        let may_play_raise = (raise_host.zone != ZoneType::Hand
+            && raise_host.zone != ZoneType::Stack)
+            .then(|| {
+                crate::staticability::static_ability_continuous::may_play_raise_cost(
+                    game,
+                    player,
+                    &raise_host,
+                )
+            })
+            .flatten();
 
         // ── Additional cost checks (Kicker, Buyback, Multikicker, Replicate) ──
         // Check Kicker: offer to pay additional kicker cost
@@ -2065,6 +2056,26 @@ impl GameLoop {
                 rollback_cast!();
             }
         }
+
+        let raise_cost = crate::cost::cost_adjustment::compute_raise_cost_parts_with_targets(
+            game,
+            &raise_host,
+            player,
+            cast_zone,
+            &crate::cost::cost_adjustment::target_cards_for_cost(game, &sa),
+            &sa.optional_costs,
+            may_play_raise.as_deref(),
+        );
+        let raise_waterbend = raise_cost.as_ref().is_some_and(|rc| {
+            rc.parts
+                .iter()
+                .any(|p| matches!(p, crate::cost::CostPart::Waterbend { .. }))
+        });
+        let raise_cost = raise_cost.and_then(|mut rc| {
+            rc.parts
+                .retain(|p| !matches!(p, crate::cost::CostPart::Waterbend { .. }));
+            (!rc.parts.is_empty()).then_some(rc)
+        });
 
         let mana_cost = if let (Some(escalate_cost_str), Some(selected_count)) = (
             game.card(card_id).get_escalate_cost(),

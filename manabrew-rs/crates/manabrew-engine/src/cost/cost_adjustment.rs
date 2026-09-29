@@ -470,6 +470,17 @@ pub fn any_cost_adjusting_source(game: &GameState) -> bool {
 }
 
 // ── Public API: compute_raise_cost_parts ─────────────────────────────
+pub(crate) fn target_cards_for_cost(game: &GameState, sa: &SpellAbility) -> Vec<CardId> {
+    let mut target_cards = sa.get_targets().all_target_cards();
+    if let Some(entry) = sa
+        .target_chosen
+        .target_stack_entry
+        .and_then(|id| game.stack.iter().find(|entry| entry.id == id))
+    {
+        target_cards.extend(entry.spell_ability.source);
+    }
+    target_cards
+}
 
 /// Compute additional non-standard cost parts contributed by `Mode$ RaiseCost`
 /// static abilities (Java: `CostAdjustment.applyRaiseCostAbility` with `Cost$...`).
@@ -483,7 +494,22 @@ pub fn compute_raise_cost_parts(
     caster: PlayerId,
     cast_zone: ZoneType,
 ) -> Option<Cost> {
-    compute_raise_cost_parts_with_targets(game, spell_card, caster, cast_zone, &[], &[])
+    let may_play_raise = (spell_card.zone != ZoneType::Hand && spell_card.zone != ZoneType::Stack)
+        .then(|| {
+            crate::staticability::static_ability_continuous::may_play_raise_cost(
+                game, caster, spell_card,
+            )
+        })
+        .flatten();
+    compute_raise_cost_parts_with_targets(
+        game,
+        spell_card,
+        caster,
+        cast_zone,
+        &[],
+        &[],
+        may_play_raise.as_deref(),
+    )
 }
 
 /// Like `compute_raise_cost_parts`, but checks `ValidTarget$` against chosen targets.
@@ -494,20 +520,17 @@ pub fn compute_raise_cost_parts_with_targets(
     _cast_zone: ZoneType,
     targets: &[CardId],
     optional_costs: &[OptionalCost],
+    may_play_raise: Option<&str>,
 ) -> Option<Cost> {
     let mut merged_parts = Vec::new();
     let mut has_tap = false;
     let mut mandatory = false;
 
-    if spell_card.zone != ZoneType::Hand && spell_card.zone != ZoneType::Stack {
-        if let Some(raise) = crate::staticability::static_ability_continuous::may_play_raise_cost(
-            game, caster, spell_card,
-        ) {
-            let parsed = parse_cost(&raise);
-            merged_parts.extend(parsed.parts);
-            has_tap |= parsed.has_tap;
-            mandatory |= parsed.mandatory;
-        }
+    if let Some(raise) = may_play_raise {
+        let parsed = parse_cost(raise);
+        merged_parts.extend(parsed.parts);
+        has_tap |= parsed.has_tap;
+        mandatory |= parsed.mandatory;
     }
 
     for source in game.cards.iter().map(Arc::as_ref).filter(|c| {
@@ -944,14 +967,7 @@ pub fn adjust(
         return true;
     };
     let cast_zone = game.card(card_id).zone;
-    let mut target_cards = sa.get_targets().all_target_cards();
-    if let Some(entry) = sa
-        .target_chosen
-        .target_stack_entry
-        .and_then(|id| game.stack.iter().find(|entry| entry.id == id))
-    {
-        target_cards.extend(entry.spell_ability.source);
-    }
+    let target_cards = target_cards_for_cost(game, sa);
 
     let adjusted = compute_cost_adjustment_for_payment(
         game,
@@ -973,6 +989,7 @@ pub fn adjust(
         cast_zone,
         &target_cards,
         &sa.optional_costs,
+        None,
     ) {
         let raise_mana = mana_from_cost(&raise_cost);
         cost.add_mana_cost(&raise_mana);
