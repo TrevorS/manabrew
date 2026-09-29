@@ -1882,8 +1882,9 @@ pub fn handle_paid(
     if paid_cards.is_empty() {
         return do_x_math(0, operators);
     }
-    let lki_power = |card: &Card| card.lki_power.filter(|_| last_known);
-    let lki_toughness = |card: &Card| card.lki_toughness.filter(|_| last_known);
+    let left_play = |card: &Card| last_known && card.zone != ZoneType::Battlefield;
+    let lki_power = |card: &Card| card.lki_power.filter(|_| left_play(card));
+    let lki_toughness = |card: &Card| card.lki_toughness.filter(|_| left_play(card));
 
     let value = match property {
         "Amount" | "Count" => paid_cards.len() as i32,
