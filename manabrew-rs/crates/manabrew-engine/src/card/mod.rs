@@ -2488,8 +2488,12 @@ impl Card {
     }
 
     pub fn remove_counter(&mut self, ct: &CounterType, count: i32) {
-        let entry = self.counters.entry(ct.clone()).or_insert(0);
-        *entry = (*entry - count).max(0);
+        if let Some(entry) = self.counters.get_mut(ct) {
+            *entry -= count;
+            if *entry <= 0 {
+                self.counters.remove(ct);
+            }
+        }
     }
 
     /// Reset state when entering the battlefield.
