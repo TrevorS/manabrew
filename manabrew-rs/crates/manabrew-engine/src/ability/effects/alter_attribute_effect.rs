@@ -62,8 +62,8 @@ fn prepare(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility, card
         effect.add_trigger(trigger);
     }
     if let Some(mut may_play) = crate::staticability::parse_static_ability(
-        "S$ Mode$ Continuous | MayPlay$ True | EffectZone$ Command | AffectedDefined$ Remembered \
-         | AffectedZone$ Exile",
+        "S$ Mode$ Continuous | MayPlay$ True | MayPlayPlayer$ EffectSourceController \
+         | EffectZone$ Command | AffectedDefined$ Remembered | AffectedZone$ Exile",
     ) {
         may_play.ir.active_zones = vec![ZoneType::Command];
         may_play.ir.has_zone_keys = true;

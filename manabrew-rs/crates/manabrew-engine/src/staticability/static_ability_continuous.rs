@@ -148,6 +148,11 @@ pub fn may_play_player(
         Some("CardOwner") => card.owner,
         Some("ActivePlayer" | "Player.Active") => game.active_player(),
         Some("Player") => game.player_order[0],
+        Some("EffectSourceController") => source
+            .effect_source
+            .map_or(source.controller, |effect_source| {
+                game.card(effect_source).controller
+            }),
         _ => source.controller,
     }
 }
