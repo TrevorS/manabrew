@@ -2225,6 +2225,54 @@ impl GameState {
             && !(zone == ZoneType::Exile && card.is_in_prepared_spell_state())
     }
 
+    fn sba_unattached_auras(&self) -> Vec<CardId> {
+        self.player_order
+            .iter()
+            .flat_map(|&pid| self.cards_in_zone(ZoneType::Battlefield, pid))
+            .map(|&cid| &self.cards[cid.index()])
+            .filter(|c| {
+                c.zone == ZoneType::Battlefield
+                    && c.type_line.has_subtype("Aura")
+                    && !c.type_line.is_creature() // Bestowed auras that became creatures stay
+            })
+            .filter(|c| {
+                match (c.attached_to, c.attached_to_player) {
+                    (None, None) => true, // Not attached to anything — orphaned
+                    (None, Some(player_id)) => {
+                        if player_id.index() >= self.players.len() {
+                            return true;
+                        }
+                        let player = &self.players[player_id.index()];
+                        let enchant_type = c
+                            .keywords
+                            .iter_strings()
+                            .find_map(|kw| crate::keyword::extract_keyword_cost_str(kw, "Enchant"))
+                            .unwrap_or_default();
+                        player.has_lost || !enchant_type.eq_ignore_ascii_case("Player")
+                    }
+                    (Some(host_id), _) => {
+                        if host_id.index() >= self.cards.len() {
+                            return true; // Invalid host ID
+                        }
+                        let host = &self.cards[host_id.index()];
+                        // CR 704.5n: check if the enchant restriction is still met.
+                        // E.g. "Enchant creature" requires a battlefield creature, while
+                        // Animate Dead's "Enchant creature card in a graveyard" remains legal
+                        // while attached to a creature card in a graveyard.
+                        let enchant_type = c
+                            .keywords
+                            .iter_strings()
+                            .find_map(|kw| crate::keyword::extract_keyword_cost_str(kw, "Enchant"))
+                            .unwrap_or_default();
+                        !crate::parsing::enchant_type_matches_card(enchant_type, host, Some(c))
+                            || !can_attachment_remain_attached(self, c, host, true)
+                    }
+                }
+            })
+            .map(|c| c.id)
+            .collect()
+    }
+
     fn state_based_actions_pass(
         &mut self,
         trigger_handler: &mut Option<&mut TriggerHandler>,
@@ -2234,6 +2282,7 @@ impl GameState {
     ) -> bool {
         let mut any_changes = false;
         let mut sacrifice_list: Vec<CardId> = Vec::new();
+        let unattached_auras = self.sba_unattached_auras();
 
         let tokens_outside_battlefield: Vec<(CardId, crate::zone::ZoneKey)> = self
             .iter_zones()
@@ -2487,55 +2536,9 @@ impl GameState {
         // to a legal permanent (or whose host left the battlefield) is put into
         // its owner's graveyard.
         {
-            let aura_ids: Vec<CardId> = self
-                .player_order
-                .iter()
-                .flat_map(|&pid| self.cards_in_zone(ZoneType::Battlefield, pid))
-                .map(|&cid| &self.cards[cid.index()])
-                .filter(|c| {
-                    c.zone == ZoneType::Battlefield
-                        && c.type_line.has_subtype("Aura")
-                        && !c.type_line.is_creature() // Bestowed auras that became creatures stay
-                })
-                .filter(|c| {
-                    match (c.attached_to, c.attached_to_player) {
-                        (None, None) => true, // Not attached to anything — orphaned
-                        (None, Some(player_id)) => {
-                            if player_id.index() >= self.players.len() {
-                                return true;
-                            }
-                            let player = &self.players[player_id.index()];
-                            let enchant_type = c
-                                .keywords
-                                .iter_strings()
-                                .find_map(|kw| {
-                                    crate::keyword::extract_keyword_cost_str(kw, "Enchant")
-                                })
-                                .unwrap_or_default();
-                            player.has_lost || !enchant_type.eq_ignore_ascii_case("Player")
-                        }
-                        (Some(host_id), _) => {
-                            if host_id.index() >= self.cards.len() {
-                                return true; // Invalid host ID
-                            }
-                            let host = &self.cards[host_id.index()];
-                            // CR 704.5n: check if the enchant restriction is still met.
-                            // E.g. "Enchant creature" requires a battlefield creature, while
-                            // Animate Dead's "Enchant creature card in a graveyard" remains legal
-                            // while attached to a creature card in a graveyard.
-                            let enchant_type = c
-                                .keywords
-                                .iter_strings()
-                                .find_map(|kw| {
-                                    crate::keyword::extract_keyword_cost_str(kw, "Enchant")
-                                })
-                                .unwrap_or_default();
-                            !crate::parsing::enchant_type_matches_card(enchant_type, host, Some(c))
-                                || !can_attachment_remain_attached(self, c, host, true)
-                        }
-                    }
-                })
-                .map(|c| c.id)
+            let aura_ids: Vec<CardId> = unattached_auras
+                .into_iter()
+                .filter(|&aura_id| self.card(aura_id).zone == ZoneType::Battlefield)
                 .collect();
             let aura_ids = self.order_cards_by_their_owners(aura_ids, ZoneType::Graveyard, agents);
 
