@@ -14,6 +14,23 @@ use crate::spellability::SpellAbility;
 /// These are implemented directly on StackEntry so callers can use them
 /// without needing a separate wrapper.
 impl StackEntry {
+    pub fn store_transform(&mut self, game: &crate::game::GameState) {
+        let mut node = Some(&mut self.spell_ability);
+        while let Some(sa) = node {
+            if sa.api == Some(crate::ability::api_type::ApiType::SetState)
+                && !sa.svars.contains_key("StoredTransform")
+            {
+                if let Some(host) = sa.source {
+                    sa.svars.insert(
+                        "StoredTransform".to_string(),
+                        game.card(host).transform_count.to_string(),
+                    );
+                }
+            }
+            node = sa.sub_ability.as_deref_mut();
+        }
+    }
+
     /// Get the underlying spell ability.
     /// Mirrors Java's `SpellAbilityStackInstance.getSpellAbility()`.
     pub fn get_spell_ability(&self) -> &SpellAbility {

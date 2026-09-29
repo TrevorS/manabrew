@@ -602,7 +602,9 @@ impl TriggerHandler {
             if crate::zone::magic_stack::stop_infinite_loop(game) {
                 break;
             }
-            game.stack.push(pt.entry);
+            let mut entry = pt.entry;
+            entry.store_transform(game);
+            game.stack.push(entry);
             if let Some(pushed_sa) = pushed_sa {
                 let source_card = pushed_sa.source;
                 self.run_trigger(

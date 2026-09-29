@@ -422,12 +422,14 @@ impl GameLoop {
         if crate::zone::magic_stack::stop_infinite_loop(game) {
             return stack_push.entry.spell_ability;
         }
+        let mut entry = stack_push.entry.clone();
+        entry.store_transform(game);
         if let Some(pending_stack_id) = stack_push.pending_stack_id {
             game.stack
-                .complete_pending_cast(pending_stack_id, stack_push.entry.clone())
+                .complete_pending_cast(pending_stack_id, entry)
                 .expect("pending spell cast entry should exist until cast completes");
         } else {
-            game.stack.push(stack_push.entry.clone());
+            game.stack.push(entry);
         }
         self.log_stack_push(&stack_push.stack_log_name, &game.player(player).name);
         let mut event = if stack_push.event_kind == SpellAbilityLogEventKind::Stack {

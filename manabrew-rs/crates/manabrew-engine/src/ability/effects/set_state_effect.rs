@@ -95,7 +95,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
         if mode == Some(&SpellAbilityMode::Transform) && sa.source == Some(card_id) {
-            if let Some(stored) = crate::parsing::raw_get(&sa.ability_text, "StoredTransform") {
+            if let Some(stored) = sa
+                .svars
+                .get("StoredTransform")
+                .map(String::as_str)
+                .or_else(|| crate::parsing::raw_get(&sa.ability_text, "StoredTransform"))
+            {
                 if stored.parse().ok() != Some(ctx.game.card(card_id).transform_count) {
                     continue;
                 }
