@@ -2208,17 +2208,18 @@ impl Card {
 
     /// Get all "Protection from X" values this card has.
     pub fn get_protections(&self) -> Vec<String> {
-        let mut prots = Vec::new();
-        for kw in self
-            .keywords
+        self.protection_keywords()
+            .filter_map(|kw| kw.strip_prefix("Protection from "))
+            .map(str::to_lowercase)
+            .collect()
+    }
+
+    pub fn protection_keywords(&self) -> impl Iterator<Item = &str> {
+        self.keywords
             .iter_strings()
             .chain(self.granted_keywords.iter_strings())
-        {
-            if let Some(from) = kw.strip_prefix("Protection from ") {
-                prots.push(from.to_lowercase());
-            }
-        }
-        prots
+            .chain(self.pump_keywords.iter_strings())
+            .filter(|kw| kw.starts_with("Protection"))
     }
 
     /// Check if this card is protected from a source card.

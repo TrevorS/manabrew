@@ -1030,7 +1030,13 @@ impl DeterministicAgent {
         if attacker.has_skulk() && blocker.power() > attacker.power() {
             return false;
         }
-        if attacker.is_protected_from(blocker) {
+        if attacker.is_protected_from(blocker)
+            || self.snapshot_game().is_some_and(|game| {
+                manabrew_engine::staticability::static_ability_colorless_damage_source::is_protected_by_valid(
+                    game, attacker, blocker,
+                )
+            })
+        {
             return false;
         }
 
@@ -1795,7 +1801,7 @@ impl PlayerAgent for DeterministicAgent {
                 continue;
             }
             if manabrew_engine::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-                &game.cards,
+                game,
                 game.card(blocker),
                 game.card(attacker),
             ) {

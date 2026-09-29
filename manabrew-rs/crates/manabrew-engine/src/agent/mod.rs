@@ -279,7 +279,7 @@ pub trait PlayerAgent {
                 continue;
             }
             if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-                &game.cards,
+                game,
                 game.card(blocker_id),
                 game.card(attacker),
             ) {

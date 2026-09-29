@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use forge_foundation::{CoreType, ZoneType};
 
 use crate::agent::DecisionContext;
@@ -2299,7 +2297,7 @@ impl GameState {
                                 })
                                 .unwrap_or_default();
                             !crate::parsing::enchant_type_matches_card(enchant_type, host, Some(c))
-                                || !can_attachment_remain_attached(&self.cards, c, host, true)
+                                || !can_attachment_remain_attached(self, c, host, true)
                         }
                     }
                 })
@@ -2334,7 +2332,7 @@ impl GameState {
                         host.zone == ZoneType::Battlefield
                             && (c.is_creature()
                                 || c.type_line.core_types.contains(&CoreType::Battle)
-                                || !can_attachment_remain_attached(&self.cards, c, host, true))
+                                || !can_attachment_remain_attached(self, c, host, true))
                     }
                     None => {
                         c.attached_to_player.is_some()
@@ -2641,7 +2639,7 @@ pub fn run_life_lost_all(
 }
 
 fn can_attachment_remain_attached(
-    cards: &[Arc<Card>],
+    game: &GameState,
     attachment: &Card,
     target: &Card,
     check_sba: bool,
@@ -2658,12 +2656,15 @@ fn can_attachment_remain_attached(
         return false;
     }
     if crate::staticability::static_ability_cant_attach::cant_attach(
-        cards, attachment, target, check_sba,
+        &game.cards,
+        attachment,
+        target,
+        check_sba,
     ) {
         return false;
     }
     !crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-        cards, target, attachment,
+        game, target, attachment,
     )
 }
 

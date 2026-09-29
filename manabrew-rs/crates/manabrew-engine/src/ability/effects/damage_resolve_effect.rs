@@ -57,7 +57,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 if ctx.game.card(cid).zone == forge_foundation::ZoneType::Battlefield {
                     // Protection prevents damage from matching sources.
                     if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-                        &ctx.game.cards,
+                        ctx.game,
                         ctx.game.card(cid),
                         ctx.game.card(source),
                     ) {

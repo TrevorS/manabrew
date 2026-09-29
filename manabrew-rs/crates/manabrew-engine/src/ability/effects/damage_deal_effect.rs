@@ -363,7 +363,7 @@ fn deal_damage_from_source(
             // Protection: prevents all damage from matching sources
             if let Some(src_id) = Some(source) {
                 if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-                    &ctx.game.cards,
+                    ctx.game,
                     ctx.game.card(target_card),
                     ctx.game.card(src_id),
                 ) {

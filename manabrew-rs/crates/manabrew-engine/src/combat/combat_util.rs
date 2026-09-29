@@ -146,7 +146,11 @@ pub fn can_creature_block(game: &GameState, blocker_id: CardId, attacker_id: Car
         return false;
     }
     // Protection: can't be blocked by matching creatures
-    if attacker.is_protected_from(blocker) {
+    if attacker.is_protected_from(blocker)
+        || crate::staticability::static_ability_colorless_damage_source::is_protected_by_valid(
+            game, attacker, blocker,
+        )
+    {
         return false;
     }
     // CantBlockBy static abilities

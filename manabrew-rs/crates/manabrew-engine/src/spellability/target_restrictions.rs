@@ -995,7 +995,7 @@ fn can_be_targeted_by_internal(
         }
         // Protection: can't be targeted by matching sources
         if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-            &game.cards, target, src,
+            game, target, src,
         ) {
             return false;
         }

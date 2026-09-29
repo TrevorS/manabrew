@@ -86,7 +86,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             // Protection: prevents all damage from matching sources
             if let Some(src_id) = source {
                 if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-                    &ctx.game.cards,
+                    ctx.game,
                     ctx.game.card(card_id),
                     ctx.game.card(src_id),
                 ) {

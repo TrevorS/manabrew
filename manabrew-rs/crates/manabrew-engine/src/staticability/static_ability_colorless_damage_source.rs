@@ -3,6 +3,7 @@ use std::sync::Arc;
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::parsing::CompiledSelector;
 use crate::staticability::StaticMode;
 
@@ -44,7 +45,8 @@ pub fn source_has_color(cards: &[Arc<Card>], source_card: &Card, color_name: &st
     }
 }
 
-pub fn target_is_protected_from_source(cards: &[Arc<Card>], target: &Card, source: &Card) -> bool {
+pub fn target_is_protected_from_source(game: &GameState, target: &Card, source: &Card) -> bool {
+    let cards = &game.cards;
     for prot in target.get_protections() {
         match prot.as_str() {
             "white" | "blue" | "black" | "red" | "green" | "colorless" => {
@@ -76,7 +78,21 @@ pub fn target_is_protected_from_source(cards: &[Arc<Card>], target: &Card, sourc
             _ => {}
         }
     }
-    false
+    is_protected_by_valid(game, target, source)
+}
+
+pub fn is_protected_by_valid(game: &GameState, target: &Card, source: &Card) -> bool {
+    target
+        .protection_keywords()
+        .filter_map(crate::keyword::protection::get_protection_valid)
+        .any(|valid| {
+            valid_filter::matches_valid_card_selector_in_game(
+                &crate::parsing::cached_compiled_selector(&valid),
+                source,
+                target,
+                game,
+            )
+        })
 }
 
 fn matches_valid_card(valid: Option<&CompiledSelector>, card: &Card, source: &Card) -> bool {

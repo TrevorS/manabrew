@@ -45,3 +45,12 @@ impl Protection {
         reminder_text.replace("%s", &self.from_what)
     }
 }
+
+pub fn get_protection_valid(kw: &str) -> Option<String> {
+    let characteristic = kw.strip_prefix("Protection:")?.split(':').next()?;
+    if characteristic.starts_with("Player") {
+        let valid_source = format!("ControlledBy {characteristic}");
+        return Some(format!("Card.{valid_source},Emblem.{valid_source}"));
+    }
+    Some(characteristic.to_string())
+}

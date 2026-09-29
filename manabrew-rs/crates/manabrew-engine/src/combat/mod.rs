@@ -659,7 +659,7 @@ impl CombatState {
                     continue;
                 }
                 if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-                    &game.cards,
+                    game,
                     game.card(attacker_id),
                     game.card(blocker_id),
                 ) {
@@ -1289,7 +1289,7 @@ fn validate_damage_assignment(
             continue;
         }
         if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-            &game.cards,
+            game,
             game.card(blocker_id),
             game.card(attacker_id),
         ) {
@@ -1365,7 +1365,7 @@ fn fallback_damage_assignment(
             continue;
         }
         if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-            &game.cards,
+            game,
             game.card(blocker_id),
             game.card(attacker_id),
         ) {
@@ -1669,7 +1669,7 @@ fn deal_combat_damage_to_card(
         return;
     }
     if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-        &game.cards,
+        game,
         game.card(target),
         game.card(source),
     ) {
