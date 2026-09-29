@@ -767,19 +767,10 @@ impl GameLoop {
             | crate::agent::PlayCardMode::ForetellExile
             | crate::agent::PlayCardMode::BackFaceLand => return None,
             crate::agent::PlayCardMode::StaticAlternative => {
-                let entry =
-                    crate::staticability::static_ability_alternative_cost::alternative_costs(
-                        game,
-                        &game.cards,
-                        &sa,
-                        game.card(card_id),
-                        player,
-                    )
+                sa = crate::game_action_util::get_alternative_costs(game, &sa, player)
                     .into_iter()
+                    .filter(|alternative| alternative.alt_cost.is_none())
                     .nth(play.alt_cost_index as usize)?;
-                crate::staticability::static_ability_alternative_cost::apply_alternative_cost_to_sa(
-                    &mut sa, &entry,
-                );
                 static_alternative_cost_prepared = true;
             }
             crate::agent::PlayCardMode::MayPlay(base) => {
@@ -798,6 +789,20 @@ impl GameLoop {
             crate::agent::PlayCardMode::Alternative(alt_cost) => {
                 if alt_cost == crate::spellability::AlternativeCost::Suspend {
                     return None;
+                }
+                if matches!(
+                    alt_cost,
+                    crate::spellability::AlternativeCost::Harmonize
+                        | crate::spellability::AlternativeCost::Mayhem
+                        | crate::spellability::AlternativeCost::Escape
+                        | crate::spellability::AlternativeCost::Foretell
+                ) {
+                    sa = crate::game_action_util::get_alternative_costs(game, &sa, player)
+                        .into_iter()
+                        .find(|alternative| {
+                            alternative.alt_cost == Some(alt_cost)
+                                && alternative.alt_cost_index == play.alt_cost_index
+                        })?;
                 }
                 sa.alt_cost = Some(alt_cost);
                 if alt_cost == crate::spellability::AlternativeCost::Sneak {
@@ -1138,12 +1143,14 @@ impl GameLoop {
                 Self::stack_copy(game, card.clone())
                     .get_web_slinging_cost()
                     .map(|cost| format!("{cost} Return<1/Creature.tapped/tapped creature>"))
-            } else if is_mayhem {
-                card.get_mayhem_cost()
             } else {
                 None
             };
-            cost_str.map(|c| crate::cost::parse_cost(&c))
+            cost_str.map(|c| crate::cost::parse_cost(&c)).or_else(|| {
+                (is_mayhem || is_escape)
+                    .then(|| sa.pay_costs.clone())
+                    .flatten()
+            })
         };
 
         // Determine the mana cost to use
@@ -1152,9 +1159,8 @@ impl GameLoop {
         let mana_cost = if let Some(ref kw_cost) = keyword_alt_total_cost {
             Self::mana_from_cost(kw_cost)
         } else if is_foretell {
-            let foretell_cost_str = game.card(card_id).get_foretell_cost().unwrap_or_default();
-            game.card_mut(card_id).set_face_down(false); // reveal it
-            forge_foundation::ManaCost::parse(&foretell_cost_str)
+            game.card_mut(card_id).set_face_down(false);
+            Self::mana_from_cost(sa.pay_costs.as_ref()?)
         } else if is_flashback {
             flashback_mana_cost.unwrap_or_else(forge_foundation::ManaCost::zero)
         } else if is_evoke {
@@ -1172,15 +1178,8 @@ impl GameLoop {
             // Cost and extract only the mana portion for mana payment;
             // the non-mana parts are paid below via pay_additional_costs.
             Self::mana_from_cost(&crate::cost::parse_cost(&evoke_cost_str))
-        } else if is_escape {
-            let (escape_mana_str, _) = game
-                .card(card_id)
-                .get_escape_cost()
-                .unwrap_or(("0".to_string(), 0));
-            forge_foundation::ManaCost::parse(&escape_mana_str)
         } else if is_harmonize {
-            let harmonize_cost_str = game.card(card_id).get_harmonize_cost().unwrap_or_default();
-            forge_foundation::ManaCost::parse(&harmonize_cost_str)
+            Self::mana_from_cost(sa.pay_costs.as_ref()?)
         } else if is_plot_cast {
             // Plot: cast from exile for free (already paid plot cost).
             forge_foundation::ManaCost::generic(0)
@@ -3138,22 +3137,6 @@ impl GameLoop {
                 None,
             ) {
                 rollback_failed_payment!();
-            }
-        }
-
-        // Pay Escape exile cost: exile N other graveyard cards
-        if is_escape {
-            if let Some((_, exile_count)) = game.card(card_id).get_escape_cost() {
-                let gy_cards: Vec<CardId> = game
-                    .cards_in_zone(ZoneType::Graveyard, player)
-                    .iter()
-                    .filter(|&&cid| cid != card_id)
-                    .copied()
-                    .take(exile_count as usize)
-                    .collect();
-                for cid in gy_cards {
-                    self.exile_with_runtime(game, cid, None, agents);
-                }
             }
         }
 
