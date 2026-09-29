@@ -46,6 +46,26 @@ macro_rules! effect_dispatch {
                     return;
                 }
             };
+            let moved_count = |game: &crate::game::GameState| {
+                game.pending_change_zone_table
+                    .as_ref()
+                    .map_or(0, |table| table.all_cards().len())
+            };
+            let outer_last_state = (sa.replacing_objects.is_empty()
+                && crate::ability::spell_ability_effect::uses_simultaneous_zone_table(api_type))
+            .then(|| {
+                    let last_state = ctx
+                        .game
+                        .cards
+                        .iter()
+                        .filter(|c| c.zone == forge_foundation::ZoneType::Battlefield)
+                        .map(|c| c.id)
+                        .collect();
+                    (
+                        std::mem::replace(&mut ctx.game.pre_sba_battlefield, last_state),
+                        moved_count(ctx.game),
+                    )
+                });
             match api_type {
                 $( $api => <$handler as SpellAbilityEffect>::resolve(ctx, sa), )*
                 _ => {
@@ -53,6 +73,11 @@ macro_rules! effect_dispatch {
                         format!("Unimplemented effect API type: {:?}", api_type),
                     );
                     eprintln!("{}", err);
+                }
+            }
+            if let Some((outer, moved_before)) = outer_last_state {
+                if moved_count(ctx.game) == moved_before {
+                    ctx.game.pre_sba_battlefield = outer;
                 }
             }
             ctx.game.lose_life_simultaneously(ctx.trigger_handler, Some(ctx.agents));
@@ -380,6 +405,9 @@ pub fn resolve_effect_chain_with_parent(
             &sa
         };
 
+        if !is_first {
+            ctx.trigger_handler.flush_waiting_triggers(ctx.game);
+        }
         resolve_effect(ctx, sa_ref);
         if sa_ref.target_chosen.target_card.is_some() {
             parent_target_card = sa_ref.target_chosen.target_card;

@@ -1468,7 +1468,7 @@ impl TriggerHandler {
                     .collect();
 
                 // Same-SBA-batch LTB lookback: cards that were on the battlefield
-                // when this SBA batch started but are no longer there can still
+                // when this SBA batch or zone-moving effect started but are no longer there can still
                 // observe deaths happening in the same batch (e.g. Blood Artist
                 // seeing Savannah Lions die simultaneously). Mirrors Java's
                 // triggerChangesZoneAll which re-registers LTB triggers from
@@ -1609,7 +1609,7 @@ impl TriggerHandler {
 
         // Check cards for DisableTriggers static abilities.
         // For LTB triggers (Origin=Battlefield), also check cards that were on the
-        // battlefield at the start of the current SBA check (pre_sba_battlefield).
+        // battlefield at the start of the current SBA check or zone-moving effect (pre_sba_battlefield).
         // This handles the case where a DisableTriggers source (e.g. Hushbringer)
         // dies in the same SBA batch as the trigger source — Hushbringer was on the
         // battlefield when the batch started, so its DisableTriggers still applies,
@@ -1848,9 +1848,9 @@ impl TriggerHandler {
             && game.pre_sba_battlefield.contains(&host_card)
         {
             // LKI active-zone check for LTB triggers seeing OTHER creatures die
-            // in the same SBA batch (e.g. Blood Artist seeing Savannah Lions die).
+            // in the same SBA batch or effect (e.g. Blood Artist seeing Savannah Lions die).
             // Scoped via pre_sba_battlefield so that hosts that left earlier
-            // batches do not fire for later deaths. Mirrors Java's
+            // batches or effects do not fire for later deaths. Mirrors Java's
             // lastStateBattlefield boundary.
             ZoneType::Battlefield
         } else if *mode == TriggerType::ChangesZoneAll

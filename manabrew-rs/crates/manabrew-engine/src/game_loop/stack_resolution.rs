@@ -879,6 +879,7 @@ impl GameLoop {
             // (e.g. "choose discard") reflect state changes from earlier
             // sub-abilities (e.g. "draw 2" before "discard 2").
             if !is_first {
+                self.trigger_handler.flush_waiting_triggers(game);
                 for agent in agents.iter_mut() {
                     agent.snapshot_state(game, &self.mana_pools);
                 }

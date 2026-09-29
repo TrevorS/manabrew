@@ -111,6 +111,44 @@ pub trait SpellAbilityEffect {
 
 // ── Utility free functions mirroring Java's SpellAbilityEffect helpers ──
 
+/// Java effect classes whose `CardZoneTable` takes the battlefield as the effect starts
+/// (`CardZoneTable.getSimultaneousInstance`); keep it in sync with them.
+pub fn uses_simultaneous_zone_table(api: ApiType) -> bool {
+    matches!(
+        api,
+        ApiType::AssembleContraption
+            | ApiType::Airbend
+            | ApiType::Balance
+            | ApiType::ChangeZone
+            | ApiType::ChangeZoneAll
+            | ApiType::Cloak
+            | ApiType::Connive
+            | ApiType::Counter
+            | ApiType::Destroy
+            | ApiType::DestroyAll
+            | ApiType::Dig
+            | ApiType::DigUntil
+            | ApiType::Discard
+            | ApiType::Encode
+            | ApiType::EndCombatPhase
+            | ApiType::EndTurn
+            | ApiType::Explore
+            | ApiType::Haunt
+            | ApiType::InternalRadiation
+            | ApiType::Learn
+            | ApiType::MakeCard
+            | ApiType::Manifest
+            | ApiType::ManifestDread
+            | ApiType::Meld
+            | ApiType::Mill
+            | ApiType::OpenAttraction
+            | ApiType::Recruit
+            | ApiType::Sacrifice
+            | ApiType::SacrificeAll
+            | ApiType::Surveil
+    )
+}
+
 /// Java puts `movesCardToOrFromLibrary` on `SpellAbilityEffect` and overrides it per effect
 /// class; the trait here is compile-time dispatched and has no instance to ask, so the
 /// overrides are collected into this one match. Keep it in sync with the Java overrides.
