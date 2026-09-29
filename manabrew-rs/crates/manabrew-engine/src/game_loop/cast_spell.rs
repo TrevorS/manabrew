@@ -1019,6 +1019,22 @@ impl GameLoop {
         let Some(card_id) = sa.source else {
             return false;
         };
+        let play_modified_cost = match (&play.play_cost, sa.pay_costs.as_ref()) {
+            (Some(play_cost), Some(existing)) => {
+                let mut cost = existing.copy_with_no_mana();
+                crate::cost::merge_to(&mut cost, play_cost);
+                Some(cost)
+            }
+            (Some(play_cost), None) => Some(play_cost.clone()),
+            (None, existing) => existing.cloned(),
+        };
+        if play_modified_cost.is_some_and(|cost| {
+            !crate::cost::cost_payment::CostPayment::can_pay_additional_costs(
+                &cost, game, card_id, player, false,
+            )
+        }) {
+            return false;
+        }
         let was_transformed = game.card(card_id).is_transformed;
         let played = self
             .cast_card_spell_ability(game, agents, player, sa, false, Some(play))
@@ -1648,7 +1664,32 @@ impl GameLoop {
         };
         let x_count = mana_cost.count_x();
         let mut x_value = 0u32;
-        let mana_cost = if x_count > 0 {
+        let announce_x_from_play_effect = play_effect
+            .is_some_and(|play| !play.without_mana_cost && play.play_cost.is_none())
+            && matches!(
+                game.card(card_id).get_s_var("X"),
+                None | Some("Count$xPaid")
+            );
+        let mana_cost = if x_count > 0 && announce_x_from_play_effect {
+            let (min, max) = Self::announce_bounds(game, player, &sa, sa.pay_costs.as_ref(), "X")?;
+            agents[player.index()].snapshot_state(game, &self.mana_pools);
+            x_value = agents[player.index()]
+                .choose_number(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
+                    Some(card_id),
+                    "Choose a value for X",
+                    None,
+                    min,
+                    max,
+                )?
+                .max(0) as u32;
+            mana_cost
+                .without_x()
+                .add(&forge_foundation::ManaCost::generic(
+                    (x_value * x_count as u32) as i32,
+                ))
+        } else if x_count > 0 {
             // Compute max X iteratively, mirroring Java's
             // ComputerUtilMana.determineLeftoverMana(): try X=1,2,...
             // until canPayManaCost fails, then return the last payable X.
