@@ -361,6 +361,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     let mut pending: Vec<PendingEffect> = Vec::new();
     let mut staged: Vec<(usize, PendingEffect)> = Vec::new();
     let mut type_changed: Vec<CardId> = Vec::new();
+    let mut control_changed: Vec<CardId> = Vec::new();
     let mut granted_keyword_replacements: indexmap::IndexMap<
         CardId,
         Vec<crate::replacement::replacement_effect::ReplacementEffect>,
@@ -483,6 +484,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 &mut staged,
                 before,
                 &mut type_changed,
+                &mut control_changed,
                 &mut granted_keyword_replacements,
             );
         }
@@ -1096,10 +1098,21 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         &mut staged,
         None,
         &mut type_changed,
+        &mut control_changed,
         &mut granted_keyword_replacements,
     );
     type_changed.sort_unstable_by_key(|id| id.0);
     type_changed.dedup();
+    let lost_static_control: Vec<(CardId, PlayerId)> = game
+        .cards
+        .iter()
+        .filter(|card| !control_changed.contains(&card.id))
+        .filter_map(|card| card.static_control_base.map(|base| (card.id, base)))
+        .collect();
+    for (card, base) in lost_static_control {
+        game.card_mut(card).static_control_base = None;
+        game.change_controller(card, base);
+    }
 
     for (target, replacements) in granted_keyword_replacements {
         game.card_mut(target).add_changed_card_traits(
@@ -1183,6 +1196,7 @@ fn flush_pending_effects(
     staged: &mut Vec<(usize, PendingEffect)>,
     before: Option<(Layer, usize)>,
     type_changed: &mut Vec<CardId>,
+    control_changed: &mut Vec<CardId>,
     granted_keyword_replacements: &mut indexmap::IndexMap<
         CardId,
         Vec<crate::replacement::replacement_effect::ReplacementEffect>,
@@ -1203,6 +1217,12 @@ fn flush_pending_effects(
             .filter(|effect| effect.layer == Layer::Type)
             .map(|effect| effect.target),
     );
+    control_changed.extend(
+        effects
+            .iter()
+            .filter(|effect| matches!(effect.kind, EffectKind::SetController { .. }))
+            .map(|effect| effect.target),
+    );
     apply_pending_effects(game, effects, granted_keyword_replacements);
 }
 
@@ -1217,6 +1237,10 @@ fn apply_pending_effects(
     for effect in effects {
         match effect.kind {
             EffectKind::SetController { controller } => {
+                if game.card(effect.target).static_control_base.is_none() {
+                    let card = game.card_mut(effect.target);
+                    card.static_control_base = Some(card.controller);
+                }
                 game.change_controller(effect.target, controller);
             }
             EffectKind::AddPT { power, toughness } => {

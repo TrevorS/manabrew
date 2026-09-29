@@ -625,6 +625,7 @@ impl GameState {
                 self.set_prepared(card_id, None);
             }
             self.card_mut(card_id).clear_temp_controllers();
+            self.card_mut(card_id).static_control_base = None;
             self.card_mut(card_id).set_original_controller_eot(None);
             let (commands, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.leaves_play_commands)
                 .into_iter()

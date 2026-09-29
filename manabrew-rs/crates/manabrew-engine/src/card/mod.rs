@@ -780,6 +780,7 @@ pub struct Card {
     pub targeted_from_this_turn: Vec<PlayerId>,
     /// Temporary controllers layered on this card.
     pub temp_controllers: Vec<(i64, PlayerId)>,
+    pub static_control_base: Option<PlayerId>,
     pub may_look: Vec<(i64, Vec<PlayerId>)>,
     pub may_look_face_down_exile: Vec<PlayerId>,
     /// Players that may play this card.
@@ -1089,6 +1090,7 @@ impl Card {
             chosen_modes: None,
             targeted_from_this_turn: Vec::new(),
             temp_controllers: Vec::new(),
+            static_control_base: None,
             may_look: Vec::new(),
             may_look_face_down_exile: Vec::new(),
             may_play: Vec::new(),
@@ -1337,6 +1339,7 @@ impl Card {
             chosen_modes: self.chosen_modes.clone(),
             targeted_from_this_turn: self.targeted_from_this_turn.clone(),
             temp_controllers: self.temp_controllers.clone(),
+            static_control_base: self.static_control_base,
             may_look: self.may_look.clone(),
             may_look_face_down_exile: self.may_look_face_down_exile.clone(),
             may_play: self.may_play.clone(),
@@ -1640,6 +1643,7 @@ impl Card {
             &self.targeted_from_this_turn,
         );
         refresh_field(&mut out.temp_controllers, &self.temp_controllers);
+        out.static_control_base = self.static_control_base;
         refresh_field(&mut out.may_look, &self.may_look);
         refresh_field(
             &mut out.may_look_face_down_exile,
