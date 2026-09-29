@@ -324,6 +324,7 @@ pub trait TokenEffectBase {
             .collect();
         let pump_keywords = self.pump_keywords(sa);
         let mut result = TokenCreateResult::default();
+        let mut creators = Vec::new();
 
         for cell in token_table.cells().iter().cloned() {
             let controller = cell.prototype.controller;
@@ -344,10 +345,28 @@ pub trait TokenEffectBase {
                     continue;
                 };
                 result.created.push(token_id);
+                creators.push(cell.owner);
                 if self.add_token_to_combat(ctx, sa, token_id) {
                     result.combat_changed = true;
                 }
             }
+        }
+        for (&token_id, creator) in result.created.iter().zip(creators) {
+            ctx.trigger_handler.run_trigger(
+                TriggerType::TokenCreated,
+                RunParams {
+                    card: Some(token_id),
+                    player: Some(creator),
+                    ..Default::default()
+                },
+                false,
+            );
+            emit_zone_trigger(
+                ctx.trigger_handler,
+                token_id,
+                ZoneType::None,
+                ZoneType::Battlefield,
+            );
         }
 
         if let Some(action) = sa.ir.at_eot.as_deref() {
@@ -519,21 +538,6 @@ pub trait TokenEffectBase {
 
         ctx.trigger_handler
             .register_active_trigger(ctx.game, token_id);
-        ctx.trigger_handler.run_trigger(
-            TriggerType::TokenCreated,
-            RunParams {
-                card: Some(token_id),
-                player: Some(creator),
-                ..Default::default()
-            },
-            false,
-        );
-        emit_zone_trigger(
-            ctx.trigger_handler,
-            token_id,
-            ZoneType::None,
-            ZoneType::Battlefield,
-        );
 
         let token_lki = crate::card::card_copy_service::get_lki_copy(ctx.game.card(token_id));
         trigger_list.put(Some(ZoneType::None), Some(ZoneType::Battlefield), token_id);
