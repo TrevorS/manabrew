@@ -69,9 +69,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     };
 
     // Exile the spell card
-    let owner = ctx.game.card(spell_card).owner;
     if ctx.game.card(spell_card).zone != ZoneType::Exile {
-        ctx.move_card(spell_card, ZoneType::Exile, owner);
+        ctx.exile(spell_card, Some(sa));
     }
 
     // Encode it onto the creature

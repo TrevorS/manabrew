@@ -199,7 +199,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             } else {
                 owner
             };
-            ctx.move_card(id, dest_zone2, dest_owner);
+            if dest_zone2 == ZoneType::Exile {
+                ctx.exile(id, Some(sa));
+            } else {
+                ctx.move_card(id, dest_zone2, dest_owner);
+            }
             emit_zone_trigger(ctx.trigger_handler, id, ZoneType::Library, dest_zone2);
         }
     }

@@ -48,7 +48,7 @@ fn discover_for_player(ctx: &mut EffectContext, sa: &SpellAbility, player: Playe
 
         // Exile one at a time (Java: exileSeq = true)
         let old_zone = ctx.game.card(top).zone;
-        ctx.move_card(top, ZoneType::Exile, player);
+        ctx.exile(top, Some(sa));
         emit_zone_trigger(ctx.trigger_handler, top, old_zone, ZoneType::Exile);
 
         if !is_land && cmc <= max_cmc {

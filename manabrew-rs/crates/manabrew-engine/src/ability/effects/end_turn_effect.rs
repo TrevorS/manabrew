@@ -15,7 +15,7 @@ use super::EffectContext;
 /// `SpellAbilityEffect` trait hierarchy — mirrors Java's
 /// `EndTurnEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(EndTurnEffect)]
-fn resolve(ctx: &mut EffectContext, _sa: &crate::spellability::SpellAbility) {
+fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // CR 721.1a
     ctx.trigger_handler.clear_waiting_triggers();
     // Every spell and ability on the stack is EXILED, this one included — it still finishes
@@ -32,8 +32,7 @@ fn resolve(ctx: &mut EffectContext, _sa: &crate::spellability::SpellAbility) {
         })
         .collect();
     for card_id in stack_cards {
-        let owner = ctx.game.card(card_id).owner;
-        ctx.move_card(card_id, forge_foundation::ZoneType::Exile, owner);
+        ctx.exile(card_id, Some(sa));
     }
     while ctx.game.stack.pop().is_some() {}
     ctx.game.end_turn_requested = true;

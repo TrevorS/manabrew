@@ -857,7 +857,7 @@ impl GameLoop {
                     ) {
                         return Some(None);
                     }
-                    self.move_card_with_runtime(game, card_id, ZoneType::Exile, player, agents);
+                    self.exile_with_runtime(game, card_id, None, agents);
                     game.card_mut(card_id).set_face_down(true);
                     game.card_mut(card_id).add_may_look_face_down_exile(player);
                     self.trigger_handler.run_trigger(
@@ -917,7 +917,7 @@ impl GameLoop {
                     };
                     self.emit_tap_for_mana_triggers(player, &tapped);
                     self.pool_mut(player).try_pay(&suspend_mc);
-                    self.move_card_with_runtime(game, card_id, ZoneType::Exile, player, agents);
+                    self.exile_with_runtime(game, card_id, None, agents);
                     crate::ability::effects::effect_context::add_counter_with_context(
                         game,
                         Some(&mut self.trigger_handler),

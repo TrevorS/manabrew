@@ -61,8 +61,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // Exile the haunting card
     let old_zone = ctx.game.card(source_id).zone;
     if old_zone != ZoneType::Exile {
-        ctx.game
-            .move_card(source_id, ZoneType::Exile, ctx.game.card(source_id).owner);
+        ctx.exile(source_id, Some(sa));
         emit_zone_trigger(ctx.trigger_handler, source_id, old_zone, ZoneType::Exile);
     }
 

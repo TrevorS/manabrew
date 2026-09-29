@@ -413,7 +413,11 @@ fn resolve_for_player(
             } else {
                 owner
             };
-            ctx.move_card(id, dest_zone2, dest_owner);
+            if dest_zone2 == ZoneType::Exile {
+                ctx.exile(id, Some(sa));
+            } else {
+                ctx.move_card(id, dest_zone2, dest_owner);
+            }
             zone_movements.put(Some(ZoneType::Library), Some(dest_zone2), id);
             if dest_zone2 == ZoneType::Battlefield {
                 ctx.trigger_handler.register_active_trigger(ctx.game, id);

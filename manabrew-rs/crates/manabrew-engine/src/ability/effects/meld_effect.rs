@@ -75,7 +75,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             continue;
         }
         let old_zone = ctx.game.card(card_id).zone;
-        ctx.move_card(card_id, ZoneType::Exile, controller);
+        ctx.exile(card_id, Some(sa));
         emit_zone_trigger(ctx.trigger_handler, card_id, old_zone, ZoneType::Exile);
         exiled.push(card_id);
     }
