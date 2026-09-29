@@ -937,8 +937,19 @@ impl CombatState {
             });
         }
 
-        for (player, amount) in lifelink_gains_by_source(&events).into_values() {
-            gain_combat_lifelink(game, player, amount);
+        for (source, (player, amount)) in lifelink_gains_by_source(&events) {
+            let gained = gain_combat_lifelink(game, player, amount);
+            let mut first = true;
+            for event in events.iter_mut().filter(|event| event.source == source) {
+                if gained == 0 {
+                    event.lifelink_player = None;
+                }
+                event.lifelink_amount = if std::mem::take(&mut first) {
+                    gained
+                } else {
+                    0
+                };
+            }
         }
 
         CombatDamageResolution {
@@ -1562,14 +1573,14 @@ pub(crate) fn lifelink_gains_by_source(
     gains
 }
 
-fn gain_combat_lifelink(game: &mut GameState, source_controller: PlayerId, amount: i32) {
+fn gain_combat_lifelink(game: &mut GameState, source_controller: PlayerId, amount: i32) -> i32 {
     if amount <= 0
         || crate::staticability::static_ability_cant_gain_lose_pay_life::cant_gain_life(
             game,
             source_controller,
         )
     {
-        return;
+        return 0;
     }
     let mut gl_event = crate::replacement::replacement_handler::ReplacementEvent::GainLife {
         player: source_controller,
@@ -1580,7 +1591,7 @@ fn gain_combat_lifelink(game: &mut GameState, source_controller: PlayerId, amoun
     if gl_result == crate::replacement::ReplacementResult::Skipped
         || gl_result == crate::replacement::ReplacementResult::Replaced
     {
-        return;
+        return 0;
     }
     let final_amount =
         if let crate::replacement::replacement_handler::ReplacementEvent::GainLife {
@@ -1592,10 +1603,12 @@ fn gain_combat_lifelink(game: &mut GameState, source_controller: PlayerId, amoun
         } else {
             amount
         };
-    if final_amount > 0 {
-        game.player_gain_life(source_controller, final_amount);
-        game.player_add_team_life_gained(source_controller, final_amount);
+    if final_amount <= 0 {
+        return 0;
     }
+    game.player_gain_life(source_controller, final_amount);
+    game.player_add_team_life_gained(source_controller, final_amount);
+    final_amount
 }
 
 /// Deal combat damage to a player, handling Infect and Toxic.
