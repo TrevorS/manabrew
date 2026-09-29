@@ -26,6 +26,7 @@ struct ManaAbilityRef {
     mana_text: String,
     produced_ir: Option<crate::ability::ProducedMana>,
     source_order: usize,
+    any_color: bool,
 }
 
 impl ManaAbilityRef {
@@ -42,9 +43,12 @@ impl ManaAbilityRef {
         {
             return true;
         }
-        self.atoms
-            .iter()
-            .any(|&a| can_pay_for_shard_with_color(shard, a))
+        self.atoms.iter().any(|&a| {
+            can_pay_for_shard_with_color(
+                shard,
+                crate::mana::ManaPool::get_possible_color_uses(a, self.any_color),
+            )
+        })
     }
 }
 
@@ -789,6 +793,9 @@ fn auto_tap_lands_internal_with_ctx(
         let mut candidates = collect_sorted_candidates(game, player, &mana_ability_map);
         if candidates.is_empty() {
             break;
+        }
+        for candidate in &mut candidates {
+            candidate.any_color = any_color_conversion;
         }
 
         // Java's chooseCandidate: iterate shards in priority order, pick the
@@ -1925,6 +1932,7 @@ pub(crate) fn reapply_non_undoable_payment_ability(
         mana_text: String::new(),
         produced_ir: ab.produced_ir.clone(),
         source_order: 0,
+        any_color: false,
     };
     let mut replay = auto_payment_callback(runtime, agents, cost_cards);
     if !pay_non_tap_mana_ability_costs(
@@ -2514,11 +2522,12 @@ fn choose_atom_for_shard(mana_ab: &ManaAbilityRef, shard: ManaCostShard) -> Opti
         return mana_ab.atoms.first().copied();
     }
 
-    mana_ab
-        .atoms
-        .iter()
-        .copied()
-        .find(|&a| can_pay_for_shard_with_color(shard, a))
+    mana_ab.atoms.iter().copied().find(|&a| {
+        can_pay_for_shard_with_color(
+            shard,
+            crate::mana::ManaPool::get_possible_color_uses(a, mana_ab.any_color),
+        )
+    })
 }
 
 fn group_and_order_to_pay_shards(
@@ -2895,6 +2904,7 @@ fn group_mana_sources_by_color(
                             .into_owned(),
                         produced_ir: ab.produced_ir.clone(),
                         source_order,
+                        any_color: false,
                     };
                     source_order += 1;
                     add_mana_ability_to_color_map(&mut mana_map, &ma);
@@ -2979,6 +2989,7 @@ fn group_mana_sources_by_color(
                 mana_text: produced.to_string(),
                 produced_ir: ab.produced_ir.clone(),
                 source_order,
+                any_color: false,
             };
             source_order += 1;
             add_mana_ability_to_color_map(&mut mana_map, &ma);
@@ -3005,6 +3016,7 @@ fn group_mana_sources_by_color(
                     mana_text: atom_short(atom).to_string(),
                     produced_ir: None,
                     source_order,
+                    any_color: false,
                 };
                 source_order += 1;
                 add_mana_ability_to_color_map(&mut mana_map, &ma);

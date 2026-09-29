@@ -2439,7 +2439,14 @@ impl GameLoop {
                 &game.cards,
                 player,
                 game.card(card_id),
-            );
+            )
+            || sa.may_play_source.is_some_and(|source| {
+                crate::staticability::static_ability_continuous::may_play_applies_mana_convert(
+                    game,
+                    source,
+                    sa.may_play_static,
+                )
+            });
 
         // Track mana metadata before payment for post-payment effects
         let uncounterable_before = self.pool(player).count_uncounterable();

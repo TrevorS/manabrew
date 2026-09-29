@@ -281,13 +281,29 @@ impl GameLoop {
             .as_ref()
             .map(|rc| Self::raise_mana_from_cost(game, rc, card_id, player))
             .unwrap_or_else(|| forge_foundation::ManaCost::generic(0));
-        available_mana.can_pay(&cost_adj.apply(&base_cost).add(&raise_mana))
-            && alt_cost.as_ref().is_none_or(|cost| {
-                crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player)
-            })
-            && raise_cost.as_ref().is_none_or(|cost| {
-                crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player)
-            })
+        let any_color =
+            crate::staticability::static_ability_mana_convert::can_spend_mana_as_any_color(
+                &game.cards,
+                player,
+                card,
+            ) || crate::staticability::static_ability_continuous::may_play_grant_source(
+                game, player, card,
+            )
+            .is_some_and(|(source, index)| {
+                crate::staticability::static_ability_continuous::may_play_applies_mana_convert(
+                    game, source, index,
+                )
+            });
+        let cost = cost_adj.apply(&base_cost).add(&raise_mana);
+        (if any_color {
+            available_mana.can_pay_any_color(&cost)
+        } else {
+            available_mana.can_pay(&cost)
+        }) && alt_cost.as_ref().is_none_or(|cost| {
+            crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player)
+        }) && raise_cost.as_ref().is_none_or(|cost| {
+            crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player)
+        })
     }
 
     fn can_play_card_state_spell(

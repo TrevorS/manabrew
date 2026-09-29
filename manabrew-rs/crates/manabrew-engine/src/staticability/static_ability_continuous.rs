@@ -332,6 +332,16 @@ pub fn may_play_raise_cost(
     Some(raise.to_string())
 }
 
+pub fn may_play_applies_mana_convert(
+    game: &GameState,
+    source_id: crate::ids::CardId,
+    index: Option<usize>,
+) -> bool {
+    index
+        .and_then(|index| game.card(source_id).static_abilities.get(index))
+        .is_some_and(|st_ab| st_ab.ir.may_play_ignore_type || st_ab.ir.may_play_ignore_color)
+}
+
 pub fn may_play_with_flash<'a>(
     mut grants: impl Iterator<Item = (&'a Card, &'a StaticAbility)>,
     card: &Card,
