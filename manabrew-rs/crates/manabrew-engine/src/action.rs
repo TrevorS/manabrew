@@ -1263,7 +1263,7 @@ impl GameState {
                 if amount <= 0 {
                     continue;
                 }
-                let source_lki = self.get_change_zone_lki_info(source);
+                let source_lki = self.damage_source_lki(source, cause);
                 let source_controller = source_lki.controller;
                 let dealt = match target {
                     DamageTarget::Card(cid)
@@ -1425,6 +1425,18 @@ impl GameState {
         );
     }
 
+    fn damage_source_lki(&self, source: CardId, cause: Option<&SpellAbility>) -> &Card {
+        match cause
+            .filter(|cause| cause.source == Some(source))
+            .and_then(|cause| cause.trigger_source_zone_timestamp)
+        {
+            Some(zone_timestamp) if self.card(source).zone_timestamp != zone_timestamp => {
+                self.get_change_zone_lki_info_at(source, zone_timestamp)
+            }
+            _ => self.get_change_zone_lki_info(source),
+        }
+    }
+
     fn gain_life_from_lifelink(
         &mut self,
         trigger_handler: &mut TriggerHandler,
@@ -1432,7 +1444,7 @@ impl GameState {
         source: CardId,
         amount: i32,
     ) {
-        let source_lki = self.get_change_zone_lki_info(source);
+        let source_lki = self.damage_source_lki(source, cause);
         if !source_lki.has_lifelink() {
             return;
         }

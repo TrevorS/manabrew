@@ -1780,7 +1780,11 @@ fn enters_trigger_x_paid(game: &GameState, sa: &SpellAbility, card_id: CardId) -
             .destination_zones
             .contains(&forge_foundation::ZoneType::Battlefield))
     .then(|| {
-        game.card(card_id)
+        sa.trigger_source_zone_timestamp
+            .map_or_else(
+                || game.card(card_id),
+                |zone_timestamp| game.get_change_zone_lki_info_at(card_id, zone_timestamp),
+            )
             .svars
             .get("XPaid")
             .and_then(|value| value.parse().ok())
