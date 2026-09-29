@@ -266,9 +266,6 @@ pub struct GameState {
     /// Used to order same-player triggers by zone entry order,
     /// matching Java's `Zone.cardList` insertion order.
     next_zone_timestamp: u64,
-    /// Monotonically increasing effect timestamp used by continuous/perpetual
-    /// effect records (Java parity: `game.getNextTimestamp()`).
-    next_effect_timestamp: i64,
     /// Shared damage aggregation map for Java-style `DamageMap` flows.
     /// Used across sub-ability chains and consumed by `DamageResolve`.
     #[serde(skip)]
@@ -386,7 +383,6 @@ impl GameState {
             mirror_forge_bugs: false,
             next_card_id: 0,
             next_zone_timestamp: 0,
-            next_effect_timestamp: 1,
             pending_damage_map: None,
             pending_prevent_map: None,
             pending_change_zone_table: None,
@@ -981,9 +977,7 @@ impl GameState {
     }
 
     pub fn next_effect_timestamp(&mut self) -> i64 {
-        let ts = self.next_effect_timestamp;
-        self.next_effect_timestamp = self.next_effect_timestamp.saturating_add(1);
-        ts
+        self.next_timestamp() as i64
     }
 
     /// Ensure shared damage/prevent maps exist for this resolution scope.

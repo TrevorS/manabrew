@@ -662,7 +662,17 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         });
                     }
 
-                    if let Some(kws) = sa.ir.add_keyword_text.as_deref() {
+                    let removed_by_newer_effect = game.card(target).changed_card_traits.iter().any(
+                        |(&(timestamp, _), change)| {
+                            change.remove_all && timestamp > source_card.layer_timestamp as i64
+                        },
+                    );
+                    if let Some(kws) = sa
+                        .ir
+                        .add_keyword_text
+                        .as_deref()
+                        .filter(|_| !removed_by_newer_effect)
+                    {
                         // AddKeyword$ supports multiple keywords separated by " & ".
                         for kw in kws.split('&').map(str::trim).filter(|s| !s.is_empty()) {
                             // Java `StaticAbilityContinuous:714` replaces a CardColors keyword
