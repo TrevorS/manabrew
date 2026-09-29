@@ -1175,6 +1175,7 @@ pub fn matches_valid_cards_for_sa(
     let targeted_players = sa.target_chosen.all_target_players();
     let context = valid_filter::MatchContext::from_source(game.card(source_id))
         .with_game(game)
+        .with_source_controller(sa.activating_player)
         .with_targets(&targeted_cards, &targeted_players)
         .with_spell_ability(sa);
     valid_filter::matches_valid_card_selector_with_context(selector, card, context)
