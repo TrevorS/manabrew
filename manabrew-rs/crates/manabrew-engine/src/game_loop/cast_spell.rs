@@ -281,116 +281,6 @@ impl GameLoop {
         Some((card_id, play_name))
     }
 
-    /// Keep in sync with the `BecomesTarget` block of `MagicStack.add`: every distinct
-    /// target of the ability and its sub-abilities (`getAllTargetChoices`) fires
-    /// `BecomesTarget`, then `BecomesTargetOnce` fires once for the lot.
-    pub(crate) fn emit_becomes_target_triggers(
-        &mut self,
-        game: &mut GameState,
-        cause_player: PlayerId,
-        cause_card: CardId,
-        source_sa: &SpellAbility,
-    ) {
-        let mut target_cards: Vec<CardId> = Vec::new();
-        let mut target_players: Vec<PlayerId> = Vec::new();
-        let mut target_spells: Vec<u32> = Vec::new();
-        let mut node = Some(source_sa);
-        while let Some(sa) = node {
-            for target_id in sa.target_chosen.all_target_cards() {
-                if !target_cards.contains(&target_id) {
-                    target_cards.push(target_id);
-                }
-            }
-            for target_id in sa.target_chosen.all_target_players() {
-                if !target_players.contains(&target_id) {
-                    target_players.push(target_id);
-                }
-            }
-            if let Some(entry_id) = sa.target_chosen.target_stack_entry {
-                if !target_spells.contains(&entry_id) {
-                    target_spells.push(entry_id);
-                }
-            }
-            node = sa.get_sub_ability();
-        }
-
-        for &target_id in &target_cards {
-            let first_time = !game.card(target_id).has_become_target_this_turn();
-            let valiant = game.card(target_id).is_valiant(cause_player);
-            game.card_mut(target_id)
-                .add_target_from_this_turn(cause_player);
-            self.trigger_handler.run_trigger(
-                TriggerType::BecomesTarget,
-                RunParams {
-                    card: Some(target_id),
-                    target_card: Some(target_id),
-                    cards: Some(vec![target_id]),
-                    cause_player: Some(cause_player),
-                    cause_card: Some(cause_card),
-                    source_sa: Some(source_sa.clone()),
-                    first_time: Some(first_time),
-                    valiant: Some(valiant),
-                    ..Default::default()
-                },
-                false,
-            );
-        }
-        for &target_id in &target_players {
-            self.trigger_handler.run_trigger(
-                TriggerType::BecomesTarget,
-                RunParams {
-                    player: Some(target_id),
-                    target_player: Some(target_id),
-                    cause_player: Some(cause_player),
-                    cause_card: Some(cause_card),
-                    source_sa: Some(source_sa.clone()),
-                    ..Default::default()
-                },
-                false,
-            );
-        }
-        for &entry_id in &target_spells {
-            let Some(entry) = game.stack.find_by_id(entry_id) else {
-                continue;
-            };
-            self.trigger_handler.run_trigger(
-                TriggerType::BecomesTarget,
-                RunParams {
-                    target_sa: Some(entry.spell_ability.clone()),
-                    cause_player: Some(cause_player),
-                    cause_card: Some(cause_card),
-                    source_sa: Some(source_sa.clone()),
-                    ..Default::default()
-                },
-                false,
-            );
-        }
-        if !target_cards.is_empty() || !target_players.is_empty() || !target_spells.is_empty() {
-            self.trigger_handler.run_trigger(
-                TriggerType::BecomesTargetOnce,
-                RunParams {
-                    card: target_cards.first().copied(),
-                    target_card: target_cards.first().copied(),
-                    cards: (!target_cards.is_empty()).then(|| target_cards.clone()),
-                    player: target_players.first().copied(),
-                    target_player: target_players.first().copied(),
-                    cause_player: Some(cause_player),
-                    cause_card: Some(cause_card),
-                    source_sa: Some(source_sa.clone()),
-                    ..Default::default()
-                },
-                false,
-            );
-        }
-
-        crate::ability::effects::commit_crime_for_sa(
-            &mut self.trigger_handler,
-            game,
-            cause_player,
-            source_sa,
-        );
-    }
-
     pub(crate) fn push_spell_ability_to_stack(
         &mut self,
         game: &mut GameState,
@@ -583,7 +473,12 @@ impl GameLoop {
             );
         }
 
-        self.emit_becomes_target_triggers(game, player, trigger_ctx.source_card, sa_for_trigger);
+        crate::ability::effects::emit_targeting_triggers_for_sa(
+            &mut self.trigger_handler,
+            game,
+            trigger_ctx.source_card,
+            sa_for_trigger,
+        );
     }
 
     /// Orchestrates the full non-land SpellAbility entrypoint after the action
