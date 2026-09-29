@@ -1847,9 +1847,31 @@ impl GameLoop {
             }
         }
         if sa.is_spell && !game.card_is_in_zone(card_id, ZoneType::Stack) {
+            let granted_cast_keyword =
+                sa.alt_cost
+                    .and_then(|alt| alt.keyword_name())
+                    .and_then(|name| {
+                        let card = game.card(card_id);
+                        let is_keyword = |kw: &str| {
+                            kw == name
+                                || kw
+                                    .strip_prefix(name)
+                                    .is_some_and(|rest| rest.starts_with(':'))
+                        };
+                        card.granted_keywords
+                            .iter_strings()
+                            .find(|&kw| is_keyword(kw))
+                            .filter(|_| !card.keywords.iter_strings().any(is_keyword))
+                            .map(str::to_string)
+                    });
             game.card_mut(card_id).cast_from = Some(announced_from_zone);
             game.card_mut(card_id).cast_sa = Some(Box::new(sa.clone()));
             self.move_card_with_runtime(game, card_id, ZoneType::Stack, player, agents);
+            if let Some(keyword) = granted_cast_keyword {
+                let card = game.card_mut(card_id);
+                card.capture_changed_characteristics_baseline_if_needed();
+                card.add_changed_card_keywords(&keyword);
+            }
         }
         if sa.is_spell && sa.alt_cost.is_some_and(|alt| alt.is_morph()) {
             crate::spellability::spell::set_cast_face_down(&mut sa, true);

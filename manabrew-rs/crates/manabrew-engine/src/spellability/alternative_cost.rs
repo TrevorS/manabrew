@@ -65,6 +65,35 @@ impl AlternativeCost {
     pub fn is_morph(self) -> bool {
         matches!(self, AlternativeCost::Morph | AlternativeCost::Megamorph)
     }
+
+    pub fn keyword_name(self) -> Option<&'static str> {
+        Some(match self {
+            AlternativeCost::Flashback => "Flashback",
+            AlternativeCost::Spectacle => "Spectacle",
+            AlternativeCost::Evoke => "Evoke",
+            AlternativeCost::Dash => "Dash",
+            AlternativeCost::Blitz => "Blitz",
+            AlternativeCost::Escape => "Escape",
+            AlternativeCost::Overload => "Overload",
+            AlternativeCost::Madness => "Madness",
+            AlternativeCost::Foretell => "Foretell",
+            AlternativeCost::Emerge => "Emerge",
+            AlternativeCost::Bestow => "Bestow",
+            AlternativeCost::Warp => "Warp",
+            AlternativeCost::Awaken => "Awaken",
+            AlternativeCost::Disturb => "Disturb",
+            AlternativeCost::Harmonize => "Harmonize",
+            AlternativeCost::Freerunning => "Freerunning",
+            AlternativeCost::Impending => "Impending",
+            AlternativeCost::Mayhem => "Mayhem",
+            AlternativeCost::Mutate => "Mutate",
+            AlternativeCost::Prowl => "Prowl",
+            AlternativeCost::Sneak => "Sneak",
+            AlternativeCost::Surge => "Surge",
+            AlternativeCost::WebSlinging => "Web-slinging",
+            _ => return None,
+        })
+    }
 }
 
 /// Generic mana cost for casting a card face-down via Morph/Megamorph ({3}).
