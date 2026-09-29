@@ -3347,6 +3347,19 @@ impl Card {
     pub fn restore_clone_snapshot(&mut self, state: CloneState) {
         self.apply_clone_state(state);
         self.remove_clone_state();
+        self.retake_animate_snapshot();
+    }
+
+    fn retake_animate_snapshot(&mut self) {
+        if let Some(mut state) = self.animate_state.take() {
+            state.original_type_line = self.type_line.clone();
+            state.original_base_power = self.base_power;
+            state.original_base_toughness = self.base_toughness;
+            state.original_color = self.color;
+            state.original_keywords = Some(self.keywords.clone());
+            state.apply_new_pt_and_color(self);
+            self.animate_state = Some(state);
+        }
     }
 
     /// Forge builds a triggered ability's sub-abilities when the trigger is created, so one
@@ -5053,15 +5066,7 @@ impl Card {
                     self.add_intrinsic_keyword(kw);
                 }
             }
-            if let Some(mut state) = self.animate_state.take() {
-                state.original_type_line = self.type_line.clone();
-                state.original_base_power = self.base_power;
-                state.original_base_toughness = self.base_toughness;
-                state.original_color = self.color;
-                state.original_keywords = Some(self.keywords.clone());
-                state.apply_new_pt_and_color(self);
-                self.animate_state = Some(state);
-            }
+            self.retake_animate_snapshot();
             if !self.changed_card_types.is_empty() {
                 for (_, change) in self.changed_card_types.clone() {
                     self.apply_changed_card_type(&change);
