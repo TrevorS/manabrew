@@ -3,8 +3,9 @@ use forge_foundation::ZoneType;
 use super::{resolve_numeric_svar, EffectContext};
 use crate::ability::ability_ir::EffectIr;
 use crate::ability::AbilityKey;
-use crate::card::card_damage_map::DamageTarget;
+use crate::card::card_damage_map::{CardDamageMap, DamageTarget};
 use crate::card::valid_filter::{self, MatchContext};
+use crate::game_entity_counter_table::GameEntityCounterTable;
 use crate::ids::CardId;
 use crate::parsing::keys;
 use crate::spellability::SpellAbility;
@@ -64,171 +65,33 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
-    // Check source card for Infect/Wither keywords
-    let source = damage_all_source(ctx, sa);
-    let (source_has_infect_keyword, source_has_wither) = if let Some(src_id) = source {
-        let src = ctx.game.get_change_zone_lki_info(src_id);
-        (
-            src.has_infect(),
-            src.has_wither()
-                || crate::staticability::static_ability_wither_damage::is_wither_damage(
-                    &ctx.game.cards,
-                    src,
-                ),
-        )
-    } else {
-        (false, false)
+    let Some(source) = damage_all_source(ctx, sa) else {
+        return;
     };
-
-    // Pass 2 — apply damage to collected permanents
+    let mut damage_map = CardDamageMap::default();
     for card_id in to_damage {
-        if ctx.game.card(card_id).zone == ZoneType::Battlefield {
-            // Protection: prevents all damage from matching sources
-            if let Some(src_id) = source {
-                if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-                    ctx.game,
-                    ctx.game.card(card_id),
-                    ctx.game.card(src_id),
-                ) {
-                    continue;
-                }
-            }
-
-            // Track damage source for DamagedBy trigger filters
-            if let Some(src_id) = source {
-                if !ctx
-                    .game
-                    .card(card_id)
-                    .damage_sources_this_turn
-                    .contains(&src_id)
-                {
-                    ctx.game
-                        .card_mut(card_id)
-                        .damage_sources_this_turn
-                        .push(src_id);
-                }
-            }
-            if source_has_infect_keyword || source_has_wither {
-                // Infect/Wither: damage to creatures as -1/-1 counters
-                if use_damage_map {
-                    if let Some(src_id) = source {
-                        if let Some(map) = ctx.game.pending_damage_map.as_mut() {
-                            map.put(src_id, DamageTarget::Card(card_id), num_dmg);
-                        }
-                    }
-                } else if !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-                    &ctx.game.cards,
-                    ctx.game.card(card_id),
-                    &crate::card::CounterType::M1M1,
-                ) {
-                    crate::ability::effects::effect_context::add_counter_with_context(
-                        ctx.game,
-                        Some(ctx.trigger_handler),
-                        Some(ctx.agents),
-                        card_id,
-                        &crate::card::CounterType::M1M1,
-                        num_dmg,
-                        crate::event::RunParams {
-                            source_player: sa.source.map(|src_id| ctx.game.card(src_id).controller),
-                            cause: Some(sa.clone()),
-                            ..Default::default()
-                        },
-                        true,
-                    );
-                }
-            } else if use_damage_map {
-                if let Some(src_id) = source {
-                    if let Some(map) = ctx.game.pending_damage_map.as_mut() {
-                        map.put(src_id, DamageTarget::Card(card_id), num_dmg);
-                    }
-                }
-            } else if let Some(src_id) = source {
-                ctx.deal_damage_to(src_id, DamageTarget::Card(card_id), num_dmg);
-            }
-
-            // Fire DamageDone trigger per card
-            if !use_damage_map {
-                ctx.trigger_handler.run_trigger(
-                    crate::trigger::TriggerType::DamageDone,
-                    crate::event::RunParams {
-                        damage_source: source,
-                        damage_target_card: Some(card_id),
-                        damage_amount: Some(num_dmg),
-                        is_combat_damage: Some(false),
-                        ..Default::default()
-                    },
-                    false,
-                );
+        damage_map.put(source, DamageTarget::Card(card_id), num_dmg);
+    }
+    for pid in valid_players.into_iter().flatten() {
+        damage_map.put(source, DamageTarget::Player(pid), num_dmg);
+    }
+    if use_damage_map {
+        if let Some(pending) = ctx.game.pending_damage_map.as_mut() {
+            for (source, target, amount) in damage_map.entries() {
+                pending.put(source, target, amount);
             }
         }
+    } else {
+        ctx.deal_damage(
+            &mut damage_map,
+            &mut CardDamageMap::default(),
+            &mut GameEntityCounterTable::default(),
+            Some(sa),
+        );
+        ctx.trigger_handler.flush_waiting_triggers(ctx.game);
     }
 
-    // Deal damage to each matching player if ValidPlayers$ is set
-    if let Some(valid_players) = valid_players {
-        for pid in valid_players {
-            let source_has_infect = if let Some(src_id) = source {
-                let src = ctx.game.get_change_zone_lki_info(src_id);
-                source_has_infect_keyword
-                    || crate::staticability::static_ability_infect_damage::is_infect_damage(
-                        ctx.game,
-                        &ctx.game.cards,
-                        pid,
-                        src.controller,
-                    )
-            } else {
-                false
-            };
-            if source_has_infect {
-                if use_damage_map {
-                    if let Some(src_id) = source {
-                        if let Some(map) = ctx.game.pending_damage_map.as_mut() {
-                            map.put(src_id, DamageTarget::Player(pid), num_dmg);
-                        }
-                    }
-                } else {
-                    ctx.add_player_counter(
-                        pid,
-                        &crate::card::CounterType::Poison,
-                        num_dmg,
-                        sa,
-                        crate::event::RunParams {
-                            source_player: source
-                                .map(|source| ctx.game.get_change_zone_lki_info(source).controller),
-                            ..Default::default()
-                        },
-                    );
-                }
-            } else if use_damage_map {
-                if let Some(src_id) = source {
-                    if let Some(map) = ctx.game.pending_damage_map.as_mut() {
-                        map.put(src_id, DamageTarget::Player(pid), num_dmg);
-                    }
-                }
-            } else if let Some(src_id) = source {
-                let dealt = match ctx.deal_damage_to(src_id, DamageTarget::Player(pid), num_dmg) {
-                    (crate::agent::GameEntity::Player(_), dealt) => dealt,
-                    (crate::agent::GameEntity::Card(_), _) => 0,
-                };
-                ctx.game
-                    .record_player_damage_assignment(source, Some(pid), dealt, false);
-            }
-
-            // Fire DamageDone trigger per player
-            if !use_damage_map {
-                ctx.trigger_handler.run_trigger(
-                    crate::trigger::TriggerType::DamageDone,
-                    crate::event::RunParams {
-                        damage_source: source,
-                        damage_target_player: Some(pid),
-                        damage_amount: Some(num_dmg),
-                        is_combat_damage: Some(false),
-                        ..Default::default()
-                    },
-                    false,
-                );
-            }
-        }
-    }
+    let _ = crate::ability::spell_ability_effect::replace_dying(ctx.game, sa);
 }
 
 fn damage_all_source(ctx: &EffectContext, sa: &SpellAbility) -> Option<CardId> {
