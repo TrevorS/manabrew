@@ -28,7 +28,6 @@ pub mod block_effect;
 pub mod bond_effect;
 pub mod branch_effect;
 pub mod camouflage_effect;
-pub mod cast_from_effect;
 pub mod change_combatants_effect;
 pub mod change_speed_effect;
 pub mod change_targets_effect;

@@ -1319,15 +1319,24 @@ impl GameLoop {
             event,
         );
 
-        if sa.api == Some(crate::ability::api_type::ApiType::Play)
-            && sa.ir.unless_cost.is_none()
+        if matches!(
+            sa.api,
+            Some(
+                crate::ability::api_type::ApiType::Play
+                    | crate::ability::api_type::ApiType::Discover
+            )
+        ) && sa.ir.unless_cost.is_none()
             && sa.ir.repeat.is_none()
         {
             if effects::condition::check_condition(game, sa)
                 && sa.source.is_some()
                 && effects::condition::check_condition_present(game, sa, sa.activating_player)
             {
-                self.resolve_play_effect(game, agents, sa, parent_target_card);
+                if sa.api == Some(crate::ability::api_type::ApiType::Play) {
+                    self.resolve_play_effect(game, agents, sa, parent_target_card);
+                } else {
+                    self.resolve_discover_effect(game, agents, sa, parent_target_card);
+                }
                 game.lose_life_simultaneously(&mut self.trigger_handler, Some(agents));
             }
             return;
