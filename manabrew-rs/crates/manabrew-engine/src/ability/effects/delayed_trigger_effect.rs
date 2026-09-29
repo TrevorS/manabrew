@@ -98,6 +98,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
+    let host_timestamp = sa
+        .trigger_source_zone_timestamp
+        .or(sa.source_zone_timestamp)
+        .unwrap_or_else(|| ctx.game.card(source_id).zone_timestamp);
     let delayed = crate::trigger::handler::DelayedTrigger {
         mode,
         trigger_mode: parsed.mode,
@@ -105,11 +109,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         execute_svar,
         controller,
         source_card: source_id,
-        source_zone_timestamp: Some(
-            sa.trigger_source_zone_timestamp
-                .or(sa.source_zone_timestamp)
-                .unwrap_or_else(|| ctx.game.card(source_id).zone_timestamp),
-        ),
+        source_zone_timestamp: Some(host_timestamp),
         created_turn: ctx.game.turn.turn_number,
         created_phase: ctx.game.turn.phase,
         target_card: None,
@@ -120,7 +120,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         target_card_zone_timestamp: None,
         sort_after_active: false,
         trigger_order: None,
-        source_timestamp: None,
+        source_timestamp: Some(host_timestamp),
         spawning_ability: Some(sa.clone()),
     };
     if sa.ir.delayed_trigger_defined_player.is_some() {
