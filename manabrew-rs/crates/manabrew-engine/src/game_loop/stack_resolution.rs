@@ -280,14 +280,25 @@ impl GameLoop {
                         player,
                         Some(source),
                     );
-                    if !crate::cost::can_pay_with_ability(
+                    let payable_num_times = (game.action_space_mana_probe
+                        == crate::mana::ActionSpaceManaProbe::ComputerUtilMana
+                        && entry.spell_ability.ir.announce_text.as_deref() == Some("NumTimes"))
+                    .then(|| crate::mana::computer_util_mana::payable_num_times(&cost, &available))
+                    .flatten();
+                    let payable = crate::cost::can_pay_with_ability(
                         &cost,
                         game,
                         &available,
                         source,
                         player,
                         Some(&entry.spell_ability),
-                    ) {
+                    );
+                    if let Some(times) = payable_num_times {
+                        game.card_mut(source)
+                            .svars
+                            .insert("NumTimes".to_string(), times.to_string());
+                    }
+                    if !payable {
                         Self::reset_x_mana_cost_paid(game, source, x_paid_before);
                         apply_continuous_effects(game);
                         game.stack.finish_resolving();

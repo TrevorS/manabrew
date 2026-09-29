@@ -1510,6 +1510,25 @@ fn collect_sorted_candidates_with_pref(
 }
 
 /// Returns the chosen source and the shard it will pay.
+pub(crate) fn payable_num_times(cost: &crate::cost::Cost, available: &ManaPool) -> Option<i32> {
+    let per_time = cost
+        .parts
+        .iter()
+        .find_map(|part| match part {
+            crate::cost::CostPart::Mana { cost, .. } => Some(cost.clone()),
+            _ => None,
+        })
+        .unwrap_or_else(|| forge_foundation::ManaCost::generic(0));
+    let mut total = forge_foundation::ManaCost::generic(0);
+    for times in 0..10 {
+        total = total.add(&per_time);
+        if !available.can_pay(&total) {
+            return Some(times);
+        }
+    }
+    None
+}
+
 fn choose_candidate(
     game: &GameState,
     player: PlayerId,
