@@ -836,7 +836,7 @@ pub fn card_to_dto_for_viewer(game: &GameState, cid: CardId, viewer: Option<Play
             .iter_strings()
             .chain(card.granted_keywords.iter_strings())
             .any(|kw| kw.starts_with(manabrew_engine::card::KEYWORD_PLOTTED_PREFIX)),
-        is_warp_exiled: card.has_keyword(manabrew_engine::card::KEYWORD_WARP_EXILED),
+        is_warp_exiled: card.is_warped(),
         foil: card.paper_foil,
         // Combat death prediction is computed by the Forge harness only; the
         // Rust engine doesn't surface it yet.

@@ -776,6 +776,9 @@ impl GameState {
             card.may_look_face_down_exile.clear();
             card.damage_history = Default::default();
         }
+        if src_zone == ZoneType::Exile && dest_zone != ZoneType::Exile {
+            self.card_mut(card_id).warped = false;
+        }
         if dest_zone != ZoneType::Stack {
             if let Some(exiled_with) = self.card_mut(card_id).exiled_with.take() {
                 self.card_mut(exiled_with).remove_exiled_card(card_id);

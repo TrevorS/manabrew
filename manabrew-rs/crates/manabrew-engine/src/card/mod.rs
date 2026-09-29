@@ -391,6 +391,7 @@ pub struct Card {
     pub cloaked: bool,
     /// True if this card was foretold (exiled face-down via Foretell).
     pub foretold: bool,
+    pub warped: bool,
     /// Other card(s) melded/merged with this one. When this card changes zones,
     /// all melded parts move together (CR 712.4).
     pub melded_with: Vec<CardId>,
@@ -940,6 +941,7 @@ impl Card {
             manifested: false,
             cloaked: false,
             foretold: false,
+            warped: false,
             foretold_cost_by_effect: false,
             melded_with: Vec::new(),
             is_bestowed: false,
@@ -1182,6 +1184,7 @@ impl Card {
             manifested: self.manifested,
             cloaked: self.cloaked,
             foretold: self.foretold,
+            warped: self.warped,
             melded_with: self.melded_with.clone(),
             foretold_cost_by_effect: self.foretold_cost_by_effect,
             is_bestowed: self.is_bestowed,
@@ -1421,6 +1424,7 @@ impl Card {
         out.manifested.clone_from(&self.manifested);
         out.cloaked.clone_from(&self.cloaked);
         out.foretold.clone_from(&self.foretold);
+        out.warped.clone_from(&self.warped);
         refresh_field(&mut out.melded_with, &self.melded_with);
         out.foretold_cost_by_effect
             .clone_from(&self.foretold_cost_by_effect);
@@ -3144,6 +3148,10 @@ impl Card {
 
     pub fn set_summoning_sick(&mut self, summoning_sick: bool) {
         self.summoning_sick = summoning_sick;
+    }
+
+    pub fn is_warped(&self) -> bool {
+        self.zone == ZoneType::Exile && self.warped
     }
 
     pub fn set_foretold(&mut self, foretold: bool) {

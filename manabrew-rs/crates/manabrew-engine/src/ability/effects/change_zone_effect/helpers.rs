@@ -591,6 +591,7 @@ pub(super) fn apply_post_move(
 
         // Warp keyword
         if sa.ir.warp {
+            ctx.game.card_mut(card_id).warped = true;
             create_warp_effect(ctx, sa, card_id);
         }
     }
