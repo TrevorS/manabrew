@@ -11,12 +11,14 @@ use super::trigger::{Trigger, TriggerBehavior};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TriggerTurnFaceUp {
     pub valid_card: Option<crate::parsing::CompiledSelector>,
+    pub valid_cause: Option<String>,
 }
 
 impl TriggerTurnFaceUp {
     pub fn parse(params: &Params) -> Box<dyn TriggerBehavior> {
         Box::new(Self {
             valid_card: params.selector_cloned(keys::VALID_CARD),
+            valid_cause: params.get(keys::VALID_CAUSE).map(str::to_string),
         })
     }
 }
@@ -28,9 +30,19 @@ impl TriggerBehavior for TriggerTurnFaceUp {
     }
 
     fn perform_test(&self, trigger: &Trigger, params: &RunParams, game: &GameState) -> bool {
-        let _host_card = trigger.base.card_trait_base.host_card_id();
-        let _host_controller = trigger.base.card_trait_base.host_controller(game);
-        trigger.matches_optional_valid_card_filter(&self.valid_card, params.card, game)
+        if !trigger.matches_optional_valid_card_filter(&self.valid_card, params.card, game) {
+            return false;
+        }
+        self.valid_cause.as_deref().is_none_or(|filter| {
+            params.cause.as_ref().is_some_and(|cause| {
+                crate::spellability::matches_valid_sa(
+                    filter,
+                    cause,
+                    game.card(trigger.host_card_id()),
+                    cause.source.map(|id| game.card(id)),
+                )
+            })
+        })
     }
 
     fn set_triggering_objects(
