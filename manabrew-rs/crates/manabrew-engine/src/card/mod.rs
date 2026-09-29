@@ -1922,6 +1922,19 @@ impl Card {
         triggers
     }
 
+    pub fn copiable_keywords(&self) -> &crate::keyword::keyword_collection::KeywordCollection {
+        self.changed_keywords_base
+            .as_ref()
+            .or(self.trait_base_keywords.as_ref())
+            .unwrap_or(&self.keywords)
+    }
+
+    pub fn copiable_static_abilities(&self) -> Vec<StaticAbility> {
+        self.trait_base_static_abilities
+            .clone()
+            .unwrap_or_else(|| self.static_abilities.clone())
+    }
+
     pub fn copiable_replacement_effects(&self) -> Vec<ReplacementEffect> {
         self.trait_base_replacement_effects
             .clone()

@@ -111,16 +111,12 @@ pub fn get_proto_type(sa: &SpellAbility, original: &Card, new_owner: crate::ids:
             .map(|state| state.original_base_toughness)
             .or(original.changed_base_toughness)
             .unwrap_or(original.base_toughness),
-        original
-            .changed_keywords_base
-            .as_ref()
-            .unwrap_or(&original.keywords)
-            .as_string_list(),
+        original.copiable_keywords().as_string_list(),
         original.abilities.clone(),
     );
     copy.set_triggers(original.copiable_triggers());
     copy.set_svars_map(original.svars.clone());
-    copy.set_static_abilities(original.static_abilities.clone());
+    copy.set_static_abilities(original.copiable_static_abilities());
     copy.set_replacement_effects(original.copiable_replacement_effects());
     copy.set_perpetual(original, false);
     copy.initial_loyalty = original.initial_loyalty.clone();
