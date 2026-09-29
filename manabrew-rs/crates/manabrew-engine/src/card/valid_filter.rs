@@ -1292,7 +1292,7 @@ fn matches_relation_predicate(
         }
         RelationPredicate::SharesCreatureTypeWith(target) => {
             relation_target_card_any(target, card, context, |target| {
-                shares_creature_type(card, target)
+                card.shares_creature_type_with(target)
             })
         }
         RelationPredicate::SharesColorWith(target) => {
@@ -1623,16 +1623,6 @@ fn triggered_defending_player(context: MatchContext<'_>) -> Option<PlayerId> {
         })
         .or(context.triggering_player)
         .or_else(|| context.combat.and_then(|combat| combat.defending_player))
-}
-
-fn shares_creature_type(card: &Card, target: &Card) -> bool {
-    card.is_creature()
-        && target.is_creature()
-        && card
-            .type_line
-            .subtypes
-            .iter()
-            .any(|subtype| target.type_line.has_subtype(subtype))
 }
 
 fn matches_entered_this_turn_from(zone: ZoneType, card: &Card, _context: MatchContext<'_>) -> bool {
