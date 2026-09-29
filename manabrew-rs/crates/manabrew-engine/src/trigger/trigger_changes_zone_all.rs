@@ -109,6 +109,17 @@ impl TriggerBehavior for TriggerChangesZoneAll {
             _ => None,
         };
 
+        if trigger
+            .get_active_zone()
+            .contains(&forge_foundation::ZoneType::Battlefield)
+            && self.origin.as_deref() == Some(&[forge_foundation::ZoneType::Graveyard][..])
+            && table
+                .as_ref()
+                .is_some_and(|table| !table.last_state_battlefield().contains(&host_card))
+        {
+            return false;
+        }
+
         if let Some(filter) = &self.valid_cause {
             let Some(cause_card) = (match params.get_value(AbilityKey::Cause) {
                 Some(AbilityValue::SpellAbility(sa)) => sa.source,
