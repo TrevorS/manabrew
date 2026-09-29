@@ -17,7 +17,12 @@ pub(super) fn resolve_stack_removal(
     _controller: PlayerId,
 ) {
     let target_card = if sa.uses_targeting() {
-        sa.target_chosen.target_card
+        sa.target_chosen.target_card.or_else(|| {
+            sa.target_chosen
+                .target_stack_entry
+                .and_then(|id| ctx.game.stack.iter().find(|entry| entry.id == id))
+                .and_then(|entry| entry.spell_ability.source)
+        })
     } else if sa.defined().is_some() {
         crate::ability::spell_ability_effect::get_defined_cards_or_targeted(ctx.game, sa)
             .into_iter()
