@@ -1799,6 +1799,7 @@ impl GameLoop {
         prechosen_beholds: Option<&[CardId]>,
         prechosen_evidence: Option<&[CardId]>,
         decided_cards: Option<&[Option<Vec<CardId>>]>,
+        decided_counters: Option<&[Option<Vec<(CardId, crate::card::CounterType)>>]>,
     ) -> bool {
         let payment_snapshot = self.make_snapshot(game, true);
         game.card_mut(card_id).paid_cost_exiled_cards.clear();
@@ -2280,16 +2281,21 @@ impl GameLoop {
                     type_filter,
                     counter_type,
                 } => {
-                    let Some(removals) = self.decide_remove_any_counter(
-                        game,
-                        agents,
-                        player,
-                        card_id,
-                        type_filter,
-                        amount.resolve(game, card_id, player),
-                        counter_type.as_ref(),
-                        sa.as_deref(),
-                    ) else {
+                    let decided_removals = decided_counters
+                        .and_then(|counters| counters.get(idx))
+                        .and_then(Clone::clone);
+                    let Some(removals) = decided_removals.or_else(|| {
+                        self.decide_remove_any_counter(
+                            game,
+                            agents,
+                            player,
+                            card_id,
+                            type_filter,
+                            amount.resolve(game, card_id, player),
+                            counter_type.as_ref(),
+                            sa.as_deref(),
+                        )
+                    }) else {
                         payment_ok = false;
                         break;
                     };
@@ -3061,6 +3067,41 @@ impl GameLoop {
             {
                 decided[idx] =
                     Some(self.decide_cost_part_cards(game, agents, player, source, part, sa)?);
+            }
+        }
+        Some(decided)
+    }
+
+    pub(crate) fn prechoose_additional_cost_counters(
+        &mut self,
+        game: &GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        source: CardId,
+        spell_cost: &crate::cost::Cost,
+        sa: Option<&SpellAbility>,
+    ) -> Option<Vec<Option<Vec<(CardId, crate::card::CounterType)>>>> {
+        let mut decided = vec![None; spell_cost.parts.len()];
+        for (idx, part) in spell_cost.parts.iter().enumerate() {
+            if let CostPart::RemoveAnyCounter {
+                amount,
+                type_filter,
+                counter_type,
+            } = part
+            {
+                let amount = amount.resolve(game, source, player);
+                if amount > 0 {
+                    decided[idx] = Some(self.decide_remove_any_counter(
+                        game,
+                        agents,
+                        player,
+                        source,
+                        type_filter,
+                        amount,
+                        counter_type.as_ref(),
+                        sa,
+                    )?);
+                }
             }
         }
         Some(decided)
