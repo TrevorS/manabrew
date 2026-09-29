@@ -88,39 +88,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let _ = crate::ability::spell_ability_effect::replace_dying(ctx.game, sa);
 }
 
-pub(super) fn excess_damage_value(
-    game: &crate::game::GameState,
-    card_id: crate::ids::CardId,
-    source: crate::ids::CardId,
-) -> i32 {
-    let card = game.card(card_id);
-    if card.is_creature() && game.get_change_zone_lki_info(source).has_deathtouch() {
-        return 1.min((card.toughness() - card.damage).max(0));
-    }
-    if card.is_creature() {
-        return (card.toughness() - card.damage).max(0);
-    }
-    if card.type_line.is_planeswalker() {
-        return card
-            .counters
-            .get(&crate::card::CounterType::Loyalty)
-            .copied()
-            .unwrap_or(0);
-    }
-    0
-}
-
-pub(super) fn excess_svar_condition(
-    game: &crate::game::GameState,
-    sa: &SpellAbility,
-    card_id: crate::ids::CardId,
-) -> bool {
-    match crate::parsing::raw_get(&sa.ability_text, "ExcessSVarCondition") {
-        Some(valid) => super::matches_valid_cards_for_sa(game, sa, game.card(card_id), None, valid),
-        None => true,
-    }
-}
-
 fn damage_targets(
     game: &crate::game::GameState,
     sa: &SpellAbility,
@@ -169,64 +136,6 @@ fn damage_targets(
                 .map(DamageTarget::Card),
         )
         .collect()
-}
-
-/// CR 702.15e: one gain for the whole event, as the lifelink step of `GameAction.dealDamage`.
-/// Mirrors the combat lifelink path in `combat/mod.rs` — the can't-gain check and the
-/// GainLife replacement chain apply here too.
-pub(crate) fn gain_life_from_lifelink(
-    ctx: &mut EffectContext,
-    sa: &SpellAbility,
-    source: crate::ids::CardId,
-    lifelink_dealt: i32,
-) {
-    let game = &mut *ctx.game;
-    let source_lki = game.get_change_zone_lki_info(source);
-    if lifelink_dealt <= 0 || !source_lki.has_lifelink() {
-        return;
-    }
-    let controller = source_lki.controller;
-    if crate::staticability::static_ability_cant_gain_lose_pay_life::cant_gain_life(
-        game, controller,
-    ) {
-        return;
-    }
-    let mut gl_event = crate::replacement::replacement_handler::ReplacementEvent::GainLife {
-        player: controller,
-        amount: lifelink_dealt,
-    };
-    let gl_result =
-        crate::replacement::replacement_handler::apply_replacements(game, &mut gl_event);
-    if gl_result == crate::replacement::ReplacementResult::Skipped
-        || gl_result == crate::replacement::ReplacementResult::Replaced
-    {
-        return;
-    }
-    let final_amount =
-        if let crate::replacement::replacement_handler::ReplacementEvent::GainLife {
-            amount, ..
-        } = gl_event
-        {
-            amount
-        } else {
-            lifelink_dealt
-        };
-    if final_amount > 0 {
-        game.player_gain_life(controller, final_amount);
-        game.player_add_team_life_gained(controller, final_amount);
-        ctx.trigger_handler.run_trigger(
-            crate::trigger::TriggerType::LifeGained,
-            crate::event::RunParams {
-                player: Some(controller),
-                life_amount: Some(final_amount),
-                first_time: Some(game.player(controller).life_gained_this_turn == final_amount),
-                source_card: Some(source),
-                source_sa: Some(sa.clone()),
-                ..Default::default()
-            },
-            false,
-        );
-    }
 }
 
 /// Resolve the NumDmg$ parameter, supporting both integer literals and SVar
