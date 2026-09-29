@@ -1476,8 +1476,11 @@ impl TriggerHandler {
                     && lki
                         .triggers
                         .iter()
-                        .map(|trigger| trigger.id)
-                        .ne(card.triggers.iter().map(|trigger| trigger.id)))
+                        .map(|trigger| (trigger.id, trigger.kind, &trigger.execute))
+                        .ne(card
+                            .triggers
+                            .iter()
+                            .map(|trigger| (trigger.id, trigger.kind, &trigger.execute))))
                 .then_some((card_id, lki))
             })
             .collect();
