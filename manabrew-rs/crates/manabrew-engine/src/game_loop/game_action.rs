@@ -107,19 +107,13 @@ pub(crate) fn exile_cost_cards(
     payer: PlayerId,
     cards: &[CardId],
     collect_evidence: bool,
+    cause: Option<&SpellAbility>,
 ) {
     let outer_change_zone_table = game.pending_change_zone_table.take();
     game.ensure_pending_change_zone_table();
     for &card_id in cards {
         let from = game.card(card_id).zone;
-        let owner = game.card(card_id).owner;
-        game.move_card_with_agents_and_replacement_runtime(
-            card_id,
-            ZoneType::Exile,
-            owner,
-            agents,
-            runtime,
-        );
+        game.exile(card_id, cause, agents, runtime);
         crate::ability::effects::emit_zone_trigger(
             runtime.trigger_handler,
             card_id,

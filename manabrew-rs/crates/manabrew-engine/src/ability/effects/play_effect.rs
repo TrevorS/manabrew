@@ -314,8 +314,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             let spent = crate::cost::cost_adjustment::adjust(
                 ctx.game,
                 ctx.agents,
-                ctx.trigger_handler,
-                ctx.mana_pools,
+                &mut crate::replacement::replacement_handler::ReplacementRuntime {
+                    trigger_handler: ctx.trigger_handler,
+                    token_templates: ctx.token_templates,
+                    token_art_variants: ctx.token_art_variants,
+                    token_fallback: ctx.token_fallback,
+                    edition_dates: ctx.edition_dates,
+                    mana_pools: ctx.mana_pools,
+                    rng: ctx.rng,
+                },
                 &mut unpaid,
                 &mut spell_sa,
                 controller,

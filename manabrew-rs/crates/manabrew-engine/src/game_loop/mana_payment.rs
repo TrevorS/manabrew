@@ -596,7 +596,7 @@ impl GameLoop {
                     cards,
                     collect_evidence,
                 } => {
-                    exile_cost_cards(game, runtime, agents, player, cards, collect_evidence);
+                    exile_cost_cards(game, runtime, agents, player, cards, collect_evidence, None);
                     cards.first().copied()
                 }
                 mana::ManaPayCallback::ApplyProduceManaReplacement {

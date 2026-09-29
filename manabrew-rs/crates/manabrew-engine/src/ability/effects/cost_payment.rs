@@ -504,6 +504,21 @@ fn try_pay_effect_cost(
     cost: &Cost,
     mode: EffectCostPaymentMode,
 ) -> bool {
+    let cost_stack_size = ctx.game.cost_payment_stack.size();
+    let paid = pay_effect_cost_parts(ctx, sa, source, payer, cost, mode, cost_stack_size);
+    ctx.game.cost_payment_stack.truncate(cost_stack_size);
+    paid
+}
+
+fn pay_effect_cost_parts(
+    ctx: &mut EffectContext,
+    sa: &SpellAbility,
+    source: CardId,
+    payer: PlayerId,
+    cost: &Cost,
+    mode: EffectCostPaymentMode,
+    cost_stack_size: usize,
+) -> bool {
     let available_mana =
         crate::mana::calculate_available_mana(&ctx.mana_pools[payer.index()], ctx.game, payer);
     if !mode.attempts_unpayable()
@@ -567,7 +582,12 @@ fn try_pay_effect_cost(
         }
     }
 
+    let payment = std::sync::Arc::new(sa.clone());
     for part in &cost.parts {
+        ctx.game.cost_payment_stack.truncate(cost_stack_size);
+        ctx.game
+            .cost_payment_stack
+            .push(part.clone(), payment.clone());
         match part {
             CostPart::FlipCoin(amount) => {
                 let resolved_amount = amount.resolve(ctx.game, source, payer);
@@ -922,9 +942,8 @@ fn try_pay_effect_cost(
                 from,
             } => {
                 if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
-                    let owner = ctx.game.card(source).owner;
                     let origin = ctx.game.card(source).zone;
-                    ctx.move_card(source, ZoneType::Exile, owner);
+                    ctx.exile(source, None);
                     emit_zone_trigger(ctx.trigger_handler, source, origin, ZoneType::Exile);
                     continue;
                 }
@@ -956,8 +975,7 @@ fn try_pay_effect_cost(
                     amount,
                 );
                 for cid in chosen {
-                    let owner = ctx.game.card(cid).owner;
-                    ctx.move_card(cid, ZoneType::Exile, owner);
+                    ctx.exile(cid, None);
                     emit_zone_trigger(ctx.trigger_handler, cid, *from, ZoneType::Exile);
                 }
             }

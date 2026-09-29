@@ -340,6 +340,17 @@ impl GameLoop {
         );
     }
 
+    pub(crate) fn exile_with_runtime(
+        &mut self,
+        game: &mut GameState,
+        card_id: CardId,
+        cause: Option<&SpellAbility>,
+        agents: &mut [Box<dyn PlayerAgent>],
+    ) {
+        let mut runtime = self.replacement_runtime();
+        game.exile(card_id, cause, agents, &mut runtime);
+    }
+
     pub(crate) fn add_saga_lore_counters(
         &mut self,
         game: &mut GameState,

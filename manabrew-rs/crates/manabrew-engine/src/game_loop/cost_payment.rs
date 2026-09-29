@@ -43,30 +43,6 @@ impl GameLoop {
         Self::handle_cost_exiled_with(game, source, exiled);
     }
 
-    fn exile_for_cost(
-        &mut self,
-        game: &mut GameState,
-        card: CardId,
-        owner: PlayerId,
-        agents: &mut [Box<dyn PlayerAgent>],
-    ) {
-        let origin = game.card(card).zone;
-        self.move_card_with_runtime(game, card, ZoneType::Exile, owner, agents);
-        if game.card(card).zone == ZoneType::Exile {
-            self.trigger_handler.run_trigger(
-                TriggerType::Exiled,
-                RunParams {
-                    card: Some(card),
-                    origin: Some(origin),
-                    cost_stack: game.cost_payment_stack.clone(),
-                    individual_cost_payment_instance: game.cost_payment_stack.peek().cloned(),
-                    ..Default::default()
-                },
-                false,
-            );
-        }
-    }
-
     fn report_paid_cost_exiles(
         game: &GameState,
         source: CardId,
@@ -1251,8 +1227,7 @@ impl GameLoop {
                         || type_filter == "NICKNAME"
                         || type_filter == "OriginalHost"
                     {
-                        let owner = game.card(card_id).owner;
-                        self.exile_for_cost(game, card_id, owner, agents);
+                        self.exile_with_runtime(game, card_id, None, agents);
                         self.record_paid_cost_exile(game, card_id, card_id);
                     } else {
                         self.pay_exile_cost(
@@ -1601,6 +1576,7 @@ impl GameLoop {
                         player,
                         type_filter,
                         resolved_amount,
+                        sa.as_deref(),
                     );
                 }
                 CostPart::CollectEvidence(amount) => {
@@ -2055,8 +2031,7 @@ impl GameLoop {
                         || type_filter == "OriginalHost"
                     {
                         if game.card(card_id).zone == *from {
-                            let owner = game.card(card_id).owner;
-                            self.exile_for_cost(game, card_id, owner, agents);
+                            self.exile_with_runtime(game, card_id, None, agents);
                             self.record_paid_cost_exile(game, card_id, card_id);
                         }
                     } else {
@@ -2462,6 +2437,7 @@ impl GameLoop {
                         player,
                         type_filter,
                         resolved_amount,
+                        sa.as_deref(),
                     );
                 }
                 CostPart::CollectEvidence(amount) => {
@@ -3311,8 +3287,7 @@ impl GameLoop {
             ),
         };
         for chosen in chosen {
-            let owner = game.card(chosen).owner;
-            self.exile_for_cost(game, chosen, owner, agents);
+            self.exile_with_runtime(game, chosen, None, agents);
             self.record_paid_cost_exile(game, source, chosen);
             crate::ability::effects::emit_zone_trigger(
                 &mut self.trigger_handler,
@@ -3437,8 +3412,7 @@ impl GameLoop {
                 source,
             ) {
                 chosen_owner = Some(game.card(chosen).owner);
-                let owner = game.card(chosen).owner;
-                self.exile_for_cost(game, chosen, owner, agents);
+                self.exile_with_runtime(game, chosen, None, agents);
                 self.record_paid_cost_exile(game, source, chosen);
                 crate::ability::effects::emit_zone_trigger(
                     &mut self.trigger_handler,
@@ -3503,8 +3477,7 @@ impl GameLoop {
             }
         };
         for chosen in chosen {
-            let owner = game.card(chosen).owner;
-            self.exile_for_cost(game, chosen, owner, agents);
+            self.exile_with_runtime(game, chosen, None, agents);
             self.record_paid_cost_exile(game, source, chosen);
             crate::ability::effects::emit_zone_trigger(
                 &mut self.trigger_handler,
@@ -3525,6 +3498,7 @@ impl GameLoop {
         player: PlayerId,
         type_filter: &str,
         amount: i32,
+        sa: Option<&SpellAbility>,
     ) {
         for _ in 0..amount {
             let valid_entries: Vec<u32> = game
@@ -3557,8 +3531,7 @@ impl GameLoop {
             };
             if let Some(entry) = game.stack.remove_by_id(chosen_entry) {
                 if let Some(chosen_card) = entry.spell_ability.source {
-                    let owner = game.card(chosen_card).owner;
-                    self.exile_for_cost(game, chosen_card, owner, agents);
+                    self.exile_with_runtime(game, chosen_card, sa, agents);
                     crate::ability::effects::emit_zone_trigger(
                         &mut self.trigger_handler,
                         chosen_card,
@@ -3578,14 +3551,14 @@ impl GameLoop {
         player: PlayerId,
         amount: i32,
         prechosen: Option<&[CardId]>,
-        sa: Option<&mut SpellAbility>,
+        mut sa: Option<&mut SpellAbility>,
     ) -> bool {
         if let (Some(picks), true) = (prechosen, game.mirror_forge_bugs) {
             // Forge bug: `CostCollectEvidence.doListPayment` re-exiles without rechecking the total.
             let (already_exiled, chosen): (Vec<CardId>, Vec<CardId>) = picks
                 .iter()
                 .partition(|&&cid| game.card(cid).zone == ZoneType::Exile);
-            if let Some(sa) = sa {
+            if let Some(sa) = sa.as_deref_mut() {
                 for key in [
                     crate::cost::cost_exile::HASH_LKI,
                     crate::cost::cost_exile::HASH_CARDS,
@@ -3604,6 +3577,7 @@ impl GameLoop {
                 player,
                 &chosen,
                 true,
+                sa.as_deref(),
             );
             return true;
         }
@@ -3647,6 +3621,7 @@ impl GameLoop {
             player,
             &chosen,
             true,
+            sa.as_deref(),
         );
         true
     }
@@ -3748,8 +3723,7 @@ impl GameLoop {
             super::perform_sacrifice(game, &mut self.replacement_runtime(), agents, &chosen);
         } else {
             for cid in chosen {
-                let owner = game.card(cid).owner;
-                self.exile_for_cost(game, cid, owner, agents);
+                self.exile_with_runtime(game, cid, None, agents);
                 crate::ability::effects::emit_zone_trigger(
                     &mut self.trigger_handler,
                     cid,
@@ -4271,8 +4245,7 @@ impl GameLoop {
         for chosen in chosen_cards {
             if exile {
                 let origin = game.card(chosen).zone;
-                let owner = game.card(chosen).owner;
-                self.exile_for_cost(game, chosen, owner, agents);
+                self.exile_with_runtime(game, chosen, None, agents);
                 Self::handle_cost_exiled_with(game, source, chosen);
                 crate::ability::effects::emit_zone_trigger(
                     &mut self.trigger_handler,
@@ -4410,8 +4383,7 @@ impl GameLoop {
         };
         for chosen in chosen {
             let origin = game.card(chosen).zone;
-            let owner = game.card(chosen).owner;
-            self.exile_for_cost(game, chosen, owner, agents);
+            self.exile_with_runtime(game, chosen, None, agents);
             self.record_paid_cost_exile(game, source, chosen);
             crate::ability::effects::emit_zone_trigger(
                 &mut self.trigger_handler,

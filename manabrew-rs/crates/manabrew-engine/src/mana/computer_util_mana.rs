@@ -1876,6 +1876,7 @@ pub(crate) fn auto_payment_callback<'a, 'r: 'a>(
                     player,
                     cards,
                     collect_evidence,
+                    None,
                 );
                 cards.first().copied()
             }

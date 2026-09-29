@@ -22,6 +22,7 @@ use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 use crate::mana::mana_cost_being_paid::ManaCostBeingPaid;
 use crate::mana::ManaPool;
+use crate::replacement::replacement_handler::ReplacementRuntime;
 use crate::spellability::SpellAbility;
 use crate::staticability::StaticMode;
 use crate::trigger::TriggerHandler;
@@ -927,8 +928,7 @@ pub fn apply_cost_reductions(
 pub fn adjust(
     game: &mut GameState,
     agents: &mut [Box<dyn PlayerAgent>],
-    trigger_handler: &mut TriggerHandler,
-    mana_pools: &[ManaPool],
+    runtime: &mut ReplacementRuntime<'_>,
     cost: &mut ManaCostBeingPaid,
     sa: &mut SpellAbility,
     payer: PlayerId,
@@ -987,22 +987,29 @@ pub fn adjust(
 
     apply_pip_reductions(cost, sa);
     if sa.is_spell {
-        if !apply_offering_reduction(game, agents, mana_pools, trigger_handler, cost, sa, test) {
-            return false;
-        }
-        if !apply_emerge_reduction(game, agents, mana_pools, trigger_handler, cost, sa, test) {
-            return false;
-        }
-        if !apply_delve_reduction(
+        if !apply_offering_reduction(
             game,
             agents,
-            mana_pools,
-            trigger_handler,
+            runtime.mana_pools,
+            runtime.trigger_handler,
             cost,
             sa,
             test,
-            cards_to_delve_out,
         ) {
+            return false;
+        }
+        if !apply_emerge_reduction(
+            game,
+            agents,
+            runtime.mana_pools,
+            runtime.trigger_handler,
+            cost,
+            sa,
+            test,
+        ) {
+            return false;
+        }
+        if !apply_delve_reduction(game, agents, runtime, cost, sa, test, cards_to_delve_out) {
             return false;
         }
         // Only offer Convoke/Improvise when the card actually has the
@@ -1012,12 +1019,30 @@ pub fn adjust(
         let has_improvise = game.card(card_id).has_keyword("Improvise");
         if has_convoke {
             apply_convoke_or_improvise_reduction(
-                game, agents, mana_pools, cost, sa, payer, false, true, None, test,
+                game,
+                agents,
+                runtime.mana_pools,
+                cost,
+                sa,
+                payer,
+                false,
+                true,
+                None,
+                test,
             );
         }
         if has_improvise {
             apply_convoke_or_improvise_reduction(
-                game, agents, mana_pools, cost, sa, payer, true, false, None, test,
+                game,
+                agents,
+                runtime.mana_pools,
+                cost,
+                sa,
+                payer,
+                true,
+                false,
+                None,
+                test,
             );
         }
     }
@@ -1026,7 +1051,7 @@ pub fn adjust(
         apply_convoke_or_improvise_reduction(
             game,
             agents,
-            mana_pools,
+            runtime.mana_pools,
             cost,
             sa,
             payer,
@@ -1041,7 +1066,7 @@ pub fn adjust(
         apply_convoke_or_improvise_reduction(
             game,
             agents,
-            mana_pools,
+            runtime.mana_pools,
             cost,
             sa,
             payer,
@@ -1056,7 +1081,7 @@ pub fn adjust(
         apply_convoke_or_improvise_reduction(
             game,
             agents,
-            mana_pools,
+            runtime.mana_pools,
             cost,
             sa,
             payer,
@@ -1222,8 +1247,7 @@ fn apply_affinity_reduction(
 fn apply_delve_reduction(
     game: &mut GameState,
     agents: &mut [Box<dyn PlayerAgent>],
-    mana_pools: &[ManaPool],
-    _trigger_handler: &mut TriggerHandler,
+    runtime: &mut ReplacementRuntime<'_>,
     cost: &mut ManaCostBeingPaid,
     sa: &mut SpellAbility,
     test: bool,
@@ -1242,9 +1266,9 @@ fn apply_delve_reduction(
         .copied()
         .collect();
     let max_delve = generic.min(graveyard.len());
-    agents[player.index()].snapshot_state(game, mana_pools);
+    agents[player.index()].snapshot_state(game, runtime.mana_pools);
     let chosen = agents[player.index()].choose_delve(
-        DecisionContext::new(game, mana_pools),
+        DecisionContext::new(game, runtime.mana_pools),
         player,
         &graveyard,
         max_delve,
@@ -1263,8 +1287,7 @@ fn apply_delve_reduction(
                 cost.decrease_generic_mana(1);
                 if !test {
                     game.card_mut(source).add_delved(cid);
-                    let owner = game.card(cid).owner;
-                    game.move_card_with_agents(cid, ZoneType::Exile, owner, agents);
+                    game.exile(cid, None, agents, runtime);
                 }
             }
         }

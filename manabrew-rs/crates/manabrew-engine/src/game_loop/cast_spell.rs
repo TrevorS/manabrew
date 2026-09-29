@@ -2052,8 +2052,7 @@ impl GameLoop {
         if !crate::cost::cost_adjustment::adjust(
             game,
             agents,
-            &mut self.trigger_handler,
-            &self.mana_pools,
+            &mut self.replacement_runtime(),
             &mut total_unpaid,
             &mut sa,
             player,
@@ -3152,7 +3151,7 @@ impl GameLoop {
                     .take(exile_count as usize)
                     .collect();
                 for cid in gy_cards {
-                    self.move_card_with_runtime(game, cid, ZoneType::Exile, player, agents);
+                    self.exile_with_runtime(game, cid, None, agents);
                 }
             }
         }
