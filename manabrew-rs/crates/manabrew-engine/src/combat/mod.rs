@@ -1315,7 +1315,7 @@ fn validate_damage_assignment(
                 .counter_count(&crate::card::CounterType::Loyalty)
                 .max(0)
         } else {
-            damage_needed_to_kill_for_assignment(game, blocker_id, attacker_id, assigned.max(1))
+            get_lethal_damage(game, blocker_id)
         };
 
         if !can_move_to_next && assigned > 0 {
@@ -1390,7 +1390,7 @@ fn fallback_damage_assignment(
                 .counter_count(&crate::card::CounterType::Loyalty)
                 .max(0)
         } else {
-            damage_needed_to_kill_for_assignment(game, blocker_id, attacker_id, damage_left)
+            get_lethal_damage(game, blocker_id)
         };
         let assign = lethal.min(damage_left);
         if assign > 0 {
@@ -1414,55 +1414,9 @@ fn fallback_damage_assignment(
     (assignments, 0)
 }
 
-fn damage_needed_to_kill_for_assignment(
-    game: &GameState,
-    target: CardId,
-    source: CardId,
-    max_damage: i32,
-) -> i32 {
-    if max_damage <= 0 {
-        return 0;
-    }
-
-    let target_card = game.card(target);
-    let source_card = game.card(source);
-    let mut kill_damage = (target_card.toughness() - target_card.damage).max(0);
-
-    if target_card.has_keyword("Indestructible")
-        && !source_card.has_wither()
-        && !source_card.has_infect()
-    {
-        return max_damage + 1;
-    }
-    if source_card.has_deathtouch() && target_card.is_creature() {
-        kill_damage = 1;
-    }
-
-    for damage in 1..=max_damage {
-        let mut event = crate::replacement::replacement_handler::ReplacementEvent::DamageToCard {
-            target,
-            amount: damage,
-            source: Some(source),
-            is_combat: true,
-        };
-        if crate::replacement::replacement_handler::has_applicable_effects(game, &event) {
-            let mut sim = game.clone();
-            let _ =
-                crate::replacement::replacement_handler::apply_replacements(&mut sim, &mut event);
-        }
-        let final_damage = match event {
-            crate::replacement::replacement_handler::ReplacementEvent::DamageToCard {
-                amount,
-                ..
-            } => amount.max(0),
-            _ => 0,
-        };
-        if final_damage >= kill_damage {
-            return damage;
-        }
-    }
-
-    max_damage + 1
+fn get_lethal_damage(game: &GameState, target: CardId) -> i32 {
+    let card = game.card(target);
+    (card.toughness() - card.damage).max(0)
 }
 
 fn defending_player_creatures(game: &GameState, defender: DefenderId) -> Vec<CardId> {

@@ -1822,7 +1822,7 @@ impl PlayerAgent for DeterministicAgent {
             let lethal = if blocker_card.type_line.is_planeswalker() {
                 blocker_card.counter_count(&manabrew_engine::card::CounterType::Loyalty)
             } else {
-                self.damage_needed_to_kill(game, blocker, damage_left, attacker, true)
+                self.damage_needed_to_kill(game, blocker, damage_left, attacker, false)
             };
             let assign = lethal.min(damage_left);
             if assign > 0 {
