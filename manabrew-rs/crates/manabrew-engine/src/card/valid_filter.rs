@@ -681,7 +681,10 @@ fn matches_card_predicate(
         SelectorPredicate::DamagedBy => card
             .damage_sources_this_turn
             .contains(&context.source_card.id),
-        SelectorPredicate::AttachedBy => context.source_card.attached_to == Some(card.id),
+        SelectorPredicate::AttachedBy => {
+            card.attachments.contains(&context.source_card.id)
+                || context.source_card.attached_to == Some(card.id)
+        }
         SelectorPredicate::WasCast { by_you } => {
             card.was_cast() && (!by_you || card.controller == context.source_controller)
         }
