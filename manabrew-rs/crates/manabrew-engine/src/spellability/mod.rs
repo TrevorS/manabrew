@@ -399,13 +399,15 @@ impl SpellAbility {
 
     /// The zone timestamp the card had when this chain targeted it, where it was recorded.
     pub fn target_zone_timestamp(&self, card_id: CardId) -> Option<u64> {
-        if self.target_chosen.target_card == Some(card_id) {
-            return self.target_chosen.target_card_zone_timestamp;
-        }
-        self.chain_target_cards
-            .iter()
-            .find(|&&(id, _)| id == card_id)
-            .and_then(|&(_, zone_timestamp)| zone_timestamp)
+        self.target_chosen
+            .target_card_zone_timestamp
+            .filter(|_| self.target_chosen.target_card == Some(card_id))
+            .or_else(|| {
+                self.chain_target_cards
+                    .iter()
+                    .find(|&&(id, _)| id == card_id)
+                    .and_then(|&(_, zone_timestamp)| zone_timestamp)
+            })
     }
 
     pub fn uses_targeting(&self) -> bool {
