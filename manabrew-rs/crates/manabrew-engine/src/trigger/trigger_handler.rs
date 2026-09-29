@@ -1004,7 +1004,13 @@ impl TriggerHandler {
                     static_trigger: delayed.params.has("Static"),
                 };
                 let delayed_ts = delayed.host_timestamp(game);
-                let delayed_bucket = if delayed.sort_after_active { 2 } else { 0 };
+                let delayed_bucket = if delayed.sort_after_active {
+                    2
+                } else if delayed.spawning_ability.is_some() {
+                    3
+                } else {
+                    0
+                };
                 let delayed_order = delayed.trigger_order.unwrap_or(0);
                 // Java parity: Panharmonicon-class statics (e.g. Yarok, Roaming Throne)
                 // double triggered abilities of permanents the owner controls. Rust
