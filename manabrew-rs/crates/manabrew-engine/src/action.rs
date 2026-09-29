@@ -1109,7 +1109,16 @@ impl GameState {
                 .collect();
             for (exiled_id, owner, origin) in exiled_by_host {
                 self.card_mut(exiled_id).cleanup_exiled_with();
-                self.move_card(exiled_id, origin, owner);
+                self.move_card_internal(
+                    exiled_id,
+                    origin,
+                    owner,
+                    agents.as_deref_mut(),
+                    trigger_handler.as_deref_mut(),
+                    None,
+                    true,
+                    false,
+                );
                 if let Some(handler) = trigger_handler.as_deref_mut() {
                     let returned_zone = self.card(exiled_id).zone;
                     handler.register_active_trigger(self, exiled_id);
