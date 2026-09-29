@@ -111,8 +111,14 @@ enum EffectKind {
 /// Mirrors Java `StaticAbility.generateLayer()`. The classification is derived
 /// at runtime from the authored params; `StaticAbilityIr` stores the parsed DSL
 /// facts only.
-const CONTINUOUS_LAYERS_WITH_DEPENDENCY: [Layer; 4] =
-    [Layer::Control, Layer::Text, Layer::Type, Layer::Ability];
+const CONTINUOUS_LAYERS_WITH_DEPENDENCY: [Layer; 6] = [
+    Layer::Control,
+    Layer::Text,
+    Layer::Type,
+    Layer::Ability,
+    Layer::Characteristic,
+    Layer::SetPT,
+];
 
 pub fn classify_static_layers(sa: &StaticAbility) -> Vec<Layer> {
     if !sa.check_mode(&StaticMode::Continuous) {
