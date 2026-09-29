@@ -41,20 +41,6 @@ pub fn can_pay_list_at_once() -> bool {
     true
 }
 
-/// Pay by untapping the selected cards.
-/// Mirrors Java's `CostUntapType.doListPayment(...)`.
-/// The UntapAll trigger must be fired by the caller after this returns.
-pub fn pay_as_decided_cards(
-    game: &mut GameState,
-    cards: &[CardId],
-    trigger_handler: &mut crate::trigger::handler::TriggerHandler,
-) -> bool {
-    for &cid in cards {
-        game.untap(cid, trigger_handler);
-    }
-    true
-}
-
 /// Refund by re-tapping the cards.
 /// Mirrors Java's `CostUntapType.refund()`.
 pub fn refund(game: &mut GameState, cards: &[CardId]) {
@@ -129,18 +115,4 @@ pub fn can_pay(
         })
         .count() as i32;
     count >= amount.resolve(game, source, player)
-}
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    _player: crate::ids::PlayerId,
-    _source: CardId,
-    _part: &super::CostPart,
-    decision: &crate::cost::payment_decision::PaymentDecision,
-    trigger_handler: &mut crate::trigger::handler::TriggerHandler,
-) -> bool {
-    if let crate::cost::payment_decision::PaymentDecision::Cards(cards) = decision {
-        return pay_as_decided_cards(game, cards, trigger_handler);
-    }
-    false
 }

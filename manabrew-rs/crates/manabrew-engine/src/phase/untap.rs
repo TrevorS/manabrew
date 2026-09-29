@@ -9,7 +9,7 @@ use std::sync::Arc;
 use forge_foundation::ZoneType;
 
 use crate::game::GameState;
-use crate::ids::{CardId, PlayerId};
+use crate::ids::PlayerId;
 
 /// Performs the phasing step at the beginning of the untap step.
 /// Mirrors Java's `Untap.doPhasing()`.
@@ -62,64 +62,6 @@ pub fn do_day_time(
     } else if game.is_night && casted > 1 {
         game.set_day_time(Some(false), trigger_handler);
     }
-}
-
-/// Performs the untap of permanents for the active player.
-/// Mirrors Java's `Untap.doUntap()`.
-///
-/// Untaps all tapped permanents controlled by the active player,
-/// respecting "doesn't untap" and "you may choose not to untap" keywords.
-pub fn do_untap(
-    game: &mut GameState,
-    active: PlayerId,
-    trigger_handler: &mut crate::trigger::handler::TriggerHandler,
-) -> Vec<CardId> {
-    let cards: Vec<CardId> = game.cards_in_zone(ZoneType::Battlefield, active).to_vec();
-    let mut untapped = Vec::new();
-
-    for cid in cards {
-        if !game.card(cid).tapped {
-            continue;
-        }
-
-        // Skip cards that don't untap during untap step
-        if game
-            .card(cid)
-            .has_keyword("CARDNAME doesn't untap during your untap step.")
-        {
-            continue;
-        }
-
-        // Skip exerted creatures (reset flag so they untap next turn)
-        if game.card(cid).exerted {
-            game.card_mut(cid).exerted = false;
-            continue;
-        }
-
-        // Skip "This card doesn't untap during your next untap step."
-        let has_skip = game
-            .card(cid)
-            .has_keyword("This card doesn't untap during your next untap step.");
-        if has_skip {
-            game.card_mut(cid)
-                .keywords
-                .remove("This card doesn't untap during your next untap step.");
-            continue;
-        }
-
-        if game.untap_during_untap_step(cid, active, trigger_handler) {
-            untapped.push(cid);
-        }
-    }
-
-    // Remove exerted-by flags from all battlefield permanents
-    for i in 0..game.cards.len() {
-        if game.cards[i].zone == ZoneType::Battlefield && game.cards[i].exerted {
-            Arc::make_mut(&mut game.cards[i]).exerted = false;
-        }
-    }
-
-    untapped
 }
 
 #[cfg(test)]

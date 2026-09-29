@@ -35,44 +35,6 @@ pub fn can_pay(
     available_mana.can_pay(&mana_cost)
 }
 
-/// Mirrors Java `CostPartMana.payAsDecided(Player, PaymentDecision, SpellAbility, boolean)`.
-///
-/// In Java, this method saves and restores the player's `ManaConversionMatrix` around
-/// the interactive mana payment:
-/// ```java
-/// ManaConversionMatrix old = new ManaConversionMatrix();
-/// old.restoreColorReplacements();
-/// old.applyCardMatrix(payer.getManaPool());
-/// boolean result = payer.getController().payManaCost(this, sa, null, pd.matrix, effect);
-/// payer.getManaPool().restoreColorReplacements();
-/// payer.getManaPool().applyCardMatrix(old);
-/// ```
-///
-/// In the Rust architecture, mana pools are managed externally by the game loop (not
-/// on `GameState`), so the matrix save/restore is the game loop's responsibility.
-/// The `ManaPool.color_matrix` field provides the storage, and the game loop must
-/// call `pool.restore_color_replacements()` / `pool.apply_card_matrix(&saved)` around
-/// the interactive mana payment call. This function delegates to the core payment logic.
-pub fn pay_as_decided(
-    game: &mut GameState,
-    player: crate::ids::PlayerId,
-    source: CardId,
-    part: &super::CostPart,
-    decision: &crate::cost::payment_decision::PaymentDecision,
-    is_effect: bool,
-    trigger_handler: &mut crate::trigger::handler::TriggerHandler,
-) -> bool {
-    crate::cost::cost_payment::pay_as_decided(
-        game,
-        player,
-        source,
-        part,
-        decision,
-        is_effect,
-        trigger_handler,
-    )
-}
-
 pub fn pay_with_decision(
     _game: &mut GameState,
     _player: crate::ids::PlayerId,

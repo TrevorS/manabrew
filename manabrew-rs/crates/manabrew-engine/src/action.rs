@@ -2599,16 +2599,6 @@ impl GameState {
         any_changes
     }
 
-    /// Untap all permanents controlled by a player.
-    /// Runs Untap replacement effects for each permanent.
-    pub fn untap_all(&mut self, player: PlayerId, trigger_handler: &mut TriggerHandler) {
-        let cards: Vec<CardId> = self.cards_in_zone(ZoneType::Battlefield, player).to_vec();
-        for cid in cards {
-            // Use untap() which runs replacement effects
-            self.untap_during_untap_step(cid, player, trigger_handler);
-        }
-    }
-
     /// Draw a card for a player. Returns the drawn card ID, or None if the draw
     /// was skipped or the library is empty.
     ///
