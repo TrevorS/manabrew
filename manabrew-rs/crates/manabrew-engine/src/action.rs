@@ -2675,30 +2675,9 @@ impl GameState {
     /// Mirrors Java's `GameAction.controllerChangeZoneCorrection()` — moves the
     /// card between per-player zone lists and updates the controller field.
     pub fn change_controller(&mut self, card_id: CardId, new_controller: PlayerId) {
-        let card = &self.cards[card_id.index()];
-        if card.controller == new_controller {
-            return;
-        }
-        let old_controller = card.controller;
-        let zone = card.zone;
-
-        // Move between zone lists
-        if zone != ZoneType::None {
-            self.remove_card_from_zone(zone, old_controller, card_id);
-            self.add_card_to_zone(zone, new_controller, card_id);
-        }
-        let (commands, kept): (Vec<_>, Vec<_>) =
-            std::mem::take(&mut self.change_controller_commands)
-                .into_iter()
-                .partition(|(host, _)| *host == card_id);
-        self.change_controller_commands = kept;
-        for (_, command) in commands {
-            command.run(self, &mut crate::game_rng::ThreadRngAdapter::default());
-        }
-        self.card_mut(card_id).controller = new_controller;
-        if zone == ZoneType::Battlefield {
-            self.card_mut(card_id).summoning_sick = true;
-        }
+        let original = self.card(card_id).controller;
+        self.set_temp_controller(card_id, new_controller);
+        self.controller_change_zone_correction(card_id, original);
     }
 
     pub(crate) fn set_temp_controller(&mut self, card_id: CardId, new_controller: PlayerId) {
@@ -2730,6 +2709,9 @@ impl GameState {
         self.change_controller_commands = kept;
         for (_, command) in commands {
             command.run(self, &mut crate::game_rng::ThreadRngAdapter::default());
+        }
+        if self.turn.phase.is_combat() {
+            self.pending_remove_from_combat.push(card_id);
         }
         if self.card(card_id).zone == ZoneType::Battlefield {
             self.card_mut(card_id).summoning_sick = true;

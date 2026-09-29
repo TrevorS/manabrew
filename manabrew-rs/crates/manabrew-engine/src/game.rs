@@ -296,6 +296,9 @@ pub struct GameState {
     pub statics_current_after_sba: bool,
 
     #[serde(skip)]
+    pub pending_remove_from_combat: Vec<CardId>,
+
+    #[serde(skip)]
     pub token_edition_pins: std::collections::BTreeMap<String, String>,
 
     /// Periodic LKI snapshot of battlefield cards.
@@ -391,6 +394,7 @@ impl GameState {
             hold_checking_static_abilities: false,
             card_names_unchanged: true,
             statics_current_after_sba: false,
+            pending_remove_from_combat: Vec::new(),
             token_edition_pins: std::collections::BTreeMap::new(),
             last_state_battlefield: Vec::new(),
             last_state_battlefield_combat_lki: Vec::new(),

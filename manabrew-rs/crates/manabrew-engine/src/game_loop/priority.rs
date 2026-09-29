@@ -70,6 +70,9 @@ impl GameLoop {
                     let (sba_handler, mut sba_parts) = self.sba_runtime();
                     super::check_sba(game, sba_handler, &mut sba_parts, agents)
                 };
+                for card in std::mem::take(&mut game.pending_remove_from_combat) {
+                    self.combat.remove_from_combat(card, game);
+                }
                 if game.game_over {
                     return;
                 }
