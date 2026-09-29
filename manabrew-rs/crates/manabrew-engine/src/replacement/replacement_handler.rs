@@ -1053,10 +1053,6 @@ fn damage_replacement_list(
         .collect()
 }
 
-pub(crate) fn has_replace_damage(game: &GameState, event: &ReplacementEvent) -> bool {
-    !damage_replacement_list(game, event).is_empty()
-}
-
 fn get_possible_replace_damage_list(
     game: &GameState,
     batch: &mut ReplaceDamageBatch,

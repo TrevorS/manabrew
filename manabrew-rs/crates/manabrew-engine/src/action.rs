@@ -10,8 +10,7 @@ use crate::game_entity_counter_table::GameEntityCounterTable;
 use crate::ids::{CardId, PlayerId};
 use crate::replacement::replacement_handler::{
     apply_replacements, apply_replacements_with_agents, apply_replacements_with_agents_and_runtime,
-    damage_run_params, has_replace_damage, run_replace_damage, ReplacementEvent,
-    ReplacementRuntime,
+    run_replace_damage, ReplacementEvent, ReplacementRuntime,
 };
 use crate::replacement::GameLossReason;
 use crate::replacement::ReplacementResult;
@@ -1440,57 +1439,6 @@ impl GameState {
                 },
                 false,
             );
-        }
-    }
-
-    pub fn deal_damage_to(
-        &mut self,
-        source: CardId,
-        target: DamageTarget,
-        amount: i32,
-        agents: &mut [Box<dyn PlayerAgent>],
-        runtime: &mut ReplacementRuntime<'_>,
-    ) -> (GameEntity, i32) {
-        let entity = match target {
-            DamageTarget::Card(card) => GameEntity::Card(card),
-            DamageTarget::Player(player) => GameEntity::Player(player),
-        };
-        if amount <= 0 {
-            return (entity, 0);
-        }
-        let can_be_dealt_damage = match target {
-            DamageTarget::Card(card) => self.card(card).can_be_dealt_damage(),
-            DamageTarget::Player(player) => {
-                !crate::staticability::static_ability_cant_gain_lose_pay_life::cant_lose_life(
-                    self, player,
-                ) && !crate::player::has_keyword(self, player, "Protection from everything")
-                    && !crate::player::player_predicates::is_protected_from(self, player, source)
-            }
-        };
-        if !can_be_dealt_damage {
-            return (entity, 0);
-        }
-        let event = damage_run_params(source, target, amount, false);
-        if !has_replace_damage(self, &event) {
-            return self.deal_replaced_damage(event);
-        }
-        let mut damage_map = CardDamageMap::default();
-        damage_map.put(source, target, amount);
-        let mut prevent_map = CardDamageMap::default();
-        run_replace_damage(
-            self,
-            Some(agents),
-            runtime,
-            false,
-            &mut damage_map,
-            &mut prevent_map,
-        );
-        prevent_map.trigger_prevent_damage(runtime.trigger_handler, false);
-        match damage_map.entries().first() {
-            Some(&(source, target, amount)) => {
-                self.deal_replaced_damage(damage_run_params(source, target, amount, false))
-            }
-            None => (entity, 0),
         }
     }
 

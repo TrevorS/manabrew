@@ -1318,29 +1318,22 @@ impl GameLoop {
                     game.player_add_shards(player, -resolved_amount);
                 }
                 CostPart::DamageYou(amount) => {
-                    // Java CostDamage calls game.getAction().dealDamage() — use the
-                    // same path so damage prevention, replacement effects, and
-                    // DamageDone triggers all fire correctly.
-                    let damage = amount.resolve(game, card_id, player);
-                    let mut runtime = self.replacement_runtime();
-                    game.deal_damage_to(
+                    let mut damage_map = crate::card::card_damage_map::CardDamageMap::default();
+                    damage_map.put(
                         card_id,
                         crate::card::card_damage_map::DamageTarget::Player(player),
-                        damage,
+                        amount.resolve(game, card_id, player),
+                    );
+                    let mut runtime = self.replacement_runtime();
+                    game.deal_damage(
+                        false,
+                        &mut damage_map,
+                        &mut crate::card::card_damage_map::CardDamageMap::default(),
+                        &mut crate::game_entity_counter_table::GameEntityCounterTable::default(),
+                        sa.as_deref(),
                         agents,
                         &mut runtime,
                     );
-                    self.trigger_handler.run_trigger(
-                        TriggerType::DamageDone,
-                        RunParams {
-                            damage_target_player: Some(player),
-                            damage_amount: Some(amount.resolve(game, card_id, player)),
-                            is_combat_damage: Some(false),
-                            ..Default::default()
-                        },
-                        false,
-                    );
-                    game.lose_life_simultaneously(&mut self.trigger_handler, Some(agents));
                 }
                 CostPart::Draw { .. } => {
                     crate::cost::cost_draw::pay_as_decided(
@@ -2164,29 +2157,22 @@ impl GameLoop {
                     game.player_add_shards(player, -resolved_amount);
                 }
                 CostPart::DamageYou(amount) => {
-                    // Java CostDamage calls game.getAction().dealDamage() — use the
-                    // same path so damage prevention, replacement effects, and
-                    // DamageDone triggers all fire correctly.
-                    let damage = amount.resolve(game, card_id, player);
-                    let mut runtime = self.replacement_runtime();
-                    game.deal_damage_to(
+                    let mut damage_map = crate::card::card_damage_map::CardDamageMap::default();
+                    damage_map.put(
                         card_id,
                         crate::card::card_damage_map::DamageTarget::Player(player),
-                        damage,
+                        amount.resolve(game, card_id, player),
+                    );
+                    let mut runtime = self.replacement_runtime();
+                    game.deal_damage(
+                        false,
+                        &mut damage_map,
+                        &mut crate::card::card_damage_map::CardDamageMap::default(),
+                        &mut crate::game_entity_counter_table::GameEntityCounterTable::default(),
+                        sa.as_deref(),
                         agents,
                         &mut runtime,
                     );
-                    self.trigger_handler.run_trigger(
-                        TriggerType::DamageDone,
-                        RunParams {
-                            damage_target_player: Some(player),
-                            damage_amount: Some(amount.resolve(game, card_id, player)),
-                            is_combat_damage: Some(false),
-                            ..Default::default()
-                        },
-                        false,
-                    );
-                    game.lose_life_simultaneously(&mut self.trigger_handler, Some(agents));
                 }
                 CostPart::Draw { .. } => {
                     crate::cost::cost_draw::pay_as_decided(

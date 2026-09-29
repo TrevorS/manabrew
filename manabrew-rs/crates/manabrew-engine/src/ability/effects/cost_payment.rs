@@ -574,24 +574,18 @@ fn try_pay_effect_cost(
                 super::flip_coin_effect::flip_coins(ctx, payer, sa, resolved_amount);
             }
             CostPart::DamageYou(amount) => {
-                let damage = amount.resolve(ctx.game, source, payer);
-                ctx.deal_damage_to(
+                let mut damage_map = crate::card::card_damage_map::CardDamageMap::default();
+                damage_map.put(
                     source,
                     crate::card::card_damage_map::DamageTarget::Player(payer),
-                    damage,
+                    amount.resolve(ctx.game, source, payer),
                 );
-                ctx.trigger_handler.run_trigger(
-                    TriggerType::DamageDone,
-                    RunParams {
-                        damage_target_player: Some(payer),
-                        damage_amount: Some(amount.resolve(ctx.game, source, payer)),
-                        is_combat_damage: Some(false),
-                        ..Default::default()
-                    },
-                    false,
+                ctx.deal_damage(
+                    &mut damage_map,
+                    &mut crate::card::card_damage_map::CardDamageMap::default(),
+                    &mut crate::game_entity_counter_table::GameEntityCounterTable::default(),
+                    Some(sa),
                 );
-                ctx.game
-                    .lose_life_simultaneously(ctx.trigger_handler, Some(ctx.agents));
             }
             CostPart::PayLife(amount) => {
                 let lost = ctx
