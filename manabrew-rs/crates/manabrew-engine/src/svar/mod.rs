@@ -403,7 +403,12 @@ fn resolve_defined_cards_for_svar(
             .unwrap_or_default();
     }
     if defined.starts_with("Crewed") {
-        return game.card(source_id).crewed_by_this_turn.clone();
+        return game
+            .card(source_id)
+            .crewed_by_this_turn
+            .iter()
+            .map(|&(id, _)| id)
+            .collect();
     }
 
     let defined_ref = DefinedRef::parse(defined);

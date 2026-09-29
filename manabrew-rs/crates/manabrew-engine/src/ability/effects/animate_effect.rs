@@ -330,7 +330,19 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         .collect()
                 })
                 .unwrap_or_default();
-            ctx.game.card_mut(card_id).becomes_crewed(&crew);
+            let vehicle = ctx.game.card(card_id);
+            let crewed: Vec<(crate::ids::CardId, u64)> = crew
+                .iter()
+                .map(|&id| (id, ctx.game.card(id).zone_timestamp))
+                .filter(|(id, _)| {
+                    !ctx.game.mirror_forge_bugs
+                        || !vehicle
+                            .crewed_by_this_turn
+                            .iter()
+                            .any(|(crewed, _)| crewed == id)
+                })
+                .collect();
+            ctx.game.card_mut(card_id).becomes_crewed(&crewed);
             let first_time = ctx.game.card(card_id).times_crewed_this_turn == 1;
             ctx.trigger_handler.run_trigger(
                 crate::trigger::TriggerType::BecomesCrewed,

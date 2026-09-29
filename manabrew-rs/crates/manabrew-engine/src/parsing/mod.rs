@@ -239,6 +239,7 @@ pub enum SelectorPredicate {
     CastWith(AlternativeCost),
     CastWithOptional(OptionalCost),
     Token(bool),
+    TokenCreated,
     Color(CardColorSelector),
     Multicolor,
     Monocolor,
@@ -1003,6 +1004,7 @@ fn selector_predicate_order(predicate: &SelectorPredicate) -> u8 {
         | SelectorPredicate::StartedTurnTapped(_)
         | SelectorPredicate::CameUnderControlSinceLastUpkeep
         | SelectorPredicate::Token(_)
+        | SelectorPredicate::TokenCreated
         | SelectorPredicate::Color(_)
         | SelectorPredicate::Multicolor
         | SelectorPredicate::Monocolor
@@ -1171,6 +1173,7 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "teamwork" => SelectorPredicate::CastWithOptional(OptionalCost::Teamwork),
         "bargained" => SelectorPredicate::CastWithOptional(OptionalCost::Bargain),
         "token" => SelectorPredicate::Token(true),
+        "tokencreated" => SelectorPredicate::TokenCreated,
         "nontoken" => SelectorPredicate::Token(false),
         "creature" => SelectorPredicate::CardType(CardSelectorType::Creature),
         "land" => SelectorPredicate::CardType(CardSelectorType::Land),

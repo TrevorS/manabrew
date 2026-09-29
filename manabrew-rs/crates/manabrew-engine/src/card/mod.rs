@@ -803,7 +803,7 @@ pub struct Card {
     /// Number of times this permanent has crewed this turn.
     pub times_crewed_this_turn: u32,
     #[serde(default)]
-    pub crewed_by_this_turn: Vec<CardId>,
+    pub crewed_by_this_turn: Vec<(CardId, u64)>,
     /// Whether this permanent is currently crewed.
     pub is_crewed: bool,
     /// Whether this card should ignore legend rule checks.
@@ -4671,7 +4671,7 @@ impl Card {
     pub fn reset_times_crewed_this_turn(&mut self) {
         self.times_crewed_this_turn = 0;
     }
-    pub fn becomes_crewed(&mut self, crew: &[CardId]) {
+    pub fn becomes_crewed(&mut self, crew: &[(CardId, u64)]) {
         self.is_crewed = true;
         self.times_crewed_this_turn += 1;
         self.add_crewed_by_this_turn(crew);
@@ -4681,8 +4681,12 @@ impl Card {
         self.reset_times_crewed_this_turn();
         self.crewed_by_this_turn.clear();
     }
-    pub fn add_crewed_by_this_turn(&mut self, crew: &[CardId]) {
-        self.crewed_by_this_turn.extend_from_slice(crew);
+    pub fn add_crewed_by_this_turn(&mut self, crew: &[(CardId, u64)]) {
+        for member in crew {
+            if !self.crewed_by_this_turn.contains(member) {
+                self.crewed_by_this_turn.push(*member);
+            }
+        }
     }
     pub fn visit_attraction(&mut self) {
         self.visited_this_turn = true;

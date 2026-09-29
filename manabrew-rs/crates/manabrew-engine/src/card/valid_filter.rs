@@ -618,6 +618,7 @@ fn matches_card_predicate(
         SelectorPredicate::Tapped(tapped) => card.tapped == *tapped,
         SelectorPredicate::Zone(zone) => card.zone == *zone,
         SelectorPredicate::Token(token) => card.is_token == *token,
+        SelectorPredicate::TokenCreated => card.is_token && card.cast_sa.is_none(),
         SelectorPredicate::Color(color) => matches_card_color(*color, card),
         SelectorPredicate::Colorless => card.color.is_colorless(),
         SelectorPredicate::CardOwner(controller) => {
@@ -2154,8 +2155,13 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         "issuspected" => card.has_s_var("Suspected"),
         "issolved" => card.is_solved(),
         "harnessed" => card.is_harnessed(),
-        "crewedthisturn" => context.source_card.crewed_by_this_turn.contains(&card.id),
-        "crewedbysourcethisturn" => card.crewed_by_this_turn.contains(&context.source_card.id),
+        "crewedthisturn" => context
+            .source_card
+            .crewed_by_this_turn
+            .contains(&(card.id, card.zone_timestamp)),
+        "crewedbysourcethisturn" => card
+            .crewed_by_this_turn
+            .contains(&(context.source_card.id, context.source_card.zone_timestamp)),
         "sneaked" => {
             card.cast_sa.as_ref().is_some_and(|cast| {
                 cast.alt_cost == Some(crate::spellability::AlternativeCost::Sneak)
@@ -3133,6 +3139,7 @@ fn matches_player_predicate(
         | SelectorPredicate::CastWith(_)
         | SelectorPredicate::CastWithOptional(_)
         | SelectorPredicate::Token(_)
+        | SelectorPredicate::TokenCreated
         | SelectorPredicate::Color(_)
         | SelectorPredicate::Multicolor
         | SelectorPredicate::Monocolor
