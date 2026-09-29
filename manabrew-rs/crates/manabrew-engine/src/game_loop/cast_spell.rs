@@ -660,6 +660,7 @@ impl GameLoop {
                 player,
                 prepared.spell_ability,
                 prepared.static_alternative_cost_prepared,
+                None,
             );
             if played.is_none() && game.card(card_id).is_transformed != was_transformed {
                 game.card_mut(card_id).transform();
@@ -1003,6 +1004,28 @@ impl GameLoop {
         )))
     }
 
+    pub(crate) fn play_sa_from_play_effect(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        mut sa: SpellAbility,
+        play: &super::PlayEffectCast,
+    ) -> bool {
+        sa.restriction.variables.set_zone(play.zone);
+        let Some(card_id) = sa.source else {
+            return false;
+        };
+        let was_transformed = game.card(card_id).is_transformed;
+        let played = self
+            .cast_card_spell_ability(game, agents, player, sa, false, Some(play))
+            .is_some();
+        if !played && game.card(card_id).is_transformed != was_transformed {
+            game.card_mut(card_id).transform();
+        }
+        played
+    }
+
     fn cast_card_spell_ability(
         &mut self,
         game: &mut GameState,
@@ -1010,6 +1033,7 @@ impl GameLoop {
         player: PlayerId,
         mut sa: SpellAbility,
         static_alternative_cost_prepared: bool,
+        play_effect: Option<&super::PlayEffectCast>,
     ) -> Option<(CardId, String)> {
         let card_id = sa.source?;
         let flashback_cost_str =
@@ -1146,17 +1170,22 @@ impl GameLoop {
             } else {
                 None
             };
-            cost_str.map(|c| crate::cost::parse_cost(&c)).or_else(|| {
-                (is_mayhem || is_escape)
-                    .then(|| sa.pay_costs.clone())
-                    .flatten()
-            })
+            play_effect
+                .and_then(|play| play.play_cost.clone())
+                .or_else(|| cost_str.map(|c| crate::cost::parse_cost(&c)))
+                .or_else(|| {
+                    (is_mayhem || is_escape)
+                        .then(|| sa.pay_costs.clone())
+                        .flatten()
+                })
         };
 
         // Determine the mana cost to use
         // Note: All unwrap_or_default() below are safe because each is_* flag
         // is only true if the corresponding get_*_cost() returned Some earlier.
-        let mana_cost = if let Some(ref kw_cost) = keyword_alt_total_cost {
+        let mana_cost = if play_effect.is_some_and(|play| play.without_mana_cost) {
+            forge_foundation::ManaCost::zero()
+        } else if let Some(ref kw_cost) = keyword_alt_total_cost {
             Self::mana_from_cost(kw_cost)
         } else if is_foretell {
             game.card_mut(card_id).set_face_down(false);
@@ -2328,14 +2357,12 @@ impl GameLoop {
             .collect();
 
         // Check if mana conversion allows spending mana as any color
-        let any_color_conversion = {
-            let card = game.card(card_id);
-            crate::staticability::static_ability_mana_convert::can_spend_mana_as_any_color(
+        let any_color_conversion = play_effect.is_some_and(|play| play.mana_conversion.is_some())
+            || crate::staticability::static_ability_mana_convert::can_spend_mana_as_any_color(
                 &game.cards,
                 player,
-                card,
-            )
-        };
+                game.card(card_id),
+            );
 
         // Track mana metadata before payment for post-payment effects
         let uncounterable_before = self.pool(player).count_uncounterable();

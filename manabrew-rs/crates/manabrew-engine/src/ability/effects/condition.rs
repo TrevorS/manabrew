@@ -11,7 +11,7 @@ use crate::spellability::SpellAbility;
 use super::helpers::matches_valid_cards_for_sa;
 
 /// Check if a conditional gate on this SA is satisfied.
-pub(super) fn check_condition(game: &GameState, sa: &SpellAbility) -> bool {
+pub(crate) fn check_condition(game: &GameState, sa: &SpellAbility) -> bool {
     let activator = sa.activating_player;
 
     // Player-state gates (SpellAbilityCondition.areMet L263–L269).
@@ -191,7 +191,7 @@ fn split_compare_prefix(expr: &str) -> Option<(&'static str, &str)> {
 ///
 /// When `ConditionDefined$` is present, check the defined cards instead of
 /// scanning a zone
-pub(super) fn check_condition_present(
+pub(crate) fn check_condition_present(
     game: &GameState,
     sa: &SpellAbility,
     player: PlayerId,

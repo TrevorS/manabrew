@@ -1319,7 +1319,32 @@ impl GameLoop {
             event,
         );
 
-        let mut ctx = EffectContext {
+        if sa.api == Some(crate::ability::api_type::ApiType::Play)
+            && sa.ir.unless_cost.is_none()
+            && sa.ir.repeat.is_none()
+        {
+            if effects::condition::check_condition(game, sa)
+                && sa.source.is_some()
+                && effects::condition::check_condition_present(game, sa, sa.activating_player)
+            {
+                self.resolve_play_effect(game, agents, sa, parent_target_card);
+                game.lose_life_simultaneously(&mut self.trigger_handler, Some(agents));
+            }
+            return;
+        }
+        effects::resolve_effect(
+            &mut self.effect_context(game, agents, parent_target_card),
+            sa,
+        );
+    }
+
+    pub(crate) fn effect_context<'a>(
+        &'a mut self,
+        game: &'a mut GameState,
+        agents: &'a mut [Box<dyn PlayerAgent>],
+        parent_target_card: Option<CardId>,
+    ) -> EffectContext<'a> {
+        EffectContext {
             game,
             combat: Some(&mut self.combat),
             agents,
@@ -1331,8 +1356,7 @@ impl GameLoop {
             mana_pools: &mut self.mana_pools,
             parent_target_card,
             rng: &mut *self.game_rng,
-        };
-        effects::resolve_effect(&mut ctx, sa);
+        }
     }
 
     /// CR 707.10 / 111.11 — copy of a permanent spell becomes a token.

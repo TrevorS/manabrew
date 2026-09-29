@@ -12,8 +12,7 @@ use crate::trigger::TriggerType;
 /// `SpellAbilityEffect` trait hierarchy
 #[manabrew_engine_macros::spell_effect(PlayEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let mut candidates = resolve_target_cards(ctx, sa);
-    candidates.retain(|&cid| ctx.game.card(cid).zone != ZoneType::Stack);
+    let mut candidates = get_tgt_cards(ctx, sa);
     if candidates.is_empty() {
         return;
     }
@@ -21,91 +20,21 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let controller = sa.activating_player;
     let valid_sa = crate::parsing::raw_get(&sa.ability_text, crate::parsing::keys::VALID_SA)
         .map(|filter| (filter, sa));
-    if valid_sa.is_some() {
-        candidates.retain(|&cid| {
-            !crate::ability::ability_utils::get_spells_from_play_effect(
-                ctx.game, cid, controller, false, valid_sa,
-            )
-            .is_empty()
-        });
-        if candidates.is_empty() {
-            return;
-        }
-    }
     let without_mana_cost = sa.ir.without_mana_cost;
     let play_cost = sa.ir.play_cost_text.clone();
-    let remember = sa.ir.remember_played;
-    let optional = sa.ir.optional;
-    let is_madness = sa.ir.play_cost_text.is_some()
-        && sa
-            .source
-            .is_some_and(|src| ctx.game.card(src).has_keyword("Madness"));
+    let is_madness = is_madness(ctx, sa);
 
-    let mut amount = if sa.ir.amount.as_deref() == Some("All") {
-        candidates.len() as i32
-    } else {
-        super::resolve_numeric_svar(ctx.game, sa, crate::parsing::keys::AMOUNT, 1)
-    };
-
-    // ── Step 1: Choose card
-    // For single-card + optional: isOptional=false (auto-pick), then confirmAction below.
-    let single_option = candidates.len() == 1 && amount == 1 && optional;
+    let mut amount = play_amount(ctx, sa, candidates.len());
+    let single_option = candidates.len() == 1 && amount == 1 && sa.ir.optional;
     while !candidates.is_empty() && amount > 0 {
-        let tgt_cards: Vec<_> = candidates.iter().copied().map(GameEntity::Card).collect();
-        let chosen = ctx.agents[controller.index()].choose_single_entity_for_effect(
-            DecisionContext::new(ctx.game, ctx.mana_pools),
-            controller,
-            &tgt_cards,
-            !single_option && optional,
-        );
-        let Some(GameEntity::Card(card_id)) = chosen else {
+        let Some(card_id) = choose_card_to_play(ctx, sa, &candidates, single_option) else {
             break;
         };
-
-        // ── Step 2: Optional confirm — Java only asks the outer "Do you want
-        // to play X?" prompt in the single-option case (`PlayEffect.java:250`).
-        // For multi-option, the chooser at Step 1 already lets the player decline
-        // by returning `None`. The non-mandatory-cost confirm below is separate.
-        if single_option {
-            let card_name = ctx.game.card(card_id).card_name.clone();
-            let accepted = ctx.agents[controller.index()].confirm_action(
-                DecisionContext::new(ctx.game, ctx.mana_pools),
-                controller,
-                None,
-                &format!("Do you want to play {card_name}?"),
-                &[],
-                Some(card_id),
-                Some(crate::ability::api_type::ApiType::Play),
-            );
-            if !accepted {
-                break;
-            }
-        }
-
         candidates.retain(|&cid| cid != card_id);
+        let card_id = copy_card_to_play(ctx, sa, card_id);
 
-        let card_id = if crate::parsing::raw_has_key(&sa.ability_text, "CopyCard") {
-            let original = ctx.game.card(card_id);
-            let zone = original.zone;
-            let mut copy =
-                crate::card::card_copy_service::copy_card(original, false, Some(controller), None);
-            copy.set_controller(controller);
-            copy.is_token = true;
-            copy.copied_permanent = Some(card_id);
-            let copy_id = ctx.game.create_card(copy);
-            ctx.game.zone_mut(zone, controller).add(copy_id);
-            copy_id
-        } else {
-            card_id
-        };
-
-        // ── Step 3: Get ability to play
         let abilities = crate::ability::ability_utils::get_spells_from_play_effect(
-            ctx.game,
-            card_id,
-            controller,
-            !without_mana_cost && play_cost.is_none(),
-            valid_sa,
+            ctx.game, card_id, controller, false, valid_sa,
         );
         if abilities.is_empty() {
             if ctx.game.mirror_forge_bugs && ctx.game.card(card_id).face_down {
@@ -124,18 +53,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if spell_sa.is_land_ability {
             play_land(ctx, controller, card_id, &spell_sa);
             amount -= 1;
-            if let Some(source_id) = sa.source {
-                let source = ctx.game.card_mut(source_id);
-                if remember {
-                    source.remembered_cards.push(card_id);
-                }
-                if sa.ir.imprint_played {
-                    source.add_imprinted_card(card_id);
-                }
-                if sa.ir.forget_played {
-                    source.remove_remembered(card_id);
-                }
-            }
+            remember_played(ctx.game, sa, card_id);
             continue;
         }
         let was_transformed = ctx.game.card(card_id).is_transformed;
@@ -378,19 +296,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         };
         push_spell_to_stack(ctx, card_id, spell_sa, label);
 
-        // ── Step 8: RememberPlayed ──────────────────────────────────────
-        if let Some(source_id) = sa.source {
-            let source = ctx.game.card_mut(source_id);
-            if remember {
-                source.remembered_cards.push(card_id);
-            }
-            if sa.ir.imprint_played {
-                source.add_imprinted_card(card_id);
-            }
-            if sa.ir.forget_played {
-                source.remove_remembered(card_id);
-            }
-        }
+        remember_played(ctx.game, sa, card_id);
 
         amount -= 1;
     }
@@ -398,8 +304,118 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
+pub(crate) fn get_tgt_cards(ctx: &EffectContext, sa: &SpellAbility) -> Vec<CardId> {
+    let mut candidates = resolve_target_cards(ctx, sa);
+    candidates.retain(|&cid| ctx.game.card(cid).zone != ZoneType::Stack);
+    if let Some(filter) = crate::parsing::raw_get(&sa.ability_text, crate::parsing::keys::VALID_SA)
+    {
+        candidates.retain(|&cid| {
+            !crate::ability::ability_utils::get_spells_from_play_effect(
+                ctx.game,
+                cid,
+                sa.activating_player,
+                false,
+                Some((filter, sa)),
+            )
+            .is_empty()
+        });
+    }
+    candidates
+}
+
+pub(crate) fn is_madness(ctx: &EffectContext, sa: &SpellAbility) -> bool {
+    sa.ir.play_cost_text.is_some()
+        && sa
+            .source
+            .is_some_and(|src| ctx.game.card(src).has_keyword("Madness"))
+}
+
+pub(crate) fn play_amount(ctx: &EffectContext, sa: &SpellAbility, candidate_count: usize) -> i32 {
+    if sa.ir.amount.as_deref() == Some("All") {
+        candidate_count as i32
+    } else {
+        super::resolve_numeric_svar(ctx.game, sa, crate::parsing::keys::AMOUNT, 1)
+    }
+}
+
+/// Java only asks the outer "Do you want to play X?" prompt in the single-option case
+/// (`PlayEffect.java:250`); otherwise the chooser itself lets the player decline.
+pub(crate) fn choose_card_to_play(
+    ctx: &mut EffectContext,
+    sa: &SpellAbility,
+    candidates: &[CardId],
+    single_option: bool,
+) -> Option<CardId> {
+    let controller = sa.activating_player;
+    let tgt_cards: Vec<_> = candidates.iter().copied().map(GameEntity::Card).collect();
+    let chosen = ctx.agents[controller.index()].choose_single_entity_for_effect(
+        DecisionContext::new(ctx.game, ctx.mana_pools),
+        controller,
+        &tgt_cards,
+        !single_option && sa.ir.optional,
+    );
+    let Some(GameEntity::Card(card_id)) = chosen else {
+        return None;
+    };
+    if single_option {
+        let card_name = ctx.game.card(card_id).card_name.clone();
+        if !ctx.agents[controller.index()].confirm_action(
+            DecisionContext::new(ctx.game, ctx.mana_pools),
+            controller,
+            None,
+            &format!("Do you want to play {card_name}?"),
+            &[],
+            Some(card_id),
+            Some(crate::ability::api_type::ApiType::Play),
+        ) {
+            return None;
+        }
+    }
+    Some(card_id)
+}
+
+pub(crate) fn copy_card_to_play(
+    ctx: &mut EffectContext,
+    sa: &SpellAbility,
+    card_id: CardId,
+) -> CardId {
+    if !crate::parsing::raw_has_key(&sa.ability_text, "CopyCard") {
+        return card_id;
+    }
+    let controller = sa.activating_player;
+    let original = ctx.game.card(card_id);
+    let zone = original.zone;
+    let mut copy =
+        crate::card::card_copy_service::copy_card(original, false, Some(controller), None);
+    copy.set_controller(controller);
+    copy.is_token = true;
+    copy.copied_permanent = Some(card_id);
+    let copy_id = ctx.game.create_card(copy);
+    ctx.game.zone_mut(zone, controller).add(copy_id);
+    copy_id
+}
+
+pub(crate) fn remember_played(
+    game: &mut crate::game::GameState,
+    sa: &SpellAbility,
+    card_id: CardId,
+) {
+    if let Some(source_id) = sa.source {
+        let source = game.card_mut(source_id);
+        if sa.ir.remember_played {
+            source.remembered_cards.push(card_id);
+        }
+        if sa.ir.imprint_played {
+            source.add_imprinted_card(card_id);
+        }
+        if sa.ir.forget_played {
+            source.remove_remembered(card_id);
+        }
+    }
+}
+
 /// Mirrors Java `LandAbility.resolve` and `Player.playLand`.
-fn play_land(
+pub(crate) fn play_land(
     ctx: &mut EffectContext,
     player: crate::ids::PlayerId,
     card_id: CardId,
@@ -575,7 +591,7 @@ pub fn add_replace_graveyard_effect(
     _host_card: CardId,
     sa: &SpellAbility,
     zone: &str,
-) {
+) -> CardId {
     let controller = sa.activating_player;
     let dest_zone = if zone.is_empty() { "Exile" } else { zone };
 
@@ -593,5 +609,10 @@ pub fn add_replace_graveyard_effect(
     effect.forget_on_moved_origin = Some(ZoneType::Stack);
 
     let effect_id = ctx.game.create_card(effect);
+    ctx.game.end_of_turn.add_until(
+        None,
+        crate::phase::PhaseCommand::ExileEffect { effect: effect_id },
+    );
     ctx.game.move_card(effect_id, ZoneType::Command, controller);
+    effect_id
 }

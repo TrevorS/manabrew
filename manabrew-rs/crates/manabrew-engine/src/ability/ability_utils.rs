@@ -2550,7 +2550,7 @@ pub fn get_spells_from_play_effect(
     game: &GameState,
     tgt_card: CardId,
     controller: PlayerId,
-    _with_alt_cost: bool,
+    with_alt_cost: bool,
     valid_sa: Option<(&str, &SpellAbility)>,
 ) -> Vec<SpellAbility> {
     let card = game.card(tgt_card);
@@ -2602,6 +2602,21 @@ pub fn get_spells_from_play_effect(
     faces
         .into_iter()
         .flatten()
+        .flat_map(|(host, spell)| {
+            let alternatives = if with_alt_cost && !spell.is_land_ability {
+                crate::game_action_util::get_alternative_costs(game, &spell, controller)
+                    .into_iter()
+                    .filter(|alternative| alternative.alt_cost.is_some())
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            std::iter::once((host.clone(), spell)).chain(
+                alternatives
+                    .into_iter()
+                    .map(move |alternative| (host.clone(), alternative)),
+            )
+        })
         .filter_map(|(host, mut spell)| {
             if spell.is_land_ability {
                 return Some(spell);

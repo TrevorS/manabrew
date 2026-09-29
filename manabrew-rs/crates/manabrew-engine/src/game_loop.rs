@@ -125,6 +125,13 @@ impl std::fmt::Debug for TurnCheckpoint {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) struct PlayEffectCast {
+    pub without_mana_cost: bool,
+    pub play_cost: Option<crate::cost::Cost>,
+    pub mana_conversion: Option<String>,
+    pub zone: ZoneType,
+}
+
 pub(crate) struct PreparedSpellAbility {
     pub spell_ability: SpellAbility,
     pub activated_ability_index: Option<usize>,
@@ -1001,6 +1008,7 @@ mod game_action;
 pub(crate) use game_action::{exile_cost_cards, fire_sacrificed_once_for_batch, perform_sacrifice};
 pub(crate) mod mana_payment;
 mod phase_handler;
+mod play_effect;
 mod playability;
 mod priority;
 mod stack_resolution;
