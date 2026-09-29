@@ -560,6 +560,9 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             if !sa.check_conditions(game.card(source_id), game) {
                 continue;
             }
+            if !is_granted && owned.is_some() && !static_exists(game, source_id, sa_idx, sa) {
+                continue;
+            }
 
             if sa.check_mode(&StaticMode::Continuous)
                 && (sa.ir.add_keyword_text.is_some() || sa.ir.adjust_land_plays_text.is_some())
