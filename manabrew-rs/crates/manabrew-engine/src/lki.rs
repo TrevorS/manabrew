@@ -73,6 +73,7 @@ pub struct CardSnapshot {
     pub card_name: String,
     pub exiled_cards: Vec<CardId>,
     pub saddled_by: Vec<CardId>,
+    pub attachments: Vec<CardId>,
 }
 
 impl CardSnapshot {
@@ -91,6 +92,7 @@ impl CardSnapshot {
             card_name: card.card_name.clone(),
             exiled_cards: card.exiled_cards.clone(),
             saddled_by: card.saddled_by_this_turn(),
+            attachments: card.attachments.clone(),
         }
     }
 
@@ -108,6 +110,7 @@ impl CardSnapshot {
             card_name,
             exiled_cards,
             saddled_by,
+            attachments,
         } = self;
         *controller = card.controller;
         *owner = card.owner;
@@ -124,6 +127,7 @@ impl CardSnapshot {
         card_name.clone_from(&card.card_name);
         exiled_cards.clone_from(&card.exiled_cards);
         *saddled_by = card.saddled_by_this_turn();
+        attachments.clone_from(&card.attachments);
     }
 }
 
@@ -236,7 +240,7 @@ impl crate::game::GameState {
 }
 
 /// Java `AbilityKey.CardLKI` for a card that has left the battlefield: the card with the
-/// controller, counters and tapped state `last_state_battlefield` last saw it with.
+/// controller, counters, tapped state and attachments `last_state_battlefield` last saw it with.
 pub fn battlefield_lki_card(game: &crate::game::GameState, card_id: CardId) -> Option<Card> {
     let snapshot = game.get_lki_snapshot(card_id)?;
     let mut lki = game.card(card_id).clone();
@@ -244,6 +248,7 @@ pub fn battlefield_lki_card(game: &crate::game::GameState, card_id: CardId) -> O
     lki.counters = snapshot.counters.clone();
     lki.tapped = snapshot.tapped;
     lki.type_line = snapshot.type_line.clone();
+    lki.attachments = snapshot.attachments.clone();
     Some(lki)
 }
 
