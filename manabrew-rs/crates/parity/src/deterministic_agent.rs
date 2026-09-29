@@ -744,6 +744,16 @@ impl DeterministicAgent {
                 .secondary_face_texts(play)
                 .map(|(_, secondary)| secondary)
                 .unwrap_or_else(|| "1".to_string()),
+            PlayCardMode::Alternative(AlternativeCost::Plot) => self
+                .secondary_face_texts(play)
+                .map(|(front, secondary)| {
+                    if play.alt_cost_index > 0 {
+                        secondary
+                    } else {
+                        front
+                    }
+                })
+                .unwrap_or_default(),
             PlayCardMode::Alternative(AlternativeCost::Warp) => "Warp".to_string(),
             PlayCardMode::StaticAlternative => "StaticAlternative".to_string(),
             // Other modes already have unique variant strings, so fallback rarely matters.

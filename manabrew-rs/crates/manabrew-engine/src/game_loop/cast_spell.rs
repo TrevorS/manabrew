@@ -691,9 +691,13 @@ impl GameLoop {
                 crate::spellability::AlternativeCost::WebSlinging,
             )
             && play.alt_cost_index > 0;
+        let secondary_plot = play_mode
+            == crate::agent::PlayCardMode::Alternative(crate::spellability::AlternativeCost::Plot)
+            && play.alt_cost_index > 0;
         let mut sa = if play_mode == crate::agent::PlayCardMode::Secondary
             || secondary_flashback
             || backside_web_slinging
+            || secondary_plot
         {
             // `PlayCardMode::Secondary` covers both an Adventure/Omen `Secondary` face and a
             // Modal DFC's `Backside` face — a card only ever has one of the two, so which state

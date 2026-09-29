@@ -2229,6 +2229,31 @@ impl GameLoop {
                     ),
                     alt_cost_index: 0,
                 });
+                if crate::spellability::build_spell_ability_for_card_state_cast(
+                    game,
+                    card_id,
+                    player,
+                    forge_foundation::CardStateName::Secondary,
+                )
+                .is_some_and(|(_, secondary_sa)| {
+                    secondary_sa
+                        .target_restrictions
+                        .as_ref()
+                        .is_none_or(|tr| tr.get_min_targets(game, &secondary_sa) == 0)
+                        || target_restrictions::has_candidates_in_spell_ability_chain(
+                            game,
+                            player,
+                            &secondary_sa,
+                        )
+                }) {
+                    playable.push(crate::agent::PlayOption {
+                        card_id,
+                        mode: crate::agent::PlayCardMode::Alternative(
+                            crate::spellability::AlternativeCost::Plot,
+                        ),
+                        alt_cost_index: 1,
+                    });
+                }
             } else if card.has_keyword(crate::card::KEYWORD_WARP_EXILED) {
                 // Warp: exiled card can be cast for its normal mana cost
                 if must_be_instant && !has_flash_permission(card_id) {
