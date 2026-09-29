@@ -1433,6 +1433,12 @@ impl GameLoop {
             player,
         );
         proto.copied_permanent = Some(original_id);
+        if original.other_part.as_ref().is_some_and(|other| {
+            other.state_name == forge_foundation::CardStateName::Backside && !other.is_modal
+        }) {
+            proto.other_part = original.other_part.clone();
+            proto.is_transformed = original.is_transformed;
+        }
         let mut token_table = TokenCreateTable::default();
         token_table.put(player, proto, 1);
         let mut trigger_list = crate::card::card_zone_table::CardZoneTable::default();

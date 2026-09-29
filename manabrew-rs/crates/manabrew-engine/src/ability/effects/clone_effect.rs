@@ -50,6 +50,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .clone(),
         None => ctx.game.card(clone_source_id).clone(),
     };
+    let mut state = crate::card::card_factory::get_clone_states(&src, src.owner, sa);
+    state.id = src.id;
 
     if sa.ir.optional {
         let card_name = src.card_name.clone();
@@ -107,7 +109,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
         // A card copying itself keeps its replacement ids, or the Moved replacement that
         // started the copy would no longer count as run and would fire again.
-        let replacement_ids: Vec<i32> = src
+        let replacement_ids: Vec<i32> = state
             .replacement_effects
             .iter()
             .map(|re| {
@@ -122,7 +124,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let target = ctx.game.card_mut(clone_target_id);
         let paper_token = target.get_s_var("TokenScript").is_some();
         let host_svars = (clone_target_id == source_id).then(|| orig_svars.clone());
-        crate::card::card_copy_service::copy_copiable_characteristics(&src, target);
+        crate::card::card_copy_service::copy_copiable_characteristics(&state, target);
         for trigger in &mut target.triggers {
             trigger.id = ctx.trigger_handler.next_trigger_id();
         }
@@ -139,18 +141,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         target.add_clone_state();
         target.update_state_for_view(paper_token, ctx.rng);
         target.update_state_for_view(paper_token, ctx.rng);
-        target.activated_abilities = src.activated_abilities.clone();
+        target.activated_abilities = state.activated_abilities.clone();
         for ability in &mut target.activated_abilities {
             ability.original_host.get_or_insert(clone_source_id);
         }
-        if src.face_down {
-            target.card_name.clear();
-            target
-                .activated_abilities
-                .retain(|ability| !ability.is_turn_face_up());
-        }
-        target.static_abilities = src.static_abilities.clone();
-        target.replacement_effects = src.replacement_effects.clone();
+        target.static_abilities = state.static_abilities.clone();
+        target.replacement_effects = state.replacement_effects.clone();
         for static_ability in &mut target.static_abilities {
             static_ability.base.set_host_card_id(clone_target_id);
         }

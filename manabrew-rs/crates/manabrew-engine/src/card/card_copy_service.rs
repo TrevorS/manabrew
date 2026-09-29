@@ -65,8 +65,9 @@ pub fn copy_copiable_characteristics(copy_from: &Card, to: &mut Card) {
         trigger.original_host.get_or_insert(copy_from.id);
     }
     to.svars = copy_from.svars.clone();
-    if copy_from.has_prepared_spell_state() {
+    if copy_from.other_part.is_some() {
         to.other_part = copy_from.other_part.clone();
+        to.is_transformed = copy_from.is_transformed;
     }
     to.parsed_svar_cache.clear();
     to.refresh_action_specs();

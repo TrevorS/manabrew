@@ -89,51 +89,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 /// here. Shared token lifecycle params such as `PumpKeywords` are applied by
 /// `TokenEffectBase` after the token receives its real id.
 pub fn get_proto_type(sa: &SpellAbility, original: &Card, new_owner: crate::ids::PlayerId) -> Card {
-    let mut copy = Card::new(
-        CardId(0),
-        original.card_name.clone(),
-        new_owner,
-        crate::card::card_copy_service::copiable_type_line(original),
-        original.mana_cost.clone(),
-        original
-            .animate_state
-            .as_ref()
-            .map_or(original.color, |state| state.original_color),
-        original
-            .animate_state
-            .as_ref()
-            .map(|state| state.original_base_power)
-            .or(original.changed_base_power)
-            .unwrap_or(original.base_power),
-        original
-            .animate_state
-            .as_ref()
-            .map(|state| state.original_base_toughness)
-            .or(original.changed_base_toughness)
-            .unwrap_or(original.base_toughness),
-        original.copiable_keywords().as_string_list(),
-        original.abilities.clone(),
-    );
-    copy.set_triggers(original.copiable_triggers());
-    copy.set_svars_map(original.svars.clone());
-    copy.set_static_abilities(original.copiable_static_abilities());
-    copy.set_replacement_effects(original.copiable_replacement_effects());
+    let mut copy = crate::card::card_factory::get_clone_states(original, new_owner, sa);
     copy.set_perpetual(original, false);
-    copy.initial_loyalty = original.initial_loyalty.clone();
-    copy.set_code = original.set_code.clone();
-    if original
-        .other_part
-        .as_ref()
-        .is_some_and(|other| match other.state_name {
-            forge_foundation::CardStateName::Secondary
-            | forge_foundation::CardStateName::PreparedSpell => true,
-            forge_foundation::CardStateName::Backside => !other.is_modal,
-            _ => false,
-        })
-    {
-        copy.other_part = original.other_part.clone();
-        copy.is_transformed = original.is_transformed;
-    }
     // Copies are tokens for zone-change purposes (cease to exist off battlefield).
     copy.set_is_token(true);
 

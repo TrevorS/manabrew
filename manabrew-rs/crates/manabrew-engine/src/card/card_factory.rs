@@ -29,6 +29,76 @@ pub fn from_rules(rules: &CardRules, owner: PlayerId) -> Card {
     build_from_rules(rules, owner)
 }
 
+/// Java `CardFactory.getCloneStates`: the copiable values of `input` (CR 707.2).
+pub fn get_clone_states(input: &Card, new_owner: PlayerId, cause: &SpellAbility) -> Card {
+    let mut out = Card::new(
+        CardId(0),
+        if input.face_down {
+            String::new()
+        } else {
+            input.card_name.clone()
+        },
+        new_owner,
+        super::card_copy_service::copiable_type_line(input),
+        input.mana_cost.clone(),
+        input
+            .animate_state
+            .as_ref()
+            .map_or(input.color, |state| state.original_color),
+        input
+            .animate_state
+            .as_ref()
+            .map(|state| state.original_base_power)
+            .or(input.changed_base_power)
+            .unwrap_or(input.base_power),
+        input
+            .animate_state
+            .as_ref()
+            .map(|state| state.original_base_toughness)
+            .or(input.changed_base_toughness)
+            .unwrap_or(input.base_toughness),
+        input.copiable_keywords().as_string_list(),
+        input.abilities.clone(),
+    );
+    if input.face_down {
+        out.activated_abilities
+            .retain(|ability| !ability.is_turn_face_up());
+        out.base_ability_count = out.activated_abilities.len();
+    }
+    out.oracle_text = input.oracle_text.clone();
+    out.set_triggers(input.copiable_triggers());
+    out.set_svars_map(input.svars.clone());
+    out.set_static_abilities(input.copiable_static_abilities());
+    out.set_replacement_effects(input.copiable_replacement_effects());
+    out.initial_loyalty = input.initial_loyalty.clone();
+    out.set_code = input.set_code.clone();
+    let copies_other_state =
+        input
+            .other_part
+            .as_ref()
+            .is_some_and(|other| match other.state_name {
+                forge_foundation::CardStateName::Secondary
+                | forge_foundation::CardStateName::PreparedSpell => true,
+                forge_foundation::CardStateName::Backside => {
+                    !other.is_modal
+                        && matches!(
+                            cause.api,
+                            Some(
+                                crate::ability::api_type::ApiType::CopyPermanent
+                                    | crate::ability::api_type::ApiType::CopySpellAbility
+                                    | crate::ability::api_type::ApiType::ReplaceToken
+                            )
+                        )
+                }
+                _ => false,
+            });
+    if copies_other_state {
+        out.other_part = input.other_part.clone();
+        out.is_transformed = input.is_transformed;
+    }
+    out
+}
+
 /// Java-parity helper for `CardFactory.copySpellAbilityAndPossiblyHost`.
 ///
 /// The full host-card cloning path is not yet present in the Rust engine, but
