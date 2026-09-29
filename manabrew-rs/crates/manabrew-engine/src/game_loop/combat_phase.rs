@@ -1303,14 +1303,10 @@ impl GameLoop {
                 continue;
             }
             let attacker = game.card(attacker_id);
-            let has_fs = attacker.has_first_strike();
-            let has_ds = attacker.has_double_strike();
-            let deals_in_step = if first_strike_only {
-                has_fs || has_ds
-            } else {
-                !has_fs || has_ds
-            };
-            if !deals_in_step {
+            if !self
+                .combat
+                .deal_damage_this_phase(attacker, first_strike_only)
+            {
                 continue;
             }
             if !crate::staticability::static_ability_assign_combat_damage_as_unblocked::has_optional_assign_as_unblocked(

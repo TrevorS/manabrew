@@ -98,6 +98,8 @@ pub struct CombatState {
     /// moving to the next. Set after blocker declaration.
     #[serde(default)]
     pub damage_order: HashMap<CardId, Vec<CardId>>,
+    #[serde(default)]
+    pub combatants_that_dealt_first_strike_damage: HashSet<CardId>,
     /// Last-known-information cache: snapshots of creatures that left combat.
     /// Persists until combat ends (cleared in `clear()`).
     #[serde(skip)]
@@ -119,6 +121,7 @@ impl CombatState {
         self.blockers_declared = false;
         self.blocker_zone_timestamps.clear();
         self.damage_order.clear();
+        self.combatants_that_dealt_first_strike_damage.clear();
         self.lki_cache.clear();
     }
 
@@ -304,20 +307,33 @@ impl CombatState {
     /// priority: an attacker that deals damage in the step with combat damage above zero, or a
     /// blocker that deals damage in the step and still blocks an attacker, assigns, whether or
     /// not any damage results (a blocked attacker whose blockers are gone assigns nothing).
-    pub fn assigns_combat_damage(&self, game: &GameState, first_strike_only: bool) -> bool {
-        let deals_in_step = |card: &crate::card::Card| {
-            if first_strike_only {
-                card.has_first_strike() || card.has_double_strike()
-            } else {
-                !card.has_first_strike() || card.has_double_strike()
-            }
-        };
+    pub fn assigns_combat_damage(&mut self, game: &GameState, first_strike_only: bool) -> bool {
         let attackers: Vec<CardId> = self
             .attackers
             .iter()
             .map(|&(attacker, _)| attacker)
             .filter(|&attacker| game.card_is_in_zone(attacker, ZoneType::Battlefield))
             .collect();
+        if first_strike_only {
+            let first_strikers: Vec<CardId> = attackers
+                .iter()
+                .copied()
+                .chain(
+                    self.blockers
+                        .iter()
+                        .filter(|&&(blocker, attacker)| {
+                            game.card_is_in_zone(blocker, ZoneType::Battlefield)
+                                && attackers.contains(&attacker)
+                        })
+                        .map(|&(blocker, _)| blocker),
+                )
+                .filter(|&card| self.deal_damage_this_phase(game.card(card), true))
+                .collect();
+            self.combatants_that_dealt_first_strike_damage
+                .extend(first_strikers);
+        }
+        let deals_in_step =
+            |card: &crate::card::Card| self.deal_damage_this_phase(card, first_strike_only);
         let attacker_assigns = attackers.iter().any(|&attacker| {
             let card = game.card(attacker);
             let damage = if crate::staticability::static_ability_assign_no_combat_damage::assign_no_combat_damage(
@@ -343,9 +359,25 @@ impl CombatState {
             })
     }
 
+    pub fn deal_damage_this_phase(
+        &self,
+        combatant: &crate::card::Card,
+        first_strike_damage: bool,
+    ) -> bool {
+        if combatant.has_double_strike() {
+            return true;
+        }
+        if first_strike_damage && combatant.has_first_strike() {
+            return true;
+        }
+        !first_strike_damage
+            && !self
+                .combatants_that_dealt_first_strike_damage
+                .contains(&combatant.id)
+    }
+
     /// Resolve one step of combat damage.
-    /// If `first_strike_only` is true, only first-strike and double-strike creatures deal damage.
-    /// If false, only non-first-strike and double-strike creatures deal damage.
+    /// Which combatants deal damage in the step is `deal_damage_this_phase`.
     /// Returns a Vec of CombatDamageEvents so the caller can fire triggers.
     pub fn resolve_damage_step(
         &self,
@@ -434,8 +466,7 @@ impl CombatState {
             ) {
                 continue;
             }
-            let attacker_has_fs = attacker.has_first_strike();
-            let attacker_has_ds = attacker.has_double_strike();
+            let attacker_deals_damage = self.deal_damage_this_phase(attacker, first_strike_only);
             let attacker_has_trample = attacker.has_trample();
             let attacker_has_deathtouch = attacker.has_deathtouch();
             let attacker_has_lifelink = attacker.has_lifelink();
@@ -463,14 +494,6 @@ impl CombatState {
                 "If CARDNAME is unblocked, you may have it assign its combat damage to a creature defending player controls.",
             );
             let has_trample_planeswalker = attacker.has_keyword("Trample:Planeswalker");
-
-            // Determine if this attacker deals damage in this step
-            let attacker_deals_damage = if first_strike_only {
-                attacker_has_fs || attacker_has_ds
-            } else {
-                // Regular damage step: creatures without first strike, plus double strike
-                !attacker_has_fs || attacker_has_ds
-            };
 
             let attacker_power = if crate::staticability::static_ability_combat_damage_toughness::combat_damage_uses_toughness(
                 &game.cards,
@@ -648,14 +671,7 @@ impl CombatState {
                 ) {
                     continue;
                 }
-                let blocker_has_fs = blocker_card.has_first_strike();
-                let blocker_has_ds = blocker_card.has_double_strike();
-                let blocker_deals = if first_strike_only {
-                    blocker_has_fs || blocker_has_ds
-                } else {
-                    !blocker_has_fs || blocker_has_ds
-                };
-                if !blocker_deals {
+                if !self.deal_damage_this_phase(blocker_card, first_strike_only) {
                     continue;
                 }
                 if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
@@ -1437,14 +1453,7 @@ fn compute_blocker_damage_allocations(
     blocker_power: i32,
 ) -> Vec<(CardId, i32)> {
     let blocker = game.card(blocker_id);
-    let has_fs = blocker.has_first_strike();
-    let has_ds = blocker.has_double_strike();
-    let deals_this_step = if first_strike_only {
-        has_fs || has_ds
-    } else {
-        !has_fs || has_ds
-    };
-    if !deals_this_step {
+    if !combat.deal_damage_this_phase(blocker, first_strike_only) {
         return Vec::new();
     }
 
