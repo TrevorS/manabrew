@@ -6,10 +6,6 @@ use crate::ability::ability_ir::DefinedRef;
 /// `SP$ RemoveFromCombat` — remove target creature from combat.
 ///
 /// Mirrors Java's `RemoveFromCombatEffect.java`.
-/// Simply untaps the creature and removes all combat assignments.
-/// The game loop's combat state tracks attackers/blockers externally,
-/// so this effect sets the card's tapped state to false and the game loop
-/// handles the rest through CombatState filtering.
 ///
 /// # Card script examples
 /// ```text
@@ -20,19 +16,46 @@ use crate::ability::ability_ir::DefinedRef;
 /// `RemoveFromCombatEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(RemoveFromCombatEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    let target = sa
-        .target_chosen
-        .target_card
-        .or_else(|| match sa.defined_ref() {
-            Some(DefinedRef::SelfCard) => sa.source,
-            Some(DefinedRef::ParentTarget) => ctx.parent_target_card,
-            _ => None,
-        });
-
-    if let Some(card_id) = target {
-        if ctx.game.card(card_id).zone == ZoneType::Battlefield {
-            // Untap the creature (removed from combat means it won't deal/receive combat damage)
-            ctx.game.card_mut(card_id).set_tapped(false);
+    let remember = crate::parsing::raw_has_key(&sa.ability_text, "RememberRemovedFromCombat");
+    let unblock_defined =
+        crate::parsing::raw_get(&sa.ability_text, "UnblockCreaturesBlockedOnlyBy")
+            .map(str::to_string);
+    let mut targets = crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa);
+    if targets.is_empty() && matches!(sa.defined_ref(), Some(DefinedRef::ParentTarget)) {
+        targets.extend(ctx.parent_target_card);
+    }
+    for card_id in targets {
+        if !ctx.game.turn.phase.is_combat() || ctx.game.card(card_id).zone != ZoneType::Battlefield
+        {
+            continue;
+        }
+        let Some(combat) = ctx.combat.as_deref_mut() else {
+            continue;
+        };
+        if let Some(defined) = unblock_defined.as_deref() {
+            if let Some(&blocker) =
+                crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
+                    ctx.game, sa, defined,
+                )
+                .first()
+            {
+                for attacker in combat.get_attackers_for(blocker) {
+                    if combat
+                        .get_blockers_for(attacker)
+                        .iter()
+                        .all(|&b| b == blocker)
+                    {
+                        combat.blocked_attackers.remove(&attacker);
+                    }
+                }
+            }
+        }
+        combat.save_lki(card_id);
+        combat.remove_from_combat(card_id, ctx.game);
+        if remember {
+            if let Some(source) = sa.source {
+                ctx.game.card_mut(source).add_remembered_card(card_id);
+            }
         }
     }
 }
