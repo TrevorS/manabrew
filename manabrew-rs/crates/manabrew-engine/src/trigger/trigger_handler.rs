@@ -659,6 +659,8 @@ impl TriggerHandler {
                 game,
             );
         for event in &waiting {
+            let look_back_view = Self::look_back_host_view(game, event);
+            let game = look_back_view.as_ref().unwrap_or(game);
             let mut trigger_refs: Vec<(CardId, usize, usize)> =
                 if let Some(stored_refs) = &event.trigger_refs {
                     stored_refs
@@ -1437,6 +1439,55 @@ impl TriggerHandler {
                 });
         }
         false
+    }
+
+    fn look_back_host_view(game: &GameState, event: &TriggerWaiting) -> Option<GameState> {
+        if game.change_zone_lki_info.is_empty() {
+            return None;
+        }
+        let moved: Vec<CardId> = match event.mode {
+            TriggerType::ChangesZone if event.params.origin == Some(ZoneType::Battlefield) => event
+                .params
+                .card_lki
+                .or(event.params.card)
+                .into_iter()
+                .collect(),
+            TriggerType::ChangesZoneAll => event
+                .params
+                .change_zone_table
+                .as_ref()
+                .map(|table| table.last_state_battlefield().to_vec())
+                .unwrap_or_default(),
+            _ => return None,
+        };
+        let hosts: Vec<(CardId, &crate::card::Card)> = moved
+            .into_iter()
+            .chain(game.pre_sba_battlefield.iter().copied())
+            .filter_map(|card_id| {
+                let card = game.card(card_id);
+                if card.zone == ZoneType::Battlefield {
+                    return None;
+                }
+                let lki = game.get_change_zone_lki_info_at(card_id, card.lki_zone_timestamp?);
+                (!std::ptr::eq(lki, card)
+                    && lki
+                        .triggers
+                        .iter()
+                        .map(|trigger| trigger.id)
+                        .ne(card.triggers.iter().map(|trigger| trigger.id)))
+                .then_some((card_id, lki))
+            })
+            .collect();
+        if hosts.is_empty() {
+            return None;
+        }
+        let mut view = game.clone();
+        for (card_id, lki) in hosts {
+            let card = view.card_mut(card_id);
+            card.triggers.clone_from(&lki.triggers);
+            card.svars.clone_from(&lki.svars);
+        }
+        Some(view)
     }
 
     fn ltb_trigger_refs_for_event(
