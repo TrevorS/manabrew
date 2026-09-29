@@ -108,13 +108,3 @@ pub fn can_pay(
         .sum();
     total >= amount.resolve(game, source, player)
 }
-
-pub fn pay_with_decision(
-    _game: &mut GameState,
-    _player: crate::ids::PlayerId,
-    _source: CardId,
-    _part: &super::CostPart,
-    _decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    true
-}

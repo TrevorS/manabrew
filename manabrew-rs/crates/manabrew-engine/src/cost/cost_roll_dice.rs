@@ -22,13 +22,3 @@ pub fn can_pay(
 pub fn pay_as_decided() -> bool {
     true
 }
-
-pub fn pay_with_decision(
-    _game: &mut crate::game::GameState,
-    _player: crate::ids::PlayerId,
-    _source: crate::ids::CardId,
-    _part: &super::CostPart,
-    _decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    true
-}

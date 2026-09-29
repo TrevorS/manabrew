@@ -237,37 +237,6 @@ pub fn can_pay(
     }
 }
 
-pub fn pay_with_decision(
-    game: &mut GameState,
-    _player: crate::ids::PlayerId,
-    source: CardId,
-    part: &super::CostPart,
-    decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    match part {
-        super::CostPart::Exile { type_filter, .. } => {
-            if type_filter == "CARDNAME"
-                || type_filter == "NICKNAME"
-                || type_filter == "OriginalHost"
-            {
-                pay_as_decided_self(game, source)
-            } else if let crate::cost::payment_decision::PaymentDecision::Cards(cards) = decision {
-                pay_as_decided_cards(game, cards)
-            } else {
-                false
-            }
-        }
-        super::CostPart::ExileFromAnyGrave { .. } | super::CostPart::ExileFromSameGrave { .. } => {
-            if let crate::cost::payment_decision::PaymentDecision::Cards(cards) = decision {
-                pay_as_decided_cards(game, cards)
-            } else {
-                false
-            }
-        }
-        _ => false,
-    }
-}
-
 pub fn exile_multi_zone_cost_string(type_filter: &str) -> String {
     type_filter.to_string()
 }

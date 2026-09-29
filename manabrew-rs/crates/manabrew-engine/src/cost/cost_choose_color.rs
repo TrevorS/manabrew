@@ -31,17 +31,3 @@ pub fn can_pay(
 ) -> bool {
     true
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    _player: crate::ids::PlayerId,
-    source: CardId,
-    _part: &super::CostPart,
-    decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    if let crate::cost::payment_decision::PaymentDecision::Colors(colors) = decision {
-        let names: Vec<String> = colors.iter().map(|c| c.long_name().to_string()).collect();
-        return pay_as_decided(game, source, &names);
-    }
-    false
-}

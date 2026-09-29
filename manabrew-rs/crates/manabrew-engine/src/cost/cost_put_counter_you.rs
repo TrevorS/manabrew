@@ -58,13 +58,3 @@ pub fn pay_as_decided(
     );
     true
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    player: PlayerId,
-    source: CardId,
-    part: &super::CostPart,
-    _decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    pay_as_decided(game, None, None, player, source, None, part)
-}

@@ -131,32 +131,4 @@ pub fn can_pay(
     !candidates(game, source, ability, type_filter).is_empty()
 }
 
-pub fn pay_with_decision(
-    game: &mut GameState,
-    player: crate::ids::PlayerId,
-    source: CardId,
-    part: &super::CostPart,
-    _decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    let super::CostPart::AddCounter {
-        amount,
-        counter_type,
-        type_filter,
-    } = part
-    else {
-        return false;
-    };
-    let resolved = amount.resolve(game, source, player);
-    if pays_from_source(type_filter) {
-        return pay_as_decided(game, player, source, resolved, counter_type);
-    }
-    let Some(target) = candidates(game, source, None, type_filter)
-        .into_iter()
-        .next()
-    else {
-        return false;
-    };
-    pay_as_decided(game, player, target, resolved, counter_type)
-}
-
 pub fn reset_lists() {}

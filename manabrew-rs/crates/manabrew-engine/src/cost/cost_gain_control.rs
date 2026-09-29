@@ -48,17 +48,3 @@ pub fn can_pay(
         .count() as i32;
     count >= amount.resolve(game, source, player)
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    player: PlayerId,
-    _source: CardId,
-    _part: &super::CostPart,
-    decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    if let crate::cost::payment_decision::PaymentDecision::Cards(cards) = decision {
-        let opponent = game.opponent_of(player);
-        return pay_as_decided_cards(game, cards, opponent);
-    }
-    false
-}

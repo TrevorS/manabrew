@@ -36,13 +36,3 @@ pub fn can_pay(
     }
     !card.is_ability_sick(&game.cards)
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    _player: crate::ids::PlayerId,
-    source: CardId,
-    _part: &super::CostPart,
-    _decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    pay_as_decided(game, source)
-}

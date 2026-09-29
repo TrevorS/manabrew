@@ -60,16 +60,3 @@ pub fn can_pay(
         .count();
     ((bf + gy) as i32) >= resolved_amount
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    _player: crate::ids::PlayerId,
-    _source: crate::ids::CardId,
-    _part: &super::CostPart,
-    decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    if let crate::cost::payment_decision::PaymentDecision::Cards(cards) = decision {
-        return pay_as_decided_cards(game, cards);
-    }
-    false
-}

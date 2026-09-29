@@ -40,16 +40,3 @@ pub fn can_pay(
     let exiled = super::get_exiled_targets(game, type_filter).len() as i32;
     exiled >= amount.resolve(game, source, player)
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    _player: crate::ids::PlayerId,
-    _source: CardId,
-    _part: &super::CostPart,
-    decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    if let crate::cost::payment_decision::PaymentDecision::Cards(cards) = decision {
-        return pay_as_decided_cards(game, cards);
-    }
-    false
-}

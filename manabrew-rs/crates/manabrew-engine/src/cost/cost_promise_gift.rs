@@ -44,13 +44,3 @@ pub fn can_pay(
 ) -> bool {
     true
 }
-
-pub fn pay_with_decision(
-    _game: &mut GameState,
-    _player: PlayerId,
-    _source: CardId,
-    _part: &super::CostPart,
-    _decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    true
-}

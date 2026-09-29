@@ -119,13 +119,3 @@ pub fn can_pay(
 ) -> bool {
     !get_potential_players(game, player, source, ability, part).is_empty()
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    player: PlayerId,
-    source: crate::ids::CardId,
-    part: &super::CostPart,
-    _decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    pay_as_decided(game, None, None, player, source, None, part)
-}

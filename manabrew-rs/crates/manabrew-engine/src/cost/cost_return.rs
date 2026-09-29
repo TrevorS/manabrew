@@ -47,22 +47,3 @@ pub fn can_pay(
     let targets = super::get_sacrifice_targets_for_cost(game, player, type_filter, ability);
     (targets.len() as i32) >= amount.resolve(game, source, player)
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    _player: crate::ids::PlayerId,
-    source: CardId,
-    part: &super::CostPart,
-    decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    let super::CostPart::Return { type_filter, .. } = part else {
-        return false;
-    };
-    if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
-        return pay_as_decided_self(game, source);
-    }
-    if let crate::cost::payment_decision::PaymentDecision::Cards(cards) = decision {
-        return pay_as_decided_cards(game, cards);
-    }
-    false
-}

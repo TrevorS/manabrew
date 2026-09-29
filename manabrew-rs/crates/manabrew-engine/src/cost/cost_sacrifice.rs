@@ -84,22 +84,3 @@ pub fn can_pay(
         });
     valid >= amount.resolve(game, source, player)
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    player: PlayerId,
-    source: CardId,
-    part: &super::CostPart,
-    decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    let super::CostPart::Sacrifice { type_filter, .. } = part else {
-        return false;
-    };
-    if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
-        return pay_as_decided_self(game, source, player);
-    }
-    if let crate::cost::payment_decision::PaymentDecision::Cards(cards) = decision {
-        return pay_as_decided_cards(game, cards, player);
-    }
-    false
-}

@@ -34,13 +34,3 @@ pub fn can_pay(
         .count() as i32;
     count >= resolved_amount
 }
-
-pub fn pay_with_decision(
-    _game: &mut crate::game::GameState,
-    _player: crate::ids::PlayerId,
-    _source: crate::ids::CardId,
-    _part: &super::CostPart,
-    _decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    true
-}

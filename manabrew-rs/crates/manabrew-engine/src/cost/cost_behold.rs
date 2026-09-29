@@ -82,19 +82,3 @@ pub fn can_pay(
     }
     count >= resolved_amount
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    _player: crate::ids::PlayerId,
-    _source: CardId,
-    part: &super::CostPart,
-    decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    let super::CostPart::Behold { exile, .. } = part else {
-        return false;
-    };
-    if let crate::cost::payment_decision::PaymentDecision::Cards(cards) = decision {
-        return pay_as_decided_cards(game, cards, *exile);
-    }
-    false
-}

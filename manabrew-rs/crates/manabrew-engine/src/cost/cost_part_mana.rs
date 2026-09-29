@@ -35,16 +35,6 @@ pub fn can_pay(
     available_mana.can_pay(&mana_cost)
 }
 
-pub fn pay_with_decision(
-    _game: &mut GameState,
-    _player: crate::ids::PlayerId,
-    _source: CardId,
-    _part: &super::CostPart,
-    _decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    true
-}
-
 /// Save the current `ManaConversionMatrix` state from a mana pool before mana payment.
 /// Returns the saved matrix. Call `restore_matrix_after_payment` after payment completes.
 ///

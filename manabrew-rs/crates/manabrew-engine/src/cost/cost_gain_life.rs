@@ -22,16 +22,3 @@ pub fn can_pay(
     let opponent = game.opponent_of(player);
     !crate::staticability::static_ability_cant_gain_lose_pay_life::cant_gain_life(game, opponent)
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    player: PlayerId,
-    source: crate::ids::CardId,
-    part: &super::CostPart,
-    _decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    let super::CostPart::GainLife(amount) = part else {
-        return false;
-    };
-    pay_as_decided(game, player, amount.resolve(game, source, player))
-}

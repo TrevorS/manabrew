@@ -16,13 +16,3 @@ pub fn can_pay(
 ) -> bool {
     !super::get_enlist_targets(game, player).is_empty()
 }
-
-pub fn pay_with_decision(
-    _game: &mut crate::game::GameState,
-    _player: crate::ids::PlayerId,
-    _source: crate::ids::CardId,
-    _part: &super::CostPart,
-    _decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    true
-}

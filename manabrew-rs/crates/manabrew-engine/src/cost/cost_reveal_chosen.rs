@@ -59,16 +59,3 @@ pub fn can_pay(
     }
     false
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    _player: crate::ids::PlayerId,
-    source: CardId,
-    part: &super::CostPart,
-    _decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    let super::CostPart::RevealChosen { reveal_type } = part else {
-        return false;
-    };
-    pay_as_decided(game, source, reveal_type)
-}

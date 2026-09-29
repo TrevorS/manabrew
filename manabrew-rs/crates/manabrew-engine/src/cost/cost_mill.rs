@@ -42,18 +42,3 @@ pub fn can_pay(
     let lib_size = game.zone(ZoneType::Library, player).len() as i32;
     lib_size > resolved
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    player: PlayerId,
-    source: crate::ids::CardId,
-    part: &super::CostPart,
-    _decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    let super::CostPart::Mill(amount) = part else {
-        return false;
-    };
-    let resolved = amount.resolve(game, source, player);
-    pay_as_decided(game, player, resolved);
-    true
-}

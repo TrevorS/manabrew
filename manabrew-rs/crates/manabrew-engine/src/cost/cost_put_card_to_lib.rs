@@ -95,27 +95,3 @@ pub fn can_pay(
     let count = super::get_zone_targets(game, player, *from, type_filter, source).len() as i32;
     count >= resolved_amount
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    _player: crate::ids::PlayerId,
-    source: CardId,
-    part: &super::CostPart,
-    decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    let super::CostPart::PutCardToLib {
-        lib_pos,
-        type_filter,
-        ..
-    } = part
-    else {
-        return false;
-    };
-    if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
-        return pay_as_decided_self(game, source, *lib_pos);
-    }
-    if let crate::cost::payment_decision::PaymentDecision::Cards(cards) = decision {
-        return pay_as_decided_cards(game, cards, *lib_pos);
-    }
-    false
-}

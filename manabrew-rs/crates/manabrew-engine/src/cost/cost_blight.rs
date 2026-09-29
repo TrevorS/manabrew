@@ -68,19 +68,3 @@ pub fn can_pay(
         });
     has_creature
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    player: crate::ids::PlayerId,
-    source: CardId,
-    part: &super::CostPart,
-    decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    if let crate::cost::payment_decision::PaymentDecision::Cards(cards) = decision {
-        let super::CostPart::Blight(amount) = part else {
-            return false;
-        };
-        return pay_as_decided_cards(game, player, cards, amount.resolve(game, source, player));
-    }
-    false
-}

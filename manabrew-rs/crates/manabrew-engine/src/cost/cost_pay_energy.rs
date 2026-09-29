@@ -33,17 +33,3 @@ pub fn can_pay(
     };
     game.player(player).energy_counters >= amount.resolve(game, source, player)
 }
-
-pub fn pay_with_decision(
-    game: &mut GameState,
-    player: PlayerId,
-    source: crate::ids::CardId,
-    part: &super::CostPart,
-    _decision: &crate::cost::payment_decision::PaymentDecision,
-) -> bool {
-    let super::CostPart::PayEnergy(amount) = part else {
-        return false;
-    };
-    let resolved = amount.resolve(game, source, player);
-    pay_as_decided(game, player, resolved)
-}
