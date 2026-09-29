@@ -95,10 +95,21 @@ pub fn get_proto_type(sa: &SpellAbility, original: &Card, new_owner: crate::ids:
         new_owner,
         crate::card::card_copy_service::copiable_type_line(original),
         original.mana_cost.clone(),
-        original.color,
-        original.changed_base_power.unwrap_or(original.base_power),
         original
-            .changed_base_toughness
+            .animate_state
+            .as_ref()
+            .map_or(original.color, |state| state.original_color),
+        original
+            .animate_state
+            .as_ref()
+            .map(|state| state.original_base_power)
+            .or(original.changed_base_power)
+            .unwrap_or(original.base_power),
+        original
+            .animate_state
+            .as_ref()
+            .map(|state| state.original_base_toughness)
+            .or(original.changed_base_toughness)
             .unwrap_or(original.base_toughness),
         original
             .changed_keywords_base
