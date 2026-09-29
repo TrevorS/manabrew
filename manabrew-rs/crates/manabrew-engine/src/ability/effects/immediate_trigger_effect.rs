@@ -81,8 +81,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             controller: sa.activating_player,
             source_card: source_id,
             source_zone_timestamp: None,
-            created_turn: ctx.game.turn.turn_number,
-            created_phase: ctx.game.turn.phase,
             target_card: None,
             remembered_amount,
             remembered_cards,

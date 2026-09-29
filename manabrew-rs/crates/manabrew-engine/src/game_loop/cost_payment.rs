@@ -4094,8 +4094,6 @@ impl GameLoop {
                     controller: player,
                     source_card: source,
                     source_zone_timestamp: None,
-                    created_turn: game.turn.turn_number,
-                    created_phase: game.turn.phase,
                     target_card: None,
                     remembered_amount: enlisted_power,
                     remembered_cards: vec![chosen],

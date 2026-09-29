@@ -128,8 +128,6 @@ fn register_return_trigger(
             controller: sa.activating_player,
             source_card,
             source_zone_timestamp: None,
-            created_turn: ctx.game.turn.turn_number,
-            created_phase: ctx.game.turn.phase,
             target_card: Some(card_id),
             remembered_amount: 0,
             remembered_cards: vec![card_id],

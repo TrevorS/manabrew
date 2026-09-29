@@ -41,10 +41,6 @@ pub struct DelayedTrigger {
     pub controller: PlayerId,
     pub source_card: CardId,
     pub source_zone_timestamp: Option<u64>,
-    /// Turn number when this delayed trigger was registered.
-    pub created_turn: u32,
-    /// Phase during which this delayed trigger was registered.
-    pub created_phase: forge_foundation::PhaseType,
     /// Optional target card for the delayed trigger (e.g. the creature to bounce for Dash
     /// or sacrifice for Blitz at end of turn).
     pub target_card: Option<CardId>,
@@ -892,12 +888,6 @@ impl TriggerHandler {
                     ..
                 } = &event;
                 if delayed.mode != event.mode {
-                    continue;
-                }
-                if delayed.mode == TriggerType::Phase
-                    && delayed.created_turn == game.turn.turn_number
-                    && event_payload.phase == Some(delayed.created_phase)
-                {
                     continue;
                 }
                 let tmp_trigger = delayed.as_trigger(game);

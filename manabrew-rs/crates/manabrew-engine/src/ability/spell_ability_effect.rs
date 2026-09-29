@@ -1236,8 +1236,6 @@ pub fn register_at_eot(
         controller: sa.activating_player,
         source_card,
         source_zone_timestamp: None,
-        created_turn: game.turn.turn_number,
-        created_phase: game.turn.phase,
         target_card: None,
         remembered_amount: 0,
         remembered_cards: remembered.clone(),
