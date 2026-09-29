@@ -3,8 +3,9 @@ use forge_foundation::ZoneType;
 use super::{resolve_numeric_svar, EffectContext};
 use crate::ability::ability_ir::EffectIr;
 use crate::agent::DecisionContext;
-use crate::card::card_damage_map::DamageTarget;
+use crate::card::card_damage_map::{CardDamageMap, DamageTarget};
 use crate::card::card_util;
+use crate::game_entity_counter_table::GameEntityCounterTable;
 use crate::parsing::amount::AmountExpr;
 use crate::parsing::keys;
 use crate::spellability::SpellAbility;
@@ -62,38 +63,26 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
-    let mut stored_excess = 0;
-    let mut excess_damaged: Vec<crate::ids::CardId> = Vec::new();
-    for source in sources {
-        stored_excess += deal_damage_from_source(
-            ctx,
-            sa,
-            source,
-            damage,
-            use_damage_map,
-            &target_players,
-            &target_cards,
-            &mut excess_damaged,
-        );
+    let mut damage_map = CardDamageMap::default();
+    for source in sources.into_iter().filter(|_| damage > 0) {
+        for target in damage_targets(ctx.game, sa, &target_players, &target_cards) {
+            damage_map.put(source, target, damage);
+        }
     }
-    if !excess_damaged.is_empty() {
-        ctx.trigger_handler.run_trigger(
-            crate::trigger::TriggerType::ExcessDamageAll,
-            crate::event::RunParams {
-                cards: Some(excess_damaged),
-                is_combat_damage: Some(false),
-                ..Default::default()
-            },
-            false,
+    if use_damage_map {
+        if let Some(pending) = ctx.game.pending_damage_map.as_mut() {
+            for (source, target, amount) in damage_map.entries() {
+                pending.put(source, target, amount);
+            }
+        }
+    } else {
+        ctx.deal_damage(
+            &mut damage_map,
+            &mut CardDamageMap::default(),
+            &mut GameEntityCounterTable::default(),
+            Some(sa),
         );
-    }
-    if let (Some(excess_svar), Some(host)) = (
-        crate::parsing::raw_get(&sa.ability_text, "ExcessSVar"),
-        sa.source,
-    ) {
-        ctx.game
-            .card_mut(host)
-            .set_s_var(excess_svar, stored_excess.to_string());
+        ctx.trigger_handler.flush_waiting_triggers(ctx.game);
     }
 
     let _ = crate::ability::spell_ability_effect::replace_dying(ctx.game, sa);
@@ -132,35 +121,12 @@ pub(super) fn excess_svar_condition(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn deal_damage_from_source(
-    ctx: &mut EffectContext,
+fn damage_targets(
+    game: &crate::game::GameState,
     sa: &SpellAbility,
-    source: crate::ids::CardId,
-    damage: i32,
-    use_damage_map: bool,
     target_players: &[crate::ids::PlayerId],
     target_cards: &[crate::ids::CardId],
-    excess_damaged: &mut Vec<crate::ids::CardId>,
-) -> i32 {
-    let mut stored_excess = 0;
-    let mut lifelink_dealt = 0;
-    // Check source card for Infect/Wither keywords
-    let (source_has_infect_keyword, source_has_wither) = if let Some(src_id) = Some(source) {
-        let src = ctx.game.get_change_zone_lki_info(src_id);
-        (
-            src.has_infect(),
-            src.has_wither()
-                || crate::staticability::static_ability_wither_damage::is_wither_damage(
-                    &ctx.game.cards,
-                    src,
-                ),
-        )
-    } else {
-        (false, false)
-    };
-
-    // Overload: deal damage to ALL valid creatures instead of the chosen target.
+) -> Vec<DamageTarget> {
     if sa.overloaded {
         let valid_tgts = sa
             .target_restrictions
@@ -172,346 +138,37 @@ fn deal_damage_from_source(
             .target_restrictions
             .as_ref()
             .map(|restrictions| &restrictions.valid_tgts_selector);
-        let all_bf: Vec<crate::ids::CardId> = ctx
-            .game
+        return game
             .player_order
-            .clone()
             .iter()
-            .flat_map(|&pid| ctx.game.cards_in_zone(ZoneType::Battlefield, pid).to_vec())
-            .collect();
-        for cid in all_bf {
-            if ctx.game.card(cid).zone != ZoneType::Battlefield {
-                continue;
-            }
-            if !super::matches_valid_cards_for_sa(
-                ctx.game,
-                sa,
-                ctx.game.card(cid),
-                valid_tgts_selector,
-                valid_tgts,
-            ) {
-                continue;
-            }
-            // Track damage source for DamagedBy trigger filters
-            if let Some(src_id) = Some(source) {
-                if !ctx
-                    .game
-                    .card(cid)
-                    .damage_sources_this_turn
-                    .contains(&src_id)
-                {
-                    ctx.game.card_mut(cid).add_damage_source_this_turn(src_id);
-                }
-            }
-            if source_has_infect_keyword || source_has_wither {
-                if use_damage_map {
-                    if let Some(src_id) = Some(source) {
-                        if let Some(map) = ctx.game.pending_damage_map.as_mut() {
-                            map.put(src_id, DamageTarget::Card(cid), damage);
-                        }
-                    }
-                } else if !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-                    &ctx.game.cards,
-                    ctx.game.card(cid),
-                    &crate::card::CounterType::M1M1,
-                ) {
-                    crate::ability::effects::effect_context::add_counter_with_context(
-                        ctx.game,
-                        Some(ctx.trigger_handler),
-                        Some(ctx.agents),
-                        cid,
-                        &crate::card::CounterType::M1M1,
-                        damage,
-                        crate::event::RunParams {
-                            source_player: Some(source).map(|src_id| ctx.game.get_change_zone_lki_info(src_id).controller),
-                            cause: Some(sa.clone()),
-                            ..Default::default()
-                        },
-                        true,
-                    );
-                }
-            } else if use_damage_map {
-                if let Some(src_id) = Some(source) {
-                    if let Some(map) = ctx.game.pending_damage_map.as_mut() {
-                        map.put(src_id, DamageTarget::Card(cid), damage);
-                    }
-                }
-            } else {
-                ctx.deal_damage_to(source, DamageTarget::Card(cid), damage);
-            }
-            if !use_damage_map {
-                ctx.trigger_handler.run_trigger(
-                    crate::trigger::TriggerType::DamageDone,
-                    crate::event::RunParams {
-                        damage_source: Some(source),
-                        damage_target_card: Some(cid),
-                        damage_amount: Some(damage),
-                        is_combat_damage: Some(false),
-                        ..Default::default()
-                    },
-                    false,
-                );
-            }
-        }
-        return 0;
-    }
-
-    for &target_player in target_players {
-        let source_has_infect = if let Some(src_id) = Some(source) {
-            let src = ctx.game.get_change_zone_lki_info(src_id);
-            source_has_infect_keyword
-                || crate::staticability::static_ability_infect_damage::is_infect_damage(
-                    ctx.game,
-                    &ctx.game.cards,
-                    target_player,
-                    src.controller,
-                )
-        } else {
-            false
-        };
-        if source_has_infect {
-            // Infect: deal damage to players as poison counters
-            if use_damage_map {
-                if let Some(src_id) = Some(source) {
-                    if let Some(map) = ctx.game.pending_damage_map.as_mut() {
-                        map.put(src_id, DamageTarget::Player(target_player), damage);
-                    }
-                }
-            } else {
-                ctx.add_player_counter(
-                    target_player,
-                    &crate::card::CounterType::Poison,
-                    damage,
+            .flat_map(|&pid| game.cards_in_zone(ZoneType::Battlefield, pid).to_vec())
+            .filter(|&cid| {
+                super::matches_valid_cards_for_sa(
+                    game,
                     sa,
-                    crate::event::RunParams {
-                        source_player: Some(source)
-                            .map(|source| ctx.game.get_change_zone_lki_info(source).controller),
-                        ..Default::default()
-                    },
-                );
-            }
-        } else if use_damage_map {
-            if let Some(src_id) = Some(source) {
-                if let Some(map) = ctx.game.pending_damage_map.as_mut() {
-                    map.put(src_id, DamageTarget::Player(target_player), damage);
-                }
-            }
-        } else {
-            let dealt =
-                match ctx.deal_damage_to(source, DamageTarget::Player(target_player), damage) {
-                    (crate::agent::GameEntity::Player(_), dealt) => dealt,
-                    (crate::agent::GameEntity::Card(_), _) => 0,
-                };
-            lifelink_dealt += dealt;
-            if sa.ir.remember_damaged && dealt > 0 {
-                ctx.game
-                    .card_mut(source)
-                    .add_remembered_player(target_player);
-            }
-            ctx.game.record_player_damage_assignment(
-                Some(source),
-                Some(target_player),
-                dealt,
-                false,
-            );
-        }
-
-        // Record damage dealt by source for TotalDamageDoneByThisTurn SVar
-        if !use_damage_map {
-            if let Some(src_id) = Some(source) {
-                if damage > 0 {
-                    ctx.game.card_mut(src_id).total_damage_done_this_turn += damage;
-                    ctx.game.register_damage(
-                        src_id,
-                        damage,
-                        false,
-                        crate::card::card_damage_history::TrackedEntity::Player(target_player),
-                    );
-                }
-            }
-        }
-
-        // Fire DamageDone trigger
-        if !use_damage_map {
-            ctx.trigger_handler.run_trigger(
-                crate::trigger::TriggerType::DamageDone,
-                crate::event::RunParams {
-                    damage_source: Some(source),
-                    damage_target_player: Some(target_player),
-                    damage_amount: Some(damage),
-                    is_combat_damage: Some(false),
-                    ..Default::default()
-                },
-                false,
-            );
-            ctx.trigger_handler.run_trigger(
-                crate::trigger::TriggerType::DamageDoneOnce,
-                crate::event::RunParams {
-                    damage_target_player: Some(target_player),
-                    damage_amount: Some(damage),
-                    is_combat_damage: Some(false),
-                    ..Default::default()
-                },
-                false,
-            );
-            ctx.trigger_handler.flush_waiting_triggers(ctx.game);
-        }
+                    game.card(cid),
+                    valid_tgts_selector,
+                    valid_tgts,
+                )
+            })
+            .map(DamageTarget::Card)
+            .collect();
     }
-    for &target_card in target_cards {
-        if ctx.game.card(target_card).zone == ZoneType::Battlefield
-            && !ctx.game.card(target_card).phased_out
-        {
-            // Protection: prevents all damage from matching sources
-            if let Some(src_id) = Some(source) {
-                if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-                    ctx.game,
-                    ctx.game.card(target_card),
-                    ctx.game.card(src_id),
-                ) {
-                    continue;
-                }
-            }
-
-            // Track damage source for DamagedBy trigger filters
-            if let Some(src_id) = Some(source) {
-                if !ctx
-                    .game
-                    .card(target_card)
-                    .damage_sources_this_turn
-                    .contains(&src_id)
-                {
-                    ctx.game
-                        .card_mut(target_card)
-                        .damage_sources_this_turn
-                        .push(src_id);
-                }
-            }
-            if source_has_infect_keyword || source_has_wither {
-                // Infect/Wither: damage to creatures as -1/-1 counters
-                if use_damage_map {
-                    if let Some(src_id) = Some(source) {
-                        if let Some(map) = ctx.game.pending_damage_map.as_mut() {
-                            map.put(src_id, DamageTarget::Card(target_card), damage);
-                        }
-                    }
-                } else if !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-                    &ctx.game.cards,
-                    ctx.game.card(target_card),
-                    &crate::card::CounterType::M1M1,
-                ) {
-                    crate::ability::effects::effect_context::add_counter_with_context(
-                        ctx.game,
-                        Some(ctx.trigger_handler),
-                        Some(ctx.agents),
-                        target_card,
-                        &crate::card::CounterType::M1M1,
-                        damage,
-                        crate::event::RunParams {
-                            source_player: Some(source).map(|src_id| ctx.game.get_change_zone_lki_info(src_id).controller),
-                            cause: Some(sa.clone()),
-                            ..Default::default()
-                        },
-                        true,
-                    );
-                }
-            } else if use_damage_map {
-                if let Some(src_id) = Some(source) {
-                    if let Some(map) = ctx.game.pending_damage_map.as_mut() {
-                        map.put(src_id, DamageTarget::Card(target_card), damage);
-                    }
-                }
-            } else {
-                let lethal = excess_damage_value(ctx.game, target_card, source);
-                let before = ctx.game.card(target_card).damage;
-                ctx.deal_damage_to(source, DamageTarget::Card(target_card), damage);
-                // What landed, not what was asked for: protection and prevention shields make
-                // this smaller, and Java sums `addDamageAfterPrevention`'s return the same way.
-                let landed = (ctx.game.card(target_card).damage - before).max(0);
-                lifelink_dealt += landed;
-                if sa.ir.remember_damaged && landed > 0 {
-                    ctx.game.card_mut(source).add_remembered_card(target_card);
-                }
-                if damage > lethal && excess_svar_condition(ctx.game, sa, target_card) {
-                    stored_excess += damage - lethal;
-                }
-                if landed > lethal {
-                    ctx.game.card_mut(target_card).log_excess_damage();
-                    ctx.trigger_handler.run_trigger(
-                        crate::trigger::TriggerType::ExcessDamage,
-                        crate::event::RunParams {
-                            damage_target_card: Some(target_card),
-                            damage_amount: Some(landed - lethal),
-                            is_combat_damage: Some(false),
-                            ..Default::default()
-                        },
-                        false,
-                    );
-                    excess_damaged.push(target_card);
-                }
-            }
-
-            // Record damage dealt by source for TotalDamageDoneByThisTurn SVar
-            if !use_damage_map {
-                if let Some(src_id) = Some(source) {
-                    if damage > 0 {
-                        ctx.game.card_mut(src_id).total_damage_done_this_turn += damage;
-                        ctx.game.register_damage(
-                            src_id,
-                            damage,
-                            false,
-                            crate::card::card_damage_history::TrackedEntity::Card(target_card),
-                        );
-                    }
-                }
-            }
-
-            // Fire DamageDone trigger
-            if !use_damage_map {
-                ctx.trigger_handler.run_trigger(
-                    crate::trigger::TriggerType::DamageDone,
-                    crate::event::RunParams {
-                        damage_source: Some(source),
-                        damage_target_card: Some(target_card),
-                        damage_amount: Some(damage),
-                        is_combat_damage: Some(false),
-                        ..Default::default()
-                    },
-                    false,
-                );
-                // Fire DamageDoneOnce batch trigger for non-map (non-combat)
-                // damage.  Java fires this from CardDamageMap.triggerDamageOnce
-                // which is called for ALL damage paths.  Without this, "when
-                // dealt damage" triggers using DamageDoneOnce (e.g. Raptor
-                // Hatchling Enrage) would never fire for spell damage.
-                ctx.trigger_handler.run_trigger(
-                    crate::trigger::TriggerType::DamageDoneOnce,
-                    crate::event::RunParams {
-                        damage_target_card: Some(target_card),
-                        damage_amount: Some(damage),
-                        is_combat_damage: Some(false),
-                        ..Default::default()
-                    },
-                    false,
-                );
-                // Pre-match damage triggers while the creature is still on the
-                // battlefield.  SBAs run after resolution and would move
-                // lethally damaged creatures to the graveyard, causing their
-                // Enrage triggers to fail the active-zone check.
-                ctx.trigger_handler.flush_waiting_triggers(ctx.game);
-            }
-
-            if sa.ir.remember_damaged_creature {
-                if let Some(src_id) = Some(source) {
-                    let src = ctx.game.card_mut(src_id);
-                    src.add_remembered_card(target_card);
-                }
-            }
-        }
-    }
-
-    gain_life_from_lifelink(ctx, sa, source, lifelink_dealt);
-
-    stored_excess
+    target_players
+        .iter()
+        .copied()
+        .map(DamageTarget::Player)
+        .chain(
+            target_cards
+                .iter()
+                .copied()
+                .filter(|&cid| {
+                    let card = game.card(cid);
+                    card.zone == ZoneType::Battlefield && !card.phased_out
+                })
+                .map(DamageTarget::Card),
+        )
+        .collect()
 }
 
 /// CR 702.15e: one gain for the whole event, as the lifelink step of `GameAction.dealDamage`.
