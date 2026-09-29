@@ -74,6 +74,8 @@ impl GameLoop {
         // and re-prompt if invalid.  We mirror this so RNG consumption matches.
         let mut chosen_attackers: Vec<(CardId, combat::DefenderId)> = Vec::new();
         if !available_attackers.is_empty() && !pass_until_skip {
+            let enforces_attack_requirements =
+                agents[active.index()].enforces_attack_requirements();
             // Java parity: attacker declaration retries until a legal attack
             // set is found. A low cap can prematurely accept an invalid/no-attack
             // outcome on crowded boards (e.g. Silent Arbiter + MustAttack).
@@ -90,7 +92,7 @@ impl GameLoop {
                     ),
                 );
                 let agent = &mut agents[active.index()];
-                let picked = agent.choose_attackers(
+                let mut picked = agent.choose_attackers(
                     DecisionContext::new(game, &self.mana_pools),
                     active,
                     &available_attackers,
@@ -108,6 +110,16 @@ impl GameLoop {
                         picked.len()
                     ),
                 );
+
+                if enforces_attack_requirements {
+                    self.add_required_attackers(
+                        game,
+                        &available_attackers,
+                        &possible_defenders,
+                        &must_attackers,
+                        &mut picked,
+                    );
+                }
 
                 let attacker_ids: Vec<CardId> = picked.iter().map(|(a, _)| *a).collect();
                 let mut invalid = picked.iter().any(|&(attacker, defender)| {
@@ -1081,6 +1093,57 @@ impl GameLoop {
         // until the next apply_continuous_effects call, causing snapshot drift.
         apply_continuous_effects(game);
         self.trigger_handler.reset_active_triggers(game);
+    }
+
+    fn add_required_attackers(
+        &self,
+        game: &GameState,
+        available_attackers: &[CardId],
+        possible_defenders: &[combat::DefenderId],
+        must_attackers: &[CardId],
+        picked: &mut Vec<(CardId, combat::DefenderId)>,
+    ) {
+        let max_attackers =
+            crate::staticability::static_ability_attack_restrict::global_attack_restrict(
+                &game.cards,
+            )
+            .map_or(usize::MAX, |max| max as usize);
+        let requirements = combat::attack_requirement::compute_attack_requirements_with_defenders(
+            game,
+            available_attackers,
+            possible_defenders,
+        );
+        for requirement in requirements
+            .iter()
+            .filter(|requirement| must_attackers.contains(&requirement.attacker))
+        {
+            if picked.len() >= max_attackers {
+                break;
+            }
+            if picked
+                .iter()
+                .any(|&(attacker, _)| attacker == requirement.attacker)
+            {
+                continue;
+            }
+            let mut best: Option<(combat::DefenderId, i32)> = None;
+            for &defender in possible_defenders {
+                if !combat::combat_util::can_attack_defender(game, requirement.attacker, defender) {
+                    continue;
+                }
+                let credit = requirement
+                    .defender_specific
+                    .get(&defender)
+                    .copied()
+                    .unwrap_or(0);
+                if best.is_none_or(|(_, best_credit)| credit > best_credit) {
+                    best = Some((defender, credit));
+                }
+            }
+            if let Some((defender, _)) = best {
+                picked.push((requirement.attacker, defender));
+            }
+        }
     }
 
     fn pay_combat_cost(

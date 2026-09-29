@@ -1410,6 +1410,10 @@ pub trait PlayerAgent {
         false
     }
 
+    fn enforces_attack_requirements(&self) -> bool {
+        false
+    }
+
     fn auto_pay_floats_mana(&self) -> bool {
         false
     }
