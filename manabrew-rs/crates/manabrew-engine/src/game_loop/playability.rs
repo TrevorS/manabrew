@@ -133,6 +133,7 @@ impl GameLoop {
         game: &GameState,
         player: PlayerId,
         card_id: CardId,
+        probe_host: &Card,
         mana_cost: &forge_foundation::ManaCost,
         available_mana: &crate::mana::ManaPool,
         chosen_types_by_source: &crate::HashMap<CardId, String>,
@@ -155,7 +156,7 @@ impl GameLoop {
         .unwrap_or_else(|| forge_foundation::ManaCost::generic(0));
         let base = cost_adj.apply(&mana_cost.without_x()).add(&raise_mana);
         let payable = crate::mana::apply_player_life_payment_keywords(game, player, &base);
-        let reduced = apply_cost_reductions(game, player, card_id, card, &payable);
+        let reduced = apply_cost_reductions(game, player, card_id, probe_host, &payable);
         crate::mana::can_pay_spell_mana_cost_for_action_space(
             game,
             self.pool(player),
@@ -697,7 +698,17 @@ impl GameLoop {
             .iter()
             .filter_map(|c| c.chosen_type.clone().map(|chosen| (c.id, chosen)))
             .collect();
-        let stack_statics = std::cell::OnceCell::new();
+        let stack_statics_cell = std::cell::OnceCell::new();
+        let stack_statics = || {
+            stack_statics_cell
+                .get_or_init(|| {
+                    Self::apply_stack_statics(
+                        game,
+                        &[hand, game.cards_in_zone(ZoneType::Graveyard, player)].concat(),
+                    )
+                })
+                .as_ref()
+        };
         let probe_sources = std::cell::OnceCell::new();
         let probe_sources =
             || probe_sources.get_or_init(|| crate::mana::SpellProbeSources::new(game, player));
@@ -707,12 +718,9 @@ impl GameLoop {
         for &card_id in hand {
             let card = game.card(card_id);
             let probe_host = || {
-                stack_statics
-                    .get_or_init(|| Self::apply_stack_statics(game, hand))
-                    .as_ref()
-                    .map_or(card, |stack_statics: &GameState| {
-                        stack_statics.card(card_id)
-                    })
+                stack_statics().map_or(card, |stack_statics: &GameState| {
+                    stack_statics.card(card_id)
+                })
             };
             if self.can_play_card_state_spell(
                 game,
@@ -1861,6 +1869,9 @@ impl GameLoop {
         let graveyard: Vec<CardId> = game.cards_in_zone(ZoneType::Graveyard, player).to_vec();
         for card_id in graveyard {
             let card = game.card(card_id);
+            let probe_host = stack_statics().map_or(card, |stack_statics: &GameState| {
+                stack_statics.card(card_id)
+            });
             let flashback_costs = card.get_all_flashback_costs();
             for (index, cost) in Self::secondary_flashback_costs(game, card_id)
                 .iter()
@@ -1920,6 +1931,7 @@ impl GameLoop {
                         game,
                         player,
                         card_id,
+                        probe_host,
                         &fb_mana,
                         &available_mana,
                         &chosen_types_by_source,
@@ -1952,6 +1964,7 @@ impl GameLoop {
                     game,
                     player,
                     card_id,
+                    probe_host,
                     &escape_mc,
                     &available_mana,
                     &chosen_types_by_source,
@@ -1967,6 +1980,7 @@ impl GameLoop {
                         game,
                         player,
                         card_id,
+                        probe_host,
                         &mayhem_mana,
                         &available_mana,
                         &chosen_types_by_source,
