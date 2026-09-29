@@ -1860,8 +1860,9 @@ impl GameState {
             ZoneType::Graveyard
         };
         let old_zone = self.card(cid).zone;
-        // Emit trigger BEFORE move_card so LKI state is still available for
-        // trigger matching. Persist/Undying and Modular inspect the dying card.
+        // Emit before the move so the event carries the dying card's counters, power and
+        // toughness (Persist, Undying, Modular). The pass matches the triggers after its last
+        // move, as Java runs waiting triggers after the whole checkStateEffects batch.
         if let Some(handler) = trigger_handler.as_deref_mut() {
             let (lki_power, lki_toughness, lki_counters) = match self.get_lki_snapshot(cid) {
                 Some(lki) => (lki.power, lki.toughness, lki.counters.clone()),
@@ -1883,7 +1884,6 @@ impl GameState {
                 lki_power,
                 lki_toughness,
             );
-            handler.flush_waiting_triggers(self);
         }
         self.move_card_without_replacement(cid, final_dest, owner);
     }

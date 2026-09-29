@@ -156,6 +156,18 @@ impl TriggerBehavior for TriggerChangesZone {
             }
         }
         if let Some(check_expr) = trigger.ir.check_on_triggered_card.as_deref() {
+            let lki_view = moved_card
+                .filter(|&card_id| {
+                    params.origin == Some(forge_foundation::ZoneType::Battlefield)
+                        && game.card(card_id).zone != forge_foundation::ZoneType::Battlefield
+                })
+                .map(|card_id| {
+                    let lki = game.get_change_zone_lki_info(card_id).clone();
+                    let mut view = game.clone();
+                    *std::sync::Arc::make_mut(&mut view.cards[card_id.index()]) = lki;
+                    view
+                });
+            let game = lki_view.as_ref().unwrap_or(game);
             let moved = game.card(moved_card.unwrap_or(host_card));
             let mut parts = check_expr.split_whitespace();
             let lhs = parts.next().unwrap_or("");
