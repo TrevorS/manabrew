@@ -650,7 +650,10 @@ impl GameState {
         // Java `Card.clearCastSA` — the cast-SA link dies once the instance
         // leaves the battlefield (a new cast produces a fresh instance).
         if host_left_battlefield {
-            self.add_change_zone_lki_info(self.cards[card_id.index()].clone());
+            let lki = crate::lki::battlefield_lki_card(self, card_id)
+                .map(std::sync::Arc::new)
+                .unwrap_or_else(|| self.cards[card_id.index()].clone());
+            self.add_change_zone_lki_info(lki);
             let lki_controller = self.card(card_id).controller;
             self.card_mut(card_id).lki_controller = Some(lki_controller);
             self.card_mut(card_id).cast_sa = None;

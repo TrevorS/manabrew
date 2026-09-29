@@ -249,6 +249,8 @@ pub fn battlefield_lki_card(game: &crate::game::GameState, card_id: CardId) -> O
     lki.tapped = snapshot.tapped;
     lki.type_line = snapshot.type_line.clone();
     lki.attachments = snapshot.attachments.clone();
+    lki.static_power_modifier += snapshot.power - lki.power();
+    lki.static_toughness_modifier += snapshot.toughness - lki.toughness();
     Some(lki)
 }
 
