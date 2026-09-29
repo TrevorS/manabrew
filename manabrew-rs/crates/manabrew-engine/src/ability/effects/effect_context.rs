@@ -154,6 +154,33 @@ impl EffectContext<'_> {
 
     pub(crate) fn deal_damage(
         &mut self,
+        damage_map: &mut crate::card::card_damage_map::CardDamageMap,
+        prevent_map: &mut crate::card::card_damage_map::CardDamageMap,
+        counter_table: &mut crate::game_entity_counter_table::GameEntityCounterTable,
+        cause: Option<&crate::spellability::SpellAbility>,
+    ) {
+        let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
+            trigger_handler: self.trigger_handler,
+            token_templates: self.token_templates,
+            token_art_variants: self.token_art_variants,
+            token_fallback: self.token_fallback,
+            edition_dates: self.edition_dates,
+            mana_pools: self.mana_pools,
+            rng: self.rng,
+        };
+        self.game.deal_damage(
+            false,
+            damage_map,
+            prevent_map,
+            counter_table,
+            cause,
+            self.agents,
+            &mut runtime,
+        );
+    }
+
+    pub(crate) fn deal_damage_to(
+        &mut self,
         source: CardId,
         target: crate::card::card_damage_map::DamageTarget,
         amount: i32,
@@ -168,7 +195,7 @@ impl EffectContext<'_> {
             rng: self.rng,
         };
         self.game
-            .deal_damage(source, target, amount, self.agents, &mut runtime)
+            .deal_damage_to(source, target, amount, self.agents, &mut runtime)
     }
 
     pub(crate) fn sacrifice_destroy(

@@ -1763,6 +1763,26 @@ impl Card {
         self.damage >= self.toughness()
     }
 
+    pub fn get_excess_damage_value(&self, with_deathtouch: bool) -> i32 {
+        let mut excess_characteristics = Vec::new();
+        if self.is_creature() {
+            let lethal = self.toughness() - self.damage;
+            excess_characteristics.push(if with_deathtouch && lethal > 0 {
+                1
+            } else {
+                lethal.max(0)
+            });
+        }
+        if self.type_line.is_planeswalker() {
+            excess_characteristics.push(self.counter_count(&CounterType::Loyalty));
+        }
+        if self.type_line.core_types.contains(&CoreType::Battle) {
+            excess_characteristics
+                .push(self.counter_count(&CounterType::Named("DEFENSE".to_string())));
+        }
+        excess_characteristics.into_iter().min().unwrap_or(0)
+    }
+
     pub fn can_be_dealt_damage(&self) -> bool {
         self.zone == ZoneType::Battlefield
             && (self.is_creature()

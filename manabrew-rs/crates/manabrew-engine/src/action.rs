@@ -6,6 +6,7 @@ use crate::card::card_damage_map::{CardDamageMap, DamageTarget};
 use crate::card::{Card, CounterType};
 use crate::event::RunParams;
 use crate::game::GameState;
+use crate::game_entity_counter_table::GameEntityCounterTable;
 use crate::ids::{CardId, PlayerId};
 use crate::replacement::replacement_handler::{
     apply_replacements, apply_replacements_with_agents, apply_replacements_with_agents_and_runtime,
@@ -14,6 +15,7 @@ use crate::replacement::replacement_handler::{
 };
 use crate::replacement::GameLossReason;
 use crate::replacement::ReplacementResult;
+use crate::spellability::SpellAbility;
 use crate::staticability::layer::{apply_continuous_effects, apply_etb_tapped_with_agents};
 use crate::trigger::handler::TriggerHandler;
 use crate::trigger::TriggerType;
@@ -1202,7 +1204,246 @@ impl GameState {
         self.add_damage_after_prevention(DamageTarget::Card(target), amount, None, false);
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn deal_damage(
+        &mut self,
+        is_combat: bool,
+        damage_map: &mut CardDamageMap,
+        prevent_map: &mut CardDamageMap,
+        counter_table: &mut GameEntityCounterTable,
+        cause: Option<&SpellAbility>,
+        agents: &mut [Box<dyn PlayerAgent>],
+        runtime: &mut ReplacementRuntime<'_>,
+    ) {
+        run_replace_damage(
+            self,
+            Some(&mut *agents),
+            runtime,
+            is_combat,
+            damage_map,
+            prevent_map,
+        );
+
+        let mut lethal_damage = indexmap::IndexMap::new();
+        for (source, row) in damage_map.row_map() {
+            let mut sum = 0;
+            for (target, amount) in row {
+                if amount <= 0 {
+                    continue;
+                }
+                let source_lki = self.get_change_zone_lki_info(source);
+                let source_controller = source_lki.controller;
+                let dealt = match target {
+                    DamageTarget::Card(cid)
+                        if !self.card(cid).can_be_dealt_damage()
+                            || crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
+                                self,
+                                self.card(cid),
+                                self.card(source),
+                            ) =>
+                    {
+                        0
+                    }
+                    DamageTarget::Card(cid) => {
+                        let card = self.card(cid);
+                        let wither = source_lki.has_infect()
+                            || source_lki.has_wither()
+                            || crate::staticability::static_ability_wither_damage::is_wither_damage(
+                                &self.cards,
+                                source_lki,
+                            );
+                        lethal_damage
+                            .entry(cid)
+                            .or_insert_with(|| card.get_excess_damage_value(false));
+                        if !card.damage_sources_this_turn.contains(&source) {
+                            self.card_mut(cid).add_damage_source_this_turn(source);
+                        }
+                        runtime.trigger_handler.run_trigger(
+                            TriggerType::DamageDone,
+                            RunParams {
+                                damage_source: Some(source),
+                                damage_target_card: Some(cid),
+                                damage_amount: Some(amount),
+                                is_combat_damage: Some(is_combat),
+                                cause: cause.cloned(),
+                                ..Default::default()
+                            },
+                            false,
+                        );
+                        if wither {
+                            counter_table.put(
+                                Some(source_controller),
+                                GameEntity::Card(cid),
+                                CounterType::M1M1,
+                                amount,
+                            );
+                            amount
+                        } else {
+                            self.add_damage_after_prevention(target, amount, Some(source), is_combat)
+                        }
+                    }
+                    DamageTarget::Player(pid) => {
+                        let infect = source_lki.has_infect()
+                            || crate::staticability::static_ability_infect_damage::is_infect_damage(
+                                self,
+                                &self.cards,
+                                pid,
+                                source_controller,
+                            );
+                        let dealt = if infect {
+                            counter_table.put(
+                                Some(source_controller),
+                                GameEntity::Player(pid),
+                                CounterType::Poison,
+                                amount,
+                            );
+                            amount
+                        } else {
+                            let dealt = self.add_damage_after_prevention(
+                                target,
+                                amount,
+                                Some(source),
+                                is_combat,
+                            );
+                            self.record_player_damage_assignment(
+                                Some(source),
+                                Some(pid),
+                                dealt,
+                                is_combat,
+                            );
+                            dealt
+                        };
+                        if dealt > 0 {
+                            runtime.trigger_handler.run_trigger(
+                                TriggerType::DamageDone,
+                                RunParams {
+                                    damage_source: Some(source),
+                                    damage_target_player: Some(pid),
+                                    damage_amount: Some(dealt),
+                                    is_combat_damage: Some(is_combat),
+                                    cause: cause.cloned(),
+                                    ..Default::default()
+                                },
+                                false,
+                            );
+                        }
+                        dealt
+                    }
+                };
+                damage_map.set(source, target, dealt);
+                sum += dealt;
+                if dealt > 0 {
+                    self.card_mut(source).total_damage_done_this_turn += dealt;
+                    self.register_damage(
+                        source,
+                        dealt,
+                        is_combat,
+                        match target {
+                            DamageTarget::Card(card) => {
+                                crate::card::card_damage_history::TrackedEntity::Card(card)
+                            }
+                            DamageTarget::Player(player) => {
+                                crate::card::card_damage_history::TrackedEntity::Player(player)
+                            }
+                        },
+                    );
+                }
+            }
+            if sum > 0 {
+                self.gain_life_from_lifelink(runtime.trigger_handler, cause, source, sum);
+            }
+        }
+
+        damage_map.trigger_excess_damage(
+            self,
+            runtime.trigger_handler,
+            is_combat,
+            &lethal_damage,
+            cause,
+        );
+
+        self.lose_life_simultaneously(runtime.trigger_handler, Some(&mut *agents));
+
+        if let Some(host) = cause.and_then(|cause| cause.source) {
+            if cause.is_some_and(|cause| cause.ir.remember_damaged) {
+                for target in damage_map.row(host) {
+                    match target {
+                        DamageTarget::Card(card) => self.card_mut(host).add_remembered_card(card),
+                        DamageTarget::Player(player) => {
+                            self.card_mut(host).add_remembered_player(player)
+                        }
+                    }
+                }
+            }
+            if cause.is_some_and(|cause| cause.ir.remember_amount) {
+                let total = damage_map.total_amount();
+                self.card_mut(host).add_remembered_cmc(total);
+            }
+        }
+
+        prevent_map.trigger_prevent_damage(runtime.trigger_handler, is_combat);
+        damage_map.trigger_damage_done_once(self, runtime.trigger_handler, is_combat);
+        counter_table.replace_counter_effect(
+            self,
+            Some(runtime.trigger_handler),
+            Some(agents),
+            cause,
+            true,
+            RunParams::default(),
+        );
+    }
+
+    fn gain_life_from_lifelink(
+        &mut self,
+        trigger_handler: &mut TriggerHandler,
+        cause: Option<&SpellAbility>,
+        source: CardId,
+        amount: i32,
+    ) {
+        let source_lki = self.get_change_zone_lki_info(source);
+        if !source_lki.has_lifelink() {
+            return;
+        }
+        let controller = source_lki.controller;
+        if crate::staticability::static_ability_cant_gain_lose_pay_life::cant_gain_life(
+            self, controller,
+        ) {
+            return;
+        }
+        let mut event = ReplacementEvent::GainLife {
+            player: controller,
+            amount,
+        };
+        let result = apply_replacements(self, &mut event);
+        if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
+            return;
+        }
+        let ReplacementEvent::GainLife {
+            amount: final_amount,
+            ..
+        } = event
+        else {
+            return;
+        };
+        if final_amount > 0 {
+            self.player_gain_life(controller, final_amount);
+            self.player_add_team_life_gained(controller, final_amount);
+            trigger_handler.run_trigger(
+                TriggerType::LifeGained,
+                RunParams {
+                    player: Some(controller),
+                    life_amount: Some(final_amount),
+                    first_time: Some(self.player(controller).life_gained_this_turn == final_amount),
+                    source_card: Some(source),
+                    source_sa: cause.cloned(),
+                    ..Default::default()
+                },
+                false,
+            );
+        }
+    }
+
+    pub fn deal_damage_to(
         &mut self,
         source: CardId,
         target: DamageTarget,

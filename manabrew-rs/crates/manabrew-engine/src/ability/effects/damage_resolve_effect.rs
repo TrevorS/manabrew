@@ -2,9 +2,6 @@
 //! Ported from Java's DamageResolveEffect.
 
 use super::EffectContext;
-use crate::agent::GameEntity;
-use crate::card::card_damage_map::DamageTarget;
-use crate::card::CounterType;
 use crate::game_entity_counter_table::GameEntityCounterTable;
 
 /// Struct form of this effect so it can participate in the
@@ -26,138 +23,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .clone()
         .or_else(|| ctx.game.pending_prevent_map.clone())
         .unwrap_or_default();
-    let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
-        trigger_handler: ctx.trigger_handler,
-        token_templates: ctx.token_templates,
-        token_art_variants: ctx.token_art_variants,
-        token_fallback: ctx.token_fallback,
-        edition_dates: ctx.edition_dates,
-        mana_pools: ctx.mana_pools,
-        rng: ctx.rng,
-    };
-    crate::replacement::replacement_handler::run_replace_damage(
-        ctx.game,
-        Some(ctx.agents),
-        &mut runtime,
-        false,
+    let mut counter_table = GameEntityCounterTable::default();
+    ctx.deal_damage(
         &mut damage_map,
         &mut prevent_map,
-    );
-    prevent_map.trigger_prevent_damage(ctx.trigger_handler, false);
-
-    let mut counter_table = GameEntityCounterTable::default();
-    let mut dealt_by_source: indexmap::IndexMap<crate::ids::CardId, i32> =
-        indexmap::IndexMap::new();
-    for (source, target, amount) in damage_map.entries() {
-        if amount <= 0 {
-            continue;
-        }
-        match target {
-            DamageTarget::Card(cid) => {
-                if ctx.game.card(cid).zone == forge_foundation::ZoneType::Battlefield {
-                    // Protection prevents damage from matching sources.
-                    if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-                        ctx.game,
-                        ctx.game.card(cid),
-                        ctx.game.card(source),
-                    ) {
-                        continue;
-                    }
-
-                    if !ctx
-                        .game
-                        .card(cid)
-                        .damage_sources_this_turn
-                        .contains(&source)
-                    {
-                        ctx.game.card_mut(cid).add_damage_source_this_turn(source);
-                    }
-
-                    let source_has_infect = ctx.game.get_change_zone_lki_info(source).has_infect();
-                    let source_has_wither = ctx.game.get_change_zone_lki_info(source).has_wither()
-                        || crate::staticability::static_ability_wither_damage::is_wither_damage(
-                            &ctx.game.cards,
-                            ctx.game.get_change_zone_lki_info(source),
-                        );
-
-                    if source_has_infect || source_has_wither {
-                        counter_table.put(
-                            Some(ctx.game.get_change_zone_lki_info(source).controller),
-                            GameEntity::Card(cid),
-                            CounterType::M1M1,
-                            amount,
-                        );
-                        *dealt_by_source.entry(source).or_default() += amount;
-                    } else {
-                        *dealt_by_source.entry(source).or_default() +=
-                            ctx.game.add_damage_after_prevention(
-                                DamageTarget::Card(cid),
-                                amount,
-                                Some(source),
-                                false,
-                            );
-                    }
-                }
-            }
-            DamageTarget::Player(pid) => {
-                let source_has_infect = ctx.game.get_change_zone_lki_info(source).has_infect()
-                    || crate::staticability::static_ability_infect_damage::is_infect_damage(
-                        ctx.game,
-                        &ctx.game.cards,
-                        pid,
-                        ctx.game.get_change_zone_lki_info(source).controller,
-                    );
-                if source_has_infect {
-                    counter_table.put(
-                        Some(ctx.game.get_change_zone_lki_info(source).controller),
-                        GameEntity::Player(pid),
-                        CounterType::Poison,
-                        amount,
-                    );
-                    *dealt_by_source.entry(source).or_default() += amount;
-                } else {
-                    let dealt = ctx.game.add_damage_after_prevention(
-                        DamageTarget::Player(pid),
-                        amount,
-                        Some(source),
-                        false,
-                    );
-                    ctx.game
-                        .record_player_damage_assignment(Some(source), Some(pid), dealt, false);
-                    *dealt_by_source.entry(source).or_default() += dealt;
-                }
-            }
-        }
-
-        // Track source total damage for count expressions.
-        ctx.game.card_mut(source).total_damage_done_this_turn += amount;
-        ctx.game.register_damage(
-            source,
-            amount,
-            false,
-            match target {
-                DamageTarget::Card(card) => {
-                    crate::card::card_damage_history::TrackedEntity::Card(card)
-                }
-                DamageTarget::Player(player) => {
-                    crate::card::card_damage_history::TrackedEntity::Player(player)
-                }
-            },
-        );
-    }
-
-    for (source, dealt) in dealt_by_source {
-        super::damage_deal_effect::gain_life_from_lifelink(ctx, sa, source, dealt);
-    }
-
-    damage_map.trigger_damage_done_once(ctx.game, ctx.trigger_handler, false);
-    counter_table.replace_counter_effect(
-        ctx.game,
-        Some(ctx.trigger_handler),
-        Some(ctx.agents),
+        &mut counter_table,
         Some(sa),
-        true,
-        Default::default(),
     );
 
     // Pre-match DamageDoneOnce triggers while damaged creatures are still on

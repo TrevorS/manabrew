@@ -575,7 +575,7 @@ fn try_pay_effect_cost(
             }
             CostPart::DamageYou(amount) => {
                 let damage = amount.resolve(ctx.game, source, payer);
-                ctx.deal_damage(
+                ctx.deal_damage_to(
                     source,
                     crate::card::card_damage_map::DamageTarget::Player(payer),
                     damage,

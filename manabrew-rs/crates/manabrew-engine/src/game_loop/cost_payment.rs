@@ -1323,7 +1323,7 @@ impl GameLoop {
                     // DamageDone triggers all fire correctly.
                     let damage = amount.resolve(game, card_id, player);
                     let mut runtime = self.replacement_runtime();
-                    game.deal_damage(
+                    game.deal_damage_to(
                         card_id,
                         crate::card::card_damage_map::DamageTarget::Player(player),
                         damage,
@@ -2169,7 +2169,7 @@ impl GameLoop {
                     // DamageDone triggers all fire correctly.
                     let damage = amount.resolve(game, card_id, player);
                     let mut runtime = self.replacement_runtime();
-                    game.deal_damage(
+                    game.deal_damage_to(
                         card_id,
                         crate::card::card_damage_map::DamageTarget::Player(player),
                         damage,

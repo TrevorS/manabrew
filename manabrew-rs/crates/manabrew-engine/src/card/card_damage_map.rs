@@ -3,7 +3,6 @@
 //! Mirrors the Java `CardDamageMap` behavior for accumulating damage from
 //! source cards to card/player targets and emitting one-shot damage triggers.
 
-use crate::HashMap;
 use indexmap::{IndexMap, IndexSet};
 
 use serde::{Deserialize, Serialize};
@@ -35,6 +34,32 @@ impl CardDamageMap {
         let prev = by_target.get(&target).copied().unwrap_or(0);
         by_target.insert(target, prev + amount);
         prev
+    }
+
+    pub fn set(&mut self, source: CardId, target: DamageTarget, amount: i32) {
+        self.data.entry(source).or_default().insert(target, amount);
+    }
+
+    pub fn row_map(&self) -> Vec<(CardId, Vec<(DamageTarget, i32)>)> {
+        self.data
+            .iter()
+            .map(|(&source, targets)| {
+                (
+                    source,
+                    targets
+                        .iter()
+                        .map(|(&target, &amount)| (target, amount))
+                        .collect(),
+                )
+            })
+            .collect()
+    }
+
+    pub fn row(&self, source: CardId) -> Vec<DamageTarget> {
+        self.data
+            .get(&source)
+            .map(|targets| targets.keys().copied().collect())
+            .unwrap_or_default()
     }
 
     pub fn remove(&mut self, source: CardId, target: DamageTarget) {
@@ -244,44 +269,74 @@ impl CardDamageMap {
         );
     }
 
-    /// Java parity subset of excess-damage trigger aggregation.
     pub fn trigger_excess_damage(
         &self,
-        game: &GameState,
+        game: &mut GameState,
         trigger_handler: &mut TriggerHandler,
         is_combat: bool,
-        lethal_damage: &HashMap<CardId, i32>,
-        _cause: Option<&mut SpellAbility>,
+        lethal_damage: &IndexMap<CardId, i32>,
+        cause: Option<&SpellAbility>,
     ) {
-        for (&target_card, &lethal) in lethal_damage {
-            let dealt: i32 = self
+        let mut stored_excess = 0;
+        let mut damaged_list = Vec::new();
+        for (&damaged, &lethal) in lethal_damage {
+            let sum: i32 = self
                 .data
                 .values()
-                .map(|m| {
-                    m.get(&DamageTarget::Card(target_card))
-                        .copied()
-                        .unwrap_or(0)
-                })
+                .filter_map(|targets| targets.get(&DamageTarget::Card(damaged)))
                 .sum();
-            if dealt <= 0 {
+            if sum == 0 {
                 continue;
             }
-
-            let deathtouch_threshold = if game.card(target_card).has_deathtouch_damage {
-                1
-            } else {
-                lethal
-            };
-            let excess = dealt - deathtouch_threshold;
+            let excess = sum
+                - if game.card(damaged).has_deathtouch_damage {
+                    1
+                } else {
+                    lethal
+                };
             if excess <= 0 {
                 continue;
             }
-
+            if let Some(cause) = cause {
+                if crate::parsing::raw_get(&cause.ability_text, "ExcessSVar").is_some()
+                    && crate::parsing::raw_get(&cause.ability_text, "ExcessSVarCondition")
+                        .is_none_or(|valid| {
+                            crate::ability::ability_utils::matches_valid_cards_for_sa(
+                                game,
+                                cause,
+                                game.card(damaged),
+                                None,
+                                valid,
+                            )
+                        })
+                {
+                    stored_excess += excess;
+                }
+            }
+            game.card_mut(damaged).log_excess_damage();
             trigger_handler.run_trigger(
                 TriggerType::ExcessDamage,
                 RunParams {
-                    damage_target_card: Some(target_card),
+                    damage_target_card: Some(damaged),
                     damage_amount: Some(excess),
+                    is_combat_damage: Some(is_combat),
+                    ..Default::default()
+                },
+                false,
+            );
+            damaged_list.push(damaged);
+        }
+        if let Some((excess_svar, host)) = cause.and_then(|cause| {
+            crate::parsing::raw_get(&cause.ability_text, "ExcessSVar").zip(cause.source)
+        }) {
+            game.card_mut(host)
+                .set_s_var(excess_svar, stored_excess.to_string());
+        }
+        if !damaged_list.is_empty() {
+            trigger_handler.run_trigger(
+                TriggerType::ExcessDamageAll,
+                RunParams {
+                    cards: Some(damaged_list),
                     is_combat_damage: Some(is_combat),
                     ..Default::default()
                 },

@@ -237,7 +237,7 @@ fn deal_damage_from_source(
                     }
                 }
             } else {
-                ctx.deal_damage(source, DamageTarget::Card(cid), damage);
+                ctx.deal_damage_to(source, DamageTarget::Card(cid), damage);
             }
             if !use_damage_map {
                 ctx.trigger_handler.run_trigger(
@@ -297,10 +297,11 @@ fn deal_damage_from_source(
                 }
             }
         } else {
-            let dealt = match ctx.deal_damage(source, DamageTarget::Player(target_player), damage) {
-                (crate::agent::GameEntity::Player(_), dealt) => dealt,
-                (crate::agent::GameEntity::Card(_), _) => 0,
-            };
+            let dealt =
+                match ctx.deal_damage_to(source, DamageTarget::Player(target_player), damage) {
+                    (crate::agent::GameEntity::Player(_), dealt) => dealt,
+                    (crate::agent::GameEntity::Card(_), _) => 0,
+                };
             lifelink_dealt += dealt;
             if sa.ir.remember_damaged && dealt > 0 {
                 ctx.game
@@ -422,7 +423,7 @@ fn deal_damage_from_source(
             } else {
                 let lethal = excess_damage_value(ctx.game, target_card, source);
                 let before = ctx.game.card(target_card).damage;
-                ctx.deal_damage(source, DamageTarget::Card(target_card), damage);
+                ctx.deal_damage_to(source, DamageTarget::Card(target_card), damage);
                 // What landed, not what was asked for: protection and prevention shields make
                 // this smaller, and Java sums `addDamageAfterPrevention`'s return the same way.
                 let landed = (ctx.game.card(target_card).damage - before).max(0);

@@ -94,7 +94,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         ] {
             let lethal = super::damage_deal_effect::excess_damage_value(ctx.game, damaged, dealer);
             let before = ctx.game.card(damaged).damage;
-            ctx.deal_damage(dealer, DamageTarget::Card(damaged), damage);
+            ctx.deal_damage_to(dealer, DamageTarget::Card(damaged), damage);
             let landed = (ctx.game.card(damaged).damage - before).max(0);
             lifelink_dealt.push((dealer, landed));
             if damage > lethal

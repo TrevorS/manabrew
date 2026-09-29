@@ -143,7 +143,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     }
                 }
             } else if let Some(src_id) = source {
-                ctx.deal_damage(src_id, DamageTarget::Card(card_id), num_dmg);
+                ctx.deal_damage_to(src_id, DamageTarget::Card(card_id), num_dmg);
             }
 
             // Fire DamageDone trigger per card
@@ -205,7 +205,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     }
                 }
             } else if let Some(src_id) = source {
-                let dealt = match ctx.deal_damage(src_id, DamageTarget::Player(pid), num_dmg) {
+                let dealt = match ctx.deal_damage_to(src_id, DamageTarget::Player(pid), num_dmg) {
                     (crate::agent::GameEntity::Player(_), dealt) => dealt,
                     (crate::agent::GameEntity::Card(_), _) => 0,
                 };
