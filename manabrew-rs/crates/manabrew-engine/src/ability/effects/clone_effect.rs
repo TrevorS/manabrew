@@ -123,6 +123,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let paper_token = target.get_s_var("TokenScript").is_some();
         let host_svars = (clone_target_id == source_id).then(|| orig_svars.clone());
         crate::card::card_copy_service::copy_copiable_characteristics(&src, target);
+        for trigger in &mut target.triggers {
+            trigger.id = ctx.trigger_handler.next_trigger_id();
+        }
         // Java keys `ChoiceRestriction$` history by ability object (`Card.getChosenModes`),
         // and a copy's abilities are new objects.
         target.chosen_charm_modes.clear();

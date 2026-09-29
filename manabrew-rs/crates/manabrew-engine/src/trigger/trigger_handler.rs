@@ -192,7 +192,7 @@ impl TriggerHandler {
             player_defined_delayed_triggers: Vec::new(),
             suppressed_modes: HashSet::default(),
             all_suppressed: false,
-            next_trigger_id: 0,
+            next_trigger_id: 50_000,
             pre_matched_triggers: Vec::new(),
         }
     }
@@ -1009,7 +1009,7 @@ impl TriggerHandler {
                 let delayed_bucket = if delayed.sort_after_active {
                     2
                 } else if delayed.spawning_ability.is_some() {
-                    3
+                    1
                 } else {
                     0
                 };
@@ -1224,9 +1224,7 @@ impl TriggerHandler {
                     static_trigger: delayed.params.has("Static"),
                 };
                 let ts = delayed.host_timestamp(game);
-                // An immediate trigger is made while its ability resolves, so its Java trigger id
-                // is above the host's own triggers: same host timestamp, sorted after them.
-                let trigger_bucket = if delayed.sort_after_active { 2 } else { 3 };
+                let trigger_bucket = if delayed.sort_after_active { 2 } else { 1 };
                 entries.push((
                     pending,
                     delayed.controller,
@@ -1306,9 +1304,14 @@ impl TriggerHandler {
 
     fn assign_delayed_trigger_order(&mut self, delayed: &mut DelayedTrigger) {
         if delayed.trigger_order.is_none() {
-            delayed.trigger_order = Some(self.next_trigger_id);
-            self.next_trigger_id += 1;
+            delayed.trigger_order = Some(self.next_trigger_id());
         }
+    }
+
+    pub fn next_trigger_id(&mut self) -> u32 {
+        let id = self.next_trigger_id;
+        self.next_trigger_id += 1;
+        id
     }
 
     /// Mirrors Java's resetActiveTriggers().
