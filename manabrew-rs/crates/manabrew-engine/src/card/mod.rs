@@ -3490,17 +3490,26 @@ impl Card {
     }
 
     pub fn capture_changed_characteristics_baseline_if_needed(&mut self) {
+        let animate = self.animate_state.as_ref();
         if self.changed_type_line_base.is_none() {
-            self.changed_type_line_base = Some(self.type_line.clone());
+            self.changed_type_line_base = Some(
+                animate.map_or_else(|| self.type_line.clone(), |s| s.original_type_line.clone()),
+            );
         }
         if self.changed_base_power.is_none() {
-            self.changed_base_power = Some(self.base_power);
+            self.changed_base_power =
+                Some(animate.map_or(self.base_power, |s| s.original_base_power));
         }
         if self.changed_base_toughness.is_none() {
-            self.changed_base_toughness = Some(self.base_toughness);
+            self.changed_base_toughness =
+                Some(animate.map_or(self.base_toughness, |s| s.original_base_toughness));
         }
         if self.changed_keywords_base.is_none() {
-            self.changed_keywords_base = Some(self.keywords.clone());
+            self.changed_keywords_base = Some(
+                animate
+                    .and_then(|s| s.original_keywords.clone())
+                    .unwrap_or_else(|| self.keywords.clone()),
+            );
         }
         if self.changed_trigger_count_base.is_none() {
             self.changed_trigger_count_base = Some(self.base_trigger_count);
