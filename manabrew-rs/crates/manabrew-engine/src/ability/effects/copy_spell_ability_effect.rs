@@ -120,6 +120,23 @@ fn push_copy(
     original: &crate::spellability::SpellAbility,
     controller: crate::ids::PlayerId,
 ) {
+    let optional_trigger = ctx
+        .game
+        .stack
+        .get_instance_matching_spell_ability_id(original.id)
+        .and_then(|entry| {
+            entry.optional_trigger_decider.map(|decider| {
+                (
+                    if ctx.game.mirror_forge_bugs {
+                        decider
+                    } else {
+                        controller
+                    },
+                    entry.optional_trigger_description.clone(),
+                    entry.optional_trigger_source_name.clone(),
+                )
+            })
+        });
     let mut copy = crate::card::card_factory::copy_spell_ability_and_possibly_host(
         ctx.game, sa, original, controller,
     );
@@ -143,9 +160,11 @@ fn push_copy(
                 .source
                 .is_some_and(|cid| ctx.game.card(cid).is_permanent()),
         cast_from_zone: None,
-        optional_trigger_decider: None,
-        optional_trigger_description: None,
-        optional_trigger_source_name: None,
+        optional_trigger_decider: optional_trigger.as_ref().map(|(decider, ..)| *decider),
+        optional_trigger_description: optional_trigger
+            .as_ref()
+            .and_then(|(_, description, _)| description.clone()),
+        optional_trigger_source_name: optional_trigger.and_then(|(.., name)| name),
     };
 
     let trigger_sa = copy_entry.spell_ability.clone();

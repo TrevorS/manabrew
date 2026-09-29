@@ -187,6 +187,7 @@ impl GameLoop {
         // Copy spells: resolve effect only. CR 707.10 / 111.11 — a copy of a
         // permanent spell becomes a token (`GameAction.changeZone` line 94).
         if entry.spell_ability.is_copy
+            && !entry.spell_ability.is_trigger
             && !(copied_spell_host && (entry.is_creature_spell || entry.is_permanent_spell))
         {
             let should_create_token_copy = (entry.is_creature_spell || entry.is_permanent_spell)

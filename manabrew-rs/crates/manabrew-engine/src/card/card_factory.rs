@@ -47,8 +47,9 @@ pub fn copy_spell_ability(
     }
     copy.set_activating_player(controller);
     copy.is_copy = true;
-    // Copied spells/abilities are not re-cast and should not require paying costs.
-    copy.pay_costs = None;
+    if !target_sa.is_trigger {
+        copy.pay_costs = None;
+    }
     copy
 }
 
