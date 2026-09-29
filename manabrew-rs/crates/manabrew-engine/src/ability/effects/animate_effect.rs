@@ -239,6 +239,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     new_power: None,
                     new_toughness: None,
                     new_color: None,
+                    new_pt_timestamp: None,
                 }));
         }
 
@@ -359,7 +360,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
                 .apply_effect(ctx.game.card_mut(card_id));
             }
-        } else {
+        } else if parsed_power.is_some() || parsed_toughness.is_some() {
+            let timestamp = *type_timestamp.get_or_insert_with(|| ctx.game.next_timestamp());
             let card = ctx.game.card_mut(card_id);
             if let Some(val) = parsed_power {
                 card.set_base_power(Some(val));
@@ -369,7 +371,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
             if let Some(state) = card.animate_state.as_mut() {
                 if !is_permanent_duration {
-                    state.add_new_pt(parsed_power, parsed_toughness);
+                    state.add_new_pt(parsed_power, parsed_toughness, timestamp);
                 } else {
                     if parsed_power.is_some() {
                         state.original_base_power = parsed_power;
@@ -377,6 +379,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     if parsed_toughness.is_some() {
                         state.original_base_toughness = parsed_toughness;
                     }
+                    state.new_pt_timestamp = Some(timestamp);
                 }
             }
         }

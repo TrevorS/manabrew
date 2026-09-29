@@ -218,12 +218,15 @@ pub struct AnimateState {
     pub new_toughness: Option<i32>,
     #[serde(default)]
     pub new_color: Option<(ColorSet, bool)>,
+    #[serde(default)]
+    pub new_pt_timestamp: Option<u64>,
 }
 
 impl AnimateState {
-    pub fn add_new_pt(&mut self, power: Option<i32>, toughness: Option<i32>) {
+    pub fn add_new_pt(&mut self, power: Option<i32>, toughness: Option<i32>, timestamp: u64) {
         self.new_power = power.or(self.new_power);
         self.new_toughness = toughness.or(self.new_toughness);
+        self.new_pt_timestamp = Some(timestamp);
     }
 
     pub fn add_color(&mut self, color: ColorSet, add_to_colors: bool) {
