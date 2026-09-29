@@ -600,13 +600,7 @@ impl GameLoop {
                     );
                 }
 
-                // Warp: mark card so it can be cast from exile on a later turn,
-                // and register delayed trigger to exile at EOT.
-                // Mirrors Java PermanentEffect + StaticAbilityCastWithFlash for Warp.
                 if alt_cost == Some(crate::spellability::AlternativeCost::Warp) {
-                    game.card_mut(card_id)
-                        .keywords
-                        .add(crate::card::KEYWORD_WARP_EXILED);
                     self.trigger_handler.register_delayed_trigger(
                         crate::trigger::handler::DelayedTrigger {
                             mode: TriggerType::Phase,
@@ -616,7 +610,7 @@ impl GameLoop {
                             }) as Box<dyn crate::trigger::TriggerBehavior>,
                             params: crate::parsing::Params::default(),
                             execute_svar: format!(
-                                "DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | Defined$ CardUID_{}", card_id.0
+                                "DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | Defined$ CardUID_{} | Warp$ True", card_id.0
                             ),
                             controller: player,
                             source_card: card_id,

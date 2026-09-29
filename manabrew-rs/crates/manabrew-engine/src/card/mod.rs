@@ -46,9 +46,6 @@ use crate::keyword::keyword_instance::Keyword as Kw;
 /// The turn number prevents casting on the same turn the card was plotted.
 pub const KEYWORD_PLOTTED_PREFIX: &str = "Plotted:";
 
-/// Marker for cards exiled via Warp's end-of-turn trigger.
-/// These cards can be cast from exile on a later turn for their normal mana cost.
-pub const KEYWORD_WARP_EXILED: &str = "WarpExiled";
 pub const FACE_DOWN_LOG_NAME: &str = "Face-down card";
 pub const OUTLAW_TYPES: [&str; 5] = ["Assassin", "Mercenary", "Pirate", "Rogue", "Warlock"];
 pub const PARTY_TYPES: [&str; 4] = ["Cleric", "Rogue", "Warrior", "Wizard"];

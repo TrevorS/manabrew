@@ -590,14 +590,7 @@ pub(super) fn apply_post_move(
         }
 
         // Warp keyword
-        let is_warp = sa.ir.warp
-            || (sa.trigger_source.is_some()
-                && ctx
-                    .game
-                    .card(card_id)
-                    .keywords
-                    .contains_string_ignore_case("Warp"));
-        if is_warp {
+        if sa.ir.warp {
             create_warp_effect(ctx, sa, card_id);
         }
     }
@@ -652,7 +645,9 @@ pub(super) fn apply_post_move(
 // ─── Warp Effect ────────────────────────────────────────────────────────────
 
 fn create_warp_effect(ctx: &mut EffectContext, sa: &SpellAbility, exiled_card_id: CardId) {
-    let controller = sa.activating_player;
+    let controller = sa
+        .source
+        .map_or(sa.activating_player, |host| ctx.game.card(host).owner);
     let card_name = ctx.game.card(exiled_card_id).card_name.clone();
     let mut effect = Card::new(
         CardId(0),
@@ -670,7 +665,7 @@ fn create_warp_effect(ctx: &mut EffectContext, sa: &SpellAbility, exiled_card_id
     effect.set_effect_source(sa.source);
     effect.add_remembered_card(exiled_card_id);
     effect.set_forget_on_moved_origin(Some(ZoneType::Exile));
-    let static_text = "Mode$ Continuous | MayPlay$ True | EffectZone$ Command | Affected$ Card.IsRemembered+nonLand | AffectedZone$ Exile";
+    let static_text = "Mode$ Continuous | MayPlay$ True | EffectZone$ Command | Affected$ Card.IsRemembered+nonLand+!ThisTurnEntered | AffectedZone$ Exile";
     if let Some(parsed) = parse_static_ability(&format!("S$ {static_text}")) {
         effect.add_static_ability(parsed);
     }

@@ -2227,31 +2227,6 @@ impl GameLoop {
                         alt_cost_index: 1,
                     });
                 }
-            } else if card.has_keyword(crate::card::KEYWORD_WARP_EXILED) {
-                // Warp: exiled card can be cast for its normal mana cost
-                if must_be_instant && !has_flash_permission(card_id) {
-                    continue;
-                }
-                let available_mana = self.available_mana_for_spell_card(
-                    game,
-                    player,
-                    card_id,
-                    &chosen_types_by_source,
-                );
-                let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
-                    game,
-                    card,
-                    player,
-                    ZoneType::Exile,
-                );
-                let adjusted = cost_adj.apply(&card.mana_cost);
-                if available_mana.can_pay(&adjusted) {
-                    playable.push(crate::agent::PlayOption {
-                        card_id,
-                        mode: crate::agent::PlayCardMode::Normal,
-                        alt_cost_index: 0,
-                    });
-                }
             }
         }
 
