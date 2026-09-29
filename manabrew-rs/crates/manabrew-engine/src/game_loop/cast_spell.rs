@@ -431,6 +431,9 @@ impl GameLoop {
         } else {
             game.stack.push(entry);
         }
+        if !stack_push.entry.spell_ability.is_trigger {
+            game.turn.priority_player = stack_push.entry.spell_ability.activating_player;
+        }
         self.log_stack_push(&stack_push.stack_log_name, &game.player(player).name);
         let mut event = if stack_push.event_kind == SpellAbilityLogEventKind::Stack {
             crate::agent::GameLogEvent::stack(stack_push.stack_message)
