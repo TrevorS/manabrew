@@ -1211,28 +1211,20 @@ impl GameLoop {
                     card,
                 );
                 let static_alt_indices: Vec<usize> = if has_alternative_costs {
-                    crate::staticability::static_ability_alternative_cost::alternative_costs(
-                        game,
-                        &game.cards,
-                        &cast_sa,
-                        card,
-                        player,
-                    )
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, entry)| {
-                        let base = Self::mana_from_cost(&entry.cost);
-                        let adjusted = cost_adj.apply(&base).add(&raise_mana);
-                        available_mana().can_pay(&adjusted)
-                            && crate::cost::can_pay_ignoring_mana_for_spell(
-                                &entry.cost,
-                                game,
-                                card_id,
-                                player,
-                            )
-                    })
-                    .map(|(index, _)| index)
-                    .collect()
+                    crate::game_action_util::get_alternative_costs(game, &cast_sa, player)
+                        .iter()
+                        .filter(|alternative| alternative.alt_cost.is_none())
+                        .filter_map(|alternative| {
+                            let cost = alternative.pay_costs.as_ref()?;
+                            let adjusted =
+                                cost_adj.apply(&Self::mana_from_cost(cost)).add(&raise_mana);
+                            (available_mana().can_pay(&adjusted)
+                                && crate::cost::can_pay_ignoring_mana_for_spell(
+                                    cost, game, card_id, player,
+                                ))
+                            .then_some(alternative.alt_cost_index as usize)
+                        })
+                        .collect()
                 } else {
                     Vec::new()
                 };
@@ -1921,109 +1913,75 @@ impl GameLoop {
             } else {
                 true
             };
-            let flashback_payable: Vec<usize> = flashback_costs
-                .iter()
-                .enumerate()
-                .filter(|(_, fb_cost_str)| {
-                    let fb_cost = crate::cost::parse_cost(fb_cost_str);
-                    let fb_mana = Self::mana_from_cost(&fb_cost);
-                    self.can_pay_graveyard_spell_mana(
-                        game,
-                        player,
-                        card_id,
-                        probe_host,
-                        &fb_mana,
-                        &available_mana,
-                        &chosen_types_by_source,
-                    ) && sp_additional_ok
-                        && crate::cost::can_pay_ignoring_mana_for_spell(
-                            &fb_cost, game, card_id, player,
-                        )
-                })
-                .map(|(index, _)| index)
-                .collect();
-            let harmonize_ok = if let Some(harmonize_cost_str) = card.get_harmonize_cost() {
-                let harmonize_mana = forge_foundation::ManaCost::parse(&harmonize_cost_str);
-                let harmonize_base = if harmonize_mana.count_x() > 0 {
-                    harmonize_mana.without_x()
-                } else {
-                    harmonize_mana
+            for alternative in
+                crate::game_action_util::get_alternative_costs(game, &cast_sa, player)
+            {
+                let (Some(alt_cost), Some(cost)) =
+                    (alternative.alt_cost, alternative.pay_costs.as_ref())
+                else {
+                    continue;
                 };
-                available_mana.can_pay(&harmonize_base) && sp_additional_ok
-            } else {
-                false
-            };
-            let escape_ok = if let Some((escape_mana_str, exile_count)) = card.get_escape_cost() {
-                let escape_mc = forge_foundation::ManaCost::parse(&escape_mana_str);
-                let other_gy_count = game
-                    .cards_in_zone(ZoneType::Graveyard, player)
-                    .iter()
-                    .filter(|&&cid| cid != card_id)
-                    .count() as i32;
-                self.can_pay_graveyard_spell_mana(
-                    game,
-                    player,
-                    card_id,
-                    probe_host,
-                    &escape_mc,
-                    &available_mana,
-                    &chosen_types_by_source,
-                ) && other_gy_count >= exile_count
-            } else {
-                false
-            };
-            let mayhem_ok = if let Some(mayhem_cost_str) = card.get_mayhem_cost() {
-                let mayhem_mana = Self::mana_from_cost(&crate::cost::parse_cost(&mayhem_cost_str));
-                card.was_discarded()
-                    && card.entered_current_zone_this_turn(game.turn.turn_number)
-                    && self.can_pay_graveyard_spell_mana(
-                        game,
-                        player,
+                let payable = match alt_cost {
+                    crate::spellability::AlternativeCost::Flashback => {
+                        self.can_pay_graveyard_spell_mana(
+                            game,
+                            player,
+                            card_id,
+                            probe_host,
+                            &Self::mana_from_cost(cost),
+                            &available_mana,
+                            &chosen_types_by_source,
+                        ) && sp_additional_ok
+                            && crate::cost::can_pay_ignoring_mana_for_spell(
+                                cost, game, card_id, player,
+                            )
+                    }
+                    crate::spellability::AlternativeCost::Harmonize => {
+                        let harmonize_mana = Self::mana_from_cost(cost);
+                        let harmonize_base = if harmonize_mana.count_x() > 0 {
+                            harmonize_mana.without_x()
+                        } else {
+                            harmonize_mana
+                        };
+                        available_mana.can_pay(&harmonize_base) && sp_additional_ok
+                    }
+                    crate::spellability::AlternativeCost::Escape => {
+                        let exile_count = card.get_escape_cost().map_or(0, |(_, count)| count);
+                        let other_gy_count = game
+                            .cards_in_zone(ZoneType::Graveyard, player)
+                            .iter()
+                            .filter(|&&cid| cid != card_id)
+                            .count() as i32;
+                        self.can_pay_graveyard_spell_mana(
+                            game,
+                            player,
+                            card_id,
+                            probe_host,
+                            &Self::mana_from_cost(cost),
+                            &available_mana,
+                            &chosen_types_by_source,
+                        ) && other_gy_count >= exile_count
+                    }
+                    crate::spellability::AlternativeCost::Mayhem => {
+                        self.can_pay_graveyard_spell_mana(
+                            game,
+                            player,
+                            card_id,
+                            probe_host,
+                            &Self::mana_from_cost(cost),
+                            &available_mana,
+                            &chosen_types_by_source,
+                        ) && sp_additional_ok
+                    }
+                    _ => false,
+                };
+                if payable {
+                    playable.push(crate::agent::PlayOption {
                         card_id,
-                        probe_host,
-                        &mayhem_mana,
-                        &available_mana,
-                        &chosen_types_by_source,
-                    )
-                    && sp_additional_ok
-            } else {
-                false
-            };
-            if mayhem_ok {
-                playable.push(crate::agent::PlayOption {
-                    card_id,
-                    mode: crate::agent::PlayCardMode::Alternative(
-                        crate::spellability::AlternativeCost::Mayhem,
-                    ),
-                    alt_cost_index: 0,
-                });
-            }
-            for index in flashback_payable {
-                playable.push(crate::agent::PlayOption {
-                    card_id,
-                    mode: crate::agent::PlayCardMode::Alternative(
-                        crate::spellability::AlternativeCost::Flashback,
-                    ),
-                    alt_cost_index: index as u8,
-                });
-            }
-            if harmonize_ok {
-                playable.push(crate::agent::PlayOption {
-                    card_id,
-                    mode: crate::agent::PlayCardMode::Alternative(
-                        crate::spellability::AlternativeCost::Harmonize,
-                    ),
-                    alt_cost_index: 0,
-                });
-            }
-            if escape_ok {
-                playable.push(crate::agent::PlayOption {
-                    card_id,
-                    mode: crate::agent::PlayCardMode::Alternative(
-                        crate::spellability::AlternativeCost::Escape,
-                    ),
-                    alt_cost_index: 0,
-                });
+                        mode: crate::agent::PlayCardMode::Alternative(alt_cost),
+                        alt_cost_index: alternative.alt_cost_index,
+                    });
+                }
             }
         }
 
@@ -2165,7 +2123,7 @@ impl GameLoop {
                 continue;
             }
             if card.face_down {
-                if let Some(foretell_cost_str) = card.get_foretell_cost() {
+                if card.get_foretell_cost().is_some() {
                     if card.entered_current_zone_this_turn(game.turn.turn_number) {
                         continue;
                     }
@@ -2178,40 +2136,55 @@ impl GameLoop {
                         card_id,
                         &chosen_types_by_source,
                     );
-                    let foretell_mc = forge_foundation::ManaCost::parse(&foretell_cost_str);
                     let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
                         game,
                         card,
                         player,
                         ZoneType::Exile,
                     );
-                    let adjusted = cost_adj.apply(&foretell_mc);
-                    if available_mana.can_pay(&adjusted) {
-                        playable.push(crate::agent::PlayOption {
-                            card_id,
-                            mode: crate::agent::PlayCardMode::Alternative(
-                                crate::spellability::AlternativeCost::Foretell,
-                            ),
-                            alt_cost_index: 0,
-                        });
+                    let cast_sa = crate::spellability::build_spell_ability_for_card_cast(
+                        game, card_id, player,
+                    );
+                    for alternative in
+                        crate::game_action_util::get_alternative_costs(game, &cast_sa, player)
+                            .into_iter()
+                            .filter(|alternative| {
+                                alternative.alt_cost
+                                    == Some(crate::spellability::AlternativeCost::Foretell)
+                            })
+                    {
+                        let foretell_mc = alternative
+                            .pay_costs
+                            .as_ref()
+                            .map(Self::mana_from_cost)
+                            .unwrap_or_else(forge_foundation::ManaCost::zero);
+                        if available_mana.can_pay(&cost_adj.apply(&foretell_mc)) {
+                            playable.push(crate::agent::PlayOption {
+                                card_id,
+                                mode: crate::agent::PlayCardMode::Alternative(
+                                    crate::spellability::AlternativeCost::Foretell,
+                                ),
+                                alt_cost_index: alternative.alt_cost_index,
+                            });
+                        }
                     }
                 }
-            } else if let Some(plotted_turn) = card
+            } else if card
                 .keywords
                 .iter_strings()
                 .chain(card.granted_keywords.iter_strings())
-                .find_map(crate::card::parse_plotted_turn)
+                .any(|keyword| crate::card::parse_plotted_turn(keyword).is_some())
             {
-                // Plot: plotted card in exile can be cast for free on a later turn,
-                // and Forge also rejects cards that entered exile this turn.
-                if game.turn.turn_number <= plotted_turn
-                    || card.entered_current_zone_this_turn(game.turn.turn_number)
-                    || !crate::player::can_cast_sorcery(game, player)
+                let cast_sa =
+                    crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
+                if !crate::game_action_util::get_alternative_costs(game, &cast_sa, player)
+                    .iter()
+                    .any(|alternative| {
+                        alternative.alt_cost == Some(crate::spellability::AlternativeCost::Plot)
+                    })
                 {
                     continue;
                 }
-                let cast_sa =
-                    crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
                 if cast_sa
                     .target_restrictions
                     .as_ref()

@@ -35,6 +35,7 @@ pub mod cost;
 pub mod deck_analysis;
 pub mod event;
 pub mod game;
+pub mod game_action_util;
 pub mod game_entity_counter_table;
 pub mod game_log;
 pub mod game_log_entry;
