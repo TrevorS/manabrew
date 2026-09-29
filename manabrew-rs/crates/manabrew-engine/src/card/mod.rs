@@ -1727,7 +1727,19 @@ impl Card {
             .unwrap_or(self.base_power.unwrap_or(0))
     }
 
+    pub fn state_base_toughness(&self) -> i32 {
+        self.static_set_toughness
+            .unwrap_or(self.base_toughness.unwrap_or(0))
+    }
+
     pub fn power(&self) -> i32 {
+        if self.zone == ZoneType::Battlefield && !self.is_creature() {
+            return 0;
+        }
+        self.power_ignoring_noncreature_rule()
+    }
+
+    pub fn power_ignoring_noncreature_rule(&self) -> i32 {
         let base = self
             .static_set_power
             .unwrap_or(self.base_power.unwrap_or(0));
@@ -1745,6 +1757,13 @@ impl Card {
 
     /// Effective toughness, accounting for all layer effects and counters.
     pub fn toughness(&self) -> i32 {
+        if self.zone == ZoneType::Battlefield && !self.is_creature() {
+            return 0;
+        }
+        self.toughness_ignoring_noncreature_rule()
+    }
+
+    pub fn toughness_ignoring_noncreature_rule(&self) -> i32 {
         let base = self
             .static_set_toughness
             .unwrap_or(self.base_toughness.unwrap_or(0));

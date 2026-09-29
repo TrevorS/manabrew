@@ -1904,7 +1904,7 @@ pub fn handle_paid(
             .sum(),
         "CardBasePower" => paid_cards
             .iter()
-            .map(|&cid| game.card(cid).base_power.unwrap_or(0))
+            .map(|&cid| game.card(cid).state_base_power())
             .sum(),
         "CardToughness" => paid_cards
             .iter()

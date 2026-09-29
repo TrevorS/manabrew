@@ -665,8 +665,22 @@ pub fn card_to_dto_for_viewer(game: &GameState, cid: CardId, viewer: Option<Play
         .map(|st| st.name().to_string())
         .collect();
 
-    let power = card.base_power.map(|_| card.power().to_string());
-    let toughness = card.base_toughness.map(|_| card.toughness().to_string());
+    let power = card.base_power.map(|_| {
+        if card.is_creature() {
+            card.power()
+        } else {
+            card.state_base_power()
+        }
+        .to_string()
+    });
+    let toughness = card.base_toughness.map(|_| {
+        if card.is_creature() {
+            card.toughness()
+        } else {
+            card.state_base_toughness()
+        }
+        .to_string()
+    });
     let base_power = card.base_power;
     let base_toughness = card.base_toughness;
 

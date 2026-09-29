@@ -27,7 +27,9 @@ pub(crate) fn matches_selector_domain_predicate(
         "cmcodd" => Some(card.mana_cost.cmc() % 2 == 1),
         "powereven" => Some(card.power() % 2 == 0),
         "powerodd" => Some(card.power() % 2 != 0),
-        "powernotbasepower" => card.base_power.map(|base_power| card.power() != base_power),
+        "powernotbasepower" => card
+            .base_power
+            .map(|_| card.power() != card.state_base_power()),
         _ => None,
     }
 }

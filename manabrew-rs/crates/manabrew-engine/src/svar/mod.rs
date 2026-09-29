@@ -232,9 +232,9 @@ pub(crate) fn card_x_property(
         "CardPower" => net_power,
         "CastTotalManaSpent" => card.paying_mana_to_cast.len() as i32,
         "CardNumColors" => card.color.count_colors() as i32,
-        "CardBasePower" => card.base_power.unwrap_or(0),
+        "CardBasePower" => card.state_base_power(),
         "CardToughness" => net_toughness,
-        "CardBaseToughness" => card.base_toughness.unwrap_or(0),
+        "CardBaseToughness" => card.state_base_toughness(),
         "CardSumPT" => net_power + net_toughness,
         _ if value.starts_with("CardMulticolor") => {
             let mut amounts = value.split('.').skip(1).map(|n| n.parse().unwrap_or(0));
