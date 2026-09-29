@@ -677,11 +677,14 @@ pub fn resolve_defined_players_with_sa(
             .map(|source| game.card(source).owner)
             .into_iter()
             .collect(),
-        _ if key.starts_with("ChosenCard")
-            && !key.ends_with("Controller")
-            && !key.ends_with("Owner") =>
-        {
-            Vec::new()
+        _ if key.starts_with("ChosenCard") => {
+            let mut players = Vec::new();
+            if let Some(source) = sa.source {
+                for &card in &game.card(source).chosen_cards {
+                    add_player(&mut players, game, card, key);
+                }
+            }
+            players
         }
         "ParentTarget" => sa.parent_targeting_player.map_or_else(
             || sa.target_chosen.all_target_players(),
