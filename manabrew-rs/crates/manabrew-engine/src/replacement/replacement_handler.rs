@@ -131,7 +131,11 @@ pub enum ReplacementEvent {
     GameWin { player: PlayerId },
 
     /// A spell is being countered.
-    Counter { card: CardId },
+    Counter {
+        card: CardId,
+        spell_ability: Box<crate::spellability::SpellAbility>,
+        cause: Box<crate::spellability::SpellAbility>,
+    },
 
     /// Mana is being produced (for doublers like Mirari's Wake, Nyxbloom Ancient).
     /// `mana` is the produced mana string (e.g. "G" or "U U") that may be modified.
@@ -513,7 +517,7 @@ fn affected_player_for_event(event: &ReplacementEvent, game: &GameState) -> Play
         },
         ReplacementEvent::GameLoss { player, .. } => *player,
         ReplacementEvent::GameWin { player } => *player,
-        ReplacementEvent::Counter { card } => game.cards[card.index()].controller,
+        ReplacementEvent::Counter { card, .. } => game.cards[card.index()].controller,
         ReplacementEvent::ProduceMana { activator, .. } => *activator,
         ReplacementEvent::Tap { card } => game.cards[card.index()].controller,
         ReplacementEvent::Untap { card, .. } => game.cards[card.index()].controller,

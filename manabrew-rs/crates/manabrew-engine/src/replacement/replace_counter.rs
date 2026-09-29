@@ -22,9 +22,13 @@ pub fn can_replace(
     if effect.event != ReplacementType::Counter {
         return false;
     }
-    let target_id = match event {
-        ReplacementEvent::Counter { card } => *card,
-        _ => return false,
+    let ReplacementEvent::Counter {
+        card: target_id,
+        spell_ability,
+        cause,
+    } = event
+    else {
+        return false;
     };
     let target_card = &game.cards[target_id.index()];
     if let Some(valid) = effect.ir.valid_card_selector.as_ref() {
@@ -32,7 +36,21 @@ pub fn can_replace(
             return false;
         }
     }
-    true
+    [
+        (effect.ir.valid_sa_text.as_deref(), spell_ability),
+        (effect.ir.valid_cause_text.as_deref(), cause),
+    ]
+    .into_iter()
+    .all(|(valid, sa)| {
+        valid.is_none_or(|valid| {
+            crate::spellability::matches_valid_sa(
+                valid,
+                sa,
+                source_card,
+                sa.source.map(|id| game.card(id)),
+            )
+        })
+    })
 }
 
 /// CantHappen layer prevents countering (e.g. "can't be countered").

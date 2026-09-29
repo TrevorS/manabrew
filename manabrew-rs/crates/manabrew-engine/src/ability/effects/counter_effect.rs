@@ -90,8 +90,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     // Check if the spell has a "can't be countered" replacement effect.
     // Find the source card of the targeted stack entry.
-    if let Some(entry) = ctx.game.stack.find_by_id(entry_id) {
-        if let Some(source_card) = entry.spell_ability.source {
+    let countered = ctx
+        .game
+        .stack
+        .find_by_id(entry_id)
+        .map(|entry| entry.spell_ability.clone());
+    if let Some(countered) = countered {
+        if let Some(source_card) = countered.source {
             if sa.ir.remember_for_counter {
                 if let Some(source_id) = sa.source {
                     ctx.game
@@ -105,7 +110,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     ctx.game.card_mut(source_id).add_remembered_cmc(cmc);
                 }
             }
-            let mut event = ReplacementEvent::Counter { card: source_card };
+            let mut event = ReplacementEvent::Counter {
+                card: source_card,
+                spell_ability: Box::new(countered),
+                cause: Box::new(sa.clone()),
+            };
             let result = apply_replacements(ctx.game, &mut event);
             if result == ReplacementResult::Replaced {
                 return;

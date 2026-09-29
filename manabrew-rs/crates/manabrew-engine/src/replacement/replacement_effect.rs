@@ -91,6 +91,7 @@ pub struct ReplacementEffectIr {
     pub valid_player_selector: Option<CompiledSelector>,
     pub valid_object_selector: Option<CompiledSelector>,
     pub valid_cause_text: Option<String>,
+    pub valid_sa_text: Option<String>,
     pub valid_target_selector: Option<CompiledSelector>,
     pub valid_source_selector: Option<CompiledSelector>,
     pub valid_activator_text: Option<String>,
@@ -663,7 +664,7 @@ impl ReplacementEffect {
                         crate::event::AbilityValue::Player(*player),
                     );
                 }
-                ReplacementEvent::Counter { card }
+                ReplacementEvent::Counter { card, .. }
                 | ReplacementEvent::Tap { card }
                 | ReplacementEvent::Untap { card, .. }
                 | ReplacementEvent::Explore { card }
@@ -813,6 +814,7 @@ impl ReplacementEffectIr {
             valid_player_selector: params.selector_cloned(keys::VALID_PLAYER),
             valid_object_selector: params.selector_cloned("ValidObject"),
             valid_cause_text: params.get(keys::VALID_CAUSE).map(str::to_string),
+            valid_sa_text: params.get(keys::VALID_SA).map(str::to_string),
             valid_target_selector: params.selector_cloned(keys::VALID_TARGET),
             valid_source_selector: params.selector_cloned(keys::VALID_SOURCE),
             valid_activator_text: params.get(keys::VALID_ACTIVATOR).map(str::to_string),
