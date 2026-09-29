@@ -274,7 +274,7 @@ pub(crate) fn trigger_matches(
                 trimmed.starts_with("AB$") || trimmed.starts_with("DB$")
             }
             "trigger" => true,
-            "triggered.ward" => regtrig.execute == "TrigWard",
+            "triggered.ward" => regtrig.execute.starts_with("TrigWard"),
             "triggered.chapternotlore" => {
                 regtrig.is_chapter()
                     && regtrig.get_chapter()

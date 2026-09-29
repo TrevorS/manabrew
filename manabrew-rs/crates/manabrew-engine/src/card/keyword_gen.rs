@@ -1363,30 +1363,37 @@ impl Card {
         }
 
         if let Some(cost_str) = crate::keyword::extract_keyword_cost_str(kw, "Ward") {
+            let suffix: String = cost_str
+                .chars()
+                .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+                .collect();
+            let execute = format!("TrigWard{suffix}");
             let raw = "Mode$ BecomesTarget | ValidSource$ SpellAbility.OppCtrl | ValidTarget$ Card.Self | Secondary$ True | TriggerZones$ Battlefield | TriggerDescription$ Ward";
             if let Some(mut trig) = parse_trigger(raw, next_id) {
-                trig.execute = "TrigWard".to_string();
+                trig.execute = execute.clone();
                 self.add_trigger(trig);
             }
             let costs: Vec<&str> = cost_str.split(':').collect();
             if costs.len() == 1 {
-                self.svars.entry("TrigWard".to_string()).or_insert_with(|| {
+                self.svars.entry(execute).or_insert_with(|| {
                     format!("DB$ Counter | Defined$ TriggeredSourceSA | UnlessCost$ {cost_str} | UnlessPayer$ TriggeredSourceSAController")
                 });
             } else {
-                let choices: Vec<String> =
-                    (0..costs.len()).map(|i| format!("WardChoice{i}")).collect();
+                let choices: Vec<String> = (0..costs.len())
+                    .map(|i| format!("WardChoice{i}{suffix}"))
+                    .collect();
                 for (name, cost) in choices.iter().zip(&costs) {
                     self.svars.entry(name.clone()).or_insert_with(|| {
                         format!("DB$ Counter | Defined$ TriggeredSourceSA | UnlessCost$ {cost} | UnlessPayer$ TriggeredSourceSAController")
                     });
                 }
+                let fallback = format!("WardFallback{suffix}");
                 self.svars
-                    .entry("WardFallback".to_string())
+                    .entry(fallback.clone())
                     .or_insert_with(|| "DB$ Counter | Defined$ TriggeredSourceSA".to_string());
-                self.svars.entry("TrigWard".to_string()).or_insert_with(|| {
+                self.svars.entry(execute).or_insert_with(|| {
                     format!(
-                        "DB$ GenericChoice | Defined$ TriggeredSourceSAController | Choices$ {} | FallbackAbility$ WardFallback | AILogic$ PayUnlessCost",
+                        "DB$ GenericChoice | Defined$ TriggeredSourceSAController | Choices$ {} | FallbackAbility$ {fallback} | AILogic$ PayUnlessCost",
                         choices.join(",")
                     )
                 });
