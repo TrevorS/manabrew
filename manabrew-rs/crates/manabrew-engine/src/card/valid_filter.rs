@@ -864,11 +864,14 @@ fn matches_card_state(state: CardStateSelector, card: &Card, context: MatchConte
         }
         CardStateSelector::Modified => {
             card.counters.values().any(|count| *count > 0)
-                || card.attached_to.is_some()
-                || card.power_modifier != 0
-                || card.toughness_modifier != 0
-                || card.static_power_modifier != 0
-                || card.static_toughness_modifier != 0
+                || card.attachments.iter().any(|&attachment| {
+                    context.game.is_none_or(|game| {
+                        let attachment = game.card(attachment);
+                        attachment.type_line.has_subtype("Equipment")
+                            || attachment.type_line.has_subtype("Aura")
+                                && attachment.controller == card.controller
+                    })
+                })
         }
         CardStateSelector::Saddled => card.get_s_var("Saddled") == Some("True"),
         CardStateSelector::MayPlaySource => card.may_play(context.source_controller),
