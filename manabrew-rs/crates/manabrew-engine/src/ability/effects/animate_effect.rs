@@ -387,7 +387,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         // Apply keyword changes. Permanent-duration animate effects need to mutate
         // the card's live keyword set (e.g. Animate Dead changing its Enchant text),
         // not just temporary pump keywords.
-        let add_keywords: Vec<String> = keywords_str
+        let mut add_keywords: Vec<String> = keywords_str
             .as_deref()
             .map(|kws| {
                 kws.split(',')
@@ -397,6 +397,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     .collect()
             })
             .unwrap_or_default();
+        add_keywords.extend(
+            crate::parsing::raw_get(&sa.ability_text, "HiddenKeywords")
+                .into_iter()
+                .flat_map(|kws| kws.split(" & "))
+                .map(str::trim)
+                .filter(|kw| !kw.is_empty())
+                .map(|kw| format!("HIDDEN {kw}")),
+        );
         let remove_keywords: Vec<String> = remove_keywords_str
             .as_deref()
             .map(|kws| {
