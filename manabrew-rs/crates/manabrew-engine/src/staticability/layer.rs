@@ -451,6 +451,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         usize,
         Layer,
     )> = initial.into();
+    let mut deferred: crate::HashSet<(CardId, usize)> = crate::HashSet::default();
     while let Some((source_id, sa_idx, mut owned, is_granted, seq, first_layer)) =
         statics.pop_front()
     {
@@ -488,6 +489,40 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 &mut granted_keyword_replacements,
             );
         }
+        if first_layer == Layer::Type && deferred.insert((source_id, sa_idx)) {
+            let sa = static_ability_at(game, source_id, sa_idx, &owned);
+            let source = game.card(source_id);
+            let applies_now = !sa.ir.characteristic_defining
+                && !source.type_line.has_subtype("Effect")
+                && sa.zones_check(source.zone)
+                && sa.check_conditions(source, game);
+            let dependency =
+                statics
+                    .iter()
+                    .position(|(other_id, other_idx, other_owned, _, _, other_layer)| {
+                        let other = static_ability_at(game, *other_id, *other_idx, other_owned);
+                        let other_source = game.card(*other_id);
+                        applies_now
+                            && *other_layer == Layer::Type
+                            && other.zones_check(other_source.zone)
+                            && other.check_conditions(other_source, game)
+                            && depends_on_type_effect(game, source, sa, other_source, other)
+                            && !depends_on_type_effect(game, other_source, other, source, sa)
+                    });
+            if let Some(position) = dependency {
+                let mut first = statics.remove(position).expect("position is in the queue");
+                let later_seq = first.4;
+                for queued in statics.iter_mut() {
+                    if queued.4 >= seq && queued.4 < later_seq {
+                        queued.4 += 1;
+                    }
+                }
+                first.4 = seq;
+                statics.push_front((source_id, sa_idx, owned, is_granted, seq + 1, first_layer));
+                statics.push_front(first);
+                continue;
+            }
+        }
         {
             let pending_before = pending.len();
             let sa = static_ability_at(game, source_id, sa_idx, &owned);
@@ -521,15 +556,6 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             // Mirrors Java StaticAbilityContinuous.getAffectedCards() line 1036.
             let is_cda = sa.ir.characteristic_defining;
 
-            // Determine which cards are affected by this static ability.
-            let affected_str = sa
-                .ir
-                .affected_text
-                .as_deref()
-                .or(sa.ir.valid_cards_text.as_deref())
-                .or(sa.ir.valid_card_text.as_deref())
-                .unwrap_or("Creature.YouControl");
-
             let mut apply_to_target = |target: CardId| {
                 if sa.check_mode(&StaticMode::Continuous) {
                     if let Some(gain_control) = sa.ir.gain_control_text.as_deref() {
@@ -562,66 +588,13 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         });
                     }
 
-                    if sa.ir.remove_card_types {
-                        pending.push(PendingEffect {
+                    pending.extend(type_effects(game, source_card, sa, target).into_iter().map(
+                        |kind| PendingEffect {
                             layer: Layer::Type,
                             target,
-                            kind: EffectKind::RemoveCardTypes,
-                        });
-                    }
-
-                    if sa.ir.remove_land_types {
-                        pending.push(PendingEffect {
-                            layer: Layer::Type,
-                            target,
-                            kind: EffectKind::RemoveLandTypes,
-                        });
-                    }
-
-                    if sa.ir.remove_creature_types {
-                        pending.push(PendingEffect {
-                            layer: Layer::Type,
-                            target,
-                            kind: EffectKind::RemoveCreatureTypes,
-                        });
-                    }
-
-                    if sa.ir.remove_artifact_types {
-                        pending.push(PendingEffect {
-                            layer: Layer::Type,
-                            target,
-                            kind: EffectKind::RemoveArtifactTypes,
-                        });
-                    }
-
-                    let add_type = sa.ir.add_type_text.as_deref();
-                    let source = game.card(source_id);
-                    let added_types = resolve_added_types(source, add_type);
-                    let changes_type = !added_types.is_empty()
-                        || sa.ir.remove_card_types
-                        || sa.ir.remove_land_types
-                        || sa.ir.remove_creature_types
-                        || sa.ir.remove_artifact_types;
-                    for added_type in added_types {
-                        pending.push(PendingEffect {
-                            layer: Layer::Type,
-                            target,
-                            kind: EffectKind::AddType(added_type),
-                        });
-                    }
-                    if changes_type
-                        && game
-                            .card(target)
-                            .changed_card_types
-                            .iter()
-                            .any(|(timestamp, _)| *timestamp > source_card.layer_timestamp)
-                    {
-                        pending.push(PendingEffect {
-                            layer: Layer::Type,
-                            target,
-                            kind: EffectKind::ReapplyChangedCardTypes(source_card.layer_timestamp),
-                        });
-                    }
+                            kind,
+                        },
+                    ));
 
                     let set_power = sa.ir.set_power_text.as_deref();
                     let set_toughness = sa.ir.set_toughness_text.as_deref();
@@ -896,7 +869,9 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                         }
                     }
 
-                    for subtype in resolve_added_basic_land_types(source_card, add_type) {
+                    for subtype in
+                        resolve_added_basic_land_types(source_card, sa.ir.add_type_text.as_deref())
+                    {
                         if let Some(ab_text) = basic_land_mana_ability_text(&subtype) {
                             pending.push(PendingEffect {
                                 layer: Layer::Ability,
@@ -957,104 +932,8 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 }
             };
 
-            if is_cda {
-                apply_to_target(source_id);
-            } else if let Some(defined) = sa.ir.affected_defined.as_deref() {
-                let selector = sa
-                    .ir
-                    .affected_text
-                    .as_deref()
-                    .map(crate::parsing::cached_compiled_selector);
-                for cid in crate::ability::ability_utils::get_defined_cards(
-                    game,
-                    Some(source_id),
-                    defined,
-                    Some(source_card.controller),
-                ) {
-                    let card = game.card(cid);
-                    if card.phased_out {
-                        continue;
-                    }
-                    if selector.as_ref().is_none_or(|selector| {
-                        crate::card::valid_filter::matches_valid_card_selector_in_game(
-                            selector,
-                            card,
-                            source_card,
-                            game,
-                        )
-                    }) {
-                        apply_to_target(cid);
-                    }
-                }
-            } else if affected_str.eq_ignore_ascii_case("Card.Self")
-                || affected_str.starts_with("Card.Self+")
-            {
-                // Self-referencing static: only affects the source card itself,
-                // but qualifiers after "+" must still be checked (e.g.
-                // "Card.Self+counters_GE2_CHARGE" only matches when the card
-                // has >=2 charge counters). Mirrors Java's
-                // StaticAbilityContinuous.getAffectedCards() which validates
-                // all qualifiers even for self-referencing statics.
-                let in_affected_zone = if sa.ir.affected_zones.is_empty() {
-                    source_card.zone == ZoneType::Battlefield
-                } else {
-                    sa.ir.affected_zones.contains(&source_card.zone)
-                };
-                if in_affected_zone
-                    && crate::card::valid_filter::matches_valid_card(
-                        affected_str,
-                        source_card,
-                        source_card,
-                    )
-                {
-                    apply_to_target(source_id);
-                }
-            } else if affected_str.eq_ignore_ascii_case("Card.EnchantedBy")
-                || affected_str.contains(".EquippedBy")
-                || affected_str.contains(".EnchantedBy")
-            {
-                // Aura / Equipment static effects: affect what this source is
-                // attached to. Java treats EquippedBy and EnchantedBy
-                // identically: both resolve to the entity the source is
-                // attached to. (e.g. Short Sword: "Creature.EquippedBy",
-                // Control Magic: "Card.EnchantedBy")
-                if let Some(cid) = source_card.attached_to {
-                    if game.card(cid).zone == ZoneType::Battlefield
-                        && crate::card::valid_filter::matches_valid_card_selector_in_game(
-                            &crate::parsing::cached_compiled_selector(affected_str),
-                            game.card(cid),
-                            source_card,
-                            game,
-                        )
-                    {
-                        apply_to_target(cid);
-                    }
-                }
-            } else {
-                let selector = crate::parsing::cached_compiled_selector(affected_str);
-                // AffectedZone$ overrides the default Battlefield filter (e.g.
-                // Ashling, the Limitless grants Evoke:4 to Elementals in Hand).
-                let affected_zones = if sa.ir.affected_zones.is_empty() {
-                    None
-                } else {
-                    Some(sa.ir.affected_zones.as_slice())
-                };
-                for card in &game.cards {
-                    let zone_matches = match &affected_zones {
-                        Some(zones) => zones.contains(&card.zone),
-                        None => card.zone == ZoneType::Battlefield,
-                    };
-                    if zone_matches
-                        && crate::card::valid_filter::matches_valid_card_selector_in_game(
-                            &selector,
-                            card,
-                            source_card,
-                            game,
-                        )
-                    {
-                        apply_to_target(card.id);
-                    }
-                }
+            for target in static_affected_cards(game, source_id, sa) {
+                apply_to_target(target);
             }
 
             // Keep in sync with GameAction.checkStaticAbilities: a static granted in the
@@ -1331,71 +1210,13 @@ fn apply_pending_effects(
                     }
                 }
             }
-            EffectKind::RemoveCardTypes => {
-                let card = game.card_mut(effect.target);
-                if card.static_type_line_base.is_none() {
-                    card.static_type_line_base = Some(card.type_line.clone());
-                }
-                card.type_line
-                    .core_types
-                    .retain(|t| matches!(t, CoreType::Instant | CoreType::Sorcery));
-                card.update_types();
-            }
-            EffectKind::RemoveLandTypes | EffectKind::RemoveArtifactTypes => {
-                let is_removed: fn(&str) -> bool = match effect.kind {
-                    EffectKind::RemoveLandTypes => crate::game::TypeRegistry::is_land_type,
-                    _ => |s| crate::game::TypeRegistry::is_subtype_in("ArtifactTypes", s),
-                };
-                let card = game.card_mut(effect.target);
-                if card.type_line.subtypes.iter().any(|s| is_removed(s)) {
-                    if card.static_type_line_base.is_none() {
-                        card.static_type_line_base = Some(card.type_line.clone());
-                    }
-                    card.type_line.subtypes.retain(|s| !is_removed(s));
-                    card.update_types();
-                }
-            }
-            EffectKind::RemoveCreatureTypes => {
-                let card = game.card_mut(effect.target);
-                if card.type_line.subtypes.iter().any(|s| {
-                    crate::game::TypeRegistry::creature_types()
-                        .iter()
-                        .any(|ct| ct.eq_ignore_ascii_case(s))
-                }) {
-                    if card.static_type_line_base.is_none() {
-                        card.static_type_line_base = Some(card.type_line.clone());
-                    }
-                    card.type_line.subtypes.retain(|s| {
-                        !crate::game::TypeRegistry::creature_types()
-                            .iter()
-                            .any(|ct| ct.eq_ignore_ascii_case(s))
-                    });
-                    card.update_types();
-                }
-            }
-            EffectKind::AddType(t) => {
-                let card = game.card_mut(effect.target);
-                if !type_line_has_token(&card.type_line, &t) {
-                    if card.static_type_line_base.is_none() {
-                        card.static_type_line_base = Some(card.type_line.clone());
-                    }
-                    card.add_type(&t);
-                    card.static_added_subtypes.push(t);
-                }
-            }
-            EffectKind::ReapplyChangedCardTypes(after) => {
-                let card = game.card_mut(effect.target);
-                if card.static_type_line_base.is_some() {
-                    let changes: Vec<crate::card::card_changed_type::CardChangedType> = card
-                        .changed_card_types
-                        .iter()
-                        .filter(|(timestamp, _)| *timestamp > after)
-                        .map(|(_, change)| change.clone())
-                        .collect();
-                    for change in &changes {
-                        card.apply_changed_card_type(change);
-                    }
-                }
+            kind @ (EffectKind::RemoveCardTypes
+            | EffectKind::RemoveLandTypes
+            | EffectKind::RemoveArtifactTypes
+            | EffectKind::RemoveCreatureTypes
+            | EffectKind::AddType(_)
+            | EffectKind::ReapplyChangedCardTypes(_)) => {
+                apply_type_effect(game.card_mut(effect.target), kind);
             }
             EffectKind::GrantAbility {
                 text,
@@ -1940,6 +1761,277 @@ fn resolve_added_basic_land_types(
         .into_iter()
         .filter(|added| basic_land_mana_ability_text(added).is_some())
         .collect()
+}
+
+fn affected_text(sa: &StaticAbility) -> &str {
+    sa.ir
+        .affected_text
+        .as_deref()
+        .or(sa.ir.valid_cards_text.as_deref())
+        .or(sa.ir.valid_card_text.as_deref())
+        .unwrap_or("Creature.YouControl")
+}
+
+fn static_affected_cards(game: &GameState, source_id: CardId, sa: &StaticAbility) -> Vec<CardId> {
+    let source_card = game.card(source_id);
+    let affected_str = affected_text(sa);
+    let mut affected = Vec::new();
+    if sa.ir.characteristic_defining {
+        affected.push(source_id);
+    } else if let Some(defined) = sa.ir.affected_defined.as_deref() {
+        let selector = sa
+            .ir
+            .affected_text
+            .as_deref()
+            .map(crate::parsing::cached_compiled_selector);
+        for cid in crate::ability::ability_utils::get_defined_cards(
+            game,
+            Some(source_id),
+            defined,
+            Some(source_card.controller),
+        ) {
+            let card = game.card(cid);
+            if card.phased_out {
+                continue;
+            }
+            if selector.as_ref().is_none_or(|selector| {
+                crate::card::valid_filter::matches_valid_card_selector_in_game(
+                    selector,
+                    card,
+                    source_card,
+                    game,
+                )
+            }) {
+                affected.push(cid);
+            }
+        }
+    } else if affected_str.eq_ignore_ascii_case("Card.Self")
+        || affected_str.starts_with("Card.Self+")
+    {
+        // Self-referencing static: only affects the source card itself,
+        // but qualifiers after "+" must still be checked (e.g.
+        // "Card.Self+counters_GE2_CHARGE" only matches when the card
+        // has >=2 charge counters). Mirrors Java's
+        // StaticAbilityContinuous.getAffectedCards() which validates
+        // all qualifiers even for self-referencing statics.
+        let in_affected_zone = if sa.ir.affected_zones.is_empty() {
+            source_card.zone == ZoneType::Battlefield
+        } else {
+            sa.ir.affected_zones.contains(&source_card.zone)
+        };
+        if in_affected_zone
+            && crate::card::valid_filter::matches_valid_card(affected_str, source_card, source_card)
+        {
+            affected.push(source_id);
+        }
+    } else if affected_str.eq_ignore_ascii_case("Card.EnchantedBy")
+        || affected_str.contains(".EquippedBy")
+        || affected_str.contains(".EnchantedBy")
+    {
+        // Aura / Equipment static effects: affect what this source is
+        // attached to. Java treats EquippedBy and EnchantedBy
+        // identically: both resolve to the entity the source is
+        // attached to. (e.g. Short Sword: "Creature.EquippedBy",
+        // Control Magic: "Card.EnchantedBy")
+        if let Some(cid) = source_card.attached_to {
+            if game.card(cid).zone == ZoneType::Battlefield
+                && crate::card::valid_filter::matches_valid_card_selector_in_game(
+                    &crate::parsing::cached_compiled_selector(affected_str),
+                    game.card(cid),
+                    source_card,
+                    game,
+                )
+            {
+                affected.push(cid);
+            }
+        }
+    } else {
+        let selector = crate::parsing::cached_compiled_selector(affected_str);
+        // AffectedZone$ overrides the default Battlefield filter (e.g.
+        // Ashling, the Limitless grants Evoke:4 to Elementals in Hand).
+        let affected_zones = if sa.ir.affected_zones.is_empty() {
+            None
+        } else {
+            Some(sa.ir.affected_zones.as_slice())
+        };
+        for card in &game.cards {
+            let zone_matches = match &affected_zones {
+                Some(zones) => zones.contains(&card.zone),
+                None => card.zone == ZoneType::Battlefield,
+            };
+            if zone_matches
+                && crate::card::valid_filter::matches_valid_card_selector_in_game(
+                    &selector,
+                    card,
+                    source_card,
+                    game,
+                )
+            {
+                affected.push(card.id);
+            }
+        }
+    }
+    affected
+}
+
+fn static_affects_card(
+    game: &GameState,
+    source_card: &crate::card::Card,
+    sa: &StaticAbility,
+    card: &crate::card::Card,
+) -> Option<bool> {
+    let affected_str = affected_text(sa);
+    if sa.ir.characteristic_defining
+        || sa.ir.affected_defined.is_some()
+        || affected_str.eq_ignore_ascii_case("Card.Self")
+        || affected_str.starts_with("Card.Self+")
+        || affected_str.contains("EnchantedBy")
+        || affected_str.contains("EquippedBy")
+    {
+        return None;
+    }
+    let zone_matches = if sa.ir.affected_zones.is_empty() {
+        card.zone == ZoneType::Battlefield
+    } else {
+        sa.ir.affected_zones.contains(&card.zone)
+    };
+    Some(
+        zone_matches
+            && crate::card::valid_filter::matches_valid_card_selector_in_game(
+                &crate::parsing::cached_compiled_selector(affected_str),
+                card,
+                source_card,
+                game,
+            ),
+    )
+}
+
+fn depends_on_type_effect(
+    game: &GameState,
+    source: &crate::card::Card,
+    sa: &StaticAbility,
+    other_source: &crate::card::Card,
+    other: &StaticAbility,
+) -> bool {
+    static_affected_cards(game, other_source.id, other)
+        .into_iter()
+        .any(|card_id| {
+            let card = game.card(card_id);
+            let effects = type_effects(game, other_source, other, card_id);
+            let Some(before) =
+                static_affects_card(game, source, sa, card).filter(|_| !effects.is_empty())
+            else {
+                return false;
+            };
+            let mut after = card.clone();
+            for kind in effects {
+                apply_type_effect(&mut after, kind);
+            }
+            static_affects_card(game, source, sa, &after) != Some(before)
+        })
+}
+
+fn apply_type_effect(card: &mut crate::card::Card, kind: EffectKind) {
+    match kind {
+        EffectKind::RemoveCardTypes => {
+            if card.static_type_line_base.is_none() {
+                card.static_type_line_base = Some(card.type_line.clone());
+            }
+            card.type_line
+                .core_types
+                .retain(|t| matches!(t, CoreType::Instant | CoreType::Sorcery));
+            card.update_types();
+        }
+        EffectKind::RemoveLandTypes | EffectKind::RemoveArtifactTypes => {
+            let is_removed: fn(&str) -> bool = match kind {
+                EffectKind::RemoveLandTypes => crate::game::TypeRegistry::is_land_type,
+                _ => |s| crate::game::TypeRegistry::is_subtype_in("ArtifactTypes", s),
+            };
+            if card.type_line.subtypes.iter().any(|s| is_removed(s)) {
+                if card.static_type_line_base.is_none() {
+                    card.static_type_line_base = Some(card.type_line.clone());
+                }
+                card.type_line.subtypes.retain(|s| !is_removed(s));
+                card.update_types();
+            }
+        }
+        EffectKind::RemoveCreatureTypes => {
+            if card.type_line.subtypes.iter().any(|s| {
+                crate::game::TypeRegistry::creature_types()
+                    .iter()
+                    .any(|ct| ct.eq_ignore_ascii_case(s))
+            }) {
+                if card.static_type_line_base.is_none() {
+                    card.static_type_line_base = Some(card.type_line.clone());
+                }
+                card.type_line.subtypes.retain(|s| {
+                    !crate::game::TypeRegistry::creature_types()
+                        .iter()
+                        .any(|ct| ct.eq_ignore_ascii_case(s))
+                });
+                card.update_types();
+            }
+        }
+        EffectKind::AddType(t) => {
+            if !type_line_has_token(&card.type_line, &t) {
+                if card.static_type_line_base.is_none() {
+                    card.static_type_line_base = Some(card.type_line.clone());
+                }
+                card.add_type(&t);
+                card.static_added_subtypes.push(t);
+            }
+        }
+        EffectKind::ReapplyChangedCardTypes(after) => {
+            if card.static_type_line_base.is_some() {
+                let changes: Vec<crate::card::card_changed_type::CardChangedType> = card
+                    .changed_card_types
+                    .iter()
+                    .filter(|(timestamp, _)| *timestamp > after)
+                    .map(|(_, change)| change.clone())
+                    .collect();
+                for change in &changes {
+                    card.apply_changed_card_type(change);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn type_effects(
+    game: &GameState,
+    source_card: &crate::card::Card,
+    sa: &StaticAbility,
+    target: CardId,
+) -> Vec<EffectKind> {
+    let mut effects = Vec::new();
+    if sa.ir.remove_card_types {
+        effects.push(EffectKind::RemoveCardTypes);
+    }
+    if sa.ir.remove_land_types {
+        effects.push(EffectKind::RemoveLandTypes);
+    }
+    if sa.ir.remove_creature_types {
+        effects.push(EffectKind::RemoveCreatureTypes);
+    }
+    if sa.ir.remove_artifact_types {
+        effects.push(EffectKind::RemoveArtifactTypes);
+    }
+    let added_types = resolve_added_types(source_card, sa.ir.add_type_text.as_deref());
+    let changes_type = !added_types.is_empty() || !effects.is_empty();
+    effects.extend(added_types.into_iter().map(EffectKind::AddType));
+    if changes_type
+        && game
+            .card(target)
+            .changed_card_types
+            .iter()
+            .any(|(timestamp, _)| *timestamp > source_card.layer_timestamp)
+    {
+        effects.push(EffectKind::ReapplyChangedCardTypes(
+            source_card.layer_timestamp,
+        ));
+    }
+    effects
 }
 
 fn resolve_added_types(source: &crate::card::Card, add_type: Option<&str>) -> Vec<String> {
