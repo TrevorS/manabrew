@@ -159,7 +159,7 @@ pub struct TriggerPushLog {
     pub trigger_api: String,
 }
 
-type MatchedTrigger = (PendingTrigger, PlayerId, u64, u8, u32);
+pub(crate) type MatchedTrigger = (PendingTrigger, PlayerId, u64, u8, u32);
 
 /// Mirrors Java's TriggerHandler — central trigger dispatcher.
 /// In Java, lives on Game. In Rust, lives on GameLoop because
@@ -380,17 +380,21 @@ impl TriggerHandler {
         self.pre_matched_triggers.extend(matched);
     }
 
-    pub fn take_matched_triggers_of(
+    pub(crate) fn take_matched_triggers_of(
         &mut self,
         game: &GameState,
         player: PlayerId,
-    ) -> Vec<PendingTrigger> {
+    ) -> Vec<MatchedTrigger> {
         self.flush_waiting_triggers(game);
-        let (mut taken, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.pre_matched_triggers)
+        let (taken, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.pre_matched_triggers)
             .into_iter()
             .partition(|(_, controller, ..)| *controller == player);
         self.pre_matched_triggers = kept;
-        taken.sort_by_key(|(_, _, ts, trigger_bucket, trigger_order)| {
+        taken
+    }
+
+    pub(crate) fn order_simultaneous_triggers(entries: &mut [MatchedTrigger]) {
+        entries.sort_by_key(|(_, _, ts, trigger_bucket, trigger_order)| {
             (
                 if *trigger_bucket == 2 { 1u8 } else { 0 },
                 *ts,
@@ -398,13 +402,19 @@ impl TriggerHandler {
                 *trigger_order,
             )
         });
-        taken.into_iter().map(|(pending, ..)| pending).collect()
     }
 
     /// Mirrors Java's runWaitingTriggers().
     /// Drains waiting queue, matches triggers, returns PendingTriggers.
     /// The caller (game_loop) handles OptionalDecider$ prompting.
     pub fn run_waiting_triggers(&mut self, game: &GameState) -> Vec<PendingTrigger> {
+        self.run_waiting_matched_triggers(game)
+            .into_iter()
+            .map(|(pending, ..)| pending)
+            .collect()
+    }
+
+    pub(crate) fn run_waiting_matched_triggers(&mut self, game: &GameState) -> Vec<MatchedTrigger> {
         if self.waiting_triggers.is_empty() && self.delayed_triggers.is_empty() {
             // Start with any triggers that were pre-matched (flushed before SBA).
             let mut entries: Vec<MatchedTrigger> = std::mem::take(&mut self.pre_matched_triggers);
@@ -422,10 +432,7 @@ impl TriggerHandler {
                     *trigger_order,
                 )
             });
-            return entries
-                .into_iter()
-                .map(|(pending, _, _, _, _)| pending)
-                .collect();
+            return entries;
         }
 
         // Match any remaining waiting triggers (those fired after the flush).
@@ -452,11 +459,7 @@ impl TriggerHandler {
                 *trigger_order,
             )
         });
-
         entries
-            .into_iter()
-            .map(|(pending, _, _, _, _)| pending)
-            .collect()
     }
 
     pub fn process_waiting_triggers(

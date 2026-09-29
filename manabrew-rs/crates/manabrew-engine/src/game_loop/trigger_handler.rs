@@ -10,14 +10,15 @@ impl GameLoop {
             crate::perf::ParamsLookupScope::PriorityTrigger,
         );
         let active = game.active_player();
-        let mut pending = self.trigger_handler.run_waiting_triggers(game);
+        let mut pending = self.trigger_handler.run_waiting_matched_triggers(game);
         let mut ran = !pending.is_empty();
         let mut pushed = Vec::new();
         let mut player = active;
         loop {
             let next = game.next_player(player);
-            let (mut group, rest): (Vec<_>, Vec<_>) =
-                std::mem::take(&mut pending).into_iter().partition(|pt| {
+            let (mut group, rest): (Vec<_>, Vec<_>) = std::mem::take(&mut pending)
+                .into_iter()
+                .partition(|(pt, ..)| {
                     next == active || pt.entry.spell_ability.activating_player == player
                 });
             pending = rest;
@@ -25,8 +26,9 @@ impl GameLoop {
                 let matched = self.trigger_handler.take_matched_triggers_of(game, player);
                 ran |= !matched.is_empty();
                 group.extend(matched);
+                TriggerHandler::order_simultaneous_triggers(&mut group);
             }
-            for pt in group {
+            for (pt, ..) in group {
                 let is_static = pt.static_trigger;
                 let one_off_effect = pt
                     .entry
