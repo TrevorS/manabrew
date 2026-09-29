@@ -865,6 +865,7 @@ impl GameLoop {
         let root_kicked = entry.spell_ability.kicked;
         let root_x_paid = entry.spell_ability.x_mana_cost_paid;
         let root_trigger_objects = entry.spell_ability.trigger_objects.clone();
+        let root_trigger_remembered_amount = entry.spell_ability.trigger_remembered_amount;
         let root_trigger_spell_abilities = &entry.spell_ability.trigger_spell_abilities;
         let root_trigger_source = entry.spell_ability.trigger_source;
         let root_trigger_source_zone_timestamp = entry.spell_ability.trigger_source_zone_timestamp;
@@ -898,6 +899,7 @@ impl GameLoop {
                 || sa.parent_targeting_card != parent_target_card
                 || sa.parent_targeting_player != parent_target_player
                 || (sa.trigger_objects.is_empty() && !root_trigger_objects.is_empty())
+                || (sa.trigger_remembered_amount == 0 && root_trigger_remembered_amount != 0)
                 || (sa.trigger_spell_abilities.is_empty()
                     && !root_trigger_spell_abilities.is_empty())
                 || (sa.trigger_source.is_none() && root_trigger_source.is_some())
@@ -940,6 +942,9 @@ impl GameLoop {
                 sa_with_ctx.parent_targeting_player = parent_target_player;
                 if sa_with_ctx.trigger_objects.is_empty() {
                     sa_with_ctx.trigger_objects = root_trigger_objects.clone();
+                }
+                if sa_with_ctx.trigger_remembered_amount == 0 {
+                    sa_with_ctx.trigger_remembered_amount = root_trigger_remembered_amount;
                 }
                 if sa_with_ctx.trigger_spell_abilities.is_empty() {
                     sa_with_ctx
