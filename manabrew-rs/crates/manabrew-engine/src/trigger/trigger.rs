@@ -1056,10 +1056,28 @@ impl Trigger {
         params: &RunParams,
     ) -> SpellAbility {
         let host = game.card(host_card);
+        let svar_host = self
+            .original_host
+            .filter(|&original_host| original_host != host_card)
+            .map(|original_host| {
+                let mut view = host.clone();
+                view.svars.extend(
+                    game.card(original_host)
+                        .svars
+                        .iter()
+                        .map(|(name, value)| (name.clone(), value.clone())),
+                );
+                view
+            });
         let (mut sa, svar_text) = if let Some(overriding_ability) = self.get_overriding_ability() {
             (overriding_ability.clone(), String::new())
         } else {
-            let svar_text = host.get_s_var(&self.execute).map(str::to_string).unwrap_or_else(|| {
+            let svar_text = svar_host
+                .as_ref()
+                .and_then(|view| view.get_s_var(&self.execute))
+                .or_else(|| host.get_s_var(&self.execute))
+                .map(str::to_string)
+                .unwrap_or_else(|| {
                 panic!(
                     "Trigger::build_triggered_spell_ability missing/empty Execute SVar: host={} execute={} trigger_index={} description={}",
                     host.card_name,
@@ -1068,10 +1086,15 @@ impl Trigger {
                     self.description
                 )
             });
-            (
-                build_spell_ability(game, host_card, &svar_text, host_controller),
-                svar_text,
-            )
+            let sa = match svar_host.as_ref() {
+                Some(view) => crate::ability::ability_factory::build_spell_ability_from_host_card(
+                    view,
+                    &svar_text,
+                    host_controller,
+                ),
+                None => build_spell_ability(game, host_card, &svar_text, host_controller),
+            };
+            (sa, svar_text)
         };
         sa.is_trigger = true;
         sa.trigger_source = Some(host_card);
