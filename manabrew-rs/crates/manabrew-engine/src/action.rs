@@ -2701,6 +2701,41 @@ impl GameState {
         }
     }
 
+    pub(crate) fn set_temp_controller(&mut self, card_id: CardId, new_controller: PlayerId) {
+        let card = &self.cards[card_id.index()];
+        if card.controller == new_controller {
+            return;
+        }
+        let old_controller = card.controller;
+        let zone = card.zone;
+        if zone != ZoneType::None {
+            self.remove_card_from_zone(zone, old_controller, card_id);
+            self.add_card_to_zone(zone, new_controller, card_id);
+        }
+        self.card_mut(card_id).controller = new_controller;
+    }
+
+    pub(crate) fn controller_change_zone_correction(
+        &mut self,
+        card_id: CardId,
+        original: PlayerId,
+    ) {
+        if self.card(card_id).controller == original {
+            return;
+        }
+        let (commands, kept): (Vec<_>, Vec<_>) =
+            std::mem::take(&mut self.change_controller_commands)
+                .into_iter()
+                .partition(|(host, _)| *host == card_id);
+        self.change_controller_commands = kept;
+        for (_, command) in commands {
+            command.run(self, &mut crate::game_rng::ThreadRngAdapter::default());
+        }
+        if self.card(card_id).zone == ZoneType::Battlefield {
+            self.card_mut(card_id).summoning_sick = true;
+        }
+    }
+
     fn aura_attach_candidates(&self, aura_id: CardId) -> Vec<GameEntity> {
         let aura = self.card(aura_id);
         let Some(enchant_type) = aura

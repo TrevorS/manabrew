@@ -366,6 +366,11 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         }
     }
 
+    let controllers_before: Vec<(CardId, PlayerId)> = game
+        .cards
+        .iter()
+        .map(|card| (card.id, card.controller))
+        .collect();
     // ── 2. Build list of effects-to-apply (deferred to allow sorting) ────
     let mut pending: Vec<PendingEffect> = Vec::new();
     let mut staged: Vec<(usize, PendingEffect)> = Vec::new();
@@ -665,7 +670,10 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         .collect();
     for (card, base) in lost_static_control {
         game.card_mut(card).static_control_base = None;
-        game.change_controller(card, base);
+        game.set_temp_controller(card, base);
+    }
+    for (card, original) in controllers_before {
+        game.controller_change_zone_correction(card, original);
     }
 
     for (target, replacements) in granted_keyword_replacements {
@@ -1181,7 +1189,7 @@ fn apply_pending_effects(
                     let card = game.card_mut(effect.target);
                     card.static_control_base = Some(card.controller);
                 }
-                game.change_controller(effect.target, controller);
+                game.set_temp_controller(effect.target, controller);
             }
             EffectKind::AddPT { power, toughness } => {
                 let card = game.card_mut(effect.target);
@@ -2090,9 +2098,7 @@ fn apply_continuous_ability_before(
             .any(|effect| matches!(effect.kind, EffectKind::GrantTrigger { .. }))
             .then(|| game.granted_trigger_ids.clone()),
     };
-    let change_controller_commands = std::mem::take(&mut game.change_controller_commands);
     apply_pending_effects(game, effects, &mut indexmap::IndexMap::new());
-    game.change_controller_commands = change_controller_commands;
     Some(undo)
 }
 
