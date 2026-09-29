@@ -114,6 +114,12 @@ pub fn get_proto_type(sa: &SpellAbility, original: &Card, new_owner: crate::ids:
     copy.set_perpetual(original, false);
     copy.initial_loyalty = original.initial_loyalty.clone();
     copy.set_code = original.set_code.clone();
+    if original.other_part.as_ref().is_some_and(|other| {
+        other.state_name == forge_foundation::CardStateName::Backside && !other.is_modal
+    }) {
+        copy.other_part = original.other_part.clone();
+        copy.is_transformed = original.is_transformed;
+    }
     // Copies are tokens for zone-change purposes (cease to exist off battlefield).
     copy.set_is_token(true);
 
