@@ -33,6 +33,15 @@ impl TriggerBehavior for TriggerExiled {
         if !Trigger::matches_zone_filter(&trigger.ir.origin_zone, params.origin) {
             return false;
         }
+        if trigger
+            .base
+            .card_trait_base
+            .get_map_params()
+            .get("WhileKeyword")
+            .is_some_and(|param| !trigger.while_keyword_check(param, params, game))
+        {
+            return false;
+        }
         trigger.matches_optional_valid_card_filter(&self.valid_card, params.card, game)
     }
 

@@ -43,6 +43,29 @@ impl GameLoop {
         Self::handle_cost_exiled_with(game, source, exiled);
     }
 
+    fn exile_for_cost(
+        &mut self,
+        game: &mut GameState,
+        card: CardId,
+        owner: PlayerId,
+        agents: &mut [Box<dyn PlayerAgent>],
+    ) {
+        let origin = game.card(card).zone;
+        self.move_card_with_runtime(game, card, ZoneType::Exile, owner, agents);
+        if game.card(card).zone == ZoneType::Exile {
+            self.trigger_handler.run_trigger(
+                TriggerType::Exiled,
+                RunParams {
+                    card: Some(card),
+                    origin: Some(origin),
+                    individual_cost_payment_instance: self.individual_cost_payment_instance.clone(),
+                    ..Default::default()
+                },
+                false,
+            );
+        }
+    }
+
     fn report_paid_cost_exiles(
         game: &GameState,
         source: CardId,
@@ -471,6 +494,7 @@ impl GameLoop {
         context: CostPaymentContext,
         mut sa: Option<&mut SpellAbility>,
     ) -> bool {
+        self.individual_cost_payment_instance = sa.as_deref().cloned();
         game.card_mut(card_id).paid_cost_exiled_cards.clear();
         // Java CostPayment is transactional: if any later cost part fails,
         // previously applied parts are undone. Mirror that via full snapshot.
@@ -1221,13 +1245,8 @@ impl GameLoop {
                         || type_filter == "NICKNAME"
                         || type_filter == "OriginalHost"
                     {
-                        self.move_card_with_runtime(
-                            game,
-                            card_id,
-                            ZoneType::Exile,
-                            game.card(card_id).owner,
-                            agents,
-                        );
+                        let owner = game.card(card_id).owner;
+                        self.exile_for_cost(game, card_id, owner, agents);
                         self.record_paid_cost_exile(game, card_id, card_id);
                     } else {
                         self.pay_exile_cost(
@@ -1794,6 +1813,7 @@ impl GameLoop {
         decided_cards: Option<&[Option<Vec<CardId>>]>,
         decided_counters: Option<&[Option<Vec<(CardId, crate::card::CounterType)>>]>,
     ) -> bool {
+        self.individual_cost_payment_instance = sa.as_deref().cloned();
         let payment_snapshot = self.make_snapshot(game, true);
         game.card_mut(card_id).paid_cost_exiled_cards.clear();
         let mut payment_ok = true;
@@ -2023,13 +2043,7 @@ impl GameLoop {
                     {
                         if game.card(card_id).zone == *from {
                             let owner = game.card(card_id).owner;
-                            self.move_card_with_runtime(
-                                game,
-                                card_id,
-                                ZoneType::Exile,
-                                owner,
-                                agents,
-                            );
+                            self.exile_for_cost(game, card_id, owner, agents);
                             self.record_paid_cost_exile(game, card_id, card_id);
                         }
                     } else {
@@ -3284,7 +3298,7 @@ impl GameLoop {
         };
         for chosen in chosen {
             let owner = game.card(chosen).owner;
-            self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
+            self.exile_for_cost(game, chosen, owner, agents);
             self.record_paid_cost_exile(game, source, chosen);
             crate::ability::effects::emit_zone_trigger(
                 &mut self.trigger_handler,
@@ -3410,7 +3424,7 @@ impl GameLoop {
             ) {
                 chosen_owner = Some(game.card(chosen).owner);
                 let owner = game.card(chosen).owner;
-                self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
+                self.exile_for_cost(game, chosen, owner, agents);
                 self.record_paid_cost_exile(game, source, chosen);
                 crate::ability::effects::emit_zone_trigger(
                     &mut self.trigger_handler,
@@ -3476,7 +3490,7 @@ impl GameLoop {
         };
         for chosen in chosen {
             let owner = game.card(chosen).owner;
-            self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
+            self.exile_for_cost(game, chosen, owner, agents);
             self.record_paid_cost_exile(game, source, chosen);
             crate::ability::effects::emit_zone_trigger(
                 &mut self.trigger_handler,
@@ -3530,7 +3544,7 @@ impl GameLoop {
             if let Some(entry) = game.stack.remove_by_id(chosen_entry) {
                 if let Some(chosen_card) = entry.spell_ability.source {
                     let owner = game.card(chosen_card).owner;
-                    self.move_card_with_runtime(game, chosen_card, ZoneType::Exile, owner, agents);
+                    self.exile_for_cost(game, chosen_card, owner, agents);
                     crate::ability::effects::emit_zone_trigger(
                         &mut self.trigger_handler,
                         chosen_card,
@@ -3721,7 +3735,7 @@ impl GameLoop {
         } else {
             for cid in chosen {
                 let owner = game.card(cid).owner;
-                self.move_card_with_runtime(game, cid, ZoneType::Exile, owner, agents);
+                self.exile_for_cost(game, cid, owner, agents);
                 crate::ability::effects::emit_zone_trigger(
                     &mut self.trigger_handler,
                     cid,
@@ -4244,7 +4258,7 @@ impl GameLoop {
             if exile {
                 let origin = game.card(chosen).zone;
                 let owner = game.card(chosen).owner;
-                self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
+                self.exile_for_cost(game, chosen, owner, agents);
                 Self::handle_cost_exiled_with(game, source, chosen);
                 crate::ability::effects::emit_zone_trigger(
                     &mut self.trigger_handler,
@@ -4383,7 +4397,7 @@ impl GameLoop {
         for chosen in chosen {
             let origin = game.card(chosen).zone;
             let owner = game.card(chosen).owner;
-            self.move_card_with_runtime(game, chosen, ZoneType::Exile, owner, agents);
+            self.exile_for_cost(game, chosen, owner, agents);
             self.record_paid_cost_exile(game, source, chosen);
             crate::ability::effects::emit_zone_trigger(
                 &mut self.trigger_handler,

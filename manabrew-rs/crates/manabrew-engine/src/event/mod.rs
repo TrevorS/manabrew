@@ -239,6 +239,7 @@ pub struct RunParams {
     pub ability_mana: Option<crate::spellability::SpellAbility>,
     /// Cause of the event (e.g. counterspell)
     pub cause: Option<crate::spellability::SpellAbility>,
+    pub individual_cost_payment_instance: Option<crate::spellability::SpellAbility>,
     /// Java AbilityKey.Causer payload.
     pub causer: Option<CardId>,
     /// Java AbilityKey.Produced.

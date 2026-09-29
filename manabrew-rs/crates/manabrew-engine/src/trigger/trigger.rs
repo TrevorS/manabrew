@@ -1030,9 +1030,23 @@ impl Trigger {
             .is_some_and(|chapter| chapter == card.get_final_chapter_nr())
     }
 
-    pub fn while_keyword_check(&self, _param: &str, _run_params: &RunParams) -> bool {
-        // TODO: JacoRefactor
-        false
+    pub fn while_keyword_check(
+        &self,
+        param: &str,
+        run_params: &RunParams,
+        game: &GameState,
+    ) -> bool {
+        run_params
+            .individual_cost_payment_instance
+            .as_ref()
+            .is_some_and(|payment| {
+                crate::spellability::matches_valid_sa(
+                    param,
+                    payment,
+                    game.card(self.base.card_trait_base.host_card_id()),
+                    payment.source.map(|id| game.card(id)),
+                )
+            })
     }
 
     pub fn set_triggering_objects(

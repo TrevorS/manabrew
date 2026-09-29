@@ -1892,6 +1892,11 @@ impl TriggerHandler {
             } else {
                 params.destination.unwrap_or(card.zone)
             }
+        } else if *mode == TriggerType::Exiled
+            && params.card == Some(host_card)
+            && params.origin == Some(ZoneType::Battlefield)
+        {
+            ZoneType::Battlefield
         } else if *mode == TriggerType::ChangesZone
             && params.card == Some(host_card)
             && params.destination == Some(ZoneType::Battlefield)

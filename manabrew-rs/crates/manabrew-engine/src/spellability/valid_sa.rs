@@ -130,6 +130,7 @@ fn matches_property_token_positive(
         "warp" => sa.alt_cost == Some(crate::spellability::AlternativeCost::Warp),
         "sneak" => sa.alt_cost == Some(crate::spellability::AlternativeCost::Sneak),
         "blitz" => sa.alt_cost == Some(crate::spellability::AlternativeCost::Blitz),
+        "craft" => sa.is_craft(),
         "xcost" => sa.cost_has_x(),
         "singletarget" => single_target(sa),
         "crew" => is_crew(sa, ability_host),
