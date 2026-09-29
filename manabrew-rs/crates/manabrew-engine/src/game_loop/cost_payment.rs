@@ -58,7 +58,8 @@ impl GameLoop {
                 RunParams {
                     card: Some(card),
                     origin: Some(origin),
-                    individual_cost_payment_instance: self.individual_cost_payment_instance.clone(),
+                    cost_stack: game.cost_payment_stack.clone(),
+                    individual_cost_payment_instance: game.cost_payment_stack.peek().cloned(),
                     ..Default::default()
                 },
                 false,
@@ -494,7 +495,7 @@ impl GameLoop {
         context: CostPaymentContext,
         mut sa: Option<&mut SpellAbility>,
     ) -> bool {
-        self.individual_cost_payment_instance = sa.as_deref().cloned();
+        let payment = sa.as_deref().cloned().map(std::sync::Arc::new);
         game.card_mut(card_id).paid_cost_exiled_cards.clear();
         // Java CostPayment is transactional: if any later cost part fails,
         // previously applied parts are undone. Mirror that via full snapshot.
@@ -814,8 +815,13 @@ impl GameLoop {
         let mut failed_auto_pay_pool: Option<crate::mana::ManaPool> = None;
         let mut failed_non_undoable_choices: Vec<crate::mana::AutoTapChoice> = Vec::new();
         let outer_change_zone_table = game.pending_change_zone_table.take();
+        let cost_stack_size = game.cost_payment_stack.size();
         for (idx, part) in cost.parts.clone().into_iter().enumerate() {
             self.handle_change_zone_trigger(game, sa.as_deref());
+            game.cost_payment_stack.truncate(cost_stack_size);
+            if let Some(payment) = &payment {
+                game.cost_payment_stack.push(part.clone(), payment.clone());
+            }
             if !matches!(part, CostPart::Mana { .. }) {
                 game.ensure_pending_change_zone_table();
             }
@@ -1280,6 +1286,7 @@ impl GameLoop {
                             sa.as_deref(),
                             decided,
                         ) else {
+                            game.cost_payment_stack.truncate(cost_stack_size);
                             return false;
                         };
                         if let Some(sa) = sa.as_deref_mut() {
@@ -1737,6 +1744,7 @@ impl GameLoop {
             }
         }
         self.handle_change_zone_trigger(game, sa.as_deref());
+        game.cost_payment_stack.truncate(cost_stack_size);
         game.pending_change_zone_table = outer_change_zone_table;
         self.reserved_sacrifice_stack.pop();
         self.reserved_source_reuse_stack.pop();
@@ -1813,7 +1821,7 @@ impl GameLoop {
         decided_cards: Option<&[Option<Vec<CardId>>]>,
         decided_counters: Option<&[Option<Vec<(CardId, crate::card::CounterType)>>]>,
     ) -> bool {
-        self.individual_cost_payment_instance = sa.as_deref().cloned();
+        let payment = sa.as_deref().cloned().map(std::sync::Arc::new);
         let payment_snapshot = self.make_snapshot(game, true);
         game.card_mut(card_id).paid_cost_exiled_cards.clear();
         let mut payment_ok = true;
@@ -1822,8 +1830,13 @@ impl GameLoop {
         let mut pre_tap_idx = 0usize;
         let mut pre_behold_idx = 0usize;
         let outer_change_zone_table = game.pending_change_zone_table.take();
+        let cost_stack_size = game.cost_payment_stack.size();
         for (idx, part) in spell_cost.parts.clone().into_iter().enumerate() {
             self.handle_change_zone_trigger(game, sa.as_deref());
+            game.cost_payment_stack.truncate(cost_stack_size);
+            if let Some(payment) = &payment {
+                game.cost_payment_stack.push(part.clone(), payment.clone());
+            }
             if !matches!(part, CostPart::Mana { .. }) {
                 game.ensure_pending_change_zone_table();
             }
@@ -2599,6 +2612,7 @@ impl GameLoop {
             }
         }
         self.handle_change_zone_trigger(game, sa.as_deref());
+        game.cost_payment_stack.truncate(cost_stack_size);
         game.pending_change_zone_table = outer_change_zone_table;
         if !payment_ok {
             self.restore_snapshot(game, &payment_snapshot);

@@ -102,6 +102,39 @@ impl GameState {
         );
     }
 
+    pub fn exile(
+        &mut self,
+        card_id: CardId,
+        cause: Option<&SpellAbility>,
+        agents: &mut [Box<dyn PlayerAgent>],
+        runtime: &mut ReplacementRuntime<'_>,
+    ) {
+        let origin = self.card(card_id).zone;
+        let owner = self.card(card_id).owner;
+        self.move_card_with_agents_and_replacement_runtime(
+            card_id,
+            ZoneType::Exile,
+            owner,
+            agents,
+            runtime,
+        );
+        if self.card(card_id).is_immutable() {
+            return;
+        }
+        runtime.trigger_handler.run_trigger(
+            TriggerType::Exiled,
+            RunParams {
+                card: Some(card_id),
+                cause: cause.cloned(),
+                origin: Some(origin),
+                cost_stack: self.cost_payment_stack.clone(),
+                individual_cost_payment_instance: self.cost_payment_stack.peek().cloned(),
+                ..Default::default()
+            },
+            false,
+        );
+    }
+
     pub(crate) fn sacrifice_destroy(
         &mut self,
         card_id: CardId,

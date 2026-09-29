@@ -28,10 +28,26 @@ impl TriggerBehavior for TriggerExiled {
     }
 
     fn perform_test(&self, trigger: &Trigger, params: &RunParams, game: &GameState) -> bool {
-        let _host_card = trigger.base.card_trait_base.host_card_id();
-        let _host_controller = trigger.base.card_trait_base.host_controller(game);
         if !Trigger::matches_zone_filter(&trigger.ir.origin_zone, params.origin) {
             return false;
+        }
+        if let Some(valid_cause) = trigger
+            .base
+            .card_trait_base
+            .get_map_params()
+            .get("ValidCause")
+        {
+            let host = game.card(trigger.base.card_trait_base.host_card_id());
+            if !params.cause.as_ref().is_some_and(|cause| {
+                crate::spellability::matches_valid_sa(
+                    valid_cause,
+                    cause,
+                    host,
+                    cause.source.map(|id| game.card(id)),
+                )
+            }) {
+                return false;
+            }
         }
         if trigger
             .base

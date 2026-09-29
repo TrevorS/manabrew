@@ -577,17 +577,6 @@ pub(super) fn apply_post_move(
                 crate::ability::spell_ability_effect::handle_exiled_with(ctx.game, sa, card_id);
             }
         }
-        ctx.trigger_handler.run_trigger(
-            TriggerType::Exiled,
-            RunParams {
-                card: Some(card_id),
-                origin: Some(old_zone),
-                destination: Some(dest_zone),
-                ..Default::default()
-            },
-            false,
-        );
-
         if sa.ir.foretold {
             ctx.game.card_mut(card_id).set_foretold(true);
             if sa.ir.foretold_cost {

@@ -2,18 +2,22 @@
 //!
 //! Mirrors Java's `CostPaymentStack.java`.
 
-/// A simple stack for tracking cost payment instances.
-/// Used mainly by triggers to inspect what costs are being paid.
-/// Mirrors Java's `CostPaymentStack` class.
-#[derive(Debug, Clone, Default)]
+use std::sync::Arc;
+
+use serde::{Deserialize, Serialize};
+
+use crate::cost::CostPart;
+use crate::spellability::SpellAbility;
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CostPaymentStack {
-    stack: Vec<CostPaymentEntry>,
+    stack: Vec<Entry>,
 }
 
-/// An individual cost payment entry.
-#[derive(Debug, Clone)]
-pub struct CostPaymentEntry {
-    pub cost_description: String,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Entry {
+    pub cost: CostPart,
+    pub ability: Arc<SpellAbility>,
 }
 
 impl CostPaymentStack {
@@ -21,15 +25,15 @@ impl CostPaymentStack {
         CostPaymentStack { stack: Vec::new() }
     }
 
-    pub fn push(&mut self, entry: CostPaymentEntry) {
-        self.stack.push(entry);
+    pub fn push(&mut self, cost: CostPart, ability: Arc<SpellAbility>) {
+        self.stack.push(Entry { cost, ability });
     }
 
-    pub fn pop(&mut self) -> Option<CostPaymentEntry> {
+    pub fn pop(&mut self) -> Option<Entry> {
         self.stack.pop()
     }
 
-    pub fn peek(&self) -> Option<&CostPaymentEntry> {
+    pub fn peek(&self) -> Option<&Entry> {
         self.stack.last()
     }
 
@@ -37,13 +41,15 @@ impl CostPaymentStack {
         self.stack.clear();
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &CostPaymentEntry> {
-        self.stack.iter()
+    pub fn size(&self) -> usize {
+        self.stack.len()
     }
 
-    /// Provides an iterator over entries.
-    /// Mirrors Java's `CostPaymentStack.iterator()`.
-    pub fn iterator(&self) -> impl Iterator<Item = &CostPaymentEntry> {
+    pub fn truncate(&mut self, len: usize) {
+        self.stack.truncate(len);
+    }
+
+    pub fn iterator(&self) -> impl Iterator<Item = &Entry> {
         self.stack.iter()
     }
 }

@@ -1036,17 +1036,20 @@ impl Trigger {
         run_params: &RunParams,
         game: &GameState,
     ) -> bool {
+        let host = game.card(self.base.card_trait_base.host_card_id());
+        let matches = |entry: &crate::zone::cost_payment_stack::Entry| {
+            crate::spellability::matches_valid_sa(
+                param,
+                &entry.ability,
+                host,
+                entry.ability.source.map(|id| game.card(id)),
+            )
+        };
         run_params
             .individual_cost_payment_instance
             .as_ref()
-            .is_some_and(|payment| {
-                crate::spellability::matches_valid_sa(
-                    param,
-                    payment,
-                    game.card(self.base.card_trait_base.host_card_id()),
-                    payment.source.map(|id| game.card(id)),
-                )
-            })
+            .is_some_and(matches)
+            || run_params.cost_stack.iterator().any(matches)
     }
 
     pub fn set_triggering_objects(

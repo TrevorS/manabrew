@@ -337,7 +337,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 );
                 crate::card::card_factory_util::set_face_down_state(ctx.game, card_id, sa);
             }
-            ctx.move_card(card_id, dest_zone, dest_owner);
+            if dest_zone == ZoneType::Exile {
+                ctx.exile(card_id, Some(sa));
+            } else {
+                ctx.move_card(card_id, dest_zone, dest_owner);
+            }
             if sa.is_remember_changed() && ctx.game.card(card_id).zone != old_zone {
                 let remembers = match crate::parsing::raw_get(
                     &sa.ability_text,
@@ -381,19 +385,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     ctx.game.card_mut(sid).add_exiled_card(card_id);
                 }
                 crate::ability::spell_ability_effect::handle_exiled_with(ctx.game, sa, card_id);
-                // `moveTo(ZoneType.Exile, ...)` goes through `GameAction.exile`.
-                if ctx.game.card(card_id).zone == ZoneType::Exile {
-                    ctx.trigger_handler.run_trigger(
-                        crate::trigger::TriggerType::Exiled,
-                        crate::event::RunParams {
-                            card: Some(card_id),
-                            origin: Some(old_zone),
-                            destination: Some(dest_zone),
-                            ..Default::default()
-                        },
-                        false,
-                    );
-                }
             }
             if dest_zone == ZoneType::Battlefield {
                 if tapped {

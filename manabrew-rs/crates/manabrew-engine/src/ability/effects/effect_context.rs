@@ -152,6 +152,19 @@ impl EffectContext<'_> {
         );
     }
 
+    pub fn exile(&mut self, card_id: CardId, cause: Option<&crate::spellability::SpellAbility>) {
+        let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
+            trigger_handler: self.trigger_handler,
+            token_templates: self.token_templates,
+            token_art_variants: self.token_art_variants,
+            token_fallback: self.token_fallback,
+            edition_dates: self.edition_dates,
+            mana_pools: self.mana_pools,
+            rng: self.rng,
+        };
+        self.game.exile(card_id, cause, self.agents, &mut runtime);
+    }
+
     pub(crate) fn deal_damage(
         &mut self,
         damage_map: &mut crate::card::card_damage_map::CardDamageMap,

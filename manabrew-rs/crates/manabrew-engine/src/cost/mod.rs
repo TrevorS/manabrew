@@ -47,7 +47,6 @@ pub mod cost_unattach;
 pub mod cost_untap;
 pub mod cost_untap_type;
 pub mod cost_waterbend;
-pub mod individual_cost_payment_instance;
 pub mod payment_decision;
 pub mod selector_domain;
 pub mod trait_cost_decision_maker;

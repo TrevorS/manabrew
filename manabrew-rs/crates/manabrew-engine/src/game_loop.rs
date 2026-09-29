@@ -70,7 +70,6 @@ pub struct GameLoop {
     next_checkpoint_id: u64,
     reserved_sacrifice_stack: Vec<Vec<CardId>>,
     reserved_source_reuse_stack: Vec<bool>,
-    individual_cost_payment_instance: Option<SpellAbility>,
     /// Per-player stack of reversible mana actions. The UI consumes this
     /// through `untappableLandIds`; legality is owned by the engine.
     mana_undo_stacks: Vec<Vec<ManaUndoRecord>>,
@@ -213,7 +212,6 @@ impl GameLoop {
             next_checkpoint_id: 1,
             reserved_sacrifice_stack: Vec::new(),
             reserved_source_reuse_stack: Vec::new(),
-            individual_cost_payment_instance: None,
             mana_undo_stacks: (0..num_players).map(|_| Vec::new()).collect(),
             mana_undo_disqualified: false,
             abort_signal: None,

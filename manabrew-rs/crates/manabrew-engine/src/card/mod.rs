@@ -1798,6 +1798,10 @@ impl Card {
         self.type_line.is_land()
     }
 
+    pub fn is_immutable(&self) -> bool {
+        self.type_line.has_subtype("Effect")
+    }
+
     pub fn is_permanent(&self) -> bool {
         self.type_line.is_permanent()
     }
