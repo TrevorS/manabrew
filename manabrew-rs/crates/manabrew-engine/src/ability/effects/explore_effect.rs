@@ -34,10 +34,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if explorers.is_empty() {
         explorers.extend(ctx.parent_target_card);
     }
+    if explorers.is_empty()
+        && !sa.uses_targeting()
+        && !crate::parsing::raw_has_key(&sa.ability_text, keys::DEFINED)
+    {
+        explorers.extend(sa.source);
+    }
     for explorer_id in explorers {
-        if ctx.game.card(explorer_id).zone != ZoneType::Battlefield {
-            continue;
-        }
         explore_one(ctx, sa, controller, explorer_id);
     }
 }
@@ -51,6 +54,7 @@ fn explore_one(
     // Java `ExploreEffect.resolve` reads the count first and runs the Explore
     // replacement once per explore, so `Num$ 0` explores no times at all.
     let amount = super::resolve_numeric_svar(ctx.game, sa, keys::NUM, 1);
+    let explorer_timestamp = ctx.game.card(explorer_id).zone_timestamp;
 
     for _ in 0..amount {
         let mut event = ReplacementEvent::Explore { card: explorer_id };
@@ -72,84 +76,68 @@ fn explore_one(
         if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
             continue;
         }
-        // Re-check explorer is still on battlefield (may have been removed by a trigger)
-        if ctx.game.card(explorer_id).zone != ZoneType::Battlefield {
-            return;
-        }
         ctx.game.player_record_explore(controller, 1);
 
-        // Check if library has cards
-        let lib = ctx.game.cards_in_zone(ZoneType::Library, controller);
-        if lib.is_empty() {
-            // Explorer still gets the +1/+1 counter per rules
-            if !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-                &ctx.game.cards,
-                ctx.game.card(explorer_id),
-                &CounterType::P1P1,
-            ) {
-                ctx.add_counter(explorer_id, &CounterType::P1P1, 1, sa, RunParams::default());
-            }
-            continue;
-        }
-
-        // Reveal top card
-        let top_card = *lib.last().unwrap();
-
-        let is_land = ctx.game.card(top_card).is_land();
-
-        if is_land {
-            // Land → put into hand
-            let owner = ctx.game.card(top_card).owner;
-            ctx.move_card(top_card, ZoneType::Hand, owner);
-            emit_zone_trigger(
-                ctx.trigger_handler,
-                top_card,
-                ZoneType::Library,
-                ZoneType::Hand,
-            );
-        } else {
-            // Nonland → put +1/+1 counter on explorer
-            if !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-                &ctx.game.cards,
-                ctx.game.card(explorer_id),
-                &CounterType::P1P1,
-            ) {
-                ctx.add_counter(explorer_id, &CounterType::P1P1, 1, sa, RunParams::default());
-            }
-
-            // Player may put revealed card into graveyard (otherwise it stays on top).
-            // Java's ExploreEffect calls controller.confirmAction() which in the
-            // harness DeterministicController uses a random boolean (pickBool).
-            // Use confirm_action here to match that RNG-consuming path.
-            let card_name = ctx.game.card(top_card).card_name.clone();
-            let _explorer_name = ctx.game.card(explorer_id).card_name.clone();
-            let msg = format!("Put {card_name} into your graveyard?");
-            let put_in_gy = ctx.agents[controller.index()].confirm_action(
-                DecisionContext::new(ctx.game, ctx.mana_pools),
-                controller,
-                None,
-                &msg,
-                &[],
-                sa.source,
-                Some(crate::ability::api_type::ApiType::Explore),
-            );
-
-            if put_in_gy {
+        let top_card = ctx
+            .game
+            .cards_in_zone(ZoneType::Library, controller)
+            .last()
+            .copied();
+        let mut revealed_land = false;
+        if let Some(top_card) = top_card {
+            if ctx.game.card(top_card).is_land() {
                 let owner = ctx.game.card(top_card).owner;
-                ctx.move_card(top_card, ZoneType::Graveyard, owner);
+                ctx.move_card(top_card, ZoneType::Hand, owner);
                 emit_zone_trigger(
                     ctx.trigger_handler,
                     top_card,
                     ZoneType::Library,
-                    ZoneType::Graveyard,
+                    ZoneType::Hand,
                 );
+                revealed_land = true;
+            } else {
+                // Java's ExploreEffect calls controller.confirmAction() which in the
+                // harness DeterministicController uses a random boolean (pickBool).
+                let card_name = ctx.game.card(top_card).card_name.clone();
+                let msg = format!("Put {card_name} into your graveyard?");
+                let put_in_gy = ctx.agents[controller.index()].confirm_action(
+                    DecisionContext::new(ctx.game, ctx.mana_pools),
+                    controller,
+                    None,
+                    &msg,
+                    &[],
+                    sa.source,
+                    Some(crate::ability::api_type::ApiType::Explore),
+                );
+                if put_in_gy {
+                    let owner = ctx.game.card(top_card).owner;
+                    ctx.move_card(top_card, ZoneType::Graveyard, owner);
+                    emit_zone_trigger(
+                        ctx.trigger_handler,
+                        top_card,
+                        ZoneType::Library,
+                        ZoneType::Graveyard,
+                    );
+                }
             }
+        }
+        let explorer = ctx.game.card(explorer_id);
+        if !revealed_land
+            && explorer.zone == ZoneType::Battlefield
+            && explorer.zone_timestamp == explorer_timestamp
+            && !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
+                &ctx.game.cards,
+                explorer,
+                &CounterType::P1P1,
+            )
+        {
+            ctx.add_counter(explorer_id, &CounterType::P1P1, 1, sa, RunParams::default());
         }
         ctx.trigger_handler.run_trigger(
             TriggerType::Explored,
             RunParams {
                 card: Some(explorer_id),
-                explored: Some(top_card),
+                explored: top_card,
                 ..Default::default()
             },
             false,
