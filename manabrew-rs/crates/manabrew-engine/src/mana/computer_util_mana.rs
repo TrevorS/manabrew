@@ -1181,7 +1181,7 @@ fn add_taps_for_mana_trigger_mana(
     callback: &mut Option<ManaPayCallbackFn<'_>>,
 ) -> Vec<u16> {
     add_taps_for_mana_trigger_mana_impl(
-        game, pool, player, sa_payment, produced, true, to_pay, callback,
+        game, pool, player, sa_payment, produced, true, false, to_pay, callback,
     )
 }
 
@@ -1192,6 +1192,7 @@ fn add_taps_for_mana_trigger_mana_impl(
     sa_payment: &ManaAbilityRef,
     produced: &str,
     require_tap: bool,
+    predicting: bool,
     to_pay: ManaCostShard,
     callback: &mut Option<ManaPayCallbackFn<'_>>,
 ) -> Vec<u16> {
@@ -1266,7 +1267,9 @@ fn add_taps_for_mana_trigger_mana_impl(
                     continue;
                 };
                 if produced_ir.is_any_like() && !produced_ir.is_combo_mana() {
-                    if let Some(ref mut cb) = callback {
+                    if predicting && game.mirror_forge_bugs {
+                        atom = ManaAtom::COLORLESS;
+                    } else if let Some(ref mut cb) = callback {
                         let options = ["W", "U", "B", "R", "G"].map(String::from);
                         let mut chosen = None;
                         cb(ManaPayCallback::ChooseManaColor {
@@ -3430,6 +3433,7 @@ pub fn can_pay_spell_mana_cost_with_sources<'a>(
             &sa_payment,
             &produced,
             false,
+            false,
             to_pay,
             &mut None,
         );
@@ -4252,6 +4256,7 @@ fn predict_mana(
         ma,
         &atoms_as_mana_string(&produced),
         false,
+        true,
         to_pay,
         &mut None,
     );
