@@ -739,6 +739,7 @@ impl GameState {
             card.activations_this_game.clear();
             card.may_look.clear();
             card.may_look_face_down_exile.clear();
+            card.damage_history = Default::default();
         }
         if src_zone == ZoneType::Exile && dest_zone != ZoneType::Exile {
             self.card_mut(card_id)

@@ -336,8 +336,6 @@ pub struct GameState {
     #[serde(skip)]
     pub left_graveyard_this_turn: Vec<CardId>,
     #[serde(skip)]
-    pub global_damage_history: Vec<CardId>,
-    #[serde(skip)]
     pub damage_this_turn_lki: Vec<DamageThisTurnLki>,
     #[serde(skip)]
     pub granted_trigger_ids: crate::HashMap<(CardId, u64, Option<CardId>, u64, String), u32>,
@@ -407,7 +405,6 @@ impl GameState {
             counter_added_this_turn: BTreeMap::new(),
             left_battlefield_this_turn: Vec::new(),
             left_graveyard_this_turn: Vec::new(),
-            global_damage_history: Vec::new(),
             damage_this_turn_lki: Vec::new(),
             granted_trigger_ids: crate::HashMap::default(),
         }
@@ -556,9 +553,6 @@ impl GameState {
     }
 
     fn add_global_damage_history(&mut self, history: CardId, index: usize, target: TrackedEntity) {
-        if !self.global_damage_history.contains(&history) {
-            self.global_damage_history.push(history);
-        }
         let target = match target {
             TrackedEntity::Player(player) => DamageLkiTarget::Player(player),
             TrackedEntity::Card(card) => {
@@ -574,7 +568,6 @@ impl GameState {
     }
 
     pub fn clear_global_damage_history(&mut self) {
-        self.global_damage_history.clear();
         self.damage_this_turn_lki.clear();
     }
 
@@ -619,27 +612,21 @@ impl GameState {
                 }),
             }
         };
-        self.global_damage_history
-            .iter()
-            .filter_map(|&history| {
-                let dmg: i32 = self
-                    .card(history)
-                    .damage_history
-                    .damage_done_this_turn
-                    .iter()
-                    .enumerate()
-                    .filter(|(index, damage)| {
-                        is_combat.is_none_or(|combat| damage.is_combat == combat)
-                            && self
-                                .damage_this_turn_lki
-                                .iter()
-                                .find(|lki| lki.history == history && lki.index == *index)
-                                .is_none_or(is_valid)
-                    })
-                    .map(|(_, damage)| damage.amount)
-                    .sum();
-                (dmg != 0).then_some(dmg)
-            })
+        let mut per_history: Vec<((CardId, u64), i32)> = Vec::new();
+        for lki in &self.damage_this_turn_lki {
+            let damage = &lki.source.damage_history.damage_done_this_turn[lki.index];
+            if is_combat.is_some_and(|combat| damage.is_combat != combat) || !is_valid(lki) {
+                continue;
+            }
+            let history = (lki.history, lki.source.zone_timestamp);
+            match per_history.iter_mut().find(|(key, _)| *key == history) {
+                Some((_, dmg)) => *dmg += damage.amount,
+                None => per_history.push((history, damage.amount)),
+            }
+        }
+        per_history
+            .into_iter()
+            .filter_map(|(_, dmg)| (dmg != 0).then_some(dmg))
             .collect()
     }
 
