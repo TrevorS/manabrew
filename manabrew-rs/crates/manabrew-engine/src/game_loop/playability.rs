@@ -273,7 +273,7 @@ impl GameLoop {
         let alt_cost = alt_cost.as_deref().map(crate::cost::parse_cost);
         let base_cost = alt_cost
             .as_ref()
-            .map(Self::mana_from_cost)
+            .map(|cost| Self::raise_mana_from_cost(game, cost, card_id, player))
             .unwrap_or_else(|| card.mana_cost.clone());
         let raise_cost =
             crate::cost::cost_adjustment::compute_raise_cost_parts(game, card, player, zone);
