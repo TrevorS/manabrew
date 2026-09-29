@@ -159,6 +159,7 @@ struct EffectManaPayment<'c, 'a> {
     ctx: &'c mut EffectContext<'a>,
     payable_mana_cost: &'c forge_foundation::ManaCost,
     attempt_unpayable: bool,
+    paying_mana: Vec<u16>,
 }
 
 impl crate::game_loop::mana_payment::ManaPaymentHost for EffectManaPayment<'_, '_> {
@@ -240,6 +241,7 @@ impl crate::game_loop::mana_payment::ManaPaymentHost for EffectManaPayment<'_, '
             return Some(trace);
         }
 
+        self.paying_mana.extend(result.paying_mana.iter().copied());
         if result.life_paid > 0 {
             let lost = game.player_lose_life(session.player, result.life_paid);
             ctx.trigger_handler.run_trigger(
@@ -294,6 +296,12 @@ impl crate::game_loop::mana_payment::ManaPaymentHost for EffectManaPayment<'_, '
         if life_to_pay != test_life_to_pay {
             return false;
         }
+        self.paying_mana.extend(
+            mana_pools[player.index()]
+                .last_payment_atoms()
+                .iter()
+                .copied(),
+        );
         if life_to_pay > 0 {
             let lost = game.player_lose_life(player, life_to_pay);
             ctx.trigger_handler.run_trigger(
@@ -371,27 +379,39 @@ pub(crate) fn pay_mana_cost_for_effect(
     mana_cost: &forge_foundation::ManaCost,
     attempt_unpayable: bool,
 ) -> bool {
+    pay_mana_cost_for_effect_spending(ctx, payer, source, mana_cost, attempt_unpayable).is_some()
+}
+
+pub(crate) fn pay_mana_cost_for_effect_spending(
+    ctx: &mut EffectContext,
+    payer: PlayerId,
+    source: CardId,
+    mana_cost: &forge_foundation::ManaCost,
+    attempt_unpayable: bool,
+) -> Option<Vec<u16>> {
     let card_name = ctx.game.card(source).card_name.clone();
     let cost_str = mana_cost.to_string();
     let payable_mana_cost =
         crate::mana::apply_player_life_payment_keywords(ctx.game, payer, mana_cost);
     if payable_mana_cost.is_zero() {
-        return true;
+        return Some(Vec::new());
     }
 
     if !attempt_unpayable
         && !can_auto_pay_mana_cost_for_effect(ctx, payer, source, &payable_mana_cost)
     {
-        return false;
+        return None;
     }
 
     let payment_ctx = crate::mana::ManaPaymentContext::default();
-    crate::game_loop::mana_payment::pay_mana_cost_session_generic(
-        &mut EffectManaPayment {
-            ctx,
-            payable_mana_cost: &payable_mana_cost,
-            attempt_unpayable,
-        },
+    let mut host = EffectManaPayment {
+        ctx,
+        payable_mana_cost: &payable_mana_cost,
+        attempt_unpayable,
+        paying_mana: Vec::new(),
+    };
+    let paid = crate::game_loop::mana_payment::pay_mana_cost_session_generic(
+        &mut host,
         crate::game_loop::mana_payment::ManaPaymentSession {
             player: payer,
             card_id: source,
@@ -411,7 +431,8 @@ pub(crate) fn pay_mana_cost_for_effect(
                 && crate::cost::can_pay_ignoring_mana(&ab.cost, game, cid, player)
         },
     )
-    .paid
+    .paid;
+    paid.then_some(host.paying_mana)
 }
 
 #[derive(Clone, Copy)]

@@ -285,6 +285,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         // ── Step 6: Pay mana ────────────────────────────────────────────
+        let mut paying_mana = Vec::new();
         if !without_mana_cost || !additional_mana.is_zero() {
             let mc = if without_mana_cost {
                 forge_foundation::ManaCost::zero()
@@ -310,7 +311,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             let saved_pool = ctx.mana_pools[controller.index()].clone();
             let mut unpaid =
                 crate::mana::mana_cost_being_paid::ManaCostBeingPaid::from_mana_cost(&mc);
-            if !crate::cost::cost_adjustment::adjust(
+            let spent = crate::cost::cost_adjustment::adjust(
                 ctx.game,
                 ctx.agents,
                 ctx.trigger_handler,
@@ -321,20 +322,29 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 None,
                 false,
                 false,
-            ) || !super::cost_payment::pay_mana_cost_for_effect(
-                ctx,
-                controller,
-                card_id,
-                &unpaid.to_mana_cost(),
-                true,
-            ) {
+            )
+            .then(|| {
+                super::cost_payment::pay_mana_cost_for_effect_spending(
+                    ctx,
+                    controller,
+                    card_id,
+                    &unpaid.to_mana_cost(),
+                    true,
+                )
+            })
+            .flatten();
+            let Some(spent) = spent else {
                 *ctx.game = saved_game;
                 ctx.mana_pools[controller.index()] = saved_pool;
                 restore_split_state(ctx, card_id, was_transformed);
                 amount -= 1;
                 continue;
-            }
+            };
+            paying_mana = spent;
         }
+        let card = ctx.game.card_mut(card_id);
+        card.set_colors_spent_to_cast(paying_mana.iter().fold(0, |colors, &mana| colors | mana));
+        card.set_paying_mana_to_cast(paying_mana);
 
         if let Some(x) = announced_x {
             ctx.game
