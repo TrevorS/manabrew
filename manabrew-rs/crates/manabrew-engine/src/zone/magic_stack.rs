@@ -170,10 +170,10 @@ pub struct MagicStack {
     last_turn_cast: Vec<CardId>,
 
     #[serde(default)]
-    this_turn_cast_from: Vec<Option<ZoneType>>,
+    this_turn_cast_lki: Vec<std::sync::Arc<crate::card::Card>>,
 
     #[serde(default)]
-    last_turn_cast_from: Vec<Option<ZoneType>>,
+    last_turn_cast_lki: Vec<std::sync::Arc<crate::card::Card>>,
 
     #[serde(default)]
     this_turn_cast_may_play: Vec<Option<(CardId, Option<usize>)>>,
@@ -224,8 +224,8 @@ impl MagicStack {
             resolving_entry: None,
             this_turn_cast: Vec::new(),
             last_turn_cast: Vec::new(),
-            this_turn_cast_from: Vec::new(),
-            last_turn_cast_from: Vec::new(),
+            this_turn_cast_lki: Vec::new(),
+            last_turn_cast_lki: Vec::new(),
             this_turn_cast_may_play: Vec::new(),
             this_turn_activated: Vec::new(),
             max_distinct_sources: 0,
@@ -400,8 +400,8 @@ impl MagicStack {
         self.resolving_entry = None;
         self.last_turn_cast.clear();
         self.this_turn_cast.clear();
-        self.last_turn_cast_from.clear();
-        self.this_turn_cast_from.clear();
+        self.last_turn_cast_lki.clear();
+        self.this_turn_cast_lki.clear();
         self.this_turn_cast_may_play.clear();
         self.simultaneous_entries.clear();
         self.undo_stack.clear();
@@ -705,7 +705,7 @@ impl MagicStack {
     /// Mirrors Java's `MagicStack.onNextTurn()`.
     pub fn on_next_turn(&mut self) {
         self.last_turn_cast = std::mem::take(&mut self.this_turn_cast);
-        self.last_turn_cast_from = std::mem::take(&mut self.this_turn_cast_from);
+        self.last_turn_cast_lki = std::mem::take(&mut self.this_turn_cast_lki);
         self.this_turn_cast_may_play.clear();
         self.this_turn_activated.clear();
     }
@@ -714,11 +714,11 @@ impl MagicStack {
     pub fn record_spell_cast(
         &mut self,
         card_id: CardId,
-        cast_from: Option<ZoneType>,
+        lki: std::sync::Arc<crate::card::Card>,
         may_play: Option<(CardId, Option<usize>)>,
     ) {
         self.this_turn_cast.push(card_id);
-        self.this_turn_cast_from.push(cast_from);
+        self.this_turn_cast_lki.push(lki);
         self.this_turn_cast_may_play.push(may_play);
     }
 
@@ -741,12 +741,12 @@ impl MagicStack {
         &self.last_turn_cast
     }
 
-    pub fn get_spells_cast_this_turn_from(&self) -> &[Option<ZoneType>] {
-        &self.this_turn_cast_from
+    pub fn get_spells_cast_this_turn_lki(&self) -> &[std::sync::Arc<crate::card::Card>] {
+        &self.this_turn_cast_lki
     }
 
-    pub fn get_spells_cast_last_turn_from(&self) -> &[Option<ZoneType>] {
-        &self.last_turn_cast_from
+    pub fn get_spells_cast_last_turn_lki(&self) -> &[std::sync::Arc<crate::card::Card>] {
+        &self.last_turn_cast_lki
     }
 
     /// Track an ability activation this turn.

@@ -161,8 +161,7 @@ pub fn get_this_turn_cast(
 ) -> Vec<CardId> {
     filter_spells_cast(
         game,
-        game.stack.get_spells_cast_this_turn(),
-        game.stack.get_spells_cast_this_turn_from(),
+        game.stack.get_spells_cast_this_turn_lki(),
         valid,
         src,
         ctb,
@@ -178,8 +177,7 @@ pub fn get_last_turn_cast(
 ) -> Vec<CardId> {
     filter_spells_cast(
         game,
-        game.stack.get_spells_cast_last_turn(),
-        game.stack.get_spells_cast_last_turn_from(),
+        game.stack.get_spells_cast_last_turn_lki(),
         valid,
         src,
         ctb,
@@ -188,14 +186,13 @@ pub fn get_last_turn_cast(
 
 fn filter_spells_cast(
     game: &GameState,
-    cast: &[CardId],
-    cast_from: &[Option<ZoneType>],
+    cast: &[std::sync::Arc<crate::card::Card>],
     valid: &str,
     src: CardId,
     ctb: Option<&SpellAbility>,
 ) -> Vec<CardId> {
     if valid.is_empty() {
-        return cast.to_vec();
+        return cast.iter().map(|card| card.id).collect();
     }
     let selector = cached_compiled_selector(valid);
     let mut context = valid_filter::MatchContext::from_source(game.card(src)).with_game(game);
@@ -203,19 +200,10 @@ fn filter_spells_cast(
         context = context.with_spell_ability(sa);
     }
     cast.iter()
-        .zip(cast_from)
-        .filter(|&(&card_id, &origin)| {
-            let live = game.card(card_id);
-            if live.cast_from.is_some() || origin.is_none() {
-                return valid_filter::matches_valid_card_selector_with_context(
-                    &selector, live, context,
-                );
-            }
-            let mut cast_card = live.clone();
-            cast_card.cast_from = origin;
-            valid_filter::matches_valid_card_selector_with_context(&selector, &cast_card, context)
+        .filter(|card| {
+            valid_filter::matches_valid_card_selector_with_context(&selector, card, context)
         })
-        .map(|(&card_id, _)| card_id)
+        .map(|card| card.id)
         .collect()
 }
 

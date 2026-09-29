@@ -3227,10 +3227,10 @@ impl GameLoop {
             game.player_record_spell_cast(player, card_id);
         }
         // Track spell cast on the stack (storm count, etc.)
-        let cast_from = game.card(card_id).cast_from;
+        let lki = game.cards[card_id.index()].clone();
         game.stack.record_spell_cast(
             card_id,
-            cast_from,
+            lki,
             sa.may_play_source
                 .map(|source| (source, sa.may_play_static)),
         );

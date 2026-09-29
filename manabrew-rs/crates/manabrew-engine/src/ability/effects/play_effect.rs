@@ -551,7 +551,8 @@ fn push_spell_to_stack(
         ctx.game.card_mut(card_id).turn_face_up();
     }
     ctx.game.player_record_spell_cast(controller, card_id);
-    ctx.game.stack.record_spell_cast(card_id, cast_zone, None);
+    let lki = ctx.game.cards[card_id.index()].clone();
+    ctx.game.stack.record_spell_cast(card_id, lki, None);
 
     ctx.trigger_handler.run_trigger(
         TriggerType::SpellCast,
