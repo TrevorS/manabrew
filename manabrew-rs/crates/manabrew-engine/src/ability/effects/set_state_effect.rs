@@ -177,6 +177,16 @@ fn set_state_for_card(
             card.set_flipped(!card.flipped);
         }
         Some(SpellAbilityMode::TurnFaceUp) => {
+            let card = ctx.game.card(card_id);
+            if card.face_down
+                && card.zone == forge_foundation::ZoneType::Battlefield
+                && card
+                    .face_down_state
+                    .as_ref()
+                    .is_some_and(|state| !state.original_type_line.is_permanent())
+            {
+                return;
+            }
             if crate::replacement::replacement_handler::cant_happen_check(
                 ctx.game,
                 &ReplacementEvent::TurnFaceUp { card: card_id },
