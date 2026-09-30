@@ -259,15 +259,6 @@ impl GameLoop {
         {
             return false;
         }
-        if let Some(ref tr) = cast_sa.target_restrictions {
-            if tr.get_min_targets(game, &cast_sa) > 0
-                && !target_restrictions::has_candidates_in_spell_ability_chain(
-                    game, player, &cast_sa,
-                )
-            {
-                return false;
-            }
-        }
         let available_mana =
             self.available_mana_for_spell_card(game, player, card_id, chosen_types_by_source);
         let cost_adj =
@@ -297,6 +288,24 @@ impl GameLoop {
                 )
             });
         let cost = cost_adj.apply(&base_cost).add(&raise_mana);
+        if let Some(order) = self.action_space_probe_order(game) {
+            order.rotate(
+                self.pool(player),
+                player,
+                &crate::mana::mana_cost_being_paid::ManaCostBeingPaid::from_mana_cost(&cost),
+                &Self::spell_payment_context(card, chosen_types_by_source),
+                card.has_converge(),
+            );
+        }
+        if let Some(ref tr) = cast_sa.target_restrictions {
+            if tr.get_min_targets(game, &cast_sa) > 0
+                && !target_restrictions::has_candidates_in_spell_ability_chain(
+                    game, player, &cast_sa,
+                )
+            {
+                return false;
+            }
+        }
         (if any_color {
             available_mana.can_pay_any_color(&cost)
         } else {
@@ -2482,7 +2491,7 @@ impl GameLoop {
                     card_id,
                     &reduced,
                     &Self::spell_payment_context(card, &chosen),
-                    self.action_space_probe_order(game),
+                    None,
                 );
                 let may_play_from: Vec<&str> =
                     crate::staticability::static_ability_continuous::may_play_grants(
