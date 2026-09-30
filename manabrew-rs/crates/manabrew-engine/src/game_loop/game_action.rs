@@ -100,6 +100,21 @@ pub(crate) fn perform_sacrifice(
     sacrificed
 }
 
+pub(crate) fn sacrifice_cost_cards(
+    game: &mut GameState,
+    runtime: &mut ReplacementRuntime<'_>,
+    agents: &mut [Box<dyn PlayerAgent>],
+    cards: &[CardId],
+) {
+    let outer_change_zone_table = game.pending_change_zone_table.take();
+    game.ensure_pending_change_zone_table();
+    perform_sacrifice(game, runtime, agents, cards);
+    if let Some(table) = game.pending_change_zone_table.take() {
+        table.trigger_changes_zone_all(runtime.trigger_handler, game, None);
+    }
+    game.pending_change_zone_table = outer_change_zone_table;
+}
+
 pub(crate) fn exile_cost_cards(
     game: &mut GameState,
     runtime: &mut ReplacementRuntime<'_>,

@@ -1889,7 +1889,7 @@ pub(crate) fn auto_payment_callback<'a, 'r: 'a>(
                 chosen.first().copied()
             }
             ManaPayCallback::NotifySacrificeForMana(game, id) => {
-                crate::game_loop::perform_sacrifice(game, runtime, agents, &[id]);
+                crate::game_loop::sacrifice_cost_cards(game, runtime, agents, &[id]);
                 Some(id)
             }
             ManaPayCallback::ExileCostCardsForMana {

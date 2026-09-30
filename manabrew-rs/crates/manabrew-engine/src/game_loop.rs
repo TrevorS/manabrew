@@ -1006,7 +1006,9 @@ mod combat_phase;
 mod cost_payment;
 mod discover_effect;
 mod game_action;
-pub(crate) use game_action::{exile_cost_cards, fire_sacrificed_once_for_batch, perform_sacrifice};
+pub(crate) use game_action::{
+    exile_cost_cards, fire_sacrificed_once_for_batch, perform_sacrifice, sacrifice_cost_cards,
+};
 pub(crate) mod mana_payment;
 mod phase_handler;
 mod play_effect;

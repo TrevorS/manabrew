@@ -587,7 +587,7 @@ impl GameLoop {
                     }
                 }
                 mana::ManaPayCallback::NotifySacrificeForMana(game, sacrificed_id) => {
-                    perform_sacrifice(game, runtime, agents, &[sacrificed_id]);
+                    sacrifice_cost_cards(game, runtime, agents, &[sacrificed_id]);
                     Some(sacrificed_id)
                 }
                 mana::ManaPayCallback::ExileCostCardsForMana {
