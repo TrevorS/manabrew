@@ -1503,7 +1503,7 @@ fn resolve_paid_hash_property(
         source_id,
         sa.activating_player,
         sa,
-        true,
+        paid_key != crate::cost::cost_reveal::HASH_LKI,
     ))
 }
 
