@@ -79,8 +79,19 @@ fn requirement_amount(
         .unwrap_or(expr)
         .trim();
     // `CastSA>` evaluates against the host's cast ability in Forge; what the engine keeps
-    // of that ability (mana spent, X, kicker) lives on the card itself.
-    let raw_value = raw_value.strip_prefix("CastSA>").unwrap_or(raw_value);
+    // of that ability (mana spent, X, kicker) lives on the card itself. A card with no cast
+    // ability, on itself or on the LKI of a host that left play (`getLKICopy` keeps it),
+    // leaves the prefix unresolved in Forge, which reads as 0.
+    let raw_value = match raw_value.strip_prefix("CastSA>") {
+        Some(_)
+            if source.cast_sa.is_none()
+                && game.get_change_zone_lki_info(source.id).cast_sa.is_none() =>
+        {
+            return 0
+        }
+        Some(rest) => rest,
+        None => raw_value,
+    };
 
     if let Ok(n) = raw_value.parse::<i32>() {
         return n;
