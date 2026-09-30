@@ -116,9 +116,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     } else {
         crate::ability::spell_ability_effect::get_target_players(ctx.game, sa)
     };
+    let zones = crate::parsing::raw_get(&sa.ability_text, "Zone")
+        .map(crate::zone::zone_type::list_value_of)
+        .unwrap_or_else(|| vec![ZoneType::Battlefield]);
     let mut targets = Vec::new();
     for &pid in &player_ids {
-        let zone_cards = ctx.game.cards_in_zone(ZoneType::Battlefield, pid).to_vec();
+        let zone_cards: Vec<_> = zones
+            .iter()
+            .flat_map(|&zone| ctx.game.cards_in_zone(zone, pid).to_vec())
+            .collect();
         for cid in zone_cards {
             if matches_valid_cards_for_sa(
                 ctx.game,
@@ -134,7 +140,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     let mut type_timestamp: Option<u64> = None;
     for card_id in targets {
-        if ctx.game.card(card_id).zone != ZoneType::Battlefield {
+        if !zones.contains(&ctx.game.card(card_id).zone) {
             continue;
         }
 
@@ -217,22 +223,34 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
 
-        if remove_all_abilities || !added_abilities.is_empty() || !parsed_statics.is_empty() {
+        let traits_changed =
+            remove_all_abilities || !added_abilities.is_empty() || !parsed_statics.is_empty();
+        if traits_changed {
             let card = ctx.game.card_mut(card_id);
             if remove_all_abilities {
                 card.clear_pump_keywords();
                 card.clear_static_changed_card_keywords();
             }
-            card.add_changed_card_traits(
-                CardTraitChanges {
-                    abilities: added_abilities,
-                    static_abilities: parsed_statics.clone(),
-                    remove_all: remove_all_abilities,
-                    ..Default::default()
+            let changes = CardTraitChanges {
+                abilities: added_abilities,
+                static_abilities: parsed_statics.clone(),
+                triggers: if is_perpetual {
+                    parsed_triggers.clone()
+                } else {
+                    Vec::new()
                 },
-                resolve_ts,
-                0,
-            );
+                remove_all: remove_all_abilities,
+                ..Default::default()
+            };
+            if is_perpetual {
+                perpetual_abilities::PerpetualAbilities {
+                    timestamp: resolve_ts,
+                    changes,
+                }
+                .apply_effect(card);
+            } else {
+                card.add_changed_card_traits(changes, resolve_ts, 0);
+            }
             if let Some(state) = card.animate_state.as_mut() {
                 state.trait_change_timestamps.push(resolve_ts);
             }
@@ -376,15 +394,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             let source_id = sa.source.unwrap_or(crate::ids::CardId(0));
             let source_svars = ctx.game.card(source_id).svars.clone();
             if let Some(ts) = effect_ts {
-                let changes = CardTraitChanges {
-                    triggers: parsed_triggers.clone(),
-                    ..Default::default()
-                };
-                perpetual_abilities::PerpetualAbilities {
-                    timestamp: ts,
-                    changes,
+                if !traits_changed {
+                    let changes = CardTraitChanges {
+                        triggers: parsed_triggers.clone(),
+                        ..Default::default()
+                    };
+                    perpetual_abilities::PerpetualAbilities {
+                        timestamp: ts,
+                        changes,
+                    }
+                    .apply_effect(ctx.game.card_mut(card_id));
                 }
-                .apply_effect(ctx.game.card_mut(card_id));
                 for trig in &parsed_triggers {
                     if !trig.execute.is_empty() {
                         if let Some(exec_svar) = source_svars.get(&trig.execute) {
