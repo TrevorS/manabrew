@@ -12,7 +12,7 @@ use super::keyword_instance::{Keyword, KeywordInstanceData};
 /// Mirrors Java's `KeywordCollection` which uses a Multimap<Keyword, KeywordInterface>.
 ///
 /// Serializes as a `Vec<String>` of original keyword strings for backward compatibility.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct KeywordCollection {
     /// Map from keyword enum to list of keyword instance original strings.
     map: IndexMap<Keyword, Vec<KeywordInstanceData>>,

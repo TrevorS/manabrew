@@ -74,6 +74,7 @@ pub struct CardSnapshot {
     pub exiled_cards: Vec<CardId>,
     pub saddled_by: Vec<CardId>,
     pub attachments: Vec<CardId>,
+    pub granted_keywords: crate::keyword::keyword_collection::KeywordCollection,
 }
 
 impl CardSnapshot {
@@ -93,6 +94,7 @@ impl CardSnapshot {
             exiled_cards: card.exiled_cards.clone(),
             saddled_by: card.saddled_by_this_turn(),
             attachments: card.attachments.clone(),
+            granted_keywords: card.granted_keywords.clone(),
         }
     }
 
@@ -111,6 +113,7 @@ impl CardSnapshot {
             exiled_cards,
             saddled_by,
             attachments,
+            granted_keywords,
         } = self;
         *controller = card.controller;
         *owner = card.owner;
@@ -128,6 +131,9 @@ impl CardSnapshot {
         exiled_cards.clone_from(&card.exiled_cards);
         *saddled_by = card.saddled_by_this_turn();
         attachments.clone_from(&card.attachments);
+        if *granted_keywords != card.granted_keywords {
+            granted_keywords.clone_from(&card.granted_keywords);
+        }
     }
 }
 
@@ -249,6 +255,7 @@ pub fn battlefield_lki_card(game: &crate::game::GameState, card_id: CardId) -> O
     lki.tapped = snapshot.tapped;
     lki.type_line = snapshot.type_line.clone();
     lki.attachments = snapshot.attachments.clone();
+    lki.granted_keywords = snapshot.granted_keywords.clone();
     lki.static_power_modifier += snapshot.power - lki.power();
     lki.static_toughness_modifier += snapshot.toughness - lki.toughness();
     Some(lki)
