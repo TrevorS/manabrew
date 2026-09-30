@@ -65,6 +65,26 @@ pub(super) fn resolve_hidden_origin(
         && !defined.eq_ignore_ascii_case("Opponent");
 
     if is_defined && sa.defined_player().is_none() {
+        if optional_confirm {
+            let message = format!(
+                "Put that card from {}'s {} to {}?",
+                ctx.game.player(controller).name,
+                origin_zone.to_string().to_lowercase(),
+                dest_zone.to_string().to_lowercase()
+            );
+            ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
+            if !ctx.agents[controller.index()].confirm_action(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                controller,
+                Some("ChangeZoneGeneral"),
+                &message,
+                &[],
+                sa.source,
+                Some(crate::ability::api_type::ApiType::ChangeZone),
+            ) {
+                return;
+            }
+        }
         // Resolve defined cards (Remembered, Imprinted, Self, etc.)
         let cards: Vec<crate::ids::CardId> = if matches!(defined_ref, Some(DefinedRef::Remembered))
         {
@@ -134,29 +154,6 @@ pub(super) fn resolve_hidden_origin(
                 {
                     ordered = reordered;
                 }
-            }
-            // Optional$ True — Java mirrors per-card confirm at
-            // `ChangeZoneEffect.java:558-561`. Mirrors the same hook in
-            // `known.rs`. Required for Risen Reef / similar peek-and-move
-            // optional moves originating from a hidden zone (Library).
-            if sa.ir.optional {
-                let chooser = controller;
-                let _source_name = sa.source.map(|cid| ctx.game.card(cid).card_name.clone());
-                ordered.retain(|&cid| {
-                    let card_name = ctx.game.card(cid).card_name.clone();
-                    let prompt = format!(
-                        "Do you want to move {card_name} from {origin_zone} to {dest_zone}?",
-                    );
-                    ctx.agents[chooser.index()].confirm_action(
-                        DecisionContext::new(ctx.game, ctx.mana_pools),
-                        chooser,
-                        None,
-                        &prompt,
-                        &[],
-                        sa.source,
-                        Some(crate::ability::api_type::ApiType::ChangeZone),
-                    )
-                });
             }
             // Java's changeHiddenOriginResolve skips the post-move search shuffle for
             // Defined$ cards unless Shuffle$ True, but still shuffles before a
