@@ -1194,7 +1194,18 @@ impl GameLoop {
                 }
 
                 if let Some(target_stack_id) = sa.target_chosen.target_stack_entry {
-                    if game.stack.find_by_id(target_stack_id).is_some() {
+                    if game.stack.find_by_id(target_stack_id).is_some()
+                        && sa.target_restrictions.as_ref().is_none_or(|tr| {
+                            !crate::spellability::target_restrictions::filter_spells_for_target_restrictions(
+                                game,
+                                sa.activating_player,
+                                sa.source,
+                                &[target_stack_id],
+                                tr,
+                            )
+                            .is_empty()
+                        })
+                    {
                         fizzle = Some(false);
                     } else {
                         sa.target_chosen.target_stack_entry = None;
