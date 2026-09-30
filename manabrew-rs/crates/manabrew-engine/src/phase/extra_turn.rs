@@ -3,6 +3,7 @@
 //! Mirrors Java's `ExtraTurn.java`.
 
 use crate::ids::PlayerId;
+use crate::trigger::handler::DelayedTrigger;
 
 /// An extra turn entry — tracks who gets the turn and any modifications.
 /// Mirrors Java's `ExtraTurn` class.
@@ -12,7 +13,7 @@ pub struct ExtraTurn {
     /// If true, the untap step is skipped during this extra turn.
     pub skip_untap: bool,
     /// Delayed triggers to register when this extra turn begins.
-    delayed_triggers: Vec<String>,
+    delayed_triggers: Vec<DelayedTrigger>,
     /// If true, the player can't set schemes in motion this turn (Archenemy).
     pub cant_set_schemes_in_motion: bool,
 }
@@ -35,11 +36,11 @@ impl ExtraTurn {
         self.player = player;
     }
 
-    pub fn add_trigger(&mut self, del_trigger: String) {
+    pub fn add_trigger(&mut self, del_trigger: DelayedTrigger) {
         self.delayed_triggers.push(del_trigger);
     }
 
-    pub fn get_delayed_triggers(&self) -> &[String] {
+    pub fn get_delayed_triggers(&self) -> &[DelayedTrigger] {
         &self.delayed_triggers
     }
 

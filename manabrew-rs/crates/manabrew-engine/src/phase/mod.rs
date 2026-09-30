@@ -412,7 +412,7 @@ impl TurnState {
         &mut self,
         extra_turns: &mut std::collections::VecDeque<ExtraTurn>,
         player_order: &[PlayerId],
-    ) -> Option<(PlayerId, bool)> {
+    ) -> Option<ExtraTurn> {
         if let Some(extra_turn) = extra_turns.pop_back() {
             let player = extra_turn.player;
             self.active_player = player;
@@ -423,11 +423,7 @@ impl TurnState {
             self.combat_blockers_declared = false;
             self.combat_block_assignments.clear();
             self.drawn_for_turn = false;
-            if extra_turn.skip_untap {
-                Some((player, true))
-            } else {
-                None
-            }
+            Some(extra_turn)
         } else {
             self.is_extra_turn = false;
             self.next_player_turn(player_order);

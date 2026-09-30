@@ -36,7 +36,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             _ => PhaseType::from_script_name(extra).into_iter().collect(),
         };
         extra_phase_list.extend(following_extra);
-        let del_trig = extra_phase_delayed_trigger(ctx, sa);
+        let del_trig = extra_delayed_trigger(
+            ctx,
+            sa,
+            "ExtraPhaseDelayedTrigger",
+            "ExtraPhaseDelayedTriggerExcute",
+        );
         let extra_phase = ctx
             .game
             .turn
@@ -47,20 +52,19 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
 }
 
-fn extra_phase_delayed_trigger(ctx: &EffectContext, sa: &SpellAbility) -> Option<DelayedTrigger> {
+pub(super) fn extra_delayed_trigger(
+    ctx: &EffectContext,
+    sa: &SpellAbility,
+    trigger_param: &str,
+    execute_param: &str,
+) -> Option<DelayedTrigger> {
     let host = sa.source?;
     let card = ctx.game.card(host);
     let trigger_text = card
-        .get_s_var(crate::parsing::raw_get(
-            &sa.ability_text,
-            "ExtraPhaseDelayedTrigger",
-        )?)?
+        .get_s_var(crate::parsing::raw_get(&sa.ability_text, trigger_param)?)?
         .to_string();
     let execute_svar = card
-        .get_s_var(crate::parsing::raw_get(
-            &sa.ability_text,
-            "ExtraPhaseDelayedTriggerExcute",
-        )?)?
+        .get_s_var(crate::parsing::raw_get(&sa.ability_text, execute_param)?)?
         .to_string();
     let parsed = parse_trigger(&trigger_text, &mut 0)?;
     Some(DelayedTrigger {

@@ -3,7 +3,6 @@ use std::sync::Arc;
 use crate::card::{valid_filter, Card};
 use crate::game::GameState;
 use crate::ids::PlayerId;
-use crate::parsing::compare::compare_expr;
 use crate::spellability::SpellAbility;
 use crate::staticability::StaticMode;
 use forge_foundation::ZoneType;
@@ -283,7 +282,7 @@ pub fn apply_cant_be_activated_ability(
 
     // ValidSA — check the spell ability itself against a filter
     if let Some(valid_sa) = st_ab.ir.valid_sa.as_deref() {
-        if !matches_valid_sa(valid_sa, spell) {
+        if !crate::spellability::matches_valid_sa(valid_sa, spell, source, Some(card)) {
             return false;
         }
     }
@@ -366,31 +365,3 @@ pub fn apply_cant_play_land_ability(
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
-
-/// Simple ValidSA matching for CantBeActivated.
-/// Mirrors the pattern used in trigger.rs `matches_valid_sa`.
-fn matches_valid_sa(filter: &str, sa: &SpellAbility) -> bool {
-    let f = filter.trim();
-    if f.is_empty() {
-        return true;
-    }
-    if f.eq_ignore_ascii_case("Spell") {
-        return sa.is_spell;
-    }
-    if f.eq_ignore_ascii_case("Ability") {
-        return !sa.is_spell;
-    }
-    if f.eq_ignore_ascii_case("ManaAbility") {
-        return sa.api == Some(crate::ability::api_type::ApiType::Mana);
-    }
-    if f.eq_ignore_ascii_case("NonManaAbility") {
-        return sa.api != Some(crate::ability::api_type::ApiType::Mana);
-    }
-    if let Some(cond) = f.strip_prefix("ActivationCount$") {
-        // Java uses richer activation history. For parity-safe support, map to
-        // trigger_remembered_amount when provided by the caller.
-        return compare_expr(sa.trigger_remembered_amount, cond.trim());
-    }
-    // TODO: extend with more SA filter types as needed
-    true
-}

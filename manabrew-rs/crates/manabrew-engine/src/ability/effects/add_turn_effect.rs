@@ -29,10 +29,19 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         for _ in 0..num_turns {
+            let del_trig = super::add_phase_effect::extra_delayed_trigger(
+                ctx,
+                sa,
+                "ExtraTurnDelayedTrigger",
+                "ExtraTurnDelayedTriggerExecute",
+            );
             let game = &mut *ctx.game;
             let extra = game
                 .turn
                 .add_extra_turn(&mut game.extra_turns, target, &game.player_order);
+            if let Some(del_trig) = del_trig {
+                extra.add_trigger(del_trig);
+            }
             extra.set_skip_untap(skip_untap);
         }
     }

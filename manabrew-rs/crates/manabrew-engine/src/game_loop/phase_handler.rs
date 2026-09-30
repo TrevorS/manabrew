@@ -341,7 +341,7 @@ impl GameLoop {
                 });
             }
             TurnEvent::AdvanceTurn => {
-                self.with_shared_state_mutation(game, agents, |_this, game, agents| {
+                self.with_shared_state_mutation(game, agents, |this, game, agents| {
                     // Rotate stack's turn-tracking (this_turn_cast → last_turn_cast).
                     game.stack.on_next_turn();
                     // Reset zone turn tracking for all zones.
@@ -354,10 +354,16 @@ impl GameLoop {
                         .filter(|_| game.extra_turns.len() > 1)
                         .map(|et| et.player);
                     game.turn.player_previous_turn = Some(game.turn.active_player);
-                    if let Some((player, _skip)) =
+                    if let Some(extra_turn) =
                         game.turn.advance_turn(&mut game.extra_turns, &player_order)
                     {
-                        game.player_set_skip_untap(player);
+                        for deltrig in extra_turn.get_delayed_triggers() {
+                            this.trigger_handler
+                                .register_this_turn_delayed_trigger(deltrig.clone());
+                        }
+                        if extra_turn.is_skip_untap() {
+                            game.player_set_skip_untap(extra_turn.get_player());
+                        }
                     }
                     if let Some(player) = extra_turn_player {
                         if agents[player.index()]
