@@ -966,7 +966,6 @@ impl GameState {
                 card.summoning_sick = true;
                 card.monstrous = false;
                 card.controller = card.owner;
-                card.turn_face_up();
                 card.is_bestowed = false;
                 // CR 400.7: a permanent that changes zones becomes a new
                 // object with no cast history. Mirrors Java's
@@ -1011,6 +1010,9 @@ impl GameState {
                         card.remove_changed_card_traits(ts, 0);
                     }
                 }
+                // After the animate snapshot: an animate on a face-down permanent snapshots
+                // the face-down characteristics, which turning face up then replaces.
+                card.turn_face_up();
                 // After the until-end-of-turn snapshot: that snapshot can hold what a lasting
                 // change (Earthbend) made, and the baseline predates both.
                 card.restore_changed_characteristics_baseline();
