@@ -1645,18 +1645,6 @@ impl GameLoop {
                 x
             };
             x_value = max_x;
-            if is_harmonize && x_count == 1 {
-                let colored_requirements = non_x_cost
-                    .shards()
-                    .iter()
-                    .filter(|shard| shard.color_mask() != 0)
-                    .count() as u32;
-                if colored_requirements > 0 && max_x == colored_requirements {
-                    if let Some(total_sources) = available_mana.total_sources {
-                        x_value = total_sources.max(0) as u32;
-                    }
-                }
-            }
             let x_min = Self::announce_bounds(game, player, &sa, spell_cost.as_ref(), "X")
                 .map_or(0, |(min, _)| min.max(0) as u32)
                 .min(x_value);
