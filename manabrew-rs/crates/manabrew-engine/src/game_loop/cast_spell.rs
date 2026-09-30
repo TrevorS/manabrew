@@ -209,6 +209,7 @@ impl GameLoop {
                     crate::agent::notification::GameNotification::SpellPaymentFailed {
                         player,
                         card_id,
+                        cast_face_down: false,
                     };
                 for agent in agents.iter_mut() {
                     agent.notify(
@@ -1799,7 +1800,8 @@ impl GameLoop {
         } else if sa.is_spell && game.card(card_id).face_down {
             game.card_mut(card_id).turn_face_up();
         }
-        let rollback_leaves_face_down = game.mirror_forge_bugs && sa.cast_face_down;
+        let cast_face_down = sa.cast_face_down;
+        let rollback_leaves_face_down = game.mirror_forge_bugs && cast_face_down;
         let pending_stack_id = if sa.is_spell {
             Some(game.stack.begin_pending_cast(StackEntry {
                 id: 0,
@@ -1834,6 +1836,7 @@ impl GameLoop {
                     crate::agent::notification::GameNotification::SpellPaymentFailed {
                         player,
                         card_id,
+                        cast_face_down,
                     };
                 for agent in agents.iter_mut() {
                     agent.notify(

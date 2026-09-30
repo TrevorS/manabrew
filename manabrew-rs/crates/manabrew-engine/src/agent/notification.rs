@@ -55,9 +55,12 @@ pub enum GameNotification {
     },
     /// A spell's cost payment failed at any part (additional costs, tap costs, mana) and
     /// the cast was rolled back. Not sent when targeting or an announcement fails.
+    /// A `cast_face_down` spell was on the stack face down, so the rollback returns a card
+    /// no other player has seen, although it is face up again by the time this is sent.
     SpellPaymentFailed {
         player: PlayerId,
         card_id: CardId,
+        cast_face_down: bool,
     },
     /// Dice were rolled. Display-only — sent for UI animation/feedback.
     /// Mirrors Java's `PlayerController.notifyOfRoll`.
