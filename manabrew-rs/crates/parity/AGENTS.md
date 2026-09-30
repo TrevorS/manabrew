@@ -40,6 +40,8 @@ Deck names passed via `--deck1` / `--deck2` resolve from two folders in order:
 
 Both engines share this lookup: the Rust list lives in `runner::DEFAULT_DECKS_DIRS`; the Java harness reads it via `-Dpreset.decks.dir=parity_decks,preset_decks` (set automatically by `java_bridge::decks_dir_property`). `--decks-dir <path>` still overrides with a single explicit folder for tests/debugging.
 
+In each folder `<name>.json` is tried first, then a Forge `<name>.dck` (`utils::decks::parse_forge_deck`, after Forge's `DeckSerializer.fromSections` and `CardPool.processCardList`): the file needs a `[metadata]` section, `[Main]` and `[Commander]` are counted, `[Sideboard]` and every other section are skipped, a line without a count is one copy, and a `|SET|art` suffix and a foil `+` are dropped. A `file:` spec reads the same format when the file has section headers. The Java harness's `PresetDecks` reads only `<name>.json` and `inline:`, so a parity run that names a `.dck` deck finds no Java deck; pass it as `inline:`.
+
 ## Common workflows
 
 ### Reproduce a divergence
