@@ -94,6 +94,12 @@ fn requirement_amount(
         return -requirement_amount(source, svar_source, stripped.trim(), game);
     }
 
+    if raw_value == "Count$OptionalKeywordAmount" {
+        return svar_source
+            .get_keyword()
+            .zip(source.cast_sa.as_ref())
+            .map_or(0, |(kw, cast_sa)| cast_sa.get_optional_keyword_amount(kw));
+    }
     if raw_value.starts_with("Count$") {
         return crate::svar::resolve_count_svar(raw_value, game, source.id, source.controller);
     }

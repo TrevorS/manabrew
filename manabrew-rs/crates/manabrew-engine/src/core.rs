@@ -13,4 +13,7 @@ pub trait HasSVars {
     fn set_svars(&mut self, new_svars: HashMap<String, String>);
     fn get_svars(&self) -> &HashMap<String, String>;
     fn remove_svar(&mut self, var: &str);
+    fn get_keyword(&self) -> Option<&crate::keyword::keyword_interface::KeywordInterface> {
+        None
+    }
 }

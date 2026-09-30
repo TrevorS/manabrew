@@ -23,6 +23,7 @@ pub struct KeywordInterface {
     reminder_text: String,
     intrinsic: bool,
     idx: i64,
+    static_id: i64,
     amount: i32,
     svars: HashMap<String, String>,
     triggers: Vec<Trigger>,
@@ -42,6 +43,7 @@ impl KeywordInterface {
             keyword,
             intrinsic: false,
             idx: -1,
+            static_id: 0,
             amount: 1,
             svars: HashMap::default(),
             triggers: Vec::new(),
@@ -50,6 +52,14 @@ impl KeywordInterface {
             static_abilities: Vec::new(),
             static_ability: None,
         }
+    }
+
+    pub fn from_instance(inst: &super::keyword_instance::KeywordInstanceData) -> Self {
+        let mut ki = Self::new(inst.keyword, inst.original.clone());
+        ki.intrinsic = inst.intrinsic;
+        ki.idx = inst.idx;
+        ki.static_id = inst.static_id;
+        ki
     }
 
     /// Get the original keyword string (e.g. "Flying", "Kicker:1 R").
@@ -112,6 +122,10 @@ impl KeywordInterface {
 
     pub fn set_amount(&mut self, amount: i32) {
         self.amount = amount;
+    }
+
+    pub fn get_static_id(&self) -> i64 {
+        self.static_id
     }
 
     pub fn get_static(&self) -> Option<&StaticAbility> {

@@ -3,6 +3,7 @@
 //! Ported from Java's `KeywordInstance.java` and `Keyword.java` in `forge/game/keyword/`.
 
 use crate::HashMap;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Base data shared by all keyword instances.
@@ -19,6 +20,7 @@ pub struct KeywordInstanceData {
     pub idx: i64,
     /// The timestamp of the effect that granted it (Java `KeywordsChange`, keyed by timestamp).
     pub timestamp: Option<u64>,
+    pub static_id: i64,
 }
 
 impl KeywordInstanceData {
@@ -30,6 +32,7 @@ impl KeywordInstanceData {
             intrinsic: false,
             idx: -1,
             timestamp: None,
+            static_id: 0,
         }
     }
 }
@@ -185,7 +188,7 @@ impl KeywordInstance {
 
 /// The Keyword enum with all keyword variants.
 /// Mirrors Java's `Keyword` enum with 213 entries.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Keyword {
     Undefined,
     Absorb,

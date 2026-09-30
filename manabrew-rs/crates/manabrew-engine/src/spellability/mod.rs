@@ -87,6 +87,16 @@ impl TriggerKeyInput for &String {
 // ── SpellAbility (mirrors Java's SpellAbility.java) ──────────────────
 
 /// A spell or ability with its own targeting, costs, and sub-ability chain.
+/// A row of Java's `SpellAbility.optionalKeywordAmount` table: keyword, then the
+/// instance's `(idx, static id)`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OptionalKeywordAmount {
+    pub keyword: crate::keyword::Keyword,
+    pub idx: i64,
+    pub static_id: i64,
+    pub amount: i32,
+}
+
 /// Mirrors Java's `SpellAbility` class — each node in the chain has its own
 /// `target_restrictions`, `target_chosen`, `sub_ability`, `api`, etc.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -314,7 +324,7 @@ pub struct SpellAbility {
     pub rollback_effects: Vec<String>,
     /// Keyword amounts for optional keyword costs.
     #[serde(default)]
-    pub optional_keyword_amounts: HashMap<String, i32>,
+    pub optional_keyword_amounts: Vec<OptionalKeywordAmount>,
     /// Pips to reduce from cost.
     #[serde(default)]
     pub pips_to_reduce: Vec<String>,
@@ -771,7 +781,7 @@ impl SpellAbility {
             restriction: SpellAbilityRestriction::default(),
             condition: SpellAbilityCondition::default(),
             rollback_effects: Vec::new(),
-            optional_keyword_amounts: HashMap::default(),
+            optional_keyword_amounts: Vec::new(),
             pips_to_reduce: Vec::new(),
             may_choose_new_targets: false,
             last_state: HashMap::default(),
@@ -2073,10 +2083,36 @@ impl SpellAbility {
 
     // ── Optional keyword amounts ──────────────────────────────────────────
 
-    /// Check if this ability has an optional keyword with a specific amount.
-    /// Mirrors Java's `SpellAbility.hasOptionalKeywordAmount(String)`.
-    pub fn has_optional_keyword_amount(&self, keyword: &str) -> bool {
-        self.optional_keyword_amounts.contains_key(keyword)
+    pub fn get_optional_keyword_amount(
+        &self,
+        kw: &crate::keyword::keyword_interface::KeywordInterface,
+    ) -> i32 {
+        self.optional_keyword_amounts
+            .iter()
+            .find(|row| {
+                row.keyword == kw.get_keyword()
+                    && row.idx == kw.get_idx()
+                    && row.static_id == kw.get_static_id()
+            })
+            .map_or(0, |row| row.amount)
+    }
+
+    pub fn set_optional_keyword_amount(
+        &mut self,
+        kw: &crate::keyword::keyword_interface::KeywordInterface,
+        amount: i32,
+    ) {
+        self.optional_keyword_amounts.retain(|row| {
+            !(row.keyword == kw.get_keyword()
+                && row.idx == kw.get_idx()
+                && row.static_id == kw.get_static_id())
+        });
+        self.optional_keyword_amounts.push(OptionalKeywordAmount {
+            keyword: kw.get_keyword(),
+            idx: kw.get_idx(),
+            static_id: kw.get_static_id(),
+            amount,
+        });
     }
 
     /// Clear all optional keyword amounts.

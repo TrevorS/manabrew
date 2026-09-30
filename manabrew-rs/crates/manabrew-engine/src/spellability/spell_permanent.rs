@@ -104,7 +104,7 @@ pub fn create_permanent_spell(
         restriction: SpellAbilityRestriction::default(),
         condition: SpellAbilityCondition::default(),
         rollback_effects: Vec::new(),
-        optional_keyword_amounts: HashMap::default(),
+        optional_keyword_amounts: Vec::new(),
         pips_to_reduce: Vec::new(),
         may_choose_new_targets: false,
         last_state: HashMap::default(),

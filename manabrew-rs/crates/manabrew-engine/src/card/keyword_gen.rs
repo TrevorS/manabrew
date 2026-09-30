@@ -568,6 +568,11 @@ impl Card {
         self.generate_keyword_trigger_zone(kw, &mut next_id);
         self.add_keyword_etb_counters(kw);
         self.generate_keyword_trigger_misc(kw, &mut next_id);
+        let (keyword, _) = crate::keyword::keyword_collection::parse_keyword_string(kw);
+        self.tag_keyword_triggers(
+            first_new,
+            &crate::keyword::keyword_instance::KeywordInstanceData::new(keyword, kw.to_string()),
+        );
         self.base_trigger_count = self.triggers.len();
         if let Some(keywords) = self.trait_base_keywords.as_mut() {
             keywords.add(kw);
@@ -586,11 +591,34 @@ impl Card {
     }
 
     pub(crate) fn generate_keyword_triggers_for(&mut self, keywords: &[String]) {
-        let mut next_id = self.triggers.iter().map(|t| t.id + 1).max().unwrap_or(0);
         for kw in keywords {
-            self.generate_keyword_trigger_combat(kw, &mut next_id);
-            self.generate_keyword_trigger_zone(kw, &mut next_id);
-            self.generate_keyword_trigger_misc(kw, &mut next_id);
+            let (keyword, _) = crate::keyword::keyword_collection::parse_keyword_string(kw);
+            self.generate_keyword_triggers_for_instance(
+                &crate::keyword::keyword_instance::KeywordInstanceData::new(keyword, kw.clone()),
+            );
+        }
+    }
+
+    pub(crate) fn generate_keyword_triggers_for_instance(
+        &mut self,
+        inst: &crate::keyword::keyword_instance::KeywordInstanceData,
+    ) {
+        let mut next_id = self.triggers.iter().map(|t| t.id + 1).max().unwrap_or(0);
+        let first_new = self.triggers.len();
+        self.generate_keyword_trigger_combat(&inst.original, &mut next_id);
+        self.generate_keyword_trigger_zone(&inst.original, &mut next_id);
+        self.generate_keyword_trigger_misc(&inst.original, &mut next_id);
+        self.tag_keyword_triggers(first_new, inst);
+    }
+
+    fn tag_keyword_triggers(
+        &mut self,
+        first_new: usize,
+        inst: &crate::keyword::keyword_instance::KeywordInstanceData,
+    ) {
+        let ki = crate::keyword::keyword_interface::KeywordInterface::from_instance(inst);
+        for trigger in &mut self.triggers[first_new..] {
+            trigger.base.set_keyword(ki.clone());
         }
     }
 
@@ -607,11 +635,15 @@ impl Card {
     pub fn generate_keyword_triggers(&mut self) {
         let mut next_id = self.triggers.len() as u32;
 
-        for kw in self.keywords.as_string_list() {
-            self.generate_keyword_trigger_combat(&kw, &mut next_id);
-            self.generate_keyword_trigger_zone(&kw, &mut next_id);
-            self.add_keyword_etb_counters(&kw);
-            self.generate_keyword_trigger_misc(&kw, &mut next_id);
+        let instances: Vec<_> = self.keywords.get_values().into_iter().cloned().collect();
+        for inst in instances {
+            let kw = &inst.original;
+            let first_new = self.triggers.len();
+            self.generate_keyword_trigger_combat(kw, &mut next_id);
+            self.generate_keyword_trigger_zone(kw, &mut next_id);
+            self.add_keyword_etb_counters(kw);
+            self.generate_keyword_trigger_misc(kw, &mut next_id);
+            self.tag_keyword_triggers(first_new, &inst);
         }
     }
 

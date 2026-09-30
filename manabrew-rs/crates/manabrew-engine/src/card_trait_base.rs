@@ -583,6 +583,10 @@ impl Identifiable for CardTraitBase {
 }
 
 impl HasSVars for CardTraitBase {
+    fn get_keyword(&self) -> Option<&KeywordInterface> {
+        self.keyword.as_deref()
+    }
+
     fn get_svar(&self, name: &str) -> Option<&str> {
         if let Some(v) = self.svars.get(name) {
             return Some(v.as_str());

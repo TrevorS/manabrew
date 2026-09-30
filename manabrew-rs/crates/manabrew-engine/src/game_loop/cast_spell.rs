@@ -869,15 +869,17 @@ impl GameLoop {
             "tapXType<2/Creature.SharesColorWith/creature that shares a color with {}>",
             host.card_name
         );
-        let conspire_count = host
+        let conspire_instances: Vec<crate::keyword::keyword_instance::KeywordInstanceData> = host
             .keywords
-            .iter_strings()
-            .chain(host.granted_keywords.iter_strings())
-            .chain(host.pump_keywords.iter_strings())
-            .filter(|kw| *kw == "Conspire")
-            .count();
+            .get_values()
+            .into_iter()
+            .chain(host.granted_keywords.get_values())
+            .chain(host.pump_keywords.get_values())
+            .filter(|inst| inst.original == "Conspire")
+            .cloned()
+            .collect();
         let mut conspire_paid = 0;
-        for _ in 0..conspire_count {
+        for inst in &conspire_instances {
             agents[player.index()].snapshot_state(game, &self.mana_pools);
             if agents[player.index()].choose_number_for_keyword_cost(
                 DecisionContext::new(game, &self.mana_pools),
@@ -888,13 +890,15 @@ impl GameLoop {
             ) == 1
             {
                 conspire_paid += 1;
+                sa.set_optional_keyword_amount(
+                    &crate::keyword::keyword_interface::KeywordInterface::from_instance(inst),
+                    1,
+                );
             }
         }
         if conspire_paid == 0 {
             return None;
         }
-        sa.optional_keyword_amounts
-            .insert("Conspire".to_string(), 1);
         Some(crate::cost::parse_cost(&format!(
             "tapXType<{}/Creature.SharesColorWith/creature that shares a color with {}>",
             2 * conspire_paid,
@@ -2044,8 +2048,22 @@ impl GameLoop {
                 {
                     payable_base_cost =
                         payable_base_cost.add(&forge_foundation::ManaCost::parse(&offspring_cost));
-                    sa.optional_keyword_amounts
-                        .insert("Offspring".to_string(), 1);
+                    let host = game.card(card_id);
+                    if let Some(inst) = [&host.keywords, &host.granted_keywords]
+                        .into_iter()
+                        .flat_map(|coll| coll.get_values())
+                        .find(|inst| {
+                            crate::keyword::extract_keyword_cost_str(&inst.original, "Offspring")
+                                .is_some()
+                        })
+                    {
+                        sa.set_optional_keyword_amount(
+                            &crate::keyword::keyword_interface::KeywordInterface::from_instance(
+                                inst,
+                            ),
+                            1,
+                        );
+                    }
                 }
             }
         }

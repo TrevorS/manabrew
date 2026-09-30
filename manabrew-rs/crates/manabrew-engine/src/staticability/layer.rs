@@ -72,7 +72,11 @@ enum EffectKind {
         timestamp: i64,
         static_id: i64,
     },
-    GrantKeyword(String),
+    GrantKeyword {
+        keyword: String,
+        idx: i64,
+        static_id: i64,
+    },
     SetName(String),
     /// Grant an activated ability (from AddAbility$). The string is the ability text.
     GrantAbility {
@@ -397,7 +401,11 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                     PendingEffect {
                         layer: Layer::Ability,
                         target: card.id,
-                        kind: EffectKind::GrantKeyword(keyword.to_string()),
+                        kind: EffectKind::GrantKeyword {
+                            keyword: keyword.to_string(),
+                            idx: 1,
+                            static_id: 0,
+                        },
                     },
                 ));
             } else if matches!(counter, crate::card::CounterType::Named(name) if name == "HONE")
@@ -827,6 +835,8 @@ fn apply_continuous_ability(
             .filter(|_| !removed_by_newer_effect)
         {
             // AddKeyword$ supports multiple keywords separated by " & ".
+            let static_id = static_layer_trait_id(source_id, sa_idx);
+            let mut idx = 1;
             for kw in kws.split('&').map(str::trim).filter(|s| !s.is_empty()) {
                 // Java `StaticAbilityContinuous:714` replaces a CardColors keyword
                 // with one copy per colour of the affected card, so a colourless
@@ -840,16 +850,26 @@ fn apply_continuous_ability(
                         pending.push(PendingEffect {
                             layer: Layer::Ability,
                             target,
-                            kind: EffectKind::GrantKeyword(expanded),
+                            kind: EffectKind::GrantKeyword {
+                                keyword: expanded,
+                                idx,
+                                static_id,
+                            },
                         });
+                        idx += 1;
                     }
                     continue;
                 }
                 pending.push(PendingEffect {
                     layer: Layer::Ability,
                     target,
-                    kind: EffectKind::GrantKeyword(kw.to_string()),
+                    kind: EffectKind::GrantKeyword {
+                        keyword: kw.to_string(),
+                        idx,
+                        static_id,
+                    },
                 });
+                idx += 1;
             }
         }
 
@@ -1231,7 +1251,11 @@ fn apply_pending_effects(
                 game.card_names_unchanged = false;
                 game.card_mut(effect.target).add_changed_name(&name);
             }
-            EffectKind::GrantKeyword(kw) => {
+            EffectKind::GrantKeyword {
+                keyword: kw,
+                idx,
+                static_id,
+            } => {
                 let card = game.card_mut(effect.target);
                 let kw: String = if kw.contains("CardManaCost") {
                     kw.replace("CardManaCost", &card.mana_cost.short_string())
@@ -1240,13 +1264,16 @@ fn apply_pending_effects(
                 } else {
                     kw.to_string()
                 };
-                let redundant = crate::keyword::keyword_collection::parse_keyword_string(&kw)
-                    .0
-                    .is_multiple_redundant()
-                    && card.keywords.contains_string(&kw);
-                if card.granted_keywords.add(&kw) && !redundant {
+                let keyword = crate::keyword::keyword_collection::parse_keyword_string(&kw).0;
+                let redundant =
+                    keyword.is_multiple_redundant() && card.keywords.contains_string(&kw);
+                let mut inst =
+                    crate::keyword::keyword_instance::KeywordInstanceData::new(keyword, kw.clone());
+                inst.idx = idx;
+                inst.static_id = static_id;
+                if card.granted_keywords.insert(inst.clone()) && !redundant {
                     let own_svars = std::mem::take(&mut card.svars);
-                    card.generate_keyword_triggers_for(std::slice::from_ref(&kw));
+                    card.generate_keyword_triggers_for_instance(&inst);
                     let keyword_svars = std::mem::replace(&mut card.svars, own_svars);
                     for (name, value) in keyword_svars {
                         if !card.svars.contains_key(&name) {
