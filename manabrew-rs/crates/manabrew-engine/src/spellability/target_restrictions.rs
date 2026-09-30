@@ -7,7 +7,7 @@
 use forge_foundation::{CoreType, ZoneType};
 use serde::{Deserialize, Serialize};
 
-use crate::card::{card_property, valid_filter};
+use crate::card::{card_property, valid_filter, Card};
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 use crate::parsing::{cached_compiled_selector, keys, CompiledSelector, Params, ParsedParams};
@@ -883,7 +883,21 @@ pub fn has_candidates_in_spell_ability_chain(
                     {
                         return false;
                     }
-                } else if !tr.has_candidates(game, player, node.source) {
+                } else if !tr.has_candidates(game, player, node.source)
+                    && !(game.mirror_forge_bugs
+                        && game.action_space_mana_probe
+                            == crate::mana::ActionSpaceManaProbe::ComputerUtilMana
+                        && matches!(tr.target_kind, TargetKind::Spell)
+                        && get_valid_cards_in_zone_for_sa(
+                            game,
+                            ZoneType::Stack,
+                            player,
+                            Some(tr.valid_tgts.join(",").as_str()),
+                            node,
+                        )
+                        .into_iter()
+                        .any(|card| stack_card_is_valid_target_type(game.card(card), tr)))
+                {
                     return false;
                 }
             }
@@ -891,6 +905,20 @@ pub fn has_candidates_in_spell_ability_chain(
         current = node.sub_ability.as_deref();
     }
     true
+}
+
+/// Java `SpellAbility.canTarget(Card)` tests `TargetType$` against the card with
+/// `Card.isValid`, where `Spell` means `Card.isSpell`: an instant, a sorcery or an Aura off
+/// the battlefield.
+fn stack_card_is_valid_target_type(card: &Card, tr: &TargetRestrictions) -> bool {
+    tr.target_type_filter.as_deref().is_none_or(|types| {
+        types.split(',').any(|target_type| {
+            target_type.trim() == "Spell"
+                && (card.type_line.is_instant()
+                    || card.type_line.is_sorcery()
+                    || (card.type_line.has_subtype("Aura") && card.zone != ZoneType::Battlefield))
+        })
+    })
 }
 
 /// Check if a card can be targeted by a spell/ability controlled by `source_controller`.
