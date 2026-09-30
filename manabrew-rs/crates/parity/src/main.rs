@@ -1474,7 +1474,7 @@ fn run_matrix_mode(cli: &Cli) {
         jobs.par_iter()
             .map(|&(d1, d2, seed)| {
                 let config = build_config(cli, d1, d2, seed);
-                let result = if let Some(ref pool) = pool {
+                let mut result = if let Some(ref pool) = pool {
                     let matchup =
                         ParityRuntime::new(&data).run_cached(&config, pool, java_cache.as_ref());
                     if java_cache.is_some() {
@@ -1492,11 +1492,20 @@ fn run_matrix_mode(cli: &Cli) {
                     run_single_matchup_oneshot(&config, &data, jar_path)
                 } else {
                     let mut result = run_single_matchup_rust_only(&config, &data);
-                    // Matrix JSON historically reports summaries only; keep full
-                    // Rust traces in rust-only mode and debugger/runtime callers.
-                    result.rust_log.clear();
+                    result.rust_log = Vec::new();
                     result
                 };
+                // The text report and the gate read each game's summary, and the snapshots
+                // only for a failure; the rest, about a megabyte a game, is dropped as
+                // each game finishes unless the JSON report, which prints it, is asked for.
+                if cli.format != "json" {
+                    result.rust_log = Vec::new();
+                    result.java_log = Vec::new();
+                    if result.status == MatchupStatus::Pass {
+                        result.rust_snapshot = None;
+                        result.java_snapshot = None;
+                    }
+                }
 
                 if cli.is_verbose() {
                     let n = completed.fetch_add(1, Ordering::Relaxed) + 1;
