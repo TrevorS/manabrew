@@ -46,3 +46,16 @@ impl GameSnapshot {
         *trigger_handler = self.trigger_handler.clone();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    fn assert_send_sync<T: Send + Sync>() {}
+
+    #[test]
+    fn shared_state_is_send_and_sync() {
+        assert_send_sync::<crate::game::GameState>();
+        assert_send_sync::<crate::mana::ManaPool>();
+        assert_send_sync::<super::GameSnapshot>();
+        assert_send_sync::<crate::game_loop::TurnCheckpoint>();
+    }
+}

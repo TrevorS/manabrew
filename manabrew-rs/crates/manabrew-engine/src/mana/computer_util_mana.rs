@@ -3320,6 +3320,7 @@ pub fn can_pay_spell_mana_cost_for_action_space(
     current_spell: CardId,
     cost: &forge_foundation::ManaCost,
     payment_ctx: &crate::mana::ManaPaymentContext,
+    probe_order: Option<&super::ProbeOrder>,
 ) -> bool {
     can_pay_spell_mana_cost_with_sources(
         game,
@@ -3328,6 +3329,7 @@ pub fn can_pay_spell_mana_cost_for_action_space(
         current_spell,
         cost,
         payment_ctx,
+        probe_order,
         || &SpellProbeSources(None),
     )
 }
@@ -3339,10 +3341,20 @@ pub fn can_pay_spell_mana_cost_with_sources<'a>(
     current_spell: CardId,
     cost: &forge_foundation::ManaCost,
     payment_ctx: &crate::mana::ManaPaymentContext,
+    probe_order: Option<&super::ProbeOrder>,
     shared_sources: impl FnOnce() -> &'a SpellProbeSources,
 ) -> bool {
     if game.action_space_mana_probe == super::ActionSpaceManaProbe::ComputerUtilMana {
-        return can_pay_mana_cost(game, pool, player, current_spell, cost, payment_ctx, &[]);
+        return can_pay_mana_cost(
+            game,
+            pool,
+            player,
+            current_spell,
+            cost,
+            payment_ctx,
+            &[],
+            probe_order,
+        );
     }
     let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
     let mut simulated_pool = pool.clone();
@@ -3494,8 +3506,18 @@ pub fn can_pay_ability_mana_cost_for_action_space(
     cost: &ManaCost,
     payment_ctx: &crate::mana::ManaPaymentContext,
     targeted: &[CardId],
+    probe_order: Option<&super::ProbeOrder>,
 ) -> bool {
-    can_pay_mana_cost(game, pool, player, host, cost, payment_ctx, targeted)
+    can_pay_mana_cost(
+        game,
+        pool,
+        player,
+        host,
+        cost,
+        payment_ctx,
+        targeted,
+        probe_order,
+    )
 }
 
 /// `ComputerUtilMana.canPayManaCost`: `payManaCost` with `test` set. Each chosen source's mana
@@ -3509,6 +3531,7 @@ fn can_pay_mana_cost(
     cost: &ManaCost,
     payment_ctx: &crate::mana::ManaPaymentContext,
     targeted: &[CardId],
+    probe_order: Option<&super::ProbeOrder>,
 ) -> bool {
     let spell = game.card(current_spell);
     let trace = crate::game_loop::GameLoop::card_trace_matches(&spell.card_name).then(|| {
@@ -3519,20 +3542,8 @@ fn can_pay_mana_cost(
     });
     let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
     adjust_mana_cost_to_avoid_neg_effects(&mut unpaid, spell);
-    if game.mirror_forge_bugs
-        && game.action_space_mana_probe == super::ActionSpaceManaProbe::ComputerUtilMana
-    {
-        let mut view = pool.probe_view();
-        let mut from_pool = super::mana_pool::ManaPaymentOutcome::default();
-        view.pay_mana_cost_from_pool(
-            &mut unpaid.clone(),
-            payment_ctx,
-            false,
-            spell.has_converge(),
-            &mut from_pool,
-            &mut |_| 0,
-        );
-        pool.rotate_probe_payment(&from_pool.mana_spent);
+    if let Some(order) = probe_order {
+        order.rotate(pool, player, &unpaid, payment_ctx, spell.has_converge());
     }
     let mut simulated_pool = pool.clone();
     simulated_pool.pay_unpaid_for_spell_incremental(&mut unpaid, payment_ctx, false);

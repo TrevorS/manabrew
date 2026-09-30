@@ -254,10 +254,10 @@ impl GameLoop {
         card_id: CardId,
         ab: &crate::ability::ActivatedAbility,
     ) {
-        if !game.mirror_forge_bugs
-            || game.action_space_mana_probe != mana::ActionSpaceManaProbe::ComputerUtilMana
-            || self.pool(player).total_mana() == 0
-        {
+        let Some(probe_order) = self.action_space_probe_order(game) else {
+            return;
+        };
+        if self.pool(player).total_mana() == 0 {
             return;
         }
         let sa = crate::spellability::build_spell_ability(game, card_id, &ab.ability_text, player);
@@ -278,6 +278,7 @@ impl GameLoop {
                 mana_cost,
                 &mana::payment_context_for_sa(game, &sa),
                 &[],
+                Some(probe_order),
             );
         }
     }
@@ -466,6 +467,7 @@ impl GameLoop {
                         mana_cost,
                         &mana::payment_context_for_sa(game, &sa_for_target_check),
                         &ab.sub_ability_targets,
+                        self.action_space_probe_order(game),
                     )
                 } else if reserved_sacrifices.is_empty() {
                     crate::cost::can_pay_with_ability(

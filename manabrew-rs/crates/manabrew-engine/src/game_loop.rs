@@ -86,6 +86,7 @@ pub struct GameLoop {
     /// disables it and requests action space explicitly only when needed.
     pub provide_priority_action_space: bool,
     turn_checkpoint_sink: Option<TurnCheckpointSink>,
+    probe_order: crate::mana::ProbeOrder,
 }
 
 pub type TurnCheckpointSink = Box<dyn FnMut(TurnCheckpoint, &[Box<dyn PlayerAgent>])>;
@@ -224,6 +225,7 @@ impl GameLoop {
             abort_signal: None,
             provide_priority_action_space: true,
             turn_checkpoint_sink: None,
+            probe_order: crate::mana::ProbeOrder::default(),
         }
     }
 
@@ -270,9 +272,16 @@ impl GameLoop {
     }
 
     fn commit_probe_orders(&mut self) {
-        for pool in &mut self.mana_pools {
-            pool.commit_probe_order();
-        }
+        self.probe_order.commit(&mut self.mana_pools);
+    }
+
+    pub(crate) fn action_space_probe_order(
+        &self,
+        game: &GameState,
+    ) -> Option<&crate::mana::ProbeOrder> {
+        (game.mirror_forge_bugs
+            && game.action_space_mana_probe == crate::mana::ActionSpaceManaProbe::ComputerUtilMana)
+            .then_some(&self.probe_order)
     }
 
     pub fn pool(&self, pid: PlayerId) -> &ManaPool {

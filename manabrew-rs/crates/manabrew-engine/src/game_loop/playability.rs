@@ -164,6 +164,7 @@ impl GameLoop {
             card_id,
             &reduced,
             &Self::spell_payment_context(card, chosen_types_by_source),
+            self.action_space_probe_order(game),
         ) || (Self::can_use_source_level_mana_fallback(game, player, || available_mana)
             && available_mana.can_pay(&reduced))
     }
@@ -213,6 +214,7 @@ impl GameLoop {
             card_id,
             &mana,
             &payment_ctx,
+            self.action_space_probe_order(game),
         ) || {
             let available = mana::calculate_available_mana_with_context(
                 self.pool(player),
@@ -472,6 +474,7 @@ impl GameLoop {
             card_id,
             &reduced,
             &payment_ctx,
+            self.action_space_probe_order(game),
         )
     }
 
@@ -1044,6 +1047,7 @@ impl GameLoop {
                                 card_id,
                                 &payable_base,
                                 &payment_ctx,
+                                self.action_space_probe_order(game),
                                 probe_sources,
                             )
                         } else {
@@ -1079,6 +1083,7 @@ impl GameLoop {
                                 card_id,
                                 &reduced,
                                 &payment_ctx,
+                                self.action_space_probe_order(game),
                                 probe_sources,
                             )
                             // The incremental simulator mirrors payment choice order.
@@ -2477,6 +2482,7 @@ impl GameLoop {
                     card_id,
                     &reduced,
                     &Self::spell_payment_context(card, &chosen),
+                    self.action_space_probe_order(game),
                 );
                 let may_play_from: Vec<&str> =
                     crate::staticability::static_ability_continuous::may_play_grants(

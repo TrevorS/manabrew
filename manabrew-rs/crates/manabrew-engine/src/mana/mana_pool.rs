@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use super::mana_conversion_matrix::ManaConversionMatrix;
 use super::mana_cost_being_paid::ManaCostBeingPaid;
 use super::{mana_meets_restriction, Mana, ManaPaymentContext};
-use crate::ids::CardId;
+use crate::ids::{CardId, PlayerId};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ManaPaymentOutcome {
@@ -78,18 +78,17 @@ pub struct ManaPool {
     /// Mirrors Java's `ManaPool` inheriting from `ManaConversionMatrix`.
     #[serde(skip)]
     pub color_matrix: ManaConversionMatrix,
-    #[serde(skip)]
-    probe_order: std::cell::RefCell<Option<(Vec<Mana>, Vec<u16>)>>,
 }
 
-impl ManaPool {
-    pub fn new() -> Self {
-        Self::default()
-    }
+/// The floating-mana order the harness's action-space probes leave behind, per player. It lives
+/// on the game loop only while an action space is built and is applied when the action is chosen.
+#[derive(Debug, Default)]
+pub struct ProbeOrder(std::cell::RefCell<Vec<(PlayerId, Vec<Mana>, Vec<u16>)>>);
 
-    pub(crate) fn probe_view(&self) -> ManaPool {
-        let mut view = self.clone();
-        if let Some((mana, keys)) = self.probe_order.borrow().as_ref() {
+impl ProbeOrder {
+    fn view(&self, pool: &ManaPool, player: PlayerId) -> ManaPool {
+        let mut view = pool.clone();
+        if let Some((_, mana, keys)) = self.0.borrow().iter().find(|(p, ..)| *p == player) {
             view.mana = mana.clone();
             view.floating_mana_keys = keys.clone();
         }
@@ -99,25 +98,51 @@ impl ManaPool {
     /// FORGE BUG (harness quirk, parity only): `ComputerUtilMana.payManaCost` in test mode
     /// spends from the real pool and refunds with `refundMana`, which appends, so every
     /// action-space probe moves the floating mana it spent to the end of the pool.
-    pub(crate) fn rotate_probe_payment(&self, spent: &[Mana]) {
-        if spent.is_empty() {
+    pub(crate) fn rotate(
+        &self,
+        pool: &ManaPool,
+        player: PlayerId,
+        cost: &ManaCostBeingPaid,
+        ctx: &ManaPaymentContext,
+        has_converge: bool,
+    ) {
+        let mut view = self.view(pool, player);
+        let mut spent = ManaPaymentOutcome::default();
+        view.pay_mana_cost_from_pool(
+            &mut cost.clone(),
+            ctx,
+            false,
+            has_converge,
+            &mut spent,
+            &mut |_| 0,
+        );
+        if spent.mana_spent.is_empty() {
             return;
         }
-        let mut view = self.probe_view();
-        for mana in spent {
-            view.remove_mana(mana);
+        let mut rotated = self.view(pool, player);
+        for mana in &spent.mana_spent {
+            rotated.remove_mana(mana);
         }
-        for mana in spent {
-            view.add_mana(mana.clone());
+        for mana in spent.mana_spent {
+            rotated.add_mana(mana);
         }
-        *self.probe_order.borrow_mut() = Some((view.mana, view.floating_mana_keys));
+        let mut orders = self.0.borrow_mut();
+        orders.retain(|(p, ..)| *p != player);
+        orders.push((player, rotated.mana, rotated.floating_mana_keys));
     }
 
-    pub(crate) fn commit_probe_order(&mut self) {
-        if let Some((mana, keys)) = self.probe_order.get_mut().take() {
-            self.mana = mana;
-            self.floating_mana_keys = keys;
+    pub(crate) fn commit(&mut self, pools: &mut [ManaPool]) {
+        for (player, mana, keys) in self.0.get_mut().drain(..) {
+            let pool = &mut pools[player.index()];
+            pool.mana = mana;
+            pool.floating_mana_keys = keys;
         }
+    }
+}
+
+impl ManaPool {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn clear_last_payment_atoms(&mut self) {

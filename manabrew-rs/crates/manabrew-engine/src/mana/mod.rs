@@ -487,7 +487,7 @@ fn spell_was_cast_from(zone: &str, ctx: &ManaPaymentContext) -> bool {
 }
 
 // ManaPool moved to mana_pool.rs — single source of truth.
-pub use mana_pool::ManaPool;
+pub use mana_pool::{ManaPool, ProbeOrder};
 
 // ── Mana helpers ────────────────────────────────────────────────────
 
