@@ -333,15 +333,7 @@ impl GameLoop {
                                 },
                             );
                             if played.is_some() {
-                                if self.trigger_handler.has_waiting_triggers() {
-                                    self.with_shared_state_mutation(
-                                        game,
-                                        agents,
-                                        |this, game, agents| {
-                                            this.process_triggers(game, agents);
-                                        },
-                                    );
-                                }
+                                self.trigger_handler.flush_waiting_triggers(game);
                                 passed_count = 0;
                             }
                             game.copy_last_state_combat_lki(&self.combat);
@@ -413,11 +405,10 @@ impl GameLoop {
                                 },
                             );
                         }
-                        // Process SpellCast / BecomesTarget triggers immediately so they
-                        // go on the stack ABOVE the spell (resolving before it).
-                        // Mirrors Java's MagicStack.addAndUnfreeze() which runs waiting
-                        // triggers right after the spell is placed on the stack.
-                        self.with_shared_state_mutation(game, agents, |this, game, agents| {
+                        // Java's MagicStack.addAndUnfreeze collects the waiting triggers here;
+                        // they go on the stack, targets and all, after the next state-based
+                        // check (PhaseHandler.checkStateBasedEffects), at the top of the loop.
+                        self.with_shared_state_mutation(game, agents, |this, game, _agents| {
                             let current_zone = game.card_current_zone(played_id);
                             if current_zone != origin_zone {
                                 let mut trigger_list =
@@ -429,7 +420,7 @@ impl GameLoop {
                                     None,
                                 );
                             }
-                            this.process_triggers(game, agents);
+                            this.trigger_handler.flush_waiting_triggers(game);
                         });
                         passed_count = 0;
                     } else {
@@ -755,14 +746,7 @@ impl GameLoop {
                             )
                         });
                     if activated.is_some() {
-                        // Process triggers immediately after ability activation so
-                        // they go on the stack above the ability (mirroring the
-                        // Play arm and Java's addAndUnfreeze behaviour).
-                        if self.trigger_handler.has_waiting_triggers() {
-                            self.with_shared_state_mutation(game, agents, |this, game, agents| {
-                                this.process_triggers(game, agents);
-                            });
-                        }
+                        self.trigger_handler.flush_waiting_triggers(game);
                         passed_count = 0;
                     }
                     game.copy_last_state_combat_lki(&self.combat);
