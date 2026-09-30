@@ -2009,15 +2009,11 @@ impl TriggerHandler {
                         game.card(cast),
                         context,
                     ) && compare_expr(
-                        crate::card::card_util::get_this_turn_cast(
-                            game,
-                            clause,
-                            host_card,
-                            None,
-                            host_controller,
+                        crate::card::card_util::get_this_turn_cast_cards(
+                            game, clause, host_card, None,
                         )
                         .into_iter()
-                        .filter(|&spell| game.card(spell).controller == caster)
+                        .filter(|spell| spell.controller == caster)
                         .count() as i32,
                         cond.trim(),
                     )
@@ -2038,16 +2034,11 @@ impl TriggerHandler {
                 .valid_card_selector
                 .as_ref()
                 .map_or_else(|| "Card".to_string(), |selector| selector.as_raw());
-            let count = crate::card::card_util::get_this_turn_cast(
-                game,
-                &valid,
-                host_card,
-                None,
-                host_controller,
-            )
-            .into_iter()
-            .filter(|&cast| game.card(cast).controller == caster)
-            .count() as i32;
+            let count =
+                crate::card::card_util::get_this_turn_cast_cards(game, &valid, host_card, None)
+                    .into_iter()
+                    .filter(|cast| cast.controller == caster)
+                    .count() as i32;
             if !compare_expr(count, cond.trim()) {
                 return Err("ActivatorThisTurnCast");
             }

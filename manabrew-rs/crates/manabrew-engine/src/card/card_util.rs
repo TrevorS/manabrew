@@ -191,8 +191,38 @@ fn filter_spells_cast(
     src: CardId,
     ctb: Option<&SpellAbility>,
 ) -> Vec<CardId> {
+    filter_spells_cast_cards(game, cast, valid, src, ctb)
+        .into_iter()
+        .map(|card| card.id)
+        .collect()
+}
+
+/// The spells cast this turn that match `valid`, as they were on the stack, as Java's
+/// `CardUtil.getThisTurnCast` returns them: their controller is the player who cast them.
+pub fn get_this_turn_cast_cards<'a>(
+    game: &'a GameState,
+    valid: &str,
+    src: CardId,
+    ctb: Option<&SpellAbility>,
+) -> Vec<&'a crate::card::Card> {
+    filter_spells_cast_cards(
+        game,
+        game.stack.get_spells_cast_this_turn_lki(),
+        valid,
+        src,
+        ctb,
+    )
+}
+
+fn filter_spells_cast_cards<'a>(
+    game: &GameState,
+    cast: &'a [std::sync::Arc<crate::card::Card>],
+    valid: &str,
+    src: CardId,
+    ctb: Option<&SpellAbility>,
+) -> Vec<&'a crate::card::Card> {
     if valid.is_empty() {
-        return cast.iter().map(|card| card.id).collect();
+        return cast.iter().map(|card| &**card).collect();
     }
     let selector = cached_compiled_selector(valid);
     let mut context = valid_filter::MatchContext::from_source(game.card(src)).with_game(game);
@@ -203,7 +233,7 @@ fn filter_spells_cast(
         .filter(|card| {
             valid_filter::matches_valid_card_selector_with_context(&selector, card, context)
         })
-        .map(|card| card.id)
+        .map(|card| &**card)
         .collect()
 }
 
