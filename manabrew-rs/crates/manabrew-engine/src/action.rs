@@ -845,7 +845,26 @@ impl GameState {
                 // This must be updated before ETB-trigger registration so
                 // triggered abilities inherit the correct controller.
                 self.card_mut(card_id).controller = dest_owner;
+                let granted_offspring: Vec<_> = if src_zone == ZoneType::Stack {
+                    self.card(card_id)
+                        .granted_keywords
+                        .get_values_for(crate::keyword::Keyword::Offspring)
+                        .into_iter()
+                        .cloned()
+                        .collect()
+                } else {
+                    Vec::new()
+                };
                 self.card_mut(card_id).enter_battlefield();
+                if !granted_offspring.is_empty() {
+                    let card = self.card_mut(card_id);
+                    card.capture_changed_characteristics_baseline_if_needed();
+                    for inst in granted_offspring {
+                        card.keywords.insert(inst.clone());
+                        card.add_lasting_keyword_triggers_for_instance(&inst);
+                    }
+                    card.update_keywords();
+                }
                 if replacement_marked_etb_tapped {
                     self.card_mut(card_id).set_tapped(true);
                 }

@@ -623,8 +623,18 @@ impl Card {
     }
 
     pub(crate) fn add_lasting_keyword_triggers(&mut self, kw: &str) {
+        let (keyword, _) = crate::keyword::keyword_collection::parse_keyword_string(kw);
+        self.add_lasting_keyword_triggers_for_instance(
+            &crate::keyword::keyword_instance::KeywordInstanceData::new(keyword, kw.to_string()),
+        );
+    }
+
+    pub(crate) fn add_lasting_keyword_triggers_for_instance(
+        &mut self,
+        inst: &crate::keyword::keyword_instance::KeywordInstanceData,
+    ) {
         let start = self.triggers.len();
-        self.generate_keyword_triggers_for(&[kw.to_string()]);
+        self.generate_keyword_triggers_for_instance(inst);
         for trigger in self.triggers.split_off(start) {
             self.add_lasting_trigger(trigger);
         }
