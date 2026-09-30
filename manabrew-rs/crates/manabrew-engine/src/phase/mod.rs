@@ -138,7 +138,7 @@ impl PhaseCommand {
                 if let Some(state) = card.clone_state.take_if(|state| state.expires_at_cleanup) {
                     card.restore_clone_snapshot(*state);
                 }
-                let paper_token = card.get_s_var("TokenScript").is_some();
+                let paper_token = card.is_token && card.get_s_var("TokenScript").is_some();
                 card.update_state_for_view(paper_token, rng);
                 card.update_state_for_view(paper_token, rng);
             }

@@ -122,7 +122,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .collect();
         let orig_svars = ctx.game.card(source_id).svars.clone();
         let target = ctx.game.card_mut(clone_target_id);
-        let paper_token = target.get_s_var("TokenScript").is_some();
+        let paper_token = target.is_token && target.get_s_var("TokenScript").is_some();
         let host_svars = (clone_target_id == source_id).then(|| orig_svars.clone());
         crate::card::card_copy_service::copy_copiable_characteristics(&state, target);
         for trigger in &mut target.triggers {
