@@ -638,6 +638,10 @@ impl GameLoop {
         let end_turn_by_effect = std::mem::take(&mut game.end_turn_requested);
         let mut is_repeat = false;
         loop {
+            if self.is_aborted() {
+                game.game_over = true;
+                return;
+            }
             // On repeat iterations, re-notify the phase so that parity agents
             // see the same snapshot Java emits when it re-enters onPhaseBegin(CLEANUP).
             if is_repeat {

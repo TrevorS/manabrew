@@ -23,6 +23,10 @@ impl GameLoop {
             .filter(|&p| p == active || game.player(p).is_alive())
             .collect();
         for (i, &player) in players.iter().enumerate() {
+            if self.is_aborted() {
+                game.game_over = true;
+                break;
+            }
             let last = i + 1 == players.len();
             let (mut group, rest): (Vec<_>, Vec<_>) = std::mem::take(&mut pending)
                 .into_iter()
@@ -35,6 +39,10 @@ impl GameLoop {
                 TriggerHandler::order_simultaneous_triggers(&mut group);
             }
             for (pt, ..) in group {
+                if self.is_aborted() {
+                    game.game_over = true;
+                    break;
+                }
                 let is_static = pt.static_trigger;
                 let one_off_effect = pt
                     .entry
