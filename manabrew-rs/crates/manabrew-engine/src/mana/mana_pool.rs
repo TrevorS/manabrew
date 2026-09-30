@@ -78,11 +78,46 @@ pub struct ManaPool {
     /// Mirrors Java's `ManaPool` inheriting from `ManaConversionMatrix`.
     #[serde(skip)]
     pub color_matrix: ManaConversionMatrix,
+    #[serde(skip)]
+    probe_order: std::cell::RefCell<Option<(Vec<Mana>, Vec<u16>)>>,
 }
 
 impl ManaPool {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub(crate) fn probe_view(&self) -> ManaPool {
+        let mut view = self.clone();
+        if let Some((mana, keys)) = self.probe_order.borrow().as_ref() {
+            view.mana = mana.clone();
+            view.floating_mana_keys = keys.clone();
+        }
+        view
+    }
+
+    /// FORGE BUG (harness quirk, parity only): `ComputerUtilMana.payManaCost` in test mode
+    /// spends from the real pool and refunds with `refundMana`, which appends, so every
+    /// action-space probe moves the floating mana it spent to the end of the pool.
+    pub(crate) fn rotate_probe_payment(&self, spent: &[Mana]) {
+        if spent.is_empty() {
+            return;
+        }
+        let mut view = self.probe_view();
+        for mana in spent {
+            view.remove_mana(mana);
+        }
+        for mana in spent {
+            view.add_mana(mana.clone());
+        }
+        *self.probe_order.borrow_mut() = Some((view.mana, view.floating_mana_keys));
+    }
+
+    pub(crate) fn commit_probe_order(&mut self) {
+        if let Some((mana, keys)) = self.probe_order.get_mut().take() {
+            self.mana = mana;
+            self.floating_mana_keys = keys;
+        }
     }
 
     pub fn clear_last_payment_atoms(&mut self) {

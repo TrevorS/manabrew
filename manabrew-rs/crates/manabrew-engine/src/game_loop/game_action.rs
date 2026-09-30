@@ -244,6 +244,44 @@ impl GameLoop {
         }
     }
 
+    /// FORGE BUG (harness quirk, parity only): `ActionSpace.getPossibleActions` runs
+    /// `canPayMana` before it drops mana abilities, so a mana ability with a mana cost is
+    /// probed too, and its test payment rotates the floating mana like any other probe.
+    fn probe_mana_ability_payment(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+        ab: &crate::ability::ActivatedAbility,
+    ) {
+        if !game.mirror_forge_bugs
+            || game.action_space_mana_probe != mana::ActionSpaceManaProbe::ComputerUtilMana
+            || self.pool(player).total_mana() == 0
+        {
+            return;
+        }
+        let sa = crate::spellability::build_spell_ability(game, card_id, &ab.ability_text, player);
+        if !crate::spellability::ability_activated::can_play(&sa, game) {
+            return;
+        }
+        let cost = Self::adjusted_activation_cost(game, &sa, ab, player, ab.cost.clone(), true);
+        if let Some(mana_cost) = cost
+            .parts
+            .iter()
+            .find_map(crate::cost::cost_part_mana::get_mana)
+        {
+            mana::can_pay_ability_mana_cost_for_action_space(
+                game,
+                self.pool(player),
+                player,
+                card_id,
+                mana_cost,
+                &mana::payment_context_for_sa(game, &sa),
+                &[],
+            );
+        }
+    }
+
     pub(crate) fn get_activatable_abilities(
         &self,
         game: &GameState,
@@ -542,6 +580,9 @@ impl GameLoop {
                 continue;
             }
             for ab in &card.activated_abilities {
+                if ab.is_mana_ability && card.controller == player {
+                    self.probe_mana_ability_payment(game, player, card_id, ab);
+                }
                 if ab.is_mana_ability || ab.is_unlock_door {
                     continue;
                 }

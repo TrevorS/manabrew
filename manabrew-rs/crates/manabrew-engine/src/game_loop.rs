@@ -269,6 +269,12 @@ impl GameLoop {
         1
     }
 
+    fn commit_probe_orders(&mut self) {
+        for pool in &mut self.mana_pools {
+            pool.commit_probe_order();
+        }
+    }
+
     pub fn pool(&self, pid: PlayerId) -> &ManaPool {
         &self.mana_pools[pid.index()]
     }

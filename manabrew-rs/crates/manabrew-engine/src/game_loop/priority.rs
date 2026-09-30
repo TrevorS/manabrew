@@ -199,6 +199,7 @@ impl GameLoop {
                 continue;
             }
 
+            self.commit_probe_orders();
             let priority_action = if action == PlayerAction::PassPriority {
                 MainPhaseAction::Pass
             } else {
@@ -212,6 +213,7 @@ impl GameLoop {
                         space
                     }));
                 }
+                self.commit_probe_orders();
                 let action_space = action_space
                     .as_ref()
                     .expect("non-pass priority action requires action space");

@@ -3519,6 +3519,21 @@ fn can_pay_mana_cost(
     });
     let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
     adjust_mana_cost_to_avoid_neg_effects(&mut unpaid, spell);
+    if game.mirror_forge_bugs
+        && game.action_space_mana_probe == super::ActionSpaceManaProbe::ComputerUtilMana
+    {
+        let mut view = pool.probe_view();
+        let mut from_pool = super::mana_pool::ManaPaymentOutcome::default();
+        view.pay_mana_cost_from_pool(
+            &mut unpaid.clone(),
+            payment_ctx,
+            false,
+            spell.has_converge(),
+            &mut from_pool,
+            &mut |_| 0,
+        );
+        pool.rotate_probe_payment(&from_pool.mana_spent);
+    }
     let mut simulated_pool = pool.clone();
     simulated_pool.pay_unpaid_for_spell_incremental(&mut unpaid, payment_ctx, false);
     if unpaid.is_paid() {
