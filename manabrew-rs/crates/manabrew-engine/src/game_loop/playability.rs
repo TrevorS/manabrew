@@ -288,15 +288,30 @@ impl GameLoop {
                 )
             });
         let cost = cost_adj.apply(&base_cost).add(&raise_mana);
-        if let Some(order) = self.action_space_probe_order(game) {
-            order.rotate(
+        let payment_ctx = Self::spell_payment_context(card, chosen_types_by_source);
+        let mana_ok = if any_color {
+            if let Some(order) = self.action_space_probe_order(game) {
+                order.rotate(
+                    self.pool(player),
+                    player,
+                    &crate::mana::mana_cost_being_paid::ManaCostBeingPaid::from_mana_cost(&cost),
+                    &payment_ctx,
+                    card.has_converge(),
+                );
+            }
+            available_mana.can_pay_any_color(&cost)
+        } else {
+            crate::mana::can_pay_spell_mana_cost_for_action_space(
+                game,
                 self.pool(player),
                 player,
-                &crate::mana::mana_cost_being_paid::ManaCostBeingPaid::from_mana_cost(&cost),
-                &Self::spell_payment_context(card, chosen_types_by_source),
-                card.has_converge(),
-            );
-        }
+                card_id,
+                &cost.without_x(),
+                &payment_ctx,
+                self.action_space_probe_order(game),
+            ) || (Self::can_use_source_level_mana_fallback(game, player, || &available_mana)
+                && available_mana.can_pay(&cost))
+        };
         if let Some(ref tr) = cast_sa.target_restrictions {
             if tr.get_min_targets(game, &cast_sa) > 0
                 && !target_restrictions::has_candidates_in_spell_ability_chain(
@@ -306,15 +321,13 @@ impl GameLoop {
                 return false;
             }
         }
-        (if any_color {
-            available_mana.can_pay_any_color(&cost)
-        } else {
-            available_mana.can_pay(&cost)
-        }) && alt_cost.as_ref().is_none_or(|cost| {
-            crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player)
-        }) && raise_cost.as_ref().is_none_or(|cost| {
-            crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player)
-        })
+        mana_ok
+            && alt_cost.as_ref().is_none_or(|cost| {
+                crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player)
+            })
+            && raise_cost.as_ref().is_none_or(|cost| {
+                crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player)
+            })
     }
 
     fn can_play_card_state_spell(
