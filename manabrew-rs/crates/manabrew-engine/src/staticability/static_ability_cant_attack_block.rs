@@ -294,6 +294,11 @@ pub fn cant_block_by(
     attacker: &Card,
     blocker: Option<&Card>,
 ) -> bool {
+    if let Some(blocker) = blocker {
+        if attacker.is_creature() && landwalk_blocks(game, cards, attacker, blocker) {
+            return true;
+        }
+    }
     // Java builds list from STATIC_ABILITIES_SOURCE_ZONES + attacker + blocker (for LKI)
     for source in cards.iter().filter(|c| {
         c.zone.is_static_ability_source()
@@ -311,6 +316,40 @@ pub fn cant_block_by(
         }
     }
     false
+}
+
+/// The `Mode$ CantBlockBy | ValidAttacker$ Creature.Self | ValidDefender$ Player.controls<type>`
+/// static that `CardFactoryUtil` builds for each Landwalk instance.
+fn landwalk_blocks(game: &GameState, cards: &[Arc<Card>], attacker: &Card, blocker: &Card) -> bool {
+    [
+        &attacker.keywords,
+        &attacker.granted_keywords,
+        &attacker.pump_keywords,
+    ]
+    .into_iter()
+    .flat_map(|keywords| keywords.get_values())
+    .filter(|inst| attacker.keyword_instance_active(inst))
+    .filter_map(|inst| {
+        let valid_type = inst.original.strip_prefix("Landwalk:")?.split(':').next()?;
+        Some((inst.original.as_str(), valid_type))
+    })
+    .any(|(keyword, valid_type)| {
+        let sa = crate::spellability::SpellAbility::new_simple(
+            Some(attacker.id),
+            attacker.controller,
+            "",
+        );
+        crate::player::player_has_property(
+            blocker.controller,
+            &format!("controls{valid_type}"),
+            game,
+            attacker.id,
+            attacker.controller,
+            &sa,
+        ) && !crate::staticability::static_ability_ignore_landwalk::ignore_land_walk(
+            cards, attacker, blocker, keyword,
+        )
+    })
 }
 
 /// Returns true if attacker can't be blocked by blocker.
