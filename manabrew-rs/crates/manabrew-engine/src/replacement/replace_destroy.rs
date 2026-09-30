@@ -22,9 +22,13 @@ pub fn can_replace(
     if effect.event != ReplacementType::Destroy {
         return false;
     }
-    let target = match event {
-        ReplacementEvent::Destroy { target } => *target,
-        _ => return false,
+    let ReplacementEvent::Destroy {
+        target,
+        cause,
+        regeneration,
+    } = event
+    else {
+        return false;
     };
     let target_card = &game.cards[target.index()];
     if let Some(valid) = effect.ir.valid_card_selector.as_ref() {
@@ -32,16 +36,62 @@ pub fn can_replace(
             return false;
         }
     }
+    if effect.base.card_trait_base.has_param("Regeneration") {
+        if !*regeneration
+            || crate::staticability::static_ability_cant_regenerate::cant_regenerate(
+                &game.cards,
+                target_card,
+            )
+        {
+            return false;
+        }
+        if target_card.is_creature() && target_card.toughness() <= 0 {
+            return false;
+        }
+    }
+    if let Some(valid) = effect.ir.valid_cause_text.as_deref() {
+        let Some(cause) = cause else {
+            return false;
+        };
+        let ability_host = cause.source.map(|card| game.card(card));
+        if !crate::spellability::matches_valid_sa(valid, cause, source_card, ability_host) {
+            return false;
+        }
+    }
     true
 }
 
-/// Mirrors Java `ReplacementHandler.executeReplacement()` for Destroy.
-/// Indestructible: destruction is replaced by nothing.
 pub fn execute(
-    _effect: &ReplacementEffect,
-    _event: &mut ReplacementEvent,
-    _game: &GameState,
-    _source_card_id: CardId,
+    effect: &ReplacementEffect,
+    event: &mut ReplacementEvent,
+    game: &mut GameState,
+    source_card_id: CardId,
+    agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
+    runtime: Option<&mut super::replacement_handler::ReplacementRuntime<'_>>,
 ) -> ReplacementResult {
+    if let Some(replace_with) = effect.replace_with() {
+        if !super::replace_moved::execute_replace_with(
+            effect,
+            replace_with,
+            game,
+            source_card_id,
+            event,
+            agents,
+            runtime,
+        ) {
+            return ReplacementResult::NotReplaced;
+        }
+    } else if let Some(ability) = effect.base.get_overriding_ability() {
+        if !super::replace_moved::execute_replacement_ability(
+            effect,
+            ability.clone(),
+            game,
+            event,
+            agents,
+            runtime,
+        ) {
+            return ReplacementResult::NotReplaced;
+        }
+    }
     ReplacementResult::Replaced
 }

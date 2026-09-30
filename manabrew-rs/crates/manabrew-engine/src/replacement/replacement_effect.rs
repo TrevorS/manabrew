@@ -522,10 +522,14 @@ impl ReplacementEffect {
                         crate::event::AbilityValue::Player(*target),
                     );
                 }
-                ReplacementEvent::Destroy { target } => {
+                ReplacementEvent::Destroy { target, .. } => {
                     // Java `ReplaceDestroy.setReplacingObjects`: Card, Cause.
                     node.set_triggering_value(
                         AbilityKey::Card,
+                        crate::event::AbilityValue::Card(*target),
+                    );
+                    node.set_triggering_value(
+                        AbilityKey::ReplacedCard,
                         crate::event::AbilityValue::Card(*target),
                     );
                     node.set_triggering_value(

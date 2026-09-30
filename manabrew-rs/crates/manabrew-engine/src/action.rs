@@ -1844,6 +1844,40 @@ impl GameState {
         }
     }
 
+    fn apply_sba_replacements(
+        &mut self,
+        event: &mut ReplacementEvent,
+        trigger_handler: &mut Option<&mut TriggerHandler>,
+        agents: &mut Option<&mut [Box<dyn PlayerAgent>]>,
+        parts: &mut Option<&mut SbaReplacementParts<'_>>,
+    ) -> ReplacementResult {
+        match (
+            agents.as_deref_mut(),
+            trigger_handler.as_deref_mut(),
+            parts.as_deref_mut(),
+        ) {
+            (Some(agents), Some(handler), Some(parts)) => {
+                let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
+                    trigger_handler: handler,
+                    token_templates: parts.token_templates,
+                    token_art_variants: parts.token_art_variants,
+                    token_fallback: parts.token_fallback,
+                    edition_dates: parts.edition_dates,
+                    mana_pools: &mut *parts.mana_pools,
+                    rng: &mut *parts.rng,
+                };
+                crate::replacement::replacement_handler::apply_replacements_with_agents_and_runtime(
+                    self,
+                    agents,
+                    &mut runtime,
+                    event,
+                )
+            }
+            (Some(agents), _, _) => apply_replacements_with_agents(self, agents, event),
+            _ => apply_replacements(self, event),
+        }
+    }
+
     fn move_battlefield_card_to_graveyard_for_sba(
         &mut self,
         cid: CardId,
@@ -1864,31 +1898,7 @@ impl GameState {
             stack_sa: None,
             fizzle: None,
         };
-        let result = match (
-            agents.as_deref_mut(),
-            trigger_handler.as_deref_mut(),
-            parts.as_deref_mut(),
-        ) {
-            (Some(agents), Some(handler), Some(parts)) => {
-                let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
-                    trigger_handler: handler,
-                    token_templates: parts.token_templates,
-                    token_art_variants: parts.token_art_variants,
-                    token_fallback: parts.token_fallback,
-                    edition_dates: parts.edition_dates,
-                    mana_pools: &mut *parts.mana_pools,
-                    rng: &mut *parts.rng,
-                };
-                crate::replacement::replacement_handler::apply_replacements_with_agents_and_runtime(
-                    self,
-                    agents,
-                    &mut runtime,
-                    &mut moved_event,
-                )
-            }
-            (Some(agents), _, _) => apply_replacements_with_agents(self, agents, &mut moved_event),
-            _ => apply_replacements(self, &mut moved_event),
-        };
+        let result = self.apply_sba_replacements(&mut moved_event, trigger_handler, agents, parts);
         if !matches!(
             result,
             ReplacementResult::NotReplaced | ReplacementResult::Updated
@@ -2428,9 +2438,14 @@ impl GameState {
 
             // Run Destroy replacement effects (R$-based indestructible, etc.).
             // Mirrors Java GameAction.destroy() → ReplacementHandler.run(Destroy, …).
-            let mut destroy_event = ReplacementEvent::Destroy { target: cid };
-            let result = apply_replacements(self, &mut destroy_event);
-            if result != ReplacementResult::Replaced {
+            let mut destroy_event = ReplacementEvent::Destroy {
+                target: cid,
+                cause: None,
+                regeneration: true,
+            };
+            let result =
+                self.apply_sba_replacements(&mut destroy_event, trigger_handler, agents, parts);
+            if result == ReplacementResult::NotReplaced {
                 self.move_battlefield_card_to_graveyard_for_sba(
                     cid,
                     trigger_handler,

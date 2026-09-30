@@ -20,17 +20,65 @@ use super::EffectContext;
 /// `RegenerateEffect` class extending `SpellAbilityEffect`.
 #[manabrew_engine_macros::spell_effect(RegenerateEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
-    for card in crate::ability::spell_ability_effect::get_defined_cards_or_targeted(ctx.game, sa) {
-        if ctx.game.card(card).zone == ZoneType::Battlefield
-            && ctx.game.card(card).is_creature()
-            && !crate::staticability::static_ability_cant_regenerate::cant_regenerate(
-                &ctx.game.cards,
-                ctx.game.card(card),
-            )
-        {
-            ctx.game.card_mut(card).regeneration_shields += 1;
-        }
+    let list: Vec<crate::ids::CardId> =
+        crate::ability::spell_ability_effect::get_defined_cards_or_targeted(ctx.game, sa)
+            .into_iter()
+            .filter(|&card| ctx.game.card(card).zone == ZoneType::Battlefield)
+            .collect();
+    create_regeneration_effect(ctx, sa, &list);
+}
+
+fn create_regeneration_effect(
+    ctx: &mut EffectContext,
+    sa: &crate::spellability::SpellAbility,
+    list: &[crate::ids::CardId],
+) {
+    if list.is_empty() {
+        return;
     }
+    let host_name = sa
+        .source
+        .map(|host| ctx.game.card(host).card_name.clone())
+        .unwrap_or_default();
+    let eff = crate::ability::spell_ability_effect::create_effect(
+        ctx.game,
+        sa,
+        &format!("{host_name}'s Regeneration"),
+        "",
+    );
+    let controller = sa.activating_player;
+    let effect = ctx.game.card_mut(eff);
+    for &card in list {
+        effect.add_remembered_card(card);
+    }
+    effect.set_forget_on_moved_origin(Some(ZoneType::Battlefield));
+    effect.set_exile_when_no_remembered(true);
+    if let Some(mut replacement) = crate::replacement::parse_replacement_effect(
+        "R$ Event$ Destroy | ActiveZones$ Command | ValidCard$ Card.IsRemembered | Regeneration$ True | Description$ Regeneration (if creature would be destroyed, regenerate it instead)",
+    ) {
+        replacement.set_host_card(effect);
+        let mut regeneration = crate::ability::ability_factory::build_spell_ability_from_host_card(
+            effect,
+            "DB$ Regeneration | Defined$ ReplacedCard",
+            controller,
+        );
+        regeneration.sub_ability = Some(Box::new(
+            crate::ability::ability_factory::build_spell_ability_from_host_card(
+                effect,
+                "DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ EQ0",
+                controller,
+            ),
+        ));
+        replacement.base.set_overriding_ability(regeneration);
+        effect.add_replacement_effect(replacement);
+    }
+    for &card in list {
+        ctx.game.card_mut(card).regeneration_shields += 1;
+    }
+    ctx.game.end_of_turn.add_until(
+        None,
+        crate::phase::PhaseCommand::ExileEffect { effect: eff },
+    );
 }
 
 #[cfg(test)]

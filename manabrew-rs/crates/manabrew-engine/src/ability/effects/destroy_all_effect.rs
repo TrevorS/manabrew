@@ -3,7 +3,7 @@ use forge_foundation::ZoneType;
 use super::{emit_zone_trigger_with_lki_counters, matches_valid_cards_for_sa, EffectContext};
 use crate::event::RunParams;
 use crate::ids::CardId;
-use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
+use crate::replacement::replacement_handler::ReplacementEvent;
 use crate::replacement::ReplacementResult;
 use crate::trigger::TriggerType;
 
@@ -66,14 +66,31 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if ctx.game.card(card_id).zone != ZoneType::Battlefield {
             continue; // May have already left (e.g. legendary rule, previous step)
         }
-        // K:Indestructible keyword fast path (CR 702.12)
-        if ctx.game.card(card_id).has_keyword("Indestructible") {
+        let card = ctx.game.card(card_id);
+        if card.has_keyword("Indestructible") && !(card.is_creature() && card.toughness() <= 0) {
             continue;
         }
-        // R$-based Destroy replacement (e.g. Darksteel Myr's replacement effect)
-        let mut destroy_event = ReplacementEvent::Destroy { target: card_id };
-        let result = apply_replacements(ctx.game, &mut destroy_event);
-        if result == ReplacementResult::Replaced {
+        let mut destroy_event = ReplacementEvent::Destroy {
+            target: card_id,
+            cause: Some(Box::new(sa.clone())),
+            regeneration: !sa.ir.no_regen,
+        };
+        let mut runtime = crate::replacement::ReplacementRuntime {
+            trigger_handler: ctx.trigger_handler,
+            token_templates: ctx.token_templates,
+            token_art_variants: ctx.token_art_variants,
+            token_fallback: ctx.token_fallback,
+            edition_dates: ctx.edition_dates,
+            mana_pools: ctx.mana_pools,
+            rng: ctx.rng,
+        };
+        let result = crate::replacement::apply_replacements_with_agents_and_runtime(
+            ctx.game,
+            ctx.agents,
+            &mut runtime,
+            &mut destroy_event,
+        );
+        if result != ReplacementResult::NotReplaced {
             continue;
         }
         let owner = ctx.game.card(card_id).owner;

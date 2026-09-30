@@ -39,28 +39,32 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     for target_card in tgt_cards.into_iter().chain(untargeted) {
         if ctx.game.card(target_card).zone == ZoneType::Battlefield {
-            let is_indestructible = ctx.game.card(target_card).has_indestructible();
-            let has_regen_shield = ctx.game.card(target_card).regeneration_shields > 0;
-
-            // Indestructible prevents destruction (CR 702.12)
-            if is_indestructible {
-                // `AlwaysRemember` remembers the target even when destruction is
-                // prevented (Java `AbilityUtils.setCauseSA` path for "that card"
-                // references in chained subs).
-                if always_remember && remember_lki {
-                    if let Some(sid) = sa.source {
-                        ctx.game.card_mut(sid).add_remembered_card(target_card);
-                    }
-                }
-                continue;
-            }
-
-            // Regeneration (CR 701.15): consume a shield instead of destroying,
-            // unless `NoRegen$ True` suppresses the replacement.
-            if has_regen_shield && !no_regen {
-                ctx.game.card_mut(target_card).regeneration_shields -= 1;
-                // Regenerating taps the creature and removes it from combat.
-                ctx.game.card_mut(target_card).tapped = true;
+            let card = ctx.game.card(target_card);
+            let can_be_destroyed =
+                !card.has_indestructible() || (card.is_creature() && card.toughness() <= 0);
+            let replaced = can_be_destroyed && {
+                let mut event = crate::replacement::ReplacementEvent::Destroy {
+                    target: target_card,
+                    cause: Some(Box::new(sa.clone())),
+                    regeneration: !no_regen,
+                };
+                let mut runtime = crate::replacement::ReplacementRuntime {
+                    trigger_handler: ctx.trigger_handler,
+                    token_templates: ctx.token_templates,
+                    token_art_variants: ctx.token_art_variants,
+                    token_fallback: ctx.token_fallback,
+                    edition_dates: ctx.edition_dates,
+                    mana_pools: ctx.mana_pools,
+                    rng: ctx.rng,
+                };
+                crate::replacement::apply_replacements_with_agents_and_runtime(
+                    ctx.game,
+                    ctx.agents,
+                    &mut runtime,
+                    &mut event,
+                ) != crate::replacement::ReplacementResult::NotReplaced
+            };
+            if !can_be_destroyed || replaced {
                 if always_remember && remember_lki {
                     if let Some(sid) = sa.source {
                         ctx.game.card_mut(sid).add_remembered_card(target_card);

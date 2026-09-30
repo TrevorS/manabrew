@@ -2391,24 +2391,27 @@ impl Card {
 
     /// Keep in sync with the rules-host block of `Card.getReplacementEffects`. Stun
     /// counters are handled in `GameState::untap`: an Untap replacement runs without agents
-    /// here and nothing executes its `ReplaceWith`, so the stun `RemoveCounter` would not run. A shield counter's `Destroy` half is not
-    /// ported: this engine's `Destroy` event carries no cause for its `ValidCause$ SpellAbility`.
+    /// here and nothing executes its `ReplaceWith`, so the stun `RemoveCounter` would not run.
     pub fn rules_replacement_effects(&self) -> Vec<crate::replacement::ReplacementEffect> {
         let mut effects = Vec::new();
         if !self.counters.is_empty()
             && self.counter_count(&CounterType::Named("SHIELD".to_string())) > 0
         {
-            let raw = "R$ Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | PreventionEffect$ True | AlwaysReplace$ True | Secondary$ True | Description$ If damage would be dealt to this permanent, prevent that damage and remove a shield counter from it.";
-            if let Some(mut replacement) = crate::replacement::cached_replacement_effect(raw) {
-                replacement.set_host_card(self);
-                replacement.base.set_overriding_ability(
-                    crate::ability::ability_factory::build_spell_ability_from_host_card(
-                        self,
-                        "DB$ RemoveCounter | Defined$ Self | CounterType$ Shield | CounterNum$ 1",
-                        self.controller,
-                    ),
-                );
-                effects.push(replacement);
+            for raw in [
+                "R$ Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | PreventionEffect$ True | AlwaysReplace$ True | Secondary$ True | Description$ If damage would be dealt to this permanent, prevent that damage and remove a shield counter from it.",
+                "R$ Event$ Destroy | ActiveZones$ Battlefield | ValidCard$ Card.Self | ValidCause$ SpellAbility | Secondary$ True | ShieldCounter$ True | Description$ If this permanent would be destroyed as the result of an effect, instead remove a shield counter from it.",
+            ] {
+                if let Some(mut replacement) = crate::replacement::cached_replacement_effect(raw) {
+                    replacement.set_host_card(self);
+                    replacement.base.set_overriding_ability(
+                        crate::ability::ability_factory::build_spell_ability_from_host_card(
+                            self,
+                            "DB$ RemoveCounter | Defined$ Self | CounterType$ Shield | CounterNum$ 1",
+                            self.controller,
+                        ),
+                    );
+                    effects.push(replacement);
+                }
             }
         }
         if !self.counters.is_empty()

@@ -79,7 +79,11 @@ pub enum ReplacementEvent {
     },
 
     /// A permanent is being destroyed (lethal damage or destroy effect).
-    Destroy { target: CardId },
+    Destroy {
+        target: CardId,
+        cause: Option<Box<crate::spellability::SpellAbility>>,
+        regeneration: bool,
+    },
 
     /// A card is moving between zones.
     Moved {
@@ -507,7 +511,7 @@ fn affected_player_for_event(event: &ReplacementEvent, game: &GameState) -> Play
         ReplacementEvent::Draw { player, .. } => *player,
         ReplacementEvent::DamageToCard { target, .. } => game.cards[target.index()].controller,
         ReplacementEvent::DamageToPlayer { target, .. } => *target,
-        ReplacementEvent::Destroy { target } => game.cards[target.index()].controller,
+        ReplacementEvent::Destroy { target, .. } => game.cards[target.index()].controller,
         ReplacementEvent::Moved { card, .. } => game.cards[card.index()].controller,
         ReplacementEvent::GainLife { player, .. } => *player,
         ReplacementEvent::CreateToken { player, .. } => *player,
@@ -1555,14 +1559,15 @@ fn collect_effects(
         .replacement_last_state_battlefield
         .as_deref()
         .filter(|_| matches!(event, ReplacementEvent::Moved { .. }));
-    // Keep in sync with `Card::rules_replacement_effects`: it builds only `DamageDone` and
-    // `Moved` replacements in the `Other` layer, which `can_replace` rejects for any other
+    // Keep in sync with `Card::rules_replacement_effects`: it builds only `DamageDone`,
+    // `Destroy` and `Moved` replacements in the `Other` layer, which `can_replace` rejects for any other
     // event and the layer filter below skips in any other layer.
     let rules_effects_may_apply = layer == ReplacementLayer::Other
         && matches!(
             event,
             ReplacementEvent::DamageToCard { .. }
                 | ReplacementEvent::DamageToPlayer { .. }
+                | ReplacementEvent::Destroy { .. }
                 | ReplacementEvent::Moved { .. }
         );
     let mut result = Vec::new();
@@ -1821,7 +1826,9 @@ fn execute_effect(
     match effect.event {
         ReplacementType::DamageDone => replace_damage::execute(effect, event, game, card_id),
         ReplacementType::Draw => replace_draw::execute(effect, event, game, card_id),
-        ReplacementType::Destroy => replace_destroy::execute(effect, event, game, card_id),
+        ReplacementType::Destroy => {
+            replace_destroy::execute(effect, event, game, card_id, agents, runtime)
+        }
         ReplacementType::Moved => {
             replace_moved::execute(effect, event, game, card_id, agents, runtime)
         }
@@ -2450,7 +2457,11 @@ mod tests {
         );
         put_on_battlefield(&mut game, cid, alice);
 
-        let mut event = ReplacementEvent::Destroy { target: cid };
+        let mut event = ReplacementEvent::Destroy {
+            target: cid,
+            cause: None,
+            regeneration: true,
+        };
         let result = apply_replacements(&mut game, &mut event);
         assert_eq!(result, ReplacementResult::Replaced);
     }
@@ -2470,7 +2481,11 @@ mod tests {
         put_on_battlefield(&mut game, indestructible, alice);
         put_on_battlefield(&mut game, other, alice);
 
-        let mut event = ReplacementEvent::Destroy { target: other };
+        let mut event = ReplacementEvent::Destroy {
+            target: other,
+            cause: None,
+            regeneration: true,
+        };
         let result = apply_replacements(&mut game, &mut event);
         assert_eq!(result, ReplacementResult::NotReplaced);
     }
