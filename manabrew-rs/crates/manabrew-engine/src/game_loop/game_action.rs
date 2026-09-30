@@ -360,6 +360,16 @@ impl GameLoop {
                 Some(without_x) => ab_cost.copy_with_defined_mana(without_x),
                 None => ab_cost,
             };
+            let ab_cost = if ab.is_ability_static() {
+                let mut mana_only = ab_cost;
+                mana_only
+                    .parts
+                    .retain(|p| matches!(p, crate::cost::CostPart::Mana { .. }));
+                mana_only.has_tap = false;
+                mana_only
+            } else {
+                ab_cost
+            };
             let ability_mana = std::cell::OnceCell::new();
             let no_mana = crate::mana::ManaPool::new();
             let mana_for_check = || {
@@ -730,6 +740,28 @@ impl GameLoop {
     }
 
     /// Resolve an ability immediately without using the stack.
+    fn notify_activated_ability_payment_failed(
+        &self,
+        game: &GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        card_id: CardId,
+        ability_index: usize,
+    ) {
+        let notification =
+            crate::agent::notification::GameNotification::ActivatedAbilityPaymentFailed {
+                player,
+                card_id,
+                ability_index,
+            };
+        for agent in agents.iter_mut() {
+            agent.notify(
+                DecisionContext::new(game, &self.mana_pools),
+                notification.clone(),
+            );
+        }
+    }
+
     pub(crate) fn resolve_immediate_ability(
         &mut self,
         game: &mut GameState,
@@ -753,6 +785,13 @@ impl GameLoop {
             CostPaymentContext::ActivatedAbility,
             Some(&mut x_sa),
         ) {
+            self.notify_activated_ability_payment_failed(
+                game,
+                agents,
+                player,
+                card_id,
+                ab.ability_index,
+            );
             return false;
         }
 
@@ -1046,6 +1085,9 @@ impl GameLoop {
         {
             x = x.min(crate::card::card_util::get_valid_cards_to_target(game, sa).len() as u32);
         }
+        if let Some(max) = crate::cost::get_max_for_non_mana_x(cost, game, sa, player, false) {
+            x = x.min(max.max(0) as u32);
+        }
         let x_min = Self::announce_bounds(game, player, sa, Some(cost), "X")
             .map_or(0, |(min, _)| min.max(0) as u32)
             .min(x);
@@ -1324,18 +1366,13 @@ impl GameLoop {
             CostPaymentContext::ActivatedAbility,
             Some(&mut sa),
         ) {
-            let notification =
-                crate::agent::notification::GameNotification::ActivatedAbilityPaymentFailed {
-                    player,
-                    card_id,
-                    ability_index: ab.ability_index,
-                };
-            for agent in agents.iter_mut() {
-                agent.notify(
-                    DecisionContext::new(game, &self.mana_pools),
-                    notification.clone(),
-                );
-            }
+            self.notify_activated_ability_payment_failed(
+                game,
+                agents,
+                player,
+                card_id,
+                ab.ability_index,
+            );
             return false;
         }
         let tapped_by_activation: Vec<CardId> = untapped_before_payment

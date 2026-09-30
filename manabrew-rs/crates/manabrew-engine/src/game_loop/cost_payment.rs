@@ -198,21 +198,27 @@ impl GameLoop {
         player: PlayerId,
         source: CardId,
         amount: i32,
-    ) {
+    ) -> bool {
         let amount = crate::cost::resolve_dynamic_amount(game, source, player, amount);
-        if crate::staticability::static_ability_cant_gain_lose_pay_life::cant_pay_life(
-            game, player, true, None,
-        ) {
-            return;
+        if amount <= 0 {
+            return true;
+        }
+        if game.player(player).life < amount
+            || crate::staticability::static_ability_cant_gain_lose_pay_life::cant_pay_life(
+                game, player, true, None,
+            )
+        {
+            return false;
         }
         // Run PayLife replacement effects before paying life.
         {
             use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
             use crate::replacement::ReplacementResult;
             let mut event = ReplacementEvent::PayLife { player, amount };
-            let result = apply_replacements(game, &mut event);
-            if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
-                return;
+            match apply_replacements(game, &mut event) {
+                ReplacementResult::Replaced => return true,
+                ReplacementResult::Skipped | ReplacementResult::Prevented => return false,
+                _ => {}
             }
         }
         let lost = game.player_lose_life(player, amount);
@@ -228,6 +234,7 @@ impl GameLoop {
         if lost > 0 {
             crate::action::run_life_lost_all(&mut self.trigger_handler, &[(player, lost)]);
         }
+        true
     }
 
     /// Discard N cards from hand via agent choice and fire Discarded triggers.
@@ -1056,7 +1063,10 @@ impl GameLoop {
                 }
                 CostPart::PayLife(amount) => {
                     let amount = amount.resolve_for_sa(game, card_id, player, sa.as_deref());
-                    self.pay_life_cost(game, player, card_id, amount);
+                    if !self.pay_life_cost(game, player, card_id, amount) {
+                        payment_ok = false;
+                        break;
+                    }
                 }
                 CostPart::Sacrifice {
                     type_filter,
@@ -1826,12 +1836,15 @@ impl GameLoop {
                 // Tap/Untap are not applicable to spell additional costs.
                 CostPart::Mana { .. } | CostPart::Tap | CostPart::Untap => {}
                 CostPart::PayLife(amount) => {
-                    self.pay_life_cost(
+                    if !self.pay_life_cost(
                         game,
                         player,
                         card_id,
                         amount.resolve(game, card_id, player),
-                    );
+                    ) {
+                        payment_ok = false;
+                        break;
+                    }
                 }
                 CostPart::Sacrifice {
                     type_filter,
