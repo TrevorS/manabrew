@@ -1,4 +1,5 @@
 pub mod card_face;
+pub mod card_face_predicates;
 pub mod card_rules;
 pub mod database;
 pub mod parser;

@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
 use forge_carddb::{CardDatabase, CardFace, CardRules};
@@ -40,15 +40,16 @@ fn insert_face(names: &mut BTreeSet<String>, game: &GameState, sa: &SpellAbility
 }
 
 struct AllFaces {
-    faces: Vec<&'static CardFace>,
+    faces_by_name: Vec<(&'static str, Vec<&'static CardFace>)>,
     flavor_faces: Vec<String>,
 }
 
 static ALL_FACES: OnceLock<AllFaces> = OnceLock::new();
 
 fn all_faces(database: &'static CardDatabase) -> &'static AllFaces {
-    ALL_FACES.get_or_init(|| AllFaces {
-        faces: database
+    ALL_FACES.get_or_init(|| {
+        let mut faces_by_name: BTreeMap<&'static str, Vec<&'static CardFace>> = BTreeMap::new();
+        for face in database
             .iter()
             .into_iter()
             .filter(|(_, rules)| !rules.is_variant())
@@ -57,8 +58,16 @@ fn all_faces(database: &'static CardDatabase) -> &'static AllFaces {
                     .chain(rules.other_part.iter())
                     .chain(rules.specialized_parts.values())
             })
-            .collect(),
-        flavor_faces: database.flavor_name_faces(),
+        {
+            faces_by_name
+                .entry(face.name.as_str())
+                .or_default()
+                .push(face);
+        }
+        AllFaces {
+            faces_by_name: faces_by_name.into_iter().collect(),
+            flavor_faces: database.flavor_name_faces(),
+        }
     })
 }
 
@@ -91,6 +100,40 @@ fn insert_game_card_faces(
     }
 }
 
+fn valid_face_predicates(ctx: &EffectContext, sa: &SpellAbility) -> Option<Vec<String>> {
+    let valid = sa.ir.valid_cards_text.as_deref()?;
+    let host = sa.source.map(|source| ctx.game.card(source));
+    Some(
+        valid
+            .split(',')
+            .map(|v| {
+                let mut v = v.to_string();
+                if let Some(s) = v.split("cmcEQ").nth(1) {
+                    if s.is_empty() || !s.bytes().all(|b| b.is_ascii_digit()) {
+                        let amount = super::resolve_numeric_value(ctx.game, sa, s, 0);
+                        v = v.replace(s, &amount.to_string());
+                    }
+                }
+                if v.contains("ManaCost=") {
+                    let replaced = if v.contains("ManaCost=Equipped") {
+                        host.and_then(|host| host.attached_to)
+                            .map(|equipping| ("=Equipped", equipping))
+                    } else if v.contains("ManaCost=Imprinted") {
+                        host.and_then(|host| host.imprinted_cards.first().copied())
+                            .map(|imprinted| ("=Imprinted", imprinted))
+                    } else {
+                        None
+                    };
+                    if let Some((from, card)) = replaced {
+                        v = v.replace(from, &ctx.game.card(card).mana_cost.short_string());
+                    }
+                }
+                v
+            })
+            .collect(),
+    )
+}
+
 fn valid_names(ctx: &EffectContext, sa: &SpellAbility) -> Vec<String> {
     if let Some(list) = sa.ir.choose_from_list_text.as_deref() {
         return list
@@ -118,16 +161,31 @@ fn valid_names(ctx: &EffectContext, sa: &SpellAbility) -> Vec<String> {
         let database =
             CardDatabaseRegistry::all().expect("card database must be loaded for card naming");
         let all = all_faces(database);
-        for face in &all.faces {
-            insert_face(&mut names, ctx.game, sa, face);
-        }
-        let flavor_faces: Vec<String> = all
+        let valid_cards = valid_face_predicates(ctx, sa);
+        let names: Vec<&str> = all
+            .faces_by_name
+            .iter()
+            .filter(|(_, faces)| {
+                valid_cards.as_ref().is_none_or(|valid_cards| {
+                    faces.iter().any(|face| {
+                        valid_cards
+                            .iter()
+                            .any(|v| forge_carddb::card_face_predicates::valid(face, v))
+                    })
+                })
+            })
+            .map(|(name, _)| *name)
+            .collect();
+        let flavor_faces = all
             .flavor_faces
             .iter()
-            .filter(|face| names.contains(*face))
-            .cloned()
+            .filter(|face| names.binary_search(&face.as_str()).is_ok())
+            .cloned();
+        let mut valid: Vec<String> = names
+            .iter()
+            .map(|name| name.to_string())
+            .chain(flavor_faces)
             .collect();
-        let mut valid: Vec<String> = names.into_iter().chain(flavor_faces).collect();
         valid.sort();
         return valid;
     }
