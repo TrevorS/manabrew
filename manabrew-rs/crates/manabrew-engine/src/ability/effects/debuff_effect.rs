@@ -29,6 +29,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         0
     };
     let permanent = matches!(sa.ir.duration, Some(AbilityDuration::Permanent));
+    let timestamp = ctx.game.next_timestamp();
     let targets = debuff_targets(ctx, sa);
     for target in targets {
         if amount > 0 {
@@ -44,24 +45,26 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             removed_keywords.extend(landwalk_keywords(ctx, target));
         }
 
-        for kw in removed_keywords {
-            if permanent {
+        if permanent {
+            for kw in removed_keywords {
                 ctx.game.card_mut(target).remove_intrinsic_keyword(&kw);
-            } else {
-                ctx.game.card_mut(target).add_cant_have_keyword(&kw);
-                let until = crate::phase::PhaseCommand::RemoveCantHaveKeyword {
-                    card: target,
-                    keyword: kw,
-                };
-                if !crate::ability::spell_ability_effect::add_until_command(
-                    ctx.game,
-                    sa.ir.duration.as_ref(),
-                    sa.activating_player,
-                    sa.source,
-                    until.clone(),
-                ) {
-                    ctx.game.end_of_turn.add_until(None, until);
-                }
+            }
+        } else if !removed_keywords.is_empty() {
+            for kw in &removed_keywords {
+                ctx.game.card_mut(target).add_removed_keyword(kw, timestamp);
+            }
+            let until = crate::phase::PhaseCommand::RemoveChangedCardKeywords {
+                card: target,
+                timestamp,
+            };
+            if !crate::ability::spell_ability_effect::add_until_command(
+                ctx.game,
+                sa.ir.duration.as_ref(),
+                sa.activating_player,
+                sa.source,
+                until.clone(),
+            ) {
+                ctx.game.end_of_turn.add_until(None, until);
             }
         }
     }

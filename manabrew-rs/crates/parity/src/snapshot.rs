@@ -266,20 +266,12 @@ fn card_types(card: &manabrew_engine::card::CardInstance) -> Vec<String> {
 }
 
 fn card_keywords(card: &manabrew_engine::card::CardInstance) -> Vec<String> {
-    let mut keywords: Vec<String> = card
-        .keywords
-        .as_string_list()
+    let mut keywords: Vec<String> = [&card.keywords, &card.granted_keywords, &card.pump_keywords]
         .into_iter()
-        .chain(card.granted_keywords.as_string_list())
-        .chain(card.pump_keywords.as_string_list())
-        .filter(|keyword| {
-            !keyword.starts_with("HIDDEN")
-                && !card
-                    .cant_have_keywords
-                    .contains(&keyword.to_ascii_lowercase())
-        })
-        .map(|keyword| {
-            keyword
+        .flat_map(|keywords| keywords.get_values())
+        .filter(|inst| !inst.original.starts_with("HIDDEN") && card.keyword_instance_active(inst))
+        .map(|inst| {
+            inst.original
                 .split(':')
                 .next()
                 .unwrap_or_default()

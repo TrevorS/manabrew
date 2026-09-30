@@ -608,12 +608,18 @@ pub fn add_color(card: &mut Card, color: ColorSet) {
 
 pub fn has_keyword(card: &Card, keyword: &str) -> bool {
     let keyword = keyword.strip_prefix("HIDDEN ").unwrap_or(keyword);
-    if !card.cant_have_keywords.is_empty()
-        && card
-            .cant_have_keywords
-            .contains(&keyword.to_ascii_lowercase())
-    {
-        return false;
+    if !card.removed_keywords.is_empty() {
+        return [&card.keywords, &card.granted_keywords, &card.pump_keywords]
+            .into_iter()
+            .flat_map(|keywords| keywords.get_values())
+            .any(|inst| {
+                let original = inst.original.as_str();
+                (original.eq_ignore_ascii_case(keyword)
+                    || original
+                        .strip_prefix("HIDDEN ")
+                        .is_some_and(|hidden| hidden.eq_ignore_ascii_case(keyword)))
+                    && card.keyword_instance_active(inst)
+            });
     }
     card.keywords.contains_string_or_hidden_ignore_case(keyword)
         || card

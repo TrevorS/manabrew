@@ -46,9 +46,9 @@ pub enum PhaseCommand {
         card: CardId,
         keyword: String,
     },
-    RemoveCantHaveKeyword {
+    RemoveChangedCardKeywords {
         card: CardId,
-        keyword: String,
+        timestamp: u64,
     },
     RemovePtBoost {
         card: CardId,
@@ -95,8 +95,8 @@ impl PhaseCommand {
             PhaseCommand::RemoveKeyword { card, keyword } => {
                 game.card_mut(card).remove_changed_card_keywords(&keyword);
             }
-            PhaseCommand::RemoveCantHaveKeyword { card, keyword } => {
-                game.card_mut(card).remove_cant_have_keyword(&keyword);
+            PhaseCommand::RemoveChangedCardKeywords { card, timestamp } => {
+                game.card_mut(card).remove_removed_keywords(timestamp);
             }
             PhaseCommand::RemovePtBoost { card, timestamp } => {
                 game.card_mut(card).remove_pt_boost_at(timestamp);

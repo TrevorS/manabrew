@@ -790,8 +790,9 @@ pub struct Card {
     pub can_block_additional: i32,
     /// Whether this creature can block any number of creatures.
     pub can_block_any: bool,
-    /// Keywords this card is prevented from having.
-    pub cant_have_keywords: HashSet<String>,
+    /// Java `KeywordsChange.removeKeywords` of timestamped keyword changes (Debuff): the
+    /// lowercased keyword and the change's timestamp.
+    pub removed_keywords: Vec<(String, u64)>,
     /// Intensity marker value.
     pub intensity: i32,
     /// Card was surveilled this turn.
@@ -1098,7 +1099,7 @@ impl Card {
             may_play: Vec::new(),
             can_block_additional: 0,
             can_block_any: false,
-            cant_have_keywords: HashSet::default(),
+            removed_keywords: Vec::new(),
             intensity: 0,
             surveilled: false,
             milled: false,
@@ -1348,7 +1349,7 @@ impl Card {
             may_play: self.may_play.clone(),
             can_block_additional: self.can_block_additional,
             can_block_any: self.can_block_any,
-            cant_have_keywords: self.cant_have_keywords.clone(),
+            removed_keywords: self.removed_keywords.clone(),
             intensity: self.intensity,
             surveilled: self.surveilled,
             milled: self.milled,
@@ -1657,7 +1658,7 @@ impl Card {
         out.can_block_additional
             .clone_from(&self.can_block_additional);
         out.can_block_any.clone_from(&self.can_block_any);
-        out.cant_have_keywords.clone_from(&self.cant_have_keywords);
+        out.removed_keywords.clone_from(&self.removed_keywords);
         out.intensity.clone_from(&self.intensity);
         out.surveilled.clone_from(&self.surveilled);
         out.milled.clone_from(&self.milled);
@@ -2092,16 +2093,15 @@ impl Card {
     /// then falls back to string matching on granted/pump keywords.
     /// Mirrors Java's `Card.hasKeyword(Keyword)`.
     pub fn has_keyword_enum(&self, kw: Kw) -> bool {
-        if !self.cant_have_keywords.is_empty()
-            && self
-                .cant_have_keywords
-                .contains(&kw.display_name().to_ascii_lowercase())
-        {
-            return false;
+        if self.removed_keywords.is_empty() {
+            return self.keywords.contains_keyword(kw)
+                || self.granted_keywords.contains_keyword(kw)
+                || self.pump_keywords.contains_keyword(kw);
         }
-        self.keywords.contains_keyword(kw)
-            || self.granted_keywords.contains_keyword(kw)
-            || self.pump_keywords.contains_keyword(kw)
+        [&self.keywords, &self.granted_keywords, &self.pump_keywords]
+            .into_iter()
+            .flat_map(|keywords| keywords.get_values_for(kw))
+            .any(|inst| self.keyword_instance_active(inst))
     }
 
     pub fn has_haste(&self) -> bool {
@@ -4420,27 +4420,36 @@ impl Card {
         self.keywords.iter_strings().any(|k| k.starts_with(prefix))
     }
     pub fn has_start_of_un_hidden_keyword(&self, prefix: &str) -> bool {
-        if self
-            .cant_have_keywords
-            .contains(&prefix.to_ascii_lowercase())
-        {
-            return false;
-        }
         [&self.keywords, &self.granted_keywords, &self.pump_keywords]
             .into_iter()
-            .flat_map(|keywords| keywords.iter_strings())
-            .any(|keyword| keyword.starts_with(prefix))
+            .flat_map(|keywords| keywords.get_values())
+            .any(|inst| inst.original.starts_with(prefix) && self.keyword_instance_active(inst))
     }
     pub fn has_any_keyword(&self) -> bool {
         !self.keywords.as_string_list().is_empty()
             || !self.granted_keywords.as_string_list().is_empty()
             || !self.pump_keywords.as_string_list().is_empty()
     }
-    pub fn add_cant_have_keyword(&mut self, kw: &str) {
-        self.cant_have_keywords.insert(kw.to_ascii_lowercase());
+    pub fn add_removed_keyword(&mut self, kw: &str, timestamp: u64) {
+        self.removed_keywords
+            .push((kw.to_ascii_lowercase(), timestamp));
     }
-    pub fn remove_cant_have_keyword(&mut self, kw: &str) {
-        self.cant_have_keywords.remove(&kw.to_ascii_lowercase());
+    pub fn remove_removed_keywords(&mut self, timestamp: u64) {
+        self.removed_keywords.retain(|&(_, ts)| ts != timestamp);
+    }
+    /// Java applies keyword changes in timestamp order, so an instance added after a removal
+    /// of the same keyword stands.
+    pub fn keyword_instance_active(
+        &self,
+        inst: &crate::keyword::keyword_instance::KeywordInstanceData,
+    ) -> bool {
+        let added = inst.timestamp.unwrap_or(0);
+        let original = inst.original.to_ascii_lowercase();
+        let original = original.strip_prefix("hidden ").unwrap_or(&original);
+        !self
+            .removed_keywords
+            .iter()
+            .any(|(kw, ts)| kw == original && *ts > added)
     }
     pub fn add_changed_text_color_word(&mut self, from: &str, to: &str) {
         self.set_s_var(format!("TextColor:{from}"), to);

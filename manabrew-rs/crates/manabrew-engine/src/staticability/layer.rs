@@ -76,6 +76,7 @@ enum EffectKind {
         keyword: String,
         idx: i64,
         static_id: i64,
+        timestamp: Option<u64>,
     },
     SetName(String),
     /// Grant an activated ability (from AddAbility$). The string is the ability text.
@@ -405,6 +406,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                             keyword: keyword.to_string(),
                             idx: 1,
                             static_id: 0,
+                            timestamp: None,
                         },
                     },
                 ));
@@ -854,6 +856,7 @@ fn apply_continuous_ability(
                                 keyword: expanded,
                                 idx,
                                 static_id,
+                                timestamp: Some(source_card.layer_timestamp),
                             },
                         });
                         idx += 1;
@@ -867,6 +870,7 @@ fn apply_continuous_ability(
                         keyword: kw.to_string(),
                         idx,
                         static_id,
+                        timestamp: Some(source_card.layer_timestamp),
                     },
                 });
                 idx += 1;
@@ -1255,6 +1259,7 @@ fn apply_pending_effects(
                 keyword: kw,
                 idx,
                 static_id,
+                timestamp,
             } => {
                 let card = game.card_mut(effect.target);
                 let kw: String = if kw.contains("CardManaCost") {
@@ -1271,6 +1276,7 @@ fn apply_pending_effects(
                     crate::keyword::keyword_instance::KeywordInstanceData::new(keyword, kw.clone());
                 inst.idx = idx;
                 inst.static_id = static_id;
+                inst.timestamp = timestamp;
                 if card.granted_keywords.insert(inst.clone()) && !redundant {
                     let own_svars = std::mem::take(&mut card.svars);
                     card.generate_keyword_triggers_for_instance(&inst);
