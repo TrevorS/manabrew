@@ -13,14 +13,20 @@ impl GameLoop {
         let mut pending = self.trigger_handler.run_waiting_matched_triggers(game);
         let mut ran = !pending.is_empty();
         let mut pushed = Vec::new();
-        let mut player = active;
-        loop {
-            let next = game.next_player(player);
+        let start = game
+            .player_order
+            .iter()
+            .position(|&p| p == active)
+            .unwrap_or(0);
+        let players: Vec<PlayerId> = (0..game.player_order.len())
+            .map(|i| game.player_order[(start + i) % game.player_order.len()])
+            .filter(|&p| p == active || game.player(p).is_alive())
+            .collect();
+        for (i, &player) in players.iter().enumerate() {
+            let last = i + 1 == players.len();
             let (mut group, rest): (Vec<_>, Vec<_>) = std::mem::take(&mut pending)
                 .into_iter()
-                .partition(|(pt, ..)| {
-                    next == active || pt.entry.spell_ability.activating_player == player
-                });
+                .partition(|(pt, ..)| last || pt.entry.spell_ability.activating_player == player);
             pending = rest;
             if player != active {
                 let matched = self.trigger_handler.take_matched_triggers_of(game, player);
@@ -60,10 +66,6 @@ impl GameLoop {
                     self.resolve_stack(game, agents);
                 }
             }
-            if next == active {
-                break;
-            }
-            player = next;
         }
         if !pushed.is_empty() {
             self.invalidate_all_mana_undo();
