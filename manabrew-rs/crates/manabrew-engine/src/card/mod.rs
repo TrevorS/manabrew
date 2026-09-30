@@ -796,6 +796,9 @@ pub struct Card {
     /// Java `KeywordsChange` additions of timestamped keyword changes (Pump with a
     /// duration): the keyword and the change's timestamp.
     pub keyword_grants: Vec<(String, u64)>,
+    /// Java `Card.newPT` timestamp of the latest `Duration$ Permanent` Animate power and
+    /// toughness, which a set-P/T static older than it does not override (CR 613.7).
+    pub permanent_new_pt_timestamp: Option<u64>,
     /// Intensity marker value.
     pub intensity: i32,
     /// Card was surveilled this turn.
@@ -1104,6 +1107,7 @@ impl Card {
             can_block_any: false,
             removed_keywords: Vec::new(),
             keyword_grants: Vec::new(),
+            permanent_new_pt_timestamp: None,
             intensity: 0,
             surveilled: false,
             milled: false,
@@ -1355,6 +1359,7 @@ impl Card {
             can_block_any: self.can_block_any,
             removed_keywords: self.removed_keywords.clone(),
             keyword_grants: self.keyword_grants.clone(),
+            permanent_new_pt_timestamp: self.permanent_new_pt_timestamp,
             intensity: self.intensity,
             surveilled: self.surveilled,
             milled: self.milled,
@@ -1665,6 +1670,7 @@ impl Card {
         out.can_block_any.clone_from(&self.can_block_any);
         out.removed_keywords.clone_from(&self.removed_keywords);
         out.keyword_grants.clone_from(&self.keyword_grants);
+        out.permanent_new_pt_timestamp = self.permanent_new_pt_timestamp;
         out.intensity.clone_from(&self.intensity);
         out.surveilled.clone_from(&self.surveilled);
         out.milled.clone_from(&self.milled);

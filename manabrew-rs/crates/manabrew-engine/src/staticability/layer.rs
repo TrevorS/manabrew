@@ -786,11 +786,12 @@ fn apply_continuous_ability(
 
         let set_power = sa.ir.set_power_text.as_deref();
         let set_toughness = sa.ir.set_toughness_text.as_deref();
-        let newer_animate_pt = game
-            .card(target)
+        let target_card = game.card(target);
+        let newer_animate_pt = target_card
             .animate_state
             .as_ref()
             .and_then(|state| state.new_pt_timestamp)
+            .max(target_card.permanent_new_pt_timestamp)
             .is_some_and(|timestamp| is_cda || timestamp > source_card.layer_timestamp);
         if (set_power.is_some() || set_toughness.is_some()) && !newer_animate_pt {
             let sp = resolve_set_pt_value(game, source_id, target, set_power);

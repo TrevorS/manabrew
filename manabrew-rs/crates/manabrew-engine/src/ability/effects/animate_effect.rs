@@ -381,6 +381,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             if let Some(val) = parsed_toughness {
                 card.set_base_toughness(Some(val));
             }
+            if is_permanent_duration {
+                card.permanent_new_pt_timestamp = Some(timestamp);
+            }
             if let Some(state) = card.animate_state.as_mut() {
                 if !is_permanent_duration {
                     state.add_new_pt(parsed_power, parsed_toughness, timestamp);
