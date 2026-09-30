@@ -1024,105 +1024,16 @@ impl DeterministicAgent {
             .map(Arc::as_ref)
     }
 
-    fn snapshot_can_creature_block(
-        &self,
-        snap: &GameSnapshot,
-        blocker_id: CardId,
-        attacker_id: CardId,
-    ) -> bool {
-        let Some(attacker) = self.snapshot_card(snap, attacker_id) else {
-            return false;
-        };
-        let Some(blocker) = self.snapshot_card(snap, blocker_id) else {
-            return false;
-        };
-
-        if !blocker.can_block() {
-            return false;
-        }
-        if attacker.has_flying() && !blocker.has_flying() && !blocker.has_reach() {
-            return false;
-        }
-        if attacker.has_fear() && !blocker.type_line.is_artifact() && !blocker.color.has_black() {
-            return false;
-        }
-        if attacker.has_intimidate()
-            && !blocker.type_line.is_artifact()
-            && !blocker.color.shares_color_with(attacker.color)
-        {
-            return false;
-        }
-        if attacker.has_shadow() != blocker.has_shadow() {
-            return false;
-        }
-        if attacker.has_horsemanship() && !blocker.has_horsemanship() {
-            return false;
-        }
-        if attacker.has_skulk() && blocker.power() > attacker.power() {
-            return false;
-        }
-        if attacker.is_protected_from(blocker)
-            || self.snapshot_game().is_some_and(|game| {
-                manabrew_engine::staticability::static_ability_colorless_damage_source::is_protected_by_valid(
-                    game, attacker, blocker,
-                )
-            })
-        {
-            return false;
-        }
-
-        for source in self.snapshot_cards().iter().filter(|c| {
-            c.zone == forge_foundation::ZoneType::Battlefield
-                || c.zone == forge_foundation::ZoneType::Command
-        }) {
-            for sa in &source.static_abilities {
-                if !sa.check_mode(&manabrew_engine::staticability::StaticMode::CantBlockBy) {
-                    continue;
-                }
-                if let Some(game) = self.snapshot_game() {
-                    if !sa.check_conditions(source, game) {
-                        continue;
-                    }
-                }
-
-                if let Some(valid_attacker) = sa.ir.valid_attacker.as_ref() {
-                    if !manabrew_engine::card::valid_filter::matches_valid_card_selector(
-                        valid_attacker,
-                        attacker,
-                        source,
-                    ) {
-                        continue;
-                    }
-                }
-
-                if let Some(valid_blocker) = sa.ir.valid_blocker_text.as_deref() {
-                    let blocker_matches = valid_blocker.split(',').any(|v| {
-                        manabrew_engine::card::valid_filter::matches_valid_card(
-                            v.trim(),
-                            blocker,
-                            source,
-                        )
-                    });
-                    if !blocker_matches {
-                        continue;
-                    }
-                }
-
-                return false;
-            }
-        }
-
-        true
-    }
-
     fn legal_attackers_for_blocker(&self, blocker: CardId, attackers: &[CardId]) -> Vec<CardId> {
-        let Some(ref snap) = self.last_game_snapshot else {
+        let Some(game) = self.snapshot_game() else {
             return attackers.to_vec();
         };
         attackers
             .iter()
             .copied()
-            .filter(|&attacker| self.snapshot_can_creature_block(snap, blocker, attacker))
+            .filter(|&attacker| {
+                manabrew_engine::combat::combat_util::can_creature_block(game, blocker, attacker)
+            })
             .collect()
     }
 
