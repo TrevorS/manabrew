@@ -145,6 +145,10 @@ pub struct PendingTrigger {
     /// Description text for the trigger (shown to player for optional triggers).
     pub description: String,
     pub static_trigger: bool,
+    /// The host's zone timestamp when the trigger ran. Java counts the activation then
+    /// (`Trigger.triggerRun` in `runSingleTrigger`), on the object that triggered, so a host
+    /// that changed zones before its trigger goes on the stack keeps no count.
+    pub host_zone_timestamp: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
@@ -528,6 +532,10 @@ impl TriggerHandler {
                     if let Some(trigger) = game
                         .cards
                         .get(source_id.index())
+                        .filter(|c| {
+                            pt.host_zone_timestamp
+                                .is_none_or(|timestamp| c.zone_timestamp == timestamp)
+                        })
                         .and_then(|c| c.triggers.get(trig_idx))
                         .cloned()
                     {
@@ -789,6 +797,11 @@ impl TriggerHandler {
                         .unwrap_or(false);
                     let effect_optional_decider =
                         entry.spell_ability.ir.optional_decider_text.is_some();
+                    let source_ts = if lki_host {
+                        card.lki_zone_timestamp.unwrap_or(card.zone_timestamp)
+                    } else {
+                        card.zone_timestamp
+                    };
                     let pending = PendingTrigger {
                         ability_triggered: Some(
                             crate::trigger::trigger_ability_triggered::build_run_params(
@@ -804,11 +817,7 @@ impl TriggerHandler {
                         decider: controller,
                         description: trigger.description.clone(),
                         static_trigger: trigger.is_static(),
-                    };
-                    let source_ts = if lki_host {
-                        card.lki_zone_timestamp.unwrap_or(card.zone_timestamp)
-                    } else {
-                        card.zone_timestamp
+                        host_zone_timestamp: Some(source_ts),
                     };
                     entries.push((pending, controller, source_ts, 1, trigger.id));
                     let extra = crate::staticability::static_ability_panharmonicon::extra_triggers(
@@ -861,6 +870,7 @@ impl TriggerHandler {
                                 decider: controller,
                                 description: trigger.description.clone(),
                                 static_trigger: trigger.is_static(),
+                                host_zone_timestamp: Some(source_ts),
                             },
                             controller,
                             source_ts,
@@ -997,6 +1007,7 @@ impl TriggerHandler {
                     decider: delayed.controller,
                     description: String::new(),
                     static_trigger: delayed.params.has("Static"),
+                    host_zone_timestamp: None,
                 };
                 let delayed_ts = delayed.host_timestamp(game);
                 let delayed_bucket = if delayed.sort_after_active {
@@ -1215,6 +1226,7 @@ impl TriggerHandler {
                     decider: delayed.controller,
                     description: String::new(),
                     static_trigger: delayed.params.has("Static"),
+                    host_zone_timestamp: None,
                 };
                 let ts = delayed.host_timestamp(game);
                 let trigger_bucket = if delayed.sort_after_active { 2 } else { 1 };
