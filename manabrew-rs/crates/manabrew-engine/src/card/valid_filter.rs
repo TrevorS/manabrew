@@ -94,6 +94,14 @@ fn requirement_amount(
         return -requirement_amount(source, svar_source, stripped.trim(), game);
     }
 
+    if raw_value == "Count$hasOptionalKeywordAmount" {
+        return svar_source
+            .get_keyword()
+            .zip(source.cast_sa.as_ref())
+            .map_or(0, |(kw, cast_sa)| {
+                i32::from(cast_sa.has_optional_keyword_amount(kw))
+            });
+    }
     if raw_value == "Count$OptionalKeywordAmount" {
         return svar_source
             .get_keyword()

@@ -2083,6 +2083,17 @@ impl SpellAbility {
 
     // ── Optional keyword amounts ──────────────────────────────────────────
 
+    pub fn has_optional_keyword_amount(
+        &self,
+        kw: &crate::keyword::keyword_interface::KeywordInterface,
+    ) -> bool {
+        self.optional_keyword_amounts.iter().any(|row| {
+            row.keyword == kw.get_keyword()
+                && row.idx == kw.get_idx()
+                && row.static_id == kw.get_static_id()
+        })
+    }
+
     pub fn get_optional_keyword_amount(
         &self,
         kw: &crate::keyword::keyword_interface::KeywordInterface,

@@ -869,41 +869,82 @@ impl GameLoop {
             "tapXType<2/Creature.SharesColorWith/creature that shares a color with {}>",
             host.card_name
         );
-        let conspire_instances: Vec<crate::keyword::keyword_instance::KeywordInstanceData> = host
+        let instances: Vec<crate::keyword::keyword_instance::KeywordInstanceData> = host
             .keywords
             .get_values()
             .into_iter()
             .chain(host.granted_keywords.get_values())
             .chain(host.pump_keywords.get_values())
-            .filter(|inst| inst.original == "Conspire")
             .cloned()
             .collect();
         let mut conspire_paid = 0;
-        for inst in &conspire_instances {
-            agents[player.index()].snapshot_state(game, &self.mana_pools);
-            if agents[player.index()].choose_number_for_keyword_cost(
-                DecisionContext::new(game, &self.mana_pools),
-                player,
-                1,
-                &format!("Pay for Conspire? {conspire_cost}"),
-                Some(card_id),
-            ) == 1
-            {
-                conspire_paid += 1;
-                sa.set_optional_keyword_amount(
-                    &crate::keyword::keyword_interface::KeywordInterface::from_instance(inst),
+        let mut casualty_costs: Vec<String> = Vec::new();
+        for inst in &instances {
+            let ki = crate::keyword::keyword_interface::KeywordInterface::from_instance(inst);
+            if let Some(n) = inst.original.strip_prefix("Casualty:") {
+                let mut n = n.split(':').next().unwrap_or("1").to_string();
+                if n == "X" {
+                    let max = game
+                        .cards_in_zone(ZoneType::Battlefield, player)
+                        .iter()
+                        .filter(|&&cid| game.card(cid).is_creature())
+                        .map(|&cid| game.card(cid).power())
+                        .max()
+                        .unwrap_or(0);
+                    agents[player.index()].snapshot_state(game, &self.mana_pools);
+                    n = agents[player.index()]
+                        .choose_number(
+                            DecisionContext::new(game, &self.mana_pools),
+                            player,
+                            Some(card_id),
+                            "Choose X for Casualty",
+                            None,
+                            0,
+                            max,
+                        )
+                        .unwrap_or(0)
+                        .clamp(0, max.max(0))
+                        .to_string();
+                }
+                let casualty_cost =
+                    format!("Sac<1/Creature.powerGE{n}/creature with power {n} or greater>");
+                agents[player.index()].snapshot_state(game, &self.mana_pools);
+                if agents[player.index()].choose_number_for_keyword_cost(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
                     1,
-                );
+                    &format!("Pay for Casualty? {casualty_cost}"),
+                    Some(card_id),
+                ) == 1
+                {
+                    sa.set_optional_keyword_amount(&ki, n.parse().unwrap_or(0));
+                    casualty_costs.push(casualty_cost);
+                }
+            } else if inst.original == "Conspire" {
+                agents[player.index()].snapshot_state(game, &self.mana_pools);
+                if agents[player.index()].choose_number_for_keyword_cost(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
+                    1,
+                    &format!("Pay for Conspire? {conspire_cost}"),
+                    Some(card_id),
+                ) == 1
+                {
+                    conspire_paid += 1;
+                    sa.set_optional_keyword_amount(&ki, 1);
+                }
             }
         }
-        if conspire_paid == 0 {
-            return None;
+        let mut parts: Vec<String> = Vec::new();
+        if conspire_paid > 0 {
+            parts.push(format!(
+                "tapXType<{}/Creature.SharesColorWith/creature that shares a color with {}>",
+                2 * conspire_paid,
+                host.card_name
+            ));
         }
-        Some(crate::cost::parse_cost(&format!(
-            "tapXType<{}/Creature.SharesColorWith/creature that shares a color with {}>",
-            2 * conspire_paid,
-            host.card_name
-        )))
+        parts.extend(casualty_costs);
+        (!parts.is_empty()).then(|| crate::cost::parse_cost(&parts.join(" ")))
     }
 
     pub(crate) fn play_sa_from_play_effect(
@@ -1847,7 +1888,8 @@ impl GameLoop {
             } else {
                 None
             };
-        let conspire_tap_cost = self.add_extra_keyword_cost(game, agents, player, card_id, &mut sa);
+        let extra_keyword_cost =
+            self.add_extra_keyword_cost(game, agents, player, card_id, &mut sa);
 
         let mut need_x = x_count == 0;
         let announce_cost = if sa.alt_cost.is_some() {
@@ -2217,7 +2259,7 @@ impl GameLoop {
         } else {
             None
         };
-        let prechosen_conspire_taps = if let Some(ref cost) = conspire_tap_cost {
+        let prechosen_extra_keyword_taps = if let Some(ref cost) = extra_keyword_cost {
             match Self::prechoose_additional_cost_taps(
                 game,
                 agents,
@@ -2226,6 +2268,14 @@ impl GameLoop {
                 card_id,
                 cost,
             ) {
+                Some(picks) => Some(picks),
+                None => rollback_failed_payment!(),
+            }
+        } else {
+            None
+        };
+        let prechosen_extra_keyword_sacrifices = if let Some(ref cost) = extra_keyword_cost {
+            match self.prechoose_additional_cost_sacrifices(game, agents, player, cost, Some(&sa)) {
                 Some(picks) => Some(picks),
                 None => rollback_failed_payment!(),
             }
@@ -2906,7 +2956,7 @@ impl GameLoop {
                 rollback_failed_payment!();
             }
         }
-        if let Some(ref cost) = conspire_tap_cost {
+        if let Some(ref cost) = extra_keyword_cost {
             if !self.pay_additional_costs(
                 game,
                 agents,
@@ -2916,9 +2966,9 @@ impl GameLoop {
                 None,
                 cost.mandatory,
                 Some(&mut sa),
+                prechosen_extra_keyword_sacrifices.as_deref(),
                 None,
-                None,
-                prechosen_conspire_taps.as_deref(),
+                prechosen_extra_keyword_taps.as_deref(),
                 None,
                 None,
                 None,

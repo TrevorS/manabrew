@@ -1308,6 +1308,35 @@ impl Card {
                 .or_insert_with(|| "Count$OptionalKeywordAmount".to_string());
         }
 
+        if let Some(details) = kw.strip_prefix("Casualty:") {
+            let raw = "Mode$ SpellCast | ValidCard$ Card.Self | TriggerZones$ Stack | CheckSVar$ CasualtyPaid | Secondary$ True | TriggerDescription$ Casualty";
+            let extra = details.split_once(':').map(|(_, extra)| extra);
+            let execute = match extra {
+                Some(extra) => format!("TrigCasualty{extra}"),
+                None => "TrigCasualty".to_string(),
+            };
+            if let Some(mut trig) = parse_trigger(raw, next_id) {
+                trig.execute = execute.clone();
+                self.add_trigger(trig);
+            }
+            self.svars.entry(execute).or_insert_with(|| {
+                let mut ability =
+                    "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | MayChooseTarget$ True"
+                        .to_string();
+                if let Some(extra) = extra {
+                    ability.push_str(" | ");
+                    ability.push_str(extra);
+                }
+                ability
+            });
+            self.svars
+                .entry("CasualtyPaid".to_string())
+                .or_insert_with(|| "Count$hasOptionalKeywordAmount".to_string());
+            self.svars
+                .entry("Casualty".to_string())
+                .or_insert_with(|| "Count$OptionalKeywordAmount".to_string());
+        }
+
         if kw == "Storm" {
             let raw = "Mode$ SpellCast | ValidCard$ Card.Self | TriggerZones$ Stack | Secondary$ True | TriggerDescription$ Storm";
             if let Some(mut trig) = parse_trigger(raw, next_id) {
