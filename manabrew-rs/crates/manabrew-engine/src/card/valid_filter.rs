@@ -694,8 +694,12 @@ fn matches_card_predicate(
         SelectorPredicate::TriggerRememberedCard => is_trigger_remembered(card, context),
         SelectorPredicate::EffectSource => context.source_card.effect_source == Some(card.id),
         SelectorPredicate::NoName => card.has_no_name(),
-        SelectorPredicate::SourceColor(color) => matches_card_color(*color, card),
-        SelectorPredicate::SourceColorless => card.color.is_colorless(),
+        SelectorPredicate::SourceColor(color) => {
+            !colorless_damage_source(card, &context) && matches_card_color(*color, card)
+        }
+        SelectorPredicate::SourceColorless => {
+            card.color.is_colorless() || colorless_damage_source(card, &context)
+        }
         SelectorPredicate::ChosenColorSource => matches_chosen_color_source(card, context),
         SelectorPredicate::CardState(state) => matches_card_state(*state, card, context),
         SelectorPredicate::Context(predicate) => {
@@ -1655,6 +1659,15 @@ fn matches_entered_this_turn_from(zone: ZoneType, card: &Card, _context: MatchCo
         ZoneType::Battlefield => card.entered_this_turn(),
         _ => false,
     }
+}
+
+fn colorless_damage_source(card: &Card, context: &MatchContext<'_>) -> bool {
+    context.game.is_some_and(|game| {
+        crate::staticability::static_ability_colorless_damage_source::colorless_damage_source(
+            &game.cards,
+            card,
+        )
+    })
 }
 
 fn matches_card_color(color: CardColorSelector, card: &Card) -> bool {

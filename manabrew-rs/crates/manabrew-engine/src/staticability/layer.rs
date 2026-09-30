@@ -1391,6 +1391,17 @@ fn apply_player_keyword_effects(
             if !keywords.iter().any(|existing| existing == keyword) {
                 keywords.push(keyword.to_string());
             }
+            if keyword.starts_with("Protection")
+                && game.player(player).keyword_effect_card.is_none()
+            {
+                let effect = crate::player::player_factory_util::new_player_effect_card(
+                    player,
+                    "Keyword Effects",
+                    None,
+                );
+                let effect_id = game.add_player_effect_card(player, effect);
+                game.player_mut(player).keyword_effect_card = Some(effect_id);
+            }
         }
     }
 }

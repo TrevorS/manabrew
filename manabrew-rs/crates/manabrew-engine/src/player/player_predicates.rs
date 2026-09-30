@@ -56,11 +56,6 @@ pub fn get_keywords(game: &GameState, player: PlayerId) -> impl Iterator<Item = 
     state.changed_keywords.iter().chain(&state.static_keywords)
 }
 
-pub fn is_protected_from(game: &GameState, player: PlayerId, source: CardId) -> bool {
-    get_keywords(game, player)
-        .any(|keyword| protection_applies_to_source(game, player, keyword, source))
-}
-
 pub fn protection_applies_to_source(
     game: &GameState,
     player: PlayerId,

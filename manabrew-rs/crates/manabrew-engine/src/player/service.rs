@@ -53,7 +53,11 @@ impl GameState {
         self.initialize_player_commanders_from_registered(player, registered, trigger_handler);
     }
 
-    fn add_player_effect_card(&mut self, player: PlayerId, effect: crate::card::Card) -> CardId {
+    pub(crate) fn add_player_effect_card(
+        &mut self,
+        player: PlayerId,
+        effect: crate::card::Card,
+    ) -> CardId {
         let effect_id = self.create_card(effect);
         self.card_mut(effect_id).zone = ZoneType::Command;
         self.add_card_to_zone(ZoneType::Command, player, effect_id);

@@ -108,6 +108,30 @@ pub fn add_replacement_effect(effect: &mut Card, raw: &str) -> bool {
         .unwrap_or(false)
 }
 
+pub fn add_replacement_effects(
+    game: &crate::game::GameState,
+    player: PlayerId,
+    keyword_card: &Card,
+) -> Vec<crate::replacement::ReplacementEffect> {
+    crate::player::player_predicates::get_keywords(game, player)
+        .filter(|keyword| keyword.starts_with("Protection"))
+        .filter_map(|keyword| {
+            let valid = crate::keyword::protection::get_protection_valid(keyword, true)?;
+            let valid_source = if valid.is_empty() {
+                String::new()
+            } else {
+                format!(" | ValidSource$ {valid}")
+            };
+            let raw = format!(
+                "R$ Event$ DamageDone | Prevent$ True | ActiveZones$ Command | ValidTarget$ You{valid_source} | Secondary$ True | Description$ {keyword}"
+            );
+            let mut replacement = crate::replacement::cached_replacement_effect(&raw)?;
+            replacement.set_host_card(keyword_card);
+            Some(replacement)
+        })
+        .collect()
+}
+
 pub fn add_spell_ability(
     effect: &mut Card,
     key: impl Into<String>,

@@ -46,11 +46,45 @@ impl Protection {
     }
 }
 
-pub fn get_protection_valid(kw: &str) -> Option<String> {
-    let characteristic = kw.strip_prefix("Protection:")?.split(':').next()?;
-    if characteristic.starts_with("Player") {
-        let valid_source = format!("ControlledBy {characteristic}");
-        return Some(format!("Card.{valid_source},Emblem.{valid_source}"));
-    }
-    Some(characteristic.to_string())
+pub fn get_protection_valid(kw: &str, damage: bool) -> Option<String> {
+    let valid_source = if let Some(rest) = kw.strip_prefix("Protection:") {
+        let characteristic = rest.split(':').next()?;
+        if characteristic.starts_with("Player") {
+            format!("ControlledBy {characteristic}")
+        } else {
+            let is_color = [
+                "White",
+                "Blue",
+                "Black",
+                "Red",
+                "Green",
+                "Colorless",
+                "MonoColor",
+                "MultiColor",
+                "EnemyColor",
+            ]
+            .iter()
+            .any(|color| characteristic.ends_with(color));
+            return Some(if damage && is_color {
+                format!("{characteristic}Source")
+            } else {
+                characteristic.to_string()
+            });
+        }
+    } else {
+        let protect_type = kw.strip_prefix("Protection from ")?.trim();
+        let color = match protect_type {
+            "white" => "White",
+            "blue" => "Blue",
+            "black" => "Black",
+            "red" => "Red",
+            "green" => "Green",
+            "colorless" => "Colorless",
+            "each color" => "nonColorless",
+            "everything" => return Some(String::new()),
+            _ => return None,
+        };
+        format!("{color}{}", if damage { "Source" } else { "" })
+    };
+    Some(format!("Card.{valid_source},Emblem.{valid_source}"))
 }

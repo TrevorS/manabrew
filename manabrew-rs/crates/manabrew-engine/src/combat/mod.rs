@@ -674,13 +674,6 @@ impl CombatState {
                 if !self.deal_damage_this_phase(blocker_card, first_strike_only) {
                     continue;
                 }
-                if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-                    game,
-                    game.card(attacker_id),
-                    game.card(blocker_id),
-                ) {
-                    continue;
-                }
                 let blocker_power = if crate::staticability::static_ability_combat_damage_toughness::combat_damage_uses_toughness(
                     &game.cards,
                     game.card(blocker_id),
@@ -1628,13 +1621,6 @@ fn deal_combat_damage_to_card(
     counter_table: &mut crate::game_entity_counter_table::GameEntityCounterTable,
 ) {
     if amount <= 0 {
-        return;
-    }
-    if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-        game,
-        game.card(target),
-        game.card(source),
-    ) {
         return;
     }
     if source_has_wither_or_infect {

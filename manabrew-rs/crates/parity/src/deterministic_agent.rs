@@ -536,17 +536,6 @@ impl DeterministicAgent {
         };
         let _ = apply_replacements(&mut sim, &mut event);
         match event {
-            ReplacementEvent::DamageToCard { .. }
-                if !manabrew_engine::staticability::static_ability_cant_prevent_damage::cant_prevent_damage(
-                    game, source, is_combat,
-                ) && manabrew_engine::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-                    game,
-                    game.card(target),
-                    game.card(source),
-                ) =>
-            {
-                0
-            }
             ReplacementEvent::DamageToCard { amount, .. } => amount.max(0),
             _ => 0,
         }

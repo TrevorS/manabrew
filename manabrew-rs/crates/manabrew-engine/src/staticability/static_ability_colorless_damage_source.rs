@@ -84,7 +84,8 @@ pub fn target_is_protected_from_source(game: &GameState, target: &Card, source: 
 pub fn is_protected_by_valid(game: &GameState, target: &Card, source: &Card) -> bool {
     target
         .protection_keywords()
-        .filter_map(crate::keyword::protection::get_protection_valid)
+        .filter(|kw| kw.starts_with("Protection:"))
+        .filter_map(|kw| crate::keyword::protection::get_protection_valid(kw, false))
         .any(|valid| {
             valid_filter::matches_valid_card_selector_in_game(
                 &crate::parsing::cached_compiled_selector(&valid),

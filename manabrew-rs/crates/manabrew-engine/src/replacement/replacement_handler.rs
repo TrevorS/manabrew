@@ -1591,7 +1591,13 @@ fn collect_effects(
         };
 
         let rules_effects = if rules_effects_may_apply {
-            card.rules_replacement_effects()
+            let mut effects = card.rules_replacement_effects();
+            if game.player(card.owner).keyword_effect_card == Some(card_id) {
+                effects.extend(crate::player::player_factory_util::add_replacement_effects(
+                    game, card.owner, card,
+                ));
+            }
+            effects
         } else {
             Vec::new()
         };

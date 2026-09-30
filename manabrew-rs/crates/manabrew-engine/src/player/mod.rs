@@ -1169,7 +1169,12 @@ pub fn clear_paid_for_sa(game: &mut GameState, player: PlayerId) {
 
 pub fn update_keyword_card_ability_text(game: &mut GameState, player: PlayerId) {
     trim_keywords(game, player);
-    let has_keywords = !game.player(player).changed_keywords.is_empty();
+    let has_keywords = !game.player(player).changed_keywords.is_empty()
+        || game
+            .player(player)
+            .static_keywords
+            .iter()
+            .any(|keyword| keyword.starts_with("Protection"));
     match (game.player(player).keyword_effect_card, has_keywords) {
         (Some(effect_id), false) => {
             if game.card(effect_id).zone != ZoneType::None {

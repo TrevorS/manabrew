@@ -1312,16 +1312,7 @@ impl GameState {
                 let source_lki = self.damage_source_lki(source, cause);
                 let source_controller = source_lki.controller;
                 let dealt = match target {
-                    DamageTarget::Card(cid)
-                        if !self.card(cid).can_be_dealt_damage()
-                            || crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-                                self,
-                                self.card(cid),
-                                self.card(source),
-                            ) =>
-                    {
-                        0
-                    }
+                    DamageTarget::Card(cid) if !self.card(cid).can_be_dealt_damage() => 0,
                     DamageTarget::Card(cid) => {
                         let card = self.card(cid);
                         let wither = source_lki.has_infect()
@@ -1357,7 +1348,12 @@ impl GameState {
                             );
                             amount
                         } else {
-                            self.add_damage_after_prevention(target, amount, Some(source), is_combat)
+                            self.add_damage_after_prevention(
+                                target,
+                                amount,
+                                Some(source),
+                                is_combat,
+                            )
                         }
                     }
                     DamageTarget::Player(pid) => {
@@ -1613,11 +1609,7 @@ impl GameState {
             DamageTarget::Player(target) => {
                 if crate::staticability::static_ability_cant_gain_lose_pay_life::cant_lose_life(
                     self, target,
-                ) || crate::player::has_keyword(self, target, "Protection from everything")
-                    || source.is_some_and(|source| {
-                        crate::player::player_predicates::is_protected_from(self, target, source)
-                    })
-                {
+                ) {
                     return 0;
                 }
                 ReplacementEvent::DamageToPlayer {

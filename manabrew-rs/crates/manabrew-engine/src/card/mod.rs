@@ -2415,7 +2415,36 @@ impl Card {
             }
         }
         effects.extend(self.prevent_damage_keyword_replacements());
+        effects.extend(self.protection_replacements());
         effects
+    }
+
+    fn protection_replacements(&self) -> Vec<crate::replacement::ReplacementEffect> {
+        if self.zone != ZoneType::Battlefield {
+            return Vec::new();
+        }
+        [&self.keywords, &self.granted_keywords, &self.pump_keywords]
+            .into_iter()
+            .flat_map(|keywords| keywords.get_values())
+            .filter(|inst| {
+                inst.original.starts_with("Protection") && self.keyword_instance_active(inst)
+            })
+            .filter_map(|inst| {
+                let valid = crate::keyword::protection::get_protection_valid(&inst.original, true)?;
+                let valid_source = if valid.is_empty() {
+                    String::new()
+                } else {
+                    format!(" | ValidSource$ {valid}")
+                };
+                let raw = format!(
+                    "R$ Event$ DamageDone | Prevent$ True | ActiveZones$ Battlefield | ValidTarget$ Card.Self{valid_source} | Secondary$ True | Description$ {}",
+                    inst.original
+                );
+                let mut replacement = crate::replacement::cached_replacement_effect(&raw)?;
+                replacement.set_host_card(self);
+                Some(replacement)
+            })
+            .collect()
     }
 
     /// The `Prevent all ...` keyword family, which Java turns into `DamageDone`
