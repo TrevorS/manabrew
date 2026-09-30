@@ -2464,10 +2464,21 @@ impl Card {
             return Vec::new();
         }
         let mut effects = Vec::new();
-        for (keyword, is_combat, from, to) in PREVENT_KEYWORDS {
-            if !self.has_keyword(keyword) {
+        let instances = [&self.keywords, &self.granted_keywords, &self.pump_keywords]
+            .into_iter()
+            .flat_map(|keywords| keywords.get_values())
+            .filter(|inst| self.keyword_instance_active(inst))
+            .map(|inst| {
+                let original = inst.original.as_str();
+                original.strip_prefix("HIDDEN ").unwrap_or(original)
+            });
+        for instance in instances {
+            let Some((keyword, is_combat, from, to)) = PREVENT_KEYWORDS
+                .into_iter()
+                .find(|(keyword, ..)| keyword.eq_ignore_ascii_case(instance))
+            else {
                 continue;
-            }
+            };
             let combat = if is_combat { " | IsCombat$ True" } else { "" };
             for (applies, valid) in [(from, "ValidSource"), (to, "ValidTarget")] {
                 if !applies {
