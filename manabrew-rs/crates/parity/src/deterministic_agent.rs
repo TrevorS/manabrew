@@ -527,6 +527,11 @@ impl DeterministicAgent {
         if amount <= 0 {
             return 0;
         }
+        if manabrew_engine::staticability::static_ability_cant_prevent_damage::cant_prevent_damage(
+            game, source, is_combat,
+        ) {
+            return amount;
+        }
         let mut sim = Self::shallow_replacement_game(game);
         let mut event = ReplacementEvent::DamageToCard {
             target,
