@@ -1315,13 +1315,6 @@ fn validate_damage_assignment(
         if !game.card_is_in_zone(blocker_id, ZoneType::Battlefield) {
             continue;
         }
-        if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-            game,
-            game.card(blocker_id),
-            game.card(attacker_id),
-        ) {
-            continue;
-        }
 
         let assigned = per_blocker.get(&blocker_id).copied().unwrap_or(0);
         let lethal = if has_deathtouch {
@@ -1389,13 +1382,6 @@ fn fallback_damage_assignment(
             break;
         }
         if !game.card_is_in_zone(blocker_id, ZoneType::Battlefield) {
-            continue;
-        }
-        if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-            game,
-            game.card(blocker_id),
-            game.card(attacker_id),
-        ) {
             continue;
         }
 

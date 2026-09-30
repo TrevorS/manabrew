@@ -278,13 +278,6 @@ pub trait PlayerAgent {
             if game.card(blocker_id).zone != forge_foundation::ZoneType::Battlefield {
                 continue;
             }
-            if crate::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-                game,
-                game.card(blocker_id),
-                game.card(attacker),
-            ) {
-                continue;
-            }
             last_blocker = Some(blocker_id);
 
             let blocker_card = game.card(blocker_id);

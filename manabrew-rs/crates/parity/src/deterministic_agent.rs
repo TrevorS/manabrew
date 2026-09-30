@@ -1810,13 +1810,6 @@ impl PlayerAgent for DeterministicAgent {
             if game.card(blocker).zone != forge_foundation::ZoneType::Battlefield {
                 continue;
             }
-            if manabrew_engine::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
-                game,
-                game.card(blocker),
-                game.card(attacker),
-            ) {
-                continue;
-            }
             last_target = Some(blocker);
             let blocker_card = game.card(blocker);
             let lethal = if blocker_card.type_line.is_planeswalker() {
