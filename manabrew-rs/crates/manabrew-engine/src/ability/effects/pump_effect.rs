@@ -443,24 +443,28 @@ pub(super) fn apply_pump_to_card(
             .apply_effect(card);
         }
     } else if is_permanent {
-        if att != 0 || def != 0 {
-            let timestamp = ctx.game.next_effect_timestamp();
-            ctx.game
-                .card_mut(card_id)
-                .add_pt_boost_at(att, def, timestamp);
+        if att == 0 && def == 0 && keywords.is_empty() {
+            return;
         }
+        let timestamp = ctx.game.next_effect_timestamp();
         let card = ctx.game.card_mut(card_id);
+        if att != 0 || def != 0 {
+            card.add_pt_boost_at(att, def, timestamp);
+        }
         if !keywords.is_empty() {
             card.capture_changed_characteristics_baseline_if_needed();
         }
         for kw in keywords {
-            if card.add_changed_card_keywords(kw) {
+            if card.add_changed_card_keywords_at(kw, timestamp as u64) {
                 card.add_lasting_keyword_triggers(kw);
             }
         }
     } else if until_next_turn {
+        if att == 0 && def == 0 && keywords.is_empty() {
+            return;
+        }
+        let timestamp = ctx.game.next_effect_timestamp();
         if att != 0 || def != 0 {
-            let timestamp = ctx.game.next_effect_timestamp();
             ctx.game
                 .card_mut(card_id)
                 .add_pt_boost_at(att, def, timestamp);
@@ -481,7 +485,9 @@ pub(super) fn apply_pump_to_card(
                 .capture_changed_characteristics_baseline_if_needed();
         }
         for kw in keywords {
-            ctx.game.card_mut(card_id).add_changed_card_keywords(kw);
+            ctx.game
+                .card_mut(card_id)
+                .add_changed_card_keywords_at(kw, timestamp as u64);
             crate::ability::spell_ability_effect::add_until_command(
                 ctx.game,
                 sa.ir.duration.as_ref(),
@@ -490,6 +496,7 @@ pub(super) fn apply_pump_to_card(
                 crate::phase::PhaseCommand::RemoveKeyword {
                     card: card_id,
                     keyword: kw.clone(),
+                    timestamp: timestamp as u64,
                 },
             );
         }

@@ -793,6 +793,9 @@ pub struct Card {
     /// Java `KeywordsChange.removeKeywords` of timestamped keyword changes (Debuff): the
     /// lowercased keyword and the change's timestamp.
     pub removed_keywords: Vec<(String, u64)>,
+    /// Java `KeywordsChange` additions of timestamped keyword changes (Pump with a
+    /// duration): the keyword and the change's timestamp.
+    pub keyword_grants: Vec<(String, u64)>,
     /// Intensity marker value.
     pub intensity: i32,
     /// Card was surveilled this turn.
@@ -1100,6 +1103,7 @@ impl Card {
             can_block_additional: 0,
             can_block_any: false,
             removed_keywords: Vec::new(),
+            keyword_grants: Vec::new(),
             intensity: 0,
             surveilled: false,
             milled: false,
@@ -1350,6 +1354,7 @@ impl Card {
             can_block_additional: self.can_block_additional,
             can_block_any: self.can_block_any,
             removed_keywords: self.removed_keywords.clone(),
+            keyword_grants: self.keyword_grants.clone(),
             intensity: self.intensity,
             surveilled: self.surveilled,
             milled: self.milled,
@@ -1659,6 +1664,7 @@ impl Card {
             .clone_from(&self.can_block_additional);
         out.can_block_any.clone_from(&self.can_block_any);
         out.removed_keywords.clone_from(&self.removed_keywords);
+        out.keyword_grants.clone_from(&self.keyword_grants);
         out.intensity.clone_from(&self.intensity);
         out.surveilled.clone_from(&self.surveilled);
         out.milled.clone_from(&self.milled);
@@ -4437,6 +4443,28 @@ impl Card {
     }
     pub fn remove_changed_card_keywords(&mut self, kw: &str) {
         self.remove_intrinsic_keyword(kw);
+    }
+    pub fn add_changed_card_keywords_at(&mut self, kw: &str, timestamp: u64) -> bool {
+        self.keyword_grants.push((kw.to_string(), timestamp));
+        self.add_changed_card_keywords(kw)
+    }
+    pub fn remove_changed_card_keywords_at(&mut self, kw: &str, timestamp: u64) {
+        let Some(index) = self
+            .keyword_grants
+            .iter()
+            .position(|(granted, ts)| granted == kw && *ts == timestamp)
+        else {
+            return;
+        };
+        self.keyword_grants.remove(index);
+        let still_granted = self.keyword_grants.iter().any(|(granted, _)| granted == kw);
+        let printed = self
+            .changed_keywords_base
+            .as_ref()
+            .is_some_and(|base| base.contains_string(kw));
+        if !still_granted && !printed {
+            self.remove_changed_card_keywords(kw);
+        }
     }
     pub fn remove_changed_card_keywords_by_text(&mut self, kw: &str) {
         self.remove_intrinsic_keyword(kw);

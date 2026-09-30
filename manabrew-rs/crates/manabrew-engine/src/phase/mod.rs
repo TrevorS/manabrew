@@ -45,6 +45,7 @@ pub enum PhaseCommand {
     RemoveKeyword {
         card: CardId,
         keyword: String,
+        timestamp: u64,
     },
     RemoveChangedCardKeywords {
         card: CardId,
@@ -92,8 +93,13 @@ impl PhaseCommand {
             PhaseCommand::RemoveController { player, controller } => {
                 crate::player::remove_controller(game, player, controller);
             }
-            PhaseCommand::RemoveKeyword { card, keyword } => {
-                game.card_mut(card).remove_changed_card_keywords(&keyword);
+            PhaseCommand::RemoveKeyword {
+                card,
+                keyword,
+                timestamp,
+            } => {
+                game.card_mut(card)
+                    .remove_changed_card_keywords_at(&keyword, timestamp);
             }
             PhaseCommand::RemoveChangedCardKeywords { card, timestamp } => {
                 game.card_mut(card).remove_removed_keywords(timestamp);
