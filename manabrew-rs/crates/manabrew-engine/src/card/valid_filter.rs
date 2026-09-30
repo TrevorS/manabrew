@@ -1690,6 +1690,8 @@ fn resolve_numeric_property(
         NumericSelectorProperty::ManaValue => Some(effective_mana_value(card, context)),
         NumericSelectorProperty::Power => Some(card.power()),
         NumericSelectorProperty::Toughness => Some(card.toughness()),
+        NumericSelectorProperty::BasePower => Some(card.state_base_power()),
+        NumericSelectorProperty::BaseToughness => Some(card.state_base_toughness()),
         NumericSelectorProperty::TotalPT => Some(card.power() + card.toughness()),
         NumericSelectorProperty::TargetCount => {
             Some((context.targeted_cards.len() + context.targeted_players.len()) as i32)

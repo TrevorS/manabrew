@@ -461,6 +461,8 @@ pub enum NumericSelectorProperty {
     ManaValue,
     Power,
     Toughness,
+    BasePower,
+    BaseToughness,
     TotalPT,
     TargetCount,
     ManaSpent,
@@ -1666,6 +1668,10 @@ fn lower_selector_comparison(value: &str) -> Option<SelectorPredicate> {
     let lower = value.to_ascii_lowercase();
     let (property, rest) = if lower.starts_with("cmc") {
         (NumericSelectorProperty::ManaValue, &value[3..])
+    } else if lower.starts_with("basepower") {
+        (NumericSelectorProperty::BasePower, &value[9..])
+    } else if lower.starts_with("basetoughness") {
+        (NumericSelectorProperty::BaseToughness, &value[13..])
     } else if lower.starts_with("power") {
         (NumericSelectorProperty::Power, &value[5..])
     } else if lower.starts_with("toughness") {
