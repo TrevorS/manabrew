@@ -114,8 +114,14 @@ impl GameLoop {
             };
             if self.play_sa_from_play_effect(game, agents, controller, tgt_sa, &play) {
                 play_effect::remember_played(game, sa, card_id);
-            } else if let Some(effect) = rollback_effect {
-                crate::phase::PhaseCommand::ExileEffect { effect }.run(game, &mut *self.game_rng);
+            } else {
+                if game.mirror_forge_bugs && game.card(card_id).face_down {
+                    game.card_mut(card_id).turn_face_up();
+                }
+                if let Some(effect) = rollback_effect {
+                    crate::phase::PhaseCommand::ExileEffect { effect }
+                        .run(game, &mut *self.game_rng);
+                }
             }
             amount -= 1;
         }
