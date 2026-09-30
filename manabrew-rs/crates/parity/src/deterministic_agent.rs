@@ -536,6 +536,17 @@ impl DeterministicAgent {
         };
         let _ = apply_replacements(&mut sim, &mut event);
         match event {
+            ReplacementEvent::DamageToCard { .. }
+                if !manabrew_engine::staticability::static_ability_cant_prevent_damage::cant_prevent_damage(
+                    game, source, is_combat,
+                ) && manabrew_engine::staticability::static_ability_colorless_damage_source::target_is_protected_from_source(
+                    game,
+                    game.card(target),
+                    game.card(source),
+                ) =>
+            {
+                0
+            }
             ReplacementEvent::DamageToCard { amount, .. } => amount.max(0),
             _ => 0,
         }
@@ -551,15 +562,31 @@ impl DeterministicAgent {
     ) -> i32 {
         let target_card = game.card(target);
         let source_card = game.card(source);
-        let mut kill_damage = (target_card.toughness() - target_card.damage).max(0);
+        let mut kill_damage = target_card.get_excess_damage_value(false);
+        if kill_damage > 0 && target_card.svars.contains_key("DestroyWhenDamaged") {
+            kill_damage = 1;
+        }
 
         if target_card.has_keyword("Indestructible")
-            && !source_card.has_wither()
-            && !source_card.has_infect()
+            || target_card.counter_count(&manabrew_engine::card::CounterType::Named(
+                "SHIELD".to_string(),
+            )) > 0
+            || (target_card.regeneration_shields > 0
+                && !manabrew_engine::staticability::static_ability_cant_regenerate::cant_regenerate(
+                    &game.cards,
+                    target_card,
+                ))
         {
-            return max_damage + 1;
-        }
-        if source_card.has_deathtouch() && target_card.is_creature() {
+            if !(source_card.has_wither()
+                || source_card.has_infect()
+                || manabrew_engine::staticability::static_ability_wither_damage::is_wither_damage(
+                    &game.cards,
+                    source_card,
+                ))
+            {
+                return max_damage + 1;
+            }
+        } else if source_card.has_deathtouch() && target_card.is_creature() {
             kill_damage = 1;
         }
 
