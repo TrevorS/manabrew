@@ -786,6 +786,7 @@ impl GameState {
             card.may_look.clear();
             card.may_look_face_down_exile.clear();
             card.damage_history = Default::default();
+            card.targeted_from_this_turn.clear();
         }
         if src_zone == ZoneType::Exile && dest_zone != ZoneType::Exile {
             self.card_mut(card_id).warped = false;
