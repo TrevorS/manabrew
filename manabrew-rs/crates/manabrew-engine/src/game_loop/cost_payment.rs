@@ -4591,6 +4591,22 @@ impl GameLoop {
                     }
                 }
             }
+        } else if let Some(picks) = prechosen.filter(|_| game.mirror_forge_bugs) {
+            for &chosen in picks.iter().take(amount.max(0) as usize) {
+                if !game.card(chosen).tapped {
+                    game.tap(chosen);
+                    self.trigger_handler.run_trigger(
+                        TriggerType::Taps,
+                        RunParams {
+                            card: Some(chosen),
+                            player: Some(player),
+                            ..Default::default()
+                        },
+                        false,
+                    );
+                }
+                tapped_cards.push(chosen);
+            }
         } else {
             let valid = cost::get_tap_type_targets_for_cost(
                 game,
