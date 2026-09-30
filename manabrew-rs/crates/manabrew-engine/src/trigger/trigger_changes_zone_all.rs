@@ -168,8 +168,8 @@ impl TriggerBehavior for TriggerChangesZoneAll {
                     let seen_before = zone
                         .cards_added_this_turn
                         .iter()
-                        .filter(|(_, seen_card)| !matching.contains(seen_card))
-                        .filter(|(seen_origin, seen_card)| {
+                        .filter(|(_, seen_card, _)| !matching.contains(seen_card))
+                        .filter(|(seen_origin, seen_card, _)| {
                             self.origin
                                 .as_ref()
                                 .is_none_or(|zones| zones.contains(seen_origin))

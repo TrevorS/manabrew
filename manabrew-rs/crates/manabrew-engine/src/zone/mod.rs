@@ -12,6 +12,7 @@ pub mod zone_type;
 use forge_foundation::ZoneType;
 use serde::{Deserialize, Serialize};
 
+use crate::card::Card;
 use crate::ids::{CardId, PlayerId};
 
 // Re-exports
@@ -19,6 +20,15 @@ pub use cost_payment_stack::CostPaymentStack;
 pub use player_zone::PlayerZone;
 pub use player_zone_battlefield::PlayerZoneBattlefield;
 pub use zone_store::ZoneStore;
+
+#[derive(Debug, Clone)]
+pub struct LatestState(pub std::sync::Arc<Card>);
+
+impl PartialEq for LatestState {
+    fn eq(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.0, &other.0)
+    }
+}
 
 /// A game zone owned by a specific player.
 /// Each player has their own Hand, Library, Graveyard, etc.
@@ -32,10 +42,10 @@ pub struct Zone {
     pub cards: Vec<CardId>,
     /// Cards added this turn, keyed by their origin zone.
     #[serde(skip)]
-    pub cards_added_this_turn: Vec<(ZoneType, CardId)>,
+    pub cards_added_this_turn: Vec<(ZoneType, CardId, Option<LatestState>)>,
     /// Cards added last turn, keyed by their origin zone.
     #[serde(skip)]
-    pub cards_added_last_turn: Vec<(ZoneType, CardId)>,
+    pub cards_added_last_turn: Vec<(ZoneType, CardId, Option<LatestState>)>,
 
     // ── Battlefield-specific fields (mirrors Java's PlayerZoneBattlefield) ──
     /// Cards that have been melded (combined into a single permanent).
@@ -195,8 +205,8 @@ impl Zone {
     pub fn get_cards_added_this_turn(&self, origin: ZoneType) -> Vec<CardId> {
         self.cards_added_this_turn
             .iter()
-            .filter(|(z, _)| *z == origin)
-            .map(|(_, c)| *c)
+            .filter(|(z, ..)| *z == origin)
+            .map(|(_, c, _)| *c)
             .collect()
     }
 
@@ -205,8 +215,8 @@ impl Zone {
     pub fn get_cards_added_last_turn(&self, origin: ZoneType) -> Vec<CardId> {
         self.cards_added_last_turn
             .iter()
-            .filter(|(z, _)| *z == origin)
-            .map(|(_, c)| *c)
+            .filter(|(z, ..)| *z == origin)
+            .map(|(_, c, _)| *c)
             .collect()
     }
 
@@ -216,7 +226,7 @@ impl Zone {
     pub fn is_card_added_this_turn(&self, card: CardId, origin: ZoneType) -> bool {
         self.cards_added_this_turn
             .iter()
-            .any(|(z, c)| *z == origin && *c == card)
+            .any(|(z, c, _)| *z == origin && *c == card)
     }
 
     /// Create a shallow copy of this zone for last-known-information purposes.
@@ -236,11 +246,17 @@ impl Zone {
 
     /// Save last-known-information for a card entering this zone.
     /// Mirrors Java's `Zone.saveLKI()`.
-    pub fn save_lki(&mut self, card: CardId, origin_zone: ZoneType) {
+    pub fn save_lki(
+        &mut self,
+        card: CardId,
+        origin_zone: ZoneType,
+        latest_state: Option<LatestState>,
+    ) {
         if origin_zone == self.zone_type {
             return;
         }
-        self.cards_added_this_turn.push((origin_zone, card));
+        self.cards_added_this_turn
+            .push((origin_zone, card, latest_state));
     }
 }
 
@@ -293,7 +309,7 @@ mod tests {
     #[test]
     fn reset_cards_added() {
         let mut z = Zone::new(ZoneType::Battlefield, PlayerId(0));
-        z.save_lki(CardId(1), ZoneType::Hand);
+        z.save_lki(CardId(1), ZoneType::Hand, None);
         assert_eq!(z.cards_added_this_turn.len(), 1);
         z.reset_cards_added_this_turn();
         assert!(z.cards_added_this_turn.is_empty());

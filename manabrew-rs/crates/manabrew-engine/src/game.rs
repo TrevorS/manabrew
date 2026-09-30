@@ -869,8 +869,10 @@ impl GameState {
         owner: PlayerId,
         card: CardId,
         from: ZoneType,
+        latest_state: Option<crate::zone::LatestState>,
     ) {
-        self.zones.save_lki(zone_type, owner, card, from);
+        self.zones
+            .save_lki(zone_type, owner, card, from, latest_state);
     }
 
     pub fn active_player(&self) -> PlayerId {

@@ -647,12 +647,14 @@ impl GameState {
         if host_left_battlefield && was_permanent {
             self.player_record_permanent_left_battlefield(src_owner);
         }
+        let left_battlefield_lki = host_left_battlefield.then(|| {
+            crate::lki::battlefield_lki_card(self, card_id)
+                .map(std::sync::Arc::new)
+                .unwrap_or_else(|| self.cards[card_id.index()].clone())
+        });
         // Java `Card.clearCastSA` — the cast-SA link dies once the instance
         // leaves the battlefield (a new cast produces a fresh instance).
-        if host_left_battlefield {
-            let lki = crate::lki::battlefield_lki_card(self, card_id)
-                .map(std::sync::Arc::new)
-                .unwrap_or_else(|| self.cards[card_id.index()].clone());
+        if let Some(lki) = left_battlefield_lki.clone() {
             self.add_change_zone_lki_info(lki);
             let lki_controller = self.card(card_id).controller;
             self.card_mut(card_id).lki_controller = Some(lki_controller);
@@ -720,7 +722,13 @@ impl GameState {
             if let Some(table) = self.pending_change_zone_table.as_mut() {
                 table.put(Some(src_zone), Some(dest_zone), card_id);
             }
-            self.save_zone_lki(dest_zone, dest_owner, card_id, src_zone);
+            self.save_zone_lki(
+                dest_zone,
+                dest_owner,
+                card_id,
+                src_zone,
+                left_battlefield_lki.clone().map(crate::zone::LatestState),
+            );
             let mut exile_effects = Vec::new();
             for eff_id in forget_effects.iter().copied() {
                 let eff = self.card_mut(eff_id);
@@ -822,7 +830,13 @@ impl GameState {
         }
 
         // Track LKI: record which zone this card came from on the destination zone.
-        self.save_zone_lki(dest_zone, dest_owner, card_id, src_zone);
+        self.save_zone_lki(
+            dest_zone,
+            dest_owner,
+            card_id,
+            src_zone,
+            left_battlefield_lki.map(crate::zone::LatestState),
+        );
 
         if !matches!(src_zone, ZoneType::Battlefield) && dest_zone != ZoneType::Battlefield {
             self.card_mut(card_id)

@@ -106,8 +106,8 @@ pub fn get_this_turn_entered(
                 game.zone(to, pid)
                     .cards_added_this_turn
                     .iter()
-                    .filter(|(origin, _)| from.is_none_or(|from| *origin == from))
-                    .map(|&(origin, cid)| (cid, entered_latest_state(game, origin, cid))),
+                    .filter(|(origin, ..)| from.is_none_or(|from| *origin == from))
+                    .map(|(_, cid, latest_state)| (*cid, latest_state.as_ref().map(|l| &*l.0))),
             );
         }
     } else {
@@ -137,8 +137,8 @@ pub fn get_last_turn_entered(
                 game.zone(to, pid)
                     .cards_added_last_turn
                     .iter()
-                    .filter(|(origin, _)| from.is_none_or(|from| *origin == from))
-                    .map(|&(origin, cid)| (cid, entered_latest_state(game, origin, cid))),
+                    .filter(|(origin, ..)| from.is_none_or(|from| *origin == from))
+                    .map(|(_, cid, latest_state)| (*cid, latest_state.as_ref().map(|l| &*l.0))),
             );
         }
     } else {
@@ -717,15 +717,9 @@ pub fn get_valid_cards_to_target(game: &GameState, ability: &SpellAbility) -> Ve
     candidates
 }
 
-fn entered_latest_state(game: &GameState, origin: ZoneType, card: CardId) -> Option<Card> {
-    (origin == ZoneType::Battlefield)
-        .then(|| crate::lki::battlefield_lki_card(game, card))
-        .flatten()
-}
-
 fn filter_valid_cards(
     game: &GameState,
-    cards: Vec<(CardId, Option<Card>)>,
+    cards: Vec<(CardId, Option<&Card>)>,
     valid: &str,
     src: CardId,
     ctb: Option<&SpellAbility>,
@@ -745,7 +739,7 @@ fn filter_valid_cards(
     cards
         .into_iter()
         .filter(|(card_id, latest_state)| {
-            let card = latest_state.as_ref().unwrap_or_else(|| game.card(*card_id));
+            let card = latest_state.unwrap_or_else(|| game.card(*card_id));
             match context {
                 Some(context) => {
                     valid_filter::matches_valid_card_selector_with_context(&selector, card, context)

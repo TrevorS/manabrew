@@ -66,11 +66,11 @@ impl TriggerBehavior for TriggerChangesZone {
             if let Some(card) = params.card {
                 let controller = game.card(card).controller;
                 let zone = game.zone(forge_foundation::ZoneType::Battlefield, controller);
-                if let Some((_, latest)) = zone
+                if let Some((_, latest, _)) = zone
                     .cards_added_this_turn
                     .iter()
-                    .filter(|(_, added)| *added == card)
-                    .max_by(|(_, a), (_, b)| {
+                    .filter(|(_, added, _)| *added == card)
+                    .max_by(|(_, a, _), (_, b, _)| {
                         crate::card::card_predicates::compare_by_game_timestamp(game, *a, *b)
                     })
                 {
