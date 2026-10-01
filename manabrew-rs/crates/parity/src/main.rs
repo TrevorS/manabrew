@@ -432,6 +432,11 @@ struct Cli {
     #[arg(long, value_parser = clap::value_parser!(u32).range(1..=java_cache::MAX_PREFIX_TURNS as i64))]
     java_turns: Option<u32>,
 
+    /// Open the Java cache under a source hash it was not migrated to: the old hash is retired
+    /// and nothing is deleted. Without it a changed hash stops the run.
+    #[arg(long)]
+    allow_hash_change: bool,
+
     /// Tracing log level for serve mode (default: warn). Accepts: error, warn, info, debug, trace.
     /// Can also be set via RUST_LOG env var which takes precedence.
     #[arg(long, default_value = "warn")]
@@ -455,6 +460,26 @@ impl Cli {
     /// should not trigger general progress chatter — only the agent's per-turn
     /// logging and the final diff.
     /// A card trace needs the JVM to run, so it skips the cache.
+    /// A source hash the cache was not migrated to stops the run, so a harness rebuild never
+    /// quietly runs every game through Java.
+    fn open_java_cache(&self, source_hash: String) -> std::io::Result<JavaCache> {
+        let opened = JavaCache::open(
+            Path::new(&self.cache_dir),
+            source_hash,
+            self.java_turns,
+            self.allow_hash_change,
+        );
+        if let Err(e) = &opened {
+            if e.get_ref()
+                .is_some_and(|inner| inner.is::<java_cache::HashChanged>())
+            {
+                eprintln!("[java-cache] {e}");
+                std::process::exit(2);
+            }
+        }
+        opened
+    }
+
     fn java_cache_off(&self) -> bool {
         self.no_cache || std::env::var_os("FORGE_CARD_TRACE").is_some()
     }
@@ -689,7 +714,7 @@ fn run_multi_game_mode(cli: &Cli) {
             let project_root = std::env::current_dir().unwrap_or_default();
             let source_hash =
                 java_cache::compute_source_hash(&project_root, cli.java_jar.as_deref());
-            JavaCache::open(Path::new(&cli.cache_dir), source_hash, cli.java_turns).ok()
+            cli.open_java_cache(source_hash).ok()
         };
         if cli.is_verbose() {
             eprintln!("[parity] Multi-game mode: {workers} Java worker(s), {total} games");
@@ -1115,12 +1140,7 @@ fn java_runtime_or_exit(cli: &Cli) -> JavaRuntime {
     } else {
         let project_root = std::env::current_dir().unwrap_or_default();
         let source_hash = java_cache::compute_source_hash(&project_root, Some(jar_path));
-        JavaCache::open(
-            std::path::Path::new(&cli.cache_dir),
-            source_hash,
-            cli.java_turns,
-        )
-        .ok()
+        cli.open_java_cache(source_hash).ok()
     };
     JavaRuntime { pool, cache }
 }
@@ -1440,11 +1460,7 @@ fn run_matrix_mode(cli: &Cli) {
     let java_cache: Option<JavaCache> = if !cli.java_cache_off() && cli.java_jar.is_some() {
         let project_root = std::env::current_dir().unwrap_or_default();
         let source_hash = java_cache::compute_source_hash(&project_root, cli.java_jar.as_deref());
-        match JavaCache::open(
-            std::path::Path::new(&cli.cache_dir),
-            source_hash,
-            cli.java_turns,
-        ) {
+        match cli.open_java_cache(source_hash) {
             Ok(c) => {
                 eprintln!(
                     "[parity] Java cache: {} (hash={})",
@@ -2796,11 +2812,7 @@ fn run_serve_mode(cli: &Cli) {
     } else {
         let project_root = std::env::current_dir().unwrap_or_default();
         let source_hash = java_cache::compute_source_hash(&project_root, Some(&jar_path));
-        match JavaCache::open(
-            std::path::Path::new(&cli.cache_dir),
-            source_hash,
-            cli.java_turns,
-        ) {
+        match cli.open_java_cache(source_hash) {
             Ok(c) => {
                 tracing::info!(
                     cache_dir = %cli.cache_dir,

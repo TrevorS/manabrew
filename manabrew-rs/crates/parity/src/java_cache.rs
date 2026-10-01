@@ -3,7 +3,9 @@
 //! Avoids running the Java harness for matchups whose output cannot have changed.
 //! Cache is keyed on:
 //! - A **source hash** covering the Java sources, the card and token scripts,
-//!   and the harness jar. When it changes the entire cache is wiped.
+//!   and the harness jar. An entry's file name hashes it with the matchup, so
+//!   a new hash finds none of the old entries; the cache refuses to open under
+//!   a hash it was not migrated to (see `JavaCache::open`).
 //! - Per-matchup parameters (deck1, deck2, seed, max_turns, prefer_actions,
 //!   deep, variant, commanders) plus the contents of the two decks, so editing
 //!   one deck only invalidates the matchups that use it.
@@ -70,11 +72,40 @@ impl From<CachedMatchup> for JavaMatchupData {
 struct Manifest {
     source_hash: String,
     version: u32,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing)]
     carried: Vec<String>,
 }
 
+/// Kept out of `manifest.json` because a binary older than it rewrites the manifest and would
+/// drop fields it does not know.
+#[derive(Default, PartialEq, serde::Serialize, serde::Deserialize)]
+struct Sidecar {
+    #[serde(default)]
+    carried: Vec<String>,
+    #[serde(default)]
+    retired: Vec<String>,
+}
+
+#[derive(Debug)]
+pub struct HashChanged {
+    pub cached: String,
+    pub current: String,
+}
+
+impl std::fmt::Display for HashChanged {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "the cache holds source hash {} but this checkout computes {}: migrate it (migrate_cache.py) or pass --allow-hash-change to retire the old hash",
+            self.cached, self.current
+        )
+    }
+}
+
+impl std::error::Error for HashChanged {}
+
 const MANIFEST_FILE: &str = "manifest.json";
+pub const SIDECAR_FILE: &str = "carried.json";
 const INCOMPLETE_HASH_PREFIX: &str = "incomplete-";
 pub const CACHE_VERSION: u32 = 9;
 pub const MAX_PREFIX_TURNS: u32 = 100;
@@ -84,63 +115,100 @@ impl JavaCache {
     ///
     /// `source_hash` is an opaque string that identifies the current Java
     /// sources, card scripts and jar. When it changes the entire cache is wiped.
+    /// An entry stored under a carried hash is found and renamed on its first hit. A hash the
+    /// cache was not migrated to is refused unless `allow_hash_change`, which retires the old
+    /// hash and deletes nothing; a new `CACHE_VERSION` still clears the entries.
     pub fn open(
         cache_dir: &Path,
         source_hash: String,
         java_turns: Option<u32>,
+        allow_hash_change: bool,
     ) -> std::io::Result<Self> {
         fs::create_dir_all(cache_dir)?;
 
         let manifest_path = cache_dir.join(MANIFEST_FILE);
+        let sidecar_path = cache_dir.join(SIDECAR_FILE);
         let existing = fs::read_to_string(&manifest_path)
             .ok()
             .and_then(|s| serde_json::from_str::<Manifest>(&s).ok());
-        let needs_wipe = manifest_path.exists()
+        let changed = manifest_path.exists()
             && !existing
                 .as_ref()
                 .is_some_and(|m| m.source_hash == source_hash && m.version == CACHE_VERSION);
-        let carried = existing
-            .filter(|_| !needs_wipe)
-            .map(|m| m.carried)
-            .unwrap_or_default();
 
-        if needs_wipe && source_hash.starts_with(INCOMPLETE_HASH_PREFIX) {
+        if changed && source_hash.starts_with(INCOMPLETE_HASH_PREFIX) {
             eprintln!(
-                "[java-cache] Not wiping {}: the source hash is missing inputs (no forge sources under the current directory, as in a git worktree); running without the cache",
+                "[java-cache] Not opening {}: the source hash is missing inputs (no forge sources under the current directory, as in a git worktree); running without the cache",
                 cache_dir.display()
             );
             return Err(std::io::Error::other("incomplete source hash"));
         }
+        if changed && !allow_hash_change {
+            return Err(std::io::Error::other(HashChanged {
+                cached: existing
+                    .as_ref()
+                    .map_or_else(|| "(unreadable)".to_string(), |m| m.source_hash.clone()),
+                current: source_hash,
+            }));
+        }
 
-        if needs_wipe {
-            eprintln!(
-                "[java-cache] Source hash changed — wiping cache at {}",
-                cache_dir.display()
-            );
-            for entry in fs::read_dir(cache_dir)? {
-                let entry = entry?;
-                let path = entry.path();
-                if path.is_dir() {
-                    let _ = fs::remove_dir_all(&path);
-                } else {
-                    let _ = fs::remove_file(&path);
+        let mut sidecar: Sidecar = fs::read_to_string(&sidecar_path)
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default();
+        let before = serde_json::to_string(&sidecar)?;
+        if let Some(manifest) = existing.as_ref().filter(|_| !changed) {
+            for hash in &manifest.carried {
+                if !sidecar.carried.contains(hash) {
+                    sidecar.carried.push(hash.clone());
                 }
             }
+        }
+        if changed {
+            match existing {
+                None => eprintln!(
+                    "[java-cache] Unreadable manifest at {}; taking hash {source_hash}, deleting nothing",
+                    cache_dir.display()
+                ),
+                Some(old) if old.version == CACHE_VERSION => {
+                    eprintln!(
+                        "[java-cache] Source hash changed ({} -> {source_hash}); retiring the old hash, deleting nothing",
+                        old.source_hash
+                    );
+                    if !sidecar.retired.contains(&old.source_hash) {
+                        sidecar.retired.insert(0, old.source_hash);
+                    }
+                }
+                Some(_) => {
+                    eprintln!(
+                        "[java-cache] Cache format changed; clearing the entries at {}",
+                        cache_dir.display()
+                    );
+                    for entry in fs::read_dir(cache_dir)? {
+                        let path = entry?.path();
+                        if path.is_dir() {
+                            let _ = fs::remove_dir_all(&path);
+                        }
+                    }
+                    sidecar = Sidecar::default();
+                }
+            }
+        }
+        if serde_json::to_string(&sidecar)? != before {
+            write_atomic(&sidecar_path, &serde_json::to_string(&sidecar)?)?;
         }
 
         let manifest = Manifest {
             source_hash: source_hash.clone(),
             version: CACHE_VERSION,
-            carried: carried.clone(),
+            carried: Vec::new(),
         };
-        let tmp = manifest_path.with_extension("json.tmp");
-        fs::write(&tmp, serde_json::to_string(&manifest)?)?;
-        fs::rename(&tmp, &manifest_path)?;
+        write_atomic(&manifest_path, &serde_json::to_string(&manifest)?)?;
 
         Ok(Self {
             cache_dir: cache_dir.to_path_buf(),
             source_hash,
-            carried,
+            carried: sidecar.carried,
             java_turns,
             prefix_hits: AtomicUsize::new(0),
         })
@@ -343,6 +411,12 @@ pub fn truncate_log(log: Vec<ParityLogEntry>, max_turns: u32) -> Vec<ParityLogEn
     kept
 }
 
+fn write_atomic(path: &Path, contents: &str) -> std::io::Result<()> {
+    let tmp = path.with_extension("json.tmp");
+    fs::write(&tmp, contents)?;
+    fs::rename(&tmp, path)
+}
+
 fn deck_contents_hash(spec: &str, decks_dirs: &[&str]) -> u64 {
     let mut hasher = DefaultHasher::new();
     if let Some(path) = spec.strip_prefix("file:") {
@@ -465,21 +539,30 @@ mod tests {
         }
     }
 
-    fn write_manifest(dir: &Path, hash: &str, carried: &[&str]) {
-        let manifest = Manifest {
-            source_hash: hash.to_string(),
-            version: CACHE_VERSION,
-            carried: carried.iter().map(|h| h.to_string()).collect(),
-        };
+    /// What migrate_cache.py does: the new hash in the manifest, the old one carried.
+    fn migrate(dir: &Path, new_hash: &str, carried: &[&str]) {
         fs::write(
             dir.join(MANIFEST_FILE),
-            serde_json::to_string(&manifest).unwrap(),
+            format!(r#"{{"source_hash":"{new_hash}","version":{CACHE_VERSION}}}"#),
+        )
+        .unwrap();
+        let sidecar = Sidecar {
+            carried: carried.iter().map(|h| h.to_string()).collect(),
+            retired: Vec::new(),
+        };
+        fs::write(
+            dir.join(SIDECAR_FILE),
+            serde_json::to_string(&sidecar).unwrap(),
         )
         .unwrap();
     }
 
+    fn sidecar(dir: &Path) -> Sidecar {
+        serde_json::from_str(&fs::read_to_string(dir.join(SIDECAR_FILE)).unwrap()).unwrap()
+    }
+
     fn put_under(dir: &Path, hash: &str, seed: u64) -> PathBuf {
-        let cache = JavaCache::open(dir, hash.to_string(), None).unwrap();
+        let cache = JavaCache::open(dir, hash.to_string(), None, false).unwrap();
         cache
             .put(&config(seed), &JavaMatchupData { log: Vec::new() })
             .unwrap();
@@ -490,14 +573,12 @@ mod tests {
     fn carried_hash_entries_move_to_the_current_hash() {
         let dir = tempfile::tempdir().unwrap();
         let old_path = put_under(dir.path(), "a", 1);
-        write_manifest(dir.path(), "b", &["a"]);
+        migrate(dir.path(), "b", &["a"]);
 
-        let cache = JavaCache::open(dir.path(), "b".to_string(), None).unwrap();
+        let cache = JavaCache::open(dir.path(), "b".to_string(), None, false).unwrap();
         assert!(cache.get(&config(1)).is_some());
         assert!(!old_path.exists());
         assert!(cache.entry_path(&config(1)).exists());
-        let manifest = fs::read_to_string(dir.path().join(MANIFEST_FILE)).unwrap();
-        assert!(manifest.contains(r#""carried":["a"]"#));
     }
 
     #[test]
@@ -506,9 +587,9 @@ mod tests {
         let quarantine = tempfile::tempdir().unwrap();
         let old_path = put_under(dir.path(), "a", 1);
         fs::rename(&old_path, quarantine.path().join("entry.json")).unwrap();
-        write_manifest(dir.path(), "b", &["a"]);
+        migrate(dir.path(), "b", &["a"]);
 
-        let cache = JavaCache::open(dir.path(), "b".to_string(), None).unwrap();
+        let cache = JavaCache::open(dir.path(), "b".to_string(), None, false).unwrap();
         assert!(cache.get(&config(1)).is_none());
     }
 
@@ -516,9 +597,9 @@ mod tests {
     fn entries_under_a_hash_that_is_not_carried_are_not_found() {
         let dir = tempfile::tempdir().unwrap();
         let other_path = put_under(dir.path(), "x", 1);
-        write_manifest(dir.path(), "b", &["a"]);
+        migrate(dir.path(), "b", &["a"]);
 
-        let cache = JavaCache::open(dir.path(), "b".to_string(), None).unwrap();
+        let cache = JavaCache::open(dir.path(), "b".to_string(), None, false).unwrap();
         assert!(cache.get(&config(1)).is_none());
         assert!(other_path.exists());
     }
@@ -527,14 +608,73 @@ mod tests {
     fn carried_hashes_survive_a_second_migration() {
         let dir = tempfile::tempdir().unwrap();
         put_under(dir.path(), "a", 1);
-        write_manifest(dir.path(), "b", &["a"]);
+        migrate(dir.path(), "b", &["a"]);
         put_under(dir.path(), "b", 2);
-        write_manifest(dir.path(), "c", &["b", "a"]);
+        migrate(dir.path(), "c", &["b", "a"]);
 
-        let cache = JavaCache::open(dir.path(), "c".to_string(), None).unwrap();
+        let cache = JavaCache::open(dir.path(), "c".to_string(), None, false).unwrap();
         assert!(cache.get(&config(1)).is_some());
         assert!(cache.get(&config(2)).is_some());
-        assert!(cache.entry_path(&config(1)).exists());
-        assert!(cache.entry_path(&config(2)).exists());
+        assert_eq!(sidecar(dir.path()).carried, ["b", "a"]);
+    }
+
+    #[test]
+    fn an_old_binary_rewriting_the_manifest_keeps_the_sidecar() {
+        let dir = tempfile::tempdir().unwrap();
+        put_under(dir.path(), "a", 1);
+        migrate(dir.path(), "b", &["a"]);
+        fs::write(
+            dir.path().join(MANIFEST_FILE),
+            format!(r#"{{"source_hash":"b","version":{CACHE_VERSION}}}"#),
+        )
+        .unwrap();
+
+        let cache = JavaCache::open(dir.path(), "b".to_string(), None, false).unwrap();
+        assert!(cache.get(&config(1)).is_some());
+        assert_eq!(sidecar(dir.path()).carried, ["a"]);
+    }
+
+    #[test]
+    fn a_carried_list_left_in_the_manifest_moves_to_the_sidecar() {
+        let dir = tempfile::tempdir().unwrap();
+        put_under(dir.path(), "a", 1);
+        fs::write(
+            dir.path().join(MANIFEST_FILE),
+            format!(r#"{{"source_hash":"b","version":{CACHE_VERSION},"carried":["a"]}}"#),
+        )
+        .unwrap();
+
+        let cache = JavaCache::open(dir.path(), "b".to_string(), None, false).unwrap();
+        assert!(cache.get(&config(1)).is_some());
+        assert_eq!(sidecar(dir.path()).carried, ["a"]);
+        let manifest = fs::read_to_string(dir.path().join(MANIFEST_FILE)).unwrap();
+        assert!(!manifest.contains("carried"));
+    }
+
+    #[test]
+    fn a_hash_change_without_a_migration_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let entry = put_under(dir.path(), "a", 1);
+
+        let err = JavaCache::open(dir.path(), "b".to_string(), None, false)
+            .err()
+            .unwrap();
+        assert!(err.get_ref().is_some_and(|e| e.is::<HashChanged>()));
+        assert!(entry.exists());
+        let manifest = fs::read_to_string(dir.path().join(MANIFEST_FILE)).unwrap();
+        assert!(manifest.contains(r#""source_hash":"a""#));
+    }
+
+    #[test]
+    fn an_allowed_hash_change_retires_the_old_hash_and_deletes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let entry = put_under(dir.path(), "a", 1);
+
+        let cache = JavaCache::open(dir.path(), "b".to_string(), None, true).unwrap();
+        assert!(entry.exists());
+        assert!(cache.get(&config(1)).is_none());
+        assert_eq!(sidecar(dir.path()).retired, ["a"]);
+        let manifest = fs::read_to_string(dir.path().join(MANIFEST_FILE)).unwrap();
+        assert!(manifest.contains(r#""source_hash":"b""#));
     }
 }
