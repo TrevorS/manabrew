@@ -1010,6 +1010,7 @@ fn battlefield_pre_list(game: &GameState, event: &ReplacementEvent) -> Option<Ca
     let ReplacementEvent::Moved {
         card,
         destination: ZoneType::Battlefield,
+        counter_map,
         ..
     } = event
     else {
@@ -1024,11 +1025,22 @@ fn battlefield_pre_list(game: &GameState, event: &ReplacementEvent) -> Option<Ca
                     .is_some_and(|keywords| keywords.contains("Riot"))
             })
     });
-    if !grants_keyword_trait {
+    if !grants_keyword_trait && counter_map.is_none() {
         return None;
     }
     let mut pre = game.clone();
-    pre.card_mut(*card).zone = ZoneType::Battlefield;
+    let (zone, controller) = (pre.card(*card).zone, pre.card(*card).controller);
+    if zone != ZoneType::None {
+        pre.remove_card_from_zone(zone, controller, *card);
+    }
+    pre.add_card_to_zone(ZoneType::Battlefield, controller, *card);
+    let entering = pre.card_mut(*card);
+    entering.zone = ZoneType::Battlefield;
+    for value in counter_map.iter().flatten() {
+        for (counter_type, amount) in &value.counters {
+            entering.add_counter(counter_type, *amount);
+        }
+    }
     crate::staticability::layer::apply_continuous_effects(&mut pre);
     Some(pre.card(*card).clone())
 }
@@ -1681,7 +1693,10 @@ fn collect_effects(
                 ReplacementType::DamageDone => replace_damage::can_replace(re, event, game, card),
                 ReplacementType::Draw => replace_draw::can_replace(re, event, game, card),
                 ReplacementType::Destroy => replace_destroy::can_replace(re, event, game, card),
-                ReplacementType::Moved => replace_moved::can_replace(re, event, game, card),
+                ReplacementType::Moved => match pre_list {
+                    Some(pre) => replace_moved::can_replace_affected(re, event, game, card, pre),
+                    None => replace_moved::can_replace(re, event, game, card),
+                },
                 ReplacementType::GainLife => replace_gain_life::can_replace(re, event, game, card),
                 ReplacementType::CreateToken => replace_token::can_replace(re, event, game, card),
                 ReplacementType::AddCounter => {

@@ -29,12 +29,24 @@ pub fn can_replace(
     game: &GameState,
     source_card: &Card,
 ) -> bool {
+    let ReplacementEvent::Moved { card, .. } = event else {
+        return false;
+    };
+    can_replace_affected(effect, event, game, source_card, &game.cards[card.index()])
+}
+
+pub fn can_replace_affected(
+    effect: &ReplacementEffect,
+    event: &ReplacementEvent,
+    game: &GameState,
+    source_card: &Card,
+    moving_card: &Card,
+) -> bool {
     if effect.event != ReplacementType::Moved {
         return false;
     }
-    let (moving_id, origin, destination, is_discard, stack_sa, fizzle) = match event {
+    let (origin, destination, is_discard, stack_sa, fizzle) = match event {
         ReplacementEvent::Moved {
-            card,
             origin,
             destination,
             is_discard,
@@ -42,7 +54,6 @@ pub fn can_replace(
             fizzle,
             ..
         } => (
-            *card,
             *origin,
             *destination,
             *is_discard,
@@ -73,7 +84,6 @@ pub fn can_replace(
             return false;
         }
     }
-    let moving_card = &game.cards[moving_id.index()];
     if let Some(valid) = effect.ir.valid_card_selector.as_ref() {
         if !effect.matches_compiled_valid_card(valid, moving_card, source_card) {
             return false;
@@ -88,7 +98,10 @@ pub fn can_replace(
         return false;
     }
     if let Some(valid_lki) = effect.ir.valid_lki_text.as_deref() {
-        if !effect.matches_valid_card(valid_lki, moving_card, source_card) {
+        let ReplacementEvent::Moved { card, .. } = event else {
+            return false;
+        };
+        if !effect.matches_valid_card(valid_lki, &game.cards[card.index()], source_card) {
             return false;
         }
     }
