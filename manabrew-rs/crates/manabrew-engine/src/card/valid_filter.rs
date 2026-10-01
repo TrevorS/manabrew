@@ -2238,6 +2238,14 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
         named if named.starts_with("named") => card
             .card_name
             .eq_ignore_ascii_case(&value[5..].trim().replace(';', ",").replace('_', " ")),
+        _ if value.starts_with("ManaCost") => {
+            let cost = card.mana_cost.short_string();
+            match value.strip_prefix("ManaCostPartial") {
+                Some(color) => Color::from_name(&color.to_ascii_lowercase())
+                    .is_some_and(|color| cost.contains(color.short_name())),
+                None => cost == value["ManaCost".len()..],
+            }
+        }
         _ if value.starts_with("counters_") => check_counter_condition(value, card),
         _ if value.starts_with("countersReceivedThisTurn_") => {
             check_counters_received_this_turn(value, card, context)
@@ -2918,8 +2926,11 @@ fn matches_type_and_qualifier_parts(
                     }
                 }
                 _ => {
-                    // Check counters_GE/GT/LT/LE/EQ patterns like "counters_GE3_P1P1"
-                    if sub.starts_with("counters_") {
+                    if sub.starts_with("ManaCost") {
+                        if !legacy_matches_card_atom(sub, card, context) {
+                            return false;
+                        }
+                    } else if sub.starts_with("counters_") {
                         if !check_counter_condition(sub, card) {
                             return false;
                         }

@@ -190,6 +190,14 @@ impl CardLists {
         Self::filter_as_list_with_source(game, cards, restriction, source).len()
     }
 
+    pub fn get_total_chroma(game: &GameState, cards: &[CardId], color_code: u16) -> i32 {
+        cards
+            .iter()
+            .flat_map(|&cid| game.card(cid).mana_cost.shards())
+            .filter(|shard| shard.shard() & color_code != 0)
+            .count() as i32
+    }
+
     pub fn cmc_can_sum_to(sum: i32, cards: &[CardId], game: &GameState) -> bool {
         let mut nums = Vec::new();
         for &cid in cards {

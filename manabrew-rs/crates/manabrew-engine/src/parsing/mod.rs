@@ -1280,6 +1280,9 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "singletarget" => SelectorPredicate::CardState(CardStateSelector::SingleTarget),
         "promisedgift" => SelectorPredicate::CardState(CardStateSelector::PromisedGift),
         "isringbearer" => SelectorPredicate::CardState(CardStateSelector::RingBearer),
+        mana_cost if mana_cost.starts_with("manacost") => {
+            SelectorPredicate::Raw(normalized.to_string())
+        }
         "wascast" => SelectorPredicate::WasCast { by_you: false },
         "wascastbyyou" => SelectorPredicate::WasCast { by_you: true },
         named if named.starts_with("named") => SelectorPredicate::CardType(

@@ -255,6 +255,13 @@ pub(crate) fn card_x_property(
         }
         "Amount" | "Count" => 1,
         _ if value.contains("Converge") => card.sunburst_count(),
+        _ if value.starts_with("ChromaSource") => {
+            crate::card::card_lists::CardLists::get_total_chroma(
+                game,
+                &[card_id],
+                chroma_color_code(value.split('.').nth(1)),
+            )
+        }
         _ if value.starts_with("CardCounters.") => {
             let counter_name = value.strip_prefix("CardCounters.").unwrap_or("");
             if counter_name.eq_ignore_ascii_case("ALL") {
@@ -292,6 +299,12 @@ fn resolve_spell_ability_property(
             .map(|spell| spell_ability_x_property(spell, property, game))
             .sum(),
     )
+}
+
+fn chroma_color_code(color: Option<&str>) -> u16 {
+    color.map_or(forge_foundation::mana::ManaAtom::ALL_MANA_COLORS, |color| {
+        forge_foundation::mana::ManaAtom::from_name(&color.to_ascii_lowercase())
+    })
 }
 
 fn resolve_card_list_expr(
@@ -2768,6 +2781,23 @@ pub fn resolve_count_svar_for_sa(
         }
         if sq[0].starts_with("Void") {
             return math(calculate_branch(game.is_void()));
+        }
+        if sq[0].starts_with("Chroma") {
+            let cards: Vec<CardId> = if sq[0].contains("ChromaSource") {
+                vec![source_id]
+            } else {
+                let zone = if sq[0].contains("ChromaInGrave") {
+                    ZoneType::Graveyard
+                } else {
+                    ZoneType::Battlefield
+                };
+                game.cards_in_zone(zone, controller).to_vec()
+            };
+            return math(crate::card::card_lists::CardLists::get_total_chroma(
+                game,
+                &cards,
+                chroma_color_code(sq.get(1).copied()),
+            ));
         }
         if sq[0].starts_with("LeftBattlefieldThisTurn")
             || sq[0].starts_with("LeftGraveyardThisTurn")
