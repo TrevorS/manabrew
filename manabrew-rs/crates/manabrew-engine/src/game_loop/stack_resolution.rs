@@ -30,7 +30,11 @@ impl GameLoop {
             attacking_player: sa.get_triggering_player(crate::ability::AbilityKey::AttackingPlayer),
             ..Default::default()
         };
-        trigger.requirements_check(game, host)
+        let host_object = sa.trigger_source_zone_timestamp.map_or_else(
+            || game.card(host),
+            |zone_timestamp| game.get_change_zone_lki_info_at(host, zone_timestamp),
+        );
+        trigger.requirements_check_on(game, host, host_object)
             && trigger.meets_requirements_on_triggered_objects(
                 game,
                 &triggering_objects,

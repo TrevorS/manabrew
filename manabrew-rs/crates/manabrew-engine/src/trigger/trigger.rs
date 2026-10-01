@@ -460,6 +460,10 @@ impl Trigger {
 
     /// Mirrors Java Trigger.requirementsCheck() subset used in current engine.
     pub fn requirements_check(&self, game: &GameState, host_card: CardId) -> bool {
+        self.requirements_check_on(game, host_card, game.card(host_card))
+    }
+
+    pub fn requirements_check_on(&self, game: &GameState, host_card: CardId, host: &Card) -> bool {
         if self.ir.a_player_has_more_life_than_each_other {
             let mut highest = i32::MIN;
             let mut count = 0;
@@ -491,7 +495,6 @@ impl Trigger {
                 return false;
             }
         }
-        let host = game.card(host_card);
         let trigger_remembered = self
             .trigger_remembered
             .iter()
