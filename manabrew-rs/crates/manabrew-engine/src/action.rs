@@ -2258,8 +2258,7 @@ impl GameState {
         agents: &mut Option<&mut [Box<dyn PlayerAgent>]>,
     ) -> bool {
         let battlefield = self.cards_in_zone(ZoneType::Battlefield, pid).to_vec();
-        let mut by_name: std::collections::BTreeMap<String, Vec<CardId>> =
-            std::collections::BTreeMap::new();
+        let mut by_name: Vec<(String, Vec<CardId>)> = Vec::new();
         for cid in battlefield {
             let c = self.card(cid);
             if !c.type_line.is_legendary() {
@@ -2271,7 +2270,10 @@ impl GameState {
             ) {
                 continue;
             }
-            by_name.entry(c.card_name.clone()).or_default().push(cid);
+            match by_name.iter_mut().find(|(name, _)| *name == c.card_name) {
+                Some((_, ids)) => ids.push(cid),
+                None => by_name.push((c.card_name.clone(), vec![cid])),
+            }
         }
         let mut recheck = false;
         for (_name, ids) in by_name {
