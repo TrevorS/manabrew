@@ -468,8 +468,9 @@ impl GameLoop {
         }
         // Forge's probe reads `sa.getHostCard()`, the card's current face, which in hand is
         // still the front one: `CostAdjustment.checkRequirement` tests a static's `ValidCard$`
-        // against it and `AbilityManaPart.meetsManaRestrictions` a `Spell.<Type>` restriction.
-        // The payment itself runs with the card on the stack as this face.
+        // against it and `AbilityManaPart.meetsManaRestrictions` a `Spell.<Type>` restriction,
+        // while `Spell.cmc` reads this face's pay cost (`SpellAbilityProperty`). The payment
+        // itself runs with the card on the stack as this face.
         let in_hand = game.card(card_id);
         let cost_adj =
             crate::cost::cost_adjustment::compute_cost_adjustment(game, in_hand, player, zone);
@@ -490,7 +491,7 @@ impl GameLoop {
             type_line: Some(in_hand.type_line.clone()),
             card_name: Some(in_hand.card_name.clone()),
             card_color: Some(in_hand.color),
-            mana_value: Some(in_hand.mana_value()),
+            mana_value: Some(cost.get_total_mana().cmc()),
             chosen_types_by_source: chosen_types_by_source.clone(),
             ..Default::default()
         };
