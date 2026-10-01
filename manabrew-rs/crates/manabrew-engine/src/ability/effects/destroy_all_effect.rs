@@ -1,6 +1,7 @@
 use forge_foundation::ZoneType;
 
 use super::{emit_zone_trigger_with_lki_counters, matches_valid_cards_for_sa, EffectContext};
+use crate::ability::ability_utils::filter_list_by_type;
 use crate::event::RunParams;
 use crate::ids::CardId;
 use crate::replacement::replacement_handler::ReplacementEvent;
@@ -44,16 +45,34 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         Some(pid) => vec![pid],
         None => ctx.game.player_order.clone(),
     };
+    let valid_text = sa.ir.valid_cards_text.as_deref().unwrap_or("");
+    let filter_by_type = ["Targeted", "Triggered", "Remembered"]
+        .iter()
+        .any(|prefix| valid_text.starts_with(prefix));
     let mut to_destroy: Vec<CardId> = Vec::new();
     for &pid in &player_ids {
         let zone_cards = ctx.game.cards_in_zone(ZoneType::Battlefield, pid).to_vec();
-        for cid in zone_cards {
-            if matches_valid_cards_for_sa(ctx.game, sa, ctx.game.card(cid), valid_cards, "Creature")
-                && ctx.game.card(cid).can_be_destroyed()
-            {
-                to_destroy.push(cid);
-            }
-        }
+        let zone_cards = if filter_by_type {
+            filter_list_by_type(ctx.game, &zone_cards, valid_text, sa)
+        } else {
+            zone_cards
+                .into_iter()
+                .filter(|&cid| {
+                    matches_valid_cards_for_sa(
+                        ctx.game,
+                        sa,
+                        ctx.game.card(cid),
+                        valid_cards,
+                        "Creature",
+                    )
+                })
+                .collect()
+        };
+        to_destroy.extend(
+            zone_cards
+                .into_iter()
+                .filter(|&cid| ctx.game.card(cid).can_be_destroyed()),
+        );
     }
     let to_destroy = ctx.game.order_cards_by_their_owners(
         to_destroy,

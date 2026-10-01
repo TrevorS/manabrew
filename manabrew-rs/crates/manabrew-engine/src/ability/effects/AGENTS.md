@@ -53,3 +53,5 @@ Delayed `RememberObjects$` captures the typed entities resolved at registration.
 | Pump / animate         | `pump_*_effect.rs`, `animate_*_effect.rs`, `trait_animate_effect.rs`                         |
 | Targeting helpers      | `targeting_triggers.rs`, `helpers.rs`                                                        |
 | Effect dispatch        | `mod.rs` — the `match` on `ApiType`                                                          |
+
+A mass effect whose `ValidCards$` starts with `Targeted`, `Triggered` or `Remembered` goes through `ability_utils::filter_list_by_type`, as Java's `DestroyAllEffect` and `ChangeZoneAllEffect` call `AbilityUtils.filterListByType`: the prefix names the card the rest is relative to and becomes `Card`. The compiled selector reads `TargetedCard` as a subtype, so `TargetedCard.Self` (Maelstrom Pulse) matched nothing and the target survived its own Pulse.
