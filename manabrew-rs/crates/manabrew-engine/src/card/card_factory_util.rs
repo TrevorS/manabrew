@@ -309,17 +309,67 @@ pub fn add_etb_keyword_replacements(card: &mut Card) {
 pub fn add_etb_counter_replacements(card: &mut Card) {
     let keywords = card.keywords.as_string_list();
     for keyword in keywords {
-        if !keyword
-            .split(':')
-            .next()
-            .is_some_and(|head| head.eq_ignore_ascii_case("etbCounter"))
-        {
-            continue;
-        }
-        if let Some(re) = make_etb_counter(&keyword, card, true) {
+        let head = keyword.split(':').next().unwrap_or_default();
+        let replacement = if head.eq_ignore_ascii_case("etbCounter") {
+            make_etb_counter(&keyword, card, true)
+        } else if head == "Modular" {
+            let amount = keyword.split(':').nth(1).unwrap_or_default().trim();
+            make_etb_counter(
+                &format!("etbCounter:P1P1:{amount}:no Condition:Modular {amount}"),
+                card,
+                true,
+            )
+            .map(|re| with_sunburst_svar(re, amount == "Sunburst"))
+        } else if keyword == "Sunburst" {
+            let counter_type = if card.is_creature() { "P1P1" } else { "CHARGE" };
+            make_etb_counter(
+                &format!("etbCounter:{counter_type}:Sunburst:no Condition:Sunburst"),
+                card,
+                true,
+            )
+            .map(|re| with_sunburst_svar(re, true))
+        } else if head == "Impending" {
+            let amount = keyword.split(':').nth(1).unwrap_or_default().trim();
+            create_etb_replacement(
+                card,
+                &format!("DB$ PutCounter | Defined$ ReplacedCard | CounterType$ TIME | CounterNum$ {amount} | ETB$ True | SpellDescription$ Impending"),
+                "Card.Self+impended",
+            )
+        } else {
+            None
+        };
+        if let Some(re) = replacement {
             card.add_replacement_effect(re);
         }
     }
+}
+
+/// Java's Sunburst `etbCounter` sets `Sunburst` to `Count$Converge` on its counter ability.
+fn with_sunburst_svar(mut re: ReplacementEffect, sunburst: bool) -> ReplacementEffect {
+    if sunburst {
+        if let Some(mut ability) = re.base.get_overriding_ability().cloned() {
+            ability
+                .svars
+                .insert("Sunburst".to_string(), "Count$Converge".to_string());
+            re.base.set_overriding_ability(ability);
+        }
+    }
+    re
+}
+
+/// Java `CardFactoryUtil.createETBReplacement` in the `Other` layer, secondary and not optional.
+fn create_etb_replacement(card: &Card, effect: &str, valid: &str) -> Option<ReplacementEffect> {
+    let ability =
+        crate::spellability::build_spell_ability_from_host_card(card, effect, card.controller);
+    let desc = crate::parsing::Params::from_raw(effect)
+        .get(crate::parsing::keys::SPELL_DESCRIPTION)
+        .unwrap_or_default()
+        .to_string();
+    let mut replacement = parse_replacement_effect(&format!(
+        "R$ Event$ Moved | ValidCard$ {valid} | Destination$ Battlefield | ReplacementResult$ Updated | Description$ {desc} | Secondary$ True"
+    ))?;
+    replacement.base.set_overriding_ability(ability);
+    Some(replacement)
 }
 
 pub fn make_etb_counter(kw: &str, card: &Card, intrinsic: bool) -> Option<ReplacementEffect> {

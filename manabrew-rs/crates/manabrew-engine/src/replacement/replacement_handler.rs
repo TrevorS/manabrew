@@ -329,25 +329,19 @@ impl ReplacementHandler {
         mut runtime: Option<&mut ReplacementRuntime<'_>>,
         event: &mut ReplacementEvent,
     ) -> ReplacementResult {
-        let pre_list = battlefield_pre_list(game, event);
+        absorb_staged_etb_counters(game, event);
         if !matches!(
             event,
             ReplacementEvent::Moved {
                 destination: ZoneType::Battlefield,
-                counter_map: Some(_),
                 ..
             }
         ) {
-            return self.run_with_pre_list(game, agents, runtime, event, pre_list.as_ref());
+            return self.run_with_pre_list(game, agents, runtime, event);
         }
         self.etb_counters_pass = Some(false);
-        let moved = self.run_with_pre_list(
-            game,
-            agents.as_deref_mut(),
-            runtime.as_deref_mut(),
-            event,
-            pre_list.as_ref(),
-        );
+        let moved =
+            self.run_with_pre_list(game, agents.as_deref_mut(), runtime.as_deref_mut(), event);
         if !matches!(
             moved,
             ReplacementResult::NotReplaced | ReplacementResult::Updated
@@ -363,7 +357,7 @@ impl ReplacementHandler {
             return moved;
         }
         self.etb_counters_pass = Some(true);
-        let counters = self.run_with_pre_list(game, agents, runtime, event, pre_list.as_ref());
+        let counters = self.run_with_pre_list(game, agents, runtime, event);
         self.etb_counters_pass = None;
         match counters {
             ReplacementResult::NotReplaced => moved,
@@ -378,7 +372,6 @@ impl ReplacementHandler {
         mut agents: Option<&mut [Box<dyn PlayerAgent>]>,
         mut runtime: Option<&mut ReplacementRuntime<'_>>,
         event: &mut ReplacementEvent,
-        pre_list: Option<&Card>,
     ) -> ReplacementResult {
         let depth = ReplacementDepth::enter();
         if depth.0 > MAX_REPLACEMENT_DEPTH {
@@ -386,6 +379,7 @@ impl ReplacementHandler {
                 "replacement recursion deeper than {MAX_REPLACEMENT_DEPTH}: a replacement keeps applying to its own event"
             );
         }
+        let pre_list = battlefield_pre_list(game, event);
         for layer in [
             ReplacementLayer::CantHappen,
             ReplacementLayer::Control,
@@ -399,7 +393,7 @@ impl ReplacementHandler {
                 runtime.as_deref_mut(),
                 event,
                 layer,
-                pre_list,
+                pre_list.as_ref(),
             );
             if result != ReplacementResult::NotReplaced {
                 return result;
@@ -491,12 +485,13 @@ impl ReplacementHandler {
             agents.as_deref_mut(),
             runtime.as_deref_mut(),
         );
+        absorb_staged_etb_counters(game, event);
         if result == ReplacementResult::NotReplaced {
             if eligible.len() > 1 {
-                result = self.run_with_pre_list(game, agents, runtime, event, pre_list);
+                result = self.run_with_pre_list(game, agents, runtime, event);
             }
         } else if result == ReplacementResult::Updated {
-            result = match self.run_with_pre_list(game, agents, runtime, event, pre_list) {
+            result = match self.run_with_pre_list(game, agents, runtime, event) {
                 ReplacementResult::NotReplaced | ReplacementResult::Updated => {
                     ReplacementResult::Updated
                 }
@@ -1004,6 +999,50 @@ pub fn has_applicable_effects(game: &GameState, event: &ReplacementEvent) -> boo
     ]
     .into_iter()
     .any(|layer| !collect_effects(game, event, layer, None).is_empty())
+}
+
+/// The counters staged on `card` for its next entrance (`Card::add_etb_counter`), added to
+/// `existing` with `default_source` for a counter staged without a placer.
+pub(crate) fn staged_etb_counter_map(
+    game: &mut GameState,
+    card: CardId,
+    default_source: PlayerId,
+    existing: Option<Vec<CounterMapValue>>,
+) -> Option<Vec<CounterMapValue>> {
+    let staged = std::mem::take(&mut game.card_mut(card).etb_counters);
+    let mut counter_map = existing;
+    for (placer, mut counters) in staged {
+        // Java's `GameEntityCounterTable.put` adds nothing for an amount of zero.
+        counters.retain(|_, amount| *amount > 0);
+        if !counters.is_empty() {
+            counter_map
+                .get_or_insert_with(Vec::new)
+                .push(CounterMapValue {
+                    source: placer.or(Some(default_source)),
+                    counters,
+                });
+        }
+    }
+    counter_map
+}
+
+/// Java's enters-with-counters replacements put their counters into the move's live
+/// `CounterTable`, which the next `getReplacementList` reads as `CounterMap`.
+fn absorb_staged_etb_counters(game: &mut GameState, event: &mut ReplacementEvent) {
+    let ReplacementEvent::Moved {
+        card,
+        destination: ZoneType::Battlefield,
+        counter_map,
+        ..
+    } = event
+    else {
+        return;
+    };
+    if game.card(*card).etb_counters.is_empty() {
+        return;
+    }
+    let owner = game.card(*card).owner;
+    *counter_map = staged_etb_counter_map(game, *card, owner, counter_map.take());
 }
 
 fn battlefield_pre_list(game: &GameState, event: &ReplacementEvent) -> Option<Card> {
@@ -1659,9 +1698,23 @@ fn collect_effects(
         } else {
             Vec::new()
         };
+        let state_effects = if layer == ReplacementLayer::Other
+            && matches!(
+                event,
+                ReplacementEvent::Moved {
+                    card: moved,
+                    destination: ZoneType::Battlefield,
+                    ..
+                } if *moved == card_id
+            ) {
+            crate::card::card_state::apply_type_replacement_effects(card)
+        } else {
+            Vec::new()
+        };
         for (effect_idx_in_card, re) in card
             .replacement_effects
             .iter()
+            .chain(state_effects.iter())
             .chain(rules_effects.iter())
             .enumerate()
         {

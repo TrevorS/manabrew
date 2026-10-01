@@ -424,141 +424,14 @@ impl GameState {
             card.cast_sa = None;
             card.svars.remove("XPaid");
         }
-        let mut etb_counters = std::collections::BTreeMap::new();
-        if dest_zone == ZoneType::Battlefield {
-            for keyword in self.cards[card_id.index()].keywords.as_string_list() {
-                let mut parts = keyword.split(':');
-                if !parts
-                    .next()
-                    .is_some_and(|head| head.eq_ignore_ascii_case("etbCounter"))
-                {
-                    continue;
-                }
-                let counter_type =
-                    crate::ability::effects::parse_counter_type(parts.next().unwrap_or_default());
-                let amount_text = parts.next().unwrap_or_default();
-                if let Some(extra_params) = parts
-                    .next()
-                    .map(str::trim)
-                    .filter(|value| !value.is_empty() && *value != "no Condition")
-                {
-                    let params = crate::parsing::Params::from_raw(extra_params);
-                    // Java's `makeEtbCounter` appends `extraparams` onto a replacement whose base
-                    // `ValidCard$` is `Card.Self`; a `ValidCard$` here overrides that base clause
-                    // (last key wins in Java's own param map) rather than adding an IsPresent-style
-                    // condition, so it is checked against the card itself, not the requirements IR.
-                    if let Some(valid_card) =
-                        params.selector_untracked(crate::parsing::keys::VALID_CARD)
-                    {
-                        let card = &self.cards[card_id.index()];
-                        if !crate::card::valid_filter::matches_valid_card_selector_opt_in_game(
-                            Some(valid_card),
-                            card,
-                            card,
-                            self,
-                        ) {
-                            continue;
-                        }
-                    }
-                    let requirements =
-                        crate::card::valid_filter::CardTraitRequirementsIr::from_key_values(
-                            params.iter(),
-                            params
-                                .selector_untracked(crate::parsing::keys::IS_PRESENT)
-                                .cloned(),
-                            params.selector_untracked("IsPresent2").cloned(),
-                        );
-                    let card = self.card(card_id);
-                    if !requirements.meets(self, card, card) {
-                        continue;
-                    }
-                }
-                let amount = amount_text.parse::<i32>().unwrap_or_else(|_| {
-                    let card = &self.cards[card_id.index()];
-                    card.svars
-                        .get(amount_text)
-                        .map(|expression| {
-                            if matches!(expression.as_str(), "Count$xPaid" | "Count$XPaid") {
-                                card.svars
-                                    .get("XPaid")
-                                    .and_then(|value| value.parse().ok())
-                                    .unwrap_or(0)
-                            } else {
-                                expression.parse().unwrap_or_else(|_| {
-                                    crate::svar::resolve_count_svar(
-                                        expression, self, card_id, dest_owner,
-                                    )
-                                })
-                            }
-                        })
-                        .unwrap_or(0)
-                });
-                *etb_counters.entry(counter_type).or_default() += amount.max(0);
-            }
-            let card = &self.cards[card_id.index()];
-            if card.type_line.has_subtype("Saga") && card.has_chapter() {
-                let amount = if card.has_keyword("Read ahead") {
-                    agents
-                        .as_deref_mut()
-                        .and_then(|agents| {
-                            agents[dest_owner.index()].choose_number(
-                                DecisionContext::game_only(self),
-                                dest_owner,
-                                Some(card_id),
-                                "How many lore counters?",
-                                Some("Choose a chapter and start with that many lore counters."),
-                                1,
-                                card.get_final_chapter_nr(),
-                            )
-                        })
-                        .unwrap_or(1)
-                        .clamp(1, card.get_final_chapter_nr())
-                } else {
-                    1
-                };
-                *etb_counters.entry(CounterType::Lore).or_default() += amount;
-            }
-            if card.type_line.is_planeswalker() {
-                let loyalty = card
-                    .initial_loyalty
-                    .as_deref()
-                    .and_then(|value| value.parse::<i32>().ok())
-                    .unwrap_or(0);
-                *etb_counters
-                    .entry(crate::card::CounterType::Loyalty)
-                    .or_default() += loyalty.max(0);
-            }
-            // Java `CardFactoryUtil:2316` gives Impending an ETB replacement gated on
-            // `Card.Self+impended`, so the time counters are there as it enters and it
-            // is never briefly a creature.
-            if let Some((_, amount)) = card.get_impending_cost() {
-                let impended = card.cast_sa.as_ref().is_some_and(|sa| {
-                    sa.alt_cost == Some(crate::spellability::AlternativeCost::Impending)
-                });
-                if impended {
-                    *etb_counters
-                        .entry(crate::card::CounterType::Time)
-                        .or_default() += amount.max(0);
-                }
-            }
-            let sunburst = card.sunburst_count();
-            if sunburst > 0 && card.has_keyword("Sunburst") {
-                let counter_type = if card.is_creature() {
-                    crate::card::CounterType::P1P1
-                } else {
-                    crate::card::CounterType::Charge
-                };
-                *etb_counters.entry(counter_type).or_default() += sunburst;
-            }
-            etb_counters.retain(|_, amount| *amount > 0);
-        }
         let counter_cause = self.cards[card_id.index()].cast_sa.clone();
-        let counter_map = (!etb_counters.is_empty()).then(|| {
-            vec![crate::replacement::replacement_handler::CounterMapValue {
-                source: Some(dest_owner),
-                counters: etb_counters,
-            }]
-        });
+        let counter_map = if dest_zone == ZoneType::Battlefield {
+            crate::replacement::replacement_handler::staged_etb_counter_map(
+                self, card_id, dest_owner, None,
+            )
+        } else {
+            None
+        };
         let mut moved_event = ReplacementEvent::Moved {
             card: card_id,
             origin: src_zone,

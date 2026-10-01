@@ -372,8 +372,30 @@ fn resolve_per_type(
     // Resolve target card: mirror Java's getDefinedEntitiesOrTargeted().
     // When the SA uses targeting (ValidTgts$), use the chosen target.
     // Otherwise fall back to the Defined$ parameter (default "Self").
+    let up_to_min = crate::parsing::raw_has_key(&sa.ability_text, "UpTo").then(|| {
+        crate::parsing::raw_get(&sa.ability_text, "UpToMin").map_or(0, |min| {
+            crate::svar::resolve_numeric_value(ctx.game, sa, min, 0)
+        })
+    });
     for card_id in resolve_card_targets(ctx.game, sa) {
         for counter_type in counter_types {
+            let count = match up_to_min {
+                Some(min) => {
+                    let activator = sa.activating_player;
+                    ctx.agents[activator.index()]
+                        .choose_number(
+                            DecisionContext::new(ctx.game, ctx.mana_pools),
+                            activator,
+                            sa.source,
+                            "How many counters?",
+                            None,
+                            min,
+                            count,
+                        )
+                        .unwrap_or(count)
+                }
+                None => count,
+            };
             put_counters_on_card(
                 ctx,
                 sa,

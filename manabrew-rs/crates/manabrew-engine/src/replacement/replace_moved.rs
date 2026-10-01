@@ -138,10 +138,8 @@ pub fn execute(
     agents: Option<&mut [Box<dyn PlayerAgent>]>,
     runtime: Option<&mut ReplacementRuntime<'_>>,
 ) -> ReplacementResult {
-    let (moving_id, destination) = match event {
-        ReplacementEvent::Moved {
-            card, destination, ..
-        } => (*card, *destination),
+    let moving_id = match event {
+        ReplacementEvent::Moved { card, .. } => *card,
         _ => return ReplacementResult::NotReplaced,
     };
     if let Some(new_dest) = effect.ir.new_destination_text.as_deref() {
@@ -183,9 +181,7 @@ pub fn execute(
             return ReplacementResult::NotReplaced;
         }
     } else if let Some(ability) = effect.base.get_overriding_ability() {
-        if destination != ZoneType::Battlefield
-            && !execute_replacement_ability(effect, ability.clone(), game, event, agents, runtime)
-        {
+        if !execute_replacement_ability(effect, ability.clone(), game, event, agents, runtime) {
             return ReplacementResult::NotReplaced;
         }
     }
@@ -230,6 +226,10 @@ pub(super) fn execute_replacement_ability(
     mut runtime: Option<&mut ReplacementRuntime<'_>>,
 ) -> bool {
     effect.set_replacing_objects(event, &mut sa);
+    // Java `getReplacementList` hosts each replacement on the current object (`setHostCard`).
+    if let Some(source) = sa.source {
+        sa.source_zone_timestamp = Some(game.card(source).zone_timestamp);
+    }
 
     // `local_agents_storage` keeps the fallback Vec alive when the caller
     // didn't provide agents; we hand back a borrow into it.

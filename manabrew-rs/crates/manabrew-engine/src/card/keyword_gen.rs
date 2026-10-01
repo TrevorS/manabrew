@@ -566,7 +566,6 @@ impl Card {
         let mut next_id = self.triggers.iter().map(|t| t.id + 1).max().unwrap_or(0);
         self.generate_keyword_trigger_combat(kw, &mut next_id);
         self.generate_keyword_trigger_zone(kw, &mut next_id);
-        self.add_keyword_etb_counters(kw);
         self.generate_keyword_trigger_misc(kw, &mut next_id);
         let (keyword, _) = crate::keyword::keyword_collection::parse_keyword_string(kw);
         self.tag_keyword_triggers(
@@ -579,14 +578,6 @@ impl Card {
         }
         if let Some(triggers) = self.trait_base_triggers.as_mut() {
             triggers.extend_from_slice(&self.triggers[first_new..]);
-        }
-    }
-
-    fn add_keyword_etb_counters(&mut self, kw: &str) {
-        if let Some(n) = crate::keyword::extract_keyword_cost_str(kw, "Modular")
-            .and_then(|n_str| n_str.parse::<i32>().ok())
-        {
-            self.add_etb_counter(None, crate::card::CounterType::P1P1, n);
         }
     }
 
@@ -651,7 +642,6 @@ impl Card {
             let first_new = self.triggers.len();
             self.generate_keyword_trigger_combat(kw, &mut next_id);
             self.generate_keyword_trigger_zone(kw, &mut next_id);
-            self.add_keyword_etb_counters(kw);
             self.generate_keyword_trigger_misc(kw, &mut next_id);
             self.tag_keyword_triggers(first_new, &inst);
         }

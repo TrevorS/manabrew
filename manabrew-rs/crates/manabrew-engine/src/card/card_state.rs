@@ -832,3 +832,28 @@ pub fn get_final_chapter_nr(card: &Card) -> i32 {
 pub fn set_type(card: &mut Card, type_line: &str) {
     card.type_line = CardTypeLine::parse(type_line);
 }
+
+/// Java `CardState.getLoyaltyRep`.
+pub fn get_loyalty_rep(card: &Card) -> Option<ReplacementEffect> {
+    let loyalty = card.initial_loyalty.as_deref()?;
+    super::card_factory_util::make_etb_counter(&format!("etbCounter:LOYALTY:{loyalty}"), card, true)
+}
+
+/// Java `CardState.getSagaRep`.
+pub fn get_saga_rep(card: &Card) -> Option<ReplacementEffect> {
+    super::card_factory_util::make_etb_counter("etbCounter:LORE:1", card, true)
+}
+
+/// The type part of Java `CardState`'s `applyReplacementEffect`: a planeswalker enters with its
+/// loyalty and a Saga without read ahead with a lore counter. Battles' `getDefenseRep` has no
+/// counterpart: this engine does not read a battle's defense.
+pub fn apply_type_replacement_effects(card: &Card) -> Vec<ReplacementEffect> {
+    let mut list = Vec::new();
+    if card.type_line.is_planeswalker() {
+        list.extend(get_loyalty_rep(card));
+    }
+    if card.type_line.has_subtype("Saga") && !card.has_keyword("Read ahead") {
+        list.extend(get_saga_rep(card));
+    }
+    list
+}
