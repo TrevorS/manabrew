@@ -2119,6 +2119,38 @@ impl GameLoop {
                     }
                     continue;
                 }
+                if let Some(sneak_cost) = card.get_sneak_cost().filter(|_| sneak_window(card)) {
+                    let mut sneak_sa = crate::spellability::build_spell_ability_for_card_cast(
+                        game, card_id, player,
+                    );
+                    sneak_sa.alt_cost = Some(crate::spellability::AlternativeCost::Sneak);
+                    let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
+                        game,
+                        card,
+                        player,
+                        ZoneType::Exile,
+                    );
+                    if accepting_may_play_grants(card_id, &sneak_sa) > 0
+                        && self
+                            .available_mana_for_spell_card(
+                                game,
+                                player,
+                                card_id,
+                                &chosen_types_by_source,
+                            )
+                            .can_pay(
+                                &cost_adj.apply(&forge_foundation::ManaCost::parse(&sneak_cost)),
+                            )
+                    {
+                        playable.push(crate::agent::PlayOption {
+                            card_id,
+                            mode: crate::agent::PlayCardMode::Alternative(
+                                crate::spellability::AlternativeCost::Sneak,
+                            ),
+                            alt_cost_index: 0,
+                        });
+                    }
+                }
                 if must_be_instant && !has_flash_permission(card_id) {
                     continue;
                 }
