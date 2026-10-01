@@ -1376,10 +1376,24 @@ impl GameLoop {
 
                 // Warp: alt cost for creatures
                 let warp_ok = if let Some(warp_cost_str) = card.get_warp_cost() {
-                    let adjusted = cost_adj
-                        .apply(&forge_foundation::ManaCost::parse(&warp_cost_str))
-                        .add(&raise_mana);
-                    available_mana().can_pay(&adjusted)
+                    let warp_mana = forge_foundation::ManaCost::parse(&warp_cost_str);
+                    let adjusted = cost_adj.apply(&warp_mana).add(&raise_mana);
+                    let reduced =
+                        apply_cost_reductions(game, player, card_id, probe_host(), &adjusted);
+                    crate::mana::can_pay_spell_mana_cost_with_sources(
+                        game,
+                        self.pool(player),
+                        player,
+                        card_id,
+                        &reduced,
+                        &mana::ManaPaymentContext {
+                            mana_value: Some(warp_mana.cmc()),
+                            ..payment_ctx.clone()
+                        },
+                        self.action_space_probe_order(game),
+                        probe_sources,
+                    ) || (Self::can_use_source_level_mana_fallback(game, player, available_mana)
+                        && available_mana().can_pay(&reduced))
                 } else {
                     false
                 };
