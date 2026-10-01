@@ -1127,6 +1127,7 @@ public class DeterministicController extends PlayerController implements Harness
                     }
                     final Card instanceForPlayer =
                             CardFactory.getCard(cp, player, -1, player.getGame());
+                    CardUtil.turnToRightFace(face.getName(), instanceForPlayer);
                     final Player sourceController = source == null ? player : source.getController();
                     return instanceForPlayer.isValid(valid, sourceController, source, sa);
                 })
