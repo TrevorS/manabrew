@@ -573,6 +573,12 @@ impl GameState {
         };
         let tapped_before_replacement = self.card(card_id).tapped;
         if apply_move_replacement {
+            // Java `GameAction.changeZone`: a card made from nothing is an inbound token while
+            // its move is replaced, so `Game.getCardState` still finds it.
+            let inbound_owner = (src_zone == ZoneType::None).then(|| self.card(card_id).owner);
+            if let Some(owner) = inbound_owner {
+                crate::player::add_inbound_token(self, owner, card_id);
+            }
             let result = match (agents.as_deref_mut(), runtime.as_deref_mut()) {
                 (Some(agents), Some(runtime)) => apply_replacements_with_agents_and_runtime(
                     self,
@@ -585,6 +591,9 @@ impl GameState {
                 }
                 (None, _) => apply_replacements(self, &mut moved_event),
             };
+            if let Some(owner) = inbound_owner {
+                crate::player::remove_inbound_token(self, owner, card_id);
+            }
             if !matches!(
                 result,
                 ReplacementResult::NotReplaced | ReplacementResult::Updated

@@ -111,7 +111,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
 
     for card_id in targets {
-        if ctx.game.card(card_id).zone == ZoneType::None {
+        let card = ctx.game.card(card_id);
+        if card.zone == ZoneType::None
+            && !ctx
+                .game
+                .player(card.owner)
+                .inbound_tokens
+                .contains(&card_id)
+        {
             continue;
         }
 
