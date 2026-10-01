@@ -463,7 +463,7 @@ impl DeterministicAgent {
     /// Find the ability_index of the UnlockDoor activated ability on a Room card.
     /// Used by `action_sort_key` to produce the correct Java-matching sort key
     /// for Room unlock actions.
-    fn unlock_door_ability_index(&self, card_id: CardId) -> usize {
+    fn unlock_door_ability_index(&self, card_id: CardId, door: Option<&str>) -> usize {
         if let Some(ref snap) = self.last_game_snapshot {
             for ((cid, ability_idx), text) in &snap.ability_texts {
                 if *cid != card_id {
@@ -472,6 +472,9 @@ impl DeterministicAgent {
                 if manabrew_engine::parsing::raw_get(text, manabrew_engine::parsing::keys::AB)
                     .map(|v| v.eq_ignore_ascii_case("UnlockDoor"))
                     .unwrap_or(false)
+                    && door.is_none_or(|door| {
+                        manabrew_engine::parsing::raw_get(text, "CardState") == Some(door)
+                    })
                 {
                     return *ability_idx;
                 }
@@ -883,7 +886,13 @@ impl DeterministicAgent {
                 // where isSpell()=false, so it sorts in the ability bucket (|1|)
                 // with abilityDeclarationIndex as the variant, not the spell bucket.
                 if play.mode == PlayCardMode::UnlockDoor {
-                    let ability_idx = self.unlock_door_ability_index(play.card_id);
+                    let door = if play.alt_cost_index == 1 {
+                        "RightSplit"
+                    } else {
+                        "LeftSplit"
+                    };
+                    let ability_idx = self.unlock_door_ability_index(play.card_id, None);
+                    let door_ability_idx = self.unlock_door_ability_index(play.card_id, Some(door));
                     let sort_idx = self
                         .last_game_snapshot
                         .as_ref()
@@ -902,7 +911,7 @@ impl DeterministicAgent {
                         self.card_name(play.card_id),
                         self.parity_id(play.card_id),
                         sort_idx,
-                        self.ability_sort_text(play.card_id, ability_idx),
+                        self.ability_sort_text(play.card_id, door_ability_idx),
                     );
                 }
                 if play.mode == PlayCardMode::ForetellExile {

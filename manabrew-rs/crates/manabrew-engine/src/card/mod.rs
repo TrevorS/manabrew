@@ -4878,18 +4878,73 @@ impl Card {
         }
     }
 
-    pub fn get_unlocked_room_count(&self) -> i32 {
-        if let Some(count) = self
+    pub fn lock_room_door(&mut self, state: forge_foundation::CardStateName) {
+        let doors: Vec<String> = self
             .svars
-            .get("UnlockedRoomCount")
-            .and_then(|v| v.parse::<i32>().ok())
-        {
-            return count;
+            .get("UnlockedDoors")
+            .into_iter()
+            .flat_map(|doors| doors.split(','))
+            .filter(|door| forge_foundation::CardStateName::from_str_compat(door) != Some(state))
+            .map(str::to_string)
+            .collect();
+        if doors.is_empty() {
+            self.remove_s_var("UnlockedDoors");
+        } else {
+            self.set_s_var("UnlockedDoors", doors.join(","));
         }
-        if self.zone == ZoneType::Battlefield && self.type_line.has_subtype("Room") {
-            return 1;
+    }
+
+    pub fn get_unlocked_room_count(&self) -> i32 {
+        self.svars
+            .get("UnlockedDoors")
+            .into_iter()
+            .flat_map(|doors| doors.split(','))
+            .filter_map(forge_foundation::CardStateName::from_str_compat)
+            .count() as i32
+    }
+
+    fn room_left_name(&self) -> String {
+        self.full_name
+            .split(" // ")
+            .next()
+            .unwrap_or_default()
+            .to_string()
+    }
+
+    pub fn update_rooms(&mut self) {
+        if !self.type_line.has_subtype("Room") || self.face_down {
+            return;
         }
-        0
+        let left = self.room_door_unlocked(CardStateName::LeftSplit);
+        let right = self.room_door_unlocked(CardStateName::RightSplit);
+        match (left, right) {
+            (true, true) => self.card_name = self.full_name.clone(),
+            (false, true) => {
+                if !self.is_transformed {
+                    self.card_name = self.room_left_name();
+                    self.transform();
+                }
+            }
+            (true, false) => {
+                if self.is_transformed {
+                    self.transform();
+                }
+                self.card_name = self.room_left_name();
+            }
+            (false, false) => {
+                if self.is_transformed {
+                    self.transform();
+                }
+                self.card_name = String::new();
+            }
+        }
+    }
+
+    pub fn reset_room_doors(&mut self) {
+        if self.type_line.has_subtype("Room") {
+            self.remove_s_var("UnlockedDoors");
+            self.card_name = self.room_left_name();
+        }
     }
     pub fn was_cast(&self) -> bool {
         // Mirrors Java `Card.wasCast()`: true iff `castFrom` was set during
@@ -5063,17 +5118,6 @@ impl Card {
     pub fn attack_vigilance(&self) -> bool {
         self.has_vigilance()
     }
-    pub fn unlock_room(&mut self) {
-        self.set_s_var("RoomLocked", "False");
-    }
-    pub fn lock_room(&mut self) {
-        self.set_s_var("RoomLocked", "True");
-    }
-    pub fn update_rooms(&mut self) {
-        if !self.has_s_var("RoomLocked") {
-            self.set_s_var("RoomLocked", "False");
-        }
-    }
 
     /// Transform this double-faced card to its other face.
     /// Swaps all face-dependent characteristics with `other_part`.
@@ -5110,12 +5154,7 @@ impl Card {
     }
 
     pub fn transform(&mut self) {
-        const ROOM_SVARS: [&str; 4] = [
-            "RoomRightSplitName",
-            "RoomRightSplitCost",
-            "UnlockedDoors",
-            "UnlockedRoomCount",
-        ];
+        const ROOM_SVARS: [&str; 3] = ["RoomRightSplitName", "RoomRightSplitCost", "UnlockedDoors"];
         let room_svars: Vec<(String, String)> = ROOM_SVARS
             .iter()
             .filter_map(|k| self.svars.get(*k).map(|v| ((*k).to_string(), v.clone())))

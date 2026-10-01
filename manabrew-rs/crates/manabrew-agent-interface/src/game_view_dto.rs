@@ -445,7 +445,11 @@ pub fn can_face_down_be_shown_to(card: &Card, viewer: PlayerId) -> bool {
 
 fn card_identity(card: &Card) -> CardIdentity {
     CardIdentity {
-        name: card.card_name.clone(),
+        name: if card.card_name.is_empty() {
+            card.full_name.clone()
+        } else {
+            card.card_name.clone()
+        },
         set_code: card.set_code.clone().unwrap_or_default(),
         card_number: card.card_number.clone().unwrap_or_default(),
         is_token: card.is_token,

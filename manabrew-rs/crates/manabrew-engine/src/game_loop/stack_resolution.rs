@@ -507,6 +507,7 @@ impl GameLoop {
                 if let Some(door) = room_door.as_deref() {
                     if let Some(state) = forge_foundation::CardStateName::from_str_compat(door) {
                         game.card_mut(card_id).unlock_room_door(state);
+                        game.card_mut(card_id).update_rooms();
                     }
                 }
 

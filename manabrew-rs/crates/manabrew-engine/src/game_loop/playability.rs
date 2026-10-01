@@ -1877,15 +1877,7 @@ impl GameLoop {
                 if !card.type_line.has_subtype("Room") {
                     continue;
                 }
-                let fully_unlocked = card
-                    .svars
-                    .get("UnlockedRoomCount")
-                    .and_then(|count| count.parse::<i32>().ok())
-                    .is_some_and(|count| count >= 2)
-                    || (!card.full_name.is_empty()
-                        && card.card_name == card.full_name
-                        && card.full_name.contains(" // "));
-                if fully_unlocked {
+                if card.get_unlocked_room_count() >= 2 {
                     continue;
                 }
                 // Find the synthetic UnlockDoor activated ability
@@ -1931,7 +1923,9 @@ impl GameLoop {
                         playable.push(crate::agent::PlayOption {
                             card_id,
                             mode: crate::agent::PlayCardMode::UnlockDoor,
-                            alt_cost_index: 0,
+                            alt_cost_index: u8::from(
+                                door == Some(forge_foundation::CardStateName::RightSplit),
+                            ),
                         });
                     }
                 }

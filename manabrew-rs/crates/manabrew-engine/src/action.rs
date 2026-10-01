@@ -880,6 +880,9 @@ impl GameState {
                     Vec::new()
                 };
                 self.card_mut(card_id).enter_battlefield();
+                if self.card(card_id).cast_from.is_none() {
+                    self.card_mut(card_id).update_rooms();
+                }
                 if !granted_offspring.is_empty() {
                     let card = self.card_mut(card_id);
                     card.capture_changed_characteristics_baseline_if_needed();
@@ -991,6 +994,7 @@ impl GameState {
                 card.monstrous = false;
                 card.controller = card.owner;
                 card.is_bestowed = false;
+                card.reset_room_doors();
                 // CR 400.7: a permanent that changes zones becomes a new
                 // object with no cast history. Mirrors Java's
                 // changeZone-creates-new-Card behaviour.
@@ -1087,6 +1091,7 @@ impl GameState {
                 card.monstrous = false;
                 card.controller = card.owner;
                 card.cast_from = None;
+                card.reset_room_doors();
                 if !keep_counters {
                     card.counters.clear();
                 }

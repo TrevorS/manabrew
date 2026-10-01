@@ -2,7 +2,7 @@
 //! Ported from Java's UnlockDoorEffect: unlocks one side of a Room
 //! enchantment, activating its abilities.
 
-use forge_foundation::ZoneType;
+use forge_foundation::{CardStateName, ZoneType};
 
 use super::EffectContext;
 use crate::event::RunParams;
@@ -35,61 +35,44 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         let before = unlocked_room_count(ctx, card_id);
-        let mut after = before;
+        let first_locked = [CardStateName::LeftSplit, CardStateName::RightSplit]
+            .into_iter()
+            .find(|&state| ctx.game.card(card_id).room_door_locked(state));
+        let door = sa
+            .ir
+            .card_state_name
+            .as_deref()
+            .and_then(CardStateName::from_str_compat)
+            .or(match mode {
+                SpellAbilityMode::Unlock => first_locked,
+                SpellAbilityMode::LockOrUnlock => first_locked.or(Some(CardStateName::RightSplit)),
+                _ => None,
+            });
         let mut unlocked = false;
-        match mode {
-            SpellAbilityMode::ThisDoor => {
-                ctx.game.card_mut(card_id).set_s_var("DoorUnlocked", "True");
-                if before < 2 {
-                    after = before + 1;
+        if let Some(state) = door {
+            let locked = ctx.game.card(card_id).room_door_locked(state);
+            match mode {
+                SpellAbilityMode::ThisDoor | SpellAbilityMode::Unlock if locked => {
+                    ctx.game.card_mut(card_id).unlock_room_door(state);
                     unlocked = true;
                 }
-            }
-            SpellAbilityMode::Unlock => {
-                ctx.game.card_mut(card_id).set_s_var("DoorUnlocked", "True");
-                if before < 2 {
-                    after = before + 1;
-                    unlocked = true;
-                }
-            }
-            SpellAbilityMode::LockOrUnlock => {
-                let is_locked = ctx
-                    .game
-                    .card(card_id)
-                    .svars
-                    .get("DoorUnlocked")
-                    .is_none_or(|v| v != "True");
-                if is_locked {
-                    ctx.game.card_mut(card_id).set_s_var("DoorUnlocked", "True");
-                    if before < 2 {
-                        after = before + 1;
+                SpellAbilityMode::LockOrUnlock => {
+                    if locked {
+                        ctx.game.card_mut(card_id).unlock_room_door(state);
                         unlocked = true;
+                    } else {
+                        ctx.game.card_mut(card_id).lock_room_door(state);
                     }
-                } else {
-                    ctx.game.card_mut(card_id).remove_s_var("DoorUnlocked");
-                    after = before.saturating_sub(1);
                 }
+                _ => {}
             }
-            _ => {}
+            ctx.game.card_mut(card_id).update_rooms();
         }
-
-        if after != before {
-            ctx.game
-                .card_mut(card_id)
-                .set_s_var("UnlockedRoomCount", after.to_string());
-        }
+        let after = unlocked_room_count(ctx, card_id);
 
         if unlocked {
-            if let Some(state) = sa
-                .ir
-                .card_state_name
-                .as_deref()
-                .and_then(forge_foundation::CardStateName::from_str_compat)
-            {
-                ctx.game.card_mut(card_id).unlock_room_door(state);
-                ctx.trigger_handler
-                    .register_active_trigger(ctx.game, card_id);
-            }
+            ctx.trigger_handler
+                .register_active_trigger(ctx.game, card_id);
             ctx.trigger_handler.run_trigger(
                 TriggerType::UnlockDoor,
                 RunParams {
@@ -101,12 +84,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 true,
             );
             if before < 2 && after >= 2 {
-                // When both doors are unlocked, update the card name to the
-                // full combined name (e.g. "Walk-In Closet // Forgotten Cellar").
-                // Mirrors Java's Card.updateRooms() setting state to Original.
-                let full = ctx.game.card(card_id).full_name.clone();
-                ctx.game.card_mut(card_id).card_name = full;
-
                 ctx.trigger_handler.run_trigger(
                     TriggerType::FullyUnlock,
                     RunParams {

@@ -290,18 +290,23 @@ impl GameLoop {
                     // play_spell_ability. Java models this as a StaticAbilityApiBased.
                     if play.mode == crate::agent::PlayCardMode::UnlockDoor {
                         let unlock_card = game.card(play.card_id);
-                        let unlock_ab_idx = unlock_card
-                            .activated_abilities
-                            .iter()
-                            .find(|ab| {
-                                ab.is_unlock_door
-                                    && ab
-                                        .params
-                                        .get("CardState")
-                                        .and_then(forge_foundation::CardStateName::from_str_compat)
-                                        .is_some_and(|state| unlock_card.room_door_locked(state))
-                            })
-                            .map(|ab| ab.ability_index);
+                        let door = if play.alt_cost_index == 1 {
+                            forge_foundation::CardStateName::RightSplit
+                        } else {
+                            forge_foundation::CardStateName::LeftSplit
+                        };
+                        let unlock_ab_idx =
+                            unlock_card
+                                .activated_abilities
+                                .iter()
+                                .find(|ab| {
+                                    ab.is_unlock_door
+                                        && ab.params.get("CardState").and_then(
+                                            forge_foundation::CardStateName::from_str_compat,
+                                        ) == Some(door)
+                                        && unlock_card.room_door_locked(door)
+                                })
+                                .map(|ab| ab.ability_index);
                         if let Some(ability_idx) = unlock_ab_idx {
                             let played = self.with_shared_state_mutation(
                                 game,
