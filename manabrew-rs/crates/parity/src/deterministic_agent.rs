@@ -938,7 +938,7 @@ impl DeterministicAgent {
                     })
                     .unwrap_or_else(|| {
                         if ability_idx == STATIC_ALTERNATIVE_ABILITY_INDEX {
-                            "-0001".to_string()
+                            i32::MAX.to_string()
                         } else {
                             format!("{ability_idx:05}")
                         }

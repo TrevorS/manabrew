@@ -87,7 +87,7 @@ pub fn ability_declaration_sort_key(
     ability_idx: usize,
 ) -> String {
     if ability_idx == STATIC_ALTERNATIVE_ABILITY_INDEX {
-        "-0001".to_string()
+        i32::MAX.to_string()
     } else {
         format!(
             "{:05}",
