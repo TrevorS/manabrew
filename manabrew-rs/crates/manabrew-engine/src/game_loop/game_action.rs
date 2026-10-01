@@ -444,10 +444,23 @@ impl GameLoop {
                     })
                 }
             };
+            let waterbend = ab_cost.parts.iter().find_map(|part| match part {
+                crate::cost::CostPart::Waterbend { amount } if !amount.is_x() => {
+                    Some(amount.resolve(game, card_id, player).max(0))
+                }
+                _ => None,
+            });
             let probe_mana = ab_cost
                 .parts
                 .iter()
                 .find_map(crate::cost::cost_part_mana::get_mana)
+                .cloned()
+                .or_else(|| waterbend.map(|_| forge_foundation::ManaCost::generic(0)))
+                .map(|mana_cost| {
+                    waterbend.map_or(mana_cost.clone(), |amount| {
+                        mana_cost.add(&forge_foundation::ManaCost::generic(amount))
+                    })
+                })
                 .filter(|_| {
                     game.action_space_mana_probe == mana::ActionSpaceManaProbe::ComputerUtilMana
                 });
@@ -464,7 +477,7 @@ impl GameLoop {
                         self.pool(player),
                         player,
                         card_id,
-                        mana_cost,
+                        &mana_cost,
                         &mana::payment_context_for_sa(game, &sa_for_target_check),
                         &ab.sub_ability_targets,
                         self.action_space_probe_order(game),
