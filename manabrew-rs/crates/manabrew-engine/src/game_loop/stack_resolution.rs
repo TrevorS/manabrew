@@ -731,11 +731,7 @@ impl GameLoop {
                     false,
                 );
                 let owner = game.card(card_id).owner;
-                // Only move if still in stack zone (some effects move the card themselves)
-                if game.card(card_id).zone != ZoneType::Exile
-                    && game.card(card_id).zone != ZoneType::Library
-                    && game.card(card_id).zone != ZoneType::Hand
-                {
+                if game.card(card_id).zone == ZoneType::Stack {
                     // Determine destination based on alternative cost / keywords
                     let dest = if alt_cost == Some(crate::spellability::AlternativeCost::Harmonize)
                         || alt_cost == Some(crate::spellability::AlternativeCost::Flashback)
