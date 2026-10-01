@@ -1384,14 +1384,18 @@ pub fn replace_dying(game: &mut GameState, sa: &SpellAbility) -> Vec<CardId> {
         .as_deref()
         .unwrap_or("Card.IsRemembered");
     let zone = sa.ir.replace_dying_zone_text.as_deref().unwrap_or("Exile");
-    let mut replacement_raw = format!(
-        "R$ Event$ Moved | ValidLKI$ {valid} | Origin$ Battlefield | Destination$ Graveyard | NewDestination$ {zone} | Description$ If that permanent would die this turn, exile it instead."
+    let replacement_raw = format!(
+        "R$ Event$ Moved | ValidLKI$ {valid} | Origin$ Battlefield | Destination$ Graveyard | ReplaceWith$ ReplaceDying | Description$ If that permanent would die this turn, exile it instead."
+    );
+    let mut replace_with = format!(
+        "DB$ ChangeZone | Defined$ ReplacedCard | Origin$ Battlefield | Destination$ {zone}"
     );
     if sa.ir.replace_dying_exiled_with {
-        replacement_raw.push_str(" | ExiledWithEffectSource$ True");
+        replace_with.push_str(" | ExiledWithEffectSource$ True");
     }
 
     let effect = game.card_mut(effect_id);
+    effect.set_s_var("ReplaceDying", &replace_with);
     add_replacement_effect(effect, &replacement_raw);
 
     cards
