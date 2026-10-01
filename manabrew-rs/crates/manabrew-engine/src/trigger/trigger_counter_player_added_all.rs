@@ -41,14 +41,10 @@ impl TriggerBehavior for TriggerCounterPlayerAddedAll {
         game: &GameState,
     ) -> bool {
         if let Some(filter) = &self.valid_source {
-            let source_ok = if let Some(cid) = params.source_card.or(params.card) {
-                trigger.matches_valid_card_filter(filter, cid, game)
-            } else if let Some(pid) = params.source_player {
-                trigger.matches_valid_player_filter(filter, pid, game)
-            } else {
-                false
-            };
-            if !source_ok {
+            if !params
+                .source_player
+                .is_some_and(|pid| trigger.matches_valid_player_filter(filter, pid, game))
+            {
                 return false;
             }
         }
