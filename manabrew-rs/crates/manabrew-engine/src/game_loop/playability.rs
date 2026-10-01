@@ -1762,6 +1762,18 @@ impl GameLoop {
                             alt_cost_index,
                         });
                     }
+                    if !must_be_instant || has_flash_permission(card_id) {
+                        let mut evoke_sa = normal_sa.clone();
+                        evoke_sa.alt_cost = Some(crate::spellability::AlternativeCost::Evoke);
+                        playable.extend(self.may_play_evoke_options(
+                            game,
+                            player,
+                            card_id,
+                            ZoneType::Graveyard,
+                            accepting_may_play_grants(card_id, &evoke_sa),
+                            &chosen_types_by_source,
+                        ));
+                    }
                     if let Some(warp_cost) = card.get_warp_cost() {
                         let mut warp_sa = normal_sa.clone();
                         warp_sa.alt_cost = Some(crate::spellability::AlternativeCost::Warp);
@@ -2189,6 +2201,14 @@ impl GameLoop {
                         });
                     }
                 }
+                playable.extend(self.may_play_evoke_options(
+                    game,
+                    player,
+                    card_id,
+                    ZoneType::Exile,
+                    normal_grants,
+                    &chosen_types_by_source,
+                ));
                 if !must_be_instant {
                     playable.extend(self.may_play_morph_options(
                         game,
@@ -2618,6 +2638,51 @@ impl GameLoop {
                 );
             }
         }
+    }
+
+    /// Java `GameActionUtil.getAlternativeCosts` builds Evoke for a spell in any zone it may be
+    /// cast from; the hand loop builds its own.
+    fn may_play_evoke_options(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+        zone: ZoneType,
+        grants: usize,
+        chosen_types_by_source: &crate::HashMap<CardId, String>,
+    ) -> Vec<crate::agent::PlayOption> {
+        let mut evoke_costs: Vec<(usize, String)> = game
+            .card(card_id)
+            .get_all_evoke_costs()
+            .into_iter()
+            .enumerate()
+            .collect();
+        evoke_costs.sort_by(|a, b| a.1.cmp(&b.1));
+        let mut options = Vec::new();
+        for (evoke_index, evoke_cost) in evoke_costs {
+            if grants > 0
+                && self.can_cast_may_play_spell(
+                    game,
+                    player,
+                    card_id,
+                    zone,
+                    Some(evoke_cost),
+                    chosen_types_by_source,
+                )
+            {
+                options.extend(std::iter::repeat_n(
+                    crate::agent::PlayOption {
+                        card_id,
+                        mode: crate::agent::PlayCardMode::Alternative(
+                            crate::spellability::AlternativeCost::Evoke,
+                        ),
+                        alt_cost_index: evoke_index as u8,
+                    },
+                    grants,
+                ));
+            }
+        }
+        options
     }
 
     fn may_play_morph_options(
