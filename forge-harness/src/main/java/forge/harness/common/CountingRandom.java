@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class CountingRandom extends Random {
     private final AtomicInteger callCount = new AtomicInteger(0);
     private final String label;
+    private DrawTape tape;
 
     public CountingRandom(long seed) {
         this(seed, "?");
@@ -16,10 +17,14 @@ public final class CountingRandom extends Random {
         this.label = label;
     }
 
+    public void setTape(final DrawTape tape) {
+        this.tape = tape;
+    }
+
     @Override
     public int nextInt(int bound) {
         int n = callCount.incrementAndGet();
-        int result = super.nextInt(bound);
+        int result = tape == null ? super.nextInt(bound) : tape.draw(bound);
         if (Boolean.getBoolean("forge.parity.rng.trace")) {
             System.err.printf("[rng-java #%d (%s)] nextInt(%d) = %d%n", n, label, bound, result);
         }

@@ -4,6 +4,7 @@ import forge.harness.host.ManaBrewEngineAdapter;
 
 import forge.harness.parity.DeterministicController;
 import forge.harness.parity.DeterministicLobbyPlayer;
+import forge.harness.parity.LockstepServer;
 import forge.harness.common.ParityLog;
 import forge.harness.parity.PresetDecks;
 
@@ -69,6 +70,7 @@ public final class Main {
         String forgeHome = null;
         boolean serverMode = false;
         boolean interactiveServerMode = false;
+        boolean lockstepMode = false;
         String variant = "Constructed";
         String commandersArg = null;
         String verboseTurnsArg = null;
@@ -101,6 +103,9 @@ public final class Main {
                     break;
                 case "--interactive-server":
                     interactiveServerMode = true;
+                    break;
+                case "--lockstep-server":
+                    lockstepMode = true;
                     break;
                 case "--variant":
                     if (i + 1 < args.length) variant = args[++i];
@@ -135,7 +140,7 @@ public final class Main {
         // In any server mode, capture real stdout and redirect System.out BEFORE
         // FModel.initialize() to prevent Forge's stray println() calls from
         // leaking into the protocol stream during initialization.
-        if (serverMode || interactiveServerMode) {
+        if (serverMode || interactiveServerMode || lockstepMode) {
             protocolOut = System.out;
             System.setOut(new PrintStream(new OutputStream() {
                 @Override public void write(int b) { /* discard */ }
@@ -174,6 +179,8 @@ public final class Main {
 
         if (interactiveServerMode) {
             runInteractiveServerMode(assetsDir);
+        } else if (lockstepMode) {
+            LockstepServer.run(System.in, protocolOut);
         } else if (serverMode) {
             runServerMode();
         } else {
