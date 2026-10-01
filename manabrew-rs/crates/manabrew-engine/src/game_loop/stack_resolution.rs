@@ -816,11 +816,10 @@ impl GameLoop {
         // Java does not run SBA here; it defers that to the next priority loop.
         // Keep the snapshot pre-SBA so deep parity aligns with Java's
         // GameEventPlayerPriority boundary.
+        // Java `removeCardFromStack` collects the waiting triggers before this `copyLastState`.
+        self.trigger_handler.flush_waiting_triggers(game);
         game.copy_last_state();
         game.copy_last_state_combat_lki(&self.combat);
-
-        // Java parity: triggers fired during resolution are queued now and only
-        self.trigger_handler.flush_waiting_triggers(game);
         self.trigger_handler.reset_active_triggers(game);
         if game.stack.is_empty() && self.trigger_handler.pre_matched_trigger_count() == 0 {
             game.clear_change_zone_lki_info();

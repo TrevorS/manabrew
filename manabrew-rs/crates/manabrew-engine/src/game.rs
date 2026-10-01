@@ -310,6 +310,9 @@ pub struct GameState {
     pub last_state_battlefield: Vec<crate::lki::CardSnapshot>,
 
     #[serde(skip)]
+    pub last_state_graveyard: Vec<CardId>,
+
+    #[serde(skip)]
     pub last_state_battlefield_combat_lki: Vec<(CardId, Option<bool>)>,
 
     /// Snapshot of cards on the battlefield at the start of the current SBA check.
@@ -400,6 +403,7 @@ impl GameState {
             pending_remove_from_combat: Vec::new(),
             token_edition_pins: std::collections::BTreeMap::new(),
             last_state_battlefield: Vec::new(),
+            last_state_graveyard: Vec::new(),
             last_state_battlefield_combat_lki: Vec::new(),
             pre_sba_battlefield: Vec::new(),
             replacement_last_state_battlefield: None,

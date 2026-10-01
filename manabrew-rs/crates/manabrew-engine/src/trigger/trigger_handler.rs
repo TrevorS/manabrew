@@ -1146,10 +1146,11 @@ impl TriggerHandler {
         // its own cast because the card is still on the stack when the event
         // dispatches. Rust flushes later, so without a snapshot the newly
         // battlefield-registered self-trigger would incorrectly match.
+        // `GameAction.changeZone` holds `ChangesZone` and collects it at the next flush, so it
+        // sees every card that entered with it (CR 603.6a).
         let snapshot_active = matches!(
             mode,
-            TriggerType::ChangesZone
-                | TriggerType::ChangesZoneAll
+            TriggerType::ChangesZoneAll
                 | TriggerType::Drawn
                 | TriggerType::SpellCast
                 | TriggerType::SpellAbilityCast

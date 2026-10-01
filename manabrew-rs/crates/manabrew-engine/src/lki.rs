@@ -165,6 +165,7 @@ impl crate::game::GameState {
                 }
             }
         }
+        self.last_state_graveyard = self.cards_in_all_zones(ZoneType::Graveyard).collect();
     }
 
     pub fn copy_last_state_combat_lki(&mut self, combat: &crate::combat::CombatState) {

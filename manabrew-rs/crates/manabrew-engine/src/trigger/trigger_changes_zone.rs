@@ -85,10 +85,13 @@ impl TriggerBehavior for TriggerChangesZone {
                 .as_deref()
                 .is_some_and(|zones| zones.contains(&forge_foundation::ZoneType::Graveyard))
             && game.card(host_card).zone == forge_foundation::ZoneType::Graveyard
-            && params
+            && !params
                 .change_zone_table
                 .as_ref()
-                .is_some_and(|table| !table.last_state_graveyard().contains(&host_card))
+                .map_or(game.last_state_graveyard.as_slice(), |table| {
+                    table.last_state_graveyard()
+                })
+                .contains(&host_card)
         {
             return false;
         }
