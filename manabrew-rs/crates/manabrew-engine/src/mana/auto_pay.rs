@@ -4,7 +4,7 @@ use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 
 use super::{
-    auto_tap_lands_trace, auto_tap_lands_with_chooser, AutoTapChoice, ManaPayCallbackFn,
+    auto_tap_lands_trace_with_ctx, auto_tap_lands_with_chooser, AutoTapChoice, ManaPayCallbackFn,
     ManaPaymentContext, ManaPool, SacrificeChooser,
 };
 
@@ -85,14 +85,22 @@ pub fn pay_mana_cost_auto_with_chooser(
             tapped
         }
         None => {
-            let mut choices = auto_tap_lands_trace(game, pool, player, mana_cost, current_spell);
+            let mut choices = auto_tap_lands_trace_with_ctx(
+                game,
+                pool,
+                player,
+                mana_cost,
+                current_spell,
+                payment_ctx,
+            );
             if commander_tax > 0 {
-                choices.extend(auto_tap_lands_trace(
+                choices.extend(auto_tap_lands_trace_with_ctx(
                     game,
                     pool,
                     player,
                     &ManaCost::generic(commander_tax),
                     current_spell,
+                    payment_ctx,
                 ));
             }
             choices.into_iter().map(|choice| choice.card_id).collect()

@@ -219,6 +219,30 @@ pub fn auto_tap_lands_trace(
     )
 }
 
+pub fn auto_tap_lands_trace_with_ctx(
+    game: &mut GameState,
+    pool: &mut ManaPool,
+    player: PlayerId,
+    cost: &ManaCost,
+    current_spell: Option<CardId>,
+    payment_ctx: &crate::mana::ManaPaymentContext,
+) -> Vec<AutoTapChoice> {
+    auto_tap_lands_internal_with_ctx(
+        game,
+        pool,
+        player,
+        cost,
+        current_spell,
+        false,
+        &[],
+        &mut None,
+        Some(payment_ctx),
+        false,
+        false,
+    )
+    .choices
+}
+
 pub fn auto_tap_lands_allow_reserved_source_reuse_trace(
     game: &mut GameState,
     pool: &mut ManaPool,
