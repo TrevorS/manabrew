@@ -57,8 +57,11 @@ pub fn apply_player_life_payment_keywords(
     result
 }
 
+/// Java `AbilityActivated.canPlay` for a mana ability: its script requirements, and no
+/// `CantBeActivated` static forbidding it (Clarion Conqueror).
 pub(crate) fn mana_ability_meets_script_requirements(
     game: &GameState,
+    player: PlayerId,
     card_id: CardId,
     ab: &crate::ability::activated::ActivatedAbility,
 ) -> bool {
@@ -71,7 +74,22 @@ pub(crate) fn mana_ability_meets_script_requirements(
         None,
         None,
     );
-    requirements.meets(game, card, card)
+    if !requirements.meets(game, card, card) {
+        return false;
+    }
+    if !crate::staticability::static_ability_cant_be_cast::any_cant_be_activated_source(&game.cards)
+    {
+        return true;
+    }
+    let mut sa = crate::spellability::build_spell_ability(game, card_id, &ab.ability_text, player);
+    sa.is_activated = true;
+    !crate::staticability::static_ability_cant_be_cast::cant_be_activated_ability(
+        game,
+        &game.cards,
+        &sa,
+        card,
+        player,
+    )
 }
 
 pub use computer_util_mana::{
@@ -1144,7 +1162,7 @@ pub(crate) fn has_replacement_adjusted_available_mana(game: &GameState, player: 
                         .iter()
                         .any(|part| matches!(part, CostPart::Tap)))
                 || !crate::cost::can_pay_ignoring_mana(&ab.cost, game, card_id, player)
-                || !mana_ability_meets_script_requirements(game, card_id, ab)
+                || !mana_ability_meets_script_requirements(game, player, card_id, ab)
             {
                 continue;
             }

@@ -86,7 +86,7 @@ impl GameLoop {
             return false;
         }
 
-        if !crate::mana::mana_ability_meets_script_requirements(game, card_id, ab) {
+        if !crate::mana::mana_ability_meets_script_requirements(game, player, card_id, ab) {
             return false;
         }
 
