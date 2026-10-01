@@ -547,6 +547,15 @@ impl Cost {
         !self.has_no_mana_cost()
     }
 
+    pub fn get_total_mana(&self) -> ManaCost {
+        self.parts
+            .iter()
+            .fold(ManaCost::generic(0), |total, part| match part {
+                CostPart::Mana { cost, .. } => total.add(cost),
+                _ => total,
+            })
+    }
+
     pub fn has_specific_cost_type(&self, probe: &CostPart) -> bool {
         let tag = std::mem::discriminant(probe);
         self.parts.iter().any(|p| std::mem::discriminant(p) == tag)

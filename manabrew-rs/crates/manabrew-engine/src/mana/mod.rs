@@ -299,21 +299,28 @@ pub struct ManaPaymentContext {
     pub is_unlock: bool,
     pub is_cast_face_down: bool,
     pub cast_from: Option<ZoneType>,
+    /// Java's `SpellAbilityProperty` `cmc`: the card's mana value on the stack, else the pay cost's.
+    pub mana_value: Option<i32>,
 }
 
 pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymentContext {
-    let (type_line, card_name, card_color, face_down, cast_from) = if let Some(source) = sa.source {
-        let card = game.card(source);
-        (
-            Some(card.type_line.clone()),
-            Some(card.card_name.clone()),
-            Some(card.color),
-            card.face_down,
-            card.cast_from,
-        )
-    } else {
-        (None, None, None, false, None)
-    };
+    let (type_line, card_name, card_color, face_down, cast_from, mana_value) =
+        if let Some(source) = sa.source {
+            let card = game.card(source);
+            (
+                Some(card.type_line.clone()),
+                Some(card.card_name.clone()),
+                Some(card.color),
+                card.face_down,
+                card.cast_from,
+                Some(match sa.pay_costs.as_ref() {
+                    Some(cost) if card.zone != ZoneType::Stack => cost.get_total_mana().cmc(),
+                    _ => card.mana_value(),
+                }),
+            )
+        } else {
+            (None, None, None, false, None, None)
+        };
 
     let is_turn_face_up = sa.ability_text.contains("Mode$ TurnFaceUp");
     let is_unlock = sa.ability_text.contains("Unlock$ True");
@@ -340,6 +347,7 @@ pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymen
         is_unlock,
         is_cast_face_down: sa.is_spell && face_down,
         cast_from,
+        mana_value,
     }
 }
 
@@ -368,6 +376,11 @@ fn check_single_restriction(restriction: &str, ctx: &ManaPaymentContext) -> bool
                 return false;
             }
             let type_check = &restriction[6..]; // After "Spell."
+            if let Some(comparison) = type_check.strip_prefix("cmc") {
+                return ctx.mana_value.is_some_and(|mana_value| {
+                    crate::parsing::compare::compare_expr(mana_value, comparison)
+                });
+            }
             if let Some(type_check) = type_check.strip_prefix("non") {
                 return !check_single_restriction(&format!("Spell.{type_check}"), ctx);
             }

@@ -105,6 +105,7 @@ impl GameLoop {
             type_line: Some(card.type_line.clone()),
             card_name: Some(card.card_name.clone()),
             card_color: Some(card.color),
+            mana_value: Some(card.mana_value()),
             chosen_types_by_source: chosen_types_by_source.clone(),
             ..Default::default()
         }
@@ -163,7 +164,10 @@ impl GameLoop {
             player,
             card_id,
             &reduced,
-            &Self::spell_payment_context(card, chosen_types_by_source),
+            &mana::ManaPaymentContext {
+                mana_value: Some(mana_cost.cmc()),
+                ..Self::spell_payment_context(card, chosen_types_by_source)
+            },
             self.action_space_probe_order(game),
         ) || (Self::can_use_source_level_mana_fallback(game, player, || available_mana)
             && available_mana.can_pay(&reduced))
@@ -486,6 +490,7 @@ impl GameLoop {
             type_line: Some(in_hand.type_line.clone()),
             card_name: Some(in_hand.card_name.clone()),
             card_color: Some(in_hand.color),
+            mana_value: Some(in_hand.mana_value()),
             chosen_types_by_source: chosen_types_by_source.clone(),
             ..Default::default()
         };
@@ -980,6 +985,7 @@ impl GameLoop {
                     type_line: Some(card.type_line.clone()),
                     card_name: Some(card.card_name.clone()),
                     card_color: Some(card.color),
+                    mana_value: Some(card.mana_value()),
                     chosen_types_by_source: chosen_types_by_source.clone(),
                     ..Default::default()
                 };
@@ -1981,12 +1987,24 @@ impl GameLoop {
                     }
                     crate::spellability::AlternativeCost::Harmonize => {
                         let harmonize_mana = Self::mana_from_cost(cost);
+                        let payment_ctx = mana::ManaPaymentContext {
+                            mana_value: Some(harmonize_mana.cmc()),
+                            ..Self::spell_payment_context(card, &chosen_types_by_source)
+                        };
+                        let harmonize_available = mana::calculate_available_mana_with_context(
+                            self.pool(player),
+                            game,
+                            player,
+                            Some(card_id),
+                            &[],
+                            Some(&payment_ctx),
+                        );
                         let harmonize_base = if harmonize_mana.count_x() > 0 {
                             harmonize_mana.without_x()
                         } else {
                             harmonize_mana
                         };
-                        available_mana.can_pay(&harmonize_base) && sp_additional_ok
+                        harmonize_available.can_pay(&harmonize_base) && sp_additional_ok
                     }
                     crate::spellability::AlternativeCost::Escape => {
                         let exile_count = card.get_escape_cost().map_or(0, |(_, count)| count);
@@ -2302,6 +2320,7 @@ impl GameLoop {
                     type_line: Some(card.type_line.clone()),
                     card_name: Some(card.card_name.clone()),
                     card_color: Some(card.color),
+                    mana_value: Some(card.mana_value()),
                     chosen_types_by_source: game
                         .cards
                         .iter()

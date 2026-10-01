@@ -2365,6 +2365,7 @@ impl GameLoop {
                 type_line: Some(card.type_line.clone()),
                 card_name: Some(card.card_name.clone()),
                 card_color: Some(card.color),
+                mana_value: Some(card.mana_value()),
                 chosen_types_by_source,
                 is_cast_face_down: card.face_down,
                 cast_from: card.cast_from,
