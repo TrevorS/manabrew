@@ -1417,10 +1417,29 @@ fn add_taps_for_mana_trigger_mana_for_availability(
                 continue;
             };
             let trigger_params = crate::parsing::Params::from_raw(svar_text);
-            if !trigger_params
-                .get("DB")
-                .is_some_and(|api| api.eq_ignore_ascii_case("Mana"))
-            {
+            let api = trigger_params.get("DB");
+            if api.is_some_and(|api| api.eq_ignore_ascii_case("ManaReflected")) {
+                if trigger_params.get(crate::parsing::keys::REFLECT_PROPERTY) != Some("Produced") {
+                    continue;
+                }
+                let is_type =
+                    trigger_params.get(crate::parsing::keys::COLOR_OR_TYPE) == Some("Type");
+                let atoms: Vec<u16> = produced_letters
+                    .split(' ')
+                    .map(|letter| ManaAtom::from_name(&letter.to_lowercase()))
+                    .filter(|&atom| atom != 0 && (is_type || atom != ManaAtom::COLORLESS))
+                    .collect();
+                if atoms.is_empty() {
+                    continue;
+                }
+                for &atom in &atoms {
+                    available.add(atom, 1);
+                }
+                *source_count += 1;
+                source_colors.push(atoms.iter().fold(0, |mask, atom| mask | atom));
+                continue;
+            }
+            if !api.is_some_and(|api| api.eq_ignore_ascii_case("Mana")) {
                 continue;
             }
             let Some(produced) = trigger_params.get(crate::parsing::keys::PRODUCED) else {
