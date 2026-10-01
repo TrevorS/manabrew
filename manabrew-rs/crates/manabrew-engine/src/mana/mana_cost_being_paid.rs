@@ -90,17 +90,11 @@ impl ManaCostBeingPaid {
     }
 
     /// Mirrors Java's `ManaCostBeingPaid.getUnpaidShards()`.
-    pub fn get_unpaid_shard_list(&self) -> Vec<ManaCostShard> {
-        let mut result = Vec::new();
-        for (&shard, sc) in &self.unpaid_shards {
-            for _ in 0..sc.total_count {
-                result.push(shard);
-            }
-        }
-        for _ in 0..self.cnt_x {
-            result.push(ManaCostShard::X);
-        }
-        result
+    pub fn get_unpaid_shard_counts(&self) -> Vec<(ManaCostShard, i32)> {
+        self.unpaid_shards
+            .iter()
+            .map(|(&shard, sc)| (shard, sc.total_count))
+            .collect()
     }
 
     pub fn is_needed(&self, mana: &Mana, possible_uses: u16) -> bool {

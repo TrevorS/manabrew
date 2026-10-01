@@ -1213,26 +1213,32 @@ impl ManaPool {
         mana_spent_to_pay: &mut ManaPaymentOutcome,
         choose_mana_from_pool: &mut dyn FnMut(&[Mana]) -> usize,
     ) -> bool {
-        let mut unpaid_shards = cost.get_unpaid_shard_list();
-        unpaid_shards.sort();
-        for part in unpaid_shards {
-            if part == forge_foundation::ManaCostShard::X || cost.is_paid() {
+        // Java's `payManaCostFromPool` walks `getUnpaidShards`, one entry per unit of each
+        // shard. A shard the pool has no mana for finds none for its later units either, so
+        // those are skipped rather than walked one by one (X can be announced near i32::MAX).
+        for (part, count) in cost.get_unpaid_shard_counts() {
+            if part == forge_foundation::ManaCostShard::X {
                 continue;
             }
-            let colors_paid = has_converge.then_some(cost.sunburst_map);
-            let Some(mana) = crate::cost::cost_payment::CostPayment::get_mana(
-                self,
-                part,
-                ctx,
-                any_color,
-                colors_paid,
-                &cost.x_mana_cost_paid_by_color,
-                choose_mana_from_pool,
-            ) else {
-                continue;
-            };
-            if self.try_pay_cost_with_mana(cost, &mana, any_color) {
-                self.add_mana_spent_to_pay(&mana, mana_spent_to_pay);
+            for _ in 0..count {
+                if cost.is_paid() {
+                    break;
+                }
+                let colors_paid = has_converge.then_some(cost.sunburst_map);
+                let Some(mana) = crate::cost::cost_payment::CostPayment::get_mana(
+                    self,
+                    part,
+                    ctx,
+                    any_color,
+                    colors_paid,
+                    &cost.x_mana_cost_paid_by_color,
+                    choose_mana_from_pool,
+                ) else {
+                    break;
+                };
+                if self.try_pay_cost_with_mana(cost, &mana, any_color) {
+                    self.add_mana_spent_to_pay(&mana, mana_spent_to_pay);
+                }
             }
         }
         cost.is_paid()
