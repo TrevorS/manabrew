@@ -19,14 +19,16 @@ pub fn sort_cards_by_name_then_id(
     out
 }
 
+/// Java `ParityOrder.sortReplacementEffects`: the host's parity ID is only asked for when two
+/// descriptions tie (`thenComparingInt`), so a host that never ties gets no ID here.
 pub fn sort_replacement_descriptions_with_indices(
     descriptions: &[String],
-    host_parity_ids: &[u32],
+    host_parity_id: impl Fn(usize) -> u32,
 ) -> Vec<(usize, String)> {
     let mut out: Vec<(usize, String)> = descriptions.iter().cloned().enumerate().collect();
     out.sort_by(|a, b| {
         a.1.cmp(&b.1)
-            .then_with(|| host_parity_ids.get(a.0).cmp(&host_parity_ids.get(b.0)))
+            .then_with(|| host_parity_id(a.0).cmp(&host_parity_id(b.0)))
             .then_with(|| a.0.cmp(&b.0))
     });
     out

@@ -1052,8 +1052,48 @@ impl PlayerAgent for CapturingAgent {
         fn choose_buyback(&mut self, context: DecisionContext<'_>, player: PlayerId, buyback_cost: &str, source: Option<CardId>) -> bool => "choose_buyback";
         fn choose_multikicker(&mut self, context: DecisionContext<'_>, player: PlayerId, cost: &str, max_kicks: u32, source: Option<CardId>) -> u32 => "choose_multikicker";
         fn choose_replicate(&mut self, context: DecisionContext<'_>, player: PlayerId, cost: &str, max_replicates: u32, source: Option<CardId>) -> u32 => "choose_replicate";
-        fn choose_single_replacement_effect(&mut self, context: DecisionContext<'_>, player: PlayerId, descriptions: &[String], hosts: &[CardId]) -> usize => "choose_single_replacement_effect";
         fn choose_entities_for_effect(&mut self, context: DecisionContext<'_>, player: PlayerId, candidates: &[GameEntity], min: usize, ax: usize) -> Vec<GameEntity> => "choose_entities_for_effect";
+    }
+
+    /// A host may be a card made during the event (a token entering), so it is named from the
+    /// event's game, and only peeked: Java's sort gives a host a parity ID only on a tie.
+    fn choose_single_replacement_effect(
+        &mut self,
+        context: DecisionContext<'_>,
+        player: PlayerId,
+        descriptions: &[String],
+        hosts: &[CardId],
+    ) -> usize {
+        let kind = "choose_single_replacement_effect";
+        self.save_snapshot(kind);
+        let fmt = self.fmt_ctx();
+        let host_names: Vec<String> = hosts
+            .iter()
+            .map(|&host| {
+                let name = &context.game.card(host).card_name;
+                match self.parity_map.peek(host) {
+                    Some(id) => format!("{name}@{id}"),
+                    None => format!("{name}@?"),
+                }
+            })
+            .collect();
+        let cb_args = vec![
+            player.callback_arg_display(fmt.as_ref()),
+            descriptions.callback_arg_display(fmt.as_ref()),
+            format!("[{}]", host_names.join(", ")),
+        ];
+        let result =
+            self.inner
+                .choose_single_replacement_effect(context, player, descriptions, hosts);
+        self.parity_observer.on_callback(
+            kind,
+            &result.to_string(),
+            self.player_id.0,
+            self.current_turn,
+            &self.current_phase,
+            cb_args,
+        );
+        result
     }
 }
 
