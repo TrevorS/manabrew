@@ -200,6 +200,15 @@ target/parity-dev/examples/lockstep manabrew-rs/crates/parity/survey_matchups.ts
 
 The example plays every matchup and seed on `LOCKSTEP_JOBS` threads, each with its own JVM (default 1). It prints one line per game, writes `<out_dir>/lockstep.jsonl` (one record per game: `end`, the desync `kind` and `cause`, and `rust_log`, `SAME` or `DIFF@<row>` against `run_with_data`'s log, for games that did not desync; `LOCKSTEP_IDENTITY=0` skips that comparison), and keeps the Java log, Rust log and full desync report only for failing games. Matchup files can be comma-separated, and `LOCKSTEP_DECKS_DIR` resolves deck names from another directory. `lockstep diff <baseline.jsonl> <observed.jsonl>` compares two runs game by game and lists games that regressed, changed cause, were fixed, or are new or missing. `FORGE_LOCKSTEP_BT=1` prints the Rust backtrace at a desync; `FORGE_LOCKSTEP_STDERR=<file>` writes the JVM's stderr to a file (otherwise only its last 40 lines are kept for crash reports).
 
+#### Gate a change on lockstep (decision level)
+
+```bash
+cargo build --profile parity -p parity --example lockstep
+LOCKSTEP_DECKS_DIR=<pool> yarn parity:lockstep     # scripts/lockstep-gate.sh
+```
+
+The survey gate compares state once per turn, so a decision that differs and leaves the same state (a name chosen from 1317 options in Rust and 1234 in Java, a counter type picked from a list in another order) passes it. The lockstep gate plays a deck pool directory you supply (`LOCKSTEP_DECKS_DIR`, required): the decks it names, its `lockstep_matchups.tsv` (`deck1<TAB>deck2` per line; `LOCKSTEP_MATCHUPS` overrides) at seed 1 and 40 turns, and compares each game's end and cause with the pool's `lockstep_baseline.jsonl` (`LOCKSTEP_BASELINE` overrides) through `lockstep diff`. It prints `LOCKSTEP_SAME`, or the games that regressed, changed cause, were fixed, are new or missing and `LOCKSTEP_CHANGED` (exit 1); the run directory keeps the Java log, Rust log and desync report of every failing game. `LOCKSTEP_UPDATE=1` writes the run's results over the baseline instead of comparing, which is also how a pool gets its first baseline; the pool, its matchups and its baseline live with the pool, outside this repository. The recorded cause drops the `(then ...)` tail of a reclassified desync, since whether a later draw arrives before the abort depends on timing. It runs 2-4 games/s on 2 JVMs (`LOCKSTEP_JOBS`).
+
 ### Add a regression entry
 
 After fixing a bug, lock the fix in. Add to `regression.json`:
