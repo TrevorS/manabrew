@@ -4058,14 +4058,7 @@ fn choose_mana_ability_to_pay(
         ) else {
             continue;
         };
-        if !can_pay_non_tap_mana_ability_costs(
-            game,
-            player,
-            payment_choice,
-            Some(current_spell),
-            false,
-            &[],
-        ) {
+        if !can_pay_non_tap_mana_ability_costs(game, player, payment_choice, None, false, &[]) {
             continue;
         }
         return Some((payment_choice.clone(), generated));
