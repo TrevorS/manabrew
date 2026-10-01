@@ -13,6 +13,9 @@ use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 use serde::{Deserialize, Serialize};
 
+use crate::runner::deck_search_dirs;
+use crate::utils::decks::inline_deck_spec;
+
 use crate::protocol::{
     CallbackRecord, ChoiceLogEntry, DecisionRecord, ParityLogEntry, StateSnapshot,
 };
@@ -136,12 +139,13 @@ impl JavaBridge {
             cmd.env("FORGE_TOKEN_DEBUG", "1");
         }
 
+        let decks_dirs = deck_search_dirs(self.config.decks_dir.as_deref());
         cmd.arg("-jar")
             .arg(jar)
             .arg("--deck1")
-            .arg(&self.config.deck1)
+            .arg(inline_deck_spec(&self.config.deck1, &decks_dirs))
             .arg("--deck2")
-            .arg(&self.config.deck2)
+            .arg(inline_deck_spec(&self.config.deck2, &decks_dirs))
             .arg("--seed")
             .arg(self.config.seed.to_string())
             .arg("--max-turns")
@@ -383,6 +387,7 @@ pub struct JavaServer {
     stderr_handle: Option<std::thread::JoinHandle<()>>,
     stderr_tail: std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<String>>>,
     verbose: bool,
+    decks_dir: Option<String>,
 }
 
 impl JavaServer {
@@ -530,6 +535,7 @@ impl JavaServer {
             stderr_handle: Some(stderr_handle),
             stderr_tail,
             verbose,
+            decks_dir: config.decks_dir.clone(),
         })
     }
 
@@ -580,10 +586,11 @@ impl JavaServer {
         commanders: &[String],
         verbose_turns: Option<String>,
     ) -> Result<JavaMatchupData, JavaBridgeError> {
+        let decks_dirs = deck_search_dirs(self.decks_dir.as_deref());
         let request = MatchupRequest {
             command: "run".to_string(),
-            deck1: deck1.to_string(),
-            deck2: deck2.to_string(),
+            deck1: inline_deck_spec(deck1, &decks_dirs),
+            deck2: inline_deck_spec(deck2, &decks_dirs),
             seed,
             max_turns,
             prefer_actions,
@@ -699,10 +706,11 @@ impl JavaServer {
     where
         F: FnMut(usize, &ParityLogEntry) -> bool,
     {
+        let decks_dirs = deck_search_dirs(self.decks_dir.as_deref());
         let request = MatchupRequest {
             command: "run".to_string(),
-            deck1: deck1.to_string(),
-            deck2: deck2.to_string(),
+            deck1: inline_deck_spec(deck1, &decks_dirs),
+            deck2: inline_deck_spec(deck2, &decks_dirs),
             seed,
             max_turns,
             prefer_actions,

@@ -55,7 +55,14 @@ pub fn available_presets(decks_dirs: &[&str]) -> Vec<String> {
         if let Ok(entries) = std::fs::read_dir(path) {
             for entry in entries.flatten() {
                 let p = entry.path();
-                if matches!(p.extension().and_then(|e| e.to_str()), Some("json" | "dck")) {
+                let is_deck = match p.extension().and_then(|e| e.to_str()) {
+                    Some("dck") => true,
+                    Some("json") => std::fs::read_to_string(&p).is_ok_and(|contents| {
+                        serde_json::from_str::<PresetDeckFile>(&contents).is_ok()
+                    }),
+                    _ => false,
+                };
+                if is_deck {
                     if let Some(stem) = p.file_stem().and_then(|s| s.to_str()) {
                         names.insert(stem.to_string());
                     }
@@ -72,6 +79,23 @@ pub fn resolve_deck_spec(spec: &str, decks_dirs: &[&str]) -> Result<Vec<(String,
         parse_deck_file(path)
     } else {
         load_preset_deck(spec, decks_dirs)
+    }
+}
+
+pub fn inline_deck_spec(spec: &str, decks_dirs: &[&str]) -> String {
+    if spec.starts_with("inline:") {
+        return spec.to_string();
+    }
+    match resolve_deck_spec(spec, decks_dirs) {
+        Ok(cards) => format!(
+            "inline:{}",
+            cards
+                .iter()
+                .map(|(name, count)| format!("{name}*{count}"))
+                .collect::<Vec<_>>()
+                .join("|")
+        ),
+        Err(_) => spec.to_string(),
     }
 }
 
@@ -297,11 +321,16 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("std_boros_dwarves.dck");
         std::fs::write(&path, DCK).unwrap();
+        std::fs::write(dir.path().join("sources.json"), "[{\"deck\": 1}]").unwrap();
         let dir_name = dir.path().to_str().unwrap();
         let expected = parse_forge_deck(DCK).unwrap();
         assert_eq!(
             resolve_deck_spec("std_boros_dwarves", &[dir_name]).unwrap(),
             expected
+        );
+        assert_eq!(
+            inline_deck_spec("std_boros_dwarves", &[dir_name]),
+            "inline:Lavaspur Boots*4|Chainsaw*2|Mountain*3|Giott, King of the Dwarves*1"
         );
         assert_eq!(
             resolve_deck_spec(&format!("file:{}", path.display()), &[]).unwrap(),
