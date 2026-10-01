@@ -1951,7 +1951,16 @@ impl GameState {
                 lki_toughness,
             );
         }
-        self.move_card_without_replacement(cid, final_dest, owner);
+        self.move_card_internal(
+            cid,
+            final_dest,
+            owner,
+            agents.as_deref_mut(),
+            trigger_handler.as_deref_mut(),
+            None,
+            false,
+            false,
+        );
     }
 
     pub(crate) fn order_cards_by_their_owners(
@@ -2614,17 +2623,12 @@ impl GameState {
             let aura_ids = self.order_cards_by_their_owners(aura_ids, ZoneType::Graveyard, agents);
 
             for aura_id in aura_ids {
-                let owner = self.card(aura_id).owner;
-                let old_zone = self.card(aura_id).zone;
-                self.move_card(aura_id, ZoneType::Graveyard, owner);
-                if let Some(handler) = trigger_handler.as_deref_mut() {
-                    crate::ability::effects::emit_zone_trigger(
-                        handler,
-                        aura_id,
-                        old_zone,
-                        ZoneType::Graveyard,
-                    );
-                }
+                self.move_battlefield_card_to_graveyard_for_sba(
+                    aura_id,
+                    trigger_handler,
+                    agents,
+                    parts,
+                );
                 any_changes = true;
             }
         }
