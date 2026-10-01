@@ -399,7 +399,7 @@ fn add_counter_internal(
         GameEntity::Player(player) => add_player_counter(game, player, counter_type, amount),
     }
     let new_value = counter_count(game, object, counter_type);
-    let added = new_value - old_value;
+    let added = new_value.wrapping_sub(old_value);
     if added <= 0 {
         return 0;
     }
@@ -477,14 +477,16 @@ fn add_player_counter(
         CounterType::Poison => game.player_add_poison(player, amount),
         CounterType::Named(name) if name == "ENERGY" => game.player_add_energy(player, amount),
         CounterType::Named(name) if name == "RAD" => {
-            game.player_mut(player).radiation_counters += amount;
+            let counters = &mut game.player_mut(player).radiation_counters;
+            *counters = counters.wrapping_add(amount);
         }
         _ => {
-            *game
+            let counters = game
                 .player_mut(player)
                 .counters
                 .entry(counter_type.clone())
-                .or_insert(0) += amount;
+                .or_insert(0);
+            *counters = counters.wrapping_add(amount);
         }
     }
 }

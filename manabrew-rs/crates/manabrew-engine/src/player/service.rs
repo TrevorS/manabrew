@@ -347,7 +347,8 @@ impl GameState {
 
     pub fn player_add_poison(&mut self, player: PlayerId, amount: i32) {
         if amount > 0 {
-            self.player_mut(player).poison_counters += amount;
+            let poison = &mut self.player_mut(player).poison_counters;
+            *poison = poison.wrapping_add(amount);
         }
     }
 
@@ -359,7 +360,8 @@ impl GameState {
     }
 
     pub fn player_add_energy(&mut self, player: PlayerId, amount: i32) {
-        self.player_mut(player).energy_counters += amount;
+        let energy = &mut self.player_mut(player).energy_counters;
+        *energy = energy.wrapping_add(amount);
     }
 
     pub fn player_can_pay_energy(&self, player: PlayerId, amount: i32) -> bool {

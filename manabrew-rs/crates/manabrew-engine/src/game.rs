@@ -675,7 +675,7 @@ impl GameState {
                     && counter_type.is_none_or(|ct| ct == entry_type)
             })
             .map(|(_, amount)| *amount)
-            .sum()
+            .fold(0, |total, amount| self.add_counter_totals(total, amount))
     }
 
     pub fn get_counter_added_this_turn(
@@ -717,7 +717,17 @@ impl GameState {
                     }
             })
             .map(|(_, amount)| *amount)
-            .sum()
+            .fold(0, |total, amount| self.add_counter_totals(total, amount))
+    }
+
+    /// Java sums counter totals in an `int`, which wraps (FORGE BUG, mirrored under
+    /// `mirror_forge_bugs`); a total otherwise stops at `i32::MAX`.
+    fn add_counter_totals(&self, total: i32, amount: i32) -> i32 {
+        if self.mirror_forge_bugs {
+            total.wrapping_add(amount)
+        } else {
+            total.saturating_add(amount)
+        }
     }
 
     pub fn record_counter_added(
@@ -727,7 +737,7 @@ impl GameState {
         counter_type: &CounterType,
         amount: i32,
     ) {
-        *self
+        let total = self
             .counter_added_this_turn
             .entry((
                 entity,
@@ -735,7 +745,12 @@ impl GameState {
                 counter_type.clone(),
                 putter,
             ))
-            .or_default() += amount;
+            .or_default();
+        *total = if self.mirror_forge_bugs {
+            total.wrapping_add(amount)
+        } else {
+            total.saturating_add(amount)
+        };
     }
 
     fn counter_entity_timestamp(&self, entity: GameEntity) -> Option<u64> {
