@@ -79,6 +79,7 @@ public final class LockstepServer {
         String error = null;
         String desync = null;
         Game game = null;
+        RustTape rustTape = null;
         PrintStream log = null;
         try {
             if (logPath != null) {
@@ -100,7 +101,8 @@ public final class LockstepServer {
             final CountingRandom shared = new CountingRandom(seed, "agent");
 
             final CountingRandom rustRandom = new CountingRandom(seed, "agent");
-            rustRandom.setTape(new RustTape(link, shared));
+            rustTape = new RustTape(link, shared);
+            rustRandom.setTape(rustTape);
 
             final List<RegisteredPlayer> players = new ArrayList<>();
             final Deck[] decks = {deck1, deck2};
@@ -155,6 +157,7 @@ public final class LockstepServer {
         end.addProperty("turn", turn);
         end.addProperty("error", error);
         end.addProperty("desync", desync);
+        end.addProperty("consumed", rustTape == null ? 0 : rustTape.consumed());
         if (game != null && (desync != null || error != null)) {
             final com.google.gson.JsonObject snapshot = com.google.gson.JsonParser.parseString(SnapshotExtractor.snapshotJson(game)).getAsJsonObject();
             snapshot.addProperty("agent_rng_calls", 0);

@@ -617,6 +617,17 @@ pub fn play(
             detail: format!("rust winner {winner:?}, java winner {forge_winner}"),
         });
     }
+    let sent = link.borrow().sent;
+    if let Some(consumed) = java_end
+        .as_ref()
+        .and_then(|e| e["consumed"].as_u64())
+        .filter(|&consumed| end.is_none() && consumed < sent)
+    {
+        end = Some(Desync {
+            kind: "sequence".to_string(),
+            detail: format!("java ended the game after {consumed} of rust's {sent} draws"),
+        });
+    }
     let java_snapshots = std::mem::take(&mut link.borrow_mut().snapshots);
     let GameRuntime { game, agents, .. } = runtime;
     drop(agents);

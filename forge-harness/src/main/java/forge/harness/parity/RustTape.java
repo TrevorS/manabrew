@@ -16,6 +16,10 @@ final class RustTape implements DrawTape {
         this.shared = shared;
     }
 
+    int consumed() {
+        return consumed;
+    }
+
     @Override
     public int draw(final int bound) {
         final int fallback = shared.nextInt(bound);
