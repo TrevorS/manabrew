@@ -1901,7 +1901,11 @@ pub(crate) fn auto_payment_callback<'a, 'r: 'a>(
             | ManaPayCallback::ConfirmSubCounter(_, id)
             | ManaPayCallback::ConfirmSourceExile(_, id)
             | ManaPayCallback::ConfirmPayLife(_, id) => Some(id),
-            ManaPayCallback::ChooseSacrifice(_, valid) => valid.first().copied(),
+            ManaPayCallback::ChooseSacrifice(_, valid) => valid
+                .iter()
+                .copied()
+                .find(|cid| cost_cards.contains(cid))
+                .or_else(|| valid.first().copied()),
             ManaPayCallback::ChooseCards {
                 valid, min, chosen, ..
             } => {
@@ -2138,6 +2142,7 @@ fn pay_non_tap_mana_ability_costs(
                         };
                         if let Some(cid) = chosen {
                             targets.retain(|&c| c != cid);
+                            cost_cards.push(cid);
                             if let Some(ref mut cb) = callback {
                                 if let Some(sacrificed_id) =
                                     cb(ManaPayCallback::NotifySacrificeForMana(game, cid))

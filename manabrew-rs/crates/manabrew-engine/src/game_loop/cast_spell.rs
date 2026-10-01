@@ -1859,24 +1859,6 @@ impl GameLoop {
                 return None;
             }};
         }
-        macro_rules! rollback_cast_preserving_taps {
-            ($tapped_cards:expr) => {{
-                Self::trace_cast_rollback(game, card_id, line!());
-                self.restore_cast_rollback(
-                    game,
-                    &cast_rollback_snapshot,
-                    card_id,
-                    rollback_leaves_face_down,
-                );
-                notify_payment_failed!();
-                for tapped_id in $tapped_cards {
-                    if game.card_is_in_zone(tapped_id, ZoneType::Battlefield) {
-                        game.card_mut(tapped_id).set_tapped(true);
-                    }
-                }
-                return None;
-            }};
-        }
         let selected_charm_mode_count =
             if !sa.overloaded && sa.api == Some(crate::ability::api_type::ApiType::Charm) {
                 match crate::ability::effects::charm_effect::make_choices_precast_with_count(
@@ -2628,15 +2610,16 @@ impl GameLoop {
                 },
             );
             if !mana_payment.paid {
-                if mana_payment.preserve_taps_on_failure {
-                    let tapped_after_failed_mana_payment: Vec<CardId> = game
-                        .cards
-                        .iter()
-                        .filter(|card| card.zone == ZoneType::Battlefield && card.tapped)
-                        .map(|card| card.id)
-                        .collect();
-                    rollback_cast_preserving_taps!(tapped_after_failed_mana_payment);
-                }
+                let tapped_after_failed_mana_payment: Vec<CardId> =
+                    if mana_payment.preserve_taps_on_failure {
+                        game.cards
+                            .iter()
+                            .filter(|card| card.zone == ZoneType::Battlefield && card.tapped)
+                            .map(|card| card.id)
+                            .collect()
+                    } else {
+                        Vec::new()
+                    };
                 let non_undoable = std::mem::take(&mut *failed_non_undoable_choices.borrow_mut());
                 Self::trace_cast_rollback(game, card_id, line!());
                 self.restore_cast_rollback(
@@ -2688,6 +2671,11 @@ impl GameLoop {
                 }
                 if let Some(state) = rng_after_payment {
                     self.game_rng.restore_state(state);
+                }
+                for tapped_id in tapped_after_failed_mana_payment {
+                    if game.card_is_in_zone(tapped_id, ZoneType::Battlefield) {
+                        game.card_mut(tapped_id).set_tapped(true);
+                    }
                 }
                 self.trigger_handler.clear_waiting_triggers();
                 game.stack.clear_frozen();
