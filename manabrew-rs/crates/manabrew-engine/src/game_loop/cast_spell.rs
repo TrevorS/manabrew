@@ -2689,6 +2689,8 @@ impl GameLoop {
                 if let Some(state) = rng_after_payment {
                     self.game_rng.restore_state(state);
                 }
+                self.trigger_handler.clear_waiting_triggers();
+                game.stack.clear_frozen();
                 notify_payment_failed!();
                 return None;
             }
