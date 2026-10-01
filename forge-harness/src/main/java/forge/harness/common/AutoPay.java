@@ -521,6 +521,7 @@ public final class AutoPay {
         if (!convoke && !improvise) {
             return;
         }
+        final CardCollection tapped = new CardCollection();
         for (final Card c : convokePaymentSources(convoke, improvise)) {
             if (unpaid.isPaid()) {
                 break;
@@ -534,12 +535,15 @@ public final class AutoPay {
                 sa.addTappedForConvoke(c);
             }
             if (c.tap(true, sa, payer)) {
-                final Map<AbilityKey, Object> runParams = AbilityKey.newMap();
-                runParams.put(AbilityKey.Cards, new CardCollection(c));
-                payer.getGame().getTriggerHandler().runTrigger(TriggerType.TapAll, runParams, false);
+                tapped.add(c);
             }
             steps.add("TapConvoke { card: " + c.getName() + "@" + ParityCardMap.parityId(c)
                     + ", shard: " + shard + " }");
+        }
+        if (!tapped.isEmpty()) {
+            final Map<AbilityKey, Object> runParams = AbilityKey.newMap();
+            runParams.put(AbilityKey.Cards, tapped);
+            payer.getGame().getTriggerHandler().runTrigger(TriggerType.TapAll, runParams, false);
         }
     }
 
