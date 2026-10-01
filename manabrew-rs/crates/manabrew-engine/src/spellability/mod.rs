@@ -1877,6 +1877,18 @@ impl SpellAbility {
         }
     }
 
+    /// Clears an `original_host` that is only the id a card had while it was being assembled,
+    /// before `GameState::create_card` gave it its own; `set_host_card_id` then records the real
+    /// host. Left in place, `ability_utils::get_s_var` read SVars off whichever card held that id.
+    pub(crate) fn forget_assembly_original_host(&mut self, assembly_id: CardId) {
+        if self.original_host == Some(assembly_id) {
+            self.original_host = None;
+        }
+        if let Some(sub_ability) = self.sub_ability.as_deref_mut() {
+            sub_ability.forget_assembly_original_host(assembly_id);
+        }
+    }
+
     pub fn set_host_card_id(&mut self, card_id: CardId) {
         self.source = Some(card_id);
         if self.original_host.is_none() {

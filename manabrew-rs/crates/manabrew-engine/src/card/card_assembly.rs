@@ -450,6 +450,15 @@ pub(crate) fn assemble_card(
     // Parsed triggers and any constructor-time synthetic abilities/triggers have
     // now all been attached. Refresh the base counts so continuous-layer reset
     // logic does not strip real printed abilities from hidden-zone cards.
+    for replacement in card.replacement_effects.iter_mut().chain(
+        card.other_part
+            .iter_mut()
+            .flat_map(|other| other.replacement_effects.iter_mut()),
+    ) {
+        if let Some(ability) = replacement.base.overriding_ability.as_deref_mut() {
+            ability.forget_assembly_original_host(card.id);
+        }
+    }
     card.refresh_action_specs();
     // Needs every face's SVars merged, so it cannot run in `Card::new`: the mana part that
     // decides this can sit on a `SubAbility$` link named by an SVar of either face.
