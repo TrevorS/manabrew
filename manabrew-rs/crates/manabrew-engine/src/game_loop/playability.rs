@@ -783,6 +783,23 @@ impl GameLoop {
                     alt_cost_index: 0,
                 });
             }
+            for alt_cost_index in self
+                .may_play_secondary_spell_grants(
+                    game,
+                    player,
+                    card_id,
+                    ZoneType::Hand,
+                    &chosen_types_by_source,
+                )
+                .into_iter()
+                .filter(|&alt_cost_index| alt_cost_index > 0)
+            {
+                playable.push(crate::agent::PlayOption {
+                    card_id,
+                    mode: crate::agent::PlayCardMode::Secondary,
+                    alt_cost_index,
+                });
+            }
             // Java's `Card.collectSpellAbilities`: `isModal() && hasState(Backside)` adds every
             // spell/land ability of the back face unconditionally — a Modal DFC's back face is
             // castable from hand exactly like the front, not just as a land (`BackFaceLand`
