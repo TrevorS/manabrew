@@ -19,6 +19,19 @@ pub fn sort_cards_by_name_then_id(
     out
 }
 
+/// Java `ParityOrder.sortCounterTypes`: by the name Java's `CounterType.toString` gives,
+/// uppercased (a keyword counter is `Hexproof` there, an enum one `P1P1`).
+pub fn sort_counter_types(
+    types: &[manabrew_engine::card::CounterType],
+) -> Vec<manabrew_engine::card::CounterType> {
+    let mut out = types.to_vec();
+    out.sort_by_cached_key(|counter| match counter {
+        manabrew_engine::card::CounterType::Named(name) => name.to_uppercase(),
+        other => format!("{other:?}").to_uppercase(),
+    });
+    out
+}
+
 /// Java `ParityOrder.sortReplacementEffects`: the host's parity ID is only asked for when two
 /// descriptions tie (`thenComparingInt`), so a host that never ties gets no ID here.
 pub fn sort_replacement_descriptions_with_indices(

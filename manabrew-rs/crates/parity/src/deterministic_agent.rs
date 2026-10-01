@@ -2298,8 +2298,9 @@ impl PlayerAgent for DeterministicAgent {
         if options.is_empty() {
             return None;
         }
-        let idx = choice_space::pick_index(options.len(), &mut self.rng.borrow_mut());
-        Some(options[idx].clone())
+        let sorted = parity_order::sort_counter_types(options);
+        let idx = choice_space::pick_index(sorted.len(), &mut self.rng.borrow_mut());
+        Some(sorted[idx].clone())
     }
 
     fn choose_number(

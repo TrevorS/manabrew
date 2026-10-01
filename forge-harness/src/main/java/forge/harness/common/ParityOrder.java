@@ -5,6 +5,7 @@ import forge.card.MagicColor.Color;
 import forge.card.mana.ManaCostShard;
 import forge.game.GameEntity;
 import forge.game.card.Card;
+import forge.game.card.CounterType;
 import forge.game.replacement.ReplacementEffect;
 import forge.game.spellability.AlternativeCost;
 import forge.game.spellability.OptionalCost;
@@ -13,6 +14,7 @@ import forge.game.spellability.SpellAbility;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 /** Centralized canonical ordering for parity choice spaces. */
 public final class ParityOrder {
@@ -145,6 +147,12 @@ public final class ParityOrder {
         out.sort(Comparator.comparing(ParityOrder::replacementSortKey)
                 .thenComparingInt((ReplacementEffect re) -> ParityCardMap.parityId(re.getHostCard()))
                 .thenComparingInt(ReplacementEffect::getId));
+        return out;
+    }
+
+    public static List<CounterType> sortCounterTypes(final List<CounterType> types) {
+        final List<CounterType> out = new ArrayList<>(types);
+        out.sort(Comparator.comparing((CounterType type) -> type.toString().toUpperCase(Locale.ROOT)));
         return out;
     }
 

@@ -1753,7 +1753,8 @@ public class DeterministicController extends PlayerController implements Harness
 
     @Override
     public CounterType chooseCounterType(List<CounterType> options, SpellAbility sa, String prompt, Map<String, Object> params) {
-        final CounterType result = ChoiceSpace.pickOne(options, rng);
+        final CounterType result = ChoiceSpace.pickOne(
+                options == null ? null : ParityOrder.sortCounterTypes(options), rng);
         onCallback("choose_counter_type", result == null ? "null" : result.toString(), String.valueOf(options.size()));
         return result;
     }
