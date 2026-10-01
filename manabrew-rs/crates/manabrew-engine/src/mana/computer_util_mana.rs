@@ -2279,7 +2279,6 @@ fn pay_non_tap_mana_ability_costs(
                     part,
                     reserved_source,
                     allow_reserved_source_reuse,
-                    reserved_sacrifices,
                     callback,
                 );
                 if targets.is_empty() {
@@ -2387,7 +2386,6 @@ fn can_pay_source_paid_mana_cost_part(
             part,
             reserved_source,
             allow_reserved_source_reuse,
-            reserved_sacrifices,
         )
         .is_empty(),
         _ => false,
@@ -2401,7 +2399,6 @@ fn choose_tap_type_targets_for_mana_ability(
     part: &CostPart,
     reserved_source: Option<CardId>,
     allow_reserved_source_reuse: bool,
-    reserved_sacrifices: &[CardId],
 ) -> Vec<CardId> {
     let mut callback = None;
     choose_tap_type_targets_for_mana_ability_with_callback(
@@ -2411,7 +2408,6 @@ fn choose_tap_type_targets_for_mana_ability(
         part,
         reserved_source,
         allow_reserved_source_reuse,
-        reserved_sacrifices,
         &mut callback,
     )
 }
@@ -2423,7 +2419,6 @@ fn choose_tap_type_targets_for_mana_ability_with_callback(
     part: &CostPart,
     reserved_source: Option<CardId>,
     allow_reserved_source_reuse: bool,
-    reserved_sacrifices: &[CardId],
     callback: &mut Option<ManaPayCallbackFn<'_>>,
 ) -> Vec<CardId> {
     let CostPart::TapType {
@@ -2437,7 +2432,6 @@ fn choose_tap_type_targets_for_mana_ability_with_callback(
     };
     let mut targets =
         crate::cost::get_tap_type_targets(game, player, type_filter, source_id, *can_tap_source);
-    targets.retain(|cid| !reserved_sacrifices.contains(cid));
     if !allow_reserved_source_reuse {
         if let Some(reserved) = reserved_source {
             targets.retain(|&cid| cid != reserved);
