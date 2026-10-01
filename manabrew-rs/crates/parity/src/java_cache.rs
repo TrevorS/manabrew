@@ -28,6 +28,7 @@ use crate::runner::{deck_search_dirs, RunConfig};
 pub struct JavaCache {
     cache_dir: PathBuf,
     source_hash: String,
+    carried: Vec<String>,
     java_turns: Option<u32>,
     prefix_hits: AtomicUsize,
 }
@@ -69,6 +70,8 @@ impl From<CachedMatchup> for JavaMatchupData {
 struct Manifest {
     source_hash: String,
     version: u32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    carried: Vec<String>,
 }
 
 const MANIFEST_FILE: &str = "manifest.json";
@@ -89,17 +92,17 @@ impl JavaCache {
         fs::create_dir_all(cache_dir)?;
 
         let manifest_path = cache_dir.join(MANIFEST_FILE);
-        let needs_wipe = if manifest_path.exists() {
-            match fs::read_to_string(&manifest_path) {
-                Ok(s) => match serde_json::from_str::<Manifest>(&s) {
-                    Ok(m) => m.source_hash != source_hash || m.version != CACHE_VERSION,
-                    Err(_) => true,
-                },
-                Err(_) => true,
-            }
-        } else {
-            false
-        };
+        let existing = fs::read_to_string(&manifest_path)
+            .ok()
+            .and_then(|s| serde_json::from_str::<Manifest>(&s).ok());
+        let needs_wipe = manifest_path.exists()
+            && !existing
+                .as_ref()
+                .is_some_and(|m| m.source_hash == source_hash && m.version == CACHE_VERSION);
+        let carried = existing
+            .filter(|_| !needs_wipe)
+            .map(|m| m.carried)
+            .unwrap_or_default();
 
         if needs_wipe && source_hash.starts_with(INCOMPLETE_HASH_PREFIX) {
             eprintln!(
@@ -128,12 +131,16 @@ impl JavaCache {
         let manifest = Manifest {
             source_hash: source_hash.clone(),
             version: CACHE_VERSION,
+            carried: carried.clone(),
         };
-        fs::write(&manifest_path, serde_json::to_string(&manifest)?)?;
+        let tmp = manifest_path.with_extension("json.tmp");
+        fs::write(&tmp, serde_json::to_string(&manifest)?)?;
+        fs::rename(&tmp, &manifest_path)?;
 
         Ok(Self {
             cache_dir: cache_dir.to_path_buf(),
             source_hash,
+            carried,
             java_turns,
             prefix_hits: AtomicUsize::new(0),
         })
@@ -142,13 +149,13 @@ impl JavaCache {
     /// Look up a cached matchup.  Returns `None` on miss or corruption.
     pub fn get(&self, config: &RunConfig) -> Option<JavaMatchupData> {
         let key = matchup_key(config);
-        if let Some(data) = self.read(&self.key_path(&key)) {
+        if let Some(data) = self.find(&key) {
             return Some(data);
         }
         if config.deep {
             return None;
         }
-        let stored = |max_turns| self.read(&self.key_path(&MatchupKey { max_turns, ..key }));
+        let stored = |max_turns| self.find(&MatchupKey { max_turns, ..key });
         let log = (config.max_turns + 1..=MAX_PREFIX_TURNS)
             .find_map(|turns| stored(turns).map(|data| truncate_log(data.log, config.max_turns)))
             .or_else(|| {
@@ -171,6 +178,23 @@ impl JavaCache {
 
     pub fn prefix_hits(&self) -> usize {
         self.prefix_hits.load(Ordering::Relaxed)
+    }
+
+    /// An entry stored under a carried hash moves to the current hash's path on its first hit.
+    fn find(&self, key: &MatchupKey) -> Option<JavaMatchupData> {
+        let path = self.key_path(key);
+        if let Some(data) = self.read(&path) {
+            return Some(data);
+        }
+        self.carried.iter().find_map(|hash| {
+            let old = self.key_path_for(hash, key);
+            let data = self.read(&old)?;
+            if let Some(parent) = path.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = fs::rename(&old, &path);
+            Some(data)
+        })
     }
 
     fn read(&self, path: &Path) -> Option<JavaMatchupData> {
@@ -244,9 +268,13 @@ impl JavaCache {
     }
 
     fn key_path(&self, key: &MatchupKey) -> PathBuf {
+        self.key_path_for(&self.source_hash, key)
+    }
+
+    fn key_path_for(&self, source_hash: &str, key: &MatchupKey) -> PathBuf {
         let hash = {
             let mut h = DefaultHasher::new();
-            self.source_hash.hash(&mut h);
+            source_hash.hash(&mut h);
             key.hash(&mut h);
             format!("{:016x}", h.finish())
         };
@@ -406,5 +434,107 @@ fn collect_files(base: &Path, dir: &Path, out: &mut Vec<(String, PathBuf)>) {
                 out.push((rel, path));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config(seed: u64) -> RunConfig {
+        RunConfig {
+            deck1: "inline:Memnite*40".to_string(),
+            deck2: "inline:Memnite*40".to_string(),
+            seed,
+            max_turns: 10,
+            cards_dir: None,
+            decks_dir: None,
+            verbose: crate::deterministic_agent::VerboseMode::Off,
+            prefer_actions: false,
+            deep: false,
+            loose_parity: false,
+            log_snapshots: false,
+            java_heap: "2g".to_string(),
+            variant: "Constructed".to_string(),
+            commanders: Vec::new(),
+            full_log: false,
+            live_log: None,
+            callback_compare: false,
+            localize: false,
+            mana_probe: Default::default(),
+        }
+    }
+
+    fn write_manifest(dir: &Path, hash: &str, carried: &[&str]) {
+        let manifest = Manifest {
+            source_hash: hash.to_string(),
+            version: CACHE_VERSION,
+            carried: carried.iter().map(|h| h.to_string()).collect(),
+        };
+        fs::write(
+            dir.join(MANIFEST_FILE),
+            serde_json::to_string(&manifest).unwrap(),
+        )
+        .unwrap();
+    }
+
+    fn put_under(dir: &Path, hash: &str, seed: u64) -> PathBuf {
+        let cache = JavaCache::open(dir, hash.to_string(), None).unwrap();
+        cache
+            .put(&config(seed), &JavaMatchupData { log: Vec::new() })
+            .unwrap();
+        cache.entry_path(&config(seed))
+    }
+
+    #[test]
+    fn carried_hash_entries_move_to_the_current_hash() {
+        let dir = tempfile::tempdir().unwrap();
+        let old_path = put_under(dir.path(), "a", 1);
+        write_manifest(dir.path(), "b", &["a"]);
+
+        let cache = JavaCache::open(dir.path(), "b".to_string(), None).unwrap();
+        assert!(cache.get(&config(1)).is_some());
+        assert!(!old_path.exists());
+        assert!(cache.entry_path(&config(1)).exists());
+        let manifest = fs::read_to_string(dir.path().join(MANIFEST_FILE)).unwrap();
+        assert!(manifest.contains(r#""carried":["a"]"#));
+    }
+
+    #[test]
+    fn quarantined_entries_are_not_found() {
+        let dir = tempfile::tempdir().unwrap();
+        let quarantine = tempfile::tempdir().unwrap();
+        let old_path = put_under(dir.path(), "a", 1);
+        fs::rename(&old_path, quarantine.path().join("entry.json")).unwrap();
+        write_manifest(dir.path(), "b", &["a"]);
+
+        let cache = JavaCache::open(dir.path(), "b".to_string(), None).unwrap();
+        assert!(cache.get(&config(1)).is_none());
+    }
+
+    #[test]
+    fn entries_under_a_hash_that_is_not_carried_are_not_found() {
+        let dir = tempfile::tempdir().unwrap();
+        let other_path = put_under(dir.path(), "x", 1);
+        write_manifest(dir.path(), "b", &["a"]);
+
+        let cache = JavaCache::open(dir.path(), "b".to_string(), None).unwrap();
+        assert!(cache.get(&config(1)).is_none());
+        assert!(other_path.exists());
+    }
+
+    #[test]
+    fn carried_hashes_survive_a_second_migration() {
+        let dir = tempfile::tempdir().unwrap();
+        put_under(dir.path(), "a", 1);
+        write_manifest(dir.path(), "b", &["a"]);
+        put_under(dir.path(), "b", 2);
+        write_manifest(dir.path(), "c", &["b", "a"]);
+
+        let cache = JavaCache::open(dir.path(), "c".to_string(), None).unwrap();
+        assert!(cache.get(&config(1)).is_some());
+        assert!(cache.get(&config(2)).is_some());
+        assert!(cache.entry_path(&config(1)).exists());
+        assert!(cache.entry_path(&config(2)).exists());
     }
 }
