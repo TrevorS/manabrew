@@ -2558,7 +2558,7 @@ impl Card {
 
     pub fn add_counter(&mut self, ct: &CounterType, count: i32) {
         let entry = self.counters.entry(ct.clone()).or_insert(0);
-        *entry += count;
+        *entry = entry.wrapping_add(count);
     }
 
     pub fn remove_counter(&mut self, ct: &CounterType, count: i32) {

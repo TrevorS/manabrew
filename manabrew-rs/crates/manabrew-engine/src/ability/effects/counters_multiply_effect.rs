@@ -27,7 +27,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if let Some(ref ct) = counter_type_filter {
             // Multiply specific counter type
             let current = *ctx.game.card(card_id).counters.get(ct).unwrap_or(&0);
-            let to_add = current * (multiplier - 1);
+            let to_add = multiplied_counters(ctx.game, current, multiplier);
             if to_add > 0 {
                 table.put(
                     Some(sa.activating_player),
@@ -46,7 +46,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .map(|(k, &v)| (k.clone(), v))
                 .collect();
             for (ct, current) in counters {
-                let to_add = current * (multiplier - 1);
+                let to_add = multiplied_counters(ctx.game, current, multiplier);
                 if to_add > 0 {
                     table.put(
                         Some(sa.activating_player),
@@ -66,4 +66,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         true,
         Default::default(),
     );
+}
+
+/// Java multiplies the count in an `int`, which wraps past `i32::MAX` (FORGE BUG, mirrored under
+/// `mirror_forge_bugs`); a count is otherwise capped there.
+fn multiplied_counters(game: &crate::game::GameState, current: i32, multiplier: i32) -> i32 {
+    if game.mirror_forge_bugs {
+        current.wrapping_mul(multiplier - 1)
+    } else {
+        current.saturating_mul(multiplier - 1)
+    }
 }

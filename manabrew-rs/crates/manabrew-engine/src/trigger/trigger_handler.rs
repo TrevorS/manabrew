@@ -182,6 +182,10 @@ pub struct TriggerHandler {
     pre_matched_triggers: Vec<MatchedTrigger>,
 }
 
+/// Java's `TriggerHandler.runTrigger` holds at most this many events and runs further ones at
+/// once ("too many waiting triggers might cause OutOfMemory", Heroes' Bane counters).
+pub const MAX_WAITING_TRIGGERS: usize = 9999;
+
 impl TriggerHandler {
     pub fn new() -> Self {
         TriggerHandler {
@@ -269,6 +273,39 @@ impl TriggerHandler {
     pub fn collect_trigger_for_waiting(&mut self, mode: TriggerType, params: RunParams) {
         self.waiting_triggers
             .push(self.build_waiting_trigger(mode, params));
+    }
+
+    /// Java runs an event at once unless the stack is frozen, so a `CounterAdded` event that no
+    /// trigger could match leaves nothing behind; there is one per counter added, which can
+    /// number in the billions (Mossborn Hydra doubling), and a Saga's chapters listen for LORE.
+    pub(crate) fn listens_for_counter_added(
+        &self,
+        game: &GameState,
+        counter_type: &crate::card::CounterType,
+    ) -> bool {
+        let counter_type = counter_type.to_string();
+        self.active_triggers.iter().any(|active| {
+            game.card(active.card_id)
+                .triggers
+                .get(active.trigger_index)
+                .is_some_and(|trigger| {
+                    trigger.kind == TriggerType::CounterAdded
+                        && trigger
+                            .base
+                            .card_trait_base
+                            .get_param("CounterType")
+                            .is_none_or(|valid| valid.eq_ignore_ascii_case(&counter_type))
+                })
+        }) || self
+            .delayed_triggers
+            .iter()
+            .chain(&self.this_turn_delayed_triggers)
+            .chain(
+                self.player_defined_delayed_triggers
+                    .iter()
+                    .map(|(_, delayed)| delayed),
+            )
+            .any(|delayed| delayed.mode == TriggerType::CounterAdded)
     }
 
     /// Number of triggers in the waiting queue (for debug/diagnostics).

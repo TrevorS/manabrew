@@ -10,6 +10,7 @@ use crate::replacement::replacement_handler::{
 };
 use crate::replacement::ReplacementResult;
 use crate::spellability::SpellAbility;
+use crate::trigger::handler::MAX_WAITING_TRIGGERS;
 use crate::trigger::{TriggerHandler, TriggerType};
 
 #[derive(Debug, Clone)]
@@ -367,6 +368,11 @@ fn add_counter_internal(
         return 0;
     }
     let old_value = counter_count(game, object, counter_type);
+    let amount = if game.mirror_forge_bugs {
+        amount
+    } else {
+        amount.min(i32::MAX - old_value)
+    };
     let amount = match object {
         GameEntity::Card(card) => {
             if let Some(max) = crate::staticability::static_ability_max_counter::max_counter(
@@ -404,9 +410,14 @@ fn add_counter_internal(
         params.source_player = source;
         params.cause = cause.cloned();
         params.counter_type = Some(counter_type.to_string());
-        for counter_amount in (old_value + 1)..=new_value {
-            params.counter_amount = Some(counter_amount);
-            trigger_handler.run_trigger(TriggerType::CounterAdded, params.clone(), false);
+        if trigger_handler.listens_for_counter_added(game, counter_type) {
+            for counter_amount in (old_value + 1)..=new_value {
+                params.counter_amount = Some(counter_amount);
+                trigger_handler.run_trigger(TriggerType::CounterAdded, params.clone(), false);
+                if trigger_handler.waiting_trigger_count() >= MAX_WAITING_TRIGGERS {
+                    trigger_handler.flush_waiting_triggers(game);
+                }
+            }
         }
         params.counter_amount = Some(added);
         params.first_time = match object {
