@@ -184,7 +184,7 @@ impl ParityObserver {
     }
 }
 
-struct CapturingAgent {
+pub(crate) struct CapturingAgent {
     player_id: PlayerId,
     inner: DeterministicAgent,
     shared_card_uses: Arc<Mutex<BTreeMap<String, usize>>>,
@@ -209,7 +209,7 @@ struct CapturingAgent {
 }
 
 impl CapturingAgent {
-    fn new(
+    pub(crate) fn new(
         player_id: PlayerId,
         verbose: VerboseMode,
         prefer_actions: bool,

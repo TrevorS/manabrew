@@ -8,12 +8,18 @@ const MULTIPLIER: i64 = 0x5DEECE66D;
 const ADDEND: i64 = 0xB;
 const MASK: i64 = (1i64 << 48) - 1;
 
+pub trait DrawTape {
+    fn draw(&mut self, bound: i32) -> i32;
+    fn counts(&self) -> (u64, u64);
+}
+
 /// A faithful reimplementation of `java.util.Random`.
 pub struct JavaRandom {
     seed: i64,
     pub call_count: u64,
     pub api_call_count: u64,
     pub label: &'static str,
+    pub tape: Option<Box<dyn DrawTape>>,
 }
 
 impl JavaRandom {
@@ -24,6 +30,7 @@ impl JavaRandom {
             call_count: 0,
             api_call_count: 0,
             label: "unknown",
+            tape: None,
         }
     }
 
@@ -38,6 +45,11 @@ impl JavaRandom {
     pub fn next_int(&mut self, bound: i32) -> i32 {
         assert!(bound > 0, "bound must be positive");
         self.api_call_count += 1;
+        if let Some(tape) = self.tape.as_mut() {
+            let value = tape.draw(bound);
+            (self.call_count, self.api_call_count) = tape.counts();
+            return value;
+        }
         let call_before = self.call_count;
         // Power-of-two fast path
         let result = if bound & (bound - 1) == 0 {

@@ -957,7 +957,7 @@ fn extract_jdk_version(name: &str) -> Option<u32> {
 /// Resolve the `java` binary path. Forge requires Java 17+.
 /// If JAVA_HOME points to a JDK ≥17 use it; otherwise auto-detect the
 /// highest-version JDK under /Library/Java/JavaVirtualMachines.
-fn resolve_java_bin(verbose: bool) -> String {
+pub(crate) fn resolve_java_bin(verbose: bool) -> String {
     // Check JAVA_HOME first — only use it if ≥17 (Forge's minimum).
     if let Ok(home) = std::env::var("JAVA_HOME") {
         let home_path = PathBuf::from(&home);
