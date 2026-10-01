@@ -4767,6 +4767,24 @@ impl Card {
         self.remove_s_var("Saddled");
         self.remove_s_var("SaddledBy");
     }
+    /// Java `Card.setSuspected`: the `Suspected` SVar records whether suspecting added Menace,
+    /// so clearing it leaves a printed Menace alone.
+    pub fn set_suspected(&mut self) {
+        if self.has_s_var("Suspected") {
+            return;
+        }
+        let added_menace = !self.keywords.contains_string("Menace");
+        if added_menace {
+            self.add_intrinsic_keyword("Menace");
+        }
+        self.set_s_var("Suspected", if added_menace { "Menace" } else { "True" });
+    }
+    pub fn clear_suspected(&mut self) {
+        if self.get_s_var("Suspected") == Some("Menace") {
+            self.remove_intrinsic_keyword("Menace");
+        }
+        self.remove_s_var("Suspected");
+    }
     pub fn can_specialize(&self) -> bool {
         self.has_keyword("Specialize")
     }

@@ -159,16 +159,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
                 "Suspect" | "Suspected" => {
                     if activate {
-                        // Suspected creatures have menace and can't block
-                        if !ctx.game.card(card_id).keywords.contains_string("Menace") {
-                            ctx.game.card_mut(card_id).add_intrinsic_keyword("Menace");
-                        }
-                        ctx.game.card_mut(card_id).set_s_var("Suspected", "True");
+                        ctx.game.card_mut(card_id).set_suspected();
                     } else {
-                        ctx.game
-                            .card_mut(card_id)
-                            .remove_intrinsic_keyword("Menace");
-                        ctx.game.card_mut(card_id).remove_s_var("Suspected");
+                        ctx.game.card_mut(card_id).clear_suspected();
                     }
                 }
                 "Saddle" | "Saddled" => {
