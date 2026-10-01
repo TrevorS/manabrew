@@ -813,7 +813,7 @@ impl GameLoop {
             let decided = decided_cards[idx].as_deref();
             match &part {
                 CostPart::Tap => {
-                    game.tap(card_id);
+                    let tapped = game.tap(card_id);
                     self.trigger_handler.run_trigger(
                         TriggerType::Taps,
                         RunParams {
@@ -823,6 +823,17 @@ impl GameLoop {
                         },
                         false,
                     );
+                    if tapped {
+                        self.trigger_handler.run_trigger(
+                            TriggerType::TapAll,
+                            RunParams {
+                                cards: Some(vec![card_id]),
+                                player: Some(player),
+                                ..Default::default()
+                            },
+                            false,
+                        );
+                    }
                 }
                 CostPart::Untap => {
                     if game.untap(card_id, &mut self.trigger_handler) {
@@ -2105,11 +2116,13 @@ impl GameLoop {
                         }
                         let chosen = prechosen[pre_tap_idx..pre_tap_idx + needed].to_vec();
                         pre_tap_idx += needed;
-                        for cid in chosen {
+                        let mut newly_tapped = Vec::new();
+                        for &cid in &chosen {
                             if game.card(cid).zone == ZoneType::Battlefield
                                 && !game.card(cid).tapped
                             {
                                 game.tap(cid);
+                                newly_tapped.push(cid);
                                 self.trigger_handler.run_trigger(
                                     TriggerType::Taps,
                                     RunParams {
@@ -2120,6 +2133,19 @@ impl GameLoop {
                                     false,
                                 );
                             }
+                        }
+                        if !newly_tapped.is_empty() {
+                            self.trigger_handler.run_trigger(
+                                TriggerType::TapAll,
+                                RunParams {
+                                    cards: Some(newly_tapped),
+                                    player: Some(player),
+                                    ..Default::default()
+                                },
+                                false,
+                            );
+                        }
+                        for cid in chosen {
                             if let Some(sa) = sa.as_deref_mut() {
                                 let value = cid.to_string();
                                 sa.add_cost_to_hash_list(
@@ -4523,6 +4549,7 @@ impl GameLoop {
         prechosen: Option<&[CardId]>,
     ) -> bool {
         let mut tapped_cards = Vec::new();
+        let mut newly_tapped = Vec::new();
         if let Some(power_threshold) = min_total_power {
             let valid = cost::get_tap_type_targets_for_cost(
                 game,
@@ -4578,6 +4605,7 @@ impl GameLoop {
                     }
                     game.tap(cid);
                     tapped_cards.push(cid);
+                    newly_tapped.push(cid);
                     accum += crate::cost::cost_tap_type::tap_power_value(game, cid, sa.as_deref());
                     self.trigger_handler.run_trigger(
                         TriggerType::Taps,
@@ -4597,6 +4625,7 @@ impl GameLoop {
             for &chosen in picks.iter().take(amount.max(0) as usize) {
                 if !game.card(chosen).tapped {
                     game.tap(chosen);
+                    newly_tapped.push(chosen);
                     self.trigger_handler.run_trigger(
                         TriggerType::Taps,
                         RunParams {
@@ -4645,6 +4674,7 @@ impl GameLoop {
                 }
                 game.tap(chosen);
                 tapped_cards.push(chosen);
+                newly_tapped.push(chosen);
                 self.trigger_handler.run_trigger(
                     TriggerType::Taps,
                     RunParams {
@@ -4655,6 +4685,17 @@ impl GameLoop {
                     false,
                 );
             }
+        }
+        if !newly_tapped.is_empty() {
+            self.trigger_handler.run_trigger(
+                TriggerType::TapAll,
+                RunParams {
+                    cards: Some(newly_tapped),
+                    player: Some(player),
+                    ..Default::default()
+                },
+                false,
+            );
         }
         if let Some(sa) = sa {
             for cid in tapped_cards {
