@@ -64,15 +64,28 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
         None => get_target_cards(ctx.game, sa),
     };
-    for target_card in to_tap {
-        tap_card(
-            ctx,
-            target_card,
-            controller,
-            etb,
-            remember_tapped,
-            always_remember,
-            sa.source,
+    let tapped: Vec<CardId> = to_tap
+        .into_iter()
+        .filter(|&target_card| {
+            tap_card(
+                ctx,
+                target_card,
+                controller,
+                etb,
+                remember_tapped,
+                always_remember,
+                sa.source,
+            )
+        })
+        .collect();
+    if !tapped.is_empty() {
+        ctx.trigger_handler.run_trigger(
+            TriggerType::TapAll,
+            RunParams {
+                cards: Some(tapped),
+                ..Default::default()
+            },
+            false,
         );
     }
 }
@@ -85,16 +98,16 @@ fn tap_card(
     remember_tapped: bool,
     always_remember: bool,
     source: Option<CardId>,
-) {
+) -> bool {
     if etb {
         // Java parity: ETB tap effects mark the card tapped even if the move
         // replacement is executing before the card is physically on the battlefield.
         ctx.game.card_mut(card_id).set_tapped(true);
-        return;
+        return false;
     }
 
     if ctx.game.card(card_id).zone != ZoneType::Battlefield {
-        return;
+        return false;
     }
 
     let was_untapped = !ctx.game.card(card_id).tapped;
@@ -117,6 +130,7 @@ fn tap_card(
             ctx.game.card_mut(src).add_remembered_card(card_id);
         }
     }
+    tapped
 }
 
 #[cfg(test)]

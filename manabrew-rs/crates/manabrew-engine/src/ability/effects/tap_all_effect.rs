@@ -36,10 +36,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
+    let mut tapped: Vec<CardId> = Vec::new();
     for card_id in to_tap {
-        if ctx.game.card(card_id).zone == ZoneType::Battlefield {
-            ctx.game.tap(card_id);
-            // Fire Taps trigger per card
+        if ctx.game.card(card_id).zone == ZoneType::Battlefield && ctx.game.tap(card_id) {
             ctx.trigger_handler.run_trigger(
                 crate::trigger::TriggerType::Taps,
                 crate::event::RunParams {
@@ -48,7 +47,18 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 },
                 false,
             );
+            tapped.push(card_id);
         }
+    }
+    if !tapped.is_empty() {
+        ctx.trigger_handler.run_trigger(
+            crate::trigger::TriggerType::TapAll,
+            crate::event::RunParams {
+                cards: Some(tapped),
+                ..Default::default()
+            },
+            false,
+        );
     }
 }
 
