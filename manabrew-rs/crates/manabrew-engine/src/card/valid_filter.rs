@@ -718,11 +718,11 @@ fn matches_card_predicate(
         SelectorPredicate::WasCast { by_you } => {
             card.was_cast() && (!by_you || card.controller == context.source_controller)
         }
-        SelectorPredicate::ChosenType => {
-            context.source_card.chosen_type.as_ref().is_some_and(|ct| {
-                card.type_line.has_string_type(ct) || card.has_keyword("Changeling")
-            })
-        }
+        SelectorPredicate::ChosenType => context
+            .source_card
+            .chosen_type
+            .as_ref()
+            .is_some_and(|ct| card.has_string_type(ct)),
         SelectorPredicate::Keyword { name, present } => {
             card.has_start_of_un_hidden_keyword(name) == *present
         }
@@ -2288,9 +2288,10 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
                 };
                 !positive_match
             } else if value_lower == "chosentype" {
-                source.chosen_type.as_ref().is_some_and(|ct| {
-                    card.type_line.has_subtype(ct) || card.has_keyword("Changeling")
-                })
+                source
+                    .chosen_type
+                    .as_ref()
+                    .is_some_and(|ct| card.has_string_type(ct))
             } else {
                 let color_name = value.strip_suffix("Source").unwrap_or(value);
                 if let Some(color) = Color::from_name(&color_name.to_lowercase()) {
@@ -3008,14 +3009,10 @@ fn matches_type_and_qualifier_parts(
                             return false;
                         }
                     } else if sub_lower == "chosentype" {
-                        // "ChosenType" — card must have the source card's chosen
-                        // creature type. Changeling counts as all creature types.
-                        // Mirrors Java CardTraitBase.isValid() ChosenType path.
-                        let matches = if let Some(ref ct) = source.chosen_type {
-                            card.type_line.has_subtype(ct) || card.has_keyword("Changeling")
-                        } else {
-                            false
-                        };
+                        let matches = source
+                            .chosen_type
+                            .as_ref()
+                            .is_some_and(|ct| card.has_string_type(ct));
                         if !matches {
                             return false;
                         }

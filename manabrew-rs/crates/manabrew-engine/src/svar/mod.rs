@@ -3129,12 +3129,8 @@ fn valid_card_matches_with_source(
                     return false;
                 }
             } else if sub_qual.eq_ignore_ascii_case("ChosenType") {
-                // Card must have the source card's chosen creature type as a subtype.
-                // Changeling means all creature types — always matches.
-                match chosen_type {
-                    Some(ct)
-                        if card.type_line.has_subtype(ct) || card.has_keyword("Changeling") => {}
-                    _ => return false,
+                if !chosen_type.is_some_and(|ct| card.has_string_type(ct)) {
+                    return false;
                 }
             } else if sub_qual.starts_with("counters_") {
                 // Parse "counters_GE1_P1P1", "counters_EQ0_P1P1", etc.
