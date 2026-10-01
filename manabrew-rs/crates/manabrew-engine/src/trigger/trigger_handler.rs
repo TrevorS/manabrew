@@ -597,10 +597,12 @@ impl TriggerHandler {
                 .keys()
                 .flat_map(|&key| pt.entry.spell_ability.get_triggering_cards(key))
                 .collect();
-            pt.entry.spell_ability.trigger_object_timestamps = trigger_cards
-                .into_iter()
-                .map(|card_id| (card_id, game.card(card_id).zone_timestamp))
-                .collect();
+            for card_id in trigger_cards {
+                let timestamps = &mut pt.entry.spell_ability.trigger_object_timestamps;
+                if !timestamps.iter().any(|&(id, _)| id == card_id) {
+                    timestamps.push((card_id, game.card(card_id).zone_timestamp));
+                }
+            }
 
             let is_optional = pt.optional;
             let is_static = pt.static_trigger;
@@ -968,6 +970,11 @@ impl TriggerHandler {
                         .copied()
                         .map(crate::event::AbilityValue::Player),
                 );
+                if let (Some(made_at), Some(target)) =
+                    (delayed.target_card_zone_timestamp, delayed.target_card)
+                {
+                    sa.trigger_object_timestamps.push((target, made_at));
+                }
                 if !delayed.remembered_lki_cards.is_empty() {
                     sa.trigger_remembered.extend(
                         delayed
@@ -1187,6 +1194,11 @@ impl TriggerHandler {
                         .copied()
                         .map(crate::event::AbilityValue::Player),
                 );
+                if let (Some(made_at), Some(target)) =
+                    (delayed.target_card_zone_timestamp, delayed.target_card)
+                {
+                    sa.trigger_object_timestamps.push((target, made_at));
+                }
                 if !delayed.remembered_lki_cards.is_empty() {
                     sa.trigger_remembered.extend(
                         delayed

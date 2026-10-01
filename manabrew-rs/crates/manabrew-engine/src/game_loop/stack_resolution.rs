@@ -618,9 +618,7 @@ impl GameLoop {
                                 valid_player: None,
                             }) as Box<dyn crate::trigger::TriggerBehavior>,
                             params: crate::parsing::Params::default(),
-                            execute_svar: format!(
-                                "DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | Defined$ CardUID_{} | Warp$ True", card_id.0
-                            ),
+                            execute_svar: "DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | Defined$ DelayTriggerRememberedLKI | Warp$ True".to_string(),
                             controller: player,
                             source_card: card_id,
                             source_zone_timestamp: None,
@@ -628,8 +626,8 @@ impl GameLoop {
                             remembered_amount: 0,
                             remembered_cards: Vec::new(),
                             remembered_players: Vec::new(),
-                            remembered_lki_cards: Vec::new(),
-                            target_card_zone_timestamp: None,
+                            remembered_lki_cards: vec![card_id],
+                            target_card_zone_timestamp: Some(game.card(card_id).zone_timestamp),
                             sort_after_active: false,
                 trigger_order: None,
                 source_timestamp: None,

@@ -188,8 +188,9 @@ pub(super) fn resolve_known_origin(
         Vec::new()
     };
 
-    let cards_to_move: Vec<CardId> = if defined.starts_with("Triggered")
-        && defined.contains("LKICopy")
+    let cards_to_move: Vec<CardId> = if (defined.starts_with("Triggered")
+        && defined.contains("LKICopy"))
+        || defined == "DelayTriggerRememberedLKI"
     {
         cards_to_move
             .into_iter()
