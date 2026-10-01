@@ -1150,19 +1150,22 @@ impl GameState {
 
             // Return cards exiled by this host via ChangeZoneAll Duration$ UntilHostLeavesPlay
             // (e.g. Deputy of Detention: exiled permanents return when it leaves).
-            let exiled_by_host: Vec<(CardId, PlayerId, ZoneType)> = self
+            let mut exiled_by_host: Vec<(u64, CardId, PlayerId, ZoneType)> = self
                 .cards
                 .iter()
                 .filter(|c| c.zone == ZoneType::Exile && c.exiled_by == Some(card_id))
                 .map(|c| {
                     (
+                        c.zone_timestamp,
                         c.id,
                         c.owner,
                         c.until_host_leaves_origin.unwrap_or(ZoneType::Battlefield),
                     )
                 })
                 .collect();
-            for (exiled_id, owner, origin) in exiled_by_host {
+            // Java's `changeZoneUntilCommand` returns them in the order they were exiled.
+            exiled_by_host.sort_unstable_by_key(|&(exiled_at, ..)| exiled_at);
+            for (_, exiled_id, owner, origin) in exiled_by_host {
                 self.card_mut(exiled_id).cleanup_exiled_with();
                 self.move_card_internal(
                     exiled_id,
