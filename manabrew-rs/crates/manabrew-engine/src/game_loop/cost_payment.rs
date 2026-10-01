@@ -343,6 +343,7 @@ impl GameLoop {
         match part {
             // HumanCostDecision.confirmAction(...) branches
             CostPart::AddMana { .. } => true,
+            CostPart::Behold { .. } => true,
             CostPart::DamageYou(_) => true,
             CostPart::Discard { type_filter, .. } => type_filter == "Hand",
             CostPart::Draw { .. } => true,
@@ -360,6 +361,7 @@ impl GameLoop {
             }
             CostPart::FlipCoin(_) => true,
             CostPart::Forage => true,
+            CostPart::GainControl { .. } => true,
             CostPart::Mill(_) => true,
             CostPart::PayLife(_) => !mandatory,
             CostPart::PayEnergy(_) => true,
