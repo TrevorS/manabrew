@@ -160,7 +160,14 @@ impl GameLoop {
                         // the global max. If all must-attackers fit within the limit,
                         // best_violations = 0. Otherwise, best_violations = must_count - max.
                         let max_attackers = global_max.unwrap_or(i32::MAX) as usize;
-                        let best_violations = must_attackers.len().saturating_sub(max_attackers);
+                        let free_must_attackers = must_attackers
+                            .iter()
+                            .filter(|&&attacker| {
+                                attacks_without_cost(game, attacker, &possible_defenders)
+                            })
+                            .count();
+                        let best_violations =
+                            must_attackers.len() - free_must_attackers.min(max_attackers);
                         if current_violations > best_violations {
                             invalid = true;
                         }
@@ -1128,7 +1135,13 @@ impl GameLoop {
             }
             let mut best: Option<(combat::DefenderId, i32)> = None;
             for &defender in possible_defenders {
-                if !combat::combat_util::can_attack_defender(game, requirement.attacker, defender) {
+                if !combat::combat_util::can_attack_defender(game, requirement.attacker, defender)
+                    || combat::attack_cost::get_attack_cost(
+                        game,
+                        game.card(requirement.attacker),
+                        defender,
+                    ) > 0
+                {
                     continue;
                 }
                 let credit = requirement
@@ -1334,4 +1347,18 @@ impl GameLoop {
         }
         choices
     }
+}
+
+/// CR 508.1d: no one has to pay a cost to meet an attack requirement. Java's `AttackConstraints`
+/// skips a requirement whose attack has a cost, so a must-attacker taxed by every defender it
+/// could attack (Propaganda, Ghostly Prison) may stay home.
+fn attacks_without_cost(
+    game: &GameState,
+    attacker: CardId,
+    possible_defenders: &[combat::DefenderId],
+) -> bool {
+    possible_defenders.iter().any(|&defender| {
+        combat::combat_util::can_attack_defender(game, attacker, defender)
+            && combat::attack_cost::get_attack_cost(game, game.card(attacker), defender) == 0
+    })
 }
