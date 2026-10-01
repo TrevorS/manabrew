@@ -544,7 +544,16 @@ fn affected_player_for_event(event: &ReplacementEvent, game: &GameState) -> Play
         ReplacementEvent::DamageToCard { target, .. } => game.cards[target.index()].controller,
         ReplacementEvent::DamageToPlayer { target, .. } => *target,
         ReplacementEvent::Destroy { target, .. } => game.cards[target.index()].controller,
-        ReplacementEvent::Moved { card, .. } => game.cards[card.index()].controller,
+        ReplacementEvent::Moved {
+            card, destination, ..
+        } => {
+            let card = &game.cards[card.index()];
+            if matches!(destination, ZoneType::Battlefield | ZoneType::Stack) {
+                card.controller
+            } else {
+                card.owner
+            }
+        }
         ReplacementEvent::GainLife { player, .. } => *player,
         ReplacementEvent::CreateToken { player, .. } => *player,
         ReplacementEvent::AddCounter { target, .. } => match target {
