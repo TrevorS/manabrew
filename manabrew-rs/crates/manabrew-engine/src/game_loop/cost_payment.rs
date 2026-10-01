@@ -547,9 +547,16 @@ impl GameLoop {
                                 })
                                 .collect()
                         };
+                        // Java moves a spell to the stack before paying its costs; an ability's
+                        // host still in hand can pay for its own cost.
+                        let source_is_cast = sa.as_deref().is_none_or(|sa| sa.is_spell);
                         let eligible: Vec<CardId> = eligible
                             .into_iter()
-                            .filter(|&cid| cid != card_id || game.card(card_id).owner != player)
+                            .filter(|&cid| {
+                                cid != card_id
+                                    || !source_is_cast
+                                    || game.card(card_id).owner != player
+                            })
                             .collect();
                         let chosen = if type_filter == "Hand" && eligible.len() > 1 {
                             agents[player.index()].order_move_to_zone_list(
