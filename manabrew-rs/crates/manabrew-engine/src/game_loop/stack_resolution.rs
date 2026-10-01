@@ -604,7 +604,7 @@ impl GameLoop {
                             target_card_zone_timestamp: None,
                             sort_after_active: false,
                 trigger_order: None,
-                source_timestamp: None,
+                source_timestamp: Some(game.card(card_id).zone_timestamp),
                 spawning_ability: None,
                         },
                     );
@@ -631,7 +631,7 @@ impl GameLoop {
                             target_card_zone_timestamp: Some(game.card(card_id).zone_timestamp),
                             sort_after_active: false,
                 trigger_order: None,
-                source_timestamp: None,
+                source_timestamp: Some(game.card(card_id).zone_timestamp),
                 spawning_ability: None,
                         },
                     );
@@ -701,7 +701,7 @@ impl GameLoop {
                             target_card_zone_timestamp: None,
                             sort_after_active: false,
                             trigger_order: None,
-                            source_timestamp: None,
+                            source_timestamp: Some(game.card(card_id).zone_timestamp),
                             spawning_ability: None,
                         },
                     );
