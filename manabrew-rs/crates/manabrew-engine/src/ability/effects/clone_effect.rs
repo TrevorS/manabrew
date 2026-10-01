@@ -113,10 +113,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .replacement_effects
             .iter()
             .map(|re| {
+                let id = crate::core::Identifiable::id(&re.base.card_trait_base);
                 if clone_target_id == clone_source_id {
-                    crate::core::Identifiable::id(&re.base.card_trait_base)
+                    id
                 } else {
-                    ctx.game.next_copied_replacement_id()
+                    ctx.game.copied_replacement_id(clone_source_id, id)
                 }
             })
             .collect();

@@ -212,6 +212,8 @@ pub struct GameState {
     pub end_of_turn: Phase,
     #[serde(default)]
     pub last_copied_replacement_id: i32,
+    #[serde(default)]
+    pub copied_replacement_ids: Vec<((CardId, i32), i32)>,
     pub cleanup: Phase,
     #[serde(default)]
     pub leaves_play_commands: Vec<(CardId, crate::phase::PhaseCommand)>,
@@ -367,6 +369,7 @@ impl GameState {
             end_of_combat: Phase::new(forge_foundation::PhaseType::CombatEnd),
             end_of_turn: Phase::new(forge_foundation::PhaseType::EndOfTurn),
             last_copied_replacement_id: 1 << 24,
+            copied_replacement_ids: Vec::new(),
             cleanup: Phase::new(forge_foundation::PhaseType::Cleanup),
             leaves_play_commands: Vec::new(),
             untap_commands: Vec::new(),
@@ -980,6 +983,26 @@ impl GameState {
     pub fn next_copied_replacement_id(&mut self) -> i32 {
         self.last_copied_replacement_id += 1;
         self.last_copied_replacement_id
+    }
+
+    /// CR 616.1f: a replacement effect applies to an event at most once, and a copy of the
+    /// same card's effect is that effect again. Java gives every copy a new id, so Superior
+    /// Spider-Man copying another Superior Spider-Man card was offered its Mind Swap without end
+    /// (FORGE BUG, mirrored under `mirror_forge_bugs`).
+    pub fn copied_replacement_id(&mut self, source: CardId, original: i32) -> i32 {
+        if self.mirror_forge_bugs {
+            return self.next_copied_replacement_id();
+        }
+        if let Some(&(_, id)) = self
+            .copied_replacement_ids
+            .iter()
+            .find(|(key, _)| *key == (source, original))
+        {
+            return id;
+        }
+        let id = self.next_copied_replacement_id();
+        self.copied_replacement_ids.push(((source, original), id));
+        id
     }
 
     pub fn next_effect_timestamp(&mut self) -> i64 {

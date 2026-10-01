@@ -380,6 +380,12 @@ impl ReplacementHandler {
         event: &mut ReplacementEvent,
         pre_list: Option<&Card>,
     ) -> ReplacementResult {
+        let depth = ReplacementDepth::enter();
+        if depth.0 > MAX_REPLACEMENT_DEPTH {
+            panic!(
+                "replacement recursion deeper than {MAX_REPLACEMENT_DEPTH}: a replacement keeps applying to its own event"
+            );
+        }
         for layer in [
             ReplacementLayer::CantHappen,
             ReplacementLayer::Control,
@@ -502,6 +508,32 @@ impl ReplacementHandler {
             game.replacements_running.remove(&running);
         }
         result
+    }
+}
+
+/// A stack overflow aborts the process before any watchdog can act, so a replacement that
+/// keeps re-applying panics here instead, which the gym's `catch_unwind` and the parity
+/// runner turn into a failed game. No real event nests more than a handful of replacements.
+const MAX_REPLACEMENT_DEPTH: u32 = 100;
+
+thread_local! {
+    static REPLACEMENT_DEPTH: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
+struct ReplacementDepth(u32);
+
+impl ReplacementDepth {
+    fn enter() -> Self {
+        Self(REPLACEMENT_DEPTH.with(|depth| {
+            depth.set(depth.get() + 1);
+            depth.get()
+        }))
+    }
+}
+
+impl Drop for ReplacementDepth {
+    fn drop(&mut self) {
+        REPLACEMENT_DEPTH.with(|depth| depth.set(depth.get() - 1));
     }
 }
 
