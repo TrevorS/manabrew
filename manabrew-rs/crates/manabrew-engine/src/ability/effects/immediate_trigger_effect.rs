@@ -73,6 +73,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 GameEntity::Card(card) => remembered_cards.push(card),
             }
         }
+        let remembered_card_timestamps = remembered_cards
+            .iter()
+            .map(|&card| (card, ctx.game.card(card).zone_timestamp))
+            .collect();
         let delayed = DelayedTrigger {
             mode: TriggerType::Immediate,
             trigger_mode: Box::new(crate::trigger::trigger_immediate::TriggerImmediate),
@@ -86,6 +90,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             remembered_cards,
             remembered_players,
             remembered_lki_cards: Vec::new(),
+            remembered_card_timestamps,
             target_card_zone_timestamp: None,
             sort_after_active: false,
             trigger_order: None,

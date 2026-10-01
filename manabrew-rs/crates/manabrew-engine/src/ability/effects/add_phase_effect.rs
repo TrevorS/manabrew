@@ -81,6 +81,7 @@ pub(super) fn extra_delayed_trigger(
         remembered_cards: Vec::new(),
         remembered_players: Vec::new(),
         remembered_lki_cards: Vec::new(),
+        remembered_card_timestamps: Vec::new(),
         sort_after_active: false,
         trigger_order: None,
         source_timestamp: None,

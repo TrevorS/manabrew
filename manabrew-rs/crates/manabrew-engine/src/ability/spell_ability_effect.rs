@@ -1241,6 +1241,7 @@ pub fn register_at_eot(
         remembered_cards: remembered.clone(),
         remembered_players: Vec::new(),
         remembered_lki_cards: remembered,
+        remembered_card_timestamps: Vec::new(),
         target_card_zone_timestamp: None,
         sort_after_active: false,
         trigger_order: None,

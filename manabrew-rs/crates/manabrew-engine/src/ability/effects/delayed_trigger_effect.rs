@@ -98,6 +98,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
 
+    let remembered_card_timestamps = remembered_cards
+        .iter()
+        .map(|&card| (card, ctx.game.card(card).zone_timestamp))
+        .collect();
     let host_timestamp = sa
         .trigger_source_zone_timestamp
         .or(sa.source_zone_timestamp)
@@ -115,6 +119,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         remembered_cards,
         remembered_players,
         remembered_lki_cards,
+        remembered_card_timestamps,
         target_card_zone_timestamp: None,
         sort_after_active: false,
         trigger_order: None,

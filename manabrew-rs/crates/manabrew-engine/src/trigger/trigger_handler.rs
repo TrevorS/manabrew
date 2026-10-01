@@ -65,6 +65,9 @@ pub struct DelayedTrigger {
     pub remembered_players: Vec<PlayerId>,
     /// Snapshot of remembered cards for delayed-trigger `RememberedLKI` lookups.
     pub remembered_lki_cards: Vec<CardId>,
+    /// Zone timestamps of `remembered_cards` at registration: Forge remembers the objects, so a
+    /// remembered card that changed zones since is a different object.
+    pub remembered_card_timestamps: Vec<(CardId, u64)>,
     /// When true, this delayed trigger should sort AFTER same-event active
     /// triggers (resolve FIRST on the LIFO stack). Used to mirror Java's
     /// trigger-ID-based ordering for Evoke sacrifice triggers, whose trigger
@@ -1012,6 +1015,8 @@ impl TriggerHandler {
                 {
                     sa.trigger_object_timestamps.push((target, made_at));
                 }
+                sa.trigger_object_timestamps
+                    .extend(delayed.remembered_card_timestamps.iter().copied());
                 if !delayed.remembered_lki_cards.is_empty() {
                     sa.trigger_remembered.extend(
                         delayed
@@ -1237,6 +1242,8 @@ impl TriggerHandler {
                 {
                     sa.trigger_object_timestamps.push((target, made_at));
                 }
+                sa.trigger_object_timestamps
+                    .extend(delayed.remembered_card_timestamps.iter().copied());
                 if !delayed.remembered_lki_cards.is_empty() {
                     sa.trigger_remembered.extend(
                         delayed

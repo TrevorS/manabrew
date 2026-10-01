@@ -4147,6 +4147,7 @@ impl GameLoop {
                     remembered_cards: vec![chosen],
                     remembered_players: Vec::new(),
                     remembered_lki_cards: vec![chosen],
+                    remembered_card_timestamps: Vec::new(),
                     target_card_zone_timestamp: None,
                     sort_after_active: true,
                     trigger_order: None,

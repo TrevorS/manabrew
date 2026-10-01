@@ -133,6 +133,7 @@ fn register_return_trigger(
             remembered_cards: vec![card_id],
             remembered_players: Vec::new(),
             remembered_lki_cards: Vec::new(),
+            remembered_card_timestamps: Vec::new(),
             target_card_zone_timestamp: Some(ctx.game.card(card_id).zone_timestamp),
             sort_after_active: false,
             trigger_order: None,
