@@ -232,11 +232,17 @@ fn get_cards(
         return cards;
     }
     let ir_defined = ir_defined_param(sa, defined_param);
-    let has_defined = ir_defined.is_some_and(|defined| defined.is_some());
+    let raw_defined = ir_defined
+        .is_none()
+        .then(|| crate::parsing::raw_get(&sa.ability_text, defined_param))
+        .flatten();
+    let has_defined = ir_defined.is_some_and(|defined| defined.is_some()) || raw_defined.is_some();
     let use_targets = sa.uses_targeting() && (!defined_first || !has_defined);
 
     if use_targets {
         sa.target_chosen.all_target_cards()
+    } else if let Some(defined) = raw_defined {
+        resolve_defined_cards_for_sa(game, sa, defined)
     } else {
         // Resolve Defined$ (or default to "Self")
         let defined = ir_defined;
