@@ -35,7 +35,7 @@ pub fn is_disabled(
                 }
             }
             if let Some(valid_card) = st_ab.ir.valid_card.as_ref() {
-                if !matches_valid_card(valid_card, host, source) {
+                if !matches_valid_card(valid_card, host, source, game) {
                     continue;
                 }
             }
@@ -98,11 +98,7 @@ fn mode_specific_matches(
                 let Some(cid) = moved else {
                     return false;
                 };
-                if !matches_valid_card_for_controller(
-                    valid_cause,
-                    game.card(cid),
-                    source_controller,
-                ) {
+                if !matches_valid_card(valid_cause, game.card(cid), source, game) {
                     return false;
                 }
             }
@@ -126,11 +122,7 @@ fn mode_specific_matches(
                 let Some(cause_card) = cause_sa.source else {
                     return false;
                 };
-                if !matches_valid_card_for_controller(
-                    valid_cause,
-                    game.card(cause_card),
-                    source_controller,
-                ) {
+                if !matches_valid_card(valid_cause, game.card(cause_card), source, game) {
                     return false;
                 }
             }
@@ -155,11 +147,7 @@ fn mode_specific_matches(
                 let Some(cid) = run_params.spell_card else {
                     return false;
                 };
-                if !matches_valid_card_for_controller(
-                    valid_cause,
-                    game.card(cid),
-                    source_controller,
-                ) {
+                if !matches_valid_card(valid_cause, game.card(cid), source, game) {
                     return false;
                 }
             }
@@ -184,11 +172,7 @@ fn mode_specific_matches(
                 let Some(attacker) = run_params.attacker else {
                     return false;
                 };
-                if !matches_valid_card_for_controller(
-                    valid_cause,
-                    game.card(attacker),
-                    source_controller,
-                ) {
+                if !matches_valid_card(valid_cause, game.card(attacker), source, game) {
                     return false;
                 }
             }
@@ -204,21 +188,13 @@ fn mode_specific_matches(
                 let Some(source_id) = run_params.damage_source else {
                     return false;
                 };
-                if !matches_valid_card_for_controller(
-                    valid_source,
-                    game.card(source_id),
-                    source_controller,
-                ) {
+                if !matches_valid_card(valid_source, game.card(source_id), source, game) {
                     return false;
                 }
             }
             if let Some(valid_target) = st_ab.ir.valid_target.as_ref() {
                 if let Some(target_card) = run_params.damage_target_card {
-                    if !matches_valid_card_for_controller(
-                        valid_target,
-                        game.card(target_card),
-                        source_controller,
-                    ) {
+                    if !matches_valid_card(valid_target, game.card(target_card), source, game) {
                         return false;
                     }
                 } else if let Some(target_player) = run_params.damage_target_player {
@@ -239,18 +215,13 @@ fn mode_specific_matches(
     }
 }
 
-pub(crate) fn matches_valid_card(valid: &CompiledSelector, card: &Card, source: &Card) -> bool {
-    valid_filter::matches_valid_card_selector(valid, card, source)
-}
-
-fn matches_valid_card_for_controller(
+pub(crate) fn matches_valid_card(
     valid: &CompiledSelector,
     card: &Card,
-    source_controller: crate::ids::PlayerId,
+    source: &Card,
+    game: &GameState,
 ) -> bool {
-    let mut dummy_source = card.clone();
-    dummy_source.controller = source_controller;
-    valid_filter::matches_valid_card_selector(valid, card, &dummy_source)
+    valid_filter::matches_valid_card_selector_in_game(valid, card, source, game)
 }
 
 pub(crate) fn trigger_matches(

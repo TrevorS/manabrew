@@ -30,7 +30,7 @@ pub fn extra_triggers(
                 continue;
             }
             if let Some(valid_card) = st_ab.ir.valid_card.as_ref() {
-                if !matches_valid_card(valid_card, trig_host, source) {
+                if !matches_valid_card(valid_card, trig_host, source, game) {
                     continue;
                 }
             }
@@ -69,9 +69,10 @@ pub fn apply_panharmonicon_ability(
     st_ab: &crate::staticability::StaticAbility,
     source: &Card,
     trigger_host: &Card,
+    game: &GameState,
 ) -> bool {
     if let Some(valid_card) = st_ab.ir.valid_card.as_ref() {
-        if !matches_valid_card(valid_card, trigger_host, source) {
+        if !matches_valid_card(valid_card, trigger_host, source, game) {
             return false;
         }
     }
@@ -98,11 +99,7 @@ fn mode_specific_matches(
                 let Some(cid) = moved else {
                     return false;
                 };
-                if !matches_valid_card_for_controller(
-                    valid_cause,
-                    game.card(cid),
-                    source_controller,
-                ) {
+                if !matches_valid_card(valid_cause, game.card(cid), source, game) {
                     return false;
                 }
             }
@@ -126,11 +123,7 @@ fn mode_specific_matches(
                 let Some(cause_card) = cause_sa.source else {
                     return false;
                 };
-                if !matches_valid_card_for_controller(
-                    valid_cause,
-                    game.card(cause_card),
-                    source_controller,
-                ) {
+                if !matches_valid_card(valid_cause, game.card(cause_card), source, game) {
                     return false;
                 }
             }
@@ -149,11 +142,7 @@ fn mode_specific_matches(
                 let Some(attacker) = run_params.attacker else {
                     return false;
                 };
-                if !matches_valid_card_for_controller(
-                    valid_cause,
-                    game.card(attacker),
-                    source_controller,
-                ) {
+                if !matches_valid_card(valid_cause, game.card(attacker), source, game) {
                     return false;
                 }
             }
@@ -170,11 +159,7 @@ fn mode_specific_matches(
                 let Some(spell_card) = run_params.spell_card else {
                     return false;
                 };
-                if !matches_valid_card_for_controller(
-                    valid_cause,
-                    game.card(spell_card),
-                    source_controller,
-                ) {
+                if !matches_valid_card(valid_cause, game.card(spell_card), source, game) {
                     return false;
                 }
             }
@@ -204,21 +189,13 @@ fn mode_specific_matches(
                 let Some(source_id) = run_params.damage_source else {
                     return false;
                 };
-                if !matches_valid_card_for_controller(
-                    valid_source,
-                    game.card(source_id),
-                    source_controller,
-                ) {
+                if !matches_valid_card(valid_source, game.card(source_id), source, game) {
                     return false;
                 }
             }
             if let Some(valid_target) = st_ab.ir.valid_target.as_ref() {
                 if let Some(target_card) = run_params.damage_target_card {
-                    if !matches_valid_card_for_controller(
-                        valid_target,
-                        game.card(target_card),
-                        source_controller,
-                    ) {
+                    if !matches_valid_card(valid_target, game.card(target_card), source, game) {
                         return false;
                     }
                 } else if let Some(target_player) = run_params.damage_target_player {
@@ -264,16 +241,11 @@ fn matches_zones(filters: &[ZoneType], zone: Option<ZoneType>) -> bool {
     filters.contains(&zone)
 }
 
-fn matches_valid_card(valid: &CompiledSelector, card: &Card, source: &Card) -> bool {
-    valid_filter::matches_valid_card_selector(valid, card, source)
-}
-
-fn matches_valid_card_for_controller(
+fn matches_valid_card(
     valid: &CompiledSelector,
     card: &Card,
-    source_controller: crate::ids::PlayerId,
+    source: &Card,
+    game: &GameState,
 ) -> bool {
-    let mut dummy_source = card.clone();
-    dummy_source.controller = source_controller;
-    valid_filter::matches_valid_card_selector(valid, card, &dummy_source)
+    valid_filter::matches_valid_card_selector_in_game(valid, card, source, game)
 }

@@ -1769,6 +1769,7 @@ impl TriggerHandler {
                         valid_card,
                         game.card(host_card),
                         card,
+                        game,
                     ) {
                         continue;
                     }

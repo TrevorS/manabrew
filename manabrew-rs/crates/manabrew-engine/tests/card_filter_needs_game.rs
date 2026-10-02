@@ -2,12 +2,14 @@ use forge_carddb::parse_card_script;
 use forge_foundation::ZoneType;
 use manabrew_engine::card::valid_filter::matches_valid;
 use manabrew_engine::card::CardInstance;
+use manabrew_engine::event::RunParams;
 use manabrew_engine::game::GameState;
 use manabrew_engine::ids::{CardId, PlayerId};
 use manabrew_engine::replacement::replace_damage;
 use manabrew_engine::replacement::replacement_handler::ReplacementEvent;
 use manabrew_engine::spellability::SpellAbility;
 use manabrew_engine::staticability::static_ability_cant_be_cast::cant_be_cast_ability;
+use manabrew_engine::staticability::static_ability_panharmonicon::extra_triggers;
 
 const BEAR: &str = "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:";
 const AURA: &str =
@@ -92,4 +94,21 @@ fn exclusion_ritual_stops_spells_named_like_the_exiled_card() {
 
     assert!(cant_cast(&game, bear));
     assert!(!cant_cast(&game, aura));
+}
+
+const CLOUD: &str = "Name:Cloud, Midgar Mercenary\nManaCost:W W\nTypes:Legendary Creature Human Soldier Mercenary\nPT:2/1\nT:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigDraw | TriggerDescription$ Whenever CARDNAME attacks, draw a card.\nSVar:TrigDraw:DB$ Draw\nS:Mode$ Panharmonicon | ValidCard$ Card.Self+equipped,Equipment.Attached | Description$ As long as NICKNAME is equipped, if an ability of NICKNAME or an Equipment attached to it triggers, that ability triggers an additional time.\nOracle:";
+const SWORD: &str = "Name:Short Sword\nManaCost:1\nTypes:Artifact Equipment\nK:Equip:1\nOracle:";
+
+#[test]
+fn cloud_doubles_its_own_triggers_while_equipped() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let cloud = put(&mut game, CLOUD, p0, ZoneType::Battlefield);
+    let trigger = game.card(cloud).triggers[0].clone();
+    let extra = |game: &GameState| extra_triggers(game, cloud, &trigger, &RunParams::default());
+
+    assert_eq!(extra(&game), 0);
+    let sword = put(&mut game, SWORD, p0, ZoneType::Battlefield);
+    game.attach_to(sword, cloud);
+    assert_eq!(extra(&game), 1);
 }
