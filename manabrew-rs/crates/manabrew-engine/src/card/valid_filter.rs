@@ -1306,48 +1306,33 @@ fn matches_controlled_by_reference(
         context.targeted_players.contains(&card.controller)
     } else if let Some(target) = raw_target_ref(reference) {
         relation_target_player_any(&target, context, |player| card.controller == player)
-    } else if reference.starts_with("Player") || reference.contains('.') {
-        let empty;
-        let sa = match context.spell_ability {
-            Some(sa) => sa,
-            None => {
-                empty = crate::spellability::SpellAbility::new_empty(
-                    Some(context.source_card.id),
-                    context.source_controller,
-                );
-                &empty
-            }
-        };
-        crate::player::player_property::is_valid(
-            card.controller,
-            &crate::parsing::cached_compiled_selector(reference),
-            context.game,
-            context.source_card.id,
-            context.source_controller,
-            sa,
-        )
-    } else if let Some(sa) = context.spell_ability {
-        crate::ability::ability_utils::resolve_defined_players_with_sa(
-            reference,
-            sa,
-            context.source_controller,
-            context.game,
-        )
-        .contains(&card.controller)
     } else {
-        false
+        player_is_valid_or_defined(card.controller, reference, context)
     }
 }
 
 fn matches_owned_by_valid(valid: &str, card: &Card, context: MatchContext<'_>) -> bool {
-    let game = context.game;
-    let Some(sa) = context.spell_ability else {
-        return false;
+    player_is_valid_or_defined(card.owner, valid, context)
+}
+
+/// Java `CardProperty` `OwnedBy`/`ControlledBy`: `Player.isValid`, else `getDefinedPlayers`
+/// with the trait itself as the ability when there is no spell ability.
+fn player_is_valid_or_defined(player: PlayerId, valid: &str, context: MatchContext<'_>) -> bool {
+    let empty;
+    let sa = match context.spell_ability {
+        Some(sa) => sa,
+        None => {
+            empty = crate::spellability::SpellAbility::new_empty(
+                Some(context.source_card.id),
+                context.source_controller,
+            );
+            &empty
+        }
     };
     crate::player::player_property::is_valid(
-        card.owner,
+        player,
         &crate::parsing::cached_compiled_selector(valid),
-        game,
+        context.game,
         context.source_card.id,
         context.source_controller,
         sa,
@@ -1355,9 +1340,9 @@ fn matches_owned_by_valid(valid: &str, card: &Card, context: MatchContext<'_>) -
         valid,
         sa,
         context.source_controller,
-        game,
+        context.game,
     )
-    .contains(&card.owner)
+    .contains(&player)
 }
 
 fn matches_relation_predicate(

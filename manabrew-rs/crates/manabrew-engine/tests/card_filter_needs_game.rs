@@ -223,3 +223,55 @@ fn medomai_cant_attack_during_an_extra_turn() {
     game.turn.is_extra_turn = true;
     assert!(!can_attack_defender(&game, medomai, DefenderId::Player(p1)));
 }
+
+const CURSE: &str =
+    "Name:Psychic Possession\nManaCost:2 U U\nTypes:Enchantment Aura\nK:Enchant:Opponent\nOracle:";
+const PILOT: &str =
+    "Name:Become the Pilot\nManaCost:1 U\nTypes:Enchantment Aura\nK:Enchant:Creature\nOracle:";
+
+#[test]
+fn owned_by_a_player_property_needs_no_spell_ability() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let curse = put(&mut game, CURSE, p0, ZoneType::Battlefield);
+    game.attach_to_player(curse, p1);
+    let bobs = put(&mut game, BEAR, p1, ZoneType::Hand);
+    let alices = put(&mut game, BEAR, p0, ZoneType::Hand);
+    let owned_by_enchanted = |game: &GameState, card: CardId| {
+        matches_valid(
+            "Card.OwnedBy Player.EnchantedBy",
+            Some(game.card(card)),
+            None,
+            game.card(curse),
+            p0,
+            game,
+        )
+    };
+
+    assert!(owned_by_enchanted(&game, bobs));
+    assert!(!owned_by_enchanted(&game, alices));
+}
+
+#[test]
+fn controlled_by_a_defined_player_falls_back_to_the_defined_players() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let pilot = put(&mut game, PILOT, p0, ZoneType::Battlefield);
+    let attacker = put(&mut game, BEAR, p1, ZoneType::Battlefield);
+    game.attach_to(pilot, attacker);
+    let bobs = put(&mut game, BEAR, p1, ZoneType::Battlefield);
+    let alices = put(&mut game, BEAR, p0, ZoneType::Battlefield);
+    let controlled_by_owner = |game: &GameState, card: CardId| {
+        matches_valid(
+            "Creature.ControlledBy EnchantedOwner",
+            Some(game.card(card)),
+            None,
+            game.card(pilot),
+            p0,
+            game,
+        )
+    };
+
+    assert!(controlled_by_owner(&game, bobs));
+    assert!(!controlled_by_owner(&game, alices));
+}
