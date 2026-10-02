@@ -291,7 +291,17 @@ impl GameLoop {
                     game, source, index,
                 )
             });
-        let cost = cost_adj.apply(&base_cost).add(&raise_mana);
+        let cost = apply_cost_reductions(
+            game,
+            player,
+            card_id,
+            card,
+            &crate::mana::apply_player_life_payment_keywords(
+                game,
+                player,
+                &cost_adj.apply(&base_cost).add(&raise_mana),
+            ),
+        );
         let payment_ctx = Self::spell_payment_context(card, chosen_types_by_source);
         let mana_ok = if any_color {
             if let Some(order) = self.action_space_probe_order(game) {
