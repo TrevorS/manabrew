@@ -7,12 +7,15 @@ use crate::staticability::StaticMode;
 pub fn apply_with_exhaust(
     st_ab: &crate::staticability::StaticAbility,
     player: PlayerId,
-    source_controller: PlayerId,
+    source: &crate::card::Card,
+    game: &GameState,
 ) -> bool {
-    valid_filter::matches_valid_player_selector_opt(
+    valid_filter::matches_valid_player_selector_opt_in_game(
         st_ab.ir.valid_player.as_ref(),
         player,
-        source_controller,
+        source,
+        source.controller,
+        game,
     )
 }
 
@@ -27,10 +30,12 @@ pub fn any_with_exhaust(game: &GameState, player: PlayerId) -> bool {
             .iter()
             .filter(|sa| sa.check_mode(&StaticMode::CanExhaust) && sa.zones_check(card.zone))
         {
-            if valid_filter::matches_valid_player_selector_opt(
+            if valid_filter::matches_valid_player_selector_opt_in_game(
                 st_ab.ir.valid_player.as_ref(),
                 player,
+                card,
                 card.controller,
+                game,
             ) {
                 return true;
             }

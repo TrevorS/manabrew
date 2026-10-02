@@ -33,7 +33,7 @@ pub fn get_mana_to_keep(game: &GameState, player: PlayerId) -> HashSet<u16> {
             .iter()
             .filter(|sa| sa.check_conditions_full(&StaticMode::UnspentMana, card, game))
         {
-            apply_unspent_mana_ability(st_ab, card.controller, player, &mut result);
+            apply_unspent_mana_ability(st_ab, card, player, game, &mut result);
         }
     }
     result
@@ -60,10 +60,12 @@ pub fn has_mana_burn(game: &GameState, player: PlayerId) -> bool {
             // Java short-circuits on the first ManaBurn static found:
             // if (!stAb.matchesValidParam("ValidPlayer", player)) return false;
             // return true;
-            return valid_filter::matches_valid_player_selector_opt(
+            return valid_filter::matches_valid_player_selector_opt_in_game(
                 st_ab.ir.valid_player.as_ref(),
                 player,
+                card,
                 card.controller,
+                game,
             );
         }
     }
@@ -75,14 +77,17 @@ pub fn has_mana_burn(game: &GameState, player: PlayerId) -> bool {
 /// Mirrors Java's `StaticAbilityUnspentMana.applyUnspentManaAbility()`.
 fn apply_unspent_mana_ability(
     st_ab: &crate::staticability::StaticAbility,
-    source_controller: PlayerId,
+    source: &crate::card::Card,
     player: PlayerId,
+    game: &GameState,
     result: &mut HashSet<u16>,
 ) {
-    if !valid_filter::matches_valid_player_selector_opt(
+    if !valid_filter::matches_valid_player_selector_opt_in_game(
         st_ab.ir.valid_player.as_ref(),
         player,
-        source_controller,
+        source,
+        source.controller,
+        game,
     ) {
         return;
     }

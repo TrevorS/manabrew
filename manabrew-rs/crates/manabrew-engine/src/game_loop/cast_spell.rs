@@ -2373,7 +2373,7 @@ impl GameLoop {
         // Check if mana conversion allows spending mana as any color
         let any_color_conversion = play_effect.is_some_and(|play| play.mana_conversion.is_some())
             || crate::staticability::static_ability_mana_convert::can_spend_mana_as_any_color(
-                &game.cards,
+                game,
                 player,
                 game.card(card_id),
             )

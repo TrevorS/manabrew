@@ -1,8 +1,7 @@
-use std::sync::Arc;
-
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::ids::PlayerId;
 use crate::staticability::StaticMode;
 
@@ -13,12 +12,9 @@ use crate::staticability::StaticMode;
 ///
 /// Returns true if any active ManaConvert static on the battlefield allows
 /// the player to spend mana freely for the given card.
-pub fn can_spend_mana_as_any_color(
-    cards: &[Arc<Card>],
-    player: PlayerId,
-    spell_card: &Card,
-) -> bool {
-    for source in cards
+pub fn can_spend_mana_as_any_color(game: &GameState, player: PlayerId, spell_card: &Card) -> bool {
+    for source in game
+        .cards
         .iter()
         .filter(|c| c.zone == ZoneType::Battlefield || c.zone == ZoneType::Command)
     {
@@ -28,10 +24,12 @@ pub fn can_spend_mana_as_any_color(
             .filter(|sa| sa.check_mode(&StaticMode::ManaConvert))
         {
             // Check ValidPlayer$
-            if !valid_filter::matches_valid_player_selector_opt(
+            if !valid_filter::matches_valid_player_selector_opt_in_game(
                 st_ab.ir.valid_player.as_ref(),
                 player,
+                source,
                 source.controller,
+                game,
             ) {
                 continue;
             }
@@ -56,8 +54,8 @@ pub fn can_spend_mana_as_any_color(
     false
 }
 
-pub fn mana_convert(cards: &[Arc<Card>], player: PlayerId, spell_card: &Card) -> bool {
-    can_spend_mana_as_any_color(cards, player, spell_card)
+pub fn mana_convert(game: &GameState, player: PlayerId, spell_card: &Card) -> bool {
+    can_spend_mana_as_any_color(game, player, spell_card)
 }
 
 pub fn check_mana_convert(
@@ -65,11 +63,14 @@ pub fn check_mana_convert(
     source: &Card,
     player: PlayerId,
     spell_card: &Card,
+    game: &GameState,
 ) -> bool {
-    if !valid_filter::matches_valid_player_selector_opt(
+    if !valid_filter::matches_valid_player_selector_opt_in_game(
         st_ab.ir.valid_player.as_ref(),
         player,
+        source,
         source.controller,
+        game,
     ) {
         return false;
     }

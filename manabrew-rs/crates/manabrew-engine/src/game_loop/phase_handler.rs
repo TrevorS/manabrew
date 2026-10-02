@@ -467,6 +467,7 @@ impl GameLoop {
                 &untap_other_player_sources,
                 card,
                 active,
+                game,
             ) && game.untap_during_untap_step(cid, active, &mut self.trigger_handler)
             {
                 match untap_map

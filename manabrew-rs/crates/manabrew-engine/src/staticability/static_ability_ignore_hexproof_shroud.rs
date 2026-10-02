@@ -1,22 +1,22 @@
-use std::sync::Arc;
-
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::ids::PlayerId;
 use crate::parsing::CompiledSelector;
 use crate::staticability::StaticMode;
 
-pub fn ignore_hexproof(cards: &[Arc<Card>], target: &Card, activator: PlayerId) -> bool {
-    any_ignore(cards, target, activator, StaticMode::IgnoreHexproof)
+pub fn ignore_hexproof(game: &GameState, target: &Card, activator: PlayerId) -> bool {
+    any_ignore(game, target, activator, StaticMode::IgnoreHexproof)
 }
 
-pub fn ignore_shroud(cards: &[Arc<Card>], target: &Card, activator: PlayerId) -> bool {
-    any_ignore(cards, target, activator, StaticMode::IgnoreShroud)
+pub fn ignore_shroud(game: &GameState, target: &Card, activator: PlayerId) -> bool {
+    any_ignore(game, target, activator, StaticMode::IgnoreShroud)
 }
 
-fn any_ignore(cards: &[Arc<Card>], target: &Card, activator: PlayerId, mode: StaticMode) -> bool {
-    for source in cards
+fn any_ignore(game: &GameState, target: &Card, activator: PlayerId, mode: StaticMode) -> bool {
+    for source in game
+        .cards
         .iter()
         .filter(|c| c.zone == ZoneType::Battlefield || c.zone == ZoneType::Command)
     {
@@ -25,13 +25,16 @@ fn any_ignore(cards: &[Arc<Card>], target: &Card, activator: PlayerId, mode: Sta
             .iter()
             .filter(|sa| sa.check_mode(&mode))
         {
-            if !matches_valid_player(
-                st_ab.ir.activator_raw.as_deref(),
-                activator,
-                source.controller,
-                source,
-            ) {
-                continue;
+            if let Some(valid) = st_ab.ir.activator_raw.as_deref() {
+                if !valid_filter::matches_valid_player_selector_in_game(
+                    &crate::parsing::cached_compiled_selector(valid),
+                    activator,
+                    source,
+                    source.controller,
+                    game,
+                ) {
+                    continue;
+                }
             }
             if !matches_valid_entity(st_ab.ir.valid_entity.as_ref(), target, source) {
                 continue;
@@ -40,28 +43,6 @@ fn any_ignore(cards: &[Arc<Card>], target: &Card, activator: PlayerId, mode: Sta
         }
     }
     false
-}
-
-fn matches_valid_player(
-    valid: Option<&str>,
-    player: PlayerId,
-    source_controller: PlayerId,
-    source: &Card,
-) -> bool {
-    match valid {
-        None => true,
-        Some(v) if v.eq_ignore_ascii_case("Player") => true,
-        Some(v) if v.eq_ignore_ascii_case("You") || v.eq_ignore_ascii_case("YouCtrl") => {
-            player == source_controller
-        }
-        Some(v) if v.eq_ignore_ascii_case("Opponent") || v.eq_ignore_ascii_case("OppCtrl") => {
-            player != source_controller
-        }
-        Some(v) if v.eq_ignore_ascii_case("Player.IsRemembered") => {
-            source.remembered_players.contains(&player)
-        }
-        _ => true,
-    }
 }
 
 fn matches_valid_entity(valid: Option<&CompiledSelector>, target: &Card, source: &Card) -> bool {

@@ -134,10 +134,12 @@ impl CardDamageMap {
                         )
                     }
                     (Some(valid), DamageTarget::Player(pid)) => {
-                        valid_filter::matches_valid_player_selector(
+                        valid_filter::matches_valid_player_selector_in_game(
                             valid,
                             pid,
+                            host_card,
                             host_card.controller,
+                            game,
                         )
                     }
                 };

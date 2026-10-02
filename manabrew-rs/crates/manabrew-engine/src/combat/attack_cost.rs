@@ -66,6 +66,7 @@ pub fn get_attack_cost(
                                 Some(pid),
                                 source,
                                 source.controller,
+                                game,
                             ),
                             DefenderId::Permanent(cid) => valid_filter::matches_valid(
                                 other,
@@ -73,6 +74,7 @@ pub fn get_attack_cost(
                                 None,
                                 source,
                                 source.controller,
+                                game,
                             ),
                         };
                         if !matched {

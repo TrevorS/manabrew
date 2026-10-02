@@ -216,6 +216,7 @@ fn mana_from(
             None,
             source,
             source.controller,
+            game,
         ) {
             found += 1;
             if found == to_find {

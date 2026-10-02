@@ -280,9 +280,7 @@ impl GameLoop {
             .unwrap_or_else(|| forge_foundation::ManaCost::generic(0));
         let any_color =
             crate::staticability::static_ability_mana_convert::can_spend_mana_as_any_color(
-                &game.cards,
-                player,
-                card,
+                game, player, card,
             ) || crate::staticability::static_ability_continuous::may_play_grant_source(
                 game, player, card,
             )
@@ -1059,9 +1057,7 @@ impl GameLoop {
                 // Check mana conversion for playability
                 let any_color =
                     crate::staticability::static_ability_mana_convert::can_spend_mana_as_any_color(
-                        &game.cards,
-                        player,
-                        card,
+                        game, player, card,
                     );
 
                 // Check normal cost OR any alternative costs

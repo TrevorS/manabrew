@@ -18,7 +18,7 @@ pub fn surveil_num_mod(game: &GameState, player: PlayerId) -> i32 {
             .iter()
             .filter(|sa| sa.check_mode(&StaticMode::SurveilNum) && sa.zones_check(card.zone))
         {
-            total += get_surveil_mod(st_ab, card.controller, player);
+            total += get_surveil_mod(st_ab, card, player, game);
         }
     }
     total
@@ -29,14 +29,17 @@ pub fn surveil_num_mod(game: &GameState, player: PlayerId) -> i32 {
 /// Mirrors Java's `StaticAbilitySurveilNum.getSurveilMod()`.
 fn get_surveil_mod(
     st_ab: &crate::staticability::StaticAbility,
-    source_controller: PlayerId,
+    source: &crate::card::Card,
     player: PlayerId,
+    game: &GameState,
 ) -> i32 {
     // ValidPlayer$
-    if !valid_filter::matches_valid_player_selector_opt(
+    if !valid_filter::matches_valid_player_selector_opt_in_game(
         st_ab.ir.valid_player.as_ref(),
         player,
-        source_controller,
+        source,
+        source.controller,
+        game,
     ) {
         return 0;
     }

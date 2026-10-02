@@ -218,10 +218,12 @@ pub fn apply_can_attack_defender_ability(
     }
 
     // In Java: matchesValidParam("ValidAttacked", target) — target is the defender entity.
-    if !valid_filter::matches_valid_player_selector_opt(
+    if !valid_filter::matches_valid_player_selector_opt_in_game(
         st_ab.ir.valid_attacked.as_ref(),
         defender,
+        source,
         source.controller,
+        game,
     ) {
         return false;
     }
@@ -599,10 +601,12 @@ pub fn apply_can_attack_haste_ability(
     }
 
     // ValidTarget — in Java this validates the target entity (defender).
-    if !valid_filter::matches_valid_player_selector_opt(
+    if !valid_filter::matches_valid_player_selector_opt_in_game(
         st_ab.ir.valid_target.as_ref(),
         defender,
+        source,
         source.controller,
+        game,
     ) {
         return false;
     }
@@ -731,8 +735,9 @@ pub fn apply_attack_vigilance_ability(
 pub fn get_attack_cost(
     st_ab: &StaticAbility,
     attacker: &Card,
-    target: PlayerId,
+    target: Option<PlayerId>,
     source: &Card,
+    game: &GameState,
 ) -> Option<String> {
     if !valid_filter::matches_valid_card_selector_opt(
         st_ab.ir.valid_card.as_ref(),
@@ -742,12 +747,19 @@ pub fn get_attack_cost(
         return None;
     }
 
-    if !valid_filter::matches_valid_player_opt(
-        st_ab.ir.target_text.as_deref(),
-        target,
-        source.controller,
-    ) {
-        return None;
+    if let Some(valid) = st_ab.ir.target_text.as_deref() {
+        let matches = target.is_some_and(|target| {
+            valid_filter::matches_valid_player_selector_in_game(
+                &crate::parsing::cached_compiled_selector(valid),
+                target,
+                source,
+                source.controller,
+                game,
+            )
+        });
+        if !matches {
+            return None;
+        }
     }
 
     let mut cost_string = st_ab.ir.cost.clone()?;
@@ -779,7 +791,7 @@ pub fn get_attack_cost(
 pub fn get_block_cost(
     st_ab: &StaticAbility,
     blocker: &Card,
-    attacker_player: PlayerId,
+    attacker: &Card,
     source: &Card,
 ) -> Option<String> {
     if !valid_filter::matches_valid_card_selector_opt(st_ab.ir.valid_card.as_ref(), blocker, source)
@@ -787,14 +799,14 @@ pub fn get_block_cost(
         return None;
     }
 
-    // Attacker validation — in Java this is matchesValidParam("Attacker", attacker)
-    // where attacker is a GameEntity. We validate as a player for now.
-    if !valid_filter::matches_valid_player_opt(
-        st_ab.ir.attacker_text.as_deref(),
-        attacker_player,
-        source.controller,
-    ) {
-        return None;
+    if let Some(valid) = st_ab.ir.attacker_text.as_deref() {
+        if !valid_filter::matches_valid_card_selector(
+            &crate::parsing::cached_compiled_selector(valid),
+            attacker,
+            source,
+        ) {
+            return None;
+        }
     }
 
     let mut cost_string = st_ab.ir.cost.clone()?;

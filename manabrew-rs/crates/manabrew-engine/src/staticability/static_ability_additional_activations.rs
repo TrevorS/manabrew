@@ -55,9 +55,11 @@ fn is_valid(
         .valid_sa
         .as_deref()
         .is_none_or(|filter| crate::spellability::matches_valid_sa(filter, sa, host, Some(card)))
-        && valid_filter::matches_valid_player_selector_opt(
+        && valid_filter::matches_valid_player_selector_opt_in_game(
             st_ab.ir.valid_player.as_ref(),
             activator,
+            host,
             host.controller,
+            game,
         )
 }

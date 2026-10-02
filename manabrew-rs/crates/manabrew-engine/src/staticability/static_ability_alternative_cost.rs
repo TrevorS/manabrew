@@ -107,7 +107,7 @@ pub fn has_alternative_cost(
         if !st_ab.check_conditions(source, game) {
             continue;
         }
-        if apply(st_ab, sa, source, source, player) {
+        if apply(st_ab, sa, source, source, player, game) {
             return true;
         }
     }
@@ -125,7 +125,7 @@ pub fn has_alternative_cost(
             if !st_ab.check_conditions(ca, game) {
                 continue;
             }
-            if apply(st_ab, sa, source, ca, player) {
+            if apply(st_ab, sa, source, ca, player, game) {
                 return true;
             }
         }
@@ -152,7 +152,7 @@ fn collect_from_card(
         if !st_ab.check_conditions(ca, game) {
             continue;
         }
-        if !apply(st_ab, sa, source, ca, player) {
+        if !apply(st_ab, sa, source, ca, player, game) {
             continue;
         }
 
@@ -256,6 +256,7 @@ fn apply(
     source: &Card,
     host: &Card,
     player: PlayerId,
+    game: &GameState,
 ) -> bool {
     if let Some(valid_sa) = st_ab.ir.valid_sa.as_deref() {
         if !matches_valid_sa(valid_sa, sa, host, Some(source)) {
@@ -267,10 +268,12 @@ fn apply(
         return false;
     }
 
-    if !valid_filter::matches_valid_player_selector_opt(
+    if !valid_filter::matches_valid_player_selector_opt_in_game(
         st_ab.ir.valid_player.as_ref(),
         player,
+        host,
         host.controller,
+        game,
     ) {
         return false;
     }

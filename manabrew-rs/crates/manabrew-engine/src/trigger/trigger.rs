@@ -691,8 +691,15 @@ impl Trigger {
         filter: &CompiledSelector,
         player: PlayerId,
         source_controller: PlayerId,
+        game: &GameState,
     ) -> bool {
-        valid_filter::matches_valid_player_selector(filter, player, source_controller)
+        valid_filter::matches_valid_player_selector_in_game(
+            filter,
+            player,
+            self.base.card_trait_base.host_card(game),
+            source_controller,
+            game,
+        )
     }
 
     /// Matches an optional counter-type filter.

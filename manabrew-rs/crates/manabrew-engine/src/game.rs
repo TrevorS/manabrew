@@ -604,11 +604,15 @@ impl GameState {
                     self,
                 )
             }) && match &lki.target {
-                DamageLkiTarget::Player(player) => crate::card::valid_filter::matches_valid_player(
-                    valid_target_entity,
-                    *player,
-                    source_controller,
-                ),
+                DamageLkiTarget::Player(player) => {
+                    crate::card::valid_filter::matches_valid_player_selector_in_game(
+                        &crate::parsing::cached_compiled_selector(valid_target_entity),
+                        *player,
+                        source_card,
+                        source_controller,
+                        self,
+                    )
+                }
                 DamageLkiTarget::Card(card) => target_selectors.iter().any(|selector| {
                     crate::card::valid_filter::matches_valid_card_selector_in_game(
                         selector,
@@ -700,13 +704,13 @@ impl GameState {
             .filter(|((entity, _, entry_type, putter), _)| {
                 counter_type.is_none_or(|ct| ct == entry_type)
                     && putter.is_some_and(|putter| {
-                        valid_player.split(',').any(|valid| {
-                            crate::card::valid_filter::matches_valid_player(
-                                valid,
-                                putter,
-                                source_controller,
-                            )
-                        })
+                        crate::card::valid_filter::matches_valid_player_selector_in_game(
+                            &crate::parsing::cached_compiled_selector(valid_player),
+                            putter,
+                            source_card,
+                            source_controller,
+                            self,
+                        )
                     })
                     && match entity {
                         GameEntity::Card(card) => card_selectors.iter().any(|selector| {

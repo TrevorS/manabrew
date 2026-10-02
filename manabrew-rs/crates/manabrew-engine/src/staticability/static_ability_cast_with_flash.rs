@@ -133,11 +133,12 @@ pub fn apply_with_flash_needs_info(
     source: &Card,
     caster: PlayerId,
     spell_abilities: &[String],
+    game: &GameState,
 ) -> bool {
     if !matches_valid_card(st_ab.ir.valid_card.as_ref(), spell_card, source) {
         return false;
     }
-    if !matches_valid_player(st_ab.ir.caster.as_ref(), caster, source.controller) {
+    if !matches_valid_player(st_ab.ir.caster.as_ref(), caster, source, game) {
         return false;
     }
     if let Some(valid_sa) = st_ab.ir.valid_sa.as_deref() {
@@ -160,17 +161,25 @@ pub fn apply_with_flash_ability(
     spell_card: &Card,
     source: &Card,
     caster: PlayerId,
+    game: &GameState,
 ) -> bool {
     matches_valid_card(st_ab.ir.valid_card.as_ref(), spell_card, source)
-        && matches_valid_player(st_ab.ir.caster.as_ref(), caster, source.controller)
+        && matches_valid_player(st_ab.ir.caster.as_ref(), caster, source, game)
 }
 
 fn matches_valid_player(
     valid: Option<&crate::parsing::CompiledSelector>,
     player: PlayerId,
-    source_controller: PlayerId,
+    source: &Card,
+    game: &GameState,
 ) -> bool {
-    valid_filter::matches_valid_player_selector_opt(valid, player, source_controller)
+    valid_filter::matches_valid_player_selector_opt_in_game(
+        valid,
+        player,
+        source,
+        source.controller,
+        game,
+    )
 }
 
 fn matches_valid_card(

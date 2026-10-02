@@ -99,12 +99,16 @@ pub fn apply_continuous_ability(
 }
 
 /// Java-parity helper for `StaticAbility.hasAttackCost(...)`.
-pub fn has_attack_cost(st_ab: &StaticAbility, attacker: &Card, source: &Card) -> bool {
+pub fn has_attack_cost(
+    st_ab: &StaticAbility,
+    attacker: &Card,
+    source: &Card,
+    game: &crate::game::GameState,
+) -> bool {
     if !st_ab.check_mode(&StaticMode::OptionalAttackCost) {
         return false;
     }
-    static_ability_cant_attack_block::get_attack_cost(st_ab, attacker, source.controller, source)
-        .is_some()
+    static_ability_cant_attack_block::get_attack_cost(st_ab, attacker, None, source, game).is_some()
 }
 
 /// Java-parity bridge for `StaticAbility.checkMode(...)`.

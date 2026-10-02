@@ -1923,6 +1923,7 @@ pub fn resolve_count_svar_for_sa(
                         None,
                         host,
                         controller,
+                        game,
                     )
                 })
             })

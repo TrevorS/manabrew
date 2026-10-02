@@ -100,6 +100,7 @@ impl TriggerBehavior for TriggerBecomesTarget {
                 target_player,
                 host,
                 host_controller,
+                game,
             ) {
                 return false;
             }

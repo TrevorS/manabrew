@@ -1482,6 +1482,7 @@ fn affected_players_for_static(
                     Some(player),
                     source,
                     source.controller,
+                    game,
                 )
         })
         .collect()

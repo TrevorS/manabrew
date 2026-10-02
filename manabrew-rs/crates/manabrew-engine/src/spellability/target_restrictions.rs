@@ -983,7 +983,7 @@ fn can_be_targeted_by_internal(
     }
     // Shroud: can't be targeted by anyone
     let ignore_shroud = crate::staticability::static_ability_ignore_hexproof_shroud::ignore_shroud(
-        &game.cards,
+        game,
         target,
         source_controller,
     );
@@ -993,7 +993,7 @@ fn can_be_targeted_by_internal(
     // Hexproof: can't be targeted by opponents
     let ignore_hexproof =
         crate::staticability::static_ability_ignore_hexproof_shroud::ignore_hexproof(
-            &game.cards,
+            game,
             target,
             source_controller,
         );

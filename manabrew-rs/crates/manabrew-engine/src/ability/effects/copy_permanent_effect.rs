@@ -206,6 +206,7 @@ fn resolve_originals(
                     None,
                     ctx.game.card(source_id),
                     sa.activating_player,
+                    ctx.game,
                 )
             })
             .collect();

@@ -3466,11 +3466,18 @@ pub fn matches_valid(
     player: Option<PlayerId>,
     source: &Card,
     source_controller: PlayerId,
+    game: &crate::game::GameState,
 ) -> bool {
     if let Some(card) = card {
         matches_valid_card(filter, card, source)
     } else if let Some(player) = player {
-        matches_valid_player(filter, player, source_controller)
+        matches_valid_player_selector_in_game(
+            &crate::parsing::cached_compiled_selector(filter),
+            player,
+            source,
+            source_controller,
+            game,
+        )
     } else {
         false
     }

@@ -67,7 +67,12 @@ impl TriggerBehavior for TriggerCounterPlayerAddedAll {
                 return false;
             };
             let object_ok = if let Some(pid) = params.object_player {
-                trigger.matches_valid_player_filter_with_controller(filter, pid, source_player)
+                trigger.matches_valid_player_filter_with_controller(
+                    filter,
+                    pid,
+                    source_player,
+                    game,
+                )
             } else if let Some(cid) = params.object_card {
                 let card_controller = game.card(cid).controller;
                 let raw_filter = filter.as_raw();

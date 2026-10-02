@@ -123,6 +123,7 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
                             None,
                             host,
                             host_controller,
+                            game,
                         )
                     });
                     let player_matches =
@@ -136,6 +137,7 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
                                     Some(player),
                                     host,
                                     host_controller,
+                                    game,
                                 )
                             });
                     if card_matches || player_matches {

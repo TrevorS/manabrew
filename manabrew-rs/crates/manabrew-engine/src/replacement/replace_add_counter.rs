@@ -151,10 +151,12 @@ pub fn can_replace(
             .as_ref()
             .is_none_or(|valid| {
                 entry.source.is_some_and(|source| {
-                    valid_filter::matches_valid_player_selector(
+                    valid_filter::matches_valid_player_selector_in_game(
                         valid,
                         source,
+                        source_card,
                         source_card.controller,
+                        game,
                     )
                 })
             });
@@ -220,7 +222,8 @@ pub fn execute(
                 update_matching_counters(
                     effect,
                     counter_map,
-                    _game.card(_source_card_id).controller,
+                    _game.card(_source_card_id),
+                    _game,
                     |amount| amount + 1,
                 );
                 return ReplacementResult::Updated;
@@ -229,7 +232,8 @@ pub fn execute(
                 update_matching_counters(
                     effect,
                     counter_map,
-                    _game.card(_source_card_id).controller,
+                    _game.card(_source_card_id),
+                    _game,
                     |amount| amount * 2,
                 );
                 return ReplacementResult::Updated;
@@ -244,7 +248,8 @@ pub fn execute(
                             effect,
                             entry.source,
                             &counter_type,
-                            _game.card(_source_card_id).controller,
+                            _game.card(_source_card_id),
+                            _game,
                         ) {
                             continue;
                         }
@@ -408,7 +413,8 @@ fn entry_matches(
     effect: &ReplacementEffect,
     source: Option<crate::ids::PlayerId>,
     counter_type: &crate::card::CounterType,
-    source_controller: crate::ids::PlayerId,
+    host: &Card,
+    game: &GameState,
 ) -> bool {
     let source_matches = effect
         .ir
@@ -416,7 +422,13 @@ fn entry_matches(
         .as_ref()
         .is_none_or(|valid| {
             source.is_some_and(|source| {
-                valid_filter::matches_valid_player_selector(valid, source, source_controller)
+                valid_filter::matches_valid_player_selector_in_game(
+                    valid,
+                    source,
+                    host,
+                    host.controller,
+                    game,
+                )
             })
         });
     let type_matches = effect
@@ -430,12 +442,13 @@ fn entry_matches(
 fn update_matching_counters(
     effect: &ReplacementEffect,
     counter_map: &mut [super::replacement_handler::CounterMapValue],
-    source_controller: crate::ids::PlayerId,
+    host: &Card,
+    game: &GameState,
     update: impl Fn(i32) -> i32,
 ) {
     for entry in counter_map {
         for (counter_type, amount) in &mut entry.counters {
-            if entry_matches(effect, entry.source, counter_type, source_controller) {
+            if entry_matches(effect, entry.source, counter_type, host, game) {
                 *amount = update(*amount).max(0);
             }
         }
