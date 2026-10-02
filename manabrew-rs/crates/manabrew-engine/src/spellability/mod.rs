@@ -13,6 +13,7 @@ pub mod runtime_types;
 pub mod spell;
 pub mod spell_ability_condition;
 pub mod spell_ability_predicates;
+pub mod spell_ability_property;
 pub mod spell_ability_restriction;
 pub mod spell_ability_stack_instance;
 pub mod spell_ability_variables;
@@ -934,6 +935,25 @@ impl SpellAbility {
         }
     }
 
+    pub fn is_optional_cost_paid(&self, cost: OptionalCost) -> bool {
+        self.optional_costs.contains(&cost)
+    }
+
+    pub fn is_alternative_cost(&self, ac: AlternativeCost) -> bool {
+        self.alt_cost == Some(ac)
+    }
+
+    pub fn get_keyword(&self) -> Option<crate::keyword::Keyword> {
+        self.ir
+            .keyword_text
+            .as_deref()
+            .map(crate::keyword::Keyword::smart_value_of)
+    }
+
+    pub fn is_keyword(&self, kw: crate::keyword::Keyword) -> bool {
+        self.get_keyword() == Some(kw)
+    }
+
     /// Whether the mana cost contains X.
     /// Mirrors Java's `SpellAbility.costHasX()`.
     pub fn cost_has_x(&self) -> bool {
@@ -1789,18 +1809,86 @@ impl SpellAbility {
         }
     }
 
+    pub fn get_trigger<'a>(
+        &self,
+        game: &'a crate::game::GameState,
+    ) -> Option<&'a crate::trigger::Trigger> {
+        let source = self.trigger_source.or(self.source)?;
+        let trigger_id = self.source_trigger_id?;
+        game.card(source)
+            .triggers
+            .iter()
+            .find(|trigger| trigger.id == trigger_id)
+    }
+
     pub fn is_last_chapter(&self, game: &crate::game::GameState) -> bool {
         let Some(source) = self.trigger_source.or(self.source) else {
             return false;
         };
-        let Some(trigger_id) = self.source_trigger_id else {
-            return false;
-        };
-        let card = game.card(source);
-        card.triggers
-            .iter()
-            .find(|trigger| trigger.id == trigger_id)
-            .is_some_and(|trigger| trigger.is_last_chapter(card))
+        self.get_trigger(game)
+            .is_some_and(|trigger| trigger.is_last_chapter(game.card(source)))
+    }
+
+    pub fn is_chapter(&self, game: &crate::game::GameState) -> bool {
+        self.is_trigger
+            && self
+                .get_trigger(game)
+                .is_some_and(|trigger| trigger.is_chapter())
+    }
+
+    pub fn is_activated_ability(&self) -> bool {
+        self.is_activated && !self.is_trigger && !self.is_ability_static()
+    }
+
+    /// Java builds land plays, `ST$` records, Plot, `ST$ UnlockDoor` and the turn-face-up
+    /// `ST$ SetState` as `AbilityStatic`; keep in sync with `ActivatedAbility::is_ability_static`.
+    pub fn is_ability_static(&self) -> bool {
+        self.record_type == AbilityRecordType::StaticAbility
+            || self.is_land_ability
+            || self.api == Some(ApiType::Plot)
+            || self.is_unlock()
+            || self.is_turn_face_up()
+    }
+
+    pub fn has_param(&self, key: &str) -> bool {
+        crate::parsing::raw_has_key(&self.ability_text, key)
+    }
+
+    pub fn is_pw_ability(&self) -> bool {
+        self.ir.pw_ability
+    }
+
+    pub fn is_turn_face_up(&self) -> bool {
+        ["MorphUp", "DisguiseUp", "ManifestUp", "CloakUp"]
+            .into_iter()
+            .any(|key| self.has_param(key))
+    }
+
+    pub fn is_unlock(&self) -> bool {
+        self.has_param("Unlock")
+    }
+
+    pub fn is_cycling(&self) -> bool {
+        self.is_keyword(crate::keyword::Keyword::Cycling)
+            || self.is_keyword(crate::keyword::Keyword::TypeCycling)
+    }
+
+    /// Rust records a paid buyback on `buyback_paid` rather than in `optional_costs`.
+    pub fn is_buyback(&self) -> bool {
+        self.is_optional_cost_paid(OptionalCost::Buyback) || self.buyback_paid
+    }
+
+    /// Rust records a paid kicker on `kicked` and a multikicker on `kick_count` rather than in
+    /// `optional_costs`.
+    pub fn is_kicked(&self) -> bool {
+        self.is_optional_cost_paid(OptionalCost::Kicker1)
+            || self.is_optional_cost_paid(OptionalCost::Kicker2)
+            || self.kick_count > 0
+            || self.kicked
+    }
+
+    pub fn is_plotting(&self) -> bool {
+        self.is_keyword(crate::keyword::Keyword::Plot)
     }
 
     /// Whether this ability tracks mana spent.
@@ -1906,6 +1994,8 @@ impl SpellAbility {
 
     /// Java parity hook for `SpellAbility.setKeyword(KeywordInterface)`.
     pub fn set_keyword(&mut self, keyword: crate::keyword::keyword_interface::KeywordInterface) {
+        std::sync::Arc::make_mut(&mut self.ir).keyword_text =
+            Some(keyword.get_keyword().display_name().to_string());
         if let Some(sub_ability) = self.sub_ability.as_deref_mut() {
             sub_ability.set_keyword(keyword.clone());
         }
@@ -1915,12 +2005,32 @@ impl SpellAbility {
         }
     }
 
+    fn card_state_other_part<'a>(
+        &self,
+        host: &'a crate::card::Card,
+    ) -> Option<&'a crate::card::CardOtherPart> {
+        let other = host.other_part.as_ref()?;
+        (self.card_state? != host.get_current_state_name()).then_some(other)
+    }
+
     pub fn card_state_svars<'a>(
         &self,
         host: &'a crate::card::Card,
     ) -> Option<&'a std::collections::BTreeMap<String, String>> {
-        let other = host.other_part.as_ref()?;
-        (self.card_state? != host.get_current_state_name()).then_some(&other.svars)
+        self.card_state_other_part(host).map(|other| &other.svars)
+    }
+
+    pub fn card_state_name<'a>(&self, host: &'a crate::card::Card) -> &'a str {
+        self.card_state_other_part(host)
+            .map_or(&host.card_name, |other| &other.name)
+    }
+
+    pub fn card_state_type_line<'a>(
+        &self,
+        host: &'a crate::card::Card,
+    ) -> &'a forge_foundation::CardTypeLine {
+        self.card_state_other_part(host)
+            .map_or(&host.type_line, |other| &other.type_line)
     }
 
     /// Java parity hook for `SpellAbility.setCardState(CardState)`.

@@ -38,8 +38,11 @@ impl TriggerBehavior for TriggerTurnFaceUp {
                 crate::spellability::matches_valid_sa(
                     filter,
                     cause,
-                    game.card(trigger.host_card_id()),
                     cause.source.map(|id| game.card(id)),
+                    crate::card::valid_filter::MatchContext::new(
+                        game.card(trigger.host_card_id()),
+                        game,
+                    ),
                 )
             })
         })

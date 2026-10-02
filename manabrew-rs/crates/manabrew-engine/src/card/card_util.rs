@@ -252,8 +252,8 @@ pub fn get_this_turn_activated<'a>(
             crate::spellability::matches_valid_sa(
                 valid,
                 sa,
-                source,
                 sa.source.map(|host| game.card(host)),
+                crate::card::valid_filter::MatchContext::new(source, game),
             )
         })
         .collect()

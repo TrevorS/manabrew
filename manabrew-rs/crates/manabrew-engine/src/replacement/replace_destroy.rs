@@ -54,7 +54,12 @@ pub fn can_replace(
             return false;
         };
         let ability_host = cause.source.map(|card| game.card(card));
-        if !crate::spellability::matches_valid_sa(valid, cause, source_card, ability_host) {
+        if !crate::spellability::matches_valid_sa(
+            valid,
+            cause,
+            ability_host,
+            crate::card::valid_filter::MatchContext::new(source_card, game),
+        ) {
             return false;
         }
     }

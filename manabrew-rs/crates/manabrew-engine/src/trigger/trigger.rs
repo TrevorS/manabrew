@@ -1049,8 +1049,8 @@ impl Trigger {
             crate::spellability::matches_valid_sa(
                 param,
                 &entry.ability,
-                host,
                 entry.ability.source.map(|id| game.card(id)),
+                crate::card::valid_filter::MatchContext::new(host, game),
             )
         };
         run_params
@@ -1121,6 +1121,9 @@ impl Trigger {
             };
             (sa, svar_text)
         };
+        if let Some(keyword) = self.base.card_trait_base.get_keyword() {
+            sa.set_keyword(keyword.clone());
+        }
         sa.is_trigger = true;
         sa.trigger_source = Some(host_card);
         sa.trigger_source_zone_timestamp = Some(game.card(host_card).zone_timestamp);

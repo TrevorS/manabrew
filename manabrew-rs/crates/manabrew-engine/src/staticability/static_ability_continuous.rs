@@ -111,7 +111,12 @@ pub fn grants_zone_permissions_for(
 ) -> bool {
     let accepts = |granting: &StaticAbility| {
         granting.ir.valid_sa.as_deref().is_none_or(|filter| {
-            crate::spellability::matches_valid_sa(filter, sa, source, Some(card))
+            crate::spellability::matches_valid_sa(
+                filter,
+                sa,
+                Some(card),
+                crate::card::valid_filter::MatchContext::new(source, game),
+            )
         })
     };
     if can_play(st_ab, source, card, game) {
@@ -234,7 +239,12 @@ pub fn may_play_allows_after_stack(
     }
     grants.any(
         |(source, st_ab)| match st_ab.ir.valid_after_stack.as_deref() {
-            Some(filter) => crate::spellability::matches_valid_sa(filter, sa, source, Some(card)),
+            Some(filter) => crate::spellability::matches_valid_sa(
+                filter,
+                sa,
+                Some(card),
+                crate::card::valid_filter::MatchContext::new(source, game),
+            ),
             None => true,
         },
     )

@@ -280,7 +280,12 @@ pub fn apply_cant_be_activated_ability(
 
     // ValidSA — check the spell ability itself against a filter
     if let Some(valid_sa) = st_ab.ir.valid_sa.as_deref() {
-        if !crate::spellability::matches_valid_sa(valid_sa, spell, source, Some(card)) {
+        if !crate::spellability::matches_valid_sa(
+            valid_sa,
+            spell,
+            Some(card),
+            crate::card::valid_filter::MatchContext::new(source, game),
+        ) {
             return false;
         }
     }

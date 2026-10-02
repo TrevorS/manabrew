@@ -529,7 +529,7 @@ fn parse_literal_target_count(expr: &str) -> Option<i32> {
 
 /// Check if there are valid spells on the stack matching the TargetType$ filter.
 pub fn has_valid_spell_with_filter(game: &GameState, player: PlayerId, filter: &str) -> bool {
-    !filter_spells_by_type(game, player, &get_all_candidates_spells(game), filter).is_empty()
+    !filter_spells_by_type(game, player, None, &get_all_candidates_spells(game), filter).is_empty()
 }
 
 /// Filter stack entries using the full `TargetRestrictions` for spell targets.
@@ -542,7 +542,7 @@ pub fn filter_spells_for_target_restrictions(
 ) -> Vec<u32> {
     let mut filtered = candidates.to_vec();
     if let Some(ref filter) = restrictions.target_type_filter {
-        filtered = filter_spells_by_type(game, targeting_player, &filtered, filter);
+        filtered = filter_spells_by_type(game, targeting_player, source, &filtered, filter);
     }
     if !restrictions.valid_tgts.is_empty()
         && !restrictions
@@ -650,14 +650,12 @@ fn spell_targets_valid(
     false
 }
 
-/// Filter stack entries by a comma-separated TargetType$/ValidTgts$ filter.
-/// SA-kind clauses (Spell, Activated, Triggered, …) dispatch through
-/// `valid_sa::matches_valid_sa`, mirroring Java's `SpellAbility.isValid`.
-/// Per-clause fallback then checks the entry's source-card properties so
-/// ValidTgts tokens like `Card` and `OppCtrl` still match.
+/// Filter stack entries by a comma-separated `TargetType$` filter, which Java checks with
+/// `topSA.isValid(TargetType, activator, host, sa)` for the targeting ability.
 pub fn filter_spells_by_type(
     game: &GameState,
     targeting_player: PlayerId,
+    source: Option<CardId>,
     candidates: &[u32],
     filter: &str,
 ) -> Vec<u32> {
@@ -671,7 +669,7 @@ pub fn filter_spells_by_type(
             else {
                 return false;
             };
-            stack_entry_matches_filter(game, targeting_player, &entry.spell_ability, filter)
+            stack_entry_matches_filter(game, targeting_player, source, &entry.spell_ability, filter)
         })
         .copied()
         .collect()
@@ -680,33 +678,25 @@ pub fn filter_spells_by_type(
 fn stack_entry_matches_filter(
     game: &GameState,
     targeting_player: PlayerId,
+    source: Option<CardId>,
     sa: &crate::spellability::SpellAbility,
     filter: &str,
 ) -> bool {
     if filter.trim().is_empty() {
         return sa.is_spell;
     }
-    let Some(source_id) = sa.source else {
+    let Some(host_id) = sa.source else {
         return false;
     };
-    let source = game.card(source_id);
-
-    if crate::spellability::matches_valid_sa(filter, sa, source, Some(source)) {
-        return true;
-    }
-
-    filter
-        .split(',')
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .any(|clause| {
-            // Bare `Card` is the catch-all "any source" clause; `Card.<qual>`
-            // still has to match the qualifier on the source card.
-            if clause == crate::card::filter_constants::CARD {
-                return true;
-            }
-            card_property::card_has_property(source, clause, targeting_player)
-        })
+    let host = game.card(host_id);
+    let source = source.map_or(host, |source| game.card(source));
+    crate::spellability::matches_valid_sa(
+        filter,
+        sa,
+        Some(host),
+        crate::card::valid_filter::MatchContext::new(source, game)
+            .with_source_controller(targeting_player),
+    )
 }
 
 /// Parse a single ValidTgts value into a TargetKind.
@@ -1071,8 +1061,8 @@ fn hexproof_cant_target(
                 crate::spellability::matches_valid_sa(
                     &valid_type,
                     sa,
-                    target,
                     source_card.map(|id| game.card(id)),
+                    crate::card::valid_filter::MatchContext::new(target, game),
                 )
             });
         }

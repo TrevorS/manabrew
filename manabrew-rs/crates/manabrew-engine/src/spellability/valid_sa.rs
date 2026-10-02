@@ -1,271 +1,77 @@
-use crate::ability::api_type::ApiType;
+//! Mirrors Java's `SpellAbility.isValid` and `SpellAbility.hasProperty`.
+
 use crate::card::valid_filter::MatchContext;
 use crate::card::Card;
-use crate::keyword::keyword_instance::Keyword;
 use crate::spellability::SpellAbility;
 
 pub fn matches_valid_sa(
     filter: &str,
     sa: &SpellAbility,
-    source: &Card,
     ability_host: Option<&Card>,
-) -> bool {
-    matches_valid_sa_with_context(filter, sa, source, ability_host, None)
-}
-
-pub fn matches_valid_sa_with_context(
-    filter: &str,
-    sa: &SpellAbility,
-    source: &Card,
-    ability_host: Option<&Card>,
-    context: Option<MatchContext<'_>>,
+    context: MatchContext<'_>,
 ) -> bool {
     let filter = filter.trim();
     if filter.is_empty() {
         return true;
     }
-
     filter
         .split(',')
         .map(str::trim)
         .filter(|restriction| !restriction.is_empty())
-        .any(|restriction| matches_restriction(restriction, sa, source, ability_host, context))
+        .any(|restriction| is_valid(restriction, sa, ability_host, context))
 }
 
-fn matches_restriction(
+pub fn is_valid(
     restriction: &str,
     sa: &SpellAbility,
-    source: &Card,
     ability_host: Option<&Card>,
-    context: Option<MatchContext<'_>>,
+    context: MatchContext<'_>,
 ) -> bool {
-    let mut parts = restriction.splitn(2, '.');
-    let base = parts.next().unwrap_or("").trim();
-    let properties = parts.next();
+    let (head, properties) = match restriction.split_once('.') {
+        Some((head, properties)) => (head, Some(properties)),
+        None => (restriction, None),
+    };
+    let (test_failed, head) = match head.strip_prefix('!') {
+        Some(head) => (true, head),
+        None => (false, head),
+    };
 
-    let base_matches = matches_base_token(base, sa, ability_host);
-    if !base_matches {
-        return false;
+    let head_matches = match head {
+        "Spell" => sa.is_spell,
+        "Ability" => !sa.is_spell,
+        "Instant" => ability_host.is_some_and(|host| sa.card_state_type_line(host).is_instant()),
+        "Sorcery" => ability_host.is_some_and(|host| sa.card_state_type_line(host).is_sorcery()),
+        "Triggered" => sa.is_trigger,
+        "Activated" => sa.is_activated_ability(),
+        "Static" => sa.is_ability_static(),
+        "SpellAbility" => true,
+        head if head.contains("LandAbility") => sa.is_land_ability,
+        _ => false,
+    };
+    if !head_matches {
+        return test_failed;
     }
 
     if let Some(properties) = properties {
-        for property in properties
-            .split('+')
-            .map(str::trim)
-            .filter(|property| !property.is_empty())
-        {
-            if !matches_property_token(property, sa, source, ability_host, context) {
-                return false;
+        for property in properties.split('+') {
+            if !has_property(property, sa, ability_host, context) {
+                return test_failed;
             }
         }
     }
-
-    true
+    !test_failed
 }
 
-fn matches_base_token(token: &str, sa: &SpellAbility, ability_host: Option<&Card>) -> bool {
-    let token = token.trim();
-    let (negated, token) = match token.strip_prefix('!') {
-        Some(stripped) => (true, stripped),
-        None => (false, token),
-    };
-
-    let matched = match token.to_ascii_lowercase().as_str() {
-        "spell" => sa.is_spell,
-        "ability" => !sa.is_spell,
-        "activated" => sa.is_activated,
-        "trigger" | "triggered" => sa.is_trigger,
-        "spellability" => true,
-        "instant" => ability_host.is_some_and(|card| card.type_line.is_instant()),
-        "sorcery" => ability_host.is_some_and(|card| card.type_line.is_sorcery()),
-        _ => false,
-    };
-
-    matched != negated
-}
-
-fn matches_property_token(
-    token: &str,
-    sa: &SpellAbility,
-    source: &Card,
-    ability_host: Option<&Card>,
-    context: Option<MatchContext<'_>>,
-) -> bool {
-    let token = token.trim();
-    let (negated, token) = match token.strip_prefix('!') {
-        Some(stripped) => (true, stripped),
-        None => (false, token),
-    };
-
-    let matched = matches_property_token_positive(token, sa, source, ability_host, context);
-    matched != negated
-}
-
-fn matches_property_token_positive(
-    token: &str,
-    sa: &SpellAbility,
-    source: &Card,
-    ability_host: Option<&Card>,
-    context: Option<MatchContext<'_>>,
-) -> bool {
-    if let Some(rest) = token.strip_prefix("ManaSpent ") {
-        let (comparator, amount) = rest.split_at(2.min(rest.len()));
-        let spent = ability_host.map_or(0, |host| host.paying_mana_to_cast.len() as i32);
-        return amount.parse::<i32>().is_ok_and(|y| {
-            crate::parsing::compare::compare_expr(spent, &format!("{comparator}{y}"))
-        });
-    }
-    match token.to_ascii_lowercase().as_str() {
-        "self" => ability_host.is_some_and(|host| host.id == source.id),
-        "youctrl" => sa.activating_player == source.controller,
-        "oppctrl" => sa.activating_player != source.controller,
-        "manaability" => sa.is_mana_ability || sa.api == Some(ApiType::Mana),
-        "nonmanaability" => !(sa.is_mana_ability || sa.api == Some(ApiType::Mana)),
-        "istargeting" => sa.target_restrictions.is_some(),
-        "isremembered" => sa
-            .source
-            .is_some_and(|card| source.remembered_cards.contains(&card)),
-        "mayplaysource" => sa.may_play_source == Some(source.id),
-        "mayhem" => sa.alt_cost == Some(crate::spellability::AlternativeCost::Mayhem),
-        "warp" => sa.alt_cost == Some(crate::spellability::AlternativeCost::Warp),
-        "sneak" => sa.alt_cost == Some(crate::spellability::AlternativeCost::Sneak),
-        "blitz" => sa.alt_cost == Some(crate::spellability::AlternativeCost::Blitz),
-        "craft" => sa.is_craft(),
-        "xcost" => sa.cost_has_x(),
-        "singletarget" => single_target(sa),
-        "crew" => is_crew(sa, ability_host),
-        "equip" => is_keyword_ability(sa, ability_host, Keyword::Equip, "equip"),
-        "saddle" => is_keyword_ability(sa, ability_host, Keyword::Saddle, "saddle"),
-        "station" => is_keyword_ability(sa, ability_host, Keyword::Station, "station"),
-        "vehicle" | "mount" | "spacecraft" | "planet" => {
-            ability_host.is_some_and(|host| host.type_line.has_subtype(token))
-        }
-        lowered if lowered.starts_with("manafrom") => mana_from(
-            &token["ManaFrom".len()..],
-            sa,
-            source,
-            ability_host,
-            context,
-        ),
-        lowered if lowered.starts_with("cmc") && context.is_some() => {
-            ability_host.is_some_and(|host| {
-                crate::card::valid_filter::check_cmc_condition_with_context(
-                    &token[3..],
-                    host,
-                    context,
-                )
-            })
-        }
-        _ => {
-            if sa.has_property(token) {
-                return true;
-            }
-            if sa
-                .api
-                .is_some_and(|api| api.name().eq_ignore_ascii_case(token))
-            {
-                return true;
-            }
-            ability_host.is_some_and(|host| {
-                crate::card::card_property::card_has_property(host, token, source.controller)
-            })
-        }
-    }
-}
-
-fn single_target(sa: &SpellAbility) -> bool {
-    let mut num = 0;
-    let mut current = Some(sa);
-    while let Some(node) = current {
-        if node.uses_targeting() {
-            let targets = &node.target_chosen;
-            num += targets.all_target_cards().len()
-                + targets.all_target_players().len()
-                + usize::from(targets.target_stack_entry.is_some());
-            if num > 1 {
-                return false;
-            }
-        }
-        current = node.sub_ability.as_deref();
-    }
-    num == 1
-}
-
-fn mana_from(
-    from_what: &str,
-    sa: &SpellAbility,
-    source: &Card,
-    ability_host: Option<&Card>,
-    context: Option<MatchContext<'_>>,
-) -> bool {
-    let (Some(context), Some(host)) = (context, ability_host) else {
-        return false;
-    };
-    let game = context.game;
-    let (from_what, to_find) = match from_what.split_once('_') {
-        Some((valid, amount)) => (
-            valid,
-            crate::svar::resolve_svar_expression(amount, game, source.id, source.controller, sa),
-        ),
-        None => (from_what, 1),
-    };
-    let mut found = 0;
-    for &mana_source in host.paying_sources_to_cast.iter().flatten() {
-        if crate::card::valid_filter::matches_valid(
-            from_what,
-            Some(game.card(mana_source)),
-            None,
-            source,
-            source.controller,
-            game,
-        ) {
-            found += 1;
-            if found == to_find {
-                break;
-            }
-        }
-    }
-    found == to_find
-}
-
-fn is_crew(sa: &SpellAbility, ability_host: Option<&Card>) -> bool {
-    if ability_text_has_keyword(sa, "crew") {
-        return true;
-    }
-
-    ability_host.is_some_and(|host| {
-        host.has_keyword_enum(Keyword::Crew)
-            && sa.api == Some(ApiType::Animate)
-            && sa.description.trim_start().starts_with("Crew")
-    })
-}
-
-fn is_keyword_ability(
+fn has_property(
+    property: &str,
     sa: &SpellAbility,
     ability_host: Option<&Card>,
-    keyword: Keyword,
-    text: &str,
+    context: MatchContext<'_>,
 ) -> bool {
-    if ability_text_has_keyword(sa, text) {
-        return true;
+    match property.strip_prefix('!') {
+        Some(property) => {
+            !super::spell_ability_property::has_property(sa, property, ability_host, context)
+        }
+        None => super::spell_ability_property::has_property(sa, property, ability_host, context),
     }
-
-    ability_host.is_some_and(|host| {
-        host.has_keyword_enum(keyword)
-            && sa
-                .description
-                .trim_start()
-                .to_ascii_lowercase()
-                .starts_with(text)
-    })
-}
-
-fn ability_text_has_keyword(sa: &SpellAbility, keyword: &str) -> bool {
-    let keyword = keyword.to_ascii_lowercase();
-    let description = sa.description.trim_start().to_ascii_lowercase();
-    let ability_text = sa.ability_text.to_ascii_lowercase();
-
-    description.starts_with(&keyword)
-        || ability_text.contains(&format!("precostdesc$ {keyword}"))
-        || ability_text.contains(&format!("spelldescription$ {keyword}"))
 }

@@ -1152,7 +1152,7 @@ fn matches_context_predicate(
         // Java `CardProperty:1910` tests the card's own cast ability against the rest of the
         // property, which is why the selector keeps this argument's dots.
         ContextPredicate::CastSa(filter) => card.cast_sa.as_ref().is_some_and(|cast_sa| {
-            crate::spellability::matches_valid_sa(filter, cast_sa, context.source_card, Some(card))
+            crate::spellability::matches_valid_sa(filter, cast_sa, Some(card), context)
         }),
         ContextPredicate::ExiledWithSource => {
             let host = context
@@ -3360,7 +3360,11 @@ fn check_toughness_condition(rest: &str, card: &Card, context: MatchContext<'_>)
 
 /// Java `CardProperty` compares against `AbilityUtils.calculateAmount` of the rest, which is 0
 /// for an amount it cannot read.
-fn compare_raw_operand(actual: i32, rest: &str, context: Option<MatchContext<'_>>) -> bool {
+pub(crate) fn compare_raw_operand(
+    actual: i32,
+    rest: &str,
+    context: Option<MatchContext<'_>>,
+) -> bool {
     let operator = match rest.get(..2).map(str::to_ascii_lowercase).as_deref() {
         Some("eq") => SelectorCompareOperator::Eq,
         Some("ne") => SelectorCompareOperator::Ne,

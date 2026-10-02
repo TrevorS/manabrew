@@ -259,7 +259,12 @@ fn apply(
     game: &GameState,
 ) -> bool {
     if let Some(valid_sa) = st_ab.ir.valid_sa.as_deref() {
-        if !matches_valid_sa(valid_sa, sa, host, Some(source)) {
+        if !matches_valid_sa(
+            valid_sa,
+            sa,
+            Some(source),
+            crate::card::valid_filter::MatchContext::new(host, game),
+        ) {
             return false;
         }
     }

@@ -42,8 +42,8 @@ impl TriggerBehavior for TriggerExiled {
                 crate::spellability::matches_valid_sa(
                     valid_cause,
                     cause,
-                    host,
                     cause.source.map(|id| game.card(id)),
+                    crate::card::valid_filter::MatchContext::new(host, game),
                 )
             }) {
                 return false;

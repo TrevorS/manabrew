@@ -86,12 +86,11 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
                 .or(params.spell_ability.as_ref())
                 .is_some_and(|sa| {
                     let host = trigger.base.card_trait_base.host_card(game);
-                    crate::spellability::valid_sa::matches_valid_sa_with_context(
+                    crate::spellability::valid_sa::matches_valid_sa(
                         filter,
                         sa,
-                        host,
                         sa.source.map(|source| game.card(source)),
-                        Some(crate::card::valid_filter::MatchContext::new(host, game)),
+                        crate::card::valid_filter::MatchContext::new(host, game),
                     )
                 })
         });
@@ -258,7 +257,12 @@ fn matches_valid_sa_on_card(
     let cast_card = game.card(cast);
     filter.split(',').map(str::trim).any(|restriction| {
         let (base, properties) = restriction.split_once('.').unwrap_or((restriction, ""));
-        if !crate::spellability::matches_valid_sa(base, sa, cast_card, Some(cast_card)) {
+        if !crate::spellability::matches_valid_sa(
+            base,
+            sa,
+            Some(cast_card),
+            crate::card::valid_filter::MatchContext::new(cast_card, game),
+        ) {
             return false;
         }
         properties
@@ -281,8 +285,8 @@ fn matches_valid_sa_on_card(
                     crate::spellability::matches_valid_sa(
                         &restriction,
                         sa,
-                        cast_card,
                         Some(cast_card),
+                        crate::card::valid_filter::MatchContext::new(cast_card, game),
                     )
                 } else {
                     let selector =

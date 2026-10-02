@@ -2635,12 +2635,11 @@ pub fn get_spells_from_play_effect(
                 let context =
                     valid_filter::MatchContext::new(source, game).with_spell_ability(play_sa);
                 if face.is_land()
-                    || !crate::spellability::valid_sa::matches_valid_sa_with_context(
+                    || !crate::spellability::valid_sa::matches_valid_sa(
                         filter,
                         &spell,
-                        source,
                         Some(face),
-                        Some(context),
+                        context,
                     )
                 {
                     return None;

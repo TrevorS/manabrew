@@ -36,7 +36,12 @@ pub fn with_toughness(game: &GameState, card: &Card, sa: Option<&SpellAbility>) 
                 let Some(sa) = sa else {
                     continue;
                 };
-                if !matches_valid_sa(valid_sa, sa, source, ability_host(&game.cards, sa)) {
+                if !matches_valid_sa(
+                    valid_sa,
+                    sa,
+                    ability_host(&game.cards, sa),
+                    crate::card::valid_filter::MatchContext::new(source, game),
+                ) {
                     continue;
                 }
             }
@@ -74,7 +79,12 @@ pub fn get_mod(game: &GameState, card: &Card, sa: Option<&SpellAbility>) -> i32 
                 let Some(sa) = sa else {
                     continue;
                 };
-                if !matches_valid_sa(valid_sa, sa, source, ability_host(&game.cards, sa)) {
+                if !matches_valid_sa(
+                    valid_sa,
+                    sa,
+                    ability_host(&game.cards, sa),
+                    crate::card::valid_filter::MatchContext::new(source, game),
+                ) {
                     continue;
                 }
             }

@@ -132,7 +132,7 @@ fn test_target_type_filter() {
 
     // Apply Spell filter - should only keep actual spells
     let valid_filtered =
-        target_restrictions::filter_spells_by_type(&game, PlayerId(0), &valid, "Spell");
+        target_restrictions::filter_spells_by_type(&game, PlayerId(0), None, &valid, "Spell");
     assert_eq!(
         valid_filtered.len(),
         1,
@@ -242,7 +242,7 @@ fn test_cancel_counters_creature_spell() {
 
     // Apply the TargetType$ filter - this should keep the creature spell
     let valid_filtered =
-        target_restrictions::filter_spells_by_type(&game, PlayerId(0), &valid, "Spell");
+        target_restrictions::filter_spells_by_type(&game, PlayerId(0), None, &valid, "Spell");
     assert_eq!(
         valid_filtered.len(),
         1,
@@ -327,7 +327,7 @@ fn test_cancel_counters_noncreature_spell() {
 
     // Apply the TargetType$ filter - this should keep the instant spell
     let valid_filtered =
-        target_restrictions::filter_spells_by_type(&game, PlayerId(0), &valid, "Spell");
+        target_restrictions::filter_spells_by_type(&game, PlayerId(0), None, &valid, "Spell");
     assert_eq!(
         valid_filtered.len(),
         1,
@@ -381,8 +381,13 @@ fn test_instant_sorcery_filter_excludes_enchantment_spells() {
     let all = target_restrictions::get_all_candidates_spells(&game);
     assert_eq!(all.len(), 2, "Both stack entries are spells");
 
-    let filtered =
-        target_restrictions::filter_spells_by_type(&game, PlayerId(0), &all, "Instant,Sorcery");
+    let filtered = target_restrictions::filter_spells_by_type(
+        &game,
+        PlayerId(0),
+        None,
+        &all,
+        "Instant,Sorcery",
+    );
     assert_eq!(
         filtered.len(),
         1,

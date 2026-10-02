@@ -244,15 +244,7 @@ impl WrappedAbility {
     }
 
     /// Mirrors Java's `WrappedAbility.isKeyword(Keyword)`.
-    /// Checks whether this ability's params contain a `Keyword$` entry
-    /// matching the given keyword.
     pub fn is_keyword(&self, kw: Keyword) -> bool {
-        self.wrapped
-            .param_value("Keyword")
-            .map(|v| {
-                let kw_str = format!("{kw:?}");
-                v.eq_ignore_ascii_case(&kw_str)
-            })
-            .unwrap_or(false)
+        self.wrapped.is_keyword(kw)
     }
 }

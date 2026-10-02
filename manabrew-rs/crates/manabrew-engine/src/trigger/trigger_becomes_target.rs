@@ -89,8 +89,8 @@ impl TriggerBehavior for TriggerBecomesTarget {
                 if !crate::spellability::matches_valid_sa(
                     &filter.as_raw(),
                     target_sa,
-                    host,
                     target_sa.source.map(|card| game.card(card)),
+                    crate::card::valid_filter::MatchContext::new(host, game),
                 ) {
                     return false;
                 }

@@ -46,8 +46,8 @@ pub fn can_replace(
             crate::spellability::matches_valid_sa(
                 valid,
                 sa,
-                source_card,
                 sa.source.map(|id| game.card(id)),
+                crate::card::valid_filter::MatchContext::new(source_card, game),
             )
         })
     })

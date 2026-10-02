@@ -113,8 +113,8 @@ pub fn can_replace_affected(
         if !crate::spellability::valid_sa::matches_valid_sa(
             valid_stack_sa,
             stack_sa,
-            source_card,
             stack_sa_host,
+            crate::card::valid_filter::MatchContext::new(source_card, game),
         ) {
             return false;
         }
