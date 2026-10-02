@@ -991,6 +991,30 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         targeting::choose_target_card(self, &live, player, valid, source, hostile, intent)
     }
 
+    fn choose_target_cards(
+        &mut self,
+        context: DecisionContext<'_>,
+        _player: PlayerId,
+        valid: &[CardId],
+        min: usize,
+        max: usize,
+        sa: &manabrew_engine::spellability::SpellAbility,
+    ) -> Vec<CardId> {
+        let live = Live::new(context);
+        let intent = crate::game_view_dto::targeting_intent_of(sa);
+        targeting::choose_board_targets_multi(
+            self,
+            &live,
+            valid,
+            min,
+            max,
+            crate::game_view_dto::intent_is_hostile(intent),
+            intent,
+            &intent.to_string(),
+            sa.source,
+        )
+    }
+
     fn choose_target_card_from_zone(
         &mut self,
         context: DecisionContext<'_>,

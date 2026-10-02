@@ -37,18 +37,21 @@ fn board_targets(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn choose_board_targets_multi<T: Responder>(
     agent: &mut PromptAgent<T>,
     live: &Live<'_>,
     valid: &[CardId],
+    min: usize,
+    max: usize,
+    hostile: bool,
     intent: TargetingIntent,
     label: &str,
     source: Option<CardId>,
 ) -> Vec<CardId> {
-    let total = valid.len() as i32;
     let mut remaining: Vec<CardId> = valid.to_vec();
     let mut chosen: Vec<CardId> = Vec::new();
-    while !remaining.is_empty() {
+    while !remaining.is_empty() && chosen.len() < max {
         let candidates: Vec<TargetRef> = PromptAgent::<T>::card_ids(&remaining)
             .into_iter()
             .map(target_ref_card)
@@ -64,10 +67,10 @@ pub(super) fn choose_board_targets_multi<T: Responder>(
                         targets: Vec::new(),
                     },
                     candidates,
-                    hostile: false,
+                    hostile,
                     intent,
-                    min_targets: 0,
-                    max_targets: total,
+                    min_targets: min as i32,
+                    max_targets: max as i32,
                     chosen_targets: chosen.len() as i32,
                     cancellable: agent.targeting_cancellable,
                 },
@@ -86,7 +89,7 @@ pub(super) fn choose_board_targets_multi<T: Responder>(
                 for r in picked {
                     if r.kind == TargetKind::Card {
                         if let Some(cid) = parse_card_id(&r.id) {
-                            if remaining.contains(&cid) {
+                            if remaining.contains(&cid) && chosen.len() < max {
                                 remaining.retain(|c| *c != cid);
                                 chosen.push(cid);
                                 advanced = true;
