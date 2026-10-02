@@ -6,6 +6,8 @@ use manabrew_engine::game::GameState;
 use manabrew_engine::ids::{CardId, PlayerId};
 use manabrew_engine::replacement::replace_damage;
 use manabrew_engine::replacement::replacement_handler::ReplacementEvent;
+use manabrew_engine::spellability::SpellAbility;
+use manabrew_engine::staticability::static_ability_cant_be_cast::cant_be_cast_ability;
 
 const BEAR: &str = "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:";
 const AURA: &str =
@@ -70,4 +72,24 @@ fn enchanted_being_prevents_combat_damage_from_enchanted_creatures_only() {
     let aura = put(&mut game, AURA, p1, ZoneType::Battlefield);
     game.attach_to(aura, attacker);
     assert!(prevents(&game));
+}
+
+const EXCLUSION_RITUAL: &str = "Name:Exclusion Ritual\nManaCost:4 W W\nTypes:Enchantment\nS:Mode$ CantBeCast | ValidCard$ Card.sharesNameWith Imprinted | Description$ Players can't cast spells with the same name as the exiled card.\nOracle:";
+
+#[test]
+fn exclusion_ritual_stops_spells_named_like_the_exiled_card() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let ritual = put(&mut game, EXCLUSION_RITUAL, p0, ZoneType::Battlefield);
+    let exiled = put(&mut game, BEAR, p1, ZoneType::Exile);
+    game.card_mut(ritual).imprinted_cards.push(exiled);
+    let bear = put(&mut game, BEAR, p1, ZoneType::Hand);
+    let aura = put(&mut game, AURA, p1, ZoneType::Hand);
+    let cant_cast = |game: &GameState, card: CardId| {
+        let spell = SpellAbility::new_simple(Some(card), p1, "");
+        cant_be_cast_ability(game, &spell, game.card(card), p1)
+    };
+
+    assert!(cant_cast(&game, bear));
+    assert!(!cant_cast(&game, aura));
 }
