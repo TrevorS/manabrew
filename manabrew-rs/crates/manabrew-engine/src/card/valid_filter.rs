@@ -1787,10 +1787,7 @@ fn matches_numeric_comparison(
             };
             chosen
         }
-        _ => match resolve_selector_operand(threshold, context) {
-            Some(threshold) => threshold,
-            None => return true,
-        },
+        _ => resolve_selector_operand(threshold, context).unwrap_or(0),
     };
     let Some(value) = resolve_numeric_property(property, card, context) else {
         return true;
@@ -1836,9 +1833,7 @@ fn matches_counter_comparison(
     card: &Card,
     context: MatchContext<'_>,
 ) -> bool {
-    let Some(threshold) = resolve_selector_operand(threshold, context) else {
-        return true;
-    };
+    let threshold = resolve_selector_operand(threshold, context).unwrap_or(0);
     use crate::ability::effects::parse_counter_type;
     let counter_type = parse_counter_type(counter_type);
     let count = card.counter_count(&counter_type);
@@ -1861,20 +1856,19 @@ fn resolve_selector_operand(
             if let Ok(parsed) = value.trim().parse::<i32>() {
                 return Some(parsed);
             }
-            if value == "TriggeredCard$CardManaCost" {
-                let game = context.game;
-                let card = context.triggering_card?;
-                return Some(game.card(card).mana_value());
-            }
-            if value == "TriggeredCard$CardPower" {
-                let game = context.game;
-                let card = context.triggering_card?;
-                return Some(crate::lki::resolve_lki_power(game, card));
-            }
-            if value == "TriggeredCard$CardToughness" {
-                let game = context.game;
-                let card = context.triggering_card?;
-                return Some(crate::lki::resolve_lki_toughness(game, card));
+            if let Some(card) = context.triggering_card {
+                match value {
+                    "TriggeredCard$CardManaCost" => {
+                        return Some(context.game.card(card).mana_value());
+                    }
+                    "TriggeredCard$CardPower" => {
+                        return Some(crate::lki::resolve_lki_power(context.game, card));
+                    }
+                    "TriggeredCard$CardToughness" => {
+                        return Some(crate::lki::resolve_lki_toughness(context.game, card));
+                    }
+                    _ => {}
+                }
             }
             if value == "Count$CardPower" {
                 return Some(context.source_card.power());
@@ -2338,10 +2332,10 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
             if value_lower.starts_with("cmc") {
                 let original_rest = &value[3..];
                 check_cmc_condition_with_context(original_rest, card, Some(context))
-            } else if let Some(rest) = value_lower.strip_prefix("power") {
-                check_power_condition(rest, card)
-            } else if let Some(rest) = value_lower.strip_prefix("toughness") {
-                check_toughness_condition(rest, card)
+            } else if value_lower.starts_with("power") {
+                check_power_condition(&value["power".len()..], card, context)
+            } else if value_lower.starts_with("toughness") {
+                check_toughness_condition(&value["toughness".len()..], card, context)
             } else if value_lower.starts_with("totalpt_") {
                 crate::parsing::compare::compare_expr(card.power() + card.toughness(), &value[8..])
             } else if let Some(color) = Color::from_name(&value_lower) {
@@ -3015,14 +3009,12 @@ fn matches_type_and_qualifier_parts(
                         if !check_cmc_condition_with_context(original_rest, card, Some(context)) {
                             return false;
                         }
-                    } else if let Some(rest) = sub_lower.strip_prefix("power") {
-                        // Power comparisons: powerLE2, powerGE3, etc.
-                        if !check_power_condition(rest, card) {
+                    } else if sub_lower.starts_with("power") {
+                        if !check_power_condition(&sub["power".len()..], card, context) {
                             return false;
                         }
-                    } else if let Some(rest) = sub_lower.strip_prefix("toughness") {
-                        // Toughness comparisons: toughnessLE2, toughnessGE3, etc.
-                        if !check_toughness_condition(rest, card) {
+                    } else if sub_lower.starts_with("toughness") {
+                        if !check_toughness_condition(&sub["toughness".len()..], card, context) {
                             return false;
                         }
                     } else if sub_lower.starts_with("totalpt_") {
@@ -3344,33 +3336,7 @@ pub(crate) fn check_cmc_condition_with_context(
     let cmc = context
         .map(|ctx| effective_mana_value(card, ctx))
         .unwrap_or_else(|| card.mana_value());
-    let lower = rest.to_ascii_lowercase();
-    if lower.starts_with("eq") {
-        if let Some(n) = parse_cmc_threshold(&rest[2..], context) {
-            return cmc == n;
-        }
-    } else if lower.starts_with("le") {
-        if let Some(n) = parse_cmc_threshold(&rest[2..], context) {
-            return cmc <= n;
-        }
-    } else if lower.starts_with("ge") {
-        if let Some(n) = parse_cmc_threshold(&rest[2..], context) {
-            return cmc >= n;
-        }
-    } else if lower.starts_with("lt") {
-        if let Some(n) = parse_cmc_threshold(&rest[2..], context) {
-            return cmc < n;
-        }
-    } else if lower.starts_with("gt") {
-        if let Some(n) = parse_cmc_threshold(&rest[2..], context) {
-            return cmc > n;
-        }
-    } else if lower.starts_with("ne") {
-        if let Some(n) = parse_cmc_threshold(&rest[2..], context) {
-            return cmc != n;
-        }
-    }
-    true // fallback: unknown format passes
+    compare_raw_operand(cmc, rest, context)
 }
 
 fn paid_x(sa: &crate::spellability::SpellAbility, context: MatchContext<'_>) -> i32 {
@@ -3411,72 +3377,40 @@ fn parse_cmc_threshold(value: &str, context: Option<MatchContext<'_>>) -> Option
     if let Ok(n) = raw.trim().parse::<i32>() {
         return Some(n);
     }
-    if raw.starts_with("Count$") || raw.starts_with("PlayerCount") {
-        return resolve_operand_expression(raw, context);
-    }
-    None
+    resolve_operand_expression(raw, context)
 }
 
 /// Check a power condition like "LE2", "GE3", "EQ0".
-fn check_power_condition(rest: &str, card: &Card) -> bool {
-    let power = card.power();
-    if let Some(num_str) = rest.strip_prefix("eq") {
-        if let Ok(n) = num_str.parse::<i32>() {
-            return power == n;
-        }
-    } else if let Some(num_str) = rest.strip_prefix("le") {
-        if let Ok(n) = num_str.parse::<i32>() {
-            return power <= n;
-        }
-    } else if let Some(num_str) = rest.strip_prefix("ge") {
-        if let Ok(n) = num_str.parse::<i32>() {
-            return power >= n;
-        }
-    } else if let Some(num_str) = rest.strip_prefix("lt") {
-        if let Ok(n) = num_str.parse::<i32>() {
-            return power < n;
-        }
-    } else if let Some(num_str) = rest.strip_prefix("gt") {
-        if let Ok(n) = num_str.parse::<i32>() {
-            return power > n;
-        }
-    } else if let Some(num_str) = rest.strip_prefix("ne") {
-        if let Ok(n) = num_str.parse::<i32>() {
-            return power != n;
-        }
-    }
-    true // fallback: unknown format passes
+fn check_power_condition(rest: &str, card: &Card, context: MatchContext<'_>) -> bool {
+    compare_raw_operand(card.power(), rest, Some(context))
 }
 
 /// Check a toughness condition like "LE2", "GE3", "EQ0".
-fn check_toughness_condition(rest: &str, card: &Card) -> bool {
-    let toughness = card.toughness();
-    if let Some(num_str) = rest.strip_prefix("eq") {
-        if let Ok(n) = num_str.parse::<i32>() {
-            return toughness == n;
-        }
-    } else if let Some(num_str) = rest.strip_prefix("le") {
-        if let Ok(n) = num_str.parse::<i32>() {
-            return toughness <= n;
-        }
-    } else if let Some(num_str) = rest.strip_prefix("ge") {
-        if let Ok(n) = num_str.parse::<i32>() {
-            return toughness >= n;
-        }
-    } else if let Some(num_str) = rest.strip_prefix("lt") {
-        if let Ok(n) = num_str.parse::<i32>() {
-            return toughness < n;
-        }
-    } else if let Some(num_str) = rest.strip_prefix("gt") {
-        if let Ok(n) = num_str.parse::<i32>() {
-            return toughness > n;
-        }
-    } else if let Some(num_str) = rest.strip_prefix("ne") {
-        if let Ok(n) = num_str.parse::<i32>() {
-            return toughness != n;
-        }
-    }
-    true // fallback: unknown format passes
+fn check_toughness_condition(rest: &str, card: &Card, context: MatchContext<'_>) -> bool {
+    compare_raw_operand(card.toughness(), rest, Some(context))
+}
+
+/// Java `CardProperty` compares against `AbilityUtils.calculateAmount` of the rest, which is 0
+/// for an amount it cannot read.
+fn compare_raw_operand(actual: i32, rest: &str, context: Option<MatchContext<'_>>) -> bool {
+    let operator = match rest.get(..2).map(str::to_ascii_lowercase).as_deref() {
+        Some("eq") => SelectorCompareOperator::Eq,
+        Some("ne") => SelectorCompareOperator::Ne,
+        Some("lt") => SelectorCompareOperator::Lt,
+        Some("le") => SelectorCompareOperator::Le,
+        Some("gt") => SelectorCompareOperator::Gt,
+        Some("ge") => SelectorCompareOperator::Ge,
+        _ => return false,
+    };
+    let operand = &rest[2..];
+    let amount = parse_cmc_threshold(operand, context)
+        .or_else(|| {
+            context
+                .filter(|_| operand.contains('$'))
+                .and_then(|context| resolve_operand_expression(operand, context))
+        })
+        .unwrap_or(0);
+    compare_selector_value(actual, operator, amount)
 }
 
 // ── Common requirement checks ───────────────────────────────────────────────

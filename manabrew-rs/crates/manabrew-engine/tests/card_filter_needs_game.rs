@@ -161,3 +161,49 @@ fn a_return_trigger_has_candidates_only_within_the_dead_creatures_power() {
     put(&mut game, OGRE, p0, ZoneType::Graveyard);
     assert!(has_candidates(&game));
 }
+
+const LAND: &str = "Name:Wastes\nManaCost:no cost\nTypes:Basic Land\nOracle:";
+
+#[test]
+fn an_operand_that_cannot_be_read_compares_against_zero() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let host = put(&mut game, OGRE, p0, ZoneType::Battlefield);
+    let bear = put(&mut game, BEAR, p0, ZoneType::Battlefield);
+    let land = put(&mut game, LAND, p0, ZoneType::Battlefield);
+    let cmc_x = |game: &GameState, card: CardId| {
+        matches_valid(
+            "Card.cmcEQX",
+            Some(game.card(card)),
+            None,
+            game.card(host),
+            p0,
+            game,
+        )
+    };
+
+    assert!(!cmc_x(&game, bear));
+    assert!(cmc_x(&game, land));
+}
+
+#[test]
+fn an_inline_amount_is_evaluated() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let host = put(&mut game, GIANT, p0, ZoneType::Battlefield);
+    let bear = put(&mut game, BEAR, p0, ZoneType::Battlefield);
+    let giant = put(&mut game, GIANT, p0, ZoneType::Battlefield);
+    let smaller = |game: &GameState, card: CardId| {
+        matches_valid(
+            "Creature.powerLTCount$CardPower",
+            Some(game.card(card)),
+            None,
+            game.card(host),
+            p0,
+            game,
+        )
+    };
+
+    assert!(smaller(&game, bear));
+    assert!(!smaller(&game, giant));
+}
