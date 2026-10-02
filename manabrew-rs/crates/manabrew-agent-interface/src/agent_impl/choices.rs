@@ -1060,6 +1060,18 @@ pub(super) fn choose_cards_for_effect<T: Responder>(
     min: usize,
     max: usize,
 ) -> Vec<CardId> {
+    choose_cards(agent, live, valid, min, max, "Choose cards", None)
+}
+
+pub(super) fn choose_cards<T: Responder>(
+    agent: &mut PromptAgent<T>,
+    live: &Live<'_>,
+    valid: &[CardId],
+    min: usize,
+    max: usize,
+    title: &str,
+    source: Option<CardId>,
+) -> Vec<CardId> {
     if valid.is_empty() {
         return Vec::new();
     }
@@ -1067,12 +1079,12 @@ pub(super) fn choose_cards_for_effect<T: Responder>(
     agent.send_prompt(
         live,
         PromptInput::ChooseCards(manabrew_protocol::prompts::choose_cards::ChooseCardsInput {
-            presentation: card_choice_presentation("Choose cards", None),
+            presentation: card_choice_presentation(title, None),
             cards,
             min,
             max,
         }),
-        None,
+        source,
     );
     match agent.recv_action(live) {
         PromptOutput::ChooseCards(ChooseCardsOutput::ChooseCardsDecision { chosen_card_ids }) => {

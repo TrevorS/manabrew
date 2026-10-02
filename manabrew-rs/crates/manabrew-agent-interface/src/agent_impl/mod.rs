@@ -1464,6 +1464,28 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
         choices::choose_cards_for_effect(self, &live, player, valid, min, max)
     }
 
+    fn choose_tap_type_for_cost(
+        &mut self,
+        context: DecisionContext<'_>,
+        _player: PlayerId,
+        valid: &[CardId],
+        min_total_power: i32,
+        _card_powers: &[(CardId, i32)],
+        _card_sort_powers: &[(CardId, i32)],
+        sa: Option<&manabrew_engine::spellability::SpellAbility>,
+    ) -> Vec<CardId> {
+        let live = Live::new(context);
+        choices::choose_cards(
+            self,
+            &live,
+            valid,
+            1,
+            valid.len(),
+            &format!("Tap cards with total power {min_total_power} or more"),
+            sa.and_then(|sa| sa.source),
+        )
+    }
+
     fn choose_single_card_for_zone_change(
         &mut self,
         game: &GameState,
