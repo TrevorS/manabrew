@@ -143,15 +143,23 @@ pub fn is_valid(
     sa: &SpellAbility,
 ) -> bool {
     restriction.alternatives.iter().any(|alternative| {
-        alternative
-            .parts
-            .iter()
-            .map(|part| part.value.as_str())
-            .filter(|part| {
-                !part.eq_ignore_ascii_case("Player") && !part.eq_ignore_ascii_case("Any")
-            })
-            .all(|property| {
-                player_has_property(player, property, game, source_id, source_controller, sa)
+        let restriction = alternative.raw.trim();
+        let (head, properties) = match restriction.split_once('.') {
+            Some((head, properties)) => (head, Some(properties)),
+            None => (restriction, None),
+        };
+        let head_matches = match head {
+            "Opponent" | "You" => {
+                player_has_property(player, head, game, source_id, source_controller, sa)
+            }
+            "Any" | "Player" => true,
+            _ => false,
+        };
+        head_matches
+            && properties.is_none_or(|properties| {
+                properties.split('+').all(|property| {
+                    player_has_property(player, property, game, source_id, source_controller, sa)
+                })
             })
     })
 }

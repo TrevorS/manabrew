@@ -867,7 +867,7 @@ pub fn resolve_defined_players_with_sa(
             && key.parse::<DefinedPlayerToken>().is_err()
             && sa.source.is_some() =>
         {
-            let selector = crate::parsing::cached_compiled_selector(defined);
+            let selector = crate::parsing::cached_compiled_selector(&player_restrictions(key));
             let source_id = sa.source.expect("checked above");
             game.alive_players()
                 .into_iter()
@@ -882,7 +882,7 @@ pub fn resolve_defined_players_with_sa(
         // (`AbilityUtils.getDefinedPlayers`, `incR = changedDef.split("\\.", 2)`).
         _ if key.contains('.') && sa.source.is_some() => {
             let (head, props) = key.split_once('.').expect("checked above");
-            let selector = crate::parsing::cached_compiled_selector(&format!("Player.{props}"));
+            let selector = crate::parsing::cached_compiled_selector(&player_restrictions(props));
             let source_id = sa.source.expect("checked above");
             resolve_defined_players_with_sa(head, sa, controller, game)
                 .into_iter()
@@ -895,6 +895,16 @@ pub fn resolve_defined_players_with_sa(
         }
         _ => resolve_defined_players(key, controller, game),
     }
+}
+
+/// `AbilityUtils.getDefinedPlayers` splits the rest of a defined at its commas and filters with
+/// each part as a `Player.` restriction of its own.
+fn player_restrictions(props: &str) -> String {
+    props
+        .split(',')
+        .map(|prop| format!("Player.{prop}"))
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 /// Resolve a `Defined$` parameter to spell abilities.
