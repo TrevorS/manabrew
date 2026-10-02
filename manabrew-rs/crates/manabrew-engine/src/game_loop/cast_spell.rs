@@ -2120,17 +2120,21 @@ impl GameLoop {
         } else {
             None
         };
-        let prechosen_spell_beholds = if let Some(ref sc) = spell_cost {
-            Self::prechoose_additional_cost_beholds(
-                game,
-                agents,
-                &self.mana_pools,
-                player,
-                card_id,
-                sc,
-            )
-        } else {
-            None
+        let prechosen_spell_beholds = match spell_cost {
+            Some(ref sc) if !Self::behold_decided_at_payment(game, sc) => {
+                match Self::prechoose_additional_cost_beholds(
+                    game,
+                    agents,
+                    &self.mana_pools,
+                    player,
+                    card_id,
+                    sc,
+                ) {
+                    Some(picks) => Some(picks),
+                    None => rollback_failed_payment!(),
+                }
+            }
+            _ => None,
         };
         let prechosen_spell_evidence = if let Some(ref sc) = spell_cost {
             match Self::prechoose_additional_cost_evidence(
@@ -2181,29 +2185,37 @@ impl GameLoop {
             }
             _ => None,
         };
-        let prechosen_raise_beholds = if let Some(ref rc) = raise_cost {
-            Self::prechoose_additional_cost_beholds(
-                game,
-                agents,
-                &self.mana_pools,
-                player,
-                card_id,
-                rc,
-            )
-        } else {
-            None
+        let prechosen_raise_beholds = match raise_cost {
+            Some(ref rc) if !Self::behold_decided_at_payment(game, rc) => {
+                match Self::prechoose_additional_cost_beholds(
+                    game,
+                    agents,
+                    &self.mana_pools,
+                    player,
+                    card_id,
+                    rc,
+                ) {
+                    Some(picks) => Some(picks),
+                    None => rollback_failed_payment!(),
+                }
+            }
+            _ => None,
         };
-        let prechosen_flashback_beholds = if let Some(ref fb_cost) = flashback_total_cost {
-            Self::prechoose_additional_cost_beholds(
-                game,
-                agents,
-                &self.mana_pools,
-                player,
-                card_id,
-                fb_cost,
-            )
-        } else {
-            None
+        let prechosen_flashback_beholds = match flashback_total_cost {
+            Some(ref fb_cost) if !Self::behold_decided_at_payment(game, fb_cost) => {
+                match Self::prechoose_additional_cost_beholds(
+                    game,
+                    agents,
+                    &self.mana_pools,
+                    player,
+                    card_id,
+                    fb_cost,
+                ) {
+                    Some(picks) => Some(picks),
+                    None => rollback_failed_payment!(),
+                }
+            }
+            _ => None,
         };
         let prechosen_static_alt_sacrifices = if let Some(ref cost) = static_alt_cost {
             match self.prechoose_additional_cost_sacrifices(game, agents, player, cost, Some(&sa)) {

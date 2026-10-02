@@ -1704,7 +1704,7 @@ impl GameLoop {
                     exile,
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
-                    self.pay_behold_cost(
+                    if !self.pay_behold_cost(
                         game,
                         agents,
                         player,
@@ -1713,7 +1713,10 @@ impl GameLoop {
                         resolved_amount,
                         *exile,
                         None,
-                    );
+                    ) {
+                        payment_ok = false;
+                        break;
+                    }
                 }
                 CostPart::Blight(amount) => {
                     let resolved_amount = amount.resolve(game, card_id, player);
@@ -2590,7 +2593,7 @@ impl GameLoop {
                         pre_behold_idx += take;
                         slice.to_vec()
                     });
-                    self.pay_behold_cost(
+                    if !self.pay_behold_cost(
                         game,
                         agents,
                         player,
@@ -2599,7 +2602,10 @@ impl GameLoop {
                         resolved_amount,
                         *exile,
                         prechosen.as_deref(),
-                    );
+                    ) {
+                        payment_ok = false;
+                        break;
+                    }
                 }
                 CostPart::Blight(amount) => {
                     let resolved_amount = amount.resolve(game, card_id, player);
@@ -2810,7 +2816,7 @@ impl GameLoop {
         Some(picked)
     }
 
-    pub(crate) fn prechoose_additional_cost_beholds(
+    pub fn prechoose_additional_cost_beholds(
         game: &GameState,
         agents: &mut [Box<dyn PlayerAgent>],
         mana_pools: &[ManaPool],
@@ -2835,10 +2841,22 @@ impl GameLoop {
                     source,
                     &type_filter,
                     resolved,
-                ));
+                )?);
             }
         }
         Some(picked)
+    }
+
+    /// A Behold whose type is chosen by an earlier part of the same cost is decided when it is
+    /// paid, after that part sets the type, as Forge pays a cost part by part. The parity
+    /// harness decides every part first (`HarnessCostPlumbing`), before `payAsDecided` sets the
+    /// type, so under `mirror_forge_bugs` with the ComputerUtilMana probe it is decided up front.
+    pub fn behold_decided_at_payment(game: &GameState, cost: &crate::cost::Cost) -> bool {
+        !(game.mirror_forge_bugs
+            && game.action_space_mana_probe == crate::mana::ActionSpaceManaProbe::ComputerUtilMana)
+            && cost.parts.iter().any(|part| {
+                matches!(part, CostPart::Behold { type_filter, .. } if type_filter.ends_with("ChosenType"))
+            })
     }
 
     pub(crate) fn prechoose_additional_cost_evidence(
@@ -4178,10 +4196,10 @@ impl GameLoop {
         amount: i32,
         exile: bool,
         prechosen: Option<&[CardId]>,
-    ) {
+    ) -> bool {
         let chosen_cards = match prechosen {
             Some(picks) => picks.to_vec(),
-            None => Self::choose_behold_cards(
+            None => match Self::choose_behold_cards(
                 game,
                 agents,
                 &self.mana_pools,
@@ -4189,12 +4207,19 @@ impl GameLoop {
                 source,
                 type_filter,
                 amount,
-            ),
+            ) {
+                Some(picks) => picks,
+                None => return false,
+            },
         };
         self.apply_behold_cost(game, agents, source, exile, chosen_cards);
+        true
     }
 
-    pub(crate) fn choose_behold_cards(
+    /// The harness's Behold decision (`HarnessCostPlumbing`, Java's `getValidCards` over hand and
+    /// battlefield): no decision when fewer cards than the amount qualify, and a ChosenType behold
+    /// first picks one card, then the amount among the cards sharing a creature type with it.
+    pub fn choose_behold_cards(
         game: &GameState,
         agents: &mut [Box<dyn PlayerAgent>],
         mana_pools: &[ManaPool],
@@ -4202,36 +4227,30 @@ impl GameLoop {
         source: CardId,
         type_filter: &str,
         amount: i32,
-    ) -> Vec<CardId> {
-        let build_pool = |game: &GameState| -> Vec<CardId> {
-            let mut valid: Vec<CardId> = game
-                .cards_in_zone(ZoneType::Hand, player)
-                .iter()
-                .chain(game.cards_in_zone(ZoneType::Battlefield, player).iter())
-                .copied()
-                .collect();
-            valid.retain(|&cid| {
-                if cid == source {
-                    return false;
-                }
-                type_filter == "Card"
-                    || type_filter.is_empty()
-                    || crate::ability::effects::matches_change_type(
-                        game.card(cid),
-                        type_filter,
-                        &[],
-                    )
-            });
-            valid
-        };
-
-        if type_filter.ends_with("ChosenType") {
-            // Java two-phase approach: pick 1 first, then pick `amount` from
-            // cards sharing a creature type with the first pick.
-            let pool = build_pool(game);
-            if pool.is_empty() {
-                return Vec::new();
-            }
+    ) -> Option<Vec<CardId>> {
+        let amount = amount.max(0) as usize;
+        let source_card = game.card(source);
+        let pool: Vec<CardId> = game
+            .cards_in_zone(ZoneType::Hand, player)
+            .iter()
+            .chain(game.cards_in_zone(ZoneType::Battlefield, player).iter())
+            .copied()
+            .filter(|&cid| {
+                cid != source
+                    && type_filter.split(';').any(|alternative| {
+                        crate::card::valid_filter::matches_valid_card_in_game(
+                            alternative.trim(),
+                            game.card(cid),
+                            source_card,
+                            game,
+                        )
+                    })
+            })
+            .collect();
+        if pool.len() < amount {
+            return None;
+        }
+        let candidates = if type_filter.ends_with("ChosenType") {
             let first_pick = agents[player.index()].choose_cards_for_effect(
                 DecisionContext::new(game, mana_pools),
                 player,
@@ -4239,38 +4258,26 @@ impl GameLoop {
                 1,
                 1,
             );
-            if first_pick.is_empty() {
-                return Vec::new();
-            }
-            let first = first_pick[0];
+            let &first = first_pick.first()?;
             let same_type: Vec<CardId> = pool
                 .into_iter()
                 .filter(|&cid| shares_creature_type(game, first, cid))
                 .collect();
-            if (same_type.len() as i32) < amount {
-                return Vec::new();
+            if same_type.len() < amount {
+                return None;
             }
-            agents[player.index()].choose_cards_for_effect(
-                DecisionContext::new(game, mana_pools),
-                player,
-                &same_type,
-                amount as usize,
-                amount as usize,
-            )
+            same_type
         } else {
-            // Non-ChosenType: pick `amount` cards at once.
-            let pool = build_pool(game);
-            if pool.is_empty() {
-                return Vec::new();
-            }
-            agents[player.index()].choose_cards_for_effect(
-                DecisionContext::new(game, mana_pools),
-                player,
-                &pool,
-                amount as usize,
-                amount as usize,
-            )
-        }
+            pool
+        };
+        let chosen = agents[player.index()].choose_cards_for_effect(
+            DecisionContext::new(game, mana_pools),
+            player,
+            &candidates,
+            amount,
+            amount,
+        );
+        (chosen.len() >= amount).then_some(chosen)
     }
 
     fn apply_behold_cost(

@@ -1702,4 +1702,79 @@ mod tests {
         assert!(game.cards_in_zone(ZoneType::Hand, p0).contains(&card_id));
         let _ = p1;
     }
+
+    fn creature(owner: PlayerId, name: &str, type_line: &str) -> Card {
+        Card::new(
+            CardId(0),
+            name.to_string(),
+            owner,
+            CardTypeLine::parse(type_line),
+            ManaCost::parse("1 G"),
+            ColorSet::GREEN,
+            Some(1),
+            Some(1),
+            vec![],
+            vec![],
+        )
+    }
+
+    fn pass_agents() -> Vec<Box<dyn PlayerAgent>> {
+        (0..2)
+            .map(|_| {
+                Box::new(RecordingPassAgent::new(
+                    Arc::new(Mutex::new(Vec::new())),
+                    Arc::new(AtomicBool::new(false)),
+                )) as Box<dyn PlayerAgent>
+            })
+            .collect()
+    }
+
+    fn reunion_board(elves: usize) -> (GameState, CardId) {
+        let p0 = PlayerId(0);
+        let mut game = GameState::new(&["A", "B"], 20);
+        let reunion = game.create_card(Card::new(
+            CardId(0),
+            "Celestial Reunion".to_string(),
+            p0,
+            CardTypeLine::parse("Sorcery"),
+            ManaCost::parse("X G"),
+            ColorSet::GREEN,
+            None,
+            None,
+            vec![],
+            vec![],
+        ));
+        game.move_card(reunion, ZoneType::Hand, p0);
+        for _ in 0..elves {
+            let elf = game.create_card(creature(p0, "Llanowar Elves", "Creature - Elf Druid"));
+            game.move_card(elf, ZoneType::Battlefield, p0);
+        }
+        let goblin = game.create_card(creature(p0, "Goblin Guide", "Creature - Goblin Scout"));
+        game.move_card(goblin, ZoneType::Battlefield, p0);
+        (game, reunion)
+    }
+
+    #[test]
+    fn the_parity_harness_decides_a_chosen_type_behold_before_the_type_is_set() {
+        let p0 = PlayerId(0);
+        let (mut game, reunion) = reunion_board(2);
+        let cost = crate::cost::parse_cost("ChooseCreatureType<1> Behold<2/Creature.ChosenType>");
+        let mut agents = pass_agents();
+        let pools = vec![ManaPool::default(), ManaPool::default()];
+
+        assert!(GameLoop::behold_decided_at_payment(&game, &cost));
+
+        game.mirror_forge_bugs = true;
+        game.action_space_mana_probe = crate::mana::ActionSpaceManaProbe::ComputerUtilMana;
+        assert!(!GameLoop::behold_decided_at_payment(&game, &cost));
+        assert!(GameLoop::prechoose_additional_cost_beholds(
+            &game,
+            &mut agents,
+            &pools,
+            p0,
+            reunion,
+            &cost,
+        )
+        .is_none());
+    }
 }
