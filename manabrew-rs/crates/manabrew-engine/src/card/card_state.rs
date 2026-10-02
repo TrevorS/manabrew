@@ -802,7 +802,7 @@ pub fn add_abilities_from(source: &Card, target: &mut Card) {
 }
 
 pub fn has_property(card: &Card, property: &str) -> bool {
-    card_property::card_has_property(card, property, card.controller)
+    card_property::card_has_property_without_game(card, property, card.controller)
 }
 
 pub fn reset_original_host(card: &mut Card) {

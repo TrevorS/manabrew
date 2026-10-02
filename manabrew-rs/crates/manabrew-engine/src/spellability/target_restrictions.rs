@@ -1110,7 +1110,9 @@ pub fn get_all_candidates_creature_filtered(
         None => all,
         Some(f) => all
             .into_iter()
-            .filter(|&cid| card_property::card_has_property(game.card(cid), f, source_controller))
+            .filter(|&cid| {
+                card_property::card_has_property_without_game(game.card(cid), f, source_controller)
+            })
             .collect(),
     }
 }
@@ -1163,7 +1165,9 @@ pub fn get_all_battlefield_permanents_filtered(
         None => all,
         Some(f) => all
             .into_iter()
-            .filter(|&cid| card_property::card_has_property(game.card(cid), f, source_controller))
+            .filter(|&cid| {
+                card_property::card_has_property_without_game(game.card(cid), f, source_controller)
+            })
             .collect(),
     }
 }
@@ -1203,7 +1207,11 @@ fn filter_card_candidates_for_restrictions(
             Some(f) => candidates
                 .into_iter()
                 .filter(|&cid| {
-                    card_property::card_has_property(game.card(cid), f, source_controller)
+                    card_property::card_has_property_without_game(
+                        game.card(cid),
+                        f,
+                        source_controller,
+                    )
                 })
                 .collect(),
         };
@@ -1360,7 +1368,11 @@ pub fn get_valid_cards_in_zone(
                 .filter(|&cid| !is_other_filter_self_hit(Some(f), source_card, cid))
                 .filter(|&cid| {
                     clauses.iter().any(|clause| {
-                        card_property::card_has_property(game.card(cid), clause, player)
+                        card_property::card_has_property_without_game(
+                            game.card(cid),
+                            clause,
+                            player,
+                        )
                     })
                 })
                 .collect()
@@ -1429,7 +1441,11 @@ fn get_valid_cards_in_zone_for_restrictions(
                     .filter(|&cid| !is_other_filter_self_hit(Some(f), source_card, cid))
                     .filter(|&cid| {
                         clauses.iter().any(|clause| {
-                            card_property::card_has_property(game.card(cid), clause, player)
+                            card_property::card_has_property_without_game(
+                                game.card(cid),
+                                clause,
+                                player,
+                            )
                         })
                     })
                     .collect()
@@ -1524,7 +1540,11 @@ pub fn get_all_candidates_any_filtered(
                 if token_allows_player_targets(token) {
                     return false;
                 }
-                card_property::card_has_property(game.card(cid), token, source_controller)
+                card_property::card_has_property_without_game(
+                    game.card(cid),
+                    token,
+                    source_controller,
+                )
             }) {
                 candidates.push(cid);
             }
@@ -1557,7 +1577,11 @@ pub fn get_all_candidates_any_filtered_for_restrictions(
                     if token_allows_player_targets(token) {
                         return false;
                     }
-                    card_property::card_has_property(game.card(cid), token, source_controller)
+                    card_property::card_has_property_without_game(
+                        game.card(cid),
+                        token,
+                        source_controller,
+                    )
                 })
             })
             .collect();
