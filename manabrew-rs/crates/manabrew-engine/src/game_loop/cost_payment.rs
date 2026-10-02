@@ -3404,10 +3404,13 @@ impl GameLoop {
                     !chosen.contains(&cid)
                         && (base_filter == "Card"
                             || base_filter.is_empty()
-                            || crate::ability::effects::matches_change_type(
+                            || crate::cost::is_valid_cost_card(
+                                game,
                                 game.card(cid),
                                 &base_filter,
-                                &[],
+                                game.card(source),
+                                player,
+                                None,
                             ))
                         && can_exile_for_cost(game, cid)
                 })
@@ -3456,10 +3459,13 @@ impl GameLoop {
                     }
                     (base_filter == "Card"
                         || base_filter.is_empty()
-                        || crate::ability::effects::matches_change_type(
+                        || crate::cost::is_valid_cost_card(
+                            game,
                             game.card(cid),
                             &base_filter,
-                            &[],
+                            game.card(source),
+                            player,
+                            None,
                         ))
                         && can_exile_for_cost(game, cid)
                 })
@@ -4000,10 +4006,13 @@ impl GameLoop {
                         }
                         type_filter == "Card"
                             || type_filter.is_empty()
-                            || crate::ability::effects::matches_change_type(
+                            || crate::cost::is_valid_cost_card(
+                                game,
                                 game.card(cid),
                                 type_filter,
-                                &[],
+                                game.card(source),
+                                player,
+                                None,
                             )
                     })
                     .collect()
@@ -4072,7 +4081,14 @@ impl GameLoop {
                 .iter()
                 .copied()
                 .filter(|&cid| {
-                    crate::ability::effects::matches_change_type(game.card(cid), type_filter, &[])
+                    crate::cost::is_valid_cost_card(
+                        game,
+                        game.card(cid),
+                        type_filter,
+                        game.card(source),
+                        player,
+                        None,
+                    )
                 })
                 .collect();
             if valid.is_empty() {
@@ -4115,10 +4131,13 @@ impl GameLoop {
                 .filter(|&cid| {
                     type_filter.eq_ignore_ascii_case("Creature")
                         || type_filter.is_empty()
-                        || crate::ability::effects::matches_change_type(
+                        || crate::cost::is_valid_cost_card(
+                            game,
                             game.card(cid),
                             type_filter,
-                            &[],
+                            game.card(source),
+                            player,
+                            None,
                         )
                 })
                 .collect();
@@ -4742,7 +4761,14 @@ impl GameLoop {
                     let stun = crate::card::CounterType::Named("STUN".to_string());
                     (type_filter == "Card"
                         || type_filter.is_empty()
-                        || crate::ability::effects::matches_change_type(c, type_filter, &[]))
+                        || crate::cost::is_valid_cost_card(
+                            game,
+                            c,
+                            type_filter,
+                            game.card(source),
+                            player,
+                            None,
+                        ))
                         && c.can_untap()
                         && (c.counter_count(&stun) == 0 || c.can_remove_counters(&stun))
                 })
@@ -4786,10 +4812,13 @@ impl GameLoop {
                 .flat_map(|pid| game.cards_in_zone(ZoneType::Battlefield, pid).to_vec())
                 .filter(|&cid| {
                     game.card(cid).controller != player
-                        && crate::ability::effects::matches_change_type(
+                        && crate::cost::is_valid_cost_card(
+                            game,
                             game.card(cid),
                             type_filter,
-                            &[],
+                            game.card(source),
+                            player,
+                            None,
                         )
                 })
                 .collect();
@@ -4947,7 +4976,7 @@ impl GameLoop {
         amount: i32,
     ) {
         for _ in 0..amount {
-            let valid = cost::get_exiled_targets(game, type_filter);
+            let valid = cost::get_exiled_targets(game, type_filter, source, player);
             if valid.is_empty() {
                 break;
             }

@@ -995,10 +995,13 @@ fn pay_effect_cost_parts(
                         cid != source
                             && (type_filter == "Card"
                                 || type_filter.is_empty()
-                                || crate::ability::effects::helpers::matches_change_type(
+                                || crate::cost::is_valid_cost_card(
+                                    ctx.game,
                                     ctx.game.card(cid),
                                     type_filter,
-                                    &[],
+                                    ctx.game.card(source),
+                                    payer,
+                                    Some(sa),
                                 ))
                     })
                     .collect();

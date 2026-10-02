@@ -6,7 +6,7 @@
 
 use forge_foundation::ZoneType;
 
-use super::{emit_zone_trigger, matches_change_type, EffectContext};
+use super::{emit_zone_trigger, EffectContext};
 use crate::ids::CardId;
 
 /// Struct form of this effect so it can participate in the
@@ -19,9 +19,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         return;
     }
 
-    // Parse seek types — can be comma-separated
-    let types_str = sa.ir.types_text.as_deref().unwrap_or("Card").to_string();
-    let seek_types: Vec<&str> = types_str.split(',').map(str::trim).collect();
+    let seek_types: Vec<String> = match crate::parsing::raw_get(&sa.ability_text, "Types") {
+        Some(types) => types.split(',').map(|t| t.trim().to_string()).collect(),
+        None => vec![crate::parsing::raw_get(&sa.ability_text, "Type")
+            .unwrap_or("Card")
+            .trim()
+            .to_string()],
+    };
 
     let players = crate::ability::spell_ability_effect::get_target_players(ctx.game, sa);
 
@@ -36,11 +40,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .to_vec()
                 .into_iter()
                 .filter(|&cid| {
-                    if *seek_type == "Card" {
-                        true
-                    } else {
-                        matches_change_type(ctx.game.card(cid), seek_type, &[])
-                    }
+                    seek_type == "Card"
+                        || crate::ability::ability_utils::matches_valid_cards_for_sa(
+                            ctx.game,
+                            sa,
+                            ctx.game.card(cid),
+                            None,
+                            seek_type,
+                        )
                 })
                 .collect();
 

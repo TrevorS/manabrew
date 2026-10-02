@@ -55,7 +55,6 @@ pub mod trait_cost_visitor;
 use forge_foundation::{ManaCost, ZoneType};
 use serde::{Deserialize, Serialize};
 
-use crate::ability::effects::matches_change_type;
 use crate::card::CounterType;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
@@ -878,13 +877,31 @@ fn split_cost_tokens(raw: &str) -> Vec<&str> {
 }
 
 /// Check if a card matches a type filter string.
-/// Thin wrapper around `matches_change_type` for use by individual cost modules.
-pub fn matches_type_filter(game: &GameState, cid: CardId, type_filter: &str) -> bool {
-    matches_change_type(game.card(cid), type_filter, &[])
+/// Java's `CardLists.getValidCards(cards, type.split(";"), payer, source, ability)`, which every
+/// cost part runs its type through.
+pub fn is_valid_cost_card(
+    game: &GameState,
+    card: &crate::card::Card,
+    type_filter: &str,
+    source: &crate::card::Card,
+    payer: PlayerId,
+    ability: Option<&SpellAbility>,
+) -> bool {
+    type_filter.split(';').any(|valid| {
+        let context = crate::card::valid_filter::MatchContext::new(source, game)
+            .with_source_controller(payer);
+        let context = match ability {
+            Some(sa) => context.with_spell_ability(sa),
+            None => context,
+        };
+        crate::card::valid_filter::matches_valid_card_selector_with_context(
+            &crate::parsing::cached_compiled_selector(valid.trim()),
+            card,
+            context,
+        )
+    })
 }
 
-/// Find valid sacrifice targets on the battlefield for a player, filtered by type.
-/// Mirrors Java's `CostSacrifice.getMaxAmountX()` + `CardLists.getValidCards()`.
 pub fn get_sacrifice_targets(
     game: &GameState,
     player: PlayerId,
@@ -904,7 +921,7 @@ pub fn get_sacrifice_targets(
                     filter.trim(),
                 )
             }),
-            None => matches_change_type(game.card(cid), type_filter, &[]),
+            None => crate::ability::effects::matches_change_type(game.card(cid), type_filter, &[]),
         })
         .collect()
 }
@@ -977,7 +994,14 @@ pub fn is_excluded_as_source(
     !type_filter.split(';').any(|alternative| {
         let alternative = alternative.trim();
         !alternative.split(['.', '+']).skip(1).any(|q| q == "Other")
-            && matches_change_type(game.card(card_id), alternative, &[])
+            && is_valid_cost_card(
+                game,
+                game.card(card_id),
+                alternative,
+                game.card(card_id),
+                game.card(card_id).controller,
+                None,
+            )
     })
 }
 
@@ -1015,14 +1039,26 @@ pub fn get_zone_targets(
 
 /// Find cards in exile across all players matching a type filter.
 /// Used by ExiledMoveToGrave and can_pay checks.
-pub fn get_exiled_targets(game: &GameState, type_filter: &str) -> Vec<CardId> {
+pub fn get_exiled_targets(
+    game: &GameState,
+    type_filter: &str,
+    source: CardId,
+    payer: PlayerId,
+) -> Vec<CardId> {
     game.players
         .iter()
         .flat_map(|p| game.cards_in_zone(ZoneType::Exile, p.id).to_vec())
         .filter(|&cid| {
             type_filter == "Card"
                 || type_filter.is_empty()
-                || matches_change_type(game.card(cid), type_filter, &[])
+                || is_valid_cost_card(
+                    game,
+                    game.card(cid),
+                    type_filter,
+                    game.card(source),
+                    payer,
+                    None,
+                )
         })
         .collect()
 }

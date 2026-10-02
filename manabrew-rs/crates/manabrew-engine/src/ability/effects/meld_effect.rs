@@ -35,7 +35,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 && c.controller == controller
                 && c.owner == controller
                 && c.card_name == sec_name
-                && super::matches_change_type(c, sec_type, &[])
+                && crate::ability::ability_utils::matches_valid_cards_for_sa(
+                    ctx.game, sa, c, None, sec_type,
+                )
         })
         .map(|c| c.id)
         .collect();

@@ -84,7 +84,14 @@ pub fn can_pay(
             if *from == forge_foundation::ZoneType::Hand
                 && card.zone == forge_foundation::ZoneType::Hand
                 && card.owner == player
-                && crate::ability::effects::matches_change_type(card, &base_filter, &[])
+                && crate::cost::is_valid_cost_card(
+                    game,
+                    card,
+                    &base_filter,
+                    game.card(source),
+                    player,
+                    ability,
+                )
             {
                 available -= 1;
             }
@@ -180,10 +187,13 @@ pub fn can_pay(
                 .filter(|&&cid| {
                     (base_filter == "Card"
                         || base_filter.is_empty()
-                        || crate::ability::effects::matches_change_type(
+                        || crate::cost::is_valid_cost_card(
+                            game,
                             game.card(cid),
                             &base_filter,
-                            &[],
+                            game.card(source),
+                            player,
+                            ability,
                         ))
                         && !crate::staticability::static_ability_cant_exile::cant_exile(
                             game,
@@ -206,10 +216,13 @@ pub fn can_pay(
                 for &cid in game.cards_in_zone(forge_foundation::ZoneType::Graveyard, p.id) {
                     if base_filter == "Card"
                         || base_filter.is_empty()
-                        || crate::ability::effects::matches_change_type(
+                        || crate::cost::is_valid_cost_card(
+                            game,
                             game.card(cid),
                             &base_filter,
-                            &[],
+                            game.card(source),
+                            player,
+                            ability,
                         )
                     {
                         if crate::staticability::static_ability_cant_exile::cant_exile(

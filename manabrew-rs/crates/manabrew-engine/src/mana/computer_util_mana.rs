@@ -2108,7 +2108,10 @@ fn pay_non_tap_mana_ability_costs(
                         game,
                         player,
                         type_filter,
-                        None,
+                        Some(&crate::spellability::SpellAbility::new_empty(
+                            Some(ma.card_id),
+                            player,
+                        )),
                     );
                     targets.retain(|&cid| {
                         !crate::cost::is_excluded_as_source(
@@ -2534,7 +2537,15 @@ fn get_payable_mana_sacrifice_targets(
     allow_reserved_source_reuse: bool,
     reserved_sacrifices: &[CardId],
 ) -> Vec<CardId> {
-    let mut targets = crate::cost::get_sacrifice_targets_for_cost(game, player, type_filter, None);
+    let mut targets = crate::cost::get_sacrifice_targets_for_cost(
+        game,
+        player,
+        type_filter,
+        Some(&crate::spellability::SpellAbility::new_empty(
+            Some(source_id),
+            player,
+        )),
+    );
     targets.retain(|&cid| {
         !crate::cost::is_excluded_as_source(game, cid, Some(source_id), type_filter)
     });

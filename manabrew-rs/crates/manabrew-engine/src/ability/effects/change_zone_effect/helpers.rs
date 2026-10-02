@@ -6,8 +6,7 @@
 use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 
 use super::super::{
-    emit_zone_trigger, matches_change_type, parse_counter_type, parse_zone_type,
-    resolve_defined_players, EffectContext,
+    emit_zone_trigger, parse_counter_type, parse_zone_type, resolve_defined_players, EffectContext,
 };
 use crate::agent::DecisionContext;
 use crate::card::valid_filter::{matches_valid_card_selector_with_context, MatchContext};
@@ -300,10 +299,29 @@ pub(super) fn apply_pre_move(
 
         // AttachedTo$ — choose and attach before ETB
         if let Some(attached_to_def) = sa.attached_to() {
-            let valid: Vec<CardId> = battlefield_card_ids(ctx)
-                .into_iter()
-                .filter(|&cid| matches_change_type(ctx.game.card(cid), attached_to_def, &[]))
-                .collect();
+            let mut valid = crate::ability::ability_utils::get_defined_cards(
+                ctx.game,
+                sa.source,
+                attached_to_def,
+                Some(sa.activating_player),
+            );
+            if valid.is_empty() {
+                valid = battlefield_card_ids(ctx)
+                    .into_iter()
+                    .filter(|&cid| {
+                        crate::ability::ability_utils::matches_valid_cards_for_sa(
+                            ctx.game,
+                            sa,
+                            ctx.game.card(cid),
+                            None,
+                            attached_to_def,
+                        )
+                    })
+                    .collect();
+            }
+            valid.retain(|&cid| {
+                crate::card::card_predicates::can_be_attached(ctx.game, cid, card_id)
+            });
             if !valid.is_empty() {
                 let ctrl = sa.activating_player;
                 ctx.agents[ctrl.index()].snapshot_state(ctx.game, ctx.mana_pools);
@@ -514,12 +532,27 @@ pub(super) fn apply_post_move(
 
         // AttachAfter$
         if let Some(attach_def) = sa.ir.attach_after_text.as_deref() {
-            let valid: Vec<CardId> = battlefield_card_ids(ctx)
-                .into_iter()
-                .filter(|&cid| {
-                    cid != card_id && matches_change_type(ctx.game.card(cid), attach_def, &[])
-                })
-                .collect();
+            let mut valid = crate::ability::ability_utils::get_defined_cards(
+                ctx.game,
+                sa.source,
+                attach_def,
+                Some(sa.activating_player),
+            );
+            if valid.is_empty() {
+                valid = battlefield_card_ids(ctx)
+                    .into_iter()
+                    .filter(|&cid| {
+                        cid != card_id
+                            && crate::ability::ability_utils::matches_valid_cards_for_sa(
+                                ctx.game,
+                                sa,
+                                ctx.game.card(cid),
+                                None,
+                                attach_def,
+                            )
+                    })
+                    .collect();
+            }
             if !valid.is_empty() {
                 ctx.agents[controller.index()].snapshot_state(ctx.game, ctx.mana_pools);
                 if let Some(t) = ctx.agents[controller.index()].choose_single_card_for_zone_change(

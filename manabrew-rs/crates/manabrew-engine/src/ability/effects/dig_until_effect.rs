@@ -1,6 +1,6 @@
 use forge_foundation::ZoneType;
 
-use super::{emit_zone_trigger, matches_change_type, resolve_numeric_svar, EffectContext};
+use super::{emit_zone_trigger, resolve_numeric_svar, EffectContext};
 use crate::agent::DecisionContext;
 use crate::card::valid_filter;
 use crate::parsing::keys;
@@ -74,7 +74,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         ctx.game,
                     )
                 }
-                _ => matches_change_type(card, valid_filter, &[]),
+                _ => crate::ability::ability_utils::matches_valid_cards_for_sa(
+                    ctx.game,
+                    sa,
+                    card,
+                    None,
+                    valid_filter,
+                ),
             };
             if matches {
                 found.push(cid);

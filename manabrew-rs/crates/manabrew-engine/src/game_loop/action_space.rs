@@ -107,7 +107,10 @@ impl GameLoop {
                         game,
                         player,
                         type_filter,
-                        None,
+                        Some(&crate::spellability::SpellAbility::new_empty(
+                            Some(card_id),
+                            player,
+                        )),
                     );
                     targets.retain(|&cid| {
                         !crate::cost::is_excluded_as_source(game, cid, Some(card_id), type_filter)

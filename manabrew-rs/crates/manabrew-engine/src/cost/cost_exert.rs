@@ -11,7 +11,7 @@ pub fn can_pay(
     _available_mana: &crate::mana::ManaPool,
     source: crate::ids::CardId,
     player: crate::ids::PlayerId,
-    _ability: Option<&crate::spellability::SpellAbility>,
+    ability: Option<&crate::spellability::SpellAbility>,
     part: &super::CostPart,
 ) -> bool {
     let super::CostPart::Exert {
@@ -29,7 +29,14 @@ pub fn can_pay(
         .cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
         .iter()
         .filter(|&&cid| {
-            crate::ability::effects::matches_change_type(game.card(cid), type_filter, &[])
+            crate::cost::is_valid_cost_card(
+                game,
+                game.card(cid),
+                type_filter,
+                game.card(source),
+                player,
+                ability,
+            )
         })
         .count() as i32;
     count >= resolved_amount

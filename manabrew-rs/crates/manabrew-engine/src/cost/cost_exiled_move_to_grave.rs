@@ -37,6 +37,6 @@ pub fn can_pay(
     else {
         return false;
     };
-    let exiled = super::get_exiled_targets(game, type_filter).len() as i32;
+    let exiled = super::get_exiled_targets(game, type_filter, source, player).len() as i32;
     exiled >= amount.resolve(game, source, player)
 }

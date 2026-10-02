@@ -46,7 +46,7 @@ pub fn can_pay(
     _available_mana: &crate::mana::ManaPool,
     source: crate::ids::CardId,
     player: crate::ids::PlayerId,
-    _ability: Option<&crate::spellability::SpellAbility>,
+    ability: Option<&crate::spellability::SpellAbility>,
     part: &super::CostPart,
 ) -> bool {
     let super::CostPart::PutCardToLib {
@@ -77,10 +77,13 @@ pub fn can_pay(
             .filter(|&cid| {
                 type_filter == "Card"
                     || type_filter.is_empty()
-                    || crate::ability::effects::matches_change_type(
+                    || crate::cost::is_valid_cost_card(
+                        game,
                         game.card(cid),
                         type_filter,
-                        &[],
+                        game.card(source),
+                        player,
+                        ability,
                     )
             })
             .collect();

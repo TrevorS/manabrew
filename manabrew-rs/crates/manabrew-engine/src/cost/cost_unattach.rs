@@ -1,6 +1,5 @@
 //! Unattach equipment as a cost. Mirrors Java's `CostUnattach`.
 
-use crate::cost::matches_type_filter;
 use crate::game::GameState;
 use crate::ids::CardId;
 use crate::spellability::SpellAbility;
@@ -90,7 +89,14 @@ pub fn find_card_to_unattach(
 
         if should_filter {
             for &equip_id in &all_attachments {
-                if matches_type_filter(game, equip_id, type_filter) {
+                if crate::cost::is_valid_cost_card(
+                    game,
+                    game.card(equip_id),
+                    type_filter,
+                    game.card(source),
+                    ability.map_or(game.card(source).controller, |sa| sa.activating_player),
+                    ability,
+                ) {
                     attachees.push(equip_id);
                 }
             }

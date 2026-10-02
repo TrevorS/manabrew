@@ -213,12 +213,16 @@ pub fn get_max_amount_x(
                 .iter()
                 .copied()
                 .filter(|&cid| {
-                    type_filter == "Random"
-                        || crate::ability::effects::matches_change_type(
-                            game.card(cid),
-                            &type_filter,
-                            &[],
-                        )
+                    !(ability.is_spell && cid == source)
+                        && (type_filter == "Random"
+                            || crate::cost::is_valid_cost_card(
+                                game,
+                                game.card(cid),
+                                &type_filter,
+                                game.card(source),
+                                player,
+                                Some(ability),
+                            ))
                 })
                 .collect();
             if different_names {
@@ -227,9 +231,10 @@ pub fn get_max_amount_x(
                 Some(hand_list.len() as i32)
             }
         }
-        CostPart::Return { type_filter, .. } => {
-            Some(crate::cost::get_sacrifice_targets(game, player, type_filter, None).len() as i32)
-        }
+        CostPart::Return { type_filter, .. } => Some(
+            crate::cost::get_sacrifice_targets(game, player, type_filter, Some(ability)).len()
+                as i32,
+        ),
         CostPart::TapType {
             type_filter,
             can_tap_source,
@@ -262,10 +267,13 @@ pub fn get_max_amount_x(
                     !(ability.is_spell && cid == source)
                         && (type_filter == "Card"
                             || type_filter.is_empty()
-                            || crate::ability::effects::matches_change_type(
+                            || crate::cost::is_valid_cost_card(
+                                game,
                                 game.card(cid),
                                 type_filter,
-                                &[],
+                                game.card(source),
+                                player,
+                                Some(ability),
                             ))
                 })
                 .collect();

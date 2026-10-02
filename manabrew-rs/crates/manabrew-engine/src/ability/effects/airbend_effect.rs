@@ -59,7 +59,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     {
                         continue;
                     }
-                    if super::matches_change_type(ctx.game.card(cid), &stripped, &[]) {
+                    if crate::ability::ability_utils::matches_valid_cards_for_sa(
+                        ctx.game,
+                        sa,
+                        ctx.game.card(cid),
+                        None,
+                        &stripped,
+                    ) {
                         out.push(cid);
                     }
                 }
