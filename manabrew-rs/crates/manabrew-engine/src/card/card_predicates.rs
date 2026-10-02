@@ -4,11 +4,10 @@ use std::cmp::Ordering;
 
 use forge_foundation::ZoneType;
 
-use crate::ability::ability_utils;
 use crate::card::{Card, CounterType};
 use crate::combat::combat_util;
 use crate::game::GameState;
-use crate::ids::{CardId, PlayerId};
+use crate::ids::CardId;
 use crate::spellability::SpellAbility;
 
 fn shares_any_core_type(a: &Card, b: &Card) -> bool {
@@ -117,15 +116,6 @@ pub fn possible_blocker_for_at_least_one(
         && attackers
             .iter()
             .any(|&attacker| combat_util::can_creature_block(game, blocker, attacker))
-}
-
-pub fn restriction(
-    game: &GameState,
-    card: CardId,
-    restrictions: &str,
-    source_controller: PlayerId,
-) -> bool {
-    ability_utils::matches_valid_cards(game.card(card), restrictions, source_controller)
 }
 
 pub fn can_be_sacrificed_by(

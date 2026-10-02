@@ -1,4 +1,3 @@
-use crate::ability::ability_utils;
 use crate::card::valid_filter;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
@@ -134,30 +133,6 @@ impl CardLists {
         filt: impl Fn(CardId) -> bool,
     ) -> Vec<CardId> {
         cards.iter().copied().filter(|&cid| filt(cid)).collect()
-    }
-
-    pub fn filter_as_list(
-        game: &GameState,
-        cards: &[CardId],
-        restriction: &str,
-        source_controller: PlayerId,
-    ) -> Vec<CardId> {
-        cards
-            .iter()
-            .copied()
-            .filter(|&cid| {
-                ability_utils::matches_valid_cards(game.card(cid), restriction, source_controller)
-            })
-            .collect()
-    }
-
-    pub fn count(
-        game: &GameState,
-        cards: &[CardId],
-        restriction: &str,
-        source_controller: PlayerId,
-    ) -> usize {
-        Self::filter_as_list(game, cards, restriction, source_controller).len()
     }
 
     pub fn filter_as_list_with_source(

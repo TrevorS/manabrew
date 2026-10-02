@@ -1098,25 +1098,6 @@ pub fn get_all_candidates_creatures(game: &GameState) -> Vec<CardId> {
     creatures
 }
 
-/// Get creatures matching an optional filter (e.g. "nonBlack", "OppCtrl").
-/// Mirrors Java's `TargetRestrictions.getAllCandidates()` with card property filtering.
-pub fn get_all_candidates_creature_filtered(
-    game: &GameState,
-    filter: Option<&str>,
-    source_controller: PlayerId,
-) -> Vec<CardId> {
-    let all = get_all_candidates_creatures(game);
-    match filter {
-        None => all,
-        Some(f) => all
-            .into_iter()
-            .filter(|&cid| {
-                card_property::card_has_property_without_game(game.card(cid), f, source_controller)
-            })
-            .collect(),
-    }
-}
-
 pub fn get_all_candidates_creature_filtered_for_restrictions(
     game: &GameState,
     restrictions: &TargetRestrictions,
@@ -1151,25 +1132,6 @@ pub fn get_all_battlefield_permanents(game: &GameState) -> Vec<CardId> {
         }
     }
     permanents
-}
-
-/// Get battlefield permanents matching an optional filter (e.g. "nonLand+OppCtrl").
-/// Similar to `get_all_candidates_creature_filtered` but for any permanent type.
-pub fn get_all_battlefield_permanents_filtered(
-    game: &GameState,
-    filter: Option<&str>,
-    source_controller: PlayerId,
-) -> Vec<CardId> {
-    let all = get_all_battlefield_permanents(game);
-    match filter {
-        None => all,
-        Some(f) => all
-            .into_iter()
-            .filter(|&cid| {
-                card_property::card_has_property_without_game(game.card(cid), f, source_controller)
-            })
-            .collect(),
-    }
 }
 
 pub fn get_all_battlefield_permanents_filtered_for_restrictions(
@@ -1517,40 +1479,6 @@ fn token_allows_player_targets(token: &str) -> bool {
 /// Whether this `TargetKind::Any` restriction may target players.
 pub fn any_target_allows_players(valid_tgts: &[String]) -> bool {
     valid_tgts.iter().any(|t| token_allows_player_targets(t))
-}
-
-/// Candidate battlefield cards for `TargetKind::Any`, derived from `ValidTgts`.
-pub fn get_all_candidates_any_filtered(
-    game: &GameState,
-    valid_tgts: &[String],
-    source_controller: PlayerId,
-) -> Vec<CardId> {
-    if valid_tgts
-        .iter()
-        .any(|t| t.trim().eq_ignore_ascii_case("Any"))
-    {
-        return get_all_candidates_any_target_cards(game);
-    }
-
-    let mut candidates = Vec::new();
-    for &pid in &game.player_order {
-        for &cid in game.cards_in_zone(ZoneType::Battlefield, pid) {
-            if valid_tgts.iter().any(|raw| {
-                let token = raw.trim();
-                if token_allows_player_targets(token) {
-                    return false;
-                }
-                card_property::card_has_property_without_game(
-                    game.card(cid),
-                    token,
-                    source_controller,
-                )
-            }) {
-                candidates.push(cid);
-            }
-        }
-    }
-    candidates
 }
 
 pub fn get_all_candidates_any_filtered_for_restrictions(
