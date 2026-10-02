@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use forge_carddb::parse_card_script;
-use forge_foundation::ZoneType;
+use forge_foundation::{PhaseType, ZoneType};
 use manabrew_engine::agent::{
     DecisionContext, GameEntity, ManaAbilityOption, ManaCostAction, PassAgent, PlayerAgent,
     PriorityActionSpace, PriorityContext, TargetChoice,
@@ -13,24 +13,30 @@ use manabrew_engine::game::GameState;
 use manabrew_engine::game_loop::GameLoop;
 use manabrew_engine::ids::{CardId, PlayerId};
 use manabrew_engine::mana::ManaPool;
-use manabrew_engine::player::actions::PlayerAction;
+use manabrew_engine::player::actions::{AbilityRef, PlayerAction};
 use manabrew_engine::spellability::SpellAbility;
 
 const SHOCK: &str = "Name:Shock\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | SpellDescription$ CARDNAME deals 2 damage to any target.\nOracle:";
 const MOUNTAIN: &str = "Name:Mountain\nManaCost:no cost\nTypes:Basic Land Mountain\nOracle:";
 const BEARS: &str = "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:";
 const WARDING: &str = "Name:Warding Banner\nManaCost:1 W\nTypes:Enchantment\nS:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Ward:1 | Description$ Creatures you control have ward {1}.\nOracle:";
+const FOREST: &str = "Name:Forest\nManaCost:no cost\nTypes:Basic Land Forest\nOracle:";
+const TORPOR_ORB: &str = "Name:Torpor Orb\nManaCost:2\nTypes:Artifact\nS:Mode$ DisableTriggers | ValidCause$ Creature | ValidMode$ ChangesZone,ChangesZoneAll | Destination$ Battlefield | Description$ Creatures entering don't cause abilities to trigger.\nOracle:";
+const ELESH_NORN: &str = "Name:Elesh Norn, Mother of Machines\nManaCost:4 W\nTypes:Legendary Creature Phyrexian Praetor\nPT:4/7\nK:Vigilance\nS:Mode$ DisableTriggers | ValidCause$ Permanent | ValidMode$ ChangesZone,ChangesZoneAll | Destination$ Battlefield | ValidCard$ Permanent.OppCtrl+inZoneBattlefield | Description$ Permanents entering don't cause abilities of permanents your opponents control to trigger.\nOracle:";
+const LOOKOUT: &str = "Name:Lookout Totem\nManaCost:1\nTypes:Artifact\nA:AB$ DelayedTrigger | Cost$ T | Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Creature | ThisTurn$ True | Execute$ TrigGainLife | SpellDescription$ When a creature enters this turn, you gain 2 life.\nSVar:TrigGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 2\nOracle:";
+const BEACON: &str = "Name:Static Beacon\nManaCost:1\nTypes:Artifact\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature | Static$ True | Execute$ TrigGainLife | TriggerDescription$ Whenever a creature enters, you gain 1 life.\nSVar:TrigGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
 const NOWHERE: &str = "Name:Nowhere to Run\nManaCost:1 B\nTypes:Enchantment\nS:Mode$ IgnoreHexproof | ValidEntity$ Creature.OppCtrl | Description$ Creatures your opponents control can be the targets of spells and abilities as though they didn't have hexproof. Ward abilities of those creatures don't trigger.\nS:Mode$ DisableTriggers | Secondary$ True | ValidTrigger$ Triggered.Ward | ValidCard$ Creature.OppCtrl+inZoneBattlefield | Description$ Ward abilities of those creatures don't trigger.\nOracle:";
 
 #[derive(Default)]
 struct Seen {
+    activated: bool,
     cast: bool,
     ward_prompts: usize,
 }
 
-struct Shocker(Rc<RefCell<Seen>>);
+struct ActivateThenCast(Rc<RefCell<Seen>>);
 
-impl PlayerAgent for Shocker {
+impl PlayerAgent for ActivateThenCast {
     fn choose_targets_for(
         &mut self,
         sa: &mut SpellAbility,
@@ -54,9 +60,6 @@ impl PlayerAgent for Shocker {
         space: Option<&PriorityActionSpace>,
         priority: &mut dyn PriorityContext,
     ) -> PlayerAction {
-        if self.0.borrow().cast {
-            return PassAgent.choose_action(player, space, priority);
-        }
         let requested;
         let space = match space {
             Some(space) => space,
@@ -65,11 +68,23 @@ impl PlayerAgent for Shocker {
                 &requested
             }
         };
-        let Some(&play) = space.playable.first() else {
-            return PlayerAction::PassPriority;
-        };
-        self.0.borrow_mut().cast = true;
-        PlayerAction::CastSpell(play)
+        let mut seen = self.0.borrow_mut();
+        if !seen.activated {
+            if let Some(ability) = space.activatable.first() {
+                seen.activated = true;
+                return PlayerAction::ActivateAbility(AbilityRef {
+                    card_id: ability.card_id,
+                    ability_index: ability.ability_index,
+                });
+            }
+        }
+        match space.playable.first() {
+            Some(&play) if !seen.cast => {
+                seen.cast = true;
+                PlayerAction::CastSpell(play)
+            }
+            _ => PassAgent.choose_action(player, Some(space), priority),
+        }
     }
     fn choose_attackers(
         &mut self,
@@ -188,8 +203,10 @@ fn shock_a_warded_bear(nowhere_to_run: bool) -> (usize, ZoneType) {
     game.turn.active_player = p0;
     game.new_turn_for_player(p0);
     let seen = Rc::new(RefCell::new(Seen::default()));
-    let mut agents: Vec<Box<dyn PlayerAgent>> =
-        vec![Box::new(Shocker(Rc::clone(&seen))), Box::new(PassAgent)];
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(ActivateThenCast(Rc::clone(&seen))),
+        Box::new(PassAgent),
+    ];
     GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
     let prompts = seen.borrow().ward_prompts;
     (prompts, game.card(bears).zone)
@@ -209,4 +226,49 @@ fn nowhere_to_run_stops_a_granted_ward_from_triggering() {
 
     assert_eq!(prompts, 0);
     assert_eq!(bears, ZoneType::Graveyard);
+}
+
+fn bears_enter(p0_cards: &[&str], p1_cards: &[&str]) -> i32 {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    put(&mut game, BEARS, p0, ZoneType::Hand);
+    put(&mut game, FOREST, p0, ZoneType::Battlefield);
+    put(&mut game, FOREST, p0, ZoneType::Battlefield);
+    for script in p0_cards {
+        put(&mut game, script, p0, ZoneType::Battlefield);
+    }
+    for script in p1_cards {
+        put(&mut game, script, p1, ZoneType::Battlefield);
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(Seen::default()));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(ActivateThenCast(Rc::clone(&seen))),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert!(seen.borrow().cast);
+    game.players[0].life
+}
+
+#[test]
+fn a_delayed_enters_trigger_fires_without_a_disabling_static() {
+    assert_eq!(bears_enter(&[LOOKOUT], &[]), 22);
+}
+
+#[test]
+fn torpor_orb_stops_a_delayed_enters_trigger() {
+    assert_eq!(bears_enter(&[LOOKOUT], &[TORPOR_ORB]), 20);
+}
+
+#[test]
+fn elesh_norn_does_not_stop_a_delayed_trigger_of_an_opponents_permanent() {
+    assert_eq!(bears_enter(&[LOOKOUT], &[ELESH_NORN]), 22);
+}
+
+#[test]
+fn torpor_orb_does_not_stop_a_static_trigger() {
+    assert_eq!(bears_enter(&[BEACON], &[TORPOR_ORB]), 21);
 }

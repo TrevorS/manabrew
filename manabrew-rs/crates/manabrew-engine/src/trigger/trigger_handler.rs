@@ -769,12 +769,20 @@ impl TriggerHandler {
                     &event.mode,
                     &event.params,
                 ) && !(may_disable_triggers
+                    && !trigger.is_static()
                     && crate::staticability::static_ability_disable_triggers::is_disabled(
                         game,
                         card_id,
-                        host_controller,
-                        trigger_index,
                         trigger,
+                        &|| {
+                            trigger.build_triggered_spell_ability(
+                                game,
+                                card_id,
+                                host_controller,
+                                trigger_index,
+                                &event.params,
+                            )
+                        },
                         &event.params,
                     ));
                 let prior_runs = runs.get(&(card_id, trigger_index)).copied().unwrap_or(0);
@@ -978,6 +986,18 @@ impl TriggerHandler {
                 sa.trigger_source = Some(delayed.source_card);
                 sa.trigger_source_zone_timestamp =
                     Some(game.card(delayed.source_card).zone_timestamp);
+                if may_disable_triggers
+                    && !tmp_trigger.is_static()
+                    && crate::staticability::static_ability_disable_triggers::is_disabled(
+                        game,
+                        delayed.source_card,
+                        &tmp_trigger,
+                        &|| sa.clone(),
+                        event_payload,
+                    )
+                {
+                    continue;
+                }
                 tmp_trigger.set_triggering_objects(
                     &mut sa,
                     event_payload,
@@ -1777,10 +1797,13 @@ impl TriggerHandler {
                         game,
                         card,
                         host_card,
-                        game.card(host_card).controller,
-                        trigger_index,
-                        trigger,
-                        params,
+                        &trigger.build_triggered_spell_ability(
+                            game,
+                            host_card,
+                            game.card(host_card).controller,
+                            trigger_index,
+                            params,
+                        ),
                     ) {
                         continue;
                     }
@@ -1936,10 +1959,12 @@ impl TriggerHandler {
 
         // DisableTriggers static ability check (e.g. Hushbringer).
         // Mirrors Java's StaticAbilityDisableTriggers.disabled().
-        if matches!(
-            *mode,
-            TriggerType::ChangesZone | TriggerType::ChangesZoneAll
-        ) && Self::is_trigger_disabled_by_static(game, host_card, trigger_index, params)
+        if !trigger.is_static()
+            && matches!(
+                *mode,
+                TriggerType::ChangesZone | TriggerType::ChangesZoneAll
+            )
+            && Self::is_trigger_disabled_by_static(game, host_card, trigger_index, params)
         {
             return Err("disabled by a static");
         }

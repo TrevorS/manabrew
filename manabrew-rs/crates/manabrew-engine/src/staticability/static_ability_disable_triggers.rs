@@ -5,15 +5,15 @@ use crate::event::RunParams;
 use crate::game::GameState;
 use crate::ids::CardId;
 use crate::parsing::CompiledSelector;
+use crate::spellability::SpellAbility;
 use crate::trigger::Trigger;
 use crate::trigger::TriggerType;
 
 pub fn is_disabled(
     game: &GameState,
     trigger_host: CardId,
-    host_controller: crate::ids::PlayerId,
-    trigger_index: usize,
     regtrig: &Trigger,
+    overriding_ability: &dyn Fn() -> SpellAbility,
     run_params: &RunParams,
 ) -> bool {
     let host = game.card(trigger_host);
@@ -36,6 +36,9 @@ pub fn is_disabled(
                     continue;
                 }
             }
+            if st_ab.ir.valid_card.is_some() && regtrig.get_spawning_ability().is_some() {
+                continue;
+            }
             if let Some(valid_card) = st_ab.ir.valid_card.as_ref() {
                 if !matches_valid_card(valid_card, host, source, game) {
                     continue;
@@ -47,10 +50,7 @@ pub fn is_disabled(
                     game,
                     source,
                     trigger_host,
-                    host_controller,
-                    trigger_index,
-                    regtrig,
-                    run_params,
+                    &overriding_ability(),
                 ) {
                     continue;
                 }
@@ -222,21 +222,11 @@ pub(crate) fn matches_valid_trigger(
     game: &GameState,
     source: &Card,
     trigger_host: CardId,
-    host_controller: crate::ids::PlayerId,
-    trigger_index: usize,
-    regtrig: &Trigger,
-    run_params: &RunParams,
+    trigger_sa: &SpellAbility,
 ) -> bool {
-    let trigger_sa = regtrig.build_triggered_spell_ability(
-        game,
-        trigger_host,
-        host_controller,
-        trigger_index,
-        run_params,
-    );
     crate::spellability::matches_valid_sa(
         valid_trigger,
-        &trigger_sa,
+        trigger_sa,
         Some(game.card(trigger_host)),
         valid_filter::MatchContext::new(source, game),
     )
