@@ -12,12 +12,12 @@ use forge_foundation::ZoneType;
 /// Sets the cast SA on the card, then iterates all cards in static-ability
 /// source zones plus the card itself, checking CantBeCast static abilities.
 pub fn cant_be_cast_ability(
-    cards: &[Arc<Card>],
+    game: &GameState,
     spell: &SpellAbility,
     card: &Card,
     activator: PlayerId,
 ) -> bool {
-    cant_be_cast_ability_in_context(cards, spell, card, activator, None)
+    cant_be_cast_ability_in_context(&game.cards, spell, card, activator, game)
 }
 
 fn restriction_host(card: &Card) -> Card {
@@ -44,13 +44,7 @@ pub fn cant_be_cast_ability_from_zone(
     game: &GameState,
 ) -> bool {
     has_cant_be_cast_ability(cards, card)
-        && cant_be_cast_ability_in_context(
-            cards,
-            spell,
-            &restriction_host(card),
-            activator,
-            Some(game),
-        )
+        && cant_be_cast_ability_in_context(cards, spell, &restriction_host(card), activator, game)
 }
 
 /// Keep in sync with the source and static filters of `cant_be_cast_ability_in_context`.
@@ -73,7 +67,7 @@ pub fn cant_be_cast_ability_in_context(
     spell: &SpellAbility,
     card: &Card,
     activator: PlayerId,
-    game: Option<&GameState>,
+    game: &GameState,
 ) -> bool {
     // Java: card.setCastSA(spell);
     // TODO: setCastSA not yet wired — the card should store the current cast SA
@@ -92,10 +86,8 @@ pub fn cant_be_cast_ability_in_context(
             .iter()
             .filter(|sa| sa.is_active_for(StaticMode::CantBeCast, source.zone))
         {
-            if let Some(g) = game {
-                if !st_ab.check_conditions(source, g) {
-                    continue;
-                }
+            if !st_ab.check_conditions(source, game) {
+                continue;
             }
             if apply_cant_be_cast_ability(st_ab, spell, card, source, activator, game) {
                 return true;
@@ -115,28 +107,24 @@ pub fn apply_cant_be_cast_ability(
     card: &Card,
     source: &Card,
     activator: PlayerId,
-    game: Option<&GameState>,
+    game: &GameState,
 ) -> bool {
     // ValidCard check
     if !valid_filter::matches_valid_card_selector_opt(st_ab.ir.valid_card.as_ref(), card, source) {
         return false;
     }
 
-    let caster_matches = match (st_ab.ir.caster.as_ref(), game) {
-        (Some(caster), Some(g)) => crate::player::player_property::is_valid(
+    if let Some(caster) = st_ab.ir.caster.as_ref() {
+        if !crate::player::player_property::is_valid(
             activator,
             caster,
-            g,
+            game,
             source.id,
             source.controller,
             &SpellAbility::new_simple(Some(source.id), source.controller, ""),
-        ),
-        (caster, _) => {
-            valid_filter::matches_valid_player_selector_opt(caster, activator, source.controller)
+        ) {
+            return false;
         }
-    };
-    if !caster_matches {
-        return false;
     }
 
     // IgnoreEffectPlayers — Java: stAb.getIgnoreEffectPlayers().contains(activator)
@@ -147,14 +135,12 @@ pub fn apply_cant_be_cast_ability(
     // OnlySorcerySpeed — if the activator can cast at sorcery speed, this
     // restriction does not apply.
     if st_ab.ir.sorcery_speed || st_ab.ir.only_sorcery_speed {
-        if let Some(g) = game {
-            // The spell being cast is not on Java's stack until `MagicStack.add`.
-            let can_cast_sorcery = activator == g.active_player()
-                && g.turn.is_main_phase()
-                && g.stack.iter().all(|entry| entry.is_pending_cast);
-            if can_cast_sorcery {
-                return false;
-            }
+        // The spell being cast is not on Java's stack until `MagicStack.add`.
+        let can_cast_sorcery = activator == game.active_player()
+            && game.turn.is_main_phase()
+            && game.stack.iter().all(|entry| entry.is_pending_cast);
+        if can_cast_sorcery {
+            return false;
         }
     }
 
@@ -168,48 +154,44 @@ pub fn apply_cant_be_cast_ability(
 
     // cmcGT — card's CMC must be greater than a threshold
     if let Some(cmc_gt) = st_ab.ir.cmc_gt.as_deref() {
-        if let Some(g) = game {
-            let threshold = if cmc_gt.eq_ignore_ascii_case("Turns") {
-                g.turn.turn_number as i32
-            } else {
-                g.cards_in_zone(ZoneType::Battlefield, activator)
-                    .iter()
-                    .filter(|&&cid| {
-                        let c = g.card(cid);
-                        match cmc_gt {
-                            "Creature" => c.is_creature(),
-                            "Artifact" => c.type_line.is_artifact(),
-                            "Enchantment" => c.type_line.is_enchantment(),
-                            "Land" => c.is_land(),
-                            "Instant" => c.type_line.is_instant(),
-                            "Sorcery" => c.type_line.is_sorcery(),
-                            "Planeswalker" => c.type_line.is_planeswalker(),
-                            _ => c.type_line.has_subtype(cmc_gt),
-                        }
-                    })
-                    .count() as i32
-            };
-            if card.mana_value() <= threshold {
-                return false;
-            }
+        let threshold = if cmc_gt.eq_ignore_ascii_case("Turns") {
+            game.turn.turn_number as i32
+        } else {
+            game.cards_in_zone(ZoneType::Battlefield, activator)
+                .iter()
+                .filter(|&&cid| {
+                    let c = game.card(cid);
+                    match cmc_gt {
+                        "Creature" => c.is_creature(),
+                        "Artifact" => c.type_line.is_artifact(),
+                        "Enchantment" => c.type_line.is_enchantment(),
+                        "Land" => c.is_land(),
+                        "Instant" => c.type_line.is_instant(),
+                        "Sorcery" => c.type_line.is_sorcery(),
+                        "Planeswalker" => c.type_line.is_planeswalker(),
+                        _ => c.type_line.has_subtype(cmc_gt),
+                    }
+                })
+                .count() as i32
+        };
+        if card.mana_value() <= threshold {
+            return false;
         }
     }
 
     // NumLimitEachTurn — limits how many matching spells can be cast per turn
     if let Some(limit) = st_ab.ir.num_limit_each_turn {
-        if let Some(g) = game {
-            let valid = st_ab.ir.valid_card.as_ref();
-            let count = g
-                .player(activator)
-                .cards_cast_this_turn
-                .iter()
-                .filter(|&&cid| {
-                    valid_filter::matches_valid_card_selector_opt(valid, g.card(cid), source)
-                })
-                .count() as i32;
-            if count < limit {
-                return false;
-            }
+        let valid = st_ab.ir.valid_card.as_ref();
+        let count = game
+            .player(activator)
+            .cards_cast_this_turn
+            .iter()
+            .filter(|&&cid| {
+                valid_filter::matches_valid_card_selector_opt(valid, game.card(cid), source)
+            })
+            .count() as i32;
+        if count < limit {
+            return false;
         }
     }
 

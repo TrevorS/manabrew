@@ -250,7 +250,13 @@ pub(crate) fn check_condition_present(
                                 game,
                             )
                         }
-                        None => crate::card::valid_filter::matches_valid_player(alt, pid, player),
+                        None => {
+                            crate::card::valid_filter::matches_valid_player_selector_without_game(
+                                &crate::parsing::cached_compiled_selector(alt),
+                                pid,
+                                player,
+                            )
+                        }
                     })
                 })
                 .count() as i32;

@@ -1344,7 +1344,7 @@ fn matches_controlled_by_reference(
         relation_target_player_any(&target, context, |player| card.controller == player)
     } else if context.game.is_none() && (reference.starts_with("Player") || reference.contains('.'))
     {
-        matches_valid_player_selector_with_source(
+        matches_player_selector_without_game_from_source(
             &crate::parsing::cached_compiled_selector(reference),
             card.controller,
             context.source_controller,
@@ -3181,52 +3181,10 @@ fn matches_type_and_qualifier_parts(
     true
 }
 
-/// Check if a player matches a filter expression like "You", "Opponent", "Each".
-pub fn matches_valid_player(filter: &str, player: PlayerId, source_controller: PlayerId) -> bool {
-    let filter = filter.trim();
-    if filter.is_empty() {
-        return true;
-    }
-
-    filter.split(',').any(|part| {
-        filter_head_can_match_player(part)
-            && matches_single_valid_player(part.trim(), player, source_controller)
-    })
-}
-
-/// Convenience wrapper: None means "no filter" → always matches.
-pub fn matches_valid_player_opt(
-    filter: Option<&str>,
-    player: PlayerId,
-    source_controller: PlayerId,
-) -> bool {
-    match filter {
-        None => true,
-        Some(v) => matches_valid_player(v, player, source_controller),
-    }
-}
-
-/// Match a precompiled selector against a player without reparsing the
-/// comma-separated alternatives.
-pub fn matches_valid_player_selector(
-    selector: &CompiledSelector,
-    player: PlayerId,
-    source_controller: PlayerId,
-) -> bool {
-    let result = matches_player_selector_ir(&selector.ir, player, source_controller);
-    #[cfg(debug_assertions)]
-    report_selector_drift(
-        "player",
-        result,
-        matches_valid_player(&selector.as_raw(), player, source_controller),
-        &selector.as_raw(),
-    );
-    result
-}
-
-/// Player properties that read the source card (`IsRemembered`, `Chosen`) answered from it;
-/// the rest as `matches_valid_player_selector`.
-pub fn matches_valid_player_selector_with_source(
+/// A player filter matched without a game: the properties it can answer, the source card's
+/// remembered and chosen players, and false for every other property, as Java's `PlayerProperty`
+/// answers a property it does not know.
+fn matches_player_selector_without_game_from_source(
     selector: &CompiledSelector,
     player: PlayerId,
     source_controller: PlayerId,
@@ -3244,94 +3202,19 @@ pub fn matches_valid_player_selector_with_source(
                 SelectorPredicate::CardState(CardStateSelector::Chosen) => {
                     source.chosen_player == Some(player)
                 }
-                _ => matches_player_predicate(predicate, player, source_controller),
+                _ => game_free_player_predicate(predicate, player, source_controller)
+                    .unwrap_or(false),
             })
     })
 }
 
-fn matches_player_selector_ir(
-    selector: &Selector,
+/// A player filter matched where no game is reachable; a property that needs one is false.
+pub(crate) fn matches_valid_player_selector_without_game(
+    selector: &CompiledSelector,
     player: PlayerId,
     source_controller: PlayerId,
 ) -> bool {
-    if selector.alternatives.is_empty() {
-        return true;
-    }
-
-    selector.alternatives.iter().any(|alternative| {
-        alternative
-            .predicates
-            .iter()
-            .all(|predicate| matches_player_predicate(predicate, player, source_controller))
-    })
-}
-
-fn matches_player_predicate(
-    predicate: &SelectorPredicate,
-    player: PlayerId,
-    source_controller: PlayerId,
-) -> bool {
-    match predicate {
-        SelectorPredicate::Any | SelectorPredicate::Player => true,
-        SelectorPredicate::PlayerController(controller)
-        | SelectorPredicate::CardController(controller) => {
-            matches_player_controller(*controller, player, source_controller)
-        }
-        SelectorPredicate::Raw(raw) => matches_single_valid_player(raw, player, source_controller),
-        // Legacy player matching treats unknown card-oriented predicates as
-        // permissive, so keep that behavior for mixed ValidTarget paths.
-        SelectorPredicate::CardType(_)
-        | SelectorPredicate::CardSupertype(_)
-        | SelectorPredicate::CardIdentity(_)
-        | SelectorPredicate::CardOwner(_)
-        | SelectorPredicate::Tapped(_)
-        | SelectorPredicate::StartedTurnTapped(_)
-        | SelectorPredicate::CameUnderControlSinceLastUpkeep
-        | SelectorPredicate::Zone(_)
-        | SelectorPredicate::RememberedCard
-        | SelectorPredicate::TriggerRememberedCard
-        | SelectorPredicate::EffectSource
-        | SelectorPredicate::NoName
-        | SelectorPredicate::Commander
-        | SelectorPredicate::Legendary
-        | SelectorPredicate::PowerLtToughness
-        | SelectorPredicate::PowerGtBasePower
-        | SelectorPredicate::CastSaSource
-        | SelectorPredicate::Kicked
-        | SelectorPredicate::Monstrous
-        | SelectorPredicate::Renowned
-        | SelectorPredicate::Foretold
-        | SelectorPredicate::Goaded
-        | SelectorPredicate::DoubleFaced
-        | SelectorPredicate::Transformed
-        | SelectorPredicate::FrontSide
-        | SelectorPredicate::BackSide
-        | SelectorPredicate::CanProduceMana
-        | SelectorPredicate::NoAbilities
-        | SelectorPredicate::CastWith(_)
-        | SelectorPredicate::CastWithOptional(_)
-        | SelectorPredicate::Token(_)
-        | SelectorPredicate::TokenCreated
-        | SelectorPredicate::Color(_)
-        | SelectorPredicate::Multicolor
-        | SelectorPredicate::Monocolor
-        | SelectorPredicate::Colorless
-        | SelectorPredicate::SourceColor(_)
-        | SelectorPredicate::SourceColorless
-        | SelectorPredicate::ChosenColorSource
-        | SelectorPredicate::CardState(_)
-        | SelectorPredicate::Context(_)
-        | SelectorPredicate::Relation(_)
-        | SelectorPredicate::DamagedBy
-        | SelectorPredicate::AttachedBy
-        | SelectorPredicate::WasCast { .. }
-        | SelectorPredicate::ChosenType
-        | SelectorPredicate::Keyword { .. }
-        | SelectorPredicate::NumericComparison { .. }
-        | SelectorPredicate::NumericParity { .. }
-        | SelectorPredicate::CounterComparison { .. }
-        | SelectorPredicate::Not(_) => true,
-    }
+    game_free_player_match(selector, player, source_controller).unwrap_or(false)
 }
 
 fn matches_player_controller(
@@ -3441,17 +3324,6 @@ pub fn matches_valid_player_selector_opt_in_game(
     })
 }
 
-pub fn matches_valid_player_selector_opt(
-    selector: Option<&CompiledSelector>,
-    player: PlayerId,
-    source_controller: PlayerId,
-) -> bool {
-    match selector {
-        None => true,
-        Some(selector) => matches_valid_player_selector(selector, player, source_controller),
-    }
-}
-
 /// Mirrors Java's `CardTraitBase.matchesValid(Object, String[], Card, Player)`.
 ///
 /// Java uses polymorphic dispatch via `GameObject.isValid()` — both Card and
@@ -3480,59 +3352,6 @@ pub fn matches_valid(
         )
     } else {
         false
-    }
-}
-
-fn filter_head_can_match_player(filter: &str) -> bool {
-    filter.split(',').any(|alternative| {
-        let head = alternative
-            .trim()
-            .split(['.', '+'])
-            .next()
-            .unwrap_or("")
-            .to_ascii_lowercase();
-        matches!(
-            head.as_str(),
-            "" | "you"
-                | "youctrl"
-                | "youcontroller"
-                | "opponent"
-                | "oppctrl"
-                | "opponentctrl"
-                | "any"
-                | "each"
-                | "player"
-                | "active"
-                | "nonactive"
-                | "remembered"
-                | "isremembered"
-                | "targetedplayer"
-                | "playerctrl"
-                | "playercontroller"
-                | "controller"
-                | "all"
-        )
-    })
-}
-
-fn matches_single_valid_player(
-    filter: &str,
-    player: PlayerId,
-    source_controller: PlayerId,
-) -> bool {
-    let filter_lower = filter.to_ascii_lowercase();
-    if let Some(rest) = filter_lower.strip_prefix("player.") {
-        return matches_single_valid_player(rest, player, source_controller);
-    }
-    match filter_lower.as_str() {
-        "you" | "youctrl" => player == source_controller,
-        "opponent" | "oppctrl" | "opponentctrl" => player != source_controller,
-        "any" | "each" | "player" | "player.ingame" => true,
-        // "Active" / "NonActive" would need turn info — not currently supported
-        _ => {
-            crate::census::unhandled("valid-player-matches-all", filter_lower.as_str());
-            true
-        }
     }
 }
 

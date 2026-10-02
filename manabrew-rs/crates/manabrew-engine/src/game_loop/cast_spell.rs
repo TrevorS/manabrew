@@ -1933,7 +1933,7 @@ impl GameLoop {
                 &sa,
                 game.card(card_id),
                 player,
-                Some(game),
+                game,
             )
         {
             rollback_cast!();
