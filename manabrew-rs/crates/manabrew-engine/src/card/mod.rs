@@ -779,6 +779,10 @@ pub struct Card {
     pub chosen_modes: Option<Vec<usize>>,
     /// Tracks if this card became a target this turn.
     pub targeted_from_this_turn: Vec<PlayerId>,
+    #[serde(default)]
+    pub blocked_this_turn: Vec<std::sync::Arc<Card>>,
+    #[serde(default)]
+    pub blocked_by_this_turn: Vec<std::sync::Arc<Card>>,
     /// Temporary controllers layered on this card.
     pub temp_controllers: Vec<(i64, PlayerId)>,
     pub static_control_base: Option<PlayerId>,
@@ -1098,6 +1102,8 @@ impl Card {
             paying_sources_to_cast: Vec::new(),
             chosen_modes: None,
             targeted_from_this_turn: Vec::new(),
+            blocked_this_turn: Vec::new(),
+            blocked_by_this_turn: Vec::new(),
             temp_controllers: Vec::new(),
             static_control_base: None,
             may_look: Vec::new(),
@@ -1350,6 +1356,8 @@ impl Card {
             paying_sources_to_cast: self.paying_sources_to_cast.clone(),
             chosen_modes: self.chosen_modes.clone(),
             targeted_from_this_turn: self.targeted_from_this_turn.clone(),
+            blocked_this_turn: self.blocked_this_turn.clone(),
+            blocked_by_this_turn: self.blocked_by_this_turn.clone(),
             temp_controllers: self.temp_controllers.clone(),
             static_control_base: self.static_control_base,
             may_look: self.may_look.clone(),
@@ -1657,6 +1665,9 @@ impl Card {
             &mut out.targeted_from_this_turn,
             &self.targeted_from_this_turn,
         );
+        out.blocked_this_turn.clone_from(&self.blocked_this_turn);
+        out.blocked_by_this_turn
+            .clone_from(&self.blocked_by_this_turn);
         refresh_field(&mut out.temp_controllers, &self.temp_controllers);
         out.static_control_base = self.static_control_base;
         refresh_field(&mut out.may_look, &self.may_look);
@@ -3819,19 +3830,17 @@ impl Card {
     pub fn clear_flip_result(&mut self) {
         self.remove_s_var("FlipResult");
     }
-    pub fn add_blocked_this_turn(&mut self, card_id: CardId) {
-        self.add_remembered_card(card_id);
-        self.set_s_var("BlockedThisTurn", "True");
+    pub fn add_blocked_this_turn(&mut self, attacker: std::sync::Arc<Card>) {
+        self.blocked_this_turn.push(attacker);
     }
     pub fn clear_blocked_this_turn(&mut self) {
-        self.remove_s_var("BlockedThisTurn");
+        self.blocked_this_turn.clear();
     }
-    pub fn add_blocked_by_this_turn(&mut self, card_id: CardId) {
-        self.add_remembered_card(card_id);
-        self.set_s_var("BlockedByThisTurn", "True");
+    pub fn add_blocked_by_this_turn(&mut self, blocker: std::sync::Arc<Card>) {
+        self.blocked_by_this_turn.push(blocker);
     }
     pub fn clear_blocked_by_this_turn(&mut self) {
-        self.remove_s_var("BlockedByThisTurn");
+        self.blocked_by_this_turn.clear();
     }
 
     pub fn add_must_block_card(&mut self, card_id: CardId) {
@@ -4984,6 +4993,8 @@ impl Card {
     pub fn on_cleanup_phase(&mut self) {
         self.targeted_from_this_turn.clear();
         self.damage_history.new_turn();
+        self.clear_blocked_by_this_turn();
+        self.clear_blocked_this_turn();
         self.visited_this_turn = false;
         self.damage_prevention = 0;
     }

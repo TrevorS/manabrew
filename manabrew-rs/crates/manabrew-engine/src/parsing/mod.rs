@@ -330,10 +330,9 @@ pub enum ContextPredicate {
     Attacking(Option<TargetRef>),
     AttackingAlone,
     Blocking(Option<TargetRef>),
-    BlockedByValidThisTurn(TargetRef),
-    BlockedByValidThisTurnType(CardSelectorType),
-    BlockedValidThisTurn(CardSelectorType),
-    BlockingValid(CardSelectorType),
+    BlockedByValidThisTurn(String),
+    BlockedValidThisTurn(String),
+    BlockingValid(String),
     Blocked,
     Unblocked,
     AttackedThisTurn,
@@ -969,6 +968,9 @@ fn lower_compiled_selector(alternatives: &[CompiledSelectorAlternative]) -> Sele
                             let last = last.to_ascii_lowercase();
                             let last = last.strip_prefix('!').unwrap_or(&last);
                             last.starts_with("attachedto ")
+                                || last.starts_with("blockedbyvalidthisturn ")
+                                || last.starts_with("blockedvalidthisturn ")
+                                || last.starts_with("blockingvalid ")
                                 || last.starts_with("castsa ")
                                 || last.starts_with("controlledby ")
                                 || last.starts_with("doesnotsharenamewith ")
@@ -1391,22 +1393,23 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
                 .unwrap_or_else(|| SelectorPredicate::Raw(normalized.to_string()))
         }
         blocked_by if blocked_by.starts_with("blockedbyvalidthisturn ") => {
-            lower_blocked_by_valid_this_turn(normalized["blockedByValidThisTurn ".len()..].trim())
-                .unwrap_or_else(|| SelectorPredicate::Raw(normalized.to_string()))
+            SelectorPredicate::Context(ContextPredicate::BlockedByValidThisTurn(
+                normalized["blockedByValidThisTurn ".len()..]
+                    .trim()
+                    .to_string(),
+            ))
         }
         blocked if blocked.starts_with("blockedvalidthisturn ") => {
-            lower_card_selector_type(normalized["blockedValidThisTurn ".len()..].trim())
-                .map(|card_type| {
-                    SelectorPredicate::Context(ContextPredicate::BlockedValidThisTurn(card_type))
-                })
-                .unwrap_or_else(|| SelectorPredicate::Raw(normalized.to_string()))
+            SelectorPredicate::Context(ContextPredicate::BlockedValidThisTurn(
+                normalized["blockedValidThisTurn ".len()..]
+                    .trim()
+                    .to_string(),
+            ))
         }
         blocking_valid if blocking_valid.starts_with("blockingvalid ") => {
-            lower_card_selector_type(normalized["blockingValid ".len()..].trim())
-                .map(|card_type| {
-                    SelectorPredicate::Context(ContextPredicate::BlockingValid(card_type))
-                })
-                .unwrap_or_else(|| SelectorPredicate::Raw(normalized.to_string()))
+            SelectorPredicate::Context(ContextPredicate::BlockingValid(
+                normalized["blockingValid ".len()..].trim().to_string(),
+            ))
         }
         blocking if blocking.starts_with("blocking ") => {
             lower_relation_target_ref(normalized["blocking ".len()..].trim())
@@ -1517,38 +1520,6 @@ fn lower_relation_target_ref(value: &str) -> Option<TargetRef> {
         Some(TargetRef::Commander)
     } else {
         None
-    }
-}
-
-fn lower_blocked_by_valid_this_turn(value: &str) -> Option<SelectorPredicate> {
-    if let Some(target) = lower_relation_target_ref(value) {
-        return Some(SelectorPredicate::Context(
-            ContextPredicate::BlockedByValidThisTurn(target),
-        ));
-    }
-    lower_card_selector_type(value).map(|card_type| {
-        SelectorPredicate::Context(ContextPredicate::BlockedByValidThisTurnType(card_type))
-    })
-}
-
-fn lower_card_selector_type(value: &str) -> Option<CardSelectorType> {
-    match value.to_ascii_lowercase().as_str() {
-        "card" => Some(CardSelectorType::Card),
-        "creature" => Some(CardSelectorType::Creature),
-        "land" => Some(CardSelectorType::Land),
-        "artifact" => Some(CardSelectorType::Artifact),
-        "enchantment" => Some(CardSelectorType::Enchantment),
-        "planeswalker" => Some(CardSelectorType::Planeswalker),
-        "permanent" => Some(CardSelectorType::Permanent),
-        "nonland" => Some(CardSelectorType::NonLand),
-        "noncreature" => Some(CardSelectorType::NonCreature),
-        _ if value
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '\'') =>
-        {
-            Some(CardSelectorType::Subtype(value.to_string()))
-        }
-        _ => None,
     }
 }
 

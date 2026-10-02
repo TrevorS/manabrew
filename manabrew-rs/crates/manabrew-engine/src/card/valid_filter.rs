@@ -1046,16 +1046,13 @@ fn matches_context_predicate(
         ContextPredicate::Blocking(target) => {
             matches_blocking_predicate(target.as_ref(), card, context)
         }
-        ContextPredicate::BlockedByValidThisTurn(target) => {
-            matches_blocked_by_valid_this_turn_target(target, card, context)
+        ContextPredicate::BlockedByValidThisTurn(valid) => {
+            matches_blocked_this_turn(&card.blocked_by_this_turn, valid, card, context)
         }
-        ContextPredicate::BlockedByValidThisTurnType(card_type) => {
-            matches_blocked_by_valid_this_turn_type(card_type, card, context)
+        ContextPredicate::BlockedValidThisTurn(valid) => {
+            matches_blocked_this_turn(&card.blocked_this_turn, valid, card, context)
         }
-        ContextPredicate::BlockedValidThisTurn(card_type)
-        | ContextPredicate::BlockingValid(card_type) => {
-            matches_blocked_valid_this_turn_type(card_type, card, context)
-        }
+        ContextPredicate::BlockingValid(valid) => matches_blocking_valid(valid, card, context),
         ContextPredicate::Blocked => context.combat.map_or(
             card.damage_history.creature_got_blocked_this_combat,
             |combat| combat.was_blocked_this_combat(card.id),
@@ -1685,51 +1682,41 @@ fn combat_blocks<'a>(context: MatchContext<'a>) -> &'a [(CardId, CardId)] {
     }
 }
 
-fn matches_blocked_by_valid_this_turn_target(
-    target: &TargetRef,
+/// Java `CardProperty` `blockedValidThisTurn`/`blockedByValidThisTurn`: a creature in the card's
+/// list matches the restriction with the card's controller as source controller, or is one of
+/// the cards the restriction defines.
+fn matches_blocked_this_turn(
+    blocked: &[Arc<Card>],
+    valid: &str,
     card: &Card,
     context: MatchContext<'_>,
 ) -> bool {
-    let Some(combat) = context.combat else {
-        return false;
-    };
-    combat
-        .blockers
+    let selector = crate::parsing::cached_compiled_selector(valid);
+    let restriction = context.with_source_controller(card.controller);
+    blocked
         .iter()
-        .filter(|(_, attacker)| *attacker == card.id)
-        .any(|(blocker, _)| relation_target_contains_id(target, *blocker, context))
+        .any(|other| matches_valid_card_selector_with_context(&selector, other, restriction))
+        || raw_target_ref(valid).is_some_and(|target| {
+            blocked
+                .iter()
+                .any(|other| relation_target_contains_id(&target, other.id, context))
+        })
 }
 
-fn matches_blocked_by_valid_this_turn_type(
-    card_type: &CardSelectorType,
-    card: &Card,
-    context: MatchContext<'_>,
-) -> bool {
-    let game = context.game;
-    let Some(combat) = context.combat else {
-        return false;
-    };
-    combat
-        .blockers
-        .iter()
-        .filter(|(_, attacker)| *attacker == card.id)
-        .any(|(blocker, _)| matches_card_type_predicate(card_type, game.card(*blocker)))
-}
-
-fn matches_blocked_valid_this_turn_type(
-    card_type: &CardSelectorType,
-    card: &Card,
-    context: MatchContext<'_>,
-) -> bool {
-    let game = context.game;
-    let Some(combat) = context.combat else {
-        return false;
-    };
-    combat
-        .blockers
+/// Java `CardProperty` `blocking` with `Valid <restriction>`: the card blocks a battlefield card
+/// the restriction accepts.
+fn matches_blocking_valid(valid: &str, card: &Card, context: MatchContext<'_>) -> bool {
+    let selector = crate::parsing::cached_compiled_selector(valid);
+    combat_blocks(context)
         .iter()
         .filter(|(blocker, _)| *blocker == card.id)
-        .any(|(_, attacker)| matches_card_type_predicate(card_type, game.card(*attacker)))
+        .any(|(_, attacker)| {
+            matches_valid_card_selector_with_context(
+                &selector,
+                context.game.card(*attacker),
+                context,
+            )
+        })
 }
 
 fn matches_defender_target(
@@ -2140,27 +2127,21 @@ fn legacy_matches_card_atom(raw: &str, card: &Card, context: MatchContext<'_>) -
             })
         }
         blocked_by if blocked_by.starts_with("blockedbyvalidthisturn ") => {
-            raw_blocked_by_valid_this_turn(&value["blockedByValidThisTurn ".len()..])
-                .is_some_and(|predicate| matches_context_predicate(&predicate, card, context))
-        }
-        blocked if blocked.starts_with("blockedvalidthisturn ") => raw_card_selector_type(
-            &value["blockedValidThisTurn ".len()..],
-        )
-        .is_some_and(|card_type| {
-            matches_context_predicate(
-                &ContextPredicate::BlockedValidThisTurn(card_type),
+            matches_blocked_this_turn(
+                &card.blocked_by_this_turn,
+                value["blockedByValidThisTurn ".len()..].trim(),
                 card,
                 context,
             )
-        }),
+        }
+        blocked if blocked.starts_with("blockedvalidthisturn ") => matches_blocked_this_turn(
+            &card.blocked_this_turn,
+            value["blockedValidThisTurn ".len()..].trim(),
+            card,
+            context,
+        ),
         blocking_valid if blocking_valid.starts_with("blockingvalid ") => {
-            raw_card_selector_type(&value["blockingValid ".len()..]).is_some_and(|card_type| {
-                matches_context_predicate(
-                    &ContextPredicate::BlockingValid(card_type),
-                    card,
-                    context,
-                )
-            })
+            matches_blocking_valid(value["blockingValid ".len()..].trim(), card, context)
         }
         blocking if blocking.starts_with("blocking ") => {
             raw_target_ref(&value["blocking ".len()..]).is_some_and(|target| {
@@ -2465,35 +2446,6 @@ fn raw_target_ref(value: &str) -> Option<TargetRef> {
         Some(TargetRef::Commander)
     } else {
         None
-    }
-}
-
-fn raw_blocked_by_valid_this_turn(value: &str) -> Option<ContextPredicate> {
-    if let Some(target) = raw_target_ref(value) {
-        return Some(ContextPredicate::BlockedByValidThisTurn(target));
-    }
-    raw_card_selector_type(value).map(ContextPredicate::BlockedByValidThisTurnType)
-}
-
-fn raw_card_selector_type(value: &str) -> Option<CardSelectorType> {
-    let value = value.trim();
-    match value.to_ascii_lowercase().as_str() {
-        "card" => Some(CardSelectorType::Card),
-        "creature" => Some(CardSelectorType::Creature),
-        "land" => Some(CardSelectorType::Land),
-        "artifact" => Some(CardSelectorType::Artifact),
-        "enchantment" => Some(CardSelectorType::Enchantment),
-        "planeswalker" => Some(CardSelectorType::Planeswalker),
-        "permanent" => Some(CardSelectorType::Permanent),
-        "nonland" => Some(CardSelectorType::NonLand),
-        "noncreature" => Some(CardSelectorType::NonCreature),
-        _ if value
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '\'') =>
-        {
-            Some(CardSelectorType::Subtype(value.to_string()))
-        }
-        _ => None,
     }
 }
 

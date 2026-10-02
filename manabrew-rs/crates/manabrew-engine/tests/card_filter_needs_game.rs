@@ -302,3 +302,57 @@ fn defender_ctrl_reads_the_attack_without_a_combat_state() {
     assert!(defender_ctrl(&game, attacker));
     assert!(defender_ctrl(&game, sword));
 }
+
+#[test]
+fn blocked_by_this_turn_is_kept_on_the_card_until_cleanup() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let attacker = put(&mut game, BEAR, p0, ZoneType::Battlefield);
+    let blocker = put(&mut game, OGRE, p1, ZoneType::Battlefield);
+    let blocked_by_creature = |game: &GameState| {
+        matches_valid(
+            "Creature.blockedByValidThisTurn Creature",
+            Some(game.card(attacker)),
+            None,
+            game.card(attacker),
+            p0,
+            game,
+        )
+    };
+
+    assert!(!blocked_by_creature(&game));
+    let blocker_lki = std::sync::Arc::clone(&game.cards[blocker.index()]);
+    game.card_mut(attacker)
+        .add_blocked_by_this_turn(blocker_lki);
+    assert!(blocked_by_creature(&game));
+    game.card_mut(attacker).on_cleanup_phase();
+    assert!(!blocked_by_creature(&game));
+}
+
+const DRAKE: &str = "Name:Wind Drake\nManaCost:2 U\nTypes:Creature Drake\nPT:2/2\nOracle:";
+
+#[test]
+fn a_blocked_this_turn_argument_keeps_its_own_qualifiers() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let troll = put(&mut game, OGRE, p0, ZoneType::Battlefield);
+    let bear = put(&mut game, BEAR, p1, ZoneType::Battlefield);
+    let drake = put(&mut game, DRAKE, p1, ZoneType::Battlefield);
+    let blocked_a_blue_creature = |game: &GameState| {
+        matches_valid(
+            "Card.Self+blockedValidThisTurn Creature.Blue",
+            Some(game.card(troll)),
+            None,
+            game.card(troll),
+            p0,
+            game,
+        )
+    };
+
+    let bear_lki = std::sync::Arc::clone(&game.cards[bear.index()]);
+    game.card_mut(troll).add_blocked_this_turn(bear_lki);
+    assert!(!blocked_a_blue_creature(&game));
+    let drake_lki = std::sync::Arc::clone(&game.cards[drake.index()]);
+    game.card_mut(troll).add_blocked_this_turn(drake_lki);
+    assert!(blocked_a_blue_creature(&game));
+}

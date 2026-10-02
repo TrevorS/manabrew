@@ -880,6 +880,12 @@ impl GameLoop {
                         false,
                     );
                     for blocker_id in blockers_for {
+                        let attacker_lki = std::sync::Arc::clone(&game.cards[attacker_id.index()]);
+                        let blocker_lki = std::sync::Arc::clone(&game.cards[blocker_id.index()]);
+                        game.card_mut(blocker_id)
+                            .add_blocked_this_turn(attacker_lki);
+                        game.card_mut(attacker_id)
+                            .add_blocked_by_this_turn(blocker_lki);
                         self.trigger_handler.run_trigger(
                             TriggerType::AttackerBlockedByCreature,
                             RunParams {
