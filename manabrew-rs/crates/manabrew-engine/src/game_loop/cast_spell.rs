@@ -3,6 +3,8 @@ use super::*;
 use crate::agent::DecisionContext;
 use crate::mana::mana_cost_being_paid::ManaCostBeingPaid;
 
+const BARGAIN_COST: &str = "Sac<1/Artifact;Enchantment;Card.token/artifact, enchantment or token>";
+
 impl GameLoop {
     pub(crate) fn parse_spell_cost(abilities: &[String]) -> Option<crate::cost::Cost> {
         for ability in abilities {
@@ -1588,6 +1590,27 @@ impl GameLoop {
                 }
                 None => chosen,
             });
+        }
+        if sa.is_spell && game.card(card_id).has_keyword("Bargain") {
+            let bargain = parse_cost(BARGAIN_COST);
+            if crate::cost::can_pay(&bargain, game, None, card_id, player, Some(&sa)) {
+                agents[player.index()].snapshot_state(game, &self.mana_pools);
+                if agents[player.index()].choose_kicker(
+                    DecisionContext::new(game, &self.mana_pools),
+                    player,
+                    crate::spellability::OptionalCost::Bargain.name(),
+                    Some(card_id),
+                ) {
+                    sa.add_optional_cost(crate::spellability::OptionalCost::Bargain);
+                    spell_cost = Some(match spell_cost {
+                        Some(mut existing) => {
+                            crate::cost::merge_to(&mut existing, &bargain);
+                            existing
+                        }
+                        None => bargain,
+                    });
+                }
+            }
         }
         let spell_cost = spell_cost;
         let mana_cost = match alternate_additional_mana {

@@ -49,6 +49,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     sub_sa.trigger_remembered_amount = sa.trigger_remembered_amount;
     sub_sa.x_mana_cost_paid = sa.x_mana_cost_paid;
     sub_sa.kicked = sa.kicked;
+    sub_sa.optional_costs.clone_from(&sa.optional_costs);
     sub_sa.kick_count = sa.kick_count;
     sub_sa.buyback_paid = sa.buyback_paid;
     sub_sa.overloaded = sa.overloaded;
