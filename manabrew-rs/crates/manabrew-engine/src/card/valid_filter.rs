@@ -3450,6 +3450,7 @@ fn check_condition_value(game: &GameState, condition: Option<&str>, source: &Car
         "Night" => game.is_night,
         "MaxSpeed" => crate::player::max_speed(game, controller),
         "FatefulHour" => game.player(controller).life <= 5,
+        "ExtraTurn" => game.turn.is_extra_turn,
         other => {
             crate::census::unhandled("condition-assumed-true", other);
             true

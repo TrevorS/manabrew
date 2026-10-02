@@ -4,6 +4,8 @@ use manabrew_engine::ability::ability_factory::build_spell_ability;
 use manabrew_engine::ability::AbilityKey;
 use manabrew_engine::card::valid_filter::matches_valid;
 use manabrew_engine::card::CardInstance;
+use manabrew_engine::combat::combat_util::can_attack_defender;
+use manabrew_engine::combat::DefenderId;
 use manabrew_engine::event::RunParams;
 use manabrew_engine::game::GameState;
 use manabrew_engine::ids::{CardId, PlayerId};
@@ -206,4 +208,18 @@ fn an_inline_amount_is_evaluated() {
 
     assert!(smaller(&game, bear));
     assert!(!smaller(&game, giant));
+}
+
+const MEDOMAI: &str = "Name:Medomai the Ageless\nManaCost:4 W U\nTypes:Legendary Creature Sphinx\nPT:4/4\nS:Mode$ CantAttack | ValidCard$ Card.Self | Condition$ ExtraTurn | Description$ CARDNAME can't attack during extra turns.\nOracle:";
+
+#[test]
+fn medomai_cant_attack_during_an_extra_turn() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let medomai = put(&mut game, MEDOMAI, p0, ZoneType::Battlefield);
+    game.card_mut(medomai).summoning_sick = false;
+
+    assert!(can_attack_defender(&game, medomai, DefenderId::Player(p1)));
+    game.turn.is_extra_turn = true;
+    assert!(!can_attack_defender(&game, medomai, DefenderId::Player(p1)));
 }
