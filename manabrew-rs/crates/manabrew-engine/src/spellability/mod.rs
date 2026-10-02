@@ -1836,6 +1836,11 @@ impl SpellAbility {
                 .is_some_and(|trigger| trigger.is_chapter())
     }
 
+    pub fn host_card_id(&self) -> CardId {
+        self.source
+            .expect("SpellAbility host card must be bound before use")
+    }
+
     pub fn is_activated_ability(&self) -> bool {
         self.is_activated && !self.is_trigger && !self.is_ability_static()
     }
@@ -2520,7 +2525,7 @@ pub fn choose_targets_by_kind(
     }
 
     if !matches!(tr.target_kind, TargetKind::CardInZone { .. })
-        && !tr.has_candidates(game, player, sa.source, Some(sa))
+        && !tr.has_candidates(game, player, sa.host_card_id(), Some(sa))
         && card_util::get_valid_cards_to_target(game, sa).is_empty()
         && target_restrictions::get_stack_target_candidates(game, sa).is_empty()
     {

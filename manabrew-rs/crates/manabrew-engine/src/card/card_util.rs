@@ -662,8 +662,7 @@ pub fn get_valid_cards_to_target(game: &GameState, ability: &SpellAbility) -> Ve
                             game,
                             tgt,
                             filter.as_deref(),
-                            player,
-                            ability.source,
+                            ability.host_card_id(),
                             Some(ability),
                         )
                     }
@@ -672,8 +671,7 @@ pub fn get_valid_cards_to_target(game: &GameState, ability: &SpellAbility) -> Ve
                             game,
                             tgt,
                             filter.as_deref(),
-                            player,
-                            ability.source,
+                            ability.host_card_id(),
                             Some(ability),
                         )
                     }
@@ -681,8 +679,7 @@ pub fn get_valid_cards_to_target(game: &GameState, ability: &SpellAbility) -> Ve
                         target_restrictions::get_all_candidates_any_filtered_for_restrictions(
                             game,
                             tgt,
-                            player,
-                            ability.source,
+                            ability.host_card_id(),
                             Some(ability),
                         )
                     }

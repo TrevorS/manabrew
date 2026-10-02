@@ -616,7 +616,7 @@ pub(crate) fn mode_has_valid_targets_in_game(
         return true;
     }
 
-    tr.has_candidates(game, player, sa.source, Some(&sa))
+    tr.has_candidates(game, player, sa.host_card_id(), Some(&sa))
 }
 
 fn setup_mode_targets(ctx: &mut EffectContext, mode_sa: &mut SpellAbility, player: PlayerId) {

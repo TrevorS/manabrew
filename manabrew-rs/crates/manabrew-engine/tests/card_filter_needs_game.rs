@@ -156,7 +156,7 @@ fn a_return_trigger_has_candidates_only_within_the_dead_creatures_power() {
         sa.target_restrictions
             .as_ref()
             .expect("targets")
-            .has_candidates(game, p0, sa.source, Some(&sa))
+            .has_candidates(game, p0, sa.host_card_id(), Some(&sa))
     };
 
     assert!(!has_candidates(&game));

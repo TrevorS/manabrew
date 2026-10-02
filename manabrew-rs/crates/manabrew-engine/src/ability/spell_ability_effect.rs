@@ -667,14 +667,8 @@ fn resolve_defined_cards_for_sa_ref_inner(
                 .collect()
         }
         DefinedRef::Unsupported(raw) if raw.starts_with("Valid") => {
-            ability_utils::get_defined_valid_cards(
-                game,
-                sa.source
-                    .expect("an ability matched against a card filter has a host card, as in Java"),
-                raw,
-                Some(sa),
-            )
-            .unwrap_or_default()
+            ability_utils::get_defined_valid_cards(game, sa.host_card_id(), raw, Some(sa))
+                .unwrap_or_default()
         }
         DefinedRef::Unsupported(raw) if sa.paid_hash.contains_key(raw.as_str()) => sa.paid_hash
             [raw.as_str()]

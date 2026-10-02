@@ -9,7 +9,7 @@ use forge_foundation::{CardStateName, CardTypeLine, ColorSet, ManaCost};
 
 use crate::ability::activated::parse_activated_ability;
 use crate::card::trait_card_trait_changes::CardTraitChanges as ICardTraitChanges;
-use crate::card::{card_copy_service, card_property, Card};
+use crate::card::{card_copy_service, Card};
 use crate::core::HasSVars;
 use crate::game_object::GameObject;
 use crate::ids::PlayerId;
@@ -799,10 +799,6 @@ pub fn add_abilities_from(source: &Card, target: &mut Card) {
     target
         .static_abilities
         .extend(source.static_abilities.iter().cloned());
-}
-
-pub fn has_property(card: &Card, property: &str) -> bool {
-    card_property::card_has_property_without_game(card, property, card.controller)
 }
 
 pub fn reset_original_host(card: &mut Card) {

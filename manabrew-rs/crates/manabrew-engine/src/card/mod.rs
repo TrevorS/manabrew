@@ -2059,10 +2059,6 @@ impl Card {
         crate::card::card_state::add_abilities_from(source, self);
     }
 
-    pub fn has_property(&self, property: &str) -> bool {
-        crate::card::card_state::has_property(self, property)
-    }
-
     pub fn reset_original_host(&mut self) {
         crate::card::card_state::reset_original_host(self);
     }

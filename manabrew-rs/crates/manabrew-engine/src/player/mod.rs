@@ -1044,29 +1044,6 @@ pub fn assign_companion(game: &mut GameState, player: PlayerId, card: CardId) {
     game.move_card(card, ZoneType::Command, player);
 }
 
-pub fn deck_matches_deck_restriction(
-    game: &GameState,
-    player: PlayerId,
-    restriction: &str,
-) -> bool {
-    let restrictions: Vec<&str> = restriction
-        .split(',')
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .collect();
-    if restrictions.is_empty() {
-        return true;
-    }
-    game.cards_in_zone(ZoneType::Library, player)
-        .iter()
-        .copied()
-        .all(|card_id| {
-            restrictions
-                .iter()
-                .all(|restriction| game.card(card_id).has_property(restriction))
-        })
-}
-
 pub fn create_companion_effect(game: &mut GameState, player: PlayerId) {
     if game.player(player).companion_effect_card.is_some() {
         return;

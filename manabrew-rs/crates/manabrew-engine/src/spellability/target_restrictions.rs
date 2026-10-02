@@ -7,7 +7,7 @@
 use forge_foundation::{CoreType, ZoneType};
 use serde::{Deserialize, Serialize};
 
-use crate::card::{card_property, valid_filter, Card};
+use crate::card::{valid_filter, Card};
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 use crate::parsing::{cached_compiled_selector, keys, CompiledSelector, Params, ParsedParams};
@@ -268,9 +268,10 @@ impl TargetRestrictions {
         &self,
         game: &GameState,
         player: PlayerId,
-        source_card: Option<CardId>,
+        source_card: CardId,
         ability: Option<&SpellAbility>,
     ) -> bool {
+        let source = Some(source_card);
         let _perf_scope =
             crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::Target);
         match &self.target_kind {
@@ -279,52 +280,44 @@ impl TargetRestrictions {
             TargetKind::Player => game
                 .alive_players()
                 .into_iter()
-                .any(|pid| player_can_be_targeted(game, pid, source_card, player)),
+                .any(|pid| player_can_be_targeted(game, pid, source, player)),
             // "any target" fallback: derive player/card candidates from ValidTgts.
             TargetKind::Any => {
                 if any_target_allows_players(&self.valid_tgts)
                     && game
                         .alive_players()
                         .into_iter()
-                        .any(|pid| player_can_be_targeted(game, pid, source_card, player))
+                        .any(|pid| player_can_be_targeted(game, pid, source, player))
                 {
                     return true;
                 }
-                get_all_candidates_any_filtered_for_restrictions(
-                    game,
-                    self,
-                    player,
-                    source_card,
-                    ability,
-                )
-                .into_iter()
-                .any(|cid| can_be_targeted_by(game, cid, player, source_card))
+                get_all_candidates_any_filtered_for_restrictions(game, self, source_card, ability)
+                    .into_iter()
+                    .any(|cid| can_be_targeted_by(game, cid, player, source))
             }
             TargetKind::Creature(ref filter) => {
                 get_all_candidates_creature_filtered_for_restrictions(
                     game,
                     self,
                     filter.as_deref(),
-                    player,
                     source_card,
                     ability,
                 )
                 .into_iter()
-                .filter(|&cid| !is_other_filter_self_hit(filter.as_deref(), source_card, cid))
-                .any(|cid| can_be_targeted_by(game, cid, player, source_card))
+                .filter(|&cid| !is_other_filter_self_hit(filter.as_deref(), source, cid))
+                .any(|cid| can_be_targeted_by(game, cid, player, source))
             }
             TargetKind::Permanent(ref filter) => {
                 get_all_battlefield_permanents_filtered_for_restrictions(
                     game,
                     self,
                     filter.as_deref(),
-                    player,
                     source_card,
                     ability,
                 )
                 .into_iter()
-                .filter(|&cid| !is_other_filter_self_hit(filter.as_deref(), source_card, cid))
-                .any(|cid| can_be_targeted_by(game, cid, player, source_card))
+                .filter(|&cid| !is_other_filter_self_hit(filter.as_deref(), source, cid))
+                .any(|cid| can_be_targeted_by(game, cid, player, source))
             }
             TargetKind::CardInZone { zone, filter } => !get_valid_cards_in_zone_for_restrictions(
                 game,
@@ -339,7 +332,7 @@ impl TargetRestrictions {
             TargetKind::Spell => !filter_spells_for_target_restrictions(
                 game,
                 player,
-                source_card,
+                source,
                 &get_all_candidates_spells(game),
                 self,
             )
@@ -769,12 +762,7 @@ fn player_can_be_targeted(
 
 /// Check if there is at least one valid target for the given ability string.
 /// Convenience wrapper that creates a temporary TargetRestrictions.
-pub fn has_candidates(
-    game: &GameState,
-    player: PlayerId,
-    ability: &str,
-    source: Option<CardId>,
-) -> bool {
+pub fn has_candidates(game: &GameState, player: PlayerId, ability: &str, source: CardId) -> bool {
     let _perf_scope =
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::Target);
     let params = Params::from_raw(ability);
@@ -791,20 +779,15 @@ pub fn has_candidates_in_chain(
     game: &GameState,
     player: PlayerId,
     ability: &str,
-    source: Option<CardId>,
+    source: CardId,
 ) -> bool {
     let _perf_scope =
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::Target);
     let params = Params::from_raw(ability);
     if let Some(tr) = TargetRestrictions::new(&params) {
         let min_targets = parse_literal_target_count(&tr.min_targets).unwrap_or_else(|| {
-            if let Some(card_id) = source {
-                let sa = crate::spellability::build_spell_ability(game, card_id, ability, player);
-                tr.get_min_targets(game, &sa)
-            } else {
-                let sa = SpellAbility::new_simple(None, player, ability);
-                tr.get_min_targets(game, &sa)
-            }
+            let sa = crate::spellability::build_spell_ability(game, source, ability, player);
+            tr.get_min_targets(game, &sa)
         });
         if min_targets > 0 && !tr.has_candidates(game, player, source, None) {
             return false;
@@ -812,11 +795,9 @@ pub fn has_candidates_in_chain(
     }
 
     if let Some(sub_svar_name) = params.get(keys::SUB_ABILITY) {
-        if let Some(card_id) = source {
-            if let Some(sub_text) = game.card(card_id).get_s_var(sub_svar_name) {
-                let sub_text = sub_text.to_string();
-                return has_candidates_in_chain(game, player, &sub_text, source);
-            }
+        if let Some(sub_text) = game.card(source).get_s_var(sub_svar_name) {
+            let sub_text = sub_text.to_string();
+            return has_candidates_in_chain(game, player, &sub_text, source);
         }
     }
 
@@ -867,13 +848,13 @@ pub fn has_candidates_in_spell_ability_chain(
                         }
                     }
                 } else if matches!(tr.target_kind, TargetKind::Any) {
-                    if !tr.has_candidates(game, player, node.source, Some(node))
+                    if !tr.has_candidates(game, player, node.host_card_id(), Some(node))
                         && get_stack_target_candidates(game, node).is_empty()
                         && crate::card::card_util::get_valid_cards_to_target(game, node).is_empty()
                     {
                         return false;
                     }
-                } else if !tr.has_candidates(game, player, node.source, Some(node))
+                } else if !tr.has_candidates(game, player, node.host_card_id(), Some(node))
                     && !(game.mirror_forge_bugs
                         && game.action_space_mana_probe
                             == crate::mana::ActionSpaceManaProbe::ComputerUtilMana
@@ -1102,20 +1083,11 @@ pub fn get_all_candidates_creature_filtered_for_restrictions(
     game: &GameState,
     restrictions: &TargetRestrictions,
     filter: Option<&str>,
-    source_controller: PlayerId,
-    source_card: Option<CardId>,
+    source_card: CardId,
     ability: Option<&SpellAbility>,
 ) -> Vec<CardId> {
     let all = get_all_candidates_creatures(game);
-    filter_card_candidates_for_restrictions(
-        game,
-        all,
-        restrictions,
-        filter,
-        source_controller,
-        source_card,
-        ability,
-    )
+    filter_card_candidates_for_restrictions(game, all, restrictions, filter, source_card, ability)
 }
 
 /// Get all permanents on the battlefield (any player).
@@ -1138,20 +1110,11 @@ pub fn get_all_battlefield_permanents_filtered_for_restrictions(
     game: &GameState,
     restrictions: &TargetRestrictions,
     filter: Option<&str>,
-    source_controller: PlayerId,
-    source_card: Option<CardId>,
+    source_card: CardId,
     ability: Option<&SpellAbility>,
 ) -> Vec<CardId> {
     let all = get_all_battlefield_permanents(game);
-    filter_card_candidates_for_restrictions(
-        game,
-        all,
-        restrictions,
-        filter,
-        source_controller,
-        source_card,
-        ability,
-    )
+    filter_card_candidates_for_restrictions(game, all, restrictions, filter, source_card, ability)
 }
 
 fn filter_card_candidates_for_restrictions(
@@ -1159,30 +1122,14 @@ fn filter_card_candidates_for_restrictions(
     candidates: Vec<CardId>,
     restrictions: &TargetRestrictions,
     filter: Option<&str>,
-    source_controller: PlayerId,
-    source_card: Option<CardId>,
+    source_card: CardId,
     ability: Option<&SpellAbility>,
 ) -> Vec<CardId> {
-    let Some(source_id) = source_card else {
-        return match filter {
-            None => candidates,
-            Some(f) => candidates
-                .into_iter()
-                .filter(|&cid| {
-                    card_property::card_has_property_without_game(
-                        game.card(cid),
-                        f,
-                        source_controller,
-                    )
-                })
-                .collect(),
-        };
-    };
     let selector = restrictions.compiled_valid_tgts();
-    let source = game.card(source_id);
+    let source = game.card(source_card);
     candidates
         .into_iter()
-        .filter(|&cid| !is_other_filter_self_hit(filter, source_card, cid))
+        .filter(|&cid| !is_other_filter_self_hit(filter, Some(source_card), cid))
         .filter(|&cid| {
             valid_filter::matches_valid_card_selector_with_context(
                 &selector,
@@ -1290,58 +1237,6 @@ fn parse_target_kind_legacy(val: &str) -> TargetKind {
     TargetKind::Any
 }
 
-/// Get all cards in a zone matching the filter (for Raise Dead style targeting)
-pub fn get_valid_cards_in_zone(
-    game: &GameState,
-    zone: ZoneType,
-    player: PlayerId,
-    filter: Option<&str>,
-    source_card: Option<CardId>,
-) -> Vec<CardId> {
-    // Determine whether the filter restricts to a specific controller/owner.
-    // If not restricted, search ALL players' zones (e.g. "target card from a graveyard"
-    // can target any player's graveyard). Mirrors Java's TargetRestrictions.getAllCandidates().
-    let restrict_to_player = filter
-        .map(|f| {
-            f.contains("YouCtrl")
-                || f.contains("YouOwn")
-                || f.contains("YouControl")
-                || f.contains("EnchantedBy")
-        })
-        .unwrap_or(false);
-
-    let zone_cards: Vec<CardId> = if restrict_to_player {
-        game.cards_in_zone(zone, player).to_vec()
-    } else {
-        game.player_order
-            .iter()
-            .flat_map(|&pid| game.cards_in_zone(zone, pid).to_vec())
-            .collect()
-    };
-
-    match filter {
-        None => zone_cards,
-        Some(f) => {
-            // ValidTgts$ uses commas for OR logic (e.g. "Creature,Land" means
-            // creature OR land). Split and match any clause.
-            let clauses: Vec<&str> = f.split(',').map(str::trim).collect();
-            zone_cards
-                .into_iter()
-                .filter(|&cid| !is_other_filter_self_hit(Some(f), source_card, cid))
-                .filter(|&cid| {
-                    clauses.iter().any(|clause| {
-                        card_property::card_has_property_without_game(
-                            game.card(cid),
-                            clause,
-                            player,
-                        )
-                    })
-                })
-                .collect()
-        }
-    }
-}
-
 /// Get all cards in a zone matching this ability's target restrictions while
 /// preserving trigger context for dynamic selectors such as `cmcLTX`.
 pub fn get_valid_cards_in_zone_for_sa(
@@ -1352,9 +1247,7 @@ pub fn get_valid_cards_in_zone_for_sa(
     ability: &SpellAbility,
 ) -> Vec<CardId> {
     let zone_cards = candidate_zone_cards(game, zone, player, filter);
-    let Some(source_id) = ability.source else {
-        return get_valid_cards_in_zone(game, zone, player, filter, None);
-    };
+    let source_id = ability.host_card_id();
     let Some(restrictions) = ability.target_restrictions.as_ref() else {
         return zone_cards;
     };
@@ -1389,36 +1282,15 @@ fn get_valid_cards_in_zone_for_restrictions(
     zone: ZoneType,
     player: PlayerId,
     filter: Option<&str>,
-    source_card: Option<CardId>,
+    source_card: CardId,
     ability: Option<&SpellAbility>,
 ) -> Vec<CardId> {
     let zone_cards = candidate_zone_cards(game, zone, player, filter);
-    let Some(source_id) = source_card else {
-        return match filter {
-            None => zone_cards,
-            Some(f) => {
-                let clauses: Vec<&str> = f.split(',').map(str::trim).collect();
-                zone_cards
-                    .into_iter()
-                    .filter(|&cid| !is_other_filter_self_hit(Some(f), source_card, cid))
-                    .filter(|&cid| {
-                        clauses.iter().any(|clause| {
-                            card_property::card_has_property_without_game(
-                                game.card(cid),
-                                clause,
-                                player,
-                            )
-                        })
-                    })
-                    .collect()
-            }
-        };
-    };
     let selector = restrictions.compiled_valid_tgts();
-    let source = game.card(source_id);
+    let source = game.card(source_card);
     zone_cards
         .into_iter()
-        .filter(|&cid| !is_other_filter_self_hit(filter, source_card, cid))
+        .filter(|&cid| !is_other_filter_self_hit(filter, Some(source_card), cid))
         .filter(|&cid| {
             valid_filter::matches_valid_card_selector_with_context(
                 &selector,
@@ -1484,8 +1356,7 @@ pub fn any_target_allows_players(valid_tgts: &[String]) -> bool {
 pub fn get_all_candidates_any_filtered_for_restrictions(
     game: &GameState,
     restrictions: &TargetRestrictions,
-    source_controller: PlayerId,
-    source_card: Option<CardId>,
+    source_card: CardId,
     ability: Option<&SpellAbility>,
 ) -> Vec<CardId> {
     if restrictions
@@ -1496,26 +1367,8 @@ pub fn get_all_candidates_any_filtered_for_restrictions(
         return get_all_candidates_any_target_cards(game);
     }
     let candidates = get_all_battlefield_permanents(game);
-    let Some(source_id) = source_card else {
-        return candidates
-            .into_iter()
-            .filter(|&cid| {
-                restrictions.valid_tgts.iter().any(|raw| {
-                    let token = raw.trim();
-                    if token_allows_player_targets(token) {
-                        return false;
-                    }
-                    card_property::card_has_property_without_game(
-                        game.card(cid),
-                        token,
-                        source_controller,
-                    )
-                })
-            })
-            .collect();
-    };
     let selector = restrictions.compiled_valid_tgts();
-    let source = game.card(source_id);
+    let source = game.card(source_card);
     candidates
         .into_iter()
         .filter(|&cid| {
@@ -1545,17 +1398,6 @@ fn get_all_candidates_any_target_cards(game: &GameState) -> Vec<CardId> {
         }
     }
     cards
-}
-
-/// Check if there are valid targets in a specific zone.
-pub fn has_valid_target_in_zone(
-    game: &GameState,
-    player: PlayerId,
-    zone: ZoneType,
-    filter: Option<&str>,
-    source_card: Option<CardId>,
-) -> bool {
-    !get_valid_cards_in_zone(game, zone, player, filter, source_card).is_empty()
 }
 
 #[cfg(test)]
@@ -1685,6 +1527,6 @@ mod tests {
         game.move_card(card_id, ZoneType::Hand, p0);
 
         let ability = game.card(card_id).abilities[0].clone();
-        assert!(has_candidates_in_chain(&game, p0, &ability, Some(card_id)));
+        assert!(has_candidates_in_chain(&game, p0, &ability, card_id));
     }
 }

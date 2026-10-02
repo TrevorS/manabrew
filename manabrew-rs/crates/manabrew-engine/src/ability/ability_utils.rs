@@ -1123,9 +1123,7 @@ pub fn matches_valid_cards_for_sa(
     selector: Option<&CompiledSelector>,
     default_filter: &str,
 ) -> bool {
-    let source_id = sa
-        .source
-        .expect("an ability matched against a card filter has a host card, as in Java");
+    let source_id = sa.host_card_id();
     let parsed;
     let selector = match selector {
         Some(selector) => selector,
@@ -1715,11 +1713,7 @@ pub fn filter_list_by_type(
             None => return Vec::new(),
         }
     } else {
-        (
-            sa.source
-                .expect("an ability matched against a card filter has a host card, as in Java"),
-            filter_type.to_string(),
-        )
+        (sa.host_card_id(), filter_type.to_string())
     };
 
     let selector = cached_compiled_selector(&effective_filter);

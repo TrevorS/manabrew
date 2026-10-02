@@ -126,9 +126,7 @@ fn damage_all_matches_valid_card(
     selector: &crate::parsing::CompiledSelector,
     card_id: CardId,
 ) -> bool {
-    let source_id = sa
-        .source
-        .expect("an ability matched against a card filter has a host card, as in Java");
+    let source_id = sa.host_card_id();
     let source = ctx.game.card(source_id);
     let targeted_cards = sa.target_chosen.all_target_cards();
     let targeted_players = sa.target_chosen.all_target_players();

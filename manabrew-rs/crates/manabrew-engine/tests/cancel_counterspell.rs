@@ -228,7 +228,7 @@ fn test_cancel_counters_creature_spell() {
             .target_restrictions
             .as_ref()
             .unwrap()
-            .has_candidates(&game, p0, None, None),
+            .has_candidates(&game, p0, cancel, None),
         "Cancel should have valid targets (the Grizzly Bears spell)"
     );
 
@@ -317,7 +317,7 @@ fn test_cancel_counters_noncreature_spell() {
             .target_restrictions
             .as_ref()
             .unwrap()
-            .has_candidates(&game, p0, None, None),
+            .has_candidates(&game, p0, cancel, None),
         "Cancel should have valid targets (the Lightning Bolt spell)"
     );
 
@@ -440,6 +440,7 @@ fn test_noncreature_spell_filter_excludes_creature_spells() {
         optional_trigger_source_name: None,
     });
 
+    let offer = game.create_card(make_counterspell_card(p0));
     let restrictions = target_restrictions::TargetRestrictions {
         valid_tgts: vec!["Card.nonCreature".to_string()],
         valid_tgts_selector: manabrew_engine::parsing::CompiledSelector::parse("Card.nonCreature"),
@@ -455,7 +456,7 @@ fn test_noncreature_spell_filter_excludes_creature_spells() {
     };
 
     assert!(
-        restrictions.has_candidates(&game, p0, None, None),
+        restrictions.has_candidates(&game, p0, offer, None),
         "An Offer-style targeting should still find the instant spell",
     );
 

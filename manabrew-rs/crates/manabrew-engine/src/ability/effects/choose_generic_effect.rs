@@ -102,12 +102,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                         .target_restrictions
                         .as_ref()
                         .map(|tr| {
-                            tr.has_candidates(
-                                ctx.game,
-                                chooser,
-                                Some(source_id),
-                                Some(&chosen_sas[i]),
-                            )
+                            tr.has_candidates(ctx.game, chooser, source_id, Some(&chosen_sas[i]))
                         })
                         .unwrap_or(false)
                     {
