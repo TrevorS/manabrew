@@ -168,7 +168,14 @@ pub fn apply_cant_attack_ability(
 
     // UnlessDefender — if the defending player matches the filter, allow the attack.
     if let Some(unless_type) = st_ab.ir.unless_defender_text.as_deref() {
-        if valid_filter::matches_valid_player(unless_type, defender, source.controller) {
+        if crate::player::player_property::player_has_property(
+            defender,
+            unless_type,
+            game,
+            source.id,
+            source.controller,
+            &crate::spellability::SpellAbility::new_simple(Some(source.id), source.controller, ""),
+        ) {
             return false;
         }
     }
