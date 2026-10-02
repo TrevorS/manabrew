@@ -48,6 +48,140 @@ use crate::parsing::{
 };
 use crate::spellability::SpellAbility;
 
+/// Forge recounts `IsPresent$` for every static on every layer pass, so n copies of one
+/// static cost n² selector matches (Phoenix Fleet Airship boards). Within one pass of
+/// `staticability::layer::apply_continuous_effects` a count over the battlefield can only
+/// change when a card's controller, name or permanence changes, so the pass keeps counts for
+/// selectors that read nothing else and clears them when an applied effect changes one.
+pub(crate) mod present_memo {
+    use std::cell::RefCell;
+
+    use forge_foundation::ZoneType;
+
+    use crate::ids::PlayerId;
+    use crate::parsing::{CardSelectorType, CompiledSelector, SelectorPredicate};
+
+    struct Count {
+        raw: String,
+        controller: PlayerId,
+        source_controller: PlayerId,
+        present_player: String,
+        value: i32,
+    }
+
+    thread_local! {
+        static COUNTS: RefCell<Option<Vec<Count>>> = const { RefCell::new(None) };
+    }
+
+    /// Keeps counts while it lives and restores the enclosing pass's counts when dropped.
+    pub(crate) struct Scope(Option<Vec<Count>>);
+
+    impl Scope {
+        pub(crate) fn enter() -> Self {
+            Self(COUNTS.with(|counts| counts.replace(Some(Vec::new()))))
+        }
+    }
+
+    impl Drop for Scope {
+        fn drop(&mut self) {
+            let outer = self.0.take();
+            COUNTS.with(|counts| *counts.borrow_mut() = outer);
+        }
+    }
+
+    pub(crate) fn attributes(card: &crate::card::Card) -> (PlayerId, bool) {
+        (card.controller, card.is_permanent())
+    }
+
+    pub(crate) fn invalidate() {
+        COUNTS.with(|counts| {
+            if let Some(counts) = counts.borrow_mut().as_mut() {
+                counts.clear();
+            }
+        });
+    }
+
+    fn reads_only_stable_attributes(predicate: &SelectorPredicate) -> bool {
+        match predicate {
+            SelectorPredicate::CardType(
+                CardSelectorType::Card | CardSelectorType::Permanent | CardSelectorType::Named(_),
+            )
+            | SelectorPredicate::CardController(_)
+            | SelectorPredicate::CardOwner(_)
+            | SelectorPredicate::Token(_) => true,
+            SelectorPredicate::Not(inner) => reads_only_stable_attributes(inner),
+            _ => false,
+        }
+    }
+
+    fn memoizable(selector: &CompiledSelector) -> bool {
+        !selector.ir.alternatives.is_empty()
+            && selector.ir.alternatives.iter().all(|alternative| {
+                alternative
+                    .predicates
+                    .iter()
+                    .all(reads_only_stable_attributes)
+            })
+    }
+
+    fn verify() -> bool {
+        static VERIFY: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        cfg!(debug_assertions)
+            || *VERIFY.get_or_init(|| std::env::var_os("FORGE_PRESENT_MEMO_VERIFY").is_some())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn count(
+        raw: &str,
+        selector: &CompiledSelector,
+        controller: PlayerId,
+        source_controller: PlayerId,
+        present_player: &str,
+        present_zone: ZoneType,
+        memo_allowed: bool,
+        count: impl FnOnce() -> i32,
+    ) -> i32 {
+        let active = memo_allowed
+            && present_zone == ZoneType::Battlefield
+            && COUNTS.with(|counts| counts.borrow().is_some())
+            && memoizable(selector);
+        if !active {
+            return count();
+        }
+        if let Some(found) = COUNTS.with(|counts| {
+            counts.borrow().as_ref().and_then(|counts| {
+                counts
+                    .iter()
+                    .find(|count| {
+                        count.controller == controller
+                            && count.source_controller == source_controller
+                            && count.raw == raw
+                            && count.present_player == present_player
+                    })
+                    .map(|count| count.value)
+            })
+        }) {
+            if verify() {
+                assert_eq!(found, count(), "present memo out of date for {raw}");
+            }
+            return found;
+        }
+        let value = count();
+        COUNTS.with(|counts| {
+            if let Some(counts) = counts.borrow_mut().as_mut() {
+                counts.push(Count {
+                    raw: raw.to_string(),
+                    controller,
+                    source_controller,
+                    present_player: present_player.to_string(),
+                    value,
+                });
+            }
+        });
+        value
+    }
+}
+
 fn requirement_controller(game: &GameState, source: &Card) -> PlayerId {
     let mut controller = source.controller;
 
@@ -3760,24 +3894,35 @@ fn meets_card_trait_requirements(
             .is_present_selector
             .clone()
             .unwrap_or_else(|| cached_compiled_selector(is_present));
-        let count = collect_present_cards(
-            game,
-            source,
-            requirements.present_defined.as_deref(),
+        let count = present_memo::count(
+            is_present,
+            &selector,
+            controller,
+            source.controller,
             present_player,
             present_zone,
-        )
-        .into_iter()
-        .filter(|&cid| {
-            matches_valid_card_selector_with_context(
-                &selector,
-                game.card(cid),
-                MatchContext::from_source(source)
-                    .with_game(game)
-                    .with_trigger_remembered_cards(trigger_remembered),
-            )
-        })
-        .count() as i32;
+            requirements.present_defined.is_none() && trigger_remembered.is_empty(),
+            || {
+                collect_present_cards(
+                    game,
+                    source,
+                    requirements.present_defined.as_deref(),
+                    present_player,
+                    present_zone,
+                )
+                .into_iter()
+                .filter(|&cid| {
+                    matches_valid_card_selector_with_context(
+                        &selector,
+                        game.card(cid),
+                        MatchContext::from_source(source)
+                            .with_game(game)
+                            .with_trigger_remembered_cards(trigger_remembered),
+                    )
+                })
+                .count() as i32
+            },
+        );
         if !compare_requirement_amount(source, svar_source, present_compare, game, count) {
             return false;
         }
@@ -3795,18 +3940,29 @@ fn meets_card_trait_requirements(
             .is_present2_selector
             .clone()
             .unwrap_or_else(|| cached_compiled_selector(is_present));
-        let count = collect_present_cards(game, source, None, present_player, present_zone)
-            .into_iter()
-            .filter(|&cid| {
-                matches_valid_card_selector_with_context(
-                    &selector,
-                    game.card(cid),
-                    MatchContext::from_source(source)
-                        .with_game(game)
-                        .with_trigger_remembered_cards(trigger_remembered),
-                )
-            })
-            .count() as i32;
+        let count = present_memo::count(
+            is_present,
+            &selector,
+            controller,
+            source.controller,
+            present_player,
+            present_zone,
+            trigger_remembered.is_empty(),
+            || {
+                collect_present_cards(game, source, None, present_player, present_zone)
+                    .into_iter()
+                    .filter(|&cid| {
+                        matches_valid_card_selector_with_context(
+                            &selector,
+                            game.card(cid),
+                            MatchContext::from_source(source)
+                                .with_game(game)
+                                .with_trigger_remembered_cards(trigger_remembered),
+                        )
+                    })
+                    .count() as i32
+            },
+        );
         if !compare_requirement_amount(source, svar_source, present_compare, game, count) {
             return false;
         }

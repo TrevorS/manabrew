@@ -476,6 +476,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         Layer,
     )> = initial.into();
     let mut chosen: crate::HashSet<(CardId, usize)> = crate::HashSet::default();
+    let present_counts = crate::card::valid_filter::present_memo::Scope::enter();
     while let Some((source_id, sa_idx, mut owned, is_granted, seq, first_layer)) =
         statics.pop_front()
     {
@@ -633,6 +634,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         }
         staged.extend(pending.drain(..).map(|effect| (seq, effect)));
     }
+    drop(present_counts);
 
     let mut granted_by_target: indexmap::IndexMap<CardId, Vec<StaticAbility>> =
         indexmap::IndexMap::new();
@@ -1208,6 +1210,18 @@ fn apply_pending_effects(
     >,
 ) {
     for effect in effects {
+        let target = effect.target;
+        if matches!(effect.kind, EffectKind::SetName(_)) {
+            crate::card::valid_filter::present_memo::invalidate();
+        }
+        let present_attributes_before = matches!(
+            effect.kind,
+            EffectKind::SetController { .. }
+                | EffectKind::RemoveCardTypes
+                | EffectKind::AddType(_)
+                | EffectKind::ReapplyChangedCardTypes(_)
+        )
+        .then(|| crate::card::valid_filter::present_memo::attributes(game.card(target)));
         match effect.kind {
             EffectKind::SetController { controller } => {
                 if game.card(effect.target).static_control_base.is_none() {
@@ -1370,6 +1384,11 @@ fn apply_pending_effects(
                 game.card_mut(effect.target)
                     .add_may_look_at(static_id, players);
             }
+        }
+        if present_attributes_before.is_some_and(|before| {
+            before != crate::card::valid_filter::present_memo::attributes(game.card(target))
+        }) {
+            crate::card::valid_filter::present_memo::invalidate();
         }
     }
 }
