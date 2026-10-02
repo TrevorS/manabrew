@@ -252,7 +252,7 @@ pub fn cant_be_activated_ability(
             if !st_ab.check_conditions(source, game) {
                 continue;
             }
-            if apply_cant_be_activated_ability(st_ab, spell, card, source, activator) {
+            if apply_cant_be_activated_ability(st_ab, spell, card, source, activator, game) {
                 return true;
             }
         }
@@ -269,6 +269,7 @@ pub fn apply_cant_be_activated_ability(
     card: &Card,
     source: &Card,
     activator: PlayerId,
+    game: &GameState,
 ) -> bool {
     // ValidCard check
     if !valid_filter::matches_valid_card_selector_opt(st_ab.ir.valid_card.as_ref(), card, source) {
@@ -295,10 +296,12 @@ pub fn apply_cant_be_activated_ability(
     }
 
     // Activator check
-    if !valid_filter::matches_valid_player_selector_opt(
+    if !valid_filter::matches_valid_player_selector_opt_in_game(
         st_ab.ir.activator.as_ref(),
         activator,
+        source,
         source.controller,
+        game,
     ) {
         return false;
     }
