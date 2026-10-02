@@ -251,7 +251,7 @@ effect_dispatch! {
     ApiType::ProtectionAll => protect_all_effect::ProtectAllEffect,
     ApiType::PreventDamage => prevent_damage_effect::PreventDamageEffect,
     ApiType::Proliferate => counters_proliferate_effect::CountersProliferateEffect,
-    ApiType::MoveCounter => move_counter_effect::MoveCounterEffect,
+    ApiType::MoveCounter => counters_move_effect::CountersMoveEffect,
     ApiType::TimeTravel => time_travel_effect::TimeTravelEffect,
     ApiType::MustBlock => must_block_effect::MustBlockEffect,
     ApiType::CopySpellAbility => copy_spell_ability_effect::CopySpellAbilityEffect [build = copy_spell_ability_effect::build_spell_ability],

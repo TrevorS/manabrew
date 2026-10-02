@@ -5,9 +5,9 @@ use std::thread;
 
 use forge_carddb::parse_card_script;
 use forge_foundation::ZoneType;
+use manabrew_engine::ability::effects::counters_move_effect::CountersMoveEffect;
 use manabrew_engine::ability::effects::counters_put_all_effect::CountersPutAllEffect;
 use manabrew_engine::ability::effects::counters_put_effect::CountersPutEffect;
-use manabrew_engine::ability::effects::move_counter_effect::MoveCounterEffect;
 use manabrew_engine::ability::effects::EffectContext;
 use manabrew_engine::ability::spell_ability_effect::SpellAbilityEffect;
 use manabrew_engine::agent::{
@@ -941,7 +941,7 @@ fn move_counter_keeps_the_requested_source_delta_after_destination_replacement()
         "DB$ MoveCounter | Source$ Self | Defined$ Targeted | CounterType$ LORE | CounterNum$ 2",
     );
     ability.target_chosen.target_card = Some(destination);
-    resolve_effect::<MoveCounterEffect>(&mut game, &mut trigger_handler, &ability);
+    resolve_effect::<CountersMoveEffect>(&mut game, &mut trigger_handler, &ability);
     let pending = trigger_handler.run_waiting_triggers(&game);
 
     assert_eq!(game.card(source).counter_count(&CounterType::Lore), 0);
@@ -1022,7 +1022,7 @@ fn move_counter_removes_source_when_destination_replacement_prevents_placement()
         "DB$ MoveCounter | Source$ Self | Defined$ Targeted | CounterType$ LORE | CounterNum$ 2",
     );
     ability.target_chosen.target_card = Some(destination);
-    resolve_effect::<MoveCounterEffect>(&mut game, &mut trigger_handler, &ability);
+    resolve_effect::<CountersMoveEffect>(&mut game, &mut trigger_handler, &ability);
 
     assert_eq!(game.card(source).counter_count(&CounterType::Lore), 0);
     assert_eq!(game.card(destination).counter_count(&CounterType::Lore), 1);

@@ -136,7 +136,6 @@ pub mod manifest_dread_effect;
 pub mod manifest_effect;
 pub mod meld_effect;
 pub mod mill_effect;
-pub mod move_counter_effect;
 pub mod multiple_piles_effect;
 pub mod must_block_effect;
 pub mod mutate_effect;

@@ -244,7 +244,7 @@ fn remove_any_type(
     removed
 }
 
-fn subtract_counter(
+pub(super) fn subtract_counter(
     ctx: &mut EffectContext,
     card_id: CardId,
     counter_type: &CounterType,
