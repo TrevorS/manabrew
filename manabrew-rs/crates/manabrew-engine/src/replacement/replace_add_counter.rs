@@ -100,7 +100,7 @@ pub fn can_replace(
         let GameEntity::Player(target) = target else {
             return false;
         };
-        if !effect.matches_compiled_valid_player(valid, target, source_card) {
+        if !effect.matches_compiled_valid_player(valid, target, source_card, game) {
             return false;
         }
     }
@@ -114,7 +114,7 @@ pub fn can_replace(
                 effect.matches_compiled_valid_card(valid, &target_card, source_card)
             }
             GameEntity::Player(target) => {
-                effect.matches_compiled_valid_player(valid, target, source_card)
+                effect.matches_compiled_valid_player(valid, target, source_card, game)
             }
         };
         if !matches {

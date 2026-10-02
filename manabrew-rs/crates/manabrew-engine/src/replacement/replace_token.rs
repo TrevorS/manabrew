@@ -17,12 +17,18 @@ use super::replacement_type::ReplacementType;
 use crate::card_trait_base::CardTrait;
 
 /// Mirrors Java `ReplaceToken.filterAmount()`.
-pub fn filter_amount(effect: &ReplacementEffect, table: &TokenCreateTable, host: &Card) -> usize {
+pub fn filter_amount(
+    effect: &ReplacementEffect,
+    table: &TokenCreateTable,
+    host: &Card,
+    game: &GameState,
+) -> usize {
     table.get_filter_amount(
         effect.base().get_param("ValidPlayer"),
         effect.base().get_param("ValidToken"),
         effect,
         host,
+        game,
     )
 }
 
@@ -30,7 +36,7 @@ pub fn filter_amount(effect: &ReplacementEffect, table: &TokenCreateTable, host:
 pub fn can_replace(
     effect: &ReplacementEffect,
     event: &ReplacementEvent,
-    _game: &GameState,
+    game: &GameState,
     source_card: &Card,
 ) -> bool {
     if effect.event != ReplacementType::CreateToken {
@@ -49,11 +55,11 @@ pub fn can_replace(
         return false;
     }
     if let Some(valid) = effect.ir.valid_player_selector.as_ref() {
-        if !effect.matches_compiled_valid_player(valid, player, source_card) {
+        if !effect.matches_compiled_valid_player(valid, player, source_card, game) {
             return false;
         }
     }
-    filter_amount(effect, token_table, source_card) > 0
+    filter_amount(effect, token_table, source_card, game) > 0
 }
 
 /// Mirrors Java `ReplacementHandler.executeReplacement()` for CreateToken.

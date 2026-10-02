@@ -1482,7 +1482,7 @@ pub fn would_phase_be_skipped(game: &GameState, player: PlayerId, phase: PhaseTy
             }
             // Check ValidPlayer$ matches the player
             if let Some(vp) = re.ir.valid_player_selector.as_ref() {
-                if !re.matches_compiled_valid_player(vp, player, card) {
+                if !re.matches_compiled_valid_player(vp, player, card, game) {
                     continue;
                 }
             }
@@ -1510,7 +1510,7 @@ pub fn would_extra_turn_be_skipped(game: &GameState, player: PlayerId) -> bool {
             }
             // Check ValidPlayer$ matches the player
             if let Some(vp) = re.ir.valid_player_selector.as_ref() {
-                if !re.matches_compiled_valid_player(vp, player, card) {
+                if !re.matches_compiled_valid_player(vp, player, card, game) {
                     continue;
                 }
             }

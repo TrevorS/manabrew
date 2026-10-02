@@ -55,7 +55,7 @@ const NO_CHANGE_KEYS: &[&str] = &[
 /// Target of `matches_valid`. Mirrors Java's `Object` dispatch.
 pub enum MatchValidTarget<'a> {
     Card(&'a Card),
-    Player(PlayerId),
+    Player(PlayerId, &'a GameState),
     GameObj(&'a dyn GameObject),
     Iter(&'a [MatchValidTarget<'a>]),
     Str(&'a str),
@@ -267,8 +267,14 @@ impl CardTraitBase {
                 let selector = crate::parsing::cached_compiled_selector(&valids.join(","));
                 valid_filter::matches_valid_card_selector(&selector, card, src_card)
             }
-            MatchValidTarget::Player(player) => {
-                valid_filter::matches_valid_player(&valids.join(","), *player, src_player)
+            MatchValidTarget::Player(player, game) => {
+                valid_filter::matches_valid_player_selector_in_game(
+                    &crate::parsing::cached_compiled_selector(&valids.join(",")),
+                    *player,
+                    src_card,
+                    src_player,
+                    game,
+                )
             }
             MatchValidTarget::GameObj(obj) => {
                 let owned: Vec<String> = valids.iter().map(|s| s.to_string()).collect();
@@ -300,9 +306,9 @@ impl CardTraitBase {
             MatchValidTarget::Card(card) => {
                 valid_filter::matches_valid_card_selector(selector, card, src_card)
             }
-            MatchValidTarget::Player(player) => {
-                valid_filter::matches_valid_player_selector_with_source(
-                    selector, *player, src_player, src_card,
+            MatchValidTarget::Player(player, game) => {
+                valid_filter::matches_valid_player_selector_in_game(
+                    selector, *player, src_card, src_player, game,
                 )
             }
             MatchValidTarget::GameObj(obj) => {
@@ -721,9 +727,19 @@ pub trait CardTrait {
 
     /// Ergonomic comma-separated-expression wrapper over `matches_valid` for
     /// player targets.
-    fn matches_valid_player(&self, expr: &str, player: PlayerId, source: &Card) -> bool {
+    fn matches_valid_player(
+        &self,
+        expr: &str,
+        player: PlayerId,
+        source: &Card,
+        game: &GameState,
+    ) -> bool {
         let parts: Vec<&str> = expr.split(',').collect();
-        self.matches_valid(&MatchValidTarget::Player(player), &parts, Some(source))
+        self.matches_valid(
+            &MatchValidTarget::Player(player, game),
+            &parts,
+            Some(source),
+        )
     }
 
     fn matches_compiled_valid_player(
@@ -731,8 +747,13 @@ pub trait CardTrait {
         selector: &CompiledSelector,
         player: PlayerId,
         source: &Card,
+        game: &GameState,
     ) -> bool {
-        self.matches_compiled_valid(&MatchValidTarget::Player(player), selector, Some(source))
+        self.matches_compiled_valid(
+            &MatchValidTarget::Player(player, game),
+            selector,
+            Some(source),
+        )
     }
 }
 

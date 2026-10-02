@@ -75,11 +75,12 @@ impl TokenCreateTable {
         valid_token: Option<&str>,
         ctb: &impl CardTrait,
         host: &Card,
+        game: &crate::game::GameState,
     ) -> usize {
         let filtered_player = valid_owner.map(|valid| {
             self.row_key_set()
                 .into_iter()
-                .filter(|&player| ctb.matches_valid_player(valid, player, host))
+                .filter(|&player| ctb.matches_valid_player(valid, player, host, game))
                 .collect::<Vec<_>>()
         });
         if filtered_player.as_ref().is_some_and(Vec::is_empty) {

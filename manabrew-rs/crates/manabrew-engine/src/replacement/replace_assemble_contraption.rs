@@ -16,7 +16,7 @@ use crate::card_trait_base::CardTrait;
 pub fn can_replace(
     effect: &ReplacementEffect,
     event: &ReplacementEvent,
-    _game: &GameState,
+    game: &GameState,
     source_card: &Card,
 ) -> bool {
     if effect.event != ReplacementType::AssembleContraption {
@@ -27,7 +27,7 @@ pub fn can_replace(
         _ => return false,
     };
     if let Some(valid) = effect.ir.valid_player_selector.as_ref() {
-        if !effect.matches_compiled_valid_player(valid, player, source_card) {
+        if !effect.matches_compiled_valid_player(valid, player, source_card, game) {
             return false;
         }
     }

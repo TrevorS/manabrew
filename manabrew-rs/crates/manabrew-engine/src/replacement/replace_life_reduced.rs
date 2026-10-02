@@ -17,7 +17,7 @@ use crate::card_trait_base::CardTrait;
 pub fn can_replace(
     effect: &ReplacementEffect,
     event: &ReplacementEvent,
-    _game: &GameState,
+    game: &GameState,
     source_card: &Card,
 ) -> bool {
     if effect.event != ReplacementType::LifeReduced {
@@ -35,7 +35,7 @@ pub fn can_replace(
         return false;
     }
     if let Some(valid) = effect.ir.valid_player_selector.as_ref() {
-        if !effect.matches_compiled_valid_player(valid, player, source_card) {
+        if !effect.matches_compiled_valid_player(valid, player, source_card, game) {
             return false;
         }
     }
@@ -46,7 +46,7 @@ pub fn can_replace(
         }
     }
     if let Some(result_cmp) = effect.ir.result_text.as_deref() {
-        let final_life = _game.player(player).life - amount;
+        let final_life = game.player(player).life - amount;
         let rhs = result_cmp
             .get(2..)
             .and_then(|n| n.parse::<i32>().ok())

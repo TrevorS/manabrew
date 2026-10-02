@@ -37,11 +37,11 @@ pub fn can_replace(
         }
     }
     if let Some(valid_player) = effect.ir.valid_activator_text.as_deref() {
-        if !effect.matches_valid_player(valid_player, activator, source_card) {
+        if !effect.matches_valid_player(valid_player, activator, source_card, game) {
             return false;
         }
     } else if let Some(valid_player) = effect.ir.valid_player_selector.as_ref() {
-        if !effect.matches_compiled_valid_player(valid_player, activator, source_card) {
+        if !effect.matches_compiled_valid_player(valid_player, activator, source_card, game) {
             return false;
         }
     }

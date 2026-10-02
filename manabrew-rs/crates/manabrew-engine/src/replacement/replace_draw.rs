@@ -28,7 +28,7 @@ pub fn can_replace(
         _ => return false,
     };
     if let Some(valid) = effect.ir.valid_player_selector.as_ref() {
-        if !effect.matches_compiled_valid_player(valid, player, source_card) {
+        if !effect.matches_compiled_valid_player(valid, player, source_card, game) {
             return false;
         }
     }
