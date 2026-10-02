@@ -1,0 +1,42 @@
+use forge_carddb::parse_card_script;
+use forge_foundation::ZoneType;
+use manabrew_engine::card::valid_filter::matches_valid;
+use manabrew_engine::card::CardInstance;
+use manabrew_engine::game::GameState;
+use manabrew_engine::ids::{CardId, PlayerId};
+
+const BEAR: &str = "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:";
+const AURA: &str =
+    "Name:Pacifism\nManaCost:1 W\nTypes:Enchantment Aura\nK:Enchant:Creature\nOracle:";
+
+fn put(game: &mut GameState, script: &str, owner: PlayerId, zone: ZoneType) -> CardId {
+    let rules = parse_card_script(script).expect("script");
+    let card = game.create_card(CardInstance::from_rules(&rules, owner));
+    game.move_card(card, zone, owner);
+    card
+}
+
+#[test]
+fn an_opponents_aura_does_not_make_a_permanent_modified() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let bear = put(&mut game, BEAR, p0, ZoneType::Battlefield);
+    let host = put(&mut game, BEAR, p0, ZoneType::Battlefield);
+    let opponents_aura = put(&mut game, AURA, p1, ZoneType::Battlefield);
+    game.attach_to(opponents_aura, bear);
+    let modified = |game: &GameState| {
+        matches_valid(
+            "Permanent.modified+YouCtrl",
+            Some(game.card(bear)),
+            None,
+            game.card(host),
+            p0,
+            game,
+        )
+    };
+
+    assert!(!modified(&game));
+    let own_aura = put(&mut game, AURA, p0, ZoneType::Battlefield);
+    game.attach_to(own_aura, bear);
+    assert!(modified(&game));
+}

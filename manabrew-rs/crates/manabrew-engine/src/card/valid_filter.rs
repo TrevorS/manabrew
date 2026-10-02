@@ -3340,7 +3340,12 @@ pub fn matches_valid(
     game: &crate::game::GameState,
 ) -> bool {
     if let Some(card) = card {
-        matches_valid_card(filter, card, source)
+        matches_valid_card_selector_in_game(
+            &crate::parsing::cached_compiled_selector(filter),
+            card,
+            source,
+            game,
+        )
     } else if let Some(player) = player {
         matches_valid_player_selector_in_game(
             &crate::parsing::cached_compiled_selector(filter),
