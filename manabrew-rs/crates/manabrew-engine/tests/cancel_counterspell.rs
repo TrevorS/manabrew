@@ -228,7 +228,7 @@ fn test_cancel_counters_creature_spell() {
             .target_restrictions
             .as_ref()
             .unwrap()
-            .has_candidates(&game, p0, None),
+            .has_candidates(&game, p0, None, None),
         "Cancel should have valid targets (the Grizzly Bears spell)"
     );
 
@@ -317,7 +317,7 @@ fn test_cancel_counters_noncreature_spell() {
             .target_restrictions
             .as_ref()
             .unwrap()
-            .has_candidates(&game, p0, None),
+            .has_candidates(&game, p0, None, None),
         "Cancel should have valid targets (the Lightning Bolt spell)"
     );
 
@@ -450,7 +450,7 @@ fn test_noncreature_spell_filter_excludes_creature_spells() {
     };
 
     assert!(
-        restrictions.has_candidates(&game, p0, None),
+        restrictions.has_candidates(&game, p0, None, None),
         "An Offer-style targeting should still find the instant spell",
     );
 

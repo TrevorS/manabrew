@@ -101,7 +101,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     } else if chosen_sas[i]
                         .target_restrictions
                         .as_ref()
-                        .map(|tr| tr.has_candidates(ctx.game, chooser, Some(source_id)))
+                        .map(|tr| {
+                            tr.has_candidates(
+                                ctx.game,
+                                chooser,
+                                Some(source_id),
+                                Some(&chosen_sas[i]),
+                            )
+                        })
                         .unwrap_or(false)
                     {
                         ctx.agents[chooser.index()].choose_targets_for(

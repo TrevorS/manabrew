@@ -269,6 +269,7 @@ impl TargetRestrictions {
         game: &GameState,
         player: PlayerId,
         source_card: Option<CardId>,
+        ability: Option<&SpellAbility>,
     ) -> bool {
         let _perf_scope =
             crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::Target);
@@ -294,7 +295,7 @@ impl TargetRestrictions {
                     self,
                     player,
                     source_card,
-                    None,
+                    ability,
                 )
                 .into_iter()
                 .any(|cid| can_be_targeted_by(game, cid, player, source_card))
@@ -306,7 +307,7 @@ impl TargetRestrictions {
                     filter.as_deref(),
                     player,
                     source_card,
-                    None,
+                    ability,
                 )
                 .into_iter()
                 .filter(|&cid| !is_other_filter_self_hit(filter.as_deref(), source_card, cid))
@@ -319,7 +320,7 @@ impl TargetRestrictions {
                     filter.as_deref(),
                     player,
                     source_card,
-                    None,
+                    ability,
                 )
                 .into_iter()
                 .filter(|&cid| !is_other_filter_self_hit(filter.as_deref(), source_card, cid))
@@ -332,6 +333,7 @@ impl TargetRestrictions {
                 player,
                 filter.as_deref(),
                 source_card,
+                ability,
             )
             .is_empty(),
             TargetKind::Spell => !filter_spells_for_target_restrictions(
@@ -787,7 +789,7 @@ pub fn has_candidates(
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::Target);
     let params = Params::from_raw(ability);
     match TargetRestrictions::new(&params) {
-        Some(tr) => tr.has_candidates(game, player, source),
+        Some(tr) => tr.has_candidates(game, player, source, None),
         None => true, // No targeting = always valid
     }
 }
@@ -814,7 +816,7 @@ pub fn has_candidates_in_chain(
                 tr.get_min_targets(game, &sa)
             }
         });
-        if min_targets > 0 && !tr.has_candidates(game, player, source) {
+        if min_targets > 0 && !tr.has_candidates(game, player, source, None) {
             return false;
         }
     }
@@ -875,13 +877,13 @@ pub fn has_candidates_in_spell_ability_chain(
                         }
                     }
                 } else if matches!(tr.target_kind, TargetKind::Any) {
-                    if !tr.has_candidates(game, player, node.source)
+                    if !tr.has_candidates(game, player, node.source, Some(node))
                         && get_stack_target_candidates(game, node).is_empty()
                         && crate::card::card_util::get_valid_cards_to_target(game, node).is_empty()
                     {
                         return false;
                     }
-                } else if !tr.has_candidates(game, player, node.source)
+                } else if !tr.has_candidates(game, player, node.source, Some(node))
                     && !(game.mirror_forge_bugs
                         && game.action_space_mana_probe
                             == crate::mana::ActionSpaceManaProbe::ComputerUtilMana
@@ -1238,7 +1240,14 @@ fn candidate_match_context<'a>(
 ) -> valid_filter::MatchContext<'a> {
     let context = valid_filter::MatchContext::new(source, game);
     match ability {
-        Some(sa) => context.with_spell_ability(sa),
+        Some(sa) => context.with_spell_ability(sa).with_triggering(
+            sa.get_triggering_card(crate::ability::AbilityKey::Card),
+            sa.get_triggering_value(crate::ability::AbilityKey::Player)
+                .and_then(|value| match value {
+                    crate::event::AbilityValue::Player(player) => Some(*player),
+                    _ => None,
+                }),
+        ),
         None => context,
     }
 }
@@ -1417,6 +1426,7 @@ fn get_valid_cards_in_zone_for_restrictions(
     player: PlayerId,
     filter: Option<&str>,
     source_card: Option<CardId>,
+    ability: Option<&SpellAbility>,
 ) -> Vec<CardId> {
     let zone_cards = candidate_zone_cards(game, zone, player, filter);
     let Some(source_id) = source_card else {
@@ -1442,11 +1452,10 @@ fn get_valid_cards_in_zone_for_restrictions(
         .into_iter()
         .filter(|&cid| !is_other_filter_self_hit(filter, source_card, cid))
         .filter(|&cid| {
-            valid_filter::matches_valid_card_selector_in_game(
+            valid_filter::matches_valid_card_selector_with_context(
                 &selector,
                 game.card(cid),
-                source,
-                game,
+                candidate_match_context(game, source, ability),
             )
         })
         .collect()

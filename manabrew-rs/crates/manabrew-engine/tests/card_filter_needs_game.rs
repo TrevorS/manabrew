@@ -1,5 +1,7 @@
 use forge_carddb::parse_card_script;
 use forge_foundation::ZoneType;
+use manabrew_engine::ability::ability_factory::build_spell_ability;
+use manabrew_engine::ability::AbilityKey;
 use manabrew_engine::card::valid_filter::matches_valid;
 use manabrew_engine::card::CardInstance;
 use manabrew_engine::event::RunParams;
@@ -128,4 +130,34 @@ fn a_top_of_library_card_lets_its_owner_look_at_it() {
     put(&mut game, BEAR, p0, ZoneType::Library);
     apply_continuous_effects(&mut game);
     assert!(!game.card(illuminator).may_player_look(p0));
+}
+
+const PANDA: &str = "Name:Fiendish Panda\nManaCost:2 W B\nTypes:Creature Bear Demon\nPT:3/2\nSVar:X:TriggeredCard$CardPower\nOracle:";
+const OGRE: &str = "Name:Gray Ogre\nManaCost:2 R\nTypes:Creature Ogre\nPT:2/2\nOracle:";
+const GIANT: &str = "Name:Hill Giant\nManaCost:3 R\nTypes:Creature Giant\nPT:3/3\nOracle:";
+
+#[test]
+fn a_return_trigger_has_candidates_only_within_the_dead_creatures_power() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let panda = put(&mut game, PANDA, p0, ZoneType::Graveyard);
+    game.card_mut(panda).lki_power = Some(3);
+    put(&mut game, GIANT, p0, ZoneType::Graveyard);
+    let mut sa = build_spell_ability(
+        &game,
+        panda,
+        "DB$ ChangeZone | ValidTgts$ Creature.cmcLEX+YouOwn+nonBear+Other | Origin$ Graveyard | Destination$ Battlefield",
+        p0,
+    );
+    sa.set_triggering_value(AbilityKey::Card, panda);
+    let has_candidates = |game: &GameState| {
+        sa.target_restrictions
+            .as_ref()
+            .expect("targets")
+            .has_candidates(game, p0, sa.source, Some(&sa))
+    };
+
+    assert!(!has_candidates(&game));
+    put(&mut game, OGRE, p0, ZoneType::Graveyard);
+    assert!(has_candidates(&game));
 }

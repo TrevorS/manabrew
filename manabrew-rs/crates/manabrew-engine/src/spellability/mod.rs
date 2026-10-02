@@ -2410,7 +2410,7 @@ pub fn choose_targets_by_kind(
     }
 
     if !matches!(tr.target_kind, TargetKind::CardInZone { .. })
-        && !tr.has_candidates(game, player, sa.source)
+        && !tr.has_candidates(game, player, sa.source, Some(sa))
         && card_util::get_valid_cards_to_target(game, sa).is_empty()
         && target_restrictions::get_stack_target_candidates(game, sa).is_empty()
     {
