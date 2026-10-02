@@ -11,8 +11,10 @@ use crate::trigger::TriggerType;
 pub fn is_disabled(
     game: &GameState,
     trigger_host: CardId,
+    host_controller: crate::ids::PlayerId,
+    trigger_index: usize,
     regtrig: &Trigger,
-    _run_params: &RunParams,
+    run_params: &RunParams,
 ) -> bool {
     let host = game.card(trigger_host);
     for source in game
@@ -40,11 +42,20 @@ pub fn is_disabled(
                 }
             }
             if let Some(valid_trigger) = st_ab.ir.valid_trigger.as_deref() {
-                if !trigger_matches(valid_trigger, game, trigger_host, regtrig) {
+                if !matches_valid_trigger(
+                    valid_trigger,
+                    game,
+                    source,
+                    trigger_host,
+                    host_controller,
+                    trigger_index,
+                    regtrig,
+                    run_params,
+                ) {
                     continue;
                 }
             }
-            if !mode_specific_matches(st_ab, game, regtrig, _run_params, source) {
+            if !mode_specific_matches(st_ab, game, regtrig, run_params, source) {
                 continue;
             }
             return true;
@@ -67,15 +78,6 @@ pub fn has_disable_triggers_ability(game: &GameState) -> bool {
                 )
             })
         })
-}
-
-pub fn disabled(
-    game: &GameState,
-    trigger_host: CardId,
-    regtrig: &Trigger,
-    run_params: &RunParams,
-) -> bool {
-    is_disabled(game, trigger_host, regtrig, run_params)
 }
 
 fn mode_specific_matches(
@@ -215,6 +217,31 @@ fn mode_specific_matches(
     }
 }
 
+pub(crate) fn matches_valid_trigger(
+    valid_trigger: &str,
+    game: &GameState,
+    source: &Card,
+    trigger_host: CardId,
+    host_controller: crate::ids::PlayerId,
+    trigger_index: usize,
+    regtrig: &Trigger,
+    run_params: &RunParams,
+) -> bool {
+    let trigger_sa = regtrig.build_triggered_spell_ability(
+        game,
+        trigger_host,
+        host_controller,
+        trigger_index,
+        run_params,
+    );
+    crate::spellability::matches_valid_sa(
+        valid_trigger,
+        &trigger_sa,
+        Some(game.card(trigger_host)),
+        valid_filter::MatchContext::new(source, game),
+    )
+}
+
 pub(crate) fn matches_valid_card(
     valid: &CompiledSelector,
     card: &Card,
@@ -222,37 +249,6 @@ pub(crate) fn matches_valid_card(
     game: &GameState,
 ) -> bool {
     valid_filter::matches_valid_card_selector_in_game(valid, card, source, game)
-}
-
-pub(crate) fn trigger_matches(
-    valid_trigger: &str,
-    game: &GameState,
-    trigger_host: CardId,
-    regtrig: &Trigger,
-) -> bool {
-    let host = game.card(trigger_host);
-    let Some(exec_text) = host.svars.get(&regtrig.execute) else {
-        return false;
-    };
-    valid_trigger
-        .split(',')
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .all(|tok| match tok.to_ascii_lowercase().as_str() {
-            "spell" => exec_text.trim_start().starts_with("SP$"),
-            "ability" => {
-                let trimmed = exec_text.trim_start();
-                trimmed.starts_with("AB$") || trimmed.starts_with("DB$")
-            }
-            "trigger" => true,
-            "triggered.ward" => regtrig.execute.starts_with("TrigWard"),
-            "triggered.chapternotlore" => {
-                regtrig.is_chapter()
-                    && regtrig.get_chapter()
-                        != Some(host.counter_count(&crate::card::CounterType::Lore))
-            }
-            _ => true,
-        })
 }
 
 #[allow(dead_code)]

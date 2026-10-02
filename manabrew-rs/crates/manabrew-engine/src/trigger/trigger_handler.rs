@@ -761,17 +761,6 @@ impl TriggerHandler {
                 } else {
                     card.controller
                 };
-                if may_disable_triggers
-                    && crate::staticability::static_ability_disable_triggers::is_disabled(
-                        game,
-                        card_id,
-                        trigger,
-                        &event.params,
-                    )
-                {
-                    continue;
-                }
-
                 let can_run = self.can_run_trigger(
                     game,
                     card_id,
@@ -779,7 +768,15 @@ impl TriggerHandler {
                     host_controller,
                     &event.mode,
                     &event.params,
-                );
+                ) && !(may_disable_triggers
+                    && crate::staticability::static_ability_disable_triggers::is_disabled(
+                        game,
+                        card_id,
+                        host_controller,
+                        trigger_index,
+                        trigger,
+                        &event.params,
+                    ));
                 let prior_runs = runs.get(&(card_id, trigger_index)).copied().unwrap_or(0);
                 if can_run
                     && (prior_runs == 0
@@ -1775,11 +1772,15 @@ impl TriggerHandler {
                     }
                 }
                 if let Some(valid_trigger) = sa.ir.valid_trigger.as_deref() {
-                    if !crate::staticability::static_ability_disable_triggers::trigger_matches(
+                    if !crate::staticability::static_ability_disable_triggers::matches_valid_trigger(
                         valid_trigger,
                         game,
+                        card,
                         host_card,
+                        game.card(host_card).controller,
+                        trigger_index,
                         trigger,
+                        params,
                     ) {
                         continue;
                     }
