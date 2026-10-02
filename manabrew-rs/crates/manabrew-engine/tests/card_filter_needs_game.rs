@@ -4,6 +4,8 @@ use manabrew_engine::card::valid_filter::matches_valid;
 use manabrew_engine::card::CardInstance;
 use manabrew_engine::game::GameState;
 use manabrew_engine::ids::{CardId, PlayerId};
+use manabrew_engine::replacement::replace_damage;
+use manabrew_engine::replacement::replacement_handler::ReplacementEvent;
 
 const BEAR: &str = "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:";
 const AURA: &str =
@@ -39,4 +41,33 @@ fn an_opponents_aura_does_not_make_a_permanent_modified() {
     let own_aura = put(&mut game, AURA, p0, ZoneType::Battlefield);
     game.attach_to(own_aura, bear);
     assert!(modified(&game));
+}
+
+const ENCHANTED_BEING: &str = "Name:Enchanted Being\nManaCost:1 W W\nTypes:Creature Human\nPT:2/2\nR:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | ValidTarget$ Card.Self | ValidSource$ Creature.enchanted | IsCombat$ True | Description$ Prevent all combat damage that would be dealt to CARDNAME by enchanted creatures.\nOracle:";
+
+#[test]
+fn enchanted_being_prevents_combat_damage_from_enchanted_creatures_only() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let being = put(&mut game, ENCHANTED_BEING, p0, ZoneType::Battlefield);
+    let attacker = put(&mut game, BEAR, p1, ZoneType::Battlefield);
+    let event = ReplacementEvent::DamageToCard {
+        target: being,
+        amount: 2,
+        source: Some(attacker),
+        is_combat: true,
+    };
+    let prevents = |game: &GameState| {
+        replace_damage::can_replace(
+            &game.card(being).replacement_effects[0],
+            &event,
+            game,
+            game.card(being),
+        )
+    };
+
+    assert!(!prevents(&game));
+    let aura = put(&mut game, AURA, p1, ZoneType::Battlefield);
+    game.attach_to(aura, attacker);
+    assert!(prevents(&game));
 }

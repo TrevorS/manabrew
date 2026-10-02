@@ -263,9 +263,9 @@ impl CardTraitBase {
         src_player: PlayerId,
     ) -> bool {
         match target {
-            MatchValidTarget::Card(card, _game) => {
+            MatchValidTarget::Card(card, game) => {
                 let selector = crate::parsing::cached_compiled_selector(&valids.join(","));
-                valid_filter::matches_valid_card_selector(&selector, card, src_card)
+                valid_filter::matches_valid_card_selector_in_game(&selector, card, src_card, game)
             }
             MatchValidTarget::Player(player, game) => {
                 valid_filter::matches_valid_player_selector_in_game(
@@ -303,8 +303,8 @@ impl CardTraitBase {
         src_player: PlayerId,
     ) -> bool {
         match target {
-            MatchValidTarget::Card(card, _game) => {
-                valid_filter::matches_valid_card_selector(selector, card, src_card)
+            MatchValidTarget::Card(card, game) => {
+                valid_filter::matches_valid_card_selector_in_game(selector, card, src_card, game)
             }
             MatchValidTarget::Player(player, game) => {
                 valid_filter::matches_valid_player_selector_in_game(

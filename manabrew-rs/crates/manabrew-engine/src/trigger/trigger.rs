@@ -209,7 +209,7 @@ impl CardTrait for Trigger {
         };
         let player = self.resolve_source_player(src);
         match target {
-            MatchValidTarget::Card(card, _game) => {
+            MatchValidTarget::Card(card, game) => {
                 let trigger_remembered_cards = self
                     .trigger_remembered
                     .iter()
@@ -222,6 +222,7 @@ impl CardTrait for Trigger {
                     selector,
                     card,
                     valid_filter::MatchContext::from_source(src)
+                        .with_game(game)
                         .with_source_controller(player)
                         .with_trigger_remembered_cards(&trigger_remembered_cards),
                 )
