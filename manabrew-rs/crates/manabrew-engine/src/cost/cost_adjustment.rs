@@ -9,7 +9,6 @@
 
 use std::sync::Arc;
 
-use crate::spellability::OptionalCost;
 use forge_foundation::color::Color;
 use forge_foundation::mana::ManaCost;
 use forge_foundation::ZoneType;
@@ -157,11 +156,22 @@ pub fn compute_cost_adjustment(
         caster,
         cast_zone,
         &[],
-        &[],
-        false,
+        &probe_spell_ability(spell_card, caster, false),
         true,
         None,
     )
+}
+
+/// The playability probe asks before a spell ability exists; Java asks with the card's spell.
+pub fn probe_spell_ability(
+    spell_card: &Card,
+    caster: PlayerId,
+    cast_face_down: bool,
+) -> SpellAbility {
+    let mut sa = SpellAbility::new_empty(Some(spell_card.id), caster);
+    sa.is_spell = true;
+    sa.cast_face_down = cast_face_down;
+    sa
 }
 
 /// Like `compute_cost_adjustment`, but also checks ValidTarget$ against chosen targets.
@@ -178,8 +188,7 @@ pub fn compute_cost_adjustment_with_targets(
         caster,
         cast_zone,
         targets,
-        &[],
-        false,
+        &probe_spell_ability(spell_card, caster, false),
         true,
         None,
     )
@@ -197,20 +206,9 @@ pub fn compute_cost_adjustment_for_payment(
     caster: PlayerId,
     cast_zone: ZoneType,
     targets: &[CardId],
-    optional_costs: &[OptionalCost],
-    cast_face_down: bool,
+    sa: &SpellAbility,
 ) -> CostAdjustment {
-    compute_cost_adjustment_inner(
-        game,
-        spell_card,
-        caster,
-        cast_zone,
-        targets,
-        optional_costs,
-        cast_face_down,
-        true,
-        None,
-    )
+    compute_cost_adjustment_inner(game, spell_card, caster, cast_zone, targets, sa, true, None)
 }
 
 /// Mirrors Java `CostAdjustment.adjust(ManaCostBeingPaid, ...)` for an activated ability: the
@@ -262,59 +260,11 @@ pub fn adjust_ability_mana_cost(
         activator,
         host.zone,
         targets,
-        &[],
-        false,
+        sa,
         true,
         Some(ability),
     )
     .apply(&adjusted)
-}
-
-fn check_valid_ability(
-    valid_spell: &str,
-    ability: &crate::ability::activated::ActivatedAbility,
-    activator: PlayerId,
-    controller: PlayerId,
-) -> bool {
-    valid_spell.split(',').any(|option| {
-        let mut parts = option.trim().split('.');
-        let category = match parts.next() {
-            Some("Activated") => !ability.is_ability_static(),
-            Some("Static") => ability.is_ability_static(),
-            _ => false,
-        };
-        if !category {
-            return false;
-        }
-        parts.all(|attr| {
-            let (negate, attr) = attr.strip_prefix('!').map_or((false, attr), |a| (true, a));
-            let value = match attr {
-                "ManaAbility" => ability.is_mana_ability,
-                "Equip" => {
-                    ability.ability_api == Some(crate::ability::api_type::ApiType::Attach)
-                        && ability
-                            .spell_description
-                            .as_deref()
-                            .is_some_and(|d| d.starts_with("Equip"))
-                }
-                "PowerUp" => ability.power_up,
-                "Exhaust" => ability.exhaust,
-                "Loyalty" => ability.params.has("Planeswalker"),
-                "Boast" => ability.params.has("Boast"),
-                "YouCtrl" => activator == controller,
-                "Plotting" => ability.ability_api == Some(crate::ability::api_type::ApiType::Plot),
-                "Unlock" => ability.params.has("Unlock"),
-                "MorphUp" => ability.params.has("MorphUp"),
-                "ManifestUp" => ability.params.has("ManifestUp"),
-                "isTurnFaceUp" => ability.is_turn_face_up(),
-                _ => {
-                    crate::census::unhandled("valid-ability-attribute-ignored", attr);
-                    return false;
-                }
-            };
-            value != negate
-        })
-    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -324,8 +274,7 @@ fn compute_cost_adjustment_inner(
     caster: PlayerId,
     _cast_zone: ZoneType,
     targets: &[CardId],
-    optional_costs: &[OptionalCost],
-    cast_face_down: bool,
+    sa: &SpellAbility,
     include_spell_self: bool,
     ability: Option<&crate::ability::activated::ActivatedAbility>,
 ) -> CostAdjustment {
@@ -356,15 +305,7 @@ fn compute_cost_adjustment_inner(
             }
 
             if !check_requirement(
-                game,
-                st_ab,
-                source,
-                spell_card,
-                caster,
-                targets,
-                optional_costs,
-                cast_face_down,
-                ability,
+                game, st_ab, source, spell_card, caster, targets, sa, ability,
             ) {
                 continue;
             }
@@ -507,7 +448,7 @@ pub fn compute_raise_cost_parts(
         caster,
         cast_zone,
         &[],
-        &[],
+        &probe_spell_ability(spell_card, caster, false),
         may_play_raise.as_deref(),
     )
 }
@@ -519,7 +460,7 @@ pub fn compute_raise_cost_parts_with_targets(
     caster: PlayerId,
     _cast_zone: ZoneType,
     targets: &[CardId],
-    optional_costs: &[OptionalCost],
+    sa: &SpellAbility,
     may_play_raise: Option<&str>,
 ) -> Option<Cost> {
     let mut merged_parts = Vec::new();
@@ -548,17 +489,7 @@ pub fn compute_raise_cost_parts_with_targets(
                 continue;
             };
 
-            if !check_requirement(
-                game,
-                st_ab,
-                source,
-                spell_card,
-                caster,
-                targets,
-                optional_costs,
-                false,
-                None,
-            ) {
+            if !check_requirement(game, st_ab, source, spell_card, caster, targets, sa, None) {
                 continue;
             }
 
@@ -704,8 +635,7 @@ fn check_requirement(
     spell_card: &Card,
     caster: PlayerId,
     targets: &[CardId],
-    optional_costs: &[OptionalCost],
-    cast_face_down: bool,
+    sa: &SpellAbility,
     ability: Option<&crate::ability::activated::ActivatedAbility>,
 ) -> bool {
     if let Some(type_filter) = st_ab.ir.type_filter.as_deref() {
@@ -786,52 +716,17 @@ fn check_requirement(
     }
 
     if let Some(valid_spell) = st_ab.ir.valid_spell.as_deref() {
-        let valid = match ability {
-            Some(ab) => check_valid_ability(valid_spell, ab, caster, source.controller),
-            None => check_valid_spell(valid_spell, optional_costs, cast_face_down),
-        };
-        if !valid {
+        if !crate::spellability::matches_valid_sa(
+            valid_spell,
+            sa,
+            Some(spell_card),
+            valid_filter::MatchContext::new(source, game),
+        ) {
             return false;
         }
     }
 
     true
-}
-
-/// Check a ValidSpell$ parameter against the cast's chosen optional costs, which are empty
-/// before the cast (the action-space probe): `Bargain` is `sa.isBargained()`.
-/// Mirrors the `ValidSpell` check in Java's `CostAdjustment.checkRequirement`.
-fn check_valid_spell(
-    valid_spell: &str,
-    optional_costs: &[OptionalCost],
-    cast_face_down: bool,
-) -> bool {
-    // Split comma-separated options — any match passes
-    valid_spell.split(',').any(|option| {
-        let parts: Vec<&str> = option.trim().split('.').collect();
-        let category = parts.first().copied().unwrap_or("");
-        match category {
-            "Spell" => {
-                // We're casting a spell, check sub-attributes
-                parts
-                    .iter()
-                    .skip(1)
-                    .all(|attr| match attr.to_lowercase().as_str() {
-                        "bargain" => optional_costs.contains(&OptionalCost::Bargain),
-                        "iscastfacedown" => cast_face_down,
-                        _ => {
-                            crate::census::unhandled("valid-spell-attribute-ignored", attr);
-                            true
-                        }
-                    })
-            }
-            "Activated" | "Static" => {
-                // These are for ability cost changes, not spell casting
-                false
-            }
-            _ => true,
-        }
-    })
 }
 
 // ── ValidCard$ matching (mirrors Java's checkRequirement ValidCard) ──
@@ -972,8 +867,7 @@ pub fn adjust(
         payer,
         cast_zone,
         &target_cards,
-        &sa.optional_costs,
-        sa.cast_face_down,
+        sa,
     )
     .apply(&cost.to_mana_cost());
     *cost = ManaCostBeingPaid::from_mana_cost(&adjusted);
@@ -985,7 +879,7 @@ pub fn adjust(
         payer,
         cast_zone,
         &target_cards,
-        &sa.optional_costs,
+        sa,
         None,
     ) {
         let raise_mana = mana_from_cost(&raise_cost);

@@ -199,8 +199,7 @@ impl GameLoop {
             player,
             zone,
             &[],
-            &[],
-            true,
+            &crate::cost::cost_adjustment::probe_spell_ability(&host, player, true),
         )
         .apply(&alt_cost.map_or_else(
             || forge_foundation::ManaCost::generic(crate::spellability::MORPH_GENERIC_COST),

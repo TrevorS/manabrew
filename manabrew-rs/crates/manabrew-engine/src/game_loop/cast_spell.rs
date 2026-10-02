@@ -1642,8 +1642,7 @@ impl GameLoop {
                     player,
                     original_zone,
                     &[],
-                    &[],
-                    false,
+                    &sa,
                 );
             let max_x = {
                 let x_is_free_choice = game.card(card_id).get_s_var("X") == Some("Count$xPaid");
@@ -1977,7 +1976,7 @@ impl GameLoop {
             player,
             cast_zone,
             &crate::cost::cost_adjustment::target_cards_for_cost(game, &sa),
-            &sa.optional_costs,
+            &sa,
             may_play_raise.as_deref(),
         );
         let raise_waterbend = raise_cost.as_ref().is_some_and(|rc| {
