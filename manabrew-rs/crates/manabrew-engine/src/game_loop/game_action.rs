@@ -347,22 +347,29 @@ impl GameLoop {
                 sa_for_target_check.set_original_host(original_host);
             }
             sa_for_target_check.original_ability = ab.original_ability;
-            if *cant_be_activated_source.get_or_init(|| {
-                crate::staticability::static_ability_cant_be_cast::any_cant_be_activated_source(
-                    &game.cards,
-                )
-            }) && crate::staticability::static_ability_cant_be_cast::cant_be_activated_ability(
-                game,
-                &game.cards,
-                &sa_for_target_check,
-                game.card(card_id),
-                player,
-            ) {
-                return Err("CantBeActivated static");
-            }
-            // Activated-ability legality checks (split second, suppression, detention, etc.).
-            if !crate::spellability::ability_activated::can_play(&sa_for_target_check, game) {
-                return Err("ability_activated::can_play");
+            if ab.is_ability_static() {
+                if !crate::spellability::ability_static::can_play(&sa_for_target_check, game) {
+                    return Err("ability_static::can_play");
+                }
+            } else {
+                if *cant_be_activated_source.get_or_init(|| {
+                    crate::staticability::static_ability_cant_be_cast::any_cant_be_activated_source(
+                        &game.cards,
+                    )
+                })
+                    && crate::staticability::static_ability_cant_be_cast::cant_be_activated_ability(
+                        game,
+                        &game.cards,
+                        &sa_for_target_check,
+                        game.card(card_id),
+                        player,
+                    )
+                {
+                    return Err("CantBeActivated static");
+                }
+                if !crate::spellability::ability_activated::can_play(&sa_for_target_check, game) {
+                    return Err("ability_activated::can_play");
+                }
             }
             if !Self::can_activate_planeswalker_ability(
                 game,

@@ -3,43 +3,26 @@
 //! Static abilities are special actions that don't use the stack (like turning
 //! a morph face-up).
 
-use forge_foundation::ZoneType;
-
 use crate::game::GameState;
+use crate::replacement::replacement_handler::{cant_happen_check, ReplacementEvent};
 use crate::spellability::SpellAbility;
 
 /// Type alias for SpellAbility when used as a static ability.
 /// In Java, `AbilityStatic` is a subclass; in Rust it's the same struct.
 pub type AbilityStatic = super::SpellAbility;
 
-/// Whether this static ability can currently be played.
-/// Mirrors Java's `AbilityStatic.canPlay()`.
-///
-/// The primary use case is morph/megamorph turn-face-up: the card must be
-/// face-down on the battlefield, and the player must be able to pay the cost.
+/// Mirrors Java's `AbilityStatic.canPlay()`: no split second, suppression, detention or
+/// `CantBeActivated` check, which belong to `AbilityActivated`. The face-down test stands in
+/// for the `IsPresent$ Card.Self+faceDown` Java writes into the turn-face-up ability.
 pub fn can_play(sa: &SpellAbility, game: &GameState) -> bool {
-    let card_id = match sa.source {
-        Some(id) => id,
-        None => return false,
+    let Some(card_id) = sa.source else {
+        return false;
     };
-
-    let card = game.card(card_id);
-
-    // For morph turn-face-up: card must be face-down on the battlefield
-    if sa.ir.morph || sa.ir.morph_up || sa.ir.megamorph {
-        // Must be on the battlefield
-        if !game.card_is_in_zone(card_id, ZoneType::Battlefield) {
-            return false;
-        }
-        // Must be face-down
-        if !card.face_down {
-            return false;
-        }
+    if sa.is_turn_face_up()
+        && (!game.card(card_id).face_down
+            || cant_happen_check(game, &ReplacementEvent::TurnFaceUp { card: card_id }))
+    {
+        return false;
     }
-
-    // Split second does NOT prevent special actions like turning morphs face-up
-    // (rule 702.37a: "Split second doesn't prevent special actions")
-
-    // General restriction check
     sa.can_play(game)
 }
