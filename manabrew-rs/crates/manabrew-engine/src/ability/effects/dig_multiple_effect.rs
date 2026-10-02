@@ -370,8 +370,10 @@ mod tests {
         game.replace_zone_cards(ZoneType::Library, p0, vec![a, b, c]);
 
         // Dig 3, take 1 to hand, rest go to graveyard.
+        let host = make_land(&mut game, p0);
+        game.move_card(host, ZoneType::Stack, p0);
         let sa = SpellAbility::new_simple(
-            None,
+            Some(host),
             p0,
             "SP$ Dig | DigNum$ 3 | ChangeNum$ 1 | DestinationZone2$ Graveyard | NoReveal$ True",
         );

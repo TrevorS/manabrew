@@ -214,8 +214,12 @@ mod tests {
         game.move_card(c1, ZoneType::Battlefield, p0);
         game.move_card(c2, ZoneType::Battlefield, p1);
 
+        let host = make_creature(&mut game, p0);
+
+        game.move_card(host, ZoneType::Hand, p0);
+
         let sa = SpellAbility::new_simple(
-            None,
+            Some(host),
             p0,
             "A:SP$ PumpAll | ValidCards$ Creature | NumAtt$ +2 | NumDef$ +2",
         );
@@ -255,8 +259,10 @@ mod tests {
         game.move_card(c1, ZoneType::Battlefield, p0);
 
         // Rising Miasma: -2/-2 to all
+        let host = make_creature(&mut game, p0);
+        game.move_card(host, ZoneType::Hand, p0);
         let sa = SpellAbility::new_simple(
-            None,
+            Some(host),
             p0,
             "A:SP$ PumpAll | ValidCards$ Creature | NumAtt$ -2 | NumDef$ -2",
         );
@@ -297,8 +303,10 @@ mod tests {
         game.move_card(theirs, ZoneType::Battlefield, p1);
 
         // Righteous Charge: creatures you control get +2/+2
+        let host = make_creature(&mut game, p0);
+        game.move_card(host, ZoneType::Hand, p0);
         let sa = SpellAbility::new_simple(
-            None,
+            Some(host),
             p0,
             "A:SP$ PumpAll | ValidCards$ Creature.YouCtrl | NumAtt$ +2 | NumDef$ +2",
         );

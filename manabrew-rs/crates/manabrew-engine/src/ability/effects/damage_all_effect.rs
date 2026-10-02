@@ -126,13 +126,9 @@ fn damage_all_matches_valid_card(
     selector: &crate::parsing::CompiledSelector,
     card_id: CardId,
 ) -> bool {
-    let Some(source_id) = sa.source else {
-        return crate::ability::ability_utils::matches_valid_cards_selector_opt(
-            Some(selector),
-            ctx.game.card(card_id),
-            sa.activating_player,
-        );
-    };
+    let source_id = sa
+        .source
+        .expect("an ability matched against a card filter has a host card, as in Java");
     let source = ctx.game.card(source_id);
     let targeted_cards = sa.target_chosen.all_target_cards();
     let targeted_players = sa.target_chosen.all_target_players();

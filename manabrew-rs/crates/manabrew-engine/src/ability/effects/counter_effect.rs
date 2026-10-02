@@ -53,10 +53,12 @@ pub fn check_for_condition_would_destroy(
                     let our_permanents =
                         game.cards_in_zone(forge_foundation::ZoneType::Battlefield, controller);
                     return our_permanents.iter().any(|&cid| {
-                        crate::ability::ability_utils::matches_valid_cards_selector_opt(
-                            Some(valid),
+                        crate::ability::ability_utils::matches_valid_cards_for_sa(
+                            game,
+                            targeted_sa,
                             game.card(cid),
-                            targeted_sa.activating_player,
+                            Some(valid),
+                            "Card",
                         )
                     });
                 }

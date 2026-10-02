@@ -669,9 +669,9 @@ fn resolve_defined_cards_for_sa_ref_inner(
         DefinedRef::Unsupported(raw) if raw.starts_with("Valid") => {
             ability_utils::get_defined_valid_cards(
                 game,
-                sa.source,
+                sa.source
+                    .expect("an ability matched against a card filter has a host card, as in Java"),
                 raw,
-                Some(sa.activating_player),
                 Some(sa),
             )
             .unwrap_or_default()

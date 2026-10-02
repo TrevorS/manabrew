@@ -5,10 +5,9 @@
 //! The `effects::helpers` module re-exports everything from here for backward
 //! compatibility.
 
-use forge_foundation::{ColorSet, ZoneType};
+use forge_foundation::ZoneType;
 
 use crate::ability::AbilityKey;
-use crate::card::filter_constants as fc;
 use crate::card::{valid_filter, Card, CounterType};
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
@@ -189,7 +188,8 @@ pub fn get_defined_cards(
             .filter_map(|attachment| game.card(attachment).attached_to)
             .collect();
     }
-    if let Some(cards) = get_defined_valid_cards(game, host_card, defined, activating_player, None)
+    if let Some(cards) =
+        host_card.and_then(|host_card| get_defined_valid_cards(game, host_card, defined, None))
     {
         return cards;
     }
@@ -201,9 +201,8 @@ pub fn get_defined_cards(
 
 pub(crate) fn get_defined_valid_cards(
     game: &GameState,
-    host_card: Option<CardId>,
+    host_card: CardId,
     defined: &str,
-    activating_player: Option<PlayerId>,
     sa: Option<&SpellAbility>,
 ) -> Option<Vec<CardId>> {
     let rest = defined.strip_prefix("Valid")?;
@@ -215,9 +214,6 @@ pub(crate) fn get_defined_valid_cards(
         let (zone, filter) = rest.split_once(' ')?;
         (vec![crate::zone::zone_type::smart_value_of(zone)?], filter)
     };
-    let player = activating_player
-        .or_else(|| host_card.map(|c| game.card(c).controller))
-        .unwrap_or(PlayerId(0));
     Some(
         game.player_order
             .iter()
@@ -228,12 +224,9 @@ pub(crate) fn get_defined_valid_cards(
             })
             .filter(|&cid| {
                 let card = game.card(cid);
-                match (sa, host_card) {
-                    (Some(sa), _) => matches_valid_cards_for_sa(game, sa, card, None, filter),
-                    (None, Some(source_id)) => {
-                        matches_valid_cards_for_source(game, source_id, card, None, filter)
-                    }
-                    (None, None) => matches_valid_cards(card, filter, player),
+                match sa {
+                    Some(sa) => matches_valid_cards_for_sa(game, sa, card, None, filter),
+                    None => matches_valid_cards_for_source(game, host_card, card, None, filter),
                 }
             })
             .collect(),
@@ -1123,44 +1116,6 @@ pub fn parse_zone_type(s: &str) -> Option<ZoneType> {
 
 // ── ValidCards$ Matching ─────────────────────────────────────────────
 
-/// Full ValidCards$ filter matching with controller and keyword qualifier support.
-///
-/// This is the preferred function for mass effects (DestroyAll, DamageAll, etc.)
-/// because it handles `YouCtrl`, `OppCtrl`, `withFlying` / `withoutFlying`,
-/// and color (`nonBlack`)
-/// qualifiers in addition to card types.
-///
-/// `activating_player` is the player who cast/activated the ability; used to
-/// resolve `YouCtrl` / `OppCtrl` qualifiers.
-///
-/// Mirrors Java's `CardLists.getValidCards()` + `CardProperty.cardHasProperty()`.
-pub fn matches_valid_cards(card: &Card, filter: &str, activating_player: PlayerId) -> bool {
-    if filter.is_empty() || filter == fc::CARD {
-        return true;
-    }
-
-    // Comma-separated = OR conditions (e.g. "Creature.attacking Opponent, Creature.attacking Planeswalker.OppCtrl")
-    if filter.contains(", ") {
-        return filter
-            .split(", ")
-            .any(|part| matches_valid_cards_single(card, part.trim(), activating_player));
-    }
-
-    matches_valid_cards_single(card, filter, activating_player)
-}
-
-pub fn matches_valid_cards_selector_opt(
-    selector: Option<&CompiledSelector>,
-    card: &Card,
-    activating_player: PlayerId,
-) -> bool {
-    selector.is_none_or(|selector| {
-        selector.alternatives.iter().any(|alternative| {
-            matches_valid_cards_single(card, &alternative.raw, activating_player)
-        })
-    })
-}
-
 pub fn matches_valid_cards_for_sa(
     game: &GameState,
     sa: &SpellAbility,
@@ -1168,14 +1123,9 @@ pub fn matches_valid_cards_for_sa(
     selector: Option<&CompiledSelector>,
     default_filter: &str,
 ) -> bool {
-    let Some(source_id) = sa.source else {
-        return match selector {
-            Some(selector) => {
-                matches_valid_cards_selector_opt(Some(selector), card, sa.activating_player)
-            }
-            None => matches_valid_cards(card, default_filter, sa.activating_player),
-        };
-    };
+    let source_id = sa
+        .source
+        .expect("an ability matched against a card filter has a host card, as in Java");
     let parsed;
     let selector = match selector {
         Some(selector) => selector,
@@ -1210,124 +1160,6 @@ pub fn matches_valid_cards_for_source(
         }
     };
     valid_filter::matches_valid_card_selector_in_game(selector, card, source, game)
-}
-
-fn matches_valid_cards_single(card: &Card, filter: &str, activating_player: PlayerId) -> bool {
-    let parts: Vec<&str> = filter.split('.').collect();
-    let type_part = parts[0];
-
-    // ── Type check ──────────────────────────────────────────────────────────
-    let type_matches = match type_part {
-        fc::CREATURE => card.is_creature(),
-        fc::LAND => card.is_land(),
-        fc::ARTIFACT => card
-            .type_line
-            .core_types
-            .iter()
-            .any(|t| t.name().eq_ignore_ascii_case(fc::ARTIFACT)),
-        fc::ENCHANTMENT => card
-            .type_line
-            .core_types
-            .iter()
-            .any(|t| t.name().eq_ignore_ascii_case(fc::ENCHANTMENT)),
-        fc::PLANESWALKER => card
-            .type_line
-            .core_types
-            .iter()
-            .any(|t| t.name().eq_ignore_ascii_case(fc::PLANESWALKER)),
-        fc::INSTANT => card
-            .type_line
-            .core_types
-            .iter()
-            .any(|t| t.name().eq_ignore_ascii_case(fc::INSTANT)),
-        fc::SORCERY => card
-            .type_line
-            .core_types
-            .iter()
-            .any(|t| t.name().eq_ignore_ascii_case(fc::SORCERY)),
-        fc::PERMANENT | fc::CARD => true,
-        _ => {
-            crate::census::unhandled("valid-type-matches-all", type_part);
-            true
-        }
-    };
-    if !type_matches {
-        return false;
-    }
-
-    // ── Qualifier checks (dot-separated after the type) ─────────────────────
-    // Handle compound "+" syntax (e.g. "YouCtrl+nonBlack", "Self+kicked")
-    for &qualifier in &parts[1..] {
-        let sub_parts: Vec<&str> = qualifier.split('+').collect();
-        for sub in &sub_parts {
-            if !matches_valid_cards_qualifier(card, sub, activating_player) {
-                return false;
-            }
-        }
-    }
-    true
-}
-
-fn matches_valid_cards_qualifier(
-    card: &Card,
-    qualifier: &str,
-    activating_player: PlayerId,
-) -> bool {
-    match qualifier {
-        fc::YOU_CTRL => card.controller == activating_player,
-        fc::OPP_CTRL => card.controller != activating_player,
-        fc::BASIC => card.type_line.is_basic(),
-        fc::KICKED => card.kicked,
-        fc::WITH_FLYING => {
-            card.keywords.contains_string_ignore_case("Flying")
-                || card.granted_keywords.contains_string_ignore_case("Flying")
-        }
-        _ => {
-            if let Some(keyword) = qualifier.strip_prefix("without") {
-                return keyword.is_empty() || !card.has_keyword(keyword);
-            }
-            if let Some(keyword) = qualifier.strip_prefix("with") {
-                return !keyword.is_empty() && card.has_keyword(keyword);
-            }
-            // "attacking Opponent" / "attacking Planeswalker" — space-separated combat qualifier
-            if let Some(target) = qualifier.strip_prefix("attacking ") {
-                let attacking = card.attacking_player;
-                match target {
-                    "Opponent" => match attacking {
-                        Some(def) => def != activating_player,
-                        None => false,
-                    },
-                    // "attacking Planeswalker" — only true if attacking a planeswalker (not a player).
-                    // Currently combat only tracks player targets, so this is always false.
-                    "Planeswalker" => false,
-                    _ => attacking.is_some(), // any attack target
-                }
-            }
-            // Type negations ("nonLand", "nonland", "nonCreature", etc.) and
-            // color filters ("nonBlack", "nonRed", etc.).
-            else {
-                let lower = qualifier.to_ascii_lowercase();
-                if let Some(rest) = lower.strip_prefix("non") {
-                    match rest {
-                        "land" => !card.is_land(),
-                        "creature" => !card.is_creature(),
-                        "artifact" => !card.type_line.is_artifact(),
-                        "enchantment" => !card.type_line.is_enchantment(),
-                        "planeswalker" => !card.type_line.is_planeswalker(),
-                        "token" => !card.is_token,
-                        "basic" => !card.type_line.is_basic(),
-                        _ => {
-                            let excluded = ColorSet::from_names(rest);
-                            !card.color.shares_color_with(excluded)
-                        }
-                    }
-                } else {
-                    // Unknown qualifier — match everything (forward-compatible)
-                    true
-                }
-            }
-        }
-    }
 }
 
 // ── X-count and math helpers ────────────────────────────────────────
@@ -1854,7 +1686,7 @@ pub fn filter_list_by_type(
                     .replace("TriggeredAttacker", "Card")
                     .replace("TriggeredBlocker", "Card")
                     .replace("Triggered", "Card");
-                (Some(cid), adjusted)
+                (cid, adjusted)
             }
             None => return Vec::new(),
         }
@@ -1867,7 +1699,7 @@ pub fn filter_list_by_type(
                 } else {
                     filter_type.replace("Targeted", "Card")
                 };
-                (Some(cid), adjusted)
+                (cid, adjusted)
             }
             None => return Vec::new(),
         }
@@ -1878,12 +1710,16 @@ pub fn filter_list_by_type(
         match remembered.first() {
             Some(&cid) => {
                 let adjusted = filter_type.replace("Remembered", "Card");
-                (Some(cid), adjusted)
+                (cid, adjusted)
             }
             None => return Vec::new(),
         }
     } else {
-        (sa.source, filter_type.to_string())
+        (
+            sa.source
+                .expect("an ability matched against a card filter has a host card, as in Java"),
+            filter_type.to_string(),
+        )
     };
 
     let selector = cached_compiled_selector(&effective_filter);
@@ -1894,15 +1730,11 @@ pub fn filter_list_by_type(
         .copied()
         .filter(|&cid| {
             let card = game.card(cid);
-            if let Some(source_id) = effective_source {
-                let context = valid_filter::MatchContext::new(game.card(source_id), game)
-                    .with_source_controller(sa.activating_player)
-                    .with_targets(&targeted_cards, &targeted_players)
-                    .with_spell_ability(sa);
-                valid_filter::matches_valid_card_selector_with_context(&selector, card, context)
-            } else {
-                matches_valid_cards(card, &effective_filter, sa.activating_player)
-            }
+            let context = valid_filter::MatchContext::new(game.card(effective_source), game)
+                .with_source_controller(sa.activating_player)
+                .with_targets(&targeted_cards, &targeted_players)
+                .with_spell_ability(sa);
+            valid_filter::matches_valid_card_selector_with_context(&selector, card, context)
         })
         .collect()
 }

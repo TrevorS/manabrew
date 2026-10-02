@@ -232,8 +232,12 @@ mod tests {
         game.move_card(c1, ZoneType::Battlefield, p0);
         game.move_card(c2, ZoneType::Battlefield, p1);
 
+        let host = make_creature(&mut game, p0, vec![]);
+
+        game.move_card(host, ZoneType::Hand, p0);
+
         let sa = SpellAbility::new_simple(
-            None,
+            Some(host),
             p0,
             "A:SP$ DestroyAll | ValidCards$ Creature | NoRegen$ True",
         );
@@ -274,8 +278,12 @@ mod tests {
         game.move_card(mortal, ZoneType::Battlefield, p0);
         game.move_card(immortal, ZoneType::Battlefield, p0);
 
+        let host = make_creature(&mut game, p0, vec![]);
+
+        game.move_card(host, ZoneType::Hand, p0);
+
         let sa = SpellAbility::new_simple(
-            None,
+            Some(host),
             p0,
             "A:SP$ DestroyAll | ValidCards$ Creature | NoRegen$ True",
         );

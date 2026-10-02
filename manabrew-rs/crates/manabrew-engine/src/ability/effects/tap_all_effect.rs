@@ -105,7 +105,11 @@ mod tests {
         assert!(!game.card(c1).tapped);
         assert!(!game.card(c2).tapped);
 
-        let sa = SpellAbility::new_simple(None, p0, "A:SP$ TapAll | ValidCards$ Creature");
+        let host = make_creature(&mut game, p0);
+
+        game.move_card(host, ZoneType::Hand, p0);
+
+        let sa = SpellAbility::new_simple(Some(host), p0, "A:SP$ TapAll | ValidCards$ Creature");
         let mut th = TriggerHandler::new();
         let mut agents: Vec<Box<dyn crate::agent::PlayerAgent>> =
             vec![Box::new(PassAgent), Box::new(PassAgent)];
