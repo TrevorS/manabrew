@@ -401,9 +401,12 @@ pub fn make_etb_counter(kw: &str, card: &Card, intrinsic: bool) -> Option<Replac
             )
         });
 
-    let ability_text = format!(
+    let mut ability_text = format!(
         "DB$ PutCounter | Defined$ Self | CounterType$ {counter_type} | ETB$ True | CounterNum$ {amount}"
     );
+    if counter_type.starts_with("EACH") {
+        ability_text = ability_text.replace("CounterType$ EACH ", "CounterTypes$ ");
+    }
     let mut ability = crate::spellability::build_spell_ability_from_host_card(
         card,
         &ability_text,
