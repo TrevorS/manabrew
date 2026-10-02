@@ -3356,13 +3356,8 @@ pub fn matches_valid_player_selector_in_game(
     source_controller: PlayerId,
     game: &crate::game::GameState,
 ) -> bool {
-    if selector.ir.alternatives.iter().all(|alternative| {
-        alternative
-            .predicates
-            .iter()
-            .all(player_predicate_is_game_free)
-    }) {
-        return matches_valid_player_selector(selector, player, source_controller);
+    if let Some(matched) = game_free_player_match(selector, player, source_controller) {
+        return matched;
     }
     let sa = crate::spellability::SpellAbility::new_simple(Some(source.id), source_controller, "");
     crate::player::player_property::is_valid(
@@ -3375,28 +3370,62 @@ pub fn matches_valid_player_selector_in_game(
     )
 }
 
-fn player_predicate_is_game_free(predicate: &SelectorPredicate) -> bool {
+/// The answer when `selector` needs no game, `None` when one of its properties does. A property
+/// the compiler lowers to a card predicate (`Player.Activator` becomes a subtype) is `None` too:
+/// `player_property::is_valid` reads the raw filter the way Java's `Player.isValid` does.
+fn game_free_player_match(
+    selector: &CompiledSelector,
+    player: PlayerId,
+    source_controller: PlayerId,
+) -> Option<bool> {
+    if selector.ir.alternatives.is_empty() {
+        return Some(true);
+    }
+    let mut unknown = false;
+    for alternative in &selector.ir.alternatives {
+        let mut matched = Some(true);
+        for predicate in &alternative.predicates {
+            match game_free_player_predicate(predicate, player, source_controller) {
+                Some(true) => {}
+                Some(false) => {
+                    matched = Some(false);
+                    break;
+                }
+                None => matched = None,
+            }
+        }
+        match matched {
+            Some(true) => return Some(true),
+            Some(false) => {}
+            None => unknown = true,
+        }
+    }
+    (!unknown).then_some(false)
+}
+
+fn game_free_player_predicate(
+    predicate: &SelectorPredicate,
+    player: PlayerId,
+    source_controller: PlayerId,
+) -> Option<bool> {
     match predicate {
-        SelectorPredicate::Any
-        | SelectorPredicate::Player
-        | SelectorPredicate::PlayerController(_)
-        | SelectorPredicate::CardController(_) => true,
+        SelectorPredicate::Any | SelectorPredicate::Player => Some(true),
+        SelectorPredicate::PlayerController(controller)
+        | SelectorPredicate::CardController(controller) => Some(matches_player_controller(
+            *controller,
+            player,
+            source_controller,
+        )),
         SelectorPredicate::Raw(raw) => {
             let raw = raw.to_ascii_lowercase();
-            matches!(
-                raw.strip_prefix("player.").unwrap_or(&raw),
-                "you"
-                    | "youctrl"
-                    | "opponent"
-                    | "oppctrl"
-                    | "opponentctrl"
-                    | "any"
-                    | "each"
-                    | "player"
-                    | "ingame"
-            )
+            match raw.strip_prefix("player.").unwrap_or(&raw) {
+                "you" | "youctrl" => Some(player == source_controller),
+                "opponent" | "oppctrl" | "opponentctrl" => Some(player != source_controller),
+                "any" | "each" | "player" | "ingame" => Some(true),
+                _ => None,
+            }
         }
-        _ => false,
+        _ => None,
     }
 }
 
