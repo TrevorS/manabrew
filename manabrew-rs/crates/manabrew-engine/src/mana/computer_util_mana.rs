@@ -3041,6 +3041,7 @@ fn group_mana_sources_by_color(
             && card.zone == ZoneType::Battlefield
             && card.is_land()
             && !card.tapped
+            && card.lacks_basic_land_mana_abilities()
         {
             let mut atoms = all_basic_subtype_atoms(card);
             if atoms.is_empty() {
@@ -3245,6 +3246,7 @@ pub fn can_pay_mana_cost_with_reserved_sacrifices(
         }
 
         if card.is_land()
+            && card.lacks_basic_land_mana_abilities()
             && crate::cost::cost_tap::can_pay(
                 game,
                 &Default::default(),

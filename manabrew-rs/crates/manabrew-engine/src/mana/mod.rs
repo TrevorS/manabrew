@@ -1643,7 +1643,11 @@ fn calculate_available_mana_excluding_with_reserved_impl(
             // typed "Land Forest Island" — produces G or U from subtype, not AB$ Mana).
             // Also handles basic lands from the Forge CLI or other sources.
             // Tapped lands can't produce mana (implicit {T} cost), so skip them.
-            if card.zone == ZoneType::Battlefield && card.is_land() && !is_tapped {
+            if card.zone == ZoneType::Battlefield
+                && card.is_land()
+                && !is_tapped
+                && card.lacks_basic_land_mana_abilities()
+            {
                 let subtype_atoms = all_basic_subtype_atoms(card);
                 if !subtype_atoms.is_empty() {
                     let mut src_mask: u16 = 0;
