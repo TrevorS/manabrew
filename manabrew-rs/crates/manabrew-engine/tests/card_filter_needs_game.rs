@@ -275,3 +275,30 @@ fn controlled_by_a_defined_player_falls_back_to_the_defined_players() {
     assert!(controlled_by_owner(&game, bobs));
     assert!(!controlled_by_owner(&game, alices));
 }
+
+const SWORD_OF_DEFENDERS: &str = "Name:Short Sword\nManaCost:1\nTypes:Artifact Equipment\nOracle:";
+
+#[test]
+fn defender_ctrl_reads_the_attack_without_a_combat_state() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let attacker = put(&mut game, BEAR, p0, ZoneType::Battlefield);
+    let sword = put(&mut game, SWORD_OF_DEFENDERS, p0, ZoneType::Battlefield);
+    game.attach_to(sword, attacker);
+    let bobs = put(&mut game, BEAR, p1, ZoneType::Battlefield);
+    let defender_ctrl = |game: &GameState, source: CardId| {
+        matches_valid(
+            "Creature.DefenderCtrl",
+            Some(game.card(bobs)),
+            None,
+            game.card(source),
+            p0,
+            game,
+        )
+    };
+
+    assert!(!defender_ctrl(&game, attacker));
+    game.card_mut(attacker).set_attacking_player(p1);
+    assert!(defender_ctrl(&game, attacker));
+    assert!(defender_ctrl(&game, sword));
+}

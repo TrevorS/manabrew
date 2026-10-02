@@ -358,6 +358,7 @@ pub enum ContextPredicate {
     TargetedBy,
     ActivePlayerCtrl,
     DefenderCtrl,
+    DefenderCtrlForRemembered,
     EnchantedController,
     ControlledBy(String),
     GreatestPower(Option<String>),
@@ -1311,6 +1312,9 @@ fn lower_selector_part(value: &str, is_first_part: bool) -> SelectorPredicate {
         "targetedby" => SelectorPredicate::Context(ContextPredicate::TargetedBy),
         "activeplayerctrl" => SelectorPredicate::Context(ContextPredicate::ActivePlayerCtrl),
         "defenderctrl" => SelectorPredicate::Context(ContextPredicate::DefenderCtrl),
+        "defenderctrlforremembered" => {
+            SelectorPredicate::Context(ContextPredicate::DefenderCtrlForRemembered)
+        }
         "enchantedcontroller" => SelectorPredicate::Context(ContextPredicate::EnchantedController),
         "notdefinedtargeted" => SelectorPredicate::Context(ContextPredicate::NotDefinedTargeted),
         not_defined if not_defined.starts_with("notdefined") => {

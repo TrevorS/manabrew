@@ -1231,17 +1231,48 @@ fn matches_context_predicate(
             }
         }
         ContextPredicate::ActivePlayerCtrl => context.game.active_player() == card.controller,
-        ContextPredicate::DefenderCtrl => context.combat.is_some_and(|combat| {
-            combat
-                .get_defender_by_attacker(context.source_card.id)
-                .is_some_and(|defender| {
-                    defender.controlling_player(context.game) == card.controller
-                })
-        }),
+        ContextPredicate::DefenderCtrl => {
+            defending_player_related_to(defending_related_attacker(context.source_card), context)
+                == Some(card.controller)
+        }
+        ContextPredicate::DefenderCtrlForRemembered => {
+            let attacker = context
+                .source_card
+                .remembered_cards
+                .first()
+                .and_then(|&remembered| defending_related_attacker(context.game.card(remembered)));
+            defending_player_related_to(attacker, context) == Some(card.controller)
+        }
         ContextPredicate::EnchantedController => context
             .source_card
             .attached_to
             .is_some_and(|attached| context.game.card(attached).controller == card.owner),
+    }
+}
+
+/// Java `Combat.getDefendingPlayerRelatedTo`: an Aura, Fortification or Equipment stands for the
+/// creature it is attached to.
+fn defending_related_attacker(source: &Card) -> Option<CardId> {
+    if ["Aura", "Fortification", "Equipment"]
+        .iter()
+        .any(|subtype| source.type_line.has_subtype(subtype))
+    {
+        source.attached_to
+    } else {
+        Some(source.id)
+    }
+}
+
+fn defending_player_related_to(
+    attacker: Option<CardId>,
+    context: MatchContext<'_>,
+) -> Option<PlayerId> {
+    let attacker = attacker?;
+    match context.combat {
+        Some(combat) => combat
+            .get_defender_by_attacker(attacker)
+            .map(|defender| defender.controlling_player(context.game)),
+        None => context.game.card(attacker).attacking_player,
     }
 }
 
