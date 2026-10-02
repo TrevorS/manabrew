@@ -1055,24 +1055,7 @@ fn battlefield_pre_list(game: &GameState, event: &ReplacementEvent) -> Option<Ca
     else {
         return None;
     };
-    let grants_keyword_trait = game.cards.iter().any(|host| {
-        host.zone.is_static_ability_source()
-            && host.static_abilities.iter().any(|st| {
-                st.ir
-                    .add_keyword_text
-                    .as_deref()
-                    .is_some_and(|keywords| keywords.contains("Riot"))
-            })
-    });
-    if !grants_keyword_trait && counter_map.is_none() {
-        return None;
-    }
     let mut pre = game.clone();
-    let (zone, controller) = (pre.card(*card).zone, pre.card(*card).controller);
-    if zone != ZoneType::None {
-        pre.remove_card_from_zone(zone, controller, *card);
-    }
-    pre.add_card_to_zone(ZoneType::Battlefield, controller, *card);
     let entering = pre.card_mut(*card);
     entering.zone = ZoneType::Battlefield;
     for value in counter_map.iter().flatten() {
