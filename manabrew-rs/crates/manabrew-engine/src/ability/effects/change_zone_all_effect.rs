@@ -1,131 +1,7 @@
 use forge_foundation::ZoneType;
 
-use super::{emit_zone_trigger, matches_change_type, EffectContext};
+use super::{emit_zone_trigger, EffectContext};
 use crate::ids::{CardId, PlayerId};
-
-fn is_targeted_relation_term(term: &str) -> bool {
-    term.eq_ignore_ascii_case("NotDefinedTargeted")
-        || term.eq_ignore_ascii_case("TargetedCard.Self")
-        || term.starts_with("sharesNameWith")
-        || term.starts_with("ControlledBy")
-}
-
-fn matches_change_zone_all_filter(
-    cid: CardId,
-    game: &crate::game::GameState,
-    sa: Option<&crate::spellability::SpellAbility>,
-    filter: &str,
-    source_chosen_colors: &[String],
-    effective_target: Option<CardId>,
-) -> bool {
-    if filter.trim().is_empty() {
-        return true;
-    }
-
-    // Forge uses comma-separated OR clauses in ChangeType$.
-    for clause in filter.split(',') {
-        let clause = clause.trim();
-        if clause.is_empty() {
-            continue;
-        }
-
-        if let Some(sa) = sa {
-            if !clause
-                .split('+')
-                .any(|term| is_targeted_relation_term(term.trim()))
-            {
-                if crate::ability::ability_utils::matches_valid_cards_for_sa(
-                    game,
-                    sa,
-                    game.card(cid),
-                    None,
-                    clause,
-                ) {
-                    return true;
-                }
-                continue;
-            }
-        }
-
-        let mut clause_ok = true;
-        let targeted = effective_target;
-
-        // "+" means AND within a clause.
-        for term in clause.split('+') {
-            let term = term.trim();
-            if term.is_empty() {
-                continue;
-            }
-
-            if term.eq_ignore_ascii_case("NotDefinedTargeted") {
-                if let Some(t) = targeted {
-                    if cid == t {
-                        clause_ok = false;
-                        break;
-                    }
-                } else {
-                    clause_ok = false;
-                    break;
-                }
-                continue;
-            }
-
-            if term.eq_ignore_ascii_case("TargetedCard.Self") {
-                if targeted != Some(cid) {
-                    clause_ok = false;
-                    break;
-                }
-                continue;
-            }
-
-            if term.starts_with("sharesNameWith") {
-                let arg = term
-                    .strip_prefix("sharesNameWith")
-                    .unwrap_or("")
-                    .trim_start();
-                if arg.eq_ignore_ascii_case("Targeted") {
-                    if let Some(t) = targeted {
-                        if game.card(cid).card_name != game.card(t).card_name {
-                            clause_ok = false;
-                            break;
-                        }
-                    } else {
-                        clause_ok = false;
-                        break;
-                    }
-                    continue;
-                }
-            }
-
-            if term.starts_with("ControlledBy") {
-                let arg = term.strip_prefix("ControlledBy").unwrap_or("").trim_start();
-                if arg.eq_ignore_ascii_case("TargetedController") {
-                    if let Some(t) = targeted {
-                        if game.card(cid).controller != game.card(t).controller {
-                            clause_ok = false;
-                            break;
-                        }
-                    } else {
-                        clause_ok = false;
-                        break;
-                    }
-                    continue;
-                }
-            }
-
-            if !matches_change_type(game.card(cid), term, source_chosen_colors) {
-                clause_ok = false;
-                break;
-            }
-        }
-
-        if clause_ok {
-            return true;
-        }
-    }
-
-    false
-}
 
 /// Configure the spell ability during construction.
 /// Mirrors Java `ChangeZoneAllEffect.buildSpellAbility` — calls
@@ -177,17 +53,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .unwrap_or_else(|| "Card".to_string());
     let tapped = sa.ir.tapped;
 
-    // Resolve source card's chosen_colors for ChosenColor qualifier support.
-    let source_chosen_colors: Vec<String> = sa
-        .source
-        .map(|src| ctx.game.card(src).chosen_colors.clone())
-        .unwrap_or_default();
-
-    // Propagate the parent SA's chosen target for sub-ability chains like Deputy of Detention
-    // (TrigExile Pump → DBChangeZoneAll): the ChangeZoneAll SA itself has no ValidTgts$,
-    // so we fall back to ctx.parent_target_card set by the parent Pump SA.
-    let effective_target = sa.target_chosen.target_card.or(ctx.parent_target_card);
-
     // For Duration$ UntilHostLeavesPlay, track the source card so we can return
     // exiled permanents when the source leaves the battlefield (e.g. Deputy of Detention).
     let until_host_leaves = sa.ir.duration.as_ref().is_some_and(|duration| {
@@ -218,9 +83,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         };
         let mut to_move: Vec<(CardId, PlayerId)> = Vec::new();
 
-        let filter_by_type = ["Targeted", "Triggered", "Remembered", "Imprinted"]
-            .iter()
-            .any(|prefix| valid_cards_filter.starts_with(prefix));
         for &pid in &player_ids {
             let zone_cards: Vec<CardId> = origin_zones
                 .iter()
@@ -233,28 +95,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     }
                 })
                 .collect();
-            let by_type = if filter_by_type {
-                crate::ability::ability_utils::filter_list_by_type(
-                    ctx.game,
-                    &zone_cards,
-                    &valid_cards_filter,
-                    sa,
-                )
-            } else {
-                Vec::new()
-            };
+            let by_type = crate::ability::ability_utils::filter_list_by_type(
+                ctx.game,
+                &zone_cards,
+                &valid_cards_filter,
+                sa,
+            );
             for cid in zone_cards {
-                if (filter_by_type && by_type.contains(&cid))
-                    || (!filter_by_type
-                        && matches_change_zone_all_filter(
-                            cid,
-                            ctx.game,
-                            Some(sa),
-                            &valid_cards_filter,
-                            &source_chosen_colors,
-                            effective_target,
-                        ))
-                {
+                if by_type.contains(&cid) {
                     let dest_owner = if dest_zone != ZoneType::Battlefield {
                         ctx.game.card(cid).owner
                     } else if sa.is_gain_control() {
@@ -435,81 +283,5 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 ctx.game.shuffle_zone_cards(ZoneType::Library, pid, ctx.rng);
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::matches_change_zone_all_filter;
-    use crate::card::Card;
-    use crate::game::GameState;
-    use crate::ids::{CardId, PlayerId};
-    use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
-
-    #[test]
-    fn deputy_filter_only_hits_targeted_name_group() {
-        let mut game = GameState::new(&["A", "B"], 20);
-        let p0 = PlayerId(0);
-        let p1 = PlayerId(1);
-
-        let make = |name: &str, owner: PlayerId, type_line: &str| {
-            Card::new(
-                CardId(0),
-                name.to_string(),
-                owner,
-                CardTypeLine::parse(type_line),
-                ManaCost::no_cost(),
-                ColorSet::COLORLESS,
-                None,
-                None,
-                vec![],
-                vec![],
-            )
-        };
-
-        let t1 = game.create_card(make("Token Engine", p1, "Artifact"));
-        let t2 = game.create_card(make("Token Engine", p1, "Artifact"));
-        let opp_land = game.create_card(make("Island", p1, "Land Island"));
-        let my_land = game.create_card(make("Forest", p0, "Land Forest"));
-
-        game.move_card(t1, ZoneType::Battlefield, p1);
-        game.move_card(t2, ZoneType::Battlefield, p1);
-        game.move_card(opp_land, ZoneType::Battlefield, p1);
-        game.move_card(my_land, ZoneType::Battlefield, p0);
-
-        let filter = "TargetedCard.Self,Permanent.nonLand+NotDefinedTargeted+sharesNameWith Targeted+ControlledBy TargetedController";
-
-        assert!(matches_change_zone_all_filter(
-            t1,
-            &game,
-            None,
-            filter,
-            &[],
-            Some(t1)
-        ));
-        assert!(matches_change_zone_all_filter(
-            t2,
-            &game,
-            None,
-            filter,
-            &[],
-            Some(t1)
-        ));
-        assert!(!matches_change_zone_all_filter(
-            opp_land,
-            &game,
-            None,
-            filter,
-            &[],
-            Some(t1)
-        ));
-        assert!(!matches_change_zone_all_filter(
-            my_land,
-            &game,
-            None,
-            filter,
-            &[],
-            Some(t1)
-        ));
     }
 }

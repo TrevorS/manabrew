@@ -906,6 +906,7 @@ pub fn get_sacrifice_targets(
     game: &GameState,
     player: PlayerId,
     type_filter: &str,
+    source: CardId,
     ability: Option<&SpellAbility>,
 ) -> Vec<CardId> {
     game.cards_in_zone(ZoneType::Battlefield, player)
@@ -921,7 +922,14 @@ pub fn get_sacrifice_targets(
                     filter.trim(),
                 )
             }),
-            None => crate::ability::effects::matches_change_type(game.card(cid), type_filter, &[]),
+            None => is_valid_cost_card(
+                game,
+                game.card(cid),
+                type_filter,
+                game.card(source),
+                player,
+                ability,
+            ),
         })
         .collect()
 }
@@ -964,6 +972,7 @@ pub fn get_sacrifice_targets_for_cost(
     game: &GameState,
     player: PlayerId,
     type_filter: &str,
+    source: CardId,
     ability: Option<&SpellAbility>,
 ) -> Vec<CardId> {
     if type_filter == "OriginalHost" {
@@ -976,7 +985,7 @@ pub fn get_sacrifice_targets_for_cost(
             .into_iter()
             .collect();
     }
-    get_sacrifice_targets(game, player, type_filter, ability)
+    get_sacrifice_targets(game, player, type_filter, source, ability)
         .into_iter()
         .filter(|&cid| !cant_sacrifice(game, game.card(cid), ability, true))
         .collect()
@@ -1412,7 +1421,7 @@ pub fn can_pay_with_ability_and_reserved(
                         .filter(|&cid| !cant_sacrifice(game, game.card(cid), ability, true))
                         .collect()
                 } else {
-                    get_sacrifice_targets_for_cost(game, player, type_filter, ability)
+                    get_sacrifice_targets_for_cost(game, player, type_filter, source, ability)
                 };
                 valid.retain(|cid| !reserved_sacrifices.contains(cid));
                 if type_filter.eq_ignore_ascii_case("All") {

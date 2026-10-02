@@ -860,6 +860,7 @@ fn pay_effect_cost_parts(
                     ctx.game,
                     payer,
                     type_filter,
+                    source,
                     Some(sa),
                 );
                 if valid.len() < required {

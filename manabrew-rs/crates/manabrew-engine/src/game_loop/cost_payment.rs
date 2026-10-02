@@ -636,6 +636,7 @@ impl GameLoop {
                         game,
                         player,
                         type_filter,
+                        card_id,
                         sa.as_deref(),
                     );
                     if !allow_reserved_source_reuse {
@@ -1104,6 +1105,7 @@ impl GameLoop {
                         game,
                         agents,
                         player,
+                        card_id,
                         type_filter,
                         amount.resolve(game, card_id, player),
                         sa.as_deref_mut(),
@@ -1878,6 +1880,7 @@ impl GameLoop {
                             game,
                             agents,
                             player,
+                            card_id,
                             type_filter,
                             amount.resolve(game, card_id, player),
                             sa.as_deref_mut(),
@@ -2686,6 +2689,7 @@ impl GameLoop {
         game: &GameState,
         agents: &mut [Box<dyn PlayerAgent>],
         player: PlayerId,
+        source: CardId,
         spell_cost: &crate::cost::Cost,
         sa: Option<&SpellAbility>,
     ) -> Option<Vec<CardId>> {
@@ -2704,8 +2708,13 @@ impl GameLoop {
                         .map(|src| amount.resolve(game, src, player))
                         .unwrap_or_else(|| amount.as_literal().unwrap_or(0))
                         .max(0);
-                    let valid =
-                        cost::get_sacrifice_targets_for_cost(game, player, &type_filter, sa);
+                    let valid = cost::get_sacrifice_targets_for_cost(
+                        game,
+                        player,
+                        &type_filter,
+                        source,
+                        sa,
+                    );
                     if valid.len() < amount_n as usize {
                         return None;
                     }
@@ -2749,8 +2758,13 @@ impl GameLoop {
                         .map(|src| amount.resolve(game, src, player))
                         .unwrap_or_else(|| amount.as_literal().unwrap_or(0))
                         .max(0);
-                    let mut valid =
-                        cost::get_sacrifice_targets_for_cost(game, player, &type_filter, sa);
+                    let mut valid = cost::get_sacrifice_targets_for_cost(
+                        game,
+                        player,
+                        &type_filter,
+                        source,
+                        sa,
+                    );
                     if valid.len() < amount_n as usize {
                         return None;
                     }
@@ -3025,7 +3039,7 @@ impl GameLoop {
                 DecisionContext::new(game, &self.mana_pools),
                 agents,
                 player,
-                &cost::get_sacrifice_targets_for_cost(game, player, type_filter, sa),
+                &cost::get_sacrifice_targets_for_cost(game, player, type_filter, source, sa),
                 amount.resolve(game, source, player),
             ),
             CostPart::TapType {
@@ -4467,7 +4481,7 @@ impl GameLoop {
         game: &mut GameState,
         agents: &mut [Box<dyn PlayerAgent>],
         player: PlayerId,
-        _source: CardId,
+        source: CardId,
         type_filter: &str,
         amount: i32,
         sa: Option<&SpellAbility>,
@@ -4476,7 +4490,8 @@ impl GameLoop {
         let chosen = match prechosen {
             Some(picks) => picks.to_vec(),
             None => {
-                let valid = cost::get_sacrifice_targets_for_cost(game, player, type_filter, sa);
+                let valid =
+                    cost::get_sacrifice_targets_for_cost(game, player, type_filter, source, sa);
                 Self::choose_cost_cards_exactly(
                     DecisionContext::new(game, &self.mana_pools),
                     agents,
@@ -4505,7 +4520,7 @@ impl GameLoop {
         game: &mut GameState,
         agents: &mut [Box<dyn PlayerAgent>],
         player: PlayerId,
-        _source: CardId,
+        source: CardId,
         type_filter: &str,
         amount: i32,
         sa: Option<&SpellAbility>,
@@ -4514,7 +4529,7 @@ impl GameLoop {
         returned: &mut Vec<CardId>,
     ) -> bool {
         for _ in 0..amount {
-            let valid = cost::get_sacrifice_targets_for_cost(game, player, type_filter, sa);
+            let valid = cost::get_sacrifice_targets_for_cost(game, player, type_filter, source, sa);
             if valid.is_empty() {
                 return false;
             }
@@ -5003,6 +5018,7 @@ impl GameLoop {
         game: &mut GameState,
         agents: &mut [Box<dyn PlayerAgent>],
         player: PlayerId,
+        source: CardId,
         type_filter: &str,
         amount: i32,
         sa: Option<&mut SpellAbility>,
@@ -5014,8 +5030,13 @@ impl GameLoop {
         // Java fires once per controller per call, not once per card.
         let mut to_sacrifice: Vec<CardId> = Vec::with_capacity(amount.max(0) as usize);
         for _ in 0..amount {
-            let valid =
-                cost::get_sacrifice_targets_for_cost(game, player, type_filter, sa.as_deref());
+            let valid = cost::get_sacrifice_targets_for_cost(
+                game,
+                player,
+                type_filter,
+                source,
+                sa.as_deref(),
+            );
             if valid.is_empty() {
                 return false;
             }

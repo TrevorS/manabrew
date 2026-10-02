@@ -107,6 +107,7 @@ impl GameLoop {
                         game,
                         player,
                         type_filter,
+                        card_id,
                         Some(&crate::spellability::SpellAbility::new_empty(
                             Some(card_id),
                             player,

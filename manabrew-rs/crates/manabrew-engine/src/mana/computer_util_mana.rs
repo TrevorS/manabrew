@@ -2108,6 +2108,7 @@ fn pay_non_tap_mana_ability_costs(
                         game,
                         player,
                         type_filter,
+                        ma.card_id,
                         Some(&crate::spellability::SpellAbility::new_empty(
                             Some(ma.card_id),
                             player,
@@ -2541,6 +2542,7 @@ fn get_payable_mana_sacrifice_targets(
         game,
         player,
         type_filter,
+        source_id,
         Some(&crate::spellability::SpellAbility::new_empty(
             Some(source_id),
             player,

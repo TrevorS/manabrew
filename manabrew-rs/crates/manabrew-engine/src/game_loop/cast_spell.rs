@@ -2127,7 +2127,14 @@ impl GameLoop {
         // Java CostPayment decides sacrifice/discard targets in the accept
         // phase after cost adjustment but before payment.
         let prechosen_spell_sacrifices = if let Some(ref sc) = spell_cost {
-            match self.prechoose_additional_cost_sacrifices(game, agents, player, sc, Some(&sa)) {
+            match self.prechoose_additional_cost_sacrifices(
+                game,
+                agents,
+                player,
+                card_id,
+                sc,
+                Some(&sa),
+            ) {
                 Some(picks) => Some(picks),
                 None => rollback_failed_payment!(),
             }
@@ -2240,7 +2247,14 @@ impl GameLoop {
             _ => None,
         };
         let prechosen_static_alt_sacrifices = if let Some(ref cost) = static_alt_cost {
-            match self.prechoose_additional_cost_sacrifices(game, agents, player, cost, Some(&sa)) {
+            match self.prechoose_additional_cost_sacrifices(
+                game,
+                agents,
+                player,
+                card_id,
+                cost,
+                Some(&sa),
+            ) {
                 Some(picks) => Some(picks),
                 None => rollback_failed_payment!(),
             }
@@ -2256,7 +2270,14 @@ impl GameLoop {
             None
         };
         let prechosen_keyword_alt_sacrifices = if let Some(ref cost) = keyword_alt_total_cost {
-            match self.prechoose_additional_cost_sacrifices(game, agents, player, cost, Some(&sa)) {
+            match self.prechoose_additional_cost_sacrifices(
+                game,
+                agents,
+                player,
+                card_id,
+                cost,
+                Some(&sa),
+            ) {
                 Some(picks) => Some(picks),
                 None => rollback_failed_payment!(),
             }
@@ -2294,7 +2315,14 @@ impl GameLoop {
             None
         };
         let prechosen_extra_keyword_sacrifices = if let Some(ref cost) = extra_keyword_cost {
-            match self.prechoose_additional_cost_sacrifices(game, agents, player, cost, Some(&sa)) {
+            match self.prechoose_additional_cost_sacrifices(
+                game,
+                agents,
+                player,
+                card_id,
+                cost,
+                Some(&sa),
+            ) {
                 Some(picks) => Some(picks),
                 None => rollback_failed_payment!(),
             }
@@ -2326,7 +2354,14 @@ impl GameLoop {
             None
         };
         let prechosen_raise_sacrifices = if let Some(ref rc) = raise_cost {
-            match self.prechoose_additional_cost_sacrifices(game, agents, player, rc, Some(&sa)) {
+            match self.prechoose_additional_cost_sacrifices(
+                game,
+                agents,
+                player,
+                card_id,
+                rc,
+                Some(&sa),
+            ) {
                 Some(picks) => Some(picks),
                 None => rollback_failed_payment!(),
             }
