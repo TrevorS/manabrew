@@ -620,7 +620,7 @@ fn saga_etb_lore_respects_counter_prevention() {
 }
 
 #[test]
-fn automatic_saga_lore_requires_saga_and_structured_chapter_identity() {
+fn automatic_saga_lore_follows_the_saga_type_not_the_chapters() {
     let mut game = GameState::new(&["Alice", "Bob"], 20);
     let non_saga_chapter = game.create_card(saga_lifecycle_probe(
         "Enchantment",
@@ -640,7 +640,7 @@ fn automatic_saga_lore_requires_saga_and_structured_chapter_identity() {
     assert_eq!(
         game.card(saga_without_chapter)
             .counter_count(&CounterType::Lore),
-        0
+        1
     );
 }
 
