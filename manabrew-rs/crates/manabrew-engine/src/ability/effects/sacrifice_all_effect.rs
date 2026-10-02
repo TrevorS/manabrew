@@ -118,7 +118,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
     to_sacrifice.retain(|&cid| {
         !crate::staticability::static_ability_cant_sacrifice::cant_sacrifice(
-            &ctx.game.cards,
+            ctx.game,
             ctx.game.card(cid),
             Some(sa),
             false,

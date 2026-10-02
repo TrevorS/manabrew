@@ -67,10 +67,7 @@ pub fn can_pay(
             return false;
         }
         return !crate::staticability::static_ability_cant_sacrifice::cant_sacrifice(
-            &game.cards,
-            card,
-            ability,
-            true,
+            game, card, ability, true,
         );
     }
     if type_filter.eq_ignore_ascii_case("All") {

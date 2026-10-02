@@ -36,7 +36,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 ctx.game.card(*card).is_creature()
                     && !ctx.game.card(*card).phased_out
                     && !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-                        &ctx.game.cards,
+                        ctx.game,
                         ctx.game.card(*card),
                         &CounterType::M1M1,
                     )

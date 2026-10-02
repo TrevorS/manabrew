@@ -731,7 +731,7 @@ impl GameState {
             ZoneType::Battlefield => {
                 if !matches!(src_zone, ZoneType::Battlefield | ZoneType::None)
                     && !crate::staticability::static_ability_counters_remain::counters_remain(
-                        &self.cards,
+                        self,
                         &self.cards[card_id.index()],
                         dest_zone,
                     )
@@ -842,7 +842,7 @@ impl GameState {
                 // Reset battlefield state when leaving (including static modifiers).
                 let keep_counters =
                     crate::staticability::static_ability_counters_remain::counters_remain(
-                        &self.cards,
+                        self,
                         &self.cards[card_id.index()],
                         dest_zone,
                     );
@@ -939,7 +939,7 @@ impl GameState {
                 // Commander returning to command zone: reset battlefield state.
                 let keep_counters =
                     crate::staticability::static_ability_counters_remain::counters_remain(
-                        &self.cards,
+                        self,
                         &self.cards[card_id.index()],
                         dest_zone,
                     );
@@ -1211,8 +1211,7 @@ impl GameState {
                         let wither = source_lki.has_infect()
                             || source_lki.has_wither()
                             || crate::staticability::static_ability_wither_damage::is_wither_damage(
-                                &self.cards,
-                                source_lki,
+                                self, source_lki,
                             );
                         lethal_damage
                             .entry(cid)
@@ -1614,10 +1613,7 @@ impl GameState {
             return false;
         }
         if crate::staticability::static_ability_cant_sacrifice::cant_sacrifice(
-            &self.cards,
-            card,
-            None,
-            true,
+            self, card, None, true,
         ) {
             return false;
         }
@@ -2138,10 +2134,8 @@ impl GameState {
             if !c.type_line.is_legendary() {
                 continue;
             }
-            if crate::staticability::static_ability_ignore_legend_rule::ignore_legend_rule(
-                &self.cards,
-                c,
-            ) {
+            if crate::staticability::static_ability_ignore_legend_rule::ignore_legend_rule(self, c)
+            {
                 continue;
             }
             match by_name.iter_mut().find(|(name, _)| *name == c.card_name) {
@@ -2218,8 +2212,12 @@ impl GameState {
                             .iter_strings()
                             .find_map(|kw| crate::keyword::extract_keyword_cost_str(kw, "Enchant"))
                             .unwrap_or_default();
-                        !crate::parsing::enchant_type_matches_card(enchant_type, host, Some(c))
-                            || !can_attachment_remain_attached(self, c, host, true)
+                        !crate::parsing::enchant_type_matches_card(
+                            self,
+                            enchant_type,
+                            host,
+                            Some(c),
+                        ) || !can_attachment_remain_attached(self, c, host, true)
                     }
                 }
             })
@@ -2750,6 +2748,7 @@ impl GameState {
             .filter(|&target| {
                 target != aura_id
                     && crate::parsing::enchant_type_matches_card(
+                        self,
                         enchant_type,
                         self.card(target),
                         Some(aura),
@@ -2872,10 +2871,7 @@ fn can_attachment_remain_attached(
         return false;
     }
     if crate::staticability::static_ability_cant_attach::cant_attach(
-        &game.cards,
-        attachment,
-        target,
-        check_sba,
+        game, attachment, target, check_sba,
     ) {
         return false;
     }

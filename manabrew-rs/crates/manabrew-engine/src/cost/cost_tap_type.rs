@@ -7,18 +7,13 @@ use crate::spellability::SpellAbility;
 /// Effective power contributed when this card is tapped to pay a tap-type cost.
 pub fn tap_power_value(game: &GameState, card: CardId, ability: Option<&SpellAbility>) -> i32 {
     let card_ref = game.card(card);
-    if crate::staticability::static_ability_tap_power_value::with_toughness(
-        &game.cards,
-        card_ref,
-        ability,
-    ) {
+    if crate::staticability::static_ability_tap_power_value::with_toughness(game, card_ref, ability)
+    {
         card_ref.toughness().max(0)
     } else {
         (card_ref.power()
             + crate::staticability::static_ability_tap_power_value::get_mod(
-                &game.cards,
-                card_ref,
-                ability,
+                game, card_ref, ability,
             ))
         .max(0)
     }

@@ -43,7 +43,7 @@ impl TriggerBehavior for TriggerAttackerBlockedOnce {
 
         let attackers: Vec<_> = attacker_ids
             .iter()
-            .map(|&attacker_id| MatchValidTarget::Card(game.card(attacker_id)))
+            .map(|&attacker_id| MatchValidTarget::Card(game.card(attacker_id), game))
             .collect();
 
         self.valid_card.as_ref().is_none_or(|selector| {

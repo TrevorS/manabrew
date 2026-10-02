@@ -957,7 +957,7 @@ fn pay_effect_cost_parts(
                         .into_iter()
                         .filter(|&cid| {
                             !crate::staticability::static_ability_cant_exile::cant_exile(
-                                &ctx.game.cards,
+                                ctx.game,
                                 ctx.game.card(cid),
                                 None,
                                 true,

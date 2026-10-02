@@ -1928,6 +1928,7 @@ pub fn enchant_type_to_target_params(enchant_type: &str) -> String {
 ///
 /// Example: `enchant_type_matches_card("creature", card)` → true if card is a creature
 pub fn enchant_type_matches_card(
+    _game: &crate::game::GameState,
     enchant_type: &str,
     card: &crate::card::CardInstance,
     aura_source: Option<&crate::card::CardInstance>,

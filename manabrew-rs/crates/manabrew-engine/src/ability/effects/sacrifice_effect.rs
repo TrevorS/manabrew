@@ -29,7 +29,7 @@ fn do_sacrifice(
         return None;
     }
     if crate::staticability::static_ability_cant_sacrifice::cant_sacrifice(
-        &ctx.game.cards,
+        ctx.game,
         ctx.game.card(card_id),
         Some(sa),
         false,
@@ -385,7 +385,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 })
                 .filter(|&cid| {
                     !crate::staticability::static_ability_cant_sacrifice::cant_sacrifice(
-                        &ctx.game.cards,
+                        ctx.game,
                         ctx.game.card(cid),
                         Some(sa),
                         false,

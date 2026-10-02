@@ -47,12 +47,6 @@ pub fn can_pay(
     let super::CostPart::Blight(_) = part else {
         return false;
     };
-    let battlefield_cards: Vec<_> = game
-        .players
-        .iter()
-        .flat_map(|p| game.cards_in_zone(forge_foundation::ZoneType::Battlefield, p.id))
-        .map(|&cid| game.cards[cid.index()].clone())
-        .collect();
     let has_creature = game
         .cards_in_zone(forge_foundation::ZoneType::Battlefield, player)
         .iter()
@@ -61,7 +55,7 @@ pub fn can_pay(
             c.is_creature()
                 && !c.phased_out
                 && !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-                    &battlefield_cards,
+                    game,
                     c,
                     &CounterType::M1M1,
                 )

@@ -376,7 +376,7 @@ fn add_counter_internal(
     let amount = match object {
         GameEntity::Card(card) => {
             if let Some(max) = crate::staticability::static_ability_max_counter::max_counter(
-                &game.cards,
+                game,
                 game.card(card),
                 counter_type,
             ) {
@@ -434,7 +434,7 @@ fn can_receive_counter(game: &GameState, object: GameEntity, counter_type: &Coun
         GameEntity::Card(card) => {
             !game.card(card).phased_out
                 && !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-                    &game.cards,
+                    game,
                     game.card(card),
                     counter_type,
                 )

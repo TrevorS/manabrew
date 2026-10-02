@@ -1,10 +1,10 @@
-use std::sync::Arc;
-
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::staticability::StaticMode;
 
-pub fn cant_crew(cards: &[Arc<Card>], card: &Card) -> bool {
-    for source in cards
+pub fn cant_crew(game: &GameState, card: &Card) -> bool {
+    for source in game
+        .cards
         .iter()
         .filter(|c| c.zone.is_static_ability_source() || c.id == card.id)
     {

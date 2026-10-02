@@ -1,10 +1,13 @@
-use std::sync::Arc;
-
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::staticability::StaticMode;
 
-pub fn cant_be_copied(cards: &[Arc<Card>], card: &Card) -> bool {
-    for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
+pub fn cant_be_copied(game: &GameState, card: &Card) -> bool {
+    for source in game
+        .cards
+        .iter()
+        .filter(|c| c.zone.is_static_ability_source())
+    {
         for st_ab in source
             .static_abilities
             .iter()

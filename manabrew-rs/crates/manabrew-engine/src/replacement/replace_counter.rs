@@ -32,7 +32,7 @@ pub fn can_replace(
     };
     let target_card = &game.cards[target_id.index()];
     if let Some(valid) = effect.ir.valid_card_selector.as_ref() {
-        if !effect.matches_compiled_valid_card(valid, target_card, source_card) {
+        if !effect.matches_compiled_valid_card(valid, target_card, source_card, game) {
             return false;
         }
     }

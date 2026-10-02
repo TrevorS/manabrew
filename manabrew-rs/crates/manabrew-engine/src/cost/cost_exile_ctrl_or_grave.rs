@@ -40,7 +40,7 @@ pub fn can_pay(
         .into_iter()
         .filter(|&cid| {
             !crate::staticability::static_ability_cant_exile::cant_exile(
-                &game.cards,
+                game,
                 game.card(cid),
                 ability,
                 true,
@@ -51,7 +51,7 @@ pub fn can_pay(
         .into_iter()
         .filter(|&cid| {
             !crate::staticability::static_ability_cant_exile::cant_exile(
-                &game.cards,
+                game,
                 game.card(cid),
                 ability,
                 true,

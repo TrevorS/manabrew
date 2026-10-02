@@ -92,7 +92,7 @@ pub fn can_replace(
         if etb {
             target_card.zone = ZoneType::Battlefield;
         }
-        if !effect.matches_compiled_valid_card(valid, &target_card, source_card) {
+        if !effect.matches_compiled_valid_card(valid, &target_card, source_card, game) {
             return false;
         }
     }
@@ -111,7 +111,7 @@ pub fn can_replace(
                 if etb {
                     target_card.zone = ZoneType::Battlefield;
                 }
-                effect.matches_compiled_valid_card(valid, &target_card, source_card)
+                effect.matches_compiled_valid_card(valid, &target_card, source_card, game)
             }
             GameEntity::Player(target) => {
                 effect.matches_compiled_valid_player(valid, target, source_card, game)

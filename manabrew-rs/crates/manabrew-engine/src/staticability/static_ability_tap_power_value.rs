@@ -1,12 +1,17 @@
 use std::sync::Arc;
 
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::spellability::{matches_valid_sa, SpellAbility};
 use crate::staticability::StaticMode;
 
 /// Check if a card should use toughness as its tap power value.
-pub fn with_toughness(cards: &[Arc<Card>], card: &Card, sa: Option<&SpellAbility>) -> bool {
-    for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
+pub fn with_toughness(game: &GameState, card: &Card, sa: Option<&SpellAbility>) -> bool {
+    for source in game
+        .cards
+        .iter()
+        .filter(|c| c.zone.is_static_ability_source())
+    {
         for st_ab in source
             .static_abilities
             .iter()
@@ -30,7 +35,7 @@ pub fn with_toughness(cards: &[Arc<Card>], card: &Card, sa: Option<&SpellAbility
                 let Some(sa) = sa else {
                     continue;
                 };
-                if !matches_valid_sa(valid_sa, sa, source, ability_host(cards, sa)) {
+                if !matches_valid_sa(valid_sa, sa, source, ability_host(&game.cards, sa)) {
                     continue;
                 }
             }
@@ -42,9 +47,13 @@ pub fn with_toughness(cards: &[Arc<Card>], card: &Card, sa: Option<&SpellAbility
 }
 
 /// Get the modifier for tap power value.
-pub fn get_mod(cards: &[Arc<Card>], card: &Card, sa: Option<&SpellAbility>) -> i32 {
+pub fn get_mod(game: &GameState, card: &Card, sa: Option<&SpellAbility>) -> i32 {
     let mut total = 0;
-    for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
+    for source in game
+        .cards
+        .iter()
+        .filter(|c| c.zone.is_static_ability_source())
+    {
         for st_ab in source
             .static_abilities
             .iter()
@@ -63,7 +72,7 @@ pub fn get_mod(cards: &[Arc<Card>], card: &Card, sa: Option<&SpellAbility>) -> i
                 let Some(sa) = sa else {
                     continue;
                 };
-                if !matches_valid_sa(valid_sa, sa, source, ability_host(cards, sa)) {
+                if !matches_valid_sa(valid_sa, sa, source, ability_host(&game.cards, sa)) {
                     continue;
                 }
             }

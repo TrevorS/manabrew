@@ -1050,11 +1050,12 @@ impl GameLoop {
                 // target at resolution time. Skip the full enumeration
                 // and offer just that card.
                 if crate::parsing::enchant_type_matches_card(
+                    game,
                     &enchant_type,
                     game.card(target_card),
                     Some(game.card(card_id)),
                 ) && !crate::staticability::static_ability_cant_attach::cant_attach(
-                    &game.cards,
+                    game,
                     game.card(card_id),
                     game.card(target_card),
                     false,
@@ -1077,6 +1078,7 @@ impl GameLoop {
                     game.cards_in_all_zones(ZoneType::Battlefield).collect();
                 for cid in battlefield {
                     if !crate::parsing::enchant_type_matches_card(
+                        game,
                         &enchant_type,
                         game.card(cid),
                         Some(game.card(card_id)),
@@ -1084,7 +1086,7 @@ impl GameLoop {
                         continue;
                     }
                     if crate::staticability::static_ability_cant_attach::cant_attach(
-                        &game.cards,
+                        game,
                         game.card(card_id),
                         game.card(cid),
                         false,

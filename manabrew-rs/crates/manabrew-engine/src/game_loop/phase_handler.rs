@@ -881,7 +881,7 @@ impl GameLoop {
 
                 let keep_damage =
                     crate::staticability::static_ability_no_cleanup_damage::damage_not_removed(
-                        &game.cards,
+                        game,
                         &game.cards[i],
                     );
                 if !keep_damage {

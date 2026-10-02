@@ -85,7 +85,7 @@ pub fn can_replace_affected(
         }
     }
     if let Some(valid) = effect.ir.valid_card_selector.as_ref() {
-        if !effect.matches_compiled_valid_card(valid, moving_card, source_card) {
+        if !effect.matches_compiled_valid_card(valid, moving_card, source_card, game) {
             return false;
         }
     }
@@ -101,7 +101,7 @@ pub fn can_replace_affected(
         let ReplacementEvent::Moved { card, .. } = event else {
             return false;
         };
-        if !effect.matches_valid_card(valid_lki, &game.cards[card.index()], source_card) {
+        if !effect.matches_valid_card(valid_lki, &game.cards[card.index()], source_card, game) {
             return false;
         }
     }

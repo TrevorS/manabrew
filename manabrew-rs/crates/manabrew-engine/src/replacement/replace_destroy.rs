@@ -32,14 +32,14 @@ pub fn can_replace(
     };
     let target_card = &game.cards[target.index()];
     if let Some(valid) = effect.ir.valid_card_selector.as_ref() {
-        if !effect.matches_compiled_valid_card(valid, target_card, source_card) {
+        if !effect.matches_compiled_valid_card(valid, target_card, source_card, game) {
             return false;
         }
     }
     if effect.base.card_trait_base.has_param("Regeneration") {
         if !*regeneration
             || crate::staticability::static_ability_cant_regenerate::cant_regenerate(
-                &game.cards,
+                game,
                 target_card,
             )
         {

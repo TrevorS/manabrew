@@ -426,7 +426,7 @@ fn put_counters_on_card(
             .counter_count(&crate::card::CounterType::P1P1);
         if current > 0
             && !crate::staticability::static_ability_adapt::any_with_adapt(
-                &ctx.game.cards,
+                ctx.game,
                 sa,
                 ctx.game.card(card_id),
             )
@@ -446,14 +446,14 @@ fn put_counters_on_card(
     }
 
     if crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-        &ctx.game.cards,
+        ctx.game,
         ctx.game.card(card_id),
         counter_type,
     ) {
         return;
     }
     if let Some(max) = crate::staticability::static_ability_max_counter::max_counter(
-        &ctx.game.cards,
+        ctx.game,
         ctx.game.card(card_id),
         counter_type,
     ) {

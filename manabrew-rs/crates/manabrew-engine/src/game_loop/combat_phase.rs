@@ -1322,7 +1322,7 @@ impl GameLoop {
                 continue;
             }
             if !crate::staticability::static_ability_assign_combat_damage_as_unblocked::has_optional_assign_as_unblocked(
-                &game.cards,
+                game,
                 attacker,
             ) {
                 continue;

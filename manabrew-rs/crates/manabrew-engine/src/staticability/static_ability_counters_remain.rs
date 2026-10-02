@@ -1,11 +1,10 @@
-use std::sync::Arc;
-
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::staticability::StaticMode;
 
-pub fn counters_remain(cards: &[Arc<Card>], card: &Card, destination: ZoneType) -> bool {
+pub fn counters_remain(game: &GameState, card: &Card, destination: ZoneType) -> bool {
     let _perf_scope =
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::StaticAbility);
     if matches!(
@@ -14,7 +13,7 @@ pub fn counters_remain(cards: &[Arc<Card>], card: &Card, destination: ZoneType) 
     ) {
         return false;
     }
-    for source in cards {
+    for source in &game.cards {
         for st_ab in source
             .static_abilities
             .iter()

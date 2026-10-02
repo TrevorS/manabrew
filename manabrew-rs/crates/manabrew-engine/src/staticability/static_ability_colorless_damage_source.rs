@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
@@ -7,8 +5,12 @@ use crate::game::GameState;
 use crate::parsing::CompiledSelector;
 use crate::staticability::StaticMode;
 
-pub fn colorless_damage_source(cards: &[Arc<Card>], source_card: &Card) -> bool {
-    for source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {
+pub fn colorless_damage_source(game: &GameState, source_card: &Card) -> bool {
+    for source in game
+        .cards
+        .iter()
+        .filter(|c| c.zone == ZoneType::Battlefield)
+    {
         for st_ab in source
             .static_abilities
             .iter()
@@ -30,8 +32,8 @@ pub fn apply_colorless_damage_source(
     matches_valid_card(st_ab.ir.valid_card.as_ref(), source_card, source)
 }
 
-pub fn source_has_color(cards: &[Arc<Card>], source_card: &Card, color_name: &str) -> bool {
-    if colorless_damage_source(cards, source_card) {
+pub fn source_has_color(game: &GameState, source_card: &Card, color_name: &str) -> bool {
+    if colorless_damage_source(game, source_card) {
         return color_name.eq_ignore_ascii_case("colorless");
     }
     match color_name.to_ascii_lowercase().as_str() {
@@ -46,16 +48,15 @@ pub fn source_has_color(cards: &[Arc<Card>], source_card: &Card, color_name: &st
 }
 
 pub fn target_is_protected_from_source(game: &GameState, target: &Card, source: &Card) -> bool {
-    let cards = &game.cards;
     for prot in target.get_protections() {
         match prot.as_str() {
             "white" | "blue" | "black" | "red" | "green" | "colorless" => {
-                if source_has_color(cards, source, &prot) {
+                if source_has_color(game, source, &prot) {
                     return true;
                 }
             }
             "each color" => {
-                if !source_has_color(cards, source, "colorless") {
+                if !source_has_color(game, source, "colorless") {
                     return true;
                 }
             }

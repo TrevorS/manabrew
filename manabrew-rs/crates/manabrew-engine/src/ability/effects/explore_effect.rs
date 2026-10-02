@@ -126,7 +126,7 @@ fn explore_one(
             && explorer.zone == ZoneType::Battlefield
             && explorer.zone_timestamp == explorer_timestamp
             && !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-                &ctx.game.cards,
+                ctx.game,
                 explorer,
                 &CounterType::P1P1,
             )

@@ -1459,7 +1459,7 @@ impl GameLoop {
         // Track activation count (for PowerUp once-per-game)
         let loyalty_limit_increase = sa.ir.pw_ability
             && crate::staticability::static_ability_num_loyalty_act::limit_increase(
-                &game.cards,
+                game,
                 game.card(card_id),
             );
         {
@@ -1581,18 +1581,16 @@ impl GameLoop {
 
         let card = game.card(card_id);
         let num_activates = card.planeswalker_abilities_activated as i32;
-        let mut limit = if crate::staticability::static_ability_num_loyalty_act::limit_increase(
-            &game.cards,
-            card,
-        ) {
-            2
-        } else {
-            1
-        };
+        let mut limit =
+            if crate::staticability::static_ability_num_loyalty_act::limit_increase(game, card) {
+                2
+            } else {
+                1
+            };
 
         if num_activates >= limit {
             limit += crate::staticability::static_ability_num_loyalty_act::additional_activations(
-                &game.cards,
+                game,
                 card,
                 Some(sa),
             ) - if limit == 1 || card.planeswalker_activation_limit_used() {

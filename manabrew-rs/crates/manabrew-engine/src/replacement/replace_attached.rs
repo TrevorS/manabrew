@@ -28,13 +28,13 @@ pub fn can_replace(
     };
     let attach_card = &game.cards[card.index()];
     if let Some(valid) = effect.ir.valid_card_selector.as_ref() {
-        if !effect.matches_compiled_valid_card(valid, attach_card, source_card) {
+        if !effect.matches_compiled_valid_card(valid, attach_card, source_card, game) {
             return false;
         }
     }
     let target_card = &game.cards[target.index()];
     if let Some(valid_target) = effect.ir.valid_target_selector.as_ref() {
-        if !effect.matches_compiled_valid_card(valid_target, target_card, source_card) {
+        if !effect.matches_compiled_valid_card(valid_target, target_card, source_card, game) {
             return false;
         }
     }

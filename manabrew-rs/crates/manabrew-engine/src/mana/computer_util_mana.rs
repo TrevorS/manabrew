@@ -2197,7 +2197,7 @@ fn pay_non_tap_mana_ability_costs(
                     );
                     valid.retain(|&cid| {
                         !crate::staticability::static_ability_cant_exile::cant_exile(
-                            &game.cards,
+                            game,
                             game.card(cid),
                             None,
                             true,
@@ -2237,7 +2237,7 @@ fn pay_non_tap_mana_ability_costs(
                     .copied()
                     .filter(|&cid| {
                         !crate::staticability::static_ability_cant_exile::cant_exile(
-                            &game.cards,
+                            game,
                             game.card(cid),
                             None,
                             true,

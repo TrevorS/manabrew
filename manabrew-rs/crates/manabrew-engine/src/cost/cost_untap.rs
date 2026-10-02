@@ -25,7 +25,7 @@ pub fn can_pay_extra(game: &GameState, source: CardId) -> bool {
     // Mirrors Java: source.canUntap(null, false) && !source.isAbilitySick()
     //   && (source.getCounters(STUN) == 0 || source.canRemoveCounters(STUN))
     card.can_untap()
-        && !card.is_ability_sick(&game.cards)
+        && !card.is_ability_sick(game)
         && (card.counter_count(&stun) == 0 || card.can_remove_counters(&stun))
 }
 

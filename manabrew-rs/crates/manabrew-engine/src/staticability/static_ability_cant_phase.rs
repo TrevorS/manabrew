@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::staticability::StaticMode;
 
-pub fn cant_phase_in(cards: &[Arc<Card>], card: &Card) -> bool {
-    cant_phase(cards, card, StaticMode::CantPhaseIn)
+pub fn cant_phase_in(game: &GameState, card: &Card) -> bool {
+    cant_phase(&game.cards, card, StaticMode::CantPhaseIn)
 }
 
-pub fn cant_phase_out(cards: &[Arc<Card>], card: &Card) -> bool {
-    cant_phase(cards, card, StaticMode::CantPhaseOut)
+pub fn cant_phase_out(game: &GameState, card: &Card) -> bool {
+    cant_phase(&game.cards, card, StaticMode::CantPhaseOut)
 }
 
 fn cant_phase(cards: &[Arc<Card>], card: &Card, mode: StaticMode) -> bool {

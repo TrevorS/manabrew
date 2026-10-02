@@ -69,8 +69,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .copied()
             .filter(|&cid| {
                 let card = ctx.game.card(cid);
-                !(card.phased_out && cant_phase_in(&ctx.game.cards, card))
-                    && !(!card.phased_out && cant_phase_out(&ctx.game.cards, card))
+                !(card.phased_out && cant_phase_in(ctx.game, card))
+                    && !(!card.phased_out && cant_phase_out(ctx.game, card))
             })
             .collect();
         for cid in to_phase {
@@ -93,7 +93,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         for &cid in &tgt_cards {
             if ctx.game.card(cid).zone != ZoneType::Battlefield
                 || ctx.game.card(cid).phased_out
-                || cant_phase_out(&ctx.game.cards, ctx.game.card(cid))
+                || cant_phase_out(ctx.game, ctx.game.card(cid))
             {
                 continue;
             }

@@ -135,7 +135,7 @@ pub fn can_be_sacrificed_by(
     effect: bool,
 ) -> bool {
     !crate::staticability::static_ability_cant_sacrifice::cant_sacrifice(
-        &game.cards,
+        game,
         game.card(card),
         Some(sa),
         effect,
@@ -144,7 +144,7 @@ pub fn can_be_sacrificed_by(
 
 pub fn can_exiled_by(game: &GameState, card: CardId, sa: &SpellAbility, effect: bool) -> bool {
     !crate::staticability::static_ability_cant_exile::cant_exile(
-        &game.cards,
+        game,
         game.card(card),
         Some(sa),
         effect,
@@ -161,18 +161,15 @@ pub fn can_be_attached(game: &GameState, target: CardId, aura: CardId) -> bool {
         && target != aura
         && (!attach.is_creature() || attach.has_keyword("Reconfigure"))
         && !attach.phased_out
-        && (!attach.type_line.has_subtype("Aura") || can_be_enchanted_by(entity, attach))
+        && (!attach.type_line.has_subtype("Aura") || can_be_enchanted_by(game, entity, attach))
         && (!attach.type_line.has_subtype("Equipment") || can_be_equipped_by(entity))
         && (!attach.type_line.has_subtype("Fortification") || can_be_fortified_by(entity, attach))
         && !crate::staticability::static_ability_cant_attach::cant_attach(
-            &game.cards,
-            attach,
-            entity,
-            false,
+            game, attach, entity, false,
         )
 }
 
-fn can_be_enchanted_by(entity: &Card, aura: &Card) -> bool {
+fn can_be_enchanted_by(game: &GameState, entity: &Card, aura: &Card) -> bool {
     let mut enchants = aura
         .keywords
         .iter_strings()
@@ -180,7 +177,7 @@ fn can_be_enchanted_by(entity: &Card, aura: &Card) -> bool {
         .peekable();
     enchants.peek().is_some()
         && enchants
-            .all(|valid| crate::parsing::enchant_type_matches_card(valid, entity, Some(aura)))
+            .all(|valid| crate::parsing::enchant_type_matches_card(game, valid, entity, Some(aura)))
 }
 
 fn can_be_equipped_by(entity: &Card) -> bool {
@@ -226,7 +223,7 @@ pub fn has_less_counter(card: &Card, counter: &CounterType, n: i32) -> bool {
 
 pub fn can_receive_counters(game: &GameState, card: CardId, counter: &CounterType) -> bool {
     !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-        &game.cards,
+        game,
         game.card(card),
         counter,
     )

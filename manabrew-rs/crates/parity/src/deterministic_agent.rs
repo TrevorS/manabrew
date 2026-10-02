@@ -570,14 +570,14 @@ impl DeterministicAgent {
             )) > 0
             || (target_card.regeneration_shields > 0
                 && !manabrew_engine::staticability::static_ability_cant_regenerate::cant_regenerate(
-                    &game.cards,
+                    game,
                     target_card,
                 ))
         {
             if !(source_card.has_wither()
                 || source_card.has_infect()
                 || manabrew_engine::staticability::static_ability_wither_damage::is_wither_damage(
-                    &game.cards,
+                    game,
                     source_card,
                 ))
             {

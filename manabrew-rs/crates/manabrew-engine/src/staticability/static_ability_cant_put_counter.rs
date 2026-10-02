@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card, CounterType};
@@ -8,13 +6,17 @@ use crate::ids::PlayerId;
 use crate::staticability::StaticMode;
 
 pub fn any_cant_put_counter_on_card(
-    cards: &[Arc<Card>],
+    game: &GameState,
     target: &Card,
     counter_type: &CounterType,
 ) -> bool {
     let _perf_scope =
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::StaticAbility);
-    for source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {
+    for source in game
+        .cards
+        .iter()
+        .filter(|c| c.zone == ZoneType::Battlefield)
+    {
         for st_ab in source
             .static_abilities
             .iter()
@@ -74,7 +76,7 @@ pub fn any_cant_put_counter(
     counter_type: &CounterType,
 ) -> bool {
     if let Some(card) = target_card {
-        return any_cant_put_counter_on_card(&game.cards, card, counter_type);
+        return any_cant_put_counter_on_card(game, card, counter_type);
     }
     if let Some(player) = target_player {
         return any_cant_put_counter_on_player(game, player, counter_type);

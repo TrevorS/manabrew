@@ -3294,7 +3294,7 @@ impl GameLoop {
             );
             for i in 0..replicate_count {
                 if crate::card::card_factory::spell_ability_cant_be_copied(
-                    &game.cards,
+                    game,
                     &entry.spell_ability,
                 ) {
                     continue;

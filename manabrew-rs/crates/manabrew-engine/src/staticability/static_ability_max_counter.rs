@@ -1,16 +1,19 @@
-use std::sync::Arc;
-
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card, CounterType};
+use crate::game::GameState;
 use crate::parsing::CompiledSelector;
 use crate::staticability::StaticMode;
 
-pub fn max_counter(cards: &[Arc<Card>], target: &Card, counter_type: &CounterType) -> Option<i32> {
+pub fn max_counter(game: &GameState, target: &Card, counter_type: &CounterType) -> Option<i32> {
     let _perf_scope =
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::StaticAbility);
     let mut result: Option<i32> = None;
-    for source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {
+    for source in game
+        .cards
+        .iter()
+        .filter(|c| c.zone == ZoneType::Battlefield)
+    {
         for st_ab in source
             .static_abilities
             .iter()

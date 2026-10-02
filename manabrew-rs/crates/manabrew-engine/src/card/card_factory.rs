@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use forge_carddb::CardRules;
 use forge_foundation::ZoneType;
 
@@ -177,12 +175,12 @@ pub fn is_copied_spell_host(game: &GameState, sa: &SpellAbility) -> bool {
 }
 
 /// Java parity helper for `SpellAbility.cantBeCopied()` checks.
-pub fn spell_ability_cant_be_copied(cards: &[Arc<Card>], sa: &SpellAbility) -> bool {
+pub fn spell_ability_cant_be_copied(game: &GameState, sa: &SpellAbility) -> bool {
     sa.source
         .map(|source| {
             crate::staticability::static_ability_cant_be_copied::cant_be_copied(
-                cards,
-                &cards[source.index()],
+                game,
+                game.card(source),
             )
         })
         .unwrap_or(false)

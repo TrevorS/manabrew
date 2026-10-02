@@ -1,12 +1,15 @@
-use std::sync::Arc;
-
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::staticability::StaticMode;
 
-pub fn damage_not_removed(cards: &[Arc<Card>], card: &Card) -> bool {
-    for source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {
+pub fn damage_not_removed(game: &GameState, card: &Card) -> bool {
+    for source in game
+        .cards
+        .iter()
+        .filter(|c| c.zone == ZoneType::Battlefield)
+    {
         for st_ab in source
             .static_abilities
             .iter()

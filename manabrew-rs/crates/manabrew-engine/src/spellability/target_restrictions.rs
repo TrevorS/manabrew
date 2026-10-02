@@ -1011,7 +1011,7 @@ fn can_be_targeted_by_internal(
             for color in &["white", "blue", "black", "red", "green"] {
                 if target.has_hexproof_from(color) {
                     let has_color = crate::staticability::static_ability_colorless_damage_source::source_has_color(
-                        &game.cards,
+                        game,
                         src,
                         color,
                     );

@@ -90,7 +90,7 @@ impl TokenCreateTable {
             self.cells
                 .iter()
                 .enumerate()
-                .filter(|(_, cell)| ctb.matches_valid_card(valid, &cell.prototype, host))
+                .filter(|(_, cell)| ctb.matches_valid_card(valid, &cell.prototype, host, game))
                 .map(|(i, _)| i)
                 .collect::<Vec<_>>()
         });
@@ -597,7 +597,7 @@ pub trait TokenEffectBase {
                     return false;
                 }
                 if crate::staticability::static_ability_cant_attach::cant_attach(
-                    &ctx.game.cards,
+                    ctx.game,
                     ctx.game.card(token_id),
                     ctx.game.card(target_id),
                     false,

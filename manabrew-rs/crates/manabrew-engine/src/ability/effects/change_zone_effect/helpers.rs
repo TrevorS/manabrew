@@ -494,7 +494,7 @@ pub(super) fn apply_post_move(
             let amount =
                 crate::svar::resolve_numeric_svar(ctx.game, sa, keys::WITH_COUNTERS_AMOUNT, 1);
             if !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-                &ctx.game.cards,
+                ctx.game,
                 &ctx.game.cards[card_id.index()],
                 &counter_type,
             ) {

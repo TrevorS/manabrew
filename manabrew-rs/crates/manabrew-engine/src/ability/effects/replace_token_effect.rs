@@ -37,7 +37,7 @@ pub fn resolve_token_table(
     let valid_token = |prototype: &crate::card::Card| {
         re.matches_valid_param(
             "ValidToken",
-            &MatchValidTarget::Card(prototype),
+            &MatchValidTarget::Card(prototype, ctx.game),
             Some(&host),
         )
     };

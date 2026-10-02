@@ -122,7 +122,7 @@ fn put_counters(
     for &card_id in cards {
         if ctx.game.card(card_id).zone == zone {
             if crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-                &ctx.game.cards,
+                ctx.game,
                 ctx.game.card(card_id),
                 counter_type,
             ) {

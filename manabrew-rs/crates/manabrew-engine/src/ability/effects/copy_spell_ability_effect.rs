@@ -71,9 +71,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     };
     let originals: Vec<_> = originals
         .into_iter()
-        .filter(|spell| {
-            !crate::card::card_factory::spell_ability_cant_be_copied(&ctx.game.cards, spell)
-        })
+        .filter(|spell| !crate::card::card_factory::spell_ability_cant_be_copied(ctx.game, spell))
         .collect();
     let amount = super::resolve_numeric_svar(ctx.game, sa, "Amount", 1);
     if originals.is_empty() || amount <= 0 {

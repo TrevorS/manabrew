@@ -304,7 +304,7 @@ pub fn cant_block_by(
     blocker: Option<&Card>,
 ) -> bool {
     if let Some(blocker) = blocker {
-        if attacker.is_creature() && landwalk_blocks(game, cards, attacker, blocker) {
+        if attacker.is_creature() && landwalk_blocks(game, attacker, blocker) {
             return true;
         }
     }
@@ -329,7 +329,7 @@ pub fn cant_block_by(
 
 /// The `Mode$ CantBlockBy | ValidAttacker$ Creature.Self | ValidDefender$ Player.controls<type>`
 /// static that `CardFactoryUtil` builds for each Landwalk instance.
-fn landwalk_blocks(game: &GameState, cards: &[Arc<Card>], attacker: &Card, blocker: &Card) -> bool {
+fn landwalk_blocks(game: &GameState, attacker: &Card, blocker: &Card) -> bool {
     [
         &attacker.keywords,
         &attacker.granted_keywords,
@@ -356,7 +356,7 @@ fn landwalk_blocks(game: &GameState, cards: &[Arc<Card>], attacker: &Card, block
             attacker.controller,
             &sa,
         ) && !crate::staticability::static_ability_ignore_landwalk::ignore_land_walk(
-            cards, attacker, blocker, keyword,
+            game, attacker, blocker, keyword,
         )
     })
 }
@@ -464,7 +464,7 @@ pub fn apply_cant_block_by_ability(
         if kw_val.contains("Landwalk") || kw_val.contains("landwalk") {
             if let Some(blocker_card) = blocker {
                 if crate::staticability::static_ability_ignore_landwalk::ignore_land_walk(
-                    cards,
+                    game,
                     attacker,
                     blocker_card,
                     kw_val,

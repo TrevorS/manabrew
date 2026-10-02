@@ -1,13 +1,12 @@
-use std::sync::Arc;
-
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::parsing::CompiledSelector;
 use crate::staticability::StaticMode;
 
-pub fn cant_attach(cards: &[Arc<Card>], attachment: &Card, target: &Card, check_sba: bool) -> bool {
-    cards
+pub fn cant_attach(game: &GameState, attachment: &Card, target: &Card, check_sba: bool) -> bool {
+    game.cards
         .iter()
         .filter(|c| c.zone == ZoneType::Battlefield)
         .any(|source| {

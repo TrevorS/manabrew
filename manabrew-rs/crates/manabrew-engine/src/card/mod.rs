@@ -4151,10 +4151,10 @@ impl Card {
         self.is_creature() && self.summoning_sick && !self.has_haste()
     }
 
-    pub fn is_ability_sick(&self, cards: &[std::sync::Arc<Card>]) -> bool {
+    pub fn is_ability_sick(&self, game: &crate::game::GameState) -> bool {
         self.is_sick()
             && !crate::staticability::static_ability_activate_ability_as_if_haste::can_activate(
-                cards, self,
+                game, self,
             )
     }
 

@@ -1,12 +1,12 @@
-use std::sync::Arc;
-
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::staticability::StaticMode;
 
-pub fn cant_regenerate(cards: &[Arc<Card>], target: &Card) -> bool {
-    for source in cards
+pub fn cant_regenerate(game: &GameState, target: &Card) -> bool {
+    for source in game
+        .cards
         .iter()
         .filter(|c| c.zone == ZoneType::Battlefield || c.zone == ZoneType::Command)
     {

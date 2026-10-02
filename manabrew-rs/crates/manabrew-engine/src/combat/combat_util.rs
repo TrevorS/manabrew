@@ -288,7 +288,7 @@ pub fn validate_blocks(
             ));
         }
         if !blockers.contains(&blocker_id)
-            && static_ability_must_block::blocks_each_combat_if_able(&game.cards, blocker)
+            && static_ability_must_block::blocks_each_combat_if_able(game, blocker)
         {
             for &(attacker_id, _) in &combat.attackers {
                 if has_block_cost(blocker, attacker_id)
@@ -535,10 +535,7 @@ pub fn compute_must_block_targets(
 ) -> Vec<CardId> {
     let required = must_block_an_attacker(game, combat, blocker_id, None)
         || (!combat.is_blocking(blocker_id)
-            && static_ability_must_block::blocks_each_combat_if_able(
-                &game.cards,
-                game.card(blocker_id),
-            ));
+            && static_ability_must_block::blocks_each_combat_if_able(game, game.card(blocker_id)));
     if !required {
         return Vec::new();
     }

@@ -1,6 +1,5 @@
-use std::sync::Arc;
-
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::spellability::SpellAbility;
 use crate::staticability::StaticMode;
 
@@ -21,8 +20,12 @@ pub fn apply_limit_increase(
 /// Check if a planeswalker can activate loyalty abilities twice per turn.
 ///
 /// Mirrors Java's `StaticAbilityNumLoyaltyAct.limitIncrease()`.
-pub fn limit_increase(cards: &[Arc<Card>], card: &Card) -> bool {
-    for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
+pub fn limit_increase(game: &GameState, card: &Card) -> bool {
+    for source in game
+        .cards
+        .iter()
+        .filter(|c| c.zone.is_static_ability_source())
+    {
         for st_ab in source
             .static_abilities
             .iter()
@@ -40,9 +43,13 @@ pub fn limit_increase(cards: &[Arc<Card>], card: &Card) -> bool {
 ///
 /// Mirrors Java's `StaticAbilityNumLoyaltyAct.additionalActivations()`.
 /// The `sa` parameter is the SpellAbility being activated (used for OnlySourceAbs check).
-pub fn additional_activations(cards: &[Arc<Card>], card: &Card, sa: Option<&SpellAbility>) -> i32 {
+pub fn additional_activations(game: &GameState, card: &Card, sa: Option<&SpellAbility>) -> i32 {
     let mut addl = 0;
-    for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
+    for source in game
+        .cards
+        .iter()
+        .filter(|c| c.zone.is_static_ability_source())
+    {
         for st_ab in source
             .static_abilities
             .iter()

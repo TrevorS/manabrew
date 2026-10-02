@@ -3680,12 +3680,6 @@ impl GameLoop {
         source: CardId,
         sa: Option<&SpellAbility>,
     ) -> Option<Vec<CardId>> {
-        let battlefield_cards: Vec<_> = game
-            .players
-            .iter()
-            .flat_map(|p| game.cards_in_zone(ZoneType::Battlefield, p.id))
-            .map(|&cid| game.cards[cid.index()].clone())
-            .collect();
         let foods: Vec<CardId> = game
             .cards_in_zone(ZoneType::Battlefield, player)
             .iter()
@@ -3693,7 +3687,7 @@ impl GameLoop {
             .filter(|&cid| game.card(cid).type_line.has_subtype("Food"))
             .filter(|&cid| {
                 !crate::staticability::static_ability_cant_sacrifice::cant_sacrifice(
-                    &battlefield_cards,
+                    game,
                     game.card(cid),
                     None,
                     true,
@@ -4311,7 +4305,7 @@ impl GameLoop {
                 game.card(card).is_creature()
                     && !game.card(card).phased_out
                     && !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-                        &game.cards,
+                        game,
                         game.card(card),
                         &crate::card::CounterType::M1M1,
                     )
@@ -5103,7 +5097,7 @@ fn shares_creature_type(game: &GameState, a: CardId, b: CardId) -> bool {
 
 fn can_exile_for_cost(game: &GameState, card_id: CardId) -> bool {
     !crate::staticability::static_ability_cant_exile::cant_exile(
-        &game.cards,
+        game,
         game.card(card_id),
         None,
         true,

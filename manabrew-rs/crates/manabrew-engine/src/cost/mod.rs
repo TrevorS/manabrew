@@ -954,14 +954,14 @@ pub fn get_sacrifice_targets_for_cost(
             .and_then(|sa| sa.original_host)
             .filter(|&host| {
                 game.card(host).attached_to.is_some()
-                    && !cant_sacrifice(&game.cards, game.card(host), ability, true)
+                    && !cant_sacrifice(game, game.card(host), ability, true)
             })
             .into_iter()
             .collect();
     }
     get_sacrifice_targets(game, player, type_filter, ability)
         .into_iter()
-        .filter(|&cid| !cant_sacrifice(&game.cards, game.card(cid), ability, true))
+        .filter(|&cid| !cant_sacrifice(game, game.card(cid), ability, true))
         .collect()
 }
 
@@ -1373,7 +1373,7 @@ pub fn can_pay_with_ability_and_reserved(
                     game.cards_in_zone(ZoneType::Battlefield, player)
                         .iter()
                         .copied()
-                        .filter(|&cid| !cant_sacrifice(&game.cards, game.card(cid), ability, true))
+                        .filter(|&cid| !cant_sacrifice(game, game.card(cid), ability, true))
                         .collect()
                 } else {
                     get_sacrifice_targets_for_cost(game, player, type_filter, ability)

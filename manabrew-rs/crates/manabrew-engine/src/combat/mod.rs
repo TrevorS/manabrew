@@ -337,12 +337,12 @@ impl CombatState {
         let attacker_assigns = attackers.iter().any(|&attacker| {
             let card = game.card(attacker);
             let damage = if crate::staticability::static_ability_assign_no_combat_damage::assign_no_combat_damage(
-                &game.cards,
+                game,
                 card,
             ) {
                 0
             } else if crate::staticability::static_ability_combat_damage_toughness::combat_damage_uses_toughness(
-                &game.cards,
+                game,
                 card,
             ) {
                 card.toughness()
@@ -461,8 +461,7 @@ impl CombatState {
 
             let attacker = game.card(attacker_id);
             if crate::staticability::static_ability_assign_no_combat_damage::assign_no_combat_damage(
-                &game.cards,
-                attacker,
+                game, attacker,
             ) {
                 continue;
             }
@@ -482,8 +481,7 @@ impl CombatState {
             let attacker_has_infect_for_creature = attacker.has_infect();
             let attacker_has_wither = attacker.has_wither()
                 || crate::staticability::static_ability_wither_damage::is_wither_damage(
-                    &game.cards,
-                    attacker,
+                    game, attacker,
                 );
             let attacker_toxic_count = attacker.get_toxic_count();
             let attacker_controller = attacker.controller;
@@ -496,7 +494,7 @@ impl CombatState {
             let has_trample_planeswalker = attacker.has_keyword("Trample:Planeswalker");
 
             let attacker_power = if crate::staticability::static_ability_combat_damage_toughness::combat_damage_uses_toughness(
-                &game.cards,
+                game,
                 game.card(attacker_id),
             ) {
                 game.card(attacker_id).toughness()
@@ -507,11 +505,11 @@ impl CombatState {
             let attacker_card = game.card(attacker_id);
             let assign_as_unblocked =
                 crate::staticability::static_ability_assign_combat_damage_as_unblocked::has_mandatory_assign_as_unblocked(
-                    &game.cards,
+                    game,
                     attacker_card,
                 )
                     || crate::staticability::static_ability_assign_combat_damage_as_unblocked::assign_as_unblocked(
-                        &game.cards,
+                        game,
                         attacker_card,
                         as_unblocked_choices.contains(&attacker_id),
                     );
@@ -666,7 +664,7 @@ impl CombatState {
                 }
                 let blocker_card = game.card(blocker_id);
                 if crate::staticability::static_ability_assign_no_combat_damage::assign_no_combat_damage(
-                    &game.cards,
+                    game,
                     blocker_card,
                 ) {
                     continue;
@@ -675,7 +673,7 @@ impl CombatState {
                     continue;
                 }
                 let blocker_power = if crate::staticability::static_ability_combat_damage_toughness::combat_damage_uses_toughness(
-                    &game.cards,
+                    game,
                     game.card(blocker_id),
                 ) {
                     game.card(blocker_id).toughness()
@@ -706,7 +704,7 @@ impl CombatState {
                 let blocker_has_infect = blocker_card.has_infect();
                 let blocker_has_wither = blocker_card.has_wither()
                     || crate::staticability::static_ability_wither_damage::is_wither_damage(
-                        &game.cards,
+                        game,
                         blocker_card,
                     );
                 blocked.blocker_damage_infos.push(BlockerDamageInfo {
@@ -1626,7 +1624,7 @@ fn deal_combat_damage_to_card(
     if source_has_wither_or_infect {
         // Wither/Infect: damage to creatures as -1/-1 counters instead
         if !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-            &game.cards,
+            game,
             game.card(target),
             &crate::card::CounterType::M1M1,
         ) {

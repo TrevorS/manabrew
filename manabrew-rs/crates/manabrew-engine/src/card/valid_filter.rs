@@ -1798,8 +1798,7 @@ fn matches_entered_this_turn_from(zone: ZoneType, card: &Card, _context: MatchCo
 fn colorless_damage_source(card: &Card, context: &MatchContext<'_>) -> bool {
     context.game.is_some_and(|game| {
         crate::staticability::static_ability_colorless_damage_source::colorless_damage_source(
-            &game.cards,
-            card,
+            game, card,
         )
     })
 }

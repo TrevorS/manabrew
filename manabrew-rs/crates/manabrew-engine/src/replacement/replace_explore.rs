@@ -31,11 +31,11 @@ pub fn can_replace(
     let target_card = &game.cards[card.index()];
     // Java uses ValidExplorer with the same semantics as ValidCard.
     if let Some(valid) = effect.ir.valid_explorer_text.as_deref() {
-        if !effect.matches_valid_card(valid, target_card, source_card) {
+        if !effect.matches_valid_card(valid, target_card, source_card, game) {
             return false;
         }
     } else if let Some(valid) = effect.ir.valid_card_selector.as_ref() {
-        if !effect.matches_compiled_valid_card(valid, target_card, source_card) {
+        if !effect.matches_compiled_valid_card(valid, target_card, source_card, game) {
             return false;
         }
     }

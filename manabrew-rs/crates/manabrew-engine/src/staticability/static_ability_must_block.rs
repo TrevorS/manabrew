@@ -1,13 +1,13 @@
-use std::sync::Arc;
-
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::parsing::CompiledSelector;
 use crate::staticability::StaticMode;
 
-pub fn blocks_each_combat_if_able(cards: &[Arc<Card>], creature: &Card) -> bool {
-    for source in cards
+pub fn blocks_each_combat_if_able(game: &GameState, creature: &Card) -> bool {
+    for source in game
+        .cards
         .iter()
         .filter(|c| c.zone == ZoneType::Battlefield || c.zone == ZoneType::Command)
     {

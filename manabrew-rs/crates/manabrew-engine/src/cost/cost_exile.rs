@@ -62,10 +62,7 @@ pub fn can_pay(
                     return false;
                 }
                 return !crate::staticability::static_ability_cant_exile::cant_exile(
-                    &game.cards,
-                    card,
-                    ability,
-                    true,
+                    game, card, ability, true,
                 );
             }
 
@@ -75,7 +72,7 @@ pub fn can_pay(
                     .into_iter()
                     .filter(|&cid| {
                         !crate::staticability::static_ability_cant_exile::cant_exile(
-                            &game.cards,
+                            game,
                             game.card(cid),
                             ability,
                             true,
@@ -168,10 +165,7 @@ pub fn can_pay(
                 let src = game.card(source);
                 let is_eligible = src.zone == forge_foundation::ZoneType::Graveyard
                     && !crate::staticability::static_ability_cant_exile::cant_exile(
-                        &game.cards,
-                        src,
-                        ability,
-                        true,
+                        game, src, ability, true,
                     );
                 return if is_eligible {
                     amount.resolve(game, source, player) <= 1
@@ -192,7 +186,7 @@ pub fn can_pay(
                             &[],
                         ))
                         && !crate::staticability::static_ability_cant_exile::cant_exile(
-                            &game.cards,
+                            game,
                             game.card(cid),
                             ability,
                             true,
@@ -219,7 +213,7 @@ pub fn can_pay(
                         )
                     {
                         if crate::staticability::static_ability_cant_exile::cant_exile(
-                            &game.cards,
+                            game,
                             game.card(cid),
                             ability,
                             true,

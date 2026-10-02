@@ -34,5 +34,5 @@ pub fn can_pay(
     if card.tapped || card.phased_out {
         return false;
     }
-    !card.is_ability_sick(&game.cards)
+    !card.is_ability_sick(game)
 }

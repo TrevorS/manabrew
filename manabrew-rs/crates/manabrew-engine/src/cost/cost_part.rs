@@ -180,7 +180,7 @@ pub fn get_max_amount_x(
                     .copied()
                     .filter(|&cid| {
                         !crate::staticability::static_ability_cant_sacrifice::cant_sacrifice(
-                            &game.cards,
+                            game,
                             game.card(cid),
                             Some(ability),
                             true,

@@ -47,7 +47,12 @@ pub fn can_replace(
         let Some(source_id) = damage_source else {
             return false;
         };
-        if !effect.matches_compiled_valid_card(valid_source, game.card(source_id), source_card) {
+        if !effect.matches_compiled_valid_card(
+            valid_source,
+            game.card(source_id),
+            source_card,
+            game,
+        ) {
             return false;
         }
     }
@@ -65,7 +70,7 @@ pub fn can_replace(
                 ),
             )
         } else if let Some(target) = target_card {
-            effect.matches_compiled_valid_card(valid_target, game.card(target), source_card)
+            effect.matches_compiled_valid_card(valid_target, game.card(target), source_card, game)
         } else {
             false
         };

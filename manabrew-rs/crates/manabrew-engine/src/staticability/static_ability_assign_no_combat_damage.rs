@@ -1,12 +1,12 @@
-use std::sync::Arc;
-
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::staticability::StaticMode;
 
-pub fn assign_no_combat_damage(cards: &[Arc<Card>], card: &Card) -> bool {
-    for source in cards
+pub fn assign_no_combat_damage(game: &GameState, card: &Card) -> bool {
+    for source in game
+        .cards
         .iter()
         .filter(|c| c.zone == ZoneType::Battlefield || c.zone == ZoneType::Command)
     {
@@ -24,8 +24,8 @@ pub fn assign_no_combat_damage(cards: &[Arc<Card>], card: &Card) -> bool {
 }
 
 /// Java parity alias.
-pub fn apply_assign_no_combat_damage(cards: &[Arc<Card>], card: &Card) -> bool {
-    assign_no_combat_damage(cards, card)
+pub fn apply_assign_no_combat_damage(game: &GameState, card: &Card) -> bool {
+    assign_no_combat_damage(game, card)
 }
 
 fn matches_valid_card(

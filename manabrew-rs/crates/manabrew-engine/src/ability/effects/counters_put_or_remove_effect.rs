@@ -40,7 +40,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     let can_add =
         !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_card(
-            &ctx.game.cards,
+            ctx.game,
             ctx.game.card(target_id),
             &counter_type,
         );

@@ -54,7 +54,7 @@ const NO_CHANGE_KEYS: &[&str] = &[
 
 /// Target of `matches_valid`. Mirrors Java's `Object` dispatch.
 pub enum MatchValidTarget<'a> {
-    Card(&'a Card),
+    Card(&'a Card, &'a GameState),
     Player(PlayerId, &'a GameState),
     GameObj(&'a dyn GameObject),
     Iter(&'a [MatchValidTarget<'a>]),
@@ -263,7 +263,7 @@ impl CardTraitBase {
         src_player: PlayerId,
     ) -> bool {
         match target {
-            MatchValidTarget::Card(card) => {
+            MatchValidTarget::Card(card, _game) => {
                 let selector = crate::parsing::cached_compiled_selector(&valids.join(","));
                 valid_filter::matches_valid_card_selector(&selector, card, src_card)
             }
@@ -303,7 +303,7 @@ impl CardTraitBase {
         src_player: PlayerId,
     ) -> bool {
         match target {
-            MatchValidTarget::Card(card) => {
+            MatchValidTarget::Card(card, _game) => {
                 valid_filter::matches_valid_card_selector(selector, card, src_card)
             }
             MatchValidTarget::Player(player, game) => {
@@ -711,9 +711,9 @@ pub trait CardTrait {
     /// card targets. Mirrors Java's `matchesValid(Object, String[], Card)`
     /// call pattern where `valids` is often a single comma-separated string
     /// (e.g. `"Creature.YouCtrl,Artifact"`).
-    fn matches_valid_card(&self, expr: &str, card: &Card, source: &Card) -> bool {
+    fn matches_valid_card(&self, expr: &str, card: &Card, source: &Card, game: &GameState) -> bool {
         let parts: Vec<&str> = expr.split(',').collect();
-        self.matches_valid(&MatchValidTarget::Card(card), &parts, Some(source))
+        self.matches_valid(&MatchValidTarget::Card(card, game), &parts, Some(source))
     }
 
     fn matches_compiled_valid_card(
@@ -721,8 +721,9 @@ pub trait CardTrait {
         selector: &CompiledSelector,
         card: &Card,
         source: &Card,
+        game: &GameState,
     ) -> bool {
-        self.matches_compiled_valid(&MatchValidTarget::Card(card), selector, Some(source))
+        self.matches_compiled_valid(&MatchValidTarget::Card(card, game), selector, Some(source))
     }
 
     /// Ergonomic comma-separated-expression wrapper over `matches_valid` for
