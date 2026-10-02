@@ -312,14 +312,18 @@ pub fn apply_cant_be_activated_ability(
 /// Mirrors Java's `StaticAbilityCantBeCast.cantPlayLandAbility`.
 ///
 /// Iterates all cards in static-ability source zones checking CantPlayLand.
-pub fn cant_play_land_ability(cards: &[Arc<Card>], card: &Card, player: PlayerId) -> bool {
-    for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
+pub fn cant_play_land_ability(game: &GameState, card: &Card, player: PlayerId) -> bool {
+    for source in game
+        .cards
+        .iter()
+        .filter(|c| c.zone.is_static_ability_source())
+    {
         for st_ab in source
             .static_abilities
             .iter()
             .filter(|sa| sa.is_active_for(StaticMode::CantPlayLand, source.zone))
         {
-            if apply_cant_play_land_ability(st_ab, card, source, player) {
+            if apply_cant_play_land_ability(st_ab, card, source, player, game) {
                 return true;
             }
         }
@@ -335,6 +339,7 @@ pub fn apply_cant_play_land_ability(
     card: &Card,
     source: &Card,
     player: PlayerId,
+    game: &GameState,
 ) -> bool {
     // ValidCard check
     if !valid_filter::matches_valid_card_selector_opt(st_ab.ir.valid_card.as_ref(), card, source) {
@@ -351,10 +356,12 @@ pub fn apply_cant_play_land_ability(
     }
 
     // Player check
-    if !valid_filter::matches_valid_player_selector_opt(
+    if !valid_filter::matches_valid_player_selector_opt_in_game(
         st_ab.ir.player.as_ref(),
         player,
+        source,
         source.controller,
+        game,
     ) {
         return false;
     }

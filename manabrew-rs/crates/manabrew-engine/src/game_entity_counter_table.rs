@@ -442,7 +442,7 @@ fn can_receive_counter(game: &GameState, object: GameEntity, counter_type: &Coun
         GameEntity::Player(player) => {
             !game.player(player).has_lost
                 && !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_player(
-                    &game.cards,
+                    game,
                     player,
                     counter_type,
                 )

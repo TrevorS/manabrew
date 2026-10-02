@@ -2567,9 +2567,7 @@ pub fn get_spells_from_play_effect(
     let can_play_land = valid_sa.is_none()
         && game.turn.active_player == controller
         && !crate::staticability::static_ability_cant_be_cast::cant_play_land_ability(
-            &game.cards,
-            card,
-            controller,
+            game, card, controller,
         )
         && (game.player(controller).unlimited_land_plays
             || game.player(controller).can_play_land());

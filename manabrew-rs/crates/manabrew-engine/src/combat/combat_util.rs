@@ -745,8 +745,7 @@ pub fn can_block_in_combat(game: &GameState, combat: &CombatState, blocker_id: C
         .count();
     if i64::try_from(other_blockers).unwrap_or(i64::MAX)
         >= i64::from(static_ability_block_restrict::block_restrict_num(
-            &game.cards,
-            controller,
+            game, controller,
         ))
     {
         return false;

@@ -1,22 +1,25 @@
-use std::sync::Arc;
-
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::ids::PlayerId;
 use crate::parsing::CompiledSelector;
 use crate::staticability::StaticMode;
 
-pub fn block_restrict_num(cards: &[Arc<Card>], defender: PlayerId) -> i32 {
+pub fn block_restrict_num(game: &GameState, defender: PlayerId) -> i32 {
     let mut num = i32::MAX;
-    for source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {
+    for source in game
+        .cards
+        .iter()
+        .filter(|c| c.zone == ZoneType::Battlefield)
+    {
         for st_ab in source
             .static_abilities
             .iter()
             .filter(|sa| sa.check_mode(&StaticMode::BlockRestrict))
         {
             let valid = st_ab.ir.valid_defender.as_ref();
-            if !matches_valid_player(valid, defender, source.controller) {
+            if !matches_valid_player(valid, defender, source, game) {
                 continue;
             }
             let n = st_ab
@@ -36,9 +39,16 @@ pub fn block_restrict_num(cards: &[Arc<Card>], defender: PlayerId) -> i32 {
 fn matches_valid_player(
     valid: Option<&CompiledSelector>,
     player: PlayerId,
-    source_controller: PlayerId,
+    source: &Card,
+    game: &GameState,
 ) -> bool {
-    valid_filter::matches_valid_player_selector_opt(valid, player, source_controller)
+    valid_filter::matches_valid_player_selector_opt_in_game(
+        valid,
+        player,
+        source,
+        source.controller,
+        game,
+    )
 }
 
 fn eval_amount(source: &Card, expr: &str) -> i32 {

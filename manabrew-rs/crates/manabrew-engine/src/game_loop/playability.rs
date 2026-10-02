@@ -871,9 +871,7 @@ impl GameLoop {
             if card.is_land() {
                 if must_be_instant
                     || crate::staticability::static_ability_cant_be_cast::cant_play_land_ability(
-                        &game.cards,
-                        card,
-                        player,
+                        game, card, player,
                     )
                 {
                     continue;
@@ -936,9 +934,7 @@ impl GameLoop {
                 {
                     let cant_play_land =
                         crate::staticability::static_ability_cant_be_cast::cant_play_land_ability(
-                            &game.cards,
-                            card,
-                            player,
+                            game, card, player,
                         );
                     if !cant_play_land {
                         let land_sa = SpellAbility::new_land(Some(card_id), player);

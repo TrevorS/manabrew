@@ -18,7 +18,7 @@ pub fn can_pay(
         return false;
     };
     !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_player(
-        &game.cards,
+        game,
         player,
         counter_type,
     )

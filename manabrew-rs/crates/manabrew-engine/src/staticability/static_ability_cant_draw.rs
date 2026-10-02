@@ -47,21 +47,20 @@ pub fn apply_cant_draw_amount_ability(
     draw_limit: Option<&str>,
     valid_player: Option<&CompiledSelector>,
     player: PlayerId,
-    source_controller: PlayerId,
+    source: &crate::card::Card,
+    game: &GameState,
     drawn_this_turn: i32,
     current_amount: i32,
 ) -> i32 {
-    if !matches_valid_player(valid_player, player, source_controller) {
+    if !valid_filter::matches_valid_player_selector_opt_in_game(
+        valid_player,
+        player,
+        source,
+        source.controller,
+        game,
+    ) {
         return current_amount;
     }
     let limit = draw_limit.and_then(|s| s.parse::<i32>().ok()).unwrap_or(0);
     current_amount.min((limit - drawn_this_turn).max(0))
-}
-
-fn matches_valid_player(
-    valid: Option<&CompiledSelector>,
-    player: PlayerId,
-    source_controller: PlayerId,
-) -> bool {
-    valid_filter::matches_valid_player_selector_opt(valid, player, source_controller)
 }

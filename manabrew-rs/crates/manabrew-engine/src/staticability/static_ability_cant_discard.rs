@@ -20,7 +20,7 @@ pub fn cant_discard(
             .iter()
             .filter(|sa| sa.check_mode(&StaticMode::CantDiscard) && sa.zones_check(card.zone))
         {
-            if apply_cant_discard_ability(st_ab, player, card.controller, cause, is_effect) {
+            if apply_cant_discard_ability(st_ab, player, card, cause, is_effect, game) {
                 return true;
             }
         }
@@ -31,14 +31,17 @@ pub fn cant_discard(
 pub fn apply_cant_discard_ability(
     st_ab: &crate::staticability::StaticAbility,
     player: PlayerId,
-    source_controller: PlayerId,
+    source: &crate::card::Card,
     cause: Option<&SpellAbility>,
     is_effect: bool,
+    game: &GameState,
 ) -> bool {
-    if !valid_filter::matches_valid_player_selector_opt(
+    if !valid_filter::matches_valid_player_selector_opt_in_game(
         st_ab.ir.valid_player.as_ref(),
         player,
-        source_controller,
+        source,
+        source.controller,
+        game,
     ) {
         return false;
     }

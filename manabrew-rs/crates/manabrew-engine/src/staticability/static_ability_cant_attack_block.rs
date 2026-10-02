@@ -436,10 +436,12 @@ pub fn apply_cant_block_by_ability(
 
     // ValidDefender — checks blocker's controller
     if let Some(blocker_card) = blocker {
-        if !valid_filter::matches_valid_player_selector_opt(
+        if !valid_filter::matches_valid_player_selector_opt_in_game(
             st_ab.ir.valid_defender.as_ref(),
             blocker_card.controller,
+            source,
             source.controller,
+            game,
         ) {
             return false;
         }

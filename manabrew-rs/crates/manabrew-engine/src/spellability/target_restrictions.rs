@@ -964,7 +964,7 @@ fn can_be_targeted_by_internal(
     let target = game.card(target_id);
     let source_card_ref = source_card.map(|id| game.card(id));
     if crate::staticability::static_ability_cant_target::cant_target(
-        &game.cards,
+        game,
         target,
         source_controller,
         source_card_ref,

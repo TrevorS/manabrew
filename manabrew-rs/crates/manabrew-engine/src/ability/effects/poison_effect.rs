@@ -25,7 +25,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     for target_player in crate::ability::spell_ability_effect::get_target_players(ctx.game, sa) {
         if !ctx.game.player(target_player).is_alive()
             || crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_player(
-                &ctx.game.cards,
+                ctx.game,
                 target_player,
                 &crate::card::CounterType::Poison,
             )

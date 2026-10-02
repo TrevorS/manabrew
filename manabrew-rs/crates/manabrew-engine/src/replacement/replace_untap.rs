@@ -36,7 +36,13 @@ pub fn can_replace(
         let Some(player) = player else {
             return false;
         };
-        if !valid_filter::matches_valid_player(valid, player, target_card.controller) {
+        if !valid_filter::matches_valid_player_selector_in_game(
+            &crate::parsing::cached_compiled_selector(valid),
+            player,
+            source_card,
+            target_card.controller,
+            game,
+        ) {
             return false;
         }
     }

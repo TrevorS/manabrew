@@ -632,8 +632,7 @@ impl GameLoop {
                 let max_blockers = {
                     let raw =
                         crate::staticability::static_ability_block_restrict::block_restrict_num(
-                            &game.cards,
-                            defending,
+                            game, defending,
                         );
                     if raw < i32::MAX {
                         Some(raw as usize)

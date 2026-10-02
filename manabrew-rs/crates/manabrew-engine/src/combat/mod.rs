@@ -1570,7 +1570,7 @@ fn deal_combat_damage_to_player(
     if source_has_infect {
         // Infect: deal damage as poison counters instead of life loss
         if !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_player(
-            &game.cards,
+            game,
             target,
             &crate::card::CounterType::Poison,
         ) {
@@ -1593,7 +1593,7 @@ fn deal_combat_damage_to_player(
     // Toxic: add poison counters in addition to normal damage
     if let Some(toxic) = source_toxic_count {
         if !crate::staticability::static_ability_cant_put_counter::any_cant_put_counter_on_player(
-            &game.cards,
+            game,
             target,
             &crate::card::CounterType::Poison,
         ) {

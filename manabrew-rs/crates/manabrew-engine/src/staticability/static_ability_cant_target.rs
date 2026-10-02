@@ -1,21 +1,24 @@
-use std::sync::Arc;
-
 use forge_foundation::ZoneType;
 
 use crate::card::{valid_filter, Card};
+use crate::game::GameState;
 use crate::ids::PlayerId;
 use crate::parsing::CompiledSelector;
 use crate::spellability::SpellAbility;
 use crate::staticability::StaticMode;
 
 pub fn cant_target(
-    cards: &[Arc<Card>],
+    game: &GameState,
     target: &Card,
     activator: PlayerId,
     source_card: Option<&Card>,
     source_sa: Option<&SpellAbility>,
 ) -> bool {
-    for source in cards.iter().filter(|c| c.zone == ZoneType::Battlefield) {
+    for source in game
+        .cards
+        .iter()
+        .filter(|c| c.zone == ZoneType::Battlefield)
+    {
         for st_ab in source
             .static_abilities
             .iter()
@@ -32,7 +35,7 @@ pub fn cant_target(
             if !matches_valid_target(st_ab.ir.valid_target.as_ref(), target, source) {
                 continue;
             }
-            if !matches_valid_activator(st_ab.ir.activator.as_ref(), activator, source.controller) {
+            if !matches_valid_activator(st_ab.ir.activator.as_ref(), activator, source, game) {
                 continue;
             }
             if let Some(valid_sa) = st_ab.ir.valid_sa.as_deref() {
@@ -61,6 +64,7 @@ pub fn apply_cant_target_ability(
     activator: PlayerId,
     source_card: Option<&Card>,
     source_sa: Option<&SpellAbility>,
+    game: &GameState,
 ) -> bool {
     if !st_ab.ir.affected_zones.is_empty() {
         if !st_ab.ir.affected_zones.contains(&target.zone) {
@@ -73,7 +77,7 @@ pub fn apply_cant_target_ability(
     if !matches_valid_target(st_ab.ir.valid_target.as_ref(), target, source) {
         return false;
     }
-    if !matches_valid_activator(st_ab.ir.activator.as_ref(), activator, source.controller) {
+    if !matches_valid_activator(st_ab.ir.activator.as_ref(), activator, source, game) {
         return false;
     }
     if let Some(valid_sa) = st_ab.ir.valid_sa.as_deref() {
@@ -114,9 +118,16 @@ fn spell_ability_matches(valid_sa: &str, sa: &SpellAbility) -> bool {
 fn matches_valid_activator(
     valid: Option<&CompiledSelector>,
     player: PlayerId,
-    source_controller: PlayerId,
+    source: &Card,
+    game: &GameState,
 ) -> bool {
-    valid_filter::matches_valid_player_selector_opt(valid, player, source_controller)
+    valid_filter::matches_valid_player_selector_opt_in_game(
+        valid,
+        player,
+        source,
+        source.controller,
+        game,
+    )
 }
 
 fn matches_valid_target(valid: Option<&CompiledSelector>, target: &Card, source: &Card) -> bool {
