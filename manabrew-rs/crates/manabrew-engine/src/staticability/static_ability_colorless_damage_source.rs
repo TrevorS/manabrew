@@ -16,7 +16,7 @@ pub fn colorless_damage_source(game: &GameState, source_card: &Card) -> bool {
             .iter()
             .filter(|sa| sa.check_mode(&StaticMode::ColorlessDamageSource))
         {
-            if matches_valid_card(st_ab.ir.valid_card.as_ref(), source_card, source) {
+            if matches_valid_card(st_ab.ir.valid_card.as_ref(), source_card, source, game) {
                 return true;
             }
         }
@@ -28,8 +28,9 @@ pub fn apply_colorless_damage_source(
     st_ab: &crate::staticability::StaticAbility,
     source_card: &Card,
     source: &Card,
+    game: &GameState,
 ) -> bool {
-    matches_valid_card(st_ab.ir.valid_card.as_ref(), source_card, source)
+    matches_valid_card(st_ab.ir.valid_card.as_ref(), source_card, source, game)
 }
 
 pub fn source_has_color(game: &GameState, source_card: &Card, color_name: &str) -> bool {
@@ -97,6 +98,11 @@ pub fn is_protected_by_valid(game: &GameState, target: &Card, source: &Card) -> 
         })
 }
 
-fn matches_valid_card(valid: Option<&CompiledSelector>, card: &Card, source: &Card) -> bool {
-    valid_filter::matches_valid_card_selector_opt(valid, card, source)
+fn matches_valid_card(
+    valid: Option<&CompiledSelector>,
+    card: &Card,
+    source: &Card,
+    game: &GameState,
+) -> bool {
+    valid_filter::matches_valid_card_selector_opt_in_game(valid, card, source, game)
 }

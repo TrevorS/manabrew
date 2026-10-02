@@ -25,7 +25,12 @@ pub fn apply_untap_ability(
     player: PlayerId,
     game: &GameState,
 ) -> bool {
-    if !valid_filter::matches_valid_card_selector_opt(st_ab.ir.valid_card.as_ref(), card, source) {
+    if !valid_filter::matches_valid_card_selector_opt_in_game(
+        st_ab.ir.valid_card.as_ref(),
+        card,
+        source,
+        game,
+    ) {
         return false;
     }
     if !valid_filter::matches_valid_player_selector_opt_in_game(

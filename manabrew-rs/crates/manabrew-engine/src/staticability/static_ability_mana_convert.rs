@@ -35,10 +35,11 @@ pub fn can_spend_mana_as_any_color(game: &GameState, player: PlayerId, spell_car
             }
 
             // Check ValidCard$ (what spell this applies to)
-            if !valid_filter::matches_valid_card_selector_opt(
+            if !valid_filter::matches_valid_card_selector_opt_in_game(
                 st_ab.ir.valid_card.as_ref(),
                 spell_card,
                 source,
+                game,
             ) {
                 continue;
             }
@@ -74,10 +75,11 @@ pub fn check_mana_convert(
     ) {
         return false;
     }
-    if !valid_filter::matches_valid_card_selector_opt(
+    if !valid_filter::matches_valid_card_selector_opt_in_game(
         st_ab.ir.valid_card.as_ref(),
         spell_card,
         source,
+        game,
     ) {
         return false;
     }

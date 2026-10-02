@@ -13,10 +13,11 @@ pub fn cant_be_copied(game: &GameState, card: &Card) -> bool {
             .iter()
             .filter(|sa| sa.check_mode(&StaticMode::CantBeCopied) && sa.zones_check(source.zone))
         {
-            if valid_filter::matches_valid_card_selector_opt(
+            if valid_filter::matches_valid_card_selector_opt_in_game(
                 st_ab.ir.valid_card.as_ref(),
                 card,
                 source,
+                game,
             ) {
                 return true;
             }

@@ -13,7 +13,7 @@ pub fn cant_crew(game: &GameState, card: &Card) -> bool {
             .iter()
             .filter(|sa| sa.check_mode(&StaticMode::CantCrew) && sa.zones_check(source.zone))
         {
-            if apply_cant_crew(st_ab, card, source) {
+            if apply_cant_crew(st_ab, card, source, game) {
                 return true;
             }
         }
@@ -25,6 +25,12 @@ pub fn apply_cant_crew(
     st_ab: &crate::staticability::StaticAbility,
     card: &Card,
     source: &Card,
+    game: &GameState,
 ) -> bool {
-    valid_filter::matches_valid_card_selector_opt(st_ab.ir.valid_card.as_ref(), card, source)
+    valid_filter::matches_valid_card_selector_opt_in_game(
+        st_ab.ir.valid_card.as_ref(),
+        card,
+        source,
+        game,
+    )
 }

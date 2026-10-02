@@ -30,10 +30,11 @@ pub fn get_block_cost(game: &GameState, blocker: &Card, _attacker: &Card) -> i32
             }
 
             // Check ValidCard$ matches the blocker
-            if !valid_filter::matches_valid_card_selector_opt(
+            if !valid_filter::matches_valid_card_selector_opt_in_game(
                 sa.ir.valid_card.as_ref(),
                 blocker,
                 source,
+                game,
             ) {
                 continue;
             }

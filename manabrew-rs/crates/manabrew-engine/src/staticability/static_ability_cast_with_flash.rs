@@ -24,7 +24,7 @@ pub fn any_with_flash(
             if !st_ab.check_conditions(source, game) {
                 continue;
             }
-            if !matches_valid_card(st_ab.ir.valid_card.as_ref(), spell_card, source) {
+            if !matches_valid_card(st_ab.ir.valid_card.as_ref(), spell_card, source, game) {
                 continue;
             }
             if !valid_filter::matches_valid_player_selector_opt_in_game(
@@ -83,7 +83,7 @@ pub fn any_with_flash_for_card(game: &GameState, spell_card: &Card, caster: Play
             if !st_ab.check_conditions(source, game) {
                 continue;
             }
-            if !matches_valid_card(st_ab.ir.valid_card.as_ref(), spell_card, source) {
+            if !matches_valid_card(st_ab.ir.valid_card.as_ref(), spell_card, source, game) {
                 continue;
             }
             if !valid_filter::matches_valid_player_selector_opt_in_game(
@@ -135,7 +135,7 @@ pub fn apply_with_flash_needs_info(
     spell_abilities: &[String],
     game: &GameState,
 ) -> bool {
-    if !matches_valid_card(st_ab.ir.valid_card.as_ref(), spell_card, source) {
+    if !matches_valid_card(st_ab.ir.valid_card.as_ref(), spell_card, source, game) {
         return false;
     }
     if !matches_valid_player(st_ab.ir.caster.as_ref(), caster, source, game) {
@@ -163,7 +163,7 @@ pub fn apply_with_flash_ability(
     caster: PlayerId,
     game: &GameState,
 ) -> bool {
-    matches_valid_card(st_ab.ir.valid_card.as_ref(), spell_card, source)
+    matches_valid_card(st_ab.ir.valid_card.as_ref(), spell_card, source, game)
         && matches_valid_player(st_ab.ir.caster.as_ref(), caster, source, game)
 }
 
@@ -186,8 +186,9 @@ fn matches_valid_card(
     valid: Option<&crate::parsing::CompiledSelector>,
     card: &Card,
     source: &Card,
+    game: &GameState,
 ) -> bool {
-    valid_filter::matches_valid_card_selector_opt(valid, card, source)
+    valid_filter::matches_valid_card_selector_opt_in_game(valid, card, source, game)
 }
 
 fn spell_ability_matches(valid_sa: &str, ability_line: &str) -> bool {

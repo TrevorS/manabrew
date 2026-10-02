@@ -68,8 +68,7 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
             (Some(_), None) => false,
             (Some(selector), Some(card_id)) => {
                 let source = trigger.base.card_trait_base.host_card(game);
-                let mut context =
-                    crate::card::valid_filter::MatchContext::from_source(source).with_game(game);
+                let mut context = crate::card::valid_filter::MatchContext::new(source, game);
                 if let Some(sa) = params.source_sa.as_ref() {
                     context = context.with_spell_ability(sa);
                 }
@@ -92,10 +91,7 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
                         sa,
                         host,
                         sa.source.map(|source| game.card(source)),
-                        Some(
-                            crate::card::valid_filter::MatchContext::from_source(host)
-                                .with_game(game),
-                        ),
+                        Some(crate::card::valid_filter::MatchContext::new(host, game)),
                     )
                 })
         });
@@ -294,8 +290,7 @@ fn matches_valid_sa_on_card(
                     crate::card::valid_filter::matches_valid_card_selector_with_context(
                         &selector,
                         cast_card,
-                        crate::card::valid_filter::MatchContext::from_source(cast_card)
-                            .with_game(game)
+                        crate::card::valid_filter::MatchContext::new(cast_card, game)
                             .with_spell_ability(sa),
                     )
                 }

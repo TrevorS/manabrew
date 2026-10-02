@@ -141,8 +141,7 @@ fn damage_all_matches_valid_card(
     valid_filter::matches_valid_card_selector_with_context(
         selector,
         ctx.game.card(card_id),
-        MatchContext::from_source(source)
-            .with_game(ctx.game)
+        MatchContext::new(source, ctx.game)
             .with_targets(&targeted_cards, &targeted_players)
             .with_triggering(triggering_card, triggering_player),
     )

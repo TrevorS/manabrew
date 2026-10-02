@@ -76,9 +76,8 @@ pub fn candidates(
     let targeted_players: Vec<crate::ids::PlayerId> = ability
         .map(|sa| sa.target_chosen.all_target_players())
         .unwrap_or_default();
-    let mut context = crate::card::valid_filter::MatchContext::from_source(source_card)
+    let mut context = crate::card::valid_filter::MatchContext::new(source_card, game)
         .with_targets(&targeted, &targeted_players);
-    context.game = Some(game);
     context.spell_ability = ability;
     game.players
         .iter()

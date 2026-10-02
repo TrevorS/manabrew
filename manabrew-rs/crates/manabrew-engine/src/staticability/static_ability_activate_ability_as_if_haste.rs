@@ -11,7 +11,7 @@ pub fn can_activate(game: &GameState, card: &Card) -> bool {
         for st_ab in source.static_abilities.iter().filter(|sa| {
             sa.check_mode(&StaticMode::ActivateAbilityAsIfHaste) && sa.zones_check(source.zone)
         }) {
-            if apply_can_activate_ability(st_ab, card, source) {
+            if apply_can_activate_ability(st_ab, card, source, game) {
                 return true;
             }
         }
@@ -23,6 +23,12 @@ fn apply_can_activate_ability(
     st_ab: &crate::staticability::StaticAbility,
     card: &Card,
     source: &Card,
+    game: &GameState,
 ) -> bool {
-    valid_filter::matches_valid_card_selector_opt(st_ab.ir.valid_card.as_ref(), card, source)
+    valid_filter::matches_valid_card_selector_opt_in_game(
+        st_ab.ir.valid_card.as_ref(),
+        card,
+        source,
+        game,
+    )
 }

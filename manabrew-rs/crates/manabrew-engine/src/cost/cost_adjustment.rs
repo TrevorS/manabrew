@@ -843,9 +843,7 @@ pub(crate) fn matches_valid_card(
     game: &GameState,
     targeted_cards: &[CardId],
 ) -> bool {
-    let context = valid_filter::MatchContext::from_source(source)
-        .with_game(game)
-        .with_targets(targeted_cards, &[]);
+    let context = valid_filter::MatchContext::new(source, game).with_targets(targeted_cards, &[]);
     valid_filter::matches_valid_card_selector_opt_with_context(valid, spell, context)
 }
 
@@ -875,8 +873,7 @@ pub fn count_affinity_permanents(
     let separator = if valid_type.contains('.') { '+' } else { '.' };
     let selector =
         crate::parsing::cached_compiled_selector(&format!("{valid_type}{separator}YouCtrl"));
-    let context = valid_filter::MatchContext::from_source(game.card(exclude_card))
-        .with_game(game)
+    let context = valid_filter::MatchContext::new(game.card(exclude_card), game)
         .with_source_controller(player);
     game.cards
         .iter()

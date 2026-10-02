@@ -17,7 +17,7 @@ pub fn is_wither_damage(game: &GameState, source_card: &Card) -> bool {
             .iter()
             .filter(|sa| sa.check_mode(&StaticMode::WitherDamage))
         {
-            if matches_valid_card(st_ab.ir.valid_card.as_ref(), source_card, source) {
+            if matches_valid_card(st_ab.ir.valid_card.as_ref(), source_card, source, game) {
                 return true;
             }
         }
@@ -29,6 +29,7 @@ fn matches_valid_card(
     valid: Option<&crate::parsing::CompiledSelector>,
     card: &Card,
     source: &Card,
+    game: &GameState,
 ) -> bool {
-    valid_filter::matches_valid_card_selector_opt(valid, card, source)
+    valid_filter::matches_valid_card_selector_opt_in_game(valid, card, source, game)
 }

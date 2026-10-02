@@ -26,7 +26,7 @@ pub fn cant_sacrifice(
                     continue;
                 }
             }
-            if !matches_valid_card(st_ab.ir.valid_card.as_ref(), card, source) {
+            if !matches_valid_card(st_ab.ir.valid_card.as_ref(), card, source, game) {
                 continue;
             }
             if !matches_valid_cause(st_ab.ir.valid_cause_text.as_deref(), cause) {
@@ -44,13 +44,14 @@ pub fn apply_cant_sacrifice_ability(
     source: &Card,
     cause: Option<&SpellAbility>,
     is_cost: bool,
+    game: &GameState,
 ) -> bool {
     if let Some(for_cost) = st_ab.ir.for_cost {
         if for_cost != is_cost {
             return false;
         }
     }
-    matches_valid_card(st_ab.ir.valid_card.as_ref(), card, source)
+    matches_valid_card(st_ab.ir.valid_card.as_ref(), card, source, game)
         && matches_valid_cause(st_ab.ir.valid_cause_text.as_deref(), cause)
 }
 
@@ -58,8 +59,9 @@ fn matches_valid_card(
     valid: Option<&crate::parsing::CompiledSelector>,
     card: &Card,
     source: &Card,
+    game: &GameState,
 ) -> bool {
-    valid_filter::matches_valid_card_selector_opt(valid, card, source)
+    valid_filter::matches_valid_card_selector_opt_in_game(valid, card, source, game)
 }
 
 pub(crate) fn matches_valid_cause(valid: Option<&str>, cause: Option<&SpellAbility>) -> bool {

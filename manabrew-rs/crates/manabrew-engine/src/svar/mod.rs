@@ -806,8 +806,7 @@ fn player_x_property(
                 Some((_, restrictions)) => {
                     let selector = crate::parsing::cached_compiled_selector(restrictions);
                     let context =
-                        crate::card::valid_filter::MatchContext::from_source(game.card(source_id))
-                            .with_game(game)
+                        crate::card::valid_filter::MatchContext::new(game.card(source_id), game)
                             .with_source_controller(player);
                     sacrificed
                         .iter()
@@ -849,8 +848,7 @@ fn player_x_property(
             // controller so per-opponent counts (e.g. Beza's
             // `PlayerCountOpponents$HighestValid Land.YouCtrl`) actually scope
             // to that opponent's permanents, not the source's.
-            let context = crate::card::valid_filter::MatchContext::from_source(source)
-                .with_game(game)
+            let context = crate::card::valid_filter::MatchContext::new(source, game)
                 .with_source_controller(player);
             game.cards
                 .iter()
@@ -2261,8 +2259,7 @@ pub fn resolve_count_svar_for_sa(
                     sa.target_chosen.target_player.into_iter().collect();
                 let targeted_cards: Vec<crate::ids::CardId> =
                     sa.target_chosen.target_card.into_iter().collect();
-                let ctx = crate::card::valid_filter::MatchContext::from_source(source)
-                    .with_game(game)
+                let ctx = crate::card::valid_filter::MatchContext::new(source, game)
                     .with_source_controller(controller)
                     .with_targets(&targeted_cards, &targeted_players)
                     .with_spell_ability(sa);
@@ -2331,8 +2328,7 @@ pub fn resolve_count_svar_for_sa(
 
         let source = game.card(source_id);
         let selector = crate::parsing::cached_compiled_selector(filter_str);
-        let context = crate::card::valid_filter::MatchContext::from_source(source)
-            .with_game(game)
+        let context = crate::card::valid_filter::MatchContext::new(source, game)
             .with_source_controller(controller);
         if greatest_power {
             // Return the greatest power among matching creatures
@@ -2967,11 +2963,9 @@ pub fn resolve_count_svar_for_sa(
                     sa.target_chosen.target_player.into_iter().collect();
                 let targeted_cards: Vec<crate::ids::CardId> =
                     sa.target_chosen.target_card.into_iter().collect();
-                let ctx =
-                    crate::card::valid_filter::MatchContext::from_source(game.card(source_id))
-                        .with_game(game)
-                        .with_targets(&targeted_cards, &targeted_players)
-                        .with_spell_ability(sa);
+                let ctx = crate::card::valid_filter::MatchContext::new(game.card(source_id), game)
+                    .with_targets(&targeted_cards, &targeted_players)
+                    .with_spell_ability(sa);
                 some_cards = Some(
                     cards
                         .into_iter()

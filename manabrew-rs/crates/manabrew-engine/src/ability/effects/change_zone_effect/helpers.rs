@@ -35,8 +35,7 @@ pub(super) fn matches_with_context(
     let source = ctx.game.card(sa.source.unwrap_or(card_id));
     let targeted_cards = sa.target_chosen.all_target_cards();
     let targeted_players = sa.target_chosen.all_target_players();
-    let match_context = MatchContext::from_source(source)
-        .with_game(ctx.game)
+    let match_context = MatchContext::new(source, ctx.game)
         .with_spell_ability(sa)
         .with_targets(&targeted_cards, &targeted_players);
     matches_valid_card_selector_with_context(selector, ctx.game.card(card_id), match_context)

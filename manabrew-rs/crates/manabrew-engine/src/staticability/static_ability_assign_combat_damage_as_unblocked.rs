@@ -21,7 +21,7 @@ pub fn assign_as_unblocked(game: &GameState, card: &Card, optional: bool) -> boo
             } else if !has_optional && optional {
                 continue;
             }
-            if matches_valid_card(st_ab.ir.valid_card.as_ref(), card, source) {
+            if matches_valid_card(st_ab.ir.valid_card.as_ref(), card, source, game) {
                 return true;
             }
         }
@@ -41,7 +41,7 @@ pub fn has_optional_assign_as_unblocked(game: &GameState, card: &Card) -> bool {
                 .map(move |sa| (source, sa))
         })
         .any(|(source, sa)| {
-            sa.ir.optional && matches_valid_card(sa.ir.valid_card.as_ref(), card, source)
+            sa.ir.optional && matches_valid_card(sa.ir.valid_card.as_ref(), card, source, game)
         })
 }
 
@@ -57,7 +57,7 @@ pub fn has_mandatory_assign_as_unblocked(game: &GameState, card: &Card) -> bool 
                 .map(move |sa| (source, sa))
         })
         .any(|(source, sa)| {
-            !sa.ir.optional && matches_valid_card(sa.ir.valid_card.as_ref(), card, source)
+            !sa.ir.optional && matches_valid_card(sa.ir.valid_card.as_ref(), card, source, game)
         })
 }
 
@@ -70,6 +70,7 @@ fn matches_valid_card(
     valid: Option<&crate::parsing::CompiledSelector>,
     card: &Card,
     source: &Card,
+    game: &GameState,
 ) -> bool {
-    valid_filter::matches_valid_card_selector_opt(valid, card, source)
+    valid_filter::matches_valid_card_selector_opt_in_game(valid, card, source, game)
 }

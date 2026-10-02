@@ -1787,8 +1787,7 @@ impl TriggerHandler {
 
                 // ValidCause$ — must match the card changing zones
                 if let Some(valid_cause) = sa.ir.valid_cause.as_ref() {
-                    let context = valid_filter::MatchContext::from_source(card)
-                        .with_game(game)
+                    let context = valid_filter::MatchContext::new(card, game)
                         .with_triggering(cause_card_id.into(), params.player);
                     if !valid_filter::matches_valid_card_selector_with_context(
                         valid_cause,
@@ -2057,8 +2056,7 @@ impl TriggerHandler {
                 .map_or_else(|| "Card".to_string(), |selector| selector.as_raw());
             let found = params.spell_card.is_some_and(|cast| {
                 valid.split(',').any(|clause| {
-                    let mut context = valid_filter::MatchContext::from_source(game.card(host_card))
-                        .with_game(game);
+                    let mut context = valid_filter::MatchContext::new(game.card(host_card), game);
                     if let Some(sa) = params.source_sa.as_ref().or(params.spell_ability.as_ref()) {
                         context = context.with_spell_ability(sa);
                     }

@@ -24,7 +24,7 @@ pub fn counters_remain(game: &GameState, card: &Card, destination: ZoneType) -> 
             if !active {
                 continue;
             }
-            if matches_valid_card(st_ab.ir.valid_card.as_ref(), card, source) {
+            if matches_valid_card(st_ab.ir.valid_card.as_ref(), card, source, game) {
                 return true;
             }
         }
@@ -37,6 +37,7 @@ pub fn apply_counters_remain_ability(
     source: &Card,
     card: &Card,
     destination: ZoneType,
+    game: &GameState,
 ) -> bool {
     let _perf_scope =
         crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::StaticAbility);
@@ -48,13 +49,14 @@ pub fn apply_counters_remain_ability(
     }
     let active =
         source.zone == ZoneType::Battlefield || (source.id == card.id && st_ab.ir.effect_zone_all);
-    active && matches_valid_card(st_ab.ir.valid_card.as_ref(), card, source)
+    active && matches_valid_card(st_ab.ir.valid_card.as_ref(), card, source, game)
 }
 
 fn matches_valid_card(
     valid: Option<&crate::parsing::CompiledSelector>,
     card: &Card,
     source: &Card,
+    game: &GameState,
 ) -> bool {
-    valid_filter::matches_valid_card_selector_opt(valid, card, source)
+    valid_filter::matches_valid_card_selector_opt_in_game(valid, card, source, game)
 }

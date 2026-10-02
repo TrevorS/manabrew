@@ -17,7 +17,7 @@ pub fn cant_prevent_damage(game: &GameState, source_id: CardId, is_combat: bool)
             .iter()
             .filter(|sa| sa.check_conditions_full(&StaticMode::CantPreventDamage, host, game))
         {
-            if applies(st_ab, source_card, host, is_combat) {
+            if applies(st_ab, source_card, host, is_combat, game) {
                 return true;
             }
         }
@@ -31,8 +31,9 @@ pub fn apply_cant_prevent_damage(
     damage_source: &Card,
     host: &Card,
     is_combat: bool,
+    game: &GameState,
 ) -> bool {
-    applies(st_ab, damage_source, host, is_combat)
+    applies(st_ab, damage_source, host, is_combat, game)
 }
 
 fn applies(
@@ -40,6 +41,7 @@ fn applies(
     damage_source: &Card,
     host: &Card,
     is_combat: bool,
+    game: &GameState,
 ) -> bool {
     if let Some(required) = st_ab.ir.is_combat {
         if required != is_combat {
@@ -47,9 +49,10 @@ fn applies(
         }
     }
 
-    valid_filter::matches_valid_card_selector_opt(
+    valid_filter::matches_valid_card_selector_opt_in_game(
         st_ab.ir.valid_source.as_ref(),
         damage_source,
         host,
+        game,
     )
 }

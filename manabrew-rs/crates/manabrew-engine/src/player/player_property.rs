@@ -2,7 +2,7 @@ use forge_foundation::ZoneType;
 
 use crate::ability::ability_utils;
 use crate::card::card_damage_history::TrackedEntity;
-use crate::card::valid_filter::matches_valid_card;
+use crate::card::valid_filter::matches_valid_card_in_game;
 use crate::card::valid_filter::matches_valid_card_selector_in_game;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
@@ -49,7 +49,7 @@ fn count_matching_cards(
     let source = game.card(source_id);
     cards
         .into_iter()
-        .filter(|&cid| matches_valid_card(restriction, game.card(cid), source))
+        .filter(|&cid| matches_valid_card_in_game(restriction, game.card(cid), source, game))
         .count()
 }
 
@@ -99,7 +99,7 @@ fn any_attacker_matches(
                 .damage_history
                 .has_attacked_this_turn(attacked)
         })
-        .any(|cid| matches_valid_card(restriction, game.card(cid), source))
+        .any(|cid| matches_valid_card_in_game(restriction, game.card(cid), source, game))
 }
 
 fn highest_life(game: &GameState) -> i32 {
@@ -304,7 +304,8 @@ pub fn player_has_property(
             game.cards
                 .iter()
                 .filter(|card| {
-                    valid_card.is_none_or(|filter| matches_valid_card(filter, card, source))
+                    valid_card
+                        .is_none_or(|filter| matches_valid_card_in_game(filter, card, source, game))
                 })
                 .flat_map(|card| card.damage_history.damage_done_this_turn.iter())
                 .filter(|instance| combat.is_none_or(|value| instance.is_combat == value))

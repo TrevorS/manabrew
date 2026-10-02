@@ -16,7 +16,7 @@ pub fn blocks_each_combat_if_able(game: &GameState, creature: &Card) -> bool {
             .iter()
             .filter(|sa| sa.check_mode(&StaticMode::MustBlock))
         {
-            if matches_valid_creature(st_ab.ir.valid_creature.as_ref(), creature, source) {
+            if matches_valid_creature(st_ab.ir.valid_creature.as_ref(), creature, source, game) {
                 return true;
             }
         }
@@ -28,13 +28,21 @@ pub fn apply_blocks_each_combat_if_able(
     st_ab: &crate::staticability::StaticAbility,
     creature: &Card,
     source: &Card,
+    game: &GameState,
 ) -> bool {
-    matches_valid_creature(st_ab.ir.valid_creature.as_ref(), creature, source)
+    matches_valid_creature(st_ab.ir.valid_creature.as_ref(), creature, source, game)
 }
 
-fn matches_valid_creature(valid: Option<&CompiledSelector>, card: &Card, source: &Card) -> bool {
+fn matches_valid_creature(
+    valid: Option<&CompiledSelector>,
+    card: &Card,
+    source: &Card,
+    game: &GameState,
+) -> bool {
     match valid {
         None => card.is_creature(),
-        Some(selector) => valid_filter::matches_valid_card_selector(selector, card, source),
+        Some(selector) => {
+            valid_filter::matches_valid_card_selector_in_game(selector, card, source, game)
+        }
     }
 }

@@ -2837,8 +2837,7 @@ impl GameLoop {
                         let valid = params.selector(keys::VALID_CARD);
                         let card = game.card(card_id);
                         let source = game.card(*source_id);
-                        let context = crate::card::valid_filter::MatchContext::from_source(source)
-                            .with_game(game)
+                        let context = crate::card::valid_filter::MatchContext::new(source, game)
                             .with_combat(&self.combat)
                             .with_triggering(Some(card_id), Some(player));
                         let valid_ok =

@@ -14,7 +14,7 @@ pub fn cant_transform(game: &GameState, card: &Card, cause: Option<&SpellAbility
             .iter()
             .filter(|sa| sa.check_mode(&StaticMode::CantTransform) && sa.zones_check(source.zone))
         {
-            if apply_cant_transform_ability(st_ab, card, source, cause) {
+            if apply_cant_transform_ability(st_ab, card, source, cause, game) {
                 return true;
             }
         }
@@ -27,8 +27,14 @@ pub fn apply_cant_transform_ability(
     card: &Card,
     source: &Card,
     cause: Option<&SpellAbility>,
+    game: &GameState,
 ) -> bool {
-    if !valid_filter::matches_valid_card_selector_opt(st_ab.ir.valid_card.as_ref(), card, source) {
+    if !valid_filter::matches_valid_card_selector_opt_in_game(
+        st_ab.ir.valid_card.as_ref(),
+        card,
+        source,
+        game,
+    ) {
         return false;
     }
     // Java: if stAb.hasParam("ExceptCause") { if stAb.matchesValidParam("ExceptCause", cause) return false }

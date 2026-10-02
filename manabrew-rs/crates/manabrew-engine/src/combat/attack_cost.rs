@@ -33,10 +33,11 @@ pub fn get_attack_cost(
             }
 
             // Check ValidCard$ matches the attacker
-            if !valid_filter::matches_valid_card_selector_opt(
+            if !valid_filter::matches_valid_card_selector_opt_in_game(
                 sa.ir.valid_card.as_ref(),
                 attacker,
                 source,
+                game,
             ) {
                 continue;
             }

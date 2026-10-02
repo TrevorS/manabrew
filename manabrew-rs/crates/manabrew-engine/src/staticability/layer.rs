@@ -1573,8 +1573,7 @@ fn etb_tapped_filter_matches(
     crate::card::valid_filter::matches_valid_card_selector_with_context(
         &crate::parsing::cached_compiled_selector(filter),
         game.card(entering_card),
-        crate::card::valid_filter::MatchContext::from_source(source)
-            .with_game(game)
+        crate::card::valid_filter::MatchContext::new(source, game)
             .with_source_controller(source.controller),
     )
 }

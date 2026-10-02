@@ -198,9 +198,10 @@ fn mana_from(
     ability_host: Option<&Card>,
     context: Option<MatchContext<'_>>,
 ) -> bool {
-    let (Some(game), Some(host)) = (context.and_then(|context| context.game), ability_host) else {
+    let (Some(context), Some(host)) = (context, ability_host) else {
         return false;
     };
+    let game = context.game;
     let (from_what, to_find) = match from_what.split_once('_') {
         Some((valid, amount)) => (
             valid,

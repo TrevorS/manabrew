@@ -866,8 +866,9 @@ impl StaticAbility {
             let Some(top_card) = top else {
                 return false;
             };
-            if !crate::card::valid_filter::matches_valid_card_opt(Some(valid_top), top_card, source)
-            {
+            if !crate::card::valid_filter::matches_valid_card_in_game(
+                valid_top, top_card, source, game,
+            ) {
                 return false;
             }
         }

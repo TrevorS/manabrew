@@ -25,7 +25,7 @@ pub fn any_cant_put_counter_on_card(
             if !counter_type_matches(st_ab.ir.counter_type.as_ref(), counter_type) {
                 continue;
             }
-            if !matches_valid_card(st_ab.ir.valid_card.as_ref(), target, source) {
+            if !matches_valid_card(st_ab.ir.valid_card.as_ref(), target, source, game) {
                 continue;
             }
             if st_ab.ir.has_valid_player {
@@ -101,7 +101,7 @@ pub fn apply_cant_put_counter(
         if st_ab.ir.has_valid_player {
             return false;
         }
-        return matches_valid_card(st_ab.ir.valid_card.as_ref(), card, source);
+        return matches_valid_card(st_ab.ir.valid_card.as_ref(), card, source, game);
     }
     if let Some(player) = target_player {
         if st_ab.ir.has_valid_card {
@@ -138,6 +138,7 @@ fn matches_valid_card(
     valid: Option<&crate::parsing::CompiledSelector>,
     card: &Card,
     source: &Card,
+    game: &GameState,
 ) -> bool {
-    valid_filter::matches_valid_card_selector_opt(valid, card, source)
+    valid_filter::matches_valid_card_selector_opt_in_game(valid, card, source, game)
 }

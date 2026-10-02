@@ -18,7 +18,7 @@ pub(crate) fn matches_selector_domain_predicate(
         return Some(
             context
                 .game
-                .and_then(|game| game.get_lki_snapshot(source.id))
+                .get_lki_snapshot(source.id)
                 .is_some_and(|lki| lki.saddled_by.contains(&card.id)),
         );
     }

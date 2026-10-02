@@ -15,7 +15,7 @@ pub fn cant_attach(game: &GameState, attachment: &Card, target: &Card, check_sba
                 .iter()
                 .filter(|sa| sa.check_mode(&StaticMode::CantAttach))
                 .any(|st_ab| {
-                    apply_cant_attach_ability(st_ab, source, attachment, target, check_sba)
+                    apply_cant_attach_ability(st_ab, source, attachment, target, check_sba, game)
                 })
         })
 }
@@ -26,11 +26,12 @@ pub fn apply_cant_attach_ability(
     attachment: &Card,
     target: &Card,
     check_sba: bool,
+    game: &GameState,
 ) -> bool {
-    if !matches_valid_card(st_ab.ir.valid_card.as_ref(), attachment, source) {
+    if !matches_valid_card(st_ab.ir.valid_card.as_ref(), attachment, source, game) {
         return false;
     }
-    if !matches_valid_card(st_ab.ir.target.as_ref(), target, source) {
+    if !matches_valid_card(st_ab.ir.target.as_ref(), target, source, game) {
         return false;
     }
     if let Some(valid_card_to_target) = st_ab.ir.valid_card_to_target.as_ref() {
@@ -40,11 +41,16 @@ pub fn apply_cant_attach_ability(
     }
     !((check_sba || !st_ab.ir.exception_sba)
         && st_ab.ir.exceptions.is_some()
-        && matches_valid_card(st_ab.ir.exceptions.as_ref(), attachment, source))
+        && matches_valid_card(st_ab.ir.exceptions.as_ref(), attachment, source, game))
 }
 
-fn matches_valid_card(valid: Option<&CompiledSelector>, card: &Card, source: &Card) -> bool {
-    valid_filter::matches_valid_card_selector_opt(valid, card, source)
+fn matches_valid_card(
+    valid: Option<&CompiledSelector>,
+    card: &Card,
+    source: &Card,
+    game: &GameState,
+) -> bool {
+    valid_filter::matches_valid_card_selector_opt_in_game(valid, card, source, game)
 }
 
 fn matches_valid_card_for_target(card: &Card, valid: &CompiledSelector, target: &Card) -> bool {

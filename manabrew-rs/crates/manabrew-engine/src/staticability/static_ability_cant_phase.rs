@@ -5,24 +5,25 @@ use crate::game::GameState;
 use crate::staticability::StaticMode;
 
 pub fn cant_phase_in(game: &GameState, card: &Card) -> bool {
-    cant_phase(&game.cards, card, StaticMode::CantPhaseIn)
+    cant_phase(&game.cards, card, StaticMode::CantPhaseIn, game)
 }
 
 pub fn cant_phase_out(game: &GameState, card: &Card) -> bool {
-    cant_phase(&game.cards, card, StaticMode::CantPhaseOut)
+    cant_phase(&game.cards, card, StaticMode::CantPhaseOut, game)
 }
 
-fn cant_phase(cards: &[Arc<Card>], card: &Card, mode: StaticMode) -> bool {
+fn cant_phase(cards: &[Arc<Card>], card: &Card, mode: StaticMode, game: &GameState) -> bool {
     for source in cards.iter().filter(|c| c.zone.is_static_ability_source()) {
         for st_ab in source
             .static_abilities
             .iter()
             .filter(|sa| sa.check_mode(&mode) && sa.zones_check(source.zone))
         {
-            if valid_filter::matches_valid_card_selector_opt(
+            if valid_filter::matches_valid_card_selector_opt_in_game(
                 st_ab.ir.valid_card.as_ref(),
                 card,
                 source,
+                game,
             ) {
                 return true;
             }

@@ -1186,8 +1186,7 @@ pub fn matches_valid_cards_for_sa(
     };
     let targeted_cards = sa.target_chosen.all_target_cards();
     let targeted_players = sa.target_chosen.all_target_players();
-    let context = valid_filter::MatchContext::from_source(game.card(source_id))
-        .with_game(game)
+    let context = valid_filter::MatchContext::new(game.card(source_id), game)
         .with_source_controller(sa.activating_player)
         .with_targets(&targeted_cards, &targeted_players)
         .with_spell_ability(sa);
@@ -1981,8 +1980,7 @@ pub fn handle_paid(
             let filter = property.strip_prefix("Valid ").unwrap_or("");
             let source = game.card(source_id);
             let selector = crate::parsing::cached_compiled_selector(filter);
-            let context = crate::card::valid_filter::MatchContext::from_source(source)
-                .with_game(game)
+            let context = crate::card::valid_filter::MatchContext::new(source, game)
                 .with_source_controller(source.controller);
             paid_cards
                 .iter()
@@ -2198,8 +2196,7 @@ pub fn filter_list_by_type(
         .filter(|&cid| {
             let card = game.card(cid);
             if let Some(source_id) = effective_source {
-                let context = valid_filter::MatchContext::from_source(game.card(source_id))
-                    .with_game(game)
+                let context = valid_filter::MatchContext::new(game.card(source_id), game)
                     .with_targets(&targeted_cards, &targeted_players)
                     .with_spell_ability(sa);
                 valid_filter::matches_valid_card_selector_with_context(&selector, card, context)
@@ -2635,9 +2632,8 @@ pub fn get_spells_from_play_effect(
             crate::spellability::spell::can_play_from_host(&spell, game)?;
             if let Some((filter, play_sa)) = valid_sa {
                 let source = game.card(play_sa.source?);
-                let context = valid_filter::MatchContext::from_source(source)
-                    .with_game(game)
-                    .with_spell_ability(play_sa);
+                let context =
+                    valid_filter::MatchContext::new(source, game).with_spell_ability(play_sa);
                 if face.is_land()
                     || !crate::spellability::valid_sa::matches_valid_sa_with_context(
                         filter,

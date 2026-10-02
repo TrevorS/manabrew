@@ -746,10 +746,11 @@ pub fn get_attack_cost(
     source: &Card,
     game: &GameState,
 ) -> Option<String> {
-    if !valid_filter::matches_valid_card_selector_opt(
+    if !valid_filter::matches_valid_card_selector_opt_in_game(
         st_ab.ir.valid_card.as_ref(),
         attacker,
         source,
+        game,
     ) {
         return None;
     }
@@ -800,17 +801,23 @@ pub fn get_block_cost(
     blocker: &Card,
     attacker: &Card,
     source: &Card,
+    game: &GameState,
 ) -> Option<String> {
-    if !valid_filter::matches_valid_card_selector_opt(st_ab.ir.valid_card.as_ref(), blocker, source)
-    {
+    if !valid_filter::matches_valid_card_selector_opt_in_game(
+        st_ab.ir.valid_card.as_ref(),
+        blocker,
+        source,
+        game,
+    ) {
         return None;
     }
 
     if let Some(valid) = st_ab.ir.attacker_text.as_deref() {
-        if !valid_filter::matches_valid_card_selector(
+        if !valid_filter::matches_valid_card_selector_in_game(
             &crate::parsing::cached_compiled_selector(valid),
             attacker,
             source,
+            game,
         ) {
             return None;
         }

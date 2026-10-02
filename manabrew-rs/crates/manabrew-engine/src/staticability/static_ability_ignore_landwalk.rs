@@ -13,7 +13,7 @@ pub fn ignore_land_walk(game: &GameState, attacker: &Card, blocker: &Card, keywo
             .iter()
             .filter(|sa| sa.check_mode(&StaticMode::IgnoreLandwalk) && sa.zones_check(source.zone))
         {
-            if apply_ignore_landwalk(st_ab, attacker, blocker, keyword, source) {
+            if apply_ignore_landwalk(st_ab, attacker, blocker, keyword, source, game) {
                 return true;
             }
         }
@@ -28,8 +28,9 @@ pub fn ignore_land_walk_ability(
     blocker: &Card,
     keyword: &str,
     source: &Card,
+    game: &GameState,
 ) -> bool {
-    apply_ignore_landwalk(st_ab, attacker, blocker, keyword, source)
+    apply_ignore_landwalk(st_ab, attacker, blocker, keyword, source, game)
 }
 
 fn apply_ignore_landwalk(
@@ -38,18 +39,21 @@ fn apply_ignore_landwalk(
     blocker: &Card,
     keyword: &str,
     source: &Card,
+    game: &GameState,
 ) -> bool {
-    if !valid_filter::matches_valid_card_selector_opt(
+    if !valid_filter::matches_valid_card_selector_opt_in_game(
         st_ab.ir.valid_attacker.as_ref(),
         attacker,
         source,
+        game,
     ) {
         return false;
     }
-    if !valid_filter::matches_valid_card_selector_opt(
+    if !valid_filter::matches_valid_card_selector_opt_in_game(
         st_ab.ir.valid_blocker.as_ref(),
         blocker,
         source,
+        game,
     ) {
         return false;
     }

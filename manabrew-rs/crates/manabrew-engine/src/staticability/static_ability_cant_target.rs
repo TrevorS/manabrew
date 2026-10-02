@@ -32,7 +32,7 @@ pub fn cant_target(
                 continue;
             }
 
-            if !matches_valid_target(st_ab.ir.valid_target.as_ref(), target, source) {
+            if !matches_valid_target(st_ab.ir.valid_target.as_ref(), target, source, game) {
                 continue;
             }
             if !matches_valid_activator(st_ab.ir.activator.as_ref(), activator, source, game) {
@@ -47,7 +47,7 @@ pub fn cant_target(
                 }
             }
             if let (Some(valid_source), Some(src)) = (st_ab.ir.valid_source.as_ref(), source_card) {
-                if !matches_valid_target(Some(valid_source), src, source) {
+                if !matches_valid_target(Some(valid_source), src, source, game) {
                     continue;
                 }
             }
@@ -74,7 +74,7 @@ pub fn apply_cant_target_ability(
         return false;
     }
 
-    if !matches_valid_target(st_ab.ir.valid_target.as_ref(), target, source) {
+    if !matches_valid_target(st_ab.ir.valid_target.as_ref(), target, source, game) {
         return false;
     }
     if !matches_valid_activator(st_ab.ir.activator.as_ref(), activator, source, game) {
@@ -89,7 +89,7 @@ pub fn apply_cant_target_ability(
         }
     }
     if let (Some(valid_source), Some(src)) = (st_ab.ir.valid_source.as_ref(), source_card) {
-        if !matches_valid_target(Some(valid_source), src, source) {
+        if !matches_valid_target(Some(valid_source), src, source, game) {
             return false;
         }
     }
@@ -130,6 +130,11 @@ fn matches_valid_activator(
     )
 }
 
-fn matches_valid_target(valid: Option<&CompiledSelector>, target: &Card, source: &Card) -> bool {
-    valid_filter::matches_valid_card_selector_opt(valid, target, source)
+fn matches_valid_target(
+    valid: Option<&CompiledSelector>,
+    target: &Card,
+    source: &Card,
+    game: &GameState,
+) -> bool {
+    valid_filter::matches_valid_card_selector_opt_in_game(valid, target, source, game)
 }

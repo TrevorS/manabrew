@@ -221,8 +221,7 @@ impl CardTrait for Trigger {
                 valid_filter::matches_valid_card_selector_with_context(
                     selector,
                     card,
-                    valid_filter::MatchContext::from_source(src)
-                        .with_game(game)
+                    valid_filter::MatchContext::new(src, game)
                         .with_source_controller(player)
                         .with_trigger_remembered_cards(&trigger_remembered_cards),
                 )
@@ -622,8 +621,7 @@ impl Trigger {
         valid_filter::matches_valid_card_selector_with_context(
             selector,
             card,
-            valid_filter::MatchContext::from_source(src)
-                .with_game(game)
+            valid_filter::MatchContext::new(src, game)
                 .with_source_controller(player)
                 .with_trigger_remembered_cards(&trigger_remembered_cards),
         )
@@ -666,8 +664,7 @@ impl Trigger {
         valid_filter::matches_valid_card_selector_with_context(
             filter,
             game.card(card_id),
-            valid_filter::MatchContext::from_source(src)
-                .with_game(game)
+            valid_filter::MatchContext::new(src, game)
                 .with_source_controller(player)
                 .with_trigger_remembered_cards(&trigger_remembered_cards),
         )

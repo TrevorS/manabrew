@@ -24,7 +24,7 @@ pub fn max_counter(game: &GameState, target: &Card, counter_type: &CounterType) 
                     continue;
                 }
             }
-            if !matches_valid_card(st_ab.ir.valid_card.as_ref(), target, source) {
+            if !matches_valid_card(st_ab.ir.valid_card.as_ref(), target, source, game) {
                 continue;
             }
             let value = st_ab.ir.max_num.unwrap_or(0);
@@ -34,6 +34,11 @@ pub fn max_counter(game: &GameState, target: &Card, counter_type: &CounterType) 
     result
 }
 
-fn matches_valid_card(valid: Option<&CompiledSelector>, card: &Card, source: &Card) -> bool {
-    valid_filter::matches_valid_card_selector_opt(valid, card, source)
+fn matches_valid_card(
+    valid: Option<&CompiledSelector>,
+    card: &Card,
+    source: &Card,
+    game: &GameState,
+) -> bool {
+    valid_filter::matches_valid_card_selector_opt_in_game(valid, card, source, game)
 }

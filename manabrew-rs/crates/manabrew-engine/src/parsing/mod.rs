@@ -1928,7 +1928,7 @@ pub fn enchant_type_to_target_params(enchant_type: &str) -> String {
 ///
 /// Example: `enchant_type_matches_card("creature", card)` → true if card is a creature
 pub fn enchant_type_matches_card(
-    _game: &crate::game::GameState,
+    game: &crate::game::GameState,
     enchant_type: &str,
     card: &crate::card::CardInstance,
     aura_source: Option<&crate::card::CardInstance>,
@@ -1954,7 +1954,7 @@ pub fn enchant_type_matches_card(
                 return false;
             }
             let source = aura_source.unwrap_or(card);
-            crate::card::valid_filter::matches_valid_card(normalized, card, source)
+            crate::card::valid_filter::matches_valid_card_in_game(normalized, card, source, game)
         }
     }
 }

@@ -70,10 +70,11 @@ fn granted_statics(st_ab: &StaticAbility, source: &Card, game: &GameState) -> Ve
         return Vec::new();
     };
     if !st_ab.check_conditions(source, game)
-        || !crate::card::valid_filter::matches_valid_card_selector_opt(
+        || !crate::card::valid_filter::matches_valid_card_selector_opt_in_game(
             st_ab.ir.affected.as_ref(),
             source,
             source,
+            game,
         )
     {
         return Vec::new();

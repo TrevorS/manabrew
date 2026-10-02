@@ -471,8 +471,9 @@ fn attacker_lure_satisfied(
         return false;
     }
     let blocker = game.card(blocker_id);
-    let is_valid =
-        |card: &Card, valid: &str| valid_filter::matches_valid_card(valid, card, attacker);
+    let is_valid = |card: &Card, valid: &str| {
+        valid_filter::matches_valid_card_in_game(valid, card, attacker, game)
+    };
     for keyword in keywords {
         if let Some(valid) = keyword.strip_prefix("MustBeBlockedBy ") {
             if is_valid(blocker, valid) && !blockers.iter().any(|&b| is_valid(game.card(b), valid))

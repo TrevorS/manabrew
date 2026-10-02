@@ -36,7 +36,7 @@ fn any_ignore(game: &GameState, target: &Card, activator: PlayerId, mode: Static
                     continue;
                 }
             }
-            if !matches_valid_entity(st_ab.ir.valid_entity.as_ref(), target, source) {
+            if !matches_valid_entity(st_ab.ir.valid_entity.as_ref(), target, source, game) {
                 continue;
             }
             return true;
@@ -45,6 +45,11 @@ fn any_ignore(game: &GameState, target: &Card, activator: PlayerId, mode: Static
     false
 }
 
-fn matches_valid_entity(valid: Option<&CompiledSelector>, target: &Card, source: &Card) -> bool {
-    valid_filter::matches_valid_card_selector_opt(valid, target, source)
+fn matches_valid_entity(
+    valid: Option<&CompiledSelector>,
+    target: &Card,
+    source: &Card,
+    game: &GameState,
+) -> bool {
+    valid_filter::matches_valid_card_selector_opt_in_game(valid, target, source, game)
 }

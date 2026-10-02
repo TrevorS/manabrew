@@ -451,8 +451,7 @@ pub fn resolve_triggered_card_lki_property(
         let matched = crate::card::valid_filter::matches_valid_card_selector_with_context(
             &selector,
             game.card(card_id),
-            crate::card::valid_filter::MatchContext::from_source(game.card(source_id))
-                .with_game(game)
+            crate::card::valid_filter::MatchContext::new(game.card(source_id), game)
                 .with_spell_ability(sa),
         );
         return Some(i32::from(matched));

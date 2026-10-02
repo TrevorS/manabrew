@@ -225,7 +225,7 @@ fn filter_spells_cast_cards<'a>(
         return cast.iter().map(|card| &**card).collect();
     }
     let selector = cached_compiled_selector(valid);
-    let mut context = valid_filter::MatchContext::from_source(game.card(src)).with_game(game);
+    let mut context = valid_filter::MatchContext::new(game.card(src), game);
     if let Some(sa) = ctb {
         context = context.with_spell_ability(sa);
     }
@@ -761,11 +761,8 @@ fn filter_valid_cards(
     let _ = controller;
     let selector = cached_compiled_selector(valid);
     let source = game.card(src);
-    let context = ctb.map(|sa| {
-        valid_filter::MatchContext::from_source(source)
-            .with_game(game)
-            .with_spell_ability(sa)
-    });
+    let context =
+        ctb.map(|sa| valid_filter::MatchContext::new(source, game).with_spell_ability(sa));
     cards
         .into_iter()
         .filter(|(card_id, latest_state)| {

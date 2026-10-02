@@ -594,8 +594,7 @@ fn spell_host_is_valid(
     };
     let host = game.card(host);
     let source = source.map_or(host, |source| game.card(source));
-    let context = crate::card::valid_filter::MatchContext::from_source(source)
-        .with_game(game)
+    let context = crate::card::valid_filter::MatchContext::new(source, game)
         .with_source_controller(targeting_player);
     crate::card::valid_filter::matches_valid_card_selector_with_context(
         &restrictions.compiled_valid_tgts(),
@@ -615,8 +614,7 @@ fn spell_targets_valid(
         return false;
     };
     let selector = cached_compiled_selector(filter);
-    let context = crate::card::valid_filter::MatchContext::from_source(game.card(source))
-        .with_game(game)
+    let context = crate::card::valid_filter::MatchContext::new(game.card(source), game)
         .with_source_controller(targeting_player);
     let targeting_sa =
         crate::spellability::SpellAbility::new_simple(Some(source), targeting_player, "");
@@ -1077,10 +1075,11 @@ fn hexproof_cant_target(
             });
         }
         source_card.is_some_and(|source| {
-            valid_filter::matches_valid_card_selector_opt(
+            valid_filter::matches_valid_card_selector_opt_in_game(
                 Some(&cached_compiled_selector(&valid_type)),
                 game.card(source),
                 target,
+                game,
             )
         })
     })
@@ -1237,7 +1236,7 @@ fn candidate_match_context<'a>(
     source: &'a crate::card::Card,
     ability: Option<&'a SpellAbility>,
 ) -> valid_filter::MatchContext<'a> {
-    let context = valid_filter::MatchContext::from_source(source).with_game(game);
+    let context = valid_filter::MatchContext::new(source, game);
     match ability {
         Some(sa) => context.with_spell_ability(sa),
         None => context,
@@ -1403,8 +1402,7 @@ pub fn get_valid_cards_in_zone_for_sa(
             valid_filter::matches_valid_card_selector_with_context(
                 &selector,
                 game.card(cid),
-                valid_filter::MatchContext::from_source(source)
-                    .with_game(game)
+                valid_filter::MatchContext::new(source, game)
                     .with_triggering(triggering_card, triggering_player)
                     .with_spell_ability(ability),
             )

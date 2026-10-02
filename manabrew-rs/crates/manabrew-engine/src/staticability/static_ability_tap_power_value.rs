@@ -23,10 +23,11 @@ pub fn with_toughness(game: &GameState, card: &Card, sa: Option<&SpellAbility>) 
             }
 
             // ValidCard$
-            if !valid_filter::matches_valid_card_selector_opt(
+            if !valid_filter::matches_valid_card_selector_opt_in_game(
                 st_ab.ir.valid_card.as_ref(),
                 card,
                 source,
+                game,
             ) {
                 continue;
             }
@@ -60,10 +61,11 @@ pub fn get_mod(game: &GameState, card: &Card, sa: Option<&SpellAbility>) -> i32 
             .filter(|s| s.check_mode(&StaticMode::TapPowerValue) && s.zones_check(source.zone))
         {
             // ValidCard$
-            if !valid_filter::matches_valid_card_selector_opt(
+            if !valid_filter::matches_valid_card_selector_opt_in_game(
                 st_ab.ir.valid_card.as_ref(),
                 card,
                 source,
+                game,
             ) {
                 continue;
             }

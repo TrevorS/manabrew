@@ -10,8 +10,14 @@ pub fn apply_limit_increase(
     st_ab: &crate::staticability::StaticAbility,
     card: &Card,
     source: &Card,
+    game: &GameState,
 ) -> bool {
-    if !valid_filter::matches_valid_card_selector_opt(st_ab.ir.valid_card.as_ref(), card, source) {
+    if !valid_filter::matches_valid_card_selector_opt_in_game(
+        st_ab.ir.valid_card.as_ref(),
+        card,
+        source,
+        game,
+    ) {
         return false;
     }
     st_ab.ir.twice
@@ -31,7 +37,7 @@ pub fn limit_increase(game: &GameState, card: &Card) -> bool {
             .iter()
             .filter(|sa| sa.check_mode(&StaticMode::NumLoyaltyAct) && sa.zones_check(source.zone))
         {
-            if apply_limit_increase(st_ab, card, source) {
+            if apply_limit_increase(st_ab, card, source, game) {
                 return true;
             }
         }
@@ -55,10 +61,11 @@ pub fn additional_activations(game: &GameState, card: &Card, sa: Option<&SpellAb
             .iter()
             .filter(|s| s.check_mode(&StaticMode::NumLoyaltyAct) && s.zones_check(source.zone))
         {
-            if !valid_filter::matches_valid_card_selector_opt(
+            if !valid_filter::matches_valid_card_selector_opt_in_game(
                 st_ab.ir.valid_card.as_ref(),
                 card,
                 source,
+                game,
             ) {
                 continue;
             }

@@ -14,7 +14,7 @@ pub fn any_with_adapt(game: &GameState, sa: &SpellAbility, card: &Card) -> bool 
             .iter()
             .filter(|s| s.check_mode(&StaticMode::CanAdapt) && s.zones_check(source.zone))
         {
-            if apply_with_adapt(st_ab, sa, card, source) {
+            if apply_with_adapt(st_ab, sa, card, source, game) {
                 return true;
             }
         }
@@ -27,8 +27,14 @@ pub fn apply_with_adapt(
     sa: &SpellAbility,
     card: &Card,
     source: &Card,
+    game: &GameState,
 ) -> bool {
-    if !valid_filter::matches_valid_card_selector_opt(st_ab.ir.valid_card.as_ref(), card, source) {
+    if !valid_filter::matches_valid_card_selector_opt_in_game(
+        st_ab.ir.valid_card.as_ref(),
+        card,
+        source,
+        game,
+    ) {
         return false;
     }
     if !matches_valid_sa(st_ab.ir.valid_sa.as_deref(), sa) {

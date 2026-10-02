@@ -264,7 +264,12 @@ fn apply(
         }
     }
 
-    if !valid_filter::matches_valid_card_selector_opt(st_ab.ir.valid_card.as_ref(), source, host) {
+    if !valid_filter::matches_valid_card_selector_opt_in_game(
+        st_ab.ir.valid_card.as_ref(),
+        source,
+        host,
+        game,
+    ) {
         return false;
     }
 
