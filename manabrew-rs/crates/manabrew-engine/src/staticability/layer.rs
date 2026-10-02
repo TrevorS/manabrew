@@ -1938,7 +1938,12 @@ fn static_affected_cards(game: &GameState, source_id: CardId, sa: &StaticAbility
             sa.ir.affected_zones.contains(&source_card.zone)
         };
         if in_affected_zone
-            && crate::card::valid_filter::matches_valid_card(affected_str, source_card, source_card)
+            && crate::card::valid_filter::matches_valid_card_selector_in_game(
+                &crate::parsing::cached_compiled_selector(affected_str),
+                source_card,
+                source_card,
+                game,
+            )
         {
             affected.push(source_id);
         }

@@ -8,6 +8,7 @@ use manabrew_engine::ids::{CardId, PlayerId};
 use manabrew_engine::replacement::replace_damage;
 use manabrew_engine::replacement::replacement_handler::ReplacementEvent;
 use manabrew_engine::spellability::SpellAbility;
+use manabrew_engine::staticability::layer::apply_continuous_effects;
 use manabrew_engine::staticability::static_ability_cant_be_cast::cant_be_cast_ability;
 use manabrew_engine::staticability::static_ability_panharmonicon::extra_triggers;
 
@@ -111,4 +112,20 @@ fn cloud_doubles_its_own_triggers_while_equipped() {
     let sword = put(&mut game, SWORD, p0, ZoneType::Battlefield);
     game.attach_to(sword, cloud);
     assert_eq!(extra(&game), 1);
+}
+
+const ILLUMINATOR: &str = "Name:Chittering Illuminator\nManaCost:2 U\nTypes:Creature Rat\nPT:2/2\nS:Mode$ Continuous | Affected$ Card.Self+TopLibrary | AffectedZone$ Library | EffectZone$ All | MayPlay$ True | MayLookAt$ You | Description$ As long as CARDNAME is at the top of your library, you may look at it any time and you may cast it.\nOracle:";
+
+#[test]
+fn a_top_of_library_card_lets_its_owner_look_at_it() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let illuminator = put(&mut game, ILLUMINATOR, p0, ZoneType::Library);
+
+    apply_continuous_effects(&mut game);
+    assert!(game.card(illuminator).may_player_look(p0));
+
+    put(&mut game, BEAR, p0, ZoneType::Library);
+    apply_continuous_effects(&mut game);
+    assert!(!game.card(illuminator).may_player_look(p0));
 }
