@@ -124,9 +124,9 @@ pub struct CardOtherPart {
     pub base_toughness: Option<i32>,
     pub keywords: crate::keyword::keyword_collection::KeywordCollection,
     pub abilities: Vec<String>,
-    pub triggers: Vec<Trigger>,
-    pub static_abilities: Vec<crate::staticability::StaticAbility>,
-    pub replacement_effects: Vec<crate::replacement::ReplacementEffect>,
+    pub triggers: SharedVec<Trigger>,
+    pub static_abilities: SharedVec<crate::staticability::StaticAbility>,
+    pub replacement_effects: SharedVec<crate::replacement::ReplacementEffect>,
     pub svars: BTreeMap<String, String>,
 }
 
@@ -146,9 +146,9 @@ impl CardOtherPart {
             base_toughness: self.base_toughness,
             keywords: self.keywords.clone(),
             abilities: self.abilities.clone(),
-            triggers: Vec::new(),
-            static_abilities: Vec::new(),
-            replacement_effects: Vec::new(),
+            triggers: SharedVec::default(),
+            static_abilities: SharedVec::default(),
+            replacement_effects: SharedVec::default(),
             svars: self.svars.clone(),
         }
     }
@@ -5327,10 +5327,10 @@ impl Card {
             std::mem::swap(&mut self.base_toughness, &mut other.base_toughness);
             std::mem::swap(&mut self.keywords, &mut other.keywords);
             std::mem::swap(&mut self.abilities, &mut other.abilities);
-            std::mem::swap(&mut *self.triggers, &mut other.triggers);
-            std::mem::swap(&mut *self.static_abilities, &mut other.static_abilities);
+            std::mem::swap(&mut self.triggers, &mut other.triggers);
+            std::mem::swap(&mut self.static_abilities, &mut other.static_abilities);
             std::mem::swap(
-                &mut *self.replacement_effects,
+                &mut self.replacement_effects,
                 &mut other.replacement_effects,
             );
             std::mem::swap(&mut self.svars, &mut other.svars);
