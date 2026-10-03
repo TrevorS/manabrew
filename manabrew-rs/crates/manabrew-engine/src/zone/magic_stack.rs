@@ -575,6 +575,10 @@ impl MagicStack {
 
     /// Clear the undo stack entirely.
     /// Mirrors Java's `MagicStack.clearUndoStack()`.
+    pub fn undo_stack_is_clear(&self) -> bool {
+        self.undo_stack.is_empty() && self.undo_stack_owner.is_none()
+    }
+
     pub fn clear_undo_stack(&mut self) {
         self.undo_stack.clear();
         self.undo_stack_owner = None;

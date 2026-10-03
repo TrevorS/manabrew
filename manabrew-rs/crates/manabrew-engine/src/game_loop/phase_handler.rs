@@ -49,7 +49,7 @@ impl GameLoop {
                 for command in game.end_of_combat.execute_until(None) {
                     command.run(game, &mut *self.game_rng);
                 }
-                self.combat.clear_with_cards(&mut game.cards);
+                self.combat.clear_with_cards(game);
                 state = TurnMachineState::Cleanup;
                 continue;
             }
@@ -272,7 +272,9 @@ impl GameLoop {
                 emit_phase_trigger,
             } => {
                 // Clear undo stack on phase change (can't undo across phases).
-                game.stack.clear_undo_stack();
+                if !game.stack.undo_stack_is_clear() {
+                    game.stack.clear_undo_stack();
+                }
 
                 // Run BeginPhase replacement effects before entering the phase.
                 {

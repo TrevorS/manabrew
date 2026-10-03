@@ -134,6 +134,15 @@ impl GameLoop {
         action_space: &crate::agent::PriorityActionSpace,
     ) {
         for action in &action_space.activatable {
+            let has_targets = game
+                .card(action.card_id)
+                .activated_abilities
+                .iter()
+                .find(|ability| ability.ability_index == action.ability_index)
+                .is_some_and(|ability| !ability.sub_ability_targets.is_empty());
+            if !has_targets {
+                continue;
+            }
             if let Some(ability) = game
                 .card_mut(action.card_id)
                 .activated_abilities

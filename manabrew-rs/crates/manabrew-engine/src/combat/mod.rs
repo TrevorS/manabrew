@@ -126,9 +126,11 @@ impl CombatState {
     }
 
     /// Clear combat state, including the `attacking_player` flag on each attacker card.
-    pub fn clear_with_cards(&mut self, cards: &mut [Arc<crate::card::Card>]) {
+    pub fn clear_with_cards(&mut self, game: &mut crate::game::GameState) {
         for &(attacker_id, _) in &self.attackers {
-            Arc::make_mut(&mut cards[attacker_id.index()]).attacking_player = None;
+            if game.card(attacker_id).attacking_player.is_some() {
+                game.card_mut(attacker_id).attacking_player = None;
+            }
         }
         // Preserve lki_cache across clear_with_cards (persists until end of combat)
         let lki = std::mem::take(&mut self.lki_cache);

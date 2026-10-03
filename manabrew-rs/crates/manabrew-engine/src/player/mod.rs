@@ -960,9 +960,11 @@ pub fn add_inbound_token(game: &mut GameState, player: PlayerId, card: CardId) {
 }
 
 pub fn remove_inbound_token(game: &mut GameState, player: PlayerId, card: CardId) {
-    game.player_mut(player)
-        .inbound_tokens
-        .retain(|&c| c != card);
+    if game.player(player).inbound_tokens.contains(&card) {
+        game.player_mut(player)
+            .inbound_tokens
+            .retain(|&c| c != card);
+    }
 }
 
 pub fn on_mulliganned(game: &mut GameState, player: PlayerId) {

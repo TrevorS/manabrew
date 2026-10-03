@@ -8,7 +8,7 @@ impl GameLoop {
             crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::Combat);
         let active = game.active_player();
         let defending = game.opponent_of(active);
-        self.combat.clear_with_cards(&mut game.cards);
+        self.combat.clear_with_cards(game);
         game.turn.combat_block_assignments.clear();
         self.combat.attacking_player = Some(active);
         self.combat.defending_player = Some(defending);
@@ -22,14 +22,14 @@ impl GameLoop {
         self.emit_phase_trigger(game, PhaseType::CombatBegin);
         self.step_with_priority(game, agents, false);
         if game.game_over || game.end_turn_requested {
-            self.combat.clear_with_cards(&mut game.cards);
+            self.combat.clear_with_cards(game);
             return;
         }
 
         // EndCombatPhase (issue #22): if requested, exit combat early
         if game.end_combat_requested {
             game.end_combat_requested = false;
-            self.combat.clear_with_cards(&mut game.cards);
+            self.combat.clear_with_cards(game);
             return;
         }
 
@@ -594,7 +594,7 @@ impl GameLoop {
         // declared), so priority is always given here.
         self.step_with_priority(game, agents, false);
         if game.game_over || game.end_turn_requested {
-            self.combat.clear_with_cards(&mut game.cards);
+            self.combat.clear_with_cards(game);
             return;
         }
 
@@ -924,7 +924,7 @@ impl GameLoop {
 
             self.step_with_priority(game, agents, false);
             if game.game_over || game.end_turn_requested {
-                self.combat.clear_with_cards(&mut game.cards);
+                self.combat.clear_with_cards(game);
                 game.turn.combat_block_assignments.clear();
                 return;
             }
@@ -993,7 +993,7 @@ impl GameLoop {
                 self.step_with_priority(game, agents, false);
             }
             if game.game_over || game.end_turn_requested {
-                self.combat.clear_with_cards(&mut game.cards);
+                self.combat.clear_with_cards(game);
                 game.turn.combat_block_assignments.clear();
                 return;
             }
@@ -1067,7 +1067,7 @@ impl GameLoop {
                 self.step_with_priority(game, agents, false);
             }
             if game.game_over || game.end_turn_requested {
-                self.combat.clear_with_cards(&mut game.cards);
+                self.combat.clear_with_cards(game);
                 game.turn.combat_block_assignments.clear();
                 return;
             }
@@ -1097,7 +1097,7 @@ impl GameLoop {
             }
         }
 
-        self.combat.clear_with_cards(&mut game.cards);
+        self.combat.clear_with_cards(game);
         game.turn.combat_block_assignments.clear();
         // Recompute continuous effects after combat ends so that stale
         // combat-dependent modifiers (e.g. Watchdog's "creatures attacking you
