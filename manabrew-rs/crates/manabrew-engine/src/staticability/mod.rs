@@ -1,4 +1,6 @@
 pub mod layer;
+#[cfg(feature = "layer-skip-stats")]
+pub mod layer_skip_stats;
 pub mod static_ability;
 pub mod static_ability_activate_ability_as_if_haste;
 pub mod static_ability_adapt;

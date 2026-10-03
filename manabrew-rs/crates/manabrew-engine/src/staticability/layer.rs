@@ -212,7 +212,10 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     if game.hold_checking_static_abilities {
         return;
     }
-    if game.layer_key_after_pass.0.as_ref() == Some(&game.layer_key()) {
+    let skip = game.layer_key_after_pass.0.as_ref() == Some(&game.layer_key());
+    #[cfg(feature = "layer-skip-stats")]
+    super::layer_skip_stats::record(game, skip);
+    if skip {
         if verify_layer_skip_enabled() {
             verify_layer_skip(game);
         }
@@ -735,6 +738,10 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         }
     }
     game.layer_key_after_pass.0 = Some(game.layer_key());
+    #[cfg(feature = "layer-skip-stats")]
+    {
+        game.layer_key_after_pass.1 = super::layer_skip_stats::capture(game);
+    }
 }
 
 fn verify_layer_skip_enabled() -> bool {

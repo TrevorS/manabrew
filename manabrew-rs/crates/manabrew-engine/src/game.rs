@@ -188,6 +188,8 @@ pub enum DamageLkiTarget {
 pub struct Tracked<T> {
     value: T,
     stamp: u64,
+    #[cfg(feature = "layer-skip-stats")]
+    writer: Option<&'static std::panic::Location<'static>>,
 }
 
 fn next_layer_stamp() -> u64 {
@@ -212,6 +214,8 @@ impl<T> Tracked<T> {
         Self {
             value,
             stamp: next_layer_stamp(),
+            #[cfg(feature = "layer-skip-stats")]
+            writer: None,
         }
     }
 
@@ -229,8 +233,13 @@ impl<T> std::ops::Deref for Tracked<T> {
 }
 
 impl<T> std::ops::DerefMut for Tracked<T> {
+    #[cfg_attr(feature = "layer-skip-stats", track_caller)]
     fn deref_mut(&mut self) -> &mut T {
         self.stamp = next_layer_stamp();
+        #[cfg(feature = "layer-skip-stats")]
+        {
+            self.writer = Some(std::panic::Location::caller());
+        }
         &mut self.value
     }
 }
@@ -254,6 +263,7 @@ where
     type Item = <&'a mut T as IntoIterator>::Item;
     type IntoIter = <&'a mut T as IntoIterator>::IntoIter;
 
+    #[cfg_attr(feature = "layer-skip-stats", track_caller)]
     fn into_iter(self) -> Self::IntoIter {
         (&mut **self).into_iter()
     }
@@ -323,7 +333,85 @@ pub struct LayerKey {
 /// A cache, not game state: its Debug prints nothing of it, so two equal games format the
 /// same whether or not their layer pass has run (checkpoint digests, the layer-skip verify).
 #[derive(Clone, Default)]
-pub struct LayerKeyCache(pub Option<LayerKey>);
+pub struct LayerKeyCache(
+    pub Option<LayerKey>,
+    #[cfg(feature = "layer-skip-stats")]
+    pub  Option<Arc<crate::staticability::layer_skip_stats::LayerStatsSnapshot>>,
+);
+
+#[cfg(feature = "layer-skip-stats")]
+pub const LAYER_KEY_FIELDS: [&str; 11] = [
+    "cards",
+    "players",
+    "zones",
+    "stack",
+    "last_state_battlefield",
+    "last_state_battlefield_combat_lki",
+    "change_zone_lki_info",
+    "counter_added_this_turn",
+    "left_battlefield_this_turn",
+    "left_graveyard_this_turn",
+    "damage_this_turn_lki",
+];
+
+#[cfg(feature = "layer-skip-stats")]
+impl LayerKey {
+    pub fn moved_fields(&self, other: &Self) -> ([bool; 11], bool) {
+        let moved = std::array::from_fn(|index| self.stamps[index] != other.stamps[index]);
+        let scalars = LayerKey {
+            stamps: [0; 11],
+            ..self.clone()
+        } != LayerKey {
+            stamps: [0; 11],
+            ..other.clone()
+        };
+        (moved, scalars)
+    }
+
+    pub fn moved_scalars(&self, other: &Self) -> Vec<&'static str> {
+        let mut moved = Vec::new();
+        macro_rules! check {
+            ($($field:ident),*) => {
+                $(if self.$field != other.$field {
+                    moved.push(stringify!($field));
+                })*
+            };
+        }
+        check!(
+            turn_number,
+            active_player,
+            player_previous_turn,
+            phase,
+            is_extra_turn,
+            num_players,
+            combat_attackers_declared,
+            combat_blockers_declared,
+            combat_block_assignments,
+            drawn_for_turn,
+            n_upkeeps_this_turn,
+            n_combats_this_turn,
+            n_end_of_turns_this_turn,
+            extra_phases,
+            is_night,
+            day_night_started,
+            player_order,
+            game_over,
+            winner,
+            extra_turns,
+            prevent_all_combat_damage,
+            monarch,
+            initiative_holder,
+            end_turn_requested,
+            end_combat_requested,
+            mirror_forge_bugs,
+            next_card_id,
+            next_zone_timestamp,
+            card_names_unchanged,
+            last_sacrificed_card
+        );
+        moved
+    }
+}
 
 impl std::fmt::Debug for LayerKeyCache {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -604,6 +692,7 @@ impl GameState {
         &self.cards[id.index()]
     }
 
+    #[cfg_attr(feature = "layer-skip-stats", track_caller)]
     pub fn card_mut(&mut self, id: CardId) -> &mut Card {
         Arc::make_mut(&mut self.cards[id.index()])
     }
@@ -612,6 +701,7 @@ impl GameState {
         &self.players[id.index()]
     }
 
+    #[cfg_attr(feature = "layer-skip-stats", track_caller)]
     pub fn player_mut(&mut self, id: PlayerId) -> &mut PlayerState {
         &mut self.players[id.index()]
     }
@@ -620,6 +710,7 @@ impl GameState {
         self.zones.get(zone_type, owner).expect("Zone not found")
     }
 
+    #[cfg_attr(feature = "layer-skip-stats", track_caller)]
     pub fn zone_mut(&mut self, zone_type: ZoneType, owner: PlayerId) -> &mut Zone {
         self.zones
             .get_mut(zone_type, owner)
@@ -632,6 +723,23 @@ impl GameState {
 
     pub fn replace_zone_store(&mut self, zones: ZoneStore) {
         self.zones = Tracked::new(zones);
+    }
+
+    #[cfg(feature = "layer-skip-stats")]
+    pub fn layer_key_writers(&self) -> [Option<&'static std::panic::Location<'static>>; 11] {
+        [
+            self.cards.writer,
+            self.players.writer,
+            self.zones.writer,
+            self.stack.writer,
+            self.last_state_battlefield.writer,
+            self.last_state_battlefield_combat_lki.writer,
+            self.change_zone_lki_info.writer,
+            self.counter_added_this_turn.writer,
+            self.left_battlefield_this_turn.writer,
+            self.left_graveyard_this_turn.writer,
+            self.damage_this_turn_lki.writer,
+        ]
     }
 
     pub fn layer_key(&self) -> LayerKey {

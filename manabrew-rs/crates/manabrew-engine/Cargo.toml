@@ -5,6 +5,9 @@ edition = "2021"
 license.workspace = true
 description = "Magic: The Gathering rules engine — a Rust port of Forge"
 
+[features]
+layer-skip-stats = []
+
 [dependencies]
 forge-foundation = { path = "../forge-foundation", version = "0.3.3" }
 forge-card-script = { path = "../forge-card-script", version = "0.1.1" }
