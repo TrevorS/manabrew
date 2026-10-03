@@ -182,18 +182,156 @@ pub enum DamageLkiTarget {
     Card(Arc<Card>),
 }
 
+/// Every mutable borrow takes a stamp no other borrow on any thread has taken, so an
+/// unchanged stamp proves the value is unchanged (`apply_continuous_effects` relies on it).
+#[derive(Clone)]
+pub struct Tracked<T> {
+    value: T,
+    stamp: u64,
+}
+
+fn next_layer_stamp() -> u64 {
+    const BLOCK: u64 = 1 << 32;
+    static NEXT_BLOCK: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    thread_local! {
+        static NEXT: std::cell::Cell<(u64, u64)> = const { std::cell::Cell::new((0, 0)) };
+    }
+    NEXT.with(|next| {
+        let (mut stamp, mut end) = next.get();
+        if stamp == end {
+            stamp = NEXT_BLOCK.fetch_add(BLOCK, std::sync::atomic::Ordering::Relaxed);
+            end = stamp + BLOCK;
+        }
+        next.set((stamp + 1, end));
+        stamp
+    })
+}
+
+impl<T> Tracked<T> {
+    pub fn new(value: T) -> Self {
+        Self {
+            value,
+            stamp: next_layer_stamp(),
+        }
+    }
+
+    pub fn stamp(&self) -> u64 {
+        self.stamp
+    }
+}
+
+impl<T> std::ops::Deref for Tracked<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.value
+    }
+}
+
+impl<T> std::ops::DerefMut for Tracked<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        self.stamp = next_layer_stamp();
+        &mut self.value
+    }
+}
+
+impl<'a, T> IntoIterator for &'a Tracked<T>
+where
+    &'a T: IntoIterator,
+{
+    type Item = <&'a T as IntoIterator>::Item;
+    type IntoIter = <&'a T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.value).into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut Tracked<T>
+where
+    &'a mut T: IntoIterator,
+{
+    type Item = <&'a mut T as IntoIterator>::Item;
+    type IntoIter = <&'a mut T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&mut **self).into_iter()
+    }
+}
+
+impl<T: Default> Default for Tracked<T> {
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for Tracked<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.value.fmt(f)
+    }
+}
+
+impl<T: Serialize> Serialize for Tracked<T> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.value.serialize(serializer)
+    }
+}
+
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for Tracked<T> {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        T::deserialize(deserializer).map(Self::new)
+    }
+}
+
+/// Everything `apply_continuous_effects` reads. `priority_player` is left out because no
+/// static ability, condition or count reads it, and it changes on every pass of priority.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LayerKey {
+    stamps: [u64; 11],
+    turn_number: u32,
+    active_player: PlayerId,
+    player_previous_turn: Option<PlayerId>,
+    phase: forge_foundation::PhaseType,
+    is_extra_turn: bool,
+    num_players: u32,
+    combat_attackers_declared: bool,
+    combat_blockers_declared: bool,
+    combat_block_assignments: Vec<(CardId, CardId)>,
+    drawn_for_turn: bool,
+    n_upkeeps_this_turn: i32,
+    n_combats_this_turn: i32,
+    n_end_of_turns_this_turn: i32,
+    extra_phases: usize,
+    is_night: bool,
+    day_night_started: bool,
+    player_order: Vec<PlayerId>,
+    game_over: bool,
+    winner: Option<PlayerId>,
+    extra_turns: usize,
+    prevent_all_combat_damage: bool,
+    monarch: Option<PlayerId>,
+    initiative_holder: Option<PlayerId>,
+    end_turn_requested: bool,
+    end_combat_requested: bool,
+    mirror_forge_bugs: bool,
+    next_card_id: u32,
+    next_zone_timestamp: u64,
+    card_names_unchanged: bool,
+    last_sacrificed_card: Option<CardId>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameState {
     // Arenas
-    pub cards: Vec<Arc<Card>>,
-    pub players: Vec<PlayerState>,
+    pub cards: Tracked<Vec<Arc<Card>>>,
+    pub players: Tracked<Vec<PlayerState>>,
 
     // Zones: keyed by (ZoneType, PlayerId)
     #[serde(skip)]
-    zones: ZoneStore,
+    zones: Tracked<ZoneStore>,
 
     // The stack
-    pub stack: MagicStack,
+    pub stack: Tracked<MagicStack>,
 
     /// Cost payment tracking stack — used by triggers to inspect cost payments.
     /// Mirrors Java's `Game.costPaymentStack`.
@@ -307,13 +445,13 @@ pub struct GameState {
     /// Mirrors Java's `Game.lastStateBattlefield`.
     /// Updated by `copy_last_state()` at key game checkpoints.
     #[serde(skip)]
-    pub last_state_battlefield: Vec<crate::lki::CardSnapshot>,
+    pub last_state_battlefield: Tracked<Vec<crate::lki::CardSnapshot>>,
 
     #[serde(skip)]
     pub last_state_graveyard: Vec<CardId>,
 
     #[serde(skip)]
-    pub last_state_battlefield_combat_lki: Vec<(CardId, Option<bool>)>,
+    pub last_state_battlefield_combat_lki: Tracked<Vec<(CardId, Option<bool>)>>,
 
     /// Snapshot of cards on the battlefield at the start of the current SBA check.
     /// Used by `DisableTriggers` (Hushbringer) to check LKI — a creature that dies
@@ -327,7 +465,7 @@ pub struct GameState {
     pub replacement_last_state_battlefield: Option<Vec<CardId>>,
 
     #[serde(skip)]
-    pub change_zone_lki_info: crate::HashMap<CardId, Arc<Card>>,
+    pub change_zone_lki_info: Tracked<crate::HashMap<CardId, Arc<Card>>>,
 
     /// Last card sacrificed as a cost (for `Sacrificed$CardPower` SVar resolution).
     /// Mirrors Java's `sa.getPaidList("SacrificedCards")`.
@@ -335,15 +473,17 @@ pub struct GameState {
     pub last_sacrificed_card: Option<CardId>,
     #[serde(skip)]
     pub counter_added_this_turn:
-        BTreeMap<(GameEntity, Option<u64>, CounterType, Option<PlayerId>), i32>,
+        Tracked<BTreeMap<(GameEntity, Option<u64>, CounterType, Option<PlayerId>), i32>>,
     #[serde(skip)]
-    pub left_battlefield_this_turn: Vec<CardId>,
+    pub left_battlefield_this_turn: Tracked<Vec<CardId>>,
     #[serde(skip)]
-    pub left_graveyard_this_turn: Vec<CardId>,
+    pub left_graveyard_this_turn: Tracked<Vec<CardId>>,
     #[serde(skip)]
-    pub damage_this_turn_lki: Vec<DamageThisTurnLki>,
+    pub damage_this_turn_lki: Tracked<Vec<DamageThisTurnLki>>,
     #[serde(skip)]
     pub granted_trigger_ids: crate::HashMap<(CardId, u64, Option<CardId>, u64, String), u32>,
+    #[serde(skip)]
+    pub layer_key_after_pass: Option<LayerKey>,
 }
 
 impl GameState {
@@ -360,10 +500,10 @@ impl GameState {
         let zones = ZoneStore::new(&player_order);
 
         GameState {
-            cards: Vec::new(),
-            players,
-            zones,
-            stack: MagicStack::new(),
+            cards: Tracked::new(Vec::new()),
+            players: Tracked::new(players),
+            zones: Tracked::new(zones),
+            stack: Tracked::new(MagicStack::new()),
             cost_payment_stack: CostPaymentStack::new(),
             is_night: false,
             day_night_started: false,
@@ -402,18 +542,19 @@ impl GameState {
             statics_current_after_sba: false,
             pending_remove_from_combat: Vec::new(),
             token_edition_pins: std::collections::BTreeMap::new(),
-            last_state_battlefield: Vec::new(),
+            last_state_battlefield: Tracked::default(),
             last_state_graveyard: Vec::new(),
-            last_state_battlefield_combat_lki: Vec::new(),
+            last_state_battlefield_combat_lki: Tracked::default(),
             pre_sba_battlefield: Vec::new(),
             replacement_last_state_battlefield: None,
-            change_zone_lki_info: crate::HashMap::default(),
+            change_zone_lki_info: Tracked::default(),
             last_sacrificed_card: None,
-            counter_added_this_turn: BTreeMap::new(),
-            left_battlefield_this_turn: Vec::new(),
-            left_graveyard_this_turn: Vec::new(),
-            damage_this_turn_lki: Vec::new(),
+            counter_added_this_turn: Tracked::default(),
+            left_battlefield_this_turn: Tracked::default(),
+            left_graveyard_this_turn: Tracked::default(),
+            damage_this_turn_lki: Tracked::default(),
             granted_trigger_ids: crate::HashMap::default(),
+            layer_key_after_pass: None,
         }
     }
 
@@ -475,11 +616,60 @@ impl GameState {
     }
 
     pub fn zone_store_snapshot(&self) -> ZoneStore {
-        self.zones.clone()
+        (*self.zones).clone()
     }
 
     pub fn replace_zone_store(&mut self, zones: ZoneStore) {
-        self.zones = zones;
+        self.zones = Tracked::new(zones);
+    }
+
+    pub fn layer_key(&self) -> LayerKey {
+        let turn = &self.turn;
+        LayerKey {
+            stamps: [
+                self.cards.stamp(),
+                self.players.stamp(),
+                self.zones.stamp(),
+                self.stack.stamp(),
+                self.last_state_battlefield.stamp(),
+                self.last_state_battlefield_combat_lki.stamp(),
+                self.change_zone_lki_info.stamp(),
+                self.counter_added_this_turn.stamp(),
+                self.left_battlefield_this_turn.stamp(),
+                self.left_graveyard_this_turn.stamp(),
+                self.damage_this_turn_lki.stamp(),
+            ],
+            turn_number: turn.turn_number,
+            active_player: turn.active_player,
+            player_previous_turn: turn.player_previous_turn,
+            phase: turn.phase,
+            is_extra_turn: turn.is_extra_turn,
+            num_players: turn.num_players,
+            combat_attackers_declared: turn.combat_attackers_declared,
+            combat_blockers_declared: turn.combat_blockers_declared,
+            combat_block_assignments: turn.combat_block_assignments.clone(),
+            drawn_for_turn: turn.drawn_for_turn,
+            n_upkeeps_this_turn: turn.n_upkeeps_this_turn,
+            n_combats_this_turn: turn.n_combats_this_turn,
+            n_end_of_turns_this_turn: turn.n_end_of_turns_this_turn,
+            extra_phases: turn.extra_phases.len(),
+            is_night: self.is_night,
+            day_night_started: self.day_night_started,
+            player_order: self.player_order.clone(),
+            game_over: self.game_over,
+            winner: self.winner,
+            extra_turns: self.extra_turns.len(),
+            prevent_all_combat_damage: self.prevent_all_combat_damage,
+            monarch: self.monarch,
+            initiative_holder: self.initiative_holder,
+            end_turn_requested: self.end_turn_requested,
+            end_combat_requested: self.end_combat_requested,
+            mirror_forge_bugs: self.mirror_forge_bugs,
+            next_card_id: self.next_card_id,
+            next_zone_timestamp: self.next_zone_timestamp,
+            card_names_unchanged: self.card_names_unchanged,
+            last_sacrificed_card: self.last_sacrificed_card,
+        }
     }
 
     pub fn iter_zones(&self) -> impl Iterator<Item = (ZoneKey, &Zone)> {
@@ -745,15 +935,13 @@ impl GameState {
         counter_type: &CounterType,
         amount: i32,
     ) {
-        let total = self
-            .counter_added_this_turn
-            .entry((
-                entity,
-                self.counter_entity_timestamp(entity),
-                counter_type.clone(),
-                putter,
-            ))
-            .or_default();
+        let key = (
+            entity,
+            self.counter_entity_timestamp(entity),
+            counter_type.clone(),
+            putter,
+        );
+        let total = self.counter_added_this_turn.entry(key).or_default();
         *total = if self.mirror_forge_bugs {
             total.wrapping_add(amount)
         } else {

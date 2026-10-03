@@ -1909,8 +1909,11 @@ impl GameState {
         parts: &mut SbaReplacementParts<'_>,
         agents: &mut [Box<dyn PlayerAgent>],
     ) -> bool {
-        for (player, pool) in self.players.iter_mut().zip(parts.mana_pools.iter()) {
-            player.mana_pool_colors = pool.mana_colors();
+        for (index, pool) in parts.mana_pools.iter().enumerate().take(self.players.len()) {
+            let colors = pool.mana_colors();
+            if self.players[index].mana_pool_colors != colors {
+                self.players[index].mana_pool_colors = colors;
+            }
         }
         self.check_state_based_actions_with_parts(
             Some(trigger_handler),
@@ -2092,11 +2095,14 @@ impl GameState {
             self.replacement_last_state_battlefield = outer_last_state;
             let cards = &self.cards;
             let pre_sba_battlefield = &self.pre_sba_battlefield;
-            let combat_lki_len = self.last_state_battlefield_combat_lki.len();
-            self.last_state_battlefield_combat_lki.retain(|(id, _)| {
+            let kept = |(id, _): &(CardId, Option<bool>)| {
                 !pre_sba_battlefield.contains(id) || cards[id.index()].zone != ZoneType::Graveyard
-            });
-            if changed || self.last_state_battlefield_combat_lki.len() != combat_lki_len {
+            };
+            let combat_lki_changed = !self.last_state_battlefield_combat_lki.iter().all(kept);
+            if combat_lki_changed {
+                self.last_state_battlefield_combat_lki.retain(kept);
+            }
+            if changed || combat_lki_changed {
                 self.statics_current_after_sba = false;
             }
             let table = std::mem::replace(&mut self.pending_change_zone_table, outer_table);

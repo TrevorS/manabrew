@@ -98,6 +98,38 @@ impl CardSnapshot {
         }
     }
 
+    fn matches_card(&self, card: &Card) -> bool {
+        let Self {
+            id: _,
+            controller,
+            owner,
+            power,
+            toughness,
+            counters,
+            tapped,
+            type_line,
+            zone,
+            card_name,
+            exiled_cards,
+            saddled_by,
+            attachments,
+            granted_keywords,
+        } = self;
+        *controller == card.controller
+            && *owner == card.owner
+            && *power == card.power()
+            && *toughness == card.toughness()
+            && *counters == card.counters
+            && *tapped == card.tapped
+            && *type_line == card.type_line
+            && *zone == card.zone
+            && *card_name == card.card_name
+            && *exiled_cards == card.exiled_cards
+            && *saddled_by == card.saddled_by_this_turn()
+            && *attachments == card.attachments
+            && *granted_keywords == card.granted_keywords
+    }
+
     fn update_from_card(&mut self, card: &Card) {
         let Self {
             id: _,
@@ -151,17 +183,29 @@ impl crate::game::GameState {
         // This matches Java's behavior where lastStateBattlefield is only
         // fully cleared at major checkpoints but individual entries persist
         // through resolution chains.
-        for card in self.cards.iter() {
-            if card.zone == ZoneType::Battlefield {
-                if let Some(existing) = self
-                    .last_state_battlefield
-                    .iter_mut()
+        let current = self
+            .cards
+            .iter()
+            .filter(|card| card.zone == ZoneType::Battlefield)
+            .all(|card| {
+                self.last_state_battlefield
+                    .iter()
                     .find(|s| s.id == card.id)
-                {
-                    existing.update_from_card(card);
-                } else {
-                    self.last_state_battlefield
-                        .push(CardSnapshot::from_card(card));
+                    .is_some_and(|snapshot| snapshot.matches_card(card))
+            });
+        if !current {
+            for card in self.cards.iter() {
+                if card.zone == ZoneType::Battlefield {
+                    if let Some(existing) = self
+                        .last_state_battlefield
+                        .iter_mut()
+                        .find(|s| s.id == card.id)
+                    {
+                        existing.update_from_card(card);
+                    } else {
+                        self.last_state_battlefield
+                            .push(CardSnapshot::from_card(card));
+                    }
                 }
             }
         }
@@ -169,7 +213,7 @@ impl crate::game::GameState {
     }
 
     pub fn copy_last_state_combat_lki(&mut self, combat: &crate::combat::CombatState) {
-        self.last_state_battlefield_combat_lki = self
+        let combat_lki: Vec<(CardId, Option<bool>)> = self
             .cards
             .iter()
             .filter(|card| card.zone == ZoneType::Battlefield)
@@ -181,6 +225,9 @@ impl crate::game::GameState {
                 )
             })
             .collect();
+        if *self.last_state_battlefield_combat_lki != combat_lki {
+            *self.last_state_battlefield_combat_lki = combat_lki;
+        }
     }
 
     /// Look up a card's LKI snapshot from the last battlefield state.
@@ -211,7 +258,9 @@ impl crate::game::GameState {
     }
 
     pub fn clear_change_zone_lki_info(&mut self) {
-        self.change_zone_lki_info.clear();
+        if !self.change_zone_lki_info.is_empty() {
+            self.change_zone_lki_info.clear();
+        }
     }
 
     pub fn add_lki_exiled_card(&mut self, host: CardId, card_id: CardId) {

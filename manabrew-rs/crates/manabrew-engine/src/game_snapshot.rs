@@ -22,7 +22,7 @@ impl GameSnapshot {
     ) -> Self {
         let mut game_copy = game.clone();
         if !include_stack {
-            game_copy.stack = MagicStack::new();
+            *game_copy.stack = MagicStack::new();
         }
         Self {
             game: game_copy,

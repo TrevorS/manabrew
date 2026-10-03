@@ -212,6 +212,12 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     if game.hold_checking_static_abilities {
         return;
     }
+    if game.layer_key_after_pass.as_ref() == Some(&game.layer_key()) {
+        if verify_layer_skip_enabled() {
+            verify_layer_skip(game);
+        }
+        return;
+    }
     let _perf_timer = crate::perf::ScopeTimer::start(
         crate::perf::Metric::ContinuousEffectsCalls,
         crate::perf::Metric::ContinuousEffectsNs,
@@ -728,6 +734,44 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             Arc::make_mut(card).apply_land_trait_changes();
         }
     }
+    game.layer_key_after_pass = Some(game.layer_key());
+}
+
+fn verify_layer_skip_enabled() -> bool {
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ENABLED.get_or_init(
+        || match std::env::var("manabrew_engine_VERIFY_LAYER_SKIP") {
+            Ok(value) => value != "0",
+            Err(_) => cfg!(debug_assertions),
+        },
+    )
+}
+
+fn verify_layer_skip(game: &GameState) {
+    let mut check = game.clone();
+    check.layer_key_after_pass = None;
+    apply_continuous_effects(&mut check);
+    check
+        .layer_key_after_pass
+        .clone_from(&game.layer_key_after_pass);
+    for (after, before) in check.cards.iter().zip(game.cards.iter()) {
+        if !Arc::ptr_eq(after, before) {
+            assert_eq!(
+                format!("{after:?}"),
+                format!("{before:?}"),
+                "apply_continuous_effects skipped a pass that changes card {}",
+                before.id.0
+            );
+        }
+    }
+    let mut rest = game.clone();
+    rest.cards.clear();
+    check.cards.clear();
+    assert_eq!(
+        format!("{check:?}"),
+        format!("{rest:?}"),
+        "apply_continuous_effects skipped a pass that changes the game"
+    );
 }
 
 #[allow(clippy::too_many_arguments)]

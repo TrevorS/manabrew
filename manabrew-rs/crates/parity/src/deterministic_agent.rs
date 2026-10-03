@@ -274,7 +274,7 @@ impl DeterministicAgent {
         for entry in game.stack.iter() {
             stack.push(Self::shallow_stack_entry(entry));
         }
-        sim.stack = stack;
+        *sim.stack = stack;
         sim.turn = game.turn.clone();
         sim.player_order = game.player_order.clone();
         sim.game_over = game.game_over;
@@ -319,7 +319,7 @@ impl DeterministicAgent {
         let starting_life = game.players.first().map(|p| p.life).unwrap_or(20);
         let mut sim = GameState::new(&player_name_refs, starting_life);
         sim.players = game.players.clone();
-        sim.cards = Self::shallow_cards(game);
+        *sim.cards = Self::shallow_cards(game);
         sim.turn = game.turn.clone();
         sim
     }
