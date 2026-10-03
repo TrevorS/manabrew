@@ -1601,6 +1601,7 @@ mod tests {
 
         let mut sa = SpellAbility::new_simple(Some(evoked), p0, "SP$ Permanent");
         sa.alt_cost = Some(crate::spellability::AlternativeCost::Evoke);
+        game.card_mut(evoked).cast_sa = Some(Box::new(sa.clone()));
 
         game.stack.push(StackEntry {
             id: 1,

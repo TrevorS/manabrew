@@ -974,6 +974,17 @@ impl Card {
                 });
         }
 
+        if kw.starts_with("Evoke:") {
+            let raw = "Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self+evoked | Secondary$ True | Execute$ TrigEvoke | TriggerDescription$ Evoke";
+            if let Some(mut trig) = parse_trigger(raw, next_id) {
+                trig.execute = "TrigEvoke".to_string();
+                self.add_trigger(trig);
+            }
+            self.svars
+                .entry("TrigEvoke".to_string())
+                .or_insert_with(|| "DB$ Sacrifice".to_string());
+        }
+
         let day_time_triggers: &[(&str, &str, &str)] = match kw {
             "Daybound" => &[
                 (

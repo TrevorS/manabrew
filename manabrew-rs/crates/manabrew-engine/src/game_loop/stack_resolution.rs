@@ -477,27 +477,6 @@ impl GameLoop {
                 // attaching the Aura to the wrong card.
                 Self::attach_aura_on_resolution(game, agents, &self.mana_pools, &entry, card_id);
 
-                // Evoke: register a one-shot ETB trigger that sacrifices this creature.
-                // This mirrors Forge Java semantics where Evoke uses a ChangesZone trigger
-                // and allows normal ETB abilities to trigger before the sacrifice resolves.
-                // Java parity: `CardFactoryUtil` attaches the "sacrifice when it enters"
-                // trigger once per Evoke keyword on the card, not once per cast. A card
-                // with both intrinsic `Evoke:1 U` and a granted `Evoke:4` (e.g. an
-                // Elemental in hand under Ashling, the Limitless) therefore carries
-                // two Evoke sac triggers. All of them fire on ETB; the first sacrifice
-                // succeeds and the rest are no-ops because the creature has already
-                // left the battlefield, but each one still consumes a stack entry.
-                if alt_cost == Some(crate::spellability::AlternativeCost::Evoke) {
-                    let evoke_keyword_count =
-                        (entry.spell_ability.evoke_keyword_count as usize).max(1);
-                    self.register_evoke_sacrifice_triggers(
-                        game,
-                        card_id,
-                        player,
-                        evoke_keyword_count,
-                    );
-                }
-
                 let room_door = (game.card(card_id).type_line.has_subtype("Room")
                     && game.card(card_id).has_s_var("RoomRightSplitCost"))
                 .then(|| {
@@ -1326,50 +1305,6 @@ impl GameLoop {
         }
     }
 
-    /// CR 707.10 / 111.11 — copy of a permanent spell becomes a token.
-    fn register_evoke_sacrifice_triggers(
-        &mut self,
-        game: &GameState,
-        card_id: CardId,
-        player: PlayerId,
-        evoke_keyword_count: usize,
-    ) {
-        // `CardCopyService.copyCard` rebuilds a card with a paper card from its script, which
-        // makes the `T:` triggers before the keyword triggers; a token or a copied permanent
-        // goes through `copyStats`, which copies the keywords first.
-        let keyword_triggers_first = {
-            let card = game.card(card_id);
-            card.is_token || card.copied_permanent.is_some()
-        };
-        for i in 0..evoke_keyword_count {
-            self.trigger_handler.register_delayed_trigger(
-                crate::trigger::handler::DelayedTrigger {
-                    mode: TriggerType::ChangesZone,
-                    trigger_mode: Box::new(crate::trigger::trigger_changes_zone::TriggerChangesZone)
-                        as Box<dyn crate::trigger::TriggerBehavior>,
-                    params: crate::parsing::Params::from_raw(
-                        "Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self",
-                    ),
-                    execute_svar: "DB$ Sacrifice".to_string(),
-                    controller: player,
-                    source_card: card_id,
-                    source_zone_timestamp: None,
-                    target_card: Some(card_id),
-                    remembered_amount: 0,
-                    remembered_cards: Vec::new(),
-                    remembered_players: Vec::new(),
-                    remembered_lki_cards: Vec::new(),
-                    remembered_card_timestamps: Vec::new(),
-                    target_card_zone_timestamp: None,
-                    sort_after_active: i > 0 || !keyword_triggers_first,
-                    trigger_order: None,
-                    source_timestamp: None,
-                    spawning_ability: None,
-                },
-            );
-        }
-    }
-
     fn cease_to_exist_copied_spell(game: &mut GameState, host: Option<CardId>) {
         if let Some(host) = host.filter(|&host| game.card(host).zone == ZoneType::Stack) {
             let controller = game.card(host).controller;
@@ -1378,6 +1313,7 @@ impl GameLoop {
         }
     }
 
+    /// CR 707.10 / 111.11 — copy of a permanent spell becomes a token.
     fn resolve_copied_permanent_as_token(
         &mut self,
         game: &mut GameState,
@@ -1426,11 +1362,8 @@ impl GameLoop {
                 &mut trigger_list,
                 &entry.spell_ability,
             );
-        if entry.spell_ability.alt_cost == Some(crate::spellability::AlternativeCost::Evoke) {
-            let evoke_keyword_count = (entry.spell_ability.evoke_keyword_count as usize).max(1);
-            for &token_id in &created.created {
-                self.register_evoke_sacrifice_triggers(game, token_id, player, evoke_keyword_count);
-            }
+        for &token_id in &created.created {
+            game.card_mut(token_id).cast_sa = Some(Box::new(entry.spell_ability.clone()));
         }
         trigger_list.trigger_changes_zone_all(
             &mut self.trigger_handler,

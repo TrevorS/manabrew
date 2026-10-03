@@ -199,15 +199,6 @@ pub struct SpellAbility {
     pub may_play_source: Option<crate::ids::CardId>,
     #[serde(default)]
     pub may_play_static: Option<usize>,
-    /// Number of Evoke keywords on the card at cast time (intrinsic + granted
-    /// from hand — e.g. Ashling, the Limitless's `AddKeyword$ Evoke:4`).
-    /// Java parity: `CardFactoryUtil` attaches one Evoke "sacrifice when it
-    /// enters" trigger per Evoke keyword, so a card with two Evoke keywords
-    /// carries two sac triggers. Captured at cast because granted keywords from
-    /// zone-gated statics (`AffectedZone$ Hand`) are gone once the card moves
-    /// to the stack.
-    #[serde(default)]
-    pub evoke_keyword_count: u8,
     /// Whether the kicker cost was paid.
     pub kicked: bool,
     /// Whether buyback was paid (spell returns to hand on resolve).
@@ -738,7 +729,6 @@ impl SpellAbility {
             cast_with_may_play: false,
             may_play_source: None,
             may_play_static: None,
-            evoke_keyword_count: 0,
             kicked: false,
             buyback_paid: false,
             overloaded: false,

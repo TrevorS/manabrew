@@ -698,17 +698,6 @@ impl GameLoop {
                 if alt_cost == crate::spellability::AlternativeCost::Sneak {
                     sa.restriction.variables.set_instant_speed(true);
                 }
-                // Capture Evoke keyword count from the card WHILE STILL IN ITS
-                // ORIGINAL ZONE (usually hand). Zone-gated statics like Ashling,
-                // the Limitless's `AddKeyword$ Evoke:4 | AffectedZone$ Hand` grant
-                // extra Evoke keywords here; once the card moves to the stack
-                // those grants disappear, so we must snapshot now.
-                if alt_cost == crate::spellability::AlternativeCost::Evoke {
-                    if let Some(source_id) = sa.source {
-                        let count = game.card(source_id).get_all_evoke_costs().len();
-                        sa.evoke_keyword_count = count.min(u8::MAX as usize) as u8;
-                    }
-                }
             }
         }
         Some(PreparedSpellAbility {
@@ -1788,10 +1777,23 @@ impl GameLoop {
                                     .strip_prefix(name)
                                     .is_some_and(|rest| rest.starts_with(':'))
                         };
+                        let intrinsic = card
+                            .keywords
+                            .iter_strings()
+                            .filter(|&kw| is_keyword(kw))
+                            .count();
+                        let granted_index =
+                            if sa.alt_cost == Some(crate::spellability::AlternativeCost::Evoke) {
+                                (sa.alt_cost_index as usize).checked_sub(intrinsic)?
+                            } else if intrinsic > 0 {
+                                return None;
+                            } else {
+                                0
+                            };
                         card.granted_keywords
                             .iter_strings()
-                            .find(|&kw| is_keyword(kw))
-                            .filter(|_| !card.keywords.iter_strings().any(is_keyword))
+                            .filter(|&kw| is_keyword(kw))
+                            .nth(granted_index)
                             .map(str::to_string)
                     });
             game.card_mut(card_id).cast_from = Some(announced_from_zone);
@@ -1801,6 +1803,7 @@ impl GameLoop {
                 let card = game.card_mut(card_id);
                 card.capture_changed_characteristics_baseline_if_needed();
                 card.add_changed_card_keywords(&keyword);
+                card.add_lasting_keyword_triggers(&keyword);
             }
         }
         if sa.is_spell && sa.alt_cost.is_some_and(|alt| alt.is_morph()) {

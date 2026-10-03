@@ -70,7 +70,7 @@ pub struct DelayedTrigger {
     pub remembered_card_timestamps: Vec<(CardId, u64)>,
     /// When true, this delayed trigger should sort AFTER same-event active
     /// triggers (resolve FIRST on the LIFO stack). Used to mirror Java's
-    /// trigger-ID-based ordering for Evoke sacrifice triggers, whose trigger
+    /// trigger-ID-based ordering for Enlist's immediate trigger, whose trigger
     /// ID is assigned after the card's intrinsic T: triggers and thus lands
     /// on top of the stack.
     pub sort_after_active: bool,
@@ -934,8 +934,7 @@ impl TriggerHandler {
             // LIFO and pending triggers are pushed in list order, so a delayed match is
             // inserted before the active matches for this event unless it is marked
             // `sort_after_active`: then its id is higher than the card's `T:` triggers
-            // (Evoke's sacrifice on a card rebuilt from its script, or a granted Evoke),
-            // it is pushed after them and resolves first.
+            // (Enlist's immediate trigger), it is pushed after them and resolves first.
             let delayed_insert_at = event_entries_start;
             let mut delayed_insert_offset = 0usize;
             let mut fired_indices = Vec::new();
@@ -1084,38 +1083,20 @@ impl TriggerHandler {
                     0
                 };
                 let delayed_order = delayed.trigger_order.unwrap_or(0);
-                // Java's delayed loop never asks Panharmonicon; evoke's sacrifice is a card
-                // trigger there and a delayed trigger here (PG-385).
-                let extra_delayed =
-                    crate::staticability::static_ability_panharmonicon::extra_triggers(
-                        game,
-                        delayed.source_card,
-                        &tmp_trigger,
-                        event_payload,
-                    );
                 if delayed.sort_after_active {
                     // Push to end of entries (above active triggers → resolves first).
                     entries.push((
-                        pending.clone(),
+                        pending,
                         delayed.controller,
                         delayed_ts,
                         delayed_bucket,
                         delayed_order,
                     ));
-                    for _ in 0..extra_delayed {
-                        entries.push((
-                            pending.clone(),
-                            delayed.controller,
-                            delayed_ts,
-                            delayed_bucket,
-                            delayed_order,
-                        ));
-                    }
                 } else {
                     entries.insert(
                         delayed_insert_at + delayed_insert_offset,
                         (
-                            pending.clone(),
+                            pending,
                             delayed.controller,
                             delayed_ts,
                             delayed_bucket,
@@ -1123,19 +1104,6 @@ impl TriggerHandler {
                         ),
                     );
                     delayed_insert_offset += 1;
-                    for _ in 0..extra_delayed {
-                        entries.insert(
-                            delayed_insert_at + delayed_insert_offset,
-                            (
-                                pending.clone(),
-                                delayed.controller,
-                                delayed_ts,
-                                delayed_bucket,
-                                delayed_order,
-                            ),
-                        );
-                        delayed_insert_offset += 1;
-                    }
                 }
                 fired_indices.push(idx);
             }
