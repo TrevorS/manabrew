@@ -742,6 +742,18 @@ impl GameState {
         ]
     }
 
+    pub fn verify_sample_key(&self) -> u64 {
+        let mut key = u64::from(self.turn.turn_number)
+            .wrapping_mul(0x9e37_79b9_7f4a_7c15)
+            .wrapping_add(self.turn.phase as u64)
+            .wrapping_mul(0x9e37_79b9_7f4a_7c15)
+            .wrapping_add(self.next_zone_timestamp)
+            .wrapping_mul(0x9e37_79b9_7f4a_7c15)
+            .wrapping_add(u64::from(self.next_card_id));
+        key ^= key >> 31;
+        key
+    }
+
     pub fn layer_key(&self) -> LayerKey {
         let turn = &self.turn;
         LayerKey {

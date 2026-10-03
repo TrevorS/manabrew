@@ -163,7 +163,7 @@ pub fn static_mode_present(game: &GameState, mode: &StaticMode) -> bool {
         let mut present = present.borrow_mut();
         match present.as_ref() {
             Some((cached, modes)) if *cached == stamp => {
-                if verify_static_modes_enabled() {
+                if verify_static_modes_mode().checks(game) {
                     assert_eq!(
                         *modes,
                         static_modes_in_source_zones(game),
@@ -200,8 +200,7 @@ fn static_modes_in_source_zones(game: &GameState) -> Vec<StaticMode> {
     modes
 }
 
-fn verify_static_modes_enabled() -> bool {
-    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ENABLED
-        .get_or_init(|| crate::perf::cache_verify_enabled("manabrew_engine_VERIFY_STATIC_MODES"))
+fn verify_static_modes_mode() -> crate::perf::CacheVerify {
+    static MODE: std::sync::OnceLock<crate::perf::CacheVerify> = std::sync::OnceLock::new();
+    *MODE.get_or_init(|| crate::perf::cache_verify_mode("manabrew_engine_VERIFY_STATIC_MODES"))
 }

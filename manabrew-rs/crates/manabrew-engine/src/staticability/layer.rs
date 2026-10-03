@@ -221,7 +221,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     #[cfg(feature = "layer-skip-stats")]
     super::layer_skip_stats::record(game, skip);
     if skip {
-        if verify_layer_skip_enabled() {
+        if verify_layer_skip_mode().checks(game) {
             verify_layer_skip(game);
         }
         return;
@@ -754,9 +754,9 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     }
 }
 
-fn verify_layer_skip_enabled() -> bool {
-    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ENABLED.get_or_init(|| crate::perf::cache_verify_enabled("manabrew_engine_VERIFY_LAYER_SKIP"))
+fn verify_layer_skip_mode() -> crate::perf::CacheVerify {
+    static MODE: std::sync::OnceLock<crate::perf::CacheVerify> = std::sync::OnceLock::new();
+    *MODE.get_or_init(|| crate::perf::cache_verify_mode("manabrew_engine_VERIFY_LAYER_SKIP"))
 }
 
 fn verify_layer_skip(game: &GameState) {

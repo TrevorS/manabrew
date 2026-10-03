@@ -142,16 +142,50 @@ fn enabled_cell() -> bool {
     std::env::var_os("manabrew_engine_PERF").is_some()
 }
 
-/// Whether an engine cache checks itself against a full recompute. The cache's own
-/// variable wins when set, then `manabrew_engine_VERIFY` (`=0` for timing, `=1` to force every
-/// check on in a release build), and otherwise every build with debug assertions checks.
-pub fn cache_verify_enabled(variable: &str) -> bool {
+/// How an engine cache checks itself against a full recompute. The cache's own variable
+/// wins when set, then `manabrew_engine_VERIFY`: `0` never checks (timing), `sample` checks one
+/// game state in `CACHE_VERIFY_SAMPLE_EVERY` (the eval), anything else checks every hit; with
+/// neither set, every build with debug assertions checks every hit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CacheVerify {
+    Off,
+    Every,
+    Sampled,
+}
+
+pub const CACHE_VERIFY_SAMPLE_EVERY: u64 = 8;
+
+pub fn cache_verify_mode(variable: &str) -> CacheVerify {
+    let parse = |value: String| match value.as_str() {
+        "0" => CacheVerify::Off,
+        "sample" => CacheVerify::Sampled,
+        _ => CacheVerify::Every,
+    };
     match std::env::var(variable) {
-        Ok(value) => value != "0",
+        Ok(value) => parse(value),
         Err(_) => match std::env::var("manabrew_engine_VERIFY") {
-            Ok(value) => value != "0",
-            Err(_) => cfg!(debug_assertions),
+            Ok(value) => parse(value),
+            Err(_) if cfg!(debug_assertions) => CacheVerify::Every,
+            Err(_) => CacheVerify::Off,
         },
+    }
+}
+
+pub fn cache_verify_enabled(variable: &str) -> bool {
+    cache_verify_mode(variable) != CacheVerify::Off
+}
+
+impl CacheVerify {
+    /// The sample is keyed on the game, not on a counter, so a failing game fails the same
+    /// way when it is replayed alone.
+    pub fn checks(self, game: &crate::game::GameState) -> bool {
+        match self {
+            CacheVerify::Off => false,
+            CacheVerify::Every => true,
+            CacheVerify::Sampled => game
+                .verify_sample_key()
+                .is_multiple_of(CACHE_VERIFY_SAMPLE_EVERY),
+        }
     }
 }
 

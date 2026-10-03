@@ -118,7 +118,7 @@ impl GameLoop {
         ];
         match self.board_fingerprint_cache.get() {
             Some((cached, fingerprint)) if cached == stamps => {
-                if verify_fingerprint_cache_enabled() {
+                if verify_fingerprint_cache_mode().checks(game) {
                     assert_eq!(
                         hash_board(game),
                         fingerprint,
@@ -258,11 +258,9 @@ fn hash_board(game: &GameState) -> u64 {
     hasher.finish()
 }
 
-fn verify_fingerprint_cache_enabled() -> bool {
-    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ENABLED.get_or_init(|| {
-        crate::perf::cache_verify_enabled("manabrew_engine_VERIFY_FINGERPRINT_CACHE")
-    })
+fn verify_fingerprint_cache_mode() -> crate::perf::CacheVerify {
+    static MODE: std::sync::OnceLock<crate::perf::CacheVerify> = std::sync::OnceLock::new();
+    *MODE.get_or_init(|| crate::perf::cache_verify_mode("manabrew_engine_VERIFY_FINGERPRINT_CACHE"))
 }
 
 /// Scan battlefield for UnspentMana statics and return a bitmask of mana colors
