@@ -464,7 +464,6 @@ impl SpellAbility {
             "SubsForEach" => self.ir.subs_for_each,
             "RerollResults" => self.ir.reroll_results,
             keys::NINJUTSU => self.ir.ninjutsu,
-            keys::UNEARTH => self.ir.unearth,
             keys::ATTACKING => self.ir.attacking,
             keys::OVERWRITE_COLORS => self.ir.overwrite_colors,
             keys::FORETOLD => self.ir.foretold,

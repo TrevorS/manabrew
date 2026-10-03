@@ -600,7 +600,6 @@ pub const SHUFFLE_CHANGED_PILE: &str = "ShuffleChangedPile";
 pub const SHUFFLE_NON_MANDATORY: &str = "ShuffleNonMandatory";
 pub const SNEAK: &str = "Sneak";
 pub const TRACK_DISCARDED: &str = "TrackDiscarded";
-pub const UNEARTH: &str = "Unearth";
 pub const UNIMPRINT: &str = "Unimprint";
 pub const WITH_NOTED_COUNTERS: &str = "WithNotedCounters";
 pub const WITH_TOTAL_CMC: &str = "WithTotalCMC";

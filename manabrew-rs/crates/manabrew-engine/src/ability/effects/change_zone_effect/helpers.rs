@@ -473,35 +473,36 @@ pub(super) fn apply_post_move(
                 }
             }
         }
-        if sa.ir.unearth {
-            let timestamp = ctx.game.next_timestamp();
-            ctx.game
-                .card_mut(card_id)
-                .add_pump_keyword("Haste", timestamp);
-            ctx.game.card_mut(card_id).set_summoning_sick(false);
+        if sa.is_keyword(crate::keyword::Keyword::Unearth)
+            && ctx.game.card(card_id).zone == ZoneType::Battlefield
+        {
             ctx.game.card_mut(card_id).set_unearthed(true);
-            ctx.trigger_handler
-                .register_delayed_trigger(crate::trigger::handler::DelayedTrigger {
-                    mode: TriggerType::Phase,
-                    trigger_mode: Box::new(crate::trigger::trigger_always::TriggerAlways)
-                        as Box<dyn crate::trigger::TriggerBehavior>,
-                    params: crate::parsing::Params::default(),
-                    execute_svar: "UneartheExileDelayedTrigger".to_string(),
-                    controller,
-                    source_card: card_id,
-                    source_zone_timestamp: None,
-                    target_card: Some(card_id),
-                    remembered_amount: 0,
-                    remembered_cards: Vec::new(),
-                    remembered_players: Vec::new(),
-                    remembered_lki_cards: Vec::new(),
-                    remembered_card_timestamps: Vec::new(),
-                    target_card_zone_timestamp: None,
-                    sort_after_active: false,
-                    trigger_order: None,
-                    source_timestamp: None,
-                    spawning_ability: None,
-                });
+            let effect_id = crate::ability::spell_ability_effect::create_effect(
+                ctx.game,
+                sa,
+                "Unearth Effect",
+                "",
+            );
+            let effect = ctx.game.card_mut(effect_id);
+            effect.add_remembered_cards([card_id]);
+            crate::player::player_factory_util::add_static_ability(
+                effect,
+                "Mode$ Continuous | Affected$ Card.IsRemembered | EffectZone$ Command | AddKeyword$ Haste",
+            );
+            crate::ability::spell_ability_effect::add_leave_battlefield_replacement(
+                effect, "Exile",
+            );
+            ctx.game.leaves_play_commands.push((
+                card_id,
+                crate::phase::PhaseCommand::ExileEffect { effect: effect_id },
+            ));
+            crate::ability::spell_ability_effect::register_at_eot(
+                ctx.trigger_handler,
+                ctx.game,
+                sa,
+                "Exile",
+                vec![card_id],
+            );
         }
         if sa.ir.attacking || sa.ir.attacking_text.is_some() {
             let _ = super::super::add_to_combat(ctx, sa, card_id, keys::ATTACKING);

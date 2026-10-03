@@ -526,6 +526,28 @@ impl Card {
                 }
             }
         }
+
+        for kw in keywords.iter().map(String::as_str) {
+            let ab_text = if let Some(cost) =
+                crate::keyword::extract_keyword_cost_str(kw, "Outlast")
+            {
+                format!(
+                    "AB$ PutCounter | Cost$ {} T | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1 | SorcerySpeed$ True | PrecostDesc$ Outlast | SpellDescription$ Outlast | Keyword$ Outlast",
+                    cost.trim()
+                )
+            } else if let Some(cost) = crate::keyword::extract_keyword_cost_str(kw, "Unearth") {
+                format!(
+                    "AB$ ChangeZone | Cost$ {} | Defined$ Self | Origin$ Graveyard | Destination$ Battlefield | SorcerySpeed$ True | ActivationZone$ Graveyard | PrecostDesc$ Unearth | SpellDescription$ Unearth | Keyword$ Unearth",
+                    cost.trim()
+                )
+            } else {
+                continue;
+            };
+            let next_idx = self.activated_abilities.len();
+            if let Some(ab) = parse_activated_ability(&ab_text, next_idx) {
+                self.activated_abilities.push(ab);
+            }
+        }
     }
 
     pub fn ensure_crew_activated_ability(&mut self) {

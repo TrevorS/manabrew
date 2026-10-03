@@ -747,6 +747,19 @@ pub fn add_forget_on_moved_trigger(
         .set_s_var("ForgetOnZoneChangeHost", host_id.0.to_string());
 }
 
+pub fn add_leave_battlefield_replacement(effect: &mut crate::card::Card, zone: &str) {
+    effect.set_s_var(
+        "LeaveBattlefield",
+        format!(
+            "DB$ ChangeZone | Defined$ ReplacedCard | Origin$ Battlefield | Destination$ {zone}"
+        ),
+    );
+    add_replacement_effect(
+        effect,
+        &format!("Event$ Moved | ValidCard$ Card.IsRemembered | Origin$ Battlefield | ExcludeDestination$ {zone} | ReplaceWith$ LeaveBattlefield | Description$ If Creature would leave the battlefield, exile it instead of putting it anywhere else."),
+    );
+}
+
 /// Create a temporary "effect" card in the command zone.
 /// Mirrors Java's `SpellAbilityEffect.createEffect(SpellAbility, Player, String, String)`.
 ///
