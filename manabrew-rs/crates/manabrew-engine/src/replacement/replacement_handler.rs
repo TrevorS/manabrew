@@ -1578,6 +1578,70 @@ pub fn visit(
 /// The `effect_index` is a global unique index used for `has_run` tracking.
 ///
 /// Mirrors `ReplacementHandler.getReplacementList()`.
+impl ReplacementEvent {
+    /// Java `ReplacementHandler.getReplacementList` asks `event.equals(re.getMode())`. A Moved
+    /// event also reaches the AddCounter replacements, which Java raises as their own event.
+    fn may_be_replaced_by(&self, kind: &ReplacementType) -> bool {
+        match self {
+            ReplacementEvent::Draw { .. } => matches!(kind, ReplacementType::Draw),
+            ReplacementEvent::DamageToCard { .. } => matches!(kind, ReplacementType::DamageDone),
+            ReplacementEvent::DamageToPlayer { .. } => matches!(kind, ReplacementType::DamageDone),
+            ReplacementEvent::Destroy { .. } => matches!(kind, ReplacementType::Destroy),
+            ReplacementEvent::Moved { .. } => {
+                matches!(kind, ReplacementType::Moved | ReplacementType::AddCounter)
+            }
+            ReplacementEvent::GainLife { .. } => matches!(kind, ReplacementType::GainLife),
+            ReplacementEvent::CreateToken { .. } => matches!(kind, ReplacementType::CreateToken),
+            ReplacementEvent::AddCounter { .. } => matches!(kind, ReplacementType::AddCounter),
+            ReplacementEvent::GameLoss { .. } => matches!(kind, ReplacementType::GameLoss),
+            ReplacementEvent::GameWin { .. } => matches!(kind, ReplacementType::GameWin),
+            ReplacementEvent::Counter { .. } => matches!(kind, ReplacementType::Counter),
+            ReplacementEvent::ProduceMana { .. } => matches!(kind, ReplacementType::ProduceMana),
+            ReplacementEvent::Tap { .. } => matches!(kind, ReplacementType::Tap),
+            ReplacementEvent::Untap { .. } => matches!(kind, ReplacementType::Untap),
+            ReplacementEvent::LifeReduced { .. } => matches!(kind, ReplacementType::LifeReduced),
+            ReplacementEvent::RemoveCounter { .. } => {
+                matches!(kind, ReplacementType::RemoveCounter)
+            }
+            ReplacementEvent::DealtDamage { .. } => matches!(kind, ReplacementType::DealtDamage),
+            ReplacementEvent::DrawCards { .. } => matches!(kind, ReplacementType::DrawCards),
+            ReplacementEvent::Mill { .. } => matches!(kind, ReplacementType::Mill),
+            ReplacementEvent::PayLife { .. } => matches!(kind, ReplacementType::PayLife),
+            ReplacementEvent::Scry { .. } => matches!(kind, ReplacementType::Scry),
+            ReplacementEvent::Attached { .. } => matches!(kind, ReplacementType::Attached),
+            ReplacementEvent::BeginPhase { .. } => matches!(kind, ReplacementType::BeginPhase),
+            ReplacementEvent::BeginTurn { .. } => matches!(kind, ReplacementType::BeginTurn),
+            ReplacementEvent::Explore { .. } => matches!(kind, ReplacementType::Explore),
+            ReplacementEvent::Connive { .. } => matches!(kind, ReplacementType::Connive),
+            ReplacementEvent::DeclareBlocker { .. } => {
+                matches!(kind, ReplacementType::DeclareBlocker)
+            }
+            ReplacementEvent::AssignDealDamage { .. } => {
+                matches!(kind, ReplacementType::AssignDealDamage)
+            }
+            ReplacementEvent::Transform { .. } => matches!(kind, ReplacementType::Transform),
+            ReplacementEvent::TurnFaceUp { .. } => matches!(kind, ReplacementType::TurnFaceUp),
+            ReplacementEvent::CopySpell { .. } => matches!(kind, ReplacementType::CopySpell),
+            ReplacementEvent::Proliferate { .. } => matches!(kind, ReplacementType::Proliferate),
+            ReplacementEvent::Cascade { .. } => matches!(kind, ReplacementType::Cascade),
+            ReplacementEvent::Learn { .. } => matches!(kind, ReplacementType::Learn),
+            ReplacementEvent::LoseMana { .. } => matches!(kind, ReplacementType::LoseMana),
+            ReplacementEvent::RollDice { .. } => matches!(kind, ReplacementType::RollDice),
+            ReplacementEvent::RollPlanarDice { .. } => {
+                matches!(kind, ReplacementType::RollPlanarDice)
+            }
+            ReplacementEvent::PlanarDiceResult { .. } => {
+                matches!(kind, ReplacementType::PlanarDiceResult)
+            }
+            ReplacementEvent::Planeswalk { .. } => matches!(kind, ReplacementType::Planeswalk),
+            ReplacementEvent::SetInMotion { .. } => matches!(kind, ReplacementType::SetInMotion),
+            ReplacementEvent::AssembleContraption { .. } => {
+                matches!(kind, ReplacementType::AssembleContraption)
+            }
+        }
+    }
+}
+
 fn collect_effects(
     game: &GameState,
     event: &ReplacementEvent,
@@ -1703,7 +1767,7 @@ fn collect_effects(
         {
             let current_idx = effect_idx_in_card;
             // Layer filter.
-            if re.layer != layer {
+            if re.layer != layer || !event.may_be_replaced_by(&re.event) {
                 continue;
             }
             // Zone filter — effect is only active when host is in a valid zone.
