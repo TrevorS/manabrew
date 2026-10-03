@@ -77,8 +77,7 @@ pub(crate) fn mana_ability_meets_script_requirements(
     if !requirements.meets(game, card, card) {
         return false;
     }
-    if !crate::staticability::static_ability_cant_be_cast::any_cant_be_activated_source(&game.cards)
-    {
+    if !crate::staticability::static_ability_cant_be_cast::any_cant_be_activated_source(game) {
         return true;
     }
     let mut sa = crate::spellability::build_spell_ability(game, card_id, &ab.ability_text, player);

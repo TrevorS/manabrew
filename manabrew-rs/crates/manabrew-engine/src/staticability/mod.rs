@@ -152,3 +152,60 @@ pub fn reset_may_play_turn(st_ab: &mut StaticAbility) {
 pub fn copy(st_ab: &StaticAbility) -> StaticAbility {
     st_ab.copy()
 }
+
+pub fn static_mode_present(game: &GameState, mode: &StaticMode) -> bool {
+    thread_local! {
+        static PRESENT: std::cell::RefCell<Option<(u64, Vec<StaticMode>)>> =
+            const { std::cell::RefCell::new(None) };
+    }
+    let stamp = game.cards.stamp();
+    PRESENT.with(|present| {
+        let mut present = present.borrow_mut();
+        match present.as_ref() {
+            Some((cached, modes)) if *cached == stamp => {
+                if verify_static_modes_enabled() {
+                    assert_eq!(
+                        *modes,
+                        static_modes_in_source_zones(game),
+                        "static_mode_present reused a mode set for changed cards"
+                    );
+                }
+            }
+            _ => *present = Some((stamp, static_modes_in_source_zones(game))),
+        }
+        present.as_ref().is_some_and(|(_, modes)| {
+            modes.iter().any(|present| match (present, mode) {
+                (StaticMode::Other(present), StaticMode::Other(mode)) => {
+                    present.eq_ignore_ascii_case(mode)
+                }
+                _ => present == mode,
+            })
+        })
+    })
+}
+
+fn static_modes_in_source_zones(game: &GameState) -> Vec<StaticMode> {
+    let mut modes = Vec::new();
+    for card in game
+        .cards
+        .iter()
+        .filter(|card| card.zone.is_static_ability_source())
+    {
+        for mode in card.static_abilities.iter().flat_map(|st_ab| &st_ab.modes) {
+            if !modes.contains(mode) {
+                modes.push(mode.clone());
+            }
+        }
+    }
+    modes
+}
+
+fn verify_static_modes_enabled() -> bool {
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ENABLED.get_or_init(
+        || match std::env::var("manabrew_engine_VERIFY_STATIC_MODES") {
+            Ok(value) => value != "0",
+            Err(_) => cfg!(debug_assertions),
+        },
+    )
+}
