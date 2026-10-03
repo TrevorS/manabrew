@@ -129,48 +129,53 @@ pub fn classify_static_layers(sa: &StaticAbility) -> Vec<Layer> {
     if !sa.check_mode(&StaticMode::Continuous) {
         return Vec::new();
     }
-
-    let ir = &sa.ir;
     let mut layers = Vec::new();
-
-    push_layer(&mut layers, ir.gain_control_param, Layer::Control);
-    push_layer(&mut layers, ir.has_text_layer_key, Layer::Text);
-    push_layer(&mut layers, ir.has_type_layer_key, Layer::Type);
-    push_layer(&mut layers, ir.has_color_layer_key, Layer::Color);
-    push_layer(&mut layers, ir.has_ability_layer_key, Layer::Ability);
-
-    if ir.set_power || ir.set_toughness {
-        if ir.characteristic_defining {
-            push_unique_layer(&mut layers, Layer::Characteristic);
-        } else {
-            push_unique_layer(&mut layers, Layer::SetPT);
-        }
-    }
-
-    push_layer(
-        &mut layers,
-        ir.add_power || ir.add_toughness,
-        Layer::ModifyPT,
-    );
-    push_layer(&mut layers, ir.has_rules_layer_key, Layer::Rules);
-
+    for_each_static_layer(sa, |layer| push_unique_layer(&mut layers, layer));
     if layers.is_empty() {
         layers.push(Layer::Rules);
     }
-
     layers
 }
 
 fn first_static_layer(sa: &StaticAbility) -> Layer {
-    classify_static_layers(sa)
-        .into_iter()
-        .min()
-        .unwrap_or(Layer::Rules)
+    let mut first: Option<Layer> = None;
+    if sa.check_mode(&StaticMode::Continuous) {
+        for_each_static_layer(sa, |layer| {
+            first = Some(first.map_or(layer, |first| first.min(layer)));
+        });
+    }
+    first.unwrap_or(Layer::Rules)
 }
 
-fn push_layer(layers: &mut Vec<Layer>, condition: bool, layer: Layer) {
-    if condition {
-        push_unique_layer(layers, layer);
+fn for_each_static_layer(sa: &StaticAbility, mut layer: impl FnMut(Layer)) {
+    let ir = &sa.ir;
+    if ir.gain_control_param {
+        layer(Layer::Control);
+    }
+    if ir.has_text_layer_key {
+        layer(Layer::Text);
+    }
+    if ir.has_type_layer_key {
+        layer(Layer::Type);
+    }
+    if ir.has_color_layer_key {
+        layer(Layer::Color);
+    }
+    if ir.has_ability_layer_key {
+        layer(Layer::Ability);
+    }
+    if ir.set_power || ir.set_toughness {
+        layer(if ir.characteristic_defining {
+            Layer::Characteristic
+        } else {
+            Layer::SetPT
+        });
+    }
+    if ir.add_power || ir.add_toughness {
+        layer(Layer::ModifyPT);
+    }
+    if ir.has_rules_layer_key {
+        layer(Layer::Rules);
     }
 }
 
@@ -485,6 +490,8 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         Layer,
     )> = initial.into();
     let mut chosen: crate::HashSet<(CardId, usize)> = crate::HashSet::default();
+    let mut queued: Vec<usize> = Vec::new();
+    let mut affected: Vec<CardId> = Vec::new();
     let present_counts = crate::card::valid_filter::present_memo::Scope::enter();
     while let Some((source_id, sa_idx, mut owned, is_granted, seq, first_layer)) =
         statics.pop_front()
@@ -531,12 +538,14 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             let applies_now = !sa.ir.characteristic_defining
                 && sa.zones_check(source.zone)
                 && sa.check_conditions(source, game);
-            let queued: Vec<usize> = statics
-                .iter()
-                .enumerate()
-                .filter(|(_, queued)| queued.5 == first_layer)
-                .map(|(position, _)| position)
-                .collect();
+            queued.clear();
+            queued.extend(
+                statics
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, queued)| queued.5 == first_layer)
+                    .map(|(position, _)| position),
+            );
             if applies_now && !queued.is_empty() {
                 let statics_for_layer: Vec<(CardId, usize, StaticAbility)> =
                     std::iter::once((source_id, sa_idx, sa.clone()))
@@ -604,7 +613,8 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 );
             }
             let sa = static_ability_at(game, source_id, sa_idx, &owned);
-            for target in static_affected_cards(game, source_id, sa) {
+            static_affected_cards_into(game, source_id, sa, &mut affected);
+            for &target in &affected {
                 apply_continuous_ability(
                     game,
                     source_id,
@@ -1938,9 +1948,20 @@ fn affected_text(sa: &StaticAbility) -> &str {
 }
 
 fn static_affected_cards(game: &GameState, source_id: CardId, sa: &StaticAbility) -> Vec<CardId> {
+    let mut affected = Vec::new();
+    static_affected_cards_into(game, source_id, sa, &mut affected);
+    affected
+}
+
+fn static_affected_cards_into(
+    game: &GameState,
+    source_id: CardId,
+    sa: &StaticAbility,
+    affected: &mut Vec<CardId>,
+) {
     let source_card = game.card(source_id);
     let affected_str = affected_text(sa);
-    let mut affected = Vec::new();
+    affected.clear();
     if sa.ir.characteristic_defining {
         affected.push(source_id);
     } else if let Some(defined) = sa.ir.affected_defined.as_deref() {
@@ -2041,7 +2062,6 @@ fn static_affected_cards(game: &GameState, source_id: CardId, sa: &StaticAbility
             }
         }
     }
-    affected
 }
 
 struct StaticEffectUndo {
