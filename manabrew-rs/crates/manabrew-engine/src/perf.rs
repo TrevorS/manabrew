@@ -142,6 +142,19 @@ fn enabled_cell() -> bool {
     std::env::var_os("manabrew_engine_PERF").is_some()
 }
 
+/// Whether an engine cache checks itself against a full recompute. The cache's own
+/// variable wins when set, then `manabrew_engine_VERIFY` (`=0` for timing, `=1` to force every
+/// check on in a release build), and otherwise every build with debug assertions checks.
+pub fn cache_verify_enabled(variable: &str) -> bool {
+    match std::env::var(variable) {
+        Ok(value) => value != "0",
+        Err(_) => match std::env::var("manabrew_engine_VERIFY") {
+            Ok(value) => value != "0",
+            Err(_) => cfg!(debug_assertions),
+        },
+    }
+}
+
 pub fn enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();
     *ENABLED.get_or_init(enabled_cell)

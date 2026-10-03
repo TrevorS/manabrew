@@ -756,12 +756,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
 
 fn verify_layer_skip_enabled() -> bool {
     static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ENABLED.get_or_init(
-        || match std::env::var("manabrew_engine_VERIFY_LAYER_SKIP") {
-            Ok(value) => value != "0",
-            Err(_) => cfg!(debug_assertions),
-        },
-    )
+    *ENABLED.get_or_init(|| crate::perf::cache_verify_enabled("manabrew_engine_VERIFY_LAYER_SKIP"))
 }
 
 fn verify_layer_skip(game: &GameState) {

@@ -260,12 +260,9 @@ fn hash_board(game: &GameState) -> u64 {
 
 fn verify_fingerprint_cache_enabled() -> bool {
     static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ENABLED.get_or_init(
-        || match std::env::var("manabrew_engine_VERIFY_FINGERPRINT_CACHE") {
-            Ok(value) => value != "0",
-            Err(_) => cfg!(debug_assertions),
-        },
-    )
+    *ENABLED.get_or_init(|| {
+        crate::perf::cache_verify_enabled("manabrew_engine_VERIFY_FINGERPRINT_CACHE")
+    })
 }
 
 /// Scan battlefield for UnspentMana statics and return a bitmask of mana colors

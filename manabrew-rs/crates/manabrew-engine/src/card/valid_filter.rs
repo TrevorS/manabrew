@@ -126,8 +126,7 @@ pub(crate) mod present_memo {
 
     fn verify() -> bool {
         static VERIFY: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-        cfg!(debug_assertions)
-            || *VERIFY.get_or_init(|| std::env::var_os("FORGE_PRESENT_MEMO_VERIFY").is_some())
+        *VERIFY.get_or_init(|| crate::perf::cache_verify_enabled("FORGE_PRESENT_MEMO_VERIFY"))
     }
 
     #[allow(clippy::too_many_arguments)]
