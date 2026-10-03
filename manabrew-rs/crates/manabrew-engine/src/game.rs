@@ -320,6 +320,17 @@ pub struct LayerKey {
     last_sacrificed_card: Option<CardId>,
 }
 
+/// A cache, not game state: its Debug prints nothing of it, so two equal games format the
+/// same whether or not their layer pass has run (checkpoint digests, the layer-skip verify).
+#[derive(Clone, Default)]
+pub struct LayerKeyCache(pub Option<LayerKey>);
+
+impl std::fmt::Debug for LayerKeyCache {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("LayerKeyCache")
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameState {
     // Arenas
@@ -483,7 +494,7 @@ pub struct GameState {
     #[serde(skip)]
     pub granted_trigger_ids: crate::HashMap<(CardId, u64, Option<CardId>, u64, String), u32>,
     #[serde(skip)]
-    pub layer_key_after_pass: Option<LayerKey>,
+    pub layer_key_after_pass: LayerKeyCache,
 }
 
 impl GameState {
@@ -554,7 +565,7 @@ impl GameState {
             left_graveyard_this_turn: Tracked::default(),
             damage_this_turn_lki: Tracked::default(),
             granted_trigger_ids: crate::HashMap::default(),
-            layer_key_after_pass: None,
+            layer_key_after_pass: LayerKeyCache::default(),
         }
     }
 
@@ -1273,6 +1284,15 @@ mod tests {
         assert!(game.zone(ZoneType::Sideboard, PlayerId(0)).is_empty());
         assert!(game.zone(ZoneType::AttractionDeck, PlayerId(0)).is_empty());
         assert!(game.zone(ZoneType::ContraptionDeck, PlayerId(0)).is_empty());
+    }
+
+    #[test]
+    fn a_games_debug_ignores_its_layer_cache() {
+        let game = GameState::new(&["Alice", "Bob"], 20);
+        let mut cached = game.clone();
+        cached.layer_key_after_pass.0 = Some(cached.layer_key());
+
+        assert_eq!(format!("{cached:?}"), format!("{game:?}"));
     }
 
     #[test]

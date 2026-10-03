@@ -212,7 +212,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     if game.hold_checking_static_abilities {
         return;
     }
-    if game.layer_key_after_pass.as_ref() == Some(&game.layer_key()) {
+    if game.layer_key_after_pass.0.as_ref() == Some(&game.layer_key()) {
         if verify_layer_skip_enabled() {
             verify_layer_skip(game);
         }
@@ -734,7 +734,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             Arc::make_mut(card).apply_land_trait_changes();
         }
     }
-    game.layer_key_after_pass = Some(game.layer_key());
+    game.layer_key_after_pass.0 = Some(game.layer_key());
 }
 
 fn verify_layer_skip_enabled() -> bool {
@@ -749,11 +749,8 @@ fn verify_layer_skip_enabled() -> bool {
 
 fn verify_layer_skip(game: &GameState) {
     let mut check = game.clone();
-    check.layer_key_after_pass = None;
+    check.layer_key_after_pass.0 = None;
     apply_continuous_effects(&mut check);
-    check
-        .layer_key_after_pass
-        .clone_from(&game.layer_key_after_pass);
     for (after, before) in check.cards.iter().zip(game.cards.iter()) {
         if !Arc::ptr_eq(after, before) {
             assert_eq!(
