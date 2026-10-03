@@ -485,7 +485,7 @@ fn swap_keyword_trigger_face(card: &mut Card, other: &mut CardOtherPart) {
     std::mem::swap(&mut card.type_line, &mut other.type_line);
     std::mem::swap(&mut card.keywords, &mut other.keywords);
     std::mem::swap(&mut card.abilities, &mut other.abilities);
-    std::mem::swap(&mut card.triggers, &mut other.triggers);
+    std::mem::swap(&mut *card.triggers, &mut other.triggers);
     std::mem::swap(&mut card.svars, &mut other.svars);
 }
 

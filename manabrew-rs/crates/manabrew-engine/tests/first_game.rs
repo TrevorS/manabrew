@@ -582,7 +582,7 @@ fn make_soul_warden(owner: PlayerId) -> CardInstance {
         vec![],
         vec![],
     );
-    card.triggers = vec![trigger];
+    card.triggers = vec![trigger].into();
     card.svars = svars;
     card
 }
@@ -612,7 +612,7 @@ fn make_guttersnipe(owner: PlayerId) -> CardInstance {
         vec![],
         vec![],
     );
-    card.triggers = vec![trigger];
+    card.triggers = vec![trigger].into();
     card.svars = svars;
     card
 }
@@ -642,7 +642,7 @@ fn make_upkeep_pinger(owner: PlayerId) -> CardInstance {
         vec![],
         vec![],
     );
-    card.triggers = vec![trigger];
+    card.triggers = vec![trigger].into();
     card.svars = svars;
     card
 }

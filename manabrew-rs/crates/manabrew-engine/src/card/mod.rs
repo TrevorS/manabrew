@@ -298,6 +298,77 @@ pub struct CloneState {
     original_trait_base_keywords: Option<crate::keyword::keyword_collection::KeywordCollection>,
 }
 
+#[derive(Clone)]
+pub struct SharedVec<T>(std::sync::Arc<Vec<T>>);
+
+impl<T> Default for SharedVec<T> {
+    fn default() -> Self {
+        Self(std::sync::Arc::new(Vec::new()))
+    }
+}
+
+impl<T> std::ops::Deref for SharedVec<T> {
+    type Target = Vec<T>;
+
+    fn deref(&self) -> &Vec<T> {
+        &self.0
+    }
+}
+
+impl<T: Clone> std::ops::DerefMut for SharedVec<T> {
+    fn deref_mut(&mut self) -> &mut Vec<T> {
+        std::sync::Arc::make_mut(&mut self.0)
+    }
+}
+
+impl<T> From<Vec<T>> for SharedVec<T> {
+    fn from(value: Vec<T>) -> Self {
+        Self(std::sync::Arc::new(value))
+    }
+}
+
+impl<T> FromIterator<T> for SharedVec<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        Self(std::sync::Arc::new(iter.into_iter().collect()))
+    }
+}
+
+impl<'a, T> IntoIterator for &'a SharedVec<T> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<'a, T: Clone> IntoIterator for &'a mut SharedVec<T> {
+    type Item = &'a mut T;
+    type IntoIter = std::slice::IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        std::ops::DerefMut::deref_mut(self).iter_mut()
+    }
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for SharedVec<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl<T: Serialize> Serialize for SharedVec<T> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for SharedVec<T> {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Vec::<T>::deserialize(deserializer).map(Self::from)
+    }
+}
+
 /// A card instance in a game. This is the mutable game-state representation,
 /// as opposed to CardRules which is the immutable definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -474,7 +545,7 @@ pub struct Card {
     pub spree_min_mode_cost: Option<i32>,
 
     // Parsed activated abilities (from AB$ lines in abilities)
-    pub activated_abilities: Vec<ActivatedAbility>,
+    pub activated_abilities: SharedVec<ActivatedAbility>,
     /// Number of base activated abilities (before continuous effects add more via AddAbility$).
     /// Used by `apply_continuous_effects` to truncate granted abilities on reset.
     pub base_ability_count: usize,
@@ -492,7 +563,7 @@ pub struct Card {
 
     /// Parsed static abilities (from S$ lines in abilities).
     /// Mirrors Java Forge `Card.getStaticAbilities()`.
-    pub static_abilities: Vec<StaticAbility>,
+    pub static_abilities: SharedVec<StaticAbility>,
 
     // Combat tracking
     pub has_deathtouch_damage: bool,
@@ -516,7 +587,7 @@ pub struct Card {
     pub started_turn_tapped: bool,
 
     // Triggers — mirrors Java Card.getTriggers()
-    pub triggers: Vec<Trigger>,
+    pub triggers: SharedVec<Trigger>,
     // SVars — mirrors Java Card.getSVars()
     pub svars: BTreeMap<String, String>,
     #[serde(skip, default)]
@@ -543,7 +614,7 @@ pub struct Card {
 
     // Replacement effects — parsed from R$ lines in card abilities.
     // Mirrors Java `Card.getReplacementEffects()`.
-    pub replacement_effects: Vec<ReplacementEffect>,
+    pub replacement_effects: SharedVec<ReplacementEffect>,
 
     // Attachment tracking (Auras / Equipment).
     // Mirrors Java `Card.getAttachedTo()` / `Card.getAttachedCards()`.
@@ -984,12 +1055,12 @@ impl Card {
             action_spell_cost: None,
             ai_phyrexian_payment: None,
             spree_min_mode_cost: None,
-            activated_abilities,
+            activated_abilities: activated_abilities.into(),
             base_ability_count: 0,
             base_trigger_count: 0,
             changed_card_traits: std::collections::BTreeMap::new(),
             changed_card_traits_by_text: std::collections::BTreeMap::new(),
-            static_abilities,
+            static_abilities: static_abilities.into(),
             has_deathtouch_damage: false,
             cant_block_static: false,
             turn_in_zone: 0,
@@ -998,7 +1069,7 @@ impl Card {
             attacks_this_turn: 0,
             tapped_this_turn: 0,
             started_turn_tapped: false,
-            triggers: Vec::new(),
+            triggers: Vec::new().into(),
             svars: BTreeMap::new(),
             parsed_svar_cache: ParsedSVarCache::default(),
             is_commander: false,
@@ -1007,7 +1078,7 @@ impl Card {
             is_token: false,
             cast_with_flashback: false,
             cast_with_harmonize: false,
-            replacement_effects,
+            replacement_effects: replacement_effects.into(),
             attached_to: None,
             attached_to_player: None,
             attached_this_turn: false,
@@ -1229,7 +1300,7 @@ impl Card {
             action_spell_cost: self.action_spell_cost.clone(),
             ai_phyrexian_payment: self.ai_phyrexian_payment.clone(),
             spree_min_mode_cost: self.spree_min_mode_cost,
-            activated_abilities: Vec::new(),
+            activated_abilities: Vec::new().into(),
             base_ability_count: self.base_ability_count,
             base_trigger_count: self.base_trigger_count,
             changed_card_traits: self.changed_card_traits.clone(),
@@ -1240,7 +1311,7 @@ impl Card {
                     .map(crate::staticability::StaticAbility::clone_for_parity_snapshot)
                     .collect()
             } else {
-                Vec::new()
+                Vec::new().into()
             },
             has_deathtouch_damage: self.has_deathtouch_damage,
             cant_block_static: self.cant_block_static,
@@ -1250,7 +1321,7 @@ impl Card {
             attacks_this_turn: self.attacks_this_turn,
             tapped_this_turn: self.tapped_this_turn,
             started_turn_tapped: self.started_turn_tapped,
-            triggers: Vec::new(),
+            triggers: Vec::new().into(),
             svars: self.svars.clone(),
             parsed_svar_cache: self.parsed_svar_cache.clone(),
             is_commander: self.is_commander,
@@ -1259,7 +1330,7 @@ impl Card {
             is_token: self.is_token,
             cast_with_flashback: self.cast_with_flashback,
             cast_with_harmonize: self.cast_with_harmonize,
-            replacement_effects: Vec::new(),
+            replacement_effects: Vec::new().into(),
             attached_to: self.attached_to,
             attached_to_player: self.attached_to_player,
             attached_this_turn: self.attached_this_turn,
@@ -1957,7 +2028,7 @@ impl Card {
         let mut triggers = self
             .trait_base_triggers
             .clone()
-            .unwrap_or_else(|| self.triggers.clone());
+            .unwrap_or_else(|| self.triggers.to_vec());
         triggers.truncate(
             self.changed_trigger_count_base
                 .unwrap_or(self.base_trigger_count),
@@ -1975,13 +2046,13 @@ impl Card {
     pub fn copiable_static_abilities(&self) -> Vec<StaticAbility> {
         self.trait_base_static_abilities
             .clone()
-            .unwrap_or_else(|| self.static_abilities.clone())
+            .unwrap_or_else(|| self.static_abilities.to_vec())
     }
 
     pub fn copiable_replacement_effects(&self) -> Vec<ReplacementEffect> {
         self.trait_base_replacement_effects
             .clone()
-            .unwrap_or_else(|| self.replacement_effects.clone())
+            .unwrap_or_else(|| self.replacement_effects.to_vec())
     }
 
     pub fn add_static_ability(&mut self, st_ab: StaticAbility) -> bool {
@@ -3431,11 +3502,11 @@ impl Card {
             original_base_toughness: self.base_toughness,
             original_keywords: self.keywords.clone(),
             original_abilities: self.abilities.clone(),
-            original_activated_abilities: self.activated_abilities.clone(),
-            original_triggers: self.triggers.clone(),
+            original_activated_abilities: self.activated_abilities.to_vec(),
+            original_triggers: self.triggers.to_vec(),
             original_svars: self.svars.clone(),
-            original_static_abilities: self.static_abilities.clone(),
-            original_replacement_effects: self.replacement_effects.clone(),
+            original_static_abilities: self.static_abilities.to_vec(),
+            original_replacement_effects: self.replacement_effects.to_vec(),
             original_base_ability_count: self.base_ability_count,
             original_base_trigger_count: self.base_trigger_count,
             original_other_part: self.other_part.clone(),
@@ -3486,11 +3557,11 @@ impl Card {
         self.base_toughness = state.original_base_toughness;
         self.keywords = state.original_keywords;
         self.abilities = state.original_abilities;
-        self.activated_abilities = state.original_activated_abilities;
-        self.triggers = state.original_triggers;
+        self.activated_abilities = state.original_activated_abilities.into();
+        self.triggers = state.original_triggers.into();
         self.svars = state.original_svars;
-        self.static_abilities = state.original_static_abilities;
-        self.replacement_effects = state.original_replacement_effects;
+        self.static_abilities = state.original_static_abilities.into();
+        self.replacement_effects = state.original_replacement_effects.into();
         self.base_ability_count = state.original_base_ability_count;
         self.base_trigger_count = state.original_base_trigger_count;
         self.other_part = state.original_other_part;
@@ -3620,7 +3691,8 @@ impl Card {
         if let Some(triggers) = self.trait_base_triggers.as_mut() {
             triggers.insert(at.min(triggers.len()), trigger.clone());
         }
-        self.triggers.insert(at.min(self.triggers.len()), trigger);
+        let len = self.triggers.len();
+        self.triggers.insert(at.min(len), trigger);
         self.base_trigger_count += 1;
         if let Some(count) = self.changed_trigger_count_base.as_mut() {
             *count += 1;
@@ -3681,16 +3753,16 @@ impl Card {
     }
 
     pub fn set_static_abilities(&mut self, abilities: Vec<StaticAbility>) {
-        self.static_abilities = abilities;
+        self.static_abilities = abilities.into();
     }
 
     pub fn set_triggers(&mut self, triggers: Vec<Trigger>) {
-        self.triggers = triggers;
+        self.triggers = triggers.into();
         self.base_trigger_count = self.triggers.len();
     }
 
     pub fn set_replacement_effects(&mut self, effects: Vec<ReplacementEffect>) {
-        self.replacement_effects = effects;
+        self.replacement_effects = effects.into();
     }
 
     pub fn set_renowned(&mut self, renowned: bool) {
@@ -5209,10 +5281,10 @@ impl Card {
                 self.color = state.original_color;
             }
             if let Some(statics) = self.trait_base_static_abilities.clone() {
-                self.static_abilities = statics;
+                self.static_abilities = statics.into();
             }
             if let Some(replacements) = self.trait_base_replacement_effects.clone() {
-                self.replacement_effects = replacements;
+                self.replacement_effects = replacements.into();
             }
         }
         // Java keeps a Room's traits on the card and only moves `currentState`, so this
@@ -5255,10 +5327,10 @@ impl Card {
             std::mem::swap(&mut self.base_toughness, &mut other.base_toughness);
             std::mem::swap(&mut self.keywords, &mut other.keywords);
             std::mem::swap(&mut self.abilities, &mut other.abilities);
-            std::mem::swap(&mut self.triggers, &mut other.triggers);
-            std::mem::swap(&mut self.static_abilities, &mut other.static_abilities);
+            std::mem::swap(&mut *self.triggers, &mut other.triggers);
+            std::mem::swap(&mut *self.static_abilities, &mut other.static_abilities);
             std::mem::swap(
-                &mut self.replacement_effects,
+                &mut *self.replacement_effects,
                 &mut other.replacement_effects,
             );
             std::mem::swap(&mut self.svars, &mut other.svars);
@@ -5365,18 +5437,18 @@ impl Card {
         if self.trait_base_activated_abilities.is_none() {
             let own = self.base_ability_count.min(self.activated_abilities.len());
             self.trait_base_activated_abilities = Some(self.activated_abilities[..own].to_vec());
-            self.trait_base_triggers = Some(self.triggers.clone());
-            self.trait_base_replacement_effects = Some(self.replacement_effects.clone());
-            self.trait_base_static_abilities = Some(self.static_abilities.clone());
+            self.trait_base_triggers = Some(self.triggers.to_vec());
+            self.trait_base_replacement_effects = Some(self.replacement_effects.to_vec());
+            self.trait_base_static_abilities = Some(self.static_abilities.to_vec());
             self.trait_base_keywords = Some(self.keywords.clone());
         }
     }
 
     fn reset_changed_card_traits_baseline(&mut self) {
-        self.trait_base_activated_abilities = Some(self.activated_abilities.clone());
-        self.trait_base_triggers = Some(self.triggers.clone());
-        self.trait_base_replacement_effects = Some(self.replacement_effects.clone());
-        self.trait_base_static_abilities = Some(self.static_abilities.clone());
+        self.trait_base_activated_abilities = Some(self.activated_abilities.to_vec());
+        self.trait_base_triggers = Some(self.triggers.to_vec());
+        self.trait_base_replacement_effects = Some(self.replacement_effects.to_vec());
+        self.trait_base_static_abilities = Some(self.static_abilities.to_vec());
         self.trait_base_keywords = Some(self.keywords.clone());
     }
 
@@ -5434,10 +5506,10 @@ impl Card {
                 let kept = if layer.remove_all { 0 } else { count };
                 kept + layer.abilities.len()
             });
-        self.activated_abilities = Self::spell_to_activated_abilities(&spell_abilities);
-        self.triggers = triggers;
-        self.replacement_effects = replacements;
-        self.static_abilities = static_abilities;
+        self.activated_abilities = Self::spell_to_activated_abilities(&spell_abilities).into();
+        self.triggers = triggers.into();
+        self.replacement_effects = replacements.into();
+        self.static_abilities = static_abilities.into();
         self.keywords = keywords;
     }
 
@@ -5496,16 +5568,16 @@ impl Card {
         if self.changed_card_traits.is_empty() && self.changed_card_traits_by_text.is_empty() {
             if let Some(v) = self.trait_base_activated_abilities.take() {
                 self.base_ability_count = v.len();
-                self.activated_abilities = v;
+                self.activated_abilities = v.into();
             }
             if let Some(v) = self.trait_base_triggers.take() {
-                self.triggers = v;
+                self.triggers = v.into();
             }
             if let Some(v) = self.trait_base_replacement_effects.take() {
-                self.replacement_effects = v;
+                self.replacement_effects = v.into();
             }
             if let Some(v) = self.trait_base_static_abilities.take() {
-                self.static_abilities = v;
+                self.static_abilities = v.into();
             }
             if let Some(v) = self.trait_base_keywords.take() {
                 self.keywords = v;
@@ -5543,16 +5615,16 @@ impl Card {
         if self.changed_card_traits.is_empty() && self.changed_card_traits_by_text.is_empty() {
             if let Some(v) = self.trait_base_activated_abilities.take() {
                 self.base_ability_count = v.len();
-                self.activated_abilities = v;
+                self.activated_abilities = v.into();
             }
             if let Some(v) = self.trait_base_triggers.take() {
-                self.triggers = v;
+                self.triggers = v.into();
             }
             if let Some(v) = self.trait_base_replacement_effects.take() {
-                self.replacement_effects = v;
+                self.replacement_effects = v.into();
             }
             if let Some(v) = self.trait_base_static_abilities.take() {
-                self.static_abilities = v;
+                self.static_abilities = v.into();
             }
             if let Some(v) = self.trait_base_keywords.take() {
                 self.keywords = v;
@@ -5570,16 +5642,16 @@ impl Card {
         self.changed_card_traits_by_text.clear();
         if let Some(v) = self.trait_base_activated_abilities.take() {
             self.base_ability_count = v.len();
-            self.activated_abilities = v;
+            self.activated_abilities = v.into();
         }
         if let Some(v) = self.trait_base_triggers.take() {
-            self.triggers = v;
+            self.triggers = v.into();
         }
         if let Some(v) = self.trait_base_replacement_effects.take() {
-            self.replacement_effects = v;
+            self.replacement_effects = v.into();
         }
         if let Some(v) = self.trait_base_static_abilities.take() {
-            self.static_abilities = v;
+            self.static_abilities = v.into();
         }
         if let Some(v) = self.trait_base_keywords.take() {
             self.keywords = v;
@@ -5600,16 +5672,16 @@ impl Card {
         if self.changed_card_traits.is_empty() && self.changed_card_traits_by_text.is_empty() {
             if let Some(v) = self.trait_base_activated_abilities.take() {
                 self.base_ability_count = v.len();
-                self.activated_abilities = v;
+                self.activated_abilities = v.into();
             }
             if let Some(v) = self.trait_base_triggers.take() {
-                self.triggers = v;
+                self.triggers = v.into();
             }
             if let Some(v) = self.trait_base_replacement_effects.take() {
-                self.replacement_effects = v;
+                self.replacement_effects = v.into();
             }
             if let Some(v) = self.trait_base_static_abilities.take() {
-                self.static_abilities = v;
+                self.static_abilities = v.into();
             }
             if let Some(v) = self.trait_base_keywords.take() {
                 self.keywords = v;
