@@ -373,6 +373,7 @@ fn test_graveyard_to_library_with_shuffle() {
 
     let mut agents = pass_agents();
     let mut game_loop = GameLoop::new(2);
+    game_loop.game_rng = Box::new(ReverseShuffleRng);
     game_loop.resolve_stack(&mut game, &mut agents);
 
     assert_eq!(
