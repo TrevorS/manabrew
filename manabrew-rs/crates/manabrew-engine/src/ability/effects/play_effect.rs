@@ -560,7 +560,7 @@ fn push_spell_to_stack(
             spell_card: Some(card_id),
             activator: Some(controller),
             spell_controller: Some(controller),
-            source_sa: Some(trigger_sa.clone()),
+            source_sa: Some(Box::new(trigger_sa.clone())),
             ..Default::default()
         },
         false,

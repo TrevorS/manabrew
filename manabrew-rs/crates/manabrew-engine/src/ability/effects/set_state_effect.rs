@@ -226,7 +226,7 @@ fn set_state_for_card(
                     crate::trigger::TriggerType::TurnFaceUp,
                     crate::event::RunParams {
                         card: Some(card_id),
-                        cause: Some(sa.clone()),
+                        cause: Some(Box::new(sa.clone())),
                         ..Default::default()
                     },
                     false,

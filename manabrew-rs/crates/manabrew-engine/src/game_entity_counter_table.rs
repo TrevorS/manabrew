@@ -408,7 +408,7 @@ fn add_counter_internal(
     if let Some(trigger_handler) = trigger_handler {
         params = object_params(object, params);
         params.source_player = source;
-        params.cause = cause.cloned();
+        params.cause = cause.cloned().map(Box::new);
         params.counter_type = Some(counter_type.to_string());
         if trigger_handler.listens_for_counter_added(game, counter_type) {
             for counter_amount in (old_value + 1)..=new_value {

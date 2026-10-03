@@ -1540,9 +1540,9 @@ impl GameLoop {
                 let run_params = RunParams {
                     card: Some(card_id),
                     crew_cards: Some(vec![*crew_card]),
-                    source_sa: Some(sa_for_trigger.clone()),
-                    spell_ability: Some(sa_for_trigger.clone()),
-                    cause: Some(sa_for_trigger.clone()),
+                    source_sa: Some(Box::new(sa_for_trigger.clone())),
+                    spell_ability: Some(Box::new(sa_for_trigger.clone())),
+                    cause: Some(Box::new(sa_for_trigger.clone())),
                     cause_card: Some(card_id),
                     player: Some(player),
                     ..Default::default()

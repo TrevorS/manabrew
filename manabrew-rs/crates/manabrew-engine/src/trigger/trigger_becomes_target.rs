@@ -122,7 +122,7 @@ impl TriggerBehavior for TriggerBecomesTarget {
         params: &RunParams,
         _game: &GameState,
     ) {
-        if let Some(ref source_sa) = params.source_sa {
+        if let Some(source_sa) = params.source_sa.as_deref() {
             if let Some(source_card) = source_sa.source {
                 sa.set_triggering_value(
                     crate::ability::AbilityKey::Source,
@@ -131,7 +131,7 @@ impl TriggerBehavior for TriggerBecomesTarget {
             }
             sa.set_triggering_spell_ability("SourceSA", source_sa.clone());
         }
-        if let Some(target_sa) = params.target_sa.as_ref() {
+        if let Some(target_sa) = params.target_sa.as_deref() {
             sa.set_triggering_spell_ability("Target", target_sa.clone());
         } else if let Some(card) = params.target_card.or(params.card) {
             sa.set_triggering_value(

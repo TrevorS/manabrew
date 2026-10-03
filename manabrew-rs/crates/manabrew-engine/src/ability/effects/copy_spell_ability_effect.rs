@@ -179,7 +179,7 @@ fn push_copy(
             RunParams {
                 spell_card: Some(source_id),
                 spell_controller: Some(controller),
-                source_sa: Some(trigger_sa.clone()),
+                source_sa: Some(Box::new(trigger_sa.clone())),
                 ..Default::default()
             },
             false,

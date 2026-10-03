@@ -285,7 +285,7 @@ fn run_becomes_target_triggers(
                     card: Some(card),
                     target_card: Some(card),
                     cards: Some(vec![card]),
-                    source_sa: Some(tgt_sa.clone()),
+                    source_sa: Some(Box::new(tgt_sa.clone())),
                     first_time: Some(first_time),
                     valiant: Some(valiant),
                     ..Default::default()
@@ -294,7 +294,7 @@ fn run_becomes_target_triggers(
             GameEntity::Player(player) => RunParams {
                 player: Some(player),
                 target_player: Some(player),
-                source_sa: Some(tgt_sa.clone()),
+                source_sa: Some(Box::new(tgt_sa.clone())),
                 ..Default::default()
             },
         };
@@ -313,7 +313,7 @@ fn run_becomes_target_triggers(
             TriggerType::BecomesTargetOnce,
             RunParams {
                 cards: Some(cards),
-                source_sa: Some(tgt_sa.clone()),
+                source_sa: Some(Box::new(tgt_sa.clone())),
                 cause_card: sa.source,
                 ..Default::default()
             },

@@ -69,7 +69,7 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
             (Some(selector), Some(card_id)) => {
                 let source = trigger.base.card_trait_base.host_card(game);
                 let mut context = crate::card::valid_filter::MatchContext::new(source, game);
-                if let Some(sa) = params.source_sa.as_ref() {
+                if let Some(sa) = params.source_sa.as_deref() {
                     context = context.with_spell_ability(sa);
                 }
                 crate::card::valid_filter::matches_valid_card_selector_with_context(
@@ -82,8 +82,8 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
         let valid_sa_matches = self.valid_sa.as_deref().is_none_or(|filter| {
             params
                 .source_sa
-                .as_ref()
-                .or(params.spell_ability.as_ref())
+                .as_deref()
+                .or(params.spell_ability.as_deref())
                 .is_some_and(|sa| {
                     let host = trigger.base.card_trait_base.host_card(game);
                     crate::spellability::valid_sa::matches_valid_sa(
@@ -95,14 +95,21 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
                 })
         });
         let valid_sa_on_card_matches = self.valid_sa_on_card.as_deref().is_none_or(|filter| {
-            let sa = params.source_sa.as_ref().or(params.spell_ability.as_ref());
+            let sa = params
+                .source_sa
+                .as_deref()
+                .or(params.spell_ability.as_deref());
             match (sa, params.spell_card) {
                 (Some(sa), Some(cast)) => matches_valid_sa_on_card(filter, sa, cast, trigger, game),
                 _ => false,
             }
         });
         let targets_valid_matches = self.targets_valid.as_ref().is_none_or(|filter| {
-            let Some(spell) = params.source_sa.as_ref().or(params.spell_ability.as_ref()) else {
+            let Some(spell) = params
+                .source_sa
+                .as_deref()
+                .or(params.spell_ability.as_deref())
+            else {
                 return false;
             };
             let raw = filter.as_raw();
@@ -147,8 +154,8 @@ impl TriggerBehavior for TriggerSpellAbilityCastOrCopy {
         let single_target_matches = !self.is_single_target
             || params
                 .source_sa
-                .as_ref()
-                .or(params.spell_ability.as_ref())
+                .as_deref()
+                .or(params.spell_ability.as_deref())
                 .is_some_and(has_single_target);
 
         valid_card_matches

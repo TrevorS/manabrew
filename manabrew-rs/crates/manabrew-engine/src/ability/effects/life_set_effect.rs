@@ -40,7 +40,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     life_amount: Some(diff),
                     first_time: Some(ctx.game.player(target).life_gained_this_turn == diff),
                     source_card: sa.source,
-                    source_sa: Some(sa.clone()),
+                    source_sa: Some(Box::new(sa.clone())),
                     ..Default::default()
                 },
                 false,
@@ -53,7 +53,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     life_amount: Some(diff.abs()),
                     first_time: Some(ctx.game.player(target).life_lost_this_turn == diff.abs()),
                     source_card: sa.source,
-                    source_sa: Some(sa.clone()),
+                    source_sa: Some(Box::new(sa.clone())),
                     ..Default::default()
                 },
                 false,

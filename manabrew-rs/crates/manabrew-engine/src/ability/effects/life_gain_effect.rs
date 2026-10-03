@@ -61,7 +61,7 @@ pub(super) fn gain_life(
             life_amount: Some(amount),
             first_time: Some(ctx.game.player(target).life_gained_this_turn == amount),
             source_card: sa.source,
-            source_sa: Some(sa.clone()),
+            source_sa: Some(Box::new(sa.clone())),
             ..Default::default()
         },
         false,

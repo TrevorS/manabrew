@@ -63,7 +63,7 @@ impl CardZoneTable {
                     cards: Some(table.all_cards()),
                     zone_changes: Some(table.zone_changes()),
                     change_zone_table: Some(table),
-                    cause: cause.cloned(),
+                    cause: cause.cloned().map(Box::new),
                     ..Default::default()
                 },
                 false,

@@ -153,8 +153,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 TriggerType::Countered,
                 RunParams {
                     card: Some(source_card),
-                    spell_ability: Some(countered_sa.clone()),
-                    cause: Some(sa.clone()),
+                    spell_ability: Some(Box::new(countered_sa.clone())),
+                    cause: Some(Box::new(sa.clone())),
                     ..Default::default()
                 },
                 false,

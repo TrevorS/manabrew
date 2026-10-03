@@ -125,7 +125,7 @@ impl GameState {
             TriggerType::Exiled,
             RunParams {
                 card: Some(card_id),
-                cause: cause.cloned(),
+                cause: cause.cloned().map(Box::new),
                 origin: Some(origin),
                 cost_stack: self.cost_payment_stack.clone(),
                 individual_cost_payment_instance: self.cost_payment_stack.peek().cloned(),
@@ -1228,7 +1228,7 @@ impl GameState {
                                 damage_target_card: Some(cid),
                                 damage_amount: Some(amount),
                                 is_combat_damage: Some(is_combat),
-                                cause: cause.cloned(),
+                                cause: cause.cloned().map(Box::new),
                                 ..Default::default()
                             },
                             false,
@@ -1289,7 +1289,7 @@ impl GameState {
                                     damage_target_player: Some(pid),
                                     damage_amount: Some(dealt),
                                     is_combat_damage: Some(is_combat),
-                                    cause: cause.cloned(),
+                                    cause: cause.cloned().map(Box::new),
                                     ..Default::default()
                                 },
                                 false,
@@ -1415,7 +1415,7 @@ impl GameState {
                     life_amount: Some(final_amount),
                     first_time: Some(self.player(controller).life_gained_this_turn == final_amount),
                     source_card: Some(source),
-                    source_sa: cause.cloned(),
+                    source_sa: cause.cloned().map(Box::new),
                     ..Default::default()
                 },
                 false,

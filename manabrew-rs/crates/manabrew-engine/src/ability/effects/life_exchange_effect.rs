@@ -49,7 +49,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     player: Some(p1),
                     life_amount: Some(lost),
                     source_card: sa.source,
-                    source_sa: Some(sa.clone()),
+                    source_sa: Some(Box::new(sa.clone())),
                     ..Default::default()
                 },
                 false,

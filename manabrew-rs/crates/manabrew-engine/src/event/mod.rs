@@ -231,14 +231,14 @@ pub struct RunParams {
     /// Java AbilityKey.Explored.
     pub explored: Option<CardId>,
     /// SpellAbility that was countered
-    pub spell_ability: Option<crate::spellability::SpellAbility>,
-    pub target_sa: Option<crate::spellability::SpellAbility>,
+    pub spell_ability: Option<Box<crate::spellability::SpellAbility>>,
+    pub target_sa: Option<Box<crate::spellability::SpellAbility>>,
     /// Java AbilityKey.SourceSA.
-    pub source_sa: Option<crate::spellability::SpellAbility>,
+    pub source_sa: Option<Box<crate::spellability::SpellAbility>>,
     /// Java AbilityKey.AbilityMana.
-    pub ability_mana: Option<crate::spellability::SpellAbility>,
+    pub ability_mana: Option<Box<crate::spellability::SpellAbility>>,
     /// Cause of the event (e.g. counterspell)
-    pub cause: Option<crate::spellability::SpellAbility>,
+    pub cause: Option<Box<crate::spellability::SpellAbility>>,
     pub cost_stack: crate::zone::CostPaymentStack,
     pub individual_cost_payment_instance: Option<crate::zone::cost_payment_stack::Entry>,
     /// Java AbilityKey.Causer payload.
@@ -500,16 +500,16 @@ impl RunParams {
         if let Some(value) = self.room_name.as_deref() {
             sa.set_triggering_object(crate::ability::AbilityKey::RoomName, value);
         }
-        if let Some(value) = self.spell_ability.as_ref() {
+        if let Some(value) = self.spell_ability.as_deref() {
             sa.set_triggering_spell_ability("SpellAbility", value.clone());
         }
-        if let Some(value) = self.source_sa.as_ref() {
+        if let Some(value) = self.source_sa.as_deref() {
             sa.set_triggering_spell_ability("SourceSA", value.clone());
         }
-        if let Some(value) = self.ability_mana.as_ref() {
+        if let Some(value) = self.ability_mana.as_deref() {
             sa.set_triggering_spell_ability("AbilityMana", value.clone());
         }
-        if let Some(value) = self.cause.as_ref() {
+        if let Some(value) = self.cause.as_deref() {
             sa.set_triggering_spell_ability("Cause", value.clone());
         }
         if let Some(results) = self.die_results.as_deref() {
@@ -535,7 +535,11 @@ impl RunParams {
     pub fn get_value(&self, key: AbilityKey) -> Option<AbilityValue> {
         use AbilityKey::*;
         match key {
-            AbilityMana => self.ability_mana.clone().map(AbilityValue::SpellAbility),
+            AbilityMana => self
+                .ability_mana
+                .as_deref()
+                .cloned()
+                .map(AbilityValue::SpellAbility),
             AllVotes => self.all_votes.clone().map(AbilityValue::VoteMap),
             Activator => self
                 .activator
@@ -580,7 +584,8 @@ impl RunParams {
                 }),
             Cause => self
                 .cause
-                .clone()
+                .as_deref()
+                .cloned()
                 .map(AbilityValue::SpellAbility)
                 .or_else(|| self.cause_card.map(AbilityValue::Card))
                 .or_else(|| self.cards.clone().map(AbilityValue::Cards)),
@@ -670,8 +675,9 @@ impl RunParams {
                 .or_else(|| self.spell_card.map(AbilityValue::Card)),
             SourceSA | SpellAbility | StackSa => self
                 .source_sa
-                .clone()
-                .or_else(|| self.spell_ability.clone())
+                .as_deref()
+                .or(self.spell_ability.as_deref())
+                .cloned()
                 .map(AbilityValue::SpellAbility),
             Valiant => self.valiant.map(AbilityValue::Bool),
             InternalTriggerTable => self
@@ -738,10 +744,10 @@ impl RunParams {
     ) -> Option<&crate::spellability::SpellAbility> {
         use crate::ability::AbilityKey;
         match key {
-            AbilityKey::SpellAbility => self.spell_ability.as_ref(),
-            AbilityKey::SourceSA => self.source_sa.as_ref(),
-            AbilityKey::AbilityMana => self.ability_mana.as_ref(),
-            AbilityKey::Cause => self.cause.as_ref(),
+            AbilityKey::SpellAbility => self.spell_ability.as_deref(),
+            AbilityKey::SourceSA => self.source_sa.as_deref(),
+            AbilityKey::AbilityMana => self.ability_mana.as_deref(),
+            AbilityKey::Cause => self.cause.as_deref(),
             _ => None,
         }
     }

@@ -65,7 +65,7 @@ pub(crate) fn emit_targeting_triggers_for_sa(
                 cards: Some(vec![target_id]),
                 cause_player: Some(controller),
                 cause_card: Some(card_id),
-                source_sa: Some(trigger_sa.clone()),
+                source_sa: Some(Box::new(trigger_sa.clone())),
                 first_time: Some(first_time),
                 valiant: Some(valiant),
                 ..Default::default()
@@ -81,7 +81,7 @@ pub(crate) fn emit_targeting_triggers_for_sa(
                 target_player: Some(target_id),
                 cause_player: Some(controller),
                 cause_card: Some(card_id),
-                source_sa: Some(trigger_sa.clone()),
+                source_sa: Some(Box::new(trigger_sa.clone())),
                 ..Default::default()
             },
             false,
@@ -94,10 +94,10 @@ pub(crate) fn emit_targeting_triggers_for_sa(
         trigger_handler.run_trigger(
             TriggerType::BecomesTarget,
             RunParams {
-                target_sa: Some(entry.spell_ability.clone()),
+                target_sa: Some(Box::new(entry.spell_ability.clone())),
                 cause_player: Some(controller),
                 cause_card: Some(card_id),
-                source_sa: Some(trigger_sa.clone()),
+                source_sa: Some(Box::new(trigger_sa.clone())),
                 ..Default::default()
             },
             false,
@@ -114,7 +114,7 @@ pub(crate) fn emit_targeting_triggers_for_sa(
                 target_player: target_players.first().copied(),
                 cause_player: Some(controller),
                 cause_card: Some(card_id),
-                source_sa: Some(trigger_sa.clone()),
+                source_sa: Some(Box::new(trigger_sa.clone())),
                 ..Default::default()
             },
             false,

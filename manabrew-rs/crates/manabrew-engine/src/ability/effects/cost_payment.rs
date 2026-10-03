@@ -778,7 +778,7 @@ fn pay_effect_cost_parts(
                         amount_n,
                         crate::event::RunParams {
                             source_player: Some(payer),
-                            cause: Some(sa.clone()),
+                            cause: Some(Box::new(sa.clone())),
                             ..Default::default()
                         },
                         true,
@@ -930,7 +930,7 @@ fn pay_effect_cost_parts(
                     amount_n,
                     crate::event::RunParams {
                         source_player: Some(payer),
-                        cause: Some(sa.clone()),
+                        cause: Some(Box::new(sa.clone())),
                         ..Default::default()
                     },
                     true,

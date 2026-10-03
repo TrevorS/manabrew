@@ -260,7 +260,7 @@ fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
         true,
         RunParams {
             source_player: Some(activator),
-            cause: Some(sa.clone()),
+            cause: Some(Box::new(sa.clone())),
             ..Default::default()
         },
     );

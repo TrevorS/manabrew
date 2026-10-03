@@ -1241,7 +1241,7 @@ impl GameLoop {
                         amount_n,
                         RunParams {
                             source_player: Some(player),
-                            cause: sa.as_deref().cloned(),
+                            cause: sa.as_deref().cloned().map(Box::new),
                             ..Default::default()
                         },
                         false,
@@ -2050,7 +2050,7 @@ impl GameLoop {
                             amount_n,
                             RunParams {
                                 source_player: Some(player),
-                                cause: sa.as_deref().cloned(),
+                                cause: sa.as_deref().cloned().map(Box::new),
                                 ..Default::default()
                             },
                             false,

@@ -104,8 +104,8 @@ pub(crate) fn build_run_params(
     let cause_cards = cause_cards_for_trigger(trigger, params, game);
 
     RunParams {
-        spell_ability: Some(spell_ability.clone()),
-        source_sa: Some(spell_ability.clone()),
+        spell_ability: Some(Box::new(spell_ability.clone())),
+        source_sa: Some(Box::new(spell_ability.clone())),
         cause_card: spell_ability.source,
         cards: if cause_cards.is_empty() {
             None

@@ -70,7 +70,7 @@ pub(crate) fn add_counter_with_context(
             game,
             trigger_handler,
             agents,
-            cause.as_ref(),
+            cause.as_deref(),
             is_effect,
             params,
         )
@@ -246,7 +246,7 @@ impl EffectContext<'_> {
         mut params: RunParams,
     ) -> i32 {
         params.source_player.get_or_insert(sa.activating_player);
-        params.cause.get_or_insert_with(|| sa.clone());
+        params.cause.get_or_insert_with(|| Box::new(sa.clone()));
         add_counter_with_context(
             self.game,
             Some(self.trigger_handler),
@@ -268,7 +268,7 @@ impl EffectContext<'_> {
         mut params: RunParams,
     ) -> i32 {
         params.source_player.get_or_insert(sa.activating_player);
-        params.cause.get_or_insert_with(|| sa.clone());
+        params.cause.get_or_insert_with(|| Box::new(sa.clone()));
         let source = params.source_player;
         let mut table = GameEntityCounterTable::default();
         table.put(

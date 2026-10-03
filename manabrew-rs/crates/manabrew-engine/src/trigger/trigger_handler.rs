@@ -664,15 +664,15 @@ impl TriggerHandler {
                         player: Some(pushed_sa.activating_player),
                         activator: Some(pushed_sa.activating_player),
                         spell_controller: Some(pushed_sa.activating_player),
-                        spell_ability: Some(pushed_sa.clone()),
+                        spell_ability: Some(Box::new(pushed_sa.clone())),
                         cause_card: source_card,
                         ..Default::default()
                     },
                     true,
                 );
                 if let Some(mut ability_triggered) = pt.ability_triggered {
-                    ability_triggered.spell_ability = Some(pushed_sa.clone());
-                    ability_triggered.source_sa = Some(pushed_sa);
+                    ability_triggered.spell_ability = Some(Box::new(pushed_sa.clone()));
+                    ability_triggered.source_sa = Some(Box::new(pushed_sa));
                     if ability_triggered.cause_card.is_none() {
                         ability_triggered.cause_card = source_card;
                     }
@@ -2057,7 +2057,7 @@ impl TriggerHandler {
         if !trigger.meets_requirements_on_triggered_objects(
             game,
             params,
-            params.spell_ability.as_ref(),
+            params.spell_ability.as_deref(),
             host_card,
         ) {
             return Err("triggered objects");

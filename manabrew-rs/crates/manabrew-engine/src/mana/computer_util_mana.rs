@@ -1274,7 +1274,7 @@ fn add_taps_for_mana_trigger_mana_impl(
                 || !trigger.meets_requirements_on_triggered_objects(
                     game,
                     &params,
-                    params.spell_ability.as_ref(),
+                    params.spell_ability.as_deref(),
                     host_id,
                 )
             {
