@@ -3718,8 +3718,12 @@ impl Card {
             self.base_toughness = toughness;
         }
         if let Some(keywords) = self.changed_keywords_base.take() {
+            if let Some(base) = self.trait_base_keywords.as_mut() {
+                *base = keywords.clone();
+            }
             self.keywords = keywords;
             self.update_keywords();
+            self.recompute_changed_card_keywords();
         }
         if let Some(count) = self.changed_trigger_count_base.take() {
             if count < self.base_trigger_count {
@@ -5521,6 +5525,32 @@ impl Card {
         self.replacement_effects = replacements.into();
         self.static_abilities = static_abilities.into();
         self.keywords = keywords;
+        self.update_keywords();
+    }
+
+    fn recompute_changed_card_keywords(&mut self) {
+        let Some(mut keywords) = self.trait_base_keywords.clone() else {
+            return;
+        };
+        for layer in self
+            .changed_card_traits_by_text
+            .values()
+            .chain(self.changed_card_traits.values())
+        {
+            keywords = crate::card::card_state::apply_keywords(layer, keywords);
+        }
+        self.keywords = keywords;
+        self.update_keywords();
+    }
+
+    pub fn perpetual_keywords(&self) -> Vec<String> {
+        self.changed_card_traits
+            .iter()
+            .filter(|((_, static_id), _)| {
+                *static_id == crate::card::perpetual::perpetual_keywords::PERPETUAL_KEYWORD_TRAITS
+            })
+            .flat_map(|(_, layer)| layer.keywords.iter().cloned())
+            .collect()
     }
 
     pub fn add_intrinsic_activated_ability(&mut self, ability: ActivatedAbility) {
@@ -5665,6 +5695,7 @@ impl Card {
         }
         if let Some(v) = self.trait_base_keywords.take() {
             self.keywords = v;
+            self.update_keywords();
         }
     }
 

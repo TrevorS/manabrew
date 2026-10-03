@@ -718,11 +718,14 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         );
     }
     for card in game.cards.iter_mut() {
-        if card.pump_keywords.is_empty() && card.granted_keywords.is_empty() {
+        let perpetual = card.perpetual_keywords();
+        if perpetual.is_empty() && card.pump_keywords.is_empty() && card.granted_keywords.is_empty()
+        {
             continue;
         }
         let card = Arc::make_mut(card);
-        let mut keywords = card.pump_keywords.as_string_list();
+        let mut keywords = perpetual;
+        keywords.extend(card.pump_keywords.as_string_list());
         card.generate_keyword_triggers_for(&keywords);
         keywords.extend(card.granted_keywords.as_string_list());
         card.generate_keyword_activated_abilities(&keywords);

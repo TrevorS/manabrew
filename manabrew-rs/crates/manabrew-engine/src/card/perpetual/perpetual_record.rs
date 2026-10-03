@@ -95,10 +95,10 @@ impl PerpetualRecord {
                 }
             }
             Self::Keywords {
+                timestamp,
                 add_keywords,
                 remove_keywords,
                 remove_all,
-                ..
             } => {
                 if *remove_all {
                     card.clear_changed_card_keywords();
@@ -106,8 +106,15 @@ impl PerpetualRecord {
                 for kw in remove_keywords {
                     card.remove_changed_card_keywords(kw);
                 }
-                for kw in add_keywords {
-                    card.add_changed_card_keywords(kw);
+                if !add_keywords.is_empty() {
+                    card.add_changed_card_traits(
+                        CardTraitChanges {
+                            keywords: add_keywords.clone(),
+                            ..Default::default()
+                        },
+                        *timestamp,
+                        crate::card::perpetual::perpetual_keywords::PERPETUAL_KEYWORD_TRAITS,
+                    );
                 }
             }
             Self::ManaCost { mana_cost, .. } => {

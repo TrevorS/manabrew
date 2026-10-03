@@ -325,21 +325,26 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         // Apply keywords (until EOT — stored in pump_keywords so they get cleared at cleanup)
         // AnimateAll uses " & " as keyword separator (unlike Animate which uses ",")
         if let Some(ref kws) = keywords_str {
-            for kw in kws.split('&') {
-                let kw = kw.trim();
-                if !kw.is_empty() {
-                    if let Some(ts) = effect_ts {
-                        perpetual_keywords::PerpetualKeywords {
-                            timestamp: ts,
-                            add_keywords: vec![kw.to_string()],
-                            remove_keywords: Vec::new(),
-                            remove_all: false,
-                        }
-                        .apply_effect(ctx.game.card_mut(card_id));
-                    } else {
-                        let timestamp = ctx.game.next_timestamp();
-                        ctx.game.card_mut(card_id).add_pump_keyword(kw, timestamp);
+            let kws: Vec<String> = kws
+                .split('&')
+                .map(str::trim)
+                .filter(|kw| !kw.is_empty())
+                .map(str::to_string)
+                .collect();
+            if let Some(ts) = effect_ts {
+                if !kws.is_empty() {
+                    perpetual_keywords::PerpetualKeywords {
+                        timestamp: ts,
+                        add_keywords: kws,
+                        remove_keywords: Vec::new(),
+                        remove_all: false,
                     }
+                    .apply_effect(ctx.game.card_mut(card_id));
+                }
+            } else {
+                for kw in &kws {
+                    let timestamp = ctx.game.next_timestamp();
+                    ctx.game.card_mut(card_id).add_pump_keyword(kw, timestamp);
                 }
             }
         }

@@ -433,10 +433,10 @@ pub(super) fn apply_pump_to_card(
             toughness: def,
         }
         .apply_effect(card);
-        for kw in keywords {
+        if !keywords.is_empty() {
             perpetual_keywords::PerpetualKeywords {
                 timestamp: ts,
-                add_keywords: vec![kw.clone()],
+                add_keywords: keywords.to_vec(),
                 remove_keywords: Vec::new(),
                 remove_all: false,
             }

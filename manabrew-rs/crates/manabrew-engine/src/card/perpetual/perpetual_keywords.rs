@@ -4,6 +4,8 @@ use crate::card::perpetual::perpetual_interface::PerpetualInterface;
 use crate::card::perpetual::perpetual_record::PerpetualRecord;
 use crate::card::Card;
 
+pub(crate) const PERPETUAL_KEYWORD_TRAITS: i64 = 1;
+
 #[derive(Debug, Clone)]
 pub struct PerpetualKeywords {
     pub timestamp: i64,
