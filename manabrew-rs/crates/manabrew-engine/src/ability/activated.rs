@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::ability::ability_factory::AbilityRecordType;
 use crate::ability::api_type::ApiType;
 use crate::ability::ProducedMana;
 use crate::cost::{parse_cost, Cost};
@@ -7,8 +8,8 @@ use crate::parsing::keys;
 use crate::parsing::{parse_semantic_param_value, Params, SemanticParamValue};
 use forge_foundation::ZoneType;
 
-/// A parsed activated ability from a card's A: line.
-/// Mirrors Java's SpellAbility with AB$ prefix.
+/// A parsed ability from a card's A: line: an `AB$` activated ability or an `ST$` static one
+/// (Java `AbilityActivated` and `AbilityStatic`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivatedAbility {
     /// Index of this ability in the card's abilities list.
@@ -84,6 +85,8 @@ pub struct ActivatedAbility {
     /// Whether this is the synthetic Room UnlockDoor ability.
     #[serde(default)]
     pub is_unlock_door: bool,
+    #[serde(default)]
+    pub record_type: AbilityRecordType,
     /// Whether this is a ManaReflected ability.
     #[serde(default)]
     pub is_mana_reflected: bool,
@@ -112,9 +115,7 @@ impl ActivatedAbility {
     /// Java builds Plot, `ST$ UnlockDoor` and the turn-face-up `ST$ SetState` as `AbilityStatic`,
     /// which is not an activated ability, so `Activated` and `Type$ Ability` never match them.
     pub fn is_ability_static(&self) -> bool {
-        self.ability_api == Some(ApiType::Plot)
-            || self.params.has("Unlock")
-            || self.is_turn_face_up()
+        self.record_type == AbilityRecordType::StaticAbility
     }
 
     pub fn display_description(&self, card_name: &str) -> String {
@@ -161,7 +162,7 @@ impl ActivatedAbility {
     }
 }
 
-/// Parse an ability string into an ActivatedAbility, if it's an AB$ line.
+/// Parse an ability string into an ActivatedAbility, if it's an AB$ or ST$ line.
 /// Returns None for SP$/DB$/trigger lines.
 ///
 /// Example AB$ lines:
@@ -171,13 +172,12 @@ impl ActivatedAbility {
 pub fn parse_activated_ability(raw: &str, index: usize) -> Option<ActivatedAbility> {
     let params = Params::from_raw(raw);
 
-    // Check if any key contains "AB" — the main key is something like "AB" with value "Mana"
-    // In practice the format is "AB$ Mana | Cost$ T | ..."
-    // After Params::from_raw, we get {"AB": "Mana", "Cost": "T", ...}
-    let has_ab = params.has(keys::AB);
-    if !has_ab {
-        return None;
-    }
+    let record_type = AbilityRecordType::from_params(&params).filter(|record_type| {
+        matches!(
+            record_type,
+            AbilityRecordType::Ability | AbilityRecordType::StaticAbility
+        )
+    })?;
 
     // Extract cost
     let cost_str = params.get(keys::COST).unwrap_or("");
@@ -187,7 +187,7 @@ pub fn parse_activated_ability(raw: &str, index: usize) -> Option<ActivatedAbili
     // - Effect type is "Mana"
     // - No ValidTgts$ (targeting makes it non-mana)
     // - No loyalty cost
-    let ab_type = params.get(keys::AB).unwrap_or("");
+    let ab_type = record_type.api_type_of(&params).unwrap_or("");
     let has_targets = params.has(keys::VALID_TGTS);
     let is_planeswalker_ability = params.is_true(keys::PLANESWALKER);
     let is_mana_ability = (ab_type.eq_ignore_ascii_case("Mana")
@@ -259,6 +259,7 @@ pub fn parse_activated_ability(raw: &str, index: usize) -> Option<ActivatedAbili
         exhaust,
         sorcery_speed,
         is_unlock_door,
+        record_type,
         is_mana_reflected,
         params,
         original_host: None,

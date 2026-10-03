@@ -532,19 +532,7 @@ impl GameLoop {
                 let played = if ab.is_mana_ability {
                     self.resolve_mana_ability(game, agents, player, card_id, &ab, None);
                     true
-                } else if ab
-                    .params
-                    .get(keys::AB)
-                    .and_then(crate::ability::api_type::ApiType::smart_value_of)
-                    == Some(crate::ability::api_type::ApiType::Plot)
-                {
-                    // Java models Plot as AbilityStatic, which resolves immediately.
-                    self.resolve_immediate_ability(game, agents, player, card_id, &ab)
-                } else if ab.is_turn_face_up() {
-                    // Morph face-up is a special action: pay the cost and resolve immediately.
-                    self.resolve_immediate_ability(game, agents, player, card_id, &ab)
-                } else if ab.is_unlock_door {
-                    // Java `CardFactoryUtil.abilityUnlockRoom` builds `ST$ UnlockDoor`.
+                } else if ab.is_ability_static() {
                     self.resolve_immediate_ability(game, agents, player, card_id, &ab)
                 } else {
                     self.play_activated_ability_on_stack(game, agents, player, card_id, &ab)

@@ -1811,10 +1811,13 @@ pub fn parse_or_warn<T>(result: Option<T>, kind: &str, raw: &str) -> Option<T> {
             "ReplacementEffect" => trimmed.starts_with("R$") || trimmed.starts_with("R:"),
             "Trigger" => trimmed.starts_with("T$") || trimmed.starts_with("T:"),
             "ActivatedAbility" => {
-                // Only AB$ lines are activated abilities. SP$ (spell) and DB$
+                // Only AB$ and ST$ lines are card abilities. SP$ (spell) and DB$
                 // (sub-ability) lines are resolved via build_spell_ability, not
                 // parse_activated_ability — their None result is intentional.
-                trimmed.starts_with("AB$") || trimmed.starts_with("AB:")
+                trimmed.starts_with("AB$")
+                    || trimmed.starts_with("AB:")
+                    || trimmed.starts_with("ST$")
+                    || trimmed.starts_with("ST:")
             }
             _ => false,
         };

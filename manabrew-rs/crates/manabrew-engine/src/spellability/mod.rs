@@ -689,13 +689,11 @@ impl SpellAbility {
         );
         let parsed = ParsedParams::parse(ability_text);
         let params = Params::from_parsed(&parsed);
-        let api = parsed
-            .get(keys::SP)
-            .or_else(|| parsed.get(keys::DB))
-            .or_else(|| parsed.get(keys::AB))
-            .and_then(ApiType::smart_value_of);
         let record_type = crate::ability::ability_factory::AbilityRecordType::from_parsed(&parsed)
             .unwrap_or_default();
+        let api = parsed
+            .get(record_type.prefix())
+            .and_then(ApiType::smart_value_of);
         let target_restrictions = if parsed.has(keys::VALID_TGTS) {
             TargetRestrictions::new_from_parsed(&parsed, &params)
         } else {
@@ -1847,11 +1845,7 @@ impl SpellAbility {
     /// Java builds land plays, `ST$` records, Plot, `ST$ UnlockDoor` and the turn-face-up
     /// `ST$ SetState` as `AbilityStatic`; keep in sync with `ActivatedAbility::is_ability_static`.
     pub fn is_ability_static(&self) -> bool {
-        self.record_type == AbilityRecordType::StaticAbility
-            || self.is_land_ability
-            || self.api == Some(ApiType::Plot)
-            || self.is_unlock()
-            || self.is_turn_face_up()
+        self.record_type == AbilityRecordType::StaticAbility || self.is_land_ability
     }
 
     pub fn has_param(&self, key: &str) -> bool {

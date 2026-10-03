@@ -753,7 +753,7 @@ impl GameLoop {
 
             let mut sa =
                 crate::spellability::build_spell_ability(game, card_id, &ab.ability_text, player);
-            sa.is_activated = true;
+            sa.is_activated = !sa.is_ability_static();
             if crate::staticability::static_ability_cant_be_cast::cant_be_activated_ability(
                 game,
                 &game.cards,
@@ -1200,7 +1200,7 @@ impl GameLoop {
             sa.set_original_host(original_host);
         }
         sa.original_ability = ab.original_ability;
-        sa.is_activated = true;
+        sa.is_activated = !sa.is_ability_static();
         let mut activation_cost = ab.cost.clone();
         if let Some(alternate) = ab.params.get(crate::parsing::keys::ALTERNATE_COST) {
             let mut abilities: Vec<crate::spellability::SpellAbility> = Vec::new();

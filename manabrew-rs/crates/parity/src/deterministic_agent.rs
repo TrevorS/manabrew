@@ -469,9 +469,11 @@ impl DeterministicAgent {
                 if *cid != card_id {
                     continue;
                 }
-                if manabrew_engine::parsing::raw_get(text, manabrew_engine::parsing::keys::AB)
-                    .map(|v| v.eq_ignore_ascii_case("UnlockDoor"))
-                    .unwrap_or(false)
+                if manabrew_engine::ability::ability_factory::AbilityRecordType::from_raw(text)
+                    .and_then(|record_type| {
+                        manabrew_engine::parsing::raw_get(text, record_type.prefix())
+                    })
+                    .is_some_and(|api| api.eq_ignore_ascii_case("UnlockDoor"))
                     && door.is_none_or(|door| {
                         manabrew_engine::parsing::raw_get(text, "CardState") == Some(door)
                     })

@@ -324,7 +324,7 @@ impl GameLoop {
                                         &ability_text,
                                         priority_player,
                                     );
-                                    sa.is_activated = true;
+                                    sa.is_activated = !sa.is_ability_static();
                                     this.play_spell_ability(
                                         game,
                                         agents,
@@ -738,7 +738,7 @@ impl GameLoop {
                                 &ability_text,
                                 priority_player,
                             );
-                            sa.is_activated = true;
+                            sa.is_activated = !sa.is_ability_static();
                             this.play_spell_ability(
                                 game,
                                 agents,

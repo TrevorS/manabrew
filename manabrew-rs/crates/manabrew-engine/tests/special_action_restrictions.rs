@@ -20,11 +20,13 @@ use manabrew_engine::spellability::{SpellAbility, StackEntry};
 const SPY: &str = "Name:Mistway Spy\nManaCost:U\nTypes:Creature Merfolk Detective\nPT:1/1\nK:Flying\nK:Disguise:1 U\nOracle:";
 const ISLAND: &str = "Name:Island\nManaCost:no cost\nTypes:Basic Land Island\nOracle:";
 const PRODIGAL: &str = "Name:Prodigal Sorcerer\nManaCost:2 U\nTypes:Creature Human Wizard\nPT:1/1\nA:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1 | SpellDescription$ CARDNAME deals 1 damage to any target.\nOracle:";
+const VULTURES: &str = "Name:Circling Vultures\nManaCost:B\nTypes:Creature Bird\nPT:3/2\nK:Flying\nA:ST$ Discard | Cost$ 0 | Mode$ Defined | DefinedCards$ Self | Optional$ True | DiscardMessage$ Do you want discard this card? | ActivationZone$ Hand | InstantSpeed$ True | SpellDescription$ You may discard CARDNAME any time you could cast an instant.\nOracle:";
 const SUDDEN_SHOCK: &str = "Name:Sudden Shock\nManaCost:1 R\nTypes:Instant\nK:Split second\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | SpellDescription$ CARDNAME deals 2 damage to any target.\nOracle:";
 
 struct Recorder {
     seen: Rc<RefCell<Option<Vec<CardId>>>>,
     turn_up: CardId,
+    confirm: bool,
 }
 
 impl PlayerAgent for Recorder {
@@ -144,6 +146,18 @@ impl PlayerAgent for Recorder {
     ) -> Option<bool> {
         PassAgent.choose_land_or_spell(context, player)
     }
+    fn confirm_action(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        _mode: Option<&str>,
+        _message: &str,
+        _options: &[String],
+        _source: Option<CardId>,
+        _api: Option<manabrew_engine::ability::api_type::ApiType>,
+    ) -> bool {
+        self.confirm
+    }
 }
 
 fn put(game: &mut GameState, script: &str, owner: PlayerId, zone: ZoneType) -> CardId {
@@ -190,6 +204,7 @@ fn offered(split_second: bool) -> (Vec<CardId>, CardId, CardId, bool) {
         Box::new(Recorder {
             seen: Rc::clone(&seen),
             turn_up: spy,
+            confirm: false,
         }),
         Box::new(PassAgent),
     ];
@@ -213,4 +228,50 @@ fn without_split_second_both_abilities_are_offered() {
 
     assert!(seen.contains(&spy));
     assert!(seen.contains(&sorcerer));
+}
+
+fn put_split_second_shock(game: &mut GameState, caster: PlayerId) {
+    let shock = put(game, SUDDEN_SHOCK, caster, ZoneType::Stack);
+    let mut sa = SpellAbility::new_simple(
+        Some(shock),
+        caster,
+        "SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2",
+    );
+    sa.is_spell = true;
+    sa.target_chosen.target_player = Some(caster);
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: sa,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+}
+
+#[test]
+fn a_scripted_static_ability_is_offered_and_resolves_under_split_second() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let vultures = put(&mut game, VULTURES, p0, ZoneType::Hand);
+    put_split_second_shock(&mut game, p1);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    let seen = Rc::new(RefCell::new(None));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Recorder {
+            seen: Rc::clone(&seen),
+            turn_up: vultures,
+            confirm: true,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    let seen = seen.borrow().clone().expect("a priority decision");
+
+    assert!(seen.contains(&vultures));
+    assert_eq!(game.card(vultures).zone, ZoneType::Graveyard);
 }

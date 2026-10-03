@@ -5421,7 +5421,7 @@ impl Card {
                     &ab.ability_text,
                     self.controller,
                 );
-                sa.is_activated = true;
+                sa.is_activated = !sa.is_ability_static();
                 if let Some(original_host) = ab.original_host {
                     sa.set_original_host(original_host);
                 }

@@ -359,7 +359,7 @@ impl CardState {
         self.abilities
             .clone()
             .into_iter()
-            .filter(|sa| sa.is_activated || sa.is_trigger || sa.is_spell)
+            .filter(|sa| sa.is_activated || sa.is_ability_static() || sa.is_trigger || sa.is_spell)
             .collect()
     }
     pub fn get_first_ability(&self) -> Option<SpellAbility> {

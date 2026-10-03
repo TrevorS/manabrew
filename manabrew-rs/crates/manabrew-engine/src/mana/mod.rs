@@ -81,7 +81,7 @@ pub(crate) fn mana_ability_meets_script_requirements(
         return true;
     }
     let mut sa = crate::spellability::build_spell_ability(game, card_id, &ab.ability_text, player);
-    sa.is_activated = true;
+    sa.is_activated = !sa.is_ability_static();
     !crate::staticability::static_ability_cant_be_cast::cant_be_activated_ability(
         game,
         &game.cards,
@@ -340,11 +340,9 @@ pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymen
             (None, None, None, false, None, None)
         };
 
-    let is_turn_face_up = sa.ability_text.contains("Mode$ TurnFaceUp");
-    let is_unlock = sa.ability_text.contains("Unlock$ True");
     ManaPaymentContext {
         is_spell: sa.is_spell,
-        is_activated_ability: sa.is_activated && !sa.is_trigger && !is_turn_face_up && !is_unlock,
+        is_activated_ability: sa.is_activated_ability(),
         // `payment_context_for_sa` is used for activated-ability cost
         // calculations and AI lookahead — neither is the real cast-time
         // payment of a spell on stack. Leave the SA-on-stack guard off so
@@ -358,11 +356,11 @@ pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymen
             .iter()
             .filter_map(|c| c.chosen_type.clone().map(|chosen| (c.id, chosen)))
             .collect(),
-        is_turn_face_up,
+        is_turn_face_up: sa.is_turn_face_up(),
         turn_face_up_key: ["MorphUp", "DisguiseUp", "ManifestUp", "CloakUp"]
             .into_iter()
             .find(|key| sa.ability_text.contains(&format!("{key}$ True"))),
-        is_unlock,
+        is_unlock: sa.is_unlock(),
         is_cast_face_down: sa.is_spell && face_down,
         cast_from,
         mana_value,

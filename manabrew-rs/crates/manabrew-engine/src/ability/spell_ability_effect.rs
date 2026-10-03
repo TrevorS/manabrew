@@ -154,10 +154,8 @@ pub fn uses_simultaneous_zone_table(api: ApiType) -> bool {
 /// overrides are collected into this one match. Keep it in sync with the Java overrides.
 pub fn moves_card_to_or_from_library(raw: &str) -> bool {
     let params = crate::parsing::Params::from_raw(raw);
-    let Some(api) = params
-        .get(keys::AB)
-        .or_else(|| params.get(keys::DB))
-        .or_else(|| params.get(keys::SP))
+    let Some(api) = crate::ability::ability_factory::AbilityRecordType::from_params(&params)
+        .and_then(|record_type| record_type.api_type_of(&params))
     else {
         return false;
     };

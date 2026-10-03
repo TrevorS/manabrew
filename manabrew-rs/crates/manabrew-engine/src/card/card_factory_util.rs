@@ -61,7 +61,7 @@ pub fn ability_morph_up(card: &mut Card, morph_details: &str, mega: bool, disgui
     let mega_param = if mega { " | Mega$ True" } else { "" };
     let up_key = if disguise { "DisguiseUp" } else { "MorphUp" };
     let text = format!(
-        "AB$ SetState | Cost$ {morph_cost} | Mode$ TurnFaceUp | {up_key}$ True{mega_param}{reduce_param}"
+        "ST$ SetState | Cost$ {morph_cost} | Mode$ TurnFaceUp | {up_key}$ True{mega_param}{reduce_param}"
     );
     let index = card.activated_abilities.len();
     if let Some(parsed) = crate::ability::activated::parse_activated_ability(&text, index) {
@@ -133,7 +133,7 @@ pub fn ability_turn_face_up(card: &mut Card, key: &str) {
     if cost.is_empty() {
         cost.push('0');
     }
-    let text = format!("AB$ SetState | Cost$ {cost} | Mode$ TurnFaceUp | {key}$ True");
+    let text = format!("ST$ SetState | Cost$ {cost} | Mode$ TurnFaceUp | {key}$ True");
     if card
         .activated_abilities
         .iter()

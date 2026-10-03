@@ -99,9 +99,8 @@ impl Card {
                 let mut seen: Vec<String> = Vec::new();
                 while let Some(raw) = text {
                     let params = Params::from_raw(&raw);
-                    if params
-                        .get(keys::AB)
-                        .or_else(|| params.get(keys::DB))
+                    if crate::ability::ability_factory::AbilityRecordType::from_params(&params)
+                        .and_then(|record_type| record_type.api_type_of(&params))
                         .is_some_and(|a| {
                             a.eq_ignore_ascii_case("Mana")
                                 || a.eq_ignore_ascii_case("ManaReflected")
@@ -459,12 +458,12 @@ impl Card {
             }
         }
 
-        // Plot: K:Plot:{cost} → AB$ Plot | Cost$ {cost} | ActivationZone$ Hand | SorcerySpeed$ True
+        // Plot: K:Plot:{cost} → ST$ Plot | Cost$ {cost} | ActivationZone$ Hand | SorcerySpeed$ True (Java builds an AbilityStatic).
         // Mirrors Java CardFactoryUtil lines 3398-3449.
         // Exiles the card from hand; plotted cards can later be cast for free.
         if let Some(plot_cost) = keyword_cost(keywords, "Plot") {
             let ab_text = format!(
-                "AB$ Plot | Cost$ {plot_cost} | ActivationZone$ Hand | SorcerySpeed$ True | Secondary$ True | SpellDescription$ Plot | Keyword$ Plot"
+                "ST$ Plot | Cost$ {plot_cost} | ActivationZone$ Hand | SorcerySpeed$ True | Secondary$ True | SpellDescription$ Plot | Keyword$ Plot"
             );
             let next_idx = self.activated_abilities.len();
             if let Some(ab) = parse_activated_ability(&ab_text, next_idx) {
