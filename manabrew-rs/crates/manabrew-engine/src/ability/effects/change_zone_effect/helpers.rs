@@ -621,7 +621,14 @@ pub(super) fn apply_post_move(
         }
 
         // Warp keyword
-        if sa.ir.warp {
+        if sa.is_trigger
+            && sa
+                .trigger_spawning_ability
+                .as_deref()
+                .is_some_and(|spawning| {
+                    spawning.is_alternative_cost(crate::spellability::AlternativeCost::Warp)
+                })
+        {
             ctx.game.card_mut(card_id).warped = true;
             create_warp_effect(ctx, sa, card_id);
         }

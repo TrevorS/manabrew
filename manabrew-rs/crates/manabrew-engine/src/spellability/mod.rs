@@ -481,7 +481,6 @@ impl SpellAbility {
             keys::IMPRINT_LAST => self.ir.imprint_last,
             keys::RANDOM_ORDER => self.ir.random_order,
             keys::SHUFFLE_CHANGED_PILE => self.ir.shuffle_changed_pile,
-            keys::WARP => self.ir.warp,
             keys::CAN_REPEAT_MODES => self.ir.can_repeat_modes,
             keys::ENTWINE => self.ir.entwine,
             keys::REMOVE_CREATURE_TYPES => self.ir.animate_remove_creature_types,

@@ -586,60 +586,22 @@ impl GameLoop {
                 if alt_cost == Some(crate::spellability::AlternativeCost::Dash) {
                     let timestamp = game.next_timestamp();
                     game.card_mut(card_id).add_pump_keyword("Haste", timestamp);
-                    self.trigger_handler.register_delayed_trigger(
-                        crate::trigger::handler::DelayedTrigger {
-                            mode: TriggerType::Phase,
-                            trigger_mode: Box::new(crate::trigger::trigger_phase::TriggerPhase {
-                                phases: vec![forge_foundation::PhaseType::EndOfTurn],
-                                valid_player: None,
-                            }) as Box<dyn crate::trigger::TriggerBehavior>,
-                            params: crate::parsing::Params::default(),
-                            execute_svar: format!(
-                                "DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand | Defined$ CardUID_{}", card_id.0
-                            ),
-                            controller: player,
-                            source_card: card_id,
-                            source_zone_timestamp: None,
-                            target_card: Some(card_id),
-                            remembered_amount: 0,
-                            remembered_cards: Vec::new(),
-                            remembered_players: Vec::new(),
-                            remembered_lki_cards: Vec::new(),
-                            remembered_card_timestamps: Vec::new(),
-                            target_card_zone_timestamp: None,
-                            sort_after_active: false,
-                trigger_order: None,
-                source_timestamp: Some(game.card(card_id).zone_timestamp),
-                spawning_ability: None,
-                        },
+                    crate::ability::spell_ability_effect::register_at_eot(
+                        &mut self.trigger_handler,
+                        game,
+                        &entry.spell_ability,
+                        "Hand",
+                        vec![card_id],
                     );
                 }
 
                 if alt_cost == Some(crate::spellability::AlternativeCost::Warp) {
-                    self.trigger_handler.register_delayed_trigger(
-                        crate::trigger::handler::DelayedTrigger {
-                            mode: TriggerType::Phase,
-                            trigger_mode: Box::new(crate::trigger::trigger_phase::TriggerPhase {
-                                phases: vec![forge_foundation::PhaseType::EndOfTurn],
-                                valid_player: None,
-                            }) as Box<dyn crate::trigger::TriggerBehavior>,
-                            params: crate::parsing::Params::default(),
-                            execute_svar: "DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | Defined$ DelayTriggerRememberedLKI | Warp$ True".to_string(),
-                            controller: player,
-                            source_card: card_id,
-                            source_zone_timestamp: None,
-                            target_card: Some(card_id),
-                            remembered_amount: 0,
-                            remembered_cards: Vec::new(),
-                            remembered_players: Vec::new(),
-                            remembered_lki_cards: vec![card_id],
-                            remembered_card_timestamps: Vec::new(),
-                            target_card_zone_timestamp: Some(game.card(card_id).zone_timestamp),
-                            sort_after_active: false,
-                trigger_order: None,
-                source_timestamp: Some(game.card(card_id).zone_timestamp),
-                spawning_ability: None,
-                        },
+                    crate::ability::spell_ability_effect::register_at_eot(
+                        &mut self.trigger_handler,
+                        game,
+                        &entry.spell_ability,
+                        "Exile",
+                        vec![card_id],
                     );
                 }
 
@@ -686,31 +648,12 @@ impl GameLoop {
                     self.trigger_handler.unregister_active_triggers(card_id);
                     self.trigger_handler.register_active_trigger(game, card_id);
 
-                    self.trigger_handler.register_delayed_trigger(
-                        crate::trigger::handler::DelayedTrigger {
-                            mode: TriggerType::Phase,
-                            trigger_mode: Box::new(crate::trigger::trigger_phase::TriggerPhase {
-                                phases: vec![forge_foundation::PhaseType::EndOfTurn],
-                                valid_player: None,
-                            })
-                                as Box<dyn crate::trigger::TriggerBehavior>,
-                            params: crate::parsing::Params::default(),
-                            execute_svar: format!("DB$ Sacrifice | Defined$ CardUID_{}", card_id.0),
-                            controller: player,
-                            source_card: card_id,
-                            source_zone_timestamp: None,
-                            target_card: Some(card_id),
-                            remembered_amount: 0,
-                            remembered_cards: Vec::new(),
-                            remembered_players: Vec::new(),
-                            remembered_lki_cards: Vec::new(),
-                            remembered_card_timestamps: Vec::new(),
-                            target_card_zone_timestamp: None,
-                            sort_after_active: false,
-                            trigger_order: None,
-                            source_timestamp: Some(game.card(card_id).zone_timestamp),
-                            spawning_ability: None,
-                        },
+                    crate::ability::spell_ability_effect::register_at_eot(
+                        &mut self.trigger_handler,
+                        game,
+                        &entry.spell_ability,
+                        "Sacrifice",
+                        vec![card_id],
                     );
                 }
             } else {

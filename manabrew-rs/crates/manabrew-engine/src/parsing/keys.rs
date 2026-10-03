@@ -448,7 +448,6 @@ pub const SECONDARY: &str = "Secondary";
 pub const SPELLBOOK: &str = "Spellbook";
 pub const STACK_ID: &str = "StackId";
 pub const TOGGLE: &str = "Toggle";
-pub const WARP: &str = "Warp";
 pub const DUNGEON: &str = "Dungeon";
 pub const MAY_SHUFFLE: &str = "MayShuffle";
 pub const VAR_NAME: &str = "VarName";

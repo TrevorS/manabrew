@@ -1084,26 +1084,15 @@ impl TriggerHandler {
                     0
                 };
                 let delayed_order = delayed.trigger_order.unwrap_or(0);
-                // Java parity: Panharmonicon-class statics (e.g. Yarok, Roaming Throne)
-                // double triggered abilities of permanents the owner controls. Rust
-                // implements Evoke-style sacrifice and other keyword-induced triggers
-                // as DelayedTrigger instances; the non-delayed path at ~L580 already
-                // consults `extra_triggers`, but delayed matches bypassed it until now.
-                // Replicate the same check so that when Yarok's own Panharmonicon
-                // fires during its Evoke-on-ETB sacrifice, it doubles the trigger
-                // (matching Java's `amt=2` on `valid=Card.Self+evoked`).
-                // A delayed trigger that an ability created is never doubled (CR 603.2e,
-                // `StaticAbilityPanharmonicon.handlePanharmonicon`).
-                let extra_delayed = if delayed.spawning_ability.is_some() {
-                    0
-                } else {
+                // Java's delayed loop never asks Panharmonicon; evoke's sacrifice is a card
+                // trigger there and a delayed trigger here (PG-385).
+                let extra_delayed =
                     crate::staticability::static_ability_panharmonicon::extra_triggers(
                         game,
                         delayed.source_card,
                         &tmp_trigger,
                         event_payload,
-                    )
-                };
+                    );
                 if delayed.sort_after_active {
                     // Push to end of entries (above active triggers → resolves first).
                     entries.push((

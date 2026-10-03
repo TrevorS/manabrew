@@ -15,6 +15,17 @@ pub fn extra_triggers(
     _run_params: &RunParams,
 ) -> i32 {
     let mut n = 0;
+    if trigger.is_static()
+        && !matches!(
+            trigger.kind,
+            TriggerType::TapsForMana | TriggerType::ManaAdded
+        )
+    {
+        return n;
+    }
+    if trigger.get_spawning_ability().is_some() {
+        return n;
+    }
     let trig_host = game.card(trigger_host);
     for source in game
         .cards

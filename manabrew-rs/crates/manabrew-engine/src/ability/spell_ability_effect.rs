@@ -1238,10 +1238,13 @@ pub fn register_at_eot(
         source_zone_timestamp: None,
         target_card: None,
         remembered_amount: 0,
+        remembered_card_timestamps: remembered
+            .iter()
+            .map(|&card| (card, game.card(card).zone_timestamp))
+            .collect(),
         remembered_cards: remembered.clone(),
         remembered_players: Vec::new(),
         remembered_lki_cards: remembered,
-        remembered_card_timestamps: Vec::new(),
         target_card_zone_timestamp: None,
         sort_after_active: false,
         trigger_order: None,
