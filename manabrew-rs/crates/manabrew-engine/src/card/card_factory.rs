@@ -64,7 +64,15 @@ pub fn get_clone_states(input: &Card, new_owner: PlayerId, cause: &SpellAbility)
         out.base_ability_count = out.activated_abilities.len();
     }
     out.oracle_text = input.oracle_text.clone();
-    out.set_triggers(input.copiable_triggers());
+    let (mut triggers, printed): (Vec<_>, Vec<_>) = input
+        .copiable_triggers()
+        .into_iter()
+        .partition(|trigger| trigger.base.card_trait_base.get_keyword().is_some());
+    triggers.extend(printed);
+    for (id, trigger) in triggers.iter_mut().enumerate() {
+        trigger.id = id as u32;
+    }
+    out.set_triggers(triggers);
     out.set_svars_map(input.svars.clone());
     out.set_static_abilities(input.copiable_static_abilities());
     out.set_replacement_effects(input.copiable_replacement_effects());
