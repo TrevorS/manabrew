@@ -1273,7 +1273,7 @@ impl GameLoop {
                 // StaticAbilityAlternativeCost (Mode$ AlternativeCost)
                 let has_alternative_costs = *alternative_cost_statics.get_or_init(|| {
                     crate::staticability::static_ability_alternative_cost::any_in_static_source_zones(
-                        &game.cards,
+                        game,
                     )
                 }) || crate::staticability::static_ability_alternative_cost::has_active_alternative_cost(
                     card,

@@ -354,7 +354,7 @@ impl GameLoop {
             } else {
                 if *cant_be_activated_source.get_or_init(|| {
                     crate::staticability::static_ability_cant_be_cast::any_cant_be_activated_source(
-                        &game.cards,
+                        game,
                     )
                 })
                     && crate::staticability::static_ability_cant_be_cast::cant_be_activated_ability(
@@ -586,9 +586,7 @@ impl GameLoop {
         };
 
         let alternative_cost_statics =
-            crate::staticability::static_ability_alternative_cost::any_in_static_source_zones(
-                &game.cards,
-            );
+            crate::staticability::static_ability_alternative_cost::any_in_static_source_zones(game);
         for card_id in battlefield {
             let card = game.card(card_id);
             // Face-down creatures only expose morph turn-face-up ability (game rule).

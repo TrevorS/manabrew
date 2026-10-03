@@ -209,8 +209,11 @@ pub fn apply_cant_be_cast_ability(
 }
 
 /// Keep in sync with the source and static filters of `cant_be_activated_ability`.
-pub fn any_cant_be_activated_source(cards: &[Arc<Card>]) -> bool {
-    cards.iter().any(|source| {
+pub fn any_cant_be_activated_source(game: &GameState) -> bool {
+    if !crate::staticability::static_mode_present(game, &StaticMode::CantBeActivated) {
+        return false;
+    }
+    game.cards.iter().any(|source| {
         source.zone.is_static_ability_source()
             && source
                 .static_abilities

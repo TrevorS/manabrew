@@ -76,8 +76,11 @@ pub fn has_active_alternative_cost(card: &Card) -> bool {
 
 /// Keep in sync with `alternative_costs`: for a source in a static-source zone it collects only
 /// from `AlternativeCost` statics active in their card's static-source zone.
-pub fn any_in_static_source_zones(cards: &[Arc<Card>]) -> bool {
-    cards.iter().any(|card| {
+pub fn any_in_static_source_zones(game: &GameState) -> bool {
+    if !crate::staticability::static_mode_present(game, &StaticMode::AlternativeCost) {
+        return false;
+    }
+    game.cards.iter().any(|card| {
         card.zone.is_static_ability_source()
             && card
                 .static_abilities

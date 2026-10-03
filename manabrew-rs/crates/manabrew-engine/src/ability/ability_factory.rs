@@ -302,6 +302,24 @@ pub fn build_spell_ability_for_card_state_cast(
     {
         return None;
     }
+    thread_local! {
+        static CARD_STATE_CASTS: RefCell<Vec<CardStateCast>> = const { RefCell::new(Vec::new()) };
+    }
+    let shared = &game.cards[card_id.index()];
+    let cached = CARD_STATE_CASTS.with(|casts| {
+        casts
+            .borrow()
+            .iter()
+            .find(|cast| {
+                std::ptr::eq(cast.card.as_ptr(), std::sync::Arc::as_ptr(shared))
+                    && cast.player == player
+                    && cast.state_name == state_name
+            })
+            .map(|cast| (cast.host.clone(), cast.sa.clone()))
+    });
+    if cached.is_some() {
+        return cached;
+    }
     let mut host = card.clone();
     host.transform();
     // A Modal DFC's back face is routinely a vanilla creature with no `A:` line at all (Amazing
@@ -313,7 +331,30 @@ pub fn build_spell_ability_for_card_state_cast(
         None => build_vanilla_spell_ability(&host, card_id, player),
     };
     std::sync::Arc::make_mut(&mut sa.ir).card_state_name = Some(format!("{state_name:?}"));
+    CARD_STATE_CASTS.with(|casts| {
+        let mut casts = casts.borrow_mut();
+        if casts.len() == CARD_STATE_CASTS_KEPT {
+            casts.clear();
+        }
+        casts.push(CardStateCast {
+            card: std::sync::Arc::downgrade(shared),
+            player,
+            state_name,
+            host: host.clone(),
+            sa: sa.clone(),
+        });
+    });
     Some((host, sa))
+}
+
+const CARD_STATE_CASTS_KEPT: usize = 64;
+
+struct CardStateCast {
+    card: std::sync::Weak<Card>,
+    player: PlayerId,
+    state_name: CardStateName,
+    host: Card,
+    sa: SpellAbility,
 }
 
 /// Build a spell ability for card-casting contexts.

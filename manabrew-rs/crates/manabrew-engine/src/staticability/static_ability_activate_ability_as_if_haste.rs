@@ -3,6 +3,9 @@ use crate::game::GameState;
 use crate::staticability::StaticMode;
 
 pub fn can_activate(game: &GameState, card: &Card) -> bool {
+    if !crate::staticability::static_mode_present(game, &StaticMode::ActivateAbilityAsIfHaste) {
+        return false;
+    }
     for source in game
         .cards
         .iter()

@@ -15,6 +15,9 @@ pub fn ignore_shroud(game: &GameState, target: &Card, activator: PlayerId) -> bo
 }
 
 fn any_ignore(game: &GameState, target: &Card, activator: PlayerId, mode: StaticMode) -> bool {
+    if !crate::staticability::static_mode_present(game, &mode) {
+        return false;
+    }
     for source in game
         .cards
         .iter()

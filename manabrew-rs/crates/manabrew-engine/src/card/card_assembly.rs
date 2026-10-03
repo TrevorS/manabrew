@@ -428,9 +428,9 @@ pub(crate) fn assemble_card(
                     &back_face.keywords,
                 ),
                 abilities: back_face.abilities.clone(),
-                triggers: back_triggers,
-                static_abilities: back_static_abilities,
-                replacement_effects: back_replacement_effects,
+                triggers: back_triggers.into(),
+                static_abilities: back_static_abilities.into(),
+                replacement_effects: back_replacement_effects.into(),
                 svars: back_face.svars.clone(),
             });
             if rules.split_type.is_dual_faced() {
@@ -485,7 +485,7 @@ fn swap_keyword_trigger_face(card: &mut Card, other: &mut CardOtherPart) {
     std::mem::swap(&mut card.type_line, &mut other.type_line);
     std::mem::swap(&mut card.keywords, &mut other.keywords);
     std::mem::swap(&mut card.abilities, &mut other.abilities);
-    std::mem::swap(&mut *card.triggers, &mut other.triggers);
+    std::mem::swap(&mut card.triggers, &mut other.triggers);
     std::mem::swap(&mut card.svars, &mut other.svars);
 }
 
