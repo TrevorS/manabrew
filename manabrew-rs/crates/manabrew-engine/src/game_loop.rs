@@ -87,6 +87,7 @@ pub struct GameLoop {
     pub provide_priority_action_space: bool,
     turn_checkpoint_sink: Option<TurnCheckpointSink>,
     probe_order: crate::mana::ProbeOrder,
+    board_fingerprint_cache: std::cell::Cell<Option<([u64; 4], u64)>>,
 }
 
 pub type TurnCheckpointSink = Box<dyn FnMut(TurnCheckpoint, &[Box<dyn PlayerAgent>])>;
@@ -226,6 +227,7 @@ impl GameLoop {
             provide_priority_action_space: true,
             turn_checkpoint_sink: None,
             probe_order: crate::mana::ProbeOrder::default(),
+            board_fingerprint_cache: std::cell::Cell::new(None),
         }
     }
 

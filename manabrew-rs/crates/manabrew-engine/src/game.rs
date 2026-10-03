@@ -795,6 +795,10 @@ impl GameState {
         self.zones.iter()
     }
 
+    pub fn zones_stamp(&self) -> u64 {
+        self.zones.stamp()
+    }
+
     pub fn cards_in_all_zones(&self, zone_type: ZoneType) -> impl Iterator<Item = CardId> + '_ {
         self.iter_zones()
             .filter(move |(key, _)| key.zone_type == zone_type)

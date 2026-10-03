@@ -71,18 +71,7 @@ impl GameLoop {
         hasher.write_u8(game.prevent_all_combat_damage as u8);
         hasher.write_usize(game.extra_turns.len());
 
-        for p in &game.players {
-            hasher.write_u32(p.id.0);
-            hasher.write_i32(p.life);
-            hasher.write_i32(p.poison_counters);
-            hasher.write_i32(p.lands_played_this_turn);
-            hasher.write_i32(p.spells_cast_this_turn);
-            hasher.write_usize(p.cards_cast_this_turn.len());
-            for cid in &p.cards_cast_this_turn {
-                hasher.write_u32(cid.0);
-            }
-            hasher.write_i32(p.drawn_this_turn);
-        }
+        hasher.write_u64(self.board_fingerprint(game));
 
         for pool in &self.mana_pools {
             hasher.write_i32(pool.white());
@@ -91,42 +80,6 @@ impl GameLoop {
             hasher.write_i32(pool.red());
             hasher.write_i32(pool.green());
             hasher.write_i32(pool.colorless());
-        }
-
-        for c in &game.cards {
-            hasher.write_u32(c.id.0);
-            hasher.write_u32(c.owner.0);
-            hasher.write_u32(c.controller.0);
-            hasher.write_u8(c.zone as u8);
-            hasher.write_u8(c.tapped as u8);
-            hasher.write_u8(c.summoning_sick as u8);
-            hasher.write_i32(c.damage);
-            hasher.write_i32(c.power_modifier);
-            hasher.write_i32(c.toughness_modifier);
-            hasher.write_u8(c.has_deathtouch_damage as u8);
-            hasher.write_u8(c.is_token as u8);
-            hasher.write_u8(c.is_commander as u8);
-            hasher.write_u32(c.commander_cast_count);
-        }
-
-        for entry in game.stack.iter() {
-            hasher.write_u32(entry.id);
-            hasher.write_u32(entry.spell_ability.activating_player.0);
-            hasher.write_u8(entry.is_creature_spell as u8);
-            hasher.write_u8(entry.is_permanent_spell as u8);
-            hasher.write_u32(entry.spell_ability.source.map(|s| s.0).unwrap_or(u32::MAX));
-            hasher.write(entry.spell_ability.ability_text.as_bytes());
-        }
-
-        let mut zones: Vec<_> = game.iter_zones().collect();
-        zones.sort_unstable_by_key(|(key, _)| (key.zone_type as u8, key.owner.0));
-        for (key, zone) in zones {
-            hasher.write_u8(key.zone_type as u8);
-            hasher.write_u32(key.owner.0);
-            hasher.write_usize(zone.cards.len());
-            for card in &zone.cards {
-                hasher.write_u32(card.0);
-            }
         }
 
         hasher.write_u32(
@@ -154,6 +107,33 @@ impl GameLoop {
         }
 
         hasher.finish()
+    }
+
+    fn board_fingerprint(&self, game: &GameState) -> u64 {
+        let stamps = [
+            game.players.stamp(),
+            game.cards.stamp(),
+            game.stack.stamp(),
+            game.zones_stamp(),
+        ];
+        match self.board_fingerprint_cache.get() {
+            Some((cached, fingerprint)) if cached == stamps => {
+                if verify_fingerprint_cache_enabled() {
+                    assert_eq!(
+                        hash_board(game),
+                        fingerprint,
+                        "state_fingerprint reused a board hash for a changed board"
+                    );
+                }
+                fingerprint
+            }
+            _ => {
+                let fingerprint = hash_board(game);
+                self.board_fingerprint_cache
+                    .set(Some((stamps, fingerprint)));
+                fingerprint
+            }
+        }
     }
 
     pub(crate) fn with_shared_state_mutation<R>(
@@ -223,6 +203,69 @@ impl GameLoop {
             }
         }
     }
+}
+
+fn hash_board(game: &GameState) -> u64 {
+    let mut hasher = FxHasher::default();
+    for p in &game.players {
+        hasher.write_u32(p.id.0);
+        hasher.write_i32(p.life);
+        hasher.write_i32(p.poison_counters);
+        hasher.write_i32(p.lands_played_this_turn);
+        hasher.write_i32(p.spells_cast_this_turn);
+        hasher.write_usize(p.cards_cast_this_turn.len());
+        for cid in &p.cards_cast_this_turn {
+            hasher.write_u32(cid.0);
+        }
+        hasher.write_i32(p.drawn_this_turn);
+    }
+
+    for c in &game.cards {
+        hasher.write_u32(c.id.0);
+        hasher.write_u32(c.owner.0);
+        hasher.write_u32(c.controller.0);
+        hasher.write_u8(c.zone as u8);
+        hasher.write_u8(c.tapped as u8);
+        hasher.write_u8(c.summoning_sick as u8);
+        hasher.write_i32(c.damage);
+        hasher.write_i32(c.power_modifier);
+        hasher.write_i32(c.toughness_modifier);
+        hasher.write_u8(c.has_deathtouch_damage as u8);
+        hasher.write_u8(c.is_token as u8);
+        hasher.write_u8(c.is_commander as u8);
+        hasher.write_u32(c.commander_cast_count);
+    }
+
+    for entry in game.stack.iter() {
+        hasher.write_u32(entry.id);
+        hasher.write_u32(entry.spell_ability.activating_player.0);
+        hasher.write_u8(entry.is_creature_spell as u8);
+        hasher.write_u8(entry.is_permanent_spell as u8);
+        hasher.write_u32(entry.spell_ability.source.map(|s| s.0).unwrap_or(u32::MAX));
+        hasher.write(entry.spell_ability.ability_text.as_bytes());
+    }
+
+    let mut zones: Vec<_> = game.iter_zones().collect();
+    zones.sort_unstable_by_key(|(key, _)| (key.zone_type as u8, key.owner.0));
+    for (key, zone) in zones {
+        hasher.write_u8(key.zone_type as u8);
+        hasher.write_u32(key.owner.0);
+        hasher.write_usize(zone.cards.len());
+        for card in &zone.cards {
+            hasher.write_u32(card.0);
+        }
+    }
+    hasher.finish()
+}
+
+fn verify_fingerprint_cache_enabled() -> bool {
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ENABLED.get_or_init(
+        || match std::env::var("manabrew_engine_VERIFY_FINGERPRINT_CACHE") {
+            Ok(value) => value != "0",
+            Err(_) => cfg!(debug_assertions),
+        },
+    )
 }
 
 /// Scan battlefield for UnspentMana statics and return a bitmask of mana colors
