@@ -2476,7 +2476,11 @@ impl Card {
     /// Keep in sync with the rules-host block of `Card.getReplacementEffects`. Stun
     /// counters are handled in `GameState::untap`: an Untap replacement runs without agents
     /// here and nothing executes its `ReplaceWith`, so the stun `RemoveCounter` would not run.
+    /// Every effect here is `ActiveZones$ Battlefield`, so a card elsewhere has none that can apply.
     pub fn rules_replacement_effects(&self) -> Vec<crate::replacement::ReplacementEffect> {
+        if self.zone != ZoneType::Battlefield {
+            return Vec::new();
+        }
         let mut effects = Vec::new();
         if !self.counters.is_empty()
             && self.counter_count(&CounterType::Named("SHIELD".to_string())) > 0

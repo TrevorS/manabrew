@@ -1758,6 +1758,12 @@ fn collect_effects(
         } else {
             Vec::new()
         };
+        if card.replacement_effects.is_empty()
+            && state_effects.is_empty()
+            && rules_effects.is_empty()
+        {
+            continue;
+        }
         for (effect_idx_in_card, re) in card
             .replacement_effects
             .iter()
