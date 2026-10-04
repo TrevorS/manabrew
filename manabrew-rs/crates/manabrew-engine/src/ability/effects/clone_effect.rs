@@ -212,7 +212,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         target.base_ability_count = target.activated_abilities.len();
         target.base_trigger_count = target.triggers.len();
         target.triggers.extend(pump_triggers);
-        target.set_perpetual(&src, false);
         target.reset_changed_card_traits_baseline_to_current();
         if crate::parsing::raw_has_key(&sa.ability_text, crate::parsing::keys::INTO_PLAY_TAPPED) {
             target.set_tapped(true);

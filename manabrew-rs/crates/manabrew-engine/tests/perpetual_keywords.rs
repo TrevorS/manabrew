@@ -425,3 +425,28 @@ fn a_clone_keeps_the_pump_triggers_of_the_creature_it_turns_into_a_copy() {
     assert_eq!(kinds, vec![TriggerType::Blocks]);
     assert_eq!(card.pump_trigger_count, 1);
 }
+
+#[test]
+fn a_perpetual_keyword_survives_becoming_a_copy_and_a_zone_change() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let p1 = PlayerId(1);
+    let bears = put(&mut game, BEARS, p0, ZoneType::Battlefield);
+    grant_perpetual(&mut game, bears, &["Ward:2"]);
+    put(&mut game, SCHOLAR, p1, ZoneType::Battlefield);
+    let mimic = put(&mut game, MIMIC_FORM, p0, ZoneType::Hand);
+    for _ in 0..2 {
+        put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    }
+    main_phase(&mut game, p0);
+    let (agent, done) = scripted(vec![Step::Cast(mimic)]);
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![agent, Box::new(PassAgent)];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(*done.borrow(), 1);
+    assert_eq!(game.card(bears).card_name, "Exploiting Scholar");
+    assert!(game.card(bears).has_keyword_enum(Keyword::Ward));
+    game.move_card(bears, ZoneType::Hand, p0);
+    apply_continuous_effects(&mut game);
+    assert_eq!(game.card(bears).card_name, "Grizzly Bears");
+    assert!(game.card(bears).has_keyword_enum(Keyword::Ward));
+}

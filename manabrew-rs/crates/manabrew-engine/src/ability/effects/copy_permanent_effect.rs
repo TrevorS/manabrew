@@ -90,7 +90,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 /// `TokenEffectBase` after the token receives its real id.
 pub fn get_proto_type(sa: &SpellAbility, original: &Card, new_owner: crate::ids::PlayerId) -> Card {
     let mut copy = crate::card::card_factory::get_clone_states(original, new_owner, sa);
-    copy.set_perpetual(original, false);
     // Copies are tokens for zone-change purposes (cease to exist off battlefield).
     copy.set_is_token(true);
 
