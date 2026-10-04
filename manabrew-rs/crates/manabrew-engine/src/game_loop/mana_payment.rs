@@ -590,6 +590,15 @@ impl GameLoop {
                     sacrifice_cost_cards(game, runtime, agents, &[sacrificed_id]);
                     Some(sacrificed_id)
                 }
+                mana::ManaPayCallback::PayLifeForMana {
+                    game,
+                    player,
+                    source,
+                    amount,
+                } => {
+                    pay_life(game, runtime.trigger_handler, player, amount);
+                    Some(source)
+                }
                 mana::ManaPayCallback::ExileCostCardsForMana {
                     game,
                     player,

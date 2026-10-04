@@ -1021,6 +1021,7 @@ mod action_space;
 mod cast_spell;
 mod combat_phase;
 mod cost_payment;
+pub(crate) use cost_payment::pay_life;
 mod discover_effect;
 mod game_action;
 pub(crate) use game_action::{

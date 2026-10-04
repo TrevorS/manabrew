@@ -203,38 +203,7 @@ impl GameLoop {
         if amount <= 0 {
             return true;
         }
-        if game.player(player).life < amount
-            || crate::staticability::static_ability_cant_gain_lose_pay_life::cant_pay_life(
-                game, player, true, None,
-            )
-        {
-            return false;
-        }
-        // Run PayLife replacement effects before paying life.
-        {
-            use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
-            use crate::replacement::ReplacementResult;
-            let mut event = ReplacementEvent::PayLife { player, amount };
-            match apply_replacements(game, &mut event) {
-                ReplacementResult::Replaced => return true,
-                ReplacementResult::Skipped | ReplacementResult::Prevented => return false,
-                _ => {}
-            }
-        }
-        let lost = game.player_lose_life(player, amount);
-        self.trigger_handler.run_trigger(
-            TriggerType::LifeLost,
-            RunParams {
-                player: Some(player),
-                life_amount: Some(amount),
-                ..Default::default()
-            },
-            false,
-        );
-        if lost > 0 {
-            crate::action::run_life_lost_all(&mut self.trigger_handler, &[(player, lost)]);
-        }
-        true
+        pay_life(game, &mut self.trigger_handler, player, amount)
     }
 
     /// Discard N cards from hand via agent choice and fire Discarded triggers.
@@ -5159,4 +5128,43 @@ fn can_exile_for_cost(game: &GameState, card_id: CardId) -> bool {
         None,
         true,
     )
+}
+
+pub(crate) fn pay_life(
+    game: &mut GameState,
+    trigger_handler: &mut crate::trigger::TriggerHandler,
+    player: PlayerId,
+    amount: i32,
+) -> bool {
+    if game.player(player).life < amount
+        || crate::staticability::static_ability_cant_gain_lose_pay_life::cant_pay_life(
+            game, player, true, None,
+        )
+    {
+        return false;
+    }
+    {
+        use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
+        use crate::replacement::ReplacementResult;
+        let mut event = ReplacementEvent::PayLife { player, amount };
+        match apply_replacements(game, &mut event) {
+            ReplacementResult::Replaced => return true,
+            ReplacementResult::Skipped | ReplacementResult::Prevented => return false,
+            _ => {}
+        }
+    }
+    let lost = game.player_lose_life(player, amount);
+    trigger_handler.run_trigger(
+        TriggerType::LifeLost,
+        RunParams {
+            player: Some(player),
+            life_amount: Some(amount),
+            ..Default::default()
+        },
+        false,
+    );
+    if lost > 0 {
+        crate::action::run_life_lost_all(trigger_handler, &[(player, lost)]);
+    }
+    true
 }

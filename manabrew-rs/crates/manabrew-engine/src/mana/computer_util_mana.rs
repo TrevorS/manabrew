@@ -155,6 +155,14 @@ pub enum ManaPayCallback<'a> {
         cards: &'a [CardId],
         collect_evidence: bool,
     },
+    /// Pay life for a mana ability's cost (Java `Player.payLife`). A callback without a game
+    /// runtime returns `None`, and the payer loses the life itself.
+    PayLifeForMana {
+        game: &'a mut GameState,
+        player: PlayerId,
+        source: CardId,
+        amount: i32,
+    },
     /// Apply real ProduceMana replacements to the actual mana string this
     /// source is about to add to the pool. The callback mutates `mana` after
     /// running replacement choice through the caller's agents.
@@ -286,6 +294,7 @@ pub fn auto_tap_lands_with_chooser(
             ManaPayCallback::NotifySacrificeForMana(_, cid) => Some(cid),
             ManaPayCallback::ExileCostCardsForMana { .. } => None,
             ManaPayCallback::ApplyProduceManaReplacement { .. } => None,
+            ManaPayCallback::PayLifeForMana { .. } => None,
         }
     };
     auto_tap_lands_internal(
@@ -325,6 +334,7 @@ pub fn auto_tap_lands_allow_reserved_source_reuse_with_chooser(
             ManaPayCallback::NotifySacrificeForMana(_, cid) => Some(cid),
             ManaPayCallback::ExileCostCardsForMana { .. } => None,
             ManaPayCallback::ApplyProduceManaReplacement { .. } => None,
+            ManaPayCallback::PayLifeForMana { .. } => None,
         }
     };
     auto_tap_lands_internal(
@@ -1920,6 +1930,15 @@ pub(crate) fn auto_payment_callback<'a, 'r: 'a>(
                 crate::game_loop::sacrifice_cost_cards(game, runtime, agents, &[id]);
                 Some(id)
             }
+            ManaPayCallback::PayLifeForMana {
+                game,
+                player,
+                source,
+                amount,
+            } => {
+                crate::game_loop::pay_life(game, runtime.trigger_handler, player, amount);
+                Some(source)
+            }
             ManaPayCallback::ExileCostCardsForMana {
                 game,
                 player,
@@ -2041,7 +2060,19 @@ fn pay_non_tap_mana_ability_costs(
                         return false;
                     }
                 }
-                game.player_lose_life(player, amount.resolve(game, ma.card_id, player));
+                let amount = amount.resolve(game, ma.card_id, player);
+                let paid = match callback {
+                    Some(ref mut cb) => cb(ManaPayCallback::PayLifeForMana {
+                        game,
+                        player,
+                        source: ma.card_id,
+                        amount,
+                    }),
+                    None => None,
+                };
+                if paid.is_none() {
+                    game.player_lose_life(player, amount);
+                }
             }
             CostPart::SubCounter {
                 amount,
@@ -5102,6 +5133,7 @@ mod tests {
                         }
                         ManaPayCallback::ExileCostCardsForMana { .. } => None,
                         ManaPayCallback::ApplyProduceManaReplacement { .. } => None,
+                        ManaPayCallback::PayLifeForMana { .. } => None,
                     }
                 };
 
@@ -5168,6 +5200,7 @@ mod tests {
                         }
                         ManaPayCallback::ExileCostCardsForMana { .. } => None,
                         ManaPayCallback::ApplyProduceManaReplacement { .. } => None,
+                        ManaPayCallback::PayLifeForMana { .. } => None,
                     }
                 };
 
