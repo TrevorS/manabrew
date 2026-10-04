@@ -1936,6 +1936,13 @@ impl Card {
         self.update_types_for_view();
     }
 
+    pub fn set_creature_types(&mut self, creature_types: &str) -> bool {
+        let changed = crate::card::card_state::set_creature_types(self, creature_types);
+        self.update_types();
+        self.update_types_for_view();
+        changed
+    }
+
     pub fn remove_type(&mut self, ty: &str) {
         crate::card::card_state::remove_type(self, ty);
         self.update_types();

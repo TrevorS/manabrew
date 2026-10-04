@@ -147,6 +147,7 @@ pub const TYPE: &str = "Type";
 pub const TYPES: &str = "Types";
 pub const ADD_TYPES: &str = "AddTypes";
 pub const ADD_ALL_CREATURE_TYPES: &str = "AddAllCreatureTypes";
+pub const SET_CREATURE_TYPES: &str = "SetCreatureTypes";
 pub const REMOVE_ARTIFACT_TYPES: &str = "RemoveArtifactTypes";
 pub const REMOVE_CARD_TYPES: &str = "RemoveCardTypes";
 pub const REMOVE_COLOR: &str = "RemoveColor";

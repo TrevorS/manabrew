@@ -119,6 +119,9 @@ pub fn get_proto_type(sa: &SpellAbility, original: &Card, new_owner: crate::ids:
             copy.update_types();
         }
     }
+    if let Some(creature_types) = sa.ir.set_creature_types.as_deref() {
+        copy.set_creature_types(creature_types);
+    }
 
     // Apply SetPower$/SetToughness$ (e.g. Eternalize sets to 4/4).
     if let Some(p) = sa

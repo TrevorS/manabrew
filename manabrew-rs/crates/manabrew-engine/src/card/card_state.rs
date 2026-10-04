@@ -5,7 +5,7 @@
 
 use crate::{HashMap, HashSet};
 
-use forge_foundation::{CardStateName, CardTypeLine, ColorSet, ManaCost};
+use forge_foundation::{CardStateName, CardTypeLine, ColorSet, CoreType, ManaCost};
 
 use crate::ability::activated::parse_activated_ability;
 use crate::card::trait_card_trait_changes::CardTraitChanges as ICardTraitChanges;
@@ -579,6 +579,22 @@ pub fn update_types_for_view(card: &mut Card) {
 
 pub fn add_type(card: &mut Card, ty: &str) {
     card.type_line.add_type(ty);
+}
+
+pub fn set_creature_types(card: &mut Card, creature_types: &str) -> bool {
+    if !card.is_creature() && !card.type_line.core_types.contains(&CoreType::Kindred) {
+        return false;
+    }
+    let before = card.type_line.subtypes.len();
+    card.type_line
+        .subtypes
+        .retain(|subtype| !crate::game::TypeRegistry::is_creature_type(subtype));
+    let changed = card.type_line.subtypes.len() != before
+        || std::mem::take(&mut card.type_line.all_creature_types);
+    for creature_type in creature_types.split(' ') {
+        card.type_line.add_type(creature_type);
+    }
+    changed
 }
 
 pub fn remove_type(card: &mut Card, ty: &str) {

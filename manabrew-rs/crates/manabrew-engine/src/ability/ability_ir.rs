@@ -331,6 +331,7 @@ pub struct SpellAbilityIr {
     pub num_def: Option<String>,
     pub types_text: Option<String>,
     pub add_types: Option<String>,
+    pub set_creature_types: Option<String>,
     pub set_color: Option<String>,
     pub set_power: Option<String>,
     pub set_toughness: Option<String>,
@@ -905,6 +906,7 @@ impl SpellAbilityIr {
                 .or_else(|| params.get(keys::TYPE))
                 .map(str::to_string),
             add_types: params.get(keys::ADD_TYPES).map(str::to_string),
+            set_creature_types: params.get(keys::SET_CREATURE_TYPES).map(str::to_string),
             set_color: params.get(keys::SET_COLOR).map(str::to_string),
             set_power: params.get(keys::SET_POWER).map(str::to_string),
             set_toughness: params.get(keys::SET_TOUGHNESS).map(str::to_string),

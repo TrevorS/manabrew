@@ -76,14 +76,19 @@ pub fn get_clone_states(input: &Card, new_owner: PlayerId, cause: &SpellAbility)
     out.set_svars_map(input.svars.clone());
     let set_color =
         cause.has_param(crate::parsing::keys::SET_COLOR) || cause.has_param("SetColorByManaCost");
+    let set_creature_types = cause.has_param(crate::parsing::keys::SET_CREATURE_TYPES);
     let mut static_abilities = input.copiable_static_abilities();
     static_abilities.retain(|sta| {
         !sta.ir.characteristic_defining
             || !(cause.has_param(crate::parsing::keys::SET_POWER) && sta.ir.set_power
                 || cause.has_param(crate::parsing::keys::SET_TOUGHNESS) && sta.ir.set_toughness
-                || set_color && sta.ir.set_color)
+                || set_color && sta.ir.set_color
+                || set_creature_types && sta.ir.add_all_creature_types)
     });
     out.set_static_abilities(static_abilities);
+    if set_creature_types {
+        out.remove_intrinsic_keyword("Changeling");
+    }
     out.set_replacement_effects(input.copiable_replacement_effects());
     out.initial_loyalty = input.initial_loyalty.clone();
     out.set_code = input.set_code.clone();

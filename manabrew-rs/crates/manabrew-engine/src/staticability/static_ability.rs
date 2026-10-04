@@ -431,6 +431,7 @@ pub struct StaticAbilityIr {
     pub add_color: bool,
     pub remove_color: bool,
     pub set_color: bool,
+    pub add_all_creature_types: bool,
     pub characteristic_defining: bool,
     pub has_text_layer_key: bool,
     pub has_type_layer_key: bool,
@@ -670,6 +671,7 @@ impl StaticAbilityIr {
             add_color: raw.contains_key(keys::ADD_COLOR),
             remove_color: raw.contains_key(keys::REMOVE_COLOR),
             set_color: raw.contains_key(keys::SET_COLOR),
+            add_all_creature_types: raw.contains_key(keys::ADD_ALL_CREATURE_TYPES),
             characteristic_defining: raw
                 .get(keys::CHARACTERISTIC_DEFINING)
                 .is_some_and(|v| v.eq_ignore_ascii_case("True")),

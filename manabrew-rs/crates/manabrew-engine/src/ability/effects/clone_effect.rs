@@ -243,6 +243,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
             crate::staticability::layer::sanitize_subtypes(&mut target.type_line);
         }
+        if let Some(creature_types) = sa.ir.set_creature_types.as_deref() {
+            ctx.game
+                .card_mut(clone_target_id)
+                .set_creature_types(creature_types);
+        }
 
         if let Some(set_color) = sa.ir.set_color.as_deref() {
             ctx.game.card_mut(clone_target_id).set_color(
