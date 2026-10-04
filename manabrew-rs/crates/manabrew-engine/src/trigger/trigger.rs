@@ -460,10 +460,10 @@ impl Trigger {
 
     /// Mirrors Java Trigger.requirementsCheck() subset used in current engine.
     pub fn requirements_check(&self, game: &GameState, host_card: CardId) -> bool {
-        self.requirements_check_on(game, host_card, game.card(host_card))
+        self.requirements_check_on(game, game.card(host_card))
     }
 
-    pub fn requirements_check_on(&self, game: &GameState, host_card: CardId, host: &Card) -> bool {
+    pub fn requirements_check_on(&self, game: &GameState, host: &Card) -> bool {
         if self.ir.a_player_has_more_life_than_each_other {
             let mut highest = i32::MIN;
             let mut count = 0;
@@ -514,35 +514,31 @@ impl Trigger {
         {
             return false;
         }
-        self.check_resolved_limit(game, host_card)
+        self.check_resolved_limit(game, host, host.controller)
     }
 
     /// Mirrors Java Trigger.checkResolvedLimit() (approximation with per-card counter).
-    pub fn check_resolved_limit(&self, game: &GameState, host_card: CardId) -> bool {
-        if let Some(limit) = self.ir.resolved_limit {
-            if self.get_overriding_ability().is_none() {
-                let Some(ability_text) = game.card(host_card).get_s_var(&self.execute) else {
+    pub fn check_resolved_limit(&self, game: &GameState, host: &Card, activator: PlayerId) -> bool {
+        let Some(limit) = self.ir.resolved_limit else {
+            return true;
+        };
+        let built;
+        let ability = match self.get_overriding_ability() {
+            Some(ability) => ability,
+            None => {
+                let Some(ability_text) = host.get_s_var(&self.execute) else {
                     return true;
                 };
-                let ability = build_spell_ability(
-                    game,
-                    host_card,
-                    ability_text,
-                    game.card(host_card).controller,
-                );
-                return (game
-                    .card(host_card)
-                    .get_ability_resolved_this_turn_activators(Some(&ability))
-                    .len() as u32)
-                    < limit;
+                built = build_spell_ability(game, host.id, ability_text, host.controller);
+                &built
             }
-            return (game
-                .card(host_card)
-                .get_ability_resolved_this_turn_activators(self.get_overriding_ability())
-                .len() as u32)
-                < limit;
-        }
-        true
+        };
+        (host
+            .get_ability_resolved_this_turn_activators(Some(ability))
+            .iter()
+            .filter(|&&player| player == activator)
+            .count() as u32)
+            < limit
     }
 
     /// Mirrors Java Trigger.checkActivationLimit().

@@ -5,7 +5,8 @@ use crate::replacement::replacement_handler::apply_moved_replacement;
 
 impl GameLoop {
     /// Java `WrappedAbility.resolve`: a trigger whose intervening-if has stopped holding does
-    /// nothing when it resolves, unless it is an Always trigger or asks for `NoResolvingCheck$`.
+    /// nothing when it resolves, unless it is an Always trigger or asks for `NoResolvingCheck$`,
+    /// and no trigger resolves past its `ResolvedLimit$`.
     fn trigger_requirements_still_met(game: &GameState, sa: &SpellAbility) -> bool {
         let Some(index) = sa.trigger_index else {
             return true;
@@ -13,34 +14,38 @@ impl GameLoop {
         let Some(host) = sa.trigger_source.or(sa.source) else {
             return true;
         };
-        let Some(trigger) = game.card(host).triggers.get(index) else {
-            return true;
-        };
-        if trigger.kind == crate::trigger::TriggerType::Always || trigger.ir.no_resolving_check {
-            return true;
-        }
-        let triggering_objects = crate::event::RunParams {
-            card: sa
-                .get_triggering_cards(crate::ability::AbilityKey::Card)
-                .first()
-                .copied(),
-            attacked_player: sa
-                .get_triggering_player(crate::ability::AbilityKey::Attacked)
-                .or_else(|| sa.get_triggering_player(crate::ability::AbilityKey::Defender)),
-            attacking_player: sa.get_triggering_player(crate::ability::AbilityKey::AttackingPlayer),
-            ..Default::default()
-        };
         let host_object = sa.trigger_source_zone_timestamp.map_or_else(
             || game.card(host),
             |zone_timestamp| game.get_change_zone_lki_info_at(host, zone_timestamp),
         );
-        trigger.requirements_check_on(game, host, host_object)
-            && trigger.meets_requirements_on_triggered_objects(
-                game,
-                &triggering_objects,
-                sa.get_triggering_spell_ability(crate::ability::AbilityKey::SpellAbility),
-                host,
-            )
+        let Some(trigger) = host_object.triggers.get(index) else {
+            return true;
+        };
+        if trigger.kind != crate::trigger::TriggerType::Always && !trigger.ir.no_resolving_check {
+            let triggering_objects = crate::event::RunParams {
+                card: sa
+                    .get_triggering_cards(crate::ability::AbilityKey::Card)
+                    .first()
+                    .copied(),
+                attacked_player: sa
+                    .get_triggering_player(crate::ability::AbilityKey::Attacked)
+                    .or_else(|| sa.get_triggering_player(crate::ability::AbilityKey::Defender)),
+                attacking_player: sa
+                    .get_triggering_player(crate::ability::AbilityKey::AttackingPlayer),
+                ..Default::default()
+            };
+            if !trigger.requirements_check_on(game, host_object)
+                || !trigger.meets_requirements_on_triggered_objects(
+                    game,
+                    &triggering_objects,
+                    sa.get_triggering_spell_ability(crate::ability::AbilityKey::SpellAbility),
+                    host,
+                )
+            {
+                return false;
+            }
+        }
+        trigger.check_resolved_limit(game, host_object, sa.activating_player)
     }
 
     fn effect_kind_for_sa(sa: &SpellAbility) -> String {
