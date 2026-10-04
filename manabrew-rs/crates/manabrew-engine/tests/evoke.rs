@@ -20,6 +20,7 @@ use manabrew_engine::spellability::{AlternativeCost, SpellAbility};
 const ISLAND: &str = "Name:Island\nManaCost:no cost\nTypes:Basic Land Island\nOracle:";
 const SPRITE: &str = "Name:Evoke Sprite\nManaCost:3 U\nTypes:Creature Elemental\nPT:1/1\nK:Evoke:U\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigGainLife | TriggerDescription$ When this creature enters, you gain 1 life.\nSVar:TrigGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
 const TORPOR_ORB: &str = "Name:Torpor Orb\nManaCost:2\nTypes:Artifact\nS:Mode$ DisableTriggers | ValidCause$ Creature | ValidMode$ ChangesZone,ChangesZoneAll | Destination$ Battlefield | Description$ Creatures entering don't cause abilities to trigger.\nOracle:";
+const ADAMANT_SPRITE: &str = "Name:Adamant Sprite\nManaCost:3 U\nTypes:Creature Elemental\nPT:1/1\nK:Evoke:U U\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | CheckSVar$ CastSA>Count$Adamant_2.Blue.2.0 | ValidCard$ Card.Self | Execute$ TrigGainLife | TriggerDescription$ When this creature enters, if {U}{U} was spent to cast it, you gain 3 life.\nSVar:TrigGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 3\nOracle:";
 const BIG_SPELL_SPRING: &str = "Name:Big Spell Spring\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ U | Amount$ 2 | RestrictValid$ Spell.cmcGE4 | SpellDescription$ Add {U}{U}. Spend this mana only to cast spells with mana value 4 or greater.\nOracle:";
 const EVOKE_GRANTER: &str = "Name:Evoke Granter\nManaCost:2 R\nTypes:Creature Elemental\nPT:2/2\nS:Mode$ Continuous | Affected$ Permanent.Elemental+YouOwn | AffectedZone$ Hand | AddKeyword$ Evoke:2 | Description$ Elemental permanent spells you cast from your hand have evoke {2}.\nOracle:";
 
@@ -279,4 +280,29 @@ fn evoke_offered(lands: &[&str]) -> bool {
 fn mana_for_big_spells_does_not_pay_an_evoke_in_the_action_space() {
     assert!(evoke_offered(&[ISLAND]));
     assert!(!evoke_offered(&[BIG_SPELL_SPRING]));
+}
+
+#[test]
+fn an_evoked_creature_keeps_the_mana_spent_for_its_enters_condition_after_the_sacrifice() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let sprite = put(&mut game, ADAMANT_SPRITE, p0, ZoneType::Hand);
+    for _ in 0..2 {
+        put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(Seen::default()));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(EvokeOnce {
+            seen: Rc::clone(&seen),
+            alt_cost_index: 0,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert!(seen.borrow().cast);
+    assert_eq!(game.card(sprite).zone, ZoneType::Graveyard);
+    assert_eq!(game.players[0].life, 23);
 }

@@ -706,3 +706,21 @@ fn test_tuck_to_library_bottom() {
         "Alice's library should still have 2 cards"
     );
 }
+
+#[test]
+fn mana_spent_to_cast_belongs_to_the_object_that_was_cast() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let bears = game.create_card(make_grizzly_bears(p0));
+    game.move_card(bears, ZoneType::Battlefield, p0);
+    game.card_mut(bears).set_paying_mana_to_cast(vec![8, 16]);
+    game.card_mut(bears).set_colors_spent_to_cast(24);
+    let count = |game: &GameState| {
+        manabrew_engine::svar::resolve_count_svar("Count$CastTotalManaSpent", game, bears, p0)
+    };
+    assert_eq!(count(&game), 2);
+    game.move_card(bears, ZoneType::Exile, p0);
+    game.move_card(bears, ZoneType::Battlefield, p0);
+    assert_eq!(count(&game), 0);
+    assert_eq!(game.card(bears).colors_spent_to_cast, 0);
+}

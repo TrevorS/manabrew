@@ -3472,6 +3472,13 @@ impl Card {
         self.paying_mana_to_cast = paying_mana;
     }
 
+    pub fn clear_cast_sa(&mut self) {
+        self.cast_sa = None;
+        self.paying_mana_to_cast.clear();
+        self.paying_sources_to_cast.clear();
+        self.colors_spent_to_cast = 0;
+    }
+
     pub fn set_promised_gift(&mut self, player: Option<PlayerId>) {
         self.promised_gift = player;
     }

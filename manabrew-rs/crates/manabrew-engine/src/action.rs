@@ -421,7 +421,7 @@ impl GameState {
             && !matches!(src_zone, ZoneType::Stack | ZoneType::Battlefield)
         {
             let card = self.card_mut(card_id);
-            card.cast_sa = None;
+            card.clear_cast_sa();
             card.svars.remove("XPaid");
         }
         let counter_cause = self.cards[card_id.index()].cast_sa.clone();
