@@ -20,17 +20,49 @@ pub(crate) struct ManaPaymentSession<'a> {
     pub payment_ctx: Option<&'a mana::ManaPaymentContext>,
 }
 
-#[derive(Clone, Copy)]
 pub(crate) struct ManaPaymentResult {
     pub paid: bool,
     pub preserve_taps_on_failure: bool,
+    pub non_undoable: Vec<mana::AutoTapChoice>,
 }
 
 impl ManaPaymentResult {
-    fn paid() -> Self {
+    fn paid(game: &GameState, actions: &[ManaCostAction]) -> Self {
+        let non_undoable = actions
+            .iter()
+            .filter_map(|action| match *action {
+                ManaCostAction::TapForMana {
+                    card_id,
+                    mana_ability_index: Some(index),
+                    express_choice,
+                } => {
+                    let card = game.card(card_id);
+                    let ability = card.activated_abilities.get(index)?;
+                    if ability.is_undoable() {
+                        return None;
+                    }
+                    let chosen_atom = express_choice.or_else(|| {
+                        let ir = ability.produced_ir.as_ref()?;
+                        ir.fixed_atoms()
+                            .unwrap_or_else(|| ir.to_atoms(&card.chosen_colors))
+                            .first()
+                            .copied()
+                    })?;
+                    Some(mana::AutoTapChoice {
+                        card_id,
+                        mana_ability_index: Some(index),
+                        chosen_atom,
+                        needs_express_choice: express_choice.is_some(),
+                        cost_cards: Vec::new(),
+                    })
+                }
+                _ => None,
+            })
+            .collect();
         Self {
             paid: true,
             preserve_taps_on_failure: false,
+            non_undoable,
         }
     }
 
@@ -38,6 +70,7 @@ impl ManaPaymentResult {
         Self {
             paid: false,
             preserve_taps_on_failure: false,
+            non_undoable: Vec::new(),
         }
     }
 
@@ -45,6 +78,7 @@ impl ManaPaymentResult {
         Self {
             paid: false,
             preserve_taps_on_failure: true,
+            non_undoable: Vec::new(),
         }
     }
 }
@@ -219,7 +253,7 @@ where
                             session.player,
                             &executed_actions,
                         );
-                        return ManaPaymentResult::paid();
+                        return ManaPaymentResult::paid(game, &executed_actions);
                     }
                     executed_actions.push(ManaCostAction::AttemptedAndFailed);
                     notify_mana_payment_resolved(
@@ -249,7 +283,7 @@ where
                         session.player,
                         &executed_actions,
                     );
-                    return ManaPaymentResult::paid();
+                    return ManaPaymentResult::paid(game, &executed_actions);
                 }
                 if floated {
                     mana_loop_invalid_count = 0;

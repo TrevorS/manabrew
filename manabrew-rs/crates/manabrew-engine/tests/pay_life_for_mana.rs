@@ -1,4 +1,5 @@
 use forge_carddb::parse_card_script;
+use forge_foundation::mana::ManaAtom;
 use forge_foundation::{PhaseType, ZoneType};
 use manabrew_engine::agent::{
     DecisionContext, ManaAbilityOption, ManaCostAction, PassAgent, PlayerAgent,
@@ -10,10 +11,13 @@ use manabrew_engine::game::GameState;
 use manabrew_engine::game_loop::GameLoop;
 use manabrew_engine::ids::{CardId, PlayerId};
 use manabrew_engine::mana::ManaPool;
-use manabrew_engine::player::actions::PlayerAction;
+use manabrew_engine::player::actions::{AbilityRef, PlayerAction};
 use manabrew_engine::spellability::SpellAbility;
 
 const PAINFUL_SPRING: &str = "Name:Painful Spring\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T PayLife<1> | Produced$ R | SpellDescription$ Add {R}. Pay 1 life.\nOracle:";
+const BLOOD_SPRING: &str = "Name:Blood Spring\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T PayLife<1> | Produced$ B | SpellDescription$ Add {B}.\nOracle:";
+const DULL_STONE: &str = "Name:Dull Stone\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ C | SpellDescription$ Add {C}.\nOracle:";
+const COSTLY_ENGINE: &str = "Name:Costly Engine\nManaCost:1\nTypes:Artifact\nA:AB$ Draw | Cost$ 1 B PayLife<2> | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
 const RENEWAL: &str = "Name:Small Renewal\nManaCost:R\nTypes:Sorcery\nA:SP$ GainLife | Defined$ You | LifeAmount$ 2 | SpellDescription$ You gain 2 life.\nOracle:";
 const BLOOD_WATCHER: &str = "Name:Blood Watcher\nManaCost:1 B\nTypes:Creature Vampire\nPT:1/1\nT:Mode$ LifeLost | ValidPlayer$ Opponent | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever an opponent loses life, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
 
@@ -54,6 +58,17 @@ impl PlayerAgent for CastOnce {
                 &requested
             }
         };
+        if let Some(ability) = space
+            .activatable
+            .iter()
+            .find(|ability| ability.card_id == self.spell && !self.cast)
+        {
+            self.cast = true;
+            return PlayerAction::ActivateAbility(AbilityRef {
+                card_id: ability.card_id,
+                ability_index: ability.ability_index,
+            });
+        }
         let play = space
             .playable
             .iter()
@@ -168,4 +183,32 @@ fn life_paid_for_mana_is_life_lost() {
     assert_eq!(game.card(spell).zone, ZoneType::Graveyard);
     assert_eq!(game.players[0].life, 21);
     assert_eq!(game.players[1].life, 21);
+}
+
+#[test]
+fn a_failed_activation_keeps_the_life_paid_for_its_mana_and_floats_it() {
+    let mut game = GameState::new(&["Alice", "Bob"], 2);
+    let p0 = PlayerId(0);
+    let engine = put(&mut game, COSTLY_ENGINE, p0, ZoneType::Battlefield);
+    let spring = put(&mut game, BLOOD_SPRING, p0, ZoneType::Battlefield);
+    let stone = put(&mut game, DULL_STONE, p0, ZoneType::Battlefield);
+    put(&mut game, DULL_STONE, p0, ZoneType::Library);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce {
+            spell: engine,
+            cast: false,
+        }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.players[0].life, 1);
+    assert!(game.card(spring).tapped);
+    assert!(!game.card(stone).tapped);
+    assert_eq!(game.zone(ZoneType::Library, p0).len(), 1);
+    assert_eq!(game_loop.pool(p0).total_mana(), 1);
+    assert_eq!(game_loop.pool(p0).count_color(ManaAtom::BLACK), 1);
 }

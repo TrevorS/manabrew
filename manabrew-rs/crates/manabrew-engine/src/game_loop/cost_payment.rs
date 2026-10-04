@@ -775,7 +775,7 @@ impl GameLoop {
         let mut pre_sac_idx = 0usize;
         let mut failed_auto_pay_taps: Vec<CardId> = Vec::new();
         let mut failed_auto_pay_pool: Option<crate::mana::ManaPool> = None;
-        let mut failed_non_undoable_choices: Vec<crate::mana::AutoTapChoice> = Vec::new();
+        let mut non_undoable_choices: Vec<crate::mana::AutoTapChoice> = Vec::new();
         let outer_change_zone_table = game.pending_change_zone_table.take();
         let cost_stack_size = game.cost_payment_stack.size();
         for (idx, part) in cost.parts.clone().into_iter().enumerate() {
@@ -1000,7 +1000,7 @@ impl GameLoop {
                                     .extend(trace.iter().map(|choice| choice.card_id));
                                 failed_auto_pay_pool =
                                     Some(slf.mana_pools[session.player.index()].clone());
-                                failed_non_undoable_choices.extend(
+                                non_undoable_choices.extend(
                                     trace
                                         .iter()
                                         .filter(|choice| {
@@ -1050,6 +1050,7 @@ impl GameLoop {
                         payment_ok = false;
                         break;
                     }
+                    non_undoable_choices.extend(mana_payment.non_undoable);
                 }
                 CostPart::PayLife(amount) => {
                     let amount = amount.resolve_for_sa(game, card_id, player, sa.as_deref());
@@ -1744,7 +1745,7 @@ impl GameLoop {
                     self.mana_pools[player.index()] = pool;
                 }
             } else {
-                for choice in failed_non_undoable_choices {
+                for choice in non_undoable_choices {
                     let Some(ability_index) = choice.mana_ability_index else {
                         continue;
                     };
