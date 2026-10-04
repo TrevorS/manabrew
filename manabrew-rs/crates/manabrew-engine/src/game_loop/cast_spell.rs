@@ -19,6 +19,16 @@ impl GameLoop {
         None
     }
 
+    fn record_x_mana_cost_paid(game: &mut GameState, card_id: CardId, sa: &SpellAbility) {
+        let card = game.card_mut(card_id);
+        if !sa.is_spell {
+            card.svars
+                .insert("XPaid".to_string(), sa.x_mana_cost_paid.to_string());
+        } else if let Some(cast_sa) = card.cast_sa.as_mut() {
+            cast_sa.x_mana_cost_paid = sa.x_mana_cost_paid;
+        }
+    }
+
     pub(crate) fn announce_values_like_x(
         &mut self,
         game: &mut GameState,
@@ -43,9 +53,7 @@ impl GameLoop {
                     if var_name.eq_ignore_ascii_case("X") {
                         *need_x = false;
                         sa.x_mana_cost_paid = value.max(0) as u32;
-                        game.card_mut(card_id)
-                            .svars
-                            .insert("XPaid".to_string(), value.to_string());
+                        Self::record_x_mana_cost_paid(game, card_id, sa);
                     } else {
                         sa.add_announce_var(var_name, value);
                         game.card_mut(card_id)
@@ -69,9 +77,7 @@ impl GameLoop {
                     };
                     *need_x = false;
                     sa.x_mana_cost_paid = value.max(0) as u32;
-                    game.card_mut(card_id)
-                        .svars
-                        .insert("XPaid".to_string(), value.to_string());
+                    Self::record_x_mana_cost_paid(game, card_id, sa);
                 }
             }
         }
@@ -1745,9 +1751,6 @@ impl GameLoop {
         sa.kick_count = kick_count;
         sa.replicate_count = replicate_count;
         sa.x_mana_cost_paid = x_value;
-        game.card_mut(card_id)
-            .svars
-            .insert("XPaid".to_string(), x_value.to_string());
 
         let cast_rollback_snapshot = self.make_snapshot(game, true);
         let cast_rollback_rng = self.game_rng.save_state();

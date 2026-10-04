@@ -420,9 +420,7 @@ impl GameState {
         if dest_zone == ZoneType::Battlefield
             && !matches!(src_zone, ZoneType::Stack | ZoneType::Battlefield)
         {
-            let card = self.card_mut(card_id);
-            card.clear_cast_sa();
-            card.svars.remove("XPaid");
+            self.card_mut(card_id).clear_cast_sa();
         }
         let counter_cause = self.cards[card_id.index()].cast_sa.clone();
         let counter_map = if dest_zone == ZoneType::Battlefield {

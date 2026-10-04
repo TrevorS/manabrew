@@ -99,11 +99,11 @@ fn resolve_x_expression(
         }
     }
 
-    game.card(source)
-        .svars
+    let card = game.card(source);
+    card.svars
         .get("XPaid")
         .and_then(|s| s.parse::<i32>().ok())
-        .unwrap_or(0)
+        .unwrap_or_else(|| card.get_x_mana_cost_paid())
 }
 
 /// The amount slot of a [`CostPart`]. Replaces the legacy `i32` (with

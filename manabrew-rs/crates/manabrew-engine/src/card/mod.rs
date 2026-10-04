@@ -2348,11 +2348,7 @@ impl Card {
             }
         }
         let x_paid = if self.zone == ZoneType::Stack && self.mana_cost.count_x() > 0 {
-            self.svars
-                .get("XPaid")
-                .and_then(|value| value.parse::<i32>().ok())
-                .unwrap_or(0)
-                * self.mana_cost.count_x() as i32
+            self.get_x_mana_cost_paid() * self.mana_cost.count_x() as i32
         } else {
             0
         };
@@ -3488,6 +3484,12 @@ impl Card {
 
     pub fn set_paying_mana_to_cast(&mut self, paying_mana: Vec<u16>) {
         self.paying_mana_to_cast = paying_mana;
+    }
+
+    pub fn get_x_mana_cost_paid(&self) -> i32 {
+        self.cast_sa
+            .as_ref()
+            .map_or(0, |cast_sa| cast_sa.x_mana_cost_paid as i32)
     }
 
     pub fn clear_cast_sa(&mut self) {

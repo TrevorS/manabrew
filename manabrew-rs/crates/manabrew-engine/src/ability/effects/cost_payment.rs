@@ -1092,10 +1092,13 @@ fn calculate_unless_cost(game: &GameState, sa: &SpellAbility, unless_cost: &str)
         let x_paid = if sa.x_mana_cost_paid > 0 {
             sa.x_mana_cost_paid as i32
         } else {
-            sa.source
-                .and_then(|card_id| game.card(card_id).svars.get("XPaid"))
-                .and_then(|value| value.parse::<i32>().ok())
-                .unwrap_or(0)
+            sa.source.map_or(0, |card_id| {
+                let card = game.card(card_id);
+                card.svars
+                    .get("XPaid")
+                    .and_then(|value| value.parse::<i32>().ok())
+                    .unwrap_or_else(|| card.get_x_mana_cost_paid())
+            })
         };
         return Some(parse_cost(&x_paid.to_string()));
     }

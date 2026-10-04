@@ -1653,7 +1653,7 @@ fn evaluate_cost_amount_count_expr(
             .svars
             .get("XPaid")
             .and_then(|s| s.parse::<i32>().ok())
-            .unwrap_or(0);
+            .unwrap_or_else(|| source.get_x_mana_cost_paid());
     }
     if let Some(counter_name) = expr.strip_prefix("Count$CardCounters.") {
         if counter_name == "ALL" {
@@ -1800,10 +1800,7 @@ fn enters_trigger_x_paid(game: &GameState, sa: &SpellAbility, card_id: CardId) -
                 || game.card(card_id),
                 |zone_timestamp| game.get_change_zone_lki_info_at(card_id, zone_timestamp),
             )
-            .svars
-            .get("XPaid")
-            .and_then(|value| value.parse().ok())
-            .unwrap_or(0)
+            .get_x_mana_cost_paid()
     })
 }
 
@@ -1838,13 +1835,7 @@ fn leaves_battlefield_trigger(game: &GameState, sa: &SpellAbility, card_id: Card
 }
 
 fn enters_replacement_x_paid(game: &GameState, sa: &SpellAbility, card_id: CardId) -> Option<i32> {
-    sa.ir.etb.then(|| {
-        game.card(card_id)
-            .svars
-            .get("XPaid")
-            .and_then(|value| value.parse().ok())
-            .unwrap_or(0)
-    })
+    sa.ir.etb.then(|| game.card(card_id).get_x_mana_cost_paid())
 }
 
 pub fn resolve_count_svar_for_sa(

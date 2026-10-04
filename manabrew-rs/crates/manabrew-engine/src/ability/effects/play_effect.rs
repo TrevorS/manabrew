@@ -271,13 +271,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         card.set_colors_spent_to_cast(paying_mana.iter().fold(0, |colors, &mana| colors | mana));
         card.set_paying_mana_to_cast(paying_mana);
 
-        if let Some(x) = announced_x {
-            ctx.game
-                .card_mut(card_id)
-                .svars
-                .insert("XPaid".to_string(), x.to_string());
-        }
-
         // `ReplaceGraveyard$ <Zone>` — install a one-shot replacement that
         // reroutes the played card if it would be put into the graveyard
         // (e.g. Diviner of Mist exiles the spell on resolve).
@@ -546,6 +539,7 @@ fn push_spell_to_stack(
     ctx.game.stack.push(entry);
     ctx.game.turn.priority_player = controller;
     ctx.game.card_mut(card_id).cast_from = cast_zone;
+    ctx.game.card_mut(card_id).cast_sa = Some(Box::new(trigger_sa.clone()));
     ctx.move_card(card_id, ZoneType::Stack, controller);
     if ctx.game.card(card_id).face_down && !trigger_sa.alt_cost.is_some_and(|alt| alt.is_morph()) {
         ctx.game.card_mut(card_id).turn_face_up();
