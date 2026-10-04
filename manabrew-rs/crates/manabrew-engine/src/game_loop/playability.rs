@@ -1185,7 +1185,25 @@ impl GameLoop {
                         let evoke_cost = crate::cost::parse_cost(cost_str);
                         let evoke_mana = Self::mana_from_cost(&evoke_cost);
                         let adjusted = cost_adj.apply(&evoke_mana).add(&raise_mana);
-                        available_mana().can_pay(&adjusted)
+                        let reduced =
+                            apply_cost_reductions(game, player, card_id, probe_host(), &adjusted);
+                        (crate::mana::can_pay_spell_mana_cost_with_sources(
+                            game,
+                            self.pool(player),
+                            player,
+                            card_id,
+                            &reduced,
+                            &mana::ManaPaymentContext {
+                                mana_value: Some(evoke_mana.cmc()),
+                                ..payment_ctx.clone()
+                            },
+                            self.action_space_probe_order(game),
+                            probe_sources,
+                        ) || (Self::can_use_source_level_mana_fallback(
+                            game,
+                            player,
+                            available_mana,
+                        ) && available_mana().can_pay(&reduced)))
                             && crate::cost::can_pay_ignoring_mana_for_spell(
                                 &evoke_cost,
                                 game,

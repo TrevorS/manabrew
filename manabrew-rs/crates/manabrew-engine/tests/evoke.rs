@@ -20,6 +20,7 @@ use manabrew_engine::spellability::{AlternativeCost, SpellAbility};
 const ISLAND: &str = "Name:Island\nManaCost:no cost\nTypes:Basic Land Island\nOracle:";
 const SPRITE: &str = "Name:Evoke Sprite\nManaCost:3 U\nTypes:Creature Elemental\nPT:1/1\nK:Evoke:U\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigGainLife | TriggerDescription$ When this creature enters, you gain 1 life.\nSVar:TrigGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
 const TORPOR_ORB: &str = "Name:Torpor Orb\nManaCost:2\nTypes:Artifact\nS:Mode$ DisableTriggers | ValidCause$ Creature | ValidMode$ ChangesZone,ChangesZoneAll | Destination$ Battlefield | Description$ Creatures entering don't cause abilities to trigger.\nOracle:";
+const BIG_SPELL_SPRING: &str = "Name:Big Spell Spring\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ U | Amount$ 2 | RestrictValid$ Spell.cmcGE4 | SpellDescription$ Add {U}{U}. Spend this mana only to cast spells with mana value 4 or greater.\nOracle:";
 const EVOKE_GRANTER: &str = "Name:Evoke Granter\nManaCost:2 R\nTypes:Creature Elemental\nPT:2/2\nS:Mode$ Continuous | Affected$ Permanent.Elemental+YouOwn | AffectedZone$ Hand | AddKeyword$ Evoke:2 | Description$ Elemental permanent spells you cast from your hand have evoke {2}.\nOracle:";
 
 #[derive(Default)]
@@ -248,4 +249,34 @@ fn the_printed_evoke_cast_beside_a_granted_one_has_one_sacrifice_trigger() {
     let evoked = evoke_a_sprite(&[EVOKE_GRANTER], 0);
     assert_eq!(evoked.sacrifice_triggers, 1);
     assert_eq!(evoked.zone, ZoneType::Graveyard);
+}
+
+fn evoke_offered(lands: &[&str]) -> bool {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    put(&mut game, SPRITE, p0, ZoneType::Hand);
+    for script in lands {
+        put(&mut game, script, p0, ZoneType::Battlefield);
+    }
+    game.action_space_mana_probe = manabrew_engine::mana::ActionSpaceManaProbe::ComputerUtilMana;
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(Seen::default()));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(EvokeOnce {
+            seen: Rc::clone(&seen),
+            alt_cost_index: 0,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    let cast = seen.borrow().cast;
+    cast
+}
+
+#[test]
+fn mana_for_big_spells_does_not_pay_an_evoke_in_the_action_space() {
+    assert!(evoke_offered(&[ISLAND]));
+    assert!(!evoke_offered(&[BIG_SPELL_SPRING]));
 }
