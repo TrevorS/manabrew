@@ -1139,7 +1139,7 @@ fn calculate_unless_cost(game: &GameState, sa: &SpellAbility, unless_cost: &str)
             Some(sa.activating_player),
         );
         let first = *defined_cards.first()?;
-        let mut generic = game.card(first).mana_cost.cmc();
+        let mut generic = game.card(first).mana_value();
         if let Some(m) = modifier {
             if let Some(n) = m.strip_prefix("Minus").and_then(|s| s.parse::<i32>().ok()) {
                 generic = (generic - n).max(0);

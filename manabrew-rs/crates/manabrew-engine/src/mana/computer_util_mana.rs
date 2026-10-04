@@ -2297,14 +2297,11 @@ fn pay_non_tap_mana_ability_costs(
                         if total >= required {
                             break;
                         }
-                        total += game.card(cid).mana_cost.cmc();
+                        total += game.card(cid).mana_value();
                         chosen.push(cid);
                     }
                 }
-                let total: i32 = chosen
-                    .iter()
-                    .map(|&cid| game.card(cid).mana_cost.cmc())
-                    .sum();
+                let total: i32 = chosen.iter().map(|&cid| game.card(cid).mana_value()).sum();
                 if total < required {
                     return false;
                 }
@@ -3801,11 +3798,11 @@ fn special_card_ai_black_lotus_consider(
         .collect();
     let num_high_cmc = all_cards
         .iter()
-        .filter(|card| card.mana_cost.cmc() >= 5)
+        .filter(|card| card.mana_value() >= 5)
         .count();
     let num_low_cmc = all_cards
         .iter()
-        .filter(|card| card.mana_cost.cmc() <= 3)
+        .filter(|card| card.mana_value() <= 3)
         .count();
     let is_low_cmc_deck = num_high_cmc <= 6 && num_low_cmc >= 25;
     let min_cmc = if is_low_cmc_deck { 3 } else { 4 };

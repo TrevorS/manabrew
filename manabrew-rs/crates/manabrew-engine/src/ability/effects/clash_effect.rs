@@ -51,10 +51,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let o_card: Option<CardId> = o_lib.last().copied();
 
     let p_cmc = p_card
-        .map(|cid| ctx.game.card(cid).mana_cost.cmc())
+        .map(|cid| ctx.game.card(cid).mana_value())
         .unwrap_or(-1);
     let o_cmc = o_card
-        .map(|cid| ctx.game.card(cid).mana_cost.cmc())
+        .map(|cid| ctx.game.card(cid).mana_value())
         .unwrap_or(-1);
 
     let mut revealed = Vec::new();

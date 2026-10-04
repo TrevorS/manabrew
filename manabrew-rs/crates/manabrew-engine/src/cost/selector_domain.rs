@@ -23,8 +23,8 @@ pub(crate) fn matches_selector_domain_predicate(
         return Some(false);
     }
     match lower.as_str() {
-        "cmceven" => Some(card.mana_cost.cmc() % 2 == 0),
-        "cmcodd" => Some(card.mana_cost.cmc() % 2 == 1),
+        "cmceven" => Some(card.mana_value() % 2 == 0),
+        "cmcodd" => Some(card.mana_value() % 2 == 1),
         "powereven" => Some(card.power() % 2 == 0),
         "powerodd" => Some(card.power() % 2 != 0),
         "powernotbasepower" => card

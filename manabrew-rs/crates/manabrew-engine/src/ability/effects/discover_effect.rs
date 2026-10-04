@@ -57,7 +57,7 @@ pub(crate) fn exile_until_found(
             .core_types
             .iter()
             .any(|ct| matches!(ct, forge_foundation::CoreType::Land));
-        let cmc = card.mana_cost.cmc();
+        let cmc = card.mana_value();
 
         let old_zone = ctx.game.card(top).zone;
         ctx.exile(top, Some(sa));

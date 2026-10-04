@@ -1033,7 +1033,7 @@ fn apply_offering_reduction(
         return true;
     };
     if let Some(sacrificed) = sa.sacrificed_as_offering {
-        let reduce = game.card(sacrificed).mana_cost.cmc();
+        let reduce = game.card(sacrificed).mana_value();
         cost.decrease_generic_mana(reduce);
         return true;
     }
@@ -1068,7 +1068,7 @@ fn apply_offering_reduction(
         sa.source,
     ) {
         sa.sacrificed_as_offering = Some(chosen);
-        cost.decrease_generic_mana(game.card(chosen).mana_cost.cmc());
+        cost.decrease_generic_mana(game.card(chosen).mana_value());
     }
     true
 }
@@ -1086,7 +1086,7 @@ fn apply_emerge_reduction(
         return true;
     }
     if let Some(sacrificed) = sa.sacrificed_as_emerge {
-        let reduce = game.card(sacrificed).mana_cost.cmc();
+        let reduce = game.card(sacrificed).mana_value();
         cost.decrease_generic_mana(reduce);
         return true;
     }
@@ -1132,7 +1132,7 @@ fn apply_emerge_reduction(
         sa.source,
     ) {
         sa.sacrificed_as_emerge = Some(chosen);
-        cost.decrease_generic_mana(game.card(chosen).mana_cost.cmc());
+        cost.decrease_generic_mana(game.card(chosen).mana_value());
     }
     true
 }

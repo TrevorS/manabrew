@@ -43,7 +43,7 @@ impl GameLoop {
                         .filter(|sp| {
                             sp.pay_costs
                                 .as_ref()
-                                .map_or(game.card(card_id).mana_cost.cmc(), |cost| {
+                                .map_or(game.card(card_id).mana_value(), |cost| {
                                     Self::mana_from_cost(cost).cmc()
                                 })
                                 <= num

@@ -46,7 +46,7 @@ fn sacrificed_card_value(game: &GameState, sa: &SpellAbility, svar_expr: &str) -
             .lki_toughness
             .unwrap_or(sac_card.base_toughness.unwrap_or(0))
     } else {
-        sac_card.mana_cost.cmc()
+        sac_card.mana_value()
     }
 }
 

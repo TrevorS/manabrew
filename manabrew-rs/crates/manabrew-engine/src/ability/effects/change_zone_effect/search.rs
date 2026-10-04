@@ -193,7 +193,7 @@ fn resolve_constrained_multi(
 
     for _ in 0..change_num {
         if let Some(b) = budget_cmc {
-            remaining.retain(|&cid| ctx.game.card(cid).mana_cost.cmc() + spent_cmc <= b);
+            remaining.retain(|&cid| ctx.game.card(cid).mana_value() + spent_cmc <= b);
         }
         if let Some(b) = budget_power {
             remaining.retain(|&cid| ctx.game.card(cid).base_power.unwrap_or(0) + spent_power <= b);
@@ -212,7 +212,7 @@ fn resolve_constrained_multi(
 
         let card = ctx.game.card(chosen);
         let name = card.card_name.clone();
-        let cmc = card.mana_cost.cmc();
+        let cmc = card.mana_value();
         let power = card.base_power.unwrap_or(0);
         let land_types = get_land_subtypes(&card.type_line.subtypes);
 
@@ -228,7 +228,7 @@ fn resolve_constrained_multi(
             let c = ctx.game.card(cid);
             cid != chosen
                 && (!diff_names || c.card_name != name)
-                && (!diff_cmc || c.mana_cost.cmc() != cmc)
+                && (!diff_cmc || c.mana_value() != cmc)
                 && (!diff_power || c.base_power.unwrap_or(0) != power)
                 && (!share_land
                     || required_land_types.is_empty()

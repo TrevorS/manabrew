@@ -58,7 +58,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
             revealed.push(cid);
             if let Some(rest) = rest_cmc.as_mut() {
-                *rest -= ctx.game.card(cid).mana_cost.cmc();
+                *rest -= ctx.game.card(cid).mana_value();
                 if *rest <= 0 {
                     break;
                 }

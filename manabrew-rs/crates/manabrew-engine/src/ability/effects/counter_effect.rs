@@ -107,7 +107,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
             }
             if sa.ir.remember_countered_cmc {
-                let cmc = ctx.game.card(source_card).mana_cost.cmc();
+                let cmc = ctx.game.card(source_card).mana_value();
                 if let Some(source_id) = sa.source {
                     ctx.game.card_mut(source_id).add_remembered_cmc(cmc);
                 }

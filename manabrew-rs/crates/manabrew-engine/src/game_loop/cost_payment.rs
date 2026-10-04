@@ -2893,10 +2893,7 @@ impl GameLoop {
             .into_iter()
             .filter(|cid| valid.contains(cid))
             .collect();
-        let total_mv: i32 = chosen
-            .iter()
-            .map(|&cid| game.card(cid).mana_cost.cmc())
-            .sum();
+        let total_mv: i32 = chosen.iter().map(|&cid| game.card(cid).mana_value()).sum();
         if total_mv < amount {
             return None;
         }
@@ -3660,10 +3657,7 @@ impl GameLoop {
             .filter(|cid| valid.contains(cid))
             .collect();
 
-        let total_mv: i32 = chosen
-            .iter()
-            .map(|&cid| game.card(cid).mana_cost.cmc())
-            .sum();
+        let total_mv: i32 = chosen.iter().map(|&cid| game.card(cid).mana_value()).sum();
         if total_mv < amount {
             return false;
         }

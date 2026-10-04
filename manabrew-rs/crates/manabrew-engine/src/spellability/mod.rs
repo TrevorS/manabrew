@@ -1410,9 +1410,9 @@ impl SpellAbility {
 
         if let Some(max_text) = tr.max_total_cmc.as_deref() {
             let max = crate::svar::resolve_numeric_value(game, self, max_text, 0);
-            let mut total: i32 = chosen.iter().map(|&c| game.card(c).mana_cost.cmc()).sum();
+            let mut total: i32 = chosen.iter().map(|&c| game.card(c).mana_value()).sum();
             if !chosen.contains(&candidate) {
-                total += cand.mana_cost.cmc();
+                total += cand.mana_value();
             }
             if total > max {
                 return false;
@@ -1431,9 +1431,7 @@ impl SpellAbility {
         if tr.equal_toughness && others().any(|c| game.card(c).toughness() != cand.toughness()) {
             return false;
         }
-        if tr.different_cmc
-            && others().any(|c| game.card(c).mana_cost.cmc() == cand.mana_cost.cmc())
-        {
+        if tr.different_cmc && others().any(|c| game.card(c).mana_value() == cand.mana_value()) {
             return false;
         }
         if tr.different_names && others().any(|c| game.card(c).shares_name_with(cand)) {
