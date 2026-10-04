@@ -165,7 +165,11 @@ impl GameLoop {
             card_id,
             &reduced,
             &mana::ManaPaymentContext {
-                mana_value: Some(mana_cost.cmc()),
+                mana_value: Some(crate::mana::spell_restriction_mana_value(
+                    game,
+                    card.mana_value(),
+                    mana_cost.cmc(),
+                )),
                 ..Self::spell_payment_context(card, chosen_types_by_source)
             },
             self.action_space_probe_order(game),
@@ -498,7 +502,11 @@ impl GameLoop {
             type_line: Some(in_hand.type_line.clone()),
             card_name: Some(in_hand.card_name.clone()),
             card_color: Some(in_hand.color),
-            mana_value: Some(cost.get_total_mana().cmc()),
+            mana_value: Some(crate::mana::spell_restriction_mana_value(
+                game,
+                host.mana_value(),
+                cost.get_total_mana().cmc(),
+            )),
             chosen_types_by_source: chosen_types_by_source.clone(),
             ..Default::default()
         };
@@ -1194,7 +1202,11 @@ impl GameLoop {
                             card_id,
                             &reduced,
                             &mana::ManaPaymentContext {
-                                mana_value: Some(evoke_mana.cmc()),
+                                mana_value: Some(crate::mana::spell_restriction_mana_value(
+                                    game,
+                                    game.card(card_id).mana_value(),
+                                    evoke_mana.cmc(),
+                                )),
                                 ..payment_ctx.clone()
                             },
                             self.action_space_probe_order(game),
@@ -1424,7 +1436,11 @@ impl GameLoop {
                         card_id,
                         &reduced,
                         &mana::ManaPaymentContext {
-                            mana_value: Some(warp_mana.cmc()),
+                            mana_value: Some(crate::mana::spell_restriction_mana_value(
+                                game,
+                                game.card(card_id).mana_value(),
+                                warp_mana.cmc(),
+                            )),
                             ..payment_ctx.clone()
                         },
                         self.action_space_probe_order(game),
@@ -2068,7 +2084,11 @@ impl GameLoop {
                     crate::spellability::AlternativeCost::Harmonize => {
                         let harmonize_mana = Self::mana_from_cost(cost);
                         let payment_ctx = mana::ManaPaymentContext {
-                            mana_value: Some(harmonize_mana.cmc()),
+                            mana_value: Some(crate::mana::spell_restriction_mana_value(
+                                game,
+                                card.mana_value(),
+                                harmonize_mana.cmc(),
+                            )),
                             ..Self::spell_payment_context(card, &chosen_types_by_source)
                         };
                         let harmonize_available = mana::calculate_available_mana_with_context(

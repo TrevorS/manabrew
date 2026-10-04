@@ -252,8 +252,9 @@ fn the_printed_evoke_cast_beside_a_granted_one_has_one_sacrifice_trigger() {
     assert_eq!(evoked.zone, ZoneType::Graveyard);
 }
 
-fn evoke_offered(lands: &[&str]) -> bool {
+fn evoke_offered(lands: &[&str], mirror_forge_bugs: bool) -> bool {
     let mut game = GameState::new(&["Alice", "Bob"], 20);
+    game.mirror_forge_bugs = mirror_forge_bugs;
     let p0 = PlayerId(0);
     put(&mut game, SPRITE, p0, ZoneType::Hand);
     for script in lands {
@@ -277,9 +278,15 @@ fn evoke_offered(lands: &[&str]) -> bool {
 }
 
 #[test]
-fn mana_for_big_spells_does_not_pay_an_evoke_in_the_action_space() {
-    assert!(evoke_offered(&[ISLAND]));
-    assert!(!evoke_offered(&[BIG_SPELL_SPRING]));
+fn mana_for_big_spells_pays_an_evoke_of_a_big_spell() {
+    assert!(evoke_offered(&[ISLAND], false));
+    assert!(evoke_offered(&[BIG_SPELL_SPRING], false));
+}
+
+#[test]
+fn mana_for_big_spells_does_not_pay_an_evoke_as_forge_reads_it() {
+    assert!(evoke_offered(&[ISLAND], true));
+    assert!(!evoke_offered(&[BIG_SPELL_SPRING], true));
 }
 
 #[test]

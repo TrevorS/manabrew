@@ -321,6 +321,20 @@ pub struct ManaPaymentContext {
     pub mana_value: Option<i32>,
 }
 
+/// Forge's `SpellAbilityProperty` `cmc` reads an off-stack spell's pay cost, though an
+/// alternative cost leaves the mana value unchanged (CR 118.9); mirrored only.
+pub fn spell_restriction_mana_value(
+    game: &GameState,
+    mana_value: i32,
+    pay_cost_mana_value: i32,
+) -> i32 {
+    if game.mirror_forge_bugs {
+        pay_cost_mana_value
+    } else {
+        mana_value
+    }
+}
+
 pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymentContext {
     let (type_line, card_name, card_color, face_down, cast_from, mana_value) =
         if let Some(source) = sa.source {
@@ -332,6 +346,13 @@ pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymen
                 card.face_down,
                 card.cast_from,
                 Some(match sa.pay_costs.as_ref() {
+                    Some(cost) if card.zone != ZoneType::Stack && sa.is_spell => {
+                        spell_restriction_mana_value(
+                            game,
+                            card.mana_value(),
+                            cost.get_total_mana().cmc(),
+                        )
+                    }
                     Some(cost) if card.zone != ZoneType::Stack => cost.get_total_mana().cmc(),
                     _ => card.mana_value(),
                 }),
