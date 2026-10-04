@@ -1,7 +1,7 @@
 use forge_foundation::mana::ManaAtom;
 
 /// Ordered mana type array matching Java's ManaAtom.MANATYPES.
-const MANA_TYPES: [u16; 6] = [
+pub(crate) const MANA_TYPES: [u16; 6] = [
     ManaAtom::WHITE,
     ManaAtom::BLUE,
     ManaAtom::BLACK,

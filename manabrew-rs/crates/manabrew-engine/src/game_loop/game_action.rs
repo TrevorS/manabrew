@@ -1109,7 +1109,7 @@ impl GameLoop {
     /// the most it can pay (`ComputerUtilCost.setMaxXValue`) before playing a chosen action.
     #[allow(clippy::too_many_arguments)]
     fn preset_max_x_for_activation(
-        &self,
+        &mut self,
         game: &mut GameState,
         agents: &mut [Box<dyn PlayerAgent>],
         player: PlayerId,
@@ -1148,12 +1148,33 @@ impl GameLoop {
             &[],
             Some(&mana::payment_context_for_sa(game, sa)),
         );
+        let harness_probes = crate::mana::computer_util_mana::harness_cost_probes_ask(game);
+        let probe_ctx = mana::payment_context_for_sa(game, sa);
         let mut x: u32 = 0;
-        while x < 99
-            && available_mana.can_pay(&non_x_cost.add(&forge_foundation::ManaCost::generic(
+        while x < 99 {
+            let full_cost = non_x_cost.add(&forge_foundation::ManaCost::generic(
                 ((x + 1) * x_count) as i32,
-            )))
-        {
+            ));
+            if harness_probes {
+                let mut pool = self.mana_pools[player.index()].clone();
+                let pools = &self.mana_pools;
+                crate::mana::computer_util_mana::harness_cost_probe(
+                    &mut pool,
+                    &full_cost,
+                    &probe_ctx,
+                    &mut |choices| {
+                        agents[player.index()].choose_mana_from_pool(
+                            DecisionContext::new(game, pools),
+                            player,
+                            choices,
+                        )
+                    },
+                );
+                self.mana_pools[player.index()] = pool;
+            }
+            if !available_mana.can_pay(&full_cost) {
+                break;
+            }
             x += 1;
         }
         if sa

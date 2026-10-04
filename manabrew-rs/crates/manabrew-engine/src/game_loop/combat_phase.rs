@@ -1173,6 +1173,23 @@ impl GameLoop {
         cost: i32,
         description: &str,
     ) -> bool {
+        if crate::mana::computer_util_mana::harness_cost_probes_ask(game) {
+            let mut pool = self.pool(controller).clone();
+            let pools = &self.mana_pools;
+            crate::mana::computer_util_mana::harness_cost_probe(
+                &mut pool,
+                &forge_foundation::ManaCost::generic(cost),
+                &crate::mana::ManaPaymentContext::default(),
+                &mut |choices| {
+                    agents[controller.index()].choose_mana_from_pool(
+                        DecisionContext::new(game, pools),
+                        controller,
+                        choices,
+                    )
+                },
+            );
+            *self.pool_mut(controller) = pool;
+        }
         loop {
             let tappable_lands = self.get_tappable_lands(game, controller);
             let pool_snapshot = self.pool(controller).clone();

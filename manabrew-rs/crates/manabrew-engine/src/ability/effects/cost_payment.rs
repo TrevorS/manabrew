@@ -1190,6 +1190,17 @@ pub(super) fn resolve_effect_with_unless_cost(
         if ctx.game.player(payer).has_lost {
             continue;
         }
+        if crate::mana::computer_util_mana::harness_cost_probes_ask(ctx.game) {
+            crate::mana::computer_util_mana::harness_cost_probe_for(
+                ctx.game,
+                ctx.mana_pools,
+                ctx.agents,
+                payer,
+                source,
+                Some(sa),
+                &cost,
+            );
+        }
         let available_mana =
             crate::mana::calculate_available_mana(&ctx.mana_pools[payer.index()], ctx.game, payer);
         if !attempt_unpayable

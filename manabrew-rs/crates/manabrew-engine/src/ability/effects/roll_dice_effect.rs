@@ -972,6 +972,17 @@ fn pay_roll_cost(
     source_sa: Option<&SpellAbility>,
 ) -> bool {
     let cost = parse_cost(cost_raw);
+    if crate::mana::computer_util_mana::harness_cost_probes_ask(game) {
+        crate::mana::computer_util_mana::harness_cost_probe_for(
+            game,
+            runtime.mana_pools,
+            agents,
+            player,
+            card_id,
+            source_sa,
+            &cost,
+        );
+    }
     if !can_pay_roll_cost(game, runtime.mana_pools, player, card_id, &cost, source_sa) {
         return false;
     }
@@ -1581,7 +1592,20 @@ mod tests {
 
     struct RerollAgent;
 
+    thread_local! {
+        static POOL_ASKS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    }
+
     impl PlayerAgent for RerollAgent {
+        fn choose_mana_from_pool(
+            &mut self,
+            _context: crate::agent::DecisionContext<'_>,
+            _player: PlayerId,
+            _mana_choices: &[crate::mana::Mana],
+        ) -> usize {
+            POOL_ASKS.with(|asks| asks.set(asks.get() + 1));
+            0
+        }
         fn mulligan_decision(
             &mut self,
             _context: DecisionContext<'_>,
@@ -1968,6 +1992,83 @@ mod tests {
         );
         assert!(ctx.game.card(plains_id).tapped);
         assert_eq!(ctx.game.player(player).num_rolls_this_turn, 2);
+    }
+
+    fn reroll_from_a_tied_pool_asks(mirror_forge_bugs: bool) -> usize {
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.mirror_forge_bugs = mirror_forge_bugs;
+        game.action_space_mana_probe = crate::mana::ActionSpaceManaProbe::ComputerUtilMana;
+        let player = PlayerId(0);
+        let mut source = Card::new(
+            CardId(0),
+            "Dice Source".to_string(),
+            player,
+            CardTypeLine::parse("Artifact"),
+            ManaCost::parse(""),
+            ColorSet::COLORLESS,
+            None,
+            None,
+            vec![],
+            vec![],
+        );
+        source.zone = forge_foundation::ZoneType::Battlefield;
+        let source_id = game.create_card(source);
+        game.add_card_to_zone(forge_foundation::ZoneType::Battlefield, player, source_id);
+        let mut monitor = Card::new(
+            CardId(0),
+            "Monitor Monitor".to_string(),
+            player,
+            CardTypeLine::parse("Creature Human Employee"),
+            ManaCost::parse("2 U U"),
+            ColorSet::BLUE,
+            Some(2),
+            Some(5),
+            vec![
+                "Once each turn, you may pay {1} to reroll one or more dice you rolled."
+                    .to_string(),
+            ],
+            vec![],
+        );
+        monitor.set_s_var("RollModificationsLimit", "1");
+        monitor.set_s_var("ModsThisTurn", "Number$0");
+        monitor.set_s_var("RollRerollCost", "1");
+        monitor.zone = forge_foundation::ZoneType::Battlefield;
+        let monitor_id = game.create_card(monitor);
+        game.add_card_to_zone(forge_foundation::ZoneType::Battlefield, player, monitor_id);
+        let sa = SpellAbility::new_empty(Some(source_id), player);
+        let mut trigger_handler = TriggerHandler::new();
+        let mut agents: Vec<Box<dyn PlayerAgent>> =
+            vec![Box::new(RerollAgent), Box::new(RerollAgent)];
+        let mut mana_pools = vec![ManaPool::default(), ManaPool::default()];
+        mana_pools[0].add(forge_foundation::ManaAtom::RED, 1);
+        mana_pools[0].add(forge_foundation::ManaAtom::GREEN, 1);
+        let mut rng = FixedRng::new(&[0, 5]);
+        let token_templates = HashMap::default();
+        let templates_variants: HashMap<(String, String), usize> = HashMap::default();
+        let token_fallback: HashMap<String, String> = HashMap::default();
+        let edition_dates: HashMap<String, String> = HashMap::default();
+        let mut ctx = EffectContext {
+            game: &mut game,
+            combat: None,
+            agents: &mut agents,
+            trigger_handler: &mut trigger_handler,
+            token_templates: &token_templates,
+            token_art_variants: &templates_variants,
+            token_fallback: &token_fallback,
+            edition_dates: &edition_dates,
+            mana_pools: &mut mana_pools,
+            parent_target_card: None,
+            rng: &mut rng,
+        };
+        POOL_ASKS.with(|asks| asks.set(0));
+        roll_for_player(&mut ctx, &sa, source_id, player, 6, 1, true);
+        POOL_ASKS.with(std::cell::Cell::get)
+    }
+
+    #[test]
+    fn a_roll_cost_runs_the_harness_probe_only_under_the_forge_mirror() {
+        assert_eq!(reroll_from_a_tied_pool_asks(false), 0);
+        assert_eq!(reroll_from_a_tied_pool_asks(true), 1);
     }
 
     #[test]

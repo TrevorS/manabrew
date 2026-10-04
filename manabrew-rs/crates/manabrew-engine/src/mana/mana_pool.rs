@@ -1138,13 +1138,26 @@ impl ManaPool {
 
     /// Try to pay a cost shard using floating mana of a specific color.
     /// Mirrors Java's `ManaPool.tryPayCostWithColor()`.
-    pub fn try_pay_cost_with_color(&mut self, color: u16) -> bool {
-        if self.count_color(color) > 0 {
-            self.remove(color, 1);
-            true
-        } else {
-            false
+    pub(crate) fn try_pay_cost_with_color(
+        &mut self,
+        color: u16,
+        mana_cost: &mut ManaCostBeingPaid,
+        ctx: &ManaPaymentContext,
+        mana_spent_to_pay: &mut Vec<Mana>,
+    ) -> bool {
+        let Some(mana) = self
+            .mana
+            .iter()
+            .find(|mana| mana.color == color && mana_matches_context(mana, ctx))
+            .cloned()
+        else {
+            return false;
+        };
+        if !self.try_pay_cost_with_mana(mana_cost, &mana, false) {
+            return false;
         }
+        mana_spent_to_pay.push(mana);
+        true
     }
 
     /// Try to pay with a specific Mana object.

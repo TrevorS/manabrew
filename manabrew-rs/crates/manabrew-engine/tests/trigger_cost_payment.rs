@@ -243,3 +243,21 @@ fn a_failed_trigger_payment_refunds_and_keeps_its_taps_only_under_the_forge_mirr
     assert!(!failed_payment_leaves_forest_tapped(false));
     assert!(failed_payment_leaves_forest_tapped(true));
 }
+
+fn tied_trigger_payment_asks(mirror_forge_bugs: bool) -> Vec<usize> {
+    let mut setup = damage_the_warden("1");
+    setup.game.mirror_forge_bugs = mirror_forge_bugs;
+    setup.game.action_space_mana_probe = ActionSpaceManaProbe::ComputerUtilMana;
+    setup.game_loop.mana_pools[0].add(ManaAtom::RED, 1);
+    setup.game_loop.mana_pools[0].add(ManaAtom::GREEN, 1);
+    resolve(&mut setup);
+    assert_eq!(setup.game.player(PlayerId(0)).life, 21);
+    let asked = setup.asked.borrow().clone();
+    asked
+}
+
+#[test]
+fn a_trigger_cost_runs_the_harness_probe_before_paying_only_under_the_forge_mirror() {
+    assert_eq!(tied_trigger_payment_asks(false), vec![2]);
+    assert_eq!(tied_trigger_payment_asks(true), vec![2, 2]);
+}

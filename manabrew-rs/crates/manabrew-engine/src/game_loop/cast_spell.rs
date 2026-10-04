@@ -1663,12 +1663,31 @@ impl GameLoop {
                         crate::svar::resolve_numeric_value(game, &sa, ai_x_max, 0).max(0) as u32,
                     );
                 }
+                let harness_probes = crate::mana::computer_util_mana::harness_cost_probes_ask(game);
+                let probe_ctx = crate::mana::payment_context_for_sa(game, &sa);
                 let mut x: u32 = 0;
                 while x < limit {
                     let extra_generic = ((x + 1) * x_count as u32) as i32 + commander_tax;
                     let full_cost =
                         non_x_cost.add(&forge_foundation::ManaCost::generic(extra_generic));
                     let adjusted_full_cost = x_cost_adjustment.apply(&full_cost);
+                    if harness_probes {
+                        let mut pool = self.mana_pools[player.index()].clone();
+                        let pools = &self.mana_pools;
+                        crate::mana::computer_util_mana::harness_cost_probe(
+                            &mut pool,
+                            &adjusted_full_cost,
+                            &probe_ctx,
+                            &mut |choices| {
+                                agents[player.index()].choose_mana_from_pool(
+                                    DecisionContext::new(game, pools),
+                                    player,
+                                    choices,
+                                )
+                            },
+                        );
+                        self.mana_pools[player.index()] = pool;
+                    }
                     if !available_mana.can_pay(&adjusted_full_cost) {
                         break;
                     }

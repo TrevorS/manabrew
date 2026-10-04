@@ -1054,6 +1054,75 @@ fn auto_tap_lands_internal_with_ctx(
     }
 }
 
+/// FORGE BUG (harness quirk, parity only): the harness calls `ComputerUtilCost.canPayCost` or
+/// `ComputerUtilMana.canPayManaCost` outside the action-space build
+/// (`DeterministicController.payCostToPreventEffect`, `payCostDuringRoll`,
+/// `playChosenSpellAbility` through `setMaxXValue`, `HarnessPlayPlumbing.playNoStack` and
+/// `playStack`). Their test payment spends from the real pool, the controller answers each
+/// `chooseManaFromPool` with a draw because `probingPayability` is off there
+/// (`DeterministicController.java:349-353`), and `refundMana` appends what was spent.
+pub(crate) fn harness_cost_probe(
+    pool: &mut ManaPool,
+    cost: &ManaCost,
+    ctx: &crate::mana::ManaPaymentContext,
+    choose_mana_from_pool: &mut dyn FnMut(&[Mana]) -> usize,
+) {
+    let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
+    let mut spent = ManaPaymentOutcome::default();
+    pool.pay_mana_cost_from_pool(
+        &mut unpaid,
+        ctx,
+        false,
+        false,
+        &mut spent,
+        choose_mana_from_pool,
+    );
+    while !unpaid.is_paid()
+        && super::mana_conversion_matrix::MANA_TYPES
+            .iter()
+            .any(|&color| {
+                pool.try_pay_cost_with_color(color, &mut unpaid, ctx, &mut spent.mana_spent)
+            })
+    {}
+    pool.refund_mana(&mut spent.mana_spent);
+}
+
+pub(crate) fn harness_cost_probe_for(
+    game: &GameState,
+    pools: &mut [ManaPool],
+    agents: &mut [Box<dyn crate::agent::PlayerAgent>],
+    payer: PlayerId,
+    source: CardId,
+    sa: Option<&crate::spellability::SpellAbility>,
+    cost: &crate::cost::Cost,
+) {
+    let Some(part) = cost
+        .parts
+        .iter()
+        .find(|part| matches!(part, CostPart::Mana { .. }))
+    else {
+        return;
+    };
+    let mana_cost = crate::cost::cost_part_mana::get_mana_cost_for(game, source, sa, part);
+    let payment_ctx = sa
+        .map(|sa| crate::mana::payment_context_for_sa(game, sa))
+        .unwrap_or_default();
+    let mut pool = pools[payer.index()].clone();
+    harness_cost_probe(&mut pool, &mana_cost, &payment_ctx, &mut |choices| {
+        agents[payer.index()].choose_mana_from_pool(
+            crate::agent::DecisionContext::new(game, pools),
+            payer,
+            choices,
+        )
+    });
+    pools[payer.index()] = pool;
+}
+
+pub(crate) fn harness_cost_probes_ask(game: &GameState) -> bool {
+    game.mirror_forge_bugs
+        && game.action_space_mana_probe == crate::mana::ActionSpaceManaProbe::ComputerUtilMana
+}
+
 fn choose_mana_from_pool(
     game: &GameState,
     callback: &mut Option<ManaPayCallbackFn<'_>>,

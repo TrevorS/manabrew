@@ -283,6 +283,17 @@ impl GameLoop {
                     if crate::cost::has_x_in_any_cost_part(&cost) {
                         game.card_mut(source).svars.remove("XPaid");
                     }
+                    if crate::mana::computer_util_mana::harness_cost_probes_ask(game) {
+                        crate::mana::computer_util_mana::harness_cost_probe_for(
+                            game,
+                            &mut self.mana_pools,
+                            agents,
+                            player,
+                            source,
+                            Some(&entry.spell_ability),
+                            &cost,
+                        );
+                    }
                     let available = crate::mana::calculate_available_mana_excluding(
                         &self.mana_pools[player.index()],
                         game,
