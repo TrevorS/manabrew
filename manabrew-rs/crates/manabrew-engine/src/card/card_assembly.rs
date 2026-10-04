@@ -440,8 +440,8 @@ pub(crate) fn assemble_card(
                 card.base_trigger_count = card.triggers.len();
                 card.transform();
                 add_saga_abilities(&mut card);
-                card.reset_changed_card_traits_baseline_to_current();
                 card.base_trigger_count = card.triggers.len();
+                card.reset_changed_card_traits_baseline_to_current();
                 card.transform();
             }
         }

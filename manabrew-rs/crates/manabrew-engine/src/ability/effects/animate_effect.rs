@@ -37,7 +37,7 @@ use forge_foundation::ManaCost;
 /// Java builds an `Execute$` ability with its whole `SubAbility$` chain attached, while
 /// this port looks each one up by name on the host when the trigger resolves, so a
 /// granted trigger needs every SVar in the chain, not just the first.
-pub(super) fn copy_execute_chain_svars(
+pub(crate) fn copy_execute_chain_svars(
     source_svars: &std::collections::BTreeMap<String, String>,
     card: &mut crate::card::Card,
     start: &str,

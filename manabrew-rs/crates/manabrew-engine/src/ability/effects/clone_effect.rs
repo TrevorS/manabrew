@@ -125,6 +125,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let target = ctx.game.card_mut(clone_target_id);
         let paper_token = target.is_token && target.get_s_var("TokenScript").is_some();
         let host_svars = (clone_target_id == source_id).then(|| orig_svars.clone());
+        let pump_start = target.base_trigger_count.min(target.triggers.len());
+        let pump_end = (pump_start + target.pump_trigger_count).min(target.triggers.len());
+        let pump_triggers = target.triggers[pump_start..pump_end].to_vec();
         crate::card::card_copy_service::copy_copiable_characteristics(&state, target);
         for trigger in &mut target.triggers {
             trigger.id = ctx.trigger_handler.next_trigger_id();
@@ -208,6 +211,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         target.ensure_crew_activated_ability();
         target.base_ability_count = target.activated_abilities.len();
         target.base_trigger_count = target.triggers.len();
+        target.triggers.extend(pump_triggers);
         target.set_perpetual(&src, false);
         target.reset_changed_card_traits_baseline_to_current();
         if crate::parsing::raw_has_key(&sa.ability_text, crate::parsing::keys::INTO_PLAY_TAPPED) {

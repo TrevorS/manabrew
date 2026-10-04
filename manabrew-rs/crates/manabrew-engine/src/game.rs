@@ -682,6 +682,7 @@ impl GameState {
                 replacement_effect.base.set_host_card_id(id);
             }
         }
+        card.bind_trait_base_hosts(id);
         self.cards.push(Arc::new(card));
         id
     }

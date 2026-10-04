@@ -2025,15 +2025,11 @@ impl Card {
     }
 
     pub fn copiable_triggers(&self) -> Vec<Trigger> {
-        let mut triggers = self
-            .trait_base_triggers
-            .as_deref()
-            .cloned()
-            .unwrap_or_else(|| self.triggers.to_vec());
-        triggers.truncate(
-            self.changed_trigger_count_base
-                .unwrap_or(self.base_trigger_count),
-        );
+        let (mut triggers, own) = match self.trait_base_triggers.as_deref() {
+            Some(base) => (base.to_vec(), base.len()),
+            None => (self.triggers.to_vec(), self.base_trigger_count),
+        };
+        triggers.truncate(self.changed_trigger_count_base.unwrap_or(own));
         triggers
     }
 
@@ -3284,7 +3280,10 @@ impl Card {
         self.keywords = Default::default();
         self.abilities.clear();
         self.activated_abilities.clear();
-        self.triggers.clear();
+        let pump_start = self.base_trigger_count.min(self.triggers.len());
+        let pump_end = (pump_start + self.pump_trigger_count).min(self.triggers.len());
+        let pump_triggers = self.triggers[pump_start..pump_end].to_vec();
+        self.triggers = pump_triggers.into();
         self.static_abilities.clear();
         self.replacement_effects.clear();
         self.base_ability_count = 0;
@@ -3675,7 +3674,11 @@ impl Card {
             );
         }
         if self.changed_trigger_count_base.is_none() {
-            self.changed_trigger_count_base = Some(self.base_trigger_count);
+            self.changed_trigger_count_base = Some(
+                self.trait_base_triggers
+                    .as_ref()
+                    .map_or(self.base_trigger_count, |base| base.len()),
+            );
         }
     }
 
@@ -3685,6 +3688,9 @@ impl Card {
     pub fn add_lasting_trigger(&mut self, mut trigger: Trigger) {
         self.capture_changed_characteristics_baseline_if_needed();
         trigger.bind_host_card_id(self.id);
+        if let Some(base) = self.trait_base_triggers.as_mut() {
+            base.push(trigger.clone());
+        }
         let at = self.base_trigger_count.min(self.triggers.len());
         self.triggers.insert(at, trigger);
         self.base_trigger_count += 1;
@@ -3731,6 +3737,10 @@ impl Card {
                 self.triggers.drain(count.min(end)..end);
                 self.base_trigger_count = count;
             }
+            if let Some(base) = self.trait_base_triggers.as_mut() {
+                base.truncate(count);
+            }
+            self.recompute_changed_card_triggers();
         }
         if let Some(name) = self.changed_name_base.take() {
             self.card_name = name;
@@ -5277,6 +5287,9 @@ impl Card {
         let mut granted_triggers = Vec::new();
         let mut lasting_trigger_count = 0;
         if self.other_part.is_some() {
+            if let Some(own) = self.trait_base_triggers.as_deref().cloned() {
+                self.set_base_triggers(own, false);
+            }
             let base = self.base_trigger_count.min(self.triggers.len());
             let face = self
                 .changed_trigger_count_base
@@ -5346,6 +5359,22 @@ impl Card {
                 &mut other.replacement_effects,
             );
             std::mem::swap(&mut self.svars, &mut other.svars);
+            let layer_executes: Vec<String> = self
+                .changed_card_traits
+                .iter()
+                .filter(|((_, static_id), _)| *static_id >= 0)
+                .flat_map(|(_, layer)| layer.triggers.iter().map(|trigger| trigger.execute.clone()))
+                .collect();
+            if !layer_executes.is_empty() {
+                let face_svars = other.svars.clone();
+                for execute in layer_executes {
+                    crate::ability::effects::animate_effect::copy_execute_chain_svars(
+                        &face_svars,
+                        self,
+                        &execute,
+                    );
+                }
+            }
 
             self.granted_keywords.clear();
             if let Some(changed_keywords) = changed_keywords {
@@ -5450,16 +5479,71 @@ impl Card {
             let own = self.base_ability_count.min(self.activated_abilities.len());
             self.trait_base_activated_abilities =
                 Some(self.activated_abilities[..own].to_vec().into());
-            self.trait_base_triggers = Some(self.triggers.clone());
+            let own_triggers = self.base_trigger_count.min(self.triggers.len());
+            self.trait_base_triggers = Some(self.triggers[..own_triggers].to_vec().into());
             self.trait_base_replacement_effects = Some(self.replacement_effects.clone());
             self.trait_base_static_abilities = Some(self.static_abilities.clone());
             self.trait_base_keywords = Some(self.keywords.clone());
         }
     }
 
+    pub(crate) fn bind_trait_base_hosts(&mut self, id: CardId) {
+        if let Some(triggers) = self.trait_base_triggers.as_mut() {
+            for trigger in triggers.iter_mut() {
+                trigger.bind_host_card_id(id);
+            }
+        }
+        if let Some(statics) = self.trait_base_static_abilities.as_mut() {
+            for static_ability in statics.iter_mut() {
+                static_ability.base.set_host_card_id(id);
+            }
+        }
+        if let Some(replacements) = self.trait_base_replacement_effects.as_mut() {
+            for replacement_effect in replacements.iter_mut() {
+                replacement_effect.base.set_host_card_id(id);
+            }
+        }
+    }
+
+    fn set_base_triggers(&mut self, mut base: Vec<Trigger>, removes_all: bool) {
+        let start = self.base_trigger_count.min(self.triggers.len());
+        let end = if removes_all {
+            (start + self.pump_trigger_count).min(self.triggers.len())
+        } else {
+            self.triggers.len()
+        };
+        let tail = self.triggers[start..end].to_vec();
+        self.base_trigger_count = base.len();
+        base.extend(tail);
+        self.triggers = base.into();
+    }
+
+    fn changed_card_traits_remove_all(&self) -> bool {
+        self.changed_card_traits_by_text
+            .values()
+            .chain(self.changed_card_traits.values())
+            .any(|layer| layer.remove_all)
+    }
+
+    fn recompute_changed_card_triggers(&mut self) {
+        let Some(mut triggers) = self.trait_base_triggers.as_deref().cloned() else {
+            return;
+        };
+        for layer in self
+            .changed_card_traits_by_text
+            .values()
+            .chain(self.changed_card_traits.values())
+        {
+            triggers = crate::card::card_state::apply_trigger(layer, triggers);
+        }
+        let removes_all = self.changed_card_traits_remove_all();
+        self.set_base_triggers(triggers, removes_all);
+    }
+
     fn reset_changed_card_traits_baseline(&mut self) {
         self.trait_base_activated_abilities = Some(self.activated_abilities.clone());
-        self.trait_base_triggers = Some(self.triggers.clone());
+        let own_triggers = self.base_trigger_count.min(self.triggers.len());
+        self.trait_base_triggers = Some(self.triggers[..own_triggers].to_vec().into());
         self.trait_base_replacement_effects = Some(self.replacement_effects.clone());
         self.trait_base_static_abilities = Some(self.static_abilities.clone());
         self.trait_base_keywords = Some(self.keywords.clone());
@@ -5521,7 +5605,8 @@ impl Card {
                 kept + layer.abilities.len()
             });
         self.activated_abilities = Self::spell_to_activated_abilities(&spell_abilities).into();
-        self.triggers = triggers.into();
+        let removes_all = self.changed_card_traits_remove_all();
+        self.set_base_triggers(triggers, removes_all);
         self.replacement_effects = replacements.into();
         self.static_abilities = static_abilities.into();
         self.keywords = keywords;
@@ -5573,10 +5658,13 @@ impl Card {
     /// Java parity: `addChangedCardTraits`.
     pub fn add_changed_card_traits(
         &mut self,
-        layer: card_trait_changes::CardTraitChanges,
+        mut layer: card_trait_changes::CardTraitChanges,
         timestamp: i64,
         static_id: i64,
     ) {
+        for trigger in &mut layer.triggers {
+            trigger.bind_host_card_id(self.id);
+        }
         self.capture_changed_card_traits_baseline_if_needed();
         self.changed_card_traits
             .insert((timestamp, static_id), layer);
@@ -5606,22 +5694,7 @@ impl Card {
             return false;
         }
         if self.changed_card_traits.is_empty() && self.changed_card_traits_by_text.is_empty() {
-            if let Some(v) = self.trait_base_activated_abilities.take() {
-                self.base_ability_count = v.len();
-                self.activated_abilities = v;
-            }
-            if let Some(v) = self.trait_base_triggers.take() {
-                self.triggers = v;
-            }
-            if let Some(v) = self.trait_base_replacement_effects.take() {
-                self.replacement_effects = v;
-            }
-            if let Some(v) = self.trait_base_static_abilities.take() {
-                self.static_abilities = v;
-            }
-            if let Some(v) = self.trait_base_keywords.take() {
-                self.keywords = v;
-            }
+            self.restore_trait_base();
             return true;
         }
 
@@ -5653,22 +5726,7 @@ impl Card {
             return false;
         }
         if self.changed_card_traits.is_empty() && self.changed_card_traits_by_text.is_empty() {
-            if let Some(v) = self.trait_base_activated_abilities.take() {
-                self.base_ability_count = v.len();
-                self.activated_abilities = v;
-            }
-            if let Some(v) = self.trait_base_triggers.take() {
-                self.triggers = v;
-            }
-            if let Some(v) = self.trait_base_replacement_effects.take() {
-                self.replacement_effects = v;
-            }
-            if let Some(v) = self.trait_base_static_abilities.take() {
-                self.static_abilities = v;
-            }
-            if let Some(v) = self.trait_base_keywords.take() {
-                self.keywords = v;
-            }
+            self.restore_trait_base();
             return true;
         }
 
@@ -5677,15 +5735,13 @@ impl Card {
     }
 
     /// Java parity: `clearChangedCardTraits`.
-    pub fn clear_changed_card_traits(&mut self) {
-        self.changed_card_traits.clear();
-        self.changed_card_traits_by_text.clear();
+    fn restore_trait_base(&mut self) {
         if let Some(v) = self.trait_base_activated_abilities.take() {
             self.base_ability_count = v.len();
             self.activated_abilities = v;
         }
         if let Some(v) = self.trait_base_triggers.take() {
-            self.triggers = v;
+            self.set_base_triggers(v.to_vec(), false);
         }
         if let Some(v) = self.trait_base_replacement_effects.take() {
             self.replacement_effects = v;
@@ -5697,6 +5753,12 @@ impl Card {
             self.keywords = v;
             self.update_keywords();
         }
+    }
+
+    pub fn clear_changed_card_traits(&mut self) {
+        self.changed_card_traits.clear();
+        self.changed_card_traits_by_text.clear();
+        self.restore_trait_base();
     }
 
     /// Clear continuous static-ability trait changes from the previous layer pass.
@@ -5711,22 +5773,7 @@ impl Card {
             return;
         }
         if self.changed_card_traits.is_empty() && self.changed_card_traits_by_text.is_empty() {
-            if let Some(v) = self.trait_base_activated_abilities.take() {
-                self.base_ability_count = v.len();
-                self.activated_abilities = v;
-            }
-            if let Some(v) = self.trait_base_triggers.take() {
-                self.triggers = v;
-            }
-            if let Some(v) = self.trait_base_replacement_effects.take() {
-                self.replacement_effects = v;
-            }
-            if let Some(v) = self.trait_base_static_abilities.take() {
-                self.static_abilities = v;
-            }
-            if let Some(v) = self.trait_base_keywords.take() {
-                self.keywords = v;
-            }
+            self.restore_trait_base();
             return;
         }
 
@@ -5767,6 +5814,41 @@ mod tests {
 
     use forge_carddb::parse_card_script;
     use forge_foundation::ManaCost;
+
+    #[test]
+    fn a_face_down_ward_goes_into_the_base_ahead_of_kept_pump_triggers() {
+        let mut card = Card::new(
+            CardId(0),
+            "Test".to_string(),
+            PlayerId(0),
+            CardTypeLine::parse("Creature Bear"),
+            ManaCost::parse("1 G"),
+            ColorSet::GREEN,
+            Some(2),
+            Some(2),
+            vec![],
+            vec![],
+        );
+        let mut id = 0;
+        card.add_pump_trigger(
+            crate::trigger::parse_trigger(
+                "Mode$ Blocks | ValidCard$ Card.Self | Execute$ TrigGain | TriggerDescription$ x",
+                &mut id,
+            )
+            .expect("trigger"),
+        );
+        card.set_original_state_as_face_down();
+        card.add_intrinsic_keyword_with_triggers("Ward:2");
+        let kinds: Vec<_> = card.triggers.iter().map(|t| t.kind).collect();
+        assert_eq!(
+            kinds,
+            vec![
+                crate::trigger::TriggerType::BecomesTarget,
+                crate::trigger::TriggerType::Blocks
+            ]
+        );
+        assert_eq!((card.base_trigger_count, card.pump_trigger_count), (1, 1));
+    }
 
     #[test]
     fn card_power_toughness() {

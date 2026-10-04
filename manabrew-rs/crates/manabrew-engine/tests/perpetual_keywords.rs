@@ -8,6 +8,8 @@ use manabrew_engine::agent::{
     DecisionContext, ManaAbilityOption, ManaCostAction, PassAgent, PlayCardMode, PlayerAgent,
     PriorityActionSpace, PriorityContext, TargetChoice,
 };
+use manabrew_engine::card::card_trait_changes::CardTraitChanges;
+use manabrew_engine::card::perpetual::perpetual_abilities::PerpetualAbilities;
 use manabrew_engine::card::perpetual::perpetual_interface::PerpetualInterface;
 use manabrew_engine::card::perpetual::perpetual_keywords::PerpetualKeywords;
 use manabrew_engine::card::CardInstance;
@@ -20,7 +22,7 @@ use manabrew_engine::mana::ManaPool;
 use manabrew_engine::player::actions::{AbilityRef, PlayerAction};
 use manabrew_engine::spellability::SpellAbility;
 use manabrew_engine::staticability::layer::apply_continuous_effects;
-use manabrew_engine::trigger::TriggerType;
+use manabrew_engine::trigger::{parse_trigger, TriggerType};
 use rand::SeedableRng;
 
 const ISLAND: &str = "Name:Island\nManaCost:no cost\nTypes:Basic Land Island\nOracle:";
@@ -29,6 +31,9 @@ const BEARS: &str = "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2
 const SCHOLAR: &str = "Name:Exploiting Scholar\nManaCost:3 U\nTypes:Creature Human Wizard\nPT:2/2\nK:Exploit\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigGainLife | TriggerDescription$ When this creature enters, you gain 1 life.\nSVar:TrigGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 1\nA:AB$ GainLife | Cost$ T | Defined$ You | LifeAmount$ 1 | SpellDescription$ You gain 1 life.\nOracle:";
 const GRAVE_GIFT: &str = "Name:Grave Gift\nManaCost:B\nTypes:Sorcery\nA:SP$ Pump | Defined$ ValidGraveyard Creature.YouOwn | PumpZone$ Graveyard | KW$ Unearth:B | Duration$ Perpetual | SpellDescription$ Creature cards in your graveyard perpetually gain unearth {B}.\nOracle:";
 const TAP_DOWN: &str = "Name:Tap Down\nManaCost:U\nTypes:Instant\nA:SP$ Tap | ValidTgts$ Creature | TgtPrompt$ Select target creature | SpellDescription$ Tap target creature.\nOracle:";
+const WEREBEAR: &str = "Name:Day Werebear\nManaCost:1 G\nTypes:Creature Human Werewolf\nPT:1/1\nAlternateMode:DoubleFaced\nOracle:\n\nALTERNATE\n\nName:Night Werebear\nManaCost:no cost\nColors:green\nTypes:Creature Werewolf\nPT:3/3\nOracle:";
+const OPT: &str = "Name:Quick Study\nManaCost:U\nTypes:Sorcery\nA:SP$ Draw | Defined$ You | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
+const MIMIC_FORM: &str = "Name:Mimic Form\nManaCost:1 U\nTypes:Sorcery\nA:SP$ Clone | ValidTgts$ Creature.OppCtrl | TgtPrompt$ Select target creature an opponent controls | CloneTarget$ Valid Creature.YouCtrl | Duration$ UntilEndOfTurn | SpellDescription$ Until end of turn, each creature you control becomes a copy of target creature an opponent controls.\nOracle:";
 const CLONE: &str = "Name:Clone\nManaCost:3 U\nTypes:Creature Shapeshifter\nPT:0/0\nK:ETBReplacement:Copy:DBCopy:Optional\nSVar:DBCopy:DB$ Clone | Choices$ Creature.Other | SpellDescription$ You may have CARDNAME enter as a copy of any creature on the battlefield.\nOracle:";
 
 #[derive(Clone, Copy)]
@@ -49,7 +54,7 @@ impl PlayerAgent for Scripted {
         game: &GameState,
         pools: &[ManaPool],
     ) -> bool {
-        PassAgent.choose_targets_for(sa, game, pools)
+        manabrew_engine::spellability::choose_targets_by_kind(self, sa, game, pools)
     }
     fn mulligan_decision(
         &mut self,
@@ -143,12 +148,12 @@ impl PlayerAgent for Scripted {
     }
     fn choose_target_card(
         &mut self,
-        context: DecisionContext<'_>,
-        player: PlayerId,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
         valid: &[CardId],
-        sa: Option<&SpellAbility>,
+        _sa: Option<&SpellAbility>,
     ) -> Option<CardId> {
-        PassAgent.choose_target_card(context, player, valid, sa)
+        valid.first().copied()
     }
     fn choose_target_any(
         &mut self,
@@ -340,4 +345,83 @@ fn perpetual_keyword_traits_come_after_printed_and_intrinsic_ones() {
     assert!(card.activated_abilities[printed_abilities]
         .ability_text
         .contains("Keyword$ Unearth"));
+}
+
+#[test]
+fn perpetual_layer_triggers_fire_after_layer_passes_and_a_transform() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let werebear = put(&mut game, WEREBEAR, p0, ZoneType::Battlefield);
+    let mut id = 0;
+    let spell_cast = parse_trigger(
+        "Mode$ SpellCast | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigGainLife | TriggerDescription$ Whenever you cast a spell, you gain 1 life.",
+        &mut id,
+    )
+    .expect("trigger");
+    game.card_mut(werebear).set_s_var(
+        "TrigGainLife",
+        "DB$ GainLife | Defined$ You | LifeAmount$ 1",
+    );
+    PerpetualAbilities {
+        timestamp: 900_000,
+        changes: CardTraitChanges {
+            triggers: vec![spell_cast],
+            ..Default::default()
+        },
+    }
+    .apply_effect(game.card_mut(werebear));
+    grant_perpetual(&mut game, werebear, &["Prowess"]);
+    for _ in 0..3 {
+        apply_continuous_effects(&mut game);
+    }
+    game.card_mut(werebear).transform();
+    for _ in 0..3 {
+        apply_continuous_effects(&mut game);
+    }
+    let opt = put(&mut game, OPT, p0, ZoneType::Hand);
+    put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    for player in [p0, p1] {
+        put(&mut game, ISLAND, player, ZoneType::Library);
+    }
+    main_phase(&mut game, p0);
+    let (agent, done) = scripted(vec![Step::Cast(opt)]);
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![agent, Box::new(PassAgent)];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(*done.borrow(), 1);
+    assert_eq!(game.card(opt).zone, ZoneType::Graveyard);
+    assert_eq!(game.players[0].life, 21);
+    assert_eq!(game.card(werebear).power(), 4);
+}
+
+#[test]
+fn a_clone_keeps_the_pump_triggers_of_the_creature_it_turns_into_a_copy() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let scholar = put(&mut game, SCHOLAR, p0, ZoneType::Battlefield);
+    put(&mut game, BEARS, p1, ZoneType::Battlefield);
+    let reflection = put(&mut game, MIMIC_FORM, p0, ZoneType::Hand);
+    for _ in 0..3 {
+        put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    }
+    let mut id = 0;
+    game.card_mut(scholar).add_pump_trigger(
+        parse_trigger(
+            "Mode$ Blocks | ValidCard$ Card.Self | Execute$ TrigGainLife | TriggerDescription$ Blocks",
+            &mut id,
+        )
+        .expect("trigger"),
+    );
+    main_phase(&mut game, p0);
+    let (agent, done) = scripted(vec![Step::Cast(reflection)]);
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![agent, Box::new(PassAgent)];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(*done.borrow(), 1);
+    apply_continuous_effects(&mut game);
+    apply_continuous_effects(&mut game);
+    let card = game.card(scholar);
+    assert_eq!(card.card_name, "Grizzly Bears");
+    let kinds: Vec<TriggerType> = card.triggers.iter().map(|t| t.kind).collect();
+    assert_eq!(kinds, vec![TriggerType::Blocks]);
+    assert_eq!(card.pump_trigger_count, 1);
 }

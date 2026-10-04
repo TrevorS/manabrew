@@ -593,12 +593,11 @@ impl Card {
             first_new,
             &crate::keyword::keyword_instance::KeywordInstanceData::new(keyword, kw.to_string()),
         );
-        self.base_trigger_count = self.triggers.len();
         if let Some(keywords) = self.trait_base_keywords.as_mut() {
             keywords.add(kw);
         }
-        if let Some(triggers) = self.trait_base_triggers.as_mut() {
-            triggers.extend_from_slice(&self.triggers[first_new..]);
+        for trigger in self.triggers.split_off(first_new) {
+            self.add_intrinsic_trigger(trigger);
         }
     }
 
