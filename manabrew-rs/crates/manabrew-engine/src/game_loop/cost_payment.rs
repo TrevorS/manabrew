@@ -911,12 +911,9 @@ impl GameLoop {
                                 };
                                 match payment_ctx.as_ref() {
                                     Some(ctx)
-                                        if matches!(
-                                            context,
-                                            CostPaymentContext::ActivatedAbility
-                                        ) =>
+                                        if !matches!(context, CostPaymentContext::ManaAbility) =>
                                     {
-                                        let paid = mana::auto_tap_lands_allow_reserved_source_reuse_pay_incremental_with_callbacks_reserved_and_ctx(
+                                        let mut paid = mana::auto_tap_lands_allow_reserved_source_reuse_pay_incremental_with_callbacks_reserved_and_ctx(
                                             game,
                                             pool,
                                             session.player,
@@ -926,6 +923,9 @@ impl GameLoop {
                                             &mut callback,
                                             ctx,
                                         );
+                                        if !paid.paid {
+                                            pool.refund_mana(&mut paid.payment.mana_spent);
+                                        }
                                         (
                                             paid.choices,
                                             Some(paid.paid.then_some(paid.payment.life_paid)),
@@ -1735,7 +1735,16 @@ impl GameLoop {
             {
                 game.tap(card_id);
             }
-            if !matches!(context, CostPaymentContext::ActivatedAbility) {
+            let keeps_auto_pay_taps = match context {
+                CostPaymentContext::ActivatedAbility => false,
+                CostPaymentContext::TriggerResolve => {
+                    game.mirror_forge_bugs
+                        && game.action_space_mana_probe
+                            == crate::mana::ActionSpaceManaProbe::ComputerUtilMana
+                }
+                CostPaymentContext::ManaAbility => true,
+            };
+            if keeps_auto_pay_taps {
                 for tapped_id in failed_auto_pay_taps {
                     if game.card_is_in_zone(tapped_id, ZoneType::Battlefield) {
                         game.card_mut(tapped_id).set_tapped(true);
