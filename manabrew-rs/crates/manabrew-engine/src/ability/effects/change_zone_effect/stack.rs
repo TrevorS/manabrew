@@ -47,21 +47,21 @@ pub(super) fn resolve_stack_removal(
         return;
     }
 
-    // Tokens on stack cease to exist when exiled
-    if dest_zone == ZoneType::Exile && ctx.game.card(card_id).is_token {
-        return;
-    }
-
-    let spell_entry = ctx
-        .game
-        .stack
-        .iter()
-        .find(|entry| {
-            entry.spell_ability.is_spell
-                && !entry.spell_ability.is_copy
-                && entry.spell_ability.source == Some(card_id)
-        })
-        .map(|entry| entry.id);
+    let targeted_entry = sa
+        .target_chosen
+        .target_stack_entry
+        .filter(|_| sa.uses_targeting() && sa.target_chosen.target_card.is_none());
+    let spell_entry = targeted_entry.or_else(|| {
+        ctx.game
+            .stack
+            .iter()
+            .find(|entry| {
+                entry.spell_ability.is_spell
+                    && !entry.spell_ability.is_copy
+                    && entry.spell_ability.source == Some(card_id)
+            })
+            .map(|entry| entry.id)
+    });
     if let Some(entry_id) = spell_entry {
         ctx.game.stack.remove_by_id(entry_id);
     }

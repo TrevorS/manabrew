@@ -693,3 +693,54 @@ fn a_prepared_copy_exiled_from_the_stack_stays_in_exile_only_as_forge_mirrors_it
     assert_eq!(countered_prepared_copy_zone(true), ZoneType::Exile);
     assert_eq!(countered_prepared_copy_zone(false), ZoneType::None);
 }
+
+#[test]
+fn a_targeted_copy_of_a_spell_exiled_from_the_stack_does_not_resolve() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let p1 = PlayerId(1);
+    let rules = parse_card_script(PREPARING_SCHOLAR).expect("script");
+    let mut prepared = CardInstance::from_rules(&rules, p0);
+    prepared.set_is_token(true);
+    prepared.transform();
+    let prepared = game.create_card(prepared);
+    game.move_card(prepared, ZoneType::Stack, p0);
+    let mut copy = SpellAbility::new_simple(Some(prepared), p0, "SP$ Draw | NumCards$ 1");
+    copy.is_spell = true;
+    copy.is_copy = true;
+    let copy_id = game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: copy,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    let source = game.create_card(make_test_source(p1));
+    game.move_card(source, ZoneType::Battlefield, p1);
+    let mut exile = SpellAbility::new_simple(
+        Some(source),
+        p1,
+        "DB$ ChangeZone | TargetType$ Spell | ValidTgts$ Card | TgtZone$ Stack | Origin$ Stack | Destination$ Exile",
+    );
+    exile.is_trigger = true;
+    exile.target_chosen.target_stack_entry = Some(copy_id);
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: exile,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    let mut agents = pass_agents();
+    GameLoop::new(2).resolve_stack(&mut game, &mut agents);
+    assert!(game.stack.iter().all(|entry| entry.id != copy_id));
+    assert_ne!(game.card(prepared).zone, ZoneType::Stack);
+}
