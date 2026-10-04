@@ -851,3 +851,44 @@ fn creatures_returned_by_one_effect_each_see_the_other_enter() {
     assert_eq!(game.card(second).zone, ZoneType::Battlefield);
     assert_eq!(game.player(p0).life, 22);
 }
+
+const TAPPING_SHRINE: &str = "Name:Tapping Shrine\nManaCost:W\nTypes:Enchantment\nR:Event$ Moved | ValidCard$ Creature.OppCtrl | Destination$ Battlefield | ReplaceWith$ ETBTapped | ReplacementResult$ Updated | ActiveZones$ Battlefield | Description$ Creatures your opponents control enter tapped.\nSVar:ETBTapped:DB$ Tap | ETB$ True | Defined$ ReplacedCard\nOracle:";
+
+#[test]
+fn a_replacement_host_returned_by_an_earlier_sub_ability_no_longer_applies() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let p1 = PlayerId(1);
+    main_phase(&mut game, p1);
+    let shrine = put(&mut game, TAPPING_SHRINE, p0, ZoneType::Battlefield);
+    let bears = game.create_card(make_grizzly_bears(p1));
+    game.move_card(bears, ZoneType::Graveyard, p1);
+    let source = effect_source(&mut game, p1);
+    game.card_mut(source).add_remembered_card(shrine);
+    let mut sa = SpellAbility::new_simple(
+        Some(source),
+        p1,
+        "DB$ ChangeZone | Defined$ Remembered | Origin$ Battlefield | Destination$ Hand",
+    );
+    sa.append_sub_ability(SpellAbility::new_simple(
+        Some(source),
+        p1,
+        "DB$ ChangeZoneAll | ChangeType$ Creature.YouOwn | Origin$ Graveyard | Destination$ Battlefield",
+    ));
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: sa,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    let mut agents = pass_agents();
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(shrine).zone, ZoneType::Hand);
+    assert_eq!(game.card(bears).zone, ZoneType::Battlefield);
+    assert!(!game.card(bears).tapped);
+}

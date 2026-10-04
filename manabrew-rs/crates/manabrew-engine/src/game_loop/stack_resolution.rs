@@ -766,13 +766,6 @@ impl GameLoop {
         game.clear_pending_damage_maps();
         game.clear_pending_change_zone_table();
         game.ensure_pending_change_zone_table();
-        let outer_last_state = game.replacement_last_state_battlefield.replace(
-            game.cards
-                .iter()
-                .filter(|c| c.zone == ZoneType::Battlefield)
-                .map(|c| c.id)
-                .collect(),
-        );
 
         // Mirrors Java `MagicStack.resolveStack` (MagicStack.java:651-653):
         // call `handleRemembering` on the root SA before resolving so
@@ -906,7 +899,15 @@ impl GameLoop {
             } else {
                 sa
             };
+            let outer_last_state = game.replacement_last_state_battlefield.replace(
+                game.cards
+                    .iter()
+                    .filter(|c| c.zone == ZoneType::Battlefield)
+                    .map(|c| c.id)
+                    .collect(),
+            );
             self.resolve_single_effect(game, agents, sa_ref, parent_target_card);
+            game.replacement_last_state_battlefield = outer_last_state;
             if let Some(table) = game.pending_change_zone_table.take() {
                 table.trigger_changes_zone_all(&mut self.trigger_handler, game, None);
             }
@@ -933,8 +934,6 @@ impl GameLoop {
                 sa.get_sub_ability()
             };
         }
-
-        game.replacement_last_state_battlefield = outer_last_state;
 
         // Avoid leaking shared tables into subsequent stack entries.
         game.clear_pending_damage_maps();
