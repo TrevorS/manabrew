@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, VecDeque};
 use std::io::{BufRead, BufReader, Write};
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::rc::{Rc, Weak};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -278,6 +278,7 @@ pub struct LockstepGame<'a> {
 pub enum LockstepEnd {
     GameOver,
     TurnCap,
+    GuardMatched(String),
     Desync(Desync),
 }
 
@@ -386,6 +387,51 @@ fn rust_snapshots(log: &Mutex<Vec<ParityLogEntry>>) -> Vec<StateSnapshot> {
             _ => None,
         })
         .collect()
+}
+
+pub fn guard_end(
+    rust: &StateSnapshot,
+    java_guard: Option<&StateSnapshot>,
+    java_end: Option<&Value>,
+    sent: u64,
+) -> Result<(), String> {
+    let java_end = java_end.ok_or("java did not end the game")?;
+    if let Some(found) = java_desync(java_end) {
+        return Err(found.detail);
+    }
+    let consumed = java_end["consumed"].as_u64().unwrap_or(0);
+    if consumed != sent {
+        return Err(format!("java consumed {consumed} of rust's {sent} draws"));
+    }
+    let mut java = java_guard
+        .ok_or("java logged no snapshot at its guard")?
+        .clone();
+    java.game_over = rust.game_over;
+    java.winner = rust.winner;
+    for (java_player, rust_player) in java.players.iter_mut().zip(&rust.players) {
+        java_player.has_won = rust_player.has_won;
+        java_player.has_lost = rust_player.has_lost;
+    }
+    let fields: Vec<String> = crate::comparator::compare(0, rust, &java)
+        .into_iter()
+        .take(6)
+        .map(|d| format!("{} rust {} java {}", d.field, d.rust_value, d.java_value))
+        .collect();
+    if fields.is_empty() {
+        Ok(())
+    } else {
+        Err(fields.join("; "))
+    }
+}
+
+fn last_logged_snapshot(log: &Path) -> Option<StateSnapshot> {
+    std::fs::read_to_string(log)
+        .ok()?
+        .lines()
+        .rev()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .find(|entry| entry.get("players").is_some())
+        .and_then(|entry| serde_json::from_value(entry).ok())
 }
 
 fn java_desync(end: &Value) -> Option<Desync> {
@@ -540,7 +586,9 @@ pub fn play(
     }
     crate::parity_log::clear_sink();
     let game_over = runtime.game().game_over;
+    let guard_tripped = end.as_ref().is_some_and(|found| found.kind == "guard");
     let finish = match (&end, game_over) {
+        (Some(_), _) if guard_tripped => Finish::CatchUp,
         (Some(_), _) => Finish::Abort,
         (None, true) => Finish::GameOver,
         (None, false) => Finish::TurnCap,
@@ -556,6 +604,41 @@ pub fn play(
                 };
             }
         }
+    }
+    let mut guard_matched = None;
+    let mut guard_mismatch = None;
+    if let Some(found) = end.as_ref().filter(|found| found.kind == "guard") {
+        let mut rust = rust_snapshots(&shared_log);
+        let rust_guard = rust.pop();
+        let java_guard = setup.log.as_deref().and_then(last_logged_snapshot);
+        let turns_match = rust.len() == link.borrow().snapshots.len();
+        let compared = rust_guard
+            .ok_or_else(|| "rust logged no snapshot at its guard".to_string())
+            .and_then(|rust_guard| {
+                guard_end(
+                    &rust_guard,
+                    java_guard.as_ref(),
+                    java_end.as_ref(),
+                    link.borrow().sent,
+                )
+            });
+        match compared {
+            Ok(()) if turns_match => guard_matched = Some(found.detail.clone()),
+            Ok(()) => {
+                guard_mismatch = Some(format!(
+                    "rust took {} turn snapshots, java {}",
+                    rust.len(),
+                    link.borrow().snapshots.len()
+                ))
+            }
+            Err(mismatch) => guard_mismatch = Some(mismatch),
+        }
+    }
+    if guard_matched.is_some() {
+        end = None;
+    }
+    if let (Some(found), Some(mismatch)) = (end.as_mut(), guard_mismatch) {
+        found.detail = format!("{} | guard comparison: {mismatch}", found.detail);
     }
     if let (Some(path), Some(java)) = (&setup.log, &java_end) {
         let _ = std::fs::write(path.with_extension("end.json"), java.to_string());
@@ -576,13 +659,13 @@ pub fn play(
         }
     }
     let rust = rust_snapshots(&shared_log);
-    if end.is_none() && overran {
+    if end.is_none() && overran && guard_matched.is_none() {
         end = Some(Desync {
             kind: "sequence".to_string(),
             detail: "java kept playing after rust's game ended".to_string(),
         });
     }
-    if end.is_none() {
+    if end.is_none() && guard_matched.is_none() {
         end = match &java_end {
             None => Some(Desync {
                 kind: "sequence".to_string(),
@@ -593,7 +676,7 @@ pub fn play(
             }
         };
     }
-    if end.is_none() {
+    if end.is_none() && guard_matched.is_none() {
         let link = link.borrow();
         end = compare_snapshots(&rust, &link.snapshots, 0).or_else(|| {
             (rust.len() != link.snapshots.len()).then(|| Desync {
@@ -611,7 +694,11 @@ pub fn play(
         .as_ref()
         .and_then(|e| e["winner"].as_i64())
         .unwrap_or(-1);
-    if end.is_none() && game_over && forge_winner != winner.map_or(-1, |w| i64::from(w.0)) {
+    if end.is_none()
+        && guard_matched.is_none()
+        && game_over
+        && forge_winner != winner.map_or(-1, |w| i64::from(w.0))
+    {
         end = Some(Desync {
             kind: "sequence".to_string(),
             detail: format!("rust winner {winner:?}, java winner {forge_winner}"),
@@ -636,10 +723,11 @@ pub fn play(
     Ok(LockstepOutcome {
         game,
         winner,
-        end: match end {
-            Some(found) => LockstepEnd::Desync(found),
-            None if game_over => LockstepEnd::GameOver,
-            None => LockstepEnd::TurnCap,
+        end: match (end, guard_matched) {
+            (Some(found), _) => LockstepEnd::Desync(found),
+            (None, Some(detail)) => LockstepEnd::GuardMatched(detail),
+            (None, None) if game_over => LockstepEnd::GameOver,
+            (None, None) => LockstepEnd::TurnCap,
         },
         forge_winner,
         rust_snapshots: rust,
@@ -652,6 +740,7 @@ pub fn play(
 enum Finish {
     GameOver,
     TurnCap,
+    CatchUp,
     Abort,
 }
 

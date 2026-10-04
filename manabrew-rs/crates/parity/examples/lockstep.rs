@@ -39,8 +39,10 @@ impl Record {
     }
 
     fn passed(&self) -> bool {
-        matches!(self.end.as_str(), "game_over" | "turn_cap")
-            && self.rust_log.as_deref().is_none_or(|log| log == "SAME")
+        matches!(
+            self.end.as_str(),
+            "game_over" | "turn_cap" | "guard_matched"
+        ) && self.rust_log.as_deref().is_none_or(|log| log == "SAME")
     }
 
     fn same_as(&self, other: &Record) -> bool {
@@ -179,11 +181,19 @@ fn diff(baseline: &Path, observed: &Path) -> bool {
             }
         }
     }
+    let guard_matched = |records: &BTreeMap<(String, String, u64), Record>| {
+        records
+            .values()
+            .filter(|r| r.end == "guard_matched")
+            .count()
+    };
     println!(
-        "lockstep diff: {} games, {} failing; baseline {} failing",
+        "lockstep diff: {} games, {} failing, {} guard_matched; baseline {} failing, {} guard_matched",
         seen.len(),
         seen.values().filter(|r| !r.passed()).count(),
-        base.values().filter(|r| !r.passed()).count()
+        guard_matched(&seen),
+        base.values().filter(|r| !r.passed()).count(),
+        guard_matched(&base)
     );
     groups.is_empty()
 }
@@ -233,6 +243,10 @@ fn play(run: &Run, slot: &mut Option<ForgeJvm>, game: &Game) -> (Record, f64) {
     match &outcome.end {
         LockstepEnd::GameOver => record.end = "game_over".to_string(),
         LockstepEnd::TurnCap => record.end = "turn_cap".to_string(),
+        LockstepEnd::GuardMatched(detail) => {
+            record.end = "guard_matched".to_string();
+            record.cause = Some(clip(detail));
+        }
         LockstepEnd::Desync(d) => {
             record.end = "desync".to_string();
             record.kind = Some(d.kind.clone());
@@ -412,9 +426,10 @@ fn main() {
         *failing.entry(record.verdict()).or_default() += 1;
     }
     eprintln!(
-        "lockstep: {} games in {:.0}s, failing {failing:?}",
+        "lockstep: {} games in {:.0}s, failing {failing:?}, guard_matched {}",
         records.len(),
-        started.elapsed().as_secs_f64()
+        started.elapsed().as_secs_f64(),
+        records.iter().filter(|r| r.end == "guard_matched").count()
     );
     println!(
         "IDENTITY {}/{}",
