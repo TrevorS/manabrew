@@ -18,11 +18,12 @@ use serde_json::Value;
 
 const CAUSE_LIMIT: usize = 300;
 
-const LISTED_ENDS: [&str; 4] = [
+const LISTED_ENDS: [&str; 5] = [
     "guard_matched",
     "guard_unverified",
     "java_crash",
     "java_runaway_matched",
+    "java_timeout",
 ];
 
 fn listed_summary(records: &BTreeMap<(String, String, u64), Record>) -> String {
@@ -279,6 +280,10 @@ fn play(run: &Run, slot: &mut Option<ForgeJvm>, game: &Game) -> (Record, f64) {
         }
         LockstepEnd::JavaRunawayMatched(detail) => {
             record.end = "java_runaway_matched".to_string();
+            record.cause = Some(clip(detail));
+        }
+        LockstepEnd::JavaTimeout(detail) => {
+            record.end = "java_timeout".to_string();
             record.cause = Some(clip(detail));
         }
         LockstepEnd::Desync(d) => {

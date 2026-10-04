@@ -1,4 +1,6 @@
-use parity::lockstep::{guard_end, guard_unverified, java_error_end, Desync, LockstepEnd};
+use parity::lockstep::{
+    guard_end, guard_unverified, java_error_end, java_timeout, Desync, LockstepEnd,
+};
 use parity::protocol::StateSnapshot;
 use serde_json::{json, Value};
 
@@ -165,4 +167,24 @@ fn a_java_runaway_cap_is_compared_with_rust_at_the_same_draw() {
     assert_eq!(differs.kind, "runaway");
     assert!(differs.detail.contains("life"), "{}", differs.detail);
     assert!(java_error_end(&end, "runaway".to_string(), None, |_| None).is_err());
+}
+
+#[test]
+fn a_java_timeout_after_agreeing_turns_is_listed_not_failing() {
+    let rust = vec![
+        snapshot(false, None, 20, false),
+        snapshot(false, None, 18, false),
+        snapshot(false, None, 15, false),
+    ];
+    let java = rust[..2].to_vec();
+    let timeout = std::time::Duration::from_secs(300);
+    let ended = java_timeout(&rust, &java, timeout);
+    assert!(
+        matches!(&ended, Ok(LockstepEnd::JavaTimeout(detail)) if detail.contains("2 of rust's 3")),
+        "{ended:?}"
+    );
+    let mut differing = java.clone();
+    differing[1].players[0].life -= 1;
+    let failure = java_timeout(&rust, &differing, timeout).expect_err("a differing turn");
+    assert_eq!(failure.kind, "state");
 }

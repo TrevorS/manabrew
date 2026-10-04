@@ -282,6 +282,7 @@ pub enum LockstepEnd {
     GuardUnverified(String),
     JavaCrash(String),
     JavaRunawayMatched(String),
+    JavaTimeout(String),
     Desync(Desync),
 }
 
@@ -603,6 +604,22 @@ pub fn guard_unverified(
     })
 }
 
+pub fn java_timeout(
+    rust: &[StateSnapshot],
+    java: &[StateSnapshot],
+    timeout: Duration,
+) -> Result<LockstepEnd, Desync> {
+    match compare_snapshots(rust, java, 0) {
+        Some(found) => Err(found),
+        None => Ok(LockstepEnd::JavaTimeout(format!(
+            "java did not end the game within {}s; its {} of rust's {} turn snapshots agree",
+            timeout.as_secs(),
+            java.len(),
+            rust.len()
+        ))),
+    }
+}
+
 pub fn java_error_end(
     java: &Value,
     detail: String,
@@ -773,7 +790,7 @@ pub fn play(
         (None, true) => Finish::GameOver,
         (None, false) => Finish::TurnCap,
     };
-    let (java_end, overran) = finish_java(&link, finish);
+    let (java_end, overran, timed_out) = finish_java(&link, finish);
     if let Some(found) = end.as_mut() {
         let link = link.borrow();
         if let Some(earlier) = compare_snapshots(&rust_snapshots(&shared_log), &link.snapshots, 0) {
@@ -857,6 +874,16 @@ pub fn play(
     }
     if end.is_none() && special.is_none() {
         end = match &java_end {
+            None if timed_out => {
+                let link = link.borrow();
+                match java_timeout(&rust, &link.snapshots, link.timeout) {
+                    Ok(kind) => {
+                        special = Some(kind);
+                        None
+                    }
+                    Err(found) => Some(found),
+                }
+            }
             None => Some(Desync {
                 kind: "sequence".to_string(),
                 detail: "java did not end the game with rust".to_string(),
@@ -946,11 +973,11 @@ enum Finish {
     Abort,
 }
 
-fn finish_java(link: &Rc<RefCell<Link>>, finish: Finish) -> (Option<Value>, bool) {
+fn finish_java(link: &Rc<RefCell<Link>>, finish: Finish) -> (Option<Value>, bool, bool) {
     let mut link = link.borrow_mut();
     let mut overran = finish == Finish::GameOver && !link.pending.is_empty();
     if let Some(end) = link.end.take() {
-        return (Some(end), overran);
+        return (Some(end), overran, false);
     }
     let mut aborted = finish == Finish::Abort;
     if aborted {
@@ -959,7 +986,7 @@ fn finish_java(link: &Rc<RefCell<Link>>, finish: Finish) -> (Option<Value>, bool
     let deadline = Instant::now() + if aborted { END_TIMEOUT } else { link.timeout };
     while Instant::now() < deadline {
         match link.jvm.messages.recv_timeout(Duration::from_secs(1)) {
-            Ok(Ok(JavaMessage::End(end))) => return (Some(end), overran),
+            Ok(Ok(JavaMessage::End(end))) => return (Some(end), overran, false),
             Ok(Ok(JavaMessage::Snapshot(snapshot))) => link.snapshots.push(*snapshot),
             Ok(Ok(JavaMessage::Need(k))) => {
                 if !aborted && k >= link.sent {
@@ -969,11 +996,11 @@ fn finish_java(link: &Rc<RefCell<Link>>, finish: Finish) -> (Option<Value>, bool
                 }
             }
             Ok(Ok(_)) | Err(RecvTimeoutError::Timeout) => {}
-            Ok(Err(_)) | Err(RecvTimeoutError::Disconnected) => return (None, overran),
+            Ok(Err(_)) | Err(RecvTimeoutError::Disconnected) => return (None, overran, false),
         }
     }
     link.jvm.kill();
-    (None, overran)
+    (None, overran, !aborted)
 }
 
 fn release(link: Rc<RefCell<Link>>) -> Option<ForgeJvm> {
