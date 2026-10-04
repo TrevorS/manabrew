@@ -238,9 +238,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         // Step 4: Apply clone-state modifications from the cloning ability.
         if let Some(add_types) = sa.ir.add_types.as_deref() {
+            let target = ctx.game.card_mut(clone_target_id);
             for ty in split_param_list_value(Some(add_types), " & ") {
-                ctx.game.card_mut(clone_target_id).add_type(&ty);
+                target.add_type(&ty);
             }
+            crate::staticability::layer::sanitize_subtypes(&mut target.type_line);
         }
 
         if let Some(set_color) = sa.ir.set_color.as_deref() {
