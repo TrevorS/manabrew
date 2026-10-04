@@ -1,4 +1,5 @@
-use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
+use forge_carddb::parse_card_script;
+use forge_foundation::{CardTypeLine, ColorSet, ManaCost, PhaseType, ZoneType};
 /// Integration tests for Zone Change Effects (Issue #13):
 /// ChangeZone, ChangeZoneAll, Sacrifice, SacrificeAll
 use manabrew_engine::agent::{PassAgent, PlayerAgent};
@@ -723,4 +724,56 @@ fn mana_spent_to_cast_belongs_to_the_object_that_was_cast() {
     game.move_card(bears, ZoneType::Battlefield, p0);
     assert_eq!(count(&game), 0);
     assert_eq!(game.card(bears).colors_spent_to_cast, 0);
+}
+
+const GRAVE_WATCHER: &str = "Name:Grave Watcher\nManaCost:B\nTypes:Creature Elemental\nPT:1/1\nT:Mode$ ChangesZoneAll | ValidCards$ Permanent.YouOwn+!token | Origin$ Any | Destination$ Graveyard | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever one or more permanent cards are put into your graveyard, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
+
+fn put(game: &mut GameState, script: &str, owner: PlayerId, zone: ZoneType) -> CardId {
+    let rules = parse_card_script(script).expect("script");
+    let card = game.create_card(CardInstance::from_rules(&rules, owner));
+    game.move_card(card, zone, owner);
+    card
+}
+
+fn main_phase(game: &mut GameState, player: PlayerId) {
+    game.turn.active_player = player;
+    game.new_turn_for_player(player);
+    game.turn.phase = PhaseType::Main1;
+}
+
+#[test]
+fn a_card_returned_by_a_later_sub_ability_does_not_see_an_earlier_sub_abilitys_moves() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let bears = game.create_card(make_grizzly_bears(p0));
+    game.move_card(bears, ZoneType::Battlefield, p0);
+    let watcher = put(&mut game, GRAVE_WATCHER, p0, ZoneType::Graveyard);
+    let source = effect_source(&mut game, p0);
+    let mut sa = SpellAbility::new_simple(
+        Some(source),
+        p0,
+        "DB$ SacrificeAll | ValidCards$ Creature.YouCtrl",
+    );
+    sa.append_sub_ability(SpellAbility::new_simple(
+        Some(source),
+        p0,
+        "DB$ ChangeZoneAll | ChangeType$ Elemental.YouOwn | Origin$ Graveyard | Destination$ Battlefield",
+    ));
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: sa,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    let mut agents = pass_agents();
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(bears).zone, ZoneType::Graveyard);
+    assert_eq!(game.card(watcher).zone, ZoneType::Battlefield);
+    assert_eq!(game.player(p0).life, 20);
 }

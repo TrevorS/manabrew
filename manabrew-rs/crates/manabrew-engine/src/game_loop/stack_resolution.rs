@@ -900,6 +900,10 @@ impl GameLoop {
                 sa
             };
             self.resolve_single_effect(game, agents, sa_ref, parent_target_card);
+            if let Some(table) = game.pending_change_zone_table.take() {
+                table.trigger_changes_zone_all(&mut self.trigger_handler, game, None);
+            }
+            game.ensure_pending_change_zone_table();
             if sa_ref.target_chosen.target_card.is_some() {
                 parent_target_card = sa_ref.target_chosen.target_card;
                 parent_additional_target_cards.clone_from(&sa_ref.target_chosen.divided_map);
@@ -921,15 +925,6 @@ impl GameLoop {
             } else {
                 sa.get_sub_ability()
             };
-        }
-
-        // Mirror Java's `SpellAbility.resolve` post-pass: fire `ChangesZoneAll`
-        // for every move accumulated during this spell/ability so triggers like
-        // Teval's "whenever a card leaves your graveyard, create a token" see
-        // moves performed by the resolving SA chain (e.g. its DBReturn pulling
-        // a land from the graveyard back onto the battlefield).
-        if let Some(table) = game.pending_change_zone_table.take() {
-            table.trigger_changes_zone_all(&mut self.trigger_handler, game, None);
         }
 
         // Avoid leaking shared tables into subsequent stack entries.
