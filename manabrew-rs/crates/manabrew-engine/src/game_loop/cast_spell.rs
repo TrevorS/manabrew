@@ -285,7 +285,6 @@ impl GameLoop {
             },
             false,
         );
-        self.process_triggers(game, agents);
 
         Some((card_id, play_name))
     }
