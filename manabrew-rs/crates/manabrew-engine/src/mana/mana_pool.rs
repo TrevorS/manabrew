@@ -63,6 +63,8 @@ pub struct ManaPool {
     /// etc.). Drained on read.
     #[serde(skip)]
     last_payment_triggers_consumed: Vec<(String, CardId)>,
+    #[serde(skip)]
+    no_counter_mana_added: i32,
     /// When set, caps total producible mana for playability checks.
     /// Used by `calculate_available_mana` to prevent multi-color sources
     /// (dual lands, Command Tower) from being counted as multiple mana.
@@ -200,6 +202,10 @@ impl ManaPool {
         self.mana.iter().filter(|m| m.adds_no_counter).count() as i32
     }
 
+    pub fn no_counter_mana_added(&self) -> i32 {
+        self.no_counter_mana_added
+    }
+
     /// Collect keywords that should be added to a spell based on consumed mana.
     /// Call this before and after payment to diff.
     pub fn collect_keyword_mana(&self) -> Vec<(String, Option<String>)> {
@@ -262,6 +268,9 @@ impl ManaPool {
     }
 
     pub fn add_mana(&mut self, m: Mana) {
+        if m.adds_no_counter {
+            self.no_counter_mana_added += 1;
+        }
         self.sync_floating_mana_keys();
         if !self.floating_mana_keys.contains(&m.color) {
             self.floating_mana_keys.push(m.color);

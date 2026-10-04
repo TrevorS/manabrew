@@ -2446,7 +2446,8 @@ impl GameLoop {
             });
 
         // Track mana metadata before payment for post-payment effects
-        let uncounterable_before = self.pool(player).count_uncounterable();
+        let uncounterable_before =
+            self.pool(player).count_uncounterable() - self.pool(player).no_counter_mana_added();
         let keywords_before = self.pool(player).collect_keyword_mana();
         let counters_before = self.pool(player).collect_counter_mana();
         let triggers_before = self.pool(player).collect_trigger_mana();
@@ -2746,7 +2747,8 @@ impl GameLoop {
 
         // If uncounterable mana was consumed during payment (Cavern of Souls),
         // add a "can't be countered" replacement effect to the spell's card.
-        let uncounterable_after = self.pool(player).count_uncounterable();
+        let uncounterable_after =
+            self.pool(player).count_uncounterable() - self.pool(player).no_counter_mana_added();
         if uncounterable_after < uncounterable_before {
             use crate::replacement::replacement_effect::{
                 ReplacementEffect, ReplacementLayer, ReplacementType,
