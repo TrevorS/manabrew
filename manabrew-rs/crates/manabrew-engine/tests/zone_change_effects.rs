@@ -727,6 +727,7 @@ fn mana_spent_to_cast_belongs_to_the_object_that_was_cast() {
 }
 
 const GRAVE_WATCHER: &str = "Name:Grave Watcher\nManaCost:B\nTypes:Creature Elemental\nPT:1/1\nT:Mode$ ChangesZoneAll | ValidCards$ Permanent.YouOwn+!token | Origin$ Any | Destination$ Graveyard | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever one or more permanent cards are put into your graveyard, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
+const DEATH_WARDEN: &str = "Name:Death Warden\nManaCost:2 B B\nTypes:Creature Wolf\nPT:4/3\nR:Event$ Moved | ActiveZones$ Battlefield | Origin$ Battlefield | Destination$ Graveyard | ValidLKI$ Card.Creature+OppCtrl | ReplaceWith$ DBExile | Description$ If a creature an opponent controls would die, exile it instead.\nSVar:DBExile:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard\nOracle:";
 
 fn put(game: &mut GameState, script: &str, owner: PlayerId, zone: ZoneType) -> CardId {
     let rules = parse_card_script(script).expect("script");
@@ -776,4 +777,28 @@ fn a_card_returned_by_a_later_sub_ability_does_not_see_an_earlier_sub_abilitys_m
     assert_eq!(game.card(bears).zone, ZoneType::Graveyard);
     assert_eq!(game.card(watcher).zone, ZoneType::Battlefield);
     assert_eq!(game.player(p0).life, 20);
+}
+
+#[test]
+fn a_replacement_on_a_permanent_destroyed_by_the_same_effect_still_applies() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let p1 = PlayerId(1);
+    main_phase(&mut game, p0);
+    let warden = put(&mut game, DEATH_WARDEN, p0, ZoneType::Battlefield);
+    let bears = game.create_card(make_grizzly_bears(p1));
+    game.move_card(bears, ZoneType::Battlefield, p1);
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ DestroyAll | ValidCards$ Creature",
+        None,
+        None,
+        Some(source),
+    );
+    let mut agents = pass_agents();
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(warden).zone, ZoneType::Graveyard);
+    assert_eq!(game.card(bears).zone, ZoneType::Exile);
 }

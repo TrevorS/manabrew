@@ -766,6 +766,13 @@ impl GameLoop {
         game.clear_pending_damage_maps();
         game.clear_pending_change_zone_table();
         game.ensure_pending_change_zone_table();
+        let outer_last_state = game.replacement_last_state_battlefield.replace(
+            game.cards
+                .iter()
+                .filter(|c| c.zone == ZoneType::Battlefield)
+                .map(|c| c.id)
+                .collect(),
+        );
 
         // Mirrors Java `MagicStack.resolveStack` (MagicStack.java:651-653):
         // call `handleRemembering` on the root SA before resolving so
@@ -926,6 +933,8 @@ impl GameLoop {
                 sa.get_sub_ability()
             };
         }
+
+        game.replacement_last_state_battlefield = outer_last_state;
 
         // Avoid leaking shared tables into subsequent stack entries.
         game.clear_pending_damage_maps();
