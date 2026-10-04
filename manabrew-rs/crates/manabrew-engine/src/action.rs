@@ -474,9 +474,10 @@ impl GameState {
                 return;
             }
         }
-        let (mut trigger_handler, mut rng) = match runtime {
+        let mut handler_param = trigger_handler;
+        let (mut trigger_handler, mut rng) = match runtime.as_deref_mut() {
             Some(runtime) => (Some(&mut *runtime.trigger_handler), Some(&mut *runtime.rng)),
-            None => (trigger_handler, None),
+            None => (handler_param.as_deref_mut(), None),
         };
         let (dest_zone, etb_counter_map, counter_cause, after_replacement_static_abilities) =
             match moved_event {
@@ -807,7 +808,7 @@ impl GameState {
                         );
                     table.apply_replaced_counter_effect(
                         self,
-                        trigger_handler.as_deref_mut(),
+                        trigger_handler,
                         counter_cause.as_deref(),
                         RunParams::default(),
                     );
@@ -1054,17 +1055,33 @@ impl GameState {
             exiled_by_host.sort_unstable_by_key(|&(exiled_at, ..)| exiled_at);
             for (_, exiled_id, owner, origin) in exiled_by_host {
                 self.card_mut(exiled_id).cleanup_exiled_with();
-                self.move_card_internal(
-                    exiled_id,
-                    origin,
-                    owner,
-                    agents.as_deref_mut(),
-                    trigger_handler.as_deref_mut(),
-                    None,
-                    true,
-                    false,
-                );
-                if let Some(handler) = trigger_handler.as_deref_mut() {
+                match runtime.as_deref_mut() {
+                    Some(runtime) => self.move_card_internal(
+                        exiled_id,
+                        origin,
+                        owner,
+                        agents.as_deref_mut(),
+                        None,
+                        Some(runtime),
+                        true,
+                        false,
+                    ),
+                    None => self.move_card_internal(
+                        exiled_id,
+                        origin,
+                        owner,
+                        agents.as_deref_mut(),
+                        handler_param.as_deref_mut(),
+                        None,
+                        true,
+                        false,
+                    ),
+                }
+                let handler = match runtime.as_deref_mut() {
+                    Some(runtime) => Some(&mut *runtime.trigger_handler),
+                    None => handler_param.as_deref_mut(),
+                };
+                if let Some(handler) = handler {
                     let returned_zone = self.card(exiled_id).zone;
                     handler.register_active_trigger(self, exiled_id);
                     crate::ability::effects::zone_triggers::emit_zone_trigger(
@@ -1078,7 +1095,11 @@ impl GameState {
         }
 
         apply_continuous_effects(self);
-        if let Some(handler) = trigger_handler {
+        let handler = match runtime {
+            Some(runtime) => Some(&mut *runtime.trigger_handler),
+            None => handler_param,
+        };
+        if let Some(handler) = handler {
             handler.register_active_trigger(self, card_id);
         }
         debug_assert!(self.card_zone_location_matches_card(card_id));
@@ -1837,16 +1858,39 @@ impl GameState {
                 lki_toughness,
             );
         }
-        self.move_card_internal(
-            cid,
-            final_dest,
-            owner,
-            agents.as_deref_mut(),
-            trigger_handler.as_deref_mut(),
-            None,
-            false,
-            false,
-        );
+        match (trigger_handler.as_deref_mut(), parts.as_deref_mut()) {
+            (Some(handler), Some(parts)) => {
+                let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
+                    trigger_handler: handler,
+                    token_templates: parts.token_templates,
+                    token_art_variants: parts.token_art_variants,
+                    token_fallback: parts.token_fallback,
+                    edition_dates: parts.edition_dates,
+                    mana_pools: &mut *parts.mana_pools,
+                    rng: &mut *parts.rng,
+                };
+                self.move_card_internal(
+                    cid,
+                    final_dest,
+                    owner,
+                    agents.as_deref_mut(),
+                    None,
+                    Some(&mut runtime),
+                    false,
+                    false,
+                );
+            }
+            (handler, _) => self.move_card_internal(
+                cid,
+                final_dest,
+                owner,
+                agents.as_deref_mut(),
+                handler,
+                None,
+                false,
+                false,
+            ),
+        }
     }
 
     pub(crate) fn order_cards_by_their_owners(
