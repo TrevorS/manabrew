@@ -905,6 +905,7 @@ impl CombatState {
         for (source, target, amount) in damage_map.entries() {
             let damage_source = damage_sources[&source];
             let (target_player, target_card) = match target {
+                DamageTarget::Card(card) if !game.card(card).can_be_dealt_damage() => continue,
                 DamageTarget::Card(card) => {
                     deal_combat_damage_to_card(
                         game,
