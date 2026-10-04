@@ -4640,7 +4640,7 @@ fn score_mana_ability(
             }
             score += 1;
         }
-        return score;
+        return score + mana_ability_last_resort_score(ab);
     }
     let is_any_mana = ab
         .produced_ir
@@ -4683,6 +4683,17 @@ fn score_mana_ability(
         score += 1;
     }
 
+    score + mana_ability_last_resort_score(ab)
+}
+
+fn mana_ability_last_resort_score(ab: &crate::ability::activated::ActivatedAbility) -> i32 {
+    let mut score = 0;
+    if !ab.is_undoable() {
+        score += 50;
+    }
+    if ab.sub_ability.is_some() {
+        score += 2;
+    }
     score
 }
 
