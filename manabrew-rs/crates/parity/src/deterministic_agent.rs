@@ -884,36 +884,23 @@ impl DeterministicAgent {
     fn action_sort_key(&self, choice: &ActionChoice) -> String {
         match *choice {
             ActionChoice::Card(play) => {
-                // Room UnlockDoor: Java models this as a StaticAbilityApiBased
-                // where isSpell()=false, so it sorts in the ability bucket (|1|)
-                // with abilityDeclarationIndex as the variant, not the spell bucket.
+                // Java's unlock abilities are not among the host's spell abilities, so
+                // `abilityDeclarationIndex` is Integer.MAX_VALUE and `toUnsuppressedString` (the
+                // door's "Unlock <name>") breaks the tie.
                 if play.mode == PlayCardMode::UnlockDoor {
                     let door = if play.alt_cost_index == 1 {
                         "RightSplit"
                     } else {
                         "LeftSplit"
                     };
-                    let ability_idx = self.unlock_door_ability_index(play.card_id, None);
                     let door_ability_idx = self.unlock_door_ability_index(play.card_id, Some(door));
-                    let sort_idx = self
-                        .last_game_snapshot
-                        .as_ref()
-                        .map(|snap| {
-                            parity_order::ability_declaration_sort_key(
-                                self.snapshot_cards(),
-                                &snap.ability_texts,
-                                &snap.gained_copy_abilities,
-                                play.card_id,
-                                ability_idx,
-                            )
-                        })
-                        .unwrap_or_else(|| format!("{ability_idx:05}"));
+                    let text = self.ability_sort_text(play.card_id, door_ability_idx);
                     return format!(
                         "AB:{}|1|{}|{}|{}",
                         self.card_name(play.card_id),
                         self.parity_id(play.card_id),
-                        sort_idx,
-                        self.ability_sort_text(play.card_id, door_ability_idx),
+                        i32::MAX,
+                        manabrew_engine::parsing::raw_get(&text, "SpellDescription").unwrap_or(""),
                     );
                 }
                 if play.mode == PlayCardMode::ForetellExile {
@@ -2820,6 +2807,7 @@ mod tests {
     use manabrew_engine::card::CardInstance;
 
     const KAITO: &str = "Name:Kaito, Bane of Nightmares\nManaCost:2 U B\nTypes:Legendary Planeswalker Kaito\nLoyalty:4\nOracle:";
+    const ROOM: &str = "Name:Zesty Annex\nManaCost:2 B\nTypes:Enchantment Room\nAlternateMode:Split\nOracle:\n\nALTERNATE\n\nName:Alpha Chamber\nManaCost:3 B B\nTypes:Enchantment Room\nOracle:";
 
     #[test]
     fn players_and_cards_are_offered_in_the_harness_name_order() {
@@ -2852,5 +2840,32 @@ mod tests {
             );
             assert_eq!(picked, expected, "seed {seed}");
         }
+    }
+
+    #[test]
+    fn an_empty_rooms_unlocks_sort_by_door_name() {
+        let mut game = GameState::new(&["Player1", "Player2"], 20);
+        let p0 = PlayerId(0);
+        let rules = parse_card_script(ROOM).expect("script");
+        let room = game.create_card(CardInstance::from_rules(&rules, p0));
+        game.move_card(room, ZoneType::Battlefield, p0);
+        let pools = vec![ManaPool::new(), ManaPool::new()];
+        let mut agent = DeterministicAgent::new(
+            p0,
+            VerboseMode::Off,
+            Rc::new(RefCell::new(JavaRandom::new(0))),
+            false,
+            Arc::new(ParityCardMap::default()),
+            None,
+        );
+        agent.snapshot_state(&game, &pools);
+        let key = |alt_cost_index| {
+            agent.action_sort_key(&ActionChoice::Card(PlayOption {
+                card_id: room,
+                mode: PlayCardMode::UnlockDoor,
+                alt_cost_index,
+            }))
+        };
+        assert!(key(1) < key(0), "{} / {}", key(1), key(0));
     }
 }
