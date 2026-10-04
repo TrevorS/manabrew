@@ -1715,7 +1715,6 @@ fn count_valid_aggregate(
 ) -> i32 {
     match aggregator {
         "" | "Amount" => matches.len() as i32,
-        "GreatestCardManaCost" => matches.iter().map(|c| c.mana_cost.cmc()).max().unwrap_or(0),
         "CardTypes" | "CardTypesPermanent" => {
             let ids: Vec<CardId> = matches.iter().map(|c| c.id).collect();
             crate::ability::ability_utils::count_card_types_from_list(
