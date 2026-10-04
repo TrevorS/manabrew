@@ -802,3 +802,52 @@ fn a_replacement_on_a_permanent_destroyed_by_the_same_effect_still_applies() {
     assert_eq!(game.card(warden).zone, ZoneType::Graveyard);
     assert_eq!(game.card(bears).zone, ZoneType::Exile);
 }
+
+const BRASS_BAUBLE: &str = "Name:Brass Bauble\nManaCost:0\nTypes:Artifact\nOracle:";
+const RELIC_WATCHER: &str = "Name:Relic Watcher\nManaCost:1 W\nTypes:Creature Human\nPT:1/1\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Artifact.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever an artifact you control enters, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
+const KIN_WATCHER: &str = "Name:Kin Watcher\nManaCost:1 G\nTypes:Creature Elf\nPT:1/1\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.Other+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever another creature you control enters, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
+
+fn return_remembered(game: &mut GameState, controller: PlayerId, cards: &[CardId]) {
+    let source = effect_source(game, controller);
+    for &card in cards {
+        game.card_mut(source).add_remembered_card(card);
+    }
+    push_effect_entry(
+        game,
+        controller,
+        "DB$ ChangeZone | Defined$ Remembered | Origin$ Graveyard | Destination$ Battlefield",
+        None,
+        None,
+        Some(source),
+    );
+}
+
+#[test]
+fn a_permanent_returned_with_an_artifact_sees_the_artifact_enter() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let bauble = put(&mut game, BRASS_BAUBLE, p0, ZoneType::Graveyard);
+    let watcher = put(&mut game, RELIC_WATCHER, p0, ZoneType::Graveyard);
+    return_remembered(&mut game, p0, &[bauble, watcher]);
+    let mut agents = pass_agents();
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(bauble).zone, ZoneType::Battlefield);
+    assert_eq!(game.card(watcher).zone, ZoneType::Battlefield);
+    assert_eq!(game.player(p0).life, 21);
+}
+
+#[test]
+fn creatures_returned_by_one_effect_each_see_the_other_enter() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let first = put(&mut game, KIN_WATCHER, p0, ZoneType::Graveyard);
+    let second = put(&mut game, KIN_WATCHER, p0, ZoneType::Graveyard);
+    return_remembered(&mut game, p0, &[first, second]);
+    let mut agents = pass_agents();
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(first).zone, ZoneType::Battlefield);
+    assert_eq!(game.card(second).zone, ZoneType::Battlefield);
+    assert_eq!(game.player(p0).life, 22);
+}

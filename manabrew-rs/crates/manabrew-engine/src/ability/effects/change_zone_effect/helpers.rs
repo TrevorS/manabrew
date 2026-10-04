@@ -679,7 +679,6 @@ pub(super) fn apply_post_move(
     }
 
     emit_zone_trigger(ctx.trigger_handler, card_id, old_zone, dest_zone);
-    ctx.trigger_handler.flush_waiting_triggers(ctx.game);
 }
 
 // ─── Warp Effect ────────────────────────────────────────────────────────────
