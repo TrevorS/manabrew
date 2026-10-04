@@ -1995,7 +1995,7 @@ impl SpellAbility {
         host: &'a crate::card::Card,
     ) -> Option<&'a crate::card::CardOtherPart> {
         let other = host.other_part.as_ref()?;
-        (self.card_state? != host.get_current_state_name()).then_some(other)
+        ((self.card_state? == other.state_name) != host.is_transformed).then_some(other)
     }
 
     pub fn card_state_svars<'a>(

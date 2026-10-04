@@ -2356,7 +2356,18 @@ impl Card {
         } else {
             0
         };
-        self.mana_cost.cmc() + x_paid
+        let printed = match self.get_current_state_name() {
+            CardStateName::EmptyRoom => 0,
+            CardStateName::Original => self
+                .other_part
+                .as_ref()
+                .filter(|other| other.state_name == CardStateName::RightSplit)
+                .map_or(self.mana_cost.cmc(), |other| {
+                    self.mana_cost.cmc() + other.mana_cost.cmc()
+                }),
+            _ => self.mana_cost.cmc(),
+        };
+        printed + x_paid
     }
 
     /// Check "Protection from <quality>" (e.g. "Protection from red").
@@ -5265,6 +5276,20 @@ impl Card {
     pub fn get_current_state_name(&self) -> CardStateName {
         match &self.other_part {
             Some(other) if self.is_transformed => other.state_name,
+            Some(other) if other.state_name == CardStateName::RightSplit => match self.zone {
+                ZoneType::Battlefield if self.type_line.has_subtype("Room") && !self.face_down => {
+                    match (
+                        self.room_door_unlocked(CardStateName::LeftSplit),
+                        self.room_door_unlocked(CardStateName::RightSplit),
+                    ) {
+                        (false, false) => CardStateName::EmptyRoom,
+                        (true, false) => CardStateName::LeftSplit,
+                        _ => CardStateName::Original,
+                    }
+                }
+                ZoneType::Stack => CardStateName::LeftSplit,
+                _ => CardStateName::Original,
+            },
             _ => CardStateName::Original,
         }
     }

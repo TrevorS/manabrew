@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use forge_carddb::parse_card_script;
-use forge_foundation::{PhaseType, ZoneType};
+use forge_foundation::{CardStateName, PhaseType, ZoneType};
 use manabrew_engine::agent::{
     DecisionContext, ManaAbilityOption, ManaCostAction, PassAgent, PlayCardMode, PlayerAgent,
     PriorityActionSpace, PriorityContext, TargetChoice,
@@ -182,4 +182,43 @@ fn mana_for_instants_and_sorceries_does_not_pay_to_unlock_a_door() {
         assert_eq!(unlocks_offered(&[SWAMP, SWAMP], probe), 2);
         assert_eq!(unlocks_offered(&[SPELL_TABLET], probe), 0);
     }
+}
+
+fn room_in(game: &mut GameState, zone: ZoneType) -> CardId {
+    let rules = parse_card_script(ROOM).expect("room");
+    let room = game.create_card(CardInstance::from_rules(&rules, PlayerId(0)));
+    game.move_card(room, zone, PlayerId(0));
+    room
+}
+
+#[test]
+fn a_room_has_the_mana_value_of_its_unlocked_doors() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let in_hand = room_in(&mut game, ZoneType::Hand);
+    assert_eq!(game.card(in_hand).mana_value(), 3);
+    let room = room_in(&mut game, ZoneType::Battlefield);
+    assert_eq!(game.card(room).mana_value(), 0);
+    game.card_mut(room)
+        .unlock_room_door(CardStateName::LeftSplit);
+    game.card_mut(room).update_rooms();
+    assert_eq!(game.card(room).mana_value(), 1);
+    game.card_mut(room)
+        .unlock_room_door(CardStateName::RightSplit);
+    game.card_mut(room).update_rooms();
+    assert_eq!(game.card(room).mana_value(), 3);
+    let right = room_in(&mut game, ZoneType::Battlefield);
+    game.card_mut(right)
+        .unlock_room_door(CardStateName::RightSplit);
+    game.card_mut(right).update_rooms();
+    assert_eq!(game.card(right).mana_value(), 2);
+}
+
+#[test]
+fn a_room_door_cast_has_that_doors_mana_value_on_the_stack() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let left = room_in(&mut game, ZoneType::Stack);
+    assert_eq!(game.card(left).mana_value(), 1);
+    let right = room_in(&mut game, ZoneType::Stack);
+    game.card_mut(right).transform();
+    assert_eq!(game.card(right).mana_value(), 2);
 }
