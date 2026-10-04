@@ -279,6 +279,9 @@ pub enum LockstepEnd {
     GameOver,
     TurnCap,
     GuardMatched(String),
+    GuardUnverified(String),
+    JavaCrash(String),
+    JavaRunawayMatched(String),
     Desync(Desync),
 }
 
@@ -448,6 +451,211 @@ fn java_desync(end: &Value) -> Option<Desync> {
     })
 }
 
+type SeatAgents = (Vec<Box<dyn PlayerAgent>>, Vec<Weak<RefCell<JavaRandom>>>);
+
+struct SeatParts {
+    shared_log: Arc<Mutex<Vec<ParityLogEntry>>>,
+    card_uses: Arc<Mutex<BTreeMap<String, usize>>>,
+    snapshot_index: Arc<Mutex<usize>>,
+    parity_map: Arc<ParityCardMap>,
+    decisions: Arc<AtomicU32>,
+}
+
+impl SeatParts {
+    fn new() -> Self {
+        Self {
+            shared_log: Arc::new(Mutex::new(Vec::new())),
+            card_uses: Arc::new(Mutex::new(BTreeMap::new())),
+            snapshot_index: Arc::new(Mutex::new(0)),
+            parity_map: Arc::new(ParityCardMap::default()),
+            decisions: Arc::new(AtomicU32::new(0)),
+        }
+    }
+
+    fn agents(
+        &self,
+        setup: &LockstepGame,
+        abort: &Arc<AtomicBool>,
+        game_rng: &Rc<RefCell<JavaRandom>>,
+        mut tape: impl FnMut() -> Box<dyn DrawTape>,
+    ) -> SeatAgents {
+        let mut seats = Vec::new();
+        let agents = (0..2u32)
+            .map(|p| {
+                let rng = agent_rng(setup.seed, tape());
+                seats.push(Rc::downgrade(&rng));
+                Box::new(CapturingAgent::new(
+                    PlayerId(p),
+                    VerboseMode::Off,
+                    false,
+                    Arc::clone(&self.shared_log),
+                    Arc::clone(&self.card_uses),
+                    Arc::clone(&self.snapshot_index),
+                    None,
+                    None,
+                    rng,
+                    Rc::clone(game_rng),
+                    Arc::clone(&self.parity_map),
+                    p == 0,
+                    false,
+                    false,
+                    Arc::clone(abort),
+                    Arc::clone(&self.decisions),
+                )) as Box<dyn PlayerAgent>
+            })
+            .collect();
+        (agents, seats)
+    }
+}
+
+struct ReplayStop;
+
+struct ReplayDraws {
+    shared: JavaRandom,
+    sent: u64,
+    stop_at: u64,
+    seats: Vec<Weak<RefCell<JavaRandom>>>,
+}
+
+struct ReplayTape(Rc<RefCell<ReplayDraws>>);
+
+impl DrawTape for ReplayTape {
+    fn counts(&self) -> (u64, u64) {
+        let draws = self.0.borrow();
+        (draws.shared.call_count, draws.shared.api_call_count)
+    }
+
+    fn draw(&mut self, bound: i32) -> i32 {
+        let mut draws = self.0.borrow_mut();
+        if draws.sent == draws.stop_at {
+            drop(draws);
+            resume_unwind(Box::new(ReplayStop));
+        }
+        let value = draws.shared.next_int(bound);
+        draws.sent += 1;
+        for seat in &draws.seats {
+            if let Some(rng) = seat.upgrade() {
+                if let Ok(mut rng) = rng.try_borrow_mut() {
+                    rng.call_count = draws.shared.call_count;
+                    rng.api_call_count = draws.shared.api_call_count;
+                }
+            }
+        }
+        value
+    }
+}
+
+pub fn state_at_draw(
+    setup: &LockstepGame,
+    abort: &Arc<AtomicBool>,
+    draws: u64,
+) -> Option<StateSnapshot> {
+    let (game, game_loop, game_rng) = new_game(setup, abort);
+    let replay = Rc::new(RefCell::new(ReplayDraws {
+        shared: {
+            let mut rng = JavaRandom::new(setup.seed as i64);
+            rng.label = "agent";
+            rng
+        },
+        sent: 0,
+        stop_at: draws,
+        seats: Vec::new(),
+    }));
+    let parts = SeatParts::new();
+    let (agents, seats) = parts.agents(setup, abort, &game_rng, || {
+        Box::new(ReplayTape(Rc::clone(&replay)))
+    });
+    replay.borrow_mut().seats = seats;
+    crate::parity_log::set_sink(Arc::new(Mutex::new(Vec::new())));
+    let mut runtime = GameRuntime::from_parts(game, game_loop, agents);
+    let run = catch_unwind(AssertUnwindSafe(|| {
+        runtime.run_opening_hand_actions();
+        parts
+            .parity_map
+            .initialize_from_opening_state(runtime.game());
+        let mut rng = StdRng::seed_from_u64(setup.seed);
+        while !runtime.game().game_over
+            && runtime.game().turn.turn_number <= setup.max_turns
+            && !abort.load(Ordering::Relaxed)
+        {
+            runtime.run_turn(&mut rng);
+        }
+    }));
+    crate::parity_log::clear_sink();
+    match run {
+        Err(stop) if stop.is::<ReplayStop>() => {
+            Some(crate::snapshot::snapshot_game(runtime.game(), &[]))
+        }
+        _ => None,
+    }
+}
+
+pub fn guard_unverified(
+    detail: &str,
+    java_end: Option<&Value>,
+    timeout: Duration,
+) -> Option<LockstepEnd> {
+    java_end.is_none().then(|| {
+        LockstepEnd::GuardUnverified(format!(
+            "{detail} | java did not reach its guard within {}s",
+            timeout.as_secs()
+        ))
+    })
+}
+
+pub fn java_error_end(
+    java: &Value,
+    detail: String,
+    earlier: Option<Desync>,
+    rust_at_draw: impl FnOnce(u64) -> Option<StateSnapshot>,
+) -> Result<LockstepEnd, Desync> {
+    if let Some(earlier) = earlier {
+        return Err(Desync {
+            kind: earlier.kind,
+            detail: format!("{} (then {detail})", earlier.detail),
+        });
+    }
+    if !java["error"]
+        .as_str()
+        .is_some_and(|error| error.contains("RunawayGameException"))
+    {
+        return Ok(LockstepEnd::JavaCrash(detail));
+    }
+    let consumed = java["consumed"].as_u64().unwrap_or(0);
+    rust_at_draw(consumed)
+        .ok_or_else(|| format!("rust ended before java's draw {consumed}"))
+        .and_then(|rust| runaway_end(&rust, java))
+        .map(|()| LockstepEnd::JavaRunawayMatched(detail.clone()))
+        .map_err(|mismatch| Desync {
+            kind: "runaway".to_string(),
+            detail: format!("{detail} | state at the runaway cap: {mismatch}"),
+        })
+}
+
+pub fn runaway_end(rust: &StateSnapshot, java_end: &Value) -> Result<(), String> {
+    let mut java: StateSnapshot = java_end
+        .get("snapshot")
+        .and_then(|s| serde_json::from_value(s.clone()).ok())
+        .ok_or("java logged no snapshot at its runaway cap")?;
+    java.game_over = rust.game_over;
+    java.winner = rust.winner;
+    for (java_player, rust_player) in java.players.iter_mut().zip(&rust.players) {
+        java_player.has_won = rust_player.has_won;
+        java_player.has_lost = rust_player.has_lost;
+    }
+    let fields: Vec<String> = crate::comparator::compare(0, rust, &java)
+        .into_iter()
+        .filter(|d| !d.field.ends_with("rng_calls"))
+        .take(6)
+        .map(|d| format!("{} rust {} java {}", d.field, d.rust_value, d.java_value))
+        .collect();
+    if fields.is_empty() {
+        Ok(())
+    } else {
+        Err(fields.join("; "))
+    }
+}
+
 pub fn play(
     slot: &mut Option<ForgeJvm>,
     config: &ForgeConfig,
@@ -489,43 +697,15 @@ pub fn play(
     }
 
     let (game, game_loop, game_rng) = new_game(setup, abort);
-    let shared_log: Arc<Mutex<Vec<ParityLogEntry>>> = Arc::new(Mutex::new(Vec::new()));
-    let card_uses = Arc::new(Mutex::new(BTreeMap::new()));
-    let snapshot_index = Arc::new(Mutex::new(0));
-    let parity_map = Arc::new(ParityCardMap::default());
-    let decisions = Arc::new(AtomicU32::new(0));
-    let capturing = |player: PlayerId, rng: Rc<RefCell<JavaRandom>>| {
-        CapturingAgent::new(
-            player,
-            VerboseMode::Off,
-            false,
-            Arc::clone(&shared_log),
-            Arc::clone(&card_uses),
-            Arc::clone(&snapshot_index),
-            None,
-            None,
-            rng,
-            Rc::clone(&game_rng),
-            Arc::clone(&parity_map),
-            player.0 == 0,
-            false,
-            false,
-            Arc::clone(abort),
-            Arc::clone(&decisions),
-        )
-    };
-    let agents: Vec<Box<dyn PlayerAgent>> = (0..2u32)
-        .map(|p| {
-            let rng = agent_rng(
-                setup.seed,
-                Box::new(SeatTape {
-                    link: Rc::clone(&link),
-                }),
-            );
-            link.borrow_mut().seats.push(Rc::downgrade(&rng));
-            Box::new(capturing(PlayerId(p), rng)) as Box<dyn PlayerAgent>
+    let parts = SeatParts::new();
+    let shared_log = Arc::clone(&parts.shared_log);
+    let parity_map = Arc::clone(&parts.parity_map);
+    let (agents, seats) = parts.agents(setup, abort, &game_rng, || {
+        Box::new(SeatTape {
+            link: Rc::clone(&link),
         })
-        .collect();
+    });
+    link.borrow_mut().seats = seats;
 
     let choice_log = Arc::new(Mutex::new(Vec::new()));
     crate::parity_log::set_sink(Arc::clone(&choice_log));
@@ -605,9 +785,17 @@ pub fn play(
             }
         }
     }
-    let mut guard_matched = None;
+    let mut special = end
+        .as_ref()
+        .filter(|found| found.kind == "guard")
+        .and_then(|found| {
+            guard_unverified(&found.detail, java_end.as_ref(), link.borrow().timeout)
+        });
     let mut guard_mismatch = None;
-    if let Some(found) = end.as_ref().filter(|found| found.kind == "guard") {
+    if let Some(found) = end
+        .as_ref()
+        .filter(|found| found.kind == "guard" && special.is_none())
+    {
         let mut rust = rust_snapshots(&shared_log);
         let rust_guard = rust.pop();
         let java_guard = setup.log.as_deref().and_then(last_logged_snapshot);
@@ -623,7 +811,9 @@ pub fn play(
                 )
             });
         match compared {
-            Ok(()) if turns_match => guard_matched = Some(found.detail.clone()),
+            Ok(()) if turns_match => {
+                special = Some(LockstepEnd::GuardMatched(found.detail.clone()))
+            }
             Ok(()) => {
                 guard_mismatch = Some(format!(
                     "rust took {} turn snapshots, java {}",
@@ -634,7 +824,7 @@ pub fn play(
             Err(mismatch) => guard_mismatch = Some(mismatch),
         }
     }
-    if guard_matched.is_some() {
+    if special.is_some() {
         end = None;
     }
     if let (Some(found), Some(mismatch)) = (end.as_mut(), guard_mismatch) {
@@ -659,13 +849,13 @@ pub fn play(
         }
     }
     let rust = rust_snapshots(&shared_log);
-    if end.is_none() && overran && guard_matched.is_none() {
+    if end.is_none() && overran && special.is_none() {
         end = Some(Desync {
             kind: "sequence".to_string(),
             detail: "java kept playing after rust's game ended".to_string(),
         });
     }
-    if end.is_none() && guard_matched.is_none() {
+    if end.is_none() && special.is_none() {
         end = match &java_end {
             None => Some(Desync {
                 kind: "sequence".to_string(),
@@ -676,7 +866,19 @@ pub fn play(
             }
         };
     }
-    if end.is_none() && guard_matched.is_none() {
+    if let Some(java) = java_end.as_ref().filter(|java| {
+        java["error"].is_string() && end.as_ref().is_some_and(|found| found.kind == "crash")
+    }) {
+        let detail = end.take().map(|found| found.detail).unwrap_or_default();
+        let earlier = compare_snapshots(&rust, &link.borrow().snapshots, 0);
+        match java_error_end(java, detail, earlier, |draws| {
+            state_at_draw(setup, abort, draws)
+        }) {
+            Ok(kind) => special = Some(kind),
+            Err(found) => end = Some(found),
+        }
+    }
+    if end.is_none() && special.is_none() {
         let link = link.borrow();
         end = compare_snapshots(&rust, &link.snapshots, 0).or_else(|| {
             (rust.len() != link.snapshots.len()).then(|| Desync {
@@ -695,7 +897,7 @@ pub fn play(
         .and_then(|e| e["winner"].as_i64())
         .unwrap_or(-1);
     if end.is_none()
-        && guard_matched.is_none()
+        && special.is_none()
         && game_over
         && forge_winner != winner.map_or(-1, |w| i64::from(w.0))
     {
@@ -708,7 +910,7 @@ pub fn play(
     if let Some(consumed) = java_end
         .as_ref()
         .and_then(|e| e["consumed"].as_u64())
-        .filter(|&consumed| end.is_none() && consumed < sent)
+        .filter(|&consumed| end.is_none() && special.is_none() && consumed < sent)
     {
         end = Some(Desync {
             kind: "sequence".to_string(),
@@ -723,9 +925,9 @@ pub fn play(
     Ok(LockstepOutcome {
         game,
         winner,
-        end: match (end, guard_matched) {
+        end: match (end, special) {
             (Some(found), _) => LockstepEnd::Desync(found),
-            (None, Some(detail)) => LockstepEnd::GuardMatched(detail),
+            (None, Some(special)) => special,
             (None, None) if game_over => LockstepEnd::GameOver,
             (None, None) => LockstepEnd::TurnCap,
         },

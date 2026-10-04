@@ -1,4 +1,4 @@
-use parity::lockstep::guard_end;
+use parity::lockstep::{guard_end, guard_unverified, java_error_end, Desync, LockstepEnd};
 use parity::protocol::StateSnapshot;
 use serde_json::{json, Value};
 
@@ -99,4 +99,70 @@ fn the_boros_temur_llanowar_guard_game_fails_with_a_perturbed_java_board() {
     let (rust, mut java, end, sent) = boros_temur_guard();
     java.players[0].life -= 1;
     assert!(guard_end(&rust, Some(&java), Some(&end), sent).is_err());
+}
+
+#[test]
+fn a_guard_java_never_reached_in_the_catch_up_is_unverified_not_failing() {
+    let unverified = guard_unverified(
+        "parity guard: 101 copies",
+        None,
+        std::time::Duration::from_secs(300),
+    );
+    assert!(
+        matches!(&unverified, Some(LockstepEnd::GuardUnverified(detail)) if detail.contains("within 300s")),
+        "{unverified:?}"
+    );
+    assert_eq!(
+        guard_unverified(
+            "parity guard",
+            Some(&java_end(127)),
+            std::time::Duration::from_secs(300)
+        ),
+        None
+    );
+}
+
+fn java_error(error: &str, consumed: u64) -> Value {
+    let mut end = java_end(consumed);
+    end["error"] = Value::String(error.to_string());
+    end["snapshot"] = serde_json::to_value(snapshot(true, None, 10, false)).expect("snapshot");
+    end
+}
+
+#[test]
+fn a_java_crash_after_agreeing_turns_is_its_own_kind() {
+    let end = java_error("java.lang.IndexOutOfBoundsException", 90);
+    assert_eq!(
+        java_error_end(&end, "java game error".to_string(), None, |_| None),
+        Ok(LockstepEnd::JavaCrash("java game error".to_string()))
+    );
+    let earlier = Desync {
+        kind: "state".to_string(),
+        detail: "turn 9 life".to_string(),
+    };
+    let failure = java_error_end(&end, "java game error".to_string(), Some(earlier), |_| None)
+        .expect_err("earlier divergence");
+    assert_eq!(failure.kind, "state");
+}
+
+#[test]
+fn a_java_runaway_cap_is_compared_with_rust_at_the_same_draw() {
+    let end = java_error("forge.game.Game$RunawayGameException: Runaway game", 236);
+    let mut asked = None;
+    let matched = java_error_end(&end, "runaway".to_string(), None, |draws| {
+        asked = Some(draws);
+        Some(snapshot(false, None, 10, false))
+    });
+    assert_eq!(asked, Some(236));
+    assert_eq!(
+        matched,
+        Ok(LockstepEnd::JavaRunawayMatched("runaway".to_string()))
+    );
+    let differs = java_error_end(&end, "runaway".to_string(), None, |_| {
+        Some(snapshot(false, None, 7, false))
+    })
+    .expect_err("life differs");
+    assert_eq!(differs.kind, "runaway");
+    assert!(differs.detail.contains("life"), "{}", differs.detail);
+    assert!(java_error_end(&end, "runaway".to_string(), None, |_| None).is_err());
 }

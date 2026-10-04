@@ -18,6 +18,32 @@ use serde_json::Value;
 
 const CAUSE_LIMIT: usize = 300;
 
+const LISTED_ENDS: [&str; 4] = [
+    "guard_matched",
+    "guard_unverified",
+    "java_crash",
+    "java_runaway_matched",
+];
+
+fn listed_summary(records: &BTreeMap<(String, String, u64), Record>) -> String {
+    LISTED_ENDS
+        .iter()
+        .map(|end| {
+            let games: Vec<String> = records
+                .values()
+                .filter(|r| r.end == *end)
+                .map(Record::label)
+                .collect();
+            if games.is_empty() {
+                format!("{end} 0")
+            } else {
+                format!("{end} {} [{}]", games.len(), games.join(", "))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 struct Record {
     deck1: String,
@@ -39,10 +65,12 @@ impl Record {
     }
 
     fn passed(&self) -> bool {
-        matches!(
-            self.end.as_str(),
-            "game_over" | "turn_cap" | "guard_matched"
-        ) && self.rust_log.as_deref().is_none_or(|log| log == "SAME")
+        (matches!(self.end.as_str(), "game_over" | "turn_cap") || self.listed())
+            && self.rust_log.as_deref().is_none_or(|log| log == "SAME")
+    }
+
+    fn listed(&self) -> bool {
+        LISTED_ENDS.contains(&self.end.as_str())
     }
 
     fn same_as(&self, other: &Record) -> bool {
@@ -181,19 +209,13 @@ fn diff(baseline: &Path, observed: &Path) -> bool {
             }
         }
     }
-    let guard_matched = |records: &BTreeMap<(String, String, u64), Record>| {
-        records
-            .values()
-            .filter(|r| r.end == "guard_matched")
-            .count()
-    };
     println!(
-        "lockstep diff: {} games, {} failing, {} guard_matched; baseline {} failing, {} guard_matched",
+        "lockstep diff: {} games, {} failing, {}; baseline {} failing, {}",
         seen.len(),
         seen.values().filter(|r| !r.passed()).count(),
-        guard_matched(&seen),
+        listed_summary(&seen),
         base.values().filter(|r| !r.passed()).count(),
-        guard_matched(&base)
+        listed_summary(&base)
     );
     groups.is_empty()
 }
@@ -247,13 +269,30 @@ fn play(run: &Run, slot: &mut Option<ForgeJvm>, game: &Game) -> (Record, f64) {
             record.end = "guard_matched".to_string();
             record.cause = Some(clip(detail));
         }
+        LockstepEnd::GuardUnverified(detail) => {
+            record.end = "guard_unverified".to_string();
+            record.cause = Some(clip(detail));
+        }
+        LockstepEnd::JavaCrash(detail) => {
+            record.end = "java_crash".to_string();
+            record.cause = Some(clip(detail));
+        }
+        LockstepEnd::JavaRunawayMatched(detail) => {
+            record.end = "java_runaway_matched".to_string();
+            record.cause = Some(clip(detail));
+        }
         LockstepEnd::Desync(d) => {
             record.end = "desync".to_string();
             record.kind = Some(d.kind.clone());
             record.cause = Some(clip(&d.detail));
         }
     }
-    if run.identity && !matches!(outcome.end, LockstepEnd::Desync(_)) {
+    if run.identity
+        && matches!(
+            outcome.end,
+            LockstepEnd::GameOver | LockstepEnd::TurnCap | LockstepEnd::GuardMatched(_)
+        )
+    {
         let reference = run_with_data(
             &RunConfig {
                 deck1: game.deck1.clone(),
@@ -425,11 +464,13 @@ fn main() {
     for record in records.iter().filter(|r| !r.passed()) {
         *failing.entry(record.verdict()).or_default() += 1;
     }
+    let keyed: BTreeMap<(String, String, u64), Record> =
+        records.iter().map(|r| (r.key(), r.clone())).collect();
     eprintln!(
-        "lockstep: {} games in {:.0}s, failing {failing:?}, guard_matched {}",
+        "lockstep: {} games in {:.0}s, failing {failing:?}, {}",
         records.len(),
         started.elapsed().as_secs_f64(),
-        records.iter().filter(|r| r.end == "guard_matched").count()
+        listed_summary(&keyed)
     );
     println!(
         "IDENTITY {}/{}",
