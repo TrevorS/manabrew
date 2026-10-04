@@ -600,7 +600,15 @@ impl GameState {
 
         // Tokens and copy-tokens cease to exist when leaving the battlefield (CR 110.5g).
         // Set zone to None (limbo) and remove from source zone without adding to destination.
-        if is_token && dest_zone != ZoneType::Battlefield && dest_zone != ZoneType::Stack {
+        let keeps_prepared_state = self.mirror_forge_bugs
+            && src_zone == ZoneType::Stack
+            && dest_zone == ZoneType::Exile
+            && self.cards[card_id.index()].is_in_prepared_spell_state();
+        if is_token
+            && dest_zone != ZoneType::Battlefield
+            && dest_zone != ZoneType::Stack
+            && !keeps_prepared_state
+        {
             if let Some(table) = self.pending_change_zone_table.as_mut() {
                 table.put(Some(src_zone), Some(dest_zone), card_id);
             }
@@ -652,7 +660,10 @@ impl GameState {
             let lki_transformed = card.is_transformed && !card.type_line.has_subtype("Room");
             self.card_mut(card_id).lki_transformed = lki_transformed;
         }
-        if leaves_as_new_object && self.cards[card_id.index()].is_transformed {
+        if leaves_as_new_object
+            && self.cards[card_id.index()].is_transformed
+            && !keeps_prepared_state
+        {
             self.card_mut(card_id).transform();
         }
         if leaves_as_new_object {

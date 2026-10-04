@@ -668,3 +668,28 @@ fn test_copy_permanent_with_ashling_wrapper_keeps_cavalier_etb() {
         "Ashling-style CopyPermanent wrapper should still allow copied Cavalier ETB to resolve"
     );
 }
+
+const PREPARING_SCHOLAR: &str = "Name:Preparing Scholar\nManaCost:3 U U\nTypes:Creature Human Wizard\nPT:5/5\nAlternateMode:Prepare\nOracle:\n\nALTERNATE\n\nName:Quick Recall\nManaCost:U\nTypes:Instant\nA:SP$ Draw | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
+
+fn countered_prepared_copy_zone(mirror_forge_bugs: bool) -> ZoneType {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    game.mirror_forge_bugs = mirror_forge_bugs;
+    let p0 = PlayerId(0);
+    let rules = parse_card_script(PREPARING_SCHOLAR).expect("script");
+    let mut prepared = CardInstance::from_rules(&rules, p0);
+    prepared.set_is_token(true);
+    prepared.transform();
+    let prepared = game.create_card(prepared);
+    game.move_card(prepared, ZoneType::Exile, p0);
+    assert!(game.card(prepared).is_in_prepared_spell_state());
+    game.move_card(prepared, ZoneType::Stack, p0);
+    game.move_card(prepared, ZoneType::Exile, p0);
+    game.check_state_based_actions();
+    game.card(prepared).zone
+}
+
+#[test]
+fn a_prepared_copy_exiled_from_the_stack_stays_in_exile_only_as_forge_mirrors_it() {
+    assert_eq!(countered_prepared_copy_zone(true), ZoneType::Exile);
+    assert_eq!(countered_prepared_copy_zone(false), ZoneType::None);
+}
