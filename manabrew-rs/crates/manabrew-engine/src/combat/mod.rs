@@ -447,7 +447,6 @@ impl CombatState {
         let mut combatants: Vec<AttackerCombatDamage> = Vec::new();
         let mut counter_table = crate::game_entity_counter_table::GameEntityCounterTable::default();
         let mut blocker_damage_allocations: HashMap<(CardId, CardId), i32> = HashMap::default();
-        let mut computed_blocker_allocations: HashSet<CardId> = HashSet::default();
         let mut damage_sources: HashMap<CardId, CombatDamageSource> = HashMap::default();
         let mut attacker_damage: Vec<(CardId, DamageTarget, i32)> = Vec::new();
         let mut blocker_damage: Vec<(CardId, DamageTarget, i32)> = Vec::new();
@@ -650,52 +649,55 @@ impl CombatState {
             });
         }
 
+        // Combat damage is simultaneous (rule 510.2): blocker powers are read before any
+        // damage lands. Blockers assign in `Combat.getAllBlockers` order (assignBlockersDamage).
+        let damage_blockers: HashSet<CardId> = combatants
+            .iter()
+            .filter(|combatant| combatant.blocked.is_some())
+            .flat_map(|combatant| combatant.blockers.iter().copied())
+            .collect();
+        for blocker_id in self.get_all_blockers() {
+            if !damage_blockers.contains(&blocker_id)
+                || !game.card_is_in_zone(blocker_id, ZoneType::Battlefield)
+            {
+                continue;
+            }
+            let blocker_card = game.card(blocker_id);
+            if crate::staticability::static_ability_assign_no_combat_damage::assign_no_combat_damage(
+                game,
+                blocker_card,
+            ) {
+                continue;
+            }
+            if !self.deal_damage_this_phase(blocker_card, first_strike_only) {
+                continue;
+            }
+            let blocker_power = if crate::staticability::static_ability_combat_damage_toughness::combat_damage_uses_toughness(
+                game,
+                blocker_card,
+            ) {
+                blocker_card.toughness()
+            } else {
+                blocker_card.power()
+            };
+            for (target_attacker, dmg) in compute_blocker_damage_allocations(
+                self,
+                game,
+                agents,
+                first_strike_only,
+                blocker_id,
+                blocker_power,
+            ) {
+                blocker_damage_allocations.insert((blocker_id, target_attacker), dmg);
+            }
+        }
+
         for combatant in &mut combatants {
             let attacker_id = combatant.attacker_id;
             let Some(blocked) = combatant.blocked.as_mut() else {
                 continue;
             };
-            let blockers = &combatant.blockers;
-            // --- Pre-compute blocker → attacker damage BEFORE applying any damage ---
-            // Combat damage is simultaneous (rule 510.2). We must read blocker
-            // powers now, before wither/infect -1/-1 counters from attacker
-            // damage modify them.
-            for &blocker_id in blockers {
-                if !game.card_is_in_zone(blocker_id, ZoneType::Battlefield) {
-                    continue;
-                }
-                let blocker_card = game.card(blocker_id);
-                if crate::staticability::static_ability_assign_no_combat_damage::assign_no_combat_damage(
-                    game,
-                    blocker_card,
-                ) {
-                    continue;
-                }
-                if !self.deal_damage_this_phase(blocker_card, first_strike_only) {
-                    continue;
-                }
-                let blocker_power = if crate::staticability::static_ability_combat_damage_toughness::combat_damage_uses_toughness(
-                    game,
-                    game.card(blocker_id),
-                ) {
-                    game.card(blocker_id).toughness()
-                } else {
-                    game.card(blocker_id).power()
-                };
-                if !computed_blocker_allocations.contains(&blocker_id) {
-                    let per_attacker = compute_blocker_damage_allocations(
-                        self,
-                        game,
-                        agents,
-                        first_strike_only,
-                        blocker_id,
-                        blocker_power,
-                    );
-                    for (target_attacker, dmg) in per_attacker {
-                        blocker_damage_allocations.insert((blocker_id, target_attacker), dmg);
-                    }
-                    computed_blocker_allocations.insert(blocker_id);
-                }
+            for &blocker_id in &combatant.blockers {
                 let assigned_to_this_attacker = blocker_damage_allocations
                     .get(&(blocker_id, attacker_id))
                     .copied()
@@ -703,6 +705,7 @@ impl CombatState {
                 if assigned_to_this_attacker <= 0 {
                     continue;
                 }
+                let blocker_card = game.card(blocker_id);
                 let blocker_has_infect = blocker_card.has_infect();
                 let blocker_has_wither = blocker_card.has_wither()
                     || crate::staticability::static_ability_wither_damage::is_wither_damage(
@@ -889,6 +892,13 @@ impl CombatState {
             // trample excess is applied to defender.
         }
 
+        let blocker_order = self.get_all_blockers();
+        blocker_damage.sort_by_key(|(blocker, _, _)| {
+            blocker_order
+                .iter()
+                .position(|b| b == blocker)
+                .unwrap_or(usize::MAX)
+        });
         let mut damage_map = CardDamageMap::default();
         for (source, target, amount) in attacker_damage.into_iter().chain(blocker_damage) {
             damage_map.put(source, target, amount);
@@ -1197,12 +1207,21 @@ impl CombatState {
         self.attackers.iter().map(|(a, _)| *a).collect()
     }
 
-    /// Get all blocker IDs (deduplicated).
+    /// Java `Combat.getAllBlockers`: `blockedBands.values()` of an `ArrayListMultimap`, the
+    /// blockers of each attacker in the order that attacker was first blocked.
     pub fn get_all_blockers(&self) -> Vec<CardId> {
+        let mut bands: Vec<CardId> = Vec::new();
+        for &(_, attacker) in &self.blockers {
+            if !bands.contains(&attacker) {
+                bands.push(attacker);
+            }
+        }
         let mut result = Vec::new();
-        for &(b, _) in &self.blockers {
-            if !result.contains(&b) {
-                result.push(b);
+        for attacker in bands {
+            for &(blocker, blocked) in &self.blockers {
+                if blocked == attacker && !result.contains(&blocker) {
+                    result.push(blocker);
+                }
             }
         }
         result
