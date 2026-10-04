@@ -2659,15 +2659,12 @@ impl PlayerAgent for DeterministicAgent {
         if valid.is_empty() {
             return None;
         }
-        // Sort to match Java's deterministic ordering for the harness picker:
-        // players first (by player_id), then cards by (name, parity_id).
-        // Mirrors how `chooseSingleEntityForEffect` iterates a Java
-        // `FCollectionView` whose insertion order Java's harness preserves.
+        // The harness sorts players and cards together by (name, parity id), a player's id being 0.
         let sorted = choice_space::sort_native(valid, |a, b| {
-            let key = |entity: &GameEntity| -> (u8, String, u32) {
+            let key = |entity: &GameEntity| -> (String, u32) {
                 match entity {
-                    GameEntity::Player(p) => (0, format!("P{}", p.0), 0),
-                    GameEntity::Card(c) => (1, self.card_name(*c), self.parity_id(*c)),
+                    GameEntity::Player(p) => (self.player_name(*p), 0),
+                    GameEntity::Card(c) => (self.card_name(*c), self.parity_id(*c)),
                 }
             };
             key(a).cmp(&key(b))
@@ -2813,4 +2810,47 @@ impl PlayerAgent for DeterministicAgent {
 /// exceeded. `chooseTargetsFor` loops while this is false.
 fn target_number_valid(chosen: usize, min: usize, max: usize) -> bool {
     chosen >= min && chosen <= max
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use forge_carddb::parse_card_script;
+    use forge_foundation::ZoneType;
+    use manabrew_engine::card::CardInstance;
+
+    const KAITO: &str = "Name:Kaito, Bane of Nightmares\nManaCost:2 U B\nTypes:Legendary Planeswalker Kaito\nLoyalty:4\nOracle:";
+
+    #[test]
+    fn players_and_cards_are_offered_in_the_harness_name_order() {
+        let mut game = GameState::new(&["Player1", "Player2"], 20);
+        let p0 = PlayerId(0);
+        let p1 = PlayerId(1);
+        let rules = parse_card_script(KAITO).expect("script");
+        let kaito = game.create_card(CardInstance::from_rules(&rules, p1));
+        game.move_card(kaito, ZoneType::Battlefield, p1);
+        let pools = vec![ManaPool::new(), ManaPool::new()];
+        for seed in 0..8 {
+            let mut agent = DeterministicAgent::new(
+                p0,
+                VerboseMode::Off,
+                Rc::new(RefCell::new(JavaRandom::new(seed))),
+                false,
+                Arc::new(ParityCardMap::default()),
+                None,
+            );
+            agent.snapshot_state(&game, &pools);
+            let picked = agent.choose_single_entity_for_effect(
+                DecisionContext::new(&game, &pools),
+                p0,
+                &[GameEntity::Player(p1), GameEntity::Card(kaito)],
+                false,
+            );
+            let expected = choice_space::pick_one(
+                &[GameEntity::Card(kaito), GameEntity::Player(p1)],
+                &mut JavaRandom::new(seed),
+            );
+            assert_eq!(picked, expected, "seed {seed}");
+        }
+    }
 }
