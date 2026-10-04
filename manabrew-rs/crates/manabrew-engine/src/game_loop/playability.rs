@@ -1946,9 +1946,32 @@ impl GameLoop {
                         &Self::mana_from_cost(&ab.cost),
                         true,
                     );
-                    let available_mana =
-                        mana::calculate_available_mana(self.pool(player), game, player);
-                    if available_mana.can_pay(&mana_cost)
+                    let payment_ctx = mana::payment_context_for_sa(game, &sa);
+                    let mana_ok = if game.action_space_mana_probe
+                        == mana::ActionSpaceManaProbe::ComputerUtilMana
+                    {
+                        mana::can_pay_ability_mana_cost_for_action_space(
+                            game,
+                            self.pool(player),
+                            player,
+                            card_id,
+                            &mana_cost,
+                            &payment_ctx,
+                            &[],
+                            self.action_space_probe_order(game),
+                        )
+                    } else {
+                        mana::calculate_available_mana_with_context(
+                            self.pool(player),
+                            game,
+                            player,
+                            Some(card_id),
+                            &[],
+                            Some(&payment_ctx),
+                        )
+                        .can_pay(&mana_cost)
+                    };
+                    if mana_ok
                         && crate::cost::can_pay_ignoring_mana(&ab.cost, game, card_id, player)
                     {
                         playable.push(crate::agent::PlayOption {
