@@ -788,10 +788,10 @@ impl GameLoop {
                 player,
             );
             if entries.is_empty() {
-                return None;
+                continue;
             }
             let available_mana = mana::calculate_available_mana(self.pool(player), game, player);
-            let entry = entries.into_iter().find(|entry| {
+            let Some(entry) = entries.into_iter().find(|entry| {
                 let mut alt_sa = sa.clone();
                 crate::staticability::static_ability_alternative_cost::apply_alternative_cost_to_sa(
                     &mut alt_sa,
@@ -805,7 +805,9 @@ impl GameLoop {
                     player,
                     Some(&alt_sa),
                 )
-            })?;
+            }) else {
+                continue;
+            };
             crate::staticability::static_ability_alternative_cost::apply_alternative_cost_to_sa(
                 &mut sa, &entry,
             );
