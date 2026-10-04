@@ -2667,7 +2667,6 @@ impl Card {
 
     /// Reset state when entering the battlefield.
     pub fn enter_battlefield(&mut self) {
-        self.tapped = false;
         self.damage = 0;
         self.summoning_sick = true;
         self.came_under_control_since_last_upkeep = true;

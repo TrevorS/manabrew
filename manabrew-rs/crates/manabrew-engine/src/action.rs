@@ -15,7 +15,7 @@ use crate::replacement::replacement_handler::{
 use crate::replacement::GameLossReason;
 use crate::replacement::ReplacementResult;
 use crate::spellability::SpellAbility;
-use crate::staticability::layer::{apply_continuous_effects, apply_etb_tapped_with_agents};
+use crate::staticability::layer::apply_continuous_effects;
 use crate::trigger::handler::TriggerHandler;
 use crate::trigger::TriggerType;
 
@@ -442,7 +442,6 @@ impl GameState {
             stack_sa: None,
             fizzle: None,
         };
-        let tapped_before_replacement = self.card(card_id).tapped;
         if apply_move_replacement {
             // Java `GameAction.changeZone`: a card made from nothing is an inbound token while
             // its move is replaced, so `Game.getCardState` still finds it.
@@ -515,9 +514,6 @@ impl GameState {
                 Some(counter_map)
             }
         };
-        let replacement_marked_etb_tapped = dest_zone == ZoneType::Battlefield
-            && self.card(card_id).tapped
-            && !tapped_before_replacement;
         let dest_owner = if dest_zone == ZoneType::Command {
             self.card(card_id).owner
         } else {
@@ -777,23 +773,9 @@ impl GameState {
                     }
                     card.update_keywords();
                 }
-                if replacement_marked_etb_tapped {
-                    self.card_mut(card_id).set_tapped(true);
-                }
-                // Add to destination zone first so the card is "on the
-                // battlefield" when ETB-tapped checks run against it.
                 self.add_card_to_zone(dest_zone, dest_owner, card_id);
                 if was_land {
                     self.player_record_landfall(dest_owner);
-                }
-                // Apply ETB-tapped effects (intrinsic + extrinsic). When the
-                // replacement chain already tapped this card it also already
-                // prompted the affected player to choose the applied effect,
-                // so neither the prompt nor the apply pass should fire again
-                // here — Java's flow runs the choose-and-apply step exactly
-                // once via the replacement chain.
-                if !replacement_marked_etb_tapped {
-                    apply_etb_tapped_with_agents(self, card_id, agents);
                 }
                 if let Some(handler) = trigger_handler.as_deref_mut() {
                     handler.register_active_trigger(self, card_id);
@@ -2883,6 +2865,9 @@ impl GameState {
 
         if src_zone != ZoneType::None {
             self.remove_card_from_zone(src_zone, src_owner, card_id);
+        }
+        if src_zone == ZoneType::Battlefield {
+            self.card_mut(card_id).set_tapped(false);
         }
 
         self.card_mut(card_id).zone = ZoneType::Library;

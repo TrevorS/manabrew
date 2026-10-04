@@ -37,8 +37,6 @@ use std::sync::Arc;
 
 use forge_foundation::{CardTypeLine, CoreType, Supertype, ZoneType};
 
-use crate::agent::DecisionContext;
-use crate::agent::PlayerAgent;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 use crate::replacement::replacement_effect::ReplacementType;
@@ -1566,159 +1564,6 @@ fn resolve_rules_amount(game: &GameState, source_id: CardId, value: &str) -> i32
     0
 }
 
-/// Apply ETB-tapped effects to `entering_card` as it enters the battlefield.
-///
-/// Checks:
-/// 1. The card's own static abilities for `Mode$ ETBTapped` (intrinsic).
-/// 2. Any other battlefield permanent with `Mode$ ETBTapped` whose filter
-///    matches the entering card (extrinsic, e.g. Imposing Sovereign).
-///
-/// Call this immediately after [`GameState::move_card`] resolves a
-/// `Battlefield` destination and before triggers are fired.
-pub fn apply_etb_tapped(game: &mut GameState, entering_card: CardId) {
-    apply_etb_tapped_with_agents(game, entering_card, None);
-}
-
-fn applicable_etb_tapped_replacement_sources(
-    game: &GameState,
-    entering_card: CardId,
-) -> Vec<(CardId, String)> {
-    let mut repl_sources: Vec<(CardId, String, String)> = Vec::new();
-    for c in &game.cards {
-        if c.zone != ZoneType::Battlefield {
-            continue;
-        }
-        for re in &c.replacement_effects {
-            if re.event == ReplacementType::Moved
-                && re.replace_with() == Some("ETBTapped")
-                && re.ir.destination_zone == Some(ZoneType::Battlefield)
-                && re.active_in_zone(ZoneType::Battlefield)
-            {
-                let filter = re
-                    .ir
-                    .valid_card_text
-                    .as_deref()
-                    .unwrap_or("Card.Self")
-                    .to_string();
-                let desc = re.description(c, game);
-                repl_sources.push((c.id, filter, desc));
-            }
-        }
-    }
-
-    repl_sources
-        .into_iter()
-        .filter_map(|(source_id, filter_str, desc)| {
-            let tapped = if filter_str == "Card.Self" || filter_str.is_empty() {
-                source_id == entering_card
-            } else {
-                etb_tapped_filter_matches(game, &filter_str, entering_card, source_id)
-            };
-            tapped.then_some((source_id, desc))
-        })
-        .collect()
-}
-
-fn etb_tapped_filter_matches(
-    game: &GameState,
-    filter: &str,
-    entering_card: CardId,
-    source_id: CardId,
-) -> bool {
-    let source = game.card(source_id);
-    crate::card::valid_filter::matches_valid_card_selector_with_context(
-        &crate::parsing::cached_compiled_selector(filter),
-        game.card(entering_card),
-        crate::card::valid_filter::MatchContext::new(source, game)
-            .with_source_controller(source.controller),
-    )
-}
-
-pub fn prompt_etb_tapped_replacement_with_agents(
-    game: &mut GameState,
-    entering_card: CardId,
-    agents: &mut [Box<dyn PlayerAgent>],
-) {
-    let applicable = applicable_etb_tapped_replacement_sources(game, entering_card);
-    if applicable.len() <= 1 {
-        return;
-    }
-
-    let affected_player = game.cards[entering_card.index()].controller;
-    let descriptions: Vec<String> = applicable
-        .iter()
-        .map(|(source_id, desc)| format!("{}: {}", game.card(*source_id).card_name, desc))
-        .collect();
-    let hosts: Vec<CardId> = applicable.iter().map(|(source_id, _)| *source_id).collect();
-    let _chosen = agents[affected_player.index()]
-        .choose_single_replacement_effect(
-            DecisionContext::game_only(game),
-            affected_player,
-            &descriptions,
-            &hosts,
-        )
-        .min(applicable.len().saturating_sub(1));
-}
-
-pub fn apply_etb_tapped_with_agents(
-    game: &mut GameState,
-    entering_card: CardId,
-    agents: Option<&mut [Box<dyn PlayerAgent>]>,
-) {
-    // Collect all ETBTapped sources: (source_id, filter_str).
-    // We need owned data to avoid aliasing the cards slice while mutating.
-    let etb_sources: Vec<(CardId, String)> = game
-        .cards
-        .iter()
-        .filter(|c| c.zone == ZoneType::Battlefield)
-        .flat_map(|c| {
-            c.static_abilities.iter().filter_map(move |sa| {
-                if sa.check_mode(&StaticMode::ETBTapped) {
-                    let filter_str = sa
-                        .ir
-                        .valid_cards_text
-                        .clone()
-                        .or_else(|| sa.ir.affected_text.clone())
-                        // Default: the card itself (intrinsic self-ETBTapped).
-                        .unwrap_or_else(|| "Card.Self".to_string());
-                    Some((c.id, filter_str))
-                } else {
-                    None
-                }
-            })
-        })
-        .collect();
-
-    for (source_id, filter_str) in etb_sources {
-        // "Card.Self" means only the card that owns the ability.
-        let tapped = if filter_str == "Card.Self" || filter_str.is_empty() {
-            source_id == entering_card
-        } else {
-            etb_tapped_filter_matches(game, &filter_str, entering_card, source_id)
-        };
-
-        if tapped {
-            game.card_mut(entering_card).tapped = true;
-            return; // once tapped, no need to check further sources
-        }
-    }
-
-    // ── Second pass: check replacement effects for ReplaceWith$ ETBTapped ──
-    // Many cards (e.g. Path of Ancestry, Temple of Mystery) use:
-    //   R:Event$ Moved | Destination$ Battlefield | ValidCard$ Card.Self | ReplaceWith$ ETBTapped
-    // Extrinsic sources (e.g. Kismet) may use broader ValidCard filters.
-    let applicable = applicable_etb_tapped_replacement_sources(game, entering_card);
-    if applicable.is_empty() {
-        return;
-    }
-
-    if let Some(agents) = agents {
-        prompt_etb_tapped_replacement_with_agents(game, entering_card, agents);
-    }
-
-    game.card_mut(entering_card).tapped = true;
-}
-
 /// Check if a card has a shock-land-style "enters tapped unless you pay life" effect.
 ///
 /// Looks for `R:Event$ Moved | Destination$ Battlefield | ReplaceWith$ <SVar>`
@@ -2838,34 +2683,6 @@ mod tests {
     // ── ETB Tapped ────────────────────────────────────────────────────────
 
     #[test]
-    fn self_etb_tapped() {
-        let mut game = new_game();
-        let alice = PlayerId(0);
-
-        // A permanent with ETBTapped on itself.
-        let card = Card::new(
-            CardId(0),
-            "TappedLand".to_string(),
-            alice,
-            CardTypeLine::parse("Land"),
-            ManaCost::parse(""),
-            ColorSet::from_mask(0),
-            None,
-            None,
-            vec![],
-            vec!["S$ Mode$ ETBTapped | Description$ Enters tapped.".to_string()],
-        );
-        let id = game.create_card(card);
-        game.move_card(id, ZoneType::Battlefield, alice);
-        apply_etb_tapped(&mut game, id);
-
-        assert!(
-            game.card(id).tapped,
-            "Card with ETBTapped should enter tapped"
-        );
-    }
-
-    #[test]
     fn no_etb_tapped_without_ability() {
         let mut game = new_game();
         let alice = PlayerId(0);
@@ -2875,34 +2692,6 @@ mod tests {
         assert!(
             !game.card(id).tapped,
             "Normal creature should not enter tapped"
-        );
-    }
-
-    #[test]
-    fn etb_tapped_via_replacement_effect() {
-        let mut game = new_game();
-        let alice = PlayerId(0);
-
-        // A land with R:Event$ Moved replacement effect (like Path of Ancestry).
-        let card = Card::new(
-            CardId(0),
-            "PathOfAncestry".to_string(),
-            alice,
-            CardTypeLine::parse("Land"),
-            ManaCost::parse(""),
-            ColorSet::from_mask(0),
-            None,
-            None,
-            vec![],
-            vec!["R:Event$ Moved | Destination$ Battlefield | ValidCard$ Card.Self | ReplaceWith$ ETBTapped | Description$ ~ enters tapped.".to_string()],
-        );
-        let id = game.create_card(card);
-        game.move_card(id, ZoneType::Battlefield, alice);
-        apply_etb_tapped(&mut game, id);
-
-        assert!(
-            game.card(id).tapped,
-            "Card with ReplaceWith$ ETBTapped replacement should enter tapped"
         );
     }
 }
