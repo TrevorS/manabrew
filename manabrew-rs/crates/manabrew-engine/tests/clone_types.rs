@@ -15,6 +15,8 @@ use manabrew_engine::spellability::SpellAbility;
 
 const ISLAND: &str = "Name:Island\nManaCost:no cost\nTypes:Basic Land Island\nOracle:";
 const STONE: &str = "Name:Glass Stone\nManaCost:2\nTypes:Artifact\nOracle:";
+const SHOAL_KEEPER: &str = "Name:Shoal Keeper\nManaCost:1 U\nTypes:Creature Merfolk\nPT:*/4\nS:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | Description$ CARDNAME's power is equal to the number of Merfolk you control.\nSVar:X:Count$Valid Merfolk.YouCtrl\nOracle:";
+const GREAT_MIMIC: &str = "Name:Great Mimic\nManaCost:U\nTypes:Creature Shapeshifter\nPT:4/4\nK:ETBReplacement:Copy:DBCopy:Optional\nSVar:DBCopy:DB$ Clone | Choices$ Creature.Other | SetPower$ 4 | SetToughness$ 4 | SpellDescription$ You may have CARDNAME enter as a copy of a creature, except it's 4/4.\nOracle:";
 const BIRD_MIMIC: &str = "Name:Bird Mimic\nManaCost:U\nTypes:Creature Bird\nPT:1/1\nK:ETBReplacement:Copy:DBCopy:Optional\nSVar:DBCopy:DB$ Clone | Choices$ Artifact.Other | AddTypes$ Bird | SpellDescription$ You may have CARDNAME enter as a copy of an artifact, except it's a Bird in addition to its other types.\nOracle:";
 
 struct CastOnce {
@@ -174,4 +176,26 @@ fn a_creature_type_added_to_a_noncreature_copy_is_dropped() {
     assert_eq!(copy.zone, ZoneType::Battlefield);
     assert_eq!(copy.card_name, "Glass Stone");
     assert!(copy.type_line.subtypes.is_empty(), "{:?}", copy.type_line);
+}
+
+#[test]
+fn a_copy_set_to_a_power_drops_the_copied_power_defining_ability() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let spell = put(&mut game, GREAT_MIMIC, p0, ZoneType::Hand);
+    let keeper = put(&mut game, SHOAL_KEEPER, p0, ZoneType::Battlefield);
+    put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce { spell, cast: false }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    let copy = game.card(spell);
+    assert_eq!(copy.zone, ZoneType::Battlefield);
+    assert_eq!(copy.card_name, "Shoal Keeper");
+    assert_eq!((copy.power(), copy.toughness()), (4, 4));
+    assert_eq!(game.card(keeper).power(), 2);
 }
