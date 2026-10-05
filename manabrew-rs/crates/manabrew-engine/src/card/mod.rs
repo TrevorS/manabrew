@@ -4716,7 +4716,36 @@ impl Card {
         &self.card_name
     }
     pub fn shares_name_with(&self, other: &Card) -> bool {
-        self.get_name().eq_ignore_ascii_case(other.get_name())
+        self.shares_name_with_name(other.get_name())
+    }
+
+    /// Java `Card.sharesNameWith(String)`: a Room in play also has each unlocked door's name,
+    /// and a split card anywhere else each half's.
+    pub fn shares_name_with_name(&self, name: &str) -> bool {
+        if name.is_empty() {
+            return false;
+        }
+        if self.get_name().eq_ignore_ascii_case(name) {
+            return true;
+        }
+        if self.has_name_overwrite()
+            || !self
+                .other_part
+                .as_ref()
+                .is_some_and(|other| other.state_name == CardStateName::RightSplit)
+        {
+            return false;
+        }
+        let mut halves = self.full_name.split(" // ");
+        let left = halves.next().unwrap_or_default();
+        let right = halves.next().unwrap_or_default();
+        if self.zone == ZoneType::Battlefield {
+            (self.room_door_unlocked(CardStateName::LeftSplit) && left.eq_ignore_ascii_case(name))
+                || (self.room_door_unlocked(CardStateName::RightSplit)
+                    && right.eq_ignore_ascii_case(name))
+        } else {
+            left.eq_ignore_ascii_case(name) || right.eq_ignore_ascii_case(name)
+        }
     }
     pub fn has_creature_type(&self, creature_type: &str) -> bool {
         if !self.is_creature() && !self.type_line.core_types.contains(&CoreType::Kindred) {
@@ -6072,6 +6101,34 @@ mod tests {
         );
         assert_eq!(plain.get_ward_cost(), None);
         assert_eq!(plain.get_toxic_count(), None);
+    }
+
+    const UNHOLY_ANNEX: &str = "Name:Unholy Annex\nManaCost:2 B\nTypes:Enchantment Room\nAlternateMode:Split\nOracle:\n\nALTERNATE\n\nName:Ritual Chamber\nManaCost:3 B B\nTypes:Enchantment Room\nOracle:";
+
+    #[test]
+    fn a_room_shares_a_name_with_each_open_door_and_a_split_card_with_either_half() {
+        let rules = parse_card_script(UNHOLY_ANNEX).expect("script");
+        let room = |doors: &[CardStateName]| {
+            let mut card = Card::from_rules(&rules, PlayerId(0));
+            card.zone = ZoneType::Battlefield;
+            for &door in doors {
+                card.unlock_room_door(door);
+            }
+            card.update_rooms();
+            card
+        };
+        let both = room(&[CardStateName::LeftSplit, CardStateName::RightSplit]);
+        let left = room(&[CardStateName::LeftSplit]);
+        let right = room(&[CardStateName::RightSplit]);
+        let mut in_hand = Card::from_rules(&rules, PlayerId(0));
+        in_hand.zone = ZoneType::Hand;
+
+        assert!(both.shares_name_with(&left));
+        assert!(both.shares_name_with(&right));
+        assert!(!left.shares_name_with(&both));
+        assert!(!left.shares_name_with(&right));
+        assert!(in_hand.shares_name_with(&left));
+        assert!(in_hand.shares_name_with(&right));
     }
 
     #[test]
