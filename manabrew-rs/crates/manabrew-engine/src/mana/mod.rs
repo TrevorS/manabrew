@@ -521,6 +521,7 @@ fn spell_was_cast_from(zone: &str, ctx: &ManaPaymentContext) -> bool {
 }
 
 // ManaPool moved to mana_pool.rs — single source of truth.
+pub(crate) use mana_pool::OtherFaceProbes;
 pub use mana_pool::{ManaPool, ProbeOrder};
 
 // ── Mana helpers ────────────────────────────────────────────────────

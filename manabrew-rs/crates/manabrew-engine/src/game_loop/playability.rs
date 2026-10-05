@@ -777,33 +777,38 @@ impl GameLoop {
 
         for &card_id in hand {
             let card = game.card(card_id);
+            let other_faces = self.other_face_probes(game);
             let probe_host = || {
                 stack_statics().map_or(card, |stack_statics: &GameState| {
                     stack_statics.card(card_id)
                 })
             };
-            if self.can_play_card_state_spell(
-                game,
-                player,
-                card_id,
-                forge_foundation::CardStateName::Secondary,
-                ZoneType::Hand,
-                &chosen_types_by_source,
-            ) {
+            if other_faces.defer(|| {
+                self.can_play_card_state_spell(
+                    game,
+                    player,
+                    card_id,
+                    forge_foundation::CardStateName::Secondary,
+                    ZoneType::Hand,
+                    &chosen_types_by_source,
+                )
+            }) {
                 playable.push(crate::agent::PlayOption {
                     card_id,
                     mode: crate::agent::PlayCardMode::Secondary,
                     alt_cost_index: 0,
                 });
             }
-            for alt_cost_index in self
-                .may_play_secondary_spell_grants(
-                    game,
-                    player,
-                    card_id,
-                    ZoneType::Hand,
-                    &chosen_types_by_source,
-                )
+            for alt_cost_index in other_faces
+                .defer(|| {
+                    self.may_play_secondary_spell_grants(
+                        game,
+                        player,
+                        card_id,
+                        ZoneType::Hand,
+                        &chosen_types_by_source,
+                    )
+                })
                 .into_iter()
                 .filter(|&alt_cost_index| alt_cost_index > 0)
             {
@@ -821,14 +826,16 @@ impl GameLoop {
             // has a `Secondary` state (Adventure/Omen) or a modal `Backside`, never both, so
             // `cast_spell.rs` reads the state to build from off the card itself.
             if card.is_modal()
-                && self.can_play_card_state_spell(
-                    game,
-                    player,
-                    card_id,
-                    forge_foundation::CardStateName::Backside,
-                    ZoneType::Hand,
-                    &chosen_types_by_source,
-                )
+                && other_faces.defer(|| {
+                    self.can_play_card_state_spell(
+                        game,
+                        player,
+                        card_id,
+                        forge_foundation::CardStateName::Backside,
+                        ZoneType::Hand,
+                        &chosen_types_by_source,
+                    )
+                })
             {
                 playable.push(crate::agent::PlayOption {
                     card_id,
@@ -837,12 +844,14 @@ impl GameLoop {
                 });
             }
             if card.is_modal()
-                && self.can_play_backside_web_slinging(
-                    game,
-                    player,
-                    card_id,
-                    &chosen_types_by_source,
-                )
+                && other_faces.defer(|| {
+                    self.can_play_backside_web_slinging(
+                        game,
+                        player,
+                        card_id,
+                        &chosen_types_by_source,
+                    )
+                })
             {
                 playable.push(crate::agent::PlayOption {
                     card_id,
@@ -856,14 +865,16 @@ impl GameLoop {
             // as Java builds one Spell per CardState. A Room's right half is the same
             // permanent behind a second door, so it keeps the cost-swap path below.
             if !card.type_line.has_subtype("Room")
-                && self.can_play_card_state_spell(
-                    game,
-                    player,
-                    card_id,
-                    forge_foundation::CardStateName::RightSplit,
-                    ZoneType::Hand,
-                    &chosen_types_by_source,
-                )
+                && other_faces.defer(|| {
+                    self.can_play_card_state_spell(
+                        game,
+                        player,
+                        card_id,
+                        forge_foundation::CardStateName::RightSplit,
+                        ZoneType::Hand,
+                        &chosen_types_by_source,
+                    )
+                })
             {
                 playable.push(crate::agent::PlayOption {
                     card_id,
@@ -1737,19 +1748,22 @@ impl GameLoop {
             let gy_cards: Vec<CardId> = game.cards_in_zone(ZoneType::Graveyard, player).to_vec();
             for &card_id in &gy_cards {
                 let card = game.card(card_id);
+                let other_faces = self.other_face_probes(game);
                 if !card.is_land() {
                     if !may_play_grants(card_id).any(|(source, st_ab)| {
                         crate::staticability::static_ability_continuous::grants_zone_permissions(
                             st_ab, source, card, game,
                         )
                     }) {
-                        for alt_cost_index in self.may_play_secondary_spell_grants(
-                            game,
-                            player,
-                            card_id,
-                            ZoneType::Graveyard,
-                            &chosen_types_by_source,
-                        ) {
+                        for alt_cost_index in other_faces.defer(|| {
+                            self.may_play_secondary_spell_grants(
+                                game,
+                                player,
+                                card_id,
+                                ZoneType::Graveyard,
+                                &chosen_types_by_source,
+                            )
+                        }) {
                             playable.push(crate::agent::PlayOption {
                                 card_id,
                                 mode: crate::agent::PlayCardMode::Secondary,
@@ -1781,13 +1795,15 @@ impl GameLoop {
                             });
                         }
                     }
-                    for alt_cost_index in self.may_play_secondary_spell_grants(
-                        game,
-                        player,
-                        card_id,
-                        ZoneType::Graveyard,
-                        &chosen_types_by_source,
-                    ) {
+                    for alt_cost_index in other_faces.defer(|| {
+                        self.may_play_secondary_spell_grants(
+                            game,
+                            player,
+                            card_id,
+                            ZoneType::Graveyard,
+                            &chosen_types_by_source,
+                        )
+                    }) {
                         playable.push(crate::agent::PlayOption {
                             card_id,
                             mode: crate::agent::PlayCardMode::Secondary,
@@ -1870,13 +1886,15 @@ impl GameLoop {
                     }
                     continue;
                 }
-                for alt_cost_index in self.may_play_secondary_spell_grants(
-                    game,
-                    player,
-                    card_id,
-                    ZoneType::Graveyard,
-                    &chosen_types_by_source,
-                ) {
+                for alt_cost_index in other_faces.defer(|| {
+                    self.may_play_secondary_spell_grants(
+                        game,
+                        player,
+                        card_id,
+                        ZoneType::Graveyard,
+                        &chosen_types_by_source,
+                    )
+                }) {
                     playable.push(crate::agent::PlayOption {
                         card_id,
                         mode: crate::agent::PlayCardMode::Secondary,
@@ -2003,6 +2021,7 @@ impl GameLoop {
         let graveyard: Vec<CardId> = game.cards_in_zone(ZoneType::Graveyard, player).to_vec();
         for card_id in graveyard {
             let card = game.card(card_id);
+            let other_faces = self.other_face_probes(game);
             let probe_host = stack_statics().map_or(card, |stack_statics: &GameState| {
                 stack_statics.card(card_id)
             });
@@ -2011,13 +2030,15 @@ impl GameLoop {
                 .iter()
                 .enumerate()
             {
-                if self.can_play_secondary_flashback(
-                    game,
-                    player,
-                    card_id,
-                    cost,
-                    &chosen_types_by_source,
-                ) {
+                if other_faces.defer(|| {
+                    self.can_play_secondary_flashback(
+                        game,
+                        player,
+                        card_id,
+                        cost,
+                        &chosen_types_by_source,
+                    )
+                }) {
                     playable.push(crate::agent::PlayOption {
                         card_id,
                         mode: crate::agent::PlayCardMode::Alternative(
@@ -2152,18 +2173,21 @@ impl GameLoop {
         }
         for card_id in exile {
             let card = game.card(card_id);
+            let other_faces = self.other_face_probes(game);
             let can_may_play = can_may_play_from_static(card_id);
             if !can_may_play && card.owner != player {
                 continue;
             }
             if can_may_play {
-                for alt_cost_index in self.may_play_secondary_spell_grants(
-                    game,
-                    player,
-                    card_id,
-                    ZoneType::Exile,
-                    &chosen_types_by_source,
-                ) {
+                for alt_cost_index in other_faces.defer(|| {
+                    self.may_play_secondary_spell_grants(
+                        game,
+                        player,
+                        card_id,
+                        ZoneType::Exile,
+                        &chosen_types_by_source,
+                    )
+                }) {
                     playable.push(crate::agent::PlayOption {
                         card_id,
                         mode: crate::agent::PlayCardMode::Secondary,
@@ -2492,13 +2516,16 @@ impl GameLoop {
             if !can_may_play_from_static(card_id) {
                 continue;
             }
-            for alt_cost_index in self.may_play_secondary_spell_grants(
-                game,
-                player,
-                card_id,
-                ZoneType::Library,
-                &chosen_types_by_source,
-            ) {
+            let other_faces = self.other_face_probes(game);
+            for alt_cost_index in other_faces.defer(|| {
+                self.may_play_secondary_spell_grants(
+                    game,
+                    player,
+                    card_id,
+                    ZoneType::Library,
+                    &chosen_types_by_source,
+                )
+            }) {
                 playable.push(crate::agent::PlayOption {
                     card_id,
                     mode: crate::agent::PlayCardMode::Secondary,
@@ -2876,6 +2903,47 @@ mod tests {
             vec![],
             abilities.into_iter().map(str::to_string).collect(),
         )
+    }
+
+    const OMEN_DRAKE: &str = "Name:Omen Drake\nManaCost:R\nTypes:Creature Drake\nPT:1/1\nAlternateMode:Omen\nOracle:\n\nALTERNATE\n\nName:Drake Omen\nManaCost:U\nTypes:Instant Omen\nA:SP$ Draw | Defined$ You | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
+
+    #[test]
+    fn the_parity_probes_test_pay_an_omen_after_its_own_face() {
+        let player = PlayerId(0);
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.mirror_forge_bugs = true;
+        game.action_space_mana_probe = crate::mana::ActionSpaceManaProbe::ComputerUtilMana;
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        let rules = forge_carddb::parse_card_script(OMEN_DRAKE).expect("script");
+        let drake = game.create_card(Card::from_rules(&rules, player));
+        game.move_card(drake, ZoneType::Hand, player);
+        let mut game_loop = GameLoop::new(2);
+        for color in [
+            forge_foundation::mana::ManaAtom::RED,
+            forge_foundation::mana::ManaAtom::BLUE,
+        ] {
+            game_loop
+                .pool_mut(player)
+                .add_mana(crate::mana::Mana::simple(color));
+        }
+
+        let playable = game_loop.get_playable_cards(&game, player, false);
+        game_loop.commit_probe_orders();
+
+        assert_eq!(playable.len(), 2);
+        let order: Vec<u16> = game_loop
+            .pool_mut(player)
+            .floating_mana()
+            .iter()
+            .map(|mana| mana.color)
+            .collect();
+        assert_eq!(
+            order,
+            vec![
+                forge_foundation::mana::ManaAtom::RED,
+                forge_foundation::mana::ManaAtom::BLUE
+            ]
+        );
     }
 
     #[test]

@@ -286,6 +286,10 @@ impl GameLoop {
             .then_some(&self.probe_order)
     }
 
+    pub(crate) fn other_face_probes(&self, game: &GameState) -> crate::mana::OtherFaceProbes<'_> {
+        crate::mana::OtherFaceProbes::new(self.action_space_probe_order(game), &self.mana_pools)
+    }
+
     pub fn pool(&self, pid: PlayerId) -> &ManaPool {
         &self.mana_pools[pid.index()]
     }
