@@ -292,17 +292,6 @@ pub struct ManaPaymentContext {
     /// `is_spell` so triggered abilities and effect-driven costs (UnlessCost,
     /// cumulative upkeep, …) are neither spell nor activated.
     pub is_activated_ability: bool,
-    /// True when this is the *actual* payment phase for a spell already
-    /// announced on the stack — i.e. cast_spell.rs has already moved the
-    /// card to `Stack` and is now running auto-pay. Java parity: mirrors
-    /// `AbilityManaPart.meetsManaRestrictions` line 438 — if the SA we're
-    /// paying for is currently on the stack, restricted mana sources whose
-    /// `RestrictValid$ Spell` (or similar) clause would otherwise apply are
-    /// rejected. This matches Forge's behaviour where Leyline-Immersion-
-    /// style grants are effectively unusable for the cast they were
-    /// announced for, leaving only unrestricted producers in the pool.
-    /// Default is `false` so playability prediction stays optimistic.
-    pub sa_on_stack: bool,
     /// Card type line of the spell being cast OR the source of the activated
     /// ability being paid for (for type checks like `Activated.Elemental`).
     pub type_line: Option<forge_foundation::CardTypeLine>,
@@ -364,11 +353,6 @@ pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymen
     ManaPaymentContext {
         is_spell: sa.is_spell,
         is_activated_ability: sa.is_activated_ability(),
-        // `payment_context_for_sa` is used for activated-ability cost
-        // calculations and AI lookahead — neither is the real cast-time
-        // payment of a spell on stack. Leave the SA-on-stack guard off so
-        // restricted-spell statics are still considered for those callers.
-        sa_on_stack: false,
         type_line,
         card_name,
         card_color,
@@ -2185,7 +2169,6 @@ mod tests {
         let ctx = ManaPaymentContext {
             is_spell: true,
             is_activated_ability: false,
-            sa_on_stack: false,
             type_line: Some(CardTypeLine::parse("Creature Zombie Assassin")),
             card_name: Some("Unstoppable Slasher".to_string()),
             card_color: None,

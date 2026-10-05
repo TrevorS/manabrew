@@ -1178,7 +1178,8 @@ pub(super) fn resolve_effect_with_unless_cost(
         return;
     };
     let payers = resolve_unless_payers(sa, ctx.game);
-    let attempt_unpayable = unless_cost == "X";
+    let attempt_unpayable = crate::mana::computer_util_mana::harness_cost_probes_ask(ctx.game);
+    let skip_pay_check = attempt_unpayable && unless_cost == "X";
     let resolve_subs = sa.ir.unless_resolve_subs.as_deref();
     let exec_subs_when_paid = resolve_subs.is_none_or(|value| value == "WhenPaid");
     let exec_subs_when_not_paid = resolve_subs.is_none_or(|value| value == "WhenNotPaid");
@@ -1190,7 +1191,7 @@ pub(super) fn resolve_effect_with_unless_cost(
         if ctx.game.player(payer).has_lost {
             continue;
         }
-        if crate::mana::computer_util_mana::harness_cost_probes_ask(ctx.game) {
+        if attempt_unpayable {
             crate::mana::computer_util_mana::harness_cost_probe_for(
                 ctx.game,
                 ctx.mana_pools,
@@ -1201,10 +1202,23 @@ pub(super) fn resolve_effect_with_unless_cost(
                 &cost,
             );
         }
-        let available_mana =
-            crate::mana::calculate_available_mana(&ctx.mana_pools[payer.index()], ctx.game, payer);
-        if !attempt_unpayable
-            && !crate::cost::can_pay_with_ability(
+        let can_pay = if attempt_unpayable {
+            skip_pay_check
+                || crate::mana::computer_util_mana::harness_can_pay_cost_to_prevent_effect(
+                    ctx.game,
+                    &ctx.mana_pools[payer.index()],
+                    payer,
+                    source,
+                    sa,
+                    &cost,
+                )
+        } else {
+            let available_mana = crate::mana::calculate_available_mana(
+                &ctx.mana_pools[payer.index()],
+                ctx.game,
+                payer,
+            );
+            crate::cost::can_pay_with_ability(
                 &cost,
                 ctx.game,
                 &available_mana,
@@ -1212,7 +1226,8 @@ pub(super) fn resolve_effect_with_unless_cost(
                 payer,
                 Some(sa),
             )
-        {
+        };
+        if !can_pay {
             continue;
         }
         let cost_kind = cost.to_simple_string();

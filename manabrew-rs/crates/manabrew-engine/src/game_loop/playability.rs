@@ -101,7 +101,6 @@ impl GameLoop {
         mana::ManaPaymentContext {
             is_spell: true,
             is_activated_ability: false,
-            sa_on_stack: false,
             type_line: Some(card.type_line.clone()),
             card_name: Some(card.card_name.clone()),
             card_color: Some(card.color),
@@ -498,7 +497,6 @@ impl GameLoop {
         let payment_ctx = mana::ManaPaymentContext {
             is_spell: true,
             is_activated_ability: false,
-            sa_on_stack: false,
             type_line: Some(in_hand.type_line.clone()),
             card_name: Some(in_hand.card_name.clone()),
             card_color: Some(in_hand.color),
@@ -1010,7 +1008,6 @@ impl GameLoop {
                 let payment_ctx = mana::ManaPaymentContext {
                     is_spell: true,
                     is_activated_ability: false,
-                    sa_on_stack: false,
                     type_line: Some(card.type_line.clone()),
                     card_name: Some(card.card_name.clone()),
                     card_color: Some(card.color),
@@ -2456,7 +2453,6 @@ impl GameLoop {
                 let payment_ctx = mana::ManaPaymentContext {
                     is_spell: true,
                     is_activated_ability: false,
-                    sa_on_stack: false,
                     type_line: Some(card.type_line.clone()),
                     card_name: Some(card.card_name.clone()),
                     card_color: Some(card.color),

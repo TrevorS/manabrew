@@ -513,7 +513,7 @@ impl GameLoop {
                         game,
                         self.pool(player),
                         player,
-                        card_id,
+                        Some(card_id),
                         &ab_cost,
                         &reserved_sacrifices,
                         Some(&crate::mana::payment_context_for_sa(

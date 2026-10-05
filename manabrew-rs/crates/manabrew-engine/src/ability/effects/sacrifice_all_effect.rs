@@ -219,7 +219,7 @@ fn can_pay_unless_cost(
             ctx.game,
             &ctx.mana_pools[payer.index()],
             payer,
-            source,
+            Some(source),
             cost,
             &[],
             None,

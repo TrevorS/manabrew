@@ -1117,6 +1117,61 @@ pub(crate) fn harness_cost_probe_for(
     pools[payer.index()] = pool;
 }
 
+/// `DeterministicController.payCostToPreventEffect` (DeterministicController.java:1238-1260)
+/// attempts an unless cost when `ComputerUtilCost.canPayCost` passes or, for a cost of mana
+/// alone, `ActionSpace.canPayManaCostFromCurrentSources` does. Restrictions are tested against
+/// the resolving ability, which rejects restricted mana (AbilityManaPart.java:441-445).
+pub(crate) fn harness_can_pay_cost_to_prevent_effect(
+    game: &GameState,
+    pool: &ManaPool,
+    payer: PlayerId,
+    source: CardId,
+    sa: &crate::spellability::SpellAbility,
+    cost: &crate::cost::Cost,
+) -> bool {
+    let payment_ctx = crate::mana::ManaPaymentContext::default();
+    let mana_part = cost
+        .parts
+        .iter()
+        .find(|part| matches!(part, CostPart::Mana { .. }));
+    let can_pay_cost =
+        crate::cost::can_pay_ignoring_mana_with_ability(cost, game, source, payer, sa)
+            && mana_part.is_none_or(|part| {
+                let mana_cost =
+                    crate::cost::cost_part_mana::get_mana_cost_for(game, source, Some(sa), part);
+                can_pay_mana_cost(
+                    game,
+                    pool,
+                    payer,
+                    source,
+                    &mana_cost,
+                    &payment_ctx,
+                    &sa.target_chosen.all_target_cards(),
+                    None,
+                )
+            });
+    if can_pay_cost {
+        return true;
+    }
+    let only_mana = mana_part.is_some()
+        && cost
+            .parts
+            .iter()
+            .all(|part| matches!(part, CostPart::Mana { .. }));
+    let excluded_source =
+        (!sa.is_spell && game.card(source).zone == ZoneType::Battlefield).then_some(source);
+    only_mana
+        && can_pay_mana_cost_with_reserved_sacrifices(
+            game,
+            pool,
+            payer,
+            excluded_source,
+            cost,
+            &[],
+            Some(&payment_ctx),
+        )
+}
+
 pub(crate) fn harness_cost_probes_ask(game: &GameState) -> bool {
     game.mirror_forge_bugs
         && game.action_space_mana_probe == crate::mana::ActionSpaceManaProbe::ComputerUtilMana
@@ -3298,7 +3353,7 @@ pub fn can_pay_mana_cost_with_reserved_sacrifices(
     game: &GameState,
     pool: &ManaPool,
     player: PlayerId,
-    excluded_source: CardId,
+    excluded_source: Option<CardId>,
     cost: &crate::cost::Cost,
     reserved_sacrifices: &[CardId],
     payment_ctx: Option<&crate::mana::ManaPaymentContext>,
@@ -3324,7 +3379,7 @@ pub fn can_pay_mana_cost_with_reserved_sacrifices(
     source_masks.extend(std::iter::repeat_n(0, pool.colorless() as usize));
 
     for &card_id in game.cards_in_zone(ZoneType::Battlefield, player) {
-        if card_id == excluded_source {
+        if Some(card_id) == excluded_source {
             continue;
         }
         let card = game.card(card_id);
