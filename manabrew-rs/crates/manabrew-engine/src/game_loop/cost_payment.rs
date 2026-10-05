@@ -3942,6 +3942,22 @@ impl GameLoop {
         );
     }
 
+    /// Java `GameAction.moveToLibrary(c, libPosition, ...)`: the whole zone change, then the
+    /// position, as ChangeZone's `LibraryPosition$` does.
+    fn move_card_to_library_position(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        card_id: CardId,
+        owner: PlayerId,
+        lib_pos: i32,
+    ) {
+        self.move_card_with_runtime(game, card_id, ZoneType::Library, owner, agents);
+        if lib_pos != 0 && game.card(card_id).zone == ZoneType::Library {
+            game.move_cards_to_zone_bottom(ZoneType::Library, owner, &[card_id]);
+        }
+    }
+
     /// Put selected cards to top/bottom of library as a cost.
     pub(crate) fn pay_put_card_to_lib_cost(
         &mut self,
@@ -3959,11 +3975,7 @@ impl GameLoop {
             // Self payment path: move the source card itself if it's in the expected zone.
             if game.card(source).zone == from {
                 let owner = game.card(source).owner;
-                if lib_pos == 0 {
-                    self.move_card_with_runtime(game, source, ZoneType::Library, owner, agents);
-                } else {
-                    game.put_on_bottom_of_library(source, owner);
-                }
+                self.move_card_to_library_position(game, agents, source, owner, lib_pos);
                 return true;
             }
             return false;
@@ -4009,11 +4021,7 @@ impl GameLoop {
             }
             let origin = game.card(chosen).zone;
             let owner = game.card(chosen).owner;
-            if lib_pos == 0 {
-                self.move_card_with_runtime(game, chosen, ZoneType::Library, owner, agents);
-            } else {
-                game.put_on_bottom_of_library(chosen, owner);
-            }
+            self.move_card_to_library_position(game, agents, chosen, owner, lib_pos);
             crate::ability::effects::emit_zone_trigger(
                 &mut self.trigger_handler,
                 chosen,
@@ -5161,4 +5169,55 @@ pub(crate) fn pay_life(
         crate::action::run_life_lost_all(trigger_handler, &[(player, lost)]);
     }
     true
+}
+
+#[cfg(test)]
+mod put_card_to_lib_tests {
+    use super::*;
+    use crate::agent::PassAgent;
+    use crate::card::counter_type::CounterType;
+
+    const NAVIGATOR: &str =
+        "Name:Library Navigator\nManaCost:1 U\nTypes:Creature Human Wizard\nPT:2/2\nOracle:";
+    const FILLER: &str = "Name:Filler\nManaCost:U\nTypes:Instant\nOracle:";
+
+    #[test]
+    fn a_permanent_put_on_the_bottom_of_its_library_as_a_cost_leaves_the_battlefield_fully() {
+        let p0 = PlayerId(0);
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        for script in [FILLER, NAVIGATOR] {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(crate::card::Card::from_rules(&rules, p0));
+            let zone = if script == FILLER {
+                ZoneType::Library
+            } else {
+                ZoneType::Battlefield
+            };
+            game.move_card(card, zone, p0);
+        }
+        let navigator = *game
+            .cards_in_zone(ZoneType::Battlefield, p0)
+            .last()
+            .expect("navigator");
+        game.card_mut(navigator).add_counter(&CounterType::P1P1, 2);
+        let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(PassAgent), Box::new(PassAgent)];
+
+        assert!(GameLoop::new(2).pay_put_card_to_lib_cost(
+            &mut game,
+            &mut agents,
+            p0,
+            navigator,
+            "CARDNAME",
+            1,
+            -1,
+            ZoneType::Battlefield,
+            false,
+        ));
+
+        assert_eq!(
+            game.cards_in_zone(ZoneType::Library, p0).first(),
+            Some(&navigator)
+        );
+        assert_eq!(game.card(navigator).counter_count(&CounterType::P1P1), 0);
+    }
 }
