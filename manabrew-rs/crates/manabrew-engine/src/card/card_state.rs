@@ -845,15 +845,29 @@ pub fn set_type(card: &mut Card, type_line: &str) {
     card.type_line = CardTypeLine::parse(type_line);
 }
 
+/// Java keeps `loyaltyRep` and `sagaRep` as objects of their own on each `CardState`, so the
+/// replacement handler's running and has-run keys must never take them for a printed effect
+/// (ids from 0) or a copied one (`GameState::next_copied_replacement_id`).
+const LOYALTY_REP_ID: i32 = -1;
+const SAGA_REP_ID: i32 = -2;
+
 /// Java `CardState.getLoyaltyRep`.
 pub fn get_loyalty_rep(card: &Card) -> Option<ReplacementEffect> {
     let loyalty = card.initial_loyalty.as_deref()?;
-    super::card_factory_util::make_etb_counter(&format!("etbCounter:LOYALTY:{loyalty}"), card, true)
+    let mut rep = super::card_factory_util::make_etb_counter(
+        &format!("etbCounter:LOYALTY:{loyalty}"),
+        card,
+        true,
+    )?;
+    rep.base.card_trait_base.set_id(LOYALTY_REP_ID);
+    Some(rep)
 }
 
 /// Java `CardState.getSagaRep`.
 pub fn get_saga_rep(card: &Card) -> Option<ReplacementEffect> {
-    super::card_factory_util::make_etb_counter("etbCounter:LORE:1", card, true)
+    let mut rep = super::card_factory_util::make_etb_counter("etbCounter:LORE:1", card, true)?;
+    rep.base.card_trait_base.set_id(SAGA_REP_ID);
+    Some(rep)
 }
 
 /// The type part of Java `CardState`'s `applyReplacementEffect`: a planeswalker enters with its
