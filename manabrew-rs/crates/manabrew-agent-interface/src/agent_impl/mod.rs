@@ -23,7 +23,7 @@ use crate::game_view_dto::{
     CardDto, GameViewDto, GameViewDtoExt,
 };
 use crate::ids_codec::{card_id_str, parse_card_id, parse_player_id, player_id_str};
-use crate::mana_action_id::{mana_ability_actions, parse_tap_action_id};
+use crate::mana_action_id::{ability_cost_info, mana_ability_actions, parse_tap_action_id};
 use crate::prompt::*;
 use manabrew_engine::agent::{DecisionContext, PriorityContext};
 
@@ -773,12 +773,14 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
                 },
             });
         }
+        let context = priority.context();
         for a in action_space
             .activatable
             .iter()
             .chain(action_space.mana_abilities.iter())
         {
             let card_id = card_id_str(a.card_id);
+            let cost_info = ability_cost_info(context.game, a.card_id, a.ability_index);
             if a.is_mana_ability {
                 actions.extend(
                     mana_ability_actions(
@@ -786,6 +788,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
                         a.ability_index,
                         &a.description,
                         a.cost.clone(),
+                        cost_info,
                         a.produced_mana.clone(),
                         a.produced_mana_amount,
                     )
@@ -806,6 +809,7 @@ impl<R: Responder + 'static> PlayerAgent for PromptAgent<R> {
                         is_mana_ability: false,
                         is_class_level_up: Some(a.is_class_level_up),
                         produced_mana: None,
+                        cost_info,
                     }),
                 });
             }

@@ -55,6 +55,15 @@ A mana ability the player can activate while paying a cost
 
 <ProtocolType type="ActivatableAbilityInfo" />
 
+## AbilityCostInfo
+
+An ability's cost read from its parts, beside the `cost` text: the mana part,
+whether it sacrifices a permanent, whether a part is paid with the ability's
+own card, the loyalty it adds or removes, and the total power a tap-creatures
+cost needs (crew, saddle, station).
+
+<ProtocolType type="AbilityCostInfo" />
+
 ## AttackerOptionDto
 
 A creature that can attack, with the set of targets it may attack

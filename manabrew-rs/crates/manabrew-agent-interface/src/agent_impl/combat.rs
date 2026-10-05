@@ -308,7 +308,7 @@ pub(super) fn pay_combat_cost<T: Responder>(
         .shown_card(live, attacker)
         .map(|card| card.identity.name)
         .unwrap_or_default();
-    let mut actions = mana_payment_actions(mana_ability_options);
+    let mut actions = mana_payment_actions(live.game, mana_ability_options);
     for &land in untappable_lands {
         let id = card_id_str(land);
         actions.push(PaymentAction {

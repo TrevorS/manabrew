@@ -1,9 +1,10 @@
 use manabrew_engine::agent::{ManaAbilityOption, ManaCostAction};
+use manabrew_engine::game::GameState;
 use manabrew_engine::ids::{CardId, PlayerId};
 use manabrew_engine::mana::ManaPool;
 
 use crate::ids_codec::{card_id_str, parse_card_id};
-use crate::mana_action_id::{mana_ability_actions, parse_tap_action_id};
+use crate::mana_action_id::{ability_cost_info, mana_ability_actions, parse_tap_action_id};
 use crate::prompt::*;
 
 use super::{parse_express_mana_choice, Live, PromptAgent, Responder};
@@ -170,7 +171,7 @@ pub(super) fn pay_mana_cost<T: Responder>(
     _mana_pool: &ManaPool,
 ) -> ManaCostAction {
     let card_id_s = card_id_str(card_id);
-    let mut actions = mana_payment_actions(mana_ability_options);
+    let mut actions = mana_payment_actions(live.game, mana_ability_options);
     for &land in untappable_lands {
         let id = card_id_str(land);
         actions.push(PaymentAction {
@@ -208,6 +209,7 @@ pub(super) fn pay_mana_cost<T: Responder>(
 }
 
 pub(super) fn mana_payment_actions(
+    game: &GameState,
     mana_ability_options: &[ManaAbilityOption],
 ) -> Vec<PaymentAction> {
     mana_ability_options
@@ -218,6 +220,7 @@ pub(super) fn mana_payment_actions(
                 opt.ability_index,
                 &opt.description,
                 opt.cost.clone(),
+                ability_cost_info(game, opt.card_id, opt.ability_index),
                 opt.produced_mana.clone(),
                 opt.produced_mana_amount,
             )

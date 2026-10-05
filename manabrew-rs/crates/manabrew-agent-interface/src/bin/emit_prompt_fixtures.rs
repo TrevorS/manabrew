@@ -68,6 +68,7 @@ fn main() {
                         ability_index: 0,
                         description: "{T}: Add {G}.".into(),
                         cost: Some("{T}".into()),
+                        cost_info: None,
                         is_mana_ability: true,
                         is_class_level_up: Some(false),
                         produced_mana: Some(vec![Mana {

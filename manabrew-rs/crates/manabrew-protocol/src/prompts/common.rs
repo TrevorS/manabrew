@@ -92,6 +92,28 @@ pub struct ActivatableAbilityInfo {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub produced_mana: Option<Vec<Mana>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub cost_info: Option<AbilityCostInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "prompts/common.ts")]
+pub struct AbilityCostInfo {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub mana: Option<String>,
+    #[serde(default)]
+    pub sacrifice: bool,
+    #[serde(default)]
+    pub from_source: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub loyalty: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tap_power: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

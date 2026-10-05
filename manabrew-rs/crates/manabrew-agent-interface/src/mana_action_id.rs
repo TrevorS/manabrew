@@ -1,4 +1,10 @@
-use crate::prompt::{ActivatableAbilityInfo, Mana, ManaColor};
+use manabrew_engine::card::CounterType;
+use manabrew_engine::cost::cost_part::pay_cost_from_source;
+use manabrew_engine::cost::CostPart;
+use manabrew_engine::game::GameState;
+use manabrew_engine::ids::CardId;
+
+use crate::prompt::{AbilityCostInfo, ActivatableAbilityInfo, Mana, ManaColor};
 
 const ANY_COLOR_LETTERS: [&str; 5] = ["W", "U", "B", "R", "G"];
 
@@ -34,11 +40,58 @@ pub(crate) fn parse_tap_action_id(rest: &str) -> ParsedTapAction<'_> {
     }
 }
 
+pub(crate) fn ability_cost_info(
+    game: &GameState,
+    card_id: CardId,
+    ability_index: usize,
+) -> Option<AbilityCostInfo> {
+    let ability = game
+        .card(card_id)
+        .activated_abilities
+        .iter()
+        .find(|a| a.ability_index == ability_index)?;
+    let parts = &ability.cost.parts;
+    let mana: Vec<String> = parts
+        .iter()
+        .filter_map(|part| match part {
+            CostPart::Mana { cost, .. } => Some(cost.to_string()),
+            _ => None,
+        })
+        .collect();
+    Some(AbilityCostInfo {
+        mana: (!mana.is_empty()).then(|| mana.join(", ")),
+        sacrifice: parts
+            .iter()
+            .any(|part| matches!(part, CostPart::Sacrifice { .. })),
+        from_source: parts.iter().any(pay_cost_from_source),
+        loyalty: parts.iter().find_map(|part| match part {
+            CostPart::AddCounter {
+                amount,
+                counter_type: CounterType::Loyalty,
+                ..
+            } => Some(amount.as_literal().unwrap_or(0)),
+            CostPart::SubCounter {
+                amount,
+                counter_type: CounterType::Loyalty,
+                ..
+            } => Some(-amount.as_literal().unwrap_or(0)),
+            _ => None,
+        }),
+        tap_power: parts.iter().find_map(|part| match part {
+            CostPart::TapType {
+                min_total_power, ..
+            } => Some(min_total_power.unwrap_or(0)),
+            _ => None,
+        }),
+    })
+}
+
 pub(crate) fn mana_ability_actions(
     card_id: &str,
     ability_index: usize,
     description: &str,
     cost: Option<String>,
+    cost_info: Option<AbilityCostInfo>,
     produced_mana: Option<String>,
     produced_mana_amount: Option<i32>,
 ) -> Vec<(String, ActivatableAbilityInfo)> {
@@ -59,6 +112,7 @@ pub(crate) fn mana_ability_actions(
                     is_class_level_up: Some(false),
                     cost: cost.clone(),
                     produced_mana: choice.produced_mana,
+                    cost_info: cost_info.clone(),
                 },
             )
         })

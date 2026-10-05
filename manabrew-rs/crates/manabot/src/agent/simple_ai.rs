@@ -650,10 +650,7 @@ impl SimpleAi {
 
     fn wasted_activation(&self, info: &ActivatableAbilityInfo) -> bool {
         let text = info.description.to_ascii_lowercase();
-        if info
-            .cost
-            .as_deref()
-            .is_some_and(|cost| cost.to_ascii_lowercase().contains("sac"))
+        if info.cost_info.as_ref().is_some_and(|cost| cost.sacrifice)
             || text.contains("any player may activate")
             || (text.contains(" loses ") && !text.contains("life"))
         {
@@ -1727,7 +1724,11 @@ impl BotAgent for SimpleAi {
                         info,
                     ) => {
                         let key = format!("{}:{}", info.card_id, info.ability_index);
-                        (info.cost.as_deref().is_some_and(Self::costs_mana)
+                        (info
+                            .cost_info
+                            .as_ref()
+                            .and_then(|cost| cost.mana.as_deref())
+                            .is_some_and(Self::costs_mana)
                             && !self.attempted_mana_abilities.contains(&key))
                         .then_some((action, Some(key)))
                     }
