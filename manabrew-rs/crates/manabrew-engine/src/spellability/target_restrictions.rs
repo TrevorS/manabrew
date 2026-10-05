@@ -933,7 +933,14 @@ fn can_be_targeted_by_internal(
     source_sa: Option<&SpellAbility>,
 ) -> bool {
     let target = game.card(target_id);
-    let source_card_ref = source_card.map(|id| game.card(id));
+    let source_card_ref = source_card.map(|id| {
+        source_sa
+            .and_then(SpellAbility::host_zone_timestamp)
+            .map_or_else(
+                || game.card(id),
+                |zone_timestamp| game.get_change_zone_lki_info_at(id, zone_timestamp),
+            )
+    });
     if crate::staticability::static_ability_cant_target::cant_target(
         game,
         target,
@@ -971,12 +978,11 @@ fn can_be_targeted_by_internal(
     if target.has_hexproof()
         && target.controller != source_controller
         && !ignore_hexproof
-        && hexproof_cant_target(game, target, source_card, source_sa)
+        && hexproof_cant_target(game, target, source_card_ref, source_sa)
     {
         return false;
     }
-    if let Some(src_id) = source_card {
-        let src = game.card(src_id);
+    if let Some(src) = source_card_ref {
         // Check "Hexproof from <color>"
         if target.controller != source_controller {
             for color in &["white", "blue", "black", "red", "green"] {
@@ -1008,7 +1014,7 @@ fn can_be_targeted_by_internal(
 fn hexproof_cant_target(
     game: &GameState,
     target: &crate::card::Card,
-    source_card: Option<CardId>,
+    source_card: Option<&crate::card::Card>,
     source_sa: Option<&SpellAbility>,
 ) -> bool {
     [
@@ -1042,7 +1048,7 @@ fn hexproof_cant_target(
                 crate::spellability::matches_valid_sa(
                     &valid_type,
                     sa,
-                    source_card.map(|id| game.card(id)),
+                    source_card,
                     crate::card::valid_filter::MatchContext::new(target, game),
                 )
             });
@@ -1050,7 +1056,7 @@ fn hexproof_cant_target(
         source_card.is_some_and(|source| {
             valid_filter::matches_valid_card_selector_opt_in_game(
                 Some(&cached_compiled_selector(&valid_type)),
-                game.card(source),
+                source,
                 target,
                 game,
             )
