@@ -1,6 +1,6 @@
 use forge_foundation::ZoneType;
 
-use super::{emit_zone_trigger_with_lki_counters, matches_valid_cards_for_sa, EffectContext};
+use super::{matches_valid_cards_for_sa, EffectContext};
 use crate::ability::ability_utils::filter_list_by_type;
 use crate::event::RunParams;
 use crate::ids::CardId;
@@ -112,7 +112,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if result != ReplacementResult::NotReplaced {
             continue;
         }
-        let owner = ctx.game.card(card_id).owner;
         // Capture +1/+1 counter count before move (for Modular death triggers)
         let lki_p1p1 = *ctx
             .game
@@ -130,7 +129,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .card_mut(card_id)
                 .set_lki_power_toughness(Some(lki_power), Some(lki_toughness));
         }
-        ctx.move_card(card_id, ZoneType::Graveyard, owner);
         ctx.trigger_handler.run_trigger(
             TriggerType::Destroyed,
             RunParams {
@@ -142,21 +140,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             },
             false,
         );
-        emit_zone_trigger_with_lki_counters(
-            ctx.trigger_handler,
-            card_id,
-            ZoneType::Battlefield,
-            ZoneType::Graveyard,
-            lki_p1p1,
-            ctx.game
-                .card(card_id)
-                .lki_power
-                .unwrap_or_else(|| ctx.game.card(card_id).power()),
-            ctx.game
-                .card(card_id)
-                .lki_toughness
-                .unwrap_or_else(|| ctx.game.card(card_id).toughness()),
-        );
+        let lki_power = ctx
+            .game
+            .card(card_id)
+            .lki_power
+            .unwrap_or_else(|| ctx.game.card(card_id).power());
+        let lki_toughness = ctx
+            .game
+            .card(card_id)
+            .lki_toughness
+            .unwrap_or_else(|| ctx.game.card(card_id).toughness());
+        ctx.sacrifice_destroy(card_id, lki_p1p1, lki_power, lki_toughness);
         if remember_destroyed {
             if let Some(sid) = sa.source {
                 ctx.game.card_mut(sid).add_remembered_card(card_id);

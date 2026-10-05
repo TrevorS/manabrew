@@ -1,6 +1,6 @@
 use forge_foundation::ZoneType;
 
-use super::{emit_zone_trigger_with_lki_counters, EffectContext};
+use super::EffectContext;
 use crate::agent::DecisionContext;
 use crate::card::valid_filter;
 use crate::event::RunParams;
@@ -155,7 +155,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             continue;
         }
         let controller = ctx.game.card(card_id).controller;
-        let owner = ctx.game.card(card_id).owner;
         // Capture +1/+1 counter count before move (for Modular death triggers)
         let lki_p1p1 = *ctx
             .game
@@ -185,16 +184,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             },
             false,
         );
-        emit_zone_trigger_with_lki_counters(
-            ctx.trigger_handler,
-            card_id,
-            ZoneType::Battlefield,
-            ZoneType::Graveyard,
-            lki_p1p1,
-            lki_power,
-            lki_toughness,
-        );
-        ctx.move_card(card_id, ZoneType::Graveyard, owner);
+        ctx.sacrifice_destroy(card_id, lki_p1p1, lki_power, lki_toughness);
         ctx.trigger_handler.flush_waiting_triggers(ctx.game);
         if sa.ir.remember_sacrificed {
             if let Some(source_id) = sa.source {

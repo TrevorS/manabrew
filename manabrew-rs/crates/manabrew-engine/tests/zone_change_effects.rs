@@ -803,6 +803,38 @@ fn a_replacement_on_a_permanent_destroyed_by_the_same_effect_still_applies() {
     assert_eq!(game.card(bears).zone, ZoneType::Exile);
 }
 
+const DYING_WITNESS: &str = "Name:Dying Witness\nManaCost:1 W\nTypes:Creature Human\nPT:1/1\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ TrigGain | TriggerDescription$ When this creature dies, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
+
+fn wipe_under_death_warden(effect: &str) -> (GameState, CardId) {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    main_phase(&mut game, p1);
+    put(&mut game, DEATH_WARDEN, p0, ZoneType::Battlefield);
+    let witness = put(&mut game, DYING_WITNESS, p1, ZoneType::Battlefield);
+    let source = effect_source(&mut game, p1);
+    push_effect_entry(&mut game, p1, effect, None, None, Some(source));
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    (game, witness)
+}
+
+#[test]
+fn a_creature_destroyed_into_exile_by_a_replacement_does_not_die() {
+    let (game, witness) = wipe_under_death_warden("DB$ DestroyAll | ValidCards$ Creature");
+    assert_eq!(game.card(witness).zone, ZoneType::Exile);
+    assert_eq!(game.player(PlayerId(1)).life, 20);
+}
+
+#[test]
+fn a_creature_sacrificed_into_exile_by_a_replacement_does_not_die() {
+    let (game, witness) =
+        wipe_under_death_warden("DB$ SacrificeAll | ValidCards$ Creature.YouCtrl");
+    assert_eq!(game.card(witness).zone, ZoneType::Exile);
+    assert_eq!(game.player(PlayerId(1)).life, 20);
+}
+
 const BRASS_BAUBLE: &str = "Name:Brass Bauble\nManaCost:0\nTypes:Artifact\nOracle:";
 const RELIC_WATCHER: &str = "Name:Relic Watcher\nManaCost:1 W\nTypes:Creature Human\nPT:1/1\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Artifact.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever an artifact you control enters, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
 const KIN_WATCHER: &str = "Name:Kin Watcher\nManaCost:1 G\nTypes:Creature Elf\nPT:1/1\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.Other+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever another creature you control enters, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
