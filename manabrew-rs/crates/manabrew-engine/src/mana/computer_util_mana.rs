@@ -998,8 +998,7 @@ fn auto_tap_lands_internal_with_ctx(
                     );
                 }
             } else if !is_empty_combo_color_identity {
-                let _ = unpaid.try_pay_mana(chosen_atom, chosen_atom as u8);
-                for _ in 1..sa_payment.amount.max(1) {
+                for _ in 0..sa_payment.amount {
                     let _ = unpaid.try_pay_mana(chosen_atom, chosen_atom as u8);
                 }
                 for &atom in &trigger_atoms_for_non_incremental {
@@ -1473,7 +1472,7 @@ fn auto_pay_base_mana_string(
     chosen_atom: u16,
     callback: &mut Option<ManaPayCallbackFn<'_>>,
 ) -> String {
-    let base_amount = base_amount.max(1) as usize;
+    let base_amount = base_amount.max(0) as usize;
 
     // Empty Combo ColorIdentity produces nothing — `ManaEffect.resolve`.
     if ma
@@ -1534,7 +1533,7 @@ fn auto_pay_base_amount(game: &GameState, player: PlayerId, ma: &ManaAbilityRef)
 
 fn repeat_atoms_as_mana_string(atoms: &[u16], repeats: usize) -> String {
     let mut out = Vec::new();
-    for _ in 0..repeats.max(1) {
+    for _ in 0..repeats {
         for &atom in atoms {
             out.push(ManaPool::atom_to_letter(atom).to_string());
         }
@@ -3535,10 +3534,14 @@ pub fn can_pay_spell_mana_cost_with_sources<'a>(
         };
         let produced =
             if let Some(fixed_atoms) = fixed_output_atoms_for_payment(game, player, &sa_payment) {
-                let repeats = (sa_payment.amount.max(1) as usize)
-                    .checked_div(fixed_atoms.len().max(1))
-                    .unwrap_or(1)
-                    .max(1);
+                let repeats = if sa_payment.amount <= 0 {
+                    0
+                } else {
+                    (sa_payment.amount as usize)
+                        .checked_div(fixed_atoms.len().max(1))
+                        .unwrap_or(1)
+                        .max(1)
+                };
                 let adjusted_atoms = replacement_adjusted_atoms_for_payment(
                     game,
                     player,
