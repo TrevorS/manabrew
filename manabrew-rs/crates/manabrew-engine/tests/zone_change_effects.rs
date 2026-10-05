@@ -892,3 +892,46 @@ fn a_replacement_host_returned_by_an_earlier_sub_ability_no_longer_applies() {
     assert_eq!(game.card(bears).zone, ZoneType::Battlefield);
     assert!(!game.card(bears).tapped);
 }
+
+const RUDE_CLASS: &str = "Name:Rude Class\nManaCost:1 R\nTypes:Enchantment Class\nK:Class:2:1 R:AddTrigger$ TriggerDiscard\nSVar:TriggerDiscard:Mode$ Discarded | ValidCard$ Card.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigDamage | Secondary$ True | TriggerDescription$ Whenever you discard a card, this Class deals 2 damage to each opponent.\nSVar:TrigDamage:DB$ DealDamage | Defined$ Player.Opponent | NumDmg$ 2\nOracle:";
+
+#[test]
+fn a_class_that_leaves_the_battlefield_returns_at_level_one() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let class = put(&mut game, RUDE_CLASS, p0, ZoneType::Battlefield);
+    game.card_mut(class).set_class_level(2);
+
+    game.move_card(class, ZoneType::Exile, p0);
+    game.move_card(class, ZoneType::Battlefield, p0);
+
+    assert_eq!(game.card(class).class_level, 1);
+}
+
+#[test]
+fn a_goaded_creature_that_leaves_the_battlefield_returns_ungoaded() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let bears = game.create_card(make_grizzly_bears(p0));
+    game.move_card(bears, ZoneType::Battlefield, p0);
+    game.card_mut(bears).add_goad(p1);
+
+    game.move_card(bears, ZoneType::Exile, p0);
+    game.move_card(bears, ZoneType::Battlefield, p0);
+
+    assert_eq!(game.card(bears).goaded_by, None);
+}
+
+#[test]
+fn a_regeneration_shield_does_not_follow_a_creature_out_of_the_battlefield() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let bears = game.create_card(make_grizzly_bears(p0));
+    game.move_card(bears, ZoneType::Battlefield, p0);
+    game.card_mut(bears).regeneration_shields = 1;
+
+    game.move_card(bears, ZoneType::Hand, p0);
+    game.move_card(bears, ZoneType::Battlefield, p0);
+
+    assert_eq!(game.card(bears).regeneration_shields, 0);
+}

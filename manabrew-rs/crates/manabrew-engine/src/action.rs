@@ -878,6 +878,12 @@ impl GameState {
                 card.controller = card.owner;
                 card.is_bestowed = false;
                 card.reset_room_doors();
+                card.set_class_level(1);
+                card.set_renowned(false);
+                card.reset_regeneration_shields();
+                card.un_goad();
+                card.clear_encoded_cards();
+                card.clear_exerted();
                 // CR 400.7: a permanent that changes zones becomes a new
                 // object with no cast history. Mirrors Java's
                 // changeZone-creates-new-Card behaviour.
@@ -976,6 +982,12 @@ impl GameState {
                 card.controller = card.owner;
                 card.cast_from = None;
                 card.reset_room_doors();
+                card.set_class_level(1);
+                card.set_renowned(false);
+                card.reset_regeneration_shields();
+                card.un_goad();
+                card.clear_encoded_cards();
+                card.clear_exerted();
                 if !keep_counters {
                     card.counters.clear();
                 }
