@@ -1,5 +1,6 @@
 use parity::lockstep::{
-    guard_end, guard_unverified, java_error_end, java_timeout, Desync, LockstepEnd,
+    first_divergence, guard_end, guard_unverified, java_error_end, java_timeout, Desync,
+    LockstepEnd,
 };
 use parity::protocol::StateSnapshot;
 use serde_json::{json, Value};
@@ -187,4 +188,28 @@ fn a_java_timeout_after_agreeing_turns_is_listed_not_failing() {
     differing[1].players[0].life -= 1;
     let failure = java_timeout(&rust, &differing, timeout).expect_err("a differing turn");
     assert_eq!(failure.kind, "state");
+}
+
+#[test]
+fn a_state_difference_outranks_a_later_java_draw_whichever_arrives_first() {
+    let rust = vec![
+        snapshot(false, None, 20, false),
+        snapshot(false, None, 18, false),
+    ];
+    let mut java = rust.clone();
+    java[1].players[0].life = 19;
+    let java_draw = Desync {
+        kind: "draw".to_string(),
+        detail: "java: rust draw 125 bound 7, java bound 8".to_string(),
+    };
+    let rust_state = Desync {
+        kind: "state".to_string(),
+        detail: "turn 22 players[0].life: rust 18 java 19".to_string(),
+    };
+    let java_first = first_divergence(&rust, &java, java_draw.clone());
+    let rust_first = first_divergence(&rust, &java, rust_state);
+    assert_eq!(java_first.kind, "state");
+    assert_eq!(rust_first.kind, "state");
+    assert!(java_first.detail.starts_with(&rust_first.detail));
+    assert_eq!(first_divergence(&rust, &rust, java_draw.clone()), java_draw);
 }

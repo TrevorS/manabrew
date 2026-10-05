@@ -604,6 +604,16 @@ pub fn guard_unverified(
     })
 }
 
+pub fn first_divergence(rust: &[StateSnapshot], java: &[StateSnapshot], found: Desync) -> Desync {
+    match compare_snapshots(rust, java, 0) {
+        Some(earlier) if earlier.detail != found.detail => Desync {
+            kind: earlier.kind,
+            detail: format!("{} (then {}: {})", earlier.detail, found.kind, found.detail),
+        },
+        _ => found,
+    }
+}
+
 pub fn java_timeout(
     rust: &[StateSnapshot],
     java: &[StateSnapshot],
@@ -791,16 +801,12 @@ pub fn play(
         (None, false) => Finish::TurnCap,
     };
     let (java_end, overran, timed_out) = finish_java(&link, finish);
-    if let Some(found) = end.as_mut() {
-        let link = link.borrow();
-        if let Some(earlier) = compare_snapshots(&rust_snapshots(&shared_log), &link.snapshots, 0) {
-            if earlier.detail != found.detail {
-                *found = Desync {
-                    kind: earlier.kind,
-                    detail: format!("{} (then {}: {})", earlier.detail, found.kind, found.detail),
-                };
-            }
-        }
+    if let Some(found) = end.take() {
+        end = Some(first_divergence(
+            &rust_snapshots(&shared_log),
+            &link.borrow().snapshots,
+            found,
+        ));
     }
     let mut special = end
         .as_ref()
@@ -888,9 +894,9 @@ pub fn play(
                 kind: "sequence".to_string(),
                 detail: "java did not end the game with rust".to_string(),
             }),
-            Some(java) => {
-                java_desync(java).filter(|d| !(finish == Finish::TurnCap && d.kind == "abort"))
-            }
+            Some(java) => java_desync(java)
+                .filter(|d| !(finish == Finish::TurnCap && d.kind == "abort"))
+                .map(|found| first_divergence(&rust, &link.borrow().snapshots, found)),
         };
     }
     if let Some(java) = java_end.as_ref().filter(|java| {
