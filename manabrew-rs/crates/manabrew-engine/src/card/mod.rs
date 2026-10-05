@@ -1228,9 +1228,11 @@ impl Card {
     }
 
     pub fn clone_for_parity_snapshot(&self) -> Self {
-        // The traits are left out without being cloned first: this runs for every card
-        // before every parity decision. The literal is exhaustive on purpose, so a new
-        // field fails to compile here until it is copied.
+        // Triggers and activated abilities are left out without being cloned first: this runs
+        // for every card before every parity decision. Replacement effects are shared, not
+        // copied, because the agent's damage prediction reads them, as Java's
+        // `GameEntity.staticDamagePrevention` does. The literal is exhaustive on purpose, so a
+        // new field fails to compile here until it is copied.
         Card {
             id: self.id,
             card_name: self.card_name.clone(),
@@ -1330,7 +1332,7 @@ impl Card {
             is_token: self.is_token,
             cast_with_flashback: self.cast_with_flashback,
             cast_with_harmonize: self.cast_with_harmonize,
-            replacement_effects: Vec::new().into(),
+            replacement_effects: self.replacement_effects.clone(),
             attached_to: self.attached_to,
             attached_to_player: self.attached_to_player,
             attached_this_turn: self.attached_this_turn,
@@ -1603,7 +1605,8 @@ impl Card {
             .clone_from(&self.cast_with_flashback);
         out.cast_with_harmonize
             .clone_from(&self.cast_with_harmonize);
-        out.replacement_effects.clear();
+        out.replacement_effects
+            .clone_from(&self.replacement_effects);
         out.attached_to.clone_from(&self.attached_to);
         out.attached_to_player.clone_from(&self.attached_to_player);
         out.attached_this_turn.clone_from(&self.attached_this_turn);

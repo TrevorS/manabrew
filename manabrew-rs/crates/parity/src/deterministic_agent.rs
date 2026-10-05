@@ -2806,8 +2806,42 @@ mod tests {
     use forge_foundation::ZoneType;
     use manabrew_engine::card::CardInstance;
 
+    const WARDED_BEAR: &str = "Name:Warded Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nR:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | Prevent$ True | Description$ Prevent all damage that would be dealt to CARDNAME.\nOracle:";
+    const HILL_GIANT: &str = "Name:Hill Giant\nManaCost:3 R\nTypes:Creature Giant\nPT:3/3\nOracle:";
     const KAITO: &str = "Name:Kaito, Bane of Nightmares\nManaCost:2 U B\nTypes:Legendary Planeswalker Kaito\nLoyalty:4\nOracle:";
     const ROOM: &str = "Name:Zesty Annex\nManaCost:2 B\nTypes:Enchantment Room\nAlternateMode:Split\nOracle:\n\nALTERNATE\n\nName:Alpha Chamber\nManaCost:3 B B\nTypes:Enchantment Room\nOracle:";
+
+    #[test]
+    fn the_snapshot_damage_prediction_sees_a_printed_prevention_replacement() {
+        let mut game = GameState::new(&["Player1", "Player2"], 20);
+        let p0 = PlayerId(0);
+        let p1 = PlayerId(1);
+        let bear = game.create_card(CardInstance::from_rules(
+            &parse_card_script(WARDED_BEAR).expect("script"),
+            p1,
+        ));
+        game.move_card(bear, ZoneType::Battlefield, p1);
+        let giant = game.create_card(CardInstance::from_rules(
+            &parse_card_script(HILL_GIANT).expect("script"),
+            p0,
+        ));
+        game.move_card(giant, ZoneType::Battlefield, p0);
+        let pools = vec![ManaPool::new(), ManaPool::new()];
+        let mut agent = DeterministicAgent::new(
+            p0,
+            VerboseMode::Off,
+            Rc::new(RefCell::new(JavaRandom::new(0))),
+            false,
+            Arc::new(ParityCardMap::default()),
+            None,
+        );
+        agent.snapshot_state(&game, &pools);
+        let snapshot = agent.snapshot_game().expect("snapshot").clone();
+        assert_eq!(
+            agent.predicted_damage_to_card(&snapshot, bear, 3, giant, true),
+            0
+        );
+    }
 
     #[test]
     fn players_and_cards_are_offered_in_the_harness_name_order() {
