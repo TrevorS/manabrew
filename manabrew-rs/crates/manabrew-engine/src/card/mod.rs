@@ -708,6 +708,9 @@ pub struct Card {
     /// True if this card is currently showing its back face.
     pub is_transformed: bool,
     pub transform_count: u32,
+    /// The state an LKI copy keeps whatever zone it is given (Java `CardCopyService.getLKICopy`
+    /// copies `currentState`).
+    pub lki_state_name: Option<CardStateName>,
     /// Back-face characteristics for DFC cards. `None` for single-faced cards.
     pub other_part: Option<CardOtherPart>,
 
@@ -1115,6 +1118,7 @@ impl Card {
             original_controller_eot: None,
             is_transformed: false,
             transform_count: 0,
+            lki_state_name: None,
             other_part: None,
             set_code: None,
             card_number: None,
@@ -1368,6 +1372,7 @@ impl Card {
             original_controller_eot: self.original_controller_eot,
             is_transformed: self.is_transformed,
             transform_count: self.transform_count,
+            lki_state_name: self.lki_state_name,
             other_part: self
                 .other_part
                 .as_ref()
@@ -1662,6 +1667,7 @@ impl Card {
             .clone_from(&self.original_controller_eot);
         out.is_transformed.clone_from(&self.is_transformed);
         out.transform_count.clone_from(&self.transform_count);
+        out.lki_state_name = self.lki_state_name;
         match (&mut out.other_part, &self.other_part) {
             (Some(out_other), Some(other)) => other.refresh_parity_snapshot(out_other),
             (out_other, other) => {
@@ -5307,6 +5313,9 @@ impl Card {
     }
 
     pub fn get_current_state_name(&self) -> CardStateName {
+        if let Some(state) = self.lki_state_name {
+            return state;
+        }
         match &self.other_part {
             Some(other) if self.is_transformed => other.state_name,
             Some(other) if other.state_name == CardStateName::RightSplit => match self.zone {

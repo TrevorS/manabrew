@@ -20,8 +20,19 @@ pub fn cant_be_cast_ability(
     cant_be_cast_ability_in_context(&game.cards, spell, card, activator, game)
 }
 
-fn restriction_host(card: &Card, spell: &SpellAbility) -> Card {
+fn restriction_host(game: &GameState, card: &Card, spell: &SpellAbility) -> Card {
     let mut host = card.clone();
+    if card
+        .other_part
+        .as_ref()
+        .is_some_and(|other| other.state_name == forge_foundation::CardStateName::RightSplit)
+    {
+        if game.mirror_forge_bugs {
+            host.lki_state_name = Some(card.get_current_state_name());
+        } else {
+            host.set_split_state_to_play_ability(spell);
+        }
+    }
     host.zone = ZoneType::Stack;
     host.cast_from = Some(card.zone);
     host.cast_sa = Some(Box::new(spell.clone()));
@@ -50,7 +61,7 @@ pub fn cant_be_cast_ability_from_zone(
         && cant_be_cast_ability_in_context(
             cards,
             spell,
-            &restriction_host(card, spell),
+            &restriction_host(game, card, spell),
             activator,
             game,
         )
@@ -402,6 +413,40 @@ mod tests {
 
     const PREPARING_SCHOLAR: &str = "Name:Preparing Scholar\nManaCost:3 U U\nTypes:Creature Human Wizard\nPT:5/5\nAlternateMode:Prepare\nOracle:\n\nALTERNATE\n\nName:Quick Recall\nManaCost:U\nTypes:Instant\nA:SP$ Draw | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
     const VOICE_OF_VICTORY: &str = "Name:Voice of Victory\nManaCost:1 W\nTypes:Creature Human Bard\nPT:1/3\nS:Mode$ CantBeCast | ValidCard$ Card | Condition$ PlayerTurn | Caster$ Opponent | Description$ Your opponents can't cast spells during your turn.\nOracle:";
+
+    const UNHOLY_ANNEX: &str = "Name:Unholy Annex\nManaCost:2 B\nTypes:Enchantment Room\nAlternateMode:Split\nOracle:\n\nALTERNATE\n\nName:Ritual Chamber\nManaCost:3 B B\nTypes:Enchantment Room\nOracle:";
+
+    fn split_copy_mana_values(mirror_forge_bugs: bool) -> (i32, i32) {
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.mirror_forge_bugs = mirror_forge_bugs;
+        let p0 = PlayerId(0);
+        let rules = forge_carddb::parse_card_script(UNHOLY_ANNEX).expect("script");
+        let annex = game.create_card(Card::from_rules(&rules, p0));
+        game.move_card(annex, ZoneType::Hand, p0);
+        let left = crate::spellability::build_spell_ability_for_card_cast(&game, annex, p0);
+        let (_, right) = crate::spellability::build_spell_ability_for_card_state_cast(
+            &game,
+            annex,
+            p0,
+            forge_foundation::CardStateName::RightSplit,
+        )
+        .expect("right half");
+        let card = game.card(annex);
+        (
+            restriction_host(&game, card, &left).mana_value(),
+            restriction_host(&game, card, &right).mana_value(),
+        )
+    }
+
+    #[test]
+    fn the_cant_be_cast_copy_of_a_split_card_has_the_cast_halfs_mana_value() {
+        assert_eq!(split_copy_mana_values(false), (3, 5));
+    }
+
+    #[test]
+    fn the_cant_be_cast_copy_of_a_split_card_has_the_combined_mana_value_as_forge_reads_it() {
+        assert_eq!(split_copy_mana_values(true), (8, 8));
+    }
 
     #[test]
     fn a_negated_filter_matches_a_prepared_spell_in_exile_as_forge_does() {
