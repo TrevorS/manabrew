@@ -395,6 +395,14 @@ impl GameState {
             self.card_mut(card_id).set_zone(ZoneType::None);
             return;
         }
+        // Rules 304.4 and 307.4 (GameAction.changeZone): an instant or sorcery card that would
+        // enter the battlefield stays in its previous zone.
+        if dest_zone == ZoneType::Battlefield && {
+            let type_line = &self.cards[card_id.index()].type_line;
+            type_line.is_instant() || type_line.is_sorcery()
+        } {
+            return;
+        }
         if crate::game_loop::GameLoop::card_trace_matches(&self.cards[card_id.index()].card_name) {
             eprintln!(
                 "[card-trace] move {} {:?} {:?} -> {:?} (owner={:?} sick={} cast_from={:?})",

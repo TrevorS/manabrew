@@ -232,3 +232,17 @@ fn a_card_exiled_until_a_token_leaves_returns_when_the_token_leaves() {
     assert_eq!(game.card(token).zone, ZoneType::None);
     assert_eq!(game.card(bears).zone, ZoneType::Battlefield);
 }
+
+#[test]
+fn a_sorcery_card_exiled_until_its_exiler_leaves_stays_in_exile() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let cell = put(&mut game, CELL, p0, ZoneType::Battlefield);
+    let sorcery = put(&mut game, SHATTER, p1, ZoneType::Exile);
+    game.card_mut(sorcery).exiled_by = Some(cell);
+    game.card_mut(sorcery).until_host_leaves_origin = Some(ZoneType::Battlefield);
+
+    game.move_card(cell, ZoneType::Graveyard, p0);
+
+    assert_eq!(game.card(sorcery).zone, ZoneType::Exile);
+}
