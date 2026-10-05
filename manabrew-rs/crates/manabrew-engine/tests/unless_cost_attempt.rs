@@ -428,3 +428,26 @@ fn the_harness_mirror_does_not_count_the_unless_ability_host_toward_a_waterbend_
     assert_eq!(game.player(p1).life, 17);
     assert!(!game.card(host).tapped);
 }
+
+#[test]
+fn an_unless_cost_only_restricted_battlefield_mana_could_pay_is_not_offered() {
+    let (outcome, asked) = resolve_unless_with_asked(&[TABLET], "2", 0, false, false);
+    assert_eq!(asked, 0);
+    assert_eq!(outcome.payer_life, 17);
+    assert_eq!(outcome.payer_permanents_tapped, vec![false]);
+}
+
+#[test]
+fn an_unless_cost_only_restricted_floating_mana_could_pay_is_not_offered() {
+    let (outcome, asked) = resolve_unless_with_asked(&[], "1", 0, true, false);
+    assert_eq!(asked, 0);
+    assert_eq!(outcome.payer_life, 17);
+}
+
+#[test]
+fn a_payable_unless_cost_is_still_offered_and_paid() {
+    let (outcome, asked) = resolve_unless_with_asked(&[FOREST], "1", 0, false, false);
+    assert_eq!(asked, 1);
+    assert_eq!(outcome.payer_life, 20);
+    assert_eq!(outcome.payer_permanents_tapped, vec![true]);
+}

@@ -382,6 +382,27 @@ pub(crate) fn pay_mana_cost_for_effect(
     pay_mana_cost_for_effect_spending(ctx, payer, source, mana_cost, attempt_unpayable).is_some()
 }
 
+/// Keep in sync with `pay_mana_cost_for_effect_spending`: an effect's mana is offered only
+/// when that payment's dry run would let it go ahead.
+fn effect_mana_parts_payable(
+    ctx: &EffectContext,
+    payer: PlayerId,
+    source: CardId,
+    cost: &Cost,
+) -> bool {
+    cost.parts.iter().all(|part| match part {
+        CostPart::Mana {
+            cost: mana_cost, ..
+        } => {
+            let payable_mana_cost =
+                crate::mana::apply_player_life_payment_keywords(ctx.game, payer, mana_cost);
+            payable_mana_cost.is_zero()
+                || can_auto_pay_mana_cost_for_effect(ctx, payer, source, &payable_mana_cost)
+        }
+        _ => true,
+    })
+}
+
 pub(crate) fn pay_mana_cost_for_effect_spending(
     ctx: &mut EffectContext,
     payer: PlayerId,
@@ -1226,7 +1247,7 @@ pub(super) fn resolve_effect_with_unless_cost(
                 source,
                 payer,
                 Some(sa),
-            )
+            ) && effect_mana_parts_payable(ctx, payer, source, &cost)
         };
         if !can_pay {
             continue;
