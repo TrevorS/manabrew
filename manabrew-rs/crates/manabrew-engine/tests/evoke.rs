@@ -22,6 +22,7 @@ const SPRITE: &str = "Name:Evoke Sprite\nManaCost:3 U\nTypes:Creature Elemental\
 const TORPOR_ORB: &str = "Name:Torpor Orb\nManaCost:2\nTypes:Artifact\nS:Mode$ DisableTriggers | ValidCause$ Creature | ValidMode$ ChangesZone,ChangesZoneAll | Destination$ Battlefield | Description$ Creatures entering don't cause abilities to trigger.\nOracle:";
 const ADAMANT_SPRITE: &str = "Name:Adamant Sprite\nManaCost:3 U\nTypes:Creature Elemental\nPT:1/1\nK:Evoke:U U\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | CheckSVar$ CastSA>Count$Adamant_2.Blue.2.0 | ValidCard$ Card.Self | Execute$ TrigGainLife | TriggerDescription$ When this creature enters, if {U}{U} was spent to cast it, you gain 3 life.\nSVar:TrigGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 3\nOracle:";
 const BIG_SPELL_SPRING: &str = "Name:Big Spell Spring\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ U | Amount$ 2 | RestrictValid$ Spell.cmcGE4 | SpellDescription$ Add {U}{U}. Spend this mana only to cast spells with mana value 4 or greater.\nOracle:";
+const EXILE_CASTER: &str = "Name:Exile Caster\nManaCost:1\nTypes:Artifact\nS:Mode$ Continuous | Affected$ Card.YouOwn+nonLand | AffectedZone$ Exile | MayPlay$ True | Description$ You may cast spells you own from exile.\nOracle:";
 const EVOKE_GRANTER: &str = "Name:Evoke Granter\nManaCost:2 R\nTypes:Creature Elemental\nPT:2/2\nS:Mode$ Continuous | Affected$ Permanent.Elemental+YouOwn | AffectedZone$ Hand | AddKeyword$ Evoke:2 | Description$ Elemental permanent spells you cast from your hand have evoke {2}.\nOracle:";
 
 #[derive(Default)]
@@ -252,11 +253,14 @@ fn the_printed_evoke_cast_beside_a_granted_one_has_one_sacrifice_trigger() {
     assert_eq!(evoked.zone, ZoneType::Graveyard);
 }
 
-fn evoke_offered(lands: &[&str], mirror_forge_bugs: bool) -> bool {
+fn evoke_offered(lands: &[&str], mirror_forge_bugs: bool, zone: ZoneType) -> bool {
     let mut game = GameState::new(&["Alice", "Bob"], 20);
     game.mirror_forge_bugs = mirror_forge_bugs;
     let p0 = PlayerId(0);
-    put(&mut game, SPRITE, p0, ZoneType::Hand);
+    put(&mut game, SPRITE, p0, zone);
+    if zone == ZoneType::Exile {
+        put(&mut game, EXILE_CASTER, p0, ZoneType::Battlefield);
+    }
     for script in lands {
         put(&mut game, script, p0, ZoneType::Battlefield);
     }
@@ -279,14 +283,18 @@ fn evoke_offered(lands: &[&str], mirror_forge_bugs: bool) -> bool {
 
 #[test]
 fn mana_for_big_spells_pays_an_evoke_of_a_big_spell() {
-    assert!(evoke_offered(&[ISLAND], false));
-    assert!(evoke_offered(&[BIG_SPELL_SPRING], false));
+    for zone in [ZoneType::Hand, ZoneType::Exile] {
+        assert!(evoke_offered(&[ISLAND], false, zone));
+        assert!(evoke_offered(&[BIG_SPELL_SPRING], false, zone));
+    }
 }
 
 #[test]
 fn mana_for_big_spells_does_not_pay_an_evoke_as_forge_reads_it() {
-    assert!(evoke_offered(&[ISLAND], true));
-    assert!(!evoke_offered(&[BIG_SPELL_SPRING], true));
+    for zone in [ZoneType::Hand, ZoneType::Exile] {
+        assert!(evoke_offered(&[ISLAND], true, zone));
+        assert!(!evoke_offered(&[BIG_SPELL_SPRING], true, zone), "{zone:?}");
+    }
 }
 
 #[test]

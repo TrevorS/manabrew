@@ -196,6 +196,10 @@ impl GameLoop {
             .as_ref()
             .map(|rc| Self::raise_mana_from_cost(game, rc, card_id, player))
             .unwrap_or_else(|| forge_foundation::ManaCost::generic(0));
+        let pay_cost = alt_cost.map_or_else(
+            || forge_foundation::ManaCost::generic(crate::spellability::MORPH_GENERIC_COST),
+            Self::mana_from_cost,
+        );
         let mana = crate::cost::cost_adjustment::compute_cost_adjustment_for_payment(
             game,
             &host,
@@ -204,13 +208,15 @@ impl GameLoop {
             &[],
             &crate::cost::cost_adjustment::probe_spell_ability(&host, player, true),
         )
-        .apply(&alt_cost.map_or_else(
-            || forge_foundation::ManaCost::generic(crate::spellability::MORPH_GENERIC_COST),
-            Self::mana_from_cost,
-        ))
+        .apply(&pay_cost)
         .add(&raise_mana);
         let payment_ctx = mana::ManaPaymentContext {
             is_cast_face_down: true,
+            mana_value: Some(crate::mana::spell_restriction_mana_value(
+                game,
+                host.mana_value(),
+                pay_cost.cmc(),
+            )),
             ..Self::spell_payment_context(&host, chosen_types_by_source)
         };
         let mana_ok = crate::mana::can_pay_spell_mana_cost_for_action_space(
@@ -302,7 +308,14 @@ impl GameLoop {
                 &cost_adj.apply(&base_cost).add(&raise_mana),
             ),
         );
-        let payment_ctx = Self::spell_payment_context(card, chosen_types_by_source);
+        let payment_ctx = mana::ManaPaymentContext {
+            mana_value: Some(crate::mana::spell_restriction_mana_value(
+                game,
+                card.mana_value(),
+                base_cost.cmc(),
+            )),
+            ..Self::spell_payment_context(card, chosen_types_by_source)
+        };
         let mana_ok = if any_color {
             if let Some(order) = self.action_space_probe_order(game) {
                 order.rotate(
@@ -2944,6 +2957,41 @@ mod tests {
                 forge_foundation::mana::ManaAtom::BLUE
             ]
         );
+    }
+
+    const MORPH_BEAR: &str =
+        "Name:Morph Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nK:Morph:G\nOracle:";
+    const BIG_SPELL_SPRING: &str = "Name:Big Spell Spring\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ C | Amount$ 3 | RestrictValid$ Spell.cmcGE3 | SpellDescription$ Add {C}{C}{C}.\nOracle:";
+
+    fn face_down_cast_offered(mirror_forge_bugs: bool) -> bool {
+        let player = PlayerId(0);
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.mirror_forge_bugs = mirror_forge_bugs;
+        game.action_space_mana_probe = crate::mana::ActionSpaceManaProbe::ComputerUtilMana;
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        for (script, zone) in [
+            (MORPH_BEAR, ZoneType::Hand),
+            (BIG_SPELL_SPRING, ZoneType::Battlefield),
+        ] {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, player));
+            game.move_card(card, zone, player);
+        }
+        GameLoop::new(2)
+            .get_playable_cards(&game, player, false)
+            .iter()
+            .any(|option| {
+                option.mode
+                    == crate::agent::PlayCardMode::Alternative(
+                        crate::spellability::AlternativeCost::Morph,
+                    )
+            })
+    }
+
+    #[test]
+    fn mana_for_big_spells_pays_a_face_down_cast_only_as_forge_reads_it() {
+        assert!(!face_down_cast_offered(false));
+        assert!(face_down_cast_offered(true));
     }
 
     #[test]
