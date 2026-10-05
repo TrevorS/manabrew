@@ -20,9 +20,11 @@ pub fn cant_be_cast_ability(
     cant_be_cast_ability_in_context(&game.cards, spell, card, activator, game)
 }
 
-fn restriction_host(card: &Card) -> Card {
+fn restriction_host(card: &Card, spell: &SpellAbility) -> Card {
     let mut host = card.clone();
+    host.zone = ZoneType::Stack;
     host.cast_from = Some(card.zone);
+    host.cast_sa = Some(Box::new(spell.clone()));
     if card.stale_face_down {
         host.turn_face_down_no_update();
         host.set_original_state_as_face_down();
@@ -33,9 +35,10 @@ fn restriction_host(card: &Card) -> Card {
     host
 }
 
-/// Mirrors Java `AiController.canPlaySa`: `CantBeCast` statics are normally
-/// evaluated after `moveToStack`, so a pre-cast probe has to supply the origin
-/// zone itself or every `Origin$` / `wasCastFrom*` restriction misreads.
+/// Mirrors the pre-cast copy of Java `AiController.canPlaySa` (AiController.java:987-993) and
+/// the harness's `ActionSpace.spellHost` (ActionSpace.java:389-403): `CantBeCast` statics are
+/// normally evaluated after `moveToStack`, so a pre-cast probe asks an LKI copy on the stack,
+/// cast from the card's zone, with the spell as its cast ability.
 pub fn cant_be_cast_ability_from_zone(
     cards: &[Arc<Card>],
     spell: &SpellAbility,
@@ -44,7 +47,13 @@ pub fn cant_be_cast_ability_from_zone(
     game: &GameState,
 ) -> bool {
     has_cant_be_cast_ability(cards, card)
-        && cant_be_cast_ability_in_context(cards, spell, &restriction_host(card), activator, game)
+        && cant_be_cast_ability_in_context(
+            cards,
+            spell,
+            &restriction_host(card, spell),
+            activator,
+            game,
+        )
 }
 
 /// Keep in sync with the source and static filters of `cant_be_cast_ability_in_context`.
@@ -385,3 +394,40 @@ pub fn apply_cant_play_land_ability(
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ids::PlayerId;
+
+    const PREPARING_SCHOLAR: &str = "Name:Preparing Scholar\nManaCost:3 U U\nTypes:Creature Human Wizard\nPT:5/5\nAlternateMode:Prepare\nOracle:\n\nALTERNATE\n\nName:Quick Recall\nManaCost:U\nTypes:Instant\nA:SP$ Draw | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
+    const VOICE_OF_VICTORY: &str = "Name:Voice of Victory\nManaCost:1 W\nTypes:Creature Human Bard\nPT:1/3\nS:Mode$ CantBeCast | ValidCard$ Card | Condition$ PlayerTurn | Caster$ Opponent | Description$ Your opponents can't cast spells during your turn.\nOracle:";
+
+    #[test]
+    fn an_opponents_turn_cant_be_cast_static_stops_a_prepared_spell_in_exile() {
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        let rules = forge_carddb::parse_card_script(PREPARING_SCHOLAR).expect("script");
+        let mut prepared = Card::from_rules(&rules, p0);
+        prepared.set_is_token(true);
+        prepared.transform();
+        prepared.zone = ZoneType::Exile;
+        let prepared = game.create_card(prepared);
+        game.add_card_to_zone(ZoneType::Exile, p0, prepared);
+        let rules = forge_carddb::parse_card_script(VOICE_OF_VICTORY).expect("script");
+        let voice = game.create_card(Card::from_rules(&rules, p1));
+        game.move_card(voice, ZoneType::Battlefield, p1);
+        game.turn.active_player = p1;
+
+        let card = game.card(prepared);
+        assert!(card.is_in_prepared_spell_state() && card.zone == ZoneType::Exile);
+        let spell = crate::spellability::build_spell_ability_for_card_cast(&game, prepared, p0);
+        assert!(cant_be_cast_ability_from_zone(
+            &game.cards,
+            &spell,
+            card,
+            p0,
+            &game
+        ));
+    }
+}
