@@ -1128,21 +1128,33 @@ pub(crate) fn harness_can_pay_cost_to_prevent_effect(
     cost: &crate::cost::Cost,
 ) -> bool {
     let payment_ctx = crate::mana::ManaPaymentContext::default();
-    let mana_part = cost
+    // Java's `CostWaterbend` extends `CostPartMana` (CostWaterbend.java), and test mode clears
+    // `maxWaterbend` for a payer that is not the AI (ComputerUtilMana.java:1222-1227), so a
+    // Waterbend part is that much generic mana here.
+    let mana_cost = cost
         .parts
         .iter()
-        .find(|part| matches!(part, CostPart::Mana { .. }));
+        .fold(None, |total: Option<ManaCost>, part| {
+            let mana = match part {
+                CostPart::Mana { .. } => {
+                    crate::cost::cost_part_mana::get_mana_cost_for(game, source, Some(sa), part)
+                }
+                CostPart::Waterbend { amount } => {
+                    ManaCost::generic(amount.resolve(game, source, payer))
+                }
+                _ => return total,
+            };
+            Some(total.map_or(mana.clone(), |total| total.add(&mana)))
+        });
     let can_pay_cost =
         crate::cost::can_pay_ignoring_mana_with_ability(cost, game, source, payer, sa)
-            && mana_part.is_none_or(|part| {
-                let mana_cost =
-                    crate::cost::cost_part_mana::get_mana_cost_for(game, source, Some(sa), part);
+            && mana_cost.as_ref().is_none_or(|mana_cost| {
                 can_pay_mana_cost(
                     game,
                     pool,
                     payer,
                     source,
-                    &mana_cost,
+                    mana_cost,
                     &payment_ctx,
                     &sa.target_chosen.all_target_cards(),
                     None,
@@ -1151,20 +1163,22 @@ pub(crate) fn harness_can_pay_cost_to_prevent_effect(
     if can_pay_cost {
         return true;
     }
-    let only_mana = mana_part.is_some()
-        && cost
-            .parts
-            .iter()
-            .all(|part| matches!(part, CostPart::Mana { .. }));
+    let Some(mana_cost) = mana_cost else {
+        return false;
+    };
+    let only_mana = cost
+        .parts
+        .iter()
+        .all(|part| matches!(part, CostPart::Mana { .. } | CostPart::Waterbend { .. }));
     let excluded_source =
         (!sa.is_spell && game.card(source).zone == ZoneType::Battlefield).then_some(source);
     only_mana
-        && can_pay_mana_cost_with_reserved_sacrifices(
+        && can_pay_mana_cost_from_current_sources(
             game,
             pool,
             payer,
             excluded_source,
-            cost,
+            &mana_cost,
             &[],
             Some(&payment_ctx),
         )
@@ -3356,7 +3370,27 @@ pub fn can_pay_mana_cost_with_reserved_sacrifices(
     reserved_sacrifices: &[CardId],
     payment_ctx: Option<&crate::mana::ManaPaymentContext>,
 ) -> bool {
-    let mana_cost = mana_cost_from_cost(cost);
+    can_pay_mana_cost_from_current_sources(
+        game,
+        pool,
+        player,
+        excluded_source,
+        &mana_cost_from_cost(cost),
+        reserved_sacrifices,
+        payment_ctx,
+    )
+}
+
+/// `ActionSpace.canPayManaCostFromCurrentSources` (ActionSpace.java:633-645).
+fn can_pay_mana_cost_from_current_sources(
+    game: &GameState,
+    pool: &ManaPool,
+    player: PlayerId,
+    excluded_source: Option<CardId>,
+    mana_cost: &ManaCost,
+    reserved_sacrifices: &[CardId],
+    payment_ctx: Option<&crate::mana::ManaPaymentContext>,
+) -> bool {
     let mut source_masks: Vec<u16> = Vec::new();
 
     for _ in 0..pool.white() {

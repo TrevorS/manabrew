@@ -19,9 +19,13 @@ use manabrew_engine::spellability::{SpellAbility, StackEntry};
 const FOREST: &str = "Name:Forest\nManaCost:no cost\nTypes:Basic Land Forest\nOracle:";
 const TABLET: &str = "Name:Spell Tablet\nManaCost:2\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ R | SpellDescription$ Add {R}.\nA:AB$ Mana | Cost$ T | Produced$ R | Amount$ 2 | RestrictValid$ Spell.Instant,Spell.Sorcery | SpellDescription$ Add {R}{R}. Spend this mana only to cast instant and sorcery spells.\nOracle:";
 const TAX_INSTANT: &str = "Name:Tax Instant\nManaCost:R\nTypes:Instant\nA:SP$ LoseLife | Defined$ Opponent | LifeAmount$ 3 | UnlessCost$ 1 | UnlessPayer$ Opponent | SpellDescription$ Each opponent loses 3 life unless they pay {1}.\nOracle:";
+const BEAR: &str = "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:";
 const EFFECT_SOURCE: &str = "Name:Effect Source\nManaCost:no cost\nTypes:Artifact\nOracle:";
 
-struct WillingPayer(Rc<Cell<usize>>);
+struct WillingPayer {
+    mana_asked: Rc<Cell<usize>>,
+    prevent_asked: Rc<Cell<usize>>,
+}
 
 impl PlayerAgent for WillingPayer {
     fn choose_targets_for(&mut self, _: &mut SpellAbility, _: &GameState, _: &[ManaPool]) -> bool {
@@ -95,7 +99,7 @@ impl PlayerAgent for WillingPayer {
         PassAgent.choose_land_or_spell(c, p)
     }
     fn choose_mana_from_pool(&mut self, _: DecisionContext<'_>, _: PlayerId, _: &[Mana]) -> usize {
-        self.0.set(self.0.get() + 1);
+        self.mana_asked.set(self.mana_asked.get() + 1);
         0
     }
     #[allow(clippy::too_many_arguments)]
@@ -131,6 +135,7 @@ impl PlayerAgent for WillingPayer {
         _: &[GameEntity],
         _: &str,
     ) -> bool {
+        self.prevent_asked.set(self.prevent_asked.get() + 1);
         true
     }
 }
@@ -162,13 +167,13 @@ fn resolve_unless(
     )
 }
 
-fn resolve_unless_with(
+fn resolve_unless_with_asked(
     payer_permanents: &[&str],
     unless_cost: &str,
     x_paid: u32,
     restricted_floating_mana: bool,
     harness_mirror: bool,
-) -> Outcome {
+) -> (Outcome, usize) {
     let mut game = GameState::new(&["Alice", "Bob"], 20);
     let (p0, p1) = (PlayerId(0), PlayerId(1));
     game.turn.active_player = p0;
@@ -206,16 +211,42 @@ fn resolve_unless_with(
         mana.restriction = Some("Spell.Instant,Spell.Sorcery".to_string());
         game_loop.mana_pools[1].add_mana(mana);
     }
-    let mut agents: Vec<Box<dyn PlayerAgent>> =
-        vec![Box::new(PassAgent), Box::new(WillingPayer(Rc::default()))];
+    let prevent_asked = Rc::new(Cell::new(0));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(PassAgent),
+        Box::new(WillingPayer {
+            mana_asked: Rc::new(Cell::new(0)),
+            prevent_asked: Rc::clone(&prevent_asked),
+        }),
+    ];
     game_loop.step_with_priority(&mut game, &mut agents, false);
-    Outcome {
-        payer_permanents_tapped: permanents
-            .iter()
-            .map(|&card| game.card(card).tapped)
-            .collect(),
-        payer_life: game.player(p1).life,
-    }
+    (
+        Outcome {
+            payer_permanents_tapped: permanents
+                .iter()
+                .map(|&card| game.card(card).tapped)
+                .collect(),
+            payer_life: game.player(p1).life,
+        },
+        prevent_asked.get(),
+    )
+}
+
+fn resolve_unless_with(
+    payer_permanents: &[&str],
+    unless_cost: &str,
+    x_paid: u32,
+    restricted_floating_mana: bool,
+    harness_mirror: bool,
+) -> Outcome {
+    resolve_unless_with_asked(
+        payer_permanents,
+        unless_cost,
+        x_paid,
+        restricted_floating_mana,
+        harness_mirror,
+    )
+    .0
 }
 
 #[test]
@@ -283,9 +314,117 @@ fn the_harness_unless_probe_cannot_spend_restricted_mana_for_a_resolving_spell()
     let asked = Rc::new(Cell::new(0));
     let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
         Box::new(PassAgent),
-        Box::new(WillingPayer(Rc::clone(&asked))),
+        Box::new(WillingPayer {
+            mana_asked: Rc::clone(&asked),
+            prevent_asked: Rc::new(Cell::new(0)),
+        }),
     ];
     game_loop.step_with_priority(&mut game, &mut agents, false);
     assert_eq!(game.player(p1).life, 17);
     assert_eq!(asked.get(), 0);
+}
+
+#[test]
+fn the_harness_mirror_does_not_attempt_a_waterbend_unless_cost_with_no_mana_to_pay_it() {
+    for harness_mirror in [true, false] {
+        // A Waterbend unless cost is checked under ComputerUtilMana as mana only
+        // (no tap-creatures-for-{1} mechanic), so an untapped Bear sitting beside it
+        // must not let the harness mirror attempt the cost.
+        let (outcome, asked) =
+            resolve_unless_with_asked(&[BEAR], "Waterbend<2>", 0, false, harness_mirror);
+        assert_eq!(outcome.payer_life, 17);
+        assert_eq!(outcome.payer_permanents_tapped, vec![false]);
+        assert_eq!(asked, 0, "the harness must not even ask when it cannot pay");
+    }
+}
+
+#[test]
+fn the_harness_mirror_attempts_a_waterbend_unless_cost_payable_from_untapped_lands() {
+    // Waterbend<2> paid with 2 untapped Islands' mana, not floating pool mana: the
+    // pre-check has to use available mana (land taps included), not the bare pool.
+    let (outcome, asked) =
+        resolve_unless_with_asked(&[FOREST, FOREST], "Waterbend<2>", 0, false, true);
+    assert_eq!(
+        asked, 1,
+        "the harness must attempt when untapped lands can pay it"
+    );
+    assert_eq!(outcome.payer_life, 20);
+}
+
+#[test]
+fn the_harness_mirror_attempts_a_waterbend_unless_cost_payable_from_floating_mana() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let p1 = PlayerId(1);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    game.mirror_forge_bugs = true;
+    game.action_space_mana_probe = ActionSpaceManaProbe::ComputerUtilMana;
+    let source = put(&mut game, EFFECT_SOURCE, p0, ZoneType::Command);
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: SpellAbility::new_simple(
+            Some(source),
+            p0,
+            "DB$ LoseLife | Defined$ Opponent | LifeAmount$ 3 | UnlessCost$ Waterbend<2> | UnlessPayer$ Opponent",
+        ),
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    let mut game_loop = GameLoop::new(2);
+    game_loop.mana_pools[1].add(ManaAtom::COLORLESS, 2);
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(PassAgent),
+        Box::new(WillingPayer {
+            mana_asked: Rc::new(Cell::new(0)),
+            prevent_asked: Rc::new(Cell::new(0)),
+        }),
+    ];
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.player(p1).life, 20);
+}
+
+#[test]
+fn the_harness_mirror_does_not_count_the_unless_ability_host_toward_a_waterbend_cost() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p1 = PlayerId(1);
+    game.turn.active_player = p1;
+    game.new_turn_for_player(p1);
+    game.turn.phase = PhaseType::Main1;
+    game.mirror_forge_bugs = true;
+    game.action_space_mana_probe = ActionSpaceManaProbe::ComputerUtilMana;
+    let host = put(&mut game, FOREST, p1, ZoneType::Battlefield);
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: SpellAbility::new_simple(
+            Some(host),
+            p1,
+            "DB$ LoseLife | Defined$ You | LifeAmount$ 3 | UnlessCost$ Waterbend<1> | UnlessPayer$ You",
+        ),
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    let prevent_asked = Rc::new(Cell::new(0));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(PassAgent),
+        Box::new(WillingPayer {
+            mana_asked: Rc::new(Cell::new(0)),
+            prevent_asked: Rc::clone(&prevent_asked),
+        }),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(prevent_asked.get(), 0);
+    assert_eq!(game.player(p1).life, 17);
+    assert!(!game.card(host).tapped);
 }
