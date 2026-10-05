@@ -363,11 +363,11 @@ impl GameLoop {
                 .trigger_source
                 .or(entry.spell_ability.source)
             {
-                let host = match entry.spell_ability.trigger_source_zone_timestamp {
-                    Some(zone_timestamp) if entry.spell_ability.is_trigger => {
+                let host = match entry.spell_ability.host_zone_timestamp() {
+                    Some(zone_timestamp) => {
                         game.get_change_zone_lki_info_at_mut(source_id, zone_timestamp)
                     }
-                    _ => game.card_mut(source_id),
+                    None => game.card_mut(source_id),
                 };
                 host.add_ability_resolved_for(Some(&entry.spell_ability));
             }

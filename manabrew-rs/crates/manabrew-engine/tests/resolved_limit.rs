@@ -15,6 +15,7 @@ use manabrew_engine::spellability::{SpellAbility, StackEntry};
 
 const BEARS: &str = "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:";
 const ONCE_WARDEN: &str = "Name:Once Warden\nManaCost:1 W\nTypes:Creature Human\nPT:2/2\nT:Mode$ DamageDoneOnce | ValidTarget$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | OptionalDecider$ You | ResolvedLimit$ 1 | TriggerDescription$ Whenever a creature you control is dealt damage, you may gain 1 life. If you do, CARDNAME deals 1 damage to itself. Do this only once each turn.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You | SubAbility$ DBHurt\nSVar:DBHurt:DB$ DealDamage | NumDmg$ 1 | Defined$ Self\nOracle:";
+const COUNTING_WARDEN: &str = "Name:Counting Warden\nManaCost:1 W\nTypes:Creature Human\nPT:2/2\nT:Mode$ DamageDoneOnce | ValidTarget$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever a creature you control is dealt damage, you gain 1 life if this is the first time this ability has resolved this turn. If it's the second time, you gain 2 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You | ConditionCheckSVar$ X | ConditionSVarCompare$ EQ1 | SubAbility$ DBGainMore\nSVar:DBGainMore:DB$ GainLife | LifeAmount$ 2 | Defined$ You | ConditionCheckSVar$ X | ConditionSVarCompare$ EQ2\nSVar:X:Count$ResolvedThisTurn\nOracle:";
 const HILL_GIANT: &str = "Name:Hill Giant\nManaCost:3 R\nTypes:Creature Giant\nPT:3/3\nOracle:";
 const DAMAGE_SOURCE: &str = "Name:Damage Source\nManaCost:no cost\nTypes:Artifact\nOracle:";
 
@@ -144,13 +145,17 @@ fn put(game: &mut GameState, script: &str, owner: PlayerId, zone: ZoneType) -> C
 }
 
 fn damage_all_with_warden(companion: &str, damage: u32) -> (GameState, CardId) {
+    damage_all_with(ONCE_WARDEN, companion, damage)
+}
+
+fn damage_all_with(warden_script: &str, companion: &str, damage: u32) -> (GameState, CardId) {
     let mut game = GameState::new(&["Alice", "Bob"], 20);
     let p0 = PlayerId(0);
     let p1 = PlayerId(1);
     game.turn.active_player = p1;
     game.new_turn_for_player(p1);
     game.turn.phase = PhaseType::Main1;
-    let warden = put(&mut game, ONCE_WARDEN, p0, ZoneType::Battlefield);
+    let warden = put(&mut game, warden_script, p0, ZoneType::Battlefield);
     put(&mut game, companion, p0, ZoneType::Battlefield);
     put(&mut game, companion, p0, ZoneType::Battlefield);
     let source = put(&mut game, DAMAGE_SOURCE, p1, ZoneType::Command);
@@ -188,4 +193,11 @@ fn a_resolved_limit_holds_when_the_host_died_before_any_trigger_resolved() {
     let (game, warden) = damage_all_with_warden(HILL_GIANT, 2);
     assert_eq!(game.card(warden).zone, ZoneType::Graveyard);
     assert_eq!(game.player(PlayerId(0)).life, 21);
+}
+
+#[test]
+fn resolved_this_turn_counts_the_resolutions_of_a_host_that_died_before_they_resolved() {
+    let (game, warden) = damage_all_with(COUNTING_WARDEN, HILL_GIANT, 2);
+    assert_eq!(game.card(warden).zone, ZoneType::Graveyard);
+    assert_eq!(game.player(PlayerId(0)).life, 23);
 }

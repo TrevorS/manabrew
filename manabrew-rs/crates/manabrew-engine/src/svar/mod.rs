@@ -2585,8 +2585,12 @@ pub fn resolve_count_svar_for_sa(
             return math(calculate_branch(v));
         }
         if sq[0] == "ResolvedThisTurn" {
-            let host = sa.source.unwrap_or(source_id);
-            return math(game.card(host).get_ability_resolved_this_turn(Some(sa)) as i32);
+            let host = sa.trigger_source.or(sa.source).unwrap_or(source_id);
+            let host_object = sa.host_zone_timestamp().map_or_else(
+                || game.card(host),
+                |zone_timestamp| game.get_change_zone_lki_info_at(host, zone_timestamp),
+            );
+            return math(host_object.get_ability_resolved_this_turn(Some(sa)) as i32);
         }
         if sq[0] == "Delirium" {
             return math(calculate_branch(game.player_has_delirium(controller)));

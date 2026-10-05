@@ -1825,6 +1825,11 @@ impl SpellAbility {
             .expect("SpellAbility host card must be bound before use")
     }
 
+    pub fn host_zone_timestamp(&self) -> Option<u64> {
+        self.trigger_source_zone_timestamp
+            .or(self.source_zone_timestamp)
+    }
+
     pub fn is_activated_ability(&self) -> bool {
         self.is_activated && !self.is_trigger && !self.is_ability_static()
     }
