@@ -213,3 +213,22 @@ fn a_card_returned_when_an_aura_exiler_dies_to_the_state_check_runs_its_enters_r
     assert_eq!(game.card(copier).card_name, "Grizzly Bears");
     assert_eq!(game.card(host).zone, ZoneType::Exile);
 }
+
+#[test]
+fn a_card_exiled_until_a_token_leaves_returns_when_the_token_leaves() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let rules = parse_card_script(CELL).expect("script");
+    let mut token = CardInstance::from_rules(&rules, p0);
+    token.set_is_token(true);
+    let token = game.create_card(token);
+    game.move_card(token, ZoneType::Battlefield, p0);
+    let bears = put(&mut game, BEARS, p1, ZoneType::Exile);
+    game.card_mut(bears).exiled_by = Some(token);
+    game.card_mut(bears).until_host_leaves_origin = Some(ZoneType::Battlefield);
+
+    game.move_card(token, ZoneType::Graveyard, p0);
+
+    assert_eq!(game.card(token).zone, ZoneType::None);
+    assert_eq!(game.card(bears).zone, ZoneType::Battlefield);
+}

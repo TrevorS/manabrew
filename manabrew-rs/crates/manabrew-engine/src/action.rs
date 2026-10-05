@@ -642,6 +642,14 @@ impl GameState {
                 self.remove_card_from_zone(ZoneType::Command, controller, eff_id);
                 self.card_mut(eff_id).zone = ZoneType::None;
             }
+            if host_left_battlefield {
+                self.run_until_host_leaves_play_commands(
+                    card_id,
+                    agents.as_deref_mut(),
+                    handler_param.as_deref_mut(),
+                    runtime.as_deref_mut(),
+                );
+            }
             apply_continuous_effects(self);
             debug_assert!(self.card_zone_location_matches_card(card_id));
             return;
@@ -1001,77 +1009,13 @@ impl GameState {
             self.card_mut(eff_id).zone = ZoneType::None;
         }
 
-        // Expire temporary effect cards linked to this host leaving play
-        // (Duration$ UntilHostLeavesPlay / UntilHostLeavesPlayOrEOT).
         if host_left_battlefield {
-            let linked_effects: Vec<CardId> = self
-                .cards
-                .iter()
-                .filter(|c| c.zone == ZoneType::Command && c.temp_effect_host == Some(card_id))
-                .map(|c| c.id)
-                .collect();
-            for eff_id in linked_effects {
-                let controller = self.card(eff_id).controller;
-                self.remove_card_from_zone(ZoneType::Command, controller, eff_id);
-                self.card_mut(eff_id).zone = ZoneType::None;
-            }
-
-            // Return cards exiled by this host via ChangeZoneAll Duration$ UntilHostLeavesPlay
-            // (e.g. Deputy of Detention: exiled permanents return when it leaves).
-            let mut exiled_by_host: Vec<(u64, CardId, PlayerId, ZoneType)> = self
-                .cards
-                .iter()
-                .filter(|c| c.zone == ZoneType::Exile && c.exiled_by == Some(card_id))
-                .map(|c| {
-                    (
-                        c.zone_timestamp,
-                        c.id,
-                        c.owner,
-                        c.until_host_leaves_origin.unwrap_or(ZoneType::Battlefield),
-                    )
-                })
-                .collect();
-            // Java's `changeZoneUntilCommand` returns them in the order they were exiled.
-            exiled_by_host.sort_unstable_by_key(|&(exiled_at, ..)| exiled_at);
-            for (_, exiled_id, owner, origin) in exiled_by_host {
-                self.card_mut(exiled_id).cleanup_exiled_with();
-                match runtime.as_deref_mut() {
-                    Some(runtime) => self.move_card_internal(
-                        exiled_id,
-                        origin,
-                        owner,
-                        agents.as_deref_mut(),
-                        None,
-                        Some(runtime),
-                        true,
-                        false,
-                    ),
-                    None => self.move_card_internal(
-                        exiled_id,
-                        origin,
-                        owner,
-                        agents.as_deref_mut(),
-                        handler_param.as_deref_mut(),
-                        None,
-                        true,
-                        false,
-                    ),
-                }
-                let handler = match runtime.as_deref_mut() {
-                    Some(runtime) => Some(&mut *runtime.trigger_handler),
-                    None => handler_param.as_deref_mut(),
-                };
-                if let Some(handler) = handler {
-                    let returned_zone = self.card(exiled_id).zone;
-                    handler.register_active_trigger(self, exiled_id);
-                    crate::ability::effects::zone_triggers::emit_zone_trigger(
-                        handler,
-                        exiled_id,
-                        ZoneType::Exile,
-                        returned_zone,
-                    );
-                }
-            }
+            self.run_until_host_leaves_play_commands(
+                card_id,
+                agents,
+                handler_param.as_deref_mut(),
+                runtime.as_deref_mut(),
+            );
         }
 
         apply_continuous_effects(self);
@@ -1083,6 +1027,83 @@ impl GameState {
             handler.register_active_trigger(self, card_id);
         }
         debug_assert!(self.card_zone_location_matches_card(card_id));
+    }
+
+    fn run_until_host_leaves_play_commands(
+        &mut self,
+        card_id: CardId,
+        mut agents: Option<&mut [Box<dyn PlayerAgent>]>,
+        mut handler_param: Option<&mut TriggerHandler>,
+        mut runtime: Option<&mut ReplacementRuntime<'_>>,
+    ) {
+        let linked_effects: Vec<CardId> = self
+            .cards
+            .iter()
+            .filter(|c| c.zone == ZoneType::Command && c.temp_effect_host == Some(card_id))
+            .map(|c| c.id)
+            .collect();
+        for eff_id in linked_effects {
+            let controller = self.card(eff_id).controller;
+            self.remove_card_from_zone(ZoneType::Command, controller, eff_id);
+            self.card_mut(eff_id).zone = ZoneType::None;
+        }
+
+        // Return cards exiled by this host via ChangeZoneAll Duration$ UntilHostLeavesPlay
+        // (e.g. Deputy of Detention: exiled permanents return when it leaves).
+        let mut exiled_by_host: Vec<(u64, CardId, PlayerId, ZoneType)> = self
+            .cards
+            .iter()
+            .filter(|c| c.zone == ZoneType::Exile && c.exiled_by == Some(card_id))
+            .map(|c| {
+                (
+                    c.zone_timestamp,
+                    c.id,
+                    c.owner,
+                    c.until_host_leaves_origin.unwrap_or(ZoneType::Battlefield),
+                )
+            })
+            .collect();
+        // Java's `changeZoneUntilCommand` returns them in the order they were exiled.
+        exiled_by_host.sort_unstable_by_key(|&(exiled_at, ..)| exiled_at);
+        for (_, exiled_id, owner, origin) in exiled_by_host {
+            self.card_mut(exiled_id).cleanup_exiled_with();
+            match runtime.as_deref_mut() {
+                Some(runtime) => self.move_card_internal(
+                    exiled_id,
+                    origin,
+                    owner,
+                    agents.as_deref_mut(),
+                    None,
+                    Some(runtime),
+                    true,
+                    false,
+                ),
+                None => self.move_card_internal(
+                    exiled_id,
+                    origin,
+                    owner,
+                    agents.as_deref_mut(),
+                    handler_param.as_deref_mut(),
+                    None,
+                    true,
+                    false,
+                ),
+            }
+            let handler = match runtime.as_deref_mut() {
+                Some(runtime) => Some(&mut *runtime.trigger_handler),
+                None => handler_param.as_deref_mut(),
+            };
+            if let Some(handler) = handler {
+                let returned_zone = self.card(exiled_id).zone;
+                handler.register_active_trigger(self, exiled_id);
+                crate::ability::effects::zone_triggers::emit_zone_trigger(
+                    handler,
+                    exiled_id,
+                    ZoneType::Exile,
+                    returned_zone,
+                );
+            }
+        }
     }
 
     pub(crate) fn setup_static_effect(
