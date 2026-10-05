@@ -94,6 +94,7 @@ impl GameLoop {
             if let CostPart::Sacrifice {
                 type_filter,
                 amount,
+                ..
             } = part
             {
                 if type_filter == "CARDNAME" {

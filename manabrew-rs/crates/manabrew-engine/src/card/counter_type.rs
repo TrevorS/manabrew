@@ -78,4 +78,36 @@ impl CounterType {
     pub fn is_keyword_counter(&self) -> bool {
         matches!(self, CounterType::Named(_))
     }
+
+    /// Java `CounterType.getName`.
+    pub fn get_name(&self) -> String {
+        let upper = match self {
+            CounterType::Named(name) => name.clone(),
+            other => format!("{other:?}").to_uppercase(),
+        };
+        let named = match upper.as_str() {
+            "P1P1" => "+1/+1",
+            "M1M1" => "-1/-1",
+            "M0M1" => "-0/-1",
+            "M0M2" => "-0/-2",
+            "M1M0" => "-1/-0",
+            "M2M1" => "-2/-1",
+            "M2M2" => "-2/-2",
+            "P0P1" => "+0/+1",
+            "P0P2" => "+0/+2",
+            "P1P0" => "+1/+0",
+            "P1P2" => "+1/+2",
+            "P2P0" => "+2/+0",
+            "P2P2" => "+2/+2",
+            "ACQUIREDTASTE" => "acquired taste",
+            "TOWER" => "tower",
+            _ => {
+                let mut chars = upper.chars();
+                return chars.next().map_or_else(String::new, |first| {
+                    first.to_string() + &chars.as_str().to_lowercase()
+                });
+            }
+        };
+        named.to_string()
+    }
 }

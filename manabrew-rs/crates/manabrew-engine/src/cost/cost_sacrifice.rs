@@ -8,6 +8,47 @@ use forge_foundation::ZoneType;
 
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
+use forge_foundation::{lang, CoreType};
+
+pub fn to_string(part: &super::CostPart) -> String {
+    let super::CostPart::Sacrifice {
+        amount,
+        type_filter,
+        description,
+    } = part
+    else {
+        return String::new();
+    };
+    let amount_text = amount.to_string();
+    let mut sb = String::from(if amount_text == "X" {
+        "You may sacrifice "
+    } else {
+        "Sacrifice "
+    });
+    if super::cost_part::type_is_source(type_filter) {
+        match description {
+            Some(desc) if desc.starts_with("this") => sb.push_str(desc),
+            _ => sb.push_str(type_filter),
+        }
+    } else if amount_text == "X" {
+        let type_desc = type_filter.to_lowercase().replace(';', "s and/or ");
+        sb.push_str(&format!("any number of {type_desc}s"));
+    } else {
+        let desc = match description {
+            Some(desc) => desc.clone(),
+            None if type_filter == "Permanent" || CoreType::from_name(type_filter).is_some() => {
+                type_filter.to_lowercase()
+            }
+            None => type_filter.clone(),
+        };
+        if desc.starts_with("another") {
+            sb.push_str(&desc);
+        } else {
+            sb.push_str(&lang::noun_with_numeral_except_one(&amount_text, &desc));
+        }
+    }
+    sb
+}
 
 /// Execute the sacrifice cost payment.
 /// Mirrors Java's `CostSacrifice.doListPayment()` → `game.getAction().sacrifice()`.
@@ -57,6 +98,7 @@ pub fn can_pay(
     let super::CostPart::Sacrifice {
         type_filter,
         amount,
+        ..
     } = part
     else {
         return false;

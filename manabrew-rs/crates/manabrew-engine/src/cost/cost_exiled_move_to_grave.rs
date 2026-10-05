@@ -5,6 +5,24 @@ use forge_foundation::ZoneType;
 use crate::game::GameState;
 use crate::ids::CardId;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::ExiledMoveToGrave {
+            amount,
+            type_filter,
+            description,
+        } => format!(
+            "Put {} from exile into that player's graveyard",
+            super::convert_amount_type_to_words(
+                amount.as_literal(),
+                &amount.to_string(),
+                description.as_deref().unwrap_or(type_filter),
+            )
+        ),
+        _ => String::new(),
+    }
+}
+
 /// Execute the exiled-move-to-grave payment for selected cards.
 /// Mirrors Java's `CostExiledMoveToGrave.doPayment()`.
 pub fn pay_as_decided_cards(game: &mut GameState, cards: &[CardId]) -> bool {
@@ -33,6 +51,7 @@ pub fn can_pay(
     let super::CostPart::ExiledMoveToGrave {
         amount,
         type_filter,
+        ..
     } = part
     else {
         return false;

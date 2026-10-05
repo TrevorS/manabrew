@@ -4,36 +4,29 @@ use crate::card::CounterType;
 use crate::game::GameState;
 use crate::ids::CardId;
 
-/// Mirrors Java's `CostUntapType.toString()`.
-/// Produces e.g. "Untap an tapped creature you control" or "Untap 2 tapped artifacts".
 pub fn to_string(part: &super::CostPart) -> String {
-    match part {
-        super::CostPart::UntapType {
-            amount,
-            type_filter,
-            ..
-        } => {
-            let mut sb = String::from("Untap ");
-
-            // Mirrors Java: Cost.convertAmountTypeToWords(i, getAmount(), " tapped " + desc)
-            // Simplified inline since the full utility isn't ported yet.
-            let desc = type_filter.as_str();
-            if matches!(amount.as_literal(), Some(1)) {
-                sb.push_str(&format!("a tapped {desc}"));
-            } else {
-                sb.push_str(&format!("{amount} tapped {desc}s"));
-            }
-
-            if type_filter.contains("OppCtrl") {
-                sb.push_str(" an opponent controls");
-            } else if type_filter.contains("YouCtrl") {
-                sb.push_str(" you control");
-            }
-
-            sb
-        }
-        _ => String::new(),
+    let super::CostPart::UntapType {
+        amount,
+        type_filter,
+        description,
+        ..
+    } = part
+    else {
+        return String::new();
+    };
+    let desc = super::cost_part::descriptive_type(type_filter, description.as_deref());
+    let mut sb = String::from("Untap ");
+    sb.push_str(&super::convert_amount_type_to_words(
+        amount.as_literal(),
+        &amount.to_string(),
+        &format!(" tapped {desc}"),
+    ));
+    if type_filter.contains("OppCtrl") {
+        sb.push_str(" an opponent controls");
+    } else if type_filter.contains("YouCtrl") {
+        sb.push_str(" you control");
     }
+    sb
 }
 
 /// Mirrors Java's `CostUntapType.canPayListAtOnce()` -- always returns true.
@@ -89,6 +82,7 @@ pub fn can_pay(
         amount,
         type_filter,
         can_untap_source,
+        ..
     } = part
     else {
         return false;

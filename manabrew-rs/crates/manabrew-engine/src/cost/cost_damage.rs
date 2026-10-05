@@ -3,6 +3,13 @@
 use crate::game::GameState;
 use crate::ids::PlayerId;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::DamageYou(amount) => format!("Deal {amount} damage to you"),
+        _ => String::new(),
+    }
+}
+
 /// Pay by dealing damage to the player.
 /// Mirrors Java's `CostDamage.payAsDecided()` which creates a CardDamageMap
 /// and calls `game.getAction().dealDamage()`.

@@ -1,5 +1,31 @@
 //! Exert permanents as a cost. Mirrors Java's `CostExert`.
 
+pub fn to_string(part: &super::CostPart) -> String {
+    let super::CostPart::Exert {
+        amount,
+        type_filter,
+        description,
+    } = part
+    else {
+        return String::new();
+    };
+    let mut sb = String::from("Exert ");
+    if super::cost_part::type_is_source(type_filter) {
+        sb.push_str(type_filter);
+    } else {
+        let desc = description.as_deref().unwrap_or(type_filter);
+        match amount.as_literal() {
+            Some(i) => sb.push_str(&super::convert_int_and_type_to_words(i, desc)),
+            None => sb.push_str(&super::convert_amount_type_to_words(
+                None,
+                &amount.to_string(),
+                desc,
+            )),
+        }
+    }
+    sb
+}
+
 // NOTE: pay_as_decided is handled by GameLoop::pay_exert_cost() in game_action.rs
 // because it requires agent interaction and trigger firing (Exerted).
 
@@ -17,6 +43,7 @@ pub fn can_pay(
     let super::CostPart::Exert {
         amount,
         type_filter,
+        ..
     } = part
     else {
         return false;

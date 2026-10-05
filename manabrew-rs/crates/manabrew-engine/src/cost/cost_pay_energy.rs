@@ -3,6 +3,17 @@
 use crate::game::GameState;
 use crate::ids::PlayerId;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::PayEnergy(amount) if amount.is_x() => "Pay X {E}".to_string(),
+        super::CostPart::PayEnergy(amount) => format!(
+            "Pay {}",
+            "{E}".repeat(amount.as_literal().unwrap_or(0).max(0) as usize)
+        ),
+        _ => String::new(),
+    }
+}
+
 /// Pay by removing energy counters.
 /// Mirrors Java's `CostPayEnergy.payAsDecided()` → `player.payEnergy(amount)`.
 pub fn pay_as_decided(game: &mut GameState, player: PlayerId, amount: i32) -> bool {

@@ -3,6 +3,10 @@
 use crate::game::GameState;
 use crate::ids::CardId;
 
+pub fn to_string() -> String {
+    "{T}".to_string()
+}
+
 /// Pay the tap cost by tapping the source.
 /// Mirrors Java's `CostTap.payAsDecided()`.
 /// NOTE: Trigger firing (TapAll) is handled by the caller (GameLoop) since

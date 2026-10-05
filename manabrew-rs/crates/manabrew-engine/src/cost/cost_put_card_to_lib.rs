@@ -8,6 +8,50 @@ use forge_foundation::ZoneType;
 use crate::game::GameState;
 use crate::ids::CardId;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    let super::CostPart::PutCardToLib {
+        amount,
+        lib_pos,
+        type_filter,
+        from,
+        same_zone,
+        description,
+    } = part
+    else {
+        return String::new();
+    };
+    let from_source = super::cost_part::type_is_source(type_filter);
+    let mut sb = String::from("Put ");
+    if from_source {
+        sb.push_str(type_filter);
+    } else {
+        sb.push_str(&super::convert_amount_type_to_words(
+            amount.as_literal(),
+            &amount.to_string(),
+            description.as_deref().unwrap_or(type_filter),
+        ));
+    }
+    if *same_zone {
+        sb.push_str(&format!(" from the same {from}"));
+    } else if !from_source {
+        sb.push_str(&format!(" from your {from}"));
+    }
+    sb.push_str(" on ");
+    sb.push_str(if *lib_pos == 0 {
+        "top of"
+    } else {
+        "the bottom of"
+    });
+    sb.push_str(if *same_zone {
+        " their owner's library"
+    } else if from_source {
+        " its owner's library"
+    } else {
+        " your library"
+    });
+    sb
+}
+
 /// Execute put-to-library for self (CARDNAME/NICKNAME).
 /// Mirrors Java's `CostPutCardToLib.doPayment()` for self.
 pub fn pay_as_decided_self(game: &mut GameState, source: CardId, lib_pos: i32) -> bool {

@@ -9,6 +9,48 @@ use forge_foundation::ZoneType;
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 
+pub fn to_string(part: &super::CostPart) -> String {
+    let super::CostPart::Discard {
+        amount,
+        type_filter,
+        description,
+    } = part
+    else {
+        return String::new();
+    };
+    let amount_text = amount.to_string();
+    let i = amount.as_literal();
+    let mut sb = String::from("Discard ");
+    if super::cost_part::type_is_source(type_filter) {
+        sb.push_str(type_filter);
+    } else if type_filter == "Hand" {
+        sb.push_str("your hand");
+    } else if type_filter == "LastDrawn" {
+        sb.push_str("the last card you drew this turn");
+    } else if type_filter.contains("+WithDifferentNames") {
+        sb.push_str(&super::convert_amount_type_to_words(
+            i,
+            &amount_text,
+            "Card",
+        ));
+        sb.push_str(" with different names");
+    } else {
+        let desc = if type_filter == "Card" || type_filter == "Random" {
+            "card".to_string()
+        } else {
+            format!(
+                "{} card",
+                super::cost_part::descriptive_type(type_filter, description.as_deref())
+            )
+        };
+        sb.push_str(&super::convert_amount_type_to_words(i, &amount_text, &desc));
+        if type_filter == "Random" {
+            sb.push_str(" at random");
+        }
+    }
+    sb
+}
+
 /// Execute discard of self (CARDNAME).
 /// Mirrors Java's `CostDiscard.doPayment()` for self-discard.
 pub fn pay_as_decided_self(game: &mut GameState, source: CardId, player: PlayerId) -> bool {
@@ -51,6 +93,7 @@ pub fn can_pay(
     let super::CostPart::Discard {
         type_filter,
         amount,
+        ..
     } = part
     else {
         return false;

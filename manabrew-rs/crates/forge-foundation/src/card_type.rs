@@ -74,6 +74,26 @@ impl CoreType {
         )
     }
 
+    pub fn plural_name(self) -> &'static str {
+        match self {
+            CoreType::Kindred => "kindreds",
+            CoreType::Artifact => "artifacts",
+            CoreType::Battle => "battles",
+            CoreType::Conspiracy => "conspiracies",
+            CoreType::Creature => "creatures",
+            CoreType::Dungeon => "dungeons",
+            CoreType::Enchantment => "enchantments",
+            CoreType::Instant => "instants",
+            CoreType::Land => "lands",
+            CoreType::Phenomenon => "phenomenons",
+            CoreType::Plane => "planes",
+            CoreType::Planeswalker => "planeswalkers",
+            CoreType::Scheme => "schemes",
+            CoreType::Sorcery => "sorceries",
+            CoreType::Vanguard => "vanguards",
+        }
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             CoreType::Kindred => "Kindred",

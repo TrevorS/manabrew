@@ -1,5 +1,44 @@
 //! Parity shim for Java `CostRemoveCounter`.
 
+use crate::card::CounterType;
+use forge_foundation::lang;
+
+pub fn to_string(part: &super::CostPart) -> String {
+    let super::CostPart::SubCounter {
+        amount,
+        counter_type,
+        type_filter,
+        description,
+    } = part
+    else {
+        return String::new();
+    };
+    let amount_text = amount.to_string();
+    let from_source = super::cost_part::type_is_source(type_filter);
+    let name = counter_type.get_name().to_lowercase();
+    if *counter_type == CounterType::Loyalty && from_source {
+        return format!("-{amount_text}");
+    }
+    let mut sb = String::from("Remove ");
+    if amount_text == "X" {
+        sb.push_str(&format!("any number of {name} counters"));
+    } else if amount_text == "All" {
+        sb.push_str(&format!("all {name} counters"));
+    } else {
+        sb.push_str(&lang::noun_with_numeral_except_one(
+            &amount_text,
+            &format!("{name} counter"),
+        ));
+    }
+    sb.push_str(" from ");
+    if from_source {
+        sb.push_str(type_filter);
+    } else {
+        sb.push_str(description.as_deref().unwrap_or(type_filter));
+    }
+    sb
+}
+
 pub fn pay_as_decided(
     game: &mut crate::game::GameState,
     source: crate::ids::CardId,
@@ -30,6 +69,7 @@ pub fn can_pay(
         amount,
         counter_type,
         type_filter,
+        ..
     } = part
     else {
         return false;

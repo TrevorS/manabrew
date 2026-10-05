@@ -6,6 +6,10 @@
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 
+pub fn to_string() -> String {
+    "Gift something".to_string()
+}
+
 /// Execute the promise gift payment.
 /// Mirrors Java's `CostPromiseGift.payAsDecided()`.
 /// Sets the promised gift recipient on the host card.

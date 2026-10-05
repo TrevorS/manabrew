@@ -36,6 +36,7 @@ pub(super) fn parse_cost_token(token: &str) -> TokenResult {
         CostTokenKind::Exert if parsed.inner.is_none() => CostPart::Exert {
             amount: AmountSpec::Literal(1),
             type_filter: "CARDNAME".to_string(),
+            description: None,
         },
         kind => {
             let Some(inner) = parsed.inner else {
@@ -114,6 +115,14 @@ pub(super) fn parse_cost_token(token: &str) -> TokenResult {
 // Individual parsers
 // ---------------------------------------------------------------------------
 
+fn description(inner: &str, index: usize) -> Option<String> {
+    inner
+        .splitn(index + 1, '/')
+        .nth(index)
+        .filter(|desc| !desc.is_empty())
+        .map(str::to_string)
+}
+
 fn parse_mana_cost(inner: &str) -> Option<CostPart> {
     let split: Vec<&str> = inner.splitn(2, '\\').collect();
     let mana_text = split[0];
@@ -153,6 +162,7 @@ fn parse_sacrifice(inner: &str) -> Option<CostPart> {
     Some(CostPart::Sacrifice {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
     })
 }
 
@@ -161,6 +171,7 @@ fn parse_discard(inner: &str) -> Option<CostPart> {
     Some(CostPart::Discard {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
     })
 }
 
@@ -181,6 +192,7 @@ fn parse_sub_counter(inner: &str) -> Option<CostPart> {
         amount,
         counter_type: parse_counter_type(counter_type_str),
         type_filter,
+        description: description(inner, 3),
     })
 }
 
@@ -204,6 +216,7 @@ fn parse_add_counter(inner: &str) -> Option<CostPart> {
         amount,
         counter_type: parse_counter_type(counter_type_str),
         type_filter,
+        description: description(inner, 3),
     })
 }
 
@@ -252,6 +265,7 @@ fn parse_exile_battlefield(inner: &str) -> Option<CostPart> {
     Some(CostPart::Exile {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
         from: ZoneType::Battlefield,
     })
 }
@@ -261,6 +275,7 @@ fn parse_exile_from_hand(inner: &str) -> Option<CostPart> {
     Some(CostPart::Exile {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
         from: ZoneType::Hand,
     })
 }
@@ -270,6 +285,7 @@ fn parse_exile_from_grave(inner: &str) -> Option<CostPart> {
     Some(CostPart::Exile {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
         from: ZoneType::Graveyard,
     })
 }
@@ -279,6 +295,7 @@ fn parse_exile_from_top(inner: &str) -> Option<CostPart> {
     Some(CostPart::Exile {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
         from: ZoneType::Library,
     })
 }
@@ -288,6 +305,7 @@ fn parse_exile_any_grave(inner: &str) -> Option<CostPart> {
     Some(CostPart::ExileFromAnyGrave {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
     })
 }
 
@@ -296,6 +314,7 @@ fn parse_exile_same_grave(inner: &str) -> Option<CostPart> {
     Some(CostPart::ExileFromSameGrave {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
     })
 }
 
@@ -304,6 +323,7 @@ fn parse_exile_ctrl_or_grave(inner: &str) -> Option<CostPart> {
     Some(CostPart::ExileCtrlOrGrave {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
     })
 }
 
@@ -312,6 +332,7 @@ fn parse_exile_from_stack(inner: &str) -> Option<CostPart> {
     Some(CostPart::ExileFromStack {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
     })
 }
 
@@ -320,6 +341,7 @@ fn parse_return(inner: &str) -> Option<CostPart> {
     Some(CostPart::Return {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
     })
 }
 
@@ -341,6 +363,7 @@ fn parse_tap_type(inner: &str) -> Option<CostPart> {
         type_filter: final_filter,
         min_total_power,
         can_tap_source: true,
+        description: description(inner, 2),
     })
 }
 
@@ -352,6 +375,7 @@ fn parse_untap_type(inner: &str) -> Option<CostPart> {
         // Default to true; post-processing in parse_cost sets the real value
         // based on whether the cost also has an Untap (Q) part.
         can_untap_source: true,
+        description: description(inner, 2),
     })
 }
 
@@ -378,6 +402,7 @@ fn parse_reveal(inner: &str) -> Option<CostPart> {
     Some(CostPart::Reveal {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
         from: RevealFrom::Hand,
     })
 }
@@ -387,6 +412,7 @@ fn parse_choose_card(inner: &str) -> Option<CostPart> {
     Some(CostPart::Reveal {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
         from: RevealFrom::All,
     })
 }
@@ -396,6 +422,7 @@ fn parse_reveal_from_exile(inner: &str) -> Option<CostPart> {
     Some(CostPart::Reveal {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
         from: RevealFrom::Exile,
     })
 }
@@ -405,6 +432,7 @@ fn parse_reveal_or_choose(inner: &str) -> Option<CostPart> {
     Some(CostPart::Reveal {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
         from: RevealFrom::HandOrBattlefield,
     })
 }
@@ -419,6 +447,7 @@ fn parse_behold(inner: &str) -> Option<CostPart> {
     Some(CostPart::Behold {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
         exile: false,
     })
 }
@@ -428,6 +457,7 @@ fn parse_behold_exile(inner: &str) -> Option<CostPart> {
     Some(CostPart::Behold {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
         exile: true,
     })
 }
@@ -437,6 +467,7 @@ fn parse_exert(inner: &str) -> Option<CostPart> {
     Some(CostPart::Exert {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
     })
 }
 
@@ -450,6 +481,7 @@ fn parse_gain_control(inner: &str) -> Option<CostPart> {
     Some(CostPart::GainControl {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
     })
 }
 
@@ -470,6 +502,7 @@ fn parse_remove_any_counter(inner: &str) -> Option<CostPart> {
         amount,
         type_filter,
         counter_type,
+        description: description(inner, 3),
     })
 }
 
@@ -505,6 +538,7 @@ fn parse_exiled_move_to_grave(inner: &str) -> Option<CostPart> {
     Some(CostPart::ExiledMoveToGrave {
         amount,
         type_filter: filter,
+        description: description(inner, 2),
     })
 }
 
@@ -543,6 +577,7 @@ fn parse_put_card_to_lib(inner: &str, from: ZoneType, same_zone: bool) -> Option
         type_filter,
         from,
         same_zone,
+        description: description(inner, 3),
     })
 }
 
@@ -561,6 +596,7 @@ fn parse_enlist(inner: &str) -> Option<CostPart> {
     Some(CostPart::Enlist {
         amount,
         type_filter: filter,
+        description: None,
     })
 }
 

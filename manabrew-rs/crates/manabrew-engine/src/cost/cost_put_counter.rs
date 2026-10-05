@@ -8,6 +8,38 @@ use crate::card::CounterType;
 use crate::game::GameState;
 use crate::ids::CardId;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    let super::CostPart::AddCounter {
+        amount,
+        counter_type,
+        type_filter,
+        description,
+    } = part
+    else {
+        return String::new();
+    };
+    let amount_text = amount.to_string();
+    if *counter_type == CounterType::Loyalty {
+        return match amount_text.as_str() {
+            "0" => "0".to_string(),
+            _ => format!("+{amount_text}"),
+        };
+    }
+    let mut sb = String::from("Put ");
+    sb.push_str(&super::convert_amount_type_to_words(
+        amount.as_literal(),
+        &amount_text,
+        &format!("{} counter", counter_type.get_name()),
+    ));
+    sb.push_str(" on ");
+    if super::cost_part::type_is_source(type_filter) {
+        sb.push_str(type_filter);
+    } else {
+        sb.push_str(description.as_deref().unwrap_or(type_filter));
+    }
+    sb
+}
+
 /// Add counters to the source.
 /// Mirrors Java's `CostPutCounter.doPayment()`.
 pub fn pay_as_decided(

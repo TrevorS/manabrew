@@ -6,6 +6,13 @@ use crate::game::GameState;
 use crate::ids::CardId;
 use crate::mana::mana_cost_being_paid::ManaCostBeingPaid;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::Mana { cost, .. } => cost.to_string(),
+        _ => String::new(),
+    }
+}
+
 pub fn payment_order(part: &super::CostPart) -> i32 {
     part.payment_order()
 }

@@ -3,6 +3,13 @@
 use crate::game::GameState;
 use crate::ids::PlayerId;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::PayLife(amount) => format!("Pay {amount} life"),
+        _ => String::new(),
+    }
+}
+
 /// Pay the life cost.
 /// Mirrors Java's `CostPayLife.payAsDecided()` → `player.payLife(amount, ability, effect)`.
 /// NOTE: Trigger firing (LifeLost) must be handled by the caller.

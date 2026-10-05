@@ -4,6 +4,13 @@
 //! In Rust, dice rolling + trigger firing is handled by the caller since it
 //! requires RNG and trigger handler access.
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::RollDice { amount, sides, .. } => format!("Roll {amount}d{sides}"),
+        _ => String::new(),
+    }
+}
+
 // NOTE: pay_as_decided is handled inline in game_action.rs because it requires
 // RNG (game_rng) and trigger handler access for RolledDie/RolledDieOnce triggers.
 // See game_action.rs CostPart::RollDice match arm.

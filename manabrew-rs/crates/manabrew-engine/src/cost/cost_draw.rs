@@ -7,6 +7,16 @@ use crate::replacement::{ReplacementEvent, ReplacementResult};
 use crate::spellability::SpellAbility;
 use crate::trigger::{TriggerHandler, TriggerType};
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::Draw { amount, .. } => format!(
+            "Draw {}",
+            super::convert_amount_type_to_words(amount.as_literal(), &amount.to_string(), "Card")
+        ),
+        _ => String::new(),
+    }
+}
+
 pub fn get_potential_players(
     game: &GameState,
     payer: PlayerId,

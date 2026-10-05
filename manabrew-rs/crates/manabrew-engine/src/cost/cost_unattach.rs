@@ -4,18 +4,14 @@ use crate::game::GameState;
 use crate::ids::CardId;
 use crate::spellability::SpellAbility;
 
-/// Mirrors Java's `CostUnattach.toString()`.
-/// Produces "Unattach <type description>".
 pub fn to_string(part: &super::CostPart) -> String {
-    let desc = match part {
+    match part {
         super::CostPart::Unattach {
-            description: Some(d),
+            description: Some(desc),
             ..
-        } => d.clone(),
-        super::CostPart::Unattach { type_filter, .. } => type_filter.clone(),
-        _ => "equipment".to_string(),
-    };
-    format!("Unattach {desc}")
+        } if !desc.is_empty() => format!("Unattach {desc}"),
+        _ => "Unattach".to_string(),
+    }
 }
 
 /// Pay by detaching the target card from whatever it's attached to.

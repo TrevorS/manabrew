@@ -5,6 +5,13 @@ use crate::card::CounterType;
 use crate::game::GameState;
 use crate::ids::CardId;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::Blight(amount) => format!("Blight {amount}"),
+        _ => String::new(),
+    }
+}
+
 /// Execute blight payment for selected creatures.
 /// Puts a -1/-1 counter on each chosen creature.
 pub fn pay_as_decided_cards(

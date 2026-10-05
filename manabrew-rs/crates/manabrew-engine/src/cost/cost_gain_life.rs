@@ -3,6 +3,13 @@
 use crate::game::GameState;
 use crate::ids::PlayerId;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::GainLife(amount) => format!("Have an opponent gain {amount} life"),
+        _ => String::new(),
+    }
+}
+
 /// Pay by having the opponent gain life.
 /// Mirrors Java's `CostGainLife.payAsDecided()`.
 pub fn pay_as_decided(game: &mut GameState, player: PlayerId, amount: i32) -> bool {

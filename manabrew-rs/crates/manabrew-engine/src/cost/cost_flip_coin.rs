@@ -4,6 +4,15 @@
 //! In Rust, the coin flip logic + trigger firing is handled by the caller
 //! since it requires RNG and trigger handler access.
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::FlipCoin(amount) => {
+            super::convert_amount_type_to_words(amount.as_literal(), &amount.to_string(), "Coin")
+        }
+        _ => String::new(),
+    }
+}
+
 // NOTE: pay_as_decided is handled inline in game_action.rs because it requires
 // RNG (game_rng) and trigger handler access for FlippedCoin triggers.
 // See game_action.rs CostPart::FlipCoin match arm.

@@ -3,6 +3,10 @@
 use crate::game::GameState;
 use crate::ids::CardId;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    format!("{} and exile it", super::cost_behold::to_string(part))
+}
+
 pub fn pay_as_decided_cards(game: &mut GameState, cards: &[CardId]) -> bool {
     crate::cost::cost_behold::pay_as_decided_cards(game, cards, true)
 }

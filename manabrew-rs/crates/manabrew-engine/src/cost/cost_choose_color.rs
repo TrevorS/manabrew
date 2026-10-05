@@ -3,6 +3,16 @@
 use crate::game::GameState;
 use crate::ids::CardId;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::ChooseColor(amount) => format!(
+            "Choose {}",
+            super::convert_amount_type_to_words(amount.as_literal(), &amount.to_string(), "color")
+        ),
+        _ => String::new(),
+    }
+}
+
 /// Pay by setting chosen colors on the source card.
 /// Mirrors Java's `CostChooseColor.payAsDecided()` →
 /// `sa.getHostCard().setChosenColors(colors)`.

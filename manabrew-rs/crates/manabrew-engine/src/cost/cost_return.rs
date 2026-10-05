@@ -5,6 +5,40 @@ use forge_foundation::ZoneType;
 use crate::game::GameState;
 use crate::ids::CardId;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    let super::CostPart::Return {
+        amount,
+        type_filter,
+        description,
+    } = part
+    else {
+        return String::new();
+    };
+    let mut sb = String::from("Return ");
+    let mut pronoun = "its";
+    if super::cost_part::type_is_source(type_filter) {
+        sb.push_str(type_filter);
+    } else {
+        let desc = super::cost_part::descriptive_type(type_filter, description.as_deref());
+        match amount.as_literal() {
+            Some(i) => {
+                sb.push_str(&super::convert_int_and_type_to_words(i, &desc));
+                if i > 1 {
+                    pronoun = "their";
+                }
+            }
+            None => sb.push_str(&super::convert_amount_type_to_words(
+                None,
+                &amount.to_string(),
+                &desc,
+            )),
+        }
+        sb.push_str(" you control");
+    }
+    sb.push_str(&format!(" to {pronoun} owner's hand"));
+    sb
+}
+
 pub fn pay_as_decided_self(game: &mut GameState, source: CardId) -> bool {
     let owner = game.card(source).owner;
     game.move_card(source, ZoneType::Hand, owner);
@@ -37,6 +71,7 @@ pub fn can_pay(
     let super::CostPart::Return {
         amount,
         type_filter,
+        ..
     } = part
     else {
         return false;

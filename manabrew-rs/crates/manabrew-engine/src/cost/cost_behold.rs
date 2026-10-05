@@ -8,6 +8,25 @@ use forge_foundation::ZoneType;
 use crate::game::GameState;
 use crate::ids::CardId;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::Behold {
+            amount,
+            type_filter,
+            description,
+            ..
+        } => format!(
+            "Behold {}",
+            super::convert_amount_type_to_words(
+                amount.as_literal(),
+                &amount.to_string(),
+                description.as_deref().unwrap_or(type_filter),
+            )
+        ),
+        _ => String::new(),
+    }
+}
+
 /// Execute behold payment for selected cards.
 /// Cards have already been chosen by the agent.
 /// If `exile` is true, moves revealed cards to exile.

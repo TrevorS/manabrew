@@ -5,6 +5,16 @@ use forge_foundation::mana::ManaAtom;
 use crate::ids::{CardId, PlayerId};
 use crate::mana::{Mana, ManaPool};
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::AddMana { amount, mana_type } => format!(
+            "Add {}",
+            format!("{{{mana_type}}}").repeat(amount.as_literal().unwrap_or(0).max(0) as usize)
+        ),
+        _ => String::new(),
+    }
+}
+
 /// Pay by adding mana to the player's pool.
 /// Mirrors Java's `CostAddMana.payAsDecided()`.
 pub fn pay_as_decided(

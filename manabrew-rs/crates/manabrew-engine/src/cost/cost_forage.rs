@@ -2,6 +2,10 @@
 //!
 //! Forage: exile 3 cards from your graveyard, or sacrifice a Food.
 
+pub fn to_string() -> String {
+    "Forage".to_string()
+}
+
 // NOTE: pay_as_decided is handled by GameLoop::pay_forage_cost() in game_action.rs
 // because it requires agent interaction (choose GY cards or Food) and trigger firing (Forage).
 

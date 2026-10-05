@@ -595,31 +595,60 @@ fn substitute_part_amount(part: &CostPart, amount: i32) -> CostPart {
     let spec = crate::cost::AmountSpec::Literal(amount);
     match part {
         CostPart::Exile {
-            type_filter, from, ..
+            type_filter,
+            from,
+            description,
+            ..
         } => CostPart::Exile {
             amount: spec,
             type_filter: type_filter.clone(),
             from: *from,
+            description: description.clone(),
         },
-        CostPart::ExileFromAnyGrave { type_filter, .. } => CostPart::ExileFromAnyGrave {
+        CostPart::ExileFromAnyGrave {
+            type_filter,
+            description,
+            ..
+        } => CostPart::ExileFromAnyGrave {
             amount: spec,
             type_filter: type_filter.clone(),
+            description: description.clone(),
         },
-        CostPart::ExileFromSameGrave { type_filter, .. } => CostPart::ExileFromSameGrave {
+        CostPart::ExileFromSameGrave {
+            type_filter,
+            description,
+            ..
+        } => CostPart::ExileFromSameGrave {
             amount: spec,
             type_filter: type_filter.clone(),
+            description: description.clone(),
         },
-        CostPart::Sacrifice { type_filter, .. } => CostPart::Sacrifice {
+        CostPart::Sacrifice {
+            type_filter,
+            description,
+            ..
+        } => CostPart::Sacrifice {
             amount: spec,
             type_filter: type_filter.clone(),
+            description: description.clone(),
         },
-        CostPart::Discard { type_filter, .. } => CostPart::Discard {
+        CostPart::Discard {
+            type_filter,
+            description,
+            ..
+        } => CostPart::Discard {
             amount: spec,
             type_filter: type_filter.clone(),
+            description: description.clone(),
         },
-        CostPart::Return { type_filter, .. } => CostPart::Return {
+        CostPart::Return {
+            type_filter,
+            description,
+            ..
+        } => CostPart::Return {
             amount: spec,
             type_filter: type_filter.clone(),
+            description: description.clone(),
         },
         other => other.clone(),
     }

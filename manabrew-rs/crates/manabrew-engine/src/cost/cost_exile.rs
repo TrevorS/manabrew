@@ -8,6 +8,184 @@ use forge_foundation::ZoneType;
 
 use crate::game::GameState;
 use crate::ids::CardId;
+use forge_foundation::{lang, CoreType};
+
+pub fn to_string(part: &super::CostPart) -> String {
+    let (amount, type_filter, description, from, zone_restriction) = match part {
+        super::CostPart::Exile {
+            amount,
+            type_filter,
+            from,
+            description,
+        } => (amount, type_filter, description, vec![*from], 1),
+        super::CostPart::ExileFromAnyGrave {
+            amount,
+            type_filter,
+            description,
+        } => (
+            amount,
+            type_filter,
+            description,
+            vec![ZoneType::Graveyard],
+            -1,
+        ),
+        super::CostPart::ExileFromSameGrave {
+            amount,
+            type_filter,
+            description,
+        } => (
+            amount,
+            type_filter,
+            description,
+            vec![ZoneType::Graveyard],
+            0,
+        ),
+        super::CostPart::ExileCtrlOrGrave {
+            amount,
+            type_filter,
+            description,
+        } => (
+            amount,
+            type_filter,
+            description,
+            vec![ZoneType::Battlefield, ZoneType::Graveyard],
+            1,
+        ),
+        _ => return String::new(),
+    };
+    let description = description.as_deref();
+    let amount_text = amount.to_string();
+    let i = amount.as_literal();
+    let desc = super::cost_part::descriptive_type(type_filter, description);
+    let [zone] = from.as_slice() else {
+        return exile_multi_zone_cost_string(
+            &amount_text,
+            type_filter,
+            description,
+            &from,
+            false,
+            0,
+        );
+    };
+    let origin = zone.to_string().to_lowercase();
+    if super::cost_part::type_is_source(type_filter) {
+        if origin != "battlefield" {
+            return format!("Exile {type_filter} from your {origin}");
+        }
+        return format!("Exile {type_filter}");
+    }
+    if type_filter == "All" {
+        return format!("Exile all cards from your {origin}");
+    }
+    if origin == "battlefield" {
+        let amt = match amount_text.split_once('+') {
+            Some((needed, _)) if i.is_none() => format!(
+                "{} or more {desc}",
+                lang::get_numeral(needed.parse().unwrap_or(0))
+            ),
+            _ => super::convert_amount_type_to_words(i, &amount_text, &desc),
+        };
+        let control = if amt.contains("you control") {
+            ""
+        } else {
+            " you control"
+        };
+        return format!("Exile {amt}{control}");
+    }
+    if desc != "Card" && !desc.contains("card") {
+        let whose = match zone_restriction {
+            0 => "the same",
+            -1 => "a",
+            _ => "your",
+        };
+        return format!(
+            "Exile {} from {whose} {origin}",
+            lang::noun_with_numeral_except_one(&amount_text, &format!("{desc} card"))
+        );
+    }
+    if zone_restriction == 0 {
+        return format!(
+            "Exile {} from the same {origin}",
+            super::convert_amount_type_to_words(i, &amount_text, &desc)
+        );
+    }
+    if amount_text == "X" {
+        return format!("Exile any number of {desc} from your {origin}");
+    }
+    format!(
+        "Exile {} from your {origin}",
+        super::convert_amount_type_to_words(i, &amount_text, &desc)
+    )
+}
+
+pub fn exile_multi_zone_cost_string(
+    amount: &str,
+    type_filter: &str,
+    description: Option<&str>,
+    from: &[ZoneType],
+    for_kw: bool,
+    x_min: i32,
+) -> String {
+    let mut sb = String::from("Exile ");
+    let mut amt = if !amount.is_empty() && amount.chars().all(|c| c.is_ascii_digit()) {
+        amount.parse().unwrap_or(0)
+    } else {
+        0
+    };
+    let part_type = type_filter.replace(".Other", "");
+    let sing_noun = match description {
+        Some(desc) => desc.to_string(),
+        None if CoreType::from_name(&part_type).is_some() || part_type == "Permanent" => {
+            part_type.to_lowercase()
+        }
+        None => part_type.clone(),
+    };
+    let plur_noun = if sing_noun.contains(' ') {
+        sing_noun.clone()
+    } else {
+        lang::get_plural(&sing_noun)
+    };
+    if !for_kw && amt == 0 && x_min > 0 {
+        amt = x_min;
+    }
+    let perm = sing_noun == "permanent";
+    let other = if perm { "other " } else { "" };
+    if amt == 1 {
+        let a_noun = lang::noun_with_numeral_except_one("1", &sing_noun);
+        if part_type == "Artifact" || perm {
+            sb.push_str(&format!("another {sing_noun}"));
+        } else {
+            sb.push_str(&a_noun);
+        }
+        sb.push_str(&format!(" you control or {a_noun} card from "));
+    } else if amt > 1 {
+        sb.push_str(&format!(
+            "the {} from among {other}{plur_noun} you control and/or {sing_noun} cards in ",
+            lang::get_numeral(amt)
+        ));
+    } else {
+        if x_min > 1 {
+            sb.push_str("the ");
+        }
+        sb.push_str(&lang::get_numeral(x_min));
+        sb.push_str(if for_kw { " or more " } else { " " });
+        if x_min == 1 {
+            sb.push_str(&format!("{other}{plur_noun} you control and/or "));
+            if !perm {
+                sb.push_str(&sing_noun);
+            }
+            sb.push_str(" cards from ");
+        } else if from.len() > 1 {
+            sb.push_str(&format!(
+                "from among {other}{plur_noun} you control and/or cards from "
+            ));
+        } else {
+            sb.push_str("from ");
+        }
+    }
+    sb.push_str("your graveyard");
+    sb
+}
 
 /// Execute exile of self (CARDNAME/OriginalHost).
 /// Mirrors Java's `CostExile` doPayment for self-exile.
@@ -50,6 +228,7 @@ pub fn can_pay(
             amount,
             type_filter,
             from,
+            ..
         } => {
             if type_filter == "All" {
                 return true;
@@ -163,6 +342,7 @@ pub fn can_pay(
         super::CostPart::ExileFromAnyGrave {
             amount,
             type_filter,
+            ..
         } => {
             let base_filter = super::normalize_exile_base_filter(type_filter);
             // TriggeredNewCard refers to the card that just moved to the new
@@ -208,6 +388,7 @@ pub fn can_pay(
         super::CostPart::ExileFromSameGrave {
             amount,
             type_filter,
+            ..
         } => {
             let resolved_amount = amount.resolve(game, source, player);
             let base_filter = super::normalize_exile_base_filter(type_filter);
@@ -242,8 +423,4 @@ pub fn can_pay(
         }
         _ => false,
     }
-}
-
-pub fn exile_multi_zone_cost_string(type_filter: &str) -> String {
-    type_filter.to_string()
 }

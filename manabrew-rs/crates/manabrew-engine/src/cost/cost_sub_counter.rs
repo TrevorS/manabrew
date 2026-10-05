@@ -24,6 +24,7 @@ pub fn can_pay(game: &GameState, source: CardId, part: &super::CostPart) -> bool
         amount,
         counter_type,
         type_filter,
+        ..
     } = part
     else {
         return false;

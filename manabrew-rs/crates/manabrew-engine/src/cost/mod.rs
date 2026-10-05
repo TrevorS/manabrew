@@ -278,17 +278,23 @@ pub enum CostPart {
     Sacrifice {
         amount: AmountSpec,
         type_filter: String,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Discard cards. type_filter "CARDNAME" means discard self.
     Discard {
         amount: AmountSpec,
         type_filter: String,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Remove counters from a permanent (e.g. SubCounter<1/DREAM/NICKNAME>).
     SubCounter {
         amount: AmountSpec,
         counter_type: CounterType,
         type_filter: String,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Add counters to a permanent (e.g. AddCounter<1/LOYALTY>). Mirrors CostPutCounter;
     /// `type_filter` is CARDNAME for the source, otherwise a valid string to choose from.
@@ -296,6 +302,8 @@ pub enum CostPart {
         amount: AmountSpec,
         counter_type: CounterType,
         type_filter: String,
+        #[serde(default)]
+        description: Option<String>,
     },
     PutCounterYou {
         amount: AmountSpec,
@@ -306,21 +314,29 @@ pub enum CostPart {
         amount: AmountSpec,
         type_filter: String,
         from: ZoneType,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Exile cards from any player's graveyard as cost (ExileAnyGrave). Mirrors CostExile zoneMode=-1.
     ExileFromAnyGrave {
         amount: AmountSpec,
         type_filter: String,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Exile cards from the same graveyard as cost (ExileSameGrave). Mirrors CostExile zoneMode=0.
     ExileFromSameGrave {
         amount: AmountSpec,
         type_filter: String,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Return permanents to owner's hand as cost. Mirrors CostReturn.
     Return {
         amount: AmountSpec,
         type_filter: String,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Tap other permanents of a type as cost (tapXType<n/filter>). Mirrors CostTapType.
     /// When `min_total_power` is Some(N), tap any number of creatures whose total power >= N
@@ -330,6 +346,8 @@ pub enum CostPart {
         type_filter: String,
         min_total_power: Option<i32>,
         can_tap_source: bool,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Untap permanents as cost. Mirrors CostUntap.
     Untap,
@@ -338,6 +356,8 @@ pub enum CostPart {
         amount: AmountSpec,
         type_filter: String,
         can_untap_source: bool,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Pay energy counters. Mirrors CostPayEnergy.
     PayEnergy(AmountSpec),
@@ -357,11 +377,15 @@ pub enum CostPart {
         amount: AmountSpec,
         type_filter: String,
         from: RevealFrom,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Exert permanent(s) as cost. Mirrors CostExert.
     Exert {
         amount: AmountSpec,
         type_filter: String,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Opponent gains life as cost. Mirrors CostGainLife.
     GainLife(AmountSpec),
@@ -369,6 +393,8 @@ pub enum CostPart {
     GainControl {
         amount: AmountSpec,
         type_filter: String,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Remove any counter type from permanents matching type_filter. Mirrors CostRemoveAnyCounter.
     /// `counter_type` is None means any counter type.
@@ -376,6 +402,8 @@ pub enum CostPart {
         amount: AmountSpec,
         type_filter: String,
         counter_type: Option<CounterType>,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Unattach equipment as a cost. Mirrors CostUnattach.
     /// `type_filter` can be "CARDNAME" (source is the equipment), "OriginalHost",
@@ -388,6 +416,8 @@ pub enum CostPart {
     ExiledMoveToGrave {
         amount: AmountSpec,
         type_filter: String,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Add mana to the pool as a cost (AddMana<amount/type>). Mirrors CostAddMana.
     /// Always payable. Payment adds the specified mana to the activating player's pool.
@@ -414,6 +444,8 @@ pub enum CostPart {
     ExileFromStack {
         amount: AmountSpec,
         type_filter: String,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Collect evidence N (exile cards from your graveyard with total MV >= N).
     CollectEvidence(AmountSpec),
@@ -426,11 +458,15 @@ pub enum CostPart {
         type_filter: String,
         from: ZoneType,
         same_zone: bool,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Enlist another creature as a cost. Mirrors CostEnlist.
     Enlist {
         amount: AmountSpec,
         type_filter: String,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Promise gift to an opponent as a cost. Mirrors CostPromiseGift.
     PromiseGift,
@@ -441,6 +477,8 @@ pub enum CostPart {
         amount: AmountSpec,
         type_filter: String,
         exile: bool,
+        #[serde(default)]
+        description: Option<String>,
     },
     /// Blight N = put N -1/-1 counters on creature(s) you control.
     Blight(AmountSpec),
@@ -448,6 +486,8 @@ pub enum CostPart {
     ExileCtrlOrGrave {
         amount: AmountSpec,
         type_filter: String,
+        #[serde(default)]
+        description: Option<String>,
     },
 }
 
@@ -615,18 +655,38 @@ impl Cost {
     }
 }
 
-pub fn convert_amount_type_to_words(amount: i32, amount_expr: &str, noun: &str) -> String {
-    if amount_expr == "X" {
-        format!("X {noun}")
-    } else if amount == 1 {
-        format!("a {noun}")
-    } else {
-        format!("{amount} {noun}s")
+pub fn convert_amount_type_to_words(i: Option<i32>, amount: &str, type_: &str) -> String {
+    match i {
+        Some(i) => convert_int_and_type_to_words(i, type_),
+        None => format!("{amount} {type_}"),
     }
 }
 
-pub fn convert_int_and_type_to_words(amount: i32, noun: &str) -> String {
-    convert_amount_type_to_words(amount, &amount.to_string(), noun)
+pub fn convert_int_and_type_to_words(i: i32, type_: &str) -> String {
+    const NUM_NAMES: [&str; 11] = [
+        "zero", "a", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    ];
+    if i == 1 && type_.starts_with("another") {
+        return type_.to_string();
+    }
+    let count = if i == 1 && forge_foundation::lang::starts_with_vowel(type_) {
+        "an".to_string()
+    } else {
+        usize::try_from(i)
+            .ok()
+            .and_then(|n| NUM_NAMES.get(n))
+            .map_or_else(|| i.to_string(), |name| name.to_string())
+    };
+    if i == 1 {
+        return format!("{count} {type_}");
+    }
+    let last = type_.split(' ').next_back().unwrap_or(type_);
+    let plural = if crate::game::TypeRegistry::is_a_sub_type(last) {
+        type_.replace(last, &crate::game::TypeRegistry::get_plural_type(last))
+    } else {
+        format!("{type_}s")
+    };
+    format!("{count} {plural}")
 }
 
 pub fn merge_to(dst: &mut Cost, src: &Cost) {
@@ -686,17 +746,11 @@ pub fn get_max_for_non_mana_x(
 }
 
 pub fn to_simple_string(cost: &Cost) -> String {
-    let mut out = Vec::new();
-    for part in &cost.parts {
-        match part {
-            CostPart::Tap => out.push("{T}".to_string()),
-            CostPart::Untap => out.push("{Q}".to_string()),
-            CostPart::Mana { cost, .. } => out.push(format!("{cost}")),
-            CostPart::PayLife(v) => out.push(format!("Pay {v} life")),
-            _ => out.push(format!("{part:?}")),
-        }
-    }
-    out.join(", ")
+    cost.parts
+        .iter()
+        .map(cost_part::to_string)
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// Cost rendered for a player-facing prompt. Life uses the `{LIFE}` token so the
@@ -709,7 +763,7 @@ pub fn to_prompt_string(cost: &Cost) -> String {
             CostPart::Untap => out.push("{Q}".to_string()),
             CostPart::Mana { cost, .. } => out.push(format!("{cost}")),
             CostPart::PayLife(v) => out.push(format!("{v} {{LIFE}}")),
-            _ => out.push(format!("{part:?}")),
+            _ => out.push(cost_part::to_string(part)),
         }
     }
     out.join(", ")
@@ -1402,6 +1456,7 @@ pub fn can_pay_with_ability_and_reserved(
             CostPart::Sacrifice {
                 type_filter,
                 amount,
+                ..
             } => {
                 if type_filter == "CARDNAME"
                     || type_filter == "NICKNAME"
@@ -1701,6 +1756,7 @@ mod tests {
             CostPart::Sacrifice {
                 amount,
                 type_filter,
+                ..
             } => {
                 assert_eq!(amount.as_literal(), Some(1));
                 assert_eq!(type_filter, "CARDNAME");
@@ -1739,6 +1795,7 @@ mod tests {
             CostPart::Sacrifice {
                 amount,
                 type_filter,
+                ..
             } => {
                 assert_eq!(amount.as_literal(), Some(1));
                 assert_eq!(type_filter, "Creature");
@@ -1767,6 +1824,7 @@ mod tests {
                 amount,
                 type_filter,
                 from,
+                ..
             } => {
                 assert_eq!(amount.as_literal(), Some(1));
                 assert_eq!(type_filter, "Card");
@@ -1785,6 +1843,7 @@ mod tests {
                 amount,
                 counter_type,
                 type_filter,
+                ..
             } => {
                 assert_eq!(amount.as_literal(), Some(1));
                 assert_eq!(*counter_type, CounterType::Loyalty);
@@ -1802,6 +1861,7 @@ mod tests {
             CostPart::Return {
                 amount,
                 type_filter,
+                ..
             } => {
                 assert_eq!(amount.as_literal(), Some(1));
                 assert_eq!(type_filter, "CARDNAME");
@@ -1892,6 +1952,7 @@ mod tests {
                 type_filter,
                 from,
                 same_zone,
+                ..
             } => {
                 assert_eq!(amount.as_literal(), Some(1));
                 assert_eq!(*lib_pos, 0);
@@ -1911,6 +1972,7 @@ mod tests {
             CostPart::ExileFromStack {
                 amount,
                 type_filter,
+                ..
             } => {
                 assert_eq!(amount.as_literal(), Some(1));
                 assert_eq!(type_filter, "Spell");
@@ -1927,11 +1989,40 @@ mod tests {
             CostPart::ExileCtrlOrGrave {
                 amount,
                 type_filter,
+                ..
             } => {
                 assert_eq!(amount.as_literal(), Some(2));
                 assert_eq!(type_filter, "Artifact");
             }
             _ => panic!("expected ExileCtrlOrGrave cost part"),
+        }
+    }
+
+    #[test]
+    fn cost_text_matches_java_to_simple_string() {
+        for (raw, java) in [
+            ("2 Sac<1/CARDNAME>", "{2}, Sacrifice CARDNAME"),
+            ("T tapXType<1/Creature.Other+withTotalPowerGE4>", "{T}, Tap any number of untapped creatures you control other than CARDNAME with total power 4 or greater"),
+            ("tapXType<1/Creature.Other>", "Tap another untapped creature you control"),
+            ("AddCounter<2/LOYALTY>", "+2"),
+            ("AddCounter<0/LOYALTY>", "0"),
+            ("SubCounter<3/LOYALTY>", "-3"),
+            ("Waterbend<8>", "Waterbend {8}"),
+            ("Sac<1/Permanent>", "Sacrifice a permanent"),
+            ("Sac<1/Creature.Other/another creature>", "Sacrifice another creature"),
+            ("Discard<1/Card>", "Discard a card"),
+            ("Discard<2/Card>", "Discard two cards"),
+            ("ExileFromGrave<1/Card>", "Exile a card from your graveyard"),
+            ("Return<1/Artifact>", "Return an artifact you control to its owner's hand"),
+            ("T SubCounter<1/CHARGE>", "{T}, Remove a charge counter from CARDNAME"),
+            ("Behold<1/Dragon>", "Behold a Dragon"),
+            ("RemoveAnyCounter<1/Any/CARDNAME/this creature>", "Remove a counter from a this creature"),
+            ("PayEnergy<2>", "Pay {E}{E}"),
+            ("T Exert<1/CARDNAME>", "{T}, Exert CARDNAME"),
+            ("CollectEvidence<4>", "Collect evidence 4"),
+            ("PayLife<2> Discard<1/Card>", "Pay 2 life, Discard a card"),
+        ] {
+            assert_eq!(to_simple_string(&parse_cost(raw)), java, "{raw}");
         }
     }
 }

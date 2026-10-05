@@ -2293,6 +2293,7 @@ fn pay_non_tap_mana_ability_costs(
             CostPart::Sacrifice {
                 type_filter,
                 amount,
+                ..
             } => {
                 if type_filter == "CARDNAME" {
                     if amount.resolve(game, ma.card_id, player) > 1
@@ -2573,6 +2574,7 @@ fn can_pay_source_paid_mana_cost_part(
         CostPart::Sacrifice {
             type_filter,
             amount,
+            ..
         } => {
             if type_filter == "CARDNAME" {
                 amount.resolve(game, source_id, player) <= 1
@@ -2654,6 +2656,7 @@ fn choose_tap_type_targets_for_mana_ability_with_callback(
         type_filter,
         min_total_power,
         can_tap_source,
+        ..
     } = part
     else {
         return Vec::new();

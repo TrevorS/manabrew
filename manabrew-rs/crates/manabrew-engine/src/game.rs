@@ -31,6 +31,7 @@ pub struct TypeRegistry;
 
 static CREATURE_TYPES: OnceLock<Vec<String>> = OnceLock::new();
 static SUBTYPE_SECTIONS: OnceLock<BTreeMap<String, Vec<String>>> = OnceLock::new();
+static PLURAL_TYPES: OnceLock<BTreeMap<String, String>> = OnceLock::new();
 
 impl TypeRegistry {
     /// Load creature types from the raw contents of `TypeLists.txt` and of every
@@ -47,11 +48,15 @@ impl TypeRegistry {
     /// silently ignored (first write wins).
     pub fn load<'a>(type_lists_content: &str, edition_texts: impl IntoIterator<Item = &'a str>) {
         let mut types = Vec::new();
+        let mut plurals = BTreeMap::new();
         Self::parse_creature_types(type_lists_content, &mut types);
+        Self::parse_plural_types(type_lists_content, &mut plurals);
         for edition in edition_texts {
             Self::parse_creature_types(edition, &mut types);
+            Self::parse_plural_types(edition, &mut plurals);
         }
         let _ = CREATURE_TYPES.set(types);
+        let _ = PLURAL_TYPES.set(plurals);
         let _ = SUBTYPE_SECTIONS.set(Self::parse_subtype_sections(type_lists_content));
     }
 
@@ -119,6 +124,59 @@ impl TypeRegistry {
                 .iter()
                 .any(|ty| ty.eq_ignore_ascii_case(creature_type))
         })
+    }
+
+    /// Java `CardType.isASubType`.
+    pub fn is_a_sub_type(card_type: &str) -> bool {
+        SUBTYPE_SECTIONS.get().is_some_and(|sections| {
+            sections
+                .values()
+                .any(|types| types.iter().any(|ty| ty == card_type))
+        }) || CREATURE_TYPES
+            .get()
+            .is_some_and(|types| types.iter().any(|ty| ty == card_type))
+    }
+
+    /// Java `CardType.getPluralType`.
+    pub fn get_plural_type(card_type: &str) -> String {
+        if let Some(core) = forge_foundation::CoreType::from_name(card_type) {
+            return core.plural_name().to_string();
+        }
+        PLURAL_TYPES
+            .get()
+            .and_then(|plurals| plurals.get(card_type))
+            .cloned()
+            .unwrap_or_else(|| card_type.to_string())
+    }
+
+    fn parse_plural_types(content: &str, plurals: &mut BTreeMap<String, String>) {
+        const SECTIONS: [&str; 10] = [
+            "BasicTypes",
+            "LandTypes",
+            "CreatureTypes",
+            "SpellTypes",
+            "EnchantmentTypes",
+            "ArtifactTypes",
+            "WalkerTypes",
+            "DungeonTypes",
+            "BattleTypes",
+            "PlanarTypes",
+        ];
+        let mut in_types = false;
+        for line in content.lines().map(str::trim) {
+            if line.starts_with('[') && line.ends_with(']') {
+                in_types = SECTIONS.contains(&&line[1..line.len() - 1]);
+                continue;
+            }
+            if !in_types || line.starts_with('#') {
+                continue;
+            }
+            if let Some((singular, plural)) = line.split_once(':') {
+                plurals
+                    .entry(singular.to_string())
+                    .or_insert_with(|| plural.to_string());
+            }
+        }
     }
 
     fn parse_creature_types(content: &str, types: &mut Vec<String>) {

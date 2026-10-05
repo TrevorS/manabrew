@@ -252,6 +252,7 @@ impl GameLoop {
                             crate::cost::CostPart::Exert {
                                 amount,
                                 type_filter,
+                                ..
                             } => {
                                 let amount_n = amount.resolve(game, attacker, active);
                                 optional_exert_by_attacker
@@ -262,6 +263,7 @@ impl GameLoop {
                             crate::cost::CostPart::Enlist {
                                 amount,
                                 type_filter,
+                                ..
                             } => {
                                 let amount_n = amount.resolve(game, attacker, active);
                                 optional_enlist_by_attacker

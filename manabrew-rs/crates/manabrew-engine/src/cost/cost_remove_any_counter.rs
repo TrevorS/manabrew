@@ -2,7 +2,75 @@
 
 use crate::card::CounterType;
 use crate::game::GameState;
+use crate::game::TypeRegistry;
 use crate::ids::CardId;
+use forge_foundation::lang;
+
+pub fn to_string(part: &super::CostPart) -> String {
+    let super::CostPart::RemoveAnyCounter {
+        amount,
+        type_filter,
+        counter_type,
+        description,
+    } = part
+    else {
+        return String::new();
+    };
+    let amount_text = amount.to_string();
+    let counters = match counter_type {
+        Some(counter) => format!("{} counter", counter.get_name().to_lowercase()),
+        None => "counter".to_string(),
+    };
+    let multiple = amount_text != "1";
+    let descriptive = descriptive_type(type_filter, description.as_deref(), multiple);
+    let mut sb = String::from("Remove ");
+    sb.push_str(&super::convert_amount_type_to_words(
+        amount.as_literal(),
+        &amount_text,
+        &counters,
+    ));
+    sb.push_str(" from ");
+    if super::cost_part::type_is_source(type_filter) {
+        sb.push_str(&descriptive);
+    } else {
+        if multiple {
+            sb.push_str(" among ");
+        }
+        sb.push_str(&descriptive);
+        sb.push_str(" you control");
+    }
+    sb
+}
+
+pub fn descriptive_type(type_filter: &str, description: Option<&str>, multiple: bool) -> String {
+    let type_desc = match description {
+        Some(desc) => desc.to_string(),
+        None if super::cost_part::type_is_source(type_filter) => return type_filter.to_string(),
+        None => {
+            let types: Vec<String> = type_filter
+                .split(';')
+                .map(|ty| {
+                    if multiple {
+                        TypeRegistry::get_plural_type(ty)
+                    } else {
+                        ty.to_string()
+                    }
+                })
+                .collect();
+            let types: Vec<&str> = types.iter().map(String::as_str).collect();
+            lang::build_valid_desc(&types, multiple)
+        }
+    };
+    if !multiple && !type_desc.starts_with("an") {
+        let article = if lang::starts_with_vowel(&type_desc) {
+            "an"
+        } else {
+            "a"
+        };
+        return format!("{article} {type_desc}");
+    }
+    type_desc
+}
 
 /// Pay by removing counters from selected permanents.
 /// The caller provides the (card, counter_type, amount) decisions.
@@ -92,6 +160,7 @@ pub fn can_pay(
         amount,
         type_filter,
         counter_type,
+        ..
     } = part
     else {
         return false;

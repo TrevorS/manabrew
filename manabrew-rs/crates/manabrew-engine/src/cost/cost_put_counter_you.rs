@@ -6,6 +6,23 @@ use crate::ids::{CardId, PlayerId};
 use crate::spellability::SpellAbility;
 use crate::trigger::TriggerHandler;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::PutCounterYou {
+            amount,
+            counter_type,
+        } => format!(
+            "Get {}",
+            super::convert_amount_type_to_words(
+                amount.as_literal(),
+                &amount.to_string(),
+                &format!("{} counter", counter_type.get_name()),
+            )
+        ),
+        _ => String::new(),
+    }
+}
+
 pub fn can_pay(
     game: &GameState,
     _available_mana: &crate::mana::ManaPool,

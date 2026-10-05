@@ -1,5 +1,12 @@
 //! Collect evidence as a cost. Mirrors Java's `CostCollectEvidence`.
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::CollectEvidence(amount) => format!("Collect evidence {amount}"),
+        _ => String::new(),
+    }
+}
+
 // NOTE: pay_as_decided is handled by GameLoop::pay_collect_evidence_cost() in game_action.rs
 // because it requires agent interaction for card selection and trigger firing (CollectEvidence).
 

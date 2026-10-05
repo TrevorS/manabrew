@@ -5,6 +5,18 @@ use forge_foundation::ZoneType;
 use crate::game::GameState;
 use crate::ids::PlayerId;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    let super::CostPart::Mill(amount) = part else {
+        return String::new();
+    };
+    let plural = if amount.as_literal().is_none_or(|i| i > 1) {
+        "s"
+    } else {
+        ""
+    };
+    format!("Mill {amount} card{plural}")
+}
+
 /// Pay by milling cards (library -> graveyard).
 /// Mirrors Java's `CostMill.payAsDecided()`.
 /// NOTE: Trigger firing (Milled, zone change) must be handled by the caller.

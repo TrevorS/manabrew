@@ -482,6 +482,7 @@ impl GameLoop {
                 CostPart::Discard {
                     type_filter,
                     amount,
+                    ..
                 } => {
                     if type_filter != "CARDNAME" && type_filter != "NICKNAME" {
                         if !self.confirm_cost_part_payment(
@@ -550,6 +551,7 @@ impl GameLoop {
                 CostPart::Sacrifice {
                     type_filter,
                     amount,
+                    ..
                 } if (type_filter == "CARDNAME" || type_filter == "NICKNAME")
                     && amount.resolve(game, card_id, player) > 0 =>
                 {
@@ -600,6 +602,7 @@ impl GameLoop {
                 CostPart::Sacrifice {
                     type_filter,
                     amount,
+                    ..
                 } if type_filter != "CARDNAME" && type_filter != "NICKNAME" => {
                     let mut valid = cost::get_sacrifice_targets_for_cost(
                         game,
@@ -637,6 +640,7 @@ impl GameLoop {
                     amount,
                     counter_type,
                     type_filter,
+                    ..
                 } => {
                     if !self.confirm_cost_part_payment(
                         game,
@@ -680,6 +684,7 @@ impl GameLoop {
                     amount,
                     type_filter,
                     counter_type,
+                    ..
                 } => {
                     if !self.confirm_cost_part_payment(
                         game,
@@ -1054,6 +1059,7 @@ impl GameLoop {
                 CostPart::Sacrifice {
                     type_filter,
                     amount,
+                    ..
                 } => {
                     if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
                         super::perform_sacrifice(
@@ -1081,6 +1087,7 @@ impl GameLoop {
                 CostPart::Discard {
                     type_filter,
                     amount,
+                    ..
                 } => {
                     game.begin_discard_batch();
                     if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
@@ -1131,6 +1138,7 @@ impl GameLoop {
                 CostPart::ExileFromAnyGrave {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     let exiled_before = game.card(card_id).paid_cost_exiled_cards.len();
                     self.pay_exile_from_any_grave_cost(
@@ -1147,6 +1155,7 @@ impl GameLoop {
                 CostPart::ExileFromSameGrave {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     let exiled_before = game.card(card_id).paid_cost_exiled_cards.len();
                     self.pay_exile_from_same_grave_cost(
@@ -1163,6 +1172,7 @@ impl GameLoop {
                     amount,
                     counter_type,
                     type_filter,
+                    ..
                 } => {
                     let amount_n = amount.resolve(game, card_id, player);
                     let target = if type_filter.eq_ignore_ascii_case("CARDNAME")
@@ -1182,6 +1192,7 @@ impl GameLoop {
                     amount,
                     counter_type,
                     type_filter,
+                    ..
                 } => {
                     let amount_n = amount.resolve(game, card_id, player);
                     let Some(counter_target) = self.choose_put_counter_target(
@@ -1213,6 +1224,7 @@ impl GameLoop {
                     amount,
                     type_filter,
                     from,
+                    ..
                 } => {
                     let exiled_before = game.card(card_id).paid_cost_exiled_cards.len();
                     if type_filter == "CARDNAME"
@@ -1238,6 +1250,7 @@ impl GameLoop {
                 CostPart::Return {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     if type_filter == "CARDNAME" {
                         let owner = game.card(card_id).owner;
@@ -1270,6 +1283,7 @@ impl GameLoop {
                     type_filter,
                     min_total_power,
                     can_tap_source,
+                    ..
                 } => {
                     if !self.pay_tap_type_cost(
                         game,
@@ -1291,6 +1305,7 @@ impl GameLoop {
                     amount,
                     type_filter,
                     can_untap_source,
+                    ..
                 } => {
                     self.pay_untap_type_cost(
                         game,
@@ -1371,6 +1386,7 @@ impl GameLoop {
                     amount,
                     type_filter,
                     from,
+                    ..
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
                     self.pay_reveal_cost(
@@ -1388,6 +1404,7 @@ impl GameLoop {
                 CostPart::Exert {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
                     self.pay_exert_cost(
@@ -1407,6 +1424,7 @@ impl GameLoop {
                 CostPart::GainControl {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     self.pay_gain_control_cost(
                         game,
@@ -1449,6 +1467,7 @@ impl GameLoop {
                 CostPart::ExiledMoveToGrave {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     self.pay_exiled_move_to_grave_cost(
                         game,
@@ -1559,6 +1578,7 @@ impl GameLoop {
                 CostPart::ExileFromStack {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
                     self.pay_exile_from_stack_cost(
@@ -1609,6 +1629,7 @@ impl GameLoop {
                     type_filter,
                     from,
                     same_zone,
+                    ..
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
                     if !self.pay_put_card_to_lib_cost(
@@ -1629,6 +1650,7 @@ impl GameLoop {
                 CostPart::Enlist {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
                     self.pay_enlist_cost(
@@ -1666,6 +1688,7 @@ impl GameLoop {
                     amount,
                     type_filter,
                     exile,
+                    ..
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
                     if !self.pay_behold_cost(
@@ -1697,6 +1720,7 @@ impl GameLoop {
                 CostPart::ExileCtrlOrGrave {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
                     if !self.pay_exile_ctrl_or_grave_cost(
@@ -1843,6 +1867,7 @@ impl GameLoop {
                 CostPart::Sacrifice {
                     type_filter,
                     amount,
+                    ..
                 } => {
                     if type_filter != "CARDNAME"
                         && !self.pay_sacrifice_cost_internal(
@@ -1864,6 +1889,7 @@ impl GameLoop {
                 CostPart::Discard {
                     type_filter,
                     amount,
+                    ..
                 } => {
                     if type_filter != "CARDNAME" {
                         let discarded = if let Some(prechosen) = prechosen_discards {
@@ -1944,6 +1970,7 @@ impl GameLoop {
                 CostPart::ExileFromAnyGrave {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     let exiled_before = game.card(card_id).paid_cost_exiled_cards.len();
                     self.pay_exile_from_any_grave_cost(
@@ -1960,6 +1987,7 @@ impl GameLoop {
                 CostPart::ExileFromSameGrave {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     let exiled_before = game.card(card_id).paid_cost_exiled_cards.len();
                     self.pay_exile_from_same_grave_cost(
@@ -1976,6 +2004,7 @@ impl GameLoop {
                     amount,
                     counter_type,
                     type_filter,
+                    ..
                 } => {
                     let amount_n = amount.resolve(game, card_id, player);
                     let target = if type_filter.eq_ignore_ascii_case("CARDNAME")
@@ -1997,6 +2026,7 @@ impl GameLoop {
                     amount,
                     counter_type,
                     type_filter,
+                    ..
                 } => {
                     let amount_n = amount.resolve(game, card_id, player);
                     let counter_target = self
@@ -2030,6 +2060,7 @@ impl GameLoop {
                     amount,
                     type_filter,
                     from,
+                    ..
                 } => {
                     let exiled_before = game.card(card_id).paid_cost_exiled_cards.len();
                     if type_filter == "CARDNAME"
@@ -2057,6 +2088,7 @@ impl GameLoop {
                 CostPart::Return {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     let mut returned = Vec::new();
                     if type_filter != "CARDNAME"
@@ -2089,6 +2121,7 @@ impl GameLoop {
                     type_filter,
                     min_total_power,
                     can_tap_source,
+                    ..
                 } => {
                     if let Some(prechosen) = prechosen_tap_type {
                         let needed = (amount.resolve(game, card_id, player)).max(0) as usize;
@@ -2160,6 +2193,7 @@ impl GameLoop {
                     amount,
                     type_filter,
                     can_untap_source,
+                    ..
                 } => {
                     self.pay_untap_type_cost(
                         game,
@@ -2240,6 +2274,7 @@ impl GameLoop {
                     amount,
                     type_filter,
                     from,
+                    ..
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
                     self.pay_reveal_cost(
@@ -2257,6 +2292,7 @@ impl GameLoop {
                 CostPart::Exert {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
                     self.pay_exert_cost(
@@ -2275,6 +2311,7 @@ impl GameLoop {
                 CostPart::GainControl {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     self.pay_gain_control_cost(
                         game,
@@ -2289,6 +2326,7 @@ impl GameLoop {
                     amount,
                     type_filter,
                     counter_type,
+                    ..
                 } => {
                     let decided_removals = decided_counters
                         .and_then(|counters| counters.get(idx))
@@ -2339,6 +2377,7 @@ impl GameLoop {
                 CostPart::ExiledMoveToGrave {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     self.pay_exiled_move_to_grave_cost(
                         game,
@@ -2449,6 +2488,7 @@ impl GameLoop {
                 CostPart::ExileFromStack {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
                     self.pay_exile_from_stack_cost(
@@ -2499,6 +2539,7 @@ impl GameLoop {
                     type_filter,
                     from,
                     same_zone,
+                    ..
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
                     if !self.pay_put_card_to_lib_cost(
@@ -2519,6 +2560,7 @@ impl GameLoop {
                 CostPart::Enlist {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
                     self.pay_enlist_cost(
@@ -2556,6 +2598,7 @@ impl GameLoop {
                     amount,
                     type_filter,
                     exile,
+                    ..
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
                     let prechosen = prechosen_beholds.map(|picks| {
@@ -2594,6 +2637,7 @@ impl GameLoop {
                 CostPart::ExileCtrlOrGrave {
                     amount,
                     type_filter,
+                    ..
                 } => {
                     let resolved_amount = amount.resolve(game, card_id, player);
                     if !self.pay_exile_ctrl_or_grave_cost(
@@ -2668,6 +2712,7 @@ impl GameLoop {
                 CostPart::Sacrifice {
                     type_filter,
                     amount,
+                    ..
                 } => {
                     if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
                         continue;
@@ -2718,6 +2763,7 @@ impl GameLoop {
                 CostPart::Return {
                     type_filter,
                     amount,
+                    ..
                 } => {
                     if type_filter == "CARDNAME" {
                         continue;
@@ -2773,6 +2819,7 @@ impl GameLoop {
                 type_filter,
                 min_total_power: None,
                 can_tap_source,
+                ..
             } = part
             {
                 let valid =
@@ -2955,6 +3002,7 @@ impl GameLoop {
                 amount,
                 type_filter,
                 from,
+                ..
             } => {
                 let amount = amount.resolve(game, source, player);
                 if amount <= 0 {
@@ -2971,6 +3019,7 @@ impl GameLoop {
             CostPart::ExileFromAnyGrave {
                 amount,
                 type_filter,
+                ..
             } => {
                 let amount = amount.resolve(game, source, player);
                 Some(self.choose_exile_from_any_grave_cards(
@@ -2985,6 +3034,7 @@ impl GameLoop {
             CostPart::ExileCtrlOrGrave {
                 amount,
                 type_filter,
+                ..
             } => {
                 let amount = amount.resolve(game, source, player);
                 if amount <= 0 {
@@ -3001,6 +3051,7 @@ impl GameLoop {
             CostPart::Return {
                 amount,
                 type_filter,
+                ..
             } => Self::choose_cost_cards_exactly(
                 DecisionContext::new(game, &self.mana_pools),
                 agents,
@@ -3044,6 +3095,7 @@ impl GameLoop {
                 amount,
                 type_filter,
                 from,
+                ..
             } => Some(self.choose_reveal_cost_cards(
                 game,
                 agents,
@@ -3121,6 +3173,7 @@ impl GameLoop {
                 amount,
                 type_filter,
                 counter_type,
+                ..
             } = part
             {
                 let amount = amount.resolve(game, source, player);
@@ -3155,6 +3208,7 @@ impl GameLoop {
             if let CostPart::Discard {
                 type_filter,
                 amount,
+                ..
             } = part
             {
                 if type_filter == "CARDNAME" {

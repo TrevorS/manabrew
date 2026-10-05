@@ -370,20 +370,33 @@ pub fn is_undoable(part: &CostPart) -> bool {
 /// Mirrors Java's `CostPart.getTypeDescription()`.
 pub fn get_type_description(part: &CostPart) -> Option<&str> {
     match part {
-        CostPart::Unattach {
-            description: Some(d),
-            ..
-        } => Some(d.as_str()),
+        CostPart::Sacrifice { description, .. }
+        | CostPart::Discard { description, .. }
+        | CostPart::SubCounter { description, .. }
+        | CostPart::AddCounter { description, .. }
+        | CostPart::Exile { description, .. }
+        | CostPart::ExileFromAnyGrave { description, .. }
+        | CostPart::ExileFromSameGrave { description, .. }
+        | CostPart::Return { description, .. }
+        | CostPart::TapType { description, .. }
+        | CostPart::UntapType { description, .. }
+        | CostPart::Reveal { description, .. }
+        | CostPart::Exert { description, .. }
+        | CostPart::GainControl { description, .. }
+        | CostPart::RemoveAnyCounter { description, .. }
+        | CostPart::Unattach { description, .. }
+        | CostPart::ExiledMoveToGrave { description, .. }
+        | CostPart::ExileFromStack { description, .. }
+        | CostPart::PutCardToLib { description, .. }
+        | CostPart::Enlist { description, .. }
+        | CostPart::Behold { description, .. }
+        | CostPart::ExileCtrlOrGrave { description, .. } => description.as_deref(),
         _ => None,
     }
 }
 
 /// Mirrors Java's `CostPart.getDescriptiveType()`.
 pub fn get_descriptive_type(part: &CostPart) -> String {
-    if let Some(desc) = get_type_description(part) {
-        return desc.to_string();
-    }
-
     match part {
         CostPart::Sacrifice { type_filter, .. }
         | CostPart::Discard { type_filter, .. }
@@ -403,8 +416,78 @@ pub fn get_descriptive_type(part: &CostPart) -> String {
         | CostPart::ExileFromSameGrave { type_filter, .. }
         | CostPart::Reveal { type_filter, .. }
         | CostPart::Exert { type_filter, .. }
-        | CostPart::Unattach { type_filter, .. } => type_filter.to_lowercase(),
+        | CostPart::Unattach { type_filter, .. } => {
+            descriptive_type(type_filter, get_type_description(part))
+        }
         _ => format!("{part:?}").to_lowercase(),
+    }
+}
+
+pub fn descriptive_type(type_filter: &str, description: Option<&str>) -> String {
+    match description {
+        Some(desc) => desc.to_string(),
+        None if forge_foundation::CoreType::from_name(type_filter).is_some()
+            || type_filter == "Card" =>
+        {
+            type_filter.to_lowercase()
+        }
+        None => type_filter.to_string(),
+    }
+}
+
+/// Java's `CostPart.payCostFromSource()`, which every part answers from its type.
+pub fn type_is_source(type_filter: &str) -> bool {
+    type_filter == "CARDNAME" || type_filter == "NICKNAME"
+}
+
+/// Mirrors Java's `CostPart.toString()`.
+pub fn to_string(part: &CostPart) -> String {
+    use crate::cost::*;
+    match part {
+        CostPart::Tap => cost_tap::to_string(),
+        CostPart::Untap => cost_untap::to_string(),
+        CostPart::Mana { .. } => cost_part_mana::to_string(part),
+        CostPart::PayLife(_) => cost_pay_life::to_string(part),
+        CostPart::Sacrifice { .. } => cost_sacrifice::to_string(part),
+        CostPart::Discard { .. } => cost_discard::to_string(part),
+        CostPart::SubCounter { .. } => cost_remove_counter::to_string(part),
+        CostPart::AddCounter { .. } => cost_put_counter::to_string(part),
+        CostPart::PutCounterYou { .. } => cost_put_counter_you::to_string(part),
+        CostPart::Exile { .. }
+        | CostPart::ExileFromAnyGrave { .. }
+        | CostPart::ExileFromSameGrave { .. }
+        | CostPart::ExileCtrlOrGrave { .. } => cost_exile::to_string(part),
+        CostPart::Return { .. } => cost_return::to_string(part),
+        CostPart::TapType { .. } => cost_tap_type::to_string(part),
+        CostPart::UntapType { .. } => cost_untap_type::to_string(part),
+        CostPart::PayEnergy(_) => cost_pay_energy::to_string(part),
+        CostPart::PayShards(_) => cost_pay_shards::to_string(part),
+        CostPart::DamageYou(_) => cost_damage::to_string(part),
+        CostPart::Draw { .. } => cost_draw::to_string(part),
+        CostPart::Mill(_) => cost_mill::to_string(part),
+        CostPart::Reveal { .. } => cost_reveal::to_string(part),
+        CostPart::Exert { .. } => cost_exert::to_string(part),
+        CostPart::GainLife(_) => cost_gain_life::to_string(part),
+        CostPart::GainControl { .. } => cost_gain_control::to_string(part),
+        CostPart::RemoveAnyCounter { .. } => cost_remove_any_counter::to_string(part),
+        CostPart::Unattach { .. } => cost_unattach::to_string(part),
+        CostPart::ExiledMoveToGrave { .. } => cost_exiled_move_to_grave::to_string(part),
+        CostPart::AddMana { .. } => cost_add_mana::to_string(part),
+        CostPart::Waterbend { .. } => cost_waterbend::to_string(part),
+        CostPart::ChooseColor(_) => cost_choose_color::to_string(part),
+        CostPart::ChooseCreatureType(_) => cost_choose_creature_type::to_string(part),
+        CostPart::FlipCoin(_) => cost_flip_coin::to_string(part),
+        CostPart::RollDice { .. } => cost_roll_dice::to_string(part),
+        CostPart::ExileFromStack { .. } => cost_exile_from_stack::to_string(part),
+        CostPart::CollectEvidence(_) => cost_collect_evidence::to_string(part),
+        CostPart::Forage => cost_forage::to_string(),
+        CostPart::PutCardToLib { .. } => cost_put_card_to_lib::to_string(part),
+        CostPart::Enlist { .. } => cost_enlist::to_string(part),
+        CostPart::PromiseGift => cost_promise_gift::to_string(),
+        CostPart::RevealChosen { .. } => cost_reveal_chosen::to_string(part),
+        CostPart::Behold { exile: false, .. } => cost_behold::to_string(part),
+        CostPart::Behold { exile: true, .. } => cost_behold_exile::to_string(part),
+        CostPart::Blight(_) => cost_blight::to_string(part),
     }
 }
 

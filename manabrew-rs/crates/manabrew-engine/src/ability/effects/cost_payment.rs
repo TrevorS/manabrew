@@ -750,6 +750,7 @@ fn pay_effect_cost_parts(
                 amount,
                 counter_type,
                 type_filter,
+                ..
             } => {
                 let amount_n = amount.resolve(ctx.game, source, payer);
                 let counter_target = if crate::cost::cost_put_counter::pays_from_source(type_filter)
@@ -820,6 +821,7 @@ fn pay_effect_cost_parts(
             CostPart::Discard {
                 amount,
                 type_filter,
+                ..
             } => {
                 ctx.game.begin_discard_batch();
                 if type_filter == "Hand" {
@@ -875,6 +877,7 @@ fn pay_effect_cost_parts(
             CostPart::Sacrifice {
                 amount,
                 type_filter,
+                ..
             } => {
                 let required = amount.resolve(ctx.game, source, payer).max(0) as usize;
                 let valid = crate::cost::get_sacrifice_targets_for_cost(
@@ -962,6 +965,7 @@ fn pay_effect_cost_parts(
                 amount,
                 type_filter,
                 from,
+                ..
             } => {
                 if type_filter == "CARDNAME" || type_filter == "NICKNAME" {
                     let origin = ctx.game.card(source).zone;
@@ -1046,6 +1050,7 @@ fn pay_effect_cost_parts(
                 type_filter,
                 min_total_power,
                 can_tap_source,
+                ..
             } => {
                 // Java `HarnessCostPlumbing.visit(CostTapType)` builds the pool, drops the
                 // source when the cost forbids it, then asks `chooseCardsForEffect` with

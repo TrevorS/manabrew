@@ -1,5 +1,12 @@
 //! Enlist a creature as a cost. Mirrors Java's `CostEnlist`.
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::Enlist { type_filter, .. } => format!("Enlist {type_filter}"),
+        _ => String::new(),
+    }
+}
+
 // NOTE: pay_as_decided is handled by GameLoop::pay_enlist_cost() in game_action.rs
 // because it requires agent interaction, tapping, power transfer, and trigger firing (Enlisted).
 

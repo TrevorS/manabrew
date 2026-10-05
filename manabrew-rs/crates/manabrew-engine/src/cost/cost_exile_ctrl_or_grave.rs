@@ -30,6 +30,7 @@ pub fn can_pay(
     let super::CostPart::ExileCtrlOrGrave {
         amount,
         type_filter,
+        ..
     } = part
     else {
         return false;

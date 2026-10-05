@@ -3,6 +3,24 @@
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::GainControl {
+            amount,
+            type_filter,
+            description,
+        } => format!(
+            "Gain control of {}",
+            super::convert_amount_type_to_words(
+                None,
+                &amount.to_string(),
+                description.as_deref().unwrap_or(type_filter),
+            )
+        ),
+        _ => String::new(),
+    }
+}
+
 /// Pay by transferring control of selected permanents.
 /// Mirrors Java's `CostGainControl.doPayment()` → `card.addTempController(payer)`.
 pub fn pay_as_decided_cards(
@@ -34,6 +52,7 @@ pub fn can_pay(
     let super::CostPart::GainControl {
         amount,
         type_filter,
+        ..
     } = part
     else {
         return false;

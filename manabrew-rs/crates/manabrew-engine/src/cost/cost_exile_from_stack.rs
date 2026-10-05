@@ -1,5 +1,23 @@
 //! Exile spells from the stack as a cost. Mirrors Java's `CostExileFromStack`.
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::ExileFromStack {
+            amount,
+            type_filter,
+            description,
+        } => format!(
+            "Exile {} from stack",
+            super::convert_amount_type_to_words(
+                amount.as_literal(),
+                &amount.to_string(),
+                description.as_deref().unwrap_or(type_filter),
+            )
+        ),
+        _ => String::new(),
+    }
+}
+
 // NOTE: pay_as_decided is handled by GameLoop::pay_exile_from_stack_cost() in game_action.rs
 // because it requires stack manipulation and agent interaction for target selection.
 
@@ -18,6 +36,7 @@ pub fn can_pay(
     let super::CostPart::ExileFromStack {
         amount,
         type_filter,
+        ..
     } = part
     else {
         return false;

@@ -3,6 +3,60 @@
 use crate::game::GameState;
 use crate::ids::CardId;
 use crate::spellability::SpellAbility;
+use forge_foundation::{lang, CoreType};
+
+pub fn to_string(part: &super::CostPart) -> String {
+    let super::CostPart::TapType {
+        amount,
+        type_filter,
+        min_total_power,
+        description,
+        ..
+    } = part
+    else {
+        return String::new();
+    };
+    if let Some(power) = min_total_power {
+        return format!("Tap any number of untapped creatures you control other than CARDNAME with total power {power} or greater");
+    }
+    let desc = super::cost_part::descriptive_type(type_filter, description.as_deref());
+    let amt = amount.to_string();
+    let mut sb = String::from("Tap ");
+    if type_filter.contains("Other") {
+        let rep = if type_filter.contains(".Other") {
+            ".Other"
+        } else {
+            "+Other"
+        };
+        let mut desc_trim = desc.replace(rep, "");
+        if CoreType::from_name(&desc_trim).is_some() {
+            desc_trim = desc_trim.to_lowercase();
+        }
+        if amt == "1" {
+            sb.push_str(&format!("another untapped {desc_trim}"));
+        } else {
+            sb.push_str(&lang::noun_with_numeral(
+                &amt,
+                &format!("other untapped {desc_trim}"),
+            ));
+        }
+        if !desc_trim.contains("you control") {
+            sb.push_str(" you control");
+        }
+    } else if amt == "X" {
+        sb.push_str(&format!("any number of untapped {desc}s you control"));
+    } else {
+        sb.push_str(&lang::noun_with_numeral_except_one(
+            &amt,
+            &format!("untapped {desc}"),
+        ));
+        sb.push_str(" you control");
+    }
+    if type_filter.contains("sharesCreatureTypeWith") {
+        sb.push_str(" that share a creature type");
+    }
+    sb
+}
 
 /// Effective power contributed when this card is tapped to pay a tap-type cost.
 pub fn tap_power_value(game: &GameState, card: CardId, ability: Option<&SpellAbility>) -> i32 {
@@ -52,6 +106,7 @@ pub fn can_pay(
         type_filter,
         min_total_power,
         can_tap_source,
+        ..
     } = part
     else {
         return false;

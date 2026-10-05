@@ -6,6 +6,19 @@
 use crate::game::GameState;
 use crate::ids::CardId;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::RevealChosen { reveal_type } if reveal_type == "Player" => {
+            "Reveal the player you chose".to_string()
+        }
+        super::CostPart::RevealChosen { reveal_type } if reveal_type == "Type" => format!(
+            "Reveal the chosen {}",
+            super::cost_part::descriptive_type(reveal_type, None).to_lowercase()
+        ),
+        _ => "Update CostRevealChosen.java".to_string(),
+    }
+}
+
 /// Execute the reveal-chosen payment.
 /// Mirrors Java's `CostRevealChosen.payAsDecided()`.
 /// Reveals the chosen player or type on the host card.

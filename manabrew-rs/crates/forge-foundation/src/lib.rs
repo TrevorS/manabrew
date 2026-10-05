@@ -2,6 +2,7 @@ pub mod card_split;
 pub mod card_type;
 pub mod color;
 pub mod edition;
+pub mod lang;
 pub mod mana;
 pub mod phase;
 pub mod sealed_product;

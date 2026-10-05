@@ -3,6 +3,16 @@
 use crate::game::GameState;
 use crate::ids::PlayerId;
 
+pub fn to_string(part: &super::CostPart) -> String {
+    match part {
+        super::CostPart::PayShards(amount) => format!(
+            "Pay {}",
+            "{M}".repeat(amount.as_literal().unwrap_or(0).max(0) as usize)
+        ),
+        _ => String::new(),
+    }
+}
+
 pub fn pay_as_decided(game: &mut GameState, player: PlayerId, amount: i32) -> bool {
     game.player_add_shards(player, -amount);
     true
