@@ -1001,17 +1001,9 @@ impl GameLoop {
                                 failed_auto_pay_pool =
                                     Some(slf.mana_pools[session.player.index()].clone());
                                 non_undoable_choices.extend(
-                                    trace
-                                        .iter()
-                                        .filter(|choice| {
-                                            choice.mana_ability_index.is_some_and(|idx| {
-                                                game.card(choice.card_id)
-                                                    .activated_abilities
-                                                    .get(idx)
-                                                    .is_some_and(|ab| !ab.is_undoable())
-                                            })
-                                        })
-                                        .cloned(),
+                                    crate::mana::computer_util_mana::non_undoable_payment_choices(
+                                        game, &trace,
+                                    ),
                                 );
                                 actions.push(ManaCostAction::AttemptedAndFailed);
                                 Some(actions)
@@ -1768,10 +1760,8 @@ impl GameLoop {
                         &mut runtime,
                         agents,
                         player,
-                        choice.card_id,
+                        &choice,
                         ability_index,
-                        choice.chosen_atom,
-                        &choice.cost_cards,
                     ) {
                         self.resolve_mana_sub_ability(
                             game,

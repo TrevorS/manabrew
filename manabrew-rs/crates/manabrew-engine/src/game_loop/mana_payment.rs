@@ -54,6 +54,7 @@ impl ManaPaymentResult {
                         chosen_atom,
                         needs_express_choice: express_choice.is_some(),
                         cost_cards: Vec::new(),
+                        mana_trigger_ran: false,
                     })
                 }
                 _ => None,

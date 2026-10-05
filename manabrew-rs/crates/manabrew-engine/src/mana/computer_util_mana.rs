@@ -62,6 +62,7 @@ pub struct AutoTapChoice {
     /// `AbilityManaPart.getExpressChoice()` being non-null.
     pub needs_express_choice: bool,
     pub cost_cards: Vec<CardId>,
+    pub mana_trigger_ran: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -550,6 +551,7 @@ pub fn next_auto_tap_choice_with_reserved_sacrifices(
         chosen_atom,
         needs_express_choice: sa_payment.atoms.len() > 1,
         cost_cards: Vec::new(),
+        mana_trigger_ran: false,
     })
 }
 
@@ -591,6 +593,7 @@ pub fn next_auto_float_choice(
         chosen_atom,
         needs_express_choice: sa_payment.atoms.len() > 1,
         cost_cards: Vec::new(),
+        mana_trigger_ran: false,
     })
 }
 
@@ -886,7 +889,7 @@ fn auto_tap_lands_internal_with_ctx(
                 callback,
             );
             let last_mana_produced = pool.mana_entries()[pool_before..].to_vec();
-            let trigger_atoms = add_taps_for_mana_trigger_mana(
+            let (trigger_atoms, mana_trigger_ran) = add_taps_for_mana_trigger_mana(
                 game,
                 pool,
                 player,
@@ -923,6 +926,7 @@ fn auto_tap_lands_internal_with_ctx(
                 chosen_atom: trace_atom,
                 needs_express_choice: is_special_output,
                 cost_cards,
+                mana_trigger_ran,
             });
         } else {
             // Sources with more than one possible color require a color
@@ -937,6 +941,7 @@ fn auto_tap_lands_internal_with_ctx(
                 && sa_payment.atoms.is_empty();
             let needs_express = sa_payment.atoms.len() > 1;
             let mut trigger_atoms_for_non_incremental: Vec<u16> = Vec::new();
+            let mut mana_trigger_ran = false;
             let mut last_mana_produced: Vec<Mana> = Vec::new();
             if is_empty_combo_color_identity {
                 // Java's deterministic AutoPay taps an empty `Combo
@@ -959,15 +964,16 @@ fn auto_tap_lands_internal_with_ctx(
                     callback,
                 );
                 last_mana_produced = pool.mana_entries()[pool_before..].to_vec();
-                trigger_atoms_for_non_incremental = add_taps_for_mana_trigger_mana(
-                    game,
-                    pool,
-                    player,
-                    &sa_payment,
-                    &produced,
-                    to_pay,
-                    callback,
-                );
+                (trigger_atoms_for_non_incremental, mana_trigger_ran) =
+                    add_taps_for_mana_trigger_mana(
+                        game,
+                        pool,
+                        player,
+                        &sa_payment,
+                        &produced,
+                        to_pay,
+                        callback,
+                    );
             }
 
             tapped_choices.push(AutoTapChoice {
@@ -976,6 +982,7 @@ fn auto_tap_lands_internal_with_ctx(
                 chosen_atom,
                 needs_express_choice: needs_express,
                 cost_cards,
+                mana_trigger_ran,
             });
 
             if consume_incrementally {
@@ -1355,7 +1362,7 @@ fn add_taps_for_mana_trigger_mana(
     produced: &str,
     to_pay: ManaCostShard,
     callback: &mut Option<ManaPayCallbackFn<'_>>,
-) -> Vec<u16> {
+) -> (Vec<u16>, bool) {
     add_taps_for_mana_trigger_mana_impl(
         game, pool, player, sa_payment, produced, true, false, to_pay, callback,
     )
@@ -1371,7 +1378,7 @@ fn add_taps_for_mana_trigger_mana_impl(
     predicting: bool,
     to_pay: ManaCostShard,
     callback: &mut Option<ManaPayCallbackFn<'_>>,
-) -> Vec<u16> {
+) -> (Vec<u16>, bool) {
     // TapsForMana fires only when the mana ability has a Tap cost
     // (`AbilityManaPart.tapsForMana`). Implicit basic-land taps have no parsed
     let mut produced_atoms: Vec<u16> = Vec::new();
@@ -1390,8 +1397,9 @@ fn add_taps_for_mana_trigger_mana_impl(
         None => true,
     };
     if require_tap && !pays_with_tap {
-        return produced_atoms;
+        return (produced_atoms, false);
     }
+    let mut trigger_ran = false;
     let params = RunParams {
         card: Some(tapped_source),
         player: Some(player),
@@ -1425,6 +1433,7 @@ fn add_taps_for_mana_trigger_mana_impl(
             {
                 continue;
             }
+            trigger_ran = true;
             let Some(sa) = trigger.ensure_ability(game, host_id, player) else {
                 continue;
             };
@@ -1493,7 +1502,7 @@ fn add_taps_for_mana_trigger_mana_impl(
             }
         }
     }
-    produced_atoms
+    (produced_atoms, trigger_ran)
 }
 
 fn predict_reflected_mana(
@@ -2096,17 +2105,52 @@ pub(crate) fn auto_payment_callback<'a, 'r: 'a>(
     }
 }
 
+/// The mana abilities a failed auto-payment cannot undo, which its rollback replays. Beside the
+/// abilities whose costs cannot be undone, FORGE BUG (mirrored): `TriggerHandler.adjustUndoStack`
+/// clears the `undoable` flag of a mana ability a TapsForMana or ManaAdded trigger ran off
+/// (TriggerHandler.java:462-465, 552-558), so `ManaRefundService.refundManaPaid` leaves it
+/// tapped with its mana floating, unless a later ability in the same payment could not be undone:
+/// `recordUndoableActions` then clears the undo stack and sets every earlier entry undoable again
+/// (MagicStack.java:217-220, 505-515).
+pub(crate) fn non_undoable_payment_choices(
+    game: &GameState,
+    choices: &[AutoTapChoice],
+) -> Vec<AutoTapChoice> {
+    let cost_not_undoable = |choice: &AutoTapChoice| {
+        choice.mana_ability_index.is_some_and(|idx| {
+            game.card(choice.card_id)
+                .activated_abilities
+                .get(idx)
+                .is_some_and(|ab| !ab.is_undoable())
+        })
+    };
+    let last_reset = choices.iter().rposition(cost_not_undoable);
+    choices
+        .iter()
+        .enumerate()
+        .filter(|&(index, choice)| {
+            cost_not_undoable(choice)
+                || (game.mirror_forge_bugs
+                    && choice.mana_trigger_ran
+                    && choice.mana_ability_index.is_some()
+                    && last_reset.is_none_or(|reset| reset < index))
+        })
+        .map(|(_, choice)| choice.clone())
+        .collect()
+}
+
 pub(crate) fn reapply_non_undoable_payment_ability(
     game: &mut GameState,
     pool: &mut ManaPool,
     runtime: &mut crate::replacement::replacement_handler::ReplacementRuntime<'_>,
     agents: &mut [Box<dyn crate::agent::PlayerAgent>],
     player: PlayerId,
-    card_id: CardId,
+    choice: &AutoTapChoice,
     ability_index: usize,
-    chosen_atom: u16,
-    cost_cards: &[CardId],
 ) -> bool {
+    let card_id = choice.card_id;
+    let chosen_atom = choice.chosen_atom;
+    let cost_cards = choice.cost_cards.as_slice();
     let Some(ab) = game
         .card(card_id)
         .activated_abilities
@@ -2151,7 +2195,19 @@ pub(crate) fn reapply_non_undoable_payment_ability(
     if has_tap_cost {
         game.tap(card_id);
     }
-    produce_mana_for_auto_pay(game, pool, player, &ma, Some(&ab), chosen_atom, &mut None);
+    let produced =
+        produce_mana_for_auto_pay(game, pool, player, &ma, Some(&ab), chosen_atom, &mut None);
+    if game.mirror_forge_bugs && choice.mana_trigger_ran {
+        add_taps_for_mana_trigger_mana(
+            game,
+            pool,
+            player,
+            &ma,
+            &produced,
+            ManaCostShard::Generic,
+            &mut None,
+        );
+    }
     true
 }
 
@@ -4524,7 +4580,7 @@ fn predict_mana(
     if produced.is_empty() {
         return produced;
     }
-    let triggered = add_taps_for_mana_trigger_mana_impl(
+    let (triggered, _) = add_taps_for_mana_trigger_mana_impl(
         game,
         &mut ManaPool::new(),
         player,
@@ -5088,6 +5144,56 @@ mod tests {
     use super::*;
     use crate::card::Card;
     use forge_foundation::{CardTypeLine, ColorSet};
+
+    const TIDE_POOL: &str = "Name:Tide Pool\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ U | SpellDescription$ Add {U}.\nOracle:";
+    const TREASURE_CHEST: &str = "Name:Treasure Chest\nManaCost:no cost\nTypes:Artifact\nA:AB$ Mana | Cost$ T Sac<1/CARDNAME> | Produced$ Any | SpellDescription$ Add one mana of any color.\nOracle:";
+
+    fn payment_choice(game: &mut GameState, script: &str, mana_trigger_ran: bool) -> AutoTapChoice {
+        let rules = forge_carddb::parse_card_script(script).expect("script");
+        let card_id = game.create_card(Card::from_rules(&rules, PlayerId(0)));
+        game.move_card(card_id, ZoneType::Battlefield, PlayerId(0));
+        AutoTapChoice {
+            card_id,
+            mana_ability_index: Some(0),
+            chosen_atom: ManaAtom::BLUE,
+            needs_express_choice: false,
+            cost_cards: Vec::new(),
+            mana_trigger_ran,
+        }
+    }
+
+    fn kept(game: &GameState, choices: &[AutoTapChoice]) -> Vec<CardId> {
+        non_undoable_payment_choices(game, choices)
+            .iter()
+            .map(|choice| choice.card_id)
+            .collect()
+    }
+
+    #[test]
+    fn a_failed_payment_keeps_a_mana_ability_a_mana_trigger_ran_off_only_as_forge_does() {
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        let triggered = payment_choice(&mut game, TIDE_POOL, true);
+        let plain = payment_choice(&mut game, TIDE_POOL, false);
+        let choices = [triggered.clone(), plain];
+
+        assert!(kept(&game, &choices).is_empty());
+        game.mirror_forge_bugs = true;
+        assert_eq!(kept(&game, &choices), vec![triggered.card_id]);
+    }
+
+    #[test]
+    fn a_later_sacrifice_in_the_payment_makes_the_triggered_ability_undoable_again() {
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.mirror_forge_bugs = true;
+        let triggered = payment_choice(&mut game, TIDE_POOL, true);
+        let chest = payment_choice(&mut game, TREASURE_CHEST, false);
+        let after = payment_choice(&mut game, TIDE_POOL, true);
+
+        assert_eq!(
+            kept(&game, &[triggered, chest.clone(), after.clone()]),
+            vec![chest.card_id, after.card_id]
+        );
+    }
 
     fn make_card(
         id: u32,
