@@ -404,6 +404,32 @@ mod tests {
     const VOICE_OF_VICTORY: &str = "Name:Voice of Victory\nManaCost:1 W\nTypes:Creature Human Bard\nPT:1/3\nS:Mode$ CantBeCast | ValidCard$ Card | Condition$ PlayerTurn | Caster$ Opponent | Description$ Your opponents can't cast spells during your turn.\nOracle:";
 
     #[test]
+    fn a_negated_filter_matches_a_prepared_spell_in_exile_as_forge_does() {
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        let rules = forge_carddb::parse_card_script(PREPARING_SCHOLAR).expect("script");
+        let mut prepared = Card::from_rules(&rules, PlayerId(0));
+        prepared.set_is_token(true);
+        prepared.transform();
+        prepared.zone = ZoneType::Exile;
+        let prepared = game.create_card(prepared);
+        game.add_card_to_zone(ZoneType::Exile, PlayerId(0), prepared);
+        let card = game.card(prepared);
+        let matches = |filter: &str| {
+            valid_filter::matches_valid_card_selector_in_game(
+                &crate::parsing::cached_compiled_selector(filter),
+                card,
+                card,
+                &game,
+            )
+        };
+
+        assert!(matches("!Creature"));
+        assert!(matches("Creature,!Land"));
+        assert!(!matches("Instant"));
+        assert!(!matches("Card"));
+    }
+
+    #[test]
     fn an_opponents_turn_cant_be_cast_static_stops_a_prepared_spell_in_exile() {
         let mut game = GameState::new(&["Alice", "Bob"], 20);
         let (p0, p1) = (PlayerId(0), PlayerId(1));

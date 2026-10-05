@@ -643,9 +643,13 @@ pub fn matches_valid_card_selector_with_context(
     context: MatchContext<'_>,
 ) -> bool {
     crate::perf::increment(crate::perf::Metric::SelectorMatches, 1);
-    // `Card.isValid`: prepared spells in exile are filtered out for everything else.
+    // `Card.isValid`: prepared spells in exile are filtered out for everything else, which
+    // answers `testFailed`, so a negated restriction matches them (Card.java:5740-5749).
     if card.is_in_prepared_spell_state() && card.zone == forge_foundation::ZoneType::Exile {
-        return false;
+        return selector
+            .alternatives
+            .iter()
+            .any(|alternative| alternative.raw.trim_start().starts_with('!'));
     }
     let result = matches_card_selector_ir(&selector.ir, card, context);
     #[cfg(debug_assertions)]
