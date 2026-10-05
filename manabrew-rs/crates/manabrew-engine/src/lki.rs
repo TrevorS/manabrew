@@ -257,6 +257,25 @@ impl crate::game::GameState {
         }
     }
 
+    pub fn get_change_zone_lki_info_at_mut(
+        &mut self,
+        card_id: CardId,
+        zone_timestamp: u64,
+    ) -> &mut Card {
+        if self
+            .change_zone_lki_info
+            .get(&card_id)
+            .is_some_and(|lki| lki.zone_timestamp == zone_timestamp)
+        {
+            return std::sync::Arc::make_mut(
+                self.change_zone_lki_info
+                    .get_mut(&card_id)
+                    .expect("checked above"),
+            );
+        }
+        self.card_mut(card_id)
+    }
+
     pub fn clear_change_zone_lki_info(&mut self) {
         if !self.change_zone_lki_info.is_empty() {
             self.change_zone_lki_info.clear();

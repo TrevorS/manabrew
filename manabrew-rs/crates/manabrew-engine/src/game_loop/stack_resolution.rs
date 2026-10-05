@@ -363,8 +363,13 @@ impl GameLoop {
                 .trigger_source
                 .or(entry.spell_ability.source)
             {
-                game.card_mut(source_id)
-                    .add_ability_resolved_for(Some(&entry.spell_ability));
+                let host = match entry.spell_ability.trigger_source_zone_timestamp {
+                    Some(zone_timestamp) if entry.spell_ability.is_trigger => {
+                        game.get_change_zone_lki_info_at_mut(source_id, zone_timestamp)
+                    }
+                    _ => game.card_mut(source_id),
+                };
+                host.add_ability_resolved_for(Some(&entry.spell_ability));
             }
             self.resolve_spell_effect(game, agents, &entry);
             crate::perf::increment(crate::perf::Metric::SpellAbilityClones, 3);

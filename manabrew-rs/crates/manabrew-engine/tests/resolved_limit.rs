@@ -15,6 +15,7 @@ use manabrew_engine::spellability::{SpellAbility, StackEntry};
 
 const BEARS: &str = "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:";
 const ONCE_WARDEN: &str = "Name:Once Warden\nManaCost:1 W\nTypes:Creature Human\nPT:2/2\nT:Mode$ DamageDoneOnce | ValidTarget$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | OptionalDecider$ You | ResolvedLimit$ 1 | TriggerDescription$ Whenever a creature you control is dealt damage, you may gain 1 life. If you do, CARDNAME deals 1 damage to itself. Do this only once each turn.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You | SubAbility$ DBHurt\nSVar:DBHurt:DB$ DealDamage | NumDmg$ 1 | Defined$ Self\nOracle:";
+const HILL_GIANT: &str = "Name:Hill Giant\nManaCost:3 R\nTypes:Creature Giant\nPT:3/3\nOracle:";
 const DAMAGE_SOURCE: &str = "Name:Damage Source\nManaCost:no cost\nTypes:Artifact\nOracle:";
 
 struct TargetOpponent;
@@ -142,8 +143,7 @@ fn put(game: &mut GameState, script: &str, owner: PlayerId, zone: ZoneType) -> C
     card
 }
 
-#[test]
-fn a_resolved_limit_still_holds_after_the_trigger_killed_its_host() {
+fn damage_all_with_warden(companion: &str, damage: u32) -> (GameState, CardId) {
     let mut game = GameState::new(&["Alice", "Bob"], 20);
     let p0 = PlayerId(0);
     let p1 = PlayerId(1);
@@ -151,15 +151,15 @@ fn a_resolved_limit_still_holds_after_the_trigger_killed_its_host() {
     game.new_turn_for_player(p1);
     game.turn.phase = PhaseType::Main1;
     let warden = put(&mut game, ONCE_WARDEN, p0, ZoneType::Battlefield);
-    put(&mut game, BEARS, p0, ZoneType::Battlefield);
-    put(&mut game, BEARS, p0, ZoneType::Battlefield);
+    put(&mut game, companion, p0, ZoneType::Battlefield);
+    put(&mut game, companion, p0, ZoneType::Battlefield);
     let source = put(&mut game, DAMAGE_SOURCE, p1, ZoneType::Command);
     game.stack.push(StackEntry {
         id: 0,
         spell_ability: SpellAbility::new_simple(
             Some(source),
             p1,
-            "DB$ DamageAll | ValidCards$ Creature | NumDmg$ 1",
+            &format!("DB$ DamageAll | ValidCards$ Creature | NumDmg$ {damage}"),
         ),
         is_creature_spell: false,
         is_permanent_spell: false,
@@ -173,6 +173,19 @@ fn a_resolved_limit_still_holds_after_the_trigger_killed_its_host() {
         vec![Box::new(TargetOpponent), Box::new(TargetOpponent)];
     GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
     assert!(game.stack.is_empty());
+    (game, warden)
+}
+
+#[test]
+fn a_resolved_limit_still_holds_after_the_trigger_killed_its_host() {
+    let (game, warden) = damage_all_with_warden(BEARS, 1);
     assert_eq!(game.card(warden).zone, ZoneType::Graveyard);
-    assert_eq!(game.player(p0).life, 21);
+    assert_eq!(game.player(PlayerId(0)).life, 21);
+}
+
+#[test]
+fn a_resolved_limit_holds_when_the_host_died_before_any_trigger_resolved() {
+    let (game, warden) = damage_all_with_warden(HILL_GIANT, 2);
+    assert_eq!(game.card(warden).zone, ZoneType::Graveyard);
+    assert_eq!(game.player(PlayerId(0)).life, 21);
 }
