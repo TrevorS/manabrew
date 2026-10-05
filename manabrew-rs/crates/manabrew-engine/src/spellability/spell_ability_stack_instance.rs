@@ -19,6 +19,7 @@ impl StackEntry {
         while let Some(sa) = node {
             if sa.api == Some(crate::ability::api_type::ApiType::SetState)
                 && !sa.svars.contains_key("StoredTransform")
+                && !crate::parsing::raw_has_key(&sa.ability_text, "StoredTransform")
             {
                 if let Some(host) = sa.source {
                     sa.svars.insert(
