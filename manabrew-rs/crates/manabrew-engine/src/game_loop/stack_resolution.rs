@@ -292,6 +292,7 @@ impl GameLoop {
                             source,
                             Some(&entry.spell_ability),
                             &cost,
+                            &crate::mana::payment_context_for_sa(game, &entry.spell_ability),
                         );
                     }
                     let available = crate::mana::calculate_available_mana_excluding(

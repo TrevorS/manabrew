@@ -1200,6 +1200,7 @@ pub(super) fn resolve_effect_with_unless_cost(
                 source,
                 Some(sa),
                 &cost,
+                &crate::mana::ManaPaymentContext::default(),
             );
         }
         let can_pay = if attempt_unpayable {

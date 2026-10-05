@@ -1,3 +1,6 @@
+use std::cell::Cell;
+use std::rc::Rc;
+
 use forge_carddb::parse_card_script;
 use forge_foundation::{ManaAtom, PhaseType, ZoneType};
 use manabrew_engine::agent::{
@@ -15,9 +18,10 @@ use manabrew_engine::spellability::{SpellAbility, StackEntry};
 
 const FOREST: &str = "Name:Forest\nManaCost:no cost\nTypes:Basic Land Forest\nOracle:";
 const TABLET: &str = "Name:Spell Tablet\nManaCost:2\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ R | SpellDescription$ Add {R}.\nA:AB$ Mana | Cost$ T | Produced$ R | Amount$ 2 | RestrictValid$ Spell.Instant,Spell.Sorcery | SpellDescription$ Add {R}{R}. Spend this mana only to cast instant and sorcery spells.\nOracle:";
+const TAX_INSTANT: &str = "Name:Tax Instant\nManaCost:R\nTypes:Instant\nA:SP$ LoseLife | Defined$ Opponent | LifeAmount$ 3 | UnlessCost$ 1 | UnlessPayer$ Opponent | SpellDescription$ Each opponent loses 3 life unless they pay {1}.\nOracle:";
 const EFFECT_SOURCE: &str = "Name:Effect Source\nManaCost:no cost\nTypes:Artifact\nOracle:";
 
-struct WillingPayer;
+struct WillingPayer(Rc<Cell<usize>>);
 
 impl PlayerAgent for WillingPayer {
     fn choose_targets_for(&mut self, _: &mut SpellAbility, _: &GameState, _: &[ManaPool]) -> bool {
@@ -89,6 +93,10 @@ impl PlayerAgent for WillingPayer {
     }
     fn choose_land_or_spell(&mut self, c: DecisionContext<'_>, p: PlayerId) -> Option<bool> {
         PassAgent.choose_land_or_spell(c, p)
+    }
+    fn choose_mana_from_pool(&mut self, _: DecisionContext<'_>, _: PlayerId, _: &[Mana]) -> usize {
+        self.0.set(self.0.get() + 1);
+        0
     }
     #[allow(clippy::too_many_arguments)]
     fn pay_mana_cost(
@@ -198,7 +206,8 @@ fn resolve_unless_with(
         mana.restriction = Some("Spell.Instant,Spell.Sorcery".to_string());
         game_loop.mana_pools[1].add_mana(mana);
     }
-    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(PassAgent), Box::new(WillingPayer)];
+    let mut agents: Vec<Box<dyn PlayerAgent>> =
+        vec![Box::new(PassAgent), Box::new(WillingPayer(Rc::default()))];
     game_loop.step_with_priority(&mut game, &mut agents, false);
     Outcome {
         payer_permanents_tapped: permanents
@@ -236,4 +245,47 @@ fn the_harness_mirror_does_not_attempt_an_unless_cost_only_restricted_mana_could
         assert_eq!(outcome.payer_life, 17);
         assert_eq!(outcome.payer_permanents_tapped, vec![false]);
     }
+}
+
+#[test]
+fn the_harness_unless_probe_cannot_spend_restricted_mana_for_a_resolving_spell() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    game.mirror_forge_bugs = true;
+    game.action_space_mana_probe = ActionSpaceManaProbe::ComputerUtilMana;
+    let instant = put(&mut game, TAX_INSTANT, p0, ZoneType::Stack);
+    let mut tax = SpellAbility::new_simple(
+        Some(instant),
+        p0,
+        "SP$ LoseLife | Defined$ Opponent | LifeAmount$ 3 | UnlessCost$ 1 | UnlessPayer$ Opponent",
+    );
+    tax.is_spell = true;
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: tax,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: Some(ZoneType::Hand),
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    let mut game_loop = GameLoop::new(2);
+    for color in [ManaAtom::BLUE, ManaAtom::RED] {
+        let mut restricted = Mana::simple(color);
+        restricted.restriction = Some("Spell.Instant,Spell.Sorcery".to_string());
+        game_loop.mana_pools[1].add_mana(restricted);
+    }
+    let asked = Rc::new(Cell::new(0));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(PassAgent),
+        Box::new(WillingPayer(Rc::clone(&asked))),
+    ];
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.player(p1).life, 17);
+    assert_eq!(asked.get(), 0);
 }

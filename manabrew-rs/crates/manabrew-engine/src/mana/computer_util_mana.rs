@@ -1094,6 +1094,7 @@ pub(crate) fn harness_cost_probe_for(
     source: CardId,
     sa: Option<&crate::spellability::SpellAbility>,
     cost: &crate::cost::Cost,
+    payment_ctx: &crate::mana::ManaPaymentContext,
 ) {
     let Some(part) = cost
         .parts
@@ -1103,11 +1104,8 @@ pub(crate) fn harness_cost_probe_for(
         return;
     };
     let mana_cost = crate::cost::cost_part_mana::get_mana_cost_for(game, source, sa, part);
-    let payment_ctx = sa
-        .map(|sa| crate::mana::payment_context_for_sa(game, sa))
-        .unwrap_or_default();
     let mut pool = pools[payer.index()].clone();
-    harness_cost_probe(&mut pool, &mana_cost, &payment_ctx, &mut |choices| {
+    harness_cost_probe(&mut pool, &mana_cost, payment_ctx, &mut |choices| {
         agents[payer.index()].choose_mana_from_pool(
             crate::agent::DecisionContext::new(game, pools),
             payer,

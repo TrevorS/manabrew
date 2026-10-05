@@ -981,6 +981,9 @@ fn pay_roll_cost(
             card_id,
             source_sa,
             &cost,
+            &source_sa
+                .map(|sa| crate::mana::payment_context_for_sa(game, sa))
+                .unwrap_or_default(),
         );
     }
     if !can_pay_roll_cost(game, runtime.mana_pools, player, card_id, &cost, source_sa) {
