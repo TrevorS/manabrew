@@ -521,6 +521,26 @@ impl DeterministicAgent {
         )
     }
 
+    fn stack_host_sort_key(&self, host: CardId, departed: Option<&Card>) -> String {
+        match departed {
+            Some(lki) => format!(
+                "1|{}|O{:05}|C{:05}|I{:05}",
+                parity_card_name(lki),
+                lki.owner.0,
+                lki.controller.0,
+                self.parity_id(host)
+            ),
+            None => self.target_sort_key(host),
+        }
+    }
+
+    fn stack_host_name(&self, host: CardId, departed: Option<&Card>) -> String {
+        match departed {
+            Some(lki) => parity_card_name(lki).to_string(),
+            None => self.card_name(host),
+        }
+    }
+
     fn predicted_damage_to_card(
         &self,
         game: &GameState,
@@ -1067,18 +1087,29 @@ impl DeterministicAgent {
 
     /// Java's `choose_targets_for(candidates)` row. It must not assign a parity id.
     fn log_target_candidates(&self, players: &[PlayerId], cards: &[CardId]) {
+        self.log_named_target_candidates(
+            players,
+            cards.iter().map(|&card| (card, self.card_name(card))),
+        );
+    }
+
+    fn log_named_target_candidates(
+        &self,
+        players: &[PlayerId],
+        cards: impl Iterator<Item = (CardId, String)>,
+    ) {
         if !self.choosing_targets {
             return;
         }
         let names: Vec<String> = players
             .iter()
             .map(|player| format!("Player({})", player.0))
-            .chain(cards.iter().map(|&card| {
+            .chain(cards.map(|(card, name)| {
                 let id = self
                     .parity_map
                     .peek(card)
                     .map_or_else(|| "?".to_string(), |id| id.to_string());
-                format!("Card({}@{id})", self.card_name(card))
+                format!("Card({name}@{id})")
             }))
             .collect();
         self.emit_callback(
@@ -1152,22 +1183,7 @@ impl PlayerAgent for DeterministicAgent {
                 .flatten();
             refill_named(
                 &mut card_names,
-                game.cards.iter().map(|c| {
-                    // Keep in sync with FmtCtx::card: the action-space log names come
-                    // from this snapshot, so both must match Java's getName().
-                    let split_off_battlefield = c.zone != forge_foundation::ZoneType::Battlefield
-                        && c.other_part.as_ref().is_some_and(|o| {
-                            o.state_name == forge_foundation::CardStateName::RightSplit
-                        });
-                    let name = if c.face_down {
-                        ""
-                    } else if split_off_battlefield {
-                        c.full_name.as_str()
-                    } else {
-                        c.card_name.as_str()
-                    };
-                    (c.id, name)
-                }),
+                game.cards.iter().map(|c| (c.id, parity_card_name(c))),
             );
             refill(
                 &mut card_is_land,
@@ -1774,7 +1790,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_target_card_or_stack(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         _player: PlayerId,
         cards: &[CardId],
         stack: &[(u32, CardId)],
@@ -1783,19 +1799,27 @@ impl PlayerAgent for DeterministicAgent {
         use manabrew_engine::agent::CardOrStackTarget;
         // `chooseTargetsFor` lists the cards, then the stack candidates, and sorts them with
         // `ParityOrder.targetSortKey` on each one's card (a stack item's host), a stable sort.
-        let mut entries: Vec<(CardOrStackTarget, CardId)> = cards
+        let mut entries: Vec<(CardOrStackTarget, CardId, Option<&Card>)> = cards
             .iter()
-            .map(|&cid| (CardOrStackTarget::Card(cid), cid))
-            .chain(
-                stack
-                    .iter()
-                    .map(|&(id, host)| (CardOrStackTarget::Stack(id), host)),
-            )
+            .map(|&cid| (CardOrStackTarget::Card(cid), cid, None))
+            .chain(stack.iter().map(|&(id, host)| {
+                (
+                    CardOrStackTarget::Stack(id),
+                    host,
+                    departed_stack_host(context.game, id, host),
+                )
+            }))
             .collect();
-        entries.sort_by_key(|(_, a)| self.target_sort_key(*a));
-        let hosts: Vec<CardId> = entries.iter().map(|(_, host)| *host).collect();
-        self.log_target_candidates(&[], &hosts);
-        let choices: Vec<CardOrStackTarget> = entries.iter().map(|(choice, _)| *choice).collect();
+        entries
+            .sort_by_cached_key(|(_, host, departed)| self.stack_host_sort_key(*host, *departed));
+        self.log_named_target_candidates(
+            &[],
+            entries
+                .iter()
+                .map(|(_, host, departed)| (*host, self.stack_host_name(*host, *departed))),
+        );
+        let choices: Vec<CardOrStackTarget> =
+            entries.iter().map(|(choice, _, _)| *choice).collect();
         choice_space::pick_one(&choices, &mut self.rng.borrow_mut())
             .unwrap_or(CardOrStackTarget::None)
     }
@@ -1813,7 +1837,7 @@ impl PlayerAgent for DeterministicAgent {
 
     fn choose_target_spell(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         _player: PlayerId,
         valid: &[u32],
         _source: Option<CardId>,
@@ -1823,21 +1847,27 @@ impl PlayerAgent for DeterministicAgent {
         }
         // Java sorts every target candidate with `ParityOrder.targetSortKey`; a spell on
         // the stack is its card there: name, owner and controller, parity id.
-        let source_of = |stack_id: u32| {
+        let host_of = |stack_id: u32| {
             self.last_game_snapshot.as_ref().and_then(|snap| {
                 snap.stack_sources
                     .iter()
                     .find(|(id, _)| *id == stack_id)
-                    .map(|(_, source)| *source)
+                    .map(|&(_, host)| (host, departed_stack_host(context.game, stack_id, host)))
             })
         };
-        let sorted =
-            choice_space::sort_native(valid, |a, b| match (source_of(*a), source_of(*b)) {
-                (Some(ca), Some(cb)) => self.target_sort_key(ca).cmp(&self.target_sort_key(cb)),
-                _ => a.cmp(b),
-            });
-        let spell_cards: Vec<CardId> = sorted.iter().filter_map(|&id| source_of(id)).collect();
-        self.log_target_candidates(&[], &spell_cards);
+        let sorted = choice_space::sort_native(valid, |a, b| match (host_of(*a), host_of(*b)) {
+            (Some((ha, da)), Some((hb, db))) => self
+                .stack_host_sort_key(ha, da)
+                .cmp(&self.stack_host_sort_key(hb, db)),
+            _ => a.cmp(b),
+        });
+        self.log_named_target_candidates(
+            &[],
+            sorted
+                .iter()
+                .filter_map(|&id| host_of(id))
+                .map(|(host, departed)| (host, self.stack_host_name(host, departed))),
+        );
         let target = choice_space::pick_one(&sorted, &mut self.rng.borrow_mut())?;
         Some(target)
     }
@@ -2799,6 +2829,38 @@ fn target_number_valid(chosen: usize, min: usize, max: usize) -> bool {
     chosen >= min && chosen <= max
 }
 
+// Keep in sync with FmtCtx::card: the action-space log names come from the snapshot, so both
+// must match Java's getName().
+fn parity_card_name(c: &Card) -> &str {
+    let split_off_battlefield = c.zone != forge_foundation::ZoneType::Battlefield
+        && c.other_part
+            .as_ref()
+            .is_some_and(|o| o.state_name == forge_foundation::CardStateName::RightSplit);
+    if c.face_down {
+        ""
+    } else if split_off_battlefield {
+        c.full_name.as_str()
+    } else {
+        c.card_name.as_str()
+    }
+}
+
+// Java's stack candidate is `si.getSourceCard()`, the ability's host object, which keeps its
+// last-battlefield characteristics after the card changes zones (GameAction.changeZone copies to
+// a new object).
+fn departed_stack_host(game: &GameState, stack_id: u32, host: CardId) -> Option<&Card> {
+    let sa = &game
+        .stack
+        .iter_with_resolving()
+        .find(|entry| entry.id == stack_id)?
+        .spell_ability;
+    let timestamp = sa
+        .trigger_source_zone_timestamp
+        .or(sa.source_zone_timestamp.filter(|_| !sa.is_spell))?;
+    let lki = game.get_change_zone_lki_info_at(host, timestamp);
+    (lki.zone_timestamp != game.card(host).zone_timestamp).then_some(lki)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2873,6 +2935,99 @@ mod tests {
                 &mut JavaRandom::new(seed),
             );
             assert_eq!(picked, expected, "seed {seed}");
+        }
+    }
+
+    const FLIP_HOST: &str = "Name:Zed Front\nManaCost:1 G\nTypes:Creature Human\nPT:2/2\nAlternateMode:DoubleFaced\nOracle:\n\nALTERNATE\n\nName:Alpha Back\nManaCost:no cost\nTypes:Creature Wolf\nPT:4/4\nOracle:";
+
+    #[test]
+    fn a_stack_target_whose_host_died_sorts_by_its_battlefield_name() {
+        let mut game = GameState::new(&["Player1", "Player2"], 20);
+        let p0 = PlayerId(0);
+        let host = game.create_card(CardInstance::from_rules(
+            &parse_card_script(FLIP_HOST).expect("script"),
+            p0,
+        ));
+        game.move_card(host, ZoneType::Battlefield, p0);
+        game.card_mut(host).transform();
+        assert_eq!(game.card(host).card_name, "Alpha Back");
+        let giant = game.create_card(CardInstance::from_rules(
+            &parse_card_script(HILL_GIANT).expect("script"),
+            p0,
+        ));
+        game.move_card(giant, ZoneType::Battlefield, p0);
+        let mut sa = SpellAbility::new_simple(
+            Some(host),
+            p0,
+            "DB$ GainLife | Defined$ You | LifeAmount$ 1",
+        );
+        sa.is_trigger = true;
+        sa.trigger_source = Some(host);
+        sa.trigger_source_zone_timestamp = Some(game.card(host).zone_timestamp);
+        let trigger = game.stack.push(StackEntry {
+            id: 0,
+            spell_ability: sa,
+            is_creature_spell: false,
+            is_permanent_spell: false,
+            is_pending_cast: false,
+            cast_from_zone: None,
+            optional_trigger_decider: None,
+            optional_trigger_description: None,
+            optional_trigger_source_name: None,
+        });
+        let giant_trigger = game.stack.push(StackEntry {
+            id: 0,
+            spell_ability: SpellAbility::new_simple(
+                Some(giant),
+                p0,
+                "DB$ GainLife | Defined$ You | LifeAmount$ 1",
+            ),
+            is_creature_spell: false,
+            is_permanent_spell: false,
+            is_pending_cast: false,
+            cast_from_zone: None,
+            optional_trigger_decider: None,
+            optional_trigger_description: None,
+            optional_trigger_source_name: None,
+        });
+        game.move_card(host, ZoneType::Graveyard, p0);
+        assert_eq!(game.card(host).card_name, "Zed Front");
+        let pools = vec![ManaPool::new(), ManaPool::new()];
+        for seed in 0..8 {
+            let mut agent = DeterministicAgent::new(
+                p0,
+                VerboseMode::Off,
+                Rc::new(RefCell::new(JavaRandom::new(seed))),
+                false,
+                Arc::new(ParityCardMap::default()),
+                None,
+            );
+            agent.snapshot_state(&game, &pools);
+            let mut expected_rng = JavaRandom::new(seed);
+            let picked = agent.choose_target_card_or_stack(
+                DecisionContext::new(&game, &pools),
+                p0,
+                &[giant],
+                &[(trigger, host)],
+                None,
+            );
+            let expected = choice_space::pick_one(
+                &[
+                    manabrew_engine::agent::CardOrStackTarget::Stack(trigger),
+                    manabrew_engine::agent::CardOrStackTarget::Card(giant),
+                ],
+                &mut expected_rng,
+            )
+            .expect("a pick");
+            assert_eq!(picked, expected, "seed {seed}");
+            let spell = agent.choose_target_spell(
+                DecisionContext::new(&game, &pools),
+                p0,
+                &[giant_trigger, trigger],
+                None,
+            );
+            let expected = choice_space::pick_one(&[trigger, giant_trigger], &mut expected_rng);
+            assert_eq!(spell, expected, "seed {seed}");
         }
     }
 
