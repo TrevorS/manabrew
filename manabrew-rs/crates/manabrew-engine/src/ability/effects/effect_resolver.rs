@@ -348,6 +348,9 @@ pub fn resolve_effect(ctx: &mut EffectContext, sa: &SpellAbility) {
         } else {
             resolve_effect_once(ctx, sa);
         }
+        for agent in ctx.agents.iter_mut() {
+            agent.redeal(ctx.game);
+        }
     }
 }
 

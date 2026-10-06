@@ -267,6 +267,9 @@ impl GameLoop {
                     entry.spell_ability.source,
                     api,
                 );
+                for agent in agents.iter_mut() {
+                    agent.redeal(game);
+                }
                 if !accepted {
                     apply_continuous_effects(game);
                     game.stack.finish_resolving();

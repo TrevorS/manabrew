@@ -46,6 +46,8 @@ pub trait PlayerAgent {
         None
     }
 
+    fn redeal(&mut self, _game: &mut GameState) {}
+
     fn hand_off_at_turn_start(&mut self, _game: &GameState) -> Option<Box<dyn PlayerAgent>> {
         None
     }
