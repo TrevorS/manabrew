@@ -252,11 +252,8 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         }
         card.static_power_modifier = 0;
         card.static_toughness_modifier = 0;
-        // Preserve face-down morph P/T override (2/2); only reset for face-up cards.
-        if !card.face_down {
-            card.static_set_power = None;
-            card.static_set_toughness = None;
-        }
+        card.static_set_power = None;
+        card.static_set_toughness = None;
         card.granted_keywords.clear();
         for inst in std::mem::take(&mut card.pump_keywords_removed_by_statics) {
             card.pump_keywords.insert(inst);

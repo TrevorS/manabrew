@@ -478,9 +478,6 @@ impl GameLoop {
                     {
                         c.add_intrinsic_keyword_with_triggers("Ward:2");
                     }
-                    c.static_set_power = Some(crate::spellability::MORPH_PT);
-                    c.static_set_toughness = Some(crate::spellability::MORPH_PT);
-
                     // Add "turn face up" activated ability (morph cost → SetState TurnFaceUp).
                     // This is a game rule, not a card ability — face-down morph creatures
                     // can always be turned face up by paying the morph cost.
