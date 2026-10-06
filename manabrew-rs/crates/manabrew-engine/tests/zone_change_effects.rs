@@ -1068,3 +1068,32 @@ fn a_copied_replacement_applies_after_the_copy_dies_earlier_in_the_batch() {
 
     assert_eq!(game.card(bears).zone, ZoneType::Exile);
 }
+
+const DISGUISED_SPY: &str = "Name:Disguised Spy\nManaCost:1 U\nTypes:Creature Merfolk Detective\nPT:1/1\nK:Disguise:1 U\nOracle:";
+
+#[test]
+fn an_animate_on_a_face_down_creature_ends_on_its_face_up_characteristics() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let spy = put(&mut game, DISGUISED_SPY, p0, ZoneType::Battlefield);
+    manabrew_engine::card::card_factory_util::turn_face_down_with_state(game.card_mut(spy));
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ Animate | Defined$ Self | Power$ 3 | Toughness$ 4 | Types$ Hero | RemoveCreatureTypes$ True",
+        None,
+        None,
+        Some(spy),
+    );
+    let mut agents = pass_agents();
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(spy).base_power, Some(3));
+
+    game.card_mut(spy).turn_face_up();
+    manabrew_engine::phase::PhaseCommand::RestoreAnimate { card: spy }
+        .run(&mut game, &mut ReverseShuffleRng);
+
+    assert_eq!(game.card(spy).base_power, Some(1));
+    assert!(game.card(spy).type_line.to_string().contains("Merfolk"));
+}

@@ -3282,6 +3282,7 @@ impl Card {
         self.face_down = false;
         if let Some(state) = self.face_down_state.take() {
             self.apply_clone_state(*state);
+            self.retake_animate_snapshot();
         }
     }
 
