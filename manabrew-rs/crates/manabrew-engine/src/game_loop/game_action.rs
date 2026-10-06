@@ -89,7 +89,15 @@ pub(crate) fn perform_sacrifice(
         }
         game.last_sacrificed_card = Some(card_id);
 
-        game.sacrifice_destroy(card_id, agents, runtime, lki_p1p1, lki_power, lki_toughness);
+        game.sacrifice_destroy(
+            card_id,
+            agents,
+            runtime,
+            lki_p1p1,
+            lki_power,
+            lki_toughness,
+            false,
+        );
 
         sacrificed.push(card_id);
         by_controller.entry(controller).or_default().push(card_id);

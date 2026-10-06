@@ -66,7 +66,7 @@ fn do_sacrifice(
         },
         false,
     );
-    ctx.sacrifice_destroy(card_id, lki_p1p1, lki_power, lki_toughness);
+    ctx.sacrifice_destroy(card_id, lki_p1p1, lki_power, lki_toughness, false);
     ctx.trigger_handler.flush_waiting_triggers(ctx.game);
     // Fire Exploited trigger when the sacrifice is from the Exploit keyword
     if let Some(source_id) = exploit_source {

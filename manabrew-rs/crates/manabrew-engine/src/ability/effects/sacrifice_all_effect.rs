@@ -184,7 +184,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             },
             false,
         );
-        ctx.sacrifice_destroy(card_id, lki_p1p1, lki_power, lki_toughness);
+        ctx.sacrifice_destroy(card_id, lki_p1p1, lki_power, lki_toughness, true);
         ctx.trigger_handler.flush_waiting_triggers(ctx.game);
         if sa.ir.remember_sacrificed {
             if let Some(source_id) = sa.source {

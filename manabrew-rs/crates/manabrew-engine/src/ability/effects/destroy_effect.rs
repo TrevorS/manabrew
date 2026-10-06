@@ -113,7 +113,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .card(target_card)
                 .lki_toughness
                 .unwrap_or_else(|| ctx.game.card(target_card).toughness());
-            ctx.sacrifice_destroy(target_card, lki_p1p1, lki_power, lki_toughness);
+            ctx.sacrifice_destroy(target_card, lki_p1p1, lki_power, lki_toughness, false);
 
             // Track the destroyed card on the source so chained sub-abilities
             // (`Destroyed` triggers in `EffectEffect`, "that card" references)

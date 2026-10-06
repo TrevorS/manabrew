@@ -150,7 +150,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .card(card_id)
             .lki_toughness
             .unwrap_or_else(|| ctx.game.card(card_id).toughness());
-        ctx.sacrifice_destroy(card_id, lki_p1p1, lki_power, lki_toughness);
+        ctx.sacrifice_destroy(card_id, lki_p1p1, lki_power, lki_toughness, true);
         if remember_destroyed {
             if let Some(sid) = sa.source {
                 ctx.game.card_mut(sid).add_remembered_card(card_id);

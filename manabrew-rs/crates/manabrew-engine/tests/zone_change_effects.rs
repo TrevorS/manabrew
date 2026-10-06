@@ -835,6 +835,35 @@ fn a_creature_sacrificed_into_exile_by_a_replacement_does_not_die() {
     assert_eq!(game.player(PlayerId(1)).life, 20);
 }
 
+const FOOD_GLUTTON: &str = "Name:Food Glutton\nManaCost:2 G\nTypes:Creature Elemental\nPT:2/2\nS:Mode$ Continuous | Affected$ Creature.Other | AffectedZone$ Battlefield | AddType$ Artifact & Food | Description$ Other creatures are Food artifacts in addition to their other types.\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Food | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever a Food is put into a graveyard from the battlefield, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
+
+#[test]
+fn a_look_back_trigger_sees_every_card_its_own_wipe_destroys() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    main_phase(&mut game, p0);
+    put(&mut game, FOOD_GLUTTON, p0, ZoneType::Battlefield);
+    for _ in 0..2 {
+        let bears = game.create_card(make_grizzly_bears(p1));
+        game.move_card(bears, ZoneType::Battlefield, p1);
+    }
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ DestroyAll | ValidCards$ Creature",
+        None,
+        None,
+        Some(source),
+    );
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    game_loop.resolve_stack(&mut game, &mut agents);
+
+    assert_eq!(game.player(p0).life, 22);
+}
+
 const BRASS_BAUBLE: &str = "Name:Brass Bauble\nManaCost:0\nTypes:Artifact\nOracle:";
 const RELIC_WATCHER: &str = "Name:Relic Watcher\nManaCost:1 W\nTypes:Creature Human\nPT:1/1\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Artifact.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever an artifact you control enters, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
 const KIN_WATCHER: &str = "Name:Kin Watcher\nManaCost:1 G\nTypes:Creature Elf\nPT:1/1\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.Other+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever another creature you control enters, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";

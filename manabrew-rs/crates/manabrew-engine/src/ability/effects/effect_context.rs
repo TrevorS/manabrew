@@ -198,6 +198,7 @@ impl EffectContext<'_> {
         lki_p1p1: i32,
         lki_power: i32,
         lki_toughness: i32,
+        in_batch: bool,
     ) {
         let mut runtime = crate::replacement::replacement_handler::ReplacementRuntime {
             trigger_handler: self.trigger_handler,
@@ -215,6 +216,7 @@ impl EffectContext<'_> {
             lki_p1p1,
             lki_power,
             lki_toughness,
+            in_batch,
         );
     }
 

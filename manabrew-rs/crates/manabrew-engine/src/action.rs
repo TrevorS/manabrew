@@ -143,6 +143,7 @@ impl GameState {
         lki_p1p1: i32,
         lki_power: i32,
         lki_toughness: i32,
+        in_batch: bool,
     ) {
         let owner = self.card(card_id).owner;
         let mut moved_event = ReplacementEvent::Moved {
@@ -170,6 +171,31 @@ impl GameState {
         } else {
             ZoneType::Graveyard
         };
+        if in_batch {
+            // Java resolves a batch on a frozen stack: changeZone queues each ChangesZone
+            // trigger after its move and runWaitingTriggers matches them all on the LKI once
+            // the effect is done, so a look-back trigger still sees the batch's other cards.
+            self.move_card_internal(
+                card_id,
+                final_dest,
+                owner,
+                Some(agents),
+                None,
+                Some(runtime),
+                false,
+                false,
+            );
+            crate::ability::effects::emit_zone_trigger_with_lki_counters(
+                runtime.trigger_handler,
+                card_id,
+                ZoneType::Battlefield,
+                final_dest,
+                lki_p1p1,
+                lki_power,
+                lki_toughness,
+            );
+            return;
+        }
         crate::ability::effects::emit_zone_trigger_with_lki_counters(
             runtime.trigger_handler,
             card_id,
