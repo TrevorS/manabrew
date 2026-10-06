@@ -1722,8 +1722,11 @@ fn collect_effects(
                     continue;
                 }
                 if in_last_state && card.zone != ZoneType::Battlefield {
-                    let mut lki = crate::lki::battlefield_lki_card(game, card_id)
-                        .unwrap_or_else(|| Card::clone(card));
+                    let mut lki = match game.change_zone_lki_info.get(&card_id) {
+                        Some(lki) => Card::clone(lki),
+                        None => crate::lki::battlefield_lki_card(game, card_id)
+                            .unwrap_or_else(|| Card::clone(card)),
+                    };
                     lki.zone = ZoneType::Battlefield;
                     last_state_card = lki;
                     &last_state_card

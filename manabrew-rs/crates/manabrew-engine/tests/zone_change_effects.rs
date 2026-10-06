@@ -1030,3 +1030,41 @@ fn moving_a_defined_card_out_of_a_library_is_not_a_search() {
         21
     );
 }
+
+const MIMIC: &str = "Name:Mimic\nManaCost:2 U\nTypes:Creature Shapeshifter\nPT:1/1\nOracle:";
+
+#[test]
+fn a_copied_replacement_applies_after_the_copy_dies_earlier_in_the_batch() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    main_phase(&mut game, p0);
+    let mimic = put(&mut game, MIMIC, p0, ZoneType::Battlefield);
+    put(&mut game, DEATH_WARDEN, p0, ZoneType::Graveyard);
+    let bears = game.create_card(make_grizzly_bears(p1));
+    game.move_card(bears, ZoneType::Battlefield, p1);
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ Clone | Choices$ Creature.Other | ChoiceZone$ Graveyard",
+        None,
+        None,
+        Some(mimic),
+    );
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(mimic).card_name, "Death Warden");
+
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ DestroyAll | ValidCards$ Creature",
+        None,
+        None,
+        Some(source),
+    );
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+
+    assert_eq!(game.card(bears).zone, ZoneType::Exile);
+}
