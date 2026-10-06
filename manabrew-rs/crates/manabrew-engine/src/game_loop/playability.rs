@@ -2437,11 +2437,16 @@ impl GameLoop {
                     ),
                     alt_cost_index: 0,
                 });
+                let other_state = if game.card(card_id).is_modal() {
+                    forge_foundation::CardStateName::Backside
+                } else {
+                    forge_foundation::CardStateName::Secondary
+                };
                 if crate::spellability::build_spell_ability_for_card_state_cast(
                     game,
                     card_id,
                     player,
-                    forge_foundation::CardStateName::Secondary,
+                    other_state,
                 )
                 .is_some_and(|(_, secondary_sa)| {
                     secondary_sa
@@ -2916,6 +2921,37 @@ mod tests {
             vec![],
             abilities.into_iter().map(str::to_string).collect(),
         )
+    }
+
+    const MODAL_RIDER: &str = "Name:Modal Rider\nManaCost:2 R\nTypes:Creature Human\nPT:2/2\nAlternateMode:Modal\nOracle:\n\nALTERNATE\n\nName:Rider Charge\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Draw | Defined$ You | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
+
+    #[test]
+    fn a_plotted_modal_card_can_be_cast_as_either_face() {
+        let player = PlayerId(0);
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        let rules = forge_carddb::parse_card_script(MODAL_RIDER).expect("script");
+        let rider = game.create_card(Card::from_rules(&rules, player));
+        game.move_card(rider, ZoneType::Exile, player);
+        crate::card::set_plotted(game.card_mut(rider), true, 1);
+        game.turn.active_player = player;
+        game.turn.turn_number = 3;
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        let game_loop = GameLoop::new(2);
+
+        let plotted: Vec<u8> = game_loop
+            .get_playable_cards(&game, player, false)
+            .into_iter()
+            .filter(|play| {
+                play.card_id == rider
+                    && play.mode
+                        == crate::agent::PlayCardMode::Alternative(
+                            crate::spellability::AlternativeCost::Plot,
+                        )
+            })
+            .map(|play| play.alt_cost_index)
+            .collect();
+
+        assert_eq!(plotted, vec![0, 1]);
     }
 
     const OMEN_DRAKE: &str = "Name:Omen Drake\nManaCost:R\nTypes:Creature Drake\nPT:1/1\nAlternateMode:Omen\nOracle:\n\nALTERNATE\n\nName:Drake Omen\nManaCost:U\nTypes:Instant Omen\nA:SP$ Draw | Defined$ You | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
