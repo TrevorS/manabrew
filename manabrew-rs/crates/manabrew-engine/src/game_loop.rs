@@ -1029,7 +1029,8 @@ pub(crate) use cost_payment::pay_life;
 mod discover_effect;
 mod game_action;
 pub(crate) use game_action::{
-    exile_cost_cards, fire_sacrificed_once_for_batch, perform_sacrifice, sacrifice_cost_cards,
+    exile_cost_cards, fire_sacrificed_once_for_batch, perform_sacrifice, refresh_cost_last_state,
+    sacrifice_cost_cards,
 };
 pub(crate) mod mana_payment;
 mod phase_handler;

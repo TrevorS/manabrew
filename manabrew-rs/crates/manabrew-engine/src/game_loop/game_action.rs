@@ -108,12 +108,25 @@ pub(crate) fn perform_sacrifice(
     sacrificed
 }
 
+/// `CostPartWithList.executePayment` (CostPartWithList.java:124-131): each cost part is paid
+/// against a fresh copy of the battlefield as its last state, so a permanent an earlier part
+/// moved no longer looks back at this part's moves.
+pub(crate) fn refresh_cost_last_state(game: &mut GameState) {
+    game.pre_sba_battlefield = game
+        .cards
+        .iter()
+        .filter(|card| card.zone == ZoneType::Battlefield)
+        .map(|card| card.id)
+        .collect();
+}
+
 pub(crate) fn sacrifice_cost_cards(
     game: &mut GameState,
     runtime: &mut ReplacementRuntime<'_>,
     agents: &mut [Box<dyn PlayerAgent>],
     cards: &[CardId],
 ) {
+    refresh_cost_last_state(game);
     let outer_change_zone_table = game.pending_change_zone_table.take();
     game.ensure_pending_change_zone_table();
     perform_sacrifice(game, runtime, agents, cards);
@@ -132,6 +145,7 @@ pub(crate) fn exile_cost_cards(
     collect_evidence: bool,
     cause: Option<&SpellAbility>,
 ) {
+    refresh_cost_last_state(game);
     let outer_change_zone_table = game.pending_change_zone_table.take();
     game.ensure_pending_change_zone_table();
     for &card_id in cards {
@@ -1640,5 +1654,55 @@ impl GameLoop {
         }
 
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use forge_carddb::parse_card_script;
+    use forge_foundation::ZoneType;
+
+    use crate::agent::{PassAgent, PlayerAgent};
+    use crate::card::CardInstance;
+    use crate::game::GameState;
+    use crate::game_loop::GameLoop;
+    use crate::ids::{CardId, PlayerId};
+
+    const MOURNER: &str = "Name:Mourner\nManaCost:1 B\nTypes:Creature Goblin\nPT:1/1\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.Other+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigDrain | TriggerDescription$ Whenever another creature you control dies, each opponent loses 1 life.\nSVar:TrigDrain:DB$ LoseLife | Defined$ Player.Opponent | LifeAmount$ 1\nOracle:";
+    const BEAR: &str = "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:";
+
+    fn put(game: &mut GameState, script: &str, owner: PlayerId) -> CardId {
+        let rules = parse_card_script(script).expect("script");
+        let card = game.create_card(CardInstance::from_rules(&rules, owner));
+        game.move_card(card, ZoneType::Battlefield, owner);
+        card
+    }
+
+    #[test]
+    fn a_creature_sacrificed_by_an_earlier_cost_does_not_see_a_later_one_die() {
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        let p0 = PlayerId(0);
+        let mourner = put(&mut game, MOURNER, p0);
+        let bear = put(&mut game, BEAR, p0);
+        game.pre_sba_battlefield = vec![mourner, bear];
+        let mut game_loop = GameLoop::new(2);
+        game_loop.trigger_handler.reset_active_triggers(&game);
+        let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(PassAgent), Box::new(PassAgent)];
+        super::sacrifice_cost_cards(
+            &mut game,
+            &mut game_loop.replacement_runtime(),
+            &mut agents,
+            &[mourner],
+        );
+        super::sacrifice_cost_cards(
+            &mut game,
+            &mut game_loop.replacement_runtime(),
+            &mut agents,
+            &[bear],
+        );
+        assert!(game_loop
+            .trigger_handler
+            .take_matched_triggers_of(&game, p0)
+            .is_empty());
     }
 }

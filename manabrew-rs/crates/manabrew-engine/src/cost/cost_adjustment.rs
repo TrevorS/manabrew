@@ -1356,5 +1356,6 @@ pub fn commit_offerings_and_emerge(
         .into_iter()
         .flatten()
         .collect();
+    crate::game_loop::refresh_cost_last_state(game);
     crate::game_loop::perform_sacrifice(game, runtime, agents, &to_sacrifice);
 }
