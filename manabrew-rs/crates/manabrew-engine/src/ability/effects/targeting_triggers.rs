@@ -20,8 +20,8 @@ pub(crate) fn emit_targeting_triggers(
 }
 
 /// Keep in sync with the `BecomesTarget` block of `MagicStack.add`: every distinct
-/// target of the ability and its sub-abilities (`getAllTargetChoices`) fires
-/// `BecomesTarget`, then `BecomesTargetOnce` fires once for the lot.
+/// target of the ability and its sub-abilities that use targeting (`getAllTargetChoices`)
+/// fires `BecomesTarget`, then `BecomesTargetOnce` fires once for the lot.
 pub(crate) fn emit_targeting_triggers_for_sa(
     trigger_handler: &mut TriggerHandler,
     game: &mut GameState,
@@ -34,6 +34,10 @@ pub(crate) fn emit_targeting_triggers_for_sa(
     let mut target_spells: Vec<u32> = Vec::new();
     let mut node = Some(trigger_sa);
     while let Some(sa) = node {
+        node = sa.get_sub_ability();
+        if !sa.uses_targeting() {
+            continue;
+        }
         for target_id in sa.target_chosen.all_target_cards() {
             if !target_cards.contains(&target_id) {
                 target_cards.push(target_id);
@@ -49,7 +53,6 @@ pub(crate) fn emit_targeting_triggers_for_sa(
                 target_spells.push(entry_id);
             }
         }
-        node = sa.get_sub_ability();
     }
 
     for &target_id in &target_cards {
@@ -142,4 +145,51 @@ fn commit_crime_for_sa(
         },
         false,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use forge_carddb::parse_card_script;
+    use forge_foundation::ZoneType;
+
+    use crate::card::CardInstance;
+    use crate::game::GameState;
+    use crate::ids::{CardId, PlayerId};
+    use crate::spellability::SpellAbility;
+    use crate::trigger::handler::TriggerHandler;
+
+    const WATCHER: &str = "Name:Target Watcher\nManaCost:1 G\nTypes:Creature Elf\nPT:1/1\nT:Mode$ BecomesTarget | ValidTarget$ Card.Self | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever this creature becomes the target of a spell or ability, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
+    const SOURCE: &str = "Name:Some Source\nManaCost:R\nTypes:Creature Snake\nPT:1/1\nOracle:";
+
+    fn put(game: &mut GameState, script: &str, owner: PlayerId) -> CardId {
+        let rules = parse_card_script(script).expect("script");
+        let card = game.create_card(CardInstance::from_rules(&rules, owner));
+        game.move_card(card, ZoneType::Battlefield, owner);
+        card
+    }
+
+    fn becomes_target_triggers(ability: &str) -> usize {
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        let source = put(&mut game, SOURCE, p0);
+        let watcher = put(&mut game, WATCHER, p1);
+        let mut handler = TriggerHandler::new();
+        handler.reset_active_triggers(&game);
+        let mut sa = SpellAbility::new_simple(Some(source), p0, ability);
+        sa.target_chosen.target_card = Some(watcher);
+        super::emit_targeting_triggers_for_sa(&mut handler, &mut game, source, &sa);
+        handler.run_waiting_triggers(&game).len()
+    }
+
+    #[test]
+    fn an_untargeted_ability_naming_a_creature_does_not_make_it_a_target() {
+        assert_eq!(
+            becomes_target_triggers("DB$ Pump | Defined$ TriggeredAttacker | NumAtt$ 1"),
+            0
+        );
+        assert_eq!(
+            becomes_target_triggers("DB$ Pump | ValidTgts$ Creature | NumAtt$ 1"),
+            1
+        );
+    }
 }
