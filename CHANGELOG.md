@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.54.6](https://github.com/witchesofthehill/manabrew/compare/v3.54.5...v3.54.6) (2026-10-06)
+
+### Fixes
+
+* telepathy ([#1036](https://github.com/witchesofthehill/manabrew/issues/1036)) ([4ad1dbd](https://github.com/witchesofthehill/manabrew/commit/4ad1dbdadfd3757846d7b60fa6976bb725140237))
+
 ## [3.54.5](https://github.com/witchesofthehill/manabrew/compare/v3.54.4...v3.54.5) (2026-10-05)
 
 ### Fixes
