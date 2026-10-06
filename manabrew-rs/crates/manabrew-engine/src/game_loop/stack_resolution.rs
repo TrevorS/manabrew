@@ -316,7 +316,33 @@ impl GameLoop {
                         source,
                         player,
                         Some(&entry.spell_ability),
-                    );
+                    ) && (game.action_space_mana_probe
+                        != crate::mana::ActionSpaceManaProbe::ComputerUtilMana
+                        || crate::cost::has_x_in_any_cost_part(&cost)
+                        || entry.spell_ability.ir.announce_text.is_some()
+                        || cost
+                            .parts
+                            .iter()
+                            .any(|part| matches!(part, crate::cost::CostPart::Waterbend { .. }))
+                        || cost
+                            .parts
+                            .iter()
+                            .find_map(crate::cost::cost_part_mana::get_mana)
+                            .is_none_or(|mana_cost| {
+                                crate::mana::can_pay_ability_mana_cost_for_action_space(
+                                    game,
+                                    &self.mana_pools[player.index()],
+                                    player,
+                                    source,
+                                    mana_cost,
+                                    &crate::mana::payment_context_for_sa(
+                                        game,
+                                        &entry.spell_ability,
+                                    ),
+                                    &[],
+                                    None,
+                                )
+                            }));
                     if let Some(times) = payable_num_times {
                         game.card_mut(source)
                             .svars

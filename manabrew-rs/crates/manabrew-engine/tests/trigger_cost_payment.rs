@@ -23,7 +23,7 @@ fn paying_warden(cost: &str) -> String {
     format!("Name:Paying Warden\nManaCost:1 G\nTypes:Creature Elf\nPT:2/2\nT:Mode$ DamageDoneOnce | ValidTarget$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever a creature you control is dealt damage, you may pay {cost}. If you do, you gain 1 life.\nSVar:TrigGain:AB$ GainLife | Cost$ {cost} | LifeAmount$ 1 | Defined$ You\nSVar:X:Count$xPaid\nOracle:")
 }
 
-struct PoolWatcher(Rc<RefCell<Vec<usize>>>);
+struct PoolWatcher(Rc<RefCell<Vec<usize>>>, Option<CardId>);
 
 impl PlayerAgent for PoolWatcher {
     fn choose_targets_for(
@@ -112,6 +112,7 @@ impl PlayerAgent for PoolWatcher {
         _: i32,
         _: i32,
     ) -> Option<i32> {
+        self.0.borrow_mut().push(usize::MAX);
         Some(3)
     }
     fn choose_mana_from_pool(
@@ -141,7 +142,14 @@ impl PlayerAgent for PoolWatcher {
         _: &[CardId],
         _: &ManaPool,
     ) -> ManaCostAction {
-        ManaCostAction::Pay { auto: true }
+        match self.1.take() {
+            Some(card_id) => ManaCostAction::TapForMana {
+                card_id,
+                mana_ability_index: Some(1),
+                express_choice: Some(forge_foundation::ManaAtom::RED),
+            },
+            None => ManaCostAction::Pay { auto: true },
+        }
     }
     #[allow(clippy::too_many_arguments)]
     fn pay_cost_to_prevent_effect(
@@ -171,6 +179,7 @@ struct Setup {
     game: GameState,
     game_loop: GameLoop,
     asked: Rc<RefCell<Vec<usize>>>,
+    tap: Option<CardId>,
 }
 
 fn damage_the_warden(cost: &str) -> Setup {
@@ -205,12 +214,13 @@ fn damage_the_warden(cost: &str) -> Setup {
         game,
         game_loop: GameLoop::new(2),
         asked: Rc::default(),
+        tap: None,
     }
 }
 
 fn resolve(setup: &mut Setup) {
     let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
-        Box::new(PoolWatcher(Rc::clone(&setup.asked))),
+        Box::new(PoolWatcher(Rc::clone(&setup.asked), setup.tap)),
         Box::new(PassAgent),
     ];
     setup
@@ -260,4 +270,43 @@ fn tied_trigger_payment_asks(mirror_forge_bugs: bool) -> Vec<usize> {
 fn a_trigger_cost_runs_the_harness_probe_before_paying_only_under_the_forge_mirror() {
     assert_eq!(tied_trigger_payment_asks(false), vec![2]);
     assert_eq!(tied_trigger_payment_asks(true), vec![2, 2]);
+}
+
+const LIFE_TOWN: &str = "Name:Life Town\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ C | SpellDescription$ Add {C}.\nA:AB$ Mana | Cost$ T PayLife<1> | Produced$ Any | SpellDescription$ Add one mana of any color.\nOracle:";
+
+const CREATURE_CAVERN: &str = "Name:Creature Cavern\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Any | RestrictValid$ Spell.Creature | SpellDescription$ Add one mana of any color. Spend this mana only to cast a creature spell.\nOracle:";
+
+fn life_town_tapped_paying_from(life: i32) -> bool {
+    let mut setup = damage_the_warden("R");
+    setup.game.action_space_mana_probe = ActionSpaceManaProbe::ComputerUtilMana;
+    setup.game.player_mut(PlayerId(0)).life = life;
+    put(
+        &mut setup.game,
+        CREATURE_CAVERN,
+        PlayerId(0),
+        ZoneType::Battlefield,
+    );
+    let town = put(
+        &mut setup.game,
+        LIFE_TOWN,
+        PlayerId(0),
+        ZoneType::Battlefield,
+    );
+    setup.tap = Some(town);
+    resolve(&mut setup);
+    setup.game.card(town).tapped
+}
+
+#[test]
+fn the_harness_probe_does_not_pay_a_trigger_cost_with_its_last_life() {
+    assert!(!life_town_tapped_paying_from(1));
+    assert!(life_town_tapped_paying_from(2));
+}
+
+#[test]
+fn the_harness_probe_leaves_an_announced_trigger_cost_to_its_announcement() {
+    let mut setup = damage_the_warden("Mana<1\\NumTimes> | Announce$ NumTimes | AnnounceMax$ 3");
+    setup.game.action_space_mana_probe = ActionSpaceManaProbe::ComputerUtilMana;
+    resolve(&mut setup);
+    assert!(setup.asked.borrow().contains(&usize::MAX));
 }
