@@ -451,3 +451,46 @@ fn a_payable_unless_cost_is_still_offered_and_paid() {
     assert_eq!(outcome.payer_life, 20);
     assert_eq!(outcome.payer_permanents_tapped, vec![true]);
 }
+
+const DEATH_WARDEN: &str = "Name:Death Warden\nManaCost:2 B B\nTypes:Creature Wolf\nPT:4/3\nR:Event$ Moved | ActiveZones$ Battlefield | Origin$ Battlefield | Destination$ Graveyard | ValidLKI$ Card.Creature+OppCtrl | ReplaceWith$ DBExile | Description$ If a creature an opponent controls would die, exile it instead.\nSVar:DBExile:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard\nOracle:";
+const DYING_WITNESS: &str = "Name:Dying Witness\nManaCost:1 W\nTypes:Creature Human\nPT:1/1\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ TrigGain | TriggerDescription$ When this creature dies, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
+
+#[test]
+fn a_creature_sacrificed_for_an_unless_cost_into_exile_by_a_replacement_does_not_die() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    put(&mut game, DEATH_WARDEN, p0, ZoneType::Battlefield);
+    let witness = put(&mut game, DYING_WITNESS, p1, ZoneType::Battlefield);
+    let source = put(&mut game, EFFECT_SOURCE, p0, ZoneType::Command);
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: SpellAbility::new_simple(
+            Some(source),
+            p0,
+            "DB$ LoseLife | Defined$ Opponent | LifeAmount$ 3 | UnlessCost$ Sac<1/Creature> | UnlessPayer$ Opponent",
+        ),
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    let mut game_loop = GameLoop::new(2);
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(PassAgent),
+        Box::new(WillingPayer {
+            mana_asked: Rc::new(Cell::new(0)),
+            prevent_asked: Rc::new(Cell::new(0)),
+        }),
+    ];
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    game_loop.resolve_stack(&mut game, &mut agents);
+
+    assert_eq!(game.card(witness).zone, ZoneType::Exile);
+    assert_eq!(game.player(p1).life, 20);
+}

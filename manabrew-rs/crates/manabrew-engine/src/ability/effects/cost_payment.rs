@@ -906,7 +906,6 @@ fn pay_effect_cost_parts(
                     return false;
                 }
                 for chosen in chosen_cards {
-                    let owner = ctx.game.card(chosen).owner;
                     let sacrificer = ctx.game.card(chosen).controller;
                     crate::player::add_sacrificed_this_turn(ctx.game, sacrificer, chosen);
                     ctx.trigger_handler.run_trigger(
@@ -918,13 +917,17 @@ fn pay_effect_cost_parts(
                         },
                         false,
                     );
-                    ctx.move_card(chosen, ZoneType::Graveyard, owner);
-                    emit_zone_trigger(
-                        ctx.trigger_handler,
-                        chosen,
-                        ZoneType::Battlefield,
-                        ZoneType::Graveyard,
-                    );
+                    let card = ctx.game.card(chosen);
+                    let lki_counters = card.counters.clone();
+                    let lki_power = card.power();
+                    let lki_toughness = card.toughness();
+                    let lki_p1p1 = *lki_counters
+                        .get(&crate::card::CounterType::P1P1)
+                        .unwrap_or(&0);
+                    let card = ctx.game.card_mut(chosen);
+                    card.lki_counters = Some(lki_counters);
+                    card.set_lki_power_toughness(Some(lki_power), Some(lki_toughness));
+                    ctx.sacrifice_destroy(chosen, lki_p1p1, lki_power, lki_toughness, true);
                 }
             }
             CostPart::Blight(amount) => {
