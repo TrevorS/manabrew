@@ -27,9 +27,9 @@ pub(super) fn move_cards(
     lib_position: &str,
     controller: PlayerId,
     search_player: PlayerId,
+    searched_library: bool,
 ) {
-    // SearchedLibrary trigger
-    if origin_zone == ZoneType::Library {
+    if searched_library {
         ctx.trigger_handler.run_trigger(
             TriggerType::SearchedLibrary,
             RunParams {
@@ -428,6 +428,7 @@ mod tests {
             "",
             player,
             player,
+            false,
         );
 
         assert_eq!(

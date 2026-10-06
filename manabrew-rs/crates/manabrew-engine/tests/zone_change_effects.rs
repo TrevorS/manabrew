@@ -996,3 +996,37 @@ fn a_regeneration_shield_does_not_follow_a_creature_out_of_the_battlefield() {
 
     assert_eq!(game.card(bears).regeneration_shields, 0);
 }
+
+const SEARCH_WATCHER: &str = "Name:Search Watcher\nManaCost:1 U\nTypes:Creature Bird\nPT:1/1\nT:Mode$ SearchedLibrary | ValidPlayer$ Player.Opponent | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever an opponent searches their library, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
+
+fn watcher_life_after(ability: &str) -> i32 {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    main_phase(&mut game, p1);
+    put(&mut game, SEARCH_WATCHER, p0, ZoneType::Battlefield);
+    for _ in 0..3 {
+        let forest = game.create_card(make_forest(p1));
+        game.move_card(forest, ZoneType::Library, p1);
+    }
+    let source = effect_source(&mut game, p1);
+    push_effect_entry(&mut game, p1, ability, None, None, Some(source));
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    game.player(p0).life
+}
+
+#[test]
+fn moving_a_defined_card_out_of_a_library_is_not_a_search() {
+    assert_eq!(
+        watcher_life_after(
+            "DB$ ChangeZone | Defined$ TopOfLibrary | Origin$ Library | Destination$ Hand"
+        ),
+        20
+    );
+    assert_eq!(
+        watcher_life_after("DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Card | ChangeNum$ 1"),
+        21
+    );
+}

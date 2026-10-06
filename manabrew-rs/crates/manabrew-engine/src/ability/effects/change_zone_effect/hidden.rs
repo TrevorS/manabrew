@@ -172,6 +172,7 @@ pub(super) fn resolve_hidden_origin(
                 &lib_position,
                 controller,
                 controller,
+                false,
             );
         }
         // For known defined types (Remembered, Imprinted, etc.), always return
@@ -330,6 +331,7 @@ pub(super) fn resolve_hidden_origin(
                 &lib_position,
                 affected_player,
                 affected_player,
+                origin_zones.contains(&ZoneType::Library) && !sa.ir.no_looking,
             );
         }
         return;
@@ -623,6 +625,7 @@ pub(super) fn resolve_hidden_origin(
         &lib_position,
         controller,
         search_player,
+        searched_library && !sa.ir.no_looking,
     );
 }
 

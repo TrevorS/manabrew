@@ -262,6 +262,7 @@ pub(super) fn resolve_known_origin(
         &lib_position,
         controller,
         controller,
+        false,
     );
 }
 
