@@ -125,8 +125,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         for attr in attributes {
             match attr.as_str() {
                 "Harnessed" => {
-                    let val = if activate { "True" } else { "False" };
-                    ctx.game.card_mut(card_id).set_s_var("Harnessed", val);
+                    ctx.game.card_mut(card_id).harnessed = activate;
                 }
                 "Plotted" => {
                     let turn = ctx.game.turn.turn_number;
@@ -143,8 +142,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     }
                 }
                 "Solve" | "Solved" => {
-                    let val = if activate { "True" } else { "False" };
-                    ctx.game.card_mut(card_id).set_s_var("Solved", val);
+                    ctx.game.card_mut(card_id).solved = activate;
                     if activate {
                         ctx.trigger_handler.run_trigger(
                             TriggerType::CaseSolved,

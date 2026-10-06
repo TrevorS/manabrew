@@ -792,6 +792,8 @@ pub struct Card {
     pub chosen_even_odd: Option<String>,
     /// True if detained — can't attack, block, or activate abilities. Clears at controller's next turn.
     pub detained: bool,
+    pub solved: bool,
+    pub harnessed: bool,
     /// Set during combat to the player this creature is attacking; None if not attacking.
     pub attacking_player: Option<PlayerId>,
     /// Player who goaded this creature. Goaded creature must attack but can't attack goader.
@@ -1153,6 +1155,8 @@ impl Card {
             sprocket: 0,
             chosen_even_odd: None,
             detained: false,
+            solved: false,
+            harnessed: false,
             attacking_player: None,
             goaded_by: None,
             damage_prevention: 0,
@@ -1410,6 +1414,8 @@ impl Card {
             sprocket: self.sprocket,
             chosen_even_odd: self.chosen_even_odd.clone(),
             detained: self.detained,
+            solved: self.solved,
+            harnessed: self.harnessed,
             attacking_player: self.attacking_player,
             goaded_by: self.goaded_by,
             damage_prevention: self.damage_prevention,
@@ -1714,6 +1720,8 @@ impl Card {
         out.sprocket.clone_from(&self.sprocket);
         refresh_field(&mut out.chosen_even_odd, &self.chosen_even_odd);
         out.detained.clone_from(&self.detained);
+        out.solved.clone_from(&self.solved);
+        out.harnessed.clone_from(&self.harnessed);
         out.attacking_player.clone_from(&self.attacking_player);
         out.goaded_by.clone_from(&self.goaded_by);
         out.damage_prevention.clone_from(&self.damage_prevention);
@@ -4931,6 +4939,13 @@ impl Card {
         self.remove_s_var("Saddled");
         self.remove_s_var("SaddledBy");
     }
+
+    /// A new Java `Card` starts unsolved and unharnessed (Card.java:215, 217).
+    pub fn reset_solved_and_harnessed(&mut self) {
+        self.solved = false;
+        self.harnessed = false;
+    }
+
     /// Java `Card.setSuspected`: the `Suspected` SVar records whether suspecting added Menace,
     /// so clearing it leaves a printed Menace alone.
     pub fn set_suspected(&mut self) {
@@ -5135,10 +5150,10 @@ impl Card {
         self.cast_from.is_some()
     }
     pub fn is_solved(&self) -> bool {
-        self.get_s_var("Solved") == Some("True")
+        self.solved
     }
     pub fn is_harnessed(&self) -> bool {
-        self.get_s_var("Harnessed") == Some("True")
+        self.harnessed
     }
     pub fn on_end_of_combat(&mut self, active: PlayerId) {
         if self.controller == active {

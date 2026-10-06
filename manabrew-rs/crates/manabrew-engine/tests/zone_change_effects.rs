@@ -1097,3 +1097,33 @@ fn an_animate_on_a_face_down_creature_ends_on_its_face_up_characteristics() {
     assert_eq!(game.card(spy).base_power, Some(1));
     assert!(game.card(spy).type_line.to_string().contains("Merfolk"));
 }
+
+const CASE_FILE: &str = "Name:Case File\nManaCost:1 W\nTypes:Enchantment Case\nSVar:Solved:DB$ AlterAttribute | Defined$ Self | Attributes$ Solved\nOracle:";
+
+#[test]
+fn a_solved_case_that_leaves_the_battlefield_returns_unsolved_and_can_solve_again() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let case = put(&mut game, CASE_FILE, p0, ZoneType::Battlefield);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ AlterAttribute | Defined$ Self | Attributes$ Solved",
+        None,
+        None,
+        Some(case),
+    );
+    let mut agents = pass_agents();
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    assert!(game.card(case).is_solved());
+
+    game.move_card(case, ZoneType::Hand, p0);
+    game.move_card(case, ZoneType::Battlefield, p0);
+
+    assert!(!game.card(case).is_solved());
+    assert_eq!(
+        game.card(case).get_s_var("Solved"),
+        Some("DB$ AlterAttribute | Defined$ Self | Attributes$ Solved")
+    );
+}

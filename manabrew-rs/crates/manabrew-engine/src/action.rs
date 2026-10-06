@@ -920,6 +920,7 @@ impl GameState {
                 card.exiled_cards.clear();
                 card.reset_crewed();
                 card.reset_saddled();
+                card.reset_solved_and_harnessed();
                 card.clear_suspected();
                 card.activations_this_game.clear();
                 if !keep_counters {
@@ -1014,6 +1015,7 @@ impl GameState {
                 card.un_goad();
                 card.clear_encoded_cards();
                 card.clear_exerted();
+                card.reset_solved_and_harnessed();
                 if !keep_counters {
                     card.counters.clear();
                 }
