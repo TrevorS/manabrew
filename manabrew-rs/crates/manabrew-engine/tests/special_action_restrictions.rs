@@ -312,3 +312,38 @@ fn a_flash_static_for_loyalty_abilities_lets_them_be_activated_in_combat() {
     assert!(!loyalty_offered_in_combat(false));
     assert!(loyalty_offered_in_combat(true));
 }
+
+const HEAVY_WALKER: &str = "Name:Heavy Walker\nManaCost:2 U\nTypes:Legendary Planeswalker Jace\nLoyalty:3\nA:AB$ GainLife | Cost$ SubCounter<2/LOYALTY> | Planeswalker$ True | LifeAmount$ 1 | SpellDescription$ You gain 1 life.\nOracle:";
+const SCULPTOR_WATCH: &str = "Name:Sculptor Watch\nManaCost:4 U\nTypes:Enchantment\nT:Mode$ AbilityCast | ValidActivatingPlayer$ You | ValidSA$ Activated.Loyalty+CountersRemovedToPayGE2 | TriggerZones$ Battlefield | Execute$ TrigDraw | TriggerDescription$ Whenever you activate a loyalty ability, if you removed two or more loyalty counters to activate it, draw a card.\nSVar:TrigDraw:DB$ Draw | NumCards$ 1\nOracle:";
+
+#[test]
+fn a_loyalty_ability_records_the_counters_its_cost_removed() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let walker = put(&mut game, HEAVY_WALKER, p0, ZoneType::Battlefield);
+    game.card_mut(walker).add_counter(
+        &manabrew_engine::card::counter_type::parse_counter_type("LOYALTY"),
+        3,
+    );
+    put(&mut game, SCULPTOR_WATCH, p0, ZoneType::Battlefield);
+    for _ in 0..5 {
+        put(&mut game, ISLAND, p0, ZoneType::Library);
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = forge_foundation::PhaseType::Main1;
+    let library = game.zone(ZoneType::Library, p0).len();
+    let seen = Rc::new(RefCell::new(None));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Recorder {
+            seen: Rc::clone(&seen),
+            turn_up: walker,
+            confirm: true,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+
+    assert_eq!(game.player(p0).life, 21);
+    assert_eq!(game.zone(ZoneType::Library, p0).len(), library - 1);
+}

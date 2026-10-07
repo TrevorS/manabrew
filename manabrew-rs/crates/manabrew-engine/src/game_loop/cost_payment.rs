@@ -1185,8 +1185,14 @@ impl GameLoop {
                             .into_iter()
                             .find(|cid| game.card(*cid).counter_count(counter_type) >= amount_n)
                     };
+                    let mut removed = 0;
                     if let Some(target) = target {
                         game.card_mut(target).remove_counter(counter_type, amount_n);
+                        removed = amount_n;
+                    }
+                    if let Some(sa) = sa.as_deref_mut() {
+                        sa.svars
+                            .insert("CostCountersRemoved".to_string(), removed.to_string());
                     }
                 }
                 CostPart::AddCounter {
@@ -2017,10 +2023,16 @@ impl GameLoop {
                             .into_iter()
                             .find(|cid| game.card(*cid).counter_count(counter_type) >= amount_n)
                     };
+                    let mut removed = 0;
                     if let Some(target) = target {
                         if game.card(target).zone == ZoneType::Battlefield {
                             game.card_mut(target).remove_counter(counter_type, amount_n);
+                            removed = amount_n;
                         }
+                    }
+                    if let Some(sa) = sa.as_deref_mut() {
+                        sa.svars
+                            .insert("CostCountersRemoved".to_string(), removed.to_string());
                     }
                 }
                 CostPart::AddCounter {
