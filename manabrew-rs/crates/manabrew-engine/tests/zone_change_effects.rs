@@ -913,6 +913,40 @@ fn creatures_returned_by_one_effect_each_see_the_other_enter() {
     assert_eq!(game.player(p0).life, 22);
 }
 
+const THIEF_OF_BLOOD: &str = "Name:Thief of Blood\nManaCost:4 B B\nTypes:Creature Vampire\nPT:1/1\nK:Flying\nK:ETBReplacement:Other:DBRemoveCounterAll\nSVar:DBRemoveCounterAll:DB$ RemoveCounter | Defined$ Valid Permanent | CounterType$ All | SubAbility$ DBPutCounters | RememberAmount$ True | SpellDescription$ As CARDNAME enters, remove all counters from all permanents. CARDNAME enters with a +1/+1 counter on it for each counter removed this way.\nSVar:DBPutCounters:DB$ PutCounter | ETB$ True | Defined$ Self | CounterType$ P1P1 | CounterNum$ X | SubAbility$ DBCleanup\nSVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\nSVar:X:Count$RememberedNumber\nOracle:";
+
+fn kin_watcher_life_after_a_batch_with_a_replacement(mirror_forge_bugs: bool) -> i32 {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    game.mirror_forge_bugs = mirror_forge_bugs;
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let early = game.create_card(make_grizzly_bears(p0));
+    game.move_card(early, ZoneType::Graveyard, p0);
+    let thief = put(&mut game, THIEF_OF_BLOOD, p0, ZoneType::Graveyard);
+    let watcher = put(&mut game, KIN_WATCHER, p0, ZoneType::Graveyard);
+    let late = game.create_card(make_grizzly_bears(p0));
+    game.move_card(late, ZoneType::Graveyard, p0);
+    return_remembered(&mut game, p0, &[early, thief, watcher, late]);
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    for card in [early, thief, watcher, late] {
+        assert_eq!(game.card(card).zone, ZoneType::Battlefield);
+    }
+    game.player(p0).life
+}
+
+#[test]
+fn a_creature_returned_in_a_batch_sees_every_other_creature_in_it_enter() {
+    assert_eq!(kin_watcher_life_after_a_batch_with_a_replacement(false), 23);
+}
+
+#[test]
+fn forge_collects_a_batch_arrival_before_the_watcher_enters_when_a_replacement_resolves() {
+    assert_eq!(kin_watcher_life_after_a_batch_with_a_replacement(true), 22);
+}
+
 const TAPPING_SHRINE: &str = "Name:Tapping Shrine\nManaCost:W\nTypes:Enchantment\nR:Event$ Moved | ValidCard$ Creature.OppCtrl | Destination$ Battlefield | ReplaceWith$ ETBTapped | ReplacementResult$ Updated | ActiveZones$ Battlefield | Description$ Creatures your opponents control enter tapped.\nSVar:ETBTapped:DB$ Tap | ETB$ True | Defined$ ReplacedCard\nOracle:";
 
 #[test]

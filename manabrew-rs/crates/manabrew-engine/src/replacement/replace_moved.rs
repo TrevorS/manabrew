@@ -269,7 +269,17 @@ pub(super) fn execute_replacement_ability(
     let mut parent_additional_target_players: Vec<crate::ids::PlayerId> = Vec::new();
     let chain_target_cards = sa.chain_target_cards_from_root();
     let mut current_sa: Option<&crate::spellability::SpellAbility> = Some(&sa);
+    let mut is_first = true;
     while let Some(cur) = current_sa {
+        // Forge AbilityUtils.resolveSubAbilities collects the waiting triggers before a
+        // replacement's sub-ability, so a batch's earlier arrivals miss permanents that enter
+        // later in the same batch (against CR 603.6a).
+        if !is_first && game.mirror_forge_bugs {
+            if let Some(rt) = runtime.as_deref_mut() {
+                rt.trigger_handler.flush_waiting_triggers(game);
+            }
+        }
+        is_first = false;
         let mut sa_with_ctx;
         let sa_ref = if (parent_target_player.is_some()
             && cur.target_chosen.target_player.is_none()
