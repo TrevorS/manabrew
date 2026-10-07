@@ -412,13 +412,15 @@ pub fn any_cost_adjusting_source(game: &GameState) -> bool {
 
 // ── Public API: compute_raise_cost_parts ─────────────────────────────
 pub(crate) fn target_cards_for_cost(game: &GameState, sa: &SpellAbility) -> Vec<CardId> {
-    let mut target_cards = sa.get_targets().all_target_cards();
-    if let Some(entry) = sa
-        .target_chosen
-        .target_stack_entry
-        .and_then(|id| game.stack.iter().find(|entry| entry.id == id))
-    {
-        target_cards.extend(entry.spell_ability.source);
+    let mut target_cards = Vec::new();
+    for choices in sa.get_all_target_choices() {
+        target_cards.extend(choices.all_target_cards());
+        if let Some(entry) = choices
+            .target_stack_entry
+            .and_then(|id| game.stack.iter().find(|entry| entry.id == id))
+        {
+            target_cards.extend(entry.spell_ability.source);
+        }
     }
     target_cards
 }

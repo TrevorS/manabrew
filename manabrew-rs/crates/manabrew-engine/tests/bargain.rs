@@ -275,3 +275,27 @@ fn bargain_is_not_offered_without_an_artifact_enchantment_or_token() {
     assert!(seen.offers.is_empty());
     assert_eq!(board.game.card(board.giant).damage, 2);
 }
+
+const SHRINK_CHARM: &str = "Name:Shrink Charm\nManaCost:R\nTypes:Instant\nA:SP$ Charm | Choices$ DBShrink,DBDraw\nSVar:DBShrink:DB$ Pump | ValidTgts$ Creature | NumAtt$ -2 | NumDef$ -2 | SpellDescription$ Target creature gets -2/-2 until end of turn.\nSVar:DBDraw:DB$ Draw | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
+const PEAK_TERROR: &str = "Name:Peak Terror\nManaCost:3 R R\nTypes:Creature Dragon\nPT:5/4\nS:Mode$ RaiseCost | ValidTarget$ Card.Self | Activator$ Player.Opponent | Type$ Spell | Cost$ PayLife<3> | Description$ Spells your opponents cast that target CARDNAME cost an additional 3 life to cast.\nOracle:";
+
+#[test]
+fn a_charm_mode_that_targets_a_permanent_pays_its_raise_cost() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    put(&mut game, SHRINK_CHARM, p0, ZoneType::Hand);
+    put(&mut game, MOUNTAIN, p0, ZoneType::Battlefield);
+    put(&mut game, MOUNTAIN, p0, ZoneType::Library);
+    let terror = put(&mut game, PEAK_TERROR, p1, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    let mut board = Board {
+        game,
+        giant: terror,
+        thopter: None,
+    };
+    let seen = cast(&mut board, false);
+    assert!(seen.borrow().cast);
+    assert_eq!(board.game.card(terror).power(), 3);
+    assert_eq!(board.game.player(p0).life, 17);
+}
