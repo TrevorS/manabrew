@@ -1703,6 +1703,7 @@ impl GameLoop {
                         agents,
                         player,
                         card_id,
+                        sa.as_deref().is_none_or(|sa| sa.is_spell),
                         type_filter,
                         resolved_amount,
                         *exile,
@@ -2626,6 +2627,7 @@ impl GameLoop {
                         agents,
                         player,
                         card_id,
+                        sa.as_deref().is_none_or(|sa| sa.is_spell),
                         type_filter,
                         resolved_amount,
                         *exile,
@@ -2882,6 +2884,7 @@ impl GameLoop {
                     mana_pools,
                     player,
                     source,
+                    true,
                     &type_filter,
                     resolved,
                 )?);
@@ -4264,6 +4267,7 @@ impl GameLoop {
         agents: &mut [Box<dyn PlayerAgent>],
         player: PlayerId,
         source: CardId,
+        source_is_cast: bool,
         type_filter: &str,
         amount: i32,
         exile: bool,
@@ -4277,6 +4281,7 @@ impl GameLoop {
                 &self.mana_pools,
                 player,
                 source,
+                source_is_cast,
                 type_filter,
                 amount,
             ) {
@@ -4297,6 +4302,7 @@ impl GameLoop {
         mana_pools: &[ManaPool],
         player: PlayerId,
         source: CardId,
+        source_is_cast: bool,
         type_filter: &str,
         amount: i32,
     ) -> Option<Vec<CardId>> {
@@ -4308,7 +4314,7 @@ impl GameLoop {
             .chain(game.cards_in_zone(ZoneType::Battlefield, player).iter())
             .copied()
             .filter(|&cid| {
-                cid != source
+                (cid != source || !source_is_cast)
                     && type_filter.split(';').any(|alternative| {
                         crate::card::valid_filter::matches_valid_card_in_game(
                             alternative.trim(),

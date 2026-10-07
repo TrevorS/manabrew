@@ -64,6 +64,7 @@ fn behold_elves(game: &GameState, reunion: CardId) -> Option<Vec<CardId>> {
         &pools,
         PlayerId(0),
         reunion,
+        true,
         "Creature.ChosenType",
         2,
     )
@@ -87,4 +88,32 @@ fn a_chosen_type_behold_short_of_creatures_fails() {
     let (game, reunion) = reunion_board(1);
 
     assert!(behold_elves(&game, reunion).is_none());
+}
+
+#[test]
+fn an_abilitys_host_can_behold_itself_and_a_spell_cannot() {
+    load_types();
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let host = card(
+        &mut game,
+        "Lone Dragon",
+        "Creature - Dragon",
+        ZoneType::Battlefield,
+    );
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(PassAgent), Box::new(PassAgent)];
+    let pools = vec![ManaPool::default(), ManaPool::default()];
+    let behold = |agents: &mut Vec<Box<dyn PlayerAgent>>, source_is_cast: bool| {
+        GameLoop::choose_behold_cards(
+            &game,
+            agents,
+            &pools,
+            PlayerId(0),
+            host,
+            source_is_cast,
+            "Dragon",
+            1,
+        )
+    };
+    assert_eq!(behold(&mut agents, false), Some(vec![host]));
+    assert_eq!(behold(&mut agents, true), None);
 }
