@@ -744,3 +744,41 @@ fn a_targeted_copy_of_a_spell_exiled_from_the_stack_does_not_resolve() {
     assert!(game.stack.iter().all(|entry| entry.id != copy_id));
     assert_ne!(game.card(prepared).zone, ZoneType::Stack);
 }
+
+const EMPOWER_TOKEN: &str = "Name:Token\nManaCost:no cost\nColors:blue\nTypes:Planeswalker\nLoyalty:0\nA:AB$ Surveil | Cost$ SubCounter<1/LOYALTY> | Amount$ 1 | Planeswalker$ True | SpellDescription$ Surveil 1.\nA:AB$ Draw | Cost$ SubCounter<3/LOYALTY> | Planeswalker$ True | Defined$ You | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
+
+#[test]
+fn empower_creates_one_jace_token_and_then_adds_loyalty_to_it() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let template = CardInstance::from_rules(&parse_card_script(EMPOWER_TOKEN).expect("script"), p0);
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    game_loop.register_token("u_empower", template);
+
+    push_activated_entry(&mut game, p0, "DB$ Empower | Type$ Jace | Num$ 2", None);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    push_activated_entry(&mut game, p0, "DB$ Empower | Type$ Jace | Num$ 1", None);
+    game_loop.resolve_stack(&mut game, &mut agents);
+
+    let jaces: Vec<CardId> = game
+        .zone(ZoneType::Battlefield, p0)
+        .cards
+        .iter()
+        .copied()
+        .filter(|&c| game.card(c).card_name == "Jace Token")
+        .collect();
+    assert_eq!(jaces.len(), 1);
+    let jace = game.card(jaces[0]);
+    assert!(jace.is_token);
+    assert!(jace.has_string_type("Jace"));
+    assert!(jace.has_string_type("Planeswalker"));
+    assert_eq!(
+        jace.counters
+            .get(&manabrew_engine::card::counter_type::parse_counter_type(
+                "LOYALTY"
+            ))
+            .copied(),
+        Some(3)
+    );
+}

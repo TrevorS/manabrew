@@ -282,6 +282,7 @@ effect_dispatch! {
     ApiType::Debuff => debuff_effect::DebuffEffect,
     ApiType::Draft => draft_effect::DraftEffect,
     ApiType::Earthbend => earthbend_effect::EarthbendEffect [build = earthbend_effect::build_spell_ability],
+    ApiType::Empower => empower_effect::EmpowerEffect,
     ApiType::Endure => endure_effect::EndureEffect,
     ApiType::GainOwnership => ownership_gain_effect::OwnershipGainEffect,
     ApiType::Intensify => intensify_effect::IntensifyEffect,

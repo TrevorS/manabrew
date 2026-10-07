@@ -98,6 +98,7 @@ pub mod drain_mana_effect;
 pub mod draw_effect;
 pub mod earthbend_effect;
 pub mod effect_effect;
+pub mod empower_effect;
 pub mod encode_effect;
 pub mod end_combat_phase_effect;
 pub mod end_turn_effect;
