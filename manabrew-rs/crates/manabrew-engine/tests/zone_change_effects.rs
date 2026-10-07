@@ -779,6 +779,48 @@ fn a_card_returned_by_a_later_sub_ability_does_not_see_an_earlier_sub_abilitys_m
     assert_eq!(game.player(p0).life, 20);
 }
 
+const CONSUL_WATCH: &str = "Name:Consul Watch\nManaCost:W\nTypes:Enchantment\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.OppCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever a creature an opponent controls enters, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
+const SNARE: &str = "Name:Snare\nManaCost:2 W\nTypes:Artifact\nOracle:";
+const TORMENT: &str = "Name:Torment\nManaCost:B\nTypes:Sorcery\nSVar:DBTorment:DB$ LoseLife | Defined$ Player.Opponent | LifeAmount$ 4 | UnlessCost$ Sac<1/Permanent.nonLand> | UnlessPayer$ Player.Opponent\nOracle:";
+
+#[test]
+fn a_permanent_sacrificed_for_a_later_unless_cost_still_sees_a_creature_enter() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    main_phase(&mut game, p0);
+    let snare = put(&mut game, SNARE, p0, ZoneType::Battlefield);
+    let watch = put(&mut game, CONSUL_WATCH, p0, ZoneType::Battlefield);
+    let bears = game.create_card(make_grizzly_bears(p1));
+    game.move_card(bears, ZoneType::Battlefield, p1);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ ChangeZone | Defined$ Targeted | Origin$ Battlefield | Destination$ Exile | Duration$ UntilHostLeavesPlay",
+        Some(bears),
+        None,
+        Some(snare),
+    );
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(bears).zone, ZoneType::Exile);
+    let torment = put(&mut game, TORMENT, p1, ZoneType::Command);
+    push_effect_entry(
+        &mut game,
+        p1,
+        "DB$ Repeat | MaxRepeat$ 2 | RepeatSubAbility$ DBTorment",
+        None,
+        None,
+        Some(torment),
+    );
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    assert_eq!(game.card(snare).zone, ZoneType::Graveyard);
+    assert_eq!(game.card(watch).zone, ZoneType::Graveyard);
+    assert_eq!(game.card(bears).zone, ZoneType::Battlefield);
+    assert_eq!(game.player(p0).life, 21);
+}
+
 #[test]
 fn a_replacement_on_a_permanent_destroyed_by_the_same_effect_still_applies() {
     let mut game = GameState::new(&["Alice", "Bob"], 20);

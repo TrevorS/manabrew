@@ -609,6 +609,9 @@ fn pay_effect_cost_parts(
         ctx.game
             .cost_payment_stack
             .push(part.clone(), payment.clone());
+        if matches!(part, CostPart::Sacrifice { .. } | CostPart::Exile { .. }) {
+            ctx.trigger_handler.flush_waiting_triggers(ctx.game);
+        }
         match part {
             CostPart::FlipCoin(amount) => {
                 let resolved_amount = amount.resolve(ctx.game, source, payer);
