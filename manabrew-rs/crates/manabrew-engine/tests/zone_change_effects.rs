@@ -1168,3 +1168,14 @@ fn a_targeted_creature_put_into_its_library_with_shuffle_shuffles_that_library()
     expected.reverse();
     assert_eq!(shuffled, expected);
 }
+
+#[test]
+fn a_library_search_onto_the_library_that_finds_nothing_still_shuffles() {
+    let (before, after) = library_after(
+        "SP$ ChangeZone | Origin$ Library | Destination$ Library | LibraryPosition$ 0 | ChangeType$ Planeswalker",
+        false,
+    );
+    let mut expected = before.clone();
+    expected.reverse();
+    assert_eq!(after, expected);
+}

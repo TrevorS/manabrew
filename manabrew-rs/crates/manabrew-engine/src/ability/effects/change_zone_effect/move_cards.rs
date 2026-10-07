@@ -76,6 +76,9 @@ pub(super) fn move_cards(
                     shuffled_owners.push(owner);
                 }
             }
+            if shuffled_owners.is_empty() {
+                shuffled_owners.push(search_player);
+            }
             for pid in shuffled_owners {
                 if ctx.game.cards_in_zone(ZoneType::Library, pid).is_empty() {
                     continue;
