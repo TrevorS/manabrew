@@ -1487,6 +1487,11 @@ impl TriggerHandler {
                 .ir
                 .origin_zones
                 .contains(&forge_foundation::ZoneType::Battlefield)
+                || (trigger
+                    .ir
+                    .origin_zones
+                    .contains(&forge_foundation::ZoneType::Graveyard)
+                    && trigger.ir.destination_zones != [forge_foundation::ZoneType::Battlefield])
                 || trigger.ir.destination_zones.iter().any(|zone| {
                     matches!(
                         zone,

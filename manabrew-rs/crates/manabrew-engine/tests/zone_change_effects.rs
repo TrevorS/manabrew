@@ -947,6 +947,32 @@ fn forge_collects_a_batch_arrival_before_the_watcher_enters_when_a_replacement_r
     assert_eq!(kin_watcher_life_after_a_batch_with_a_replacement(true), 22);
 }
 
+const GRAVE_LEAVE_WATCHER: &str = "Name:Grave Leave Watcher\nManaCost:R W\nTypes:Creature Bird\nPT:2/1\nT:Mode$ ChangesZoneAll | ValidCards$ Card.YouOwn | Origin$ Graveyard | Destination$ Any | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever one or more cards leave your graveyard, you gain 3 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 3 | Defined$ You\nOracle:";
+
+#[test]
+fn a_graveyard_leave_trigger_sees_the_graveyard_exiled_with_its_host() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let watcher = put(&mut game, GRAVE_LEAVE_WATCHER, p0, ZoneType::Battlefield);
+    let bears = game.create_card(make_grizzly_bears(p0));
+    game.move_card(bears, ZoneType::Graveyard, p0);
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ ChangeZoneAll | ChangeType$ Creature.YouOwn | Origin$ Battlefield,Graveyard | Destination$ Exile",
+        None,
+        None,
+        Some(source),
+    );
+    let mut agents = pass_agents();
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(watcher).zone, ZoneType::Exile);
+    assert_eq!(game.card(bears).zone, ZoneType::Exile);
+    assert_eq!(game.player(p0).life, 23);
+}
+
 const TAPPING_SHRINE: &str = "Name:Tapping Shrine\nManaCost:W\nTypes:Enchantment\nR:Event$ Moved | ValidCard$ Creature.OppCtrl | Destination$ Battlefield | ReplaceWith$ ETBTapped | ReplacementResult$ Updated | ActiveZones$ Battlefield | Description$ Creatures your opponents control enter tapped.\nSVar:ETBTapped:DB$ Tap | ETB$ True | Defined$ ReplacedCard\nOracle:";
 
 #[test]
