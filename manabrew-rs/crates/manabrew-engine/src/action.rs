@@ -372,6 +372,18 @@ impl GameState {
         }
     }
 
+    fn forget_on_moved(&mut self, forget_effects: Vec<CardId>, card_id: CardId) {
+        for eff_id in forget_effects {
+            let eff = self.card_mut(eff_id);
+            eff.remembered_cards.retain(|&rid| rid != card_id);
+            if eff.exile_when_no_remembered && eff.remembered_cards.is_empty() {
+                let controller = eff.controller;
+                self.remove_card_from_zone(ZoneType::Command, controller, eff_id);
+                self.card_mut(eff_id).zone = ZoneType::None;
+            }
+        }
+    }
+
     pub(crate) fn forget_on_cast(&mut self, card_id: CardId) {
         let forget_effects: Vec<CardId> = self
             .cards
@@ -842,6 +854,7 @@ impl GameState {
                         );
                     }
                 }
+                self.forget_on_moved(forget_effects, card_id);
                 // Update LKI snapshot: card just entered the battlefield.
                 // Ensures it's available for later TriggeredCard$CardPower lookups
                 // even if it dies within the same resolution chain.
@@ -1040,22 +1053,7 @@ impl GameState {
             && matches!(dest_zone, ZoneType::Graveyard | ZoneType::Exile);
         self.card_mut(card_id).move_to_command_zone = commander_entered_gy_or_exile;
 
-        // Forget remembered objects for command effects with ForgetOnMoved.
-        let mut exile_effects = Vec::new();
-        for eff_id in forget_effects {
-            let eff = self.card_mut(eff_id);
-            eff.remembered_cards.retain(|&rid| rid != card_id);
-            if eff.exile_when_no_remembered && eff.remembered_cards.is_empty() {
-                exile_effects.push(eff_id);
-            }
-        }
-        // Effect cards with ForgetOnMoved should be removed from the game
-        // entirely (zone = None), not moved to Exile.
-        for eff_id in exile_effects {
-            let controller = self.card(eff_id).controller;
-            self.remove_card_from_zone(ZoneType::Command, controller, eff_id);
-            self.card_mut(eff_id).zone = ZoneType::None;
-        }
+        self.forget_on_moved(forget_effects, card_id);
 
         if host_left_battlefield {
             self.run_until_host_leaves_play_commands(

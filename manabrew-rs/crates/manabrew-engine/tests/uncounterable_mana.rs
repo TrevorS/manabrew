@@ -11,11 +11,12 @@ use manabrew_engine::game_loop::GameLoop;
 use manabrew_engine::ids::{CardId, PlayerId};
 use manabrew_engine::mana::ManaPool;
 use manabrew_engine::player::actions::PlayerAction;
-use manabrew_engine::spellability::SpellAbility;
+use manabrew_engine::spellability::{SpellAbility, StackEntry};
 
 const SOUL_CAVE: &str = "Name:Soul Cave\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ G | AddsNoCounter$ True | SpellDescription$ Add {G}. That spell can't be countered.\nOracle:";
 const ISLAND: &str = "Name:Island\nManaCost:no cost\nTypes:Basic Land Island\nOracle:";
 const LEAF_PUP: &str = "Name:Leaf Pup\nManaCost:G\nTypes:Creature Dog\nPT:1/1\nOracle:";
+const SENSE_COUNTER: &str = "Name:Sense Counter\nManaCost:1 U\nTypes:Instant\nA:SP$ Counter | TargetType$ Instant,Sorcery,Triggered | ValidTgts$ Card,Emblem | TgtPrompt$ Select target spell or ability | SpellDescription$ Counter target instant spell, sorcery spell, or triggered ability.\nOracle:";
 const QUICK_DENIAL: &str = "Name:Quick Denial\nManaCost:U\nTypes:Instant\nA:SP$ Counter | TargetType$ Spell | ValidTgts$ Card | TgtPrompt$ Select target spell | SpellDescription$ Counter target spell.\nOracle:";
 
 struct CastOnce {
@@ -175,4 +176,57 @@ fn a_spell_paid_with_no_counter_mana_tapped_during_the_payment_cannot_be_counter
     GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
     assert_eq!(game.card(denial).zone, ZoneType::Graveyard);
     assert_eq!(game.card(pup).zone, ZoneType::Battlefield);
+    assert!(game.cards_in_zone(ZoneType::Command, p0).is_empty());
+}
+
+fn stack_entry(spell_ability: SpellAbility) -> StackEntry {
+    StackEntry {
+        id: 0,
+        spell_ability,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    }
+}
+
+#[test]
+fn a_triggered_ability_of_a_permanent_cast_with_no_counter_mana_can_be_countered() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let pup = put(&mut game, LEAF_PUP, p0, ZoneType::Hand);
+    put(&mut game, SOUL_CAVE, p0, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce {
+            spell: pup,
+            cast: false,
+        }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.card(pup).zone, ZoneType::Battlefield);
+
+    let mut trigger = SpellAbility::new_simple(Some(pup), p0, "DB$ GainLife | LifeAmount$ 5");
+    trigger.is_trigger = true;
+    game.stack.push(stack_entry(trigger));
+    let trigger_id = game.stack.peek().unwrap().id;
+    let sense = put(&mut game, SENSE_COUNTER, p1, ZoneType::Stack);
+    let mut counter = manabrew_engine::spellability::build_spell_ability(
+        &game,
+        sense,
+        "SP$ Counter | TargetType$ Instant,Sorcery,Triggered | ValidTgts$ Card,Emblem",
+        p1,
+    );
+    counter.is_spell = true;
+    counter.target_chosen.target_stack_entry = Some(trigger_id);
+    game.stack.push(stack_entry(counter));
+    game_loop.resolve_stack(&mut game, &mut agents);
+    assert!(game.stack.is_empty());
 }

@@ -2759,22 +2759,23 @@ impl GameLoop {
             }
         }
 
-        // If uncounterable mana was consumed during payment (Cavern of Souls),
-        // add a "can't be countered" replacement effect to the spell's card.
+        // Java `AbilityManaPart.addNoCounterEffect`, once for each mana spent that adds it.
         let uncounterable_after =
             self.pool(player).count_uncounterable() - self.pool(player).no_counter_mana_added();
-        if uncounterable_after < uncounterable_before {
-            use crate::replacement::replacement_effect::{
-                ReplacementEffect, ReplacementLayer, ReplacementType,
-            };
-            let params = crate::parsing::Params::from_raw("ValidCard$ Card.Self");
-            game.card_mut(card_id)
-                .add_replacement_effect(ReplacementEffect::new(
-                    ReplacementType::Counter,
-                    ReplacementLayer::CantHappen,
-                    params,
-                    vec![], // active everywhere (including stack)
-                ));
+        for _ in uncounterable_after..uncounterable_before {
+            let effect_id = crate::ability::spell_ability_effect::create_effect(game, &sa, "", "");
+            let effect = game.card_mut(effect_id);
+            if let Some(mut re) = crate::replacement::replacement_effect::parse_replacement_effect(
+                "Event$ Counter | Layer$ CantHappen | ValidSA$ Spell.IsRemembered | Description$ That spell can't be countered.",
+            ) {
+                re.active_zones = vec![ZoneType::Command];
+                re.base.set_active_zone(vec![ZoneType::Command]);
+                re.base.card_trait_base.set_intrinsic(true);
+                effect.add_replacement_effect(re);
+            }
+            effect.add_remembered_card(card_id);
+            effect.set_forget_on_moved_origin(Some(ZoneType::Stack));
+            effect.set_exile_when_no_remembered(true);
         }
 
         game.card_mut(card_id)
