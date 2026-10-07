@@ -42,6 +42,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 Some(&duration),
                 player,
                 sa.source,
+                sa.target_chosen.target_card,
                 crate::phase::PhaseCommand::RemoveGoad { card, player },
             );
         }

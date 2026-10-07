@@ -327,6 +327,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 sa.ir.duration.as_ref(),
                 controller,
                 Some(source_id),
+                sa.target_chosen.target_card,
                 unclone.clone(),
             ) {
                 ctx.game.end_of_turn.add_until(None, unclone);

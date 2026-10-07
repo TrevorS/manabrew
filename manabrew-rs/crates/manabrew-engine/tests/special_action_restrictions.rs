@@ -377,3 +377,54 @@ fn a_becomes_target_trigger_matches_its_source_ability_by_kind() {
     assert!(game.card(sorcerer).tapped);
     assert_eq!(game.zone(ZoneType::Library, p0).len(), library - 1);
 }
+
+const BRAIDED_NET: &str = "Name:Braided Net\nManaCost:2 U\nTypes:Artifact\nK:etbCounter:NET:3\nA:AB$ Tap | Cost$ T SubCounter<1/NET> | ValidTgts$ Permanent.Other+nonLand | TgtPrompt$ Select another target nonland permanent | SubAbility$ DBEffect | SpellDescription$ Tap another target nonland permanent.\nSVar:DBEffect:DB$ Effect | RememberObjects$ Targeted | StaticAbilities$ CantActivate | ForgetOnMoved$ Battlefield | Duration$ UntilTargetedUntaps | SpellDescription$ Its activated abilities can't be activated for as long as it remains tapped.\nSVar:CantActivate:Mode$ CantBeActivated | ValidCard$ Card.IsRemembered | ValidSA$ Activated | Description$ Its activated abilities can't be activated for as long as it remains tapped.\nOracle:";
+
+fn netted_sorcerer_effects(untap_step: bool) -> usize {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let net = put(&mut game, BRAIDED_NET, p0, ZoneType::Battlefield);
+    let sorcerer = put(&mut game, PRODIGAL, p1, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    let mut sa = manabrew_engine::spellability::build_spell_ability(
+        &game,
+        net,
+        "AB$ Tap | ValidTgts$ Permanent.Other+nonLand | SubAbility$ DBEffect",
+        p0,
+    );
+    sa.target_chosen.target_card = Some(sorcerer);
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: sa,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(PassAgent), Box::new(PassAgent)];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    assert!(game.card(sorcerer).tapped);
+    game_loop.step_cleanup(&mut game, &mut agents);
+    if untap_step {
+        game.turn.active_player = p1;
+        game.new_turn_for_player(p1);
+        game_loop.step_untap(&mut game, &mut agents);
+        assert!(!game.card(sorcerer).tapped);
+    }
+    game.cards_in_zone(ZoneType::Command, p0).len()
+}
+
+#[test]
+fn a_braided_net_lock_lasts_past_the_turn_while_its_target_stays_tapped() {
+    assert_eq!(netted_sorcerer_effects(false), 1);
+}
+
+#[test]
+fn a_braided_net_lock_ends_when_its_target_untaps() {
+    assert_eq!(netted_sorcerer_effects(true), 0);
+}

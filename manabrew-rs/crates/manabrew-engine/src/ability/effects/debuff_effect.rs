@@ -62,6 +62,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 sa.ir.duration.as_ref(),
                 sa.activating_player,
                 sa.source,
+                sa.target_chosen.target_card,
                 until.clone(),
             ) {
                 ctx.game.end_of_turn.add_until(None, until);

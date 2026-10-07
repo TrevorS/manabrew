@@ -858,13 +858,14 @@ pub fn copied_trait_original_host(game: &GameState, sa: &SpellAbility) -> Option
 }
 
 /// Mirrors Java's `SpellAbilityEffect.addUntilCommand` for the durations that end at the
-/// controller's next turn or when `host` leaves the battlefield. Returns false for any other
-/// duration.
+/// controller's next turn, when `host` leaves the battlefield, or when `host` or the targeted
+/// card (`getSATargetingCard`) untaps. Returns false for any other duration.
 pub fn add_until_command(
     game: &mut GameState,
     duration: Option<&crate::spellability::AbilityDuration>,
     controller: crate::ids::PlayerId,
     host: Option<CardId>,
+    targeted: Option<CardId>,
     until: crate::phase::PhaseCommand,
 ) -> bool {
     match duration {
@@ -919,7 +920,16 @@ pub fn add_until_command(
             let Some(host) = host else {
                 return false;
             };
-            game.untap_commands.push((host, until));
+            game.leaves_play_commands.push((host, until.clone()));
+            game.untap_commands.push((host, until.clone()));
+            game.phase_out_commands.push((host, until));
+        }
+        Some(crate::spellability::AbilityDuration::UntilTargetedUntaps) => {
+            let Some(targeted) = targeted else {
+                return false;
+            };
+            game.leaves_play_commands.push((targeted, until.clone()));
+            game.untap_commands.push((targeted, until));
         }
         Some(crate::spellability::AbilityDuration::UntilFacedown) => {
             let Some(host) = host else {

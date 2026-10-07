@@ -221,6 +221,7 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
             duration,
             owner,
             Some(source_id),
+            sa.target_chosen.target_card,
             crate::phase::PhaseCommand::ExileEffect { effect: effect_id },
         );
         if crate::parsing::raw_has_key(&sa.ability_text, "ImprintOnHost") {
@@ -464,7 +465,9 @@ fn apply_duration_flags(effect: &mut Card, duration: Option<&AbilityDuration>, s
         | Some(AbilityDuration::UntilTheEndOfYourNextTurn)
         | Some(AbilityDuration::UntilEndOfCombat)
         | Some(AbilityDuration::UntilNextEndStep)
-        | Some(AbilityDuration::UntilYourNextEndStep) => EffectDuration::Permanent,
+        | Some(AbilityDuration::UntilYourNextEndStep)
+        | Some(AbilityDuration::UntilUntaps)
+        | Some(AbilityDuration::UntilTargetedUntaps) => EffectDuration::Permanent,
         Some(AbilityDuration::Unsupported(raw)) if raw.eq_ignore_ascii_case("Permanent") => {
             EffectDuration::Permanent
         }

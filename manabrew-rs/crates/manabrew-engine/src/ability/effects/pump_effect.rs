@@ -473,6 +473,7 @@ pub(super) fn apply_pump_to_card(
                 sa.ir.duration.as_ref(),
                 sa.activating_player,
                 sa.source,
+                sa.target_chosen.target_card,
                 crate::phase::PhaseCommand::RemovePtBoost {
                     card: card_id,
                     timestamp,
@@ -493,6 +494,7 @@ pub(super) fn apply_pump_to_card(
                 sa.ir.duration.as_ref(),
                 sa.activating_player,
                 sa.source,
+                sa.target_chosen.target_card,
                 crate::phase::PhaseCommand::RemoveKeyword {
                     card: card_id,
                     keyword: kw.clone(),
