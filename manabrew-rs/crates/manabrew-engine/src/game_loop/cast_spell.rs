@@ -964,7 +964,9 @@ impl GameLoop {
         let played = self
             .cast_card_spell_ability(game, agents, player, sa, false, Some(play))
             .is_some();
-        if !played && game.card(card_id).is_transformed != was_transformed {
+        if played {
+            self.trigger_handler.unfreeze_waiting_triggers(game);
+        } else if game.card(card_id).is_transformed != was_transformed {
             game.card_mut(card_id).transform();
         }
         played
@@ -2752,7 +2754,7 @@ impl GameLoop {
                         game.card_mut(tapped_id).set_tapped(true);
                     }
                 }
-                self.trigger_handler.clear_waiting_triggers();
+                self.trigger_handler.clear_unrun_triggers();
                 game.stack.clear_frozen();
                 notify_payment_failed!();
                 return None;

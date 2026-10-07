@@ -183,6 +183,10 @@ pub struct TriggerHandler {
     /// SBA (e.g. Raptor Hatchling's enrage) are not lost.
     /// Tuple: (PendingTrigger, controller, zone timestamp, trigger bucket, trigger order).
     pre_matched_triggers: Vec<MatchedTrigger>,
+    /// How many of `pre_matched_triggers`, from the front, Java has already run onto its
+    /// simultaneous stack list (`unfreezeStack`), where a cancelled cast's
+    /// `clearWaitingTriggers` no longer reaches them.
+    pre_matched_run: usize,
 }
 
 /// Java's `TriggerHandler.runTrigger` holds at most this many events and runs further ones at
@@ -201,6 +205,7 @@ impl TriggerHandler {
             all_suppressed: false,
             next_trigger_id: 50_000,
             pre_matched_triggers: Vec::new(),
+            pre_matched_run: 0,
         }
     }
 
@@ -426,10 +431,20 @@ impl TriggerHandler {
         player: PlayerId,
     ) -> Vec<MatchedTrigger> {
         self.flush_waiting_triggers(game);
-        let (taken, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.pre_matched_triggers)
+        let run = self.pre_matched_run;
+        let mut taken = Vec::new();
+        self.pre_matched_run = 0;
+        for (index, entry) in std::mem::take(&mut self.pre_matched_triggers)
             .into_iter()
-            .partition(|(_, controller, ..)| *controller == player);
-        self.pre_matched_triggers = kept;
+            .enumerate()
+        {
+            if entry.1 == player {
+                taken.push(entry);
+            } else {
+                self.pre_matched_run += usize::from(index < run);
+                self.pre_matched_triggers.push(entry);
+            }
+        }
         taken
     }
 
@@ -458,6 +473,7 @@ impl TriggerHandler {
         if self.waiting_triggers.is_empty() && self.delayed_triggers.is_empty() {
             // Start with any triggers that were pre-matched (flushed before SBA).
             let mut entries: Vec<MatchedTrigger> = std::mem::take(&mut self.pre_matched_triggers);
+            self.pre_matched_run = 0;
             if entries.is_empty() {
                 return Vec::new();
             }
@@ -478,6 +494,7 @@ impl TriggerHandler {
         // Match any remaining waiting triggers (those fired after the flush).
         let matched = self.match_waiting_triggers(game);
         let mut entries: Vec<MatchedTrigger> = std::mem::take(&mut self.pre_matched_triggers);
+        self.pre_matched_run = 0;
         entries.extend(matched);
 
         // Fire Immediate delayed triggers — these fire "as soon as possible"
@@ -1621,6 +1638,20 @@ impl TriggerHandler {
     pub fn clear_waiting_triggers(&mut self) {
         self.waiting_triggers.clear();
         self.pre_matched_triggers.clear();
+        self.pre_matched_run = 0;
+    }
+
+    /// Java `MagicStack.unfreezeStack` after a spell is added: the waiting triggers run.
+    pub fn unfreeze_waiting_triggers(&mut self, game: &GameState) {
+        self.flush_waiting_triggers(game);
+        self.pre_matched_run = self.pre_matched_triggers.len();
+    }
+
+    /// Java `rollbackAbility`'s `clearWaitingTriggers`: the triggers a stack unfreeze already
+    /// ran stay.
+    pub fn clear_unrun_triggers(&mut self) {
+        self.waiting_triggers.clear();
+        self.pre_matched_triggers.truncate(self.pre_matched_run);
     }
 
     pub fn on_player_lost(&mut self, player: PlayerId) {
