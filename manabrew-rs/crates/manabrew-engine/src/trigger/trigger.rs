@@ -1158,7 +1158,15 @@ impl Trigger {
             sa.target_chosen.target_card = Some(cid);
         }
         if let Some(cause_cid) = params.cause_card {
-            if let Some(entry) = game.stack.find_by_source_card(cause_cid) {
+            let source_sa = params
+                .source_sa
+                .as_deref()
+                .filter(|source_sa| source_sa.id != 0)
+                .and_then(|source_sa| {
+                    game.stack
+                        .get_instance_matching_spell_ability_id(source_sa.id)
+                });
+            if let Some(entry) = source_sa.or_else(|| game.stack.find_by_source_card(cause_cid)) {
                 sa.target_chosen.target_stack_entry = Some(entry.id);
             }
         }

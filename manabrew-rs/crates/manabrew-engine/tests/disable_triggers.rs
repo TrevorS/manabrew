@@ -272,3 +272,29 @@ fn elesh_norn_does_not_stop_a_delayed_trigger_of_an_opponents_permanent() {
 fn torpor_orb_does_not_stop_a_static_trigger() {
     assert_eq!(bears_enter(&[BEACON], &[TORPOR_ORB]), 21);
 }
+
+const TWIN_HEXER: &str = "Name:Twin Hexer\nManaCost:2\nTypes:Creature Human\nPT:1/1\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDestroy | TriggerDescription$ When this enters, destroy target artifact an opponent controls.\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDestroy | Secondary$ True | TriggerDescription$ When this enters, destroy target artifact an opponent controls.\nSVar:TrigDestroy:DB$ Destroy | ValidTgts$ Artifact.OppCtrl | TgtPrompt$ Select target artifact an opponent controls\nOracle:";
+const WARDED_RELIC: &str = "Name:Warded Relic\nManaCost:2\nTypes:Artifact\nK:Ward:2\nOracle:";
+
+#[test]
+fn each_ward_trigger_counters_the_ability_that_targeted_it() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    put(&mut game, TWIN_HEXER, p0, ZoneType::Hand);
+    put(&mut game, MOUNTAIN, p0, ZoneType::Battlefield);
+    put(&mut game, MOUNTAIN, p0, ZoneType::Battlefield);
+    let relic = put(&mut game, WARDED_RELIC, p1, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(Seen::default()));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(ActivateThenCast(Rc::clone(&seen))),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    assert!(seen.borrow().cast);
+    assert_eq!(game.card(relic).zone, ZoneType::Battlefield);
+}
