@@ -29,3 +29,19 @@ fn a_creature_entering_as_a_copy_of_a_saga_enters_with_a_lore_counter() {
     assert!(card.type_line.has_subtype("Saga"));
     assert_eq!(card.counter_count(&CounterType::Lore), 1);
 }
+
+const WALKER_BEAST: &str = "Name:Walker Beast\nManaCost:2 U B\nTypes:Legendary Creature Planeswalker Kaito\nPT:3/4\nLoyalty:4\nA:AB$ GainLife | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | LifeAmount$ 1 | SpellDescription$ You gain 1 life.\nOracle:";
+
+#[test]
+fn a_creature_entering_as_a_copy_of_a_planeswalker_enters_with_its_loyalty() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    put(&mut game, WALKER_BEAST, p0, ZoneType::Graveyard);
+    let swapper = put(&mut game, MIND_SWAPPER, p0, ZoneType::Hand);
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(PassAgent), Box::new(PassAgent)];
+    game.move_card_with_agents(swapper, ZoneType::Battlefield, p0, &mut agents);
+    let card = game.card(swapper);
+    assert_eq!(card.zone, ZoneType::Battlefield);
+    assert!(card.type_line.is_planeswalker());
+    assert_eq!(card.counter_count(&CounterType::Loyalty), 4);
+}

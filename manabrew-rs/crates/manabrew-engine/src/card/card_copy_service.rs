@@ -57,6 +57,7 @@ pub fn copy_copiable_characteristics(copy_from: &Card, to: &mut Card) {
         .map(|state| state.original_base_toughness)
         .or(copy_from.changed_base_toughness)
         .unwrap_or(copy_from.base_toughness);
+    to.initial_loyalty = copy_from.initial_loyalty.clone();
     to.keywords = copy_from.keywords.clone();
     to.abilities = copy_from.abilities.clone();
     to.triggers = copy_from.triggers.clone();

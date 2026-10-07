@@ -286,6 +286,8 @@ pub struct CloneState {
     pub original_base_trigger_count: usize,
     #[serde(default)]
     pub original_other_part: Option<CardOtherPart>,
+    #[serde(default)]
+    pub original_initial_loyalty: Option<String>,
     #[serde(skip)]
     original_trait_base_activated_abilities: Option<SharedVec<ActivatedAbility>>,
     #[serde(skip)]
@@ -3560,6 +3562,7 @@ impl Card {
             original_base_ability_count: self.base_ability_count,
             original_base_trigger_count: self.base_trigger_count,
             original_other_part: self.other_part.clone(),
+            original_initial_loyalty: self.initial_loyalty.clone(),
             original_trait_base_activated_abilities: self.trait_base_activated_abilities.clone(),
             original_trait_base_triggers: self.trait_base_triggers.clone(),
             original_trait_base_replacement_effects: self.trait_base_replacement_effects.clone(),
@@ -3615,6 +3618,7 @@ impl Card {
         self.base_ability_count = state.original_base_ability_count;
         self.base_trigger_count = state.original_base_trigger_count;
         self.other_part = state.original_other_part;
+        self.initial_loyalty = state.original_initial_loyalty;
         self.trait_base_activated_abilities = state.original_trait_base_activated_abilities;
         self.trait_base_triggers = state.original_trait_base_triggers;
         self.trait_base_replacement_effects = state.original_trait_base_replacement_effects;
