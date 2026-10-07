@@ -1,6 +1,6 @@
 use parity::lockstep::{
-    first_divergence, guard_end, guard_unverified, java_error_end, java_timeout, Desync,
-    LockstepEnd,
+    first_divergence, guard_end, guard_unverified, java_error_end, java_overran, java_timeout,
+    Desync, LockstepEnd,
 };
 use parity::protocol::StateSnapshot;
 use serde_json::{json, Value};
@@ -212,4 +212,18 @@ fn a_state_difference_outranks_a_later_java_draw_whichever_arrives_first() {
     assert_eq!(rust_first.kind, "state");
     assert!(java_first.detail.starts_with(&rust_first.detail));
     assert_eq!(first_divergence(&rust, &rust, java_draw.clone()), java_draw);
+}
+
+#[test]
+fn a_java_overrun_reports_the_first_state_difference_before_it() {
+    let rust = vec![
+        snapshot(false, None, 20, false),
+        snapshot(false, None, 17, false),
+    ];
+    assert_eq!(java_overran(&rust, &rust).kind, "sequence");
+    let mut java = rust.clone();
+    java[1].players[0].life = 18;
+    let found = java_overran(&rust, &java);
+    assert_eq!(found.kind, "state");
+    assert!(found.detail.contains("then sequence"), "{}", found.detail);
 }

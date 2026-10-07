@@ -614,6 +614,17 @@ pub fn first_divergence(rust: &[StateSnapshot], java: &[StateSnapshot], found: D
     }
 }
 
+pub fn java_overran(rust: &[StateSnapshot], java: &[StateSnapshot]) -> Desync {
+    first_divergence(
+        rust,
+        java,
+        Desync {
+            kind: "sequence".to_string(),
+            detail: "java kept playing after rust's game ended".to_string(),
+        },
+    )
+}
+
 pub fn java_timeout(
     rust: &[StateSnapshot],
     java: &[StateSnapshot],
@@ -873,10 +884,7 @@ pub fn play(
     }
     let rust = rust_snapshots(&shared_log);
     if end.is_none() && overran && special.is_none() {
-        end = Some(Desync {
-            kind: "sequence".to_string(),
-            detail: "java kept playing after rust's game ended".to_string(),
-        });
+        end = Some(java_overran(&rust, &link.borrow().snapshots));
     }
     if end.is_none() && special.is_none() {
         end = match &java_end {
