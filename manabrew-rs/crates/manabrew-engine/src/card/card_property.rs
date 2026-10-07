@@ -420,6 +420,8 @@ pub(crate) fn card_has_property(card: &Card, property: &str, context: MatchConte
                 crate::parsing::compare::compare_expr(card.power() + card.toughness(), &value[8..])
             } else if let Some(color) = Color::from_name(&value_lower) {
                 card.color.has_color(color)
+            } else if let Some(keyword) = value.strip_prefix("hasKeyword") {
+                card.has_keyword(keyword)
             } else if let Some(keyword_suffix) = value_lower.strip_prefix("with") {
                 if keyword_suffix.strip_prefix("out").is_some() {
                     !card.has_keyword(&value[7..])

@@ -2275,6 +2275,29 @@ mod tests {
     }
 
     #[test]
+    fn has_keyword_flash_matches_flash_and_not_flashback() {
+        let mut game = GameState::new(&["P0", "P1"], 20);
+        let p0 = PlayerId(0);
+        let flash = make_card(&mut game, p0, p0, "Flash Creature");
+        game.card_mut(flash).add_intrinsic_keyword("Flash");
+        let flashback = make_card(&mut game, p0, p0, "Flashback Card");
+        game.card_mut(flashback)
+            .add_intrinsic_keyword("Flashback:1 U");
+        let source = make_card(&mut game, p0, p0, "Searcher");
+        let matches = |game: &GameState, id: CardId| {
+            matches_valid_cards_for_source(
+                game,
+                source,
+                game.card(id),
+                None,
+                "Card.hasKeywordFlash",
+            )
+        };
+        assert!(matches(&game, flash));
+        assert!(!matches(&game, flashback));
+    }
+
+    #[test]
     fn targeted_controller_ignores_player_targets() {
         let game = GameState::new(&["P0", "P1"], 20);
         let p0 = PlayerId(0);

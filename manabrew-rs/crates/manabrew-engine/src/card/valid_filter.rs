@@ -826,6 +826,7 @@ fn matches_card_predicate(
         SelectorPredicate::Keyword { name, present } => {
             card.has_start_of_un_hidden_keyword(name) == *present
         }
+        SelectorPredicate::HasKeyword(name) => card.has_keyword(name),
         SelectorPredicate::NumericComparison {
             property,
             operator,

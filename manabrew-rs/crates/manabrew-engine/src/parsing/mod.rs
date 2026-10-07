@@ -260,6 +260,7 @@ pub enum SelectorPredicate {
         name: String,
         present: bool,
     },
+    HasKeyword(String),
     NumericComparison {
         property: NumericSelectorProperty,
         operator: SelectorCompareOperator,
@@ -1037,6 +1038,7 @@ fn selector_predicate_order(predicate: &SelectorPredicate) -> u8 {
         | SelectorPredicate::NumericParity { .. }
         | SelectorPredicate::CounterComparison { .. }
         | SelectorPredicate::Keyword { .. }
+        | SelectorPredicate::HasKeyword(_)
         | SelectorPredicate::CardState(_)
         | SelectorPredicate::ChosenType
         | SelectorPredicate::WasCast { .. }
@@ -1608,6 +1610,9 @@ fn lower_non_predicate(value: &str) -> Option<SelectorPredicate> {
 
 fn lower_keyword_predicate(value: &str) -> Option<SelectorPredicate> {
     let lower = value.to_ascii_lowercase();
+    if lower.starts_with("haskeyword") && value.len() > 10 {
+        return Some(SelectorPredicate::HasKeyword(value[10..].to_string()));
+    }
     if lower.starts_with("without") && value.len() > 7 {
         return Some(SelectorPredicate::Keyword {
             name: value[7..].to_string(),
