@@ -1127,3 +1127,44 @@ fn a_solved_case_that_leaves_the_battlefield_returns_unsolved_and_can_solve_agai
         Some("DB$ AlterAttribute | Defined$ Self | Attributes$ Solved")
     );
 }
+
+fn library_after(ability: &str, target_bears: bool) -> (Vec<CardId>, Vec<CardId>) {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    for card in [make_forest(p0), make_mountain(p0), make_mountain(p0)] {
+        let id = game.create_card(card);
+        game.move_card(id, ZoneType::Library, p0);
+    }
+    let bears = game.create_card(make_grizzly_bears(p0));
+    game.move_card(bears, ZoneType::Battlefield, p0);
+    let before = game.zone(ZoneType::Library, p0).cards.clone();
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        ability,
+        target_bears.then_some(bears),
+        None,
+        Some(source),
+    );
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    game_loop.game_rng = Box::new(ReverseShuffleRng);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    (before, game.zone(ZoneType::Library, p0).cards.clone())
+}
+
+#[test]
+fn a_targeted_creature_put_into_its_library_with_shuffle_shuffles_that_library() {
+    let (_, unshuffled) = library_after(
+        "SP$ ChangeZone | ValidTgts$ Creature | ValidOrigin$ Battlefield | Destination$ Library | LibraryPosition$ 0",
+        true,
+    );
+    let (_, shuffled) = library_after(
+        "SP$ ChangeZone | ValidTgts$ Creature | ValidOrigin$ Battlefield | Destination$ Library | LibraryPosition$ 0 | Shuffle$ True",
+        true,
+    );
+    let mut expected = unshuffled.clone();
+    expected.reverse();
+    assert_eq!(shuffled, expected);
+}

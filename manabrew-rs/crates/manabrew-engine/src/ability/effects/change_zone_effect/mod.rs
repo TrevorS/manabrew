@@ -110,6 +110,33 @@ pub fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
                 shuffle_library(ctx, pid);
             }
         }
+        if !is_origin_all && dest_zone == ZoneType::Library && sa.is_shuffle() {
+            // Java `changeKnownOriginResolve` "for things like Gaea's Blessing" (ChangeZoneEffect.java:873-888).
+            let mut players = match sa.ir.targets_with_defined_controller_text.as_deref() {
+                Some(defined) => crate::ability::ability_utils::resolve_defined_players_with_sa(
+                    defined,
+                    sa,
+                    sa.activating_player,
+                    ctx.game,
+                ),
+                None => {
+                    let mut owners = Vec::new();
+                    for &cid in &defined_cards {
+                        let owner = ctx.game.card(cid).owner;
+                        if !owners.contains(&owner) {
+                            owners.push(owner);
+                        }
+                    }
+                    owners
+                }
+            };
+            if players.is_empty() {
+                players.push(sa.activating_player);
+            }
+            for pid in players {
+                shuffle_library(ctx, pid);
+            }
+        }
         return;
     }
 
