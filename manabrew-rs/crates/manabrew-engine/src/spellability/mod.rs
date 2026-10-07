@@ -2162,6 +2162,14 @@ impl SpellAbility {
             {
                 return true;
             }
+            if !self.is_spell && !self.is_land_ability {
+                return crate::staticability::static_ability_cast_with_flash::any_with_flash_for_ability(
+                    game,
+                    self,
+                    card,
+                    self.activating_player,
+                );
+            }
             return crate::staticability::static_ability_cast_with_flash::any_with_flash_for_card(
                 game,
                 card,

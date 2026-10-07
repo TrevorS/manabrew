@@ -1640,7 +1640,7 @@ impl GameLoop {
         if !sa.ir.pw_ability {
             return true;
         }
-        if !can_play_sorcery {
+        if !can_play_sorcery && !sa.with_flash(game) {
             return false;
         }
 

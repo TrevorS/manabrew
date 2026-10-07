@@ -275,3 +275,40 @@ fn a_scripted_static_ability_is_offered_and_resolves_under_split_second() {
     assert!(seen.contains(&vultures));
     assert_eq!(game.card(vultures).zone, ZoneType::Graveyard);
 }
+
+const LOYAL_WALKER: &str = "Name:Loyal Walker\nManaCost:2 U\nTypes:Legendary Planeswalker Jace\nLoyalty:3\nA:AB$ Draw | Cost$ SubCounter<1/LOYALTY> | Planeswalker$ True | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
+const INSTANT_LOYALTY: &str = "Name:Instant Loyalty Effect\nManaCost:no cost\nTypes:Effect\nS:Mode$ CastWithFlash | EffectZone$ Command | ValidCard$ Planeswalker.Jace+YouCtrl | ValidSA$ Activated.Loyalty | Caster$ You | Description$ You may activate loyalty abilities of Jace planeswalkers you control any time you could cast an instant.\nOracle:";
+
+fn loyalty_offered_in_combat(with_effect: bool) -> bool {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let walker = put(&mut game, LOYAL_WALKER, p0, ZoneType::Battlefield);
+    game.card_mut(walker).add_counter(
+        &manabrew_engine::card::counter_type::parse_counter_type("LOYALTY"),
+        3,
+    );
+    if with_effect {
+        put(&mut game, INSTANT_LOYALTY, p0, ZoneType::Command);
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = forge_foundation::PhaseType::CombatBegin;
+    let seen = Rc::new(RefCell::new(None));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Recorder {
+            seen: Rc::clone(&seen),
+            turn_up: CardId(u32::MAX),
+            confirm: false,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    let seen = seen.borrow().clone().unwrap_or_default();
+    seen.contains(&walker)
+}
+
+#[test]
+fn a_flash_static_for_loyalty_abilities_lets_them_be_activated_in_combat() {
+    assert!(!loyalty_offered_in_combat(false));
+    assert!(loyalty_offered_in_combat(true));
+}

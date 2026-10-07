@@ -118,6 +118,42 @@ pub fn any_with_flash_for_card(game: &GameState, spell_card: &Card, caster: Play
     false
 }
 
+pub fn any_with_flash_for_ability(
+    game: &GameState,
+    sa: &crate::spellability::SpellAbility,
+    card: &Card,
+    activator: PlayerId,
+) -> bool {
+    for source in game.cards.iter().filter(|c| {
+        c.zone == ZoneType::Battlefield || c.zone == ZoneType::Command || c.id == card.id
+    }) {
+        for st_ab in source
+            .static_abilities
+            .iter()
+            .filter(|st_ab| st_ab.check_mode(&StaticMode::CastWithFlash))
+        {
+            if !st_ab.check_conditions(source, game)
+                || !matches_valid_card(st_ab.ir.valid_card.as_ref(), card, source, game)
+                || !matches_valid_player(st_ab.ir.caster.as_ref(), activator, source, game)
+            {
+                continue;
+            }
+            if let Some(valid_sa) = st_ab.ir.valid_sa.as_deref() {
+                if !crate::spellability::matches_valid_sa(
+                    valid_sa,
+                    sa,
+                    Some(card),
+                    valid_filter::MatchContext::new(source, game),
+                ) {
+                    continue;
+                }
+            }
+            return true;
+        }
+    }
+    false
+}
+
 pub fn any_with_flash_needs_info(
     game: &GameState,
     spell_card: &Card,
