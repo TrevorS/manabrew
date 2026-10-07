@@ -584,7 +584,11 @@ impl GameLoop {
 
         for &pid in &game.player_order.clone() {
             game.shuffle_library(pid, rng);
-            game.draw_cards(pid, 7);
+            if game.filtered_hands {
+                Self::draw_starting_hand(game, pid, rng);
+            } else {
+                game.draw_cards(pid, 7);
+            }
         }
 
         let first_player = game.active_player();
@@ -596,6 +600,41 @@ impl GameLoop {
             &self.mana_pools,
             &self.game_log,
         );
+    }
+
+    fn draw_starting_hand(game: &mut GameState, p1: PlayerId, rng: &mut impl rand::Rng) {
+        use rand::seq::SliceRandom;
+
+        let max_hand_size = game.player(p1).max_hand_size as usize;
+        let lib1 = game.cards_in_zone(ZoneType::Library, p1).to_vec();
+        let hand1 = &lib1[lib1.len().saturating_sub(max_hand_size)..];
+
+        let mut shuffled_cards = lib1.clone();
+        shuffled_cards.shuffle(rng);
+
+        let hand2 = &shuffled_cards[shuffled_cards.len().saturating_sub(max_hand_size)..];
+
+        let average_land_ratio = Self::get_land_ratio(game, &lib1);
+        if Self::get_hand_score(game, hand1, average_land_ratio)
+            > Self::get_hand_score(game, hand2, average_land_ratio)
+        {
+            game.replace_zone_cards(ZoneType::Library, p1, shuffled_cards);
+        }
+        game.draw_cards(p1, max_hand_size);
+    }
+
+    fn get_land_ratio(game: &GameState, deck: &[CardId]) -> f32 {
+        let land_count = deck.iter().filter(|&&c| game.card(c).is_land()).count();
+        if land_count == 0 {
+            return 0.0;
+        }
+        land_count as f32 / deck.len() as f32
+    }
+
+    fn get_hand_score(game: &GameState, hand: &[CardId], land_ratio: f32) -> f32 {
+        let land_count = hand.iter().filter(|&&c| game.card(c).is_land()).count();
+        let average_count = land_ratio * hand.len() as f32;
+        (average_count - land_count as f32).abs()
     }
 
     /// Each player rolls a d20; the highest roller goes first. Ties are
@@ -1785,5 +1824,113 @@ mod tests {
             &cost,
         )
         .is_none());
+    }
+
+    fn half_land_library(game: &mut GameState, owner: PlayerId, lands_on_top: usize) {
+        let lands: Vec<CardId> = (0..20)
+            .map(|_| game.create_card(mana_land(owner, "Forest", "G")))
+            .collect();
+        let spells: Vec<CardId> = (0..20)
+            .map(|_| game.create_card(zero_cost_instant(owner)))
+            .collect();
+        let top = lands[..lands_on_top]
+            .iter()
+            .chain(&spells[..7 - lands_on_top]);
+        let rest = lands[lands_on_top..]
+            .iter()
+            .chain(&spells[7 - lands_on_top..]);
+        for &card in rest.chain(top) {
+            game.add_card_to_zone(ZoneType::Library, owner, card);
+            game.card_mut(card).zone = ZoneType::Library;
+        }
+    }
+
+    #[test]
+    fn a_filtered_starting_hand_keeps_the_hand_closer_to_the_land_ratio() {
+        use rand::seq::SliceRandom;
+        use rand::{RngCore, SeedableRng};
+
+        let p0 = PlayerId(0);
+        let (mut kept_original, mut kept_shuffled, mut ties) = (0, 0, 0);
+        for lands_on_top in 0..=7 {
+            for seed in 0..16 {
+                let mut game = GameState::new(&["A", "B"], 20);
+                half_land_library(&mut game, p0, lands_on_top);
+                let library = game.cards_in_zone(ZoneType::Library, p0).to_vec();
+                let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+                let mut probe = rng.clone();
+                let mut shuffled = library.clone();
+                shuffled.shuffle(&mut probe);
+
+                let distance_from_average = |cards: &[CardId]| {
+                    let lands = cards.iter().filter(|&&c| game.card(c).is_land()).count() as i32;
+                    (2 * lands - 7).abs()
+                };
+                let original = distance_from_average(&library[33..]);
+                let reshuffled = distance_from_average(&shuffled[33..]);
+                let (mut expected_hand, expected_library) = if original > reshuffled {
+                    kept_shuffled += 1;
+                    (shuffled[33..].to_vec(), shuffled[..33].to_vec())
+                } else {
+                    if original == reshuffled {
+                        ties += 1;
+                    } else {
+                        kept_original += 1;
+                    }
+                    (library[33..].to_vec(), library[..33].to_vec())
+                };
+
+                GameLoop::draw_starting_hand(&mut game, p0, &mut rng);
+
+                let mut hand = game.cards_in_zone(ZoneType::Hand, p0).to_vec();
+                hand.sort();
+                expected_hand.sort();
+                assert_eq!(hand, expected_hand);
+                assert_eq!(
+                    game.cards_in_zone(ZoneType::Library, p0),
+                    &expected_library[..]
+                );
+                assert_eq!(rng.next_u64(), probe.next_u64());
+            }
+        }
+        assert!(kept_original > 0 && kept_shuffled > 0 && ties > 0);
+    }
+
+    #[test]
+    fn setup_deals_a_filtered_hand_only_when_asked() {
+        use rand::{RngCore, SeedableRng};
+
+        for seed in 0..8 {
+            let mut game = GameState::new(&["A", "B"], 20);
+            half_land_library(&mut game, PlayerId(0), 0);
+            half_land_library(&mut game, PlayerId(1), 7);
+            let mut unfiltered = game.clone();
+            let mut filtered = game.clone();
+            filtered.filtered_hands = true;
+            let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+            let mut probe = rng.clone();
+            let mut filtered_rng = rng.clone();
+
+            GameLoop::new(2).roll_for_first_player(&mut unfiltered, &mut pass_agents(), &mut probe);
+            for pid in unfiltered.player_order.clone() {
+                unfiltered.shuffle_library(pid, &mut probe);
+                unfiltered.draw_cards(pid, 7);
+            }
+            GameLoop::new(2).setup(&mut game, &mut pass_agents(), &mut rng);
+            GameLoop::new(2).setup(&mut filtered, &mut pass_agents(), &mut filtered_rng);
+
+            assert_eq!(game.active_player(), unfiltered.active_player());
+            for pid in game.player_order.clone() {
+                for zone in [ZoneType::Library, ZoneType::Hand] {
+                    assert_eq!(
+                        game.cards_in_zone(zone, pid),
+                        unfiltered.cards_in_zone(zone, pid)
+                    );
+                }
+            }
+            let next = probe.next_u64();
+            assert_eq!(rng.next_u64(), next);
+            assert_ne!(filtered_rng.next_u64(), next);
+        }
     }
 }

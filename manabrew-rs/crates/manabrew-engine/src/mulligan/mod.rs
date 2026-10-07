@@ -486,6 +486,44 @@ mod tests {
     }
 
     #[test]
+    fn a_mulligan_after_a_filtered_hand_redraws_from_a_single_shuffle() {
+        use rand::RngCore;
+
+        let p0 = PlayerId(0);
+        for seed in 0..8 {
+            let (mut kept, _) = setup_game_with_libraries(40);
+            kept.filtered_hands = true;
+            let mut mulliganed = kept.clone();
+            let mut kept_rng = rand::rngs::StdRng::seed_from_u64(seed);
+            let mut mulliganed_rng = kept_rng.clone();
+
+            let mut keepers: Vec<Box<dyn PlayerAgent>> =
+                vec![Box::new(TestAgent::keep()), Box::new(TestAgent::keep())];
+            crate::game_loop::GameLoop::new(2).setup(&mut kept, &mut keepers, &mut kept_rng);
+            let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+                Box::new(TestAgent::mulligan(1)),
+                Box::new(TestAgent::keep()),
+            ];
+            crate::game_loop::GameLoop::new(2).setup(
+                &mut mulliganed,
+                &mut agents,
+                &mut mulliganed_rng,
+            );
+
+            for card in kept.cards_in_zone(ZoneType::Hand, p0).to_vec() {
+                kept.move_card(card, ZoneType::Library, p0);
+            }
+            kept.shuffle_library(p0, &mut kept_rng);
+            let redrawn = kept.draw_cards(p0, 7);
+
+            let hand = mulliganed.cards_in_zone(ZoneType::Hand, p0);
+            assert_eq!(hand.len(), 6);
+            assert!(hand.iter().all(|card| redrawn.contains(card)));
+            assert_eq!(mulliganed_rng.next_u64(), kept_rng.next_u64());
+        }
+    }
+
+    #[test]
     fn mulligan_order_rotates_correctly() {
         let order = vec![PlayerId(0), PlayerId(1), PlayerId(2)];
         assert_eq!(
