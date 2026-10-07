@@ -24,6 +24,9 @@ const ADAMANT_SPRITE: &str = "Name:Adamant Sprite\nManaCost:3 U\nTypes:Creature 
 const BIG_SPELL_SPRING: &str = "Name:Big Spell Spring\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ U | Amount$ 2 | RestrictValid$ Spell.cmcGE4 | SpellDescription$ Add {U}{U}. Spend this mana only to cast spells with mana value 4 or greater.\nOracle:";
 const EXILE_CASTER: &str = "Name:Exile Caster\nManaCost:1\nTypes:Artifact\nS:Mode$ Continuous | Affected$ Card.YouOwn+nonLand | AffectedZone$ Exile | MayPlay$ True | Description$ You may cast spells you own from exile.\nOracle:";
 const IMPENDING_AVATAR: &str = "Name:Impending Avatar\nManaCost:3 U U\nTypes:Enchantment Creature Avatar\nPT:5/5\nK:Impending:5:1 U\nOracle:";
+const HARMONIZE_STORY: &str = "Name:Harmonize Story\nManaCost:2 U\nTypes:Sorcery\nA:SP$ GainLife | LifeAmount$ 1 | SpellDescription$ You gain 1 life.\nK:Harmonize:4 U\nOracle:";
+const GRAVE_TAX: &str = "Name:Grave Tax\nManaCost:1 W W\nTypes:Creature Bird\nPT:2/2\nS:Mode$ RaiseCost | Activator$ Opponent | ValidCard$ Card.wasCastFromGraveyard,Card.wasCastFromExile | Type$ Spell | Amount$ 2 | Description$ Spells your opponents cast from graveyards or from exile cost {2} more to cast.\nOracle:";
+const BIG_BEAST: &str = "Name:Big Beast\nManaCost:4 G\nTypes:Creature Beast\nPT:5/5\nOracle:";
 const EVOKE_GRANTER: &str = "Name:Evoke Granter\nManaCost:2 R\nTypes:Creature Elemental\nPT:2/2\nS:Mode$ Continuous | Affected$ Permanent.Elemental+YouOwn | AffectedZone$ Hand | AddKeyword$ Evoke:2 | Description$ Elemental permanent spells you cast from your hand have evoke {2}.\nOracle:";
 
 #[derive(Default)]
@@ -175,6 +178,28 @@ impl PlayerAgent for EvokeOnce {
         player: PlayerId,
     ) -> Option<bool> {
         PassAgent.choose_land_or_spell(context, player)
+    }
+    fn choose_number(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        _source: Option<CardId>,
+        _title: &str,
+        _description: Option<&str>,
+        _min: i32,
+        max: i32,
+    ) -> Option<i32> {
+        Some(max)
+    }
+    fn choose_number_for_keyword_cost(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        max: i32,
+        _prompt: &str,
+        _source: Option<CardId>,
+    ) -> i32 {
+        max
     }
 }
 
@@ -353,4 +378,40 @@ fn an_exiled_card_that_may_be_cast_offers_its_impending_cost() {
     assert!(seen.borrow().cast);
     assert_eq!(game.card(avatar).zone, ZoneType::Battlefield);
     assert!(!game.card(avatar).is_creature());
+}
+
+#[test]
+fn a_harmonize_reduction_applies_after_a_cost_increase() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    put(&mut game, HARMONIZE_STORY, p0, ZoneType::Graveyard);
+    put(&mut game, GRAVE_TAX, p1, ZoneType::Battlefield);
+    let beast = put(&mut game, BIG_BEAST, p0, ZoneType::Battlefield);
+    game.card_mut(beast).summoning_sick = false;
+    let islands: Vec<CardId> = (0..7)
+        .map(|_| put(&mut game, ISLAND, p0, ZoneType::Battlefield))
+        .collect();
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(Seen::default()));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(EvokeOnce {
+            seen: Rc::clone(&seen),
+            alt_cost: AlternativeCost::Harmonize,
+            alt_cost_index: 0,
+        }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    assert!(seen.borrow().cast);
+    assert!(game.card(beast).tapped);
+    assert_eq!(game.player(p0).life, 21);
+    let tapped = islands
+        .iter()
+        .filter(|&&island| game.card(island).tapped)
+        .count();
+    assert_eq!(tapped, 2);
 }

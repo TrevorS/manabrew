@@ -869,6 +869,18 @@ pub fn apply_cost_reductions(
 /// This composes the Rust cost-adjustment pieces and owns the cast-time
 /// reduction choices that Java performs inside `CostAdjustment.adjust(...)`.
 /// The helper mutates `sa` and can mutate the game when `test == false`.
+/// Java builds Harmonize's reduction as a `ReduceCost` static of the keyword
+/// (`CardFactoryUtil`, `Amount$ Count$OptionalKeywordAmount`), so it applies after the raises.
+pub fn harmonize_keyword(
+    card: &Card,
+) -> Option<crate::keyword::keyword_interface::KeywordInterface> {
+    [&card.keywords, &card.granted_keywords]
+        .into_iter()
+        .flat_map(|keywords| keywords.get_values())
+        .find(|inst| inst.original.starts_with("Harmonize:"))
+        .map(crate::keyword::keyword_interface::KeywordInterface::from_instance)
+}
+
 pub fn adjust(
     game: &mut GameState,
     agents: &mut [Box<dyn PlayerAgent>],
@@ -922,6 +934,11 @@ pub fn adjust(
         }
     }
 
+    if sa.alt_cost == Some(crate::spellability::AlternativeCost::Harmonize) {
+        if let Some(ki) = harmonize_keyword(game.card(card_id)) {
+            cost.decrease_generic_mana(sa.get_optional_keyword_amount(&ki));
+        }
+    }
     apply_pip_reductions(cost, sa);
     if sa.is_spell {
         if !apply_offering_reduction(

@@ -2077,7 +2077,11 @@ impl GameLoop {
         };
         let harmonize_tap_cost = match harmonize_choice {
             Some((chosen_power, true)) => {
-                payable_base_cost = payable_base_cost.reduce_generic(chosen_power);
+                if let Some(ki) =
+                    crate::cost::cost_adjustment::harmonize_keyword(game.card(card_id))
+                {
+                    sa.set_optional_keyword_amount(&ki, chosen_power);
+                }
                 Some(crate::cost::parse_cost(&format!(
                     "tapXType<1/Creature.powerEQ{chosen_power}/creature for Harmonize>"
                 )))
