@@ -306,6 +306,7 @@ pub struct ManaPaymentContext {
     pub is_unlock: bool,
     pub is_cast_face_down: bool,
     pub cast_from: Option<ZoneType>,
+    pub host_zone: Option<ZoneType>,
     /// Java's `SpellAbilityProperty` `cmc`: the card's mana value on the stack, else the pay cost's.
     pub mana_value: Option<i32>,
 }
@@ -325,7 +326,7 @@ pub fn spell_restriction_mana_value(
 }
 
 pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymentContext {
-    let (type_line, card_name, card_color, face_down, cast_from, mana_value) =
+    let (type_line, card_name, card_color, face_down, cast_from, host_zone, mana_value) =
         if let Some(source) = sa.source {
             let card = game.card(source);
             (
@@ -334,6 +335,7 @@ pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymen
                 Some(card.color),
                 card.face_down,
                 card.cast_from,
+                Some(card.zone),
                 Some(match sa.pay_costs.as_ref() {
                     Some(cost) if card.zone != ZoneType::Stack && sa.is_spell => {
                         spell_restriction_mana_value(
@@ -347,7 +349,7 @@ pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymen
                 }),
             )
         } else {
-            (None, None, None, false, None, None)
+            (None, None, None, false, None, None, None)
         };
 
     ManaPaymentContext {
@@ -368,6 +370,7 @@ pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymen
         is_unlock: sa.is_unlock(),
         is_cast_face_down: sa.is_spell && face_down,
         cast_from,
+        host_zone,
         mana_value,
     }
 }
@@ -502,7 +505,14 @@ fn check_single_restriction(restriction: &str, ctx: &ManaPaymentContext) -> bool
                 })
         }
         _ if restriction.starts_with("CantPayGenericCosts") => true, // handled separately in payment
-        _ if restriction.starts_with("CantCast") => true, // zone restrictions handled elsewhere
+        _ if restriction.starts_with("CantCastSpellFrom") => {
+            !ctx.is_spell
+                || ZoneType::from_str_compat(&restriction["CantCastSpellFrom".len()..])
+                    != ctx.cast_from.or(ctx.host_zone)
+        }
+        "CantCastNonArtifactSpells" => {
+            !ctx.is_spell || ctx.type_line.as_ref().is_some_and(|tl| tl.is_artifact())
+        }
         _ => {
             crate::census::unhandled("mana-restriction-ignored", restriction);
             true
@@ -2180,5 +2190,42 @@ mod tests {
         assert!(pool.can_pay_for_spell(&ManaCost::parse("B"), &ctx));
         assert!(pool.try_pay_for_spell(&ManaCost::parse("B"), &ctx));
         assert_eq!(pool.total_mana(), 0);
+    }
+
+    #[test]
+    fn cant_cast_restrictions_block_only_the_spells_they_name() {
+        let from_hand = ManaPaymentContext {
+            is_spell: true,
+            host_zone: Some(ZoneType::Hand),
+            type_line: Some(CardTypeLine::parse("Artifact Creature Golem")),
+            ..Default::default()
+        };
+        assert!(!mana_meets_restriction("CantCastSpellFromHand", &from_hand));
+        assert!(mana_meets_restriction(
+            "CantCastSpellFromHand",
+            &ManaPaymentContext {
+                cast_from: Some(ZoneType::Graveyard),
+                ..from_hand.clone()
+            }
+        ));
+        assert!(mana_meets_restriction(
+            "CantCastSpellFromHand",
+            &ManaPaymentContext {
+                is_spell: false,
+                is_activated_ability: true,
+                ..from_hand.clone()
+            }
+        ));
+        assert!(mana_meets_restriction(
+            "CantCastNonArtifactSpells",
+            &from_hand
+        ));
+        assert!(!mana_meets_restriction(
+            "CantCastNonArtifactSpells",
+            &ManaPaymentContext {
+                type_line: Some(CardTypeLine::parse("Instant")),
+                ..from_hand.clone()
+            }
+        ));
     }
 }

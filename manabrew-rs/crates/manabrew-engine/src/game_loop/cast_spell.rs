@@ -2431,6 +2431,7 @@ impl GameLoop {
                 chosen_types_by_source,
                 is_cast_face_down: card.face_down,
                 cast_from: card.cast_from,
+                host_zone: Some(card.zone),
                 ..Default::default()
             }
         };
