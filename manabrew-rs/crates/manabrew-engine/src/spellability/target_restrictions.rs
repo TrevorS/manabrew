@@ -280,14 +280,14 @@ impl TargetRestrictions {
             TargetKind::Player => game
                 .alive_players()
                 .into_iter()
-                .any(|pid| player_can_be_targeted(game, pid, source, player)),
+                .any(|pid| self.can_target_player(game, pid, source_card, player, ability)),
             // "any target" fallback: derive player/card candidates from ValidTgts.
             TargetKind::Any => {
                 if any_target_allows_players(&self.valid_tgts)
                     && game
                         .alive_players()
                         .into_iter()
-                        .any(|pid| player_can_be_targeted(game, pid, source, player))
+                        .any(|pid| self.can_target_player(game, pid, source_card, player, ability))
                 {
                     return true;
                 }
@@ -348,6 +348,35 @@ impl TargetRestrictions {
     /// Resolve Java-style `TargetMax` expression for this SA.
     pub fn get_max_targets(&self, game: &GameState, sa: &SpellAbility) -> i32 {
         resolve_target_count_expr(&self.max_targets, game, sa)
+    }
+
+    /// Java `SpellAbility.canTarget(Player)` as `hasCandidates` asks it: the player passes
+    /// `ValidTgts$` and can be targeted by the source.
+    fn can_target_player(
+        &self,
+        game: &GameState,
+        target: PlayerId,
+        source_card: CardId,
+        activator: PlayerId,
+        ability: Option<&SpellAbility>,
+    ) -> bool {
+        let fallback;
+        let sa = match ability {
+            Some(sa) => sa,
+            None => {
+                fallback = SpellAbility::new_simple(Some(source_card), activator, "");
+                &fallback
+            }
+        };
+        player_can_be_targeted(game, target, Some(source_card), activator)
+            && crate::player::player_property::is_valid(
+                target,
+                &self.compiled_valid_tgts(),
+                game,
+                source_card,
+                activator,
+                sa,
+            )
     }
 
     /// Whether targeting is restricted to opponents only.
@@ -1409,6 +1438,33 @@ fn get_all_candidates_any_target_cards(game: &GameState) -> Vec<CardId> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const BETRAYAL: &str = "Name:Opponent Betrayal\nManaCost:1 B\nTypes:Sorcery\nA:SP$ ChooseCard | ValidTgts$ Opponent | Mandatory$ True | Choices$ Creature.TargetedPlayerCtrl | SpellDescription$ Target opponent chooses a creature they control.\nOracle:";
+    const BARRICADE: &str = "Name:Hexproof Barricade\nManaCost:1 W\nTypes:Artifact Creature Wall\nPT:0/4\nS:Mode$ Continuous | Affected$ You | AddKeyword$ Hexproof | Description$ You have hexproof.\nOracle:";
+
+    fn opponent_spell_has_targets(opponent_has_hexproof: bool) -> bool {
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        let put = |game: &mut GameState, script: &str, owner: PlayerId, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(crate::card::CardInstance::from_rules(&rules, owner));
+            game.move_card(card, zone, owner);
+            card
+        };
+        let betrayal = put(&mut game, BETRAYAL, p0, ZoneType::Hand);
+        if opponent_has_hexproof {
+            put(&mut game, BARRICADE, p1, ZoneType::Battlefield);
+        }
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        let sa = crate::spellability::build_spell_ability_for_card_cast(&game, betrayal, p0);
+        has_candidates_in_spell_ability_chain(&game, p0, &sa)
+    }
+
+    #[test]
+    fn a_spell_that_targets_an_opponent_has_no_target_when_the_opponent_has_hexproof() {
+        assert!(opponent_spell_has_targets(false));
+        assert!(!opponent_spell_has_targets(true));
+    }
 
     #[test]
     fn parse_valid_targets_any() {
