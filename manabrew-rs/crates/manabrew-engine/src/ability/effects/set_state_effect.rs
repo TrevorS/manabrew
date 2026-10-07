@@ -94,6 +94,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
             }
         }
+        if mode == Some(&SpellAbilityMode::Transform)
+            && !ctx.game.card(card_id).can_transform(ctx.game, Some(sa))
+        {
+            continue;
+        }
         if mode == Some(&SpellAbilityMode::Transform) && sa.source == Some(card_id) {
             if let Some(stored) = sa
                 .svars

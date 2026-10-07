@@ -3900,8 +3900,32 @@ impl Card {
         !self.face_down && (self.manifested || self.cloaked)
     }
 
-    pub fn can_transform(&self) -> bool {
-        self.other_part.is_some()
+    pub fn is_transformable(&self) -> bool {
+        self.printed_other_part()
+            .is_some_and(|other| other.state_name == CardStateName::Backside)
+    }
+
+    fn printed_other_part(&self) -> Option<&CardOtherPart> {
+        match self.clone_state.as_deref() {
+            Some(state) => state.original_other_part.as_ref(),
+            None => self.other_part.as_ref(),
+        }
+    }
+
+    pub fn can_transform(&self, game: &GameState, cause: Option<&SpellAbility>) -> bool {
+        if self.face_down || !self.is_transformable() {
+            return false;
+        }
+        if self.zone != ZoneType::Battlefield {
+            return true;
+        }
+        if !self
+            .printed_other_part()
+            .is_some_and(|other| other.type_line.is_permanent())
+        {
+            return false;
+        }
+        !crate::staticability::static_ability_cant_transform::cant_transform(game, self, cause)
     }
 
     pub fn has_name_overwrite(&self) -> bool {
