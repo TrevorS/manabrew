@@ -1413,6 +1413,7 @@ fn add_taps_for_mana_trigger_mana_impl(
         .flat_map(|&pid| {
             game.cards_in_zone(ZoneType::Battlefield, pid)
                 .iter()
+                .chain(game.cards_in_zone(ZoneType::Command, pid))
                 .copied()
         })
         .collect();

@@ -1409,7 +1409,7 @@ fn add_taps_for_mana_trigger_mana_for_availability(
     };
 
     for host in &game.cards {
-        if host.zone != ZoneType::Battlefield || host.phased_out {
+        if host.phased_out {
             continue;
         }
         for trigger in &host.triggers {
