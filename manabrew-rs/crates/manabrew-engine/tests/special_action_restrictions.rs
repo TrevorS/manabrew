@@ -409,6 +409,47 @@ fn station_counts_the_power_of_a_creature_that_left_before_it_resolved() {
     assert_eq!(game.card(hull).counter_count(&charge), 3);
 }
 
+const TOKEN_PORT: &str = "Name:Token Port\nManaCost:no cost\nTypes:Land\nA:AB$ Draw | Cost$ 2 T Sac<1/Permanent.token/token> | SpellDescription$ Draw a card.\nOracle:";
+const TREASURE: &str = "Name:Treasure Token\nManaCost:no cost\nTypes:Artifact Treasure\nA:AB$ Mana | Cost$ T Sac<1/CARDNAME/this token> | Produced$ Any | Amount$ 1 | SpellDescription$ Add one mana of any color.\nOracle:";
+const SACK_WATCH: &str = "Name:Sack Watch\nManaCost:B\nTypes:Creature Halfling\nPT:1/1\nT:Mode$ Sacrificed | ValidPlayer$ You | ValidCard$ Permanent.token+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigLoseLife | TriggerDescription$ Whenever you sacrifice a token, each opponent loses 1 life.\nSVar:TrigLoseLife:DB$ LoseLife | LifeAmount$ 1 | Defined$ Player.Opponent\nOracle:";
+
+#[test]
+fn a_failed_activation_drops_the_triggers_its_mana_payment_collected() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let port = put(&mut game, TOKEN_PORT, p0, ZoneType::Battlefield);
+    let treasures = [
+        put(&mut game, TREASURE, p0, ZoneType::Battlefield),
+        put(&mut game, TREASURE, p0, ZoneType::Battlefield),
+    ];
+    for token in treasures {
+        game.card_mut(token).is_token = true;
+    }
+    put(&mut game, SACK_WATCH, p0, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = forge_foundation::PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(None));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Recorder {
+            seen: Rc::clone(&seen),
+            turn_up: port,
+            confirm: true,
+        }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    game_loop.resolve_stack(&mut game, &mut agents);
+
+    let left = treasures
+        .iter()
+        .filter(|&&token| game.card(token).zone == ZoneType::Battlefield)
+        .count();
+    assert_eq!(left, 1);
+    assert_eq!(game.player(p1).life, 20);
+}
+
 const TARGET_WATCH: &str = "Name:Target Watch\nManaCost:1 U\nTypes:Creature God\nPT:2/1\nT:Mode$ BecomesTarget | ValidTarget$ Player,Permanent | ValidSource$ Ability.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigDraw | TriggerDescription$ Whenever a player or permanent becomes the target of an ability you control, draw a card.\nSVar:TrigDraw:DB$ Draw\nOracle:";
 
 #[test]

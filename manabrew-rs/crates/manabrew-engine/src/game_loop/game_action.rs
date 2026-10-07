@@ -885,6 +885,7 @@ impl GameLoop {
             CostPaymentContext::ActivatedAbility,
             Some(&mut x_sa),
         ) {
+            self.trigger_handler.clear_unrun_triggers();
             self.notify_activated_ability_payment_failed(
                 game,
                 agents,
@@ -1502,6 +1503,7 @@ impl GameLoop {
             CostPaymentContext::ActivatedAbility,
             Some(&mut sa),
         ) {
+            self.trigger_handler.clear_unrun_triggers();
             self.notify_activated_ability_payment_failed(
                 game,
                 agents,
