@@ -26,6 +26,8 @@ const EXILE_CASTER: &str = "Name:Exile Caster\nManaCost:1\nTypes:Artifact\nS:Mod
 const IMPENDING_AVATAR: &str = "Name:Impending Avatar\nManaCost:3 U U\nTypes:Enchantment Creature Avatar\nPT:5/5\nK:Impending:5:1 U\nOracle:";
 const HARMONIZE_STORY: &str = "Name:Harmonize Story\nManaCost:2 U\nTypes:Sorcery\nA:SP$ GainLife | LifeAmount$ 1 | SpellDescription$ You gain 1 life.\nK:Harmonize:4 U\nOracle:";
 const GRAVE_TAX: &str = "Name:Grave Tax\nManaCost:1 W W\nTypes:Creature Bird\nPT:2/2\nS:Mode$ RaiseCost | Activator$ Opponent | ValidCard$ Card.wasCastFromGraveyard,Card.wasCastFromExile | Type$ Spell | Amount$ 2 | Description$ Spells your opponents cast from graveyards or from exile cost {2} more to cast.\nOracle:";
+const ZERO_WALL: &str =
+    "Name:Zero Wall\nManaCost:1 W\nTypes:Creature Wall\nPT:0/3\nK:Defender\nOracle:";
 const BIG_BEAST: &str = "Name:Big Beast\nManaCost:4 G\nTypes:Creature Beast\nPT:5/5\nOracle:";
 const EVOKE_GRANTER: &str = "Name:Evoke Granter\nManaCost:2 R\nTypes:Creature Elemental\nPT:2/2\nS:Mode$ Continuous | Affected$ Permanent.Elemental+YouOwn | AffectedZone$ Hand | AddKeyword$ Evoke:2 | Description$ Elemental permanent spells you cast from your hand have evoke {2}.\nOracle:";
 
@@ -414,4 +416,34 @@ fn a_harmonize_reduction_applies_after_a_cost_increase() {
         .filter(|&&island| game.card(island).tapped)
         .count();
     assert_eq!(tapped, 2);
+}
+
+#[test]
+fn a_harmonize_cast_offers_to_tap_a_creature_with_no_power() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    put(&mut game, HARMONIZE_STORY, p0, ZoneType::Graveyard);
+    let wall = put(&mut game, ZERO_WALL, p0, ZoneType::Battlefield);
+    game.card_mut(wall).summoning_sick = false;
+    for _ in 0..5 {
+        put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(Seen::default()));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(EvokeOnce {
+            seen: Rc::clone(&seen),
+            alt_cost: AlternativeCost::Harmonize,
+            alt_cost_index: 0,
+        }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    assert!(seen.borrow().cast);
+    assert!(game.card(wall).tapped);
+    assert_eq!(game.player(p0).life, 21);
 }

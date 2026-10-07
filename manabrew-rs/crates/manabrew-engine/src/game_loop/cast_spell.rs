@@ -1930,9 +1930,8 @@ impl GameLoop {
                 .copied()
                 .filter(|&cid| game.card(cid).is_creature())
                 .map(|cid| game.card(cid).power().max(0))
-                .max()
-                .unwrap_or(0);
-            if max_power > 0 {
+                .max();
+            if let Some(max_power) = max_power {
                 agents[player.index()].snapshot_state(game, &self.mana_pools);
                 let chosen_power = agents[player.index()]
                     .choose_number(
