@@ -265,6 +265,7 @@ impl CardDamageMap {
             RunParams {
                 damage_amount: Some(self.total_amount()),
                 is_combat_damage: Some(is_combat),
+                damage_map: Some(self.clone()),
                 ..Default::default()
             },
             false,

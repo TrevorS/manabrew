@@ -1179,3 +1179,27 @@ fn a_library_search_onto_the_library_that_finds_nothing_still_shuffles() {
     expected.reverse();
     assert_eq!(after, expected);
 }
+
+const BARBS_WATCH: &str = "Name:Barbs Watch\nManaCost:1 R\nTypes:Creature Lizard\nPT:2/1\nT:Mode$ DamageAll | ValidTarget$ Opponent | CombatDamage$ False | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever one or more opponents are dealt noncombat damage, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
+
+#[test]
+fn a_damage_all_trigger_sees_noncombat_damage_to_an_opponent() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    main_phase(&mut game, p0);
+    put(&mut game, BARBS_WATCH, p0, ZoneType::Battlefield);
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ DealDamage | ValidTgts$ Player | NumDmg$ 2",
+        None,
+        Some(p1),
+        Some(source),
+    );
+    let mut agents = pass_agents();
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+
+    assert_eq!(game.player(p1).life, 18);
+    assert_eq!(game.player(p0).life, 21);
+}

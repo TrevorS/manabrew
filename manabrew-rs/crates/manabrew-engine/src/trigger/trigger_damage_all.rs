@@ -12,6 +12,8 @@ use super::trigger::TriggerBehavior;
 pub struct TriggerDamageAll {
     pub valid_source: Option<crate::parsing::CompiledSelector>,
     pub valid_target: Option<crate::parsing::CompiledSelector>,
+    #[serde(default)]
+    pub combat_damage: Option<bool>,
 }
 
 impl TriggerDamageAll {
@@ -19,7 +21,32 @@ impl TriggerDamageAll {
         Box::new(Self {
             valid_source: params.selector_cloned(keys::VALID_SOURCE),
             valid_target: params.selector_cloned(keys::VALID_TARGET),
+            combat_damage: params
+                .get(keys::COMBAT_DAMAGE)
+                .map(|v| v.eq_ignore_ascii_case("True")),
         })
+    }
+
+    fn filtered_map(
+        &self,
+        trigger: &super::trigger::Trigger,
+        params: &RunParams,
+        game: &GameState,
+    ) -> crate::card::card_damage_map::CardDamageMap {
+        let valid_source = self.valid_source.as_ref().map(|s| s.as_raw());
+        let valid_target = self.valid_target.as_ref().map(|s| s.as_raw());
+        params
+            .damage_map
+            .as_ref()
+            .map(|map| {
+                map.filtered_map(
+                    game,
+                    valid_source.as_deref(),
+                    valid_target.as_deref(),
+                    trigger.host_card_id(),
+                )
+            })
+            .unwrap_or_default()
     }
 }
 
@@ -35,40 +62,55 @@ impl TriggerBehavior for TriggerDamageAll {
         params: &RunParams,
         game: &GameState,
     ) -> bool {
-        trigger.matches_optional_valid_card_filter(&self.valid_source, params.damage_source, game)
-            && trigger.matches_damage_target_filter(&self.valid_target, params, game, false)
+        if let Some(wants_combat) = self.combat_damage {
+            if params.is_combat_damage.unwrap_or(false) != wants_combat {
+                return false;
+            }
+        }
+        !self
+            .filtered_map(trigger, params, game)
+            .entries()
+            .is_empty()
     }
 
     fn set_triggering_objects(
         &self,
-        _trigger: &super::trigger::Trigger,
+        trigger: &super::trigger::Trigger,
         sa: &mut SpellAbility,
         params: &RunParams,
-        _game: &GameState,
+        game: &GameState,
     ) {
-        // Java: sets DamageAmount (total), Sources (set of source cards), Targets (set of target entities)
-        // from filtered CardDamageMap. We approximate with single source/target from params.
-        // TODO: Java filters the damage map by ValidSource/ValidTarget and computes totals.
-        if let Some(amount) = params.damage_amount {
-            sa.set_triggering_object(crate::ability::AbilityKey::DamageAmount, amount.to_string());
+        let table = self.filtered_map(trigger, params, game);
+        sa.set_triggering_object(
+            crate::ability::AbilityKey::DamageAmount,
+            table.total_amount().to_string(),
+        );
+        let mut sources = Vec::new();
+        let mut targets = Vec::new();
+        for (source, target, _) in table.entries() {
+            if !sources.contains(&source) {
+                sources.push(source);
+            }
+            let entity = match target {
+                crate::card::card_damage_map::DamageTarget::Card(card) => {
+                    crate::agent::GameEntity::Card(card)
+                }
+                crate::card::card_damage_map::DamageTarget::Player(player) => {
+                    crate::agent::GameEntity::Player(player)
+                }
+            };
+            if !targets.contains(&entity) {
+                targets.push(entity);
+            }
         }
-        if let Some(src) = params.damage_source {
-            sa.set_triggering_value(
-                crate::ability::AbilityKey::Sources,
-                crate::event::AbilityValue::Cards(vec![src]),
-            );
-        }
-        if let Some(card) = params.damage_target_card {
-            sa.set_triggering_value(
-                crate::ability::AbilityKey::Targets,
-                crate::event::AbilityValue::Cards(vec![card]),
-            );
-        } else if let Some(player) = params.damage_target_player {
-            sa.set_triggering_value(
-                crate::ability::AbilityKey::Targets,
-                crate::event::AbilityValue::Players(vec![player]),
-            );
-        }
+        sa.set_triggering_value(
+            crate::ability::AbilityKey::Sources,
+            crate::event::AbilityValue::Cards(sources),
+        );
+        sa.set_triggering_value(
+            crate::ability::AbilityKey::Targets,
+            crate::event::AbilityValue::GameEntities(targets),
+        );
     }
 
     fn get_important_stack_objects(
