@@ -1305,3 +1305,29 @@ fn a_damage_all_trigger_sees_noncombat_damage_to_an_opponent() {
     assert_eq!(game.player(p1).life, 18);
     assert_eq!(game.player(p0).life, 21);
 }
+
+const TYPED_PASSAGE: &str = "Name:Typed Passage\nManaCost:no cost\nTypes:Land\nS:Mode$ Continuous | AffectedDefined$ Self | AddType$ Mountain | RemoveLandTypes$ True | Description$ This land is a Mountain.\nOracle:";
+
+#[test]
+fn an_earthbended_land_stays_a_creature_under_its_own_land_type_static() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let passage = put(&mut game, TYPED_PASSAGE, p0, ZoneType::Battlefield);
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ Earthbend | Num$ 2",
+        Some(passage),
+        None,
+        Some(source),
+    );
+    let mut agents = pass_agents();
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    manabrew_engine::staticability::layer::apply_continuous_effects(&mut game);
+    let card = game.card(passage);
+    assert!(card.type_line.has_subtype("Mountain"));
+    assert!(card.type_line.is_creature());
+    assert_eq!(card.power(), 2);
+}

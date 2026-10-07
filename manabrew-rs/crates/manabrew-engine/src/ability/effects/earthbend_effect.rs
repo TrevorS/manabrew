@@ -49,10 +49,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         // Set base P/T to 0/0
         ctx.game.card_mut(card_id).set_base_pt(Some(0), Some(0));
 
-        // Add Creature core type
-        ctx.game
-            .card_mut(card_id)
-            .add_type(CoreType::Creature.name());
+        let timestamp = ctx.game.next_timestamp();
+        ctx.game.card_mut(card_id).add_changed_card_types(
+            crate::card::card_changed_type::CardChangedType {
+                add_type: vec![CoreType::Creature.name().to_string()],
+                ..Default::default()
+            },
+            timestamp,
+        );
 
         // Add Haste keyword
         if !ctx
