@@ -5,31 +5,37 @@ import { formatCommsLog } from "@/lib/commsLog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { GameLoadingTip } from "./GameLoadingTip";
+import { useIsMobileGame, useIsTouch } from "@/hooks/useBreakpoints";
 
 const STUCK_HINT_AFTER_MS = 10_000;
 const STEP_MIN_MS = 200;
 const STEPS = [
   `Start the game engine`,
-  `Load card images`,
   `Take your seat`,
   `Receive the first game state`,
+  `Load card images`,
 ];
+const LOAD_CARD_IMAGES_STEP = STEPS.length - 1;
 interface GameLoadingScreenProps {
   debugInfo: string;
   onComplete?: () => void;
 }
 export function GameLoadingScreen({ debugInfo, onComplete }: GameLoadingScreenProps) {
   const isPrefetchingCards = useGameStore((s) => s.isPrefetchingCards);
+  const cardPrefetchProgress = useGameStore((s) => s.cardPrefetchProgress);
   const hasGameView = useGameStore((s) => s.gameView !== null);
   const seated = useGameStore((s) => (s.gameView?.players?.length ?? 0) > 0);
   const endGame = useGameStore((s) => s.endGame);
+  const isTouch = useIsTouch();
+  const compactLandscape = useIsMobileGame();
   const lastAdvanceAt = useRef(0);
   const [stage, setStage] = useState(0);
   const [slow, setSlow] = useState(false);
   const [copied, setCopied] = useState(false);
   let target = 0;
-  if (/started/i.test(debugInfo)) target = STEPS.length - 1;
-  if (hasGameView && !isPrefetchingCards && seated) target = STEPS.length;
+  if (/started/i.test(debugInfo)) target = 1;
+  if (hasGameView && seated) target = LOAD_CARD_IMAGES_STEP;
+  if (hasGameView && seated && !isPrefetchingCards) target = STEPS.length;
   useEffect(() => {
     lastAdvanceAt.current = Date.now();
     const timer = setTimeout(() => setSlow(true), STUCK_HINT_AFTER_MS);
@@ -58,72 +64,158 @@ export function GameLoadingScreen({ debugInfo, onComplete }: GameLoadingScreenPr
     }
   };
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6 px-6 py-6">
-      <div className="space-y-1.5 text-center">
-        <p className="text-2xl font-semibold">Game starting…</p>
-        <p className="text-base text-muted-foreground">
+    <div
+      className={cn(
+        "flex h-full flex-col items-center justify-center gap-6 px-6 py-6",
+        isTouch &&
+          "[padding-bottom:max(1.5rem,var(--safe-area-inset-bottom))] [padding-left:max(1.5rem,var(--safe-area-inset-left))] [padding-right:max(1.5rem,var(--safe-area-inset-right))] [padding-top:max(1.5rem,var(--safe-area-inset-top))]",
+        compactLandscape &&
+          "grid grid-cols-[minmax(8.5rem,0.65fr)_minmax(0,1.35fr)] grid-rows-[1fr_auto] items-center gap-x-4 gap-y-2 overflow-y-auto py-2 [padding-bottom:max(0.5rem,var(--safe-area-inset-bottom))] [padding-left:max(1rem,var(--safe-area-inset-left))] [padding-right:max(1rem,var(--safe-area-inset-right))] [padding-top:max(0.5rem,var(--safe-area-inset-top))]",
+      )}
+    >
+      <div
+        className={cn(
+          "space-y-1.5 text-center",
+          compactLandscape && "col-start-1 row-start-1 self-end space-y-1 text-left",
+        )}
+      >
+        <p className={cn("text-2xl font-semibold", compactLandscape && "text-xl")}>
+          Game starting…
+        </p>
+        <p
+          className={cn(
+            "text-base text-muted-foreground",
+            compactLandscape && "text-sm leading-snug",
+          )}
+        >
           {slow
             ? `This is taking longer than expected. You can keep waiting, or leave and return to the lobby.`
             : `Setting the table \u2014 this usually takes a few seconds.`}
         </p>
       </div>
 
-      <div className="w-full max-w-lg overflow-hidden rounded-xl border bg-card/50 text-left shadow-xl">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between pb-3">
+      <div
+        className={cn(
+          "w-full max-w-lg overflow-hidden rounded-xl border bg-card/50 text-left shadow-xl",
+          compactLandscape && "col-start-2 row-span-2 row-start-1 max-w-2xl rounded-lg",
+        )}
+      >
+        <div className={cn("px-6 py-4", compactLandscape && "px-4 py-3")}>
+          <div className={cn("flex items-center justify-between pb-3", compactLandscape && "pb-2")}>
             <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
               Setup progress
             </p>
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground"
+              className={cn(
+                "h-7 gap-1.5 px-2.5 text-xs text-muted-foreground",
+                isTouch && "min-h-11",
+                compactLandscape && "px-2",
+              )}
               onClick={() => void copyLogs()}
             >
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               {copied ? "Copied" : "Copy logs"}
             </Button>
           </div>
-          <ul className="space-y-3">
+          <ul className={cn("space-y-3", compactLandscape && "space-y-2")}>
             {STEPS.map((step, index) => {
               const label = step;
               const done = index < stage;
               const active = index === stage;
               return (
-                <li key={label} className="flex items-center gap-3">
-                  {done ? (
-                    <Check className="h-5 w-5 shrink-0 text-success" />
-                  ) : active ? (
-                    <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
-                  ) : (
-                    <Circle className="h-5 w-5 shrink-0 text-muted-foreground/40" />
-                  )}
-                  <span
-                    className={cn(
-                      "text-base transition-colors",
-                      done && "text-success",
-                      active && "text-foreground",
-                      !done && !active && "text-muted-foreground/60",
+                <li key={label} className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    {done ? (
+                      <Check
+                        className={cn(
+                          "h-5 w-5 shrink-0 text-success",
+                          compactLandscape && "h-4 w-4",
+                        )}
+                      />
+                    ) : active ? (
+                      <Loader2
+                        className={cn(
+                          "h-5 w-5 shrink-0 animate-spin text-primary motion-reduce:animate-none",
+                          compactLandscape && "h-4 w-4",
+                        )}
+                      />
+                    ) : (
+                      <Circle
+                        className={cn(
+                          "h-5 w-5 shrink-0 text-muted-foreground/40",
+                          compactLandscape && "h-4 w-4",
+                        )}
+                      />
                     )}
-                  >
-                    {label}
-                  </span>
+                    <span
+                      className={cn(
+                        "text-base transition-colors",
+                        compactLandscape && "text-sm",
+                        done && "text-success",
+                        active && "text-foreground",
+                        !done && !active && "text-muted-foreground/60",
+                      )}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                  {active && index === LOAD_CARD_IMAGES_STEP && cardPrefetchProgress && (
+                    <CardPrefetchBar {...cardPrefetchProgress} />
+                  )}
                 </li>
               );
             })}
           </ul>
           {slow && debugInfo && (
-            <p className="mt-4 truncate border-t pt-3 font-mono text-xs text-muted-foreground">
+            <p
+              className={cn(
+                "mt-4 truncate border-t pt-3 font-mono text-xs text-muted-foreground",
+                compactLandscape && "mt-2 pt-2",
+              )}
+            >
               {debugInfo}
             </p>
           )}
         </div>
-        <GameLoadingTip />
+        <GameLoadingTip compact={compactLandscape} />
       </div>
 
-      <Button variant="outline" onClick={() => void endGame()}>
+      <Button
+        variant="outline"
+        className={cn(
+          isTouch && "min-h-11",
+          compactLandscape && "col-start-1 row-start-2 self-start justify-self-start",
+        )}
+        onClick={() => void endGame()}
+      >
         Leave game
       </Button>
+    </div>
+  );
+}
+
+function CardPrefetchBar({ loaded, total }: { loaded: number; total: number }) {
+  const percent = total > 0 ? (loaded / total) * 100 : 100;
+  return (
+    <div className="flex items-center gap-3 pl-8">
+      <div
+        role="progressbar"
+        aria-label={`Card images loaded`}
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={loaded}
+        className="h-2 flex-1 overflow-hidden rounded-full bg-muted"
+      >
+        <div
+          className="h-full rounded-full bg-primary transition-[width] duration-200 ease-out"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <span className="text-xs tabular-nums text-muted-foreground">
+        {loaded}/{total}
+      </span>
     </div>
   );
 }

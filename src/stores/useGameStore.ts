@@ -46,6 +46,7 @@ import { FORGE_START_TIMEOUT_MESSAGE, withForgeStartTimeout } from "@/game/forge
 import { getPlatform } from "@/platform";
 import { applyPrompt } from "./gameStore.constants";
 import { DEFAULT_STARTING_LIFE, useServerStore } from "./useServerStore";
+import { isTauriForgeRoomAvailable } from "./useForgeRoomAvailabilityStore";
 import { usePreferencesStore } from "./usePreferencesStore";
 import type { ClientCardDto, ClientGameView, GameState } from "./gameStore.types";
 import type { Prompt, PromptOutput } from "@/protocol";
@@ -150,14 +151,12 @@ async function initializeGame({
   const format = getFormat(selectedFormatId);
   const startingLife = format?.deckRules.startingLife ?? DEFAULT_STARTING_LIFE;
   const platformType = getPlatform().type;
-  const useHostedBrowserForge =
-    platformType === "web" && !isForgeWasmSupported() && isHostedEngineAvailable();
-  if (
-    engine === "Forge" &&
-    opponentDecks?.length &&
-    (platformType === "tauri" || useHostedBrowserForge)
-  ) {
-    const launchForge = platformType === "tauri" ? startTauriForgeAiGame : startHostedAiGame;
+  const tauriForgeRoomAvailable = platformType === "tauri" && isTauriForgeRoomAvailable();
+  const useHostedForge =
+    (platformType === "tauri" && !tauriForgeRoomAvailable) ||
+    (platformType === "web" && !isForgeWasmSupported() && isHostedEngineAvailable());
+  if (engine === "Forge" && opponentDecks?.length && (tauriForgeRoomAvailable || useHostedForge)) {
+    const launchForge = tauriForgeRoomAvailable ? startTauriForgeAiGame : startHostedAiGame;
     set({
       isGameActive: true,
       fatalError: null,
@@ -165,7 +164,7 @@ async function initializeGame({
       gameView: null,
       currentPrompt: null,
       gameLog: [],
-      snapshots: [],
+      protocolError: null,
       deferredQueue: [],
       isFlashing: false,
       isWaitingForResponse: false,
@@ -173,6 +172,7 @@ async function initializeGame({
       relinquishedPriority: false,
       gameConfig: { formatId: selectedFormatId, startingLife },
       isPrefetchingCards: true,
+      cardPrefetchProgress: null,
       debugInfo: "Starting Forge engine...",
     });
     let hosted: Awaited<ReturnType<typeof launchForge>> | null = null;
@@ -215,7 +215,7 @@ async function initializeGame({
       // Forge runs on the node, or in the desktop app's own host — never in
       // this tab, and never under a "forge" runtime, so the launch is the only
       // place that can name it.
-      beginGame(forgeHostLabel(platformType === "tauri"));
+      beginGame(forgeHostLabel(tauriForgeRoomAvailable));
       await hostedRuntime.api.startMultiplayerGame({
         playerNames: hostedLaunch.playerOrder,
         decks: hostedLaunch.decks,
@@ -228,7 +228,7 @@ async function initializeGame({
         await hostedRuntime.api.endGame();
         throw new GameLaunchCancelledError();
       }
-      set({ debugInfo: "Forge game started.", isPrefetchingCards: false });
+      set({ debugInfo: "Forge game started." });
       return;
     } catch (error) {
       if (hosted) {
@@ -255,7 +255,7 @@ async function initializeGame({
     gameView: null,
     currentPrompt: null,
     gameLog: [],
-    snapshots: [],
+    protocolError: null,
     deferredQueue: [],
     isFlashing: false,
     isWaitingForResponse: false,
@@ -266,6 +266,7 @@ async function initializeGame({
     gameConfig: { formatId: selectedFormatId, startingLife },
     gameDecks,
     isPrefetchingCards: true,
+    cardPrefetchProgress: null,
     debugInfo: "Starting engine...",
   });
   const engineLabel = engine === "Forge" ? "forge-wasm" : localEngineLabel();
@@ -330,13 +331,14 @@ export const useGameStore = create<GameState>()(
       gameView: null,
       currentPrompt: null,
       gameLog: [],
-      snapshots: [],
+      protocolError: null,
       isGameActive: false,
       debugInfo: "",
       fatalError: null,
       engineCrash: null,
       ironsmithDeckError: null,
       isPrefetchingCards: false,
+      cardPrefetchProgress: null,
       deferredQueue: [],
       isFlashing: false,
       isWaitingForResponse: false,
@@ -530,7 +532,7 @@ export const useGameStore = create<GameState>()(
             gameView: null,
             currentPrompt: null,
             gameLog: [],
-            snapshots: [],
+            protocolError: null,
             deferredQueue: [],
             isFlashing: false,
             isWaitingForResponse: false,
@@ -539,6 +541,7 @@ export const useGameStore = create<GameState>()(
             selfConceded: false,
             debugInfo: "Starting multiplayer game...",
             isPrefetchingCards: true,
+            cardPrefetchProgress: null,
             gameDecks,
           });
           const runtime =
@@ -568,7 +571,7 @@ export const useGameStore = create<GameState>()(
             await runtime.api.endGame();
             return false;
           }
-          set({ debugInfo: "Multiplayer game started.", isPrefetchingCards: false });
+          set({ debugInfo: "Multiplayer game started." });
           return true;
         } catch (e) {
           if (launchGeneration !== gameLaunchGeneration) return false;
@@ -594,6 +597,10 @@ export const useGameStore = create<GameState>()(
         }
       },
       respond: async (output) => {
+        if (get().isMultiplayer && useServerStore.getState().reconnect.phase !== "idle") {
+          console.warn(`[store] respond(${output.type}) ignored — reconnecting`);
+          return;
+        }
         const promptType = get().currentPrompt?.input.type;
         if (!promptType) {
           console.warn("[store] respond() called with no active prompt");
@@ -620,6 +627,7 @@ export const useGameStore = create<GameState>()(
         try {
           noteAnswerSent();
           set({
+            protocolError: null,
             isWaitingForResponse: true,
             relinquishedPriority,
             debugInfo: `Responding: ${output.type}`,
@@ -686,7 +694,7 @@ export const useGameStore = create<GameState>()(
           gameView: null,
           currentPrompt: null,
           gameLog: [],
-          snapshots: [],
+          protocolError: null,
           deferredQueue: [],
           isFlashing: false,
           isWaitingForResponse: false,
@@ -736,28 +744,32 @@ export const useGameStore = create<GameState>()(
       setMultiplayerState: (isMultiplayer, isHost, myPlayerSlot) => {
         set({ isMultiplayer, isHost, myPlayerSlot });
       },
-      restoreSnapshot: async (checkpointId) => {
-        const { isMultiplayer, isHost } = get();
-        if (isMultiplayer && !isHost) return;
-        const promptType = get().currentPrompt?.input.type;
-        if (promptType !== "chooseAction") {
-          set({
-            debugInfo: "Snapshot restore is only available during priority prompts.",
-          });
-          return;
-        }
-        const runtime = getSelectedGameRuntime();
+      requestRestore: async (checkpointId) => {
+        const { myPlayerSlot } = get();
+        if (!myPlayerSlot) throw new Error("No local player is available to request a restore.");
+        await getSelectedGameRuntime().api.sendDirective({
+          playerSlot: myPlayerSlot,
+          directive: { type: "requestRestore", checkpointId },
+        });
+      },
+      setSnapshotRecording: async (enabled) => {
+        usePreferencesStore.getState().setSnapshotRecording(enabled);
         try {
-          await runtime.api.restoreSnapshot({ checkpointId });
-          set({ debugInfo: `Requested snapshot restore: #${checkpointId}` });
-        } catch (error) {
-          // Not every engine can rewind: the browser Forge build rejects it
-          // outright. Say so rather than leaving the click looking successful
-          // or throwing out of a handler.
-          set({
-            debugInfo: `Snapshot restore is not available on this engine (${String(error)}).`,
+          await getSelectedGameRuntime().api.sendHostDirective({
+            type: "setSnapshotRecording",
+            enabled,
           });
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : String(error));
         }
+      },
+      voteRestore: async (voteId, accept) => {
+        const { myPlayerSlot } = get();
+        if (!myPlayerSlot) throw new Error("No local player is available to vote.");
+        await getSelectedGameRuntime().api.sendDirective({
+          playerSlot: myPlayerSlot,
+          directive: { type: "restoreVote", voteId, accept },
+        });
       },
     }),
     { name: "game", enabled: import.meta.env.DEV },

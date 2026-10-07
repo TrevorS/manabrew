@@ -1,9 +1,8 @@
-import type { Prompt, PromptOutput } from "@/protocol";
+import type { Prompt, PromptOutput, ProtocolError } from "@/protocol";
 import type { DisplayEvent } from "@/protocol/display";
 import type { CardDto, GameViewDto, PlayerDto } from "@/protocol/game";
 import type { Deck } from "@/protocol/deck";
 import type { GameLogEntry } from "@/types/gameLog";
-import type { GameSnapshotEntry } from "@/types/gameSnapshot";
 import type { EngineKind, GameFormat } from "@/types/server";
 import type { IronsmithDeckIssue } from "@/game";
 
@@ -56,7 +55,7 @@ export interface GameState {
   gameView: ClientGameView | null;
   currentPrompt: Prompt | null;
   gameLog: GameLogEntry[];
-  snapshots: GameSnapshotEntry[];
+  protocolError: ProtocolError | null;
   isGameActive: boolean;
   debugInfo: string;
   /** Set when the host engine fails fatally (crash / invalid deck / can't
@@ -72,6 +71,7 @@ export interface GameState {
   /** Card-image prefetch progress shown on the loading screen. Reset to
    *  null between games. Populated while the start-game flow is fetching
    *  Scryfall textures, before the engine is allowed to emit prompts. */
+  cardPrefetchProgress: { loaded: number; total: number } | null;
   isPrefetchingCards: boolean;
   deferredQueue: DeferredSnapshot[];
   isFlashing: boolean;
@@ -131,5 +131,7 @@ export interface GameState {
     isHost: boolean,
     myPlayerSlot: string | null,
   ) => void;
-  restoreSnapshot: (checkpointId: number) => Promise<void>;
+  requestRestore: (checkpointId: number) => Promise<void>;
+  voteRestore: (voteId: number, accept: boolean) => Promise<void>;
+  setSnapshotRecording: (enabled: boolean) => Promise<void>;
 }

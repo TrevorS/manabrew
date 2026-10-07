@@ -40,7 +40,7 @@ Schema lives in `migrations/N_*.sql`; `build.rs` scans that directory, orders fi
 
 ## DTOs and misc
 
-The crate owns its REST DTOs in `src/dto.rs`, exported to `src/api/hubTypes.ts` + `src/api/authTypes.ts` by `cargo xtask gen-types` (`yarn gen:types`). It also owns the daily Scryfall `default_cards` JSONL bulk index used by collection verification and the process-wide Scryfall relay. The relay accepts the interactive card routes used by the client, including the optional language segment on collector-number lookups, and spaces upstream requests by Scryfall's documented 500 ms interval.
+The crate owns its REST DTOs in `src/dto.rs`, exported to `src/api/hubTypes.ts` + `src/api/authTypes.ts` by `cargo xtask gen-types` (`yarn gen:types`). It also owns the daily Scryfall `default_cards` JSONL bulk index used by collection verification. The Hub does not relay Scryfall API calls: clients call `api.scryfall.com` directly, so each client gets its own Scryfall rate-limit budget.
 
 ## Deck Hub flag
 
@@ -49,3 +49,5 @@ Publication writes require `SessionAccount`. The Hub service's `DECK_HUB` flag d
 ## Deploy continuity
 
 Production has one Hub container. Ingress waits up to 30 seconds for a reachable Hub and checks health every second during recreation. Keep the retry policy loaded before restarting Hub. Connection failures can be retried before a request is delivered; do not enable blanket POST retries after delivery, because code exchange and other writes may not be repeatable. A prolonged outage still returns an error.
+
+Engine reports optionally carry typed `checkpoints` summaries. Migration 27 stores them as JSON in `engine_play_stats.checkpoints`; the relay emits the same object in `engine_stats` events and the ingester preserves it in `engine_stats.checkpoints`. Timing fields ending in `Us` are integer microseconds. Old reports remain NULL. This field contains aggregate durations and counts only.

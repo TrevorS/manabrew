@@ -17,7 +17,6 @@ import { useServerStore } from "@/stores/useServerStore";
 import { SELF_RECONNECT_WINDOW_S } from "@/hooks/useMultiplayerInterruption";
 import { clearActiveGameSession, peekActiveGameSession } from "@/lib/activeGameSession";
 import { FORETELL_LOG_PREFIX, normalizeGameLogPayload, type GameLogEntry } from "@/types/gameLog";
-import { normalizeSnapshotPayload } from "@/types/gameSnapshot";
 import {
   applyDisplay,
   applyPrompt,
@@ -229,8 +228,8 @@ export function useGameEventListeners() {
     const fetchInitialState = async () => {
       try {
         const prompt = normalizeEnginePrompt(await runtime.api.getPrompt());
-        if (prompt && !getState().currentPrompt) {
-          applyPrompt(prompt, "Initial", setState, getState);
+        if (prompt && prompt.promptId !== getState().currentPrompt?.promptId) {
+          applyPrompt(prompt, "Resume", setState, getState);
         }
       } catch (e) {
         console.debug("[useGameEventListeners] Could not fetch initial state:", e);
@@ -240,6 +239,13 @@ export function useGameEventListeners() {
     if (getState().isMultiplayer && !getState().isHost) {
       void platform.server?.requestResync();
     }
+    const handleVisibilityChange = () => {
+      if (document.hidden) return;
+      void fetchInitialState();
+      const state = getState();
+      if (state.isMultiplayer && !state.isHost) void platform.server?.requestResync();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     try {
       unsubscribers.push(
         platform.events.on<StateUpdate>("game:state", (payload) => {
@@ -310,20 +316,6 @@ export function useGameEventListeners() {
             gameLog: [...state.gameLog.slice(-199), entry],
           }));
           toastOpponentPublicAction(entry);
-        }),
-      );
-      unsubscribers.push(
-        platform.events.on<unknown>("game:snapshot", (payload) => {
-          const snapshot = normalizeSnapshotPayload(payload);
-          if (!snapshot.gameView) return;
-          setState((state) => ({
-            snapshots: [
-              ...state.snapshots
-                .filter((s) => s.checkpointId !== snapshot.checkpointId)
-                .slice(-199),
-              snapshot,
-            ],
-          }));
         }),
       );
       // Relay (non-host) seats receive state/display/prompt addressed per player.
@@ -444,7 +436,6 @@ export function useGameEventListeners() {
             isMultiplayer: false,
             isHost: false,
             myPlayerSlot: null,
-            snapshots: [],
             debugInfo: `Game ended: ${message}`,
           });
           // Without EndGame the relay room stays InGame and every rematch
@@ -461,6 +452,7 @@ export function useGameEventListeners() {
       console.error("[hook] Failed to setup listeners:", e);
     }
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       unsubscribers.forEach((fn) => fn());
     };
   }, []);

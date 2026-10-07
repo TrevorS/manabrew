@@ -1,4 +1,10 @@
-import type { CardChoiceDto, CardDto, ManaColor, StackObjectDto } from "@/protocol/game";
+import type {
+  CardChoiceDto,
+  CardDto,
+  CheckpointDto,
+  ManaColor,
+  StackObjectDto,
+} from "@/protocol/game";
 import type { CardRulesSummary } from "@/types/manabrew";
 import type { AvailableAction, PaymentAction } from "@/protocol/prompts/common";
 import type { ClientCardDto } from "@/stores/gameStore.types";
@@ -8,6 +14,7 @@ import {
   CARD_H,
   CARD_W,
   GAME_CARD_SIZES,
+  PHASES,
   PROMPT_LABELS,
   PROMPT_MODAL_VIEWPORT_MARGIN,
 } from "./game.constants";
@@ -28,12 +35,12 @@ export function fitPromptCardDimensions(
   maxHeight = Number.POSITIVE_INFINITY,
   maxWidth: number = GAME_CARD_SIZES.preview.width,
 ): { width: number; height: number } {
-  const availableCardHeight = Math.max(112, viewportHeight - PROMPT_MODAL_VIEWPORT_MARGIN);
+  const availableCardHeight = Math.max(1, viewportHeight - PROMPT_MODAL_VIEWPORT_MARGIN);
   const width = Math.min(
     maxWidth,
     (availableCardHeight * CARD_W) / CARD_H,
-    (maxHeight * CARD_W) / CARD_H,
-    Math.max(80, availableWidth),
+    (Math.max(1, maxHeight) * CARD_W) / CARD_H,
+    Math.max(1, availableWidth),
   );
   return { width, height: (width * CARD_H) / CARD_W };
 }
@@ -216,4 +223,12 @@ export function deriveCardChoiceIndicators(card: Pick<CardDto, "choices">): Card
         };
     }
   });
+}
+
+export function stepLabel(step: CheckpointDto["step"]): string {
+  return PHASES.find((phase) => phase.id === step)?.label ?? step;
+}
+
+export function checkpointLabel(checkpoint: CheckpointDto): string {
+  return `turn ${checkpoint.turn}, ${stepLabel(checkpoint.step)}`;
 }
