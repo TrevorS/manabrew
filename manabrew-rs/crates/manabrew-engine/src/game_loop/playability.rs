@@ -309,13 +309,24 @@ impl GameLoop {
                 &cost_adj.apply(&base_cost).add(&raise_mana),
             ),
         );
+        let face_down_host;
+        let restriction_host = if card.face_down
+            && game.action_space_mana_probe == crate::mana::ActionSpaceManaProbe::ComputerUtilMana
+        {
+            let mut host = card.clone();
+            host.set_original_state_as_face_down();
+            face_down_host = host;
+            &face_down_host
+        } else {
+            card
+        };
         let payment_ctx = mana::ManaPaymentContext {
             mana_value: Some(crate::mana::spell_restriction_mana_value(
                 game,
-                card.mana_value(),
+                restriction_host.mana_value(),
                 base_cost.cmc(),
             )),
-            ..Self::spell_payment_context(card, chosen_types_by_source)
+            ..Self::spell_payment_context(restriction_host, chosen_types_by_source)
         };
         let mana_ok = if any_color {
             if let Some(order) = self.action_space_probe_order(game) {
@@ -3047,6 +3058,43 @@ mod tests {
     fn mana_for_big_spells_pays_a_face_down_cast_only_as_forge_reads_it() {
         assert!(!face_down_cast_offered(false));
         assert!(face_down_cast_offered(true));
+    }
+
+    const EXILED_SHOCK: &str = "Name:Shock\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | SpellDescription$ CARDNAME deals 2 damage to any target.\nOracle:";
+    const SPELL_HALL: &str = "Name:Spell Hall\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ R | RestrictValid$ Spell.Instant,Spell.Sorcery | SpellDescription$ Add {R}. Spend this mana only to cast an instant or sorcery spell.\nOracle:";
+    const EXILE_PLAY_EFFECT: &str = "Name:Exile Play Effect\nManaCost:no cost\nTypes:Effect\nS:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile | EffectZone$ Command | Description$ You may play the exiled cards.\nOracle:";
+
+    fn face_down_exiled_instant_offered(probe: crate::mana::ActionSpaceManaProbe) -> bool {
+        let player = PlayerId(0);
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.action_space_mana_probe = probe;
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        let mut put = |script: &str, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, player));
+            game.move_card(card, zone, player);
+            card
+        };
+        let shock = put(EXILED_SHOCK, ZoneType::Exile);
+        put(SPELL_HALL, ZoneType::Battlefield);
+        let effect = put(EXILE_PLAY_EFFECT, ZoneType::Command);
+        game.card_mut(shock).set_face_down(true);
+        game.card_mut(effect).add_remembered_card(shock);
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        GameLoop::new(2)
+            .get_playable_cards(&game, player, false)
+            .iter()
+            .any(|option| option.card_id == shock)
+    }
+
+    #[test]
+    fn the_parity_probe_reads_mana_restrictions_on_a_face_down_exiled_card() {
+        assert!(face_down_exiled_instant_offered(
+            crate::mana::ActionSpaceManaProbe::AutoPay
+        ));
+        assert!(!face_down_exiled_instant_offered(
+            crate::mana::ActionSpaceManaProbe::ComputerUtilMana
+        ));
     }
 
     #[test]
