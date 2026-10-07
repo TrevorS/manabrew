@@ -1,5 +1,6 @@
 //! Tap other permanents of a type as a cost. Mirrors Java's `CostTapType`.
 
+use crate::card::Card;
 use crate::game::GameState;
 use crate::ids::CardId;
 use crate::spellability::SpellAbility;
@@ -60,7 +61,14 @@ pub fn to_string(part: &super::CostPart) -> String {
 
 /// Effective power contributed when this card is tapped to pay a tap-type cost.
 pub fn tap_power_value(game: &GameState, card: CardId, ability: Option<&SpellAbility>) -> i32 {
-    let card_ref = game.card(card);
+    tap_power_value_of(game, game.card(card), ability)
+}
+
+pub fn tap_power_value_of(
+    game: &GameState,
+    card_ref: &Card,
+    ability: Option<&SpellAbility>,
+) -> i32 {
     if crate::staticability::static_ability_tap_power_value::with_toughness(game, card_ref, ability)
     {
         card_ref.toughness().max(0)

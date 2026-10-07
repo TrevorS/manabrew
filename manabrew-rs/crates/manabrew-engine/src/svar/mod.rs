@@ -1502,7 +1502,13 @@ fn resolve_paid_hash_property(
         return Some(
             paid_cards
                 .iter()
-                .map(|&cid| crate::cost::cost_tap_type::tap_power_value(game, cid, Some(sa)))
+                .map(|&cid| {
+                    crate::cost::cost_tap_type::tap_power_value_of(
+                        game,
+                        game.get_change_zone_lki_info(cid),
+                        Some(sa),
+                    )
+                })
                 .sum(),
         );
     }

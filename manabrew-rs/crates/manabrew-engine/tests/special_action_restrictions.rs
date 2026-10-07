@@ -376,6 +376,39 @@ fn a_creature_walker_paid_down_to_no_loyalty_dies_as_a_planeswalker() {
     assert_eq!(game.player(p1).life, 20);
 }
 
+const STATION_HULL: &str =
+    "Name:Station Hull\nManaCost:2\nTypes:Artifact Spacecraft\nK:Station:12\nOracle:";
+const SKITTISH_CREW: &str = "Name:Skittish Crew\nManaCost:1 U\nTypes:Creature Human Pilot\nPT:2/2\nT:Mode$ Taps | ValidCard$ Card.Self | Execute$ TrigBounce | TriggerDescription$ Whenever CARDNAME becomes tapped, return it to its owner's hand.\nSVar:TrigBounce:DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Hand\nOracle:";
+
+#[test]
+fn station_counts_the_power_of_a_creature_that_left_before_it_resolved() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let hull = put(&mut game, STATION_HULL, p0, ZoneType::Battlefield);
+    let crew = put(&mut game, SKITTISH_CREW, p0, ZoneType::Battlefield);
+    game.card_mut(crew).add_counter(
+        &manabrew_engine::card::counter_type::parse_counter_type("P1P1"),
+        1,
+    );
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = forge_foundation::PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(None));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Recorder {
+            seen: Rc::clone(&seen),
+            turn_up: hull,
+            confirm: true,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+
+    assert_eq!(game.card(crew).zone, ZoneType::Hand);
+    let charge = manabrew_engine::card::counter_type::parse_counter_type("CHARGE");
+    assert_eq!(game.card(hull).counter_count(&charge), 3);
+}
+
 const TARGET_WATCH: &str = "Name:Target Watch\nManaCost:1 U\nTypes:Creature God\nPT:2/1\nT:Mode$ BecomesTarget | ValidTarget$ Player,Permanent | ValidSource$ Ability.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigDraw | TriggerDescription$ Whenever a player or permanent becomes the target of an ability you control, draw a card.\nSVar:TrigDraw:DB$ Draw\nOracle:";
 
 #[test]
