@@ -23,6 +23,7 @@ const TORPOR_ORB: &str = "Name:Torpor Orb\nManaCost:2\nTypes:Artifact\nS:Mode$ D
 const ADAMANT_SPRITE: &str = "Name:Adamant Sprite\nManaCost:3 U\nTypes:Creature Elemental\nPT:1/1\nK:Evoke:U U\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | CheckSVar$ CastSA>Count$Adamant_2.Blue.2.0 | ValidCard$ Card.Self | Execute$ TrigGainLife | TriggerDescription$ When this creature enters, if {U}{U} was spent to cast it, you gain 3 life.\nSVar:TrigGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 3\nOracle:";
 const BIG_SPELL_SPRING: &str = "Name:Big Spell Spring\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ U | Amount$ 2 | RestrictValid$ Spell.cmcGE4 | SpellDescription$ Add {U}{U}. Spend this mana only to cast spells with mana value 4 or greater.\nOracle:";
 const EXILE_CASTER: &str = "Name:Exile Caster\nManaCost:1\nTypes:Artifact\nS:Mode$ Continuous | Affected$ Card.YouOwn+nonLand | AffectedZone$ Exile | MayPlay$ True | Description$ You may cast spells you own from exile.\nOracle:";
+const IMPENDING_AVATAR: &str = "Name:Impending Avatar\nManaCost:3 U U\nTypes:Enchantment Creature Avatar\nPT:5/5\nK:Impending:5:1 U\nOracle:";
 const EVOKE_GRANTER: &str = "Name:Evoke Granter\nManaCost:2 R\nTypes:Creature Elemental\nPT:2/2\nS:Mode$ Continuous | Affected$ Permanent.Elemental+YouOwn | AffectedZone$ Hand | AddKeyword$ Evoke:2 | Description$ Elemental permanent spells you cast from your hand have evoke {2}.\nOracle:";
 
 #[derive(Default)]
@@ -34,6 +35,7 @@ struct Seen {
 
 struct EvokeOnce {
     seen: Rc<RefCell<Seen>>,
+    alt_cost: AlternativeCost,
     alt_cost_index: u8,
 }
 
@@ -89,7 +91,7 @@ impl PlayerAgent for EvokeOnce {
             .playable
             .iter()
             .find(|play| {
-                play.mode == PlayCardMode::Alternative(AlternativeCost::Evoke)
+                play.mode == PlayCardMode::Alternative(self.alt_cost)
                     && play.alt_cost_index == self.alt_cost_index
             })
             .copied();
@@ -207,6 +209,7 @@ fn evoke_a_sprite(others: &[&str], alt_cost_index: u8) -> Evoked {
     let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
         Box::new(EvokeOnce {
             seen: Rc::clone(&seen),
+            alt_cost: AlternativeCost::Evoke,
             alt_cost_index,
         }),
         Box::new(PassAgent),
@@ -272,6 +275,7 @@ fn evoke_offered(lands: &[&str], mirror_forge_bugs: bool, zone: ZoneType) -> boo
     let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
         Box::new(EvokeOnce {
             seen: Rc::clone(&seen),
+            alt_cost: AlternativeCost::Evoke,
             alt_cost_index: 0,
         }),
         Box::new(PassAgent),
@@ -312,6 +316,7 @@ fn an_evoked_creature_keeps_the_mana_spent_for_its_enters_condition_after_the_sa
     let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
         Box::new(EvokeOnce {
             seen: Rc::clone(&seen),
+            alt_cost: AlternativeCost::Evoke,
             alt_cost_index: 0,
         }),
         Box::new(PassAgent),
@@ -320,4 +325,32 @@ fn an_evoked_creature_keeps_the_mana_spent_for_its_enters_condition_after_the_sa
     assert!(seen.borrow().cast);
     assert_eq!(game.card(sprite).zone, ZoneType::Graveyard);
     assert_eq!(game.players[0].life, 23);
+}
+
+#[test]
+fn an_exiled_card_that_may_be_cast_offers_its_impending_cost() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let avatar = put(&mut game, IMPENDING_AVATAR, p0, ZoneType::Exile);
+    put(&mut game, EXILE_CASTER, p0, ZoneType::Battlefield);
+    put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(Seen::default()));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(EvokeOnce {
+            seen: Rc::clone(&seen),
+            alt_cost: AlternativeCost::Impending,
+            alt_cost_index: 0,
+        }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    assert!(seen.borrow().cast);
+    assert_eq!(game.card(avatar).zone, ZoneType::Battlefield);
+    assert!(!game.card(avatar).is_creature());
 }

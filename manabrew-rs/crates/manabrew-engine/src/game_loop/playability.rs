@@ -1827,14 +1827,16 @@ impl GameLoop {
                         });
                     }
                     if !must_be_instant || has_flash_permission(card_id) {
-                        let mut evoke_sa = normal_sa.clone();
-                        evoke_sa.alt_cost = Some(crate::spellability::AlternativeCost::Evoke);
-                        playable.extend(self.may_play_evoke_options(
+                        playable.extend(self.may_play_keyword_cost_options(
                             game,
                             player,
                             card_id,
                             ZoneType::Graveyard,
-                            accepting_may_play_grants(card_id, &evoke_sa),
+                            &|alt_cost| {
+                                let mut alt_sa = normal_sa.clone();
+                                alt_sa.alt_cost = Some(alt_cost);
+                                accepting_may_play_grants(card_id, &alt_sa)
+                            },
                             &chosen_types_by_source,
                         ));
                     }
@@ -2300,12 +2302,12 @@ impl GameLoop {
                         });
                     }
                 }
-                playable.extend(self.may_play_evoke_options(
+                playable.extend(self.may_play_keyword_cost_options(
                     game,
                     player,
                     card_id,
                     ZoneType::Exile,
-                    normal_grants,
+                    &|_| normal_grants,
                     &chosen_types_by_source,
                 ));
                 if !must_be_instant {
@@ -2747,15 +2749,16 @@ impl GameLoop {
         }
     }
 
-    /// Java `GameActionUtil.getAlternativeCosts` builds Evoke for a spell in any zone it may be
-    /// cast from; the hand loop builds its own.
-    fn may_play_evoke_options(
+    /// Java `CardFactoryUtil` builds Evoke and Impending as spells of the card, so
+    /// `getMayPlaySpellOptions` offers them in any zone it may be cast from; the hand loop builds
+    /// its own.
+    fn may_play_keyword_cost_options(
         &self,
         game: &GameState,
         player: PlayerId,
         card_id: CardId,
         zone: ZoneType,
-        grants: usize,
+        grants: &dyn Fn(crate::spellability::AlternativeCost) -> usize,
         chosen_types_by_source: &crate::HashMap<CardId, String>,
     ) -> Vec<crate::agent::PlayOption> {
         let mut evoke_costs: Vec<(usize, String)> = game
@@ -2765,25 +2768,37 @@ impl GameLoop {
             .enumerate()
             .collect();
         evoke_costs.sort_by(|a, b| a.1.cmp(&b.1));
+        let mut costs: Vec<(crate::spellability::AlternativeCost, u8, String)> = evoke_costs
+            .into_iter()
+            .map(|(index, cost)| {
+                (
+                    crate::spellability::AlternativeCost::Evoke,
+                    index as u8,
+                    cost,
+                )
+            })
+            .collect();
+        if let Some((cost, _)) = game.card(card_id).get_impending_cost() {
+            costs.push((crate::spellability::AlternativeCost::Impending, 0, cost));
+        }
         let mut options = Vec::new();
-        for (evoke_index, evoke_cost) in evoke_costs {
+        for (alt_cost, alt_cost_index, cost) in costs {
+            let grants = grants(alt_cost);
             if grants > 0
                 && self.can_cast_may_play_spell(
                     game,
                     player,
                     card_id,
                     zone,
-                    Some(evoke_cost),
+                    Some(cost),
                     chosen_types_by_source,
                 )
             {
                 options.extend(std::iter::repeat_n(
                     crate::agent::PlayOption {
                         card_id,
-                        mode: crate::agent::PlayCardMode::Alternative(
-                            crate::spellability::AlternativeCost::Evoke,
-                        ),
-                        alt_cost_index: evoke_index as u8,
+                        mode: crate::agent::PlayCardMode::Alternative(alt_cost),
+                        alt_cost_index,
                     },
                     grants,
                 ));
