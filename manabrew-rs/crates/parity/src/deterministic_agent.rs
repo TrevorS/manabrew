@@ -1243,7 +1243,7 @@ impl PlayerAgent for DeterministicAgent {
         refill(
             &mut stack_sources,
             game.stack
-                .iter()
+                .iter_with_resolving()
                 .filter_map(|entry| entry.spell_ability.source.map(|source| (entry.id, source))),
         );
         self.last_game_snapshot = Some(GameSnapshot {
@@ -3028,6 +3028,63 @@ mod tests {
             );
             let expected = choice_space::pick_one(&[trigger, giant_trigger], &mut expected_rng);
             assert_eq!(spell, expected, "seed {seed}");
+        }
+    }
+
+    #[test]
+    fn the_resolving_spell_sorts_by_its_card_among_spell_targets() {
+        let mut game = GameState::new(&["Player1", "Player2"], 20);
+        let p0 = PlayerId(0);
+        let push = |game: &mut GameState, name: &str| {
+            let script = format!("Name:{name}\nManaCost:R\nTypes:Instant\nOracle:");
+            let card = game.create_card(CardInstance::from_rules(
+                &parse_card_script(&script).expect("script"),
+                p0,
+            ));
+            game.move_card(card, ZoneType::Stack, p0);
+            let mut sa = SpellAbility::new_simple(
+                Some(card),
+                p0,
+                "SP$ GainLife | Defined$ You | LifeAmount$ 1",
+            );
+            sa.is_spell = true;
+            game.stack.push(StackEntry {
+                id: 0,
+                spell_ability: sa,
+                is_creature_spell: false,
+                is_permanent_spell: false,
+                is_pending_cast: false,
+                cast_from_zone: None,
+                optional_trigger_decider: None,
+                optional_trigger_description: None,
+                optional_trigger_source_name: None,
+            })
+        };
+        let improv = push(&mut game, "Improv Probe");
+        let burst = push(&mut game, "Burst Probe");
+        let trauma = push(&mut game, "Trauma Probe");
+        let resolving = game.stack.remove(improv).expect("entry");
+        game.stack.set_resolving_entry(Some(resolving));
+        let pools = vec![ManaPool::new(), ManaPool::new()];
+        for seed in 0..8 {
+            let mut agent = DeterministicAgent::new(
+                p0,
+                VerboseMode::Off,
+                Rc::new(RefCell::new(JavaRandom::new(seed))),
+                false,
+                Arc::new(ParityCardMap::default()),
+                None,
+            );
+            agent.snapshot_state(&game, &pools);
+            let picked = agent.choose_target_spell(
+                DecisionContext::new(&game, &pools),
+                p0,
+                &[improv, burst, trauma],
+                None,
+            );
+            let expected =
+                choice_space::pick_one(&[burst, improv, trauma], &mut JavaRandom::new(seed));
+            assert_eq!(picked, expected, "seed {seed}");
         }
     }
 
