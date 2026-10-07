@@ -348,6 +348,34 @@ fn a_loyalty_ability_records_the_counters_its_cost_removed() {
     assert_eq!(game.zone(ZoneType::Library, p0).len(), library - 1);
 }
 
+const NINJA_WALKER: &str = "Name:Ninja Walker\nManaCost:2 U B\nTypes:Legendary Planeswalker Kaito\nLoyalty:2\nS:Mode$ Continuous | AffectedDefined$ Self | Affected$ Permanent.counters_GE1_LOYALTY | Condition$ PlayerTurn | AddType$ Creature & Ninja | RemoveCardTypes$ True | SetPower$ 3 | SetToughness$ 4 | Description$ During your turn, as long as it has a loyalty counter, it's a 3/4 Ninja creature.\nA:AB$ GainLife | Cost$ SubCounter<2/LOYALTY> | Planeswalker$ True | LifeAmount$ 1 | SpellDescription$ You gain 1 life.\nOracle:";
+const DEATH_WATCH: &str = "Name:Death Watch\nManaCost:1 R\nTypes:Artifact\nT:Mode$ ChangesZoneAll | TriggerZones$ Battlefield | ValidCards$ Creature | Origin$ Battlefield | Destination$ Graveyard | Execute$ TrigGain | TriggerDescription$ Whenever one or more creatures die, you gain 5 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 5\nOracle:";
+
+#[test]
+fn a_creature_walker_paid_down_to_no_loyalty_dies_as_a_planeswalker() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let walker = put(&mut game, NINJA_WALKER, p0, ZoneType::Battlefield);
+    put(&mut game, DEATH_WATCH, p1, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = forge_foundation::PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(None));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Recorder {
+            seen: Rc::clone(&seen),
+            turn_up: walker,
+            confirm: true,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+
+    assert_eq!(game.card(walker).zone, ZoneType::Graveyard);
+    assert_eq!(game.player(p0).life, 21);
+    assert_eq!(game.player(p1).life, 20);
+}
+
 const TARGET_WATCH: &str = "Name:Target Watch\nManaCost:1 U\nTypes:Creature God\nPT:2/1\nT:Mode$ BecomesTarget | ValidTarget$ Player,Permanent | ValidSource$ Ability.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigDraw | TriggerDescription$ Whenever a player or permanent becomes the target of an ability you control, draw a card.\nSVar:TrigDraw:DB$ Draw\nOracle:";
 
 #[test]
