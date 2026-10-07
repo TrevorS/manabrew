@@ -616,7 +616,18 @@ pub(crate) fn mode_has_valid_targets_in_game(
         return true;
     }
 
-    tr.has_candidates(game, player, sa.host_card_id(), Some(&sa))
+    if tr.has_candidates(game, player, sa.host_card_id(), Some(&sa)) {
+        return true;
+    }
+    let stack: Vec<u32> =
+        crate::spellability::target_restrictions::get_stack_target_candidates(game, &sa)
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+    !crate::spellability::target_restrictions::filter_spells_for_target_restrictions(
+        game, player, sa.source, &stack, tr,
+    )
+    .is_empty()
 }
 
 fn setup_mode_targets(ctx: &mut EffectContext, mode_sa: &mut SpellAbility, player: PlayerId) {
@@ -674,6 +685,77 @@ mod tests {
         };
         // Should not panic
         super::CharmEffect::resolve(&mut ctx, &sa);
+    }
+
+    const BOUNCE_CHARM: &str = "Name:Bounce Charm\nManaCost:W U\nTypes:Instant\nA:SP$ Charm | Choices$ DBDraw,DBReturn\nSVar:DBDraw:DB$ Draw | SpellDescription$ Draw a card.\nSVar:DBReturn:DB$ ChangeZone | ValidTgts$ Creature,Card.inZoneStack | TgtZone$ Stack,Battlefield | Origin$ Battlefield,Stack | Destination$ Hand | SpellDescription$ Return target spell or creature to its owner's hand.\nOracle:";
+    const SORCERY: &str = "Name:Plain Sorcery\nManaCost:W\nTypes:Sorcery\nA:SP$ GainLife | LifeAmount$ 1 | SpellDescription$ You gain 1 life.\nOracle:";
+
+    #[test]
+    fn a_mode_that_can_target_a_spell_is_possible_with_only_a_spell_to_target() {
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        let p0 = PlayerId(0);
+        let put = |game: &mut GameState, script: &str, zone| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(crate::card::CardInstance::from_rules(&rules, p0));
+            game.move_card(card, zone, p0);
+            card
+        };
+        let charm = put(&mut game, BOUNCE_CHARM, ZoneType::Hand);
+        let sorcery = put(&mut game, SORCERY, ZoneType::Stack);
+        assert_eq!(
+            super::make_possible_options(&game, charm, p0, "DBDraw,DBReturn"),
+            vec![0]
+        );
+        game.stack.push(crate::spellability::StackEntry {
+            id: 0,
+            spell_ability: SpellAbility::new_simple(
+                Some(sorcery),
+                p0,
+                "SP$ GainLife | LifeAmount$ 1",
+            ),
+            is_creature_spell: false,
+            is_permanent_spell: false,
+            is_pending_cast: false,
+            cast_from_zone: None,
+            optional_trigger_decider: None,
+            optional_trigger_description: None,
+            optional_trigger_source_name: None,
+        });
+        assert_eq!(
+            super::make_possible_options(&game, charm, p0, "DBDraw,DBReturn"),
+            vec![0, 1]
+        );
+    }
+
+    const COUNTER_CHARM: &str = "Name:Counter Charm\nManaCost:U\nTypes:Instant\nA:SP$ Charm | Choices$ DBDraw,DBCounter\nSVar:DBDraw:DB$ Draw | SpellDescription$ Draw a card.\nSVar:DBCounter:DB$ Counter | TargetType$ Spell | ValidTgts$ Card | SpellDescription$ Counter target spell.\nOracle:";
+
+    #[test]
+    fn a_mode_that_counters_a_spell_is_not_possible_with_only_an_ability_on_the_stack() {
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        let p0 = PlayerId(0);
+        let rules = forge_carddb::parse_card_script(COUNTER_CHARM).expect("script");
+        let charm = game.create_card(crate::card::CardInstance::from_rules(&rules, p0));
+        game.move_card(charm, ZoneType::Hand, p0);
+        let rules = forge_carddb::parse_card_script(SORCERY).expect("script");
+        let host = game.create_card(crate::card::CardInstance::from_rules(&rules, p0));
+        game.move_card(host, ZoneType::Battlefield, p0);
+        let mut trigger = SpellAbility::new_simple(Some(host), p0, "DB$ GainLife | LifeAmount$ 1");
+        trigger.is_trigger = true;
+        game.stack.push(crate::spellability::StackEntry {
+            id: 0,
+            spell_ability: trigger,
+            is_creature_spell: false,
+            is_permanent_spell: false,
+            is_pending_cast: false,
+            cast_from_zone: None,
+            optional_trigger_decider: None,
+            optional_trigger_description: None,
+            optional_trigger_source_name: None,
+        });
+        assert_eq!(
+            super::make_possible_options(&game, charm, p0, "DBDraw,DBCounter"),
+            vec![0]
+        );
     }
 
     /// Integration test: charm with two draw modes, PassAgent picks first mode.
