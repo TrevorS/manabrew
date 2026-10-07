@@ -36,7 +36,7 @@ impl PlayerAgent for Recorder {
         game: &GameState,
         pools: &[ManaPool],
     ) -> bool {
-        PassAgent.choose_targets_for(sa, game, pools)
+        manabrew_engine::spellability::choose_targets_by_kind(self, sa, game, pools)
     }
     fn mulligan_decision(
         &mut self,
@@ -345,5 +345,35 @@ fn a_loyalty_ability_records_the_counters_its_cost_removed() {
     GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
 
     assert_eq!(game.player(p0).life, 21);
+    assert_eq!(game.zone(ZoneType::Library, p0).len(), library - 1);
+}
+
+const TARGET_WATCH: &str = "Name:Target Watch\nManaCost:1 U\nTypes:Creature God\nPT:2/1\nT:Mode$ BecomesTarget | ValidTarget$ Player,Permanent | ValidSource$ Ability.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigDraw | TriggerDescription$ Whenever a player or permanent becomes the target of an ability you control, draw a card.\nSVar:TrigDraw:DB$ Draw\nOracle:";
+
+#[test]
+fn a_becomes_target_trigger_matches_its_source_ability_by_kind() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let sorcerer = put(&mut game, PRODIGAL, p0, ZoneType::Battlefield);
+    put(&mut game, TARGET_WATCH, p0, ZoneType::Battlefield);
+    for _ in 0..3 {
+        put(&mut game, ISLAND, p0, ZoneType::Library);
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = forge_foundation::PhaseType::Main1;
+    let library = game.zone(ZoneType::Library, p0).len();
+    let seen = Rc::new(RefCell::new(None));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Recorder {
+            seen: Rc::clone(&seen),
+            turn_up: sorcerer,
+            confirm: true,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+
+    assert!(game.card(sorcerer).tapped);
     assert_eq!(game.zone(ZoneType::Library, p0).len(), library - 1);
 }

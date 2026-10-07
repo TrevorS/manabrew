@@ -51,26 +51,16 @@ impl TriggerBehavior for TriggerBecomesTarget {
         let host_controller = trigger.base.card_trait_base.host_controller(game);
         if let Some(filter) = self.valid_source.as_ref() {
             let source_matches = if let Some(source_sa) = params.source_sa.as_ref() {
-                let raw_filter = filter.as_raw();
-                if raw_filter.starts_with("SpellAbility") {
-                    let parts: Vec<&str> = raw_filter.split('.').collect();
-                    let kind_matches = parts
-                        .first()
-                        .is_none_or(|part| part.eq_ignore_ascii_case("SpellAbility"));
-                    if !kind_matches {
-                        false
-                    } else {
-                        parts.iter().skip(1).all(|part| match *part {
-                            "OppCtrl" => source_sa.activating_player != host_controller,
-                            "YouCtrl" => source_sa.activating_player == host_controller,
-                            _ => true,
-                        })
-                    }
-                } else {
-                    source_sa.source.is_some_and(|source_card| {
-                        trigger.matches_valid_card_filter(filter, source_card, game)
-                    })
-                }
+                crate::spellability::matches_valid_sa(
+                    &filter.as_raw(),
+                    source_sa,
+                    source_sa.source.map(|card| game.card(card)),
+                    crate::card::valid_filter::MatchContext::new(
+                        game.card(trigger.host_card_id()),
+                        game,
+                    )
+                    .with_source_controller(host_controller),
+                )
             } else if let Some(source_card) = params.cause_card {
                 trigger.matches_valid_card_filter(filter, source_card, game)
             } else {
