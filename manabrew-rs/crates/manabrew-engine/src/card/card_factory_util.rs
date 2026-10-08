@@ -71,7 +71,6 @@ pub fn ability_morph_up(card: &mut Card, morph_details: &str, mega: bool, disgui
 
 pub fn turn_face_down_with_state(card: &mut Card) {
     card.set_face_down(true);
-    card.set_original_state_as_face_down();
     card.set_static_set_pt(None, None);
     let disguise_cost = face_up_keyword_cost(card, "Disguise");
     let megamorph_cost = face_up_keyword_cost(card, "Megamorph");

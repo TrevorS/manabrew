@@ -125,9 +125,6 @@ pub fn resolve(ctx: &mut EffectContext, sa: &SpellAbility, is_cloak: bool) {
             card.cloaked = true;
         }
 
-        // Set base P/T to 2/2 for face-down creatures
-        card.add_new_pt(2, 2);
-
         // Register triggers for the new permanent
         ctx.trigger_handler
             .register_active_trigger(ctx.game, card_id);

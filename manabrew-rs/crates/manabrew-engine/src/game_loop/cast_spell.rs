@@ -567,6 +567,58 @@ impl GameLoop {
         }
     }
 
+    pub(crate) fn play_card_option(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        play: crate::agent::PlayOption,
+    ) -> Option<PlaySpellAbilityResult> {
+        let card_id = play.card_id;
+        let face_down_in_exile =
+            game.card(card_id).face_down && game.card(card_id).zone == ZoneType::Exile;
+        if face_down_in_exile {
+            game.card_mut(card_id).turn_face_up();
+        }
+        let card_name = game.card(card_id).card_name.clone();
+        let played = if (game.card(card_id).is_land()
+            && matches!(
+                play.mode,
+                crate::agent::PlayCardMode::Normal | crate::agent::PlayCardMode::MayPlay(None)
+            ))
+            || play.mode == crate::agent::PlayCardMode::BackFaceLand
+        {
+            self.play_land(
+                game,
+                agents,
+                player,
+                card_id,
+                &card_name,
+                play.mode,
+                play.alt_cost_index,
+            )
+            .map(|(card_id, card_name)| PlaySpellAbilityResult::CardPlayed { card_id, card_name })
+        } else if let Some(result) =
+            self.play_special_card_action(game, agents, player, card_id, play.mode)
+        {
+            result.map(|(card_id, card_name)| PlaySpellAbilityResult::CardPlayed {
+                card_id,
+                card_name,
+            })
+        } else {
+            self.prepare_card_spell_ability(game, player, card_id, play)
+                .and_then(|mut prepared| {
+                    prepared.spell_ability.announced_face_down =
+                        face_down_in_exile && game.mirror_forge_bugs;
+                    self.play_spell_ability(game, agents, player, prepared)
+                })
+        };
+        if played.is_none() && face_down_in_exile && game.card(card_id).zone == ZoneType::Exile {
+            game.card_mut(card_id).turn_face_down();
+        }
+        played
+    }
+
     pub(crate) fn prepare_card_spell_ability(
         &mut self,
         game: &GameState,
@@ -1175,7 +1227,6 @@ impl GameLoop {
         let mut raise_host = game.card(card_id).clone();
         if is_morph_facedown {
             raise_host.turn_face_down_no_update();
-            raise_host.set_original_state_as_face_down();
         }
         let may_play_raise = (raise_host.zone != ZoneType::Hand
             && raise_host.zone != ZoneType::Stack)
@@ -1529,7 +1580,7 @@ impl GameLoop {
         let mut alternate_additional_mana = None;
 
         if let Some(alt_additional) = Some(game.card(card_id))
-            .filter(|card| !card.face_down)
+            .filter(|card| !card.face_down && !sa.announced_face_down)
             .and_then(|card| card.get_keyword_cost("AlternateAdditionalCost"))
         {
             let mut variant_costs: Vec<crate::cost::Cost> = Vec::new();
@@ -1833,7 +1884,6 @@ impl GameLoop {
         if sa.is_spell && sa.alt_cost.is_some_and(|alt| alt.is_morph()) {
             crate::spellability::spell::set_cast_face_down(&mut sa, true);
             game.card_mut(card_id).set_face_down(true);
-            game.card_mut(card_id).set_original_state_as_face_down();
         } else if sa.is_spell && game.card(card_id).face_down {
             game.card_mut(card_id).turn_face_up();
         }

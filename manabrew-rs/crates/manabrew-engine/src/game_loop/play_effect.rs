@@ -34,7 +34,9 @@ impl GameLoop {
             )
         };
         let single_option = candidates.len() == 1 && amount == 1 && sa.ir.optional;
+        let mut turned_face_up = None;
         while !candidates.is_empty() && amount > 0 {
+            play_effect::turn_unplayed_card_face_down(game, turned_face_up.take());
             let Some(card_id) = play_effect::choose_card_to_play(
                 &mut self.effect_context(game, agents, parent_target_card),
                 sa,
@@ -43,6 +45,7 @@ impl GameLoop {
             ) else {
                 break;
             };
+            turned_face_up = play_effect::turn_chosen_card_face_up(game, card_id);
             candidates.retain(|&cid| cid != card_id);
             let card_id = play_effect::copy_card_to_play(
                 &mut self.effect_context(game, agents, parent_target_card),
@@ -58,9 +61,6 @@ impl GameLoop {
                 valid_sa,
             );
             if abilities.is_empty() {
-                if game.mirror_forge_bugs && game.card(card_id).face_down {
-                    game.card_mut(card_id).turn_face_up();
-                }
                 continue;
             }
             let Some(mut tgt_sa) = agents[controller.index()]
@@ -115,9 +115,6 @@ impl GameLoop {
             if self.play_sa_from_play_effect(game, agents, controller, tgt_sa, &play) {
                 play_effect::remember_played(game, sa, card_id);
             } else {
-                if game.mirror_forge_bugs && game.card(card_id).face_down {
-                    game.card_mut(card_id).turn_face_up();
-                }
                 if let Some(effect) = rollback_effect {
                     crate::phase::PhaseCommand::ExileEffect { effect }
                         .run(game, &mut *self.game_rng);
@@ -125,5 +122,6 @@ impl GameLoop {
             }
             amount -= 1;
         }
+        play_effect::turn_unplayed_card_face_down(game, turned_face_up);
     }
 }

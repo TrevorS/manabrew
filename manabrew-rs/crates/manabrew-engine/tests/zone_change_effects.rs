@@ -1331,3 +1331,105 @@ fn an_earthbended_land_stays_a_creature_under_its_own_land_type_static() {
     assert!(card.type_line.is_creature());
     assert_eq!(card.power(), 2);
 }
+
+const FLASHBACK_BOLT: &str = "Name:Flashback Bolt\nManaCost:R\nTypes:Instant\nK:Flashback:1 R\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | SpellDescription$ CARDNAME deals 2 damage to any target.\nOracle:";
+const HILL_OGRE: &str = "Name:Hill Ogre\nManaCost:3 R\nTypes:Creature Ogre\nPT:4/4\nOracle:";
+
+fn exile_top_card_face_down(script: &str) -> (GameState, CardId, CardId) {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let card = put(&mut game, script, p0, ZoneType::Library);
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ Dig | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | ExileFaceDown$ True | NoReveal$ True",
+        None,
+        None,
+        Some(source),
+    );
+    GameLoop::new(2).resolve_stack(&mut game, &mut pass_agents());
+    assert_eq!(game.card(card).zone, ZoneType::Exile);
+    (game, card, source)
+}
+
+fn matches(game: &GameState, valid: &str, card: CardId, source: CardId) -> bool {
+    manabrew_engine::card::valid_filter::matches_valid_card_in_game(
+        valid,
+        game.card(card),
+        game.card(source),
+        game,
+    )
+}
+
+#[test]
+fn a_card_exiled_face_down_is_a_nameless_creature_without_its_keywords() {
+    let (game, bolt, source) = exile_top_card_face_down(FLASHBACK_BOLT);
+    assert!(game.card(bolt).face_down);
+    assert!(!matches(
+        &game,
+        "Card.withFlashback+inZoneExile",
+        bolt,
+        source
+    ));
+    assert!(matches(&game, "Creature.inZoneExile", bolt, source));
+    assert!(!matches(&game, "Instant", bolt, source));
+}
+
+#[test]
+fn a_face_down_exiled_card_that_moves_to_the_graveyard_is_face_up() {
+    let (mut game, bolt, source) = exile_top_card_face_down(FLASHBACK_BOLT);
+    game.move_card(bolt, ZoneType::Graveyard, PlayerId(0));
+    assert!(!game.card(bolt).face_down);
+    assert!(matches(&game, "Instant.withFlashback", bolt, source));
+}
+
+fn put_face_down_exiled_ogre_onto_the_battlefield(ability: &str) -> (bool, i32) {
+    let (mut game, ogre, source) = exile_top_card_face_down(HILL_OGRE);
+    push_effect_entry(
+        &mut game,
+        PlayerId(0),
+        ability,
+        Some(ogre),
+        None,
+        Some(source),
+    );
+    GameLoop::new(2).resolve_stack(&mut game, &mut pass_agents());
+    assert_eq!(game.card(ogre).zone, ZoneType::Battlefield);
+    (game.card(ogre).face_down, game.card(ogre).power())
+}
+
+#[test]
+fn a_face_down_exiled_card_put_onto_the_battlefield_enters_face_up() {
+    assert_eq!(
+        put_face_down_exiled_ogre_onto_the_battlefield(
+            "DB$ ChangeZone | Origin$ Exile | Destination$ Battlefield | ValidTgts$ Card"
+        ),
+        (false, 4)
+    );
+}
+
+#[test]
+fn a_face_down_exiled_card_put_onto_the_battlefield_face_down_stays_face_down() {
+    assert_eq!(
+        put_face_down_exiled_ogre_onto_the_battlefield(
+            "DB$ ChangeZone | Origin$ Exile | Destination$ Battlefield | ValidTgts$ Card | FaceDown$ True"
+        ),
+        (true, 2)
+    );
+}
+
+#[test]
+fn a_heisted_card_is_face_down_in_exile() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    main_phase(&mut game, p0);
+    let bolt = put(&mut game, FLASHBACK_BOLT, p1, ZoneType::Library);
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(&mut game, p0, "DB$ Heist", None, Some(p1), Some(source));
+    GameLoop::new(2).resolve_stack(&mut game, &mut pass_agents());
+    assert_eq!(game.card(bolt).zone, ZoneType::Exile);
+    assert!(game.card(bolt).face_down);
+    assert!(matches(&game, "Creature", bolt, source));
+}

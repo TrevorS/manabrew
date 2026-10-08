@@ -350,47 +350,7 @@ impl GameLoop {
                     let origin_zone = game.card_current_zone(play.card_id);
                     let played =
                         self.with_shared_state_mutation(game, agents, |this, game, agents| {
-                            let card_name = game.card(play.card_id).card_name.clone();
-                            if (game.card(play.card_id).is_land()
-                                && matches!(
-                                    play.mode,
-                                    crate::agent::PlayCardMode::Normal
-                                        | crate::agent::PlayCardMode::MayPlay(None)
-                                ))
-                                || play.mode == crate::agent::PlayCardMode::BackFaceLand
-                            {
-                                this.play_land(
-                                    game,
-                                    agents,
-                                    priority_player,
-                                    play.card_id,
-                                    &card_name,
-                                    play.mode,
-                                    play.alt_cost_index,
-                                )
-                                .map(|(card_id, card_name)| PlaySpellAbilityResult::CardPlayed {
-                                    card_id,
-                                    card_name,
-                                })
-                            } else if let Some(result) = this.play_special_card_action(
-                                game,
-                                agents,
-                                priority_player,
-                                play.card_id,
-                                play.mode,
-                            ) {
-                                result.map(|(card_id, card_name)| {
-                                    PlaySpellAbilityResult::CardPlayed { card_id, card_name }
-                                })
-                            } else {
-                                let prepared = this.prepare_card_spell_ability(
-                                    game,
-                                    priority_player,
-                                    play.card_id,
-                                    play,
-                                )?;
-                                this.play_spell_ability(game, agents, priority_player, prepared)
-                            }
+                            this.play_card_option(game, agents, priority_player, play)
                         });
                     if let Some(PlaySpellAbilityResult::CardPlayed {
                         card_id: played_id,

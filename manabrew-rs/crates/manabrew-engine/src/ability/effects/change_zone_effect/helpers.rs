@@ -286,6 +286,10 @@ pub(super) fn apply_pre_move(
         if sa.is_face_down() {
             crate::card::card_factory_util::turn_face_down_with_state(ctx.game.card_mut(card_id));
             crate::card::card_factory_util::set_face_down_state(ctx.game, card_id, sa);
+        } else if ctx.game.card(card_id).face_down
+            && ctx.game.card(card_id).zone != ZoneType::Battlefield
+        {
+            ctx.game.card_mut(card_id).turn_face_up();
         }
 
         // Transformed$ — before move

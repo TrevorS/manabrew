@@ -3274,10 +3274,35 @@ impl Card {
 
     pub fn turn_face_down(&mut self) {
         self.face_down = true;
+        self.set_original_state_as_face_down();
     }
 
     pub fn turn_face_down_no_update(&mut self) {
         self.face_down = true;
+        self.set_original_state_as_face_down();
+    }
+
+    pub fn exiled_face_up_view(&self) -> std::borrow::Cow<'_, Card> {
+        if self.zone != ZoneType::Exile || self.face_down_state.is_none() {
+            return std::borrow::Cow::Borrowed(self);
+        }
+        let mut card = self.clone();
+        card.show_original_state();
+        std::borrow::Cow::Owned(card)
+    }
+
+    pub fn exiled_face_up_type_line(&self) -> &CardTypeLine {
+        match self.face_down_state.as_deref() {
+            Some(state) if self.zone == ZoneType::Exile => &state.original_type_line,
+            _ => &self.type_line,
+        }
+    }
+
+    pub(crate) fn show_original_state(&mut self) {
+        if let Some(state) = self.face_down_state.take() {
+            self.apply_clone_state(*state);
+            self.retake_animate_snapshot();
+        }
     }
 
     pub fn can_be_turned_face_up(&self) -> bool {

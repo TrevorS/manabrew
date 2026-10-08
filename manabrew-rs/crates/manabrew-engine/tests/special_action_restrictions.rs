@@ -27,6 +27,7 @@ struct Recorder {
     seen: Rc<RefCell<Option<Vec<CardId>>>>,
     turn_up: CardId,
     confirm: bool,
+    cast_pay: Option<ManaCostAction>,
 }
 
 impl PlayerAgent for Recorder {
@@ -62,6 +63,17 @@ impl PlayerAgent for Recorder {
             }
         };
         let first = self.seen.borrow().is_none();
+        if self.cast_pay.is_some() {
+            self.seen.borrow_mut().get_or_insert_with(Vec::new);
+            return match space
+                .playable
+                .iter()
+                .find(|play| play.card_id == self.turn_up)
+            {
+                Some(play) if first => PlayerAction::CastSpell(*play),
+                _ => PlayerAction::PassPriority,
+            };
+        }
         self.seen
             .borrow_mut()
             .get_or_insert_with(|| space.activatable.iter().map(|a| a.card_id).collect());
@@ -137,7 +149,7 @@ impl PlayerAgent for Recorder {
         _untappable_lands: &[CardId],
         _mana_pool: &ManaPool,
     ) -> ManaCostAction {
-        ManaCostAction::Pay { auto: true }
+        self.cast_pay.unwrap_or(ManaCostAction::Pay { auto: true })
     }
     fn choose_land_or_spell(
         &mut self,
@@ -205,6 +217,7 @@ fn offered(split_second: bool) -> (Vec<CardId>, CardId, CardId, bool) {
             seen: Rc::clone(&seen),
             turn_up: spy,
             confirm: false,
+            cast_pay: None,
         }),
         Box::new(PassAgent),
     ];
@@ -266,6 +279,7 @@ fn a_scripted_static_ability_is_offered_and_resolves_under_split_second() {
             seen: Rc::clone(&seen),
             turn_up: vultures,
             confirm: true,
+            cast_pay: None,
         }),
         Box::new(PassAgent),
     ];
@@ -299,6 +313,7 @@ fn loyalty_offered_in_combat(with_effect: bool) -> bool {
             seen: Rc::clone(&seen),
             turn_up: CardId(u32::MAX),
             confirm: false,
+            cast_pay: None,
         }),
         Box::new(PassAgent),
     ];
@@ -339,6 +354,7 @@ fn a_loyalty_ability_records_the_counters_its_cost_removed() {
             seen: Rc::clone(&seen),
             turn_up: walker,
             confirm: true,
+            cast_pay: None,
         }),
         Box::new(PassAgent),
     ];
@@ -366,6 +382,7 @@ fn a_creature_walker_paid_down_to_no_loyalty_dies_as_a_planeswalker() {
             seen: Rc::clone(&seen),
             turn_up: walker,
             confirm: true,
+            cast_pay: None,
         }),
         Box::new(PassAgent),
     ];
@@ -399,6 +416,7 @@ fn station_counts_the_power_of_a_creature_that_left_before_it_resolved() {
             seen: Rc::clone(&seen),
             turn_up: hull,
             confirm: true,
+            cast_pay: None,
         }),
         Box::new(PassAgent),
     ];
@@ -435,6 +453,7 @@ fn a_failed_activation_drops_the_triggers_its_mana_payment_collected() {
             seen: Rc::clone(&seen),
             turn_up: port,
             confirm: true,
+            cast_pay: None,
         }),
         Box::new(PassAgent),
     ];
@@ -471,6 +490,7 @@ fn a_becomes_target_trigger_matches_its_source_ability_by_kind() {
             seen: Rc::clone(&seen),
             turn_up: sorcerer,
             confirm: true,
+            cast_pay: None,
         }),
         Box::new(PassAgent),
     ];
@@ -529,4 +549,88 @@ fn a_braided_net_lock_lasts_past_the_turn_while_its_target_stays_tapped() {
 #[test]
 fn a_braided_net_lock_ends_when_its_target_untaps() {
     assert_eq!(netted_sorcerer_effects(true), 0);
+}
+
+const EXILED_BOLT: &str = "Name:Exiled Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | Defined$ Opponent | NumDmg$ 2 | SpellDescription$ CARDNAME deals 2 damage to each opponent.\nOracle:";
+const SHAPE_EFFECT: &str = "Name:Shape Effect\nManaCost:no cost\nTypes:Effect\nS:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile | EffectZone$ Command | Description$ You may play the exiled cards.\nOracle:";
+const RED_WELL: &str = "Name:Red Well\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ R | SpellDescription$ Add {R}.\nOracle:";
+
+const EXILED_WASTES: &str = "Name:Exiled Wastes\nManaCost:no cost\nTypes:Land\nOracle:";
+
+fn cast_a_face_down_exiled_card(
+    mirror_forge_bugs: bool,
+    pay: ManaCostAction,
+) -> (GameState, CardId, CardId) {
+    play_a_face_down_exiled_card(EXILED_BOLT, mirror_forge_bugs, pay)
+}
+
+fn play_a_face_down_exiled_card(
+    script: &str,
+    mirror_forge_bugs: bool,
+    pay: ManaCostAction,
+) -> (GameState, CardId, CardId) {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    game.mirror_forge_bugs = mirror_forge_bugs;
+    let p0 = PlayerId(0);
+    let bolt = put(&mut game, script, p0, ZoneType::Exile);
+    let effect = put(&mut game, SHAPE_EFFECT, p0, ZoneType::Command);
+    put(&mut game, RED_WELL, p0, ZoneType::Battlefield);
+    game.card_mut(bolt).set_face_down(true);
+    game.card_mut(effect).add_remembered_card(bolt);
+    game.card_mut(effect)
+        .set_forget_on_moved_origin(Some(ZoneType::Exile));
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = forge_foundation::PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Recorder {
+            seen: Rc::new(RefCell::new(None)),
+            turn_up: bolt,
+            confirm: true,
+            cast_pay: Some(pay),
+        }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    (game, bolt, effect)
+}
+
+#[test]
+fn a_face_down_exiled_card_cast_through_a_may_play_resolves_face_up() {
+    let (game, bolt, _) = cast_a_face_down_exiled_card(false, ManaCostAction::Pay { auto: true });
+    assert_eq!(game.player(PlayerId(1)).life, 18);
+    assert_eq!(game.card(bolt).zone, ZoneType::Graveyard);
+    assert!(!game.card(bolt).face_down);
+    assert!(game.card(bolt).type_line.is_instant());
+}
+
+#[test]
+fn a_land_face_down_in_exile_played_through_a_may_play_enters_as_a_land() {
+    let (game, wastes, _) =
+        play_a_face_down_exiled_card(EXILED_WASTES, false, ManaCostAction::Pay { auto: true });
+    assert_eq!(game.card(wastes).zone, ZoneType::Battlefield);
+    assert!(!game.card(wastes).face_down);
+    assert!(game.card(wastes).is_land());
+    assert_eq!(game.player(PlayerId(0)).lands_played_this_turn, 1);
+    assert!(game.stack.get_spells_cast_this_turn().is_empty());
+}
+
+const EXILED_TRIUMPH: &str = "Name:Exiled Triumph\nManaCost:R\nTypes:Instant\nK:AlternateAdditionalCost:PayLife<3>:Discard<1/Card>\nA:SP$ DealDamage | Defined$ Opponent | NumDmg$ 2 | SpellDescription$ CARDNAME deals 2 damage to each opponent.\nOracle:";
+
+#[test]
+fn a_spell_cast_from_face_down_exile_pays_its_additional_cost() {
+    let (game, _, _) =
+        play_a_face_down_exiled_card(EXILED_TRIUMPH, false, ManaCostAction::Pay { auto: true });
+    assert_eq!(game.player(PlayerId(1)).life, 18);
+    assert_eq!(game.player(PlayerId(0)).life, 17);
+}
+
+#[test]
+fn forge_skips_the_additional_cost_of_a_spell_cast_from_face_down_exile() {
+    let (game, _, _) =
+        play_a_face_down_exiled_card(EXILED_TRIUMPH, true, ManaCostAction::Pay { auto: true });
+    assert_eq!(game.player(PlayerId(1)).life, 18);
+    assert_eq!(game.player(PlayerId(0)).life, 20);
 }

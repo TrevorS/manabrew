@@ -38,7 +38,6 @@ fn restriction_host(game: &GameState, card: &Card, spell: &SpellAbility) -> Card
     host.cast_sa = Some(Box::new(spell.clone()));
     if card.stale_face_down {
         host.turn_face_down_no_update();
-        host.set_original_state_as_face_down();
         host.color = card.color;
         host.base_power = card.base_power;
         host.base_toughness = card.base_toughness;

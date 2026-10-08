@@ -818,7 +818,8 @@ impl DeterministicAgent {
         let card = self
             .snapshot_cards()
             .iter()
-            .find(|c| c.id == play.card_id)?;
+            .find(|c| c.id == play.card_id)?
+            .exiled_face_up_view();
         let other = card.other_part.as_ref()?;
         let front = format!("{} - ", card.card_name);
         match other.state_name {
@@ -845,7 +846,8 @@ impl DeterministicAgent {
         let card = self
             .snapshot_cards()
             .iter()
-            .find(|c| c.id == play.card_id)?;
+            .find(|c| c.id == play.card_id)?
+            .exiled_face_up_view();
         if card.type_line.is_land() || !card.is_permanent() {
             return None;
         }
@@ -861,7 +863,8 @@ impl DeterministicAgent {
         let card = self
             .snapshot_cards()
             .iter()
-            .find(|c| c.id == play.card_id)?;
+            .find(|c| c.id == play.card_id)?
+            .exiled_face_up_view();
         let (front, back) = card.full_name.split_once(" // ")?;
         Some(match play.mode {
             PlayCardMode::Normal => front.trim().to_string(),
@@ -875,7 +878,8 @@ impl DeterministicAgent {
         let card = self
             .snapshot_cards()
             .iter()
-            .find(|c| c.id == play.card_id)?;
+            .find(|c| c.id == play.card_id)?
+            .exiled_face_up_view();
         let other = card.other_part.as_ref()?;
         if other.state_name != forge_foundation::CardStateName::RightSplit {
             return None;
@@ -1187,7 +1191,9 @@ impl PlayerAgent for DeterministicAgent {
             );
             refill(
                 &mut card_is_land,
-                game.cards.iter().map(|c| (c.id, c.is_land())),
+                game.cards
+                    .iter()
+                    .map(|c| (c.id, c.exiled_face_up_type_line().is_land())),
             );
             refill(
                 &mut card_owner_controller,
@@ -3113,5 +3119,32 @@ mod tests {
             }))
         };
         assert!(key(1) < key(0), "{} / {}", key(1), key(0));
+    }
+
+    #[test]
+    fn a_land_face_down_in_exile_sorts_as_a_nameless_land_play() {
+        let mut game = GameState::new(&["Player1", "Player2"], 20);
+        let p0 = PlayerId(0);
+        let rules = parse_card_script("Name:Exiled Wastes\nManaCost:no cost\nTypes:Land\nOracle:")
+            .expect("script");
+        let land = game.create_card(CardInstance::from_rules(&rules, p0));
+        game.move_card(land, ZoneType::Exile, p0);
+        game.card_mut(land).set_face_down(true);
+        let pools = vec![ManaPool::new(), ManaPool::new()];
+        let mut agent = DeterministicAgent::new(
+            p0,
+            VerboseMode::Off,
+            Rc::new(RefCell::new(JavaRandom::new(0))),
+            false,
+            Arc::new(ParityCardMap::default()),
+            None,
+        );
+        agent.snapshot_state(&game, &pools);
+        let key = agent.action_sort_key(&ActionChoice::Card(PlayOption {
+            card_id: land,
+            mode: PlayCardMode::Normal,
+            alt_cost_index: 0,
+        }));
+        assert!(key.starts_with("LAND:|"), "{key}");
     }
 }

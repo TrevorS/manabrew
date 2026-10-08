@@ -188,7 +188,6 @@ impl GameLoop {
         let mut host = game.card(card_id).clone();
         if !host.stale_face_down {
             host.turn_face_down_no_update();
-            host.set_original_state_as_face_down();
         }
         let zone = host.zone;
         let raise_cost =
@@ -668,6 +667,63 @@ impl GameLoop {
 
     /// Get cards the active player can play.
     pub(crate) fn get_playable_cards(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        must_be_instant: bool,
+    ) -> Vec<crate::agent::PlayOption> {
+        match Self::face_up_exile_view(game, player) {
+            Some(view) => self.playable_cards_in(&view, player, must_be_instant),
+            None => self.playable_cards_in(game, player, must_be_instant),
+        }
+    }
+
+    /// Java `Card.getAllPossibleAbilities` offers a card face down in exile the spells of its
+    /// `Original` state. The view shows those characteristics on each such card the player may
+    /// cast (a may-play grant, or its own foretold card) and keeps it face down, so the probe
+    /// still tests the face-down host.
+    fn face_up_exile_view(game: &GameState, player: PlayerId) -> Option<GameState> {
+        let mut statics = None;
+        let shown: Vec<CardId> = game
+            .player_order
+            .iter()
+            .flat_map(|&owner| game.cards_in_zone(ZoneType::Exile, owner).iter().copied())
+            .filter(|&card_id| {
+                let card = game.card(card_id);
+                if !card.face_down || card.face_down_state.is_none() {
+                    return false;
+                }
+                if card.foretold && card.owner == player {
+                    return true;
+                }
+                let statics = statics.get_or_insert_with(|| {
+                    crate::staticability::static_ability_continuous::may_play_statics(game)
+                        .collect::<Vec<_>>()
+                });
+                crate::staticability::static_ability_continuous::may_play_grants_among(
+                    statics.iter().copied(),
+                    game,
+                    player,
+                    card,
+                )
+                .any(|(source, st_ab)| {
+                    crate::staticability::static_ability_continuous::grants_zone_permissions(
+                        st_ab, source, card, game,
+                    )
+                })
+            })
+            .collect();
+        if shown.is_empty() {
+            return None;
+        }
+        let mut view = game.clone();
+        for card_id in shown {
+            view.card_mut(card_id).show_original_state();
+        }
+        Some(view)
+    }
+
+    fn playable_cards_in(
         &self,
         game: &GameState,
         player: PlayerId,
@@ -3103,6 +3159,36 @@ mod tests {
             )),
             2
         );
+    }
+
+    const FORETOLD_BOLT: &str = "Name:Foretold Bolt\nManaCost:2 R\nTypes:Instant\nK:Foretell:R\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | SpellDescription$ CARDNAME deals 2 damage to any target.\nOracle:";
+    const RED_SPRING: &str = "Name:Red Spring\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ R | SpellDescription$ Add {R}.\nOracle:";
+
+    #[test]
+    fn a_foretold_card_face_down_in_exile_is_offered_for_its_foretell_cost() {
+        let player = PlayerId(0);
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        let mut put = |script: &str, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, player));
+            game.move_card(card, zone, player);
+            card
+        };
+        let bolt = put(FORETOLD_BOLT, ZoneType::Exile);
+        put(RED_SPRING, ZoneType::Battlefield);
+        game.card_mut(bolt).set_face_down(true);
+        game.card_mut(bolt).set_foretold(true);
+        game.turn.turn_number += 1;
+        assert!(game.card(bolt).type_line.is_creature());
+        assert!(GameLoop::new(2)
+            .get_playable_cards(&game, player, false)
+            .iter()
+            .any(|option| option.card_id == bolt
+                && option.mode
+                    == crate::agent::PlayCardMode::Alternative(
+                        crate::spellability::AlternativeCost::Foretell
+                    )));
     }
 
     const EXILED_SHOCK: &str = "Name:Shock\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | SpellDescription$ CARDNAME deals 2 damage to any target.\nOracle:";

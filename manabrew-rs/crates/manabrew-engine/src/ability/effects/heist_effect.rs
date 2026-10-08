@@ -30,8 +30,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let Some(&top) = lib.last() else { break };
 
         let old_zone = ctx.game.card(top).zone;
-        ctx.game.card_mut(top).set_face_down(true);
         ctx.exile(top, Some(sa));
+        ctx.game.card_mut(top).set_face_down(true);
 
         // Mark with exiled_by so controller can look at and cast it
         if let Some(sid) = sa.source {

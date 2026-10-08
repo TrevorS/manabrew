@@ -282,6 +282,11 @@ pub struct SpellAbility {
     /// Runtime-only face-down cast state used by morph/disguise-style spells.
     #[serde(default)]
     pub cast_face_down: bool,
+    /// Forge's harness picks a spell's additional-cost variant (`getAdditionalCostSpell`) before
+    /// `moveToStack`, while a card cast from face-down exile still has no keywords; set under
+    /// `mirror_forge_bugs` for such a cast.
+    #[serde(default)]
+    pub announced_face_down: bool,
     /// Trigger objects map for tracking trigger context.
     #[serde(default)]
     pub trigger_objects: HashMap<AbilityKey, AbilityValue>,
@@ -755,6 +760,7 @@ impl SpellAbility {
             is_mana_ability: false,
             is_land_ability: false,
             cast_face_down: false,
+            announced_face_down: false,
             trigger_objects: HashMap::default(),
             trigger_object_timestamps: Vec::new(),
             trigger_spell_abilities: HashMap::default(),

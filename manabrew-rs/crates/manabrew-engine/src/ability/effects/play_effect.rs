@@ -26,10 +26,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     let mut amount = play_amount(ctx, sa, candidates.len());
     let single_option = candidates.len() == 1 && amount == 1 && sa.ir.optional;
+    let mut turned_face_up = None;
     while !candidates.is_empty() && amount > 0 {
+        turn_unplayed_card_face_down(ctx.game, turned_face_up.take());
         let Some(card_id) = choose_card_to_play(ctx, sa, &candidates, single_option) else {
             break;
         };
+        turned_face_up = turn_chosen_card_face_up(ctx.game, card_id);
         candidates.retain(|&cid| cid != card_id);
         let card_id = copy_card_to_play(ctx, sa, card_id);
 
@@ -37,9 +40,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ctx.game, card_id, controller, false, valid_sa,
         );
         if abilities.is_empty() {
-            if ctx.game.mirror_forge_bugs && ctx.game.card(card_id).face_down {
-                ctx.game.card_mut(card_id).turn_face_up();
-            }
             continue;
         }
         let sa_idx = ctx.agents[controller.index()].get_ability_to_play(
@@ -293,9 +293,33 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         amount -= 1;
     }
+    turn_unplayed_card_face_down(ctx.game, turned_face_up);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
+
+/// Java `PlayEffect` turns a face-down card face up (`forceTurnFaceUp`) before it collects its
+/// spells, and leaves it face up when nothing is played (Forge bug, kept under
+/// `mirror_forge_bugs`); otherwise a card that was not played goes back face down.
+pub(crate) fn turn_chosen_card_face_up(
+    game: &mut crate::game::GameState,
+    card_id: CardId,
+) -> Option<CardId> {
+    if !game.card(card_id).face_down {
+        return None;
+    }
+    game.card_mut(card_id).turn_face_up();
+    (!game.mirror_forge_bugs).then_some(card_id)
+}
+
+pub(crate) fn turn_unplayed_card_face_down(
+    game: &mut crate::game::GameState,
+    card_id: Option<CardId>,
+) {
+    if let Some(card_id) = card_id.filter(|&card_id| game.card(card_id).zone == ZoneType::Exile) {
+        game.card_mut(card_id).turn_face_down();
+    }
+}
 
 pub(crate) fn get_tgt_cards(ctx: &EffectContext, sa: &SpellAbility) -> Vec<CardId> {
     let mut candidates = resolve_target_cards(ctx, sa);
