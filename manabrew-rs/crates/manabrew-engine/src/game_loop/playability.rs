@@ -2240,31 +2240,6 @@ impl GameLoop {
                                 cost, game, card_id, player,
                             )
                     }
-                    crate::spellability::AlternativeCost::Harmonize => {
-                        let harmonize_mana = Self::mana_from_cost(cost);
-                        let payment_ctx = mana::ManaPaymentContext {
-                            mana_value: Some(crate::mana::spell_restriction_mana_value(
-                                game,
-                                card.mana_value(),
-                                harmonize_mana.cmc(),
-                            )),
-                            ..Self::spell_payment_context(card, &chosen_types_by_source)
-                        };
-                        let harmonize_available = mana::calculate_available_mana_with_context(
-                            self.pool(player),
-                            game,
-                            player,
-                            Some(card_id),
-                            &[],
-                            Some(&payment_ctx),
-                        );
-                        let harmonize_base = if harmonize_mana.count_x() > 0 {
-                            harmonize_mana.without_x()
-                        } else {
-                            harmonize_mana
-                        };
-                        harmonize_available.can_pay(&harmonize_base) && sp_additional_ok
-                    }
                     crate::spellability::AlternativeCost::Escape => {
                         let exile_count = card.get_escape_cost().map_or(0, |(_, count)| count);
                         let other_gy_count = game
@@ -2282,7 +2257,8 @@ impl GameLoop {
                             &chosen_types_by_source,
                         ) && other_gy_count >= exile_count
                     }
-                    crate::spellability::AlternativeCost::Mayhem => {
+                    crate::spellability::AlternativeCost::Mayhem
+                    | crate::spellability::AlternativeCost::Harmonize => {
                         self.can_pay_graveyard_spell_mana(
                             game,
                             player,

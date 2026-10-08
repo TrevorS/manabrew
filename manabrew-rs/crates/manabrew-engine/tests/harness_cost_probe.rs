@@ -321,3 +321,26 @@ fn the_harness_probe_rotates_the_pool_for_an_ability_with_no_target() {
         vec![vec![ManaAtom::RED, ManaAtom::GREEN]]
     );
 }
+
+const GRAVE_SONG: &str = "Name:Grave Song\nManaCost:2 G\nTypes:Instant\nK:Harmonize:G\nA:SP$ GainLife | LifeAmount$ 1 | Defined$ You | SpellDescription$ You gain 1 life.\nOracle:";
+
+fn pool_order_after_a_harmonize_probe(mirror_forge_bugs: bool) -> Vec<Vec<u16>> {
+    let (game, _, offered) = run_offers(mirror_forge_bugs, |game| {
+        put(game, ONE_BOLT, PlayerId(0), ZoneType::Hand);
+        put(game, GRAVE_SONG, PlayerId(0), ZoneType::Graveyard);
+    });
+    assert_eq!(game.player(PlayerId(1)).life, 19);
+    offered
+}
+
+#[test]
+fn the_harness_probe_rotates_the_pool_for_a_harmonize_cast() {
+    assert_eq!(
+        pool_order_after_a_harmonize_probe(false),
+        vec![vec![ManaAtom::RED, ManaAtom::GREEN]]
+    );
+    assert_eq!(
+        pool_order_after_a_harmonize_probe(true),
+        vec![vec![ManaAtom::RED, ManaAtom::GREEN]]
+    );
+}
