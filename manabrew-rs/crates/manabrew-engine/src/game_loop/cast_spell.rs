@@ -503,6 +503,47 @@ impl GameLoop {
         }
     }
 
+    /// Java's `ManaRefundService.refundManaPaid` undoes only the mana abilities that can be
+    /// undone, so a rolled-back cast replays the others after the snapshot comes back.
+    fn replay_non_undoable_mana_abilities(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        player: PlayerId,
+        non_undoable: Vec<mana::AutoTapChoice>,
+        cast_rollback_rng: Option<crate::game_rng::GameRngState>,
+    ) {
+        let rng_after_payment = if non_undoable.is_empty() {
+            None
+        } else {
+            self.game_rng.save_state()
+        };
+        if let (Some(_), Some(state)) = (rng_after_payment.as_ref(), cast_rollback_rng) {
+            self.game_rng.restore_state(state);
+        }
+        for choice in non_undoable {
+            let Some(ability_index) = choice.mana_ability_index else {
+                continue;
+            };
+            let mut replacement_pools = (0..game.players.len()).map(|_| ManaPool::new()).collect();
+            let (pool, mut runtime) = self.mana_payment_runtime(player, &mut replacement_pools);
+            if crate::mana::computer_util_mana::reapply_non_undoable_payment_ability(
+                game,
+                pool,
+                &mut runtime,
+                agents,
+                player,
+                &choice,
+                ability_index,
+            ) {
+                self.resolve_mana_sub_ability(game, agents, player, choice.card_id, ability_index);
+            }
+        }
+        if let Some(state) = rng_after_payment {
+            self.game_rng.restore_state(state);
+        }
+    }
+
     fn restore_cast_rollback(
         &mut self,
         game: &mut GameState,
@@ -1831,6 +1872,8 @@ impl GameLoop {
 
         let cast_rollback_snapshot = self.make_snapshot(game, true);
         let cast_rollback_rng = self.game_rng.save_state();
+        let non_undoable_choices: std::cell::RefCell<Vec<mana::AutoTapChoice>> =
+            std::cell::RefCell::new(Vec::new());
         let announced_from_zone = game.card_current_zone(card_id);
         if sa.is_spell && announced_from_zone != ZoneType::Hand {
             if let Some((source, index)) =
@@ -1946,6 +1989,13 @@ impl GameLoop {
                     &cast_rollback_snapshot,
                     card_id,
                     rollback_leaves_face_down,
+                );
+                self.replay_non_undoable_mana_abilities(
+                    game,
+                    agents,
+                    player,
+                    non_undoable_choices.take(),
+                    cast_rollback_rng,
                 );
                 notify_payment_failed!();
                 return None;
@@ -2537,8 +2587,6 @@ impl GameLoop {
         let paying_mana_to_cast = std::cell::RefCell::new(Vec::new());
         let paying_sources_to_cast = std::cell::RefCell::new(Vec::new());
         let convoked_to_cast = std::cell::RefCell::new(Vec::new());
-        let failed_non_undoable_choices: std::cell::RefCell<Vec<mana::AutoTapChoice>> =
-            std::cell::RefCell::new(Vec::new());
         let failed_improvised: std::cell::RefCell<Vec<CardId>> =
             std::cell::RefCell::new(Vec::new());
 
@@ -2625,13 +2673,13 @@ impl GameLoop {
                                 },
                             })
                             .collect();
+                        non_undoable_choices.borrow_mut().extend(
+                            crate::mana::computer_util_mana::non_undoable_payment_choices(
+                                game,
+                                &result.choices,
+                            ),
+                        );
                         if result.cancelled {
-                            failed_non_undoable_choices.borrow_mut().extend(
-                                crate::mana::computer_util_mana::non_undoable_payment_choices(
-                                    game,
-                                    &result.choices,
-                                ),
-                            );
                             failed_improvised.borrow_mut().extend(
                                 result
                                     .convoked
@@ -2755,7 +2803,7 @@ impl GameLoop {
                     } else {
                         Vec::new()
                     };
-                let non_undoable = std::mem::take(&mut *failed_non_undoable_choices.borrow_mut());
+                let non_undoable = non_undoable_choices.take();
                 Self::trace_cast_rollback(game, card_id, line!());
                 self.restore_cast_rollback(
                     game,
@@ -2768,43 +2816,13 @@ impl GameLoop {
                         game.card_mut(improvised_id).set_tapped(true);
                     }
                 }
-                let rng_after_payment = if non_undoable.is_empty() {
-                    None
-                } else {
-                    self.game_rng.save_state()
-                };
-                if let (Some(_), Some(state)) = (rng_after_payment, cast_rollback_rng) {
-                    self.game_rng.restore_state(state);
-                }
-                for choice in non_undoable {
-                    let Some(ability_index) = choice.mana_ability_index else {
-                        continue;
-                    };
-                    let mut replacement_pools =
-                        (0..game.players.len()).map(|_| ManaPool::new()).collect();
-                    let (pool, mut runtime) =
-                        self.mana_payment_runtime(player, &mut replacement_pools);
-                    if crate::mana::computer_util_mana::reapply_non_undoable_payment_ability(
-                        game,
-                        pool,
-                        &mut runtime,
-                        agents,
-                        player,
-                        &choice,
-                        ability_index,
-                    ) {
-                        self.resolve_mana_sub_ability(
-                            game,
-                            agents,
-                            player,
-                            choice.card_id,
-                            ability_index,
-                        );
-                    }
-                }
-                if let Some(state) = rng_after_payment {
-                    self.game_rng.restore_state(state);
-                }
+                self.replay_non_undoable_mana_abilities(
+                    game,
+                    agents,
+                    player,
+                    non_undoable,
+                    cast_rollback_rng,
+                );
                 for tapped_id in tapped_after_failed_mana_payment {
                     if game.card_is_in_zone(tapped_id, ZoneType::Battlefield) {
                         game.card_mut(tapped_id).set_tapped(true);

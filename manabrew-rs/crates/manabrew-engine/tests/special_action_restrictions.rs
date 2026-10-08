@@ -714,3 +714,32 @@ fn an_opponents_cast_lock_keeps_a_flashback_in_the_graveyard_from_being_offered(
     assert_eq!(game.player(PlayerId(1)).life, 20);
     assert!(offers.is_empty());
 }
+
+const LIFE_WELL: &str = "Name:Life Well\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T PayLife<1> | Produced$ B | SpellDescription$ Add {B}.\nOracle:";
+const COSTLY_DRAIN: &str = "Name:Costly Drain\nManaCost:B\nTypes:Instant\nA:SP$ LoseLife | Cost$ B PayLife<3> | Defined$ Opponent | LifeAmount$ 1 | SpellDescription$ Each opponent loses 1 life.\nOracle:";
+
+#[test]
+fn a_cast_that_fails_after_its_mana_keeps_the_life_a_mana_ability_paid() {
+    let mut game = GameState::new(&["Alice", "Bob"], 3);
+    let p0 = PlayerId(0);
+    let drain = put(&mut game, COSTLY_DRAIN, p0, ZoneType::Hand);
+    let well = put(&mut game, LIFE_WELL, p0, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = forge_foundation::PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Recorder {
+            seen: Rc::new(RefCell::new(None)),
+            turn_up: drain,
+            confirm: true,
+            cast_pay: Some(ManaCostAction::Pay { auto: true }),
+        }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.card(drain).zone, ZoneType::Hand);
+    assert!(game.card(well).tapped);
+    assert_eq!(game.player(p0).life, 2);
+    assert_eq!(game.player(PlayerId(1)).life, 3);
+}
