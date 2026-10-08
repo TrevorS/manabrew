@@ -674,3 +674,43 @@ fn forge_skips_the_additional_cost_of_a_spell_cast_from_face_down_exile() {
     assert_eq!(game.player(PlayerId(1)).life, 18);
     assert_eq!(game.player(PlayerId(0)).life, 20);
 }
+
+const TURN_LOCK: &str = "Name:Turn Lock\nManaCost:2 W\nTypes:Enchantment\nS:Mode$ CantBeCast | ValidCard$ Card | Condition$ PlayerTurn | Caster$ Opponent | Description$ Your opponents can't cast spells during your turn.\nOracle:";
+const FLASHBACK_BOLT: &str = "Name:Flashback Bolt\nManaCost:R\nTypes:Instant\nK:Flashback:R\nA:SP$ DealDamage | Defined$ Opponent | NumDmg$ 1 | SpellDescription$ CARDNAME deals 1 damage to each opponent.\nOracle:";
+
+fn flashback_on_the_opponents_turn(locked: bool) -> (GameState, Vec<CardId>) {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let bolt = put(&mut game, FLASHBACK_BOLT, p0, ZoneType::Graveyard);
+    put(&mut game, RED_WELL, p0, ZoneType::Battlefield);
+    if locked {
+        put(&mut game, TURN_LOCK, p1, ZoneType::Battlefield);
+    }
+    game.turn.active_player = p1;
+    game.new_turn_for_player(p1);
+    game.turn.phase = forge_foundation::PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(None));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Recorder {
+            seen: seen.clone(),
+            turn_up: bolt,
+            confirm: true,
+            cast_pay: Some(ManaCostAction::Pay { auto: true }),
+        }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    let offers = seen.borrow().clone().unwrap_or_default();
+    (game, offers)
+}
+
+#[test]
+fn an_opponents_cast_lock_keeps_a_flashback_in_the_graveyard_from_being_offered() {
+    let (game, _) = flashback_on_the_opponents_turn(false);
+    assert_eq!(game.player(PlayerId(1)).life, 19);
+    let (game, offers) = flashback_on_the_opponents_turn(true);
+    assert_eq!(game.player(PlayerId(1)).life, 20);
+    assert!(offers.is_empty());
+}

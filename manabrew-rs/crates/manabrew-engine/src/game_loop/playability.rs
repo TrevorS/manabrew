@@ -2282,7 +2282,7 @@ impl GameLoop {
                     }
                     _ => false,
                 };
-                if payable {
+                if payable && !crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(&game.cards, &alternative, card, player, game) {
                     playable.push(crate::agent::PlayOption {
                         card_id,
                         mode: crate::agent::PlayCardMode::Alternative(alt_cost),
@@ -2514,7 +2514,9 @@ impl GameLoop {
                             .as_ref()
                             .map(Self::mana_from_cost)
                             .unwrap_or_else(forge_foundation::ManaCost::zero);
-                        if available_mana.can_pay(&cost_adj.apply(&foretell_mc)) {
+                        if available_mana.can_pay(&cost_adj.apply(&foretell_mc))
+                            && !crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(&game.cards, &alternative, card, player, game)
+                        {
                             playable.push(crate::agent::PlayOption {
                                 card_id,
                                 mode: crate::agent::PlayCardMode::Alternative(
@@ -2548,6 +2550,7 @@ impl GameLoop {
                     && !target_restrictions::has_candidates_in_spell_ability_chain(
                         game, player, &cast_sa,
                     )
+                    || crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(&game.cards, &cast_sa, card, player, game)
                 {
                     continue;
                 }
@@ -2636,7 +2639,15 @@ impl GameLoop {
                     &[],
                     Some(&payment_ctx),
                 );
-                if available_mana.can_pay_with_extra_generic(&adjusted_cost, tax) {
+                if available_mana.can_pay_with_extra_generic(&adjusted_cost, tax)
+                    && !crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
+                        &game.cards,
+                        &crate::spellability::build_spell_ability_for_card_cast(game, card_id, player),
+                        card,
+                        player,
+                        game,
+                    )
+                {
                     playable.push(crate::agent::PlayOption {
                         card_id,
                         mode: crate::agent::PlayCardMode::Normal,
