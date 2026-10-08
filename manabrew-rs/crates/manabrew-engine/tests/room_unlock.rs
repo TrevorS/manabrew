@@ -22,6 +22,7 @@ const SPELL_TABLET: &str = "Name:Spell Tablet\nManaCost:2\nTypes:Artifact\nA:AB$
 
 struct Watch {
     unlocks: Rc<RefCell<Option<usize>>>,
+    mode: PlayCardMode,
 }
 
 impl PlayerAgent for Watch {
@@ -62,7 +63,7 @@ impl PlayerAgent for Watch {
                 space
                     .playable
                     .iter()
-                    .filter(|play| play.mode == PlayCardMode::UnlockDoor)
+                    .filter(|play| play.mode == self.mode)
                     .count(),
             );
         }
@@ -165,6 +166,7 @@ fn unlocks_offered(sources: &[&str], probe: ActionSpaceManaProbe) -> usize {
     let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
         Box::new(Watch {
             unlocks: Rc::clone(&unlocks),
+            mode: PlayCardMode::UnlockDoor,
         }),
         Box::new(PassAgent),
     ];
@@ -221,4 +223,40 @@ fn a_room_door_cast_has_that_doors_mana_value_on_the_stack() {
     let right = room_in(&mut game, ZoneType::Stack);
     game.card_mut(right).transform();
     assert_eq!(game.card(right).mana_value(), 2);
+}
+
+const GRAVE_GRANT: &str = "Name:Grave Grant\nManaCost:no cost\nTypes:Effect\nS:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered | AffectedZone$ Graveyard | EffectZone$ Command | Description$ You may play the remembered card.\nOracle:";
+
+fn doors_offered_from_the_graveyard(mode: PlayCardMode) -> usize {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let room = room_in(&mut game, ZoneType::Graveyard);
+    let grant = put(&mut game, GRAVE_GRANT, p0, ZoneType::Command);
+    game.card_mut(grant).add_remembered_card(room);
+    for _ in 0..2 {
+        put(&mut game, SWAMP, p0, ZoneType::Battlefield);
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let offered = Rc::new(RefCell::new(None));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Watch {
+            unlocks: Rc::clone(&offered),
+            mode,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    let offered = offered.borrow().expect("p0 got priority");
+    offered
+}
+
+#[test]
+fn a_room_cast_from_the_graveyard_through_a_grant_offers_both_doors() {
+    assert_eq!(doors_offered_from_the_graveyard(PlayCardMode::Normal), 1);
+    assert_eq!(
+        doors_offered_from_the_graveyard(PlayCardMode::RoomRightSplit),
+        1
+    );
 }

@@ -1905,6 +1905,19 @@ impl GameLoop {
                             });
                         }
                     }
+                    if !must_be_instant || has_flash_permission(card_id) {
+                        playable.extend(self.may_play_room_right_split_options(
+                            game,
+                            player,
+                            card_id,
+                            ZoneType::Graveyard,
+                            normal_grants,
+                            &crate::staticability::static_ability_continuous::may_play_alt_costs(
+                                game, player, card,
+                            ),
+                            &chosen_types_by_source,
+                        ));
+                    }
                     for alt_cost_index in other_faces.defer(|| {
                         self.may_play_secondary_spell_grants(
                             game,
@@ -2434,47 +2447,15 @@ impl GameLoop {
                             &chosen_types_by_source,
                         ));
                     }
-                    let room_right_split_cost = card
-                        .type_line
-                        .has_subtype("Room")
-                        .then(|| card.svars.get("RoomRightSplitCost").cloned())
-                        .flatten();
-                    if let Some(cost) = room_right_split_cost {
-                        if normal_grants > 0
-                            && self.can_cast_may_play_spell(
-                                game,
-                                player,
-                                card_id,
-                                ZoneType::Exile,
-                                Some(cost),
-                                &chosen_types_by_source,
-                            )
-                        {
-                            for _ in 0..normal_grants {
-                                playable.push(crate::agent::PlayOption {
-                                    card_id,
-                                    mode: crate::agent::PlayCardMode::RoomRightSplit,
-                                    alt_cost_index: 0,
-                                });
-                            }
-                        }
-                        for (alt_cost_index, alt_cost) in may_play_costs.into_iter().enumerate() {
-                            if self.can_cast_may_play_spell(
-                                game,
-                                player,
-                                card_id,
-                                ZoneType::Exile,
-                                Some(alt_cost),
-                                &chosen_types_by_source,
-                            ) {
-                                playable.push(crate::agent::PlayOption {
-                                    card_id,
-                                    mode: crate::agent::PlayCardMode::RoomRightSplit,
-                                    alt_cost_index: alt_cost_index as u8 + 1,
-                                });
-                            }
-                        }
-                    }
+                    playable.extend(self.may_play_room_right_split_options(
+                        game,
+                        player,
+                        card_id,
+                        ZoneType::Exile,
+                        normal_grants,
+                        &may_play_costs,
+                        &chosen_types_by_source,
+                    ));
                 }
                 continue;
             }
@@ -2725,13 +2706,13 @@ impl GameLoop {
                     });
                 }
             }
-            for (alt_cost_index, alt_cost) in may_play_costs.into_iter().enumerate() {
+            for (alt_cost_index, alt_cost) in may_play_costs.iter().enumerate() {
                 if self.can_cast_may_play_spell(
                     game,
                     player,
                     card_id,
                     ZoneType::Library,
-                    Some(alt_cost),
+                    Some(alt_cost.clone()),
                     &chosen_types_by_source,
                 ) {
                     playable.push(crate::agent::PlayOption {
@@ -2741,6 +2722,15 @@ impl GameLoop {
                     });
                 }
             }
+            playable.extend(self.may_play_room_right_split_options(
+                game,
+                player,
+                card_id,
+                ZoneType::Library,
+                normal_grants,
+                &may_play_costs,
+                &chosen_types_by_source,
+            ));
             if !must_be_instant {
                 playable.extend(self.may_play_morph_options(
                     game,
@@ -3000,6 +2990,61 @@ impl GameLoop {
         }
         if cant_be_cast {
             options.clear();
+        }
+        options
+    }
+
+    /// A Room's right door is a spell of the card (`CardState.updateSpellAbilities`), so each
+    /// grant that lets the card be cast offers it beside the left door.
+    #[allow(clippy::too_many_arguments)]
+    fn may_play_room_right_split_options(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+        zone: ZoneType,
+        normal_grants: usize,
+        may_play_costs: &[String],
+        chosen_types_by_source: &crate::HashMap<CardId, String>,
+    ) -> Vec<crate::agent::PlayOption> {
+        let card = game.card(card_id);
+        let Some(cost) = card
+            .type_line
+            .has_subtype("Room")
+            .then(|| card.svars.get("RoomRightSplitCost").cloned())
+            .flatten()
+        else {
+            return Vec::new();
+        };
+        let right_door = |alt_cost_index| crate::agent::PlayOption {
+            card_id,
+            mode: crate::agent::PlayCardMode::RoomRightSplit,
+            alt_cost_index,
+        };
+        let mut options = Vec::new();
+        if normal_grants > 0
+            && self.can_cast_may_play_spell(
+                game,
+                player,
+                card_id,
+                zone,
+                Some(cost),
+                chosen_types_by_source,
+            )
+        {
+            options.extend(std::iter::repeat_n(right_door(0), normal_grants));
+        }
+        for (alt_cost_index, alt_cost) in may_play_costs.iter().enumerate() {
+            if self.can_cast_may_play_spell(
+                game,
+                player,
+                card_id,
+                zone,
+                Some(alt_cost.clone()),
+                chosen_types_by_source,
+            ) {
+                options.push(right_door(alt_cost_index as u8 + 1));
+            }
         }
         options
     }
