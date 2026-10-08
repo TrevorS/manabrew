@@ -607,6 +607,24 @@ fn a_face_down_exiled_card_cast_through_a_may_play_resolves_face_up() {
 }
 
 #[test]
+fn a_failed_cast_of_a_face_down_exiled_card_restores_it_face_down_and_castable() {
+    let (game, bolt, effect) =
+        cast_a_face_down_exiled_card(false, ManaCostAction::AttemptedAndFailed);
+    assert_eq!(game.card(bolt).zone, ZoneType::Exile);
+    assert!(game.card(bolt).face_down);
+    assert!(game.card(effect).remembered_cards.contains(&bolt));
+}
+
+#[test]
+fn forge_returns_a_failed_face_down_exile_cast_face_up_and_forgotten() {
+    let (game, bolt, effect) =
+        cast_a_face_down_exiled_card(true, ManaCostAction::AttemptedAndFailed);
+    assert_eq!(game.card(bolt).zone, ZoneType::Exile);
+    assert!(!game.card(bolt).face_down);
+    assert!(!game.card(effect).remembered_cards.contains(&bolt));
+}
+
+#[test]
 fn a_land_face_down_in_exile_played_through_a_may_play_enters_as_a_land() {
     let (game, wastes, _) =
         play_a_face_down_exiled_card(EXILED_WASTES, false, ManaCostAction::Pay { auto: true });

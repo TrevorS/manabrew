@@ -614,7 +614,13 @@ impl GameLoop {
                 })
         };
         if played.is_none() && face_down_in_exile && game.card(card_id).zone == ZoneType::Exile {
-            game.card_mut(card_id).turn_face_down();
+            if game.mirror_forge_bugs {
+                // Forge rollbackAbility puts the face-up stack card back in exile, after its
+                // ForgetOnMoved$ Exile effects already forgot it
+                game.forget_on_cast(card_id);
+            } else {
+                game.card_mut(card_id).turn_face_down();
+            }
         }
         played
     }
