@@ -2337,102 +2337,105 @@ impl GameLoop {
                 if must_be_instant && !has_flash_permission(card_id) {
                     continue;
                 }
-                let may_play_costs =
-                    crate::staticability::static_ability_continuous::may_play_alt_costs(
-                        game, player, card,
-                    );
-                let normal_grants = count_may_play_grants(card_id)
-                    .max(1)
-                    .saturating_sub(may_play_costs.len());
-                if normal_grants > 0
-                    && self.can_cast_may_play_spell(
-                        game,
-                        player,
-                        card_id,
-                        ZoneType::Exile,
-                        None,
-                        &chosen_types_by_source,
-                    )
-                {
-                    for grant in 0..normal_grants {
-                        playable.push(crate::agent::PlayOption {
-                            card_id,
-                            mode: crate::agent::PlayCardMode::Normal,
-                            alt_cost_index: grant as u8,
-                        });
-                    }
-                }
-                for (alt_cost_index, alt_cost) in may_play_costs.iter().enumerate() {
-                    if self.can_cast_may_play_spell(
-                        game,
-                        player,
-                        card_id,
-                        ZoneType::Exile,
-                        Some(alt_cost.clone()),
-                        &chosen_types_by_source,
-                    ) {
-                        playable.push(crate::agent::PlayOption {
-                            card_id,
-                            mode: crate::agent::PlayCardMode::MayPlay(None),
-                            alt_cost_index: alt_cost_index as u8,
-                        });
-                    }
-                }
-                playable.extend(self.may_play_keyword_cost_options(
-                    game,
-                    player,
-                    card_id,
-                    ZoneType::Exile,
-                    &|_| normal_grants,
-                    &chosen_types_by_source,
-                ));
-                if !must_be_instant {
-                    playable.extend(self.may_play_morph_options(
-                        game,
-                        player,
-                        card_id,
-                        normal_grants,
-                        &chosen_types_by_source,
-                    ));
-                }
-                let room_right_split_cost = card
-                    .type_line
-                    .has_subtype("Room")
-                    .then(|| card.svars.get("RoomRightSplitCost").cloned())
-                    .flatten();
-                if let Some(cost) = room_right_split_cost {
+                // Forge getAllPossibleAbilities collects a facedown card's exile spells again
+                for _ in 0..1 + usize::from(card.stale_face_down) {
+                    let may_play_costs =
+                        crate::staticability::static_ability_continuous::may_play_alt_costs(
+                            game, player, card,
+                        );
+                    let normal_grants = count_may_play_grants(card_id)
+                        .max(1)
+                        .saturating_sub(may_play_costs.len());
                     if normal_grants > 0
                         && self.can_cast_may_play_spell(
                             game,
                             player,
                             card_id,
                             ZoneType::Exile,
-                            Some(cost),
+                            None,
                             &chosen_types_by_source,
                         )
                     {
-                        for _ in 0..normal_grants {
+                        for grant in 0..normal_grants {
                             playable.push(crate::agent::PlayOption {
                                 card_id,
-                                mode: crate::agent::PlayCardMode::RoomRightSplit,
-                                alt_cost_index: 0,
+                                mode: crate::agent::PlayCardMode::Normal,
+                                alt_cost_index: grant as u8,
                             });
                         }
                     }
-                    for (alt_cost_index, alt_cost) in may_play_costs.into_iter().enumerate() {
+                    for (alt_cost_index, alt_cost) in may_play_costs.iter().enumerate() {
                         if self.can_cast_may_play_spell(
                             game,
                             player,
                             card_id,
                             ZoneType::Exile,
-                            Some(alt_cost),
+                            Some(alt_cost.clone()),
                             &chosen_types_by_source,
                         ) {
                             playable.push(crate::agent::PlayOption {
                                 card_id,
-                                mode: crate::agent::PlayCardMode::RoomRightSplit,
-                                alt_cost_index: alt_cost_index as u8 + 1,
+                                mode: crate::agent::PlayCardMode::MayPlay(None),
+                                alt_cost_index: alt_cost_index as u8,
                             });
+                        }
+                    }
+                    playable.extend(self.may_play_keyword_cost_options(
+                        game,
+                        player,
+                        card_id,
+                        ZoneType::Exile,
+                        &|_| normal_grants,
+                        &chosen_types_by_source,
+                    ));
+                    if !must_be_instant {
+                        playable.extend(self.may_play_morph_options(
+                            game,
+                            player,
+                            card_id,
+                            normal_grants,
+                            &chosen_types_by_source,
+                        ));
+                    }
+                    let room_right_split_cost = card
+                        .type_line
+                        .has_subtype("Room")
+                        .then(|| card.svars.get("RoomRightSplitCost").cloned())
+                        .flatten();
+                    if let Some(cost) = room_right_split_cost {
+                        if normal_grants > 0
+                            && self.can_cast_may_play_spell(
+                                game,
+                                player,
+                                card_id,
+                                ZoneType::Exile,
+                                Some(cost),
+                                &chosen_types_by_source,
+                            )
+                        {
+                            for _ in 0..normal_grants {
+                                playable.push(crate::agent::PlayOption {
+                                    card_id,
+                                    mode: crate::agent::PlayCardMode::RoomRightSplit,
+                                    alt_cost_index: 0,
+                                });
+                            }
+                        }
+                        for (alt_cost_index, alt_cost) in may_play_costs.into_iter().enumerate() {
+                            if self.can_cast_may_play_spell(
+                                game,
+                                player,
+                                card_id,
+                                ZoneType::Exile,
+                                Some(alt_cost),
+                                &chosen_types_by_source,
+                            ) {
+                                playable.push(crate::agent::PlayOption {
+                                    card_id,
+                                    mode: crate::agent::PlayCardMode::RoomRightSplit,
+                                    alt_cost_index: alt_cost_index as u8 + 1,
+                                });
+                            }
                         }
                     }
                 }

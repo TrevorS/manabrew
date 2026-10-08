@@ -305,7 +305,7 @@ pub(crate) fn turn_chosen_card_face_up(
     game: &mut crate::game::GameState,
     card_id: CardId,
 ) -> Option<CardId> {
-    if !game.card(card_id).face_down {
+    if !game.card(card_id).face_down && !game.card(card_id).stale_face_down {
         return None;
     }
     game.card_mut(card_id).turn_face_up();

@@ -64,7 +64,14 @@ impl PlayerAgent for Recorder {
         };
         let first = self.seen.borrow().is_none();
         if self.cast_pay.is_some() {
-            self.seen.borrow_mut().get_or_insert_with(Vec::new);
+            *self.seen.borrow_mut() = Some(
+                space
+                    .playable
+                    .iter()
+                    .filter(|play| play.card_id == self.turn_up)
+                    .map(|play| play.card_id)
+                    .collect(),
+            );
             return match space
                 .playable
                 .iter()
@@ -569,6 +576,16 @@ fn play_a_face_down_exiled_card(
     mirror_forge_bugs: bool,
     pay: ManaCostAction,
 ) -> (GameState, CardId, CardId) {
+    let (game, card, effect, _) =
+        play_a_face_down_exiled_card_offers(script, mirror_forge_bugs, pay);
+    (game, card, effect)
+}
+
+fn play_a_face_down_exiled_card_offers(
+    script: &str,
+    mirror_forge_bugs: bool,
+    pay: ManaCostAction,
+) -> (GameState, CardId, CardId, Vec<CardId>) {
     let mut game = GameState::new(&["Alice", "Bob"], 20);
     game.mirror_forge_bugs = mirror_forge_bugs;
     let p0 = PlayerId(0);
@@ -582,9 +599,10 @@ fn play_a_face_down_exiled_card(
     game.turn.active_player = p0;
     game.new_turn_for_player(p0);
     game.turn.phase = forge_foundation::PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(None));
     let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
         Box::new(Recorder {
-            seen: Rc::new(RefCell::new(None)),
+            seen: seen.clone(),
             turn_up: bolt,
             confirm: true,
             cast_pay: Some(pay),
@@ -594,7 +612,8 @@ fn play_a_face_down_exiled_card(
     let mut game_loop = GameLoop::new(2);
     game_loop.step_with_priority(&mut game, &mut agents, true);
     game_loop.resolve_stack(&mut game, &mut agents);
-    (game, bolt, effect)
+    let offers = seen.borrow().clone().unwrap_or_default();
+    (game, bolt, effect, offers)
 }
 
 #[test]
@@ -608,20 +627,23 @@ fn a_face_down_exiled_card_cast_through_a_may_play_resolves_face_up() {
 
 #[test]
 fn a_failed_cast_of_a_face_down_exiled_card_restores_it_face_down_and_castable() {
-    let (game, bolt, effect) =
-        cast_a_face_down_exiled_card(false, ManaCostAction::AttemptedAndFailed);
+    let (game, bolt, effect, offers) =
+        play_a_face_down_exiled_card_offers(EXILED_BOLT, false, ManaCostAction::AttemptedAndFailed);
     assert_eq!(game.card(bolt).zone, ZoneType::Exile);
     assert!(game.card(bolt).face_down);
     assert!(game.card(effect).remembered_cards.contains(&bolt));
+    assert_eq!(offers, vec![bolt]);
 }
 
 #[test]
-fn forge_returns_a_failed_face_down_exile_cast_face_up_and_forgotten() {
-    let (game, bolt, effect) =
-        cast_a_face_down_exiled_card(true, ManaCostAction::AttemptedAndFailed);
+fn forge_returns_a_failed_face_down_exile_cast_face_up_and_offers_it_twice() {
+    let (game, bolt, effect, offers) =
+        play_a_face_down_exiled_card_offers(EXILED_BOLT, true, ManaCostAction::AttemptedAndFailed);
     assert_eq!(game.card(bolt).zone, ZoneType::Exile);
     assert!(!game.card(bolt).face_down);
-    assert!(!game.card(effect).remembered_cards.contains(&bolt));
+    assert!(game.card(bolt).stale_face_down);
+    assert!(game.card(effect).remembered_cards.contains(&bolt));
+    assert_eq!(offers, vec![bolt, bolt]);
 }
 
 #[test]

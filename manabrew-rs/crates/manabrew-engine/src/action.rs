@@ -2936,6 +2936,7 @@ impl GameState {
         if src_zone == ZoneType::Battlefield {
             self.card_mut(card_id).set_tapped(false);
         }
+        self.card_mut(card_id).stale_face_down = false;
 
         self.card_mut(card_id).zone = ZoneType::Library;
         self.assign_zone_timestamp(card_id);

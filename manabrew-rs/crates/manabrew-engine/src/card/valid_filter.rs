@@ -949,7 +949,7 @@ pub(super) fn matches_card_state(
     context: MatchContext<'_>,
 ) -> bool {
     match state {
-        CardStateSelector::FaceDown => card.face_down,
+        CardStateSelector::FaceDown => card.face_down || card.stale_face_down,
         CardStateSelector::Paired => card.paired_with.is_some(),
         CardStateSelector::PairedWithSource => card.paired_with == Some(context.source_card.id),
         CardStateSelector::Attached => context.source_card.attachments.contains(&card.id),
