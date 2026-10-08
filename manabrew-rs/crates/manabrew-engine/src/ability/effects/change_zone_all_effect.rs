@@ -222,6 +222,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 if let Some(src_id) = exile_source {
                     ctx.game.card_mut(card_id).set_exiled_by(Some(src_id));
                     ctx.game.card_mut(card_id).until_host_leaves_origin = Some(old_zone);
+                    ctx.game
+                        .record_until_leaves_battlefield(card_id, src_id, old_zone, sa);
                 }
                 if let Some(sid) = sa.source.filter(|&sid| {
                     !ctx.game.card(card_id).is_token

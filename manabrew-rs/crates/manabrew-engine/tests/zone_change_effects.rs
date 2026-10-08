@@ -3,7 +3,7 @@ use forge_foundation::{CardTypeLine, ColorSet, ManaCost, PhaseType, ZoneType};
 /// Integration tests for Zone Change Effects (Issue #13):
 /// ChangeZone, ChangeZoneAll, Sacrifice, SacrificeAll
 use manabrew_engine::agent::{PassAgent, PlayerAgent};
-use manabrew_engine::card::CardInstance;
+use manabrew_engine::card::{CardInstance, CounterType};
 use manabrew_engine::game::GameState;
 use manabrew_engine::game_loop::GameLoop;
 use manabrew_engine::game_rng::GameRng;
@@ -1432,4 +1432,84 @@ fn a_heisted_card_is_face_down_in_exile() {
     assert_eq!(game.card(bolt).zone, ZoneType::Exile);
     assert!(game.card(bolt).face_down);
     assert!(matches(&game, "Creature", bolt, source));
+}
+
+fn earthbended_forest_after_a_copied_holding_cell_leaves(
+    mirror_forge_bugs: bool,
+) -> (ZoneType, i32, bool) {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    game.mirror_forge_bugs = mirror_forge_bugs;
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    main_phase(&mut game, p0);
+    let cell = put(&mut game, SNARE, p0, ZoneType::Battlefield);
+    let original = put(&mut game, SNARE, p0, ZoneType::Graveyard);
+    let forest = game.create_card(make_forest(p1));
+    game.move_card(forest, ZoneType::Battlefield, p1);
+    let bender = put(&mut game, CONSUL_WATCH, p1, ZoneType::Battlefield);
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    push_effect_entry(
+        &mut game,
+        p1,
+        "DB$ Earthbend | Num$ 2",
+        Some(forest),
+        None,
+        Some(bender),
+    );
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    let mut exile = SpellAbility::new_simple(
+        Some(cell),
+        p0,
+        "DB$ ChangeZone | Defined$ Targeted | Origin$ Battlefield | Destination$ Exile | Duration$ UntilHostLeavesPlay",
+    );
+    exile.target_chosen.target_card = Some(forest);
+    exile.original_host = Some(original);
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: exile,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(forest).zone, ZoneType::Battlefield);
+    assert!(!game.card(forest).is_creature());
+    push_effect_entry(
+        &mut game,
+        p1,
+        "DB$ Earthbend | Num$ 2",
+        Some(forest),
+        None,
+        Some(bender),
+    );
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(forest).counter_count(&CounterType::P1P1), 2);
+    game.move_card(cell, ZoneType::Graveyard, p0);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    let card = game.card(forest);
+    (
+        card.zone,
+        card.counter_count(&CounterType::P1P1),
+        card.is_creature(),
+    )
+}
+
+#[test]
+fn a_land_returned_from_a_copied_exile_stays_put_when_the_copy_leaves() {
+    assert_eq!(
+        earthbended_forest_after_a_copied_holding_cell_leaves(false),
+        (ZoneType::Battlefield, 2, true)
+    );
+}
+
+#[test]
+fn forge_moves_a_land_returned_from_a_copied_exile_again_when_the_copy_leaves() {
+    assert_eq!(
+        earthbended_forest_after_a_copied_holding_cell_leaves(true),
+        (ZoneType::Battlefield, 0, false)
+    );
 }

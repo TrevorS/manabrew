@@ -740,6 +740,14 @@ impl GameState {
                 self.card_mut(exiled_with).remove_exiled_card(card_id);
             }
         }
+        // Java `copyCard` makes a new object for any move but one onto the battlefield.
+        if dest_zone != ZoneType::Battlefield
+            && self.cards[card_id.index()]
+                .until_leaves_battlefield_of
+                .is_some()
+        {
+            self.card_mut(card_id).until_leaves_battlefield_of = None;
+        }
 
         // Remove from source zone
         if src_zone != ZoneType::None {
@@ -1099,19 +1107,35 @@ impl GameState {
         let mut exiled_by_host: Vec<(u64, CardId, PlayerId, ZoneType)> = self
             .cards
             .iter()
-            .filter(|c| c.zone == ZoneType::Exile && c.exiled_by == Some(card_id))
-            .map(|c| {
-                (
-                    c.zone_timestamp,
-                    c.id,
-                    c.owner,
-                    c.until_host_leaves_origin.unwrap_or(ZoneType::Battlefield),
-                )
+            .filter_map(|c| {
+                if c.zone == ZoneType::Exile && c.exiled_by == Some(card_id) {
+                    Some((
+                        c.zone_timestamp,
+                        c.id,
+                        c.owner,
+                        c.until_host_leaves_origin.unwrap_or(ZoneType::Battlefield),
+                    ))
+                } else {
+                    c.until_leaves_battlefield_of
+                        .filter(|until| until.host == card_id && c.zone != ZoneType::Exile)
+                        .map(|until| (until.exiled_at, c.id, c.owner, until.origin))
+                }
             })
             .collect();
         // Java's `changeZoneUntilCommand` returns them in the order they were exiled.
         exiled_by_host.sort_unstable_by_key(|&(exiled_at, ..)| exiled_at);
         for (_, exiled_id, owner, origin) in exiled_by_host {
+            let from = self.card(exiled_id).zone;
+            if self.cards[exiled_id.index()]
+                .until_leaves_battlefield_of
+                .is_some()
+            {
+                self.card_mut(exiled_id).until_leaves_battlefield_of = None;
+            }
+            if from == ZoneType::Battlefield && origin == ZoneType::Battlefield {
+                self.change_zone_within_battlefield(exiled_id);
+                continue;
+            }
             self.card_mut(exiled_id).cleanup_exiled_with();
             match runtime.as_deref_mut() {
                 Some(runtime) => self.move_card_internal(
@@ -1145,10 +1169,75 @@ impl GameState {
                 crate::ability::effects::zone_triggers::emit_zone_trigger(
                     handler,
                     exiled_id,
-                    ZoneType::Exile,
+                    from,
                     returned_zone,
                 );
             }
+        }
+    }
+
+    /// Java `GameAction.changeZone` from the battlefield to the battlefield (FORGE BUG, reached
+    /// only under `mirror_forge_bugs`): `suppress` skips the replacements and the ChangesZone
+    /// trigger, and the object keeps its changed characteristics but loses its counters.
+    fn change_zone_within_battlefield(&mut self, card_id: CardId) {
+        if !crate::staticability::static_ability_counters_remain::counters_remain(
+            self,
+            &self.cards[card_id.index()],
+            ZoneType::Battlefield,
+        ) {
+            self.card_mut(card_id).counters.clear();
+        }
+        self.pending_remove_from_combat.push(card_id);
+        let controller = self.card(card_id).controller;
+        self.remove_card_from_zone(ZoneType::Battlefield, controller, card_id);
+        self.add_card_to_zone(ZoneType::Battlefield, controller, card_id);
+        self.card_mut(card_id).summoning_sick = true;
+        self.add_left_battlefield_this_turn(card_id);
+        let attachments = std::mem::take(&mut self.card_mut(card_id).attachments);
+        for attached in attachments {
+            self.card_mut(attached).attached_to = None;
+            self.card_mut(attached).is_bestowed = false;
+        }
+        self.detach(card_id);
+        self.card_mut(card_id).set_tapped(false);
+        if let Some(table) = self.pending_change_zone_table.as_mut() {
+            table.put(Some(ZoneType::Exile), Some(ZoneType::Battlefield), card_id);
+        }
+        apply_continuous_effects(self);
+    }
+
+    /// Java `SpellAbilityEffect.changeZoneUntilCommand` puts the card on `host`'s until list,
+    /// and `cleanupExiledWith` takes it off only when its `exiledWith` is `host`. A copy's
+    /// traits keep the original's `CardState` (`CardTraitBase.copyHelper`), so a card a copy
+    /// exiles is exiled with the original and stays on the copy's list once it leaves exile.
+    pub(crate) fn record_until_leaves_battlefield(
+        &mut self,
+        card_id: CardId,
+        host: CardId,
+        origin: ZoneType,
+        sa: &crate::spellability::SpellAbility,
+    ) {
+        if !self.mirror_forge_bugs || self.card(card_id).is_token {
+            return;
+        }
+        let exiled_with =
+            crate::ability::spell_ability_effect::copied_trait_original_host(self, sa)
+                .or(self.card(host).copied_permanent)
+                .unwrap_or_else(|| {
+                    if sa.ir.exiled_with_effect_source {
+                        self.card(host).effect_source.unwrap_or(host)
+                    } else {
+                        host
+                    }
+                });
+        if exiled_with != host {
+            let exiled_at = self.card(card_id).zone_timestamp;
+            self.card_mut(card_id).until_leaves_battlefield_of =
+                Some(crate::card::UntilLeavesBattlefield {
+                    host,
+                    origin,
+                    exiled_at,
+                });
         }
     }
 
@@ -2937,6 +3026,12 @@ impl GameState {
             self.card_mut(card_id).set_tapped(false);
         }
         self.card_mut(card_id).stale_face_down = false;
+        if self.cards[card_id.index()]
+            .until_leaves_battlefield_of
+            .is_some()
+        {
+            self.card_mut(card_id).until_leaves_battlefield_of = None;
+        }
 
         self.card_mut(card_id).zone = ZoneType::Library;
         self.assign_zone_timestamp(card_id);

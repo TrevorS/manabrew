@@ -202,6 +202,8 @@ pub(super) fn move_cards(
                 for &(cid, origin) in &moved_origins {
                     ctx.game.card_mut(cid).set_exiled_by(Some(sid));
                     ctx.game.card_mut(cid).until_host_leaves_origin = Some(origin);
+                    ctx.game
+                        .record_until_leaves_battlefield(cid, sid, origin, sa);
                 }
             }
         }

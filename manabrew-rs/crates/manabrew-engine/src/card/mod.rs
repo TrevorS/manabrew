@@ -371,6 +371,15 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for SharedVec<T> {
     }
 }
 
+/// Java `Card.untilLeavesBattlefield`: the card is still in `host`'s list as the same Java
+/// object that `SpellAbilityEffect.changeZoneUntilCommand` put in its table.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UntilLeavesBattlefield {
+    pub host: CardId,
+    pub origin: ZoneType,
+    pub exiled_at: u64,
+}
+
 /// A card instance in a game. This is the mutable game-state representation,
 /// as opposed to CardRules which is the immutable definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -702,6 +711,8 @@ pub struct Card {
     pub until_host_leaves_origin: Option<ZoneType>,
     #[serde(default)]
     pub exiled_with: Option<CardId>,
+    #[serde(default)]
+    pub until_leaves_battlefield_of: Option<UntilLeavesBattlefield>,
 
     /// Controller once every temporary controller is gone (Java `Card.controller`).
     pub original_controller_eot: Option<PlayerId>,
@@ -1118,6 +1129,7 @@ impl Card {
             exile_when_no_remembered: false,
             exiled_by: None,
             exiled_with: None,
+            until_leaves_battlefield_of: None,
             until_host_leaves_origin: None,
             original_controller_eot: None,
             is_transformed: false,
@@ -1374,6 +1386,7 @@ impl Card {
             exile_when_no_remembered: self.exile_when_no_remembered,
             exiled_by: self.exiled_by,
             exiled_with: self.exiled_with,
+            until_leaves_battlefield_of: self.until_leaves_battlefield_of,
             until_host_leaves_origin: self.until_host_leaves_origin,
             original_controller_eot: self.original_controller_eot,
             is_transformed: self.is_transformed,
@@ -1670,6 +1683,7 @@ impl Card {
             .clone_from(&self.exile_when_no_remembered);
         out.exiled_by.clone_from(&self.exiled_by);
         out.exiled_with.clone_from(&self.exiled_with);
+        out.until_leaves_battlefield_of = self.until_leaves_battlefield_of;
         out.until_host_leaves_origin = self.until_host_leaves_origin;
         out.original_controller_eot
             .clone_from(&self.original_controller_eot);
