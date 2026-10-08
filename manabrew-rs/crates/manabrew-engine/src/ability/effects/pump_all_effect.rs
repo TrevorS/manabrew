@@ -205,6 +205,70 @@ mod tests {
     }
 
     #[test]
+    fn a_doubling_pump_past_i32_wraps_power_as_java_ints_do() {
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        let p0 = PlayerId(0);
+        let giant = game.create_card(Card::new(
+            CardId(0),
+            "Giant".into(),
+            p0,
+            CardTypeLine::parse("Creature - Elf"),
+            ManaCost::parse("1 G"),
+            ColorSet::GREEN,
+            Some(1 << 30),
+            Some(1 << 30),
+            vec![],
+            vec![],
+        ));
+        game.move_card(giant, ZoneType::Battlefield, p0);
+        let host = make_creature(&mut game, p0);
+        game.move_card(host, ZoneType::Battlefield, p0);
+        game.card_mut(host).svars.insert(
+            "X".to_string(),
+            "Count$Valid Creature.YouCtrl$GreatestCardPower".to_string(),
+        );
+
+        let sa = SpellAbility::new_simple(
+            Some(host),
+            p0,
+            "A:AB$ PumpAll | Cost$ 3 G G | ValidCards$ Creature.YouCtrl | NumAtt$ +X | NumDef$ +X",
+        );
+        let mut th = TriggerHandler::new();
+        let mut agents: Vec<Box<dyn crate::agent::PlayerAgent>> =
+            vec![Box::new(PassAgent), Box::new(PassAgent)];
+        let mut mp = vec![ManaPool::default(), ManaPool::default()];
+        let templates = HashMap::default();
+        let templates_variants: HashMap<(String, String), usize> = HashMap::default();
+        let token_fallback: HashMap<String, String> = HashMap::default();
+        let edition_dates: HashMap<String, String> = HashMap::default();
+        let mut rng_adapter = crate::game_rng::ThreadRngAdapter::default();
+        let mut ctx = make_ctx(
+            &mut game,
+            &mut agents,
+            &mut th,
+            &mut mp,
+            &templates,
+            &templates_variants,
+            &token_fallback,
+            &edition_dates,
+            &mut rng_adapter,
+        );
+        super::PumpAllEffect::resolve(&mut ctx, &sa);
+
+        assert_eq!(ctx.game.card(giant).power(), i32::MIN);
+        assert_eq!(ctx.game.card(giant).toughness(), i32::MIN);
+        assert_eq!(ctx.game.card(host).power(), 2 + (1 << 30));
+
+        super::PumpAllEffect::resolve(&mut ctx, &sa);
+
+        assert_eq!(
+            ctx.game.card(giant).power(),
+            (1i32 << 30).wrapping_mul(3).wrapping_add(2)
+        );
+        assert_eq!(ctx.game.card(host).power(), i32::MIN + 4);
+    }
+
+    #[test]
     fn pump_all_boosts_all_creatures() {
         let mut game = GameState::new(&["Alice", "Bob"], 20);
         let p0 = PlayerId(0);

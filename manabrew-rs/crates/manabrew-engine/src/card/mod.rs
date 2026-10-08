@@ -1857,16 +1857,16 @@ impl Card {
         let base = self
             .static_set_power
             .unwrap_or(self.base_power.unwrap_or(0));
-        base + self.static_power_modifier
-            + self.power_modifier
-            + self.perpetual_power_modifier
-            + self
-                .pt_boosts
-                .iter()
-                .map(|&(_, power, _)| power)
-                .sum::<i32>()
-            + self.counter_count(&CounterType::P1P1)
-            - self.counter_count(&CounterType::M1M1)
+        base.wrapping_add(self.static_power_modifier)
+            .wrapping_add(self.power_modifier)
+            .wrapping_add(self.perpetual_power_modifier)
+            .wrapping_add(
+                self.pt_boosts
+                    .iter()
+                    .fold(0i32, |sum, &(_, power, _)| sum.wrapping_add(power)),
+            )
+            .wrapping_add(self.counter_count(&CounterType::P1P1))
+            .wrapping_sub(self.counter_count(&CounterType::M1M1))
     }
 
     /// Effective toughness, accounting for all layer effects and counters.
@@ -1881,16 +1881,16 @@ impl Card {
         let base = self
             .static_set_toughness
             .unwrap_or(self.base_toughness.unwrap_or(0));
-        base + self.static_toughness_modifier
-            + self.toughness_modifier
-            + self.perpetual_toughness_modifier
-            + self
-                .pt_boosts
-                .iter()
-                .map(|&(_, _, toughness)| toughness)
-                .sum::<i32>()
-            + self.counter_count(&CounterType::P1P1)
-            - self.counter_count(&CounterType::M1M1)
+        base.wrapping_add(self.static_toughness_modifier)
+            .wrapping_add(self.toughness_modifier)
+            .wrapping_add(self.perpetual_toughness_modifier)
+            .wrapping_add(
+                self.pt_boosts
+                    .iter()
+                    .fold(0i32, |sum, &(_, _, toughness)| sum.wrapping_add(toughness)),
+            )
+            .wrapping_add(self.counter_count(&CounterType::P1P1))
+            .wrapping_sub(self.counter_count(&CounterType::M1M1))
     }
 
     pub fn lethal_damage(&self) -> bool {
@@ -4540,12 +4540,12 @@ impl Card {
         self.has_keyword("CARDNAME assigns no combat damage")
     }
     pub fn add_pt_boost(&mut self, p: i32, t: i32) {
-        self.power_modifier += p;
-        self.toughness_modifier += t;
+        self.power_modifier = self.power_modifier.wrapping_add(p);
+        self.toughness_modifier = self.toughness_modifier.wrapping_add(t);
     }
     pub fn remove_pt_boost(&mut self, p: i32, t: i32) {
-        self.power_modifier -= p;
-        self.toughness_modifier -= t;
+        self.power_modifier = self.power_modifier.wrapping_sub(p);
+        self.toughness_modifier = self.toughness_modifier.wrapping_sub(t);
     }
     pub fn add_pt_boost_at(&mut self, p: i32, t: i32, timestamp: i64) {
         self.pt_boosts.push((timestamp, p, t));
