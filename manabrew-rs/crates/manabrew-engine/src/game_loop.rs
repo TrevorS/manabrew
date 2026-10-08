@@ -584,8 +584,9 @@ impl GameLoop {
 
         for &pid in &game.player_order.clone() {
             game.shuffle_library(pid, rng);
-            if game.filtered_hands {
-                Self::draw_starting_hand(game, pid, rng);
+            if let Some(filtered) = game.filtered_hands {
+                let max_hand_size = game.player(pid).max_hand_size as usize;
+                Self::draw_starting_hand(game, pid, rng, filtered, max_hand_size);
             } else {
                 game.draw_cards(pid, 7);
             }
@@ -602,25 +603,41 @@ impl GameLoop {
         );
     }
 
-    fn draw_starting_hand(game: &mut GameState, p1: PlayerId, rng: &mut impl rand::Rng) {
+    pub(crate) fn draw_starting_hand(
+        game: &mut GameState,
+        p1: PlayerId,
+        rng: &mut impl rand::Rng,
+        filtered: crate::mulligan::FilteredHands,
+        hand_size: usize,
+    ) {
         use rand::seq::SliceRandom;
 
-        let max_hand_size = game.player(p1).max_hand_size as usize;
+        assert!(
+            (2..=3).contains(&filtered.candidates),
+            "filtered hands compare 2 or 3 candidates, not {}",
+            filtered.candidates
+        );
         let lib1 = game.cards_in_zone(ZoneType::Library, p1).to_vec();
-        let hand1 = &lib1[lib1.len().saturating_sub(max_hand_size)..];
-
-        let mut shuffled_cards = lib1.clone();
-        shuffled_cards.shuffle(rng);
-
-        let hand2 = &shuffled_cards[shuffled_cards.len().saturating_sub(max_hand_size)..];
-
-        let average_land_ratio = Self::get_land_ratio(game, &lib1);
-        if Self::get_hand_score(game, hand1, average_land_ratio)
-            > Self::get_hand_score(game, hand2, average_land_ratio)
-        {
-            game.replace_zone_cards(ZoneType::Library, p1, shuffled_cards);
+        let mut libraries = vec![lib1];
+        for _ in 1..filtered.candidates {
+            let mut shuffled_cards = libraries[0].clone();
+            shuffled_cards.shuffle(rng);
+            libraries.push(shuffled_cards);
         }
-        game.draw_cards(p1, max_hand_size);
+
+        let average_land_ratio = Self::get_land_ratio(game, &libraries[0]);
+        let scores: Vec<f32> = libraries
+            .iter()
+            .map(|cards| {
+                let hand = &cards[cards.len().saturating_sub(hand_size)..];
+                Self::get_hand_score(game, hand, average_land_ratio)
+            })
+            .collect();
+        let chosen = filtered.choice.choose(&scores, rng);
+        if chosen > 0 {
+            game.replace_zone_cards(ZoneType::Library, p1, libraries.swap_remove(chosen));
+        }
+        game.draw_cards(p1, hand_size);
     }
 
     fn get_land_ratio(game: &GameState, deck: &[CardId]) -> f32 {
@@ -1845,13 +1862,43 @@ mod tests {
         }
     }
 
-    #[test]
-    fn a_filtered_starting_hand_keeps_the_hand_closer_to_the_land_ratio() {
+    fn candidate_libraries(
+        library: &[CardId],
+        candidates: u8,
+        rng: &mut impl rand::Rng,
+    ) -> Vec<Vec<CardId>> {
         use rand::seq::SliceRandom;
+
+        let mut libraries = vec![library.to_vec()];
+        for _ in 1..candidates {
+            let mut shuffled = library.to_vec();
+            shuffled.shuffle(rng);
+            libraries.push(shuffled);
+        }
+        libraries
+    }
+
+    fn twice_distance_from_three_and_a_half(game: &GameState, library: &[CardId]) -> i32 {
+        let lands = library[library.len() - 7..]
+            .iter()
+            .filter(|&&c| game.card(c).is_land())
+            .count() as i32;
+        (2 * lands - 7).abs()
+    }
+
+    fn deal_half_land_hands(
+        candidates: u8,
+        choice: crate::mulligan::FilteredHandsChoice,
+        mut check: impl FnMut(&GameState, &[Vec<CardId>], &[i32]),
+    ) {
         use rand::{RngCore, SeedableRng};
 
         let p0 = PlayerId(0);
-        let (mut kept_original, mut kept_shuffled, mut ties) = (0, 0, 0);
+        let filtered = crate::mulligan::FilteredHands {
+            candidates,
+            mulligans: false,
+            choice,
+        };
         for lands_on_top in 0..=7 {
             for seed in 0..16 {
                 let mut game = GameState::new(&["A", "B"], 20);
@@ -1859,41 +1906,108 @@ mod tests {
                 let library = game.cards_in_zone(ZoneType::Library, p0).to_vec();
                 let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
                 let mut probe = rng.clone();
-                let mut shuffled = library.clone();
-                shuffled.shuffle(&mut probe);
+                let libraries = candidate_libraries(&library, candidates, &mut probe);
+                let distances: Vec<i32> = libraries
+                    .iter()
+                    .map(|cards| twice_distance_from_three_and_a_half(&game, cards))
+                    .collect();
 
-                let distance_from_average = |cards: &[CardId]| {
-                    let lands = cards.iter().filter(|&&c| game.card(c).is_land()).count() as i32;
-                    (2 * lands - 7).abs()
-                };
-                let original = distance_from_average(&library[33..]);
-                let reshuffled = distance_from_average(&shuffled[33..]);
-                let (mut expected_hand, expected_library) = if original > reshuffled {
-                    kept_shuffled += 1;
-                    (shuffled[33..].to_vec(), shuffled[..33].to_vec())
-                } else {
-                    if original == reshuffled {
-                        ties += 1;
-                    } else {
-                        kept_original += 1;
-                    }
-                    (library[33..].to_vec(), library[..33].to_vec())
-                };
+                GameLoop::draw_starting_hand(&mut game, p0, &mut rng, filtered, 7);
 
-                GameLoop::draw_starting_hand(&mut game, p0, &mut rng);
-
-                let mut hand = game.cards_in_zone(ZoneType::Hand, p0).to_vec();
-                hand.sort();
-                expected_hand.sort();
-                assert_eq!(hand, expected_hand);
-                assert_eq!(
-                    game.cards_in_zone(ZoneType::Library, p0),
-                    &expected_library[..]
-                );
-                assert_eq!(rng.next_u64(), probe.next_u64());
+                check(&game, &libraries, &distances);
+                if choice == crate::mulligan::FilteredHandsChoice::Deterministic {
+                    assert_eq!(rng.next_u64(), probe.next_u64());
+                }
             }
         }
-        assert!(kept_original > 0 && kept_shuffled > 0 && ties > 0);
+    }
+
+    fn dealt_from(game: &GameState, libraries: &[Vec<CardId>]) -> usize {
+        let p0 = PlayerId(0);
+        let library = game.cards_in_zone(ZoneType::Library, p0);
+        let index = libraries
+            .iter()
+            .position(|cards| &cards[..33] == library)
+            .expect("the library is one of the candidates");
+        let mut hand = game.cards_in_zone(ZoneType::Hand, p0).to_vec();
+        let mut top = libraries[index][33..].to_vec();
+        hand.sort();
+        top.sort();
+        assert_eq!(hand, top);
+        index
+    }
+
+    #[test]
+    fn a_filtered_starting_hand_keeps_the_earliest_candidate_closest_to_the_land_ratio() {
+        for candidates in [2, 3] {
+            let mut kept = vec![0; usize::from(candidates)];
+            let mut ties_kept_earlier = 0;
+            deal_half_land_hands(
+                candidates,
+                crate::mulligan::FilteredHandsChoice::Deterministic,
+                |game, libraries, distances| {
+                    let best = *distances.iter().min().expect("a candidate");
+                    let expected = distances
+                        .iter()
+                        .position(|&d| d == best)
+                        .expect("a candidate");
+                    assert_eq!(dealt_from(game, libraries), expected);
+                    kept[expected] += 1;
+                    if distances[expected + 1..].contains(&best) {
+                        ties_kept_earlier += 1;
+                    }
+                },
+            );
+            assert!(kept.iter().all(|&n| n > 0), "{candidates}: {kept:?}");
+            assert!(ties_kept_earlier > 0);
+        }
+    }
+
+    #[test]
+    fn a_cold_weighted_choice_deals_the_deterministic_hand() {
+        let mut unique = 0;
+        let mut weighted = Vec::new();
+        deal_half_land_hands(
+            3,
+            crate::mulligan::FilteredHandsChoice::Weighted { temperature: 1e-4 },
+            |game, libraries, distances| {
+                weighted.push((dealt_from(game, libraries), distances.to_vec()))
+            },
+        );
+        let mut deterministic = Vec::new();
+        deal_half_land_hands(
+            3,
+            crate::mulligan::FilteredHandsChoice::Deterministic,
+            |game, libraries, _| deterministic.push(dealt_from(game, libraries)),
+        );
+        for ((chosen, distances), expected) in weighted.into_iter().zip(deterministic) {
+            let best = *distances.iter().min().expect("a candidate");
+            assert_eq!(distances[chosen], best);
+            if distances.iter().filter(|&&d| d == best).count() == 1 {
+                unique += 1;
+                assert_eq!(chosen, expected);
+            }
+        }
+        assert!(unique > 0);
+    }
+
+    #[test]
+    fn a_weighted_choice_picks_each_hand_by_the_softmax_of_its_score() {
+        use rand::SeedableRng;
+
+        let scores = [0.5, 1.5, 2.5];
+        let choice = crate::mulligan::FilteredHandsChoice::Weighted { temperature: 1.0 };
+        let mut rng = rand::rngs::StdRng::seed_from_u64(7);
+        let mut counts = [0usize; 3];
+        for _ in 0..20_000 {
+            counts[choice.choose(&scores, &mut rng)] += 1;
+        }
+        let weights = scores.map(|s: f32| f64::from(-s).exp());
+        let total: f64 = weights.iter().sum();
+        for (count, weight) in counts.iter().zip(weights) {
+            let share = *count as f64 / 20_000.0;
+            assert!((share - weight / total).abs() < 0.01, "{counts:?}");
+        }
     }
 
     #[test]
@@ -1906,7 +2020,7 @@ mod tests {
             half_land_library(&mut game, PlayerId(1), 7);
             let mut unfiltered = game.clone();
             let mut filtered = game.clone();
-            filtered.filtered_hands = true;
+            filtered.filtered_hands = Some(crate::mulligan::FilteredHands::default());
             let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
             let mut probe = rng.clone();
             let mut filtered_rng = rng.clone();

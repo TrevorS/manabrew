@@ -556,7 +556,7 @@ pub struct GameState {
     pub mirror_forge_bugs: bool,
 
     #[serde(default)]
-    pub filtered_hands: bool,
+    pub filtered_hands: Option<crate::mulligan::FilteredHands>,
 
     // Next card ID counter
     next_card_id: u32,
@@ -690,7 +690,7 @@ impl GameState {
             end_combat_requested: false,
             action_space_mana_probe: crate::mana::ActionSpaceManaProbe::default(),
             mirror_forge_bugs: false,
-            filtered_hands: false,
+            filtered_hands: None,
             next_card_id: 0,
             next_zone_timestamp: 0,
             pending_damage_map: None,

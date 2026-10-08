@@ -31,8 +31,62 @@ use crate::game_log_entry_type::GameLogEntryType;
 use crate::ids::{CardId, PlayerId};
 use crate::mana::ManaPool;
 use forge_foundation::ZoneType;
+use serde::{Deserialize, Serialize};
 
 const STARTING_HAND_SIZE: usize = 7;
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct FilteredHands {
+    pub candidates: u8,
+    pub mulligans: bool,
+    pub choice: FilteredHandsChoice,
+}
+
+impl Default for FilteredHands {
+    fn default() -> Self {
+        FilteredHands {
+            candidates: 2,
+            mulligans: false,
+            choice: FilteredHandsChoice::Deterministic,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum FilteredHandsChoice {
+    Deterministic,
+    Weighted { temperature: f32 },
+}
+
+impl FilteredHandsChoice {
+    pub fn choose(self, scores: &[f32], rng: &mut impl rand::Rng) -> usize {
+        let best = scores.iter().copied().fold(f32::INFINITY, f32::min);
+        match self {
+            FilteredHandsChoice::Deterministic => scores
+                .iter()
+                .position(|&score| score == best)
+                .expect("a candidate hand"),
+            FilteredHandsChoice::Weighted { temperature } => {
+                assert!(
+                    temperature.is_finite() && temperature > 0.0,
+                    "filtered hands need a positive temperature, not {temperature}"
+                );
+                let weights: Vec<f64> = scores
+                    .iter()
+                    .map(|&score| (f64::from(best - score) / f64::from(temperature)).exp())
+                    .collect();
+                let mut pick = rng.gen_range(0.0..weights.iter().sum::<f64>());
+                for (index, weight) in weights.iter().enumerate() {
+                    if pick < *weight {
+                        return index;
+                    }
+                    pick -= weight;
+                }
+                weights.len() - 1
+            }
+        }
+    }
+}
 
 /// Run the London Mulligan procedure for every player in the game.
 ///
@@ -200,7 +254,18 @@ fn perform_mulligan(
         game.move_card(card_id, ZoneType::Library, player);
     }
     game.shuffle_library(player, rng);
-    game.draw_cards(player, STARTING_HAND_SIZE);
+    match game.filtered_hands {
+        Some(filtered) if filtered.mulligans => crate::game_loop::GameLoop::draw_starting_hand(
+            game,
+            player,
+            rng,
+            filtered,
+            STARTING_HAND_SIZE,
+        ),
+        _ => {
+            game.draw_cards(player, STARTING_HAND_SIZE);
+        }
+    }
 
     game_log.log(
         GameLogEntryType::Mulligan,
@@ -492,7 +557,7 @@ mod tests {
         let p0 = PlayerId(0);
         for seed in 0..8 {
             let (mut kept, _) = setup_game_with_libraries(40);
-            kept.filtered_hands = true;
+            kept.filtered_hands = Some(FilteredHands::default());
             let mut mulliganed = kept.clone();
             let mut kept_rng = rand::rngs::StdRng::seed_from_u64(seed);
             let mut mulliganed_rng = kept_rng.clone();
@@ -521,6 +586,101 @@ mod tests {
             assert!(hand.iter().all(|card| redrawn.contains(card)));
             assert_eq!(mulliganed_rng.next_u64(), kept_rng.next_u64());
         }
+    }
+
+    fn land_card(owner: PlayerId) -> Card {
+        Card::new(
+            CardId(0),
+            "Plains".to_string(),
+            owner,
+            CardTypeLine::parse("Land"),
+            ManaCost::no_cost(),
+            ColorSet::COLORLESS,
+            None,
+            None,
+            vec![],
+            vec![],
+        )
+    }
+
+    #[test]
+    fn a_smoothed_mulligan_redraws_the_earliest_closest_of_three_candidates() {
+        use rand::seq::SliceRandom;
+        use rand::RngCore;
+
+        let p0 = PlayerId(0);
+        let p1 = PlayerId(1);
+        let mut swapped = 0;
+        for seed in 0..32 {
+            let mut game = GameState::new(&["Alice", "Bob"], 20);
+            for owner in [p0, p1] {
+                for i in 0..40 {
+                    let card = if i % 2 == 0 {
+                        land_card(owner)
+                    } else {
+                        filler_card(owner)
+                    };
+                    let card = game.create_card(card);
+                    game.add_card_to_zone(ZoneType::Library, owner, card);
+                    game.card_mut(card).zone = ZoneType::Library;
+                }
+            }
+            game.filtered_hands = Some(FilteredHands {
+                candidates: 3,
+                mulligans: true,
+                choice: FilteredHandsChoice::Deterministic,
+            });
+            let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+            game.shuffle_library(p0, &mut rng);
+            game.shuffle_library(p1, &mut rng);
+            game.draw_cards(p0, 7);
+            game.draw_cards(p1, 7);
+
+            let mut twin = game.clone();
+            let mut probe = rng.clone();
+            for card in twin.cards_in_zone(ZoneType::Hand, p0).to_vec() {
+                twin.move_card(card, ZoneType::Library, p0);
+            }
+            twin.shuffle_library(p0, &mut probe);
+            let library = twin.cards_in_zone(ZoneType::Library, p0).to_vec();
+            let mut candidates = vec![library.clone()];
+            for _ in 0..2 {
+                let mut shuffled = library.clone();
+                shuffled.shuffle(&mut probe);
+                candidates.push(shuffled);
+            }
+            let distances: Vec<i32> = candidates
+                .iter()
+                .map(|cards| {
+                    let lands = cards[cards.len() - 7..]
+                        .iter()
+                        .filter(|&&c| twin.card(c).is_land())
+                        .count() as i32;
+                    (2 * lands - 7).abs()
+                })
+                .collect();
+            let best = *distances.iter().min().expect("a candidate");
+            let chosen = distances
+                .iter()
+                .position(|&d| d == best)
+                .expect("a candidate");
+            let redrawn = &candidates[chosen][candidates[chosen].len() - 7..];
+            swapped += usize::from(chosen > 0);
+
+            let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+                Box::new(TestAgent::mulligan(1)),
+                Box::new(TestAgent::keep()),
+            ];
+            let pools = vec![ManaPool::new(), ManaPool::new()];
+            let log = GameLog::new();
+            run_london_mulligans(&mut game, &mut agents, &mut rng, p0, &pools, &log);
+
+            let hand = game.cards_in_zone(ZoneType::Hand, p0);
+            assert_eq!(hand.len(), 6);
+            assert!(hand.iter().all(|card| redrawn.contains(card)));
+            assert_eq!(rng.next_u64(), probe.next_u64());
+        }
+        assert!(swapped > 0);
     }
 
     #[test]
