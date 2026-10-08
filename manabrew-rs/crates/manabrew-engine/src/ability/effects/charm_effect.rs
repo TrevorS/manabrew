@@ -190,6 +190,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         // Build the mode's SpellAbility (recursively includes SubAbility$ chain)
         let mut mode_sa = build_spell_ability(ctx.game, source_id, mode_text, player);
         mode_sa.source = Some(source_id);
+        if let Some(original_host) = sa.original_host {
+            mode_sa.set_original_host(original_host);
+        }
         // Propagate trigger context from parent SA to mode SA so that
         // effects like Modular can read trigger_remembered_amount.
         mode_sa.trigger_remembered_amount = sa.trigger_remembered_amount;
@@ -358,6 +361,9 @@ pub fn make_choices_precast_with_count(
         }
         let mut mode_sa = build_spell_ability(game, source_id, &mode_texts[idx], player);
         mode_sa.source = Some(source_id);
+        if let Some(original_host) = sa.original_host {
+            mode_sa.set_original_host(original_host);
+        }
         // Propagate trigger context from parent SA so effects like Modular
         // can access trigger_remembered_amount at resolution time.
         mode_sa.trigger_remembered_amount = parent_trigger_remembered;
@@ -519,6 +525,9 @@ pub fn chain_abilities(
     for mode_text in mode_texts {
         let mut mode_sa = build_spell_ability(game, source_id, mode_text, player);
         mode_sa.source = Some(source_id);
+        if let Some(original_host) = sa.original_host {
+            mode_sa.set_original_host(original_host);
+        }
         mode_sa.trigger_remembered_amount = sa.trigger_remembered_amount;
         append_subability(sa, mode_sa);
     }
