@@ -153,6 +153,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         target.replacement_effects = state.replacement_effects.clone();
         for static_ability in &mut target.static_abilities {
             static_ability.base.set_host_card_id(clone_target_id);
+            static_ability.original_host.get_or_insert(clone_source_id);
         }
         for (replacement_effect, id) in target.replacement_effects.iter_mut().zip(replacement_ids) {
             replacement_effect.base.set_host_card_id(clone_target_id);

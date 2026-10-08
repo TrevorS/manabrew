@@ -253,14 +253,27 @@ fn requirement_amount(
             .map_or(0, |(kw, cast_sa)| cast_sa.get_optional_keyword_amount(kw));
     }
     if raw_value.starts_with("Count$") {
-        return crate::svar::resolve_count_svar(raw_value, game, source.id, source.controller);
+        let Some(original_host) = svar_source.original_host() else {
+            return crate::svar::resolve_count_svar(raw_value, game, source.id, source.controller);
+        };
+        let mut sa =
+            crate::spellability::SpellAbility::new_empty(Some(source.id), source.controller);
+        sa.set_original_host(original_host);
+        return crate::svar::resolve_count_svar_for_sa(
+            raw_value,
+            game,
+            source.id,
+            source.controller,
+            &sa,
+        );
     }
 
-    let sa = crate::spellability::SpellAbility::new_simple(
+    let mut sa = crate::spellability::SpellAbility::new_simple(
         Some(source.id),
         requirement_controller(game, source),
         &format!("DB$ Internal | Amount$ {raw_value}"),
     );
+    sa.original_host = svar_source.original_host();
     let resolved = crate::svar::resolve_numeric_value(game, &sa, raw_value, i32::MIN);
     if resolved != i32::MIN {
         return resolved;

@@ -224,6 +224,8 @@ pub struct StaticAbility {
     /// mapParams).
     #[serde(default)]
     pub svars: HashMap<String, String>,
+    #[serde(default)]
+    pub original_host: Option<CardId>,
     #[serde(skip)]
     pub ir: StaticAbilityIr,
 }
@@ -237,6 +239,7 @@ impl StaticAbility {
             ignore_effect_players,
             may_play_turn,
             svars,
+            original_host,
             ir,
         } = self;
         StaticAbility {
@@ -246,6 +249,7 @@ impl StaticAbility {
             ignore_effect_players: ignore_effect_players.clone(),
             may_play_turn: *may_play_turn,
             svars: svars.clone(),
+            original_host: *original_host,
             ir: ir.clone(),
         }
     }
@@ -883,10 +887,19 @@ impl StaticAbility {
 
         // Java `CardTraitBase.meetsCommonRequirements` gates every trait on `CheckSVar$`, not just
         // the infect-damage static that reads it with a hypothetical life total.
+        let svar_source: &dyn HasSVars = if self.original_host.is_some() {
+            self
+        } else {
+            source
+        };
         if let Some(check_name) = self.ir.check_svar_text.as_deref() {
             let compare = self.ir.svar_compare_text.as_deref().unwrap_or("GE1");
             if !crate::card::valid_filter::check_svar_requirement(
-                game, source, source, check_name, compare,
+                game,
+                source,
+                svar_source,
+                check_name,
+                compare,
             ) {
                 return false;
             }
@@ -894,7 +907,11 @@ impl StaticAbility {
         if let Some(check_name) = self.ir.check_third_svar.as_deref() {
             let compare = self.ir.third_svar_compare.as_deref().unwrap_or("GE1");
             if !crate::card::valid_filter::check_svar_requirement(
-                game, source, source, check_name, compare,
+                game,
+                source,
+                svar_source,
+                check_name,
+                compare,
             ) {
                 return false;
             }
@@ -902,7 +919,11 @@ impl StaticAbility {
         if let Some(check_name) = self.ir.check_fourth_svar.as_deref() {
             let compare = self.ir.fourth_svar_compare.as_deref().unwrap_or("GE1");
             if !crate::card::valid_filter::check_svar_requirement(
-                game, source, source, check_name, compare,
+                game,
+                source,
+                svar_source,
+                check_name,
+                compare,
             ) {
                 return false;
             }
@@ -997,6 +1018,7 @@ pub fn parse_static_ability(raw: &str) -> Option<StaticAbility> {
         ignore_effect_players: Vec::new(),
         may_play_turn: 0,
         svars: HashMap::default(),
+        original_host: None,
         ir,
     };
     st_ab.sync_trait_base_params();
@@ -1006,6 +1028,10 @@ pub fn parse_static_ability(raw: &str) -> Option<StaticAbility> {
 impl HasSVars for StaticAbility {
     fn get_svar(&self, name: &str) -> Option<&str> {
         self.svars.get(name).map(String::as_str)
+    }
+
+    fn original_host(&self) -> Option<CardId> {
+        self.original_host
     }
 
     fn set_svar(&mut self, name: String, value: String) {

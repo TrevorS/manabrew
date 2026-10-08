@@ -11,7 +11,7 @@ use manabrew_engine::game_loop::GameLoop;
 use manabrew_engine::ids::{CardId, PlayerId};
 use manabrew_engine::mana::ManaPool;
 use manabrew_engine::player::actions::PlayerAction;
-use manabrew_engine::spellability::SpellAbility;
+use manabrew_engine::spellability::{SpellAbility, StackEntry};
 
 const ISLAND: &str = "Name:Island\nManaCost:no cost\nTypes:Basic Land Island\nOracle:";
 const STONE: &str = "Name:Glass Stone\nManaCost:2\nTypes:Artifact\nOracle:";
@@ -253,4 +253,56 @@ fn a_token_copy_that_sets_creature_types_has_only_those() {
     );
     assert_eq!(copy.type_line.subtypes, vec!["Demon".to_string()]);
     assert!(!copy.has_keyword("Changeling"));
+}
+
+const GRAVE_MIMIC: &str = "Name:Grave Mimic\nManaCost:U\nTypes:Creature Shapeshifter\nPT:1/1\nK:ETBReplacement:Copy:DBCopy:Optional\nSVar:DBCopy:DB$ Clone | Choices$ Creature.Other | ChoiceZone$ Graveyard | SpellDescription$ You may have CARDNAME enter as a copy of a creature card in a graveyard.\nOracle:";
+const CURATOR: &str = "Name:Ledger Curator\nManaCost:G G\nTypes:Creature Raccoon Scout\nPT:3/3\nS:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 4 | AddToughness$ 4 | CheckSVar$ X | SVarCompare$ GE4 | Description$ As long as there are four or more card types among cards exiled with CARDNAME, it gets +4/+4.\nA:AB$ ChangeZone | Cost$ 1 | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card | TgtPrompt$ Choose target card in a graveyard | SpellDescription$ Exile target card from a graveyard.\nSVar:X:Count$ValidExile Card.ExiledWithSource$CardTypes\nOracle:";
+const SHOCK: &str =
+    "Name:Shock\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2\nOracle:";
+const DIVINATION: &str =
+    "Name:Divination\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 2\nOracle:";
+
+#[test]
+fn a_copy_counts_the_cards_its_copied_ability_exiled() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let spell = put(&mut game, GRAVE_MIMIC, p0, ZoneType::Hand);
+    let curator = put(&mut game, CURATOR, p0, ZoneType::Graveyard);
+    put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    let exiled: Vec<CardId> = [STONE, ISLAND, SHOCK, DIVINATION]
+        .into_iter()
+        .map(|script| put(&mut game, script, p1, ZoneType::Graveyard))
+        .collect();
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce { spell, cast: false }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    let ability = game.card(spell).activated_abilities[0].clone();
+    assert_eq!(ability.original_host, Some(curator));
+    for card in exiled {
+        let mut sa = SpellAbility::new_simple(Some(spell), p0, &ability.ability_text);
+        sa.set_original_host(curator);
+        sa.target_chosen.target_card = Some(card);
+        game.stack.push(StackEntry {
+            id: 0,
+            spell_ability: sa,
+            is_creature_spell: false,
+            is_permanent_spell: false,
+            is_pending_cast: false,
+            cast_from_zone: None,
+            optional_trigger_decider: None,
+            optional_trigger_description: None,
+            optional_trigger_source_name: None,
+        });
+        game_loop.step_with_priority(&mut game, &mut agents, true);
+        assert_eq!(game.card(card).zone, ZoneType::Exile);
+    }
+    let copy = game.card(spell);
+    assert_eq!(copy.card_name, "Ledger Curator");
+    assert_eq!((copy.power(), copy.toughness()), (7, 7));
 }

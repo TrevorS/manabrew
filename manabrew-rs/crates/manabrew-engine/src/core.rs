@@ -16,4 +16,7 @@ pub trait HasSVars {
     fn get_keyword(&self) -> Option<&crate::keyword::keyword_interface::KeywordInterface> {
         None
     }
+    fn original_host(&self) -> Option<crate::ids::CardId> {
+        None
+    }
 }
