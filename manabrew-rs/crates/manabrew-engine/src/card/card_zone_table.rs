@@ -144,6 +144,24 @@ impl CardZoneTable {
         &self.last_state_graveyard
     }
 
+    pub fn cells(&self) -> impl Iterator<Item = (ZoneType, ZoneType, &[CardId])> {
+        self.data
+            .iter()
+            .map(|(&(from, to), cards)| (from, to, cards.as_slice()))
+    }
+
+    pub fn with_same_last_state(&self) -> Self {
+        Self {
+            last_state_battlefield: self.last_state_battlefield.clone(),
+            last_state_graveyard: self.last_state_graveyard.clone(),
+            ..Self::default()
+        }
+    }
+
+    pub fn put_cell(&mut self, origin: ZoneType, destination: ZoneType, cards: Vec<CardId>) {
+        self.data.insert((origin, destination), cards);
+    }
+
     fn with_last_state(&self, game: &GameState) -> Self {
         let mut table = self.clone();
         table.last_state_battlefield = game.pre_sba_battlefield.clone();

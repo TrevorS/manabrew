@@ -1,5 +1,6 @@
 use forge_foundation::ZoneType;
 
+use crate::card::card_zone_table::CardZoneTable;
 use crate::card::{valid_filter, Card};
 use crate::event::RunParams;
 use crate::game::GameState;
@@ -17,6 +18,7 @@ pub fn is_disabled(
     run_params: &RunParams,
 ) -> bool {
     let host = game.card(trigger_host);
+    let mut cards_filtered = None;
     for source in game
         .cards
         .iter()
@@ -55,7 +57,18 @@ pub fn is_disabled(
                     continue;
                 }
             }
-            if !mode_specific_matches(st_ab, game, regtrig, run_params, source) {
+            if regtrig.kind == TriggerType::ChangesZoneAll {
+                if !changes_zone_all_disabled(
+                    st_ab,
+                    game,
+                    regtrig,
+                    run_params,
+                    source,
+                    &mut cards_filtered,
+                ) {
+                    continue;
+                }
+            } else if !mode_specific_matches(st_ab, game, regtrig, run_params, source) {
                 continue;
             }
             return true;
@@ -115,28 +128,6 @@ fn mode_specific_matches(
                 return false;
             }
             true
-        }
-        TriggerType::ChangesZoneAll => {
-            if let Some(valid_cause) = st_ab.ir.valid_cause.as_ref() {
-                let Some(cause_sa) = run_params.cause.as_ref() else {
-                    return false;
-                };
-                let Some(cause_card) = cause_sa.source else {
-                    return false;
-                };
-                if !matches_valid_card(valid_cause, game.card(cause_card), source, game) {
-                    return false;
-                }
-            }
-            let Some(zone_changes) = run_params.zone_changes.as_ref() else {
-                return false;
-            };
-            let origin = regtrig.origin_zone();
-            let destination = regtrig.destination_zone();
-            zone_changes.iter().any(|zc| {
-                origin.is_none_or(|expected| zc.origin == expected)
-                    && destination.is_none_or(|expected| zc.destination == expected)
-            })
         }
         TriggerType::SpellCast
         | TriggerType::AbilityCast
@@ -215,6 +206,64 @@ fn mode_specific_matches(
         }
         _ => true,
     }
+}
+
+fn changes_zone_all_disabled(
+    st_ab: &crate::staticability::StaticAbility,
+    game: &GameState,
+    regtrig: &Trigger,
+    run_params: &RunParams,
+    source: &Card,
+    cards_filtered: &mut Option<CardZoneTable>,
+) -> bool {
+    let Some(table) = cards_filtered
+        .as_ref()
+        .or(run_params.change_zone_table.as_ref())
+    else {
+        return false;
+    };
+    let mut filtered = table.with_same_last_state();
+    let mut possibly_disabled = false;
+    for (origin, destination, cards) in table.cells() {
+        let mut changers = cards.to_vec();
+        if (st_ab.ir.origin_zones.is_empty() || st_ab.ir.origin_zones.contains(&origin))
+            && (st_ab.ir.destination_zones.is_empty()
+                || st_ab.ir.destination_zones.contains(&destination))
+        {
+            changers.retain(|&card_id| {
+                let lki = (origin == ZoneType::Battlefield)
+                    .then(|| crate::lki::battlefield_lki_card(game, card_id))
+                    .flatten();
+                let card = lki.as_ref().unwrap_or_else(|| game.card(card_id));
+                !st_ab
+                    .ir
+                    .valid_cause
+                    .as_ref()
+                    .is_none_or(|valid_cause| matches_valid_card(valid_cause, card, source, game))
+            });
+            if changers.len() < cards.len() {
+                possibly_disabled = true;
+            }
+        }
+        filtered.put_cell(origin, destination, changers);
+    }
+    if !possibly_disabled {
+        return false;
+    }
+    let run_params_filtered = RunParams {
+        cards: Some(filtered.all_cards()),
+        zone_changes: Some(filtered.zone_changes()),
+        change_zone_table: Some(filtered.clone()),
+        ..run_params.clone()
+    };
+    if regtrig
+        .mode
+        .perform_test(regtrig, &run_params_filtered, game)
+    {
+        *cards_filtered = Some(filtered);
+        return false;
+    }
+    true
 }
 
 pub(crate) fn matches_valid_trigger(

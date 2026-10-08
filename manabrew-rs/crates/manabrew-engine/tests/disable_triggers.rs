@@ -298,3 +298,47 @@ fn each_ward_trigger_counters_the_ability_that_targeted_it() {
     assert!(seen.borrow().cast);
     assert_eq!(game.card(relic).zone, ZoneType::Battlefield);
 }
+
+const RETURNING_WURM: &str = "Name:Returning Wurm\nManaCost:3 G G\nTypes:Creature Wurm\nPT:5/5\nA:AB$ ChangeZone | Cost$ G | Origin$ Graveyard | Destination$ Battlefield | ActivationZone$ Graveyard | SpellDescription$ Return CARDNAME from your graveyard to the battlefield.\nOracle:";
+const RETURNING_RELIC: &str = "Name:Returning Relic\nManaCost:2\nTypes:Artifact\nA:AB$ ChangeZone | Cost$ G | Origin$ Graveyard | Destination$ Battlefield | ActivationZone$ Graveyard | SpellDescription$ Return CARDNAME from your graveyard to the battlefield.\nOracle:";
+const GRAVE_WATCHER: &str = "Name:Grave Watcher\nManaCost:R W\nTypes:Creature Bird\nPT:2/1\nT:Mode$ ChangesZoneAll | ValidCards$ Card.YouOwn | Origin$ Graveyard | Destination$ Any | TriggerZones$ Battlefield | Execute$ TrigGainLife | TriggerDescription$ Whenever one or more cards leave your graveyard, you gain 1 life.\nSVar:TrigGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
+
+fn return_from_the_graveyard(returning: &str, p1_cards: &[&str]) -> i32 {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let card = put(&mut game, returning, p0, ZoneType::Graveyard);
+    put(&mut game, FOREST, p0, ZoneType::Battlefield);
+    put(&mut game, GRAVE_WATCHER, p0, ZoneType::Battlefield);
+    for script in p1_cards {
+        put(&mut game, script, p1, ZoneType::Battlefield);
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(Seen::default()));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(ActivateThenCast(Rc::clone(&seen))),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.card(card).zone, ZoneType::Battlefield);
+    game.players[0].life
+}
+
+#[test]
+fn a_creature_leaving_the_graveyard_triggers_a_leave_the_graveyard_ability() {
+    assert_eq!(return_from_the_graveyard(RETURNING_WURM, &[]), 21);
+}
+
+#[test]
+fn torpor_orb_stops_a_leave_the_graveyard_trigger_caused_only_by_an_entering_creature() {
+    assert_eq!(return_from_the_graveyard(RETURNING_WURM, &[TORPOR_ORB]), 20);
+}
+
+#[test]
+fn torpor_orb_does_not_stop_a_leave_the_graveyard_trigger_of_an_entering_artifact() {
+    assert_eq!(
+        return_from_the_graveyard(RETURNING_RELIC, &[TORPOR_ORB]),
+        21
+    );
+}
