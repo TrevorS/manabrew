@@ -1552,10 +1552,13 @@ fn calculate_available_mana_excluding_with_reserved_impl(
     // Helper: add mana to availability pool, marking as snow if source is snow.
     macro_rules! avail_add {
         ($avail:expr, $is_snow:expr, $atom:expr) => {
+            avail_add!($avail, $is_snow, $atom, 1)
+        };
+        ($avail:expr, $is_snow:expr, $atom:expr, $amount:expr) => {
             if $is_snow {
-                $avail.add_snow($atom, 1);
+                $avail.add_snow($atom, $amount);
             } else {
-                $avail.add($atom, 1);
+                $avail.add($atom, $amount);
             }
         };
     }
@@ -1727,9 +1730,7 @@ fn calculate_available_mana_excluding_with_reserved_impl(
                 let amount = resolve_mana_ability_amount(game, card_id, player, ab);
                 for &atom in &reflected_atoms {
                     if !added_atoms.contains(&atom) {
-                        for _ in 0..amount {
-                            avail_add!(available, card_is_snow, atom);
-                        }
+                        avail_add!(available, card_is_snow, atom, amount);
                         added_atoms.push(atom);
                         src_mask |= atom;
                         added_any = true;
@@ -1799,13 +1800,21 @@ fn calculate_available_mana_excluding_with_reserved_impl(
                     let mut counted_variable_source_units = false;
                     if let Some(fixed_atoms) = produced_ir.fixed_atoms() {
                         for atom in fixed_atoms {
-                            for _ in 0..amount {
-                                let adjusted_atoms = adjusted_atoms_for(card_id, atom);
-                                for adjusted_atom in adjusted_atoms {
-                                    avail_add!(available, card_is_snow, adjusted_atom);
-                                    src_mask |= adjusted_atom;
-                                    source_count += 1;
-                                    source_colors.push(adjusted_atom);
+                            let adjusted_atoms = adjusted_atoms_for(card_id, atom);
+                            if let [adjusted_atom] = adjusted_atoms[..] {
+                                avail_add!(available, card_is_snow, adjusted_atom, amount);
+                                src_mask |= adjusted_atom;
+                                source_count += amount;
+                                source_colors
+                                    .extend(std::iter::repeat_n(adjusted_atom, amount as usize));
+                            } else {
+                                for _ in 0..amount {
+                                    for &adjusted_atom in &adjusted_atoms {
+                                        avail_add!(available, card_is_snow, adjusted_atom);
+                                        src_mask |= adjusted_atom;
+                                        source_count += 1;
+                                        source_colors.push(adjusted_atom);
+                                    }
                                 }
                             }
                             added_any = true;
@@ -1823,13 +1832,18 @@ fn calculate_available_mana_excluding_with_reserved_impl(
                         };
                         for atom in allowed {
                             if !added_atoms.contains(&atom) {
-                                for _ in 0..amount {
-                                    let adjusted_atoms = adjusted_atoms_for(card_id, atom);
-                                    source_units =
-                                        source_units.max(adjusted_atoms.len() * amount as usize);
-                                    for adjusted_atom in adjusted_atoms {
-                                        avail_add!(available, card_is_snow, adjusted_atom);
-                                        src_mask |= adjusted_atom;
+                                let adjusted_atoms = adjusted_atoms_for(card_id, atom);
+                                source_units =
+                                    source_units.max(adjusted_atoms.len() * amount as usize);
+                                if let [adjusted_atom] = adjusted_atoms[..] {
+                                    avail_add!(available, card_is_snow, adjusted_atom, amount);
+                                    src_mask |= adjusted_atom;
+                                } else {
+                                    for _ in 0..amount {
+                                        for &adjusted_atom in &adjusted_atoms {
+                                            avail_add!(available, card_is_snow, adjusted_atom);
+                                            src_mask |= adjusted_atom;
+                                        }
                                     }
                                 }
                                 added_atoms.push(atom);
@@ -2018,6 +2032,38 @@ mod tests {
     use crate::ids::{CardId, PlayerId};
     use forge_foundation::ManaCost;
     use forge_foundation::{CardTypeLine, ColorSet, ZoneType};
+
+    fn power_scaled_mana_source(game: &mut GameState, owner: PlayerId, power: i32) {
+        let mut card = Card::new(
+            CardId(0),
+            "Woodland Weavemaster".to_string(),
+            owner,
+            CardTypeLine::parse("Creature - Elf Druid"),
+            ManaCost::no_cost(),
+            ColorSet::GREEN,
+            Some(power),
+            Some(2),
+            vec![],
+            vec!["AB$ Mana | Cost$ T | Produced$ Any | Amount$ X | SpellDescription$ Add X mana of any one color, where X is this creature's power.".to_string()],
+        );
+        card.svars
+            .insert("X".to_string(), "Count$CardPower".to_string());
+        let id = game.create_card(card);
+        game.move_card(id, ZoneType::Battlefield, owner);
+        game.card_mut(id).summoning_sick = false;
+    }
+
+    #[test]
+    fn a_power_scaled_mana_source_at_tyvar_scale_is_counted_with_one_key_sync() {
+        let power = 49_147;
+        let mut game = GameState::new(&["A", "B"], 20);
+        power_scaled_mana_source(&mut game, PlayerId(0), power);
+        let started = std::time::Instant::now();
+        let available = calculate_available_mana(&ManaPool::new(), &game, PlayerId(0));
+        assert!(started.elapsed() < std::time::Duration::from_secs(30));
+        assert_eq!(available.count_color(ManaAtom::GREEN), power);
+        assert_eq!(available.key_syncs, 1);
+    }
 
     #[test]
     fn basic_land_detection() {

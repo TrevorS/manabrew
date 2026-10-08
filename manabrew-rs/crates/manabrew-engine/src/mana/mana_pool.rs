@@ -53,6 +53,11 @@ pub struct ManaPool {
     #[serde(skip)]
     floating_mana_keys: Vec<u16>,
     #[serde(skip)]
+    keys_current: bool,
+    #[cfg(test)]
+    #[serde(skip)]
+    pub(crate) key_syncs: usize,
+    #[serde(skip)]
     last_payment_atoms: Vec<u16>,
     #[serde(skip)]
     record_payment_atoms: bool,
@@ -105,6 +110,7 @@ impl ProbeOrder {
         if let Some((_, mana, keys)) = self.orders.borrow().iter().find(|(p, ..)| *p == player) {
             view.mana = mana.clone();
             view.floating_mana_keys = keys.clone();
+            view.keys_current = false;
         }
         view
     }
@@ -173,6 +179,7 @@ impl ProbeOrder {
             let pool = &mut pools[player.index()];
             pool.mana = mana;
             pool.floating_mana_keys = keys;
+            pool.keys_current = false;
         }
     }
 }
@@ -246,7 +253,8 @@ impl ManaPool {
 
     pub fn usable_for(&self, ctx: &ManaPaymentContext) -> ManaPool {
         let mut pool = self.clone();
-        pool.mana.retain(|mana| mana_matches_context(mana, ctx));
+        pool.mana_mut()
+            .retain(|mana| mana_matches_context(mana, ctx));
         pool
     }
 
@@ -340,7 +348,9 @@ impl ManaPool {
         if m.adds_no_counter {
             self.no_counter_mana_added += 1;
         }
-        self.sync_floating_mana_keys();
+        if !self.keys_current {
+            self.sync_floating_mana_keys();
+        }
         if !self.floating_mana_keys.contains(&m.color) {
             self.floating_mana_keys.push(m.color);
         }
@@ -362,6 +372,16 @@ impl ManaPool {
                 self.floating_mana_keys.push(m.color);
             }
         }
+        self.keys_current = true;
+        #[cfg(test)]
+        {
+            self.key_syncs += 1;
+        }
+    }
+
+    fn mana_mut(&mut self) -> &mut Vec<Mana> {
+        self.keys_current = false;
+        &mut self.mana
     }
 
     pub(crate) fn floating_mana(&mut self) -> Vec<Mana> {
@@ -411,7 +431,7 @@ impl ManaPool {
                 if self.record_payment_atoms {
                     self.last_payment_atoms.push(atom);
                 }
-                self.mana.remove(idx);
+                self.mana_mut().remove(idx);
                 remaining -= 1;
             } else {
                 idx += 1;
@@ -455,7 +475,7 @@ impl ManaPool {
     /// Reset the pool completely (empties all floating mana).
     /// Mirrors Java's `ManaPool.resetPool()`.
     pub fn reset_pool(&mut self) {
-        self.mana.clear();
+        self.mana_mut().clear();
     }
 
     /// Clear mana pool at the end of `ending_phase`, retaining persistent and combat mana.
@@ -483,12 +503,12 @@ impl ManaPool {
                 || (keep_colors != 0 && (m.color & keep_colors) != 0)
         };
         if let Some(color) = convert_to {
-            for m in self.mana.iter_mut().filter(|m| !kept(m)) {
+            for m in self.mana_mut().iter_mut().filter(|m| !kept(m)) {
                 m.color = color;
             }
             return 0;
         }
-        self.mana.retain(kept);
+        self.mana_mut().retain(kept);
         before - self.mana.len()
     }
 
@@ -527,7 +547,7 @@ impl ManaPool {
     /// Create a clone with restricted mana filtered out based on context.
     pub(crate) fn filtered_for_context(&self, ctx: &ManaPaymentContext) -> ManaPool {
         let mut pool = self.clone();
-        pool.mana.retain(|m| mana_matches_context(m, ctx));
+        pool.mana_mut().retain(|m| mana_matches_context(m, ctx));
         pool
     }
 
@@ -551,17 +571,17 @@ impl ManaPool {
         // Temporarily remove ineligible mana, try to pay, then restore unused ones
         let mut ineligible: Vec<Mana> = Vec::new();
         let mut eligible: Vec<Mana> = Vec::new();
-        for m in self.mana.drain(..) {
+        for m in self.mana_mut().drain(..) {
             if !mana_matches_context(&m, ctx) {
                 ineligible.push(m);
                 continue;
             }
             eligible.push(m);
         }
-        self.mana = eligible;
+        *self.mana_mut() = eligible;
         let result = self.try_pay(cost);
         // Restore ineligible mana
-        self.mana.extend(ineligible);
+        self.mana_mut().extend(ineligible);
         result
     }
 
@@ -574,20 +594,20 @@ impl ManaPool {
     ) -> bool {
         let mut ineligible: Vec<Mana> = Vec::new();
         let mut eligible: Vec<Mana> = Vec::new();
-        for m in self.mana.drain(..) {
+        for m in self.mana_mut().drain(..) {
             if !mana_matches_context(&m, ctx) {
                 ineligible.push(m);
                 continue;
             }
             eligible.push(m);
         }
-        self.mana = eligible;
+        *self.mana_mut() = eligible;
         let result = if any_color {
             self.try_pay_any_color(cost)
         } else {
             self.try_pay(cost)
         };
-        self.mana.extend(ineligible);
+        self.mana_mut().extend(ineligible);
         result
     }
 
@@ -619,16 +639,16 @@ impl ManaPool {
     ) -> Option<ManaPaymentOutcome> {
         let mut ineligible: Vec<Mana> = Vec::new();
         let mut eligible: Vec<Mana> = Vec::new();
-        for m in self.mana.drain(..) {
+        for m in self.mana_mut().drain(..) {
             if !mana_matches_context(&m, ctx) {
                 ineligible.push(m);
                 continue;
             }
             eligible.push(m);
         }
-        self.mana = eligible;
+        *self.mana_mut() = eligible;
         let result = self.try_pay_with_phyrexian_life_result(cost, any_color, player_life);
-        self.mana.extend(ineligible);
+        self.mana_mut().extend(ineligible);
         result
     }
 
@@ -684,7 +704,7 @@ impl ManaPool {
             let Some((idx, spent_color)) = paid_index else {
                 break;
             };
-            let mana = self.mana.remove(idx);
+            let mana = self.mana_mut().remove(idx);
             outcome.colors_spent |= spent_color;
             outcome.paying_mana.push(spent_color);
             outcome.paying_sources.push(mana.source_card);
@@ -971,7 +991,7 @@ impl ManaPool {
                     if self.record_payment_atoms {
                         self.last_payment_atoms.push(self.mana[idx].color);
                     }
-                    self.mana.remove(idx);
+                    self.mana_mut().remove(idx);
                     continue;
                 } else {
                     self.record_payment_atoms = false;
@@ -1066,7 +1086,7 @@ impl ManaPool {
                     if self.record_payment_atoms {
                         self.last_payment_atoms.push(self.mana[idx].color);
                     }
-                    self.mana.remove(idx);
+                    self.mana_mut().remove(idx);
                     continue;
                 } else {
                     self.record_payment_atoms = false;
@@ -1185,7 +1205,7 @@ impl ManaPool {
         let Some(pos) = self.mana.iter().position(|m| m.equals(mana)) else {
             return false;
         };
-        self.mana.remove(pos);
+        self.mana_mut().remove(pos);
         self.sync_floating_mana_keys();
         true
     }
@@ -1385,7 +1405,7 @@ impl ManaPool {
             }
         }
         for idx in spent_indices.into_iter().rev() {
-            self.mana.remove(idx);
+            self.mana_mut().remove(idx);
         }
         self.last_payment_atoms = paying_mana.clone();
         self.last_payment_triggers_consumed = triggers_consumed;
@@ -1628,6 +1648,72 @@ impl ManaPool {
 mod tests {
     use super::*;
     use forge_foundation::ManaCost;
+
+    #[test]
+    fn adding_mana_resyncs_the_keys_only_after_another_change() {
+        let mut pool = ManaPool::new();
+        pool.add(ManaAtom::GREEN, 10_000);
+        pool.add(ManaAtom::RED, 10_000);
+        assert_eq!(pool.key_syncs, 1);
+        pool.remove(ManaAtom::GREEN, 10_000);
+        pool.add(ManaAtom::BLUE, 1);
+        assert_eq!(pool.key_syncs, 2);
+        assert_eq!(pool.floating_mana_keys, [ManaAtom::RED, ManaAtom::BLUE]);
+    }
+
+    #[test]
+    fn skipping_the_resync_keeps_the_floating_mana_order() {
+        let atoms = [
+            ManaAtom::WHITE,
+            ManaAtom::BLUE,
+            ManaAtom::BLACK,
+            ManaAtom::RED,
+            ManaAtom::GREEN,
+            ManaAtom::COLORLESS,
+        ];
+        let mut state = 0x9e37_79b9_u32;
+        let mut next = |bound: u32| {
+            state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            (state >> 8) % bound
+        };
+        let mut fast = ManaPool::new();
+        let mut reference = ManaPool::new();
+        for step in 0..4_000 {
+            let atom = atoms[next(atoms.len() as u32) as usize];
+            let amount = next(3) as i32 + 1;
+            match next(10) {
+                0..=4 => {
+                    fast.add(atom, amount);
+                    for _ in 0..amount {
+                        reference.keys_current = false;
+                        reference.add(atom, 1);
+                    }
+                }
+                5 | 6 => {
+                    fast.remove(atom, amount);
+                    reference.remove(atom, amount);
+                }
+                7 => {
+                    let cost = forge_foundation::ManaCost::parse("1 G");
+                    assert_eq!(fast.try_pay(&cost), reference.try_pay(&cost));
+                }
+                8 => {
+                    if let Some(mana) = fast.mana.get(next(8) as usize).cloned() {
+                        assert_eq!(fast.remove_mana(&mana), reference.remove_mana(&mana));
+                    }
+                }
+                _ => {
+                    assert_eq!(fast.floating_mana(), reference.floating_mana());
+                }
+            }
+            assert_eq!(
+                fast.floating_mana_keys, reference.floating_mana_keys,
+                "step {step}"
+            );
+            assert_eq!(fast.mana, reference.mana, "step {step}");
+        }
+        assert!(fast.key_syncs < reference.key_syncs);
+    }
 
     #[test]
     fn phyrexian_payment_reserves_mana_for_generic_costs() {
