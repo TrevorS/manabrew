@@ -1,5 +1,5 @@
 use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
-use manabrew_agent_interface::game_view_dto::card_to_dto;
+use manabrew_agent_interface::game_view_dto::{card_to_dto, card_to_dto_for_viewer};
 use manabrew_engine::ability::activated::parse_activated_ability;
 use manabrew_engine::card::Card;
 use manabrew_engine::game::GameState;
@@ -211,4 +211,26 @@ fn negative_rails_stay_hidden_for_nonmatching_or_unsupported_cards() {
         assert!(dto.class_levels.is_empty());
         assert!(dto.saga_chapters.is_empty());
     }
+}
+
+#[test]
+fn a_face_down_exiled_card_shows_its_face_only_to_a_player_who_may_look() {
+    let mut game = make_game();
+    let mut bolt = make_card(CardId(0), "Exiled Bolt", "Instant", vec![], ZoneType::Exile);
+    bolt.mana_cost = ManaCost::parse("1 R");
+    let bolt_id = game.create_card(bolt);
+    game.card_mut(bolt_id).set_face_down(true);
+    game.card_mut(bolt_id)
+        .add_may_look_face_down_exile(PlayerId(0));
+
+    let owner = card_to_dto_for_viewer(&game, bolt_id, Some(PlayerId(0)));
+    assert_eq!(owner.identity.name, "Exiled Bolt");
+    assert_eq!(owner.types, vec!["Instant".to_string()]);
+    assert_eq!(owner.cmc, 2);
+    assert_eq!(owner.power, None);
+
+    let opponent = card_to_dto_for_viewer(&game, bolt_id, Some(PlayerId(1)));
+    assert!(opponent.identity.name.is_empty());
+    assert_eq!(opponent.types, vec!["Creature".to_string()]);
+    assert_eq!(opponent.cmc, 0);
 }

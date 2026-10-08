@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
 
 use forge_foundation::{CoreType, ZoneType};
@@ -443,6 +444,14 @@ pub fn can_face_down_be_shown_to(card: &Card, viewer: PlayerId) -> bool {
     }
 }
 
+pub fn card_state_shown_to(card: &Card, viewer: Option<PlayerId>) -> Cow<'_, Card> {
+    if viewer.is_none_or(|viewer| can_face_down_be_shown_to(card, viewer)) {
+        card.exiled_face_up_view()
+    } else {
+        Cow::Borrowed(card)
+    }
+}
+
 fn card_identity(card: &Card) -> CardIdentity {
     CardIdentity {
         name: if card.card_name.is_empty() {
@@ -653,7 +662,20 @@ pub fn card_to_dto(game: &GameState, cid: CardId) -> CardDto {
 }
 
 pub fn card_to_dto_for_viewer(game: &GameState, cid: CardId, viewer: Option<PlayerId>) -> CardDto {
-    let card = game.card(cid);
+    card_state_to_dto(
+        game,
+        cid,
+        &card_state_shown_to(game.card(cid), viewer),
+        viewer,
+    )
+}
+
+fn card_state_to_dto(
+    game: &GameState,
+    cid: CardId,
+    card: &Card,
+    viewer: Option<PlayerId>,
+) -> CardDto {
     let face_shown = viewer.is_none_or(|viewer| can_face_down_be_shown_to(card, viewer));
     let types: Vec<String> = card
         .type_line
