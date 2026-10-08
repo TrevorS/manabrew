@@ -94,6 +94,7 @@ pub struct ProbeOrder {
     orders: std::cell::RefCell<Vec<(PlayerId, Vec<Mana>, Vec<u16>)>>,
     current: std::cell::Cell<PossibleActionsKey>,
     probes: std::cell::RefCell<Vec<RecordedProbe>>,
+    candidates: std::cell::RefCell<(Option<(u64, PlayerId)>, Vec<u32>)>,
 }
 
 /// Where a probe falls in the harness's walk: the card's place among the candidates
@@ -170,6 +171,26 @@ impl ProbeOrder {
         let mut orders = self.orders.borrow_mut();
         orders.retain(|(p, ..)| *p != probe.player);
         orders.push((probe.player, rotated.mana, rotated.floating_mana_keys));
+    }
+
+    /// The place of each card among `ActionSpace.getPossibleActions`' candidates, kept while the
+    /// zones and the player are unchanged.
+    pub(crate) fn candidate(
+        &self,
+        zones_stamp: u64,
+        player: PlayerId,
+        card_id: crate::ids::CardId,
+        walk: impl FnOnce() -> Vec<u32>,
+    ) -> u32 {
+        let mut candidates = self.candidates.borrow_mut();
+        if candidates.0 != Some((zones_stamp, player)) {
+            *candidates = (Some((zones_stamp, player)), walk());
+        }
+        candidates
+            .1
+            .get(card_id.index())
+            .copied()
+            .unwrap_or(u32::MAX)
     }
 
     pub(crate) fn commit(&mut self, pools: &mut [ManaPool]) {
@@ -1660,6 +1681,16 @@ impl ManaPool {
 mod tests {
     use super::*;
     use forge_foundation::ManaCost;
+
+    #[test]
+    fn candidate_places_are_walked_again_when_the_zones_or_player_change() {
+        let order = ProbeOrder::default();
+        let card = crate::ids::CardId(1);
+        assert_eq!(order.candidate(1, PlayerId(0), card, || vec![9, 4]), 4);
+        assert_eq!(order.candidate(1, PlayerId(0), card, || vec![9, 7]), 4);
+        assert_eq!(order.candidate(2, PlayerId(0), card, || vec![9, 7]), 7);
+        assert_eq!(order.candidate(2, PlayerId(1), card, || vec![9, 3]), 3);
+    }
 
     #[test]
     fn probe_rotations_run_in_the_harness_card_order() {

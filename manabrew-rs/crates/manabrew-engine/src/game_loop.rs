@@ -312,10 +312,16 @@ impl GameLoop {
                     .iter()
                     .flat_map(move |&owner| game.cards_in_zone(zone, owner).iter().copied())
             });
-        let candidate = own
-            .chain(every)
-            .position(|candidate| candidate == card_id)
-            .map_or(u32::MAX, |candidate| candidate as u32);
+        let candidate = order.candidate(game.zones_stamp(), player, card_id, || {
+            let mut candidates = vec![u32::MAX; game.cards.len()];
+            for (place, candidate) in own.chain(every).enumerate() {
+                let slot = &mut candidates[candidate.index()];
+                if *slot == u32::MAX {
+                    *slot = place as u32;
+                }
+            }
+            candidates
+        });
         crate::mana::CandidateProbes::new(Some(order), candidate)
     }
 
