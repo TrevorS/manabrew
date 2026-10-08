@@ -92,12 +92,22 @@ pub struct ManaPool {
 #[derive(Debug, Default)]
 pub struct ProbeOrder {
     orders: std::cell::RefCell<Vec<(PlayerId, Vec<Mana>, Vec<u16>)>>,
-    deferring: std::cell::Cell<bool>,
-    deferred: std::cell::RefCell<Vec<DeferredRotation>>,
+    current: std::cell::Cell<PossibleActionsKey>,
+    probes: std::cell::RefCell<Vec<RecordedProbe>>,
+}
+
+/// Where a probe falls in the harness's walk: the card's place among the candidates
+/// `ActionSpace.getPossibleActions` collects, then the ability's group in that card's
+/// `Card.getAllPossibleAbilities` list.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct PossibleActionsKey {
+    candidate: u32,
+    abilities: u8,
 }
 
 #[derive(Debug)]
-struct DeferredRotation {
+struct RecordedProbe {
+    key: PossibleActionsKey,
     player: PlayerId,
     cost: ManaCostBeingPaid,
     ctx: ManaPaymentContext,
@@ -117,38 +127,40 @@ impl ProbeOrder {
 
     /// FORGE BUG (harness quirk, parity only): `ComputerUtilMana.payManaCost` in test mode
     /// spends from the real pool and refunds with `refundMana`, which appends, so every
-    /// action-space probe moves the floating mana it spent to the end of the pool.
+    /// action-space probe moves the floating mana it spent to the end of the pool. The probes run
+    /// in `ActionSpace.getPossibleActions` order, card by card, so each one is recorded under its
+    /// `PossibleActionsKey` and the rotations run in that order when the action is chosen.
     pub(crate) fn rotate(
         &self,
-        pool: &ManaPool,
         player: PlayerId,
         cost: &ManaCostBeingPaid,
         ctx: &ManaPaymentContext,
         has_converge: bool,
     ) {
-        if self.deferring.get() {
-            self.deferred.borrow_mut().push(DeferredRotation {
-                player,
-                cost: cost.clone(),
-                ctx: ctx.clone(),
-                has_converge,
-            });
-            return;
-        }
-        let mut view = self.view(pool, player);
+        self.probes.borrow_mut().push(RecordedProbe {
+            key: self.current.get(),
+            player,
+            cost: cost.clone(),
+            ctx: ctx.clone(),
+            has_converge,
+        });
+    }
+
+    fn apply(&self, pool: &ManaPool, probe: &RecordedProbe) {
+        let mut view = self.view(pool, probe.player);
         let mut spent = ManaPaymentOutcome::default();
         view.pay_mana_cost_from_pool(
-            &mut cost.clone(),
-            ctx,
+            &mut probe.cost.clone(),
+            &probe.ctx,
             false,
-            has_converge,
+            probe.has_converge,
             &mut spent,
             &mut |_| 0,
         );
         if spent.mana_spent.is_empty() {
             return;
         }
-        let mut rotated = self.view(pool, player);
+        let mut rotated = self.view(pool, probe.player);
         for mana in &spent.mana_spent {
             rotated.remove_mana(mana);
         }
@@ -156,25 +168,16 @@ impl ProbeOrder {
             rotated.add_mana(mana);
         }
         let mut orders = self.orders.borrow_mut();
-        orders.retain(|(p, ..)| *p != player);
-        orders.push((player, rotated.mana, rotated.floating_mana_keys));
-    }
-
-    fn flush_deferred(&self, pools: &[ManaPool]) {
-        self.deferring.set(false);
-        let deferred = std::mem::take(&mut *self.deferred.borrow_mut());
-        for rotation in deferred {
-            self.rotate(
-                &pools[rotation.player.index()],
-                rotation.player,
-                &rotation.cost,
-                &rotation.ctx,
-                rotation.has_converge,
-            );
-        }
+        orders.retain(|(p, ..)| *p != probe.player);
+        orders.push((probe.player, rotated.mana, rotated.floating_mana_keys));
     }
 
     pub(crate) fn commit(&mut self, pools: &mut [ManaPool]) {
+        let mut probes = std::mem::take(self.probes.get_mut());
+        probes.sort_by_key(|probe| probe.key);
+        for probe in &probes {
+            self.apply(&pools[probe.player.index()], probe);
+        }
         for (player, mana, keys) in self.orders.get_mut().drain(..) {
             let pool = &mut pools[player.index()];
             pool.mana = mana;
@@ -184,37 +187,46 @@ impl ProbeOrder {
     }
 }
 
-/// FORGE BUG (harness quirk, parity only): `Card.getAllPossibleAbilities` lists a card's own
-/// spells before its Backside and Secondary spells (Card.java:7406-7446), and `CardState`'s
-/// left split half before its right (CardState.java:483-495), so the harness test-pays them
-/// in that order. A card's other-face probes run under `defer`, and their rotations apply when
-/// the card's probes end.
-pub(crate) struct OtherFaceProbes<'a> {
+pub(crate) const ALL_POSSIBLE_MANA_ABILITIES: u8 = 0;
+const ALL_POSSIBLE_SPELLS: u8 = 1;
+pub(crate) const ALL_POSSIBLE_ABILITIES: u8 = 2;
+const ALL_POSSIBLE_OTHER_FACES: u8 = 3;
+
+/// FORGE BUG (harness quirk, parity only): `ActionSpace.getPossibleActions` probes each
+/// candidate card's `Card.getAllPossibleAbilities` in turn, and that list holds the card's mana
+/// abilities, then its spells and other abilities, then its Backside and Secondary spells
+/// (Card.java:7406-7446). A candidate's probes are recorded under its place in the candidate
+/// walk and that group.
+pub(crate) struct CandidateProbes<'a> {
     order: Option<&'a ProbeOrder>,
-    pools: &'a [ManaPool],
+    candidate: u32,
 }
 
-impl<'a> OtherFaceProbes<'a> {
-    pub(crate) fn new(order: Option<&'a ProbeOrder>, pools: &'a [ManaPool]) -> Self {
-        Self { order, pools }
+impl<'a> CandidateProbes<'a> {
+    pub(crate) fn new(order: Option<&'a ProbeOrder>, candidate: u32) -> Self {
+        let probes = Self { order, candidate };
+        probes.set(ALL_POSSIBLE_SPELLS);
+        probes
+    }
+
+    fn set(&self, abilities: u8) {
+        if let Some(order) = self.order {
+            order.current.set(PossibleActionsKey {
+                candidate: self.candidate,
+                abilities,
+            });
+        }
+    }
+
+    pub(crate) fn within<R>(&self, abilities: u8, probe: impl FnOnce() -> R) -> R {
+        self.set(abilities);
+        let result = probe();
+        self.set(ALL_POSSIBLE_SPELLS);
+        result
     }
 
     pub(crate) fn defer<R>(&self, probe: impl FnOnce() -> R) -> R {
-        let Some(order) = self.order else {
-            return probe();
-        };
-        order.deferring.set(true);
-        let result = probe();
-        order.deferring.set(false);
-        result
-    }
-}
-
-impl Drop for OtherFaceProbes<'_> {
-    fn drop(&mut self) {
-        if let Some(order) = self.order {
-            order.flush_deferred(self.pools);
-        }
+        self.within(ALL_POSSIBLE_OTHER_FACES, probe)
     }
 }
 
@@ -1648,6 +1660,32 @@ impl ManaPool {
 mod tests {
     use super::*;
     use forge_foundation::ManaCost;
+
+    #[test]
+    fn probe_rotations_run_in_the_harness_card_order() {
+        let mut pools = vec![ManaPool::new(), ManaPool::new()];
+        for atom in [ManaAtom::WHITE, ManaAtom::GREEN, ManaAtom::BLUE] {
+            pools[0].add(atom, 1);
+        }
+        let mut order = ProbeOrder::default();
+        let ctx = ManaPaymentContext::default();
+        let probe = |order: &ProbeOrder, candidate: u32, cost: &str| {
+            let _card = CandidateProbes::new(Some(order), candidate);
+            order.rotate(
+                PlayerId(0),
+                &ManaCostBeingPaid::from_mana_cost(&ManaCost::parse(cost)),
+                &ctx,
+                false,
+            );
+        };
+        probe(&order, 5, "W");
+        probe(&order, 2, "G");
+        order.commit(&mut pools);
+        assert_eq!(
+            pools[0].floating_mana_keys,
+            [ManaAtom::GREEN, ManaAtom::BLUE, ManaAtom::WHITE]
+        );
+    }
 
     #[test]
     fn adding_mana_resyncs_the_keys_only_after_another_change() {

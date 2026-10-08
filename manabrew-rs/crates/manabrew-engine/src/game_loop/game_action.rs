@@ -611,11 +611,16 @@ impl GameLoop {
             crate::staticability::static_ability_alternative_cost::any_in_static_source_zones(game);
         for card_id in battlefield {
             let card = game.card(card_id);
+            let probes = self.candidate_probes(game, player, card_id);
             // Face-down creatures only expose morph turn-face-up ability (game rule).
             // All other abilities are hidden while face-down.
             if card.face_down {
                 for ab in &card.activated_abilities {
-                    if ab.ability_text.contains("Mode$ TurnFaceUp") && can_activate(card_id, ab) {
+                    if ab.ability_text.contains("Mode$ TurnFaceUp")
+                        && probes.within(crate::mana::ALL_POSSIBLE_ABILITIES, || {
+                            can_activate(card_id, ab)
+                        })
+                    {
                         result.push((card_id, ab.ability_index));
                     }
                 }
@@ -623,7 +628,9 @@ impl GameLoop {
             }
             for ab in &card.activated_abilities {
                 if ab.is_mana_ability && card.controller == player {
-                    self.probe_mana_ability_payment(game, player, card_id, ab);
+                    probes.within(crate::mana::ALL_POSSIBLE_MANA_ABILITIES, || {
+                        self.probe_mana_ability_payment(game, player, card_id, ab)
+                    });
                 }
                 if ab.is_mana_ability || ab.is_unlock_door {
                     continue;
@@ -632,7 +639,9 @@ impl GameLoop {
                 if ab.activation_zone == Some(ZoneType::Hand) {
                     continue;
                 }
-                if can_activate(card_id, ab) {
+                if probes.within(crate::mana::ALL_POSSIBLE_ABILITIES, || {
+                    can_activate(card_id, ab)
+                }) {
                     result.push((card_id, ab.ability_index));
                 }
             }
@@ -654,11 +663,16 @@ impl GameLoop {
         let hand = game.cards_in_zone(ZoneType::Hand, player).to_vec();
         for card_id in hand {
             let card = game.card(card_id);
+            let probes = self.candidate_probes(game, player, card_id);
             for ab in &card.activated_abilities {
                 if ab.is_mana_ability || ab.is_unlock_door {
                     continue;
                 }
-                if ab.activation_zone == Some(ZoneType::Hand) && can_activate(card_id, ab) {
+                if ab.activation_zone == Some(ZoneType::Hand)
+                    && probes.within(crate::mana::ALL_POSSIBLE_ABILITIES, || {
+                        can_activate(card_id, ab)
+                    })
+                {
                     result.push((card_id, ab.ability_index));
                 }
             }
@@ -668,11 +682,16 @@ impl GameLoop {
         let graveyard = game.cards_in_zone(ZoneType::Graveyard, player).to_vec();
         for card_id in graveyard {
             let card = game.card(card_id);
+            let probes = self.candidate_probes(game, player, card_id);
             for ab in &card.activated_abilities {
                 if ab.is_mana_ability || ab.is_unlock_door {
                     continue;
                 }
-                if ab.activation_zone == Some(ZoneType::Graveyard) && can_activate(card_id, ab) {
+                if ab.activation_zone == Some(ZoneType::Graveyard)
+                    && probes.within(crate::mana::ALL_POSSIBLE_ABILITIES, || {
+                        can_activate(card_id, ab)
+                    })
+                {
                     result.push((card_id, ab.ability_index));
                 }
             }
@@ -682,11 +701,16 @@ impl GameLoop {
         let exile = game.cards_in_zone(ZoneType::Exile, player).to_vec();
         for card_id in exile {
             let card = game.card(card_id);
+            let probes = self.candidate_probes(game, player, card_id);
             for ab in &card.activated_abilities {
                 if ab.is_mana_ability || ab.is_unlock_door {
                     continue;
                 }
-                if ab.activation_zone == Some(ZoneType::Exile) && can_activate(card_id, ab) {
+                if ab.activation_zone == Some(ZoneType::Exile)
+                    && probes.within(crate::mana::ALL_POSSIBLE_ABILITIES, || {
+                        can_activate(card_id, ab)
+                    })
+                {
                     result.push((card_id, ab.ability_index));
                 }
             }
@@ -699,6 +723,7 @@ impl GameLoop {
             .collect();
         for card_id in library_tops {
             let card = game.card(card_id);
+            let probes = self.candidate_probes(game, player, card_id);
             let is_plot = |ab: &crate::ability::ActivatedAbility| {
                 ab.ability_api == Some(crate::ability::api_type::ApiType::Plot)
             };
@@ -708,7 +733,11 @@ impl GameLoop {
                 continue;
             }
             for ab in &card.activated_abilities {
-                if is_plot(ab) && can_activate(card_id, ab) {
+                if is_plot(ab)
+                    && probes.within(crate::mana::ALL_POSSIBLE_ABILITIES, || {
+                        can_activate(card_id, ab)
+                    })
+                {
                     result.push((card_id, ab.ability_index));
                 }
             }

@@ -3828,7 +3828,7 @@ fn can_pay_mana_cost(
     let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
     adjust_mana_cost_to_avoid_neg_effects(&mut unpaid, spell);
     if let Some(order) = probe_order {
-        order.rotate(pool, player, &unpaid, payment_ctx, spell.has_converge());
+        order.rotate(player, &unpaid, payment_ctx, spell.has_converge());
     }
     let mut simulated_pool = pool.clone();
     simulated_pool.pay_unpaid_for_spell_incremental(&mut unpaid, payment_ctx, false);

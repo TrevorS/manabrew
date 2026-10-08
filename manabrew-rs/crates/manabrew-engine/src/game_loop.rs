@@ -286,8 +286,39 @@ impl GameLoop {
             .then_some(&self.probe_order)
     }
 
-    pub(crate) fn other_face_probes(&self, game: &GameState) -> crate::mana::OtherFaceProbes<'_> {
-        crate::mana::OtherFaceProbes::new(self.action_space_probe_order(game), &self.mana_pools)
+    /// Java `ActionSpace.getPossibleActions` collects its candidates in a `LinkedHashSet`: the
+    /// player's hand, battlefield, graveyard, exile and command zone, then every battlefield,
+    /// exile and command zone.
+    pub(crate) fn candidate_probes(
+        &self,
+        game: &GameState,
+        player: PlayerId,
+        card_id: CardId,
+    ) -> crate::mana::CandidateProbes<'_> {
+        let Some(order) = self.action_space_probe_order(game) else {
+            return crate::mana::CandidateProbes::new(None, 0);
+        };
+        let own = [
+            ZoneType::Hand,
+            ZoneType::Battlefield,
+            ZoneType::Graveyard,
+            ZoneType::Exile,
+            ZoneType::Command,
+        ]
+        .into_iter()
+        .flat_map(|zone| game.cards_in_zone(zone, player).iter().copied());
+        let every = [ZoneType::Battlefield, ZoneType::Exile, ZoneType::Command]
+            .into_iter()
+            .flat_map(|zone| {
+                game.player_order
+                    .iter()
+                    .flat_map(move |&owner| game.cards_in_zone(zone, owner).iter().copied())
+            });
+        let candidate = own
+            .chain(every)
+            .position(|candidate| candidate == card_id)
+            .map_or(u32::MAX, |candidate| candidate as u32);
+        crate::mana::CandidateProbes::new(Some(order), candidate)
     }
 
     pub fn pool(&self, pid: PlayerId) -> &ManaPool {

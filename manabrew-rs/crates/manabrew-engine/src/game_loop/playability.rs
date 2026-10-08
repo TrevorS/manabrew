@@ -330,7 +330,6 @@ impl GameLoop {
         let mana_ok = if any_color {
             if let Some(order) = self.action_space_probe_order(game) {
                 order.rotate(
-                    self.pool(player),
                     player,
                     &crate::mana::mana_cost_being_paid::ManaCostBeingPaid::from_mana_cost(&cost),
                     &payment_ctx,
@@ -859,7 +858,7 @@ impl GameLoop {
 
         for &card_id in hand {
             let card = game.card(card_id);
-            let other_faces = self.other_face_probes(game);
+            let other_faces = self.candidate_probes(game, player, card_id);
             let probe_host = || {
                 stack_statics().map_or(card, |stack_statics: &GameState| {
                     stack_statics.card(card_id)
@@ -1831,7 +1830,7 @@ impl GameLoop {
             let gy_cards: Vec<CardId> = game.cards_in_zone(ZoneType::Graveyard, player).to_vec();
             for &card_id in &gy_cards {
                 let card = game.card(card_id);
-                let other_faces = self.other_face_probes(game);
+                let other_faces = self.candidate_probes(game, player, card_id);
                 if !card.is_land() {
                     if !may_play_grants(card_id).any(|(source, st_ab)| {
                         crate::staticability::static_ability_continuous::grants_zone_permissions(
@@ -2116,7 +2115,7 @@ impl GameLoop {
         let graveyard: Vec<CardId> = game.cards_in_zone(ZoneType::Graveyard, player).to_vec();
         for card_id in graveyard {
             let card = game.card(card_id);
-            let other_faces = self.other_face_probes(game);
+            let other_faces = self.candidate_probes(game, player, card_id);
             let probe_host = stack_statics().map_or(card, |stack_statics: &GameState| {
                 stack_statics.card(card_id)
             });
@@ -2268,7 +2267,7 @@ impl GameLoop {
         }
         for card_id in exile {
             let card = game.card(card_id);
-            let other_faces = self.other_face_probes(game);
+            let other_faces = self.candidate_probes(game, player, card_id);
             let can_may_play = can_may_play_from_static(card_id);
             if !can_may_play && card.owner != player {
                 continue;
@@ -2617,7 +2616,7 @@ impl GameLoop {
             if !can_may_play_from_static(card_id) {
                 continue;
             }
-            let other_faces = self.other_face_probes(game);
+            let other_faces = self.candidate_probes(game, player, card_id);
             for alt_cost_index in other_faces.defer(|| {
                 self.may_play_secondary_spell_grants(
                     game,
