@@ -3166,9 +3166,14 @@ fn meets_card_trait_requirements(
                 )
                 .into_iter()
                 .filter(|&cid| {
+                    let card = if requirements.present_defined.is_some() && cid == source.id {
+                        source
+                    } else {
+                        game.card(cid)
+                    };
                     matches_valid_card_selector_with_context(
                         &selector,
-                        game.card(cid),
+                        card,
                         MatchContext::new(source, game)
                             .with_trigger_remembered_cards(trigger_remembered),
                     )
