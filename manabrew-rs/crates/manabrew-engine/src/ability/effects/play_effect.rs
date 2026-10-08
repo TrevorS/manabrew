@@ -255,6 +255,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     card_id,
                     &unpaid.to_mana_cost(),
                     true,
+                    &crate::mana::ManaPaymentContext::default(),
                 )
             })
             .flatten();

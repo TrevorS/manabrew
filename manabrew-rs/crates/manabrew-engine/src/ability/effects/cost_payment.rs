@@ -159,6 +159,7 @@ struct EffectManaPayment<'c, 'a> {
     ctx: &'c mut EffectContext<'a>,
     payable_mana_cost: &'c forge_foundation::ManaCost,
     attempt_unpayable: bool,
+    payment_ctx: &'c crate::mana::ManaPaymentContext,
     paying_mana: Vec<u16>,
 }
 
@@ -184,7 +185,7 @@ impl crate::game_loop::mana_payment::ManaPaymentHost for EffectManaPayment<'_, '
         let mana_pools = &mut *ctx.mana_pools;
         let saved_game = game.clone();
         let saved_pool = mana_pools[session.player.index()].clone();
-        let payment_ctx = crate::mana::ManaPaymentContext::default();
+        let payment_ctx = self.payment_ctx;
         let auto_result = {
             let mut replacement_pools = (0..game.players.len())
                 .map(|_| crate::mana::ManaPool::new())
@@ -211,7 +212,7 @@ impl crate::game_loop::mana_payment::ManaPaymentHost for EffectManaPayment<'_, '
                 session.mana_cost,
                 Some(session.card_id),
                 0,
-                &payment_ctx,
+                payment_ctx,
                 false,
                 &mut callback,
             )
@@ -378,8 +379,17 @@ pub(crate) fn pay_mana_cost_for_effect(
     source: CardId,
     mana_cost: &forge_foundation::ManaCost,
     attempt_unpayable: bool,
+    payment_ctx: &crate::mana::ManaPaymentContext,
 ) -> bool {
-    pay_mana_cost_for_effect_spending(ctx, payer, source, mana_cost, attempt_unpayable).is_some()
+    pay_mana_cost_for_effect_spending(
+        ctx,
+        payer,
+        source,
+        mana_cost,
+        attempt_unpayable,
+        payment_ctx,
+    )
+    .is_some()
 }
 
 /// Keep in sync with `pay_mana_cost_for_effect_spending`: an effect's mana is offered only
@@ -409,6 +419,7 @@ pub(crate) fn pay_mana_cost_for_effect_spending(
     source: CardId,
     mana_cost: &forge_foundation::ManaCost,
     attempt_unpayable: bool,
+    payment_ctx: &crate::mana::ManaPaymentContext,
 ) -> Option<Vec<u16>> {
     let card_name = ctx.game.card(source).card_name.clone();
     let cost_str = mana_cost.to_string();
@@ -424,11 +435,11 @@ pub(crate) fn pay_mana_cost_for_effect_spending(
         return None;
     }
 
-    let payment_ctx = crate::mana::ManaPaymentContext::default();
     let mut host = EffectManaPayment {
         ctx,
         payable_mana_cost: &payable_mana_cost,
         attempt_unpayable,
+        payment_ctx,
         paying_mana: Vec::new(),
     };
     let paid = crate::game_loop::mana_payment::pay_mana_cost_session_generic(
@@ -445,7 +456,7 @@ pub(crate) fn pay_mana_cost_for_effect_spending(
             reserved_sacrifices: &[],
             current_spell: Some(source),
             allow_reserved_source_reuse: false,
-            payment_ctx: Some(&payment_ctx),
+            payment_ctx: Some(payment_ctx),
         },
         |game, player, cid, ab, _reserved| {
             crate::game_loop::GameLoop::mana_source_available_for_payment(game, player, cid)
@@ -540,6 +551,11 @@ fn pay_effect_cost_parts(
     mode: EffectCostPaymentMode,
     cost_stack_size: usize,
 ) -> bool {
+    let payment_ctx = if mode.attempts_unpayable() {
+        crate::mana::resolving_ability_payment_context(ctx.game, sa)
+    } else {
+        crate::mana::ManaPaymentContext::default()
+    };
     let available_mana =
         crate::mana::calculate_available_mana(&ctx.mana_pools[payer.index()], ctx.game, payer);
     if !mode.attempts_unpayable()
@@ -657,6 +673,7 @@ fn pay_effect_cost_parts(
                     source,
                     mana_cost,
                     mode.attempts_unpayable(),
+                    &payment_ctx,
                 ) {
                     return false;
                 }
@@ -703,6 +720,7 @@ fn pay_effect_cost_parts(
                         source,
                         &forge_foundation::ManaCost::generic(remaining),
                         mode.attempts_unpayable(),
+                        &payment_ctx,
                     )
                 {
                     return false;
@@ -1232,7 +1250,7 @@ pub(super) fn resolve_effect_with_unless_cost(
                 source,
                 Some(sa),
                 &cost,
-                &crate::mana::ManaPaymentContext::default(),
+                &crate::mana::resolving_ability_payment_context(ctx.game, sa),
             );
         }
         let can_pay = if attempt_unpayable {

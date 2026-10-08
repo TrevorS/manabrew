@@ -1125,7 +1125,7 @@ pub(crate) fn harness_cost_probe_for(
 /// `DeterministicController.payCostToPreventEffect` (DeterministicController.java:1238-1260)
 /// attempts an unless cost when `ComputerUtilCost.canPayCost` passes or, for a cost of mana
 /// alone, `ActionSpace.canPayManaCostFromCurrentSources` does. Restrictions are tested against
-/// the resolving ability, which rejects restricted mana (AbilityManaPart.java:441-445).
+/// the resolving ability (`resolving_ability_payment_context`).
 pub(crate) fn harness_can_pay_cost_to_prevent_effect(
     game: &GameState,
     pool: &ManaPool,
@@ -1134,7 +1134,7 @@ pub(crate) fn harness_can_pay_cost_to_prevent_effect(
     sa: &crate::spellability::SpellAbility,
     cost: &crate::cost::Cost,
 ) -> bool {
-    let payment_ctx = crate::mana::ManaPaymentContext::default();
+    let payment_ctx = crate::mana::resolving_ability_payment_context(game, sa);
     // Java's `CostWaterbend` extends `CostPartMana` (CostWaterbend.java), and test mode clears
     // `maxWaterbend` for a payer that is not the AI (ComputerUtilMana.java:1222-1227), so a
     // Waterbend part is that much generic mana here.

@@ -1317,7 +1317,12 @@ impl GameLoop {
                         rng: &mut *self.game_rng,
                     };
                     return crate::ability::effects::cost_payment::pay_mana_cost_for_effect(
-                        &mut ctx, controller, card_id, &mana_cost, false,
+                        &mut ctx,
+                        controller,
+                        card_id,
+                        &mana_cost,
+                        false,
+                        &crate::mana::ManaPaymentContext::default(),
                     );
                 }
                 CombatCostAction::Decline => {

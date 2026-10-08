@@ -309,6 +309,7 @@ pub struct ManaPaymentContext {
     pub host_zone: Option<ZoneType>,
     /// Java's `SpellAbilityProperty` `cmc`: the card's mana value on the stack, else the pay cost's.
     pub mana_value: Option<i32>,
+    pub resolving: bool,
 }
 
 /// Forge's `SpellAbilityProperty` `cmc` reads an off-stack spell's pay cost, though an
@@ -372,6 +373,27 @@ pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymen
         cast_from,
         host_zone,
         mana_value,
+        resolving: false,
+    }
+}
+
+/// FORGE BUG (mirrored only): Java tests an unless cost's mana against the ability that imposed
+/// it, which is on the stack, so `AbilityManaPart.meetsManaRestrictions` rejects every
+/// restriction past its zone ones as "the payment is for a resolving SA"
+/// (AbilityManaPart.java:422-445). Under the rules paying the cost casts nothing, so mana that
+/// can't be spent to cast spells from a hand pays it.
+pub fn resolving_ability_payment_context(
+    game: &GameState,
+    sa: &SpellAbility,
+) -> ManaPaymentContext {
+    let host = sa.source.map(|source| game.card(source));
+    ManaPaymentContext {
+        is_spell: sa.is_spell,
+        type_line: host.map(|card| card.type_line.clone()),
+        cast_from: host.and_then(|card| card.cast_from),
+        host_zone: host.map(|card| card.zone),
+        resolving: true,
+        ..Default::default()
     }
 }
 
@@ -391,6 +413,14 @@ pub fn mana_meets_restriction(restriction: &str, ctx: &ManaPaymentContext) -> bo
 }
 
 fn check_single_restriction(restriction: &str, ctx: &ManaPaymentContext) -> bool {
+    if ctx.resolving
+        && !(restriction == "nonSpell"
+            || restriction == "CantCastNonArtifactSpells"
+            || restriction.starts_with("CantPayGenericCosts")
+            || restriction.starts_with("CantCastSpellFrom"))
+    {
+        return false;
+    }
     match restriction {
         "nonSpell" => !ctx.is_spell,
         "Activated" => ctx.is_activated_ability,

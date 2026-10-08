@@ -494,3 +494,67 @@ fn a_creature_sacrificed_for_an_unless_cost_into_exile_by_a_replacement_does_not
     assert_eq!(game.card(witness).zone, ZoneType::Exile);
     assert_eq!(game.player(p1).life, 20);
 }
+
+const HAND_LOCKED: &str = "Name:Hand Locked Mana\nManaCost:1\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ C | RestrictValid$ CantCastSpellFromHand | SpellDescription$ Add {C}. This mana can't be spent to cast spells from your hand.\nOracle:";
+
+fn unless_cost_of_a_spell_cast_from_hand(harness_mirror: bool) -> Outcome {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    game.mirror_forge_bugs = harness_mirror;
+    game.action_space_mana_probe = ActionSpaceManaProbe::ComputerUtilMana;
+    let permanents = [
+        put(&mut game, FOREST, p1, ZoneType::Battlefield),
+        put(&mut game, HAND_LOCKED, p1, ZoneType::Battlefield),
+    ];
+    let source = put(&mut game, TAX_INSTANT, p0, ZoneType::Stack);
+    game.card_mut(source).cast_from = Some(ZoneType::Hand);
+    let mut sa = SpellAbility::new_simple(
+        Some(source),
+        p0,
+        "SP$ LoseLife | Defined$ Opponent | LifeAmount$ 3 | UnlessCost$ 2 | UnlessPayer$ Opponent",
+    );
+    sa.is_spell = true;
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: sa,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: Some(ZoneType::Hand),
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(PassAgent),
+        Box::new(WillingPayer {
+            mana_asked: Rc::new(Cell::new(0)),
+            prevent_asked: Rc::new(Cell::new(0)),
+        }),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    Outcome {
+        payer_permanents_tapped: permanents
+            .iter()
+            .map(|&card| game.card(card).tapped)
+            .collect(),
+        payer_life: game.player(p1).life,
+    }
+}
+
+#[test]
+fn mana_that_cant_cast_spells_from_hand_pays_a_spells_unless_cost() {
+    let rules = unless_cost_of_a_spell_cast_from_hand(false);
+    assert_eq!(rules.payer_life, 20);
+    assert_eq!(rules.payer_permanents_tapped, vec![true, true]);
+}
+
+#[test]
+fn forge_tests_an_unless_costs_mana_against_the_resolving_spell() {
+    let mirrored = unless_cost_of_a_spell_cast_from_hand(true);
+    assert_eq!(mirrored.payer_life, 17);
+    assert_eq!(mirrored.payer_permanents_tapped, vec![false, false]);
+}
