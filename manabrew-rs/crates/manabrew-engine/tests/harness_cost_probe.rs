@@ -22,6 +22,7 @@ const EFFECT_SOURCE: &str = "Name:Effect Source\nManaCost:no cost\nTypes:Artifac
 
 struct Prober {
     asked: Rc<RefCell<Vec<usize>>>,
+    offered: Rc<RefCell<Vec<Vec<u16>>>>,
     acted: bool,
 }
 
@@ -133,6 +134,9 @@ impl PlayerAgent for Prober {
         mana_choices: &[Mana],
     ) -> usize {
         self.asked.borrow_mut().push(mana_choices.len());
+        self.offered
+            .borrow_mut()
+            .push(mana_choices.iter().map(|mana| mana.color).collect());
         0
     }
     #[allow(clippy::too_many_arguments)]
@@ -180,6 +184,14 @@ fn put(game: &mut GameState, script: &str, owner: PlayerId, zone: ZoneType) -> C
 }
 
 fn run(mirror_forge_bugs: bool, setup: impl FnOnce(&mut GameState)) -> (GameState, Vec<usize>) {
+    let (game, asked, _) = run_offers(mirror_forge_bugs, setup);
+    (game, asked)
+}
+
+fn run_offers(
+    mirror_forge_bugs: bool,
+    setup: impl FnOnce(&mut GameState),
+) -> (GameState, Vec<usize>, Vec<Vec<u16>>) {
     let mut game = GameState::new(&["Alice", "Bob"], 20);
     game.turn.active_player = PlayerId(0);
     game.new_turn_for_player(PlayerId(0));
@@ -188,19 +200,22 @@ fn run(mirror_forge_bugs: bool, setup: impl FnOnce(&mut GameState)) -> (GameStat
     game.action_space_mana_probe = ActionSpaceManaProbe::ComputerUtilMana;
     setup(&mut game);
     let asked = Rc::new(RefCell::new(Vec::new()));
+    let offered = Rc::new(RefCell::new(Vec::new()));
     let mut game_loop = GameLoop::new(2);
     game_loop.mana_pools[0].add(ManaAtom::RED, 1);
     game_loop.mana_pools[0].add(ManaAtom::GREEN, 1);
     let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
         Box::new(Prober {
             asked: Rc::clone(&asked),
+            offered: Rc::clone(&offered),
             acted: false,
         }),
         Box::new(PassAgent),
     ];
     game_loop.step_with_priority(&mut game, &mut agents, false);
     let asked = asked.borrow().clone();
-    (game, asked)
+    let offered = offered.borrow().clone();
+    (game, asked, offered)
 }
 
 fn unless_cost(mirror_forge_bugs: bool) -> Vec<usize> {
@@ -258,4 +273,51 @@ fn activate_x(mirror_forge_bugs: bool) -> Vec<usize> {
 fn an_x_ability_runs_the_harness_probe_per_x_only_under_the_forge_mirror() {
     assert_eq!(activate_x(false), vec![2]);
     assert_eq!(activate_x(true), vec![2, 2, 2, 2]);
+}
+
+const RED_PIERCE: &str = "Name:Red Pierce\nManaCost:R\nTypes:Instant\nA:SP$ Counter | TargetType$ Spell | ValidTgts$ Card | SpellDescription$ Counter target spell.\nOracle:";
+const ONE_BOLT: &str = "Name:One Bolt\nManaCost:1\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Player | NumDmg$ 1 | SpellDescription$ CARDNAME deals 1 damage to target player.\nOracle:";
+
+fn pool_order_after_an_untargeted_probe(mirror_forge_bugs: bool) -> Vec<Vec<u16>> {
+    let (game, _, offered) = run_offers(mirror_forge_bugs, |game| {
+        put(game, RED_PIERCE, PlayerId(0), ZoneType::Hand);
+        put(game, ONE_BOLT, PlayerId(0), ZoneType::Hand);
+    });
+    assert_eq!(game.player(PlayerId(1)).life, 19);
+    offered
+}
+
+#[test]
+fn the_harness_probe_rotates_the_pool_for_a_spell_with_no_target() {
+    assert_eq!(
+        pool_order_after_an_untargeted_probe(false),
+        vec![vec![ManaAtom::RED, ManaAtom::GREEN]]
+    );
+    assert_eq!(
+        pool_order_after_an_untargeted_probe(true),
+        vec![vec![ManaAtom::RED, ManaAtom::GREEN]]
+    );
+}
+
+const GREEN_SNARE: &str = "Name:Green Snare\nManaCost:2\nTypes:Artifact\nA:AB$ Counter | Cost$ G | TargetType$ Spell | ValidTgts$ Card | SpellDescription$ Counter target spell.\nOracle:";
+
+fn pool_order_after_an_untargeted_ability_probe(mirror_forge_bugs: bool) -> Vec<Vec<u16>> {
+    let (game, _, offered) = run_offers(mirror_forge_bugs, |game| {
+        put(game, ONE_BOLT, PlayerId(0), ZoneType::Hand);
+        put(game, GREEN_SNARE, PlayerId(0), ZoneType::Battlefield);
+    });
+    assert_eq!(game.player(PlayerId(1)).life, 19);
+    offered
+}
+
+#[test]
+fn the_harness_probe_rotates_the_pool_for_an_ability_with_no_target() {
+    assert_eq!(
+        pool_order_after_an_untargeted_ability_probe(false),
+        vec![vec![ManaAtom::RED, ManaAtom::GREEN]]
+    );
+    assert_eq!(
+        pool_order_after_an_untargeted_ability_probe(true),
+        vec![vec![ManaAtom::RED, ManaAtom::GREEN]]
+    );
 }

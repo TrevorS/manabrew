@@ -314,6 +314,7 @@ impl GameLoop {
         let mut result = Vec::new();
         let available_mana = std::cell::OnceCell::new();
         let cant_be_activated_source = std::cell::OnceCell::new();
+        let probes_first = crate::mana::computer_util_mana::harness_cost_probes_ask(game);
         let mut battlefield = game.cards_in_zone(ZoneType::Battlefield, player).to_vec();
         for &other_player in &game.player_order {
             if other_player == player {
@@ -369,12 +370,13 @@ impl GameLoop {
                 sa_for_target_check.set_original_host(original_host);
             }
             sa_for_target_check.original_ability = ab.original_ability;
+            let mut cant_be_activated = false;
             if ab.is_ability_static() {
                 if !crate::spellability::ability_static::can_play(&sa_for_target_check, game) {
                     return Err("ability_static::can_play");
                 }
             } else {
-                if *cant_be_activated_source.get_or_init(|| {
+                cant_be_activated = *cant_be_activated_source.get_or_init(|| {
                     crate::staticability::static_ability_cant_be_cast::any_cant_be_activated_source(
                         game,
                     )
@@ -385,8 +387,8 @@ impl GameLoop {
                         &sa_for_target_check,
                         game.card(card_id),
                         player,
-                    )
-                {
+                    );
+                if cant_be_activated && !probes_first {
                     return Err("CantBeActivated static");
                 }
                 if !crate::spellability::ability_activated::can_play(&sa_for_target_check, game) {
@@ -401,11 +403,13 @@ impl GameLoop {
             ) {
                 return Err("planeswalker activation rule");
             }
-            if !crate::spellability::target_restrictions::has_candidates_in_spell_ability_chain(
-                game,
-                player,
-                &sa_for_target_check,
-            ) {
+            let no_targets =
+                !crate::spellability::target_restrictions::has_candidates_in_spell_ability_chain(
+                    game,
+                    player,
+                    &sa_for_target_check,
+                );
+            if no_targets && !probes_first {
                 return Err("no target candidates");
             }
             let needs_mana = ab
@@ -544,6 +548,14 @@ impl GameLoop {
                         )),
                     )
                 };
+            // FORGE BUG (harness quirk, parity only): ActionSpace.getPossibleActions test-pays an
+            // ability before hasValidTargets and checkRestrictions (ActionSpace.java:181-198)
+            if no_targets {
+                return Err("no target candidates");
+            }
+            if cant_be_activated {
+                return Err("CantBeActivated static");
+            }
             let main_mana_payable = || {
                 let mut mana_only = ab_cost.clone();
                 mana_only

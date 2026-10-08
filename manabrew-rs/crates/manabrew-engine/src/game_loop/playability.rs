@@ -261,13 +261,16 @@ impl GameLoop {
         let mut cast_sa =
             crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
         cast_sa.restriction.variables.set_zone(zone);
-        if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
-            &game.cards,
-            &cast_sa,
-            card,
-            player,
-            game,
-        ) || !crate::spellability::spell::can_play(&cast_sa, game)
+        let probes_first = crate::mana::computer_util_mana::harness_cost_probes_ask(game);
+        let cant_be_cast =
+            crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
+                &game.cards,
+                &cast_sa,
+                card,
+                player,
+                game,
+            );
+        if (cant_be_cast && !probes_first) || !crate::spellability::spell::can_play(&cast_sa, game)
         {
             return false;
         }
@@ -349,6 +352,9 @@ impl GameLoop {
             ) || (Self::can_use_source_level_mana_fallback(game, player, || &available_mana)
                 && available_mana.can_pay(&cost))
         };
+        if cant_be_cast {
+            return false;
+        }
         if let Some(ref tr) = cast_sa.target_restrictions {
             if tr.get_min_targets(game, &cast_sa) > 0
                 && !target_restrictions::has_candidates_in_spell_ability_chain(
@@ -473,23 +479,25 @@ impl GameLoop {
         chosen_types_by_source: &crate::HashMap<CardId, String>,
     ) -> bool {
         sa.restriction.variables.set_zone(zone);
-        if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
-            &game.cards,
-            &sa,
-            &host,
-            player,
-            game,
-        ) || !crate::spellability::spell::can_play(&sa, game)
-            || !target_restrictions::has_candidates_in_spell_ability_chain(game, player, &sa)
-            || sa.target_restrictions.as_ref().is_some_and(|tr| {
-                !matches!(
-                    tr.target_kind,
-                    crate::spellability::TargetKind::Player
-                        | crate::spellability::TargetKind::Any
-                        | crate::spellability::TargetKind::Spell
-                ) && tr.get_min_targets(game, &sa)
-                    > crate::card::card_util::get_valid_cards_to_target(game, &sa).len() as i32
-            })
+        let blocked =
+            crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
+                &game.cards,
+                &sa,
+                &host,
+                player,
+                game,
+            ) || !target_restrictions::has_candidates_in_spell_ability_chain(game, player, &sa)
+                || sa.target_restrictions.as_ref().is_some_and(|tr| {
+                    !matches!(
+                        tr.target_kind,
+                        crate::spellability::TargetKind::Player
+                            | crate::spellability::TargetKind::Any
+                            | crate::spellability::TargetKind::Spell
+                    ) && tr.get_min_targets(game, &sa)
+                        > crate::card::card_util::get_valid_cards_to_target(game, &sa).len() as i32
+                });
+        if (blocked && !crate::mana::computer_util_mana::harness_cost_probes_ask(game))
+            || !crate::spellability::spell::can_play(&sa, game)
         {
             return false;
         }
@@ -540,7 +548,7 @@ impl GameLoop {
             &reduced,
             &payment_ctx,
             self.action_space_probe_order(game),
-        )
+        ) && !blocked
     }
 
     fn apply_stack_statics(game: &GameState, spell_hosts: &[CardId]) -> Option<GameState> {
@@ -855,8 +863,13 @@ impl GameLoop {
             || probe_sources.get_or_init(|| crate::mana::SpellProbeSources::new(game, player));
         let cost_adjusting_source = std::cell::OnceCell::new();
         let alternative_cost_statics = std::cell::OnceCell::new();
+        let probes_first = crate::mana::computer_util_mana::harness_cost_probes_ask(game);
+        let mut unplayable_from = None;
 
         for &card_id in hand {
+            if let Some(start) = unplayable_from.take() {
+                playable.truncate(start);
+            }
             let card = game.card(card_id);
             let other_faces = self.candidate_probes(game, player, card_id);
             let probe_host = || {
@@ -993,14 +1006,17 @@ impl GameLoop {
                 // Java `Card.getAllPossibleAbilities` walks the card's spell abilities
                 // whatever its types are, so a land with Disguise is castable face down
                 // as well as playable as a land.
-                if card.has_morph
-                    && !crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
+                let cant_be_cast = || {
+                    crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
                         &game.cards,
                         &crate::spellability::build_spell_ability_for_card_cast(game, card_id, player),
                         card,
                         player,
                         game,
                     )
+                };
+                if card.has_morph
+                    && (probes_first || !cant_be_cast())
                     && self.can_pay_face_down_cast(
                         game,
                         player,
@@ -1008,6 +1024,7 @@ impl GameLoop {
                         None,
                         &chosen_types_by_source,
                     )
+                    && !(probes_first && cant_be_cast())
                 {
                     playable.push(crate::agent::PlayOption {
                         card_id,
@@ -1056,13 +1073,15 @@ impl GameLoop {
 
                 let cast_sa =
                     crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
-                if crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
-                    &game.cards,
-                    &cast_sa,
-                    card,
-                    player,
-                    game,
-                ) {
+                let cant_be_cast =
+                    crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
+                        &game.cards,
+                        &cast_sa,
+                        card,
+                        player,
+                        game,
+                    );
+                if cant_be_cast && !probes_first {
                     continue;
                 }
 
@@ -1082,15 +1101,21 @@ impl GameLoop {
                 // NonStackingEffect is an AI hint in Java (AiController), not a game rule.
                 // Do NOT filter here — let the agent decide whether to cast duplicates.
 
-                if let Some(ref tr) = cast_sa.target_restrictions {
-                    let min_targets = tr.get_min_targets(game, &cast_sa);
-                    if min_targets > 0
-                        && !target_restrictions::has_candidates_in_spell_ability_chain(
-                            game, player, &cast_sa,
-                        )
-                    {
+                if cant_be_cast
+                    || cast_sa.target_restrictions.as_ref().is_some_and(|tr| {
+                        tr.get_min_targets(game, &cast_sa) > 0
+                            && !target_restrictions::has_candidates_in_spell_ability_chain(
+                                game, player, &cast_sa,
+                            )
+                    })
+                {
+                    // FORGE BUG (harness quirk, parity only): ActionSpace.getPossibleActions
+                    // test-pays an ability before hasValidTargets and checkRestrictions
+                    // (ActionSpace.java:181-198)
+                    if !probes_first {
                         continue;
                     }
+                    unplayable_from = Some(playable.len());
                 }
 
                 // Check if we can pay the mana cost (normal or alternative).
@@ -1822,6 +1847,9 @@ impl GameLoop {
                 }
             }
         }
+        if let Some(start) = unplayable_from {
+            playable.truncate(start);
+        }
 
         // Check graveyard for MayPlay$ static abilities (e.g. Walk-In Closet
         // "You may play lands from your graveyard"). Mirrors Java
@@ -2113,7 +2141,11 @@ impl GameLoop {
 
         // Check graveyard for cast permissions such as Flashback, Escape, and Harmonize.
         let graveyard: Vec<CardId> = game.cards_in_zone(ZoneType::Graveyard, player).to_vec();
+        let mut unplayable_from = None;
         for card_id in graveyard {
+            if let Some(start) = unplayable_from.take() {
+                playable.truncate(start);
+            }
             let card = game.card(card_id);
             let other_faces = self.candidate_probes(game, player, card_id);
             let probe_host = stack_statics().map_or(card, |stack_statics: &GameState| {
@@ -2154,14 +2186,16 @@ impl GameLoop {
             }
             let cast_sa =
                 crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
-            if let Some(ref tr) = cast_sa.target_restrictions {
-                if tr.get_min_targets(game, &cast_sa) > 0
+            if cast_sa.target_restrictions.as_ref().is_some_and(|tr| {
+                tr.get_min_targets(game, &cast_sa) > 0
                     && !target_restrictions::has_candidates_in_spell_ability_chain(
                         game, player, &cast_sa,
                     )
-                {
+            }) {
+                if !probes_first {
                     continue;
                 }
+                unplayable_from = Some(playable.len());
             }
             let available_mana =
                 self.available_mana_for_spell_card(game, player, card_id, &chosen_types_by_source);
@@ -2256,6 +2290,9 @@ impl GameLoop {
                     });
                 }
             }
+        }
+        if let Some(start) = unplayable_from {
+            playable.truncate(start);
         }
 
         // Check exile for Foretold cards (face-down in exile with foretell cost).
@@ -2895,15 +2932,18 @@ impl GameLoop {
         chosen_types_by_source: &crate::HashMap<CardId, String>,
     ) -> Vec<crate::agent::PlayOption> {
         let card = game.card(card_id);
-        if !card.has_morph
-            || crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
+        if !card.has_morph {
+            return Vec::new();
+        }
+        let cant_be_cast =
+            crate::staticability::static_ability_cant_be_cast::cant_be_cast_ability_from_zone(
                 &game.cards,
                 &crate::spellability::build_spell_ability_for_card_cast(game, card_id, player),
                 card,
                 player,
                 game,
-            )
-        {
+            );
+        if cant_be_cast && !crate::mana::computer_util_mana::harness_cost_probes_ask(game) {
             return Vec::new();
         }
         let morph = crate::agent::PlayOption {
@@ -2946,6 +2986,9 @@ impl GameLoop {
                     alt_cost_index: alt_cost_index as u8,
                 });
             }
+        }
+        if cant_be_cast {
+            options.clear();
         }
         options
     }

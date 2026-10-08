@@ -281,9 +281,7 @@ impl GameLoop {
         &self,
         game: &GameState,
     ) -> Option<&crate::mana::ProbeOrder> {
-        (game.mirror_forge_bugs
-            && game.action_space_mana_probe == crate::mana::ActionSpaceManaProbe::ComputerUtilMana)
-            .then_some(&self.probe_order)
+        crate::mana::computer_util_mana::harness_cost_probes_ask(game).then_some(&self.probe_order)
     }
 
     /// Java `ActionSpace.getPossibleActions` collects its candidates in a `LinkedHashSet`: the
