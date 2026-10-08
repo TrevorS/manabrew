@@ -1854,6 +1854,14 @@ impl GameLoop {
                     if let Some(warp_cost) = card.get_warp_cost() {
                         let mut warp_sa = normal_sa.clone();
                         warp_sa.alt_cost = Some(crate::spellability::AlternativeCost::Warp);
+                        let warp_grants = may_play_grants(card_id)
+                            .filter(|(source, st_ab)| {
+                                source.id == card_id
+                                    && crate::staticability::static_ability_continuous::grants_zone_permissions_for(
+                                        st_ab, source, card, game, &warp_sa,
+                                    )
+                            })
+                            .count();
                         let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
                             game,
                             card,
@@ -1861,7 +1869,7 @@ impl GameLoop {
                             ZoneType::Graveyard,
                         );
                         if (!must_be_instant || has_flash_permission(card_id))
-                            && accepting_may_play_grants(card_id, &warp_sa) > 0
+                            && warp_grants > 0
                             && self
                                 .available_mana_for_spell_card(
                                     game,
@@ -1873,13 +1881,15 @@ impl GameLoop {
                                     &cost_adj.apply(&forge_foundation::ManaCost::parse(&warp_cost)),
                                 )
                         {
-                            playable.push(crate::agent::PlayOption {
-                                card_id,
-                                mode: crate::agent::PlayCardMode::Alternative(
-                                    crate::spellability::AlternativeCost::Warp,
-                                ),
-                                alt_cost_index: 0,
-                            });
+                            for grant in 0..warp_grants {
+                                playable.push(crate::agent::PlayOption {
+                                    card_id,
+                                    mode: crate::agent::PlayCardMode::Alternative(
+                                        crate::spellability::AlternativeCost::Warp,
+                                    ),
+                                    alt_cost_index: grant as u8,
+                                });
+                            }
                         }
                     }
                     if let Some(sneak_cost) = card.get_sneak_cost().filter(|_| sneak_window(card)) {
@@ -3058,6 +3068,41 @@ mod tests {
     fn mana_for_big_spells_pays_a_face_down_cast_only_as_forge_reads_it() {
         assert!(!face_down_cast_offered(false));
         assert!(face_down_cast_offered(true));
+    }
+
+    const TWICE_RECURSIVE_WARPER: &str = "Name:Twice Recursive Warper\nManaCost:2 W\nTypes:Creature Human\nPT:3/3\nK:Warp:W\nS:Mode$ Continuous | Affected$ Card.Self | AffectedZone$ Graveyard | EffectZone$ Graveyard | MayPlay$ True | Description$ You may cast this card from your graveyard.\nS:Mode$ Continuous | Affected$ Card.Self | AffectedZone$ Graveyard | EffectZone$ Graveyard | MayPlay$ True | Description$ You may cast this card from your graveyard.\nOracle:";
+    const GRAVEYARD_PATRON: &str = "Name:Graveyard Patron\nManaCost:no cost\nTypes:Enchantment\nS:Mode$ Continuous | Affected$ Creature.YouOwn | AffectedZone$ Graveyard | MayPlay$ True | Description$ You may cast creature cards from your graveyard.\nOracle:";
+    const WHITE_WELL: &str = "Name:White Well\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ W | Amount$ 3 | SpellDescription$ Add {W}{W}{W}.\nOracle:";
+
+    #[test]
+    fn a_graveyard_warp_is_offered_once_for_each_may_play_its_own_card_grants() {
+        let player = PlayerId(0);
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        let mut put = |script: &str, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, player));
+            game.move_card(card, zone, player);
+            card
+        };
+        let warper = put(TWICE_RECURSIVE_WARPER, ZoneType::Graveyard);
+        put(GRAVEYARD_PATRON, ZoneType::Battlefield);
+        put(WHITE_WELL, ZoneType::Battlefield);
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        let options = GameLoop::new(2).get_playable_cards(&game, player, false);
+        let count = |mode: crate::agent::PlayCardMode| {
+            options
+                .iter()
+                .filter(|option| option.card_id == warper && option.mode == mode)
+                .count()
+        };
+        assert_eq!(count(crate::agent::PlayCardMode::Normal), 3);
+        assert_eq!(
+            count(crate::agent::PlayCardMode::Alternative(
+                crate::spellability::AlternativeCost::Warp
+            )),
+            2
+        );
     }
 
     const EXILED_SHOCK: &str = "Name:Shock\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | SpellDescription$ CARDNAME deals 2 damage to any target.\nOracle:";
