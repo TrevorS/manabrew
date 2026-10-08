@@ -95,3 +95,41 @@ fn a_free_cast_plays_a_card_face_down_in_exile_from_its_original_state() {
     assert!(!game.card(free).face_down);
     assert_eq!(game.player(p0).life, 24);
 }
+
+const PALE_LAND: &str = "Name:Pale Land\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ W | SpellDescription$ Add {W}.\nOracle:";
+const BIG_BOLT: &str = "Name:Big Bolt\nManaCost:4 R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 5 | SpellDescription$ CARDNAME deals 5 damage to any target.\nOracle:";
+
+#[test]
+fn a_mana_value_limited_play_reads_a_face_down_exiled_card_from_its_original_state() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let land = put(&mut game, PALE_LAND, p0, ZoneType::Exile);
+    let big = put(&mut game, BIG_BOLT, p0, ZoneType::Exile);
+    let small = put(&mut game, FREE_LIFE, p0, ZoneType::Exile);
+    for card in [land, big, small] {
+        game.card_mut(card).set_face_down(true);
+    }
+    let caster = put(&mut game, FREE_CASTER, p0, ZoneType::Stack);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let sa = manabrew_engine::spellability::build_spell_ability(
+        &game,
+        caster,
+        "SP$ Play | Valid$ Card.IsRemembered | ValidSA$ Spell.cmcLE4 | ValidZone$ Exile | WithoutManaCost$ True | Optional$ True",
+        p0,
+    );
+    let spells = |card| {
+        manabrew_engine::ability::ability_utils::get_spells_from_play_effect(
+            &game,
+            card,
+            p0,
+            false,
+            Some(("Spell.cmcLE4", &sa)),
+        )
+        .len()
+    };
+    assert_eq!(spells(land), 0);
+    assert_eq!(spells(big), 0);
+    assert_eq!(spells(small), 1);
+}

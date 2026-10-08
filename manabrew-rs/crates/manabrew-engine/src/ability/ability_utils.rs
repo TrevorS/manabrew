@@ -2086,6 +2086,12 @@ pub fn get_spells_from_play_effect(
     with_alt_cost: bool,
     valid_sa: Option<(&str, &SpellAbility)>,
 ) -> Vec<SpellAbility> {
+    if let std::borrow::Cow::Owned(original) = game.card(tgt_card).exiled_face_up_view() {
+        // Java collects a face-down card's spells from its Original state
+        let mut view = game.clone();
+        *view.card_mut(tgt_card) = original;
+        return get_spells_from_play_effect(&view, tgt_card, controller, with_alt_cost, valid_sa);
+    }
     let card = game.card(tgt_card);
     let can_play_land = valid_sa.is_none()
         && game.turn.active_player == controller
