@@ -136,15 +136,21 @@ fn java_error(error: &str, consumed: u64) -> Value {
 fn a_java_crash_after_agreeing_turns_is_its_own_kind() {
     let end = java_error("java.lang.IndexOutOfBoundsException", 90);
     assert_eq!(
-        java_error_end(&end, "java game error".to_string(), None, |_| None),
+        java_error_end(&end, "java game error".to_string(), None, 22, |_| None),
         Ok(LockstepEnd::JavaCrash("java game error".to_string()))
     );
     let earlier = Desync {
         kind: "state".to_string(),
         detail: "turn 9 life".to_string(),
     };
-    let failure = java_error_end(&end, "java game error".to_string(), Some(earlier), |_| None)
-        .expect_err("earlier divergence");
+    let failure = java_error_end(
+        &end,
+        "java game error".to_string(),
+        Some(earlier),
+        22,
+        |_| None,
+    )
+    .expect_err("earlier divergence");
     assert_eq!(failure.kind, "state");
 }
 
@@ -152,7 +158,7 @@ fn a_java_crash_after_agreeing_turns_is_its_own_kind() {
 fn a_java_runaway_cap_is_compared_with_rust_at_the_same_draw() {
     let end = java_error("forge.game.Game$RunawayGameException: Runaway game", 236);
     let mut asked = None;
-    let matched = java_error_end(&end, "runaway".to_string(), None, |draws| {
+    let matched = java_error_end(&end, "runaway".to_string(), None, 22, |draws| {
         asked = Some(draws);
         Some(snapshot(false, None, 10, false))
     });
@@ -161,13 +167,48 @@ fn a_java_runaway_cap_is_compared_with_rust_at_the_same_draw() {
         matched,
         Ok(LockstepEnd::JavaRunawayMatched("runaway".to_string()))
     );
-    let differs = java_error_end(&end, "runaway".to_string(), None, |_| {
+    let differs = java_error_end(&end, "runaway".to_string(), None, 22, |_| {
         Some(snapshot(false, None, 7, false))
     })
     .expect_err("life differs");
     assert_eq!(differs.kind, "runaway");
     assert!(differs.detail.contains("life"), "{}", differs.detail);
-    assert!(java_error_end(&end, "runaway".to_string(), None, |_| None).is_err());
+    assert!(java_error_end(&end, "runaway".to_string(), None, 22, |_| None).is_err());
+}
+
+#[test]
+fn a_triggers_fired_cap_after_agreeing_turns_is_a_java_runaway() {
+    let cap =
+        "forge.game.Game$RunawayGameException: Runaway game: 25001 triggers fired in one turn";
+    let end = java_error(cap, 236);
+    let rust_moved_on = |_| Some(snapshot(false, None, 7, false));
+    assert!(matches!(
+        java_error_end(&end, "runaway".to_string(), None, 22, rust_moved_on),
+        Ok(LockstepEnd::JavaRunaway(detail)) if detail.contains("life")
+    ));
+    let missing_turn = java_error_end(&end, "runaway".to_string(), None, 21, rust_moved_on)
+        .expect_err("a turn before the cap is missing");
+    assert_eq!(missing_turn.kind, "runaway");
+    let earlier = Desync {
+        kind: "state".to_string(),
+        detail: "turn 9 life".to_string(),
+    };
+    let differs = java_error_end(
+        &end,
+        "runaway".to_string(),
+        Some(earlier),
+        22,
+        rust_moved_on,
+    )
+    .expect_err("an earlier turn differs");
+    assert_eq!(differs.kind, "state");
+    let cards = java_error(
+        "forge.game.Game$RunawayGameException: Runaway game: 25001 cards created in one turn",
+        236,
+    );
+    let other_cap = java_error_end(&cards, "runaway".to_string(), None, 22, rust_moved_on)
+        .expect_err("another cap");
+    assert_eq!(other_cap.kind, "runaway");
 }
 
 #[test]

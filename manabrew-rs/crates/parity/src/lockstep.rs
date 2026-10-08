@@ -282,6 +282,7 @@ pub enum LockstepEnd {
     GuardUnverified(String),
     JavaCrash(String),
     JavaRunawayMatched(String),
+    JavaRunaway(String),
     JavaTimeout(String),
     Desync(Desync),
 }
@@ -645,6 +646,7 @@ pub fn java_error_end(
     java: &Value,
     detail: String,
     earlier: Option<Desync>,
+    java_turns: usize,
     rust_at_draw: impl FnOnce(u64) -> Option<StateSnapshot>,
 ) -> Result<LockstepEnd, Desync> {
     if let Some(earlier) = earlier {
@@ -660,14 +662,25 @@ pub fn java_error_end(
         return Ok(LockstepEnd::JavaCrash(detail));
     }
     let consumed = java["consumed"].as_u64().unwrap_or(0);
-    rust_at_draw(consumed)
+    let triggers_cap = java["error"]
+        .as_str()
+        .is_some_and(|error| error.contains("triggers fired"));
+    let turns_before_cap_agree = java["turn"]
+        .as_u64()
+        .is_some_and(|turn| java_turns as u64 >= turn);
+    match rust_at_draw(consumed)
         .ok_or_else(|| format!("rust ended before java's draw {consumed}"))
         .and_then(|rust| runaway_end(&rust, java))
-        .map(|()| LockstepEnd::JavaRunawayMatched(detail.clone()))
-        .map_err(|mismatch| Desync {
+    {
+        Ok(()) => Ok(LockstepEnd::JavaRunawayMatched(detail)),
+        Err(mismatch) if triggers_cap && turns_before_cap_agree => Ok(LockstepEnd::JavaRunaway(
+            format!("{detail} | state at the runaway cap: {mismatch}"),
+        )),
+        Err(mismatch) => Err(Desync {
             kind: "runaway".to_string(),
             detail: format!("{detail} | state at the runaway cap: {mismatch}"),
-        })
+        }),
+    }
 }
 
 pub fn runaway_end(rust: &StateSnapshot, java_end: &Value) -> Result<(), String> {
@@ -912,7 +925,8 @@ pub fn play(
     }) {
         let detail = end.take().map(|found| found.detail).unwrap_or_default();
         let earlier = compare_snapshots(&rust, &link.borrow().snapshots, 0);
-        match java_error_end(java, detail, earlier, |draws| {
+        let java_turns = link.borrow().snapshots.len().min(rust.len());
+        match java_error_end(java, detail, earlier, java_turns, |draws| {
             state_at_draw(setup, abort, draws)
         }) {
             Ok(kind) => special = Some(kind),
