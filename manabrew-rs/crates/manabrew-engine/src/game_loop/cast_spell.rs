@@ -2525,6 +2525,21 @@ impl GameLoop {
         };
 
         // Build mana payment context for restriction checking
+        // Check if mana conversion allows spending mana as any color
+        let any_color_conversion = play_effect.is_some_and(|play| play.mana_conversion.is_some())
+            || crate::staticability::static_ability_mana_convert::can_spend_mana_as_any_color(
+                game,
+                player,
+                game.card(card_id),
+            )
+            || sa.may_play_source.is_some_and(|source| {
+                crate::staticability::static_ability_continuous::may_play_applies_mana_convert(
+                    game,
+                    source,
+                    sa.may_play_static,
+                )
+            });
+
         let payment_ctx = {
             let card = game.card(card_id);
             let chosen_types_by_source = game
@@ -2543,6 +2558,7 @@ impl GameLoop {
                 is_cast_face_down: card.face_down,
                 cast_from: card.cast_from,
                 host_zone: Some(card.zone),
+                any_color_conversion,
                 ..Default::default()
             }
         };
@@ -2561,21 +2577,6 @@ impl GameLoop {
             .chain(prechosen_static_alt_sacrifices.iter().flatten())
             .copied()
             .collect();
-
-        // Check if mana conversion allows spending mana as any color
-        let any_color_conversion = play_effect.is_some_and(|play| play.mana_conversion.is_some())
-            || crate::staticability::static_ability_mana_convert::can_spend_mana_as_any_color(
-                game,
-                player,
-                game.card(card_id),
-            )
-            || sa.may_play_source.is_some_and(|source| {
-                crate::staticability::static_ability_continuous::may_play_applies_mana_convert(
-                    game,
-                    source,
-                    sa.may_play_static,
-                )
-            });
 
         // Track mana metadata before payment for post-payment effects
         let uncounterable_before =

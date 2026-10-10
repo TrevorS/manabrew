@@ -22,6 +22,7 @@ struct Activator {
     name: &'static str,
     max_seen: Rc<Cell<Option<u32>>>,
     done: bool,
+    floats_mana: bool,
 }
 
 impl PlayerAgent for Activator {
@@ -68,6 +69,14 @@ impl PlayerAgent for Activator {
                     card_id: action.card_id,
                     ability_index: action.ability_index,
                 });
+            }
+            if let Some(play) = space
+                .playable
+                .iter()
+                .find(|play| game.card(play.card_id).card_name == self.name)
+            {
+                self.done = true;
+                return PlayerAction::CastSpell(*play);
             }
         }
         PassAgent.choose_action(p, Some(space), pr)
@@ -157,6 +166,9 @@ impl PlayerAgent for Activator {
     ) -> ManaCostAction {
         ManaCostAction::Pay { auto: true }
     }
+    fn auto_pay_floats_mana(&self) -> bool {
+        self.floats_mana
+    }
     #[allow(clippy::too_many_arguments)]
     fn pay_cost_to_prevent_effect(
         &mut self,
@@ -210,6 +222,7 @@ fn max_x_offered(probe: ActionSpaceManaProbe) -> Option<u32> {
             name: "Banner Sage",
             max_seen: Rc::clone(&max_seen),
             done: false,
+            floats_mana: false,
         }),
         Box::new(PassAgent),
     ];
@@ -269,6 +282,7 @@ fn life_after_activating_an_all_creature_types_land(probe: ActionSpaceManaProbe)
             name: "Shapeless Sanctuary",
             max_seen: Rc::new(Cell::new(None)),
             done: false,
+            floats_mana: false,
         }),
         Box::new(PassAgent),
     ];
@@ -286,4 +300,45 @@ fn the_cavern_of_souls_probe_counts_a_host_with_all_creature_types_as_its_chosen
         life_after_activating_an_all_creature_types_land(ActionSpaceManaProbe::AutoPay),
         21
     );
+}
+
+const ROBBERY_EFFECT: &str = "Name:Outrageous Robbery's Effect\nManaCost:no cost\nTypes:Effect\nS:Mode$ Continuous | MayPlay$ True | MayPlayIgnoreType$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile | EffectZone$ Command | Description$ You may play those cards, and you may spend mana as though it were mana of any type to cast spells this way.\nOracle:";
+const ARID_ARCHWAY: &str = "Name:Arid Archway\nManaCost:no cost\nTypes:Land Desert\nA:AB$ Mana | Cost$ T | Produced$ C | Amount$ 2 | SpellDescription$ Add {C}{C}.\nOracle:";
+const CONCEALED_COURTYARD: &str = "Name:Concealed Courtyard\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo W B | SpellDescription$ Add {W} or {B}.\nOracle:";
+const HIRED_CLAW: &str =
+    "Name:Hired Claw\nManaCost:R\nTypes:Creature Lizard Mercenary\nPT:1/2\nOracle:";
+
+#[test]
+fn a_seat_that_floats_mana_spends_colorless_as_any_type_on_a_stolen_card() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let robbery = put(&mut game, ROBBERY_EFFECT, p0, ZoneType::Command);
+    let archway = put(&mut game, ARID_ARCHWAY, p0, ZoneType::Battlefield);
+    let courtyard = put(&mut game, CONCEALED_COURTYARD, p0, ZoneType::Battlefield);
+    let claw = put(&mut game, HIRED_CLAW, PlayerId(1), ZoneType::Exile);
+    game.card_mut(robbery).add_remembered_card(claw);
+    for _ in 0..20 {
+        put(
+            &mut game,
+            "Name:Forest\nManaCost:no cost\nTypes:Basic Land Forest\nOracle:",
+            p0,
+            ZoneType::Library,
+        );
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Activator {
+            name: "Hired Claw",
+            max_seen: Rc::new(Cell::new(None)),
+            done: false,
+            floats_mana: true,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert_ne!(game.card(claw).zone, ZoneType::Exile);
+    assert!(game.card(archway).tapped);
+    assert!(!game.card(courtyard).tapped);
 }

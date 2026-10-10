@@ -310,6 +310,7 @@ pub struct ManaPaymentContext {
     /// Java's `SpellAbilityProperty` `cmc`: the card's mana value on the stack, else the pay cost's.
     pub mana_value: Option<i32>,
     pub resolving: bool,
+    pub any_color_conversion: bool,
 }
 
 /// Forge's `SpellAbilityProperty` `cmc` reads an off-stack spell's pay cost, though an
@@ -374,6 +375,7 @@ pub fn payment_context_for_sa(game: &GameState, sa: &SpellAbility) -> ManaPaymen
         host_zone,
         mana_value,
         resolving: false,
+        any_color_conversion: false,
     }
 }
 

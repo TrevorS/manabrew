@@ -720,11 +720,7 @@ impl ManaPool {
                 else {
                     continue;
                 };
-                let payment_color = if any_color && color != ManaAtom::COLORLESS {
-                    ManaAtom::COLORS_SUPERPOSITION
-                } else {
-                    color
-                };
+                let payment_color = Self::get_possible_color_uses(color, any_color);
                 if unpaid
                     .try_pay_mana(payment_color, payment_color as u8)
                     .is_some()
@@ -1312,8 +1308,8 @@ impl ManaPool {
     }
 
     pub(crate) fn get_possible_color_uses(color: u16, any_color: bool) -> u16 {
-        if any_color && color != ManaAtom::COLORLESS {
-            ManaAtom::COLORS_SUPERPOSITION
+        if any_color {
+            color | ManaAtom::COLORS_SUPERPOSITION
         } else {
             color
         }
@@ -1544,11 +1540,7 @@ impl ManaPool {
         );
 
         let mana = &self.mana[mana_index];
-        let payment_color = if any_color && mana.color != ManaAtom::COLORLESS {
-            ManaAtom::COLORS_SUPERPOSITION
-        } else {
-            mana.color
-        };
+        let payment_color = Self::get_possible_color_uses(mana.color, any_color);
         let payable_shards: Vec<ManaCostShard> = unpaid
             .get_distinct_shards()
             .into_iter()

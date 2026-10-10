@@ -514,7 +514,7 @@ pub fn next_auto_tap_choice_with_reserved_sacrifices(
     reserved_sacrifices: &[CardId],
 ) -> Option<AutoTapChoice> {
     let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
-    pay_cost_from_pool(&mut unpaid, pool);
+    pay_cost_from_pool(&mut unpaid, pool, false);
     if unpaid.is_paid() {
         return None;
     }
@@ -566,17 +566,25 @@ pub fn next_auto_float_choice(
     reserved_sacrifices: &[CardId],
     payment_ctx: Option<&crate::mana::ManaPaymentContext>,
 ) -> Option<AutoTapChoice> {
+    let any_color_conversion = payment_ctx.is_some_and(|ctx| ctx.any_color_conversion);
     let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
     match payment_ctx {
-        Some(ctx) => pay_cost_from_pool(&mut unpaid, &pool.filtered_for_context(ctx)),
-        None => pay_cost_from_pool(&mut unpaid, pool),
+        Some(ctx) => pay_cost_from_pool(
+            &mut unpaid,
+            &pool.filtered_for_context(ctx),
+            any_color_conversion,
+        ),
+        None => pay_cost_from_pool(&mut unpaid, pool, any_color_conversion),
     }
     if unpaid.is_paid() {
         return None;
     }
     let mana_ability_map =
         group_sources_by_mana_color(game, player, reserved_sacrifices, payment_ctx, false);
-    let candidates = collect_sorted_candidates(game, player, &mana_ability_map);
+    let mut candidates = collect_sorted_candidates(game, player, &mana_ability_map);
+    for candidate in &mut candidates {
+        candidate.any_color = any_color_conversion;
+    }
     let (sa_payment, to_pay) = choose_candidate(
         game,
         player,
@@ -799,9 +807,13 @@ fn auto_tap_lands_internal_with_ctx(
             &mut |mana_choices: &[Mana]| choose_mana_from_pool(game, callback, mana_choices),
         );
     } else if let Some(ctx) = payment_ctx {
-        pay_cost_from_pool(&mut unpaid, &pool.filtered_for_context(ctx));
+        pay_cost_from_pool(
+            &mut unpaid,
+            &pool.filtered_for_context(ctx),
+            any_color_conversion,
+        );
     } else {
-        pay_cost_from_pool(&mut unpaid, pool);
+        pay_cost_from_pool(&mut unpaid, pool, any_color_conversion);
     }
     if unpaid.is_paid() {
         if trace {
@@ -1618,7 +1630,7 @@ fn repeat_atoms_as_mana_string(atoms: &[u16], repeats: usize) -> String {
     out.join(" ")
 }
 
-fn pay_cost_from_pool(unpaid: &mut ManaCostBeingPaid, pool: &ManaPool) {
+fn pay_cost_from_pool(unpaid: &mut ManaCostBeingPaid, pool: &ManaPool, any_color: bool) {
     let colors = [
         (ManaAtom::WHITE, pool.white()),
         (ManaAtom::BLUE, pool.blue()),
@@ -1633,7 +1645,8 @@ fn pay_cost_from_pool(unpaid: &mut ManaCostBeingPaid, pool: &ManaPool) {
             if unpaid.is_paid() {
                 return;
             }
-            let _ = unpaid.try_pay_mana(atom, atom as u8);
+            let uses = ManaPool::get_possible_color_uses(atom, any_color);
+            let _ = unpaid.try_pay_mana(uses, uses as u8);
         }
     }
 }
