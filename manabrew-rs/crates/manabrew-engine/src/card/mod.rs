@@ -5850,6 +5850,9 @@ impl Card {
     }
 
     pub fn perpetual_keywords(&self) -> Vec<String> {
+        if self.changed_card_traits.is_empty() {
+            return Vec::new();
+        }
         self.changed_card_traits
             .iter()
             .filter(|((_, static_id), _)| {
