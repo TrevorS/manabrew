@@ -88,8 +88,8 @@ fn run_lim_duls_vault(pay_answers: Vec<bool>) -> (GameState, PlayerId, Vec<Callb
     });
 
     let shared = Rc::new(RefCell::new(RecordingState {
-        events: Vec::new(),
         pay_answers,
+        ..Default::default()
     }));
     let mut agents: Vec<Box<dyn manabrew_engine::agent::PlayerAgent>> = vec![
         Box::new(RecordingAgent::new(shared.clone())),

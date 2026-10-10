@@ -1,7 +1,9 @@
 use super::{resolve_numeric_svar, EffectContext};
 use crate::ability::ability_ir::EffectIr;
 use crate::event::RunParams;
-use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
+use crate::replacement::replacement_handler::{
+    apply_replacements_with_agents_and_runtime, ReplacementEvent, ReplacementRuntime,
+};
 use crate::replacement::ReplacementResult;
 use crate::spellability::SpellAbility;
 use crate::trigger::TriggerType;
@@ -38,7 +40,17 @@ pub(super) fn gain_life(
         player: target,
         amount,
     };
-    let result = apply_replacements(ctx.game, &mut event);
+    let mut runtime = ReplacementRuntime {
+        trigger_handler: ctx.trigger_handler,
+        token_templates: ctx.token_templates,
+        token_art_variants: ctx.token_art_variants,
+        token_fallback: ctx.token_fallback,
+        edition_dates: ctx.edition_dates,
+        mana_pools: ctx.mana_pools,
+        rng: ctx.rng,
+    };
+    let result =
+        apply_replacements_with_agents_and_runtime(ctx.game, ctx.agents, &mut runtime, &mut event);
     let amount = if let ReplacementEvent::GainLife {
         amount: final_amount,
         ..

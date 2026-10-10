@@ -958,7 +958,7 @@ impl CombatState {
         }
 
         for (source, (player, amount)) in lifelink_gains_by_source(&events) {
-            let gained = gain_combat_lifelink(game, player, amount);
+            let gained = gain_combat_lifelink(game, agents, runtime, player, amount);
             let mut first = true;
             for event in events.iter_mut().filter(|event| event.source == source) {
                 if gained == 0 {
@@ -1535,7 +1535,13 @@ pub(crate) fn lifelink_gains_by_source(
     gains
 }
 
-fn gain_combat_lifelink(game: &mut GameState, source_controller: PlayerId, amount: i32) -> i32 {
+fn gain_combat_lifelink(
+    game: &mut GameState,
+    agents: &mut [Box<dyn PlayerAgent>],
+    runtime: &mut crate::replacement::replacement_handler::ReplacementRuntime<'_>,
+    source_controller: PlayerId,
+    amount: i32,
+) -> i32 {
     if amount <= 0
         || crate::staticability::static_ability_cant_gain_lose_pay_life::cant_gain_life(
             game,
@@ -1549,7 +1555,12 @@ fn gain_combat_lifelink(game: &mut GameState, source_controller: PlayerId, amoun
         amount,
     };
     let gl_result =
-        crate::replacement::replacement_handler::apply_replacements(game, &mut gl_event);
+        crate::replacement::replacement_handler::apply_replacements_with_agents_and_runtime(
+            game,
+            agents,
+            runtime,
+            &mut gl_event,
+        );
     if gl_result == crate::replacement::ReplacementResult::Skipped
         || gl_result == crate::replacement::ReplacementResult::Replaced
     {

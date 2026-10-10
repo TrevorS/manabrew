@@ -17,12 +17,14 @@ pub enum CallbackEvent {
     PayCostToPreventEffect(String),
     Reorder(Vec<String>),
     ChooseSingle(Vec<String>),
+    ChooseReplacement(Vec<String>),
 }
 
 #[derive(Default)]
 pub struct RecordingState {
     pub events: Vec<CallbackEvent>,
     pub pay_answers: Vec<bool>,
+    pub attacks: bool,
 }
 
 pub struct RecordingAgent {
@@ -66,10 +68,15 @@ impl PlayerAgent for RecordingAgent {
         &mut self,
         _context: DecisionContext<'_>,
         _: PlayerId,
-        _: &[CardId],
-        _: &[DefenderId],
+        available: &[CardId],
+        defenders: &[DefenderId],
     ) -> Vec<(CardId, DefenderId)> {
-        vec![]
+        match defenders.first() {
+            Some(&defender) if self.state.borrow().attacks => {
+                available.iter().map(|&card| (card, defender)).collect()
+            }
+            _ => vec![],
+        }
     }
 
     fn choose_blockers(
@@ -194,5 +201,19 @@ impl PlayerAgent for RecordingAgent {
 
     fn choose_land_or_spell(&mut self, _context: DecisionContext<'_>, _: PlayerId) -> Option<bool> {
         None
+    }
+
+    fn choose_single_replacement_effect(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        descriptions: &[String],
+        _hosts: &[CardId],
+    ) -> usize {
+        self.state
+            .borrow_mut()
+            .events
+            .push(CallbackEvent::ChooseReplacement(descriptions.to_vec()));
+        0
     }
 }

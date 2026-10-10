@@ -1483,7 +1483,7 @@ impl GameState {
                 }
             }
             if sum > 0 {
-                self.gain_life_from_lifelink(runtime.trigger_handler, cause, source, sum);
+                self.gain_life_from_lifelink(agents, runtime, cause, source, sum);
             }
         }
 
@@ -1542,7 +1542,8 @@ impl GameState {
 
     fn gain_life_from_lifelink(
         &mut self,
-        trigger_handler: &mut TriggerHandler,
+        agents: &mut [Box<dyn PlayerAgent>],
+        runtime: &mut ReplacementRuntime<'_>,
         cause: Option<&SpellAbility>,
         source: CardId,
         amount: i32,
@@ -1561,7 +1562,7 @@ impl GameState {
             player: controller,
             amount,
         };
-        let result = apply_replacements(self, &mut event);
+        let result = apply_replacements_with_agents_and_runtime(self, agents, runtime, &mut event);
         if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
             return;
         }
@@ -1575,7 +1576,7 @@ impl GameState {
         if final_amount > 0 {
             self.player_gain_life(controller, final_amount);
             self.player_add_team_life_gained(controller, final_amount);
-            trigger_handler.run_trigger(
+            runtime.trigger_handler.run_trigger(
                 TriggerType::LifeGained,
                 RunParams {
                     player: Some(controller),
