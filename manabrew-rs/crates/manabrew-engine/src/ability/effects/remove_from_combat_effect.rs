@@ -54,7 +54,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         combat.remove_from_combat(card_id, ctx.game);
         if remember {
             if let Some(source) = sa.source {
-                ctx.game.card_mut(source).add_remembered_card(card_id);
+                ctx.game
+                    .host_object_mut(source, sa)
+                    .add_remembered_card(card_id);
             }
         }
     }

@@ -424,6 +424,16 @@ impl MagicStack {
             || self.resolving_entry.as_ref().is_some_and(matches)
     }
 
+    pub fn has_ability_source_on_stack(&self, card_id: CardId) -> bool {
+        let matches = |entry: &StackEntry| {
+            !entry.spell_ability.is_spell && entry.spell_ability.source == Some(card_id)
+        };
+        self.entries.iter().any(&matches)
+            || self.frozen_stack.iter().any(&matches)
+            || self.simultaneous_entries.iter().any(&matches)
+            || self.resolving_entry.as_ref().is_some_and(matches)
+    }
+
     pub fn has_source_chapter_on_stack(&self, game: &GameState, card_id: CardId) -> bool {
         let matches = |entry: &StackEntry| {
             entry.spell_ability.is_trigger

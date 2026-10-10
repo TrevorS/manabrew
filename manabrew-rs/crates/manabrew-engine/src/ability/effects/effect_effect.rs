@@ -45,7 +45,7 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
     }
 
     let (host_name, host_remembered_cards, host_remembered_players) = {
-        let host = ctx.game.card(source_id);
+        let host = ctx.game.host_object(source_id, sa);
         (
             host.card_name.clone(),
             host.remembered_cards.clone(),
@@ -132,11 +132,12 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
         .imprint_cards
         .as_deref()
         .map(|defined| {
-            ability_utils::get_defined_cards(
+            ability_utils::get_defined_cards_for_sa(
                 ctx.game,
                 sa.source,
                 defined,
                 Some(sa.activating_player),
+                Some(sa),
             )
         })
         .unwrap_or_default();
@@ -225,7 +226,9 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
             crate::phase::PhaseCommand::ExileEffect { effect: effect_id },
         );
         if crate::parsing::raw_has_key(&sa.ability_text, "ImprintOnHost") {
-            ctx.game.card_mut(source_id).add_imprinted_card(effect_id);
+            ctx.game
+                .host_object_mut(source_id, sa)
+                .add_imprinted_card(effect_id);
         }
         ctx.move_card(effect_id, ZoneType::Command, owner);
     }
@@ -348,11 +351,12 @@ fn populate_remember_lists(
     // cards leave their zone or have their stats modified.
     if let Some(defined) = sa.ir.remember_lki.as_deref() {
         for token in defined.split(',').map(str::trim).filter(|s| !s.is_empty()) {
-            let cards = ability_utils::get_defined_cards(
+            let cards = ability_utils::get_defined_cards_for_sa(
                 ctx.game,
                 sa.source,
                 token,
                 Some(sa.activating_player),
+                Some(sa),
             );
             for cid in cards {
                 out_lki_cards.push(crate::card::card_copy_service::get_lki_copy(

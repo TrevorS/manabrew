@@ -1513,3 +1513,136 @@ fn forge_moves_a_land_returned_from_a_copied_exile_again_when_the_copy_leaves() 
         (ZoneType::Battlefield, 0, false)
     );
 }
+
+const LEDGER_PRIEST: &str = "Name:Ledger Priest\nManaCost:W B G\nTypes:Creature Cleric\nPT:3/3\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | Execute$ TrigGain | TriggerDescription$ When this leaves the battlefield, you gain life equal to the mana value of the exiled card.\nSVar:TrigExile:DB$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card | TgtPrompt$ Choose target card in a graveyard | RememberChanged$ True\nSVar:Bounce:DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Hand | SubAbility$ DBExileAll\nSVar:DBExileAll:DB$ ChangeZoneAll | ChangeType$ Creature.OppOwn | Origin$ Graveyard | Destination$ Exile | RememberChanged$ True | SubAbility$ TrigGain\nSVar:TrigGain:DB$ GainLife | LifeAmount$ X | SubAbility$ DBCleanup\nSVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\nSVar:X:Remembered$CardManaCost\nOracle:";
+const TEST_OX: &str = "Name:Test Ox\nManaCost:2 W\nTypes:Creature Ox\nPT:2/4\nOracle:";
+
+fn push_host_ability(
+    game: &mut GameState,
+    host: CardId,
+    svar: &str,
+    trigger: bool,
+    target: Option<CardId>,
+) {
+    let text = game.card(host).get_s_var(svar).expect("svar").to_string();
+    let controller = game.card(host).controller;
+    let mut sa = manabrew_engine::spellability::build_spell_ability(game, host, &text, controller);
+    if trigger {
+        sa.is_trigger = true;
+        sa.trigger_source = Some(host);
+        sa.trigger_source_zone_timestamp = Some(game.card(host).zone_timestamp);
+    }
+    sa.target_chosen.target_card = target;
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: sa,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+}
+
+#[test]
+fn an_enters_trigger_of_a_bounced_host_does_not_remember_on_the_recast_card() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    main_phase(&mut game, p0);
+    let priest = put(&mut game, LEDGER_PRIEST, p0, ZoneType::Battlefield);
+    let first = put(&mut game, TEST_OX, p1, ZoneType::Graveyard);
+    let second = put(&mut game, TEST_OX, p1, ZoneType::Graveyard);
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    push_host_ability(&mut game, priest, "TrigExile", true, Some(first));
+    game.move_card(priest, ZoneType::Hand, p0);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(first).zone, ZoneType::Exile);
+    assert!(game.card(priest).remembered_cards.is_empty());
+    game.move_card(priest, ZoneType::Battlefield, p0);
+    push_host_ability(&mut game, priest, "TrigExile", true, Some(second));
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(priest).remembered_cards, vec![second]);
+}
+
+#[test]
+fn a_remember_chain_reads_and_clears_the_host_that_moved_during_its_resolution() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    main_phase(&mut game, p0);
+    let priest = put(&mut game, LEDGER_PRIEST, p0, ZoneType::Battlefield);
+    let ox = put(&mut game, TEST_OX, p1, ZoneType::Graveyard);
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    push_host_ability(&mut game, priest, "Bounce", false, None);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(priest).zone, ZoneType::Hand);
+    assert_eq!(game.card(ox).zone, ZoneType::Exile);
+    assert_eq!(game.player(p0).life, 23);
+    assert!(game.card(priest).remembered_cards.is_empty());
+}
+
+#[test]
+fn a_leaves_the_battlefield_trigger_reads_what_its_host_remembered() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    main_phase(&mut game, p0);
+    let priest = put(&mut game, LEDGER_PRIEST, p0, ZoneType::Battlefield);
+    let ox = put(&mut game, TEST_OX, p1, ZoneType::Graveyard);
+    let source = effect_source(&mut game, p1);
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    push_host_ability(&mut game, priest, "TrigExile", true, Some(ox));
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(priest).remembered_cards, vec![ox]);
+    push_effect_entry(
+        &mut game,
+        p1,
+        "DB$ Destroy | Defined$ Targeted",
+        Some(priest),
+        None,
+        Some(source),
+    );
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(priest).zone, ZoneType::Graveyard);
+    assert_eq!(game.player(p0).life, 23);
+}
+
+const GRINDING_SAGA: &str = "Name:Grinding Saga\nManaCost:2 U\nTypes:Enchantment\nSVar:TrigRepeat:DB$ Repeat | RepeatSubAbility$ DBCleanAndGrind | MaxRepeat$ 3 | RepeatCheckSVar$ X | RepeatSVarCompare$ GE1\nSVar:DBCleanAndGrind:DB$ Cleanup | ClearRemembered$ True | SubAbility$ DBGrind\nSVar:DBGrind:DB$ Mill | NumCards$ 1 | RememberMilled$ True\nSVar:X:Count$RememberedSize\nOracle:";
+const IMPRINTING_WARDEN: &str = "Name:Imprinting Warden\nManaCost:2 W U\nTypes:Creature Wizard\nPT:3/4\nSVar:ExileImprint:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Creature | RememberLKI$ True | Imprint$ True | SubAbility$ DBReturn\nSVar:DBReturn:DB$ ChangeZone | Defined$ Imprinted | Origin$ Exile | Destination$ Battlefield\nOracle:";
+
+#[test]
+fn a_repeated_sub_ability_writes_the_remembered_list_its_repeat_check_reads() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let saga = put(&mut game, GRINDING_SAGA, p0, ZoneType::Battlefield);
+    for _ in 0..5 {
+        put(&mut game, TEST_OX, p0, ZoneType::Library);
+    }
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    push_host_ability(&mut game, saga, "TrigRepeat", true, None);
+    game.move_card(saga, ZoneType::Graveyard, p0);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.cards_in_zone(ZoneType::Library, p0).len(), 2);
+}
+
+#[test]
+fn an_imprint_on_a_moved_host_is_what_its_sub_ability_reads() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let warden = put(&mut game, IMPRINTING_WARDEN, p0, ZoneType::Battlefield);
+    let ox = put(&mut game, TEST_OX, p0, ZoneType::Battlefield);
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    push_host_ability(&mut game, warden, "ExileImprint", false, Some(ox));
+    game.move_card(warden, ZoneType::Exile, p0);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(ox).zone, ZoneType::Battlefield);
+    assert!(game.card(warden).imprinted_cards.is_empty());
+}

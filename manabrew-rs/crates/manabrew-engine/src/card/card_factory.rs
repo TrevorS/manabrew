@@ -162,7 +162,8 @@ fn copy_spell_host(
     game.assign_zone_timestamp(copy_id);
     if crate::parsing::raw_has_key(&source_sa.ability_text, "RememberNewCard") {
         if let Some(source) = source_sa.source {
-            game.card_mut(source).add_remembered_card(copy_id);
+            game.host_object_mut(source, source_sa)
+                .add_remembered_card(copy_id);
         }
     }
     Some(copy_id)

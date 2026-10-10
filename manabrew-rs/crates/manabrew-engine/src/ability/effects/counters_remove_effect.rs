@@ -149,7 +149,7 @@ fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
                 if remember_removed {
                     for _ in 0..removed {
                         ctx.game
-                            .card_mut(source)
+                            .host_object_mut(source, sa)
                             .remembered_counters
                             .push(counter_type.clone());
                     }
@@ -160,7 +160,9 @@ fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
     }
 
     if total_removed > 0 && remember_amount {
-        ctx.game.card_mut(source).add_remembered_cmc(total_removed);
+        ctx.game
+            .host_object_mut(source, sa)
+            .add_remembered_cmc(total_removed);
     }
 }
 
@@ -231,7 +233,7 @@ fn remove_any_type(
             if remember_removed {
                 for _ in 0..actual {
                     ctx.game
-                        .card_mut(source)
+                        .host_object_mut(source, sa)
                         .remembered_counters
                         .push(chosen_type.clone());
                 }

@@ -31,7 +31,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         Some(DefinedRef::SelfCard) => sa.source.into_iter().collect(),
         Some(DefinedRef::Remembered) => sa
             .source
-            .map(|sid| ctx.game.card(sid).remembered_cards.clone())
+            .map(|sid| ctx.game.host_object(sid, sa).remembered_cards.clone())
             .unwrap_or_default(),
         Some(DefinedRef::Targeted) => sa.target_chosen.target_card.into_iter().collect(),
         Some(DefinedRef::Unsupported(raw)) if raw.starts_with("Valid ") => {

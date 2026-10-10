@@ -419,11 +419,12 @@ pub trait TokenEffectBase {
 
         if let Some(add_triggers_from) = sa.ir.add_triggers_from_text.as_deref() {
             if let Some(source_id) = sa.source {
-                let cards = crate::ability::ability_utils::get_defined_cards(
+                let cards = crate::ability::ability_utils::get_defined_cards_for_sa(
                     ctx.game,
                     Some(source_id),
                     add_triggers_from,
                     Some(sa.activating_player),
+                    Some(sa),
                 );
                 for card_id in cards {
                     for trigger in ctx.game.card(card_id).copiable_triggers() {
@@ -488,7 +489,9 @@ pub trait TokenEffectBase {
 
         if sa.ir.remember_tokens {
             if let Some(source_id) = sa.source {
-                ctx.game.card_mut(source_id).add_remembered_card(token_id);
+                ctx.game
+                    .host_object_mut(source_id, sa)
+                    .add_remembered_card(token_id);
             }
         }
         if sa.ir.remember_original_tokens
@@ -498,12 +501,16 @@ pub trait TokenEffectBase {
             })
         {
             if let Some(source_id) = sa.source {
-                ctx.game.card_mut(source_id).add_remembered_card(token_id);
+                ctx.game
+                    .host_object_mut(source_id, sa)
+                    .add_remembered_card(token_id);
             }
         }
         if sa.ir.imprint_tokens {
             if let Some(source_id) = sa.source {
-                ctx.game.card_mut(source_id).add_imprinted_card(token_id);
+                ctx.game
+                    .host_object_mut(source_id, sa)
+                    .add_imprinted_card(token_id);
             }
         }
         if sa.ir.remember_source {
@@ -513,11 +520,12 @@ pub trait TokenEffectBase {
         }
         if let Some(defined) = sa.ir.token_remembered.as_deref() {
             if let Some(source_id) = sa.source {
-                let remembered_cards = crate::ability::ability_utils::get_defined_cards(
+                let remembered_cards = crate::ability::ability_utils::get_defined_cards_for_sa(
                     ctx.game,
                     Some(source_id),
                     defined,
                     Some(sa.activating_player),
+                    Some(sa),
                 );
                 ctx.game
                     .card_mut(token_id)
@@ -641,11 +649,12 @@ pub trait TokenEffectBase {
         let Some(blocking) = sa.ir.token_blocking_text.as_deref() else {
             return false;
         };
-        let attackers = crate::ability::ability_utils::get_defined_cards(
+        let attackers = crate::ability::ability_utils::get_defined_cards_for_sa(
             ctx.game,
             sa.source,
             blocking,
             Some(sa.activating_player),
+            Some(sa),
         );
         let Some(combat) = ctx.combat.as_deref_mut() else {
             return false;

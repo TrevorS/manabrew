@@ -202,13 +202,14 @@ fn resolve_originals(
                 let Some(source_id) = sa.source else {
                     return false;
                 };
-                crate::card::valid_filter::matches_valid(
-                    choices,
-                    Some(ctx.game.card(card_id)),
-                    None,
-                    ctx.game.card(source_id),
-                    sa.activating_player,
-                    ctx.game,
+                crate::card::valid_filter::matches_valid_card_selector_with_context(
+                    &crate::parsing::cached_compiled_selector(choices),
+                    ctx.game.card(card_id),
+                    crate::card::valid_filter::MatchContext::new(
+                        ctx.game.card(source_id),
+                        ctx.game,
+                    )
+                    .with_host_object(sa),
                 )
             })
             .collect();

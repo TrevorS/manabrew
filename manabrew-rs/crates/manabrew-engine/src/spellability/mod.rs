@@ -1177,6 +1177,7 @@ impl SpellAbility {
         let source = self.source?;
         let text = game.card(source).get_s_var(svar_name)?.to_string();
         let mut ability = build_spell_ability(game, source, &text, self.activating_player);
+        ability.set_host_zone_timestamp(self.host_zone_timestamp());
         ability.inherit_trigger_context(self);
         Some(ability)
     }
@@ -1834,6 +1835,14 @@ impl SpellAbility {
     pub fn host_zone_timestamp(&self) -> Option<u64> {
         self.trigger_source_zone_timestamp
             .or(self.source_zone_timestamp)
+    }
+
+    pub fn set_host_zone_timestamp(&mut self, zone_timestamp: Option<u64>) {
+        let mut node = Some(self);
+        while let Some(sa) = node {
+            sa.source_zone_timestamp = zone_timestamp;
+            node = sa.sub_ability.as_deref_mut();
+        }
     }
 
     pub fn is_activated_ability(&self) -> bool {

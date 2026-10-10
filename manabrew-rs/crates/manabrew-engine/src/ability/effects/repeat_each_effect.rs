@@ -83,7 +83,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
 
     if crate::parsing::raw_has_key(raw, "ClearRemembered") {
-        ctx.game.card_mut(source_id).clear_remembered();
+        ctx.game.host_object_mut(source_id, sa).clear_remembered();
     }
 
     if !repeat_cards.is_empty() {
@@ -116,16 +116,25 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let use_imprinted = crate::parsing::raw_has_key(raw, "UseImprinted");
         for card_id in repeat_cards {
             if use_imprinted {
-                ctx.game.card_mut(source_id).add_imprinted_card(card_id);
+                ctx.game
+                    .host_object_mut(source_id, sa)
+                    .add_imprinted_card(card_id);
             } else {
-                ctx.game.card_mut(source_id).add_remembered_card(card_id);
+                ctx.game
+                    .host_object_mut(source_id, sa)
+                    .add_remembered_card(card_id);
             }
-            let sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, controller);
+            let mut sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, controller);
+            sub_sa.set_host_zone_timestamp(sa.host_zone_timestamp());
             super::effect_resolver::resolve_effect_chain(ctx, sub_sa);
             if use_imprinted {
-                ctx.game.card_mut(source_id).remove_imprinted_card(card_id);
+                ctx.game
+                    .host_object_mut(source_id, sa)
+                    .remove_imprinted_card(card_id);
             } else {
-                ctx.game.card_mut(source_id).remove_remembered(card_id);
+                ctx.game
+                    .host_object_mut(source_id, sa)
+                    .remove_remembered(card_id);
             }
             if ctx.game.game_over {
                 break;
@@ -168,7 +177,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 break;
             };
             ctx.game.card_mut(source_id).chosen_type = Some(chosen.clone());
-            let sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, controller);
+            let mut sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, controller);
+            sub_sa.set_host_zone_timestamp(sa.host_zone_timestamp());
             super::effect_resolver::resolve_effect_chain(ctx, sub_sa);
             valid_types.retain(|t| t != &chosen);
             if ctx.game.game_over {
@@ -194,7 +204,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
         crate::ability::spell_ability_effect::sort_in_turn_order(ctx.game, sa, &mut players);
         if crate::parsing::raw_has_key(raw, "ClearRememberedBeforeLoop") {
-            ctx.game.card_mut(source_id).clear_remembered();
+            ctx.game.host_object_mut(source_id, sa).clear_remembered();
         }
         let optional = crate::parsing::raw_has_key(raw, "RepeatOptionalForEachPlayer");
         let message = crate::parsing::raw_get(raw, "RepeatOptionalMessage").unwrap_or_default();
@@ -214,15 +224,18 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
             }
             let temp_remembered =
-                std::mem::take(&mut ctx.game.card_mut(source_id).remembered_players);
-            ctx.game.card_mut(source_id).add_remembered_player(pid);
+                std::mem::take(&mut ctx.game.host_object_mut(source_id, sa).remembered_players);
+            ctx.game
+                .host_object_mut(source_id, sa)
+                .add_remembered_player(pid);
 
             // Java `RepeatEachEffect` keeps sa.getActivatingPlayer() across
             // iterations; pid flows in only via Remembered.
-            let sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, controller);
+            let mut sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, controller);
+            sub_sa.set_host_zone_timestamp(sa.host_zone_timestamp());
             super::effect_resolver::resolve_effect_chain(ctx, sub_sa);
 
-            let host = ctx.game.card_mut(source_id);
+            let host = ctx.game.host_object_mut(source_id, sa);
             host.remembered_players.retain(|&p| p != pid);
             for p in temp_remembered {
                 host.add_remembered_player(p);

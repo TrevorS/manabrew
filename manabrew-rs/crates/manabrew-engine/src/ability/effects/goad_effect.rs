@@ -48,7 +48,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
         if remember && ctx.game.card(card).goaded_by.is_some() {
             if let Some(source) = sa.source {
-                ctx.game.card_mut(source).add_remembered_card(card);
+                ctx.game
+                    .host_object_mut(source, sa)
+                    .add_remembered_card(card);
             }
         }
     }

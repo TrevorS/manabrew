@@ -36,7 +36,9 @@ pub(super) fn resolve_known_origin(
     // Unimprint$ — clear before processing (Java line 506)
     if sa.ir.unimprint {
         if let Some(source_id) = sa.source {
-            ctx.game.card_mut(source_id).clear_imprinted_cards();
+            ctx.game
+                .host_object_mut(source_id, sa)
+                .clear_imprinted_cards();
         }
     }
 
@@ -283,7 +285,7 @@ fn resolve_exiled_with(
         .collect();
     let remembered: Vec<_> = ctx
         .game
-        .card(source_id)
+        .host_object(source_id, sa)
         .remembered_cards
         .iter()
         .copied()
@@ -332,7 +334,7 @@ fn resolve_remembered(
         return Vec::new();
     };
     ctx.game
-        .card(source_id)
+        .host_object(source_id, sa)
         .remembered_cards
         .iter()
         .copied()
@@ -345,7 +347,7 @@ fn resolve_imprinted(ctx: &EffectContext, sa: &SpellAbility, origin_zone: ZoneTy
         return Vec::new();
     };
     ctx.game
-        .card(source_id)
+        .host_object(source_id, sa)
         .imprinted_cards
         .iter()
         .copied()

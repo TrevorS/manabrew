@@ -58,7 +58,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 && p1 == sa.activating_player
             {
                 if let Some(source) = sa.source {
-                    ctx.game.card_mut(source).add_remembered_cmc(lost);
+                    ctx.game
+                        .host_object_mut(source, sa)
+                        .add_remembered_cmc(lost);
                 }
             }
         }
@@ -66,7 +68,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if crate::parsing::raw_has_key(&sa.ability_text, "RememberDifference") {
         if let Some(source) = sa.source {
             let difference = ctx.game.player(p1).life - ctx.game.player(p2).life;
-            ctx.game.card_mut(source).add_remembered_cmc(difference);
+            ctx.game
+                .host_object_mut(source, sa)
+                .add_remembered_cmc(difference);
         }
     }
 }

@@ -264,7 +264,8 @@ impl GameState {
         if let Some(sa) = sa {
             if sa.ir.remember_discarded {
                 if let Some(source_id) = sa.source {
-                    self.card_mut(source_id).add_remembered_card(card_id);
+                    self.host_object_mut(source_id, sa)
+                        .add_remembered_card(card_id);
                 }
             }
         }
@@ -565,6 +566,11 @@ impl GameState {
         } else {
             dest_owner
         };
+        if !matches!(src_zone, ZoneType::Battlefield | ZoneType::None)
+            && !matches!(dest_zone, ZoneType::Battlefield | ZoneType::Stack)
+        {
+            self.record_departed_object(card_id);
+        }
         let host_left_battlefield =
             src_zone == ZoneType::Battlefield && dest_zone != ZoneType::Battlefield;
         if host_left_battlefield && was_permanent {
@@ -935,9 +941,8 @@ impl GameState {
                 // object with no cast history. Mirrors Java's
                 // changeZone-creates-new-Card behaviour.
                 card.cast_from = None;
-                // `Card.ExiledWithSource` compares the host's game timestamp
-                // (`equalsWithGameTimestamp`), so the new object has exiled nothing.
-                card.imprinted_cards.clear();
+                // `CardCopyService.copyCard` carries the remembered and imprinted lists to the
+                // new object but not `exiledCards`.
                 card.exiled_cards.clear();
                 card.reset_crewed();
                 card.reset_saddled();
@@ -1500,20 +1505,22 @@ impl GameState {
 
         self.lose_life_simultaneously(runtime.trigger_handler, Some(&mut *agents));
 
-        if let Some(host) = cause.and_then(|cause| cause.source) {
-            if cause.is_some_and(|cause| cause.ir.remember_damaged) {
+        if let Some((cause, host)) = cause.and_then(|cause| Some((cause, cause.source?))) {
+            if cause.ir.remember_damaged {
                 for target in damage_map.row(host) {
                     match target {
-                        DamageTarget::Card(card) => self.card_mut(host).add_remembered_card(card),
-                        DamageTarget::Player(player) => {
-                            self.card_mut(host).add_remembered_player(player)
+                        DamageTarget::Card(card) => {
+                            self.host_object_mut(host, cause).add_remembered_card(card)
                         }
+                        DamageTarget::Player(player) => self
+                            .host_object_mut(host, cause)
+                            .add_remembered_player(player),
                     }
                 }
             }
-            if cause.is_some_and(|cause| cause.ir.remember_amount) {
+            if cause.ir.remember_amount {
                 let total = damage_map.total_amount();
-                self.card_mut(host).add_remembered_cmc(total);
+                self.host_object_mut(host, cause).add_remembered_cmc(total);
             }
         }
 

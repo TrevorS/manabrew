@@ -93,7 +93,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         if params.has("RememberChosen") {
             ctx.game
-                .card_mut(source)
+                .host_object_mut(source, sa)
                 .add_remembered_cards(chosen_pile.iter().copied());
         }
         if params.has("ChosenPile") {
@@ -105,7 +105,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
 
     if !params.has("KeepRemembered") && !params.has("RememberChosen") {
-        ctx.game.card_mut(source).clear_remembered();
+        ctx.game.host_object_mut(source, sa).clear_remembered();
     }
 }
 
@@ -144,14 +144,14 @@ fn resolve_pile(
     key: &str,
     pile: &[CardId],
 ) {
-    let card = ctx.game.card_mut(source);
+    let card = ctx.game.host_object_mut(source, sa);
     let temp_cards = std::mem::take(&mut card.remembered_cards);
     let temp_players = std::mem::take(&mut card.remembered_players);
     card.add_remembered_cards(pile.iter().copied());
     if let Some(sub) = sa.additional_ability(ctx.game, key) {
         super::effect_resolver::resolve_effect_chain(ctx, sub);
     }
-    let card = ctx.game.card_mut(source);
+    let card = ctx.game.host_object_mut(source, sa);
     card.remembered_cards.retain(|c| !pile.contains(c));
     card.remembered_cards.extend(temp_cards);
     card.remembered_players.extend(temp_players);

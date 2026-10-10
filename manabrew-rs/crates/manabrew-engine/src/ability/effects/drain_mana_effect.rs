@@ -63,7 +63,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if sa.ir.remember_drained_mana {
         if let Some(source_id) = sa.source {
             ctx.game
-                .card_mut(source_id)
+                .host_object_mut(source_id, sa)
                 .remembered_cmc
                 .push(drained_total);
         }

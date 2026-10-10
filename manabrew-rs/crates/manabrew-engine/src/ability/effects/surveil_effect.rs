@@ -70,7 +70,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if crate::parsing::raw_has_key(&sa.ability_text, keys::REMEMBER_MOVED) {
         if let Some(source) = sa.source {
             ctx.game
-                .card_mut(source)
+                .host_object_mut(source, sa)
                 .add_remembered_cards(graveyard.iter().copied());
         }
     }
@@ -83,7 +83,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if crate::parsing::raw_has_key(&sa.ability_text, keys::REMEMBER_KEPT) {
         if let Some(source) = sa.source {
             ctx.game
-                .card_mut(source)
+                .host_object_mut(source, sa)
                 .add_remembered_cards(keep_top.iter().rev().copied());
         }
     }

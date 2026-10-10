@@ -162,7 +162,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 if ctx.game.card(card_id).zone == ZoneType::Hand {
                     if sa.ir.remember_discarded {
                         if let Some(sid) = sa.source {
-                            ctx.game.card_mut(sid).add_remembered_card(card_id);
+                            ctx.game
+                                .host_object_mut(sid, sa)
+                                .add_remembered_card(card_id);
                         }
                     }
                     let owner = ctx.game.card(card_id).owner;
@@ -195,7 +197,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 if ctx.game.card(card_id).zone == ZoneType::Hand {
                     if remember_discarded {
                         if let Some(sid) = sa.source {
-                            ctx.game.card_mut(sid).add_remembered_card(card_id);
+                            ctx.game
+                                .host_object_mut(sid, sa)
+                                .add_remembered_card(card_id);
                         }
                     }
                     ctx.discard_card(card_id, target_player, Some(sa));
@@ -288,7 +292,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             if ctx.game.card(card_id).zone == ZoneType::Hand {
                 if remember_discarded {
                     if let Some(sid) = sa.source {
-                        ctx.game.card_mut(sid).add_remembered_card(card_id);
+                        ctx.game
+                            .host_object_mut(sid, sa)
+                            .add_remembered_card(card_id);
                     }
                 }
                 ctx.discard_card(card_id, target_player, Some(sa));
@@ -300,7 +306,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if crate::parsing::raw_has_key(&sa.ability_text, "RememberDiscardingPlayers") {
         if let Some(source_id) = sa.source {
             ctx.game
-                .card_mut(source_id)
+                .host_object_mut(source_id, sa)
                 .add_remembered_players(discarding_players);
         }
     }

@@ -372,12 +372,16 @@ fn resolve_for_player(
         }
         if sa.param_is_true(keys::IMPRINT) {
             if let Some(source_id) = sa.source {
-                ctx.game.card_mut(source_id).add_imprinted_card(id);
+                ctx.game
+                    .host_object_mut(source_id, sa)
+                    .add_imprinted_card(id);
             }
         }
         if sa.is_remember_changed() {
             if let Some(source_id) = sa.source {
-                ctx.game.card_mut(source_id).add_remembered_card(id);
+                ctx.game
+                    .host_object_mut(source_id, sa)
+                    .add_remembered_card(id);
             }
         }
         if dest_zone1 == ZoneType::Battlefield {

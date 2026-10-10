@@ -83,11 +83,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ) {
                 let source = ctx.game.card(source_id);
                 if !valid_new_face.split(',').any(|valid| {
-                    crate::card::valid_filter::matches_valid_card_selector_in_game(
+                    crate::card::valid_filter::matches_valid_card_selector_with_context(
                         &crate::parsing::cached_compiled_selector(valid.trim()),
                         &lki,
-                        source,
-                        ctx.game,
+                        crate::card::valid_filter::MatchContext::new(source, ctx.game)
+                            .with_host_object(sa),
                     )
                 }) {
                     continue;
@@ -172,7 +172,9 @@ fn set_state_for_card(
             ctx.trigger_handler.reset_active_triggers(ctx.game);
             if sa.is_remember_changed() {
                 if let Some(host) = sa.source {
-                    ctx.game.card_mut(host).add_remembered_card(card_id);
+                    ctx.game
+                        .host_object_mut(host, sa)
+                        .add_remembered_card(card_id);
                 }
             }
         }
@@ -241,7 +243,9 @@ fn set_state_for_card(
                 ctx.trigger_handler.reset_active_triggers(ctx.game);
                 if sa.is_remember_changed() {
                     if let Some(host) = sa.source {
-                        ctx.game.card_mut(host).add_remembered_card(card_id);
+                        ctx.game
+                            .host_object_mut(host, sa)
+                            .add_remembered_card(card_id);
                     }
                 }
             }
@@ -262,7 +266,9 @@ fn set_state_for_card(
             ctx.trigger_handler.reset_active_triggers(ctx.game);
             if sa.is_remember_changed() {
                 if let Some(host) = sa.source {
-                    ctx.game.card_mut(host).add_remembered_card(card_id);
+                    ctx.game
+                        .host_object_mut(host, sa)
+                        .add_remembered_card(card_id);
                 }
             }
         }

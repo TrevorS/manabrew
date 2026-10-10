@@ -89,11 +89,11 @@ pub(super) fn resolve_hidden_origin(
         let cards: Vec<crate::ids::CardId> = if matches!(defined_ref, Some(DefinedRef::Remembered))
         {
             sa.source
-                .map(|sid| ctx.game.card(sid).remembered_cards.clone())
+                .map(|sid| ctx.game.host_object(sid, sa).remembered_cards.clone())
                 .unwrap_or_default()
         } else if matches!(defined_ref, Some(DefinedRef::Imprinted)) {
             sa.source
-                .map(|sid| ctx.game.card(sid).imprinted_cards.clone())
+                .map(|sid| ctx.game.host_object(sid, sa).imprinted_cards.clone())
                 .unwrap_or_default()
         } else if matches!(defined_ref, Some(DefinedRef::SelfCard)) {
             sa.source.into_iter().collect()
@@ -258,7 +258,7 @@ pub(super) fn resolve_hidden_origin(
             if sa.ir.remember_searched {
                 if let Some(sid) = sa.source {
                     ctx.game
-                        .card_mut(sid)
+                        .host_object_mut(sid, sa)
                         .add_remembered_player(affected_player);
                 }
             }
@@ -497,7 +497,9 @@ pub(super) fn resolve_hidden_origin(
     // RememberSearched$
     if sa.ir.remember_searched {
         if let Some(sid) = sa.source {
-            ctx.game.card_mut(sid).add_remembered_player(search_player);
+            ctx.game
+                .host_object_mut(sid, sa)
+                .add_remembered_player(search_player);
         }
     }
 
@@ -590,7 +592,7 @@ pub(super) fn resolve_hidden_origin(
     if sa.ir.remember_lki_flag {
         if let Some(sid) = sa.source {
             for &cid in &cards_to_move {
-                ctx.game.card_mut(sid).add_remembered_card(cid);
+                ctx.game.host_object_mut(sid, sa).add_remembered_card(cid);
             }
         }
     }
@@ -599,7 +601,7 @@ pub(super) fn resolve_hidden_origin(
         if sa.is_remember_changed() {
             if let Some(sid) = sa.source {
                 for &cid in &cards_to_move {
-                    ctx.game.card_mut(sid).add_remembered_card(cid);
+                    ctx.game.host_object_mut(sid, sa).add_remembered_card(cid);
                 }
             }
         }

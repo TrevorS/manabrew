@@ -102,14 +102,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             if sa.ir.remember_for_counter {
                 if let Some(source_id) = sa.source {
                     ctx.game
-                        .card_mut(source_id)
+                        .host_object_mut(source_id, sa)
                         .add_remembered_card(source_card);
                 }
             }
             if sa.ir.remember_countered_cmc {
                 let cmc = ctx.game.card(source_card).mana_value();
                 if let Some(source_id) = sa.source {
-                    ctx.game.card_mut(source_id).add_remembered_cmc(cmc);
+                    ctx.game
+                        .host_object_mut(source_id, sa)
+                        .add_remembered_cmc(cmc);
                 }
             }
             let mut event = ReplacementEvent::Counter {
@@ -135,7 +137,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             // Remember parameters if needed
             if sa.ir.remember_countered {
                 ctx.game
-                    .card_mut(sa.source.unwrap())
+                    .host_object_mut(sa.host_card_id(), sa)
                     .add_remembered_card(source_card);
             }
 

@@ -190,6 +190,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         // Build the mode's SpellAbility (recursively includes SubAbility$ chain)
         let mut mode_sa = build_spell_ability(ctx.game, source_id, mode_text, player);
         mode_sa.source = Some(source_id);
+        mode_sa.set_host_zone_timestamp(sa.host_zone_timestamp());
         if let Some(original_host) = sa.original_host {
             mode_sa.set_original_host(original_host);
         }

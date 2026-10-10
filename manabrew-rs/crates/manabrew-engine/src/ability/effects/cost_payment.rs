@@ -1185,11 +1185,12 @@ fn calculate_unless_cost(game: &GameState, sa: &SpellAbility, unless_cost: &str)
         let mut parts = tail.split('_');
         let defined = parts.next().unwrap_or("");
         let modifier = parts.next();
-        let defined_cards = crate::ability::ability_utils::get_defined_cards(
+        let defined_cards = crate::ability::ability_utils::get_defined_cards_for_sa(
             game,
             sa.source,
             defined,
             Some(sa.activating_player),
+            Some(sa),
         );
         let first = *defined_cards.first()?;
         let mut generic = game.card(first).mana_value();

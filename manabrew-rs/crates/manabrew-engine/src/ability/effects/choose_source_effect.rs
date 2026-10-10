@@ -126,7 +126,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         ctx.game.card_mut(host).set_chosen_cards(chosen.clone());
         if sa.ir.remember_chosen {
             for &cid in &chosen {
-                ctx.game.card_mut(host).add_remembered_card(cid);
+                ctx.game.host_object_mut(host, sa).add_remembered_card(cid);
             }
         }
     }

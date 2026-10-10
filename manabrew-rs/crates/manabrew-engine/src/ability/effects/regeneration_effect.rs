@@ -25,7 +25,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             let card = ctx.game.card_mut(card_id);
             card.regeneration_shields = (card.regeneration_shields - 1).max(0);
             if let Some(host) = sa.source {
-                ctx.game.card_mut(host).remove_remembered(card_id);
+                ctx.game
+                    .host_object_mut(host, sa)
+                    .remove_remembered(card_id);
             }
         }
     }

@@ -50,6 +50,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .map(|text| {
                 let mut choice_sa = build_spell_ability(ctx.game, source_id, text, player);
                 choice_sa.source = Some(source_id);
+                choice_sa.set_host_zone_timestamp(sa.host_zone_timestamp());
                 choice_sa.inherit_trigger_context(sa);
                 choice_sa.trigger_remembered_amount = sa.trigger_remembered_amount;
                 choice_sa
@@ -143,8 +144,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         // "Defined$ Remembered" / "UnlessPayer$ Remembered" then correctly
         // resolve to the opponent who made the choice.
         let prior_remembered_players = if temp_remember {
-            let prior = ctx.game.card(source_id).remembered_players.clone();
-            let card = ctx.game.card_mut(source_id);
+            let prior = ctx
+                .game
+                .host_object(source_id, sa)
+                .remembered_players
+                .clone();
+            let card = ctx.game.host_object_mut(source_id, sa);
             card.remembered_players.clear();
             card.add_remembered_player(chooser);
             Some(prior)
@@ -185,7 +190,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
 
         if let Some(prior) = prior_remembered_players {
-            let card = ctx.game.card_mut(source_id);
+            let card = ctx.game.host_object_mut(source_id, sa);
             card.remembered_players = prior;
         }
 

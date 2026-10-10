@@ -139,7 +139,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         );
         if sa.ir.remember_pumped {
             if let Some(source) = sa.source {
-                ctx.game.card_mut(source).add_remembered(card_id);
+                ctx.game.host_object_mut(source, sa).add_remembered(card_id);
             }
         }
     }

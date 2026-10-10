@@ -673,11 +673,12 @@ fn resolve_defined_cards_for_sa_ref_inner(
         .iter()
         .filter_map(|id| id.parse().ok().map(CardId))
         .collect(),
-        _ => ability_utils::get_defined_cards(
+        _ => ability_utils::get_defined_cards_for_sa(
             game,
             sa.source,
             defined.as_legacy_str(),
             Some(sa.activating_player),
+            Some(sa),
         ),
     }
 }
@@ -974,7 +975,8 @@ pub fn exile_effect_command(
     // Remember the exiled card if requested
     if sa.ir.remember_exiled {
         if let Some(source_id) = sa.source {
-            game.card_mut(source_id).add_remembered_card(card_id);
+            game.host_object_mut(source_id, sa)
+                .add_remembered_card(card_id);
         }
     }
 }

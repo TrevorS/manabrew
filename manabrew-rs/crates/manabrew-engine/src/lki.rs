@@ -257,11 +257,34 @@ impl crate::game::GameState {
         }
     }
 
-    pub fn get_change_zone_lki_info_at_mut(
-        &mut self,
-        card_id: CardId,
-        zone_timestamp: u64,
-    ) -> &mut Card {
+    pub fn clear_change_zone_lki_info(&mut self) {
+        if !self.change_zone_lki_info.is_empty() {
+            self.change_zone_lki_info.clear();
+        }
+        self.departed_objects.clear();
+    }
+
+    /// Java `sa.getHostCard()`: the object the ability's host was when the ability was made.
+    /// `changeZone` gives a moved card a new `Card` (`CardCopyService.copyCard`), and the
+    /// ability keeps the old one.
+    pub fn host_object(&self, card_id: CardId, sa: &SpellAbility) -> &Card {
+        let card = self.card(card_id);
+        match host_object_timestamp(card, sa) {
+            Some(zone_timestamp) => match self.change_zone_lki_info.get(&card_id) {
+                Some(lki) if lki.zone_timestamp == zone_timestamp => lki,
+                _ => self
+                    .departed_objects
+                    .get(&(card_id, zone_timestamp))
+                    .map_or(card, |departed| departed),
+            },
+            None => card,
+        }
+    }
+
+    pub fn host_object_mut(&mut self, card_id: CardId, sa: &SpellAbility) -> &mut Card {
+        let Some(zone_timestamp) = host_object_timestamp(self.card(card_id), sa) else {
+            return self.card_mut(card_id);
+        };
         if self
             .change_zone_lki_info
             .get(&card_id)
@@ -273,12 +296,24 @@ impl crate::game::GameState {
                     .expect("checked above"),
             );
         }
+        if self
+            .departed_objects
+            .contains_key(&(card_id, zone_timestamp))
+        {
+            return std::sync::Arc::make_mut(
+                self.departed_objects
+                    .get_mut(&(card_id, zone_timestamp))
+                    .expect("checked above"),
+            );
+        }
         self.card_mut(card_id)
     }
 
-    pub fn clear_change_zone_lki_info(&mut self) {
-        if !self.change_zone_lki_info.is_empty() {
-            self.change_zone_lki_info.clear();
+    pub fn record_departed_object(&mut self, card_id: CardId) {
+        if self.stack.has_ability_source_on_stack(card_id) {
+            let departed = std::sync::Arc::new(self.card(card_id).clone());
+            self.departed_objects
+                .insert((card_id, departed.zone_timestamp), departed);
         }
     }
 
@@ -526,4 +561,10 @@ pub fn resolve_triggered_card_lki_property(
     }
 
     None
+}
+
+fn host_object_timestamp(card: &Card, sa: &SpellAbility) -> Option<u64> {
+    sa.host_zone_timestamp().filter(|&zone_timestamp| {
+        sa.trigger_source.or(sa.source) == Some(card.id) && zone_timestamp != card.zone_timestamp
+    })
 }

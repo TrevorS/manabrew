@@ -136,6 +136,7 @@ fn damage_all_matches_valid_card(
         selector,
         ctx.game.card(card_id),
         MatchContext::new(source, ctx.game)
+            .with_host_object(sa)
             .with_targets(&targeted_cards, &targeted_players)
             .with_triggering(triggering_card, triggering_player),
     )

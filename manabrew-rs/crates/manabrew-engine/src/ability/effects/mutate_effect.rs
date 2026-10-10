@@ -26,7 +26,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if matches!(def, DefinedRef::SelfCard) {
             return; // Can't mutate onto self
         }
-        match ctx.game.card(source).remembered_cards.first() {
+        match ctx.game.host_object(source, sa).remembered_cards.first() {
             Some(&id) => id,
             None => return,
         }

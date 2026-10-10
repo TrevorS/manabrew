@@ -339,7 +339,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         {
             if let Some(cid) = do_sacrifice(ctx, sa, host, activator, exploit_source) {
                 if sa.ir.remember_sacrificed {
-                    ctx.game.card_mut(host).add_remembered_card(host);
+                    ctx.game.host_object_mut(host, sa).add_remembered_card(host);
                 }
                 let mut by_controller: BTreeMap<PlayerId, Vec<CardId>> = BTreeMap::new();
                 by_controller.insert(activator, vec![cid]);
@@ -428,7 +428,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 record_sac(sacrificing_player, sacrificed);
                 if sa.ir.remember_sacrificed {
                     if let Some(source_id) = sa.source {
-                        ctx.game.card_mut(source_id).add_remembered_card(card_id);
+                        ctx.game
+                            .host_object_mut(source_id, sa)
+                            .add_remembered_card(card_id);
                     }
                 }
             }
@@ -499,7 +501,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 // so downstream ConditionDefined$ Remembered checks can find it.
                 if sa.ir.remember_sacrificed {
                     if let Some(source_id) = sa.source {
-                        ctx.game.card_mut(source_id).add_remembered_card(card_id);
+                        ctx.game
+                            .host_object_mut(source_id, sa)
+                            .add_remembered_card(card_id);
                     }
                 }
             }

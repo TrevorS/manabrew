@@ -494,9 +494,9 @@ fn collect_present_cards(
     present_zone: ZoneType,
 ) -> Vec<CardId> {
     if let Some(defined) = defined {
-        return crate::ability::ability_utils::get_defined_cards(
+        return crate::ability::ability_utils::get_defined_cards_for_host(
             game,
-            Some(source.id),
+            source,
             defined,
             Some(requirement_controller(game, source)),
         );
@@ -576,6 +576,7 @@ pub struct MatchContext<'a> {
     pub targeted_players: &'a [PlayerId],
     pub remembered_cards: &'a [CardId],
     pub remembered_players: &'a [PlayerId],
+    pub imprinted_cards: &'a [CardId],
     pub trigger_remembered_cards: &'a [CardId],
     pub triggering_card: Option<CardId>,
     pub triggering_player: Option<PlayerId>,
@@ -593,6 +594,7 @@ impl<'a> MatchContext<'a> {
             targeted_players: &[],
             remembered_cards: &source_card.remembered_cards,
             remembered_players: &source_card.remembered_players,
+            imprinted_cards: &source_card.imprinted_cards,
             trigger_remembered_cards: &[],
             triggering_card: None,
             triggering_player: None,
@@ -604,6 +606,14 @@ impl<'a> MatchContext<'a> {
 
     pub fn with_spell_ability(mut self, spell_ability: &'a SpellAbility) -> Self {
         self.spell_ability = Some(spell_ability);
+        self.with_host_object(spell_ability)
+    }
+
+    pub fn with_host_object(mut self, spell_ability: &SpellAbility) -> Self {
+        let host = self.game.host_object(self.source_card.id, spell_ability);
+        self.remembered_cards = &host.remembered_cards;
+        self.remembered_players = &host.remembered_players;
+        self.imprinted_cards = &host.imprinted_cards;
         self
     }
 
@@ -979,7 +989,7 @@ pub(super) fn matches_card_state(
                 .any(|&id| game.card(id).type_line.has_subtype("Aura"))
         }
         CardStateSelector::HasCounters => card.counters.values().any(|count| *count > 0),
-        CardStateSelector::IsImprinted => context.source_card.imprinted_cards.contains(&card.id),
+        CardStateSelector::IsImprinted => context.imprinted_cards.contains(&card.id),
         CardStateSelector::Chosen => {
             context.source_card.chosen_cards.contains(&card.id)
                 || context
@@ -1255,7 +1265,6 @@ pub(super) fn matches_context_predicate(
         }
         ContextPredicate::DefenderCtrlForRemembered => {
             let attacker = context
-                .source_card
                 .remembered_cards
                 .first()
                 .and_then(|&remembered| defending_related_attacker(context.game.card(remembered)));
@@ -1503,7 +1512,6 @@ fn relation_target_card_any(
         TargetRef::Imprinted => {
             let game = context.game;
             context
-                .source_card
                 .imprinted_cards
                 .iter()
                 .any(|id| predicate(game.card(*id)))
@@ -1626,7 +1634,7 @@ fn relation_target_contains_id(
         TargetRef::Remembered | TargetRef::RememberedLki => {
             context.remembered_cards.contains(&card_id)
         }
-        TargetRef::Imprinted => context.source_card.imprinted_cards.contains(&card_id),
+        TargetRef::Imprinted => context.imprinted_cards.contains(&card_id),
         TargetRef::ChosenCard => context.source_card.chosen_cards.contains(&card_id),
         TargetRef::Targeted => context.targeted_cards.contains(&card_id),
         TargetRef::OtherYourBattlefield => {
@@ -2269,7 +2277,7 @@ fn matches_type_and_qualifier_parts(
                     }
                 }
                 "isremembered" => {
-                    if !source.remembered_cards.contains(&card.id) {
+                    if !context.remembered_cards.contains(&card.id) {
                         return false;
                     }
                 }

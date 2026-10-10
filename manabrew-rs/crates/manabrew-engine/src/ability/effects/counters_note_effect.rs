@@ -72,6 +72,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .get(&counter_type)
             .unwrap_or(&0);
         // Store noted value in source's remembered_cmc (used by WithNotedCounters$)
-        ctx.game.card_mut(source_id).add_remembered_cmc(count);
+        ctx.game
+            .host_object_mut(source_id, sa)
+            .add_remembered_cmc(count);
     }
 }

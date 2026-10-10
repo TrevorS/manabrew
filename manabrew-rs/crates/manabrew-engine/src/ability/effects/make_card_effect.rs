@@ -80,10 +80,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             super::emit_zone_trigger(ctx.trigger_handler, card_id, old_zone, zone);
 
             if sa.param_is_true(keys::REMEMBER_MADE) {
-                ctx.game.card_mut(source).add_remembered_card(card_id);
+                ctx.game
+                    .host_object_mut(source, sa)
+                    .add_remembered_card(card_id);
             }
             if sa.param_is_true(keys::IMPRINT_MADE) {
-                ctx.game.card_mut(source).add_imprinted_card(card_id);
+                ctx.game
+                    .host_object_mut(source, sa)
+                    .add_imprinted_card(card_id);
             }
         }
     }

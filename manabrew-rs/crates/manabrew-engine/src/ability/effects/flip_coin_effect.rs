@@ -68,7 +68,9 @@ fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
             let count_losses = (count_wins - amount).abs();
             if count_wins > 0 {
                 if sa.ir.remember_winner {
-                    ctx.game.card_mut(source_id).add_remembered_player(flipper);
+                    ctx.game
+                        .host_object_mut(source_id, sa)
+                        .add_remembered_player(flipper);
                 }
                 ctx.game
                     .card_mut(source_id)
@@ -77,7 +79,9 @@ fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
             }
             if count_losses > 0 {
                 if sa.ir.remember_loser {
-                    ctx.game.card_mut(source_id).add_remembered_player(flipper);
+                    ctx.game
+                        .host_object_mut(source_id, sa)
+                        .add_remembered_player(flipper);
                 }
                 ctx.game
                     .card_mut(source_id)
@@ -90,7 +94,9 @@ fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
                 } else {
                     count_losses
                 };
-                ctx.game.card_mut(source_id).add_remembered_cmc(number);
+                ctx.game
+                    .host_object_mut(source_id, sa)
+                    .add_remembered_cmc(number);
             }
         }
     }
@@ -253,13 +259,17 @@ fn resolve_for_players(
     if players.is_empty() {
         return;
     }
-    let remembered = ctx.game.card(source_id).remembered_players.clone();
-    let source = ctx.game.card_mut(source_id);
+    let remembered = ctx
+        .game
+        .host_object(source_id, sa)
+        .remembered_players
+        .clone();
+    let source = ctx.game.host_object_mut(source_id, sa);
     source.remembered_players.clear();
     source.remembered_players.extend_from_slice(players);
     source.set_s_var(count_name, format!("Number${}", players.len()));
     resolve_additional(ctx, sa, ability_name);
-    ctx.game.card_mut(source_id).remembered_players = remembered;
+    ctx.game.host_object_mut(source_id, sa).remembered_players = remembered;
 }
 
 fn resolve_additional(ctx: &mut EffectContext, sa: &SpellAbility, key: &str) {

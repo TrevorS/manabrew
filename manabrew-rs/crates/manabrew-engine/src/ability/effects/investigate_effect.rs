@@ -56,7 +56,9 @@ fn create_clue_token(
     // RememberInvestigatingPlayers$
     if sa.param_is_true(keys::REMEMBER_INVESTIGATING_PLAYERS) {
         if let Some(sid) = sa.source {
-            ctx.game.card_mut(sid).add_remembered_player(player);
+            ctx.game
+                .host_object_mut(sid, sa)
+                .add_remembered_player(player);
         }
     }
 

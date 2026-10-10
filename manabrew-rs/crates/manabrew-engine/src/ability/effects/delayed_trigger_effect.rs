@@ -47,7 +47,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if sa.ir.remember_number {
         remembered_amount += ctx
             .game
-            .card(source_id)
+            .host_object(source_id, sa)
             .remembered_cmc
             .iter()
             .copied()

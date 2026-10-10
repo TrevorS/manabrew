@@ -111,12 +111,16 @@ pub(super) fn resolve_stack_removal(
     // Remember/Imprint
     if sa.is_remember_changed() {
         if let Some(sid) = sa.source {
-            ctx.game.card_mut(sid).add_remembered_card(card_id);
+            ctx.game
+                .host_object_mut(sid, sa)
+                .add_remembered_card(card_id);
         }
     }
     if sa.is_imprint() {
         if let Some(sid) = sa.source {
-            ctx.game.card_mut(sid).add_imprinted_card(card_id);
+            ctx.game
+                .host_object_mut(sid, sa)
+                .add_imprinted_card(card_id);
         }
     }
 

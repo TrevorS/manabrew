@@ -70,5 +70,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     ctx.game.card_mut(source_id).set_exiled_by(Some(target_id));
 
     // Remember the haunted creature on the source
-    ctx.game.card_mut(source_id).add_remembered_card(target_id);
+    ctx.game
+        .host_object_mut(source_id, sa)
+        .add_remembered_card(target_id);
 }

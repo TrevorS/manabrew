@@ -2,8 +2,7 @@ use forge_foundation::ZoneType;
 
 use crate::ability::ability_utils;
 use crate::card::card_damage_history::TrackedEntity;
-use crate::card::valid_filter::matches_valid_card_in_game;
-use crate::card::valid_filter::matches_valid_card_selector_in_game;
+use crate::card::valid_filter::{matches_valid_card_selector_with_context, MatchContext};
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
 use crate::parsing::cached_compiled_selector;
@@ -45,11 +44,13 @@ fn count_matching_cards(
     cards: impl IntoIterator<Item = CardId>,
     restriction: &str,
     source_id: CardId,
+    sa: &SpellAbility,
 ) -> usize {
-    let source = game.card(source_id);
+    let selector = cached_compiled_selector(restriction);
+    let context = MatchContext::new(game.card(source_id), game).with_host_object(sa);
     cards
         .into_iter()
-        .filter(|&cid| matches_valid_card_in_game(restriction, game.card(cid), source, game))
+        .filter(|&cid| matches_valid_card_selector_with_context(&selector, game.card(cid), context))
         .count()
 }
 
@@ -58,12 +59,13 @@ fn count_type(
     cards: impl IntoIterator<Item = CardId>,
     card_type: &str,
     source_id: CardId,
+    sa: &SpellAbility,
 ) -> usize {
     let selector = cached_compiled_selector(card_type);
-    let source = game.card(source_id);
+    let context = MatchContext::new(game.card(source_id), game).with_host_object(sa);
     cards
         .into_iter()
-        .filter(|&cid| matches_valid_card_selector_in_game(&selector, game.card(cid), source, game))
+        .filter(|&cid| matches_valid_card_selector_with_context(&selector, game.card(cid), context))
         .count()
 }
 
@@ -73,12 +75,14 @@ fn player_controls_matching(
     zone: ZoneType,
     restriction: &str,
     source_id: CardId,
+    sa: &SpellAbility,
 ) -> usize {
     count_matching_cards(
         game,
         game.cards_in_zone(zone, player).iter().copied(),
         restriction,
         source_id,
+        sa,
     )
 }
 
@@ -88,8 +92,10 @@ fn any_attacker_matches(
     attacked: TrackedEntity,
     restriction: &str,
     source_id: CardId,
+    sa: &SpellAbility,
 ) -> bool {
-    let source = game.card(source_id);
+    let selector = cached_compiled_selector(restriction);
+    let context = MatchContext::new(game.card(source_id), game).with_host_object(sa);
     game.cards_in_zone(ZoneType::Battlefield, attacker_controller)
         .iter()
         .copied()
@@ -99,7 +105,7 @@ fn any_attacker_matches(
                 .damage_history
                 .has_attacked_this_turn(attacked)
         })
-        .any(|cid| matches_valid_card_in_game(restriction, game.card(cid), source, game))
+        .any(|cid| matches_valid_card_selector_with_context(&selector, game.card(cid), context))
 }
 
 fn highest_life(game: &GameState) -> i32 {
@@ -247,27 +253,39 @@ pub fn player_has_property(
             ),
         );
     } else if let Some(defined) = property.strip_prefix("wasDealtCombatDamageThisCombatBy ") {
-        return ability_utils::get_defined_cards(game, Some(source_id), defined, Some(controller))
-            .into_iter()
-            .any(|cid| {
-                game.card(cid)
-                    .damage_history
-                    .damage_done_this_turn
-                    .iter()
-                    .any(|instance| {
-                        instance.is_combat && instance.target == Some(TrackedEntity::Player(player))
-                    })
-            });
+        return ability_utils::get_defined_cards_for_sa(
+            game,
+            Some(source_id),
+            defined,
+            Some(controller),
+            Some(sa),
+        )
+        .into_iter()
+        .any(|cid| {
+            game.card(cid)
+                .damage_history
+                .damage_done_this_turn
+                .iter()
+                .any(|instance| {
+                    instance.is_combat && instance.target == Some(TrackedEntity::Player(player))
+                })
+        });
     } else if let Some(defined) = property.strip_prefix("wasDealtDamageThisGameBy ") {
-        return ability_utils::get_defined_cards(game, Some(source_id), defined, Some(controller))
-            .into_iter()
-            .any(|cid| {
-                game.card(cid)
-                    .damage_history
-                    .damage_done_this_turn
-                    .iter()
-                    .any(|instance| instance.target == Some(TrackedEntity::Player(player)))
-            });
+        return ability_utils::get_defined_cards_for_sa(
+            game,
+            Some(source_id),
+            defined,
+            Some(controller),
+            Some(sa),
+        )
+        .into_iter()
+        .any(|cid| {
+            game.card(cid)
+                .damage_history
+                .damage_done_this_turn
+                .iter()
+                .any(|instance| instance.target == Some(TrackedEntity::Player(player)))
+        });
     } else if property.starts_with("wasDealt") {
         let combat = if property.contains("CombatDamage") {
             Some(true)
@@ -304,8 +322,13 @@ pub fn player_has_property(
             game.cards
                 .iter()
                 .filter(|card| {
-                    valid_card
-                        .is_none_or(|filter| matches_valid_card_in_game(filter, card, source, game))
+                    valid_card.is_none_or(|filter| {
+                        matches_valid_card_selector_with_context(
+                            &cached_compiled_selector(filter),
+                            card,
+                            MatchContext::new(source, game).with_host_object(sa),
+                        )
+                    })
                 })
                 .flat_map(|card| card.damage_history.damage_done_this_turn.iter())
                 .filter(|instance| combat.is_none_or(|value| instance.is_combat == value))
@@ -340,10 +363,14 @@ pub fn player_has_property(
     } else if property == "CardsInHandAtBeginningOfTurn" {
         return player_state.num_cards_in_hand_started_this_turn_with > 0;
     } else if property == "IsRemembered" {
-        return source.remembered_players.contains(&player);
+        return game
+            .host_object(source_id, sa)
+            .remembered_players
+            .contains(&player);
     } else if property == "IsRememberedOrController" {
-        return source.remembered_players.contains(&player)
-            || source
+        let host = game.host_object(source_id, sa);
+        return host.remembered_players.contains(&player)
+            || host
                 .remembered_cards
                 .iter()
                 .any(|&cid| game.card(cid).controller == player);
@@ -390,9 +417,14 @@ pub fn player_has_property(
         let parts = split_escaped_underscores(rest);
         let restriction = parts.first().map(String::as_str).unwrap_or("");
         let comparator = parts.get(1).map(String::as_str).unwrap_or("GE1");
-        let count =
-            player_controls_matching(game, player, ZoneType::Battlefield, restriction, source_id)
-                as i32;
+        let count = player_controls_matching(
+            game,
+            player,
+            ZoneType::Battlefield,
+            restriction,
+            source_id,
+            sa,
+        ) as i32;
         return compare_expr(count, comparator);
     } else if let Some(rest) = property.strip_prefix("HasCardsIn") {
         let parts: Vec<_> = rest.split('_').collect();
@@ -402,7 +434,7 @@ pub fn player_has_property(
         let Some(zone) = parse_zone_type(parts[0]) else {
             return false;
         };
-        let count = player_controls_matching(game, player, zone, parts[1], source_id) as i32;
+        let count = player_controls_matching(game, player, zone, parts[1], source_id, sa) as i32;
         let rhs = eval_amount(game, source_id, sa, &parts[2][2..]);
         return compare_expr(count, &format!("{}{}", &parts[2][..2], rhs));
     } else if property.starts_with("withMore") {
@@ -420,6 +452,7 @@ pub fn player_has_property(
                 .copied(),
             card_type,
             source_id,
+            sa,
         ) > count_type(
             game,
             game.cards_in_zone(ZoneType::Battlefield, compared_player)
@@ -427,6 +460,7 @@ pub fn player_has_property(
                 .copied(),
             card_type,
             source_id,
+            sa,
         );
     } else if property.starts_with("withAtLeast") {
         let amount = property[11..12].parse::<usize>().unwrap_or(0);
@@ -448,6 +482,7 @@ pub fn player_has_property(
                 .copied(),
             card_type,
             source_id,
+            sa,
         );
         let yours = count_type(
             game,
@@ -456,6 +491,7 @@ pub fn player_has_property(
                 .copied(),
             card_type,
             source_id,
+            sa,
         );
         return theirs >= yours + amount;
     } else if let Some(rest) = property.strip_prefix("hasMore") {
@@ -491,11 +527,13 @@ pub fn player_has_property(
             game.cards_in_zone(zone, player).iter().copied(),
             card_type,
             source_id,
+            sa,
         ) < count_type(
             game,
             game.cards_in_zone(zone, compared_player).iter().copied(),
             card_type,
             source_id,
+            sa,
         );
     } else if let Some(kind) = property.strip_prefix("withMost") {
         if kind == "Life" {
@@ -532,6 +570,7 @@ pub fn player_has_property(
                         .copied(),
                     card_type,
                     source_id,
+                    sa,
                 );
                 if count > best {
                     best = count;
@@ -564,6 +603,7 @@ pub fn player_has_property(
             TrackedEntity::Player(player),
             restriction,
             source_id,
+            sa,
         );
     } else if property == "attackedYouTheirCurrentTurn" {
         return player_state
@@ -576,10 +616,21 @@ pub fn player_has_property(
             .iter()
             .copied()
             .filter(|&cid| {
-                matches_valid_card_selector_in_game(&selector, game.card(cid), source, game)
+                matches_valid_card_selector_with_context(
+                    &selector,
+                    game.card(cid),
+                    MatchContext::new(source, game).with_host_object(sa),
+                )
             })
             .any(|cid| {
-                any_attacker_matches(game, player, TrackedEntity::Card(cid), "Card", source_id)
+                any_attacker_matches(
+                    game,
+                    player,
+                    TrackedEntity::Card(cid),
+                    "Card",
+                    source_id,
+                    sa,
+                )
             });
     } else if property == "attackedYouTheirLastTurn" {
         return player_state

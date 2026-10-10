@@ -303,11 +303,12 @@ pub(super) fn apply_pre_move(
 
         // AttachedTo$ — choose and attach before ETB
         if let Some(attached_to_def) = sa.attached_to() {
-            let mut valid = crate::ability::ability_utils::get_defined_cards(
+            let mut valid = crate::ability::ability_utils::get_defined_cards_for_sa(
                 ctx.game,
                 sa.source,
                 attached_to_def,
                 Some(sa.activating_player),
+                Some(sa),
             );
             if valid.is_empty() {
                 valid = battlefield_card_ids(ctx)
@@ -405,12 +406,16 @@ pub(super) fn apply_post_move(
     // Remember / Forget / Imprint
     if sa.is_remember_changed() {
         if let Some(sid) = sa.source {
-            ctx.game.card_mut(sid).add_remembered_card(card_id);
+            ctx.game
+                .host_object_mut(sid, sa)
+                .add_remembered_card(card_id);
         }
     }
     if sa.ir.remember_lki_flag {
         if let Some(sid) = sa.source {
-            ctx.game.card_mut(sid).add_remembered_card(card_id);
+            ctx.game
+                .host_object_mut(sid, sa)
+                .add_remembered_card(card_id);
         }
     }
     if dest_zone == ZoneType::Exile && sa.ir.exiled_with_effect_source {
@@ -420,12 +425,12 @@ pub(super) fn apply_post_move(
     }
     if sa.is_forget_changed() {
         if let Some(sid) = sa.source {
-            ctx.game.card_mut(sid).remove_remembered(card_id);
+            ctx.game.host_object_mut(sid, sa).remove_remembered(card_id);
         }
     }
     if sa.is_imprint() {
         if let Some(sid) = sa.source {
-            let cm = ctx.game.card_mut(sid);
+            let cm = ctx.game.host_object_mut(sid, sa);
             if sa.ir.imprint_last {
                 cm.clear_imprinted_cards();
             }
@@ -537,11 +542,12 @@ pub(super) fn apply_post_move(
 
         // AttachAfter$
         if let Some(attach_def) = sa.ir.attach_after_text.as_deref() {
-            let mut valid = crate::ability::ability_utils::get_defined_cards(
+            let mut valid = crate::ability::ability_utils::get_defined_cards_for_sa(
                 ctx.game,
                 sa.source,
                 attach_def,
                 Some(sa.activating_player),
+                Some(sa),
             );
             if valid.is_empty() {
                 valid = battlefield_card_ids(ctx)
@@ -661,7 +667,7 @@ pub(super) fn apply_post_move(
     // WithNotedCounters$
     if sa.ir.with_noted_counters {
         if let Some(sid) = sa.source {
-            let noted = ctx.game.card(sid).remembered_cmc.clone();
+            let noted = ctx.game.host_object(sid, sa).remembered_cmc.clone();
             let amount: i32 = noted.iter().sum();
             if amount > 0 {
                 let ct = sa

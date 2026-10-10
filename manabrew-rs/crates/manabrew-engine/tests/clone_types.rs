@@ -306,3 +306,42 @@ fn a_copy_counts_the_cards_its_copied_ability_exiled() {
     assert_eq!(copy.card_name, "Ledger Curator");
     assert_eq!((copy.power(), copy.toughness()), (7, 7));
 }
+
+#[test]
+fn a_curator_that_left_and_came_back_counts_none_of_its_earlier_exiles() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let curator = put(&mut game, CURATOR, p0, ZoneType::Battlefield);
+    let exiled: Vec<CardId> = [STONE, ISLAND, SHOCK, DIVINATION]
+        .into_iter()
+        .map(|script| put(&mut game, script, p1, ZoneType::Graveyard))
+        .collect();
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(PassAgent), Box::new(PassAgent)];
+    let mut game_loop = GameLoop::new(2);
+    let ability = game.card(curator).activated_abilities[0].clone();
+    for card in exiled {
+        let mut sa = SpellAbility::new_simple(Some(curator), p0, &ability.ability_text);
+        sa.target_chosen.target_card = Some(card);
+        game.stack.push(StackEntry {
+            id: 0,
+            spell_ability: sa,
+            is_creature_spell: false,
+            is_permanent_spell: false,
+            is_pending_cast: false,
+            cast_from_zone: None,
+            optional_trigger_decider: None,
+            optional_trigger_description: None,
+            optional_trigger_source_name: None,
+        });
+        game_loop.step_with_priority(&mut game, &mut agents, true);
+    }
+    assert_eq!(game.card(curator).power(), 7);
+    game.move_card(curator, ZoneType::Hand, p0);
+    game.move_card(curator, ZoneType::Battlefield, p0);
+    manabrew_engine::staticability::layer::apply_continuous_effects(&mut game);
+    let curator = game.card(curator);
+    assert_eq!((curator.power(), curator.toughness()), (3, 3));
+}

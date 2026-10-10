@@ -118,14 +118,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if sa.ir.remember_milled {
         if let Some(source_id) = sa.source {
             ctx.game
-                .card_mut(source_id)
+                .host_object_mut(source_id, sa)
                 .add_remembered_cards(all_milled.iter().copied());
         }
     }
     if sa.ir.imprint {
         if let Some(source_id) = sa.source {
             ctx.game
-                .card_mut(source_id)
+                .host_object_mut(source_id, sa)
                 .add_imprinted_cards(all_milled.iter().copied());
         }
     }

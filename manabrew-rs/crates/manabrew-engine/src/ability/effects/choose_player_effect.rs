@@ -78,7 +78,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 );
                 if sa.param_is_true(keys::REMEMBER_CHOSEN) {
                     ctx.game
-                        .card_mut(source_id)
+                        .host_object_mut(source_id, sa)
                         .add_remembered_player(chosen_pid);
                 }
             }

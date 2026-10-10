@@ -19,7 +19,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         vec![target]
     } else if let Some(source) = sa.source {
         // Defined cards from source's remembered
-        ctx.game.card(source).remembered_cards.clone()
+        ctx.game.host_object(source, sa).remembered_cards.clone()
     } else {
         return;
     };

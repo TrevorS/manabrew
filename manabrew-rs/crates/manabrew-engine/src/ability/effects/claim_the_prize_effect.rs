@@ -22,7 +22,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if matches!(def, DefinedRef::SelfCard) {
             vec![source]
         } else {
-            ctx.game.card(source).remembered_cards.clone()
+            ctx.game.host_object(source, sa).remembered_cards.clone()
         }
     } else {
         vec![source]

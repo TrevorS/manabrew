@@ -40,9 +40,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         for name in choices.split(',').map(str::trim) {
             if let Some(text) = ctx.game.card(host).get_s_var(name).map(str::to_string) {
                 vote_type.push(VoteOption::Ability(choice_abilities.len()));
-                choice_abilities.push(crate::spellability::build_spell_ability(
-                    ctx.game, host, &text, activator,
-                ));
+                let mut choice =
+                    crate::spellability::build_spell_ability(ctx.game, host, &text, activator);
+                choice.set_host_zone_timestamp(sa.host_zone_timestamp());
+                choice_abilities.push(choice);
             }
         }
     } else if let Some(valid) = params.get("VoteCard") {
@@ -141,10 +142,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 continue;
             };
             for &player in voters {
-                ctx.game.card_mut(host).add_remembered_player(player);
+                ctx.game
+                    .host_object_mut(host, sa)
+                    .add_remembered_player(player);
                 super::effect_resolver::resolve_effect_chain(ctx, choice_abilities[*index].clone());
                 ctx.game
-                    .card_mut(host)
+                    .host_object_mut(host, sa)
                     .remembered_players
                     .retain(|p| *p != player);
             }
@@ -173,7 +176,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 sub_abilities.push((sub, None));
             }
         } else if params.has("VoteSubAbility") {
-            let card = ctx.game.card_mut(host);
+            let card = ctx.game.host_object_mut(host, sa);
             for option in &most {
                 match option {
                     VoteOption::Card(cid) => card.add_remembered_card(*cid),
@@ -215,10 +218,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         }
     }
     if params.has("VoteSubAbility") {
-        ctx.game.card_mut(host).clear_remembered();
+        ctx.game.host_object_mut(host, sa).clear_remembered();
     }
     if params.has("RememberVotedObjects") {
-        let card = ctx.game.card_mut(host);
+        let card = ctx.game.host_object_mut(host, sa);
         for (option, _) in &votes {
             match option {
                 VoteOption::Card(cid) => card.add_remembered_card(*cid),

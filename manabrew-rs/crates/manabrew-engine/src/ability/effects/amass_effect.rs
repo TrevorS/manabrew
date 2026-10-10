@@ -73,7 +73,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // RememberAmass$
     if sa.param_is_true(keys::REMEMBER_AMASS) {
         if let Some(source_id) = sa.source {
-            ctx.game.card_mut(source_id).add_remembered_card(target);
+            ctx.game
+                .host_object_mut(source_id, sa)
+                .add_remembered_card(target);
         }
     }
 

@@ -118,7 +118,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if params.has("RememberRevealed") {
             if let Some(host) = sa.source {
                 ctx.game
-                    .card_mut(host)
+                    .host_object_mut(host, sa)
                     .add_remembered_cards(revealed.iter().copied());
             }
         }

@@ -67,11 +67,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             let card = ctx.game.card(cid);
             let matches = match (valid_selector, sa.source) {
                 (Some(selector), Some(source_id)) => {
-                    valid_filter::matches_valid_card_selector_in_game(
+                    valid_filter::matches_valid_card_selector_with_context(
                         selector,
                         card,
-                        ctx.game.card(source_id),
-                        ctx.game,
+                        valid_filter::MatchContext::new(ctx.game.card(source_id), ctx.game)
+                            .with_host_object(sa),
                     )
                 }
                 _ => crate::ability::ability_utils::matches_valid_cards_for_sa(
@@ -87,13 +87,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 if let Some(source_id) = sa.source {
                     if crate::parsing::raw_has_key(&sa.ability_text, keys::FORGET_OTHER_REMEMBERED)
                     {
-                        ctx.game.card_mut(source_id).clear_remembered();
+                        ctx.game.host_object_mut(source_id, sa).clear_remembered();
                     }
                     if sa.ir.remember_found {
-                        ctx.game.card_mut(source_id).add_remembered_card(cid);
+                        ctx.game
+                            .host_object_mut(source_id, sa)
+                            .add_remembered_card(cid);
                     }
                     if sa.ir.imprint_found {
-                        ctx.game.card_mut(source_id).add_imprinted_card(cid);
+                        ctx.game
+                            .host_object_mut(source_id, sa)
+                            .add_imprinted_card(cid);
                     }
                 }
             }
@@ -130,12 +134,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if let Some(source_id) = sa.source {
             if sa.ir.imprint_revealed {
                 ctx.game
-                    .card_mut(source_id)
+                    .host_object_mut(source_id, sa)
                     .add_imprinted_cards(rest.iter().copied());
             }
             if sa.ir.remember_revealed {
                 ctx.game
-                    .card_mut(source_id)
+                    .host_object_mut(source_id, sa)
                     .add_remembered_cards(rest.iter().copied());
             }
         }

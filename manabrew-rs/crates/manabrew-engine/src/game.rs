@@ -627,6 +627,9 @@ pub struct GameState {
     #[serde(skip)]
     pub change_zone_lki_info: Tracked<crate::HashMap<CardId, Arc<Card>>>,
 
+    #[serde(skip)]
+    pub departed_objects: crate::HashMap<(CardId, u64), Arc<Card>>,
+
     /// Last card sacrificed as a cost (for `Sacrificed$CardPower` SVar resolution).
     /// Mirrors Java's `sa.getPaidList("SacrificedCards")`.
     #[serde(skip)]
@@ -709,6 +712,7 @@ impl GameState {
             pre_sba_battlefield: Vec::new(),
             replacement_last_state_battlefield: None,
             change_zone_lki_info: Tracked::default(),
+            departed_objects: crate::HashMap::default(),
             last_sacrificed_card: None,
             counter_added_this_turn: Tracked::default(),
             left_battlefield_this_turn: Tracked::default(),

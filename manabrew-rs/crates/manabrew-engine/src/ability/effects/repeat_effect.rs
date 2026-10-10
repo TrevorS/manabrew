@@ -42,6 +42,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let mut count = 0i32;
     loop {
         let mut sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, sa.activating_player);
+        sub_sa.set_host_zone_timestamp(sa.host_zone_timestamp());
         // Propagate parent targets so `Defined$ Targeted` in the sub-ability
         // resolves to the parent's chosen target (e.g. Tyrant of Discord's
         // Repeat calls a DBSac sub whose `Defined$ Targeted` must point to the
@@ -88,16 +89,17 @@ fn check_repeat_conditions(ctx: &mut EffectContext, sa: &SpellAbility) -> bool {
         let Some(source_id) = sa.source else {
             return false;
         };
-        let source = ctx.game.card(source_id);
+        let source = ctx.game.host_object(source_id, sa);
         let cards: Vec<_> = match sa.ir.repeat_defined.as_deref() {
             Some(defined) => match DefinedRef::parse(defined) {
                 DefinedRef::Imprinted => source.imprinted_cards.clone(),
                 DefinedRef::Remembered => source.remembered_cards.clone(),
-                _ => crate::ability::ability_utils::get_defined_cards(
+                _ => crate::ability::ability_utils::get_defined_cards_for_sa(
                     ctx.game,
                     Some(source_id),
                     defined,
                     Some(sa.activating_player),
+                    Some(sa),
                 ),
             },
             None => ctx

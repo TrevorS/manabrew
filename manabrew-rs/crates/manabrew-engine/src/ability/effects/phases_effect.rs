@@ -100,7 +100,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             apply_phase(ctx, cid, "Out");
             if crate::parsing::raw_has_key(raw, "RememberAffected") {
                 if let Some(source) = sa.source {
-                    ctx.game.card_mut(source).add_remembered_card(cid);
+                    ctx.game
+                        .host_object_mut(source, sa)
+                        .add_remembered_card(cid);
                 }
             }
             phased_out.push(cid);
@@ -109,7 +111,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if crate::parsing::raw_has_key(raw, "RememberValids") {
         if let Some(source) = sa.source {
             ctx.game
-                .card_mut(source)
+                .host_object_mut(source, sa)
                 .add_remembered_cards(tgt_cards.iter().copied());
         }
     }

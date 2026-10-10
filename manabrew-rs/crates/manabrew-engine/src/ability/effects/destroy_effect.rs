@@ -17,7 +17,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     if remember_destroyed {
         if let Some(sid) = sa.source {
-            ctx.game.card_mut(sid).clear_remembered();
+            ctx.game.host_object_mut(sid, sa).clear_remembered();
         }
     }
 
@@ -67,7 +67,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             if !can_be_destroyed || replaced {
                 if always_remember && remember_lki {
                     if let Some(sid) = sa.source {
-                        ctx.game.card_mut(sid).add_remembered_card(target_card);
+                        ctx.game
+                            .host_object_mut(sid, sa)
+                            .add_remembered_card(target_card);
                     }
                 }
                 continue;
@@ -120,7 +122,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             // can find it.
             if remember_destroyed || remember_lki {
                 if let Some(sid) = sa.source {
-                    ctx.game.card_mut(sid).add_remembered_card(target_card);
+                    ctx.game
+                        .host_object_mut(sid, sa)
+                        .add_remembered_card(target_card);
                 }
             }
         }

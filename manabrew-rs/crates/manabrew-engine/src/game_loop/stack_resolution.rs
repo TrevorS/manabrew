@@ -14,10 +14,7 @@ impl GameLoop {
         let Some(host) = sa.trigger_source.or(sa.source) else {
             return true;
         };
-        let host_object = sa.trigger_source_zone_timestamp.map_or_else(
-            || game.card(host),
-            |zone_timestamp| game.get_change_zone_lki_info_at(host, zone_timestamp),
-        );
+        let host_object = game.host_object(host, sa);
         let Some(trigger) = host_object.triggers.get(index) else {
             return true;
         };
@@ -393,13 +390,8 @@ impl GameLoop {
                 .trigger_source
                 .or(entry.spell_ability.source)
             {
-                let host = match entry.spell_ability.host_zone_timestamp() {
-                    Some(zone_timestamp) => {
-                        game.get_change_zone_lki_info_at_mut(source_id, zone_timestamp)
-                    }
-                    None => game.card_mut(source_id),
-                };
-                host.add_ability_resolved_for(Some(&entry.spell_ability));
+                game.host_object_mut(source_id, &entry.spell_ability)
+                    .add_ability_resolved_for(Some(&entry.spell_ability));
             }
             self.resolve_spell_effect(game, agents, &entry);
             crate::perf::increment(crate::perf::Metric::SpellAbilityClones, 3);

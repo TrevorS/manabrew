@@ -30,8 +30,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .filter(|c| {
                 c.zone == ZoneType::Battlefield
                     && source.is_none_or(|source| {
-                        valid_filter::matches_valid_card_selector_opt_in_game(
-                            valid, c, source, ctx.game,
+                        valid_filter::matches_valid_card_selector_opt_with_context(
+                            valid,
+                            c,
+                            valid_filter::MatchContext::new(source, ctx.game).with_host_object(sa),
                         )
                     })
             })

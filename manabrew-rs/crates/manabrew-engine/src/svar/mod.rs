@@ -490,7 +490,7 @@ fn resolve_defined_cards_for_svar(
             .or(game.last_sacrificed_card)
             .into_iter()
             .collect(),
-        DefinedRef::Remembered => game.card(source_id).remembered_cards.clone(),
+        DefinedRef::Remembered => game.host_object(source_id, sa).remembered_cards.clone(),
         DefinedRef::RememberedLki => {
             let cards = sa
                 .trigger_objects
@@ -498,7 +498,7 @@ fn resolve_defined_cards_for_svar(
                 .map(cards_from_ability_value)
                 .unwrap_or_default();
             if cards.is_empty() {
-                game.card(source_id).remembered_cards.clone()
+                game.host_object(source_id, sa).remembered_cards.clone()
             } else {
                 cards
             }
@@ -513,13 +513,14 @@ fn resolve_defined_cards_for_svar(
             .iter()
             .flat_map(cards_from_ability_value)
             .collect(),
-        DefinedRef::Imprinted => game.card(source_id).imprinted_cards.clone(),
+        DefinedRef::Imprinted => game.host_object(source_id, sa).imprinted_cards.clone(),
         DefinedRef::ExiledWith => game.card(source_id).exiled_cards.clone(),
-        _ => crate::ability::ability_utils::get_defined_cards(
+        _ => crate::ability::ability_utils::get_defined_cards_for_sa(
             game,
             Some(source_id),
             defined_ref.as_legacy_str(),
             Some(sa.activating_player),
+            Some(sa),
         ),
     }
 }
@@ -571,7 +572,7 @@ fn resolve_lowered_svar_expression(
             let (property, operators) = property.split_once('/').unwrap_or((property, ""));
             let value = crate::ability::ability_utils::handle_paid(
                 game,
-                &game.card(source_id).remembered_cards,
+                &game.host_object(source_id, sa).remembered_cards,
                 property,
                 source_id,
                 controller,
@@ -581,7 +582,7 @@ fn resolve_lowered_svar_expression(
             Some(do_x_math(value, operators, game, source_id, controller, sa))
         }
         ScriptSVarNumericExpression::RememberedSize { operators } => Some(do_x_math(
-            game.card(source_id).remembered_cards.len() as i32,
+            game.host_object(source_id, sa).remembered_cards.len() as i32,
             operators,
             game,
             source_id,
@@ -747,7 +748,7 @@ fn resolve_svar_expression_inner(
         let (property, operators) = property.split_once('/').unwrap_or((property, ""));
         let value = crate::ability::ability_utils::handle_paid(
             game,
-            &game.card(source_id).remembered_cards,
+            &game.host_object(source_id, sa).remembered_cards,
             property,
             source_id,
             controller,
@@ -758,7 +759,7 @@ fn resolve_svar_expression_inner(
     }
     if let Some(rest) = expr.strip_prefix("RememberedSize") {
         return do_x_math(
-            game.card(source_id).remembered_cards.len() as i32,
+            game.host_object(source_id, sa).remembered_cards.len() as i32,
             rest.strip_prefix('/').unwrap_or(""),
             game,
             source_id,
@@ -807,6 +808,7 @@ fn player_x_property(
                     let selector = crate::parsing::cached_compiled_selector(restrictions);
                     let context =
                         crate::card::valid_filter::MatchContext::new(game.card(source_id), game)
+                            .with_host_object(sa)
                             .with_source_controller(player);
                     sacrificed
                         .iter()
@@ -849,6 +851,7 @@ fn player_x_property(
             // `PlayerCountOpponents$HighestValid Land.YouCtrl`) actually scope
             // to that opponent's permanents, not the source's.
             let context = crate::card::valid_filter::MatchContext::new(source, game)
+                .with_host_object(sa)
                 .with_source_controller(player);
             game.cards
                 .iter()
@@ -1049,7 +1052,7 @@ fn resolve_player_count_svar(
             .filter(|&pid| crate::player::player_predicates::is_opponent_of(game, controller, pid))
             .collect()
     } else if kind == "Remembered" {
-        game.card(source_id).remembered_players.clone()
+        game.host_object(source_id, sa).remembered_players.clone()
     } else if kind.starts_with("PropertyYou") {
         vec![controller]
     } else if let Some(property) = kind.strip_prefix("Property") {
@@ -2325,6 +2328,7 @@ pub fn resolve_count_svar_for_sa(
         let source = game.card(source_id);
         let selector = crate::parsing::cached_compiled_selector(filter_str);
         let context = crate::card::valid_filter::MatchContext::new(source, game)
+            .with_host_object(sa)
             .with_source_controller(controller);
         if greatest_power {
             // Return the greatest power among matching creatures
@@ -2548,7 +2552,7 @@ pub fn resolve_count_svar_for_sa(
 
     if let Some(rest) = expr.strip_prefix("Count$RememberedNumber") {
         let operators = rest.strip_prefix('/').unwrap_or(rest);
-        let count = game.card(source_id).remembered_cmc.iter().sum();
+        let count = game.host_object(source_id, sa).remembered_cmc.iter().sum();
         return do_x_math(count, operators, game, source_id, controller, sa);
     }
 
@@ -2556,7 +2560,7 @@ pub fn resolve_count_svar_for_sa(
     // (cards + players + integers).
     if let Some(rest) = expr.strip_prefix("Count$RememberedSize") {
         let operators = rest.strip_prefix('/').unwrap_or(rest);
-        let card = game.card(source_id);
+        let card = game.host_object(source_id, sa);
         let count = card.remembered_cards.len()
             + card.remembered_players.len()
             + card.remembered_cmc.len()
@@ -2592,11 +2596,10 @@ pub fn resolve_count_svar_for_sa(
         }
         if sq[0] == "ResolvedThisTurn" {
             let host = sa.trigger_source.or(sa.source).unwrap_or(source_id);
-            let host_object = sa.host_zone_timestamp().map_or_else(
-                || game.card(host),
-                |zone_timestamp| game.get_change_zone_lki_info_at(host, zone_timestamp),
+            return math(
+                game.host_object(host, sa)
+                    .get_ability_resolved_this_turn(Some(sa)) as i32,
             );
-            return math(host_object.get_ability_resolved_this_turn(Some(sa)) as i32);
         }
         if sq[0] == "Delirium" {
             return math(calculate_branch(game.player_has_delirium(controller)));
@@ -2810,11 +2813,11 @@ pub fn resolve_count_svar_for_sa(
                 let count = list
                     .iter()
                     .filter(|&&card| {
-                        crate::card::valid_filter::matches_valid_card_selector_in_game(
+                        crate::card::valid_filter::matches_valid_card_selector_with_context(
                             &selector,
                             game.card(card),
-                            source,
-                            game,
+                            crate::card::valid_filter::MatchContext::new(source, game)
+                                .with_host_object(sa),
                         )
                     })
                     .count();
@@ -2822,7 +2825,7 @@ pub fn resolve_count_svar_for_sa(
             }
         }
         if sq[0].starts_with("ImprintedSize") {
-            return math(game.card(source_id).imprinted_cards.len() as i32);
+            return math(game.host_object(source_id, sa).imprinted_cards.len() as i32);
         }
         if let Some(rest) = sq[0].strip_prefix("wasCastFrom") {
             let your = sq[0].contains("Your");
@@ -2881,8 +2884,11 @@ pub fn resolve_count_svar_for_sa(
                             && card.is_creature()
                     })
                     .filter(|card| {
-                        crate::card::valid_filter::matches_valid_card_selector_in_game(
-                            &selector, card, source, game,
+                        crate::card::valid_filter::matches_valid_card_selector_with_context(
+                            &selector,
+                            card,
+                            crate::card::valid_filter::MatchContext::new(source, game)
+                                .with_host_object(sa),
                         )
                     })
                     .count();
@@ -2897,8 +2903,11 @@ pub fn resolve_count_svar_for_sa(
                 let mut map: crate::HashMap<&str, i32> = crate::HashMap::default();
                 for card in game.cards.iter().filter(|card| {
                     card.zone == ZoneType::Battlefield
-                        && crate::card::valid_filter::matches_valid_card_selector_in_game(
-                            &selector, card, source, game,
+                        && crate::card::valid_filter::matches_valid_card_selector_with_context(
+                            &selector,
+                            card,
+                            crate::card::valid_filter::MatchContext::new(source, game)
+                                .with_host_object(sa),
                         )
                 }) {
                     if card.has_keyword("Changeling") {
@@ -2925,8 +2934,11 @@ pub fn resolve_count_svar_for_sa(
                 .iter()
                 .filter(|card| {
                     card.zone == ZoneType::Battlefield
-                        && crate::card::valid_filter::matches_valid_card_selector_in_game(
-                            &selector, card, source, game,
+                        && crate::card::valid_filter::matches_valid_card_selector_with_context(
+                            &selector,
+                            card,
+                            crate::card::valid_filter::MatchContext::new(source, game)
+                                .with_host_object(sa),
                         )
                 })
                 .flat_map(|card| {
@@ -3009,6 +3021,7 @@ pub fn resolve_count_svar_for_sa(
                     game,
                     valid_filter,
                     source_id,
+                    sa,
                     controller,
                 )
                 .len();

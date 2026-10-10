@@ -199,7 +199,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
             if sa.ir.remember_altered {
                 if let Some(source) = sa.source {
-                    ctx.game.card_mut(source).add_remembered_card(card_id);
+                    ctx.game
+                        .host_object_mut(source, sa)
+                        .add_remembered_card(card_id);
                 }
             }
         }

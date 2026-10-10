@@ -16,7 +16,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let targets: Vec<CardId> = if let Some(target) = sa.target_chosen.target_card {
         vec![target]
     } else if let Some(source) = sa.source {
-        ctx.game.card(source).remembered_cards.clone()
+        ctx.game.host_object(source, sa).remembered_cards.clone()
     } else {
         return;
     };

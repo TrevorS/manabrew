@@ -96,11 +96,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
                 let matches = match (valid_cards, sa.source) {
                     (Some(selector), Some(source_id)) => {
-                        valid_filter::matches_valid_card_selector_in_game(
+                        valid_filter::matches_valid_card_selector_with_context(
                             selector,
                             card,
-                            ctx.game.card(source_id),
-                            ctx.game,
+                            valid_filter::MatchContext::new(ctx.game.card(source_id), ctx.game)
+                                .with_host_object(sa),
                         )
                     }
                     _ => crate::ability::ability_utils::matches_valid_cards_for_sa(
@@ -119,7 +119,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     }
     if sa.ir.remember_sacrificed {
         if let Some(source_id) = sa.source {
-            ctx.game.card_mut(source_id).clear_remembered();
+            ctx.game.host_object_mut(source_id, sa).clear_remembered();
         }
     }
     to_sacrifice.retain(|&cid| {
@@ -188,7 +188,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         ctx.trigger_handler.flush_waiting_triggers(ctx.game);
         if sa.ir.remember_sacrificed {
             if let Some(source_id) = sa.source {
-                ctx.game.card_mut(source_id).add_remembered_card(card_id);
+                ctx.game
+                    .host_object_mut(source_id, sa)
+                    .add_remembered_card(card_id);
             }
         }
         by_controller.entry(controller).or_default().push(card_id);

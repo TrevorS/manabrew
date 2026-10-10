@@ -196,7 +196,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if let Some(highest) = results.iter().map(|(_, result)| *result).max() {
             for (player, result) in results {
                 if result == highest {
-                    ctx.game.card_mut(source_id).add_remembered_player(player);
+                    ctx.game
+                        .host_object_mut(source_id, sa)
+                        .add_remembered_player(player);
                 }
             }
         }
@@ -1273,7 +1275,7 @@ pub fn visit_attractions(
 
 fn resolve_result_sub_ability(
     ctx: &mut EffectContext,
-    _sa: &SpellAbility,
+    sa: &SpellAbility,
     source_id: crate::ids::CardId,
     player: PlayerId,
     result: i32,
@@ -1308,6 +1310,7 @@ fn resolve_result_sub_ability(
             {
                 let mut sub_sa = build_spell_ability(ctx.game, source_id, &sub_text, player);
                 sub_sa.activating_player = player;
+                sub_sa.set_host_zone_timestamp(sa.host_zone_timestamp());
                 super::effect_resolver::resolve_effect_chain(ctx, sub_sa);
             }
             break;

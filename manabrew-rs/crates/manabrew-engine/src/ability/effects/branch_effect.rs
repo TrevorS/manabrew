@@ -43,6 +43,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         &sub_text,
         sa.activating_player,
     );
+    sub_sa.set_host_zone_timestamp(sa.host_zone_timestamp());
     sub_sa.target_chosen = sa.target_chosen.clone();
     sub_sa.trigger_source = sa.trigger_source;
     sub_sa.trigger_index = sa.trigger_index;
@@ -75,7 +76,7 @@ fn evaluate_branch_condition(ctx: &EffectContext, sa: &SpellAbility) -> bool {
         .unwrap_or("");
 
     if let Some(valid_filter) = expr.strip_prefix("Remembered$Valid ") {
-        let remembered = ctx.game.card(source_id).remembered_cards.clone();
+        let remembered = ctx.game.host_object(source_id, sa).remembered_cards.clone();
         if remembered.is_empty() {
             return false;
         }

@@ -53,9 +53,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 1.min(choice_names.len() - 1)
             };
             ctx.game
-                .card_mut(source_id)
+                .host_object_mut(source_id, sa)
                 .add_remembered_cmc(choice_idx as i32);
-            ctx.game.card_mut(source_id).add_remembered_player(pid);
+            ctx.game
+                .host_object_mut(source_id, sa)
+                .add_remembered_player(pid);
         }
     }
 }

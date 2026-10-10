@@ -97,7 +97,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             false,
         );
         if sa.ir.remember_removed_cards {
-            ctx.game.card_mut(source_id).add_remembered_card(target_id);
+            ctx.game
+                .host_object_mut(source_id, sa)
+                .add_remembered_card(target_id);
         }
     }
 }

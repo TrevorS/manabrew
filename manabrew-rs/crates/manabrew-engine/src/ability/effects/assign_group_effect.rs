@@ -19,7 +19,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let targets: Vec<CardId> = if let Some(target) = sa.target_chosen.target_card {
         vec![target]
     } else {
-        ctx.game.card(source).remembered_cards.clone()
+        ctx.game.host_object(source, sa).remembered_cards.clone()
     };
 
     if targets.is_empty() {
@@ -29,6 +29,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // Auto-assign all to group 1 (agent would choose in full implementation)
     // Remember the assigned cards
     for card_id in &targets {
-        ctx.game.card_mut(source).add_remembered_card(*card_id);
+        ctx.game
+            .host_object_mut(source, sa)
+            .add_remembered_card(*card_id);
     }
 }

@@ -57,12 +57,11 @@ fn targeted_owner_players(sa: &SpellAbility, game: &GameState) -> Vec<PlayerId> 
 fn add_players_from_remembered(
     players: &mut Vec<PlayerId>,
     game: &GameState,
-    card_id: CardId,
+    card: &Card,
     def: &str,
     skip_remembered: bool,
 ) {
-    let remembered_players = game.card(card_id).remembered_players.clone();
-    for player in remembered_players {
+    for &player in &card.remembered_players {
         if def.ends_with("Opponents") {
             push_unique_player(players, game.opponent_of(player));
         } else {
@@ -70,14 +69,13 @@ fn add_players_from_remembered(
         }
     }
 
-    let remembered_cards = game.card(card_id).remembered_cards.clone();
-    for remembered_card in remembered_cards {
+    for &remembered_card in &card.remembered_cards {
         if def.ends_with("Controller") {
             push_unique_player(players, game.card(remembered_card).controller);
         } else if def.ends_with("Owner") {
             push_unique_player(players, game.card(remembered_card).owner);
         } else if def.ends_with("Remembered") && !skip_remembered {
-            add_players_from_remembered(players, game, remembered_card, def, true);
+            add_players_from_remembered(players, game, game.card(remembered_card), def, true);
         }
     }
 }
@@ -95,7 +93,7 @@ fn imprinted_players_for_def(def: &str, sa: &SpellAbility, game: &GameState) -> 
     let Some(source) = sa.source else {
         return players;
     };
-    for cid in game.card(source).imprinted_cards.clone() {
+    for &cid in &game.host_object(source, sa).imprinted_cards {
         if def.ends_with("Controller") {
             push_unique_player(&mut players, game.card(cid).controller);
         } else if def.ends_with("Owner") {
@@ -108,7 +106,7 @@ fn imprinted_players_for_def(def: &str, sa: &SpellAbility, game: &GameState) -> 
 fn remembered_players_for_def(def: &str, sa: &SpellAbility, game: &GameState) -> Vec<PlayerId> {
     let mut players = Vec::new();
     if let Some(source) = sa.source {
-        add_players_from_remembered(&mut players, game, source, def, false);
+        add_players_from_remembered(&mut players, game, game.host_object(source, sa), def, false);
     }
     players
 }
@@ -179,17 +177,31 @@ pub fn get_defined_cards(
     defined: &str,
     activating_player: Option<PlayerId>,
 ) -> Vec<CardId> {
+    get_defined_cards_for_sa(game, host_card, defined, activating_player, None)
+}
+
+pub fn get_defined_cards_for_sa(
+    game: &GameState,
+    host_card: Option<CardId>,
+    defined: &str,
+    activating_player: Option<PlayerId>,
+    sa: Option<&SpellAbility>,
+) -> Vec<CardId> {
     if let Ok(token) = defined.parse::<DefinedCardToken>() {
-        return resolve_defined_card_token(token, game, host_card, activating_player);
+        let host_object = host_card.map(|host| match sa {
+            Some(sa) => game.host_object(host, sa),
+            None => game.card(host),
+        });
+        return resolve_defined_card_token(token, game, host_card, activating_player, host_object);
     }
     if let Some(attachments) = defined.strip_prefix("AttachedBy ") {
-        return get_defined_cards(game, host_card, attachments, activating_player)
+        return get_defined_cards_for_sa(game, host_card, attachments, activating_player, sa)
             .into_iter()
             .filter_map(|attachment| game.card(attachment).attached_to)
             .collect();
     }
     if let Some(cards) =
-        host_card.and_then(|host_card| get_defined_valid_cards(game, host_card, defined, None))
+        host_card.and_then(|host_card| get_defined_valid_cards(game, host_card, defined, sa))
     {
         return cards;
     }
@@ -197,6 +209,24 @@ pub fn get_defined_cards(
     // per-cost paid slots), not the host card, so they're resolved by the
     // SA-aware path `spell_ability_effect::resolve_defined_cards_for_sa`.
     Vec::new()
+}
+
+pub fn get_defined_cards_for_host(
+    game: &GameState,
+    host: &Card,
+    defined: &str,
+    activating_player: Option<PlayerId>,
+) -> Vec<CardId> {
+    if let Ok(token) = defined.parse::<DefinedCardToken>() {
+        return resolve_defined_card_token(
+            token,
+            game,
+            Some(host.id),
+            activating_player,
+            Some(host),
+        );
+    }
+    get_defined_cards(game, Some(host.id), defined, activating_player)
 }
 
 pub(crate) fn get_defined_valid_cards(
@@ -246,6 +276,7 @@ fn resolve_defined_card_token(
     game: &GameState,
     host_card: Option<CardId>,
     activating_player: Option<PlayerId>,
+    host_object: Option<&Card>,
 ) -> Vec<CardId> {
     match token {
         DefinedCardToken::SelfCard => host_card.into_iter().collect(),
@@ -254,8 +285,8 @@ fn resolve_defined_card_token(
             .and_then(|host| find_effect_root(game, host))
             .into_iter()
             .collect(),
-        DefinedCardToken::Remembered => host_card
-            .map(|src| game.card(src).remembered_cards.clone())
+        DefinedCardToken::Remembered => host_object
+            .map(|host| host.remembered_cards.clone())
             .unwrap_or_default(),
         DefinedCardToken::ChosenCard => host_card
             .map(|src| game.card(src).chosen_cards.clone())
@@ -286,8 +317,8 @@ fn resolve_defined_card_token(
                     .collect::<Vec<_>>()
             })
             .collect(),
-        DefinedCardToken::Imprinted | DefinedCardToken::ImprintedLki => host_card
-            .map(|src| game.card(src).imprinted_cards.clone())
+        DefinedCardToken::Imprinted | DefinedCardToken::ImprintedLki => host_object
+            .map(|host| host.imprinted_cards.clone())
             .unwrap_or_default(),
         DefinedCardToken::TopOfLibrary => activating_player
             .and_then(|pid| game.cards_in_zone(ZoneType::Library, pid).last().copied())
@@ -930,7 +961,7 @@ pub fn get_defined_spell_abilities(
         // ability remembered" branch is unreachable here (Java L1222–L1226).
         "Remembered" => {
             if let Some(host_id) = sa.source {
-                let remembered = game.card(host_id).remembered_cards.clone();
+                let remembered = game.host_object(host_id, sa).remembered_cards.clone();
                 for cid in remembered {
                     for ab_text in game.card(cid).abilities.iter() {
                         let built = crate::spellability::build_spell_ability_from_host_card(
@@ -947,7 +978,7 @@ pub fn get_defined_spell_abilities(
         // Imprinted — mirrors Java L1227–L1230.
         "Imprinted" => {
             if let Some(host_id) = sa.source {
-                let imprinted = game.card(host_id).imprinted_cards.clone();
+                let imprinted = game.host_object(host_id, sa).imprinted_cards.clone();
                 for cid in imprinted {
                     for ab_text in game.card(cid).abilities.iter() {
                         let built = crate::spellability::build_spell_ability_from_host_card(
@@ -1376,13 +1407,15 @@ pub fn handle_remembering(game: &mut GameState, sa: &SpellAbility) {
 
     if sa.ir.remember_targets && sa.uses_targeting() {
         if sa.ir.forget_other_targets {
-            game.card_mut(host_id).clear_remembered();
+            game.host_object_mut(host_id, sa).clear_remembered();
         }
         if let Some(target_card) = sa.target_chosen.target_card {
-            game.card_mut(host_id).add_remembered_card(target_card);
+            game.host_object_mut(host_id, sa)
+                .add_remembered_card(target_card);
         }
         if let Some(target_player) = sa.target_chosen.target_player {
-            game.card_mut(host_id).add_remembered_player(target_player);
+            game.host_object_mut(host_id, sa)
+                .add_remembered_player(target_player);
         }
         // Counter-style targets: the target is a stack entry (a SpellAbility),
         // and Java's `host.addRemembered(sa.getTargets())` records the source
@@ -1391,7 +1424,8 @@ pub fn handle_remembering(game: &mut GameState, sa: &SpellAbility) {
         if let Some(stack_id) = sa.target_chosen.target_stack_entry {
             if let Some(entry) = game.stack.find_by_id(stack_id) {
                 if let Some(source) = entry.spell_ability.source {
-                    game.card_mut(host_id).add_remembered_card(source);
+                    game.host_object_mut(host_id, sa)
+                        .add_remembered_card(source);
                 }
             }
         }
@@ -1401,7 +1435,7 @@ pub fn handle_remembering(game: &mut GameState, sa: &SpellAbility) {
     // In the Rust engine this is simplified since we don't track individual mana objects.
     // We store a count in remembered_cmc.
     if sa.ir.remember_cost_mana {
-        game.card_mut(host_id).clear_remembered();
+        game.host_object_mut(host_id, sa).clear_remembered();
     }
 }
 
@@ -1510,6 +1544,7 @@ pub fn handle_paid(
             let source = game.card(source_id);
             let selector = crate::parsing::cached_compiled_selector(filter);
             let context = crate::card::valid_filter::MatchContext::new(source, game)
+                .with_host_object(sa)
                 .with_source_controller(source.controller);
             paid_cards
                 .iter()
@@ -1704,7 +1739,7 @@ pub fn filter_list_by_type(
     } else if filter_type.starts_with("Remembered") {
         // Use the first remembered card as the source
         let source_id = sa.source.unwrap_or(CardId(0));
-        let remembered = &game.card(source_id).remembered_cards;
+        let remembered = &game.host_object(source_id, sa).remembered_cards;
         match remembered.first() {
             Some(&cid) => {
                 let adjusted = filter_type.replace("Remembered", "Card");
@@ -2048,7 +2083,7 @@ pub fn get_defined_objects(
     let d = if defined.is_empty() { "Self" } else { defined };
     (
         resolve_defined_players_with_sa(d, sa, sa.activating_player, game),
-        get_defined_cards(game, sa.source, d, Some(sa.activating_player)),
+        get_defined_cards_for_sa(game, sa.source, d, Some(sa.activating_player), Some(sa)),
         get_defined_spell_abilities(d, sa, game),
     )
 }

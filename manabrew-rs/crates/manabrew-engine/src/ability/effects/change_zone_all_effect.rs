@@ -117,7 +117,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         if sa.ir.forget_other_remembered {
             if let Some(sid) = sa.source {
-                ctx.game.card_mut(sid).clear_remembered();
+                ctx.game.host_object_mut(sid, sa).clear_remembered();
             }
         }
 
@@ -197,11 +197,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 ) {
                     Some(filter) if !filter.eq_ignore_ascii_case("True") => {
                         sa.source.is_some_and(|sid| {
-                            crate::card::valid_filter::matches_valid_card_selector_in_game(
+                            crate::card::valid_filter::matches_valid_card_selector_with_context(
                                 &crate::parsing::cached_compiled_selector(filter),
                                 ctx.game.card(card_id),
-                                ctx.game.card(sid),
-                                ctx.game,
+                                crate::card::valid_filter::MatchContext::new(
+                                    ctx.game.card(sid),
+                                    ctx.game,
+                                )
+                                .with_host_object(sa),
                             )
                         })
                     }
@@ -209,7 +212,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 };
                 if remembers {
                     if let Some(sid) = sa.source {
-                        ctx.game.card_mut(sid).add_remembered_card(card_id);
+                        ctx.game
+                            .host_object_mut(sid, sa)
+                            .add_remembered_card(card_id);
                     }
                 }
             }

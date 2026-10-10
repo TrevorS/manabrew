@@ -100,7 +100,7 @@ pub(crate) fn draw_for_player(
     // remembered list (e.g. Mystic Remora, Dark Confidant variants).
     if remember_drawn {
         if let Some(source_id) = sa.source {
-            let card_mut = ctx.game.card_mut(source_id);
+            let card_mut = ctx.game.host_object_mut(source_id, sa);
             for cid in &drawn {
                 card_mut.add_remembered_card(*cid);
             }

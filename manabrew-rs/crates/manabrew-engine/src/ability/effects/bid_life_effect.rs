@@ -44,7 +44,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     // Remember the winner for sub-ability resolution
     if let Some(sid) = sa.source {
-        ctx.game.card_mut(sid).add_remembered_player(highest_bidder);
+        ctx.game
+            .host_object_mut(sid, sa)
+            .add_remembered_player(highest_bidder);
         ctx.game
             .card_mut(sid)
             .set_s_var("HighestLifeBid", format!("Number${highest_bid}"));

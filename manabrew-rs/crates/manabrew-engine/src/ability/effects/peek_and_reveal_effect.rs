@@ -95,19 +95,25 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             if let Some(source_id) = sa.source {
                 if remember_revealed {
                     for &card_id in &revealable {
-                        ctx.game.card_mut(source_id).add_remembered_card(card_id);
+                        ctx.game
+                            .host_object_mut(source_id, sa)
+                            .add_remembered_card(card_id);
                     }
                 }
                 if imprint_revealed {
                     for &card_id in &revealable {
-                        ctx.game.card_mut(source_id).add_imprinted_card(card_id);
+                        ctx.game
+                            .host_object_mut(source_id, sa)
+                            .add_imprinted_card(card_id);
                     }
                 }
             }
         } else if remember_peeked {
             if let Some(source_id) = sa.source {
                 for &card_id in &revealable {
-                    ctx.game.card_mut(source_id).add_remembered_card(card_id);
+                    ctx.game
+                        .host_object_mut(source_id, sa)
+                        .add_remembered_card(card_id);
                 }
             }
         }

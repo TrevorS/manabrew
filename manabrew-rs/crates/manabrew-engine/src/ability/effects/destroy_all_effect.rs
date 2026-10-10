@@ -31,7 +31,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     if remember_destroyed {
         if let Some(sid) = sa.source {
-            ctx.game.card_mut(sid).clear_remembered();
+            ctx.game.host_object_mut(sid, sa).clear_remembered();
         }
     }
 
@@ -153,7 +153,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         ctx.sacrifice_destroy(card_id, lki_p1p1, lki_power, lki_toughness, true);
         if remember_destroyed {
             if let Some(sid) = sa.source {
-                ctx.game.card_mut(sid).add_remembered_card(card_id);
+                ctx.game
+                    .host_object_mut(sid, sa)
+                    .add_remembered_card(card_id);
             }
         }
     }

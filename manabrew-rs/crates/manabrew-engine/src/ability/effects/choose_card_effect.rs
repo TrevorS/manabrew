@@ -97,20 +97,24 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .set_chosen_cards(chosen.clone());
 
     if sa.ir.forget_other_remembered {
-        ctx.game.card_mut(source_id).clear_remembered();
+        ctx.game.host_object_mut(source_id, sa).clear_remembered();
     }
 
     // Optionally remember
     if remember {
         for &cid in &chosen {
-            ctx.game.card_mut(source_id).add_remembered_card(cid);
+            ctx.game
+                .host_object_mut(source_id, sa)
+                .add_remembered_card(cid);
         }
     }
 
     // ImprintChosen$ — `ChooseCardEffect.java:299-301`.
     if sa.ir.imprint_chosen {
         for &cid in &chosen {
-            ctx.game.card_mut(source_id).add_imprinted_card(cid);
+            ctx.game
+                .host_object_mut(source_id, sa)
+                .add_imprinted_card(cid);
         }
     }
 }

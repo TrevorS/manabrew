@@ -58,7 +58,9 @@ fn cloak_for_player(ctx: &mut EffectContext, sa: &SpellAbility, player: PlayerId
 
         if sa.param_is_true(keys::REMEMBER_CLOAKED) {
             if let Some(sid) = sa.source {
-                ctx.game.card_mut(sid).add_remembered_card(card_id);
+                ctx.game
+                    .host_object_mut(sid, sa)
+                    .add_remembered_card(card_id);
             }
         }
 

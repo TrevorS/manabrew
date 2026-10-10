@@ -241,6 +241,7 @@ pub fn get_this_turn_activated<'a>(
     game: &'a GameState,
     valid: &str,
     src: CardId,
+    ctb: &SpellAbility,
     controller: PlayerId,
 ) -> Vec<&'a SpellAbility> {
     let _ = controller;
@@ -253,7 +254,7 @@ pub fn get_this_turn_activated<'a>(
                 valid,
                 sa,
                 sa.source.map(|host| game.card(host)),
-                crate::card::valid_filter::MatchContext::new(source, game),
+                crate::card::valid_filter::MatchContext::new(source, game).with_host_object(ctb),
             )
         })
         .collect()
@@ -319,11 +320,11 @@ pub fn get_radiance(game: &GameState, sa: &SpellAbility) -> CardCollection {
                 }
                 if valid_selectors.is_empty()
                     || valid_selectors.iter().any(|selector| {
-                        valid_filter::matches_valid_card_selector_in_game(
+                        valid_filter::matches_valid_card_selector_with_context(
                             selector,
                             card,
-                            game.card(source),
-                            game,
+                            valid_filter::MatchContext::new(game.card(source), game)
+                                .with_host_object(targeted),
                         )
                     })
                 {

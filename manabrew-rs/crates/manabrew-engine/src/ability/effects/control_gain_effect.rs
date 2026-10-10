@@ -358,9 +358,13 @@ fn gain_control_of(
     }
 
     if remember {
-        ctx.game.card_mut(source).add_remembered_card(target_card);
+        ctx.game
+            .host_object_mut(source, sa)
+            .add_remembered_card(target_card);
     }
     if forget {
-        ctx.game.card_mut(source).remove_remembered(target_card);
+        ctx.game
+            .host_object_mut(source, sa)
+            .remove_remembered(target_card);
     }
 }

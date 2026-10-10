@@ -119,7 +119,14 @@ fn valid_face_predicates(ctx: &EffectContext, sa: &SpellAbility) -> Option<Vec<S
                         host.and_then(|host| host.attached_to)
                             .map(|equipping| ("=Equipped", equipping))
                     } else if v.contains("ManaCost=Imprinted") {
-                        host.and_then(|host| host.imprinted_cards.first().copied())
+                        sa.source
+                            .and_then(|source| {
+                                ctx.game
+                                    .host_object(source, sa)
+                                    .imprinted_cards
+                                    .first()
+                                    .copied()
+                            })
                             .map(|imprinted| ("=Imprinted", imprinted))
                     } else {
                         None
@@ -146,7 +153,13 @@ fn valid_names(ctx: &EffectContext, sa: &SpellAbility) -> Vec<String> {
     let mut names = BTreeSet::new();
     if sa.ir.choose_from_defined_cards {
         if let Some(source_id) = sa.source {
-            for card_id in ctx.game.card(source_id).remembered_cards.iter().copied() {
+            for card_id in ctx
+                .game
+                .host_object(source_id, sa)
+                .remembered_cards
+                .iter()
+                .copied()
+            {
                 let card = ctx.game.card(card_id);
                 if let Some(rules) =
                     database.and_then(|database| database.get_by_card_name(&card.full_name))

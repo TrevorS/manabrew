@@ -272,11 +272,12 @@ fn defined_players(defined: &str, context: MatchContext<'_>) -> Vec<PlayerId> {
 
 fn is_targeting_defined(sa: &SpellAbility, defined: &str, context: MatchContext<'_>) -> bool {
     let players = defined_players(defined, context);
-    let cards = crate::ability::ability_utils::get_defined_cards(
+    let cards = crate::ability::ability_utils::get_defined_cards_for_sa(
         context.game,
         Some(context.source_card.id),
         defined,
         Some(context.source_controller),
+        context.spell_ability,
     );
     let mut node = Some(sa);
     while let Some(current) = node {

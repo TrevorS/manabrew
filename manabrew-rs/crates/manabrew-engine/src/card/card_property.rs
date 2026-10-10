@@ -63,7 +63,7 @@ pub(crate) fn card_has_property(card: &Card, property: &str, context: MatchConte
         "youown" => card.owner == source.controller,
         "youdontctrl" => card.controller != source.controller,
         "youdontown" => card.owner != source.controller,
-        "isremembered" | "card.isremembered" => source.remembered_cards.contains(&card.id),
+        "isremembered" | "card.isremembered" => context.remembered_cards.contains(&card.id),
         "istriggerremembered" | "card.istriggerremembered" => is_trigger_remembered(card, context),
         "effectsource" | "card.effectsource" => source.effect_source == Some(card.id),
         "oppctrl" | "opponentctrl" | "opponent" => card.controller != source.controller,

@@ -107,7 +107,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
         if attach_to_entity(ctx, attachment, target) && sa.param_is_true(keys::REMEMBER_ATTACHED) {
-            ctx.game.card_mut(source).add_remembered_card(attachment);
+            ctx.game
+                .host_object_mut(source, sa)
+                .add_remembered_card(attachment);
         }
     }
 }

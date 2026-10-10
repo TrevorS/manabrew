@@ -55,7 +55,7 @@ pub(super) fn move_cards(
     // ForgetOtherRemembered$ — clear before processing (Java line 510)
     if sa.ir.forget_other_remembered {
         if let Some(sid) = sa.source {
-            ctx.game.card_mut(sid).clear_remembered();
+            ctx.game.host_object_mut(sid, sa).clear_remembered();
         }
     }
 

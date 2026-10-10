@@ -64,7 +64,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 );
 
                 if sa.param_is_true(keys::REMEMBER) {
-                    ctx.game.card_mut(source).add_remembered_card(card_id);
+                    ctx.game
+                        .host_object_mut(source, sa)
+                        .add_remembered_card(card_id);
                 }
             }
         }

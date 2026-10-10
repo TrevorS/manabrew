@@ -50,7 +50,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if random_chosen && !piles.is_empty() {
         let chosen_idx = ctx.rng.next_int(piles.len() as i32) as usize % piles.len();
         for card_id in &piles[chosen_idx] {
-            ctx.game.card_mut(source).add_remembered_card(*card_id);
+            ctx.game
+                .host_object_mut(source, sa)
+                .add_remembered_card(*card_id);
         }
     }
 }

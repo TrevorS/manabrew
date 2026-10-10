@@ -187,7 +187,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     ) {
         let (players, cards) =
             crate::ability::ability_utils::get_defined_entities(remember, sa, ctx.game);
-        let host = ctx.game.card_mut(host);
+        let host = ctx.game.host_object_mut(host, sa);
         host.add_remembered_players(players);
         host.add_remembered_cards(cards);
     }
@@ -199,7 +199,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let cards = crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
             ctx.game, sa, imprint,
         );
-        ctx.game.card_mut(host).add_imprinted_cards(cards);
+        ctx.game
+            .host_object_mut(host, sa)
+            .add_imprinted_cards(cards);
     }
 
     if let (Some(forget), Some(host)) = (
@@ -209,7 +211,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let cards = crate::ability::spell_ability_effect::resolve_defined_cards_for_sa(
             ctx.game, sa, forget,
         );
-        ctx.game.card_mut(host).remove_imprinted_cards(cards);
+        ctx.game
+            .host_object_mut(host, sa)
+            .remove_imprinted_cards(cards);
     }
 
     let is_perpetual = sa.ir.perpetual_duration;

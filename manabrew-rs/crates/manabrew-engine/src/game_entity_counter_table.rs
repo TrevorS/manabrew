@@ -285,17 +285,20 @@ impl GameEntityCounterTable {
             }
         }
 
-        if let Some(source) = cause.and_then(|cause| cause.source) {
+        if let Some((cause, source)) = cause.and_then(|cause| Some((cause, cause.source?))) {
             for object in remembered_objects {
                 match object {
-                    GameEntity::Card(card) => game.card_mut(source).add_remembered_card(card),
-                    GameEntity::Player(player) => {
-                        game.card_mut(source).add_remembered_player(player)
-                    }
+                    GameEntity::Card(card) => game
+                        .host_object_mut(source, cause)
+                        .add_remembered_card(card),
+                    GameEntity::Player(player) => game
+                        .host_object_mut(source, cause)
+                        .add_remembered_player(player),
                 }
             }
-            if cause.is_some_and(|cause| cause.ir.remember_amount) && remember_amount > 0 {
-                game.card_mut(source).add_remembered_cmc(remember_amount);
+            if cause.ir.remember_amount && remember_amount > 0 {
+                game.host_object_mut(source, cause)
+                    .add_remembered_cmc(remember_amount);
             }
         }
 

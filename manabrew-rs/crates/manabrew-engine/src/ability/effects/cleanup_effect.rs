@@ -26,21 +26,26 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     };
 
     if sa.ir.clear_remembered {
-        ctx.game.card_mut(source_id).clear_remembered();
+        ctx.game.host_object_mut(source_id, sa).clear_remembered();
     }
     if let Some(defined) = raw_get(&sa.ability_text, "ForgetDefined") {
-        let forgotten = crate::ability::ability_utils::get_defined_cards(
+        let forgotten = crate::ability::ability_utils::get_defined_cards_for_sa(
             ctx.game,
             Some(source_id),
             defined,
             Some(sa.activating_player),
+            Some(sa),
         );
         for card_id in forgotten {
-            ctx.game.card_mut(source_id).remove_remembered(card_id);
+            ctx.game
+                .host_object_mut(source_id, sa)
+                .remove_remembered(card_id);
         }
     }
     if raw_has_key(&sa.ability_text, "ClearImprinted") {
-        ctx.game.card_mut(source_id).clear_imprinted_cards();
+        ctx.game
+            .host_object_mut(source_id, sa)
+            .clear_imprinted_cards();
     }
     if raw_has_key(&sa.ability_text, "ClearCoinFlips") {
         ctx.game.card_mut(source_id).clear_flip_result();

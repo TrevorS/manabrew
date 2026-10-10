@@ -74,14 +74,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             if sa.ir.remember_found {
                 if let Some(sid) = sa.source {
                     for &cid in &sought {
-                        ctx.game.card_mut(sid).add_remembered_card(cid);
+                        ctx.game.host_object_mut(sid, sa).add_remembered_card(cid);
                     }
                 }
             }
             if sa.ir.imprint_found {
                 if let Some(sid) = sa.source {
                     for &cid in &sought {
-                        ctx.game.card_mut(sid).add_imprinted_card(cid);
+                        ctx.game.host_object_mut(sid, sa).add_imprinted_card(cid);
                     }
                 }
             }

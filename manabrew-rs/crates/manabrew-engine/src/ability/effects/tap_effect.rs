@@ -74,7 +74,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 etb,
                 remember_tapped,
                 always_remember,
-                sa.source,
+                sa,
             )
         })
         .collect();
@@ -97,7 +97,7 @@ fn tap_card(
     etb: bool,
     remember_tapped: bool,
     always_remember: bool,
-    source: Option<CardId>,
+    sa: &crate::spellability::SpellAbility,
 ) -> bool {
     if etb {
         // Java parity: ETB tap effects mark the card tapped even if the move
@@ -126,8 +126,10 @@ fn tap_card(
 
     // RememberTapped / AlwaysRemember
     if (remember_tapped && was_untapped) || always_remember {
-        if let Some(src) = source {
-            ctx.game.card_mut(src).add_remembered_card(card_id);
+        if let Some(src) = sa.source {
+            ctx.game
+                .host_object_mut(src, sa)
+                .add_remembered_card(card_id);
         }
     }
     tapped

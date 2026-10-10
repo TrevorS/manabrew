@@ -419,7 +419,7 @@ pub(crate) fn remember_played(
     card_id: CardId,
 ) {
     if let Some(source_id) = sa.source {
-        let source = game.card_mut(source_id);
+        let source = game.host_object_mut(source_id, sa);
         if sa.ir.remember_played {
             source.remembered_cards.push(card_id);
         }
