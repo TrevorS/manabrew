@@ -1723,3 +1723,34 @@ fn a_crafted_card_counts_the_power_of_the_cards_exiled_to_craft_it() {
     assert_eq!(card.exiled_cards, vec![big, small]);
     assert_eq!(card.power(), 9);
 }
+
+const SHELTERED_BY_GHOSTS: &str = "Name:Sheltered by Ghosts\nManaCost:1 W\nTypes:Enchantment Aura\nK:Enchant:Creature.YouCtrl:creature you control\nOracle:";
+
+#[test]
+fn a_dug_aura_with_nothing_to_enchant_stays_in_the_library_above_the_rest() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let forest = "Name:Forest\nManaCost:no cost\nTypes:Basic Land Forest\nOracle:";
+    for _ in 0..3 {
+        put(&mut game, forest, p0, ZoneType::Library);
+    }
+    let aura = put(&mut game, SHELTERED_BY_GHOSTS, p0, ZoneType::Library);
+    for _ in 0..2 {
+        put(&mut game, forest, p0, ZoneType::Library);
+    }
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ Dig | DigNum$ 7 | ChangeNum$ 2 | Optional$ True | ChangeValid$ Permanent.nonCreature+nonLand+cmcLE3 | DestinationZone$ Battlefield | RestRandomOrder$ True",
+        None,
+        None,
+        Some(source),
+    );
+    GameLoop::new(2).resolve_stack(&mut game, &mut pass_agents());
+    let library = game.cards_in_zone(ZoneType::Library, p0);
+    assert_eq!(library.len(), 6);
+    assert_eq!(library.last(), Some(&aura));
+    assert_eq!(game.card(aura).zone, ZoneType::Library);
+}

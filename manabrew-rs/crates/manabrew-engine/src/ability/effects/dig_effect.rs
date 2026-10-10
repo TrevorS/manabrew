@@ -328,6 +328,7 @@ fn resolve_for_player(
     }
 
     let mut zone_movements = CardZoneTable::default();
+    let mut unmoved = Vec::new();
 
     // Move chosen cards to dest_zone1.
     for &id in &chosen {
@@ -342,7 +343,12 @@ fn resolve_for_player(
             crate::card::card_factory_util::set_face_down_state(ctx.game, id, sa);
         }
         ctx.move_card(id, dest_zone1, dest_owner);
-        zone_movements.put(Some(ZoneType::Library), Some(dest_zone1), id);
+        let moved = ctx.game.card_zone_location(id).is_some();
+        if moved {
+            zone_movements.put(Some(ZoneType::Library), Some(dest_zone1), id);
+        } else {
+            unmoved.push(id);
+        }
         if dest_zone1 == ZoneType::Library {
             match lib_position1 {
                 pos if pos < 0 => {
@@ -384,6 +390,9 @@ fn resolve_for_player(
                     .add_remembered_card(id);
             }
         }
+        if !moved {
+            continue;
+        }
         if dest_zone1 == ZoneType::Battlefield {
             if sa.ir.tapped {
                 ctx.game.tap(id);
@@ -392,6 +401,15 @@ fn resolve_for_player(
             let _ = super::add_to_combat(ctx, sa, id, keys::ATTACKING);
         }
         emit_zone_trigger(ctx.trigger_handler, id, ZoneType::Library, dest_zone1);
+    }
+    for card_id in top_n
+        .iter()
+        .rev()
+        .copied()
+        .filter(|id| unmoved.contains(id))
+    {
+        ctx.game
+            .add_card_to_zone(ZoneType::Library, dig_player, card_id);
     }
 
     // Move rest to dest_zone2.
