@@ -1194,8 +1194,12 @@ fn an_animate_on_a_face_down_creature_ends_on_its_face_up_characteristics() {
 
     game.card_mut(spy).turn_face_up();
     assert_eq!(game.card(spy).state_base_power(), 3);
-    manabrew_engine::phase::PhaseCommand::RestoreAnimate { card: spy }
-        .run(&mut game, &mut ReverseShuffleRng);
+    let timestamp = game.card(spy).animate_state.as_ref().unwrap().records[0].timestamp;
+    manabrew_engine::phase::PhaseCommand::RestoreAnimate {
+        card: spy,
+        timestamp,
+    }
+    .run(&mut game, &mut ReverseShuffleRng);
 
     assert_eq!(game.card(spy).state_base_power(), 1);
     assert!(game.card(spy).type_line.to_string().contains("Merfolk"));

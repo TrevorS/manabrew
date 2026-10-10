@@ -61,6 +61,7 @@ pub enum PhaseCommand {
     },
     RestoreAnimate {
         card: CardId,
+        timestamp: i64,
     },
     Unclone {
         card: CardId,
@@ -110,15 +111,8 @@ impl PhaseCommand {
             PhaseCommand::RemoveGoad { card, player } => {
                 game.card_mut(card).remove_goad(player);
             }
-            PhaseCommand::RestoreAnimate { card } => {
-                if let Some(state) = game.card_mut(card).animate_state.take() {
-                    let timestamps = state.trait_change_timestamps.clone();
-                    game.card_mut(card)
-                        .restore_animate_snapshot(&state.change_timestamps);
-                    for ts in timestamps {
-                        game.card_mut(card).remove_changed_card_traits(ts, 0);
-                    }
-                }
+            PhaseCommand::RestoreAnimate { card, timestamp } => {
+                game.card_mut(card).restore_animate(timestamp);
             }
             PhaseCommand::ExileEffect { effect } => {
                 if game.card(effect).zone == forge_foundation::ZoneType::Command {

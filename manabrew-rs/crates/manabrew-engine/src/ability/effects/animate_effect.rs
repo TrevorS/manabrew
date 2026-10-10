@@ -11,7 +11,6 @@ use crate::card::perpetual::{
     perpetual_abilities, perpetual_colors, perpetual_incorporate, perpetual_keywords,
     perpetual_mana_cost, perpetual_new_pt, perpetual_types,
 };
-use crate::card::AnimateState;
 use crate::spellability::SpellAbility;
 use crate::trigger::parse_trigger;
 use forge_foundation::ManaCost;
@@ -210,21 +209,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             sa.activating_player,
             sa.source,
             sa.target_chosen.target_card,
-            crate::phase::PhaseCommand::RestoreAnimate { card: card_id },
+            crate::phase::PhaseCommand::RestoreAnimate {
+                card: card_id,
+                timestamp: resolve_ts,
+            },
         );
 
-        // Save original state (only if not already animated this turn)
-        if !is_permanent_duration && !is_perpetual && ctx.game.card(card_id).animate_state.is_none()
-        {
-            let original_keywords = ctx.game.card(card_id).keywords.clone();
+        if !is_permanent_duration && !is_perpetual {
             ctx.game
                 .card_mut(card_id)
-                .set_animate_state(Some(AnimateState {
-                    change_timestamps: Vec::new(),
-                    original_keywords: Some(original_keywords),
-                    trait_change_timestamps: Vec::new(),
-                    ends_at_end_of_turn: !until_registered,
-                }));
+                .add_animate_record(resolve_ts, !until_registered);
         }
 
         let removes_all_abilities = sa.ir.animate_remove_all_abilities && effect_ts.is_none();
@@ -529,11 +523,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             } else {
                 let card = ctx.game.card_mut(card_id);
                 card.add_changed_card_traits(changes, resolve_ts, 0);
-                if !is_permanent_duration {
-                    if let Some(state) = card.animate_state.as_mut() {
-                        state.trait_change_timestamps.push(resolve_ts);
-                    }
-                }
             }
         }
 
@@ -579,11 +568,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         if let Some(timestamp) = type_timestamp.filter(|_| !is_permanent_duration && !is_perpetual)
         {
-            if let Some(state) = ctx.game.card_mut(card_id).animate_state.as_mut() {
-                if !state.change_timestamps.contains(&timestamp) {
-                    state.change_timestamps.push(timestamp);
-                }
-            }
+            ctx.game
+                .card_mut(card_id)
+                .set_animate_change_timestamp(resolve_ts, timestamp);
         }
     }
 

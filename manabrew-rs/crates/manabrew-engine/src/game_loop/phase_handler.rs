@@ -841,7 +841,7 @@ impl GameLoop {
                 && card
                     .animate_state
                     .as_ref()
-                    .is_none_or(|state| !state.ends_at_end_of_turn)
+                    .is_none_or(|state| !state.records.iter().any(|r| r.ends_at_end_of_turn))
                 && card.pump_keywords.has_no_entries()
                 && card.pump_keywords_removed_by_statics.is_empty()
                 && card.pump_trigger_count == 0
@@ -852,15 +852,7 @@ impl GameLoop {
             card.tapped_this_turn = 0;
             card.clear_assigned_damage();
             let had_animate_state = card.animate_state.is_some();
-            if let Some(state) = card
-                .animate_state
-                .take_if(|state| state.ends_at_end_of_turn)
-            {
-                card.restore_animate_snapshot(&state.change_timestamps);
-                for ts in state.trait_change_timestamps {
-                    card.remove_changed_card_traits(ts, 0);
-                }
-            }
+            card.restore_end_of_turn_animates();
             if card.zone == ZoneType::Battlefield {
                 if had_animate_state {
                     card.clear_damage();

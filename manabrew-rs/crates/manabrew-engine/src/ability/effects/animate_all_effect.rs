@@ -170,21 +170,23 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             sa.activating_player,
             sa.source,
             sa.target_chosen.target_card,
-            crate::phase::PhaseCommand::RestoreAnimate { card: card_id },
+            crate::phase::PhaseCommand::RestoreAnimate {
+                card: card_id,
+                timestamp: resolve_ts,
+            },
         );
 
-        // Save original state (only if not already animated this turn)
-        if ctx.game.card(card_id).animate_state.is_none() {
+        if !is_permanent_duration && !is_perpetual {
+            ctx.game
+                .card_mut(card_id)
+                .add_animate_record(resolve_ts, !until_registered);
+        } else if ctx.game.card(card_id).animate_state.is_none() {
             let original_keywords = ctx.game.card(card_id).keywords.clone();
             ctx.game
                 .card_mut(card_id)
                 .set_animate_state(Some(AnimateState {
-                    change_timestamps: Vec::new(),
+                    records: Vec::new(),
                     original_keywords: Some(original_keywords),
-                    trait_change_timestamps: Vec::new(),
-                    ends_at_end_of_turn: !until_registered
-                        && !is_permanent_duration
-                        && !is_perpetual,
                 }));
         }
 
@@ -235,9 +237,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .apply_effect(card);
             } else {
                 card.add_changed_card_traits(changes, resolve_ts, 0);
-            }
-            if let Some(state) = card.animate_state.as_mut() {
-                state.trait_change_timestamps.push(resolve_ts);
             }
         }
 
@@ -378,11 +377,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         if let Some(timestamp) = type_timestamp.filter(|_| !is_permanent_duration && !is_perpetual)
         {
-            if let Some(state) = ctx.game.card_mut(card_id).animate_state.as_mut() {
-                if !state.change_timestamps.contains(&timestamp) {
-                    state.change_timestamps.push(timestamp);
-                }
-            }
+            ctx.game
+                .card_mut(card_id)
+                .set_animate_change_timestamp(resolve_ts, timestamp);
         }
 
         // Apply trigger trait changes from Triggers$

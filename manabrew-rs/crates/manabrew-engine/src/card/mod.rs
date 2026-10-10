@@ -195,14 +195,19 @@ pub struct CardActionTargetSpec {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnimateState {
     #[serde(default)]
-    pub change_timestamps: Vec<u64>,
+    pub records: Vec<AnimateRecord>,
     /// Snapshot of intrinsic keywords before animate added any. Restored
     /// when the card leaves the battlefield (CR 400.7) so granted keywords
     /// (e.g. Animate `Keywords$ Haste`) do not persist into the new object.
     #[serde(default)]
     pub original_keywords: Option<crate::keyword::keyword_collection::KeywordCollection>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnimateRecord {
+    pub timestamp: i64,
     #[serde(default)]
-    pub trait_change_timestamps: Vec<i64>,
+    pub change_timestamp: Option<u64>,
     /// Java registers the revert through `SpellAbilityEffect.addUntilCommand`, whose default
     /// branch is end of turn; only that branch may be undone by the cleanup step.
     #[serde(default = "crate::card::animate_ends_at_end_of_turn_default")]
@@ -3554,11 +3559,76 @@ impl Card {
         self.lki_toughness = toughness;
     }
 
-    pub fn restore_animate_snapshot(&mut self, change_timestamps: &[u64]) {
-        for &timestamp in change_timestamps {
-            self.remove_changed_card_types(timestamp, 0);
+    pub fn do_unanimate(&mut self, record: &AnimateRecord) {
+        self.unanimate_characteristics(record);
+        self.remove_changed_card_traits(record.timestamp, 0);
+    }
+
+    pub fn unanimate_characteristics(&mut self, record: &AnimateRecord) {
+        if let Some(timestamp) = record.change_timestamp {
             self.remove_new_pt(timestamp, 0);
+            self.remove_changed_card_types(timestamp, 0);
             self.remove_color(timestamp, 0);
+        }
+    }
+
+    pub fn add_animate_record(&mut self, timestamp: i64, ends_at_end_of_turn: bool) {
+        if self.animate_state.is_none() {
+            self.animate_state = Some(AnimateState {
+                records: Vec::new(),
+                original_keywords: Some(self.keywords.clone()),
+            });
+        }
+        if let Some(state) = self.animate_state.as_mut() {
+            state.records.push(AnimateRecord {
+                timestamp,
+                change_timestamp: None,
+                ends_at_end_of_turn,
+            });
+        }
+    }
+
+    pub fn set_animate_change_timestamp(&mut self, timestamp: i64, change_timestamp: u64) {
+        if let Some(record) = self
+            .animate_state
+            .as_mut()
+            .and_then(|state| state.records.iter_mut().find(|r| r.timestamp == timestamp))
+        {
+            record.change_timestamp = Some(change_timestamp);
+        }
+    }
+
+    pub fn restore_animate(&mut self, timestamp: i64) {
+        let Some(state) = self.animate_state.as_mut() else {
+            return;
+        };
+        let Some(index) = state.records.iter().position(|r| r.timestamp == timestamp) else {
+            return;
+        };
+        let record = state.records.remove(index);
+        if state.records.is_empty() {
+            self.animate_state = None;
+        }
+        self.do_unanimate(&record);
+    }
+
+    pub fn restore_end_of_turn_animates(&mut self) {
+        let Some(state) = self.animate_state.as_mut() else {
+            return;
+        };
+        if !state.records.iter().any(|r| r.ends_at_end_of_turn) {
+            return;
+        }
+        let (ending, staying): (Vec<_>, Vec<_>) = std::mem::take(&mut state.records)
+            .into_iter()
+            .partition(|r| r.ends_at_end_of_turn);
+        if staying.is_empty() {
+            self.animate_state = None;
+        } else {
+            state.records = staying;
+        }
+        for record in &ending {
+            self.do_unanimate(record);
         }
     }
 

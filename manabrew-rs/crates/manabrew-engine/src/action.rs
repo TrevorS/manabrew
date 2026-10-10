@@ -964,13 +964,15 @@ impl GameState {
                 // Haste`) do not persist into the new object the card
                 // becomes when it changes zones (CR 400.7).
                 if let Some(state) = card.animate_state.take() {
-                    card.restore_animate_snapshot(&state.change_timestamps);
+                    for record in &state.records {
+                        card.unanimate_characteristics(record);
+                    }
                     if let Some(orig_kws) = state.original_keywords {
                         card.keywords = orig_kws;
                         card.update_keywords();
                     }
-                    for ts in state.trait_change_timestamps {
-                        card.remove_changed_card_traits(ts, 0);
+                    for record in &state.records {
+                        card.remove_changed_card_traits(record.timestamp, 0);
                     }
                 }
                 // After the animate snapshot: an animate on a face-down permanent snapshots

@@ -297,3 +297,55 @@ fn a_creature_that_died_keeps_its_animated_color_in_its_last_known_information()
     let lki = manabrew_engine::lki::battlefield_lki_card(&game, bear).expect("lki");
     assert_eq!(lki.color, ColorSet::BLUE);
 }
+
+const TREASURE_MAKER: &str =
+    "Name:Treasure Maker\nManaCost:1 U\nTypes:Creature Bird\nPT:1/1\nOracle:";
+const AS_LONG_AS_TREASURE: &str = "DB$ Animate | Defined$ Targeted | Types$ Artifact,Treasure | RemoveCardTypes$ True | Duration$ AsLongAsInPlay";
+const UNTIL_END_OF_TURN_DINOSAUR: &str =
+    "DB$ Animate | Defined$ Targeted | Types$ Artifact,Creature,Dinosaur | Power$ 4 | Toughness$ 3";
+
+fn animate_both_ways(treasure_first: bool) -> (GameState, CardId, CardId) {
+    load_types();
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let sanctuary = put(&mut game, SANCTUARY, p0, ZoneType::Battlefield);
+    let maker = put(&mut game, TREASURE_MAKER, p0, ZoneType::Battlefield);
+    let captain = put(&mut game, BONE_CAPTAIN, p0, ZoneType::Battlefield);
+    let mut game_loop = GameLoop::new(2);
+    let order = if treasure_first {
+        [
+            (maker, AS_LONG_AS_TREASURE),
+            (captain, UNTIL_END_OF_TURN_DINOSAUR),
+        ]
+    } else {
+        [
+            (captain, UNTIL_END_OF_TURN_DINOSAUR),
+            (maker, AS_LONG_AS_TREASURE),
+        ]
+    };
+    for (source, text) in order {
+        resolve(&mut game, &mut game_loop, source, text, sanctuary);
+    }
+    let mut agents = pass_agents();
+    game_loop.step_cleanup(&mut game, &mut agents);
+    apply_continuous_effects(&mut game);
+    (game, sanctuary, maker)
+}
+
+#[test]
+fn an_end_of_turn_animate_ends_alone_beside_an_as_long_as_in_play_one() {
+    for treasure_first in [true, false] {
+        let (mut game, sanctuary, maker) = animate_both_ways(treasure_first);
+        let card = game.card(sanctuary);
+        assert!(card.type_line.has_subtype("Treasure"), "{treasure_first}");
+        assert!(!card.is_creature(), "{treasure_first}");
+        assert!(!card.type_line.has_subtype("Dinosaur"), "{treasure_first}");
+        assert!(!card.type_line.is_land(), "{treasure_first}");
+        game.move_card(maker, ZoneType::Graveyard, PlayerId(0));
+        apply_continuous_effects(&mut game);
+        let card = game.card(sanctuary);
+        assert!(card.type_line.is_land(), "{treasure_first}");
+        assert!(!card.type_line.has_subtype("Treasure"), "{treasure_first}");
+    }
+}
