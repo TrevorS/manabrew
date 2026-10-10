@@ -2924,6 +2924,32 @@ pub fn resolve_count_svar_for_sa(
                 return math(map.values().copied().max().unwrap_or(0) + all_creature_type);
             }
         }
+        if sq[0].starts_with("MostCardName") {
+            if let Some((zone_part, restriction)) = l0.split_once(' ') {
+                let zones: Vec<ZoneType> = match &zone_part["MostCardName".len()..] {
+                    "" => vec![ZoneType::Battlefield],
+                    zones => zones
+                        .split(',')
+                        .filter_map(crate::ability::ability_utils::parse_zone_type)
+                        .collect(),
+                };
+                let selector = crate::parsing::cached_compiled_selector(restriction);
+                let source = game.card(source_id);
+                let context = crate::card::valid_filter::MatchContext::new(source, game)
+                    .with_host_object(sa)
+                    .with_source_controller(controller);
+                let mut names: crate::HashMap<&str, i32> = crate::HashMap::default();
+                for card in game.cards.iter().filter(|card| {
+                    zones.contains(&card.zone)
+                        && crate::card::valid_filter::matches_valid_card_selector_with_context(
+                            &selector, card, context,
+                        )
+                }) {
+                    *names.entry(card.get_name()).or_default() += 1;
+                }
+                return names.values().copied().max().unwrap_or(0);
+            }
+        }
         if let Some(rest) = l0.strip_prefix("DifferentCounterKinds_") {
             let selector = crate::parsing::cached_compiled_selector(rest);
             let source = game.card(source_id);
@@ -3210,6 +3236,69 @@ mod tests {
         );
 
         assert_eq!(resolve_numeric_svar(&game, &sa, "LifeAmount", 0), 14);
+    }
+
+    #[test]
+    fn resolves_most_card_name_among_valid_cards_in_the_named_zones() {
+        let mut game = GameState::new(&["A", "B"], 20);
+        let p0 = PlayerId(0);
+        let p1 = PlayerId(1);
+        let put = |game: &mut GameState, name: &str, owner: PlayerId, zone| {
+            let mut card = Card::new(
+                CardId(0),
+                name.to_string(),
+                owner,
+                CardTypeLine::parse("Artifact"),
+                ManaCost::parse(""),
+                ColorSet::COLORLESS,
+                None,
+                None,
+                vec![],
+                vec![],
+            );
+            card.zone = zone;
+            game.create_card(card)
+        };
+        let host = put(
+            &mut game,
+            "Host",
+            p0,
+            forge_foundation::ZoneType::Battlefield,
+        );
+        for _ in 0..3 {
+            put(
+                &mut game,
+                "Gear",
+                p0,
+                forge_foundation::ZoneType::Battlefield,
+            );
+        }
+        put(
+            &mut game,
+            "Cog",
+            p0,
+            forge_foundation::ZoneType::Battlefield,
+        );
+        for _ in 0..4 {
+            put(
+                &mut game,
+                "Gear",
+                p1,
+                forge_foundation::ZoneType::Battlefield,
+            );
+        }
+        put(&mut game, "Gear", p0, forge_foundation::ZoneType::Graveyard);
+        game.card_mut(host).svars.insert(
+            "X".to_string(),
+            "Count$MostCardName Artifact.YouCtrl".to_string(),
+        );
+        game.card_mut(host).svars.insert(
+            "Y".to_string(),
+            "Count$MostCardNameBattlefield,Graveyard Artifact.YouCtrl".to_string(),
+        );
+        let sa = SpellAbility::new_simple(Some(host), p0, "DB$ Draw | NumCards$ X | Amount$ Y");
+        assert_eq!(resolve_numeric_svar(&game, &sa, "NumCards", 0), 3);
+        assert_eq!(resolve_numeric_svar(&game, &sa, "Amount", 0), 4);
     }
 
     #[test]
