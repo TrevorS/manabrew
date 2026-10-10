@@ -35,7 +35,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use forge_foundation::{CardTypeLine, CoreType, Supertype, ZoneType};
+use forge_foundation::{CardTypeLine, CoreType, ZoneType};
 
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
@@ -84,13 +84,12 @@ enum EffectKind {
         original_host: Option<CardId>,
         original_ability: Option<(CardId, usize)>,
     },
-    /// Add a type/subtype to the card (`AddType$`). Mirrors Java layer 4.
-    AddType(String),
-    RemoveCardTypes,
-    RemoveCreatureTypes,
-    RemoveLandTypes,
-    RemoveArtifactTypes,
-    ReapplyChangedCardTypes(u64),
+    ChangedCardTypes {
+        change: crate::card::card_changed_type::CardChangedType,
+        timestamp: u64,
+        static_id: u64,
+        cda: bool,
+    },
     /// Grant a triggered ability (from AddTrigger$). The string is the raw trigger text.
     GrantTrigger {
         text: String,
@@ -187,19 +186,6 @@ fn push_unique_layer(layers: &mut Vec<Layer>, layer: Layer) {
     }
 }
 
-fn type_line_has_token(type_line: &CardTypeLine, token: &str) -> bool {
-    if let Some(st) = Supertype::from_name(token) {
-        return type_line.supertypes.contains(&st);
-    }
-    if let Some(ct) = CoreType::from_name(token) {
-        return type_line.core_types.contains(&ct);
-    }
-    type_line
-        .subtypes
-        .iter()
-        .any(|subtype| subtype.eq_ignore_ascii_case(token))
-}
-
 /// Recompute all continuously-applied static-ability effects for the current
 /// game state.
 ///
@@ -260,11 +246,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         }
         card.remove_changed_name();
         card.granted_svars.clear();
-        // Restore the pre-layer type line before applying AddType$ statics.
-        if let Some(type_line) = card.static_type_line_base.take() {
-            card.set_type_line(type_line);
-        }
-        card.static_added_subtypes.clear();
+        card.clear_static_layer_changed_card_types();
         card.cant_block_static = false;
         card.may_look.retain(|&(timestamp, _)| timestamp >= 0);
     }
@@ -315,15 +297,18 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             })
         {
             let card = Arc::make_mut(card);
-            if card.static_type_line_base.is_none() {
-                card.static_type_line_base = Some(card.type_line.clone());
-            }
-            card.remove_type("Creature");
-            let mut sanitized = card.type_line.clone();
-            if sanitize_subtypes(&mut sanitized) {
-                card.type_line = sanitized;
-                card.update_types();
-            }
+            let timestamp = card.layer_timestamp;
+            let static_id =
+                static_layer_trait_id(card.id, card.static_abilities.len()).unsigned_abs();
+            card.add_changed_card_types(
+                crate::card::card_changed_type::CardChangedType {
+                    remove_type: vec![CoreType::Creature.name().to_string()],
+                    ..Default::default()
+                },
+                timestamp,
+                static_id,
+                false,
+            );
         }
     }
 
@@ -388,7 +373,6 @@ pub fn apply_continuous_effects(game: &mut GameState) {
     // ── 2. Build list of effects-to-apply (deferred to allow sorting) ────
     let mut pending: Vec<PendingEffect> = Vec::new();
     let mut staged: Vec<(usize, PendingEffect)> = Vec::new();
-    let mut type_changed: Vec<CardId> = Vec::new();
     let mut control_changed: Vec<CardId> = Vec::new();
     let mut granted_keyword_replacements: indexmap::IndexMap<
         CardId,
@@ -520,7 +504,6 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                 game,
                 &mut staged,
                 before,
-                &mut type_changed,
                 &mut control_changed,
                 &mut granted_keyword_replacements,
             );
@@ -682,12 +665,9 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         game,
         &mut staged,
         None,
-        &mut type_changed,
         &mut control_changed,
         &mut granted_keyword_replacements,
     );
-    type_changed.sort_unstable_by_key(|id| id.0);
-    type_changed.dedup();
     let lost_static_control: Vec<(CardId, PlayerId)> = game
         .cards
         .iter()
@@ -724,18 +704,6 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         card.generate_keyword_triggers_for(&keywords);
         keywords.extend(card.granted_keywords.as_string_list());
         card.generate_keyword_activated_abilities(&keywords);
-    }
-
-    for target in type_changed {
-        let card = game.card_mut(target);
-        let mut sanitized = card.type_line.clone();
-        if sanitize_subtypes(&mut sanitized) {
-            if card.static_type_line_base.is_none() {
-                card.static_type_line_base = Some(card.type_line.clone());
-            }
-            card.type_line = sanitized;
-            card.update_types();
-        }
     }
 
     // Rebuild intrinsic basic-land mana abilities after type-changing continuous
@@ -827,15 +795,13 @@ fn apply_continuous_ability(
             });
         }
 
-        pending.extend(
-            type_effects(game, source_card, sa, target)
-                .into_iter()
-                .map(|kind| PendingEffect {
-                    layer: Layer::Type,
-                    target,
-                    kind,
-                }),
-        );
+        if let Some(kind) = type_effects(source_card, sa, sa_idx) {
+            pending.push(PendingEffect {
+                layer: Layer::Type,
+                target,
+                kind,
+            });
+        }
 
         let set_power = sa.ir.set_power_text.as_deref();
         let set_toughness = sa.ir.set_toughness_text.as_deref();
@@ -1207,8 +1173,7 @@ fn static_layer_reset_is_noop(card: &crate::card::Card, card_names_unchanged: bo
                 .get("OriginalName")
                 .is_none_or(|name| *name == card.card_name))
         && card.granted_svars.is_empty()
-        && card.static_type_line_base.is_none()
-        && card.static_added_subtypes.is_empty()
+        && !card.has_static_layer_changed_card_types()
         && !card.cant_block_static
         && card.may_look.iter().all(|&(timestamp, _)| timestamp >= 0)
 }
@@ -1221,7 +1186,6 @@ fn flush_pending_effects(
     game: &mut GameState,
     staged: &mut Vec<(usize, PendingEffect)>,
     before: Option<(Layer, usize)>,
-    type_changed: &mut Vec<CardId>,
     control_changed: &mut Vec<CardId>,
     granted_keyword_replacements: &mut indexmap::IndexMap<
         CardId,
@@ -1237,12 +1201,6 @@ fn flush_pending_effects(
     staged.sort_by_key(|(seq, effect)| (effect.layer, *seq));
     let ready = staged.partition_point(|(seq, effect)| is_staged_before(*seq, effect, before));
     let effects: Vec<PendingEffect> = staged.drain(..ready).map(|(_, effect)| effect).collect();
-    type_changed.extend(
-        effects
-            .iter()
-            .filter(|effect| effect.layer == Layer::Type)
-            .map(|effect| effect.target),
-    );
     control_changed.extend(
         effects
             .iter()
@@ -1267,10 +1225,7 @@ fn apply_pending_effects(
         }
         let present_attributes_before = matches!(
             effect.kind,
-            EffectKind::SetController { .. }
-                | EffectKind::RemoveCardTypes
-                | EffectKind::AddType(_)
-                | EffectKind::ReapplyChangedCardTypes(_)
+            EffectKind::SetController { .. } | EffectKind::ChangedCardTypes { .. }
         )
         .then(|| crate::card::valid_filter::present_memo::attributes(game.card(target)));
         match effect.kind {
@@ -1362,13 +1317,14 @@ fn apply_pending_effects(
                     }
                 }
             }
-            kind @ (EffectKind::RemoveCardTypes
-            | EffectKind::RemoveLandTypes
-            | EffectKind::RemoveArtifactTypes
-            | EffectKind::RemoveCreatureTypes
-            | EffectKind::AddType(_)
-            | EffectKind::ReapplyChangedCardTypes(_)) => {
-                apply_type_effect(game.card_mut(effect.target), kind);
+            EffectKind::ChangedCardTypes {
+                change,
+                timestamp,
+                static_id,
+                cda,
+            } => {
+                game.card_mut(effect.target)
+                    .add_changed_card_types(change, timestamp, static_id, cda);
             }
             EffectKind::GrantAbility {
                 text,
@@ -2091,107 +2047,53 @@ fn remove_static_effect(game: &mut GameState, undo: StaticEffectUndo) {
     }
 }
 
-fn apply_type_effect(card: &mut crate::card::Card, kind: EffectKind) {
-    match kind {
-        EffectKind::RemoveCardTypes => {
-            if card.static_type_line_base.is_none() {
-                card.static_type_line_base = Some(card.type_line.clone());
-            }
-            card.type_line
-                .core_types
-                .retain(|t| matches!(t, CoreType::Instant | CoreType::Sorcery));
-            card.update_types();
-        }
-        EffectKind::RemoveLandTypes | EffectKind::RemoveArtifactTypes => {
-            let is_removed: fn(&str) -> bool = match kind {
-                EffectKind::RemoveLandTypes => crate::game::TypeRegistry::is_land_type,
-                _ => |s| crate::game::TypeRegistry::is_subtype_in("ArtifactTypes", s),
-            };
-            if card.type_line.subtypes.iter().any(|s| is_removed(s)) {
-                if card.static_type_line_base.is_none() {
-                    card.static_type_line_base = Some(card.type_line.clone());
-                }
-                card.type_line.subtypes.retain(|s| !is_removed(s));
-                card.update_types();
-            }
-        }
-        EffectKind::RemoveCreatureTypes => {
-            if card.type_line.subtypes.iter().any(|s| {
-                crate::game::TypeRegistry::creature_types()
-                    .iter()
-                    .any(|ct| ct.eq_ignore_ascii_case(s))
-            }) {
-                if card.static_type_line_base.is_none() {
-                    card.static_type_line_base = Some(card.type_line.clone());
-                }
-                card.type_line.subtypes.retain(|s| {
-                    !crate::game::TypeRegistry::creature_types()
-                        .iter()
-                        .any(|ct| ct.eq_ignore_ascii_case(s))
-                });
-                card.update_types();
-            }
-        }
-        EffectKind::AddType(t) => {
-            if !type_line_has_token(&card.type_line, &t) {
-                if card.static_type_line_base.is_none() {
-                    card.static_type_line_base = Some(card.type_line.clone());
-                }
-                card.add_type(&t);
-                card.static_added_subtypes.push(t);
-            }
-        }
-        EffectKind::ReapplyChangedCardTypes(after) => {
-            if card.static_type_line_base.is_some() {
-                let changes: Vec<crate::card::card_changed_type::CardChangedType> = card
-                    .changed_card_types
-                    .iter()
-                    .filter(|(timestamp, _)| *timestamp > after)
-                    .map(|(_, change)| change.clone())
-                    .collect();
-                for change in &changes {
-                    card.apply_changed_card_type(change);
-                }
-            }
-        }
-        _ => {}
-    }
-}
-
 fn type_effects(
-    game: &GameState,
     source_card: &crate::card::Card,
     sa: &StaticAbility,
-    target: CardId,
-) -> Vec<EffectKind> {
-    let mut effects = Vec::new();
-    if sa.ir.remove_card_types {
-        effects.push(EffectKind::RemoveCardTypes);
-    }
-    if sa.ir.remove_land_types {
-        effects.push(EffectKind::RemoveLandTypes);
-    }
-    if sa.ir.remove_creature_types {
-        effects.push(EffectKind::RemoveCreatureTypes);
-    }
-    if sa.ir.remove_artifact_types {
-        effects.push(EffectKind::RemoveArtifactTypes);
-    }
-    let added_types = resolve_added_types(source_card, sa.ir.add_type_text.as_deref());
-    let changes_type = !added_types.is_empty() || !effects.is_empty();
-    effects.extend(added_types.into_iter().map(EffectKind::AddType));
-    if changes_type
-        && game
-            .card(target)
-            .changed_card_types
-            .iter()
-            .any(|(timestamp, _)| *timestamp > source_card.layer_timestamp)
-    {
-        effects.push(EffectKind::ReapplyChangedCardTypes(
-            source_card.layer_timestamp,
-        ));
-    }
-    effects
+    sa_idx: usize,
+) -> Option<EffectKind> {
+    let add_type = sa
+        .ir
+        .add_type_text
+        .as_deref()
+        .map(|add_type| resolve_added_types(source_card, Some(add_type)));
+    let remove_type: Vec<String> = sa
+        .ir
+        .remove_type_text
+        .as_deref()
+        .map(|remove_type| {
+            remove_type
+                .split('&')
+                .map(str::trim)
+                .filter(|t| !t.is_empty())
+                .filter_map(|t| match t {
+                    "ChosenType" => source_card.chosen_type.clone(),
+                    other => Some(other.to_string()),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let removes = add_type
+        .as_ref()
+        .is_none_or(|add_type| !add_type.is_empty());
+    let change = crate::card::card_changed_type::CardChangedType {
+        add_type: add_type.unwrap_or_default(),
+        remove_type,
+        add_all_creature_types: sa.ir.add_all_creature_types,
+        remove_super_types: removes && sa.ir.remove_super_types,
+        remove_card_types: removes && sa.ir.remove_card_types,
+        remove_sub_types: removes && sa.ir.remove_sub_types,
+        remove_land_types: removes && sa.ir.remove_land_types,
+        remove_creature_types: removes && sa.ir.remove_creature_types,
+        remove_artifact_types: removes && sa.ir.remove_artifact_types,
+        remove_enchantment_types: removes && sa.ir.remove_enchantment_types,
+    };
+    (!change.is_empty()).then(|| EffectKind::ChangedCardTypes {
+        change,
+        timestamp: source_card.layer_timestamp,
+        static_id: static_layer_trait_id(source_card.id, sa_idx).unsigned_abs(),
+        cda: sa.ir.characteristic_defining,
+    })
 }
 
 fn resolve_added_types(source: &crate::card::Card, add_type: Option<&str>) -> Vec<String> {

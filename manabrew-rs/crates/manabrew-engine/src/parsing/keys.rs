@@ -474,7 +474,6 @@ pub const DEFENDER_NOT_NEAREST_TO_YOU_IN_CHOSEN_DIRECTION: &str =
     "DefenderNotNearestToYouInChosenDirection";
 
 // ── Animate params ──────────────────────────────────────────────────
-pub const OVERWRITE_TYPES: &str = "OverwriteTypes";
 pub const OVERWRITE_COLORS: &str = "OverwriteColors";
 pub const REMOVE_CREATURE_TYPES: &str = "RemoveCreatureTypes";
 pub const REMOVE_ALL_ABILITIES: &str = "RemoveAllAbilities";

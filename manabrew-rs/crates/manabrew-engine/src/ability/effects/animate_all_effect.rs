@@ -175,12 +175,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         // Save original state (only if not already animated this turn)
         if ctx.game.card(card_id).animate_state.is_none() {
-            let original_type_line = ctx
-                .game
-                .card(card_id)
-                .static_type_line_base
-                .clone()
-                .unwrap_or_else(|| ctx.game.card(card_id).type_line.clone());
             let original_base_power = ctx.game.card(card_id).base_power;
             let original_base_toughness = ctx.game.card(card_id).base_toughness;
             let original_color = ctx.game.card(card_id).color;
@@ -188,7 +182,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ctx.game
                 .card_mut(card_id)
                 .set_animate_state(Some(AnimateState {
-                    original_type_line,
+                    type_change_timestamps: Vec::new(),
                     original_base_power,
                     original_base_toughness,
                     original_color,
@@ -275,12 +269,17 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             remove_card_types: sa.ir.animate_remove_card_types,
             remove_sub_types: sa.ir.animate_remove_sub_types,
             remove_creature_types,
+            ..Default::default()
         };
         if !changed_type.is_empty() {
             let timestamp = *type_timestamp.get_or_insert_with(|| ctx.game.next_timestamp());
-            ctx.game
-                .card_mut(card_id)
-                .add_changed_card_types(changed_type, timestamp);
+            let card = ctx.game.card_mut(card_id);
+            card.add_changed_card_types(changed_type, timestamp, 0, false);
+            if !is_permanent_duration && !is_perpetual {
+                if let Some(state) = card.animate_state.as_mut() {
+                    state.type_change_timestamps.push(timestamp);
+                }
+            }
         }
 
         if let (Some(types), Some(ts)) = (&types_str, effect_ts) {

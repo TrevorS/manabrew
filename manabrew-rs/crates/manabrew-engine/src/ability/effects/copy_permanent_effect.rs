@@ -115,7 +115,7 @@ pub fn get_proto_type(sa: &SpellAbility, original: &Card, new_owner: crate::ids:
                 copy.add_type(t);
             }
         }
-        if crate::staticability::layer::sanitize_subtypes(&mut copy.type_line) {
+        if crate::staticability::layer::sanitize_subtypes(&mut copy.state_type_line) {
             copy.update_types();
         }
     }

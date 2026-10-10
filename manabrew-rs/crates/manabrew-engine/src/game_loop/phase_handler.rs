@@ -857,7 +857,7 @@ impl GameLoop {
                 .take_if(|state| state.ends_at_end_of_turn)
             {
                 card.restore_animate_snapshot(
-                    state.original_type_line,
+                    &state.type_change_timestamps,
                     state.original_base_power,
                     state.original_base_toughness,
                     state.original_color,

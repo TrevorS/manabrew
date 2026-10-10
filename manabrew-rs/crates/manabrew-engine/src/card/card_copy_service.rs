@@ -1,7 +1,5 @@
 //! Card copy helpers (Java parity: `CardCopyService`).
 
-use forge_foundation::{CoreType, Supertype};
-
 use crate::card::Card;
 use crate::ids::{CardId, PlayerId};
 
@@ -38,7 +36,8 @@ pub fn copy_stats(
 pub fn copy_copiable_characteristics(copy_from: &Card, to: &mut Card) {
     to.card_name = copy_from.card_name.clone();
     to.oracle_text = copy_from.oracle_text.clone();
-    to.type_line = copiable_type_line(copy_from);
+    to.state_type_line = copiable_type_line(copy_from);
+    to.update_type_cache();
     to.mana_cost = copy_from.mana_cost.clone();
     to.color = copy_from
         .animate_state
@@ -75,25 +74,7 @@ pub fn copy_copiable_characteristics(copy_from: &Card, to: &mut Card) {
 }
 
 pub(crate) fn copiable_type_line(copy_from: &Card) -> forge_foundation::CardTypeLine {
-    let mut type_line = copy_from
-        .animate_state
-        .as_ref()
-        .map(|state| state.original_type_line.clone())
-        .or_else(|| copy_from.changed_type_line_base.clone())
-        .or_else(|| copy_from.static_type_line_base.clone())
-        .unwrap_or_else(|| copy_from.type_line.clone());
-    for ty in &copy_from.static_added_subtypes {
-        if let Some(st) = Supertype::from_name(ty) {
-            type_line.supertypes.retain(|existing| *existing != st);
-        }
-        if let Some(ct) = CoreType::from_name(ty) {
-            type_line.core_types.retain(|existing| *existing != ct);
-        }
-        type_line
-            .subtypes
-            .retain(|subtype| !subtype.eq_ignore_ascii_case(ty));
-    }
-    type_line
+    copy_from.state_type_line.clone()
 }
 
 /// Return a Last Known Information snapshot of `card` — its state frozen at

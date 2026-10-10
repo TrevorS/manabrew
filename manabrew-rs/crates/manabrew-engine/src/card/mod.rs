@@ -194,7 +194,8 @@ pub struct CardActionTargetSpec {
 /// Saved pre-animate state for AnimateEffect, restored at cleanup.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnimateState {
-    pub original_type_line: CardTypeLine,
+    #[serde(default)]
+    pub type_change_timestamps: Vec<u64>,
     pub original_base_power: Option<i32>,
     pub original_base_toughness: Option<i32>,
     pub original_color: ColorSet,
@@ -402,8 +403,9 @@ pub struct Card {
     // Current zone
     pub zone: ZoneType,
 
-    // Type line (can be modified by effects)
     pub type_line: CardTypeLine,
+    #[serde(default)]
+    pub state_type_line: CardTypeLine,
 
     // Mana cost (can be modified)
     pub mana_cost: ManaCost,
@@ -506,18 +508,11 @@ pub struct Card {
     /// Reset and recomputed each time [`layer::apply_continuous_effects`] runs.
     #[serde(default)]
     pub granted_svars: BTreeMap<String, String>,
-    /// Type tokens added by continuous static effects (Layer 4, `AddType$`).
-    /// Reset and recomputed each time [`layer::apply_continuous_effects`] runs.
-    /// The listed strings may be supertypes, core card types, or subtypes;
-    /// keeping a separate list lets us revert on reset without losing the
-    /// card's intrinsic type line.
-    pub static_added_subtypes: Vec<String>,
     #[serde(skip)]
-    pub static_type_line_base: Option<CardTypeLine>,
+    pub changed_card_types_character_defining:
+        BTreeMap<(u64, u64), card_changed_type::CardChangedType>,
     #[serde(skip)]
-    pub changed_card_types: Vec<(u64, card_changed_type::CardChangedType)>,
-    #[serde(skip)]
-    pub changed_type_line_base: Option<CardTypeLine>,
+    pub changed_card_types: BTreeMap<(u64, u64), card_changed_type::CardChangedType>,
     #[serde(skip)]
     pub changed_base_power: Option<Option<i32>>,
     #[serde(skip)]
@@ -1011,6 +1006,7 @@ impl Card {
             owner,
             controller: owner,
             zone: ZoneType::None,
+            state_type_line: type_line.clone(),
             type_line,
             mana_cost,
             color,
@@ -1056,10 +1052,8 @@ impl Card {
             ),
             granted_keywords: crate::keyword::keyword_collection::KeywordCollection::new(),
             granted_svars: BTreeMap::new(),
-            static_added_subtypes: Vec::new(),
-            static_type_line_base: None,
-            changed_card_types: Vec::new(),
-            changed_type_line_base: None,
+            changed_card_types_character_defining: BTreeMap::new(),
+            changed_card_types: BTreeMap::new(),
             changed_base_power: None,
             changed_base_toughness: None,
             changed_keywords_base: None,
@@ -1264,6 +1258,7 @@ impl Card {
             controller: self.controller,
             zone: self.zone,
             type_line: self.type_line.clone(),
+            state_type_line: self.state_type_line.clone(),
             mana_cost: self.mana_cost.clone(),
             color: self.color,
             color_identity: self.color_identity,
@@ -1307,10 +1302,10 @@ impl Card {
             keywords: self.keywords.clone(),
             granted_keywords: self.granted_keywords.clone(),
             granted_svars: self.granted_svars.clone(),
-            static_added_subtypes: self.static_added_subtypes.clone(),
-            static_type_line_base: self.static_type_line_base.clone(),
+            changed_card_types_character_defining: self
+                .changed_card_types_character_defining
+                .clone(),
             changed_card_types: self.changed_card_types.clone(),
-            changed_type_line_base: self.changed_type_line_base.clone(),
             changed_base_power: self.changed_base_power,
             changed_base_toughness: self.changed_base_toughness,
             changed_keywords_base: self.changed_keywords_base.clone(),
@@ -1508,6 +1503,9 @@ impl Card {
         if out.type_line != self.type_line {
             refresh_field(&mut out.type_line, &self.type_line);
         }
+        if out.state_type_line != self.state_type_line {
+            refresh_field(&mut out.state_type_line, &self.state_type_line);
+        }
         refresh_field(&mut out.mana_cost, &self.mana_cost);
         refresh_field(&mut out.color, &self.color);
         refresh_field(&mut out.color_identity, &self.color_identity);
@@ -1561,13 +1559,11 @@ impl Card {
             out.granted_keywords.clone_from(&self.granted_keywords);
         }
         refresh_field(&mut out.granted_svars, &self.granted_svars);
-        refresh_field(&mut out.static_added_subtypes, &self.static_added_subtypes);
-        refresh_field(&mut out.static_type_line_base, &self.static_type_line_base);
-        refresh_field(&mut out.changed_card_types, &self.changed_card_types);
         refresh_field(
-            &mut out.changed_type_line_base,
-            &self.changed_type_line_base,
+            &mut out.changed_card_types_character_defining,
+            &self.changed_card_types_character_defining,
         );
+        refresh_field(&mut out.changed_card_types, &self.changed_card_types);
         out.changed_base_power.clone_from(&self.changed_base_power);
         out.changed_base_toughness
             .clone_from(&self.changed_base_toughness);
@@ -1995,7 +1991,7 @@ impl Card {
     }
 
     pub fn set_type_line(&mut self, type_line: CardTypeLine) {
-        self.type_line = type_line;
+        self.state_type_line = type_line;
         self.update_types();
         self.update_types_for_view();
     }
@@ -3345,7 +3341,8 @@ impl Card {
             return;
         }
         self.face_down_state = Some(Box::new(self.capture_clone_state()));
-        self.type_line = CardTypeLine::parse("Creature");
+        self.state_type_line = CardTypeLine::parse("Creature");
+        self.update_type_cache();
         self.mana_cost = ManaCost::parse("no cost");
         self.color = ColorSet::COLORLESS;
         self.base_power = Some(2);
@@ -3569,14 +3566,14 @@ impl Card {
 
     pub fn restore_animate_snapshot(
         &mut self,
-        type_line: CardTypeLine,
+        type_change_timestamps: &[u64],
         base_power: Option<i32>,
         base_toughness: Option<i32>,
         color: ColorSet,
     ) {
-        self.static_type_line_base = None;
-        self.changed_card_types.clear();
-        self.set_type_line(type_line);
+        for &timestamp in type_change_timestamps {
+            self.remove_changed_card_types(timestamp, 0);
+        }
         self.base_power = base_power;
         self.base_toughness = base_toughness;
         self.color = color;
@@ -3587,7 +3584,7 @@ impl Card {
             expires_at_cleanup: false,
             original_card_name: self.card_name.clone(),
             original_oracle_text: self.oracle_text.clone(),
-            original_type_line: self.type_line.clone(),
+            original_type_line: self.state_type_line.clone(),
             original_mana_cost: self.mana_cost.clone(),
             original_color: self.color,
             original_base_power: self.base_power,
@@ -3619,7 +3616,6 @@ impl Card {
 
     fn retake_animate_snapshot(&mut self) {
         if let Some(mut state) = self.animate_state.take() {
-            state.original_type_line = self.type_line.clone();
             state.original_base_power = self.base_power;
             state.original_base_toughness = self.base_toughness;
             state.original_color = self.color;
@@ -3643,7 +3639,8 @@ impl Card {
     fn apply_clone_state(&mut self, state: CloneState) {
         self.card_name = state.original_card_name;
         self.oracle_text = state.original_oracle_text;
-        self.type_line = state.original_type_line;
+        self.state_type_line = state.original_type_line;
+        self.update_type_cache();
         self.mana_cost = state.original_mana_cost;
         self.color = state.original_color;
         self.base_power = state.original_base_power;
@@ -3741,11 +3738,6 @@ impl Card {
 
     pub fn capture_changed_characteristics_baseline_if_needed(&mut self) {
         let animate = self.animate_state.as_ref();
-        if self.changed_type_line_base.is_none() {
-            self.changed_type_line_base = Some(
-                animate.map_or_else(|| self.type_line.clone(), |s| s.original_type_line.clone()),
-            );
-        }
         if self.changed_base_power.is_none() {
             self.changed_base_power =
                 Some(animate.map_or(self.base_power, |s| s.original_base_power));
@@ -3802,9 +3794,6 @@ impl Card {
     }
 
     pub fn restore_changed_characteristics_baseline(&mut self) {
-        if let Some(type_line) = self.changed_type_line_base.take() {
-            self.set_type_line(type_line);
-        }
         if let Some(power) = self.changed_base_power.take() {
             self.base_power = power;
         }
@@ -4479,11 +4468,17 @@ impl Card {
     }
 
     pub fn clear_subtypes(&mut self) {
-        self.type_line.subtypes.clear();
+        self.state_type_line.subtypes.clear();
+        self.update_type_cache();
     }
 
-    pub fn clear_changed_card_types(&mut self) {
-        self.update_types();
+    pub fn clear_changed_card_types(&mut self) -> bool {
+        let changed = !self.changed_card_types_character_defining.is_empty()
+            || !self.changed_card_types.is_empty();
+        self.changed_card_types_character_defining.clear();
+        self.changed_card_types.clear();
+        self.update_type_cache();
+        changed
     }
     pub fn clear_changed_card_colors(&mut self) {
         self.color = ColorSet::COLORLESS;
@@ -4498,28 +4493,71 @@ impl Card {
         &mut self,
         change: card_changed_type::CardChangedType,
         timestamp: u64,
+        static_id: u64,
+        cda: bool,
     ) {
-        if let Some(base) = self.static_type_line_base.as_mut() {
-            change.apply_changes(base);
-        }
-        self.apply_changed_card_type(&change);
-        if crate::staticability::layer::sanitize_subtypes(&mut self.type_line) {
-            self.update_types();
-        }
-        self.changed_card_types.push((timestamp, change));
+        let table = if cda {
+            &mut self.changed_card_types_character_defining
+        } else {
+            &mut self.changed_card_types
+        };
+        table.insert((timestamp, static_id), change);
+        self.update_type_cache();
     }
 
-    pub fn apply_changed_card_type(&mut self, change: &card_changed_type::CardChangedType) {
-        change.apply_changes(&mut self.type_line);
-        let all_creature_types = self.type_line.all_creature_types;
-        self.update_types();
-        self.type_line.all_creature_types = all_creature_types;
+    pub fn remove_changed_card_types(&mut self, timestamp: u64, static_id: u64) -> bool {
+        let removed = self
+            .changed_card_types
+            .remove(&(timestamp, static_id))
+            .is_some()
+            | self
+                .changed_card_types_character_defining
+                .remove(&(timestamp, static_id))
+                .is_some();
+        if removed {
+            self.update_type_cache();
+        }
+        removed
     }
-    pub fn remove_changed_card_types(&mut self) {
-        self.update_types();
+
+    pub fn clear_static_layer_changed_card_types(&mut self) {
+        let before =
+            self.changed_card_types.len() + self.changed_card_types_character_defining.len();
+        self.changed_card_types
+            .retain(|&(_, static_id), _| static_id == 0);
+        self.changed_card_types_character_defining
+            .retain(|&(_, static_id), _| static_id == 0);
+        if self.changed_card_types.len() + self.changed_card_types_character_defining.len()
+            != before
+        {
+            self.update_type_cache();
+        }
     }
+
+    pub fn has_static_layer_changed_card_types(&self) -> bool {
+        self.changed_card_types
+            .keys()
+            .chain(self.changed_card_types_character_defining.keys())
+            .any(|&(_, static_id)| static_id != 0)
+    }
+
     pub fn update_type_cache(&mut self) {
-        self.type_line = CardTypeLine::parse(&self.type_line.to_string());
+        let mut type_line = self.state_type_line.clone();
+        if !self.changed_card_types_character_defining.is_empty()
+            || !self.changed_card_types.is_empty()
+        {
+            for change in self
+                .changed_card_types_character_defining
+                .values()
+                .chain(self.changed_card_types.values())
+            {
+                change.apply_changes(&mut type_line);
+            }
+            if !type_line.subtypes.is_empty() {
+                crate::staticability::layer::sanitize_subtypes(&mut type_line);
+            }
+        }
+        self.type_line = type_line;
     }
     pub fn has_changed_card_colors(&self) -> bool {
         !self.color.is_colorless()
@@ -5461,11 +5499,7 @@ impl Card {
                 .map_or(base, |count| count.min(base));
             lasting_trigger_count = base - face;
             granted_triggers = self.triggers.split_off(face);
-            if let Some(type_line) = self.static_type_line_base.take() {
-                self.type_line = type_line;
-            }
             if let Some(state) = self.animate_state.as_ref() {
-                self.type_line = state.original_type_line.clone();
                 self.base_power = state.original_base_power;
                 self.base_toughness = state.original_base_toughness;
                 self.color = state.original_color;
@@ -5510,7 +5544,7 @@ impl Card {
         if let Some(other) = self.other_part.as_mut() {
             std::mem::swap(&mut self.card_name, &mut other.name);
             std::mem::swap(&mut self.oracle_text, &mut other.oracle_text);
-            std::mem::swap(&mut self.type_line, &mut other.type_line);
+            std::mem::swap(&mut self.state_type_line, &mut other.type_line);
             std::mem::swap(&mut self.mana_cost, &mut other.mana_cost);
             std::mem::swap(&mut self.color, &mut other.color);
             std::mem::swap(&mut self.base_power, &mut other.base_power);
@@ -5548,15 +5582,8 @@ impl Card {
                     self.add_intrinsic_keyword(kw);
                 }
             }
+            self.update_type_cache();
             self.retake_animate_snapshot();
-            if !self.changed_card_types.is_empty() {
-                for (_, change) in self.changed_card_types.clone() {
-                    self.apply_changed_card_type(&change);
-                }
-                if crate::staticability::layer::sanitize_subtypes(&mut self.type_line) {
-                    self.update_types();
-                }
-            }
 
             // Re-parse activated abilities from new face's abilities
             self.activated_abilities = self

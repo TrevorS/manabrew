@@ -56,6 +56,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 ..Default::default()
             },
             timestamp,
+            0,
+            false,
         );
 
         // Add Haste keyword

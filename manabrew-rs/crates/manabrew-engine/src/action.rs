@@ -920,11 +920,7 @@ impl GameState {
                 card.static_set_power = None;
                 card.static_set_toughness = None;
                 card.granted_keywords.clear();
-                if let Some(type_line) = card.static_type_line_base.take() {
-                    card.set_type_line(type_line);
-                }
-                card.changed_card_types.clear();
-                card.static_added_subtypes.clear();
+                card.clear_changed_card_types();
                 card.cant_block_static = false;
                 card.summoning_sick = true;
                 card.monstrous = false;
@@ -970,7 +966,7 @@ impl GameState {
                 // becomes when it changes zones (CR 400.7).
                 if let Some(state) = card.animate_state.take() {
                     card.restore_animate_snapshot(
-                        state.original_type_line,
+                        &state.type_change_timestamps,
                         state.original_base_power,
                         state.original_base_toughness,
                         state.original_color,
@@ -1023,11 +1019,7 @@ impl GameState {
                 card.static_set_power = None;
                 card.static_set_toughness = None;
                 card.granted_keywords.clear();
-                if let Some(type_line) = card.static_type_line_base.take() {
-                    card.set_type_line(type_line);
-                }
-                card.changed_card_types.clear();
-                card.static_added_subtypes.clear();
+                card.clear_changed_card_types();
                 card.restore_changed_characteristics_baseline();
                 card.cant_block_static = false;
                 card.summoning_sick = true;

@@ -1,4 +1,4 @@
-use forge_foundation::{CardTypeLine, ColorSet, ZoneType};
+use forge_foundation::{ColorSet, ZoneType};
 
 use super::{matches_valid_cards_for_sa, EffectContext};
 use crate::agent::DecisionContext;
@@ -98,7 +98,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             let mut state = ctx.game.card(clone_target_id).capture_clone_state();
             state.expires_at_cleanup = duration.is_some() || sa.ir.duration.is_some();
             if let Some(animate_state) = ctx.game.card(clone_target_id).animate_state.as_ref() {
-                state.original_type_line = animate_state.original_type_line.clone();
                 state.original_base_power = animate_state.original_base_power;
                 state.original_base_toughness = animate_state.original_base_toughness;
                 state.original_color = animate_state.original_color;
@@ -242,7 +241,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             for ty in split_param_list_value(Some(add_types), " & ") {
                 target.add_type(&ty);
             }
-            crate::staticability::layer::sanitize_subtypes(&mut target.type_line);
+            if crate::staticability::layer::sanitize_subtypes(&mut target.state_type_line) {
+                target.update_types();
+            }
         }
         if let Some(creature_types) = sa.ir.set_creature_types.as_deref() {
             ctx.game
@@ -442,7 +443,6 @@ fn resolve_clone_source(
 struct ActiveAnimationSnapshot {
     state: crate::card::AnimateState,
     original_keywords: Option<Vec<String>>,
-    type_line: CardTypeLine,
     keywords: Vec<String>,
 }
 
@@ -454,48 +454,11 @@ fn capture_active_animation(card: &crate::card::Card) -> Option<ActiveAnimationS
             .as_ref()
             .map(|kws| kws.iter_strings().map(str::to_string).collect()),
         state,
-        type_line: card.type_line.clone(),
         keywords: card.keywords.iter_strings().map(str::to_string).collect(),
     })
 }
 
 fn reapply_active_animation(card: &mut crate::card::Card, animation: &ActiveAnimationSnapshot) {
-    for supertype in animation
-        .type_line
-        .supertypes
-        .difference(&animation.state.original_type_line.supertypes)
-    {
-        card.type_line.supertypes.insert(*supertype);
-    }
-    for core_type in animation
-        .type_line
-        .core_types
-        .difference(&animation.state.original_type_line.core_types)
-    {
-        card.type_line.core_types.insert(*core_type);
-    }
-    for subtype in &animation.type_line.subtypes {
-        if animation
-            .state
-            .original_type_line
-            .subtypes
-            .iter()
-            .any(|original| original.eq_ignore_ascii_case(subtype))
-        {
-            continue;
-        }
-        if !card
-            .type_line
-            .subtypes
-            .iter()
-            .any(|existing| existing.eq_ignore_ascii_case(subtype))
-        {
-            card.type_line.subtypes.push(subtype.clone());
-        }
-    }
-    card.update_types();
-    card.update_types_for_view();
-
     animation.state.apply_new_pt_and_color(card);
 
     let original_keywords = animation.original_keywords.as_deref().unwrap_or(&[]);

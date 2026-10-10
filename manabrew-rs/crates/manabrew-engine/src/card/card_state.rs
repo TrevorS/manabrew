@@ -570,7 +570,7 @@ impl ITranslatable for CardState {
 }
 
 pub fn update_types(card: &mut Card) {
-    card.type_line = CardTypeLine::parse(&card.type_line.to_string());
+    card.update_type_cache();
 }
 
 pub fn update_types_for_view(card: &mut Card) {
@@ -578,40 +578,40 @@ pub fn update_types_for_view(card: &mut Card) {
 }
 
 pub fn add_type(card: &mut Card, ty: &str) {
-    card.type_line.add_type(ty);
+    card.state_type_line.add_type(ty);
 }
 
 pub fn set_creature_types(card: &mut Card, creature_types: &str) -> bool {
-    if !card.is_creature() && !card.type_line.core_types.contains(&CoreType::Kindred) {
+    let type_line = &mut card.state_type_line;
+    if !type_line.is_creature() && !type_line.core_types.contains(&CoreType::Kindred) {
         return false;
     }
-    let before = card.type_line.subtypes.len();
-    card.type_line
+    let before = type_line.subtypes.len();
+    type_line
         .subtypes
         .retain(|subtype| !crate::game::TypeRegistry::is_creature_type(subtype));
-    let changed = card.type_line.subtypes.len() != before
-        || std::mem::take(&mut card.type_line.all_creature_types);
+    let changed =
+        type_line.subtypes.len() != before || std::mem::take(&mut type_line.all_creature_types);
     for creature_type in creature_types.split(' ') {
-        card.type_line.add_type(creature_type);
+        type_line.add_type(creature_type);
     }
     changed
 }
 
 pub fn remove_type(card: &mut Card, ty: &str) {
-    card.type_line
+    let type_line = &mut card.state_type_line;
+    type_line
         .supertypes
         .retain(|st| !st.name().eq_ignore_ascii_case(ty));
-    card.type_line
+    type_line
         .core_types
         .retain(|ct| !ct.name().eq_ignore_ascii_case(ty));
-    card.type_line
-        .subtypes
-        .retain(|s| !s.eq_ignore_ascii_case(ty));
+    type_line.subtypes.retain(|s| !s.eq_ignore_ascii_case(ty));
 }
 
 pub fn remove_card_types(card: &mut Card) {
-    card.type_line.core_types.clear();
-    card.type_line.subtypes.clear();
+    card.state_type_line.core_types.clear();
+    card.state_type_line.subtypes.clear();
 }
 
 pub fn calculate_perpetual_adjusted_mana_cost(card: &mut Card) {
@@ -842,7 +842,7 @@ pub fn get_final_chapter_nr(card: &Card) -> i32 {
 }
 
 pub fn set_type(card: &mut Card, type_line: &str) {
-    card.type_line = CardTypeLine::parse(type_line);
+    card.state_type_line = CardTypeLine::parse(type_line);
 }
 
 /// Java keeps `loyaltyRep` and `sagaRep` as objects of their own on each `CardState`, so the

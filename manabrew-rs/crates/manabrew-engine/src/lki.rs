@@ -357,7 +357,8 @@ pub fn battlefield_lki_card(game: &crate::game::GameState, card_id: CardId) -> O
     lki.controller = snapshot.controller;
     lki.counters = snapshot.counters.clone();
     lki.tapped = snapshot.tapped;
-    lki.type_line = snapshot.type_line.clone();
+    lki.state_type_line = snapshot.type_line.clone();
+    lki.clear_changed_card_types();
     lki.attachments = snapshot.attachments.clone();
     lki.granted_keywords = snapshot.granted_keywords.clone();
     lki.static_power_modifier += snapshot.power - lki.power();

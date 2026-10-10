@@ -110,7 +110,9 @@ fn create_army_token(
     token.set_s_var("TokenScript", army_script);
     token.set_s_var("TokenSpawningAbility", _sa.ability_text.clone());
     token.card_name = format!("{amass_type} Army Token");
-    token.type_line = CardTypeLine::parse(&format!("Creature - {amass_type} Army"));
+    token.set_type_line(CardTypeLine::parse(&format!(
+        "Creature - {amass_type} Army"
+    )));
 
     let token_table = TOKEN_EFFECT_BASE.make_token_table_internal(controller, token, 1);
     let mut trigger_list = CardZoneTable::default();
