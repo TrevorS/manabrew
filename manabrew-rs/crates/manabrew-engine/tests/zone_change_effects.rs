@@ -1687,3 +1687,39 @@ fn a_coin_flip_sub_ability_skips_the_turns_of_the_player_its_parent_targeted() {
     assert_eq!(game.player(p0).skip_turns, 0);
     assert_eq!(game.player(p1).skip_turns, 1);
 }
+
+const SAHEELIS_LATTICE: &str = "Name:Saheeli's Lattice\nManaCost:1 R\nTypes:Artifact\nK:Craft:4 R XMin1 ExileCtrlOrGrave<X/Dinosaur.Other>\nSVar:X:Count$xPaid\nAlternateMode:DoubleFaced\nOracle:\n\nALTERNATE\n\nName:Mastercraft Raptor\nManaCost:no cost\nColors:red\nTypes:Artifact Creature Dinosaur\nPT:*/4\nS:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | Description$ CARDNAME's power is equal to the total power of the exiled cards used to craft it.\nSVar:X:ExiledWith$CardPower\nOracle:";
+const BIG_DINOSAUR: &str =
+    "Name:Big Dinosaur\nManaCost:4 G\nTypes:Creature Dinosaur\nPT:5/5\nOracle:";
+const SMALL_DINOSAUR: &str =
+    "Name:Small Dinosaur\nManaCost:3 G\nTypes:Creature Dinosaur\nPT:4/4\nOracle:";
+
+#[test]
+fn a_crafted_card_counts_the_power_of_the_cards_exiled_to_craft_it() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let lattice = put(&mut game, SAHEELIS_LATTICE, p0, ZoneType::Battlefield);
+    let big = put(&mut game, BIG_DINOSAUR, p0, ZoneType::Battlefield);
+    let small = put(&mut game, SMALL_DINOSAUR, p0, ZoneType::Graveyard);
+    for card in [lattice, big, small] {
+        game.move_card(card, ZoneType::Exile, p0);
+    }
+    game.card_mut(lattice).paid_cost_exiled_cards = vec![big, small];
+    push_effect_entry(
+        &mut game,
+        p0,
+        "AB$ ChangeZone | Origin$ Exile | Destination$ Battlefield | Transformed$ True | Defined$ CorrectedSelf | Keyword$ Craft",
+        None,
+        None,
+        Some(lattice),
+    );
+    let mut agents = pass_agents();
+    GameLoop::new(2).resolve_stack(&mut game, &mut agents);
+    manabrew_engine::staticability::layer::apply_continuous_effects(&mut game);
+    let card = game.card(lattice);
+    assert_eq!(card.zone, ZoneType::Battlefield);
+    assert_eq!(card.card_name, "Mastercraft Raptor");
+    assert_eq!(card.exiled_cards, vec![big, small]);
+    assert_eq!(card.power(), 9);
+}

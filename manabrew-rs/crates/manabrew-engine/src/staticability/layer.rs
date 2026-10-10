@@ -1746,9 +1746,11 @@ fn resolve_set_pt_value(
                 source.controller,
             ));
         }
-        // Simple SVar evaluation (e.g. Number$2)
-        return Some(crate::ability::effects::evaluate_svar(
+        return Some(crate::svar::resolve_svar_expression(
             svar_expr,
+            game,
+            evaluated_on,
+            source.controller,
             &crate::spellability::SpellAbility::new_empty(Some(evaluated_on), source.controller),
         ));
     }
