@@ -1787,7 +1787,22 @@ impl GameLoop {
                         );
                         self.mana_pools[player.index()] = pool;
                     }
-                    if !available_mana.can_pay(&adjusted_full_cost) {
+                    let payable = if game.action_space_mana_probe
+                        == crate::mana::ActionSpaceManaProbe::ComputerUtilMana
+                    {
+                        crate::mana::can_pay_spell_mana_cost_for_action_space(
+                            game,
+                            self.pool(player),
+                            player,
+                            card_id,
+                            &adjusted_full_cost,
+                            &probe_ctx,
+                            None,
+                        )
+                    } else {
+                        available_mana.can_pay(&adjusted_full_cost)
+                    };
+                    if !payable {
                         break;
                     }
                     x += 1;

@@ -342,3 +342,58 @@ fn a_seat_that_floats_mana_spends_colorless_as_any_type_on_a_stolen_card() {
     assert!(game.card(archway).tapped);
     assert!(!game.card(courtyard).tapped);
 }
+
+const WEATHER_MAKER: &str = "Name:Weather Maker\nManaCost:3\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ Any | SpellDescription$ Add one mana of any color.\nA:AB$ Mana | Cost$ T SubCounter<2/CHARGE> | Produced$ C | Amount$ 2 | SpellDescription$ Add {C}{C}.\nOracle:";
+const BLACK_SUN: &str = "Name:Black Sun\nManaCost:X B B\nTypes:Sorcery\nA:SP$ GainLife | LifeAmount$ X | Defined$ You | SpellDescription$ You gain X life.\nSVar:X:Count$xPaid\nOracle:";
+
+fn max_x_announced_with_weather_maker(probe: ActionSpaceManaProbe) -> Option<u32> {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let maker = put(&mut game, WEATHER_MAKER, p0, ZoneType::Battlefield);
+    game.card_mut(maker)
+        .add_counter(&manabrew_engine::card::CounterType::Charge, 2);
+    for land in [
+        "Name:Swamp\nManaCost:no cost\nTypes:Basic Land Swamp\nOracle:",
+        "Name:Swamp\nManaCost:no cost\nTypes:Basic Land Swamp\nOracle:",
+        "Name:Plains\nManaCost:no cost\nTypes:Basic Land Plains\nOracle:",
+    ] {
+        put(&mut game, land, p0, ZoneType::Battlefield);
+    }
+    put(&mut game, BLACK_SUN, p0, ZoneType::Hand);
+    for _ in 0..20 {
+        put(
+            &mut game,
+            "Name:Forest\nManaCost:no cost\nTypes:Basic Land Forest\nOracle:",
+            p0,
+            ZoneType::Library,
+        );
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    game.action_space_mana_probe = probe;
+    let max_seen = Rc::new(Cell::new(None));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Activator {
+            name: "Black Sun",
+            max_seen: Rc::clone(&max_seen),
+            done: false,
+            floats_mana: false,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    max_seen.get()
+}
+
+#[test]
+fn the_harness_x_for_a_spell_follows_the_mana_probe() {
+    assert_eq!(
+        max_x_announced_with_weather_maker(ActionSpaceManaProbe::ComputerUtilMana),
+        Some(2)
+    );
+    assert_eq!(
+        max_x_announced_with_weather_maker(ActionSpaceManaProbe::AutoPay),
+        Some(3)
+    );
+}
