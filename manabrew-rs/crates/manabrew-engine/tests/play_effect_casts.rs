@@ -1,11 +1,18 @@
 use forge_carddb::parse_card_script;
 use forge_foundation::{PhaseType, ZoneType};
-use manabrew_engine::agent::{PassAgent, PlayerAgent};
+use manabrew_engine::ability::api_type::ApiType;
+use manabrew_engine::agent::{
+    DecisionContext, ManaAbilityOption, ManaCostAction, PassAgent, PlayerAgent,
+    PriorityActionSpace, PriorityContext, TargetChoice,
+};
 use manabrew_engine::card::CardInstance;
+use manabrew_engine::combat::DefenderId;
 use manabrew_engine::game::GameState;
 use manabrew_engine::game_loop::GameLoop;
 use manabrew_engine::ids::{CardId, PlayerId};
-use manabrew_engine::spellability::StackEntry;
+use manabrew_engine::mana::ManaPool;
+use manabrew_engine::player::actions::PlayerAction;
+use manabrew_engine::spellability::{SpellAbility, StackEntry};
 
 const SPELL_WATCHER: &str = "Name:Spell Watcher\nManaCost:1 U\nTypes:Creature Wizard\nPT:1/1\nT:Mode$ SpellCast | ValidCard$ Instant,Sorcery | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever you cast an instant or sorcery spell, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
 const FREE_LIFE: &str = "Name:Free Life\nManaCost:1 W\nTypes:Instant\nA:SP$ GainLife | LifeAmount$ 2 | Defined$ You | SpellDescription$ You gain 2 life.\nOracle:";
@@ -132,4 +139,212 @@ fn a_mana_value_limited_play_reads_a_face_down_exiled_card_from_its_original_sta
     assert_eq!(spells(land), 0);
     assert_eq!(spells(big), 0);
     assert_eq!(spells(small), 1);
+}
+
+const PARADIGM_LIFE: &str = "Name:Paradigm Life\nManaCost:1 W\nTypes:Sorcery\nA:SP$ GainLife | LifeAmount$ 2 | Defined$ You | SpellDescription$ You gain 2 life.\nK:Paradigm\nOracle:";
+const SPELL_TWIN: &str = "Name:Spell Twin\nManaCost:1 U\nTypes:Creature Wizard\nPT:1/1\nOracle:";
+
+struct Accepting;
+
+impl PlayerAgent for Accepting {
+    fn choose_targets_for(
+        &mut self,
+        sa: &mut SpellAbility,
+        game: &GameState,
+        pools: &[ManaPool],
+    ) -> bool {
+        PassAgent.choose_targets_for(sa, game, pools)
+    }
+    fn mulligan_decision(
+        &mut self,
+        context: DecisionContext<'_>,
+        player: PlayerId,
+        hand: &[CardId],
+        count: u32,
+    ) -> bool {
+        PassAgent.mulligan_decision(context, player, hand, count)
+    }
+    fn confirm_action(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        _mode: Option<&str>,
+        _message: &str,
+        _options: &[String],
+        _source: Option<CardId>,
+        _api: Option<ApiType>,
+    ) -> bool {
+        true
+    }
+    fn choose_action(
+        &mut self,
+        player: PlayerId,
+        space: Option<&PriorityActionSpace>,
+        priority: &mut dyn PriorityContext,
+    ) -> PlayerAction {
+        PassAgent.choose_action(player, space, priority)
+    }
+    fn choose_attackers(
+        &mut self,
+        context: DecisionContext<'_>,
+        player: PlayerId,
+        available: &[CardId],
+        defenders: &[DefenderId],
+    ) -> Vec<(CardId, DefenderId)> {
+        PassAgent.choose_attackers(context, player, available, defenders)
+    }
+    fn choose_blockers(
+        &mut self,
+        context: DecisionContext<'_>,
+        player: PlayerId,
+        attackers: &[CardId],
+        blockers: &[CardId],
+        max: Option<usize>,
+    ) -> Vec<(CardId, CardId)> {
+        PassAgent.choose_blockers(context, player, attackers, blockers, max)
+    }
+    fn choose_target_player(
+        &mut self,
+        context: DecisionContext<'_>,
+        player: PlayerId,
+        valid: &[PlayerId],
+        sa: Option<&SpellAbility>,
+    ) -> Option<PlayerId> {
+        PassAgent.choose_target_player(context, player, valid, sa)
+    }
+    fn choose_target_card(
+        &mut self,
+        context: DecisionContext<'_>,
+        player: PlayerId,
+        valid: &[CardId],
+        sa: Option<&SpellAbility>,
+    ) -> Option<CardId> {
+        PassAgent.choose_target_card(context, player, valid, sa)
+    }
+    fn choose_target_any(
+        &mut self,
+        context: DecisionContext<'_>,
+        player: PlayerId,
+        players: &[PlayerId],
+        cards: &[CardId],
+        sa: Option<&SpellAbility>,
+    ) -> TargetChoice {
+        PassAgent.choose_target_any(context, player, players, cards, sa)
+    }
+    fn pay_mana_cost(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        _card_id: CardId,
+        _card_name: &str,
+        _mana_cost: &str,
+        _mana_cost_display: &str,
+        _mana_cost_checkpoint: &str,
+        _can_confirm_from_pool: bool,
+        _allow_reserved_source_reuse: bool,
+        _reserved_sacrifices: &[CardId],
+        _mana_ability_options: &[ManaAbilityOption],
+        _tappable_lands: &[CardId],
+        _untappable_lands: &[CardId],
+        _mana_pool: &ManaPool,
+    ) -> ManaCostAction {
+        ManaCostAction::Pay { auto: true }
+    }
+    fn choose_land_or_spell(
+        &mut self,
+        context: DecisionContext<'_>,
+        player: PlayerId,
+    ) -> Option<bool> {
+        PassAgent.choose_land_or_spell(context, player)
+    }
+}
+
+fn push_entry(game: &mut GameState, sa: SpellAbility) {
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: sa,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: Some(ZoneType::Hand),
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+}
+
+#[test]
+fn a_paradigm_copy_from_a_copied_spell_that_ceased_to_exist_is_cast_from_no_zone() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let spell = put(&mut game, PARADIGM_LIFE, p0, ZoneType::Stack);
+    let twin = put(&mut game, SPELL_TWIN, p0, ZoneType::Battlefield);
+    let text = game.card(spell).abilities[0].clone();
+    let mut sa = manabrew_engine::spellability::build_spell_ability(&game, spell, &text, p0);
+    sa.is_spell = true;
+    push_entry(&mut game, sa);
+    push_entry(
+        &mut game,
+        SpellAbility::new_simple(Some(twin), p0, "DB$ CopySpellAbility"),
+    );
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(Accepting), Box::new(PassAgent)];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.player(p0).life, 24);
+    let copy = game
+        .cards
+        .iter()
+        .find(|card| card.card_name == "Paradigm Life" && card.id != spell)
+        .map(|card| card.id)
+        .expect("copy");
+    assert_eq!(game.card(copy).zone, ZoneType::None);
+    let effect = game
+        .cards
+        .iter()
+        .find(|card| card.zone == ZoneType::Command && card.card_name.ends_with("Paradigm"))
+        .map(|card| card.id)
+        .expect("paradigm effect");
+    assert_eq!(game.card(effect).effect_source, Some(copy));
+    push_entry(
+        &mut game,
+        SpellAbility::new_simple(
+            Some(effect),
+            p0,
+            "DB$ Play | Defined$ EffectSource | ValidSA$ Spell | ZoneRegardless$ True | WithoutManaCost$ True | Optional$ True | CopyCard$ True",
+        ),
+    );
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert!(game.stack.is_empty());
+    assert_eq!(game.player(p0).life, 26);
+}
+
+#[test]
+fn a_play_effect_copy_of_another_players_card_is_cast_by_its_controller() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let p1 = PlayerId(1);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let twin = put(&mut game, SPELL_TWIN, p0, ZoneType::Battlefield);
+    let theirs = put(&mut game, FREE_LIFE, p1, ZoneType::Graveyard);
+    let mut sa = SpellAbility::new_simple(
+        Some(twin),
+        p0,
+        "DB$ Play | Defined$ Targeted | ValidSA$ Spell | WithoutManaCost$ True | Optional$ True | CopyCard$ True",
+    );
+    sa.target_chosen.target_card = Some(theirs);
+    push_entry(&mut game, sa);
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(Accepting), Box::new(PassAgent)];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    assert!(game.stack.is_empty());
+    assert_eq!(game.player(p0).life, 22);
+    assert_eq!(game.card(theirs).zone, ZoneType::Graveyard);
+    assert!(game
+        .cards
+        .iter()
+        .all(|card| game.card_zone_location_matches_card(card.id)));
 }

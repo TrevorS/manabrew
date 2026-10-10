@@ -401,15 +401,23 @@ pub(crate) fn copy_card_to_play(
         return card_id;
     }
     let controller = sa.activating_player;
-    let original = ctx.game.card(card_id);
-    let zone = original.zone;
-    let mut copy =
-        crate::card::card_copy_service::copy_card(original, false, Some(controller), None);
+    let zone = ctx
+        .game
+        .card_zone_location(card_id)
+        .map(|location| location.zone_type);
+    let mut copy = crate::card::card_copy_service::copy_card(
+        ctx.game.card(card_id),
+        false,
+        Some(controller),
+        None,
+    );
     copy.set_controller(controller);
     copy.is_token = true;
     copy.copied_permanent = Some(card_id);
     let copy_id = ctx.game.create_card(copy);
-    ctx.game.zone_mut(zone, controller).add(copy_id);
+    if let Some(zone) = zone {
+        ctx.game.add_card_to_zone(zone, controller, copy_id);
+    }
     copy_id
 }
 
