@@ -691,7 +691,7 @@ fn card_state_to_dto(
         .map(|st| st.name().to_string())
         .collect();
 
-    let power = card.base_power.map(|_| {
+    let power = card.has_base_power().then(|| {
         if card.is_creature() {
             card.power()
         } else {
@@ -699,7 +699,7 @@ fn card_state_to_dto(
         }
         .to_string()
     });
-    let toughness = card.base_toughness.map(|_| {
+    let toughness = card.has_base_toughness().then(|| {
         if card.is_creature() {
             card.toughness()
         } else {
@@ -707,8 +707,10 @@ fn card_state_to_dto(
         }
         .to_string()
     });
-    let base_power = card.base_power;
-    let base_toughness = card.base_toughness;
+    let base_power = card.has_base_power().then(|| card.state_base_power());
+    let base_toughness = card
+        .has_base_toughness()
+        .then(|| card.state_base_toughness());
 
     // Collect non-zero counters, using the variant name as key (e.g. "P1P1", "M1M1", "Loyalty")
     let counters: BTreeMap<String, u32> = card

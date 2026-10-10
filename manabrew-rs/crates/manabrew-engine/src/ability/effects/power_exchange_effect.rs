@@ -57,12 +57,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     let base_power = sa.ir.base_power;
     let p1 = if base_power {
-        ctx.game.card(c1).base_power.unwrap_or(0)
+        ctx.game.card(c1).state_base_power()
     } else {
         ctx.game.card(c1).power()
     };
     let p2 = if base_power {
-        ctx.game.card(c2).base_power.unwrap_or(0)
+        ctx.game.card(c2).state_base_power()
     } else {
         ctx.game.card(c2).power()
     };
@@ -71,44 +71,27 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         Some(crate::spellability::AbilityDuration::Perpetual)
     );
 
+    let timestamp = ctx.game.next_timestamp();
     if is_perpetual {
-        let ts = ctx.game.next_effect_timestamp();
         perpetual_new_pt::PerpetualNewPt {
-            timestamp: ts,
+            timestamp: timestamp as i64,
             power: Some(p2),
             toughness: None,
         }
         .apply_effect(ctx.game.card_mut(c1));
         perpetual_new_pt::PerpetualNewPt {
-            timestamp: ts,
+            timestamp: timestamp as i64,
             power: Some(p1),
             toughness: None,
         }
         .apply_effect(ctx.game.card_mut(c2));
-        return;
     }
-
-    // Calculate the modifier deltas needed to swap powers
-    let c1_base = ctx
-        .game
-        .card(c1)
-        .static_set_power
-        .unwrap_or(ctx.game.card(c1).base_power.unwrap_or(0));
-    let c2_base = ctx
-        .game
-        .card(c2)
-        .static_set_power
-        .unwrap_or(ctx.game.card(c2).base_power.unwrap_or(0));
-
-    // Set power modifiers so effective power = the other's power
-    let c1_static = ctx.game.card(c1).static_power_modifier;
-    let c2_static = ctx.game.card(c2).static_power_modifier;
     ctx.game
         .card_mut(c1)
-        .set_power_modifier(p2 - c1_base - c1_static);
+        .add_new_pt(Some(p2), None, timestamp, 0, false);
     ctx.game
         .card_mut(c2)
-        .set_power_modifier(p1 - c2_base - c2_static);
+        .add_new_pt(Some(p1), None, timestamp, 0, false);
 }
 
 #[cfg(test)]

@@ -234,3 +234,22 @@ fn a_face_down_exiled_card_shows_its_face_only_to_a_player_who_may_look() {
     assert_eq!(opponent.types, vec!["Creature".to_string()]);
     assert_eq!(opponent.cmc, 0);
 }
+
+#[test]
+fn an_animated_artifact_without_printed_power_shows_its_set_power() {
+    let mut game = make_game();
+    let core = game.create_card(make_card(
+        CardId(0),
+        "Core",
+        "Artifact Creature Shapeshifter",
+        vec![],
+        ZoneType::Battlefield,
+    ));
+    let timestamp = game.next_timestamp();
+    game.card_mut(core)
+        .add_new_pt(Some(4), Some(4), timestamp, 0, false);
+    let dto = card_to_dto(&game, core);
+    assert_eq!(dto.power.as_deref(), Some("4"));
+    assert_eq!(dto.toughness.as_deref(), Some("4"));
+    assert_eq!(dto.base_power, Some(4));
+}

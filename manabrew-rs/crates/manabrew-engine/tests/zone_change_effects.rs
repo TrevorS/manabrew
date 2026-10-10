@@ -1190,13 +1190,14 @@ fn an_animate_on_a_face_down_creature_ends_on_its_face_up_characteristics() {
     );
     let mut agents = pass_agents();
     GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
-    assert_eq!(game.card(spy).base_power, Some(3));
+    assert_eq!(game.card(spy).state_base_power(), 3);
 
     game.card_mut(spy).turn_face_up();
+    assert_eq!(game.card(spy).state_base_power(), 3);
     manabrew_engine::phase::PhaseCommand::RestoreAnimate { card: spy }
         .run(&mut game, &mut ReverseShuffleRng);
 
-    assert_eq!(game.card(spy).base_power, Some(1));
+    assert_eq!(game.card(spy).state_base_power(), 1);
     assert!(game.card(spy).type_line.to_string().contains("Merfolk"));
 }
 

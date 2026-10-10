@@ -856,12 +856,7 @@ impl GameLoop {
                 .animate_state
                 .take_if(|state| state.ends_at_end_of_turn)
             {
-                card.restore_animate_snapshot(
-                    &state.type_change_timestamps,
-                    state.original_base_power,
-                    state.original_base_toughness,
-                    state.original_color,
-                );
+                card.restore_animate_snapshot(&state.change_timestamps);
                 for ts in state.trait_change_timestamps {
                     card.remove_changed_card_traits(ts, 0);
                 }

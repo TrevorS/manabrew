@@ -89,9 +89,9 @@ impl PerpetualRecord {
                 colors, overwrite, ..
             } => {
                 if *overwrite {
-                    card.color = *colors;
+                    card.set_color(*colors);
                 } else {
-                    card.add_color(*colors);
+                    crate::card::card_state::add_color(card, *colors);
                 }
             }
             Self::Keywords {
@@ -122,7 +122,7 @@ impl PerpetualRecord {
             }
             Self::Incorporate { incorporate, .. } => {
                 card.add_changed_mana_cost(&incorporate.to_string());
-                card.add_color(incorporate.color_set());
+                crate::card::card_state::add_color(card, incorporate.color_set());
             }
             Self::Abilities {
                 timestamp, changes, ..

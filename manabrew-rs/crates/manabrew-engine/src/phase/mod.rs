@@ -113,12 +113,8 @@ impl PhaseCommand {
             PhaseCommand::RestoreAnimate { card } => {
                 if let Some(state) = game.card_mut(card).animate_state.take() {
                     let timestamps = state.trait_change_timestamps.clone();
-                    game.card_mut(card).restore_animate_snapshot(
-                        &state.type_change_timestamps,
-                        state.original_base_power,
-                        state.original_base_toughness,
-                        state.original_color,
-                    );
+                    game.card_mut(card)
+                        .restore_animate_snapshot(&state.change_timestamps);
                     for ts in timestamps {
                         game.card_mut(card).remove_changed_card_traits(ts, 0);
                     }

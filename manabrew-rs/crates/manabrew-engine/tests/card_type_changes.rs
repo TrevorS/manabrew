@@ -1,5 +1,5 @@
 use forge_carddb::parse_card_script;
-use forge_foundation::{PhaseType, ZoneType};
+use forge_foundation::{ColorSet, PhaseType, ZoneType};
 use manabrew_engine::agent::{PassAgent, PlayerAgent};
 use manabrew_engine::card::CardInstance;
 use manabrew_engine::game::{GameState, TypeRegistry};
@@ -145,9 +145,10 @@ fn a_token_copy_of_an_animated_land_copies_only_its_own_types() {
         &mut game,
         &mut game_loop,
         captain,
-        "DB$ Animate | Defined$ Targeted | Types$ Creature,Elemental | Power$ 2 | Toughness$ 2",
+        "DB$ Animate | Defined$ Targeted | Types$ Creature,Elemental | Power$ 2 | Toughness$ 2 | Colors$ Red",
         sanctuary,
     );
+    assert_eq!(game.card(sanctuary).color, ColorSet::RED);
     let before = game.cards.len();
     resolve(
         &mut game,
@@ -162,6 +163,7 @@ fn a_token_copy_of_an_animated_land_copies_only_its_own_types() {
     assert!(copy.type_line.is_land());
     assert!(!copy.is_creature());
     assert!(!copy.type_line.has_subtype("Elemental"));
+    assert!(copy.color.is_colorless());
 }
 
 fn land_types_under_both_statics(swamp_maker_first: bool) -> (bool, bool) {
@@ -211,4 +213,87 @@ fn a_static_adds_all_creature_types_and_removes_a_named_type() {
     assert_eq!(game.card(captain).power(), 2);
     assert!(game.card(gate).type_line.is_land());
     assert!(!game.card(gate).type_line.has_subtype("Gate"));
+}
+
+const GREEN_BEAR: &str = "Name:Green Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:";
+const BONE_CURSE: &str = "Name:Bone Curse\nManaCost:2 B\nTypes:Enchantment\nS:Mode$ Continuous | Affected$ Creature.YouCtrl | SetColor$ Black | Description$ Creatures you control are black.\nOracle:";
+const DAWN_BANNER: &str = "Name:Dawn Banner\nManaCost:2\nTypes:Artifact\nS:Mode$ Continuous | Affected$ Creature.YouCtrl | AddColor$ White | Description$ Creatures you control are white in addition to their other colors.\nOracle:";
+
+#[test]
+fn color_statics_and_an_animate_apply_in_timestamp_order() {
+    load_types();
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let bear = put(&mut game, GREEN_BEAR, p0, ZoneType::Battlefield);
+    put(&mut game, BONE_CURSE, p0, ZoneType::Battlefield);
+    apply_continuous_effects(&mut game);
+    assert_eq!(game.card(bear).color, ColorSet::BLACK);
+    let mut game_loop = GameLoop::new(2);
+    resolve(
+        &mut game,
+        &mut game_loop,
+        bear,
+        "DB$ Animate | Defined$ Targeted | Colors$ Blue | OverwriteColors$ True",
+        bear,
+    );
+    put(&mut game, DAWN_BANNER, p0, ZoneType::Battlefield);
+    apply_continuous_effects(&mut game);
+    assert_eq!(game.card(bear).color, ColorSet::BLUE.union(ColorSet::WHITE));
+    let mut agents = pass_agents();
+    game_loop.step_cleanup(&mut game, &mut agents);
+    apply_continuous_effects(&mut game);
+    assert_eq!(
+        game.card(bear).color,
+        ColorSet::BLACK.union(ColorSet::WHITE)
+    );
+}
+
+const LAND_WAKER: &str = "Name:Land Waker\nManaCost:3 G\nTypes:Enchantment\nS:Mode$ Continuous | Affected$ Land.YouCtrl | AddType$ Creature | SetPower$ 3 | SetToughness$ 3 | Description$ Lands you control are 3/3 creatures.\nOracle:";
+
+#[test]
+fn an_earthbend_sets_power_over_an_older_set_power_static() {
+    load_types();
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    put(&mut game, LAND_WAKER, p0, ZoneType::Battlefield);
+    let sanctuary = put(&mut game, SANCTUARY, p0, ZoneType::Battlefield);
+    apply_continuous_effects(&mut game);
+    assert_eq!(game.card(sanctuary).power(), 3);
+    let captain = put(&mut game, BONE_CAPTAIN, p0, ZoneType::Battlefield);
+    let mut game_loop = GameLoop::new(2);
+    resolve(
+        &mut game,
+        &mut game_loop,
+        captain,
+        "DB$ Earthbend | Num$ 1",
+        sanctuary,
+    );
+    apply_continuous_effects(&mut game);
+    let card = game.card(sanctuary);
+    assert_eq!((card.power(), card.toughness()), (1, 1));
+}
+
+#[test]
+fn a_creature_that_died_keeps_its_animated_color_in_its_last_known_information() {
+    load_types();
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let bear = put(&mut game, GREEN_BEAR, p0, ZoneType::Battlefield);
+    let mut game_loop = GameLoop::new(2);
+    resolve(
+        &mut game,
+        &mut game_loop,
+        bear,
+        "DB$ Animate | Defined$ Targeted | Colors$ Blue | OverwriteColors$ True",
+        bear,
+    );
+    apply_continuous_effects(&mut game);
+    game.copy_last_state();
+    game.move_card(bear, ZoneType::Graveyard, p0);
+    assert_eq!(game.card(bear).color, ColorSet::GREEN);
+    let lki = manabrew_engine::lki::battlefield_lki_card(&game, bear).expect("lki");
+    assert_eq!(lki.color, ColorSet::BLUE);
 }

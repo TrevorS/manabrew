@@ -235,13 +235,11 @@ fn evaluate_svar_expr(ctx: &EffectContext, sa: &SpellAbility, expr: &str) -> i32
         if let Some(sac_id) = ctx.game.last_sacrificed_card {
             let sac_card = ctx.game.card(sac_id);
             let val = if expr.ends_with("Power") {
-                sac_card
-                    .lki_power
-                    .unwrap_or(sac_card.base_power.unwrap_or(0))
+                sac_card.lki_power.unwrap_or(sac_card.state_base_power())
             } else {
                 sac_card
                     .lki_toughness
-                    .unwrap_or(sac_card.base_toughness.unwrap_or(0))
+                    .unwrap_or(sac_card.state_base_toughness())
             };
             return val;
         }

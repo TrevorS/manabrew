@@ -175,26 +175,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         // Save original state (only if not already animated this turn)
         if ctx.game.card(card_id).animate_state.is_none() {
-            let original_base_power = ctx.game.card(card_id).base_power;
-            let original_base_toughness = ctx.game.card(card_id).base_toughness;
-            let original_color = ctx.game.card(card_id).color;
             let original_keywords = ctx.game.card(card_id).keywords.clone();
             ctx.game
                 .card_mut(card_id)
                 .set_animate_state(Some(AnimateState {
-                    type_change_timestamps: Vec::new(),
-                    original_base_power,
-                    original_base_toughness,
-                    original_color,
+                    change_timestamps: Vec::new(),
                     original_keywords: Some(original_keywords),
                     trait_change_timestamps: Vec::new(),
                     ends_at_end_of_turn: !until_registered
                         && !is_permanent_duration
                         && !is_perpetual,
-                    new_power: None,
-                    new_toughness: None,
-                    new_color: None,
-                    new_pt_timestamp: None,
                 }));
         }
 
@@ -273,13 +263,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         };
         if !changed_type.is_empty() {
             let timestamp = *type_timestamp.get_or_insert_with(|| ctx.game.next_timestamp());
-            let card = ctx.game.card_mut(card_id);
-            card.add_changed_card_types(changed_type, timestamp, 0, false);
-            if !is_permanent_duration && !is_perpetual {
-                if let Some(state) = card.animate_state.as_mut() {
-                    state.type_change_timestamps.push(timestamp);
-                }
-            }
+            ctx.game
+                .card_mut(card_id)
+                .add_changed_card_types(changed_type, timestamp, 0, false);
         }
 
         if let (Some(types), Some(ts)) = (&types_str, effect_ts) {
@@ -310,16 +296,13 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         } else if parsed_power.is_some() || parsed_toughness.is_some() {
             let timestamp = *type_timestamp.get_or_insert_with(|| ctx.game.next_timestamp());
-            let card = ctx.game.card_mut(card_id);
-            if let Some(val) = parsed_power {
-                card.set_base_power(Some(val));
-            }
-            if let Some(val) = parsed_toughness {
-                card.set_base_toughness(Some(val));
-            }
-            if let Some(state) = card.animate_state.as_mut() {
-                state.add_new_pt(parsed_power, parsed_toughness, timestamp);
-            }
+            ctx.game.card_mut(card_id).add_new_pt(
+                parsed_power,
+                parsed_toughness,
+                timestamp,
+                0,
+                false,
+            );
         }
 
         // Apply keywords (until EOT — stored in pump_keywords so they get cleared at cleanup)
@@ -372,11 +355,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     }
                     .apply_effect(ctx.game.card_mut(card_id));
                 } else {
-                    let card = ctx.game.card_mut(card_id);
-                    card.set_color(new_color);
-                    if let Some(state) = card.animate_state.as_mut() {
-                        state.add_color(new_color, false);
-                    }
+                    let timestamp =
+                        *type_timestamp.get_or_insert_with(|| ctx.game.next_timestamp());
+                    ctx.game
+                        .card_mut(card_id)
+                        .add_color(new_color, false, timestamp, 0, false);
                 }
             } else if let Some(ts) = effect_ts {
                 perpetual_colors::PerpetualColors {
@@ -386,10 +369,18 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 }
                 .apply_effect(ctx.game.card_mut(card_id));
             } else {
-                let card = ctx.game.card_mut(card_id);
-                card.set_color(card.color.union(new_color));
-                if let Some(state) = card.animate_state.as_mut() {
-                    state.add_color(new_color, true);
+                let timestamp = *type_timestamp.get_or_insert_with(|| ctx.game.next_timestamp());
+                ctx.game
+                    .card_mut(card_id)
+                    .add_color(new_color, true, timestamp, 0, false);
+            }
+        }
+
+        if let Some(timestamp) = type_timestamp.filter(|_| !is_permanent_duration && !is_perpetual)
+        {
+            if let Some(state) = ctx.game.card_mut(card_id).animate_state.as_mut() {
+                if !state.change_timestamps.contains(&timestamp) {
+                    state.change_timestamps.push(timestamp);
                 }
             }
         }

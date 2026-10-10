@@ -97,11 +97,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if ctx.game.card(clone_target_id).clone_state.is_none() {
             let mut state = ctx.game.card(clone_target_id).capture_clone_state();
             state.expires_at_cleanup = duration.is_some() || sa.ir.duration.is_some();
-            if let Some(animate_state) = ctx.game.card(clone_target_id).animate_state.as_ref() {
-                state.original_base_power = animate_state.original_base_power;
-                state.original_base_toughness = animate_state.original_base_toughness;
-                state.original_color = animate_state.original_color;
-            }
             ctx.game
                 .card_mut(clone_target_id)
                 .set_clone_state(Some(state));
@@ -441,26 +436,22 @@ fn resolve_clone_source(
 
 #[derive(Clone)]
 struct ActiveAnimationSnapshot {
-    state: crate::card::AnimateState,
     original_keywords: Option<Vec<String>>,
     keywords: Vec<String>,
 }
 
 fn capture_active_animation(card: &crate::card::Card) -> Option<ActiveAnimationSnapshot> {
-    let state = card.animate_state.clone()?;
+    let state = card.animate_state.as_ref()?;
     Some(ActiveAnimationSnapshot {
         original_keywords: state
             .original_keywords
             .as_ref()
             .map(|kws| kws.iter_strings().map(str::to_string).collect()),
-        state,
         keywords: card.keywords.iter_strings().map(str::to_string).collect(),
     })
 }
 
 fn reapply_active_animation(card: &mut crate::card::Card, animation: &ActiveAnimationSnapshot) {
-    animation.state.apply_new_pt_and_color(card);
-
     let original_keywords = animation.original_keywords.as_deref().unwrap_or(&[]);
     for keyword in &animation.keywords {
         if original_keywords

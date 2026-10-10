@@ -917,10 +917,10 @@ impl GameState {
                 card.pt_boosts.clear();
                 card.static_power_modifier = 0;
                 card.static_toughness_modifier = 0;
-                card.static_set_power = None;
-                card.static_set_toughness = None;
                 card.granted_keywords.clear();
                 card.clear_changed_card_types();
+                card.clear_new_pt();
+                card.clear_changed_card_colors();
                 card.cant_block_static = false;
                 card.summoning_sick = true;
                 card.monstrous = false;
@@ -959,18 +959,12 @@ impl GameState {
                 card.clear_pump_keywords();
                 card.removed_keywords.clear();
                 card.keyword_grants.clear();
-                card.permanent_new_pt_timestamp = None;
                 // Restore intrinsic keywords from the animate snapshot so
                 // Animate-granted keywords (e.g. Sneak Attack's `Keywords$
                 // Haste`) do not persist into the new object the card
                 // becomes when it changes zones (CR 400.7).
                 if let Some(state) = card.animate_state.take() {
-                    card.restore_animate_snapshot(
-                        &state.type_change_timestamps,
-                        state.original_base_power,
-                        state.original_base_toughness,
-                        state.original_color,
-                    );
+                    card.restore_animate_snapshot(&state.change_timestamps);
                     if let Some(orig_kws) = state.original_keywords {
                         card.keywords = orig_kws;
                         card.update_keywords();
@@ -1016,10 +1010,10 @@ impl GameState {
                 card.pt_boosts.clear();
                 card.static_power_modifier = 0;
                 card.static_toughness_modifier = 0;
-                card.static_set_power = None;
-                card.static_set_toughness = None;
                 card.granted_keywords.clear();
                 card.clear_changed_card_types();
+                card.clear_new_pt();
+                card.clear_changed_card_colors();
                 card.restore_changed_characteristics_baseline();
                 card.cant_block_static = false;
                 card.summoning_sick = true;

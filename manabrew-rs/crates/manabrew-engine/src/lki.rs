@@ -69,6 +69,7 @@ pub struct CardSnapshot {
     pub counters: BTreeMap<CounterType, i32>,
     pub tapped: bool,
     pub type_line: forge_foundation::CardTypeLine,
+    pub color: forge_foundation::ColorSet,
     pub zone: ZoneType,
     pub card_name: String,
     pub exiled_cards: Vec<CardId>,
@@ -89,6 +90,7 @@ impl CardSnapshot {
             counters: card.counters.clone(),
             tapped: card.tapped,
             type_line: card.type_line.clone(),
+            color: card.color,
             zone: card.zone,
             card_name: card.card_name.clone(),
             exiled_cards: card.exiled_cards.clone(),
@@ -108,6 +110,7 @@ impl CardSnapshot {
             counters,
             tapped,
             type_line,
+            color,
             zone,
             card_name,
             exiled_cards,
@@ -122,6 +125,7 @@ impl CardSnapshot {
             && *counters == card.counters
             && *tapped == card.tapped
             && *type_line == card.type_line
+            && *color == card.color
             && *zone == card.zone
             && *card_name == card.card_name
             && *exiled_cards == card.exiled_cards
@@ -140,6 +144,7 @@ impl CardSnapshot {
             counters,
             tapped,
             type_line,
+            color,
             zone,
             card_name,
             exiled_cards,
@@ -158,6 +163,7 @@ impl CardSnapshot {
         if *type_line != card.type_line {
             type_line.clone_from(&card.type_line);
         }
+        *color = card.color;
         *zone = card.zone;
         card_name.clone_from(&card.card_name);
         exiled_cards.clone_from(&card.exiled_cards);
@@ -359,6 +365,8 @@ pub fn battlefield_lki_card(game: &crate::game::GameState, card_id: CardId) -> O
     lki.tapped = snapshot.tapped;
     lki.state_type_line = snapshot.type_line.clone();
     lki.clear_changed_card_types();
+    lki.set_color(snapshot.color);
+    lki.clear_changed_card_colors();
     lki.attachments = snapshot.attachments.clone();
     lki.granted_keywords = snapshot.granted_keywords.clone();
     lki.static_power_modifier += snapshot.power - lki.power();

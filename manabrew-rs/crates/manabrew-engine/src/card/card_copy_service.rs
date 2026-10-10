@@ -39,23 +39,9 @@ pub fn copy_copiable_characteristics(copy_from: &Card, to: &mut Card) {
     to.state_type_line = copiable_type_line(copy_from);
     to.update_type_cache();
     to.mana_cost = copy_from.mana_cost.clone();
-    to.color = copy_from
-        .animate_state
-        .as_ref()
-        .map(|state| state.original_color)
-        .unwrap_or(copy_from.color);
-    to.base_power = copy_from
-        .animate_state
-        .as_ref()
-        .map(|state| state.original_base_power)
-        .or(copy_from.changed_base_power)
-        .unwrap_or(copy_from.base_power);
-    to.base_toughness = copy_from
-        .animate_state
-        .as_ref()
-        .map(|state| state.original_base_toughness)
-        .or(copy_from.changed_base_toughness)
-        .unwrap_or(copy_from.base_toughness);
+    to.set_color(copy_from.state_color);
+    to.base_power = copy_from.base_power;
+    to.base_toughness = copy_from.base_toughness;
     to.initial_loyalty = copy_from.initial_loyalty.clone();
     to.keywords = copy_from.keywords.clone();
     to.abilities = copy_from.abilities.clone();
@@ -93,6 +79,7 @@ pub fn get_lki_copy(card: &Card) -> Card {
     let current_toughness = card.toughness();
     lki.base_power = Some(current_power);
     lki.base_toughness = Some(current_toughness);
+    lki.clear_new_pt();
     lki.power_modifier = 0;
     lki.toughness_modifier = 0;
     lki.static_power_modifier = 0;

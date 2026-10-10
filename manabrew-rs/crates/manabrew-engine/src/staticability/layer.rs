@@ -14,9 +14,9 @@
 //! ```
 //!
 //! The function resets all derived fields (`static_power_modifier`,
-//! `static_toughness_modifier`, `static_set_power`, `static_set_toughness`,
-//! `granted_keywords`, `cant_attack_static`, `cant_block_static`) and
-//! recomputes them from scratch.
+//! `static_toughness_modifier`, the static entries of the keyed type, set-P/T
+//! and colour tables, `granted_keywords`, `cant_attack_static`,
+//! `cant_block_static`) and recomputes them from scratch.
 //!
 //! # Layer ordering (CR 613)
 //!
@@ -35,7 +35,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use forge_foundation::{CardTypeLine, CoreType, ZoneType};
+use forge_foundation::{CardTypeLine, Color, ColorSet, CoreType, ZoneType};
 
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
@@ -65,6 +65,16 @@ enum EffectKind {
     SetPT {
         power: Option<i32>,
         toughness: Option<i32>,
+        timestamp: u64,
+        static_id: u64,
+        cda: bool,
+    },
+    AddColor {
+        color: ColorSet,
+        add_to_colors: bool,
+        timestamp: u64,
+        static_id: u64,
+        cda: bool,
     },
     RemoveAllCardTraits {
         timestamp: i64,
@@ -238,8 +248,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
         }
         card.static_power_modifier = 0;
         card.static_toughness_modifier = 0;
-        card.static_set_power = None;
-        card.static_set_toughness = None;
+        card.clear_static_layer_new_pt_and_colors();
         card.granted_keywords.clear();
         for inst in std::mem::take(&mut card.pump_keywords_removed_by_statics) {
             card.pump_keywords.insert(inst);
@@ -803,16 +812,23 @@ fn apply_continuous_ability(
             });
         }
 
+        if let Some((color, add_to_colors)) = static_colors(source_card, sa) {
+            pending.push(PendingEffect {
+                layer: Layer::Color,
+                target,
+                kind: EffectKind::AddColor {
+                    color,
+                    add_to_colors,
+                    timestamp: source_card.layer_timestamp,
+                    static_id: static_layer_trait_id(source_id, sa_idx).unsigned_abs(),
+                    cda: is_cda,
+                },
+            });
+        }
+
         let set_power = sa.ir.set_power_text.as_deref();
         let set_toughness = sa.ir.set_toughness_text.as_deref();
-        let target_card = game.card(target);
-        let newer_animate_pt = target_card
-            .animate_state
-            .as_ref()
-            .and_then(|state| state.new_pt_timestamp)
-            .max(target_card.permanent_new_pt_timestamp)
-            .is_some_and(|timestamp| is_cda || timestamp > source_card.layer_timestamp);
-        if (set_power.is_some() || set_toughness.is_some()) && !newer_animate_pt {
+        if set_power.is_some() || set_toughness.is_some() {
             let sp = resolve_set_pt_value(game, source_id, target, set_power);
             let st = resolve_set_pt_value(game, source_id, target, set_toughness);
             // Java parity: CharacteristicDefining$ True routes
@@ -828,6 +844,9 @@ fn apply_continuous_ability(
                 kind: EffectKind::SetPT {
                     power: sp,
                     toughness: st,
+                    timestamp: source_card.layer_timestamp,
+                    static_id: static_layer_trait_id(source_id, sa_idx).unsigned_abs(),
+                    cda: is_cda,
                 },
             });
         }
@@ -1163,8 +1182,7 @@ fn static_layer_reset_is_noop(card: &crate::card::Card, card_names_unchanged: bo
         && card.triggers.len() <= card.base_trigger_count + card.pump_trigger_count
         && card.static_power_modifier == 0
         && card.static_toughness_modifier == 0
-        && (card.face_down
-            || (card.static_set_power.is_none() && card.static_set_toughness.is_none()))
+        && !card.has_static_layer_new_pt_or_colors()
         && card.granted_keywords.has_no_entries()
         && card.pump_keywords_removed_by_statics.is_empty()
         && (card_names_unchanged
@@ -1241,17 +1259,30 @@ fn apply_pending_effects(
                 card.static_power_modifier += power;
                 card.static_toughness_modifier += toughness;
             }
-            EffectKind::SetPT { power, toughness } => {
-                let card = game.card_mut(effect.target);
-                // Layer 7b: override the base P/T for this calculation cycle.
-                // We use `static_set_power` rather than mutating `base_power`
-                // so the original base value is preserved for the next reset.
-                if let Some(p) = power {
-                    card.static_set_power = Some(p);
-                }
-                if let Some(t) = toughness {
-                    card.static_set_toughness = Some(t);
-                }
+            EffectKind::SetPT {
+                power,
+                toughness,
+                timestamp,
+                static_id,
+                cda,
+            } => {
+                game.card_mut(effect.target)
+                    .add_new_pt(power, toughness, timestamp, static_id, cda);
+            }
+            EffectKind::AddColor {
+                color,
+                add_to_colors,
+                timestamp,
+                static_id,
+                cda,
+            } => {
+                game.card_mut(effect.target).add_color(
+                    color,
+                    add_to_colors,
+                    timestamp,
+                    static_id,
+                    cda,
+                );
             }
             EffectKind::RemoveAllCardTraits {
                 timestamp,
@@ -2093,6 +2124,31 @@ fn type_effects(
         timestamp: source_card.layer_timestamp,
         static_id: static_layer_trait_id(source_card.id, sa_idx).unsigned_abs(),
         cda: sa.ir.characteristic_defining,
+    })
+}
+
+#[inline]
+fn static_colors(source: &crate::card::Card, sa: &StaticAbility) -> Option<(ColorSet, bool)> {
+    let (colors, add_to_colors) = match sa.ir.set_color_text.as_deref() {
+        Some(colors) => (colors, false),
+        None => (sa.ir.add_color_text.as_deref()?, true),
+    };
+    let color = match colors {
+        "ChosenColor" => {
+            if !source.has_chosen_color() {
+                return None;
+            }
+            color_set_from_names(source.chosen_colors.iter().map(String::as_str))
+        }
+        "All" => ColorSet::ALL_COLORS,
+        colors => color_set_from_names(colors.split(" & ")),
+    };
+    Some((color, add_to_colors))
+}
+
+fn color_set_from_names<'a>(names: impl Iterator<Item = &'a str>) -> ColorSet {
+    names.fold(ColorSet::COLORLESS, |set, name| {
+        Color::from_name(name).map_or(set, |color| set.union(ColorSet::from_mask(color.mask())))
     })
 }
 

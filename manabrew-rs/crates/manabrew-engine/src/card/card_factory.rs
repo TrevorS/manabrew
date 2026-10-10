@@ -39,22 +39,9 @@ pub fn get_clone_states(input: &Card, new_owner: PlayerId, cause: &SpellAbility)
         new_owner,
         super::card_copy_service::copiable_type_line(input),
         input.mana_cost.clone(),
-        input
-            .animate_state
-            .as_ref()
-            .map_or(input.color, |state| state.original_color),
-        input
-            .animate_state
-            .as_ref()
-            .map(|state| state.original_base_power)
-            .or(input.changed_base_power)
-            .unwrap_or(input.base_power),
-        input
-            .animate_state
-            .as_ref()
-            .map(|state| state.original_base_toughness)
-            .or(input.changed_base_toughness)
-            .unwrap_or(input.base_toughness),
+        input.state_color,
+        input.base_power,
+        input.base_toughness,
         input.copiable_keywords().as_string_list(),
         input.abilities.clone(),
     );

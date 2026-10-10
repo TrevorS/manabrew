@@ -38,13 +38,11 @@ fn sacrificed_card_value(game: &GameState, sa: &SpellAbility, svar_expr: &str) -
     };
     let sac_card = game.card(sac_id);
     if svar_expr.ends_with("Power") {
-        sac_card
-            .lki_power
-            .unwrap_or(sac_card.base_power.unwrap_or(0))
+        sac_card.lki_power.unwrap_or(sac_card.state_base_power())
     } else if svar_expr.ends_with("Toughness") {
         sac_card
             .lki_toughness
-            .unwrap_or(sac_card.base_toughness.unwrap_or(0))
+            .unwrap_or(sac_card.state_base_toughness())
     } else {
         sac_card.mana_value()
     }

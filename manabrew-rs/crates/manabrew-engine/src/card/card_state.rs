@@ -619,7 +619,8 @@ pub fn calculate_perpetual_adjusted_mana_cost(card: &mut Card) {
 }
 
 pub fn add_color(card: &mut Card, color: ColorSet) {
-    card.color = card.color.union(color);
+    card.state_color = card.state_color.union(color);
+    card.update_color_cache();
 }
 
 pub fn has_keyword(card: &Card, keyword: &str) -> bool {

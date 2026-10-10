@@ -203,8 +203,6 @@ fn set_state_for_card(
             let card = ctx.game.card_mut(card_id);
             if card.face_down {
                 card.set_face_down(false);
-                // Restore original P/T by clearing the face-down overrides
-                card.set_static_set_pt(None, None);
 
                 // Remove the synthetic morph turn-face-up ability
                 card.activated_abilities.retain(|ab| !ab.is_turn_face_up());

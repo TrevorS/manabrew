@@ -24,7 +24,7 @@ fn a_dead_hosts_trigger_targets_as_the_object_it_was() {
     let avenger = put(&mut game, AVENGER, p0);
     let zone_timestamp = game.card(avenger).zone_timestamp;
     game.move_card(avenger, ZoneType::Graveyard, p0);
-    game.card_mut(avenger).color = ColorSet::WHITE;
+    game.card_mut(avenger).set_color(ColorSet::WHITE);
     let mut sa = SpellAbility::new_simple(Some(avenger), p0, "DB$ Destroy | ValidTgts$ Creature");
     sa.is_trigger = true;
 
@@ -44,6 +44,6 @@ fn a_live_hosts_trigger_targets_with_its_current_characteristics() {
     sa.source_zone_timestamp = Some(game.card(avenger).zone_timestamp);
 
     assert!(can_be_targeted_by_sa(&game, warden, p0, &sa));
-    game.card_mut(avenger).color = ColorSet::WHITE;
+    game.card_mut(avenger).set_color(ColorSet::WHITE);
     assert!(!can_be_targeted_by_sa(&game, warden, p0, &sa));
 }

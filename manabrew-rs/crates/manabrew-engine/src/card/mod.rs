@@ -195,10 +195,7 @@ pub struct CardActionTargetSpec {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnimateState {
     #[serde(default)]
-    pub type_change_timestamps: Vec<u64>,
-    pub original_base_power: Option<i32>,
-    pub original_base_toughness: Option<i32>,
-    pub original_color: ColorSet,
+    pub change_timestamps: Vec<u64>,
     /// Snapshot of intrinsic keywords before animate added any. Restored
     /// when the card leaves the battlefield (CR 400.7) so granted keywords
     /// (e.g. Animate `Keywords$ Haste`) do not persist into the new object.
@@ -210,45 +207,6 @@ pub struct AnimateState {
     /// branch is end of turn; only that branch may be undone by the cleanup step.
     #[serde(default = "crate::card::animate_ends_at_end_of_turn_default")]
     pub ends_at_end_of_turn: bool,
-    #[serde(default)]
-    pub new_power: Option<i32>,
-    #[serde(default)]
-    pub new_toughness: Option<i32>,
-    #[serde(default)]
-    pub new_color: Option<(ColorSet, bool)>,
-    #[serde(default)]
-    pub new_pt_timestamp: Option<u64>,
-}
-
-impl AnimateState {
-    pub fn add_new_pt(&mut self, power: Option<i32>, toughness: Option<i32>, timestamp: u64) {
-        self.new_power = power.or(self.new_power);
-        self.new_toughness = toughness.or(self.new_toughness);
-        self.new_pt_timestamp = Some(timestamp);
-    }
-
-    pub fn add_color(&mut self, color: ColorSet, add_to_colors: bool) {
-        self.new_color = Some(match self.new_color {
-            Some((previous, additional)) if add_to_colors => (previous.union(color), additional),
-            _ => (color, add_to_colors),
-        });
-    }
-
-    pub fn apply_new_pt_and_color(&self, card: &mut Card) {
-        if let Some(power) = self.new_power {
-            card.base_power = Some(power);
-        }
-        if let Some(toughness) = self.new_toughness {
-            card.base_toughness = Some(toughness);
-        }
-        if let Some((color, additional)) = self.new_color {
-            card.color = if additional {
-                card.color.union(color)
-            } else {
-                color
-            };
-        }
-    }
 }
 
 pub(crate) fn animate_ends_at_end_of_turn_default() -> bool {
@@ -412,6 +370,8 @@ pub struct Card {
 
     // Color (can be modified)
     pub color: ColorSet,
+    #[serde(default)]
+    pub state_color: ColorSet,
 
     /// Immutable color identity from the card's rules (CR 903.4): mana cost
     /// colors plus any mana symbols found in the oracle text (outside reminder
@@ -438,11 +398,10 @@ pub struct Card {
     /// Java-parity storage of all perpetual effect records applied to this card.
     #[serde(default)]
     pub perpetual: Vec<PerpetualRecord>,
-    /// Layer 7b override: set by `SetPower$` / `SetToughness$` continuous effects.
-    /// `None` means use `base_power` / `base_toughness` as normal.
-    /// Reset to `None` each time [`layer::apply_continuous_effects`] runs.
-    pub static_set_power: Option<i32>,
-    pub static_set_toughness: Option<i32>,
+    #[serde(skip)]
+    pub new_pt_character_defining: BTreeMap<(u64, u64), (Option<i32>, Option<i32>)>,
+    #[serde(skip)]
+    pub new_pt: BTreeMap<(u64, u64), (Option<i32>, Option<i32>)>,
     /// Layer 7c bonus: accumulated from `AddPower$` / `AddToughness$` anthems.
     /// Reset to 0 each time [`layer::apply_continuous_effects`] runs.
     pub static_power_modifier: i32,
@@ -514,9 +473,9 @@ pub struct Card {
     #[serde(skip)]
     pub changed_card_types: BTreeMap<(u64, u64), card_changed_type::CardChangedType>,
     #[serde(skip)]
-    pub changed_base_power: Option<Option<i32>>,
+    pub changed_card_colors_character_defining: BTreeMap<(u64, u64), (ColorSet, bool)>,
     #[serde(skip)]
-    pub changed_base_toughness: Option<Option<i32>>,
+    pub changed_card_colors: BTreeMap<(u64, u64), (ColorSet, bool)>,
     #[serde(skip)]
     pub changed_keywords_base: Option<crate::keyword::keyword_collection::KeywordCollection>,
     #[serde(skip)]
@@ -884,9 +843,6 @@ pub struct Card {
     /// Java `KeywordsChange` additions of timestamped keyword changes (Pump with a
     /// duration): the keyword and the change's timestamp.
     pub keyword_grants: Vec<(String, u64)>,
-    /// Java `Card.newPT` timestamp of the latest `Duration$ Permanent` Animate power and
-    /// toughness, which a set-P/T static older than it does not override (CR 613.7).
-    pub permanent_new_pt_timestamp: Option<u64>,
     /// Intensity marker value.
     pub intensity: i32,
     /// Card was surveilled this turn.
@@ -952,6 +908,20 @@ pub struct Card {
 /// Transitional alias for downstream code still importing `CardInstance`.
 pub type CardInstance = Card;
 
+#[inline]
+fn has_static_entry<V>(table: &BTreeMap<(u64, u64), V>) -> bool {
+    !table.is_empty() && table.keys().any(|&(_, static_id)| static_id != 0)
+}
+
+#[inline]
+fn retain_effect_entries<V>(table: &mut BTreeMap<(u64, u64), V>) -> bool {
+    if !has_static_entry(table) {
+        return false;
+    }
+    table.retain(|&(_, static_id), _| static_id == 0);
+    true
+}
+
 fn refresh_field<T: PartialEq + Clone>(out: &mut T, src: &T) {
     if out != src {
         out.clone_from(src);
@@ -1009,6 +979,7 @@ impl Card {
             state_type_line: type_line.clone(),
             type_line,
             mana_cost,
+            state_color: color,
             color,
             color_identity,
             base_power,
@@ -1020,8 +991,8 @@ impl Card {
             perpetual_toughness_modifier: 0,
             pt_boosts: Vec::new(),
             perpetual: Vec::new(),
-            static_set_power: None,
-            static_set_toughness: None,
+            new_pt_character_defining: BTreeMap::new(),
+            new_pt: BTreeMap::new(),
             static_power_modifier: 0,
             static_toughness_modifier: 0,
             tapped: false,
@@ -1054,8 +1025,8 @@ impl Card {
             granted_svars: BTreeMap::new(),
             changed_card_types_character_defining: BTreeMap::new(),
             changed_card_types: BTreeMap::new(),
-            changed_base_power: None,
-            changed_base_toughness: None,
+            changed_card_colors_character_defining: BTreeMap::new(),
+            changed_card_colors: BTreeMap::new(),
             changed_keywords_base: None,
             changed_trigger_count_base: None,
             changed_name_base: None,
@@ -1200,7 +1171,6 @@ impl Card {
             can_block_any: false,
             removed_keywords: Vec::new(),
             keyword_grants: Vec::new(),
-            permanent_new_pt_timestamp: None,
             intensity: 0,
             surveilled: false,
             milled: false,
@@ -1261,6 +1231,7 @@ impl Card {
             state_type_line: self.state_type_line.clone(),
             mana_cost: self.mana_cost.clone(),
             color: self.color,
+            state_color: self.state_color,
             color_identity: self.color_identity,
             base_power: self.base_power,
             base_toughness: self.base_toughness,
@@ -1271,8 +1242,8 @@ impl Card {
             perpetual_toughness_modifier: self.perpetual_toughness_modifier,
             pt_boosts: self.pt_boosts.clone(),
             perpetual: self.perpetual.clone(),
-            static_set_power: self.static_set_power,
-            static_set_toughness: self.static_set_toughness,
+            new_pt_character_defining: self.new_pt_character_defining.clone(),
+            new_pt: self.new_pt.clone(),
             static_power_modifier: self.static_power_modifier,
             static_toughness_modifier: self.static_toughness_modifier,
             tapped: self.tapped,
@@ -1306,8 +1277,10 @@ impl Card {
                 .changed_card_types_character_defining
                 .clone(),
             changed_card_types: self.changed_card_types.clone(),
-            changed_base_power: self.changed_base_power,
-            changed_base_toughness: self.changed_base_toughness,
+            changed_card_colors_character_defining: self
+                .changed_card_colors_character_defining
+                .clone(),
+            changed_card_colors: self.changed_card_colors.clone(),
             changed_keywords_base: self.changed_keywords_base.clone(),
             changed_trigger_count_base: self.changed_trigger_count_base,
             changed_name_base: self.changed_name_base.clone(),
@@ -1461,7 +1434,6 @@ impl Card {
             can_block_any: self.can_block_any,
             removed_keywords: self.removed_keywords.clone(),
             keyword_grants: self.keyword_grants.clone(),
-            permanent_new_pt_timestamp: self.permanent_new_pt_timestamp,
             intensity: self.intensity,
             surveilled: self.surveilled,
             milled: self.milled,
@@ -1520,9 +1492,11 @@ impl Card {
             .clone_from(&self.perpetual_toughness_modifier);
         refresh_field(&mut out.pt_boosts, &self.pt_boosts);
         out.perpetual.clone_from(&self.perpetual);
-        out.static_set_power.clone_from(&self.static_set_power);
-        out.static_set_toughness
-            .clone_from(&self.static_set_toughness);
+        refresh_field(
+            &mut out.new_pt_character_defining,
+            &self.new_pt_character_defining,
+        );
+        refresh_field(&mut out.new_pt, &self.new_pt);
         out.static_power_modifier
             .clone_from(&self.static_power_modifier);
         out.static_toughness_modifier
@@ -1564,9 +1538,11 @@ impl Card {
             &self.changed_card_types_character_defining,
         );
         refresh_field(&mut out.changed_card_types, &self.changed_card_types);
-        out.changed_base_power.clone_from(&self.changed_base_power);
-        out.changed_base_toughness
-            .clone_from(&self.changed_base_toughness);
+        refresh_field(
+            &mut out.changed_card_colors_character_defining,
+            &self.changed_card_colors_character_defining,
+        );
+        refresh_field(&mut out.changed_card_colors, &self.changed_card_colors);
         out.changed_keywords_base
             .clone_from(&self.changed_keywords_base);
         out.changed_trigger_count_base
@@ -1781,7 +1757,6 @@ impl Card {
         out.can_block_any.clone_from(&self.can_block_any);
         out.removed_keywords.clone_from(&self.removed_keywords);
         out.keyword_grants.clone_from(&self.keyword_grants);
-        out.permanent_new_pt_timestamp = self.permanent_new_pt_timestamp;
         out.intensity.clone_from(&self.intensity);
         out.surveilled.clone_from(&self.surveilled);
         out.milled.clone_from(&self.milled);
@@ -1837,23 +1812,46 @@ impl Card {
         card_factory::build_from_rules(rules, owner)
     }
 
-    /// Effective power, accounting for all layer effects and counters.
-    ///
-    /// Calculation order (CR 613):
-    /// - Layer 7b: `static_set_power` overrides `base_power` if set.
-    /// - Layer 7c: `static_power_modifier` (anthem bonuses) is added.
-    /// - Temporary: `power_modifier` (from spells like Giant Growth) is added.
-    /// - Layer 7d: +1/+1 and -1/-1 counters are factored in.
-    /// Java `Card.getCurrentPower`: the power the card's own state carries, before the
-    /// modifiers `power` adds on top.
+    /// Java `Card.getCurrentPower`: the state's base power, then each keyed set-P/T entry,
+    /// characteristic-defining first, in timestamp order.
     pub fn state_base_power(&self) -> i32 {
-        self.static_set_power
-            .unwrap_or(self.base_power.unwrap_or(0))
+        let base = self.base_power.unwrap_or(0);
+        if self.new_pt.is_empty() && self.new_pt_character_defining.is_empty() {
+            return base;
+        }
+        self.new_pt_character_defining
+            .values()
+            .chain(self.new_pt.values())
+            .fold(base, |power, &(set, _)| set.unwrap_or(power))
+    }
+
+    pub fn has_base_power(&self) -> bool {
+        self.base_power.is_some()
+            || self
+                .new_pt_character_defining
+                .values()
+                .chain(self.new_pt.values())
+                .any(|(power, _)| power.is_some())
+    }
+
+    pub fn has_base_toughness(&self) -> bool {
+        self.base_toughness.is_some()
+            || self
+                .new_pt_character_defining
+                .values()
+                .chain(self.new_pt.values())
+                .any(|(_, toughness)| toughness.is_some())
     }
 
     pub fn state_base_toughness(&self) -> i32 {
-        self.static_set_toughness
-            .unwrap_or(self.base_toughness.unwrap_or(0))
+        let base = self.base_toughness.unwrap_or(0);
+        if self.new_pt.is_empty() && self.new_pt_character_defining.is_empty() {
+            return base;
+        }
+        self.new_pt_character_defining
+            .values()
+            .chain(self.new_pt.values())
+            .fold(base, |toughness, &(_, set)| set.unwrap_or(toughness))
     }
 
     pub fn power(&self) -> i32 {
@@ -1864,10 +1862,8 @@ impl Card {
     }
 
     pub fn power_ignoring_noncreature_rule(&self) -> i32 {
-        let base = self
-            .static_set_power
-            .unwrap_or(self.base_power.unwrap_or(0));
-        base.wrapping_add(self.static_power_modifier)
+        self.state_base_power()
+            .wrapping_add(self.static_power_modifier)
             .wrapping_add(self.power_modifier)
             .wrapping_add(self.perpetual_power_modifier)
             .wrapping_add(
@@ -1888,10 +1884,8 @@ impl Card {
     }
 
     pub fn toughness_ignoring_noncreature_rule(&self) -> i32 {
-        let base = self
-            .static_set_toughness
-            .unwrap_or(self.base_toughness.unwrap_or(0));
-        base.wrapping_add(self.static_toughness_modifier)
+        self.state_base_toughness()
+            .wrapping_add(self.static_toughness_modifier)
             .wrapping_add(self.toughness_modifier)
             .wrapping_add(self.perpetual_toughness_modifier)
             .wrapping_add(
@@ -1994,10 +1988,6 @@ impl Card {
         self.state_type_line = type_line;
         self.update_types();
         self.update_types_for_view();
-    }
-
-    pub fn add_color(&mut self, color: ColorSet) {
-        crate::card::card_state::add_color(self, color);
     }
 
     pub fn has_intrinsic_keyword(&self, keyword: &str) -> bool {
@@ -3344,7 +3334,7 @@ impl Card {
         self.state_type_line = CardTypeLine::parse("Creature");
         self.update_type_cache();
         self.mana_cost = ManaCost::parse("no cost");
-        self.color = ColorSet::COLORLESS;
+        self.set_color(ColorSet::COLORLESS);
         self.base_power = Some(2);
         self.base_toughness = Some(2);
         self.keywords = Default::default();
@@ -3564,19 +3554,12 @@ impl Card {
         self.lki_toughness = toughness;
     }
 
-    pub fn restore_animate_snapshot(
-        &mut self,
-        type_change_timestamps: &[u64],
-        base_power: Option<i32>,
-        base_toughness: Option<i32>,
-        color: ColorSet,
-    ) {
-        for &timestamp in type_change_timestamps {
+    pub fn restore_animate_snapshot(&mut self, change_timestamps: &[u64]) {
+        for &timestamp in change_timestamps {
             self.remove_changed_card_types(timestamp, 0);
+            self.remove_new_pt(timestamp, 0);
+            self.remove_color(timestamp, 0);
         }
-        self.base_power = base_power;
-        self.base_toughness = base_toughness;
-        self.color = color;
     }
 
     pub fn capture_clone_state(&self) -> CloneState {
@@ -3586,7 +3569,7 @@ impl Card {
             original_oracle_text: self.oracle_text.clone(),
             original_type_line: self.state_type_line.clone(),
             original_mana_cost: self.mana_cost.clone(),
-            original_color: self.color,
+            original_color: self.state_color,
             original_base_power: self.base_power,
             original_base_toughness: self.base_toughness,
             original_keywords: self.keywords.clone(),
@@ -3616,11 +3599,7 @@ impl Card {
 
     fn retake_animate_snapshot(&mut self) {
         if let Some(mut state) = self.animate_state.take() {
-            state.original_base_power = self.base_power;
-            state.original_base_toughness = self.base_toughness;
-            state.original_color = self.color;
             state.original_keywords = Some(self.keywords.clone());
-            state.apply_new_pt_and_color(self);
             self.animate_state = Some(state);
         }
     }
@@ -3642,7 +3621,8 @@ impl Card {
         self.state_type_line = state.original_type_line;
         self.update_type_cache();
         self.mana_cost = state.original_mana_cost;
-        self.color = state.original_color;
+        self.state_color = state.original_color;
+        self.update_color_cache();
         self.base_power = state.original_base_power;
         self.base_toughness = state.original_base_toughness;
         self.keywords = state.original_keywords;
@@ -3676,7 +3656,8 @@ impl Card {
     }
 
     pub fn set_color(&mut self, color: ColorSet) {
-        self.color = color;
+        self.state_color = color;
+        self.update_color_cache();
     }
 
     pub fn set_animate_state(&mut self, state: Option<AnimateState>) {
@@ -3731,21 +3712,8 @@ impl Card {
         self.base_toughness = toughness;
     }
 
-    pub fn set_base_pt(&mut self, power: Option<i32>, toughness: Option<i32>) {
-        self.base_power = power;
-        self.base_toughness = toughness;
-    }
-
     pub fn capture_changed_characteristics_baseline_if_needed(&mut self) {
         let animate = self.animate_state.as_ref();
-        if self.changed_base_power.is_none() {
-            self.changed_base_power =
-                Some(animate.map_or(self.base_power, |s| s.original_base_power));
-        }
-        if self.changed_base_toughness.is_none() {
-            self.changed_base_toughness =
-                Some(animate.map_or(self.base_toughness, |s| s.original_base_toughness));
-        }
         if self.changed_keywords_base.is_none() {
             self.changed_keywords_base = Some(
                 animate
@@ -3794,12 +3762,6 @@ impl Card {
     }
 
     pub fn restore_changed_characteristics_baseline(&mut self) {
-        if let Some(power) = self.changed_base_power.take() {
-            self.base_power = power;
-        }
-        if let Some(toughness) = self.changed_base_toughness.take() {
-            self.base_toughness = toughness;
-        }
         if let Some(keywords) = self.changed_keywords_base.take() {
             if let Some(base) = self.trait_base_keywords.as_mut() {
                 *base = keywords.clone();
@@ -3822,11 +3784,6 @@ impl Card {
         if let Some(name) = self.changed_name_base.take() {
             self.card_name = name;
         }
-    }
-
-    pub fn set_static_set_pt(&mut self, power: Option<i32>, toughness: Option<i32>) {
-        self.static_set_power = power;
-        self.static_set_toughness = toughness;
     }
 
     pub fn set_power_modifier(&mut self, amount: i32) {
@@ -4480,8 +4437,114 @@ impl Card {
         self.update_type_cache();
         changed
     }
-    pub fn clear_changed_card_colors(&mut self) {
-        self.color = ColorSet::COLORLESS;
+    pub fn add_color(
+        &mut self,
+        color: ColorSet,
+        add_to_colors: bool,
+        timestamp: u64,
+        static_id: u64,
+        cda: bool,
+    ) {
+        let table = if cda {
+            &mut self.changed_card_colors_character_defining
+        } else {
+            &mut self.changed_card_colors
+        };
+        table.insert((timestamp, static_id), (color, add_to_colors));
+        self.update_color_cache();
+    }
+
+    pub fn remove_color(&mut self, timestamp: u64, static_id: u64) -> bool {
+        let removed = self
+            .changed_card_colors
+            .remove(&(timestamp, static_id))
+            .is_some()
+            | self
+                .changed_card_colors_character_defining
+                .remove(&(timestamp, static_id))
+                .is_some();
+        if removed {
+            self.update_color_cache();
+        }
+        removed
+    }
+
+    pub fn clear_changed_card_colors(&mut self) -> bool {
+        let changed = !self.changed_card_colors_character_defining.is_empty()
+            || !self.changed_card_colors.is_empty();
+        self.changed_card_colors_character_defining.clear();
+        self.changed_card_colors.clear();
+        self.update_color_cache();
+        changed
+    }
+
+    pub fn update_color_cache(&mut self) {
+        if self.changed_card_colors.is_empty()
+            && self.changed_card_colors_character_defining.is_empty()
+        {
+            self.color = self.state_color;
+            return;
+        }
+        self.color = self
+            .changed_card_colors_character_defining
+            .values()
+            .chain(self.changed_card_colors.values())
+            .fold(self.state_color, |color, &(change, additional)| {
+                if additional {
+                    color.union(change)
+                } else {
+                    change
+                }
+            });
+    }
+
+    pub fn add_new_pt(
+        &mut self,
+        power: Option<i32>,
+        toughness: Option<i32>,
+        timestamp: u64,
+        static_id: u64,
+        cda: bool,
+    ) {
+        let table = if cda {
+            &mut self.new_pt_character_defining
+        } else {
+            &mut self.new_pt
+        };
+        table.insert((timestamp, static_id), (power, toughness));
+    }
+
+    pub fn remove_new_pt(&mut self, timestamp: u64, static_id: u64) -> bool {
+        self.new_pt.remove(&(timestamp, static_id)).is_some()
+            | self
+                .new_pt_character_defining
+                .remove(&(timestamp, static_id))
+                .is_some()
+    }
+
+    pub fn clear_new_pt(&mut self) -> bool {
+        let changed = !self.new_pt_character_defining.is_empty() || !self.new_pt.is_empty();
+        self.new_pt_character_defining.clear();
+        self.new_pt.clear();
+        changed
+    }
+
+    pub fn clear_static_layer_new_pt_and_colors(&mut self) {
+        retain_effect_entries(&mut self.new_pt);
+        retain_effect_entries(&mut self.new_pt_character_defining);
+        if retain_effect_entries(&mut self.changed_card_colors)
+            | retain_effect_entries(&mut self.changed_card_colors_character_defining)
+        {
+            self.update_color_cache();
+        }
+    }
+
+    #[inline]
+    pub fn has_static_layer_new_pt_or_colors(&self) -> bool {
+        has_static_entry(&self.new_pt)
+            || has_static_entry(&self.new_pt_character_defining)
+            || has_static_entry(&self.changed_card_colors)
+            || has_static_entry(&self.changed_card_colors_character_defining)
     }
     pub fn add_changed_card_types_by_text(&mut self) {
         self.update_types();
@@ -4559,18 +4622,6 @@ impl Card {
         }
         self.type_line = type_line;
     }
-    pub fn has_changed_card_colors(&self) -> bool {
-        !self.color.is_colorless()
-    }
-    pub fn add_color_by_text(&mut self, color: ColorSet) {
-        self.add_color(color);
-    }
-    pub fn remove_color_by_text(&mut self) {
-        self.remove_color();
-    }
-    pub fn remove_color(&mut self) {
-        self.color = ColorSet::COLORLESS;
-    }
     pub fn update_state_for_view(
         &mut self,
         paper_token: bool,
@@ -4592,24 +4643,6 @@ impl Card {
     }
     pub fn remove_clone_states(&mut self) {
         self.remove_s_var("CloneState");
-    }
-    pub fn add_new_pt_by_text(&mut self, p: i32, t: i32) {
-        self.base_power = Some(p);
-        self.base_toughness = Some(t);
-    }
-    pub fn remove_new_p_tby_text(&mut self) {
-        self.clear_new_pt();
-    }
-    pub fn add_new_pt(&mut self, p: i32, t: i32) {
-        self.base_power = Some(p);
-        self.base_toughness = Some(t);
-    }
-    pub fn remove_new_pt(&mut self) {
-        self.clear_new_pt();
-    }
-    pub fn clear_new_pt(&mut self) {
-        self.base_power = None;
-        self.base_toughness = None;
     }
     pub fn toughness_assigns_damage(&self) -> bool {
         self.has_keyword("CARDNAME assigns combat damage equal to its toughness")
@@ -5499,11 +5532,6 @@ impl Card {
                 .map_or(base, |count| count.min(base));
             lasting_trigger_count = base - face;
             granted_triggers = self.triggers.split_off(face);
-            if let Some(state) = self.animate_state.as_ref() {
-                self.base_power = state.original_base_power;
-                self.base_toughness = state.original_base_toughness;
-                self.color = state.original_color;
-            }
             if let Some(statics) = self.trait_base_static_abilities.clone() {
                 self.static_abilities = statics;
             }
@@ -5546,7 +5574,7 @@ impl Card {
             std::mem::swap(&mut self.oracle_text, &mut other.oracle_text);
             std::mem::swap(&mut self.state_type_line, &mut other.type_line);
             std::mem::swap(&mut self.mana_cost, &mut other.mana_cost);
-            std::mem::swap(&mut self.color, &mut other.color);
+            std::mem::swap(&mut self.state_color, &mut other.color);
             std::mem::swap(&mut self.base_power, &mut other.base_power);
             std::mem::swap(&mut self.base_toughness, &mut other.base_toughness);
             std::mem::swap(&mut self.keywords, &mut other.keywords);
@@ -5583,6 +5611,7 @@ impl Card {
                 }
             }
             self.update_type_cache();
+            self.update_color_cache();
             self.retake_animate_snapshot();
 
             // Re-parse activated abilities from new face's abilities

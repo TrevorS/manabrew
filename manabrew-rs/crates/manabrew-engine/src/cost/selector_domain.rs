@@ -28,8 +28,8 @@ pub(crate) fn matches_selector_domain_predicate(
         "powereven" => Some(card.power() % 2 == 0),
         "powerodd" => Some(card.power() % 2 != 0),
         "powernotbasepower" => card
-            .base_power
-            .map(|_| card.power() != card.state_base_power()),
+            .has_base_power()
+            .then(|| card.power() != card.state_base_power()),
         _ => None,
     }
 }

@@ -46,10 +46,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             .card_mut(card_id)
             .capture_changed_characteristics_baseline_if_needed();
 
-        // Set base P/T to 0/0
-        ctx.game.card_mut(card_id).set_base_pt(Some(0), Some(0));
-
         let timestamp = ctx.game.next_timestamp();
+        ctx.game
+            .card_mut(card_id)
+            .add_new_pt(Some(0), Some(0), timestamp, 0, false);
         ctx.game.card_mut(card_id).add_changed_card_types(
             crate::card::card_changed_type::CardChangedType {
                 add_type: vec![CoreType::Creature.name().to_string()],

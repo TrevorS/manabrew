@@ -1501,14 +1501,14 @@ pub fn handle_paid(
             .iter()
             .map(|&cid| {
                 let card = game.card(cid);
-                lki_power(card).unwrap_or(card.base_power.unwrap_or(0))
+                lki_power(card).unwrap_or(card.state_base_power())
             })
             .sum(),
         "TotalToughness" | "SumToughness" => paid_cards
             .iter()
             .map(|&cid| {
                 let card = game.card(cid);
-                lki_toughness(card).unwrap_or(card.base_toughness.unwrap_or(0))
+                lki_toughness(card).unwrap_or(card.state_base_toughness())
             })
             .sum(),
         "TotalCMC" | "SumCMC" => paid_cards

@@ -765,12 +765,25 @@ fn apply_dice_pt_exchanges(
         match choice {
             crate::agent::RollSwapChoice::Power => {
                 results_list[roll_index].modified_value = current_power;
-                game.card_mut(card_id)
-                    .add_new_pt(roll_value, current_toughness);
+                let timestamp = game.next_timestamp();
+                game.card_mut(card_id).add_new_pt(
+                    Some(roll_value),
+                    Some(current_toughness),
+                    timestamp,
+                    0,
+                    false,
+                );
             }
             crate::agent::RollSwapChoice::Toughness => {
                 results_list[roll_index].modified_value = current_toughness;
-                game.card_mut(card_id).add_new_pt(current_power, roll_value);
+                let timestamp = game.next_timestamp();
+                game.card_mut(card_id).add_new_pt(
+                    Some(current_power),
+                    Some(roll_value),
+                    timestamp,
+                    0,
+                    false,
+                );
             }
         }
     }
@@ -1767,8 +1780,8 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![2, 6]
         );
-        assert_eq!(game.card(card_id).base_power, Some(4));
-        assert_eq!(game.card(card_id).base_toughness, Some(5));
+        assert_eq!(game.card(card_id).state_base_power(), 4);
+        assert_eq!(game.card(card_id).state_base_toughness(), 5);
     }
 
     #[test]
