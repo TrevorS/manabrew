@@ -4316,7 +4316,7 @@ fn choose_mana_ability_to_pay(
             && source
                 .chosen_type
                 .as_deref()
-                .is_some_and(|chosen| spell.type_line.has_subtype(chosen))
+                .is_some_and(|chosen| spell.has_creature_type(chosen))
         {
             if to_pay == ManaCostShard::Colorless && unpaid.get_generic_mana_amount() > 0 {
                 continue;

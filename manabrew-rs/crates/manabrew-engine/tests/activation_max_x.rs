@@ -8,7 +8,7 @@ use manabrew_engine::agent::{
     PriorityActionSpace, PriorityContext, TargetChoice,
 };
 use manabrew_engine::combat::DefenderId;
-use manabrew_engine::game::GameState;
+use manabrew_engine::game::{GameState, TypeRegistry};
 use manabrew_engine::game_loop::GameLoop;
 use manabrew_engine::ids::{CardId, PlayerId};
 use manabrew_engine::mana::{ActionSpaceManaProbe, ManaPool};
@@ -224,4 +224,66 @@ fn the_harness_x_for_an_ability_follows_the_cavern_of_souls_probe() {
         Some(0)
     );
     assert_eq!(max_x_offered(ActionSpaceManaProbe::AutoPay), Some(1));
+}
+
+const SHAPELESS_SANCTUARY: &str = "Name:Shapeless Sanctuary\nManaCost:no cost\nTypes:Land Creature\nPT:3/3\nS:Mode$ Continuous | Affected$ Card.Self | CharacteristicDefining$ True | AddAllCreatureTypes$ True | EffectZone$ All\nA:AB$ GainLife | Cost$ 2 | LifeAmount$ 1 | SpellDescription$ You gain 1 life.\nOracle:";
+
+fn load_types() {
+    let type_lists = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../forge/forge-gui/res/lists/TypeLists.txt"
+    ))
+    .expect("TypeLists.txt");
+    TypeRegistry::load(&type_lists, []);
+}
+
+fn life_after_activating_an_all_creature_types_land(probe: ActionSpaceManaProbe) -> i32 {
+    load_types();
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let sanctuary = put(&mut game, SHAPELESS_SANCTUARY, p0, ZoneType::Battlefield);
+    game.card_mut(sanctuary).summoning_sick = false;
+    let cavern = put(&mut game, CAVERN, p0, ZoneType::Battlefield);
+    game.card_mut(cavern).chosen_type = Some("Human".to_string());
+    put(
+        &mut game,
+        "Name:Plains\nManaCost:no cost\nTypes:Basic Land Plains\nOracle:",
+        p0,
+        ZoneType::Battlefield,
+    );
+    for _ in 0..20 {
+        put(
+            &mut game,
+            "Name:Forest\nManaCost:no cost\nTypes:Basic Land Forest\nOracle:",
+            p0,
+            ZoneType::Library,
+        );
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    game.action_space_mana_probe = probe;
+    manabrew_engine::staticability::layer::apply_continuous_effects(&mut game);
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Activator {
+            name: "Shapeless Sanctuary",
+            max_seen: Rc::new(Cell::new(None)),
+            done: false,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    game.players[0].life
+}
+
+#[test]
+fn the_cavern_of_souls_probe_counts_a_host_with_all_creature_types_as_its_chosen_type() {
+    assert_eq!(
+        life_after_activating_an_all_creature_types_land(ActionSpaceManaProbe::ComputerUtilMana),
+        20
+    );
+    assert_eq!(
+        life_after_activating_an_all_creature_types_land(ActionSpaceManaProbe::AutoPay),
+        21
+    );
 }
