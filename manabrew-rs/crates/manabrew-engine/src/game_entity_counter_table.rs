@@ -396,9 +396,18 @@ fn add_counter_internal(
 
     let first_time = game.counter_added_this_turn(object, Some(counter_type)) == 0;
     match object {
-        GameEntity::Card(card) => game
-            .card_mut(card)
-            .add_counter_internal(counter_type, amount),
+        GameEntity::Card(card) => {
+            game.card_mut(card)
+                .add_counter_internal(counter_type, amount);
+            if crate::card::counter_keyword_type::CounterKeywordType::keyword(counter_type)
+                .is_some()
+            {
+                let timestamp = game.next_timestamp();
+                game.card_mut(card)
+                    .counter_keyword_timestamps
+                    .insert(counter_type.clone(), timestamp);
+            }
+        }
         GameEntity::Player(player) => add_player_counter(game, player, counter_type, amount),
     }
     let new_value = counter_count(game, object, counter_type);

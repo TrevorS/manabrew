@@ -349,3 +349,41 @@ fn an_end_of_turn_animate_ends_alone_beside_an_as_long_as_in_play_one() {
         assert!(!card.type_line.has_subtype("Treasure"), "{treasure_first}");
     }
 }
+
+const PUT_INDESTRUCTIBLE: &str =
+    "DB$ PutCounter | Defined$ Targeted | CounterType$ Indestructible | CounterNum$ 1";
+const LOSE_ALL_ABILITIES: &str =
+    "DB$ AnimateAll | ValidCards$ Creature.Bear | RemoveAllAbilities$ True";
+
+fn indestructible_after(order: &[&str]) -> bool {
+    load_types();
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let bear = put(&mut game, GREEN_BEAR, p0, ZoneType::Battlefield);
+    let captain = put(&mut game, BONE_CAPTAIN, p0, ZoneType::Battlefield);
+    let mut game_loop = GameLoop::new(2);
+    for text in order {
+        resolve(&mut game, &mut game_loop, captain, text, bear);
+    }
+    apply_continuous_effects(&mut game);
+    assert_eq!(game.card(bear).counters.len(), 1);
+    game.card(bear).has_keyword("Indestructible")
+}
+
+#[test]
+fn a_keyword_counter_competes_with_lose_all_abilities_by_timestamp() {
+    assert!(!indestructible_after(&[
+        PUT_INDESTRUCTIBLE,
+        LOSE_ALL_ABILITIES
+    ]));
+    assert!(indestructible_after(&[
+        LOSE_ALL_ABILITIES,
+        PUT_INDESTRUCTIBLE
+    ]));
+    assert!(indestructible_after(&[
+        PUT_INDESTRUCTIBLE,
+        LOSE_ALL_ABILITIES,
+        PUT_INDESTRUCTIBLE
+    ]));
+}

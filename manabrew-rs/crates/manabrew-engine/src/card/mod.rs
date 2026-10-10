@@ -461,6 +461,8 @@ pub struct Card {
 
     // Counters
     pub counters: BTreeMap<CounterType, i32>,
+    #[serde(default)]
+    pub counter_keyword_timestamps: BTreeMap<CounterType, u64>,
 
     // Keywords intrinsic to this card (from its card definition).
     // Now stored as a `KeywordCollection` for structured typed lookups.
@@ -1023,6 +1025,7 @@ impl Card {
             damage: 0,
             cast_from: None,
             counters: BTreeMap::new(),
+            counter_keyword_timestamps: BTreeMap::new(),
             keywords: crate::keyword::keyword_collection::KeywordCollection::from_strings(
                 &keywords,
             ),
@@ -1275,6 +1278,7 @@ impl Card {
             damage: self.damage,
             cast_from: self.cast_from,
             counters: self.counters.clone(),
+            counter_keyword_timestamps: self.counter_keyword_timestamps.clone(),
             keywords: self.keywords.clone(),
             granted_keywords: self.granted_keywords.clone(),
             granted_svars: self.granted_svars.clone(),
@@ -1531,6 +1535,10 @@ impl Card {
         out.damage.clone_from(&self.damage);
         out.cast_from.clone_from(&self.cast_from);
         refresh_field(&mut out.counters, &self.counters);
+        refresh_field(
+            &mut out.counter_keyword_timestamps,
+            &self.counter_keyword_timestamps,
+        );
         if !out.keywords.eq_in_order(&self.keywords) {
             out.keywords.clone_from(&self.keywords);
         }

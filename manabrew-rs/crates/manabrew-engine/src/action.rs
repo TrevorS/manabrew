@@ -813,6 +813,7 @@ impl GameState {
                     )
                 {
                     self.card_mut(card_id).counters.clear();
+                    self.card_mut(card_id).counter_keyword_timestamps.clear();
                 }
                 // A permanent enters under the destination player's control.
                 // This must be updated before ETB-trigger registration so
@@ -947,6 +948,7 @@ impl GameState {
                 card.activations_this_game.clear();
                 if !keep_counters {
                     card.counters.clear();
+                    card.counter_keyword_timestamps.clear();
                 }
                 // Clear temporary triggers added by Animate effects (e.g.
                 // Supernatural Stamina's "when this creature dies, return it").
@@ -1032,6 +1034,7 @@ impl GameState {
                 card.reset_solved_and_harnessed();
                 if !keep_counters {
                     card.counters.clear();
+                    card.counter_keyword_timestamps.clear();
                 }
                 if let Some(state) = card.clone_state.take() {
                     card.restore_clone_snapshot(*state);
@@ -1179,6 +1182,7 @@ impl GameState {
             ZoneType::Battlefield,
         ) {
             self.card_mut(card_id).counters.clear();
+            self.card_mut(card_id).counter_keyword_timestamps.clear();
         }
         self.pending_remove_from_combat.push(card_id);
         let controller = self.card(card_id).controller;

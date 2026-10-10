@@ -399,6 +399,11 @@ pub fn apply_continuous_effects(game: &mut GameState) {
             if let Some(keyword) =
                 crate::card::counter_keyword_type::CounterKeywordType::keyword(counter)
             {
+                let timestamp = card
+                    .counter_keyword_timestamps
+                    .get(counter)
+                    .copied()
+                    .unwrap_or(card.layer_timestamp);
                 staged.push((
                     usize::MAX,
                     PendingEffect {
@@ -408,7 +413,7 @@ pub fn apply_continuous_effects(game: &mut GameState) {
                             keyword: keyword.to_string(),
                             idx: 1,
                             static_id: 0,
-                            timestamp: None,
+                            timestamp: Some(timestamp),
                         },
                     },
                 ));
@@ -1313,6 +1318,13 @@ fn apply_pending_effects(
                 static_id,
                 timestamp,
             } => {
+                if timestamp.is_some_and(|timestamp| {
+                    game.card(effect.target).changed_card_traits.iter().any(
+                        |(&(changed, _), change)| change.remove_all && changed > timestamp as i64,
+                    )
+                }) {
+                    continue;
+                }
                 let card = game.card_mut(effect.target);
                 let kw: String = if kw.contains("CardManaCost") {
                     kw.replace("CardManaCost", &card.mana_cost.short_string())
