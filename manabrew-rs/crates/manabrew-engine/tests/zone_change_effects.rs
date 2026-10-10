@@ -1646,3 +1646,39 @@ fn an_imprint_on_a_moved_host_is_what_its_sub_ability_reads() {
     assert_eq!(game.card(ox).zone, ZoneType::Battlefield);
     assert!(game.card(warden).imprinted_cards.is_empty());
 }
+
+struct HeadsRng;
+
+impl GameRng for HeadsRng {
+    fn shuffle_cards(&mut self, _cards: &mut [CardId]) {}
+
+    fn next_int(&mut self, bound: i32) -> i32 {
+        bound - 1
+    }
+}
+
+#[test]
+fn a_coin_flip_sub_ability_skips_the_turns_of_the_player_its_parent_targeted() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    main_phase(&mut game, p0);
+    let source = effect_source(&mut game, p0);
+    game.card_mut(source).svars.insert(
+        "DBSkipTurn".to_string(),
+        "DB$ SkipTurn | NumTurns$ 1 | Defined$ Targeted".to_string(),
+    );
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    game_loop.game_rng = Box::new(HeadsRng);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ FlipCoin | ValidTgts$ Opponent | NoCall$ True | HeadsSubAbility$ DBSkipTurn",
+        None,
+        Some(p1),
+        Some(source),
+    );
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.player(p0).skip_turns, 0);
+    assert_eq!(game.player(p1).skip_turns, 1);
+}

@@ -1,4 +1,4 @@
-use super::{resolve_defined_players, EffectContext};
+use super::EffectContext;
 use crate::ability::ability_ir::DefinedRef;
 use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
 use crate::replacement::ReplacementResult;
@@ -22,7 +22,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     // Collect drained mana colors for DrainMana transfer
     let mut drained_mana: Vec<u16> = Vec::new();
 
-    let targets = resolve_defined_players(defined, controller, ctx.game);
+    let targets = crate::ability::ability_utils::resolve_defined_players_with_sa(
+        defined, sa, controller, ctx.game,
+    );
     for pid in &targets {
         if !ctx.game.player(*pid).is_alive() {
             continue;

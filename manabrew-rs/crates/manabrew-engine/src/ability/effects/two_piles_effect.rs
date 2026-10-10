@@ -149,7 +149,12 @@ fn resolve_pile(
     let temp_players = std::mem::take(&mut card.remembered_players);
     card.add_remembered_cards(pile.iter().copied());
     if let Some(sub) = sa.additional_ability(ctx.game, key) {
-        super::effect_resolver::resolve_effect_chain(ctx, sub);
+        super::resolve_effect_chain_with_parent(
+            ctx,
+            sub,
+            sa.target_chosen.target_card,
+            sa.target_chosen.target_player,
+        );
     }
     let card = ctx.game.host_object_mut(source, sa);
     card.remembered_cards.retain(|c| !pile.contains(c));

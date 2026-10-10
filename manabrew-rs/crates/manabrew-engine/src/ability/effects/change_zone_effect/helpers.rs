@@ -5,9 +5,7 @@
 
 use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
 
-use super::super::{
-    emit_zone_trigger, parse_counter_type, parse_zone_type, resolve_defined_players, EffectContext,
-};
+use super::super::{emit_zone_trigger, parse_counter_type, parse_zone_type, EffectContext};
 use crate::agent::DecisionContext;
 use crate::card::valid_filter::{matches_valid_card_selector_with_context, MatchContext};
 use crate::card::Card;
@@ -354,7 +352,12 @@ pub(super) fn apply_pre_move(
 
         // AttachedToPlayer$ — Curses
         if let Some(atp_def) = sa.ir.attached_to_player_text.as_deref() {
-            let players = resolve_defined_players(atp_def, sa.activating_player, ctx.game);
+            let players = crate::ability::ability_utils::resolve_defined_players_with_sa(
+                atp_def,
+                sa,
+                sa.activating_player,
+                ctx.game,
+            );
             if players.is_empty() {
                 return false;
             }

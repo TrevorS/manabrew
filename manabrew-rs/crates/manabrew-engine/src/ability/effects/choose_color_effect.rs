@@ -1,4 +1,4 @@
-use super::{resolve_defined_players, EffectContext};
+use super::EffectContext;
 use crate::agent::DecisionContext;
 
 /// `SP$ ChooseColor` — player(s) choose a color.
@@ -16,7 +16,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     let controller = sa.activating_player;
     let defined = sa.defined().unwrap_or("You").to_string();
-    let players = resolve_defined_players(&defined, controller, ctx.game);
+    let players = crate::ability::ability_utils::resolve_defined_players_with_sa(
+        &defined, sa, controller, ctx.game,
+    );
 
     let mut valid_colors: Vec<String> = if let Some(choices) = sa.ir.choices.as_deref() {
         choices

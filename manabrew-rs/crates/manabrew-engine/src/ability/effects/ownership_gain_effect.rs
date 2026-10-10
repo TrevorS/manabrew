@@ -11,7 +11,12 @@ use crate::ids::CardId;
 #[manabrew_engine_macros::spell_effect(OwnershipGainEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let new_owner = if let Some(def) = sa.defined_player() {
-        let players = super::resolve_defined_players(def, sa.activating_player, ctx.game);
+        let players = crate::ability::ability_utils::resolve_defined_players_with_sa(
+            def,
+            sa,
+            sa.activating_player,
+            ctx.game,
+        );
         players.into_iter().next().unwrap_or(sa.activating_player)
     } else {
         sa.activating_player

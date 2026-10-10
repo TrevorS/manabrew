@@ -1,4 +1,4 @@
-use super::{resolve_defined_players, EffectContext};
+use super::EffectContext;
 
 /// Mirrors Java's `ActivateAbilityEffect` for the common `ManaAbility$ True`
 /// case used by cards like Pygmy Hippo.
@@ -12,7 +12,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let only_mana = sa.ir.mana_ability;
     let type_filter = sa.ir.type_filter.as_deref().unwrap_or("Card");
 
-    let players = resolve_defined_players(defined, controller, ctx.game);
+    let players = crate::ability::ability_utils::resolve_defined_players_with_sa(
+        defined, sa, controller, ctx.game,
+    );
     for pid in players {
         if !ctx.game.player(pid).is_alive() {
             continue;

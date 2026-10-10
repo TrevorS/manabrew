@@ -1,4 +1,4 @@
-use super::{resolve_defined_players, resolve_numeric_svar, EffectContext};
+use super::{resolve_numeric_svar, EffectContext};
 use crate::{HashMap, HashSet};
 
 use crate::agent::notification::GameNotification;
@@ -169,7 +169,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let players = if let Some(player) = sa.target_chosen.target_player {
         vec![player]
     } else if let Some(defined) = sa.defined() {
-        let resolved = resolve_defined_players(defined, controller, ctx.game);
+        let resolved = crate::ability::ability_utils::resolve_defined_players_with_sa(
+            defined, sa, controller, ctx.game,
+        );
         if resolved.is_empty() {
             vec![controller]
         } else {

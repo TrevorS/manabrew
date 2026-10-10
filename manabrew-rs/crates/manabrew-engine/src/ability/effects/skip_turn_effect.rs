@@ -1,4 +1,4 @@
-use super::{resolve_defined_players, resolve_numeric_svar, EffectContext};
+use super::{resolve_numeric_svar, EffectContext};
 use crate::parsing::keys;
 
 /// Resolve `SP$ SkipTurn` — make a player skip their next turn(s).
@@ -21,7 +21,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
     let defined = sa.defined().unwrap_or("You");
 
-    let targets = resolve_defined_players(defined, controller, ctx.game);
+    let targets = crate::ability::ability_utils::resolve_defined_players_with_sa(
+        defined, sa, controller, ctx.game,
+    );
     for target in targets {
         if ctx.game.player(target).is_alive() {
             ctx.game.player_add_skip_turns(target, num);

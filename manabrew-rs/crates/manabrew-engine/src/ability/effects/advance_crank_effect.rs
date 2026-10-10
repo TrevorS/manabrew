@@ -15,7 +15,12 @@ use crate::trigger::TriggerType;
 #[manabrew_engine_macros::spell_effect(AdvanceCrankEffect)]
 fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let players = if let Some(def) = sa.defined() {
-        super::resolve_defined_players(def, sa.activating_player, ctx.game)
+        crate::ability::ability_utils::resolve_defined_players_with_sa(
+            def,
+            sa,
+            sa.activating_player,
+            ctx.game,
+        )
     } else {
         vec![sa.activating_player]
     };

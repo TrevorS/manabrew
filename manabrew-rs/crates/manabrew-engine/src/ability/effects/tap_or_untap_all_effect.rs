@@ -1,6 +1,6 @@
 use forge_foundation::ZoneType;
 
-use super::{matches_valid_cards_for_sa, resolve_defined_players, EffectContext};
+use super::{matches_valid_cards_for_sa, EffectContext};
 use crate::agent::BinaryChoiceKind;
 use crate::agent::DecisionContext;
 use crate::ids::{CardId, PlayerId};
@@ -42,7 +42,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if let Some(pid) = sa.target_chosen.target_player {
             Some(vec![pid])
         } else if let Some(defined) = sa.ir.defined_text.as_deref() {
-            Some(resolve_defined_players(defined, controller, ctx.game))
+            Some(
+                crate::ability::ability_utils::resolve_defined_players_with_sa(
+                    defined, sa, controller, ctx.game,
+                ),
+            )
         } else {
             None
         };

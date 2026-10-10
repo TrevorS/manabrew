@@ -1,4 +1,4 @@
-use super::{resolve_defined_players, resolve_numeric_svar, EffectContext};
+use super::{resolve_numeric_svar, EffectContext};
 use crate::agent::notification::GameNotification;
 use crate::agent::DecisionContext;
 use crate::agent::{BinaryChoiceKind, GameLogEvent};
@@ -15,7 +15,9 @@ fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
     let flippers = if let Some(player) = sa.target_chosen.target_player {
         vec![player]
     } else if let Some(defined) = sa.ir.flipper_text.as_deref() {
-        let players = resolve_defined_players(defined, controller, ctx.game);
+        let players = crate::ability::ability_utils::resolve_defined_players_with_sa(
+            defined, sa, controller, ctx.game,
+        );
         if players.is_empty() {
             vec![controller]
         } else {
@@ -54,7 +56,9 @@ fn resolve(ctx: &mut EffectContext, sa: &SpellAbility) {
         } else if let Some(for_each) = sa.ir.for_each_player_text.as_deref() {
             let mut winners = Vec::new();
             let mut losers = Vec::new();
-            for player in resolve_defined_players(for_each, controller, ctx.game) {
+            for player in crate::ability::ability_utils::resolve_defined_players_with_sa(
+                for_each, sa, controller, ctx.game,
+            ) {
                 if flip_coins(ctx, flipper, sa, 1) > 0 {
                     winners.push(player);
                 } else {
@@ -274,6 +278,11 @@ fn resolve_for_players(
 
 fn resolve_additional(ctx: &mut EffectContext, sa: &SpellAbility, key: &str) {
     if let Some(sub_sa) = sa.additional_ability(ctx.game, key) {
-        super::effect_resolver::resolve_effect_chain(ctx, sub_sa);
+        super::resolve_effect_chain_with_parent(
+            ctx,
+            sub_sa,
+            sa.target_chosen.target_card,
+            sa.target_chosen.target_player,
+        );
     }
 }

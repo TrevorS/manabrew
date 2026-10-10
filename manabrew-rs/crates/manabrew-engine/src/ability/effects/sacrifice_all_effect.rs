@@ -29,8 +29,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     if let Some(unless_cost_str) = sa.ir.unless_cost.as_deref() {
         let source = sa.source.unwrap_or(CardId(0));
         let cost = crate::cost::parse_cost(unless_cost_str);
-        let payers = super::helpers::resolve_defined_players(
+        let payers = crate::ability::ability_utils::resolve_defined_players_with_sa(
             sa.ir.unless_payer_text.as_deref().unwrap_or("You"),
+            sa,
             sa.activating_player,
             ctx.game,
         );

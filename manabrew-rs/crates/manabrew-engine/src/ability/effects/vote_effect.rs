@@ -214,7 +214,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                     .card_mut(host)
                     .set_s_var("VoteNum".to_string(), format!("Number${count}"));
             }
-            super::effect_resolver::resolve_effect_chain(ctx, sub);
+            super::resolve_effect_chain_with_parent(
+                ctx,
+                sub,
+                sa.target_chosen.target_card,
+                sa.target_chosen.target_player,
+            );
         }
     }
     if params.has("VoteSubAbility") {

@@ -1,4 +1,4 @@
-use super::{resolve_defined_players, EffectContext};
+use super::EffectContext;
 use crate::agent::BinaryChoiceKind;
 use crate::agent::DecisionContext;
 use crate::ids::PlayerId;
@@ -17,7 +17,12 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let players: Vec<PlayerId> = if let Some(pid) = sa.target_chosen.target_player {
         vec![pid]
     } else if let Some(defined) = sa.defined() {
-        resolve_defined_players(defined, sa.activating_player, ctx.game)
+        crate::ability::ability_utils::resolve_defined_players_with_sa(
+            defined,
+            sa,
+            sa.activating_player,
+            ctx.game,
+        )
     } else {
         vec![sa.activating_player]
     };
