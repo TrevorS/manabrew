@@ -633,6 +633,7 @@ impl GameLoop {
             agents,
             rng,
             first_player,
+            &vec![crate::mulligan::LondonMulligan::default(); game.players.len()],
             &self.mana_pools,
             &self.game_log,
         );

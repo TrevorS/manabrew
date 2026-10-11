@@ -35,6 +35,13 @@ use serde::{Deserialize, Serialize};
 
 const STARTING_HAND_SIZE: usize = 7;
 
+/// Forge's `AbstractMulligan` state: `timesMulliganed` and `kept`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LondonMulligan {
+    pub times_mulliganed: u32,
+    pub kept: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct FilteredHands {
     pub candidates: u8,
@@ -98,13 +105,17 @@ pub fn run_london_mulligans(
     agents: &mut [Box<dyn PlayerAgent>],
     rng: &mut impl rand::Rng,
     first_player: PlayerId,
+    mulligans: &[LondonMulligan],
     mana_pools: &[ManaPool],
     game_log: &GameLog,
 ) {
     let ordered = mulligan_order(&game.player_order, first_player);
     let player_count = ordered.len();
-    let mut mulligan_count = vec![0u32; player_count];
-    let mut has_kept = vec![false; player_count];
+    let mut mulligan_count: Vec<u32> = ordered
+        .iter()
+        .map(|p| mulligans[p.index()].times_mulliganed)
+        .collect();
+    let mut has_kept: Vec<bool> = ordered.iter().map(|p| mulligans[p.index()].kept).collect();
 
     // Per round: fan out prompts to every non-kept player, collect all
     // responses, then apply decisions in turn order. See module docs for
@@ -472,7 +483,15 @@ mod tests {
         let pools = vec![ManaPool::new(), ManaPool::new()];
         let log = GameLog::new();
 
-        run_london_mulligans(&mut game, &mut agents, &mut rng, p0, &pools, &log);
+        run_london_mulligans(
+            &mut game,
+            &mut agents,
+            &mut rng,
+            p0,
+            &[LondonMulligan::default(); 2],
+            &pools,
+            &log,
+        );
 
         assert_eq!(game.cards_in_zone(ZoneType::Hand, p0).len(), 7);
         assert_eq!(game.cards_in_zone(ZoneType::Hand, p1).len(), 7);
@@ -496,7 +515,15 @@ mod tests {
         let pools = vec![ManaPool::new(), ManaPool::new()];
         let log = GameLog::new();
 
-        run_london_mulligans(&mut game, &mut agents, &mut rng, p0, &pools, &log);
+        run_london_mulligans(
+            &mut game,
+            &mut agents,
+            &mut rng,
+            p0,
+            &[LondonMulligan::default(); 2],
+            &pools,
+            &log,
+        );
 
         assert_eq!(game.cards_in_zone(ZoneType::Hand, p0).len(), 6);
         assert_eq!(game.cards_in_zone(ZoneType::Hand, p1).len(), 7);
@@ -520,7 +547,15 @@ mod tests {
         let pools = vec![ManaPool::new(), ManaPool::new()];
         let log = GameLog::new();
 
-        run_london_mulligans(&mut game, &mut agents, &mut rng, p0, &pools, &log);
+        run_london_mulligans(
+            &mut game,
+            &mut agents,
+            &mut rng,
+            p0,
+            &[LondonMulligan::default(); 2],
+            &pools,
+            &log,
+        );
 
         assert_eq!(game.cards_in_zone(ZoneType::Hand, p0).len(), 5);
         assert_eq!(game.cards_in_zone(ZoneType::Hand, p1).len(), 7);
@@ -544,7 +579,15 @@ mod tests {
         let pools = vec![ManaPool::new(), ManaPool::new()];
         let log = GameLog::new();
 
-        run_london_mulligans(&mut game, &mut agents, &mut rng, p0, &pools, &log);
+        run_london_mulligans(
+            &mut game,
+            &mut agents,
+            &mut rng,
+            p0,
+            &[LondonMulligan::default(); 2],
+            &pools,
+            &log,
+        );
 
         assert_eq!(game.cards_in_zone(ZoneType::Hand, p0).len(), 6);
         assert_eq!(game.cards_in_zone(ZoneType::Hand, p1).len(), 5);
@@ -673,7 +716,15 @@ mod tests {
             ];
             let pools = vec![ManaPool::new(), ManaPool::new()];
             let log = GameLog::new();
-            run_london_mulligans(&mut game, &mut agents, &mut rng, p0, &pools, &log);
+            run_london_mulligans(
+                &mut game,
+                &mut agents,
+                &mut rng,
+                p0,
+                &[LondonMulligan::default(); 2],
+                &pools,
+                &log,
+            );
 
             let hand = game.cards_in_zone(ZoneType::Hand, p0);
             assert_eq!(hand.len(), 6);
@@ -681,6 +732,74 @@ mod tests {
             assert_eq!(rng.next_u64(), probe.next_u64());
         }
         assert!(swapped > 0);
+    }
+
+    #[test]
+    fn a_player_who_has_mulliganed_bottoms_that_many_when_keeping() {
+        let (mut game, mut rng) = setup_game_with_libraries(40);
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        game.draw_cards(p0, 7);
+        game.draw_cards(p1, 7);
+        let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+            Box::new(TestAgent::mulligan(3)),
+            Box::new(TestAgent::keep()),
+        ];
+        let start = [
+            LondonMulligan {
+                times_mulliganed: 2,
+                kept: false,
+            },
+            LondonMulligan::default(),
+        ];
+        let pools = vec![ManaPool::new(), ManaPool::new()];
+        run_london_mulligans(
+            &mut game,
+            &mut agents,
+            &mut rng,
+            p0,
+            &start,
+            &pools,
+            &GameLog::new(),
+        );
+        assert_eq!(game.cards_in_zone(ZoneType::Hand, p0).len(), 4);
+        assert_eq!(game.cards_in_zone(ZoneType::Hand, p1).len(), 7);
+    }
+
+    #[test]
+    fn a_player_who_has_kept_is_only_asked_for_the_cards_to_bottom() {
+        let (mut game, mut rng) = setup_game_with_libraries(40);
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        game.draw_cards(p0, 7);
+        game.draw_cards(p1, 7);
+        let hand = game.cards_in_zone(ZoneType::Hand, p0).to_vec();
+        let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+            Box::new(TestAgent {
+                mulligans_to_take: 5,
+                bottom_picks: Some(vec![hand[3]]),
+            }),
+            Box::new(TestAgent::keep()),
+        ];
+        let start = [
+            LondonMulligan {
+                times_mulliganed: 1,
+                kept: true,
+            },
+            LondonMulligan::default(),
+        ];
+        let pools = vec![ManaPool::new(), ManaPool::new()];
+        run_london_mulligans(
+            &mut game,
+            &mut agents,
+            &mut rng,
+            p1,
+            &start,
+            &pools,
+            &GameLog::new(),
+        );
+        let kept: Vec<CardId> = hand.iter().copied().filter(|&c| c != hand[3]).collect();
+        assert_eq!(game.cards_in_zone(ZoneType::Hand, p0), kept.as_slice());
+        assert_eq!(game.cards_in_zone(ZoneType::Library, p0)[0], hand[3]);
+        assert_eq!(game.cards_in_zone(ZoneType::Hand, p1).len(), 7);
     }
 
     #[test]
