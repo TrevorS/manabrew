@@ -328,17 +328,12 @@ impl GameLoop {
                 restriction_host.mana_value(),
                 base_cost.cmc(),
             )),
+            any_color_conversion: any_color,
             ..Self::spell_payment_context(restriction_host, chosen_types_by_source)
         };
-        let mana_ok = if any_color {
-            if let Some(order) = self.action_space_probe_order(game) {
-                order.rotate(
-                    player,
-                    &crate::mana::mana_cost_being_paid::ManaCostBeingPaid::from_mana_cost(&cost),
-                    &payment_ctx,
-                    card.has_converge(),
-                );
-            }
+        let mana_ok = if any_color
+            && game.action_space_mana_probe != crate::mana::ActionSpaceManaProbe::ComputerUtilMana
+        {
             available_mana.can_pay_any_color(&cost)
         } else {
             crate::mana::can_pay_spell_mana_cost_for_action_space(
@@ -350,7 +345,11 @@ impl GameLoop {
                 &payment_ctx,
                 self.action_space_probe_order(game),
             ) || (Self::can_use_source_level_mana_fallback(game, player, || &available_mana)
-                && available_mana.can_pay(&cost))
+                && if any_color {
+                    available_mana.can_pay_any_color(&cost)
+                } else {
+                    available_mana.can_pay(&cost)
+                })
         };
         if cant_be_cast {
             return false;
@@ -1248,7 +1247,10 @@ impl GameLoop {
                             probe_host(),
                             &payable_base,
                         );
-                        if any_color {
+                        if any_color
+                            && game.action_space_mana_probe
+                                != crate::mana::ActionSpaceManaProbe::ComputerUtilMana
+                        {
                             available_mana().can_pay_any_color(&reduced)
                         } else {
                             crate::mana::can_pay_spell_mana_cost_with_sources(
@@ -1257,7 +1259,10 @@ impl GameLoop {
                                 player,
                                 card_id,
                                 &reduced,
-                                &payment_ctx,
+                                &mana::ManaPaymentContext {
+                                    any_color_conversion: any_color,
+                                    ..payment_ctx.clone()
+                                },
                                 self.action_space_probe_order(game),
                                 probe_sources,
                             )
@@ -1270,7 +1275,11 @@ impl GameLoop {
                                 game,
                                 player,
                                 available_mana,
-                            ) && available_mana().can_pay(&reduced))
+                            ) && if any_color {
+                                available_mana().can_pay_any_color(&reduced)
+                            } else {
+                                available_mana().can_pay(&reduced)
+                            })
                         }
                     }
                 };
@@ -3410,6 +3419,69 @@ mod tests {
             .iter()
             .filter(|option| option.card_id == aura)
             .count()
+    }
+
+    const CHARGED_RELIC: &str = "Name:Charged Relic\nManaCost:3\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ Any | SpellDescription$ Add one mana of any color.\nA:AB$ Mana | Cost$ T SubCounter<2/CHARGE> | Produced$ C | Amount$ 2 | SpellDescription$ Add {C}{C}.\nOracle:";
+    const TWO_WHITE: &str = "Name:Two White\nManaCost:2 W\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
+
+    fn stolen_two_white_offers(probe: crate::mana::ActionSpaceManaProbe) -> usize {
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        game.action_space_mana_probe = probe;
+        let mut put = |script: &str, owner: PlayerId, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, owner));
+            game.move_card(card, zone, owner);
+            card
+        };
+        let grant = put(ROBBERY_GRANT, p0, ZoneType::Command);
+        let spell = put(TWO_WHITE, p1, ZoneType::Exile);
+        let relic = put(CHARGED_RELIC, p0, ZoneType::Battlefield);
+        put(BLACK_SPRING, p0, ZoneType::Battlefield);
+        game.card_mut(relic)
+            .add_counter(&crate::card::CounterType::Charge, 2);
+        game.card_mut(grant).add_remembered_card(spell);
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        GameLoop::new(2)
+            .get_playable_cards(&game, p0, false)
+            .iter()
+            .filter(|option| option.card_id == spell)
+            .count()
+    }
+
+    #[test]
+    fn a_stolen_spell_spending_mana_as_any_type_asks_the_harness_mana_check() {
+        use crate::mana::ActionSpaceManaProbe::{AutoPay, ComputerUtilMana};
+        assert_eq!(stolen_two_white_offers(ComputerUtilMana), 0);
+        assert_eq!(stolen_two_white_offers(AutoPay), 1);
+    }
+
+    const ONE_WHITE: &str = "Name:One White\nManaCost:W\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
+
+    #[test]
+    fn the_harness_mana_check_spends_any_type_on_a_stolen_spell() {
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        game.action_space_mana_probe = crate::mana::ActionSpaceManaProbe::ComputerUtilMana;
+        let mut put = |script: &str, owner: PlayerId, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, owner));
+            game.move_card(card, zone, owner);
+            card
+        };
+        let grant = put(ROBBERY_GRANT, p0, ZoneType::Command);
+        let spell = put(ONE_WHITE, p1, ZoneType::Exile);
+        put(BLACK_SPRING, p0, ZoneType::Battlefield);
+        game.card_mut(grant).add_remembered_card(spell);
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        let offered = GameLoop::new(2)
+            .get_playable_cards(&game, p0, false)
+            .iter()
+            .filter(|option| option.card_id == spell)
+            .count();
+        assert_eq!(offered, 1);
     }
 
     #[test]

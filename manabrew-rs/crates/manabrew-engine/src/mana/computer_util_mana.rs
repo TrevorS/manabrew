@@ -525,7 +525,7 @@ pub fn next_auto_tap_choice_with_reserved_sacrifices(
         return None;
     }
 
-    let mut sources_for_shards = group_and_order_to_pay_shards(&mana_ability_map, &unpaid);
+    let mut sources_for_shards = group_and_order_to_pay_shards(&mana_ability_map, &unpaid, false);
     if sources_for_shards.is_empty() {
         return None;
     }
@@ -2824,6 +2824,7 @@ fn choose_atom_for_shard(mana_ab: &ManaAbilityRef, shard: ManaCostShard) -> Opti
 fn group_and_order_to_pay_shards(
     mana_ability_map: &IndexMap<i32, Vec<ManaAbilityRef>>,
     cost: &ManaCostBeingPaid,
+    any_color: bool,
 ) -> IndexMap<ManaCostShard, Vec<ManaAbilityRef>> {
     let mut res: IndexMap<ManaCostShard, Vec<ManaAbilityRef>> = IndexMap::new();
 
@@ -2858,7 +2859,10 @@ fn group_and_order_to_pay_shards(
         for (color_key, list) in mana_ability_map {
             let key_color =
                 (*color_key as u16) & (ManaAtom::COLORS_SUPERPOSITION | ManaAtom::COLORLESS);
-            if can_pay_for_shard_with_color(shard, key_color) {
+            if can_pay_for_shard_with_color(
+                shard,
+                crate::mana::ManaPool::get_possible_color_uses(key_color, any_color),
+            ) {
                 let bucket = res.entry(shard).or_default();
                 for ma in list {
                     if !bucket
@@ -3851,8 +3855,14 @@ fn can_pay_mana_cost(
 
     let pure_phyrexian = unpaid.contains_only_phyrexian_mana();
     let mut has_converge = spell.has_converge();
-    let mut sources_for_shards =
-        get_sources_for_shards(game, player, current_spell, &unpaid, has_converge);
+    let mut sources_for_shards = get_sources_for_shards(
+        game,
+        player,
+        current_spell,
+        &unpaid,
+        has_converge,
+        payment_ctx.any_color_conversion,
+    );
     let life_instead_of_black = crate::player::has_keyword(game, player, "PayLifeInsteadOf:B");
     let mut phy_life_to_pay = 2;
     let mut test_energy_pool = game.player(player).energy_counters;
@@ -3990,7 +4000,11 @@ fn can_pay_mana_cost(
 
         let produced = predict_mana(game, player, &sa_payment, &generated, to_pay);
         for &atom in &produced {
-            let _ = unpaid.ai_pay_mana(atom, atom as u8);
+            let possible_uses = crate::mana::ManaPool::get_possible_color_uses(
+                atom,
+                payment_ctx.any_color_conversion,
+            );
+            let _ = unpaid.ai_pay_mana(atom, possible_uses as u8);
         }
         if let Some(prefix) = &trace {
             eprintln!(
@@ -4087,8 +4101,8 @@ fn mono_color_shard(color: u16) -> ManaCostShard {
     }
 }
 
-/// `ManaPool.canPayForShardWithColor` without a colour conversion.
-fn pool_can_pay_for_shard_with_color(shard: ManaCostShard, color: u16) -> bool {
+/// `ManaPool.canPayForShardWithColor`; `any_color` is the conversion a MayPlay grant applies.
+fn pool_can_pay_for_shard_with_color(shard: ManaCostShard, color: u16, any_color: bool) -> bool {
     if shard.is_colorless() && color == ManaAtom::GENERIC {
         return false;
     }
@@ -4097,7 +4111,9 @@ fn pool_can_pay_for_shard_with_color(shard: ManaCostShard, color: u16) -> bool {
             || shard.shard() & (ManaAtom::COLORS_SUPERPOSITION | ManaAtom::COLORLESS) == 0
             || shard.shard() & color != 0
     };
-    can_be_paid_with(color) || can_be_paid_with(0)
+    can_be_paid_with(crate::mana::ManaPool::get_possible_color_uses(
+        color, any_color,
+    )) || can_be_paid_with(0)
 }
 
 /// `ComputerUtilMana.getSourcesForShards`.
@@ -4107,6 +4123,7 @@ fn get_sources_for_shards(
     current_spell: CardId,
     unpaid: &ManaCostBeingPaid,
     has_converge: bool,
+    any_color: bool,
 ) -> Option<IndexMap<ManaCostShard, Vec<ManaAbilityRef>>> {
     let sources = get_ai_available_mana_sources(game, player);
     let mut mana_ability_map = group_mana_sources_by_color(game, player, &sources, &[], None, true);
@@ -4117,12 +4134,13 @@ fn get_sources_for_shards(
     // bucket order of a 32-slot `HashMap`.
     mana_ability_map.sort_by(|a, _, b, _| (a & 31).cmp(&(b & 31)));
 
-    let mut sources_for_shards = group_and_order_to_pay_shards(&mana_ability_map, unpaid);
+    let mut sources_for_shards =
+        group_and_order_to_pay_shards(&mana_ability_map, unpaid, any_color);
     if has_converge {
         for color in converge_colors(unpaid) {
             let shard = mono_color_shard(color);
             if sources_for_shards.contains_key(&shard)
-                || !pool_can_pay_for_shard_with_color(shard, color)
+                || !pool_can_pay_for_shard_with_color(shard, color, any_color)
             {
                 continue;
             }
@@ -4441,6 +4459,7 @@ fn can_pay_shard_with_spell_ability(
     if to_pay.is_snow() && !game.card(ma.card_id).type_line.is_snow() {
         return None;
     }
+    let any_color = payment_ctx.any_color_conversion;
     let ability = mana_ability_of(game, ma);
     if let Some(ab) = ability {
         if !is_payable_mana_ability(game, player, ma.card_id, ab, &[], Some(payment_ctx)) {
@@ -4455,11 +4474,13 @@ fn can_pay_shard_with_spell_ability(
 
     if matches!(ma.produced_ir, Some(crate::ability::ProducedMana::Combo(_))) {
         for &atom in &ma.atoms {
-            if colored_x_ok(atom) && pool_can_pay_for_shard_with_color(to_pay, atom) {
+            if colored_x_ok(atom) && pool_can_pay_for_shard_with_color(to_pay, atom, any_color) {
                 let shared = WUBRG.into_iter().find(|&color| {
                     u16::from(to_pay.color_mask()) & color != 0 && ma.atoms.contains(&color)
                 });
-                return Some(set_combo_mana_choice(game, player, ma, unpaid, shared));
+                return Some(set_combo_mana_choice(
+                    game, player, ma, unpaid, shared, any_color,
+                ));
             }
         }
         return None;
@@ -4468,7 +4489,7 @@ fn can_pay_shard_with_spell_ability(
     if ability.is_some_and(|ab| ab.is_mana_reflected) {
         for color in WUBRG.into_iter().chain([ManaAtom::COLORLESS]) {
             if colored_x_ok(color)
-                && pool_can_pay_for_shard_with_color(to_pay, color)
+                && pool_can_pay_for_shard_with_color(to_pay, color, any_color)
                 && ma.atoms.contains(&color)
             {
                 return Some(vec![color; amount]);
@@ -4491,7 +4512,7 @@ fn can_pay_shard_with_spell_ability(
         } else {
             WUBRG
                 .into_iter()
-                .find(|&color| pool_can_pay_for_shard_with_color(to_pay, color))
+                .find(|&color| pool_can_pay_for_shard_with_color(to_pay, color, any_color))
                 .unwrap_or(0)
         };
         return Some(vec![color; amount]);
@@ -4504,7 +4525,11 @@ fn can_pay_shard_with_spell_ability(
             .max(1);
         return Some(fixed.repeat(repeats));
     }
-    Some(vec![choose_atom_for_shard(ma, to_pay)?; amount])
+    let ma = ManaAbilityRef {
+        any_color: ma.any_color || any_color,
+        ..ma.clone()
+    };
+    Some(vec![choose_atom_for_shard(&ma, to_pay)?; amount])
 }
 
 /// `ComputerUtilMana.setComboManaChoice`. Its colour-needed loop tests `choice`, which is
@@ -4515,6 +4540,7 @@ fn set_combo_mana_choice(
     ma: &ManaAbilityRef,
     unpaid: &ManaCostBeingPaid,
     mut express_choice: Option<u16>,
+    any_color: bool,
 ) -> Vec<u16> {
     let amount = auto_pay_base_amount(game, player, ma).max(1);
     let different = ma.mana_text.contains("Different");
@@ -4522,7 +4548,7 @@ fn set_combo_mana_choice(
     let any_part_payable = |cost: &ManaCostBeingPaid, color: u16| {
         cost.get_distinct_shards()
             .into_iter()
-            .any(|shard| pool_can_pay_for_shard_with_color(shard, color))
+            .any(|shard| pool_can_pay_for_shard_with_color(shard, color, any_color))
     };
     let mut test_cost = unpaid.clone();
     let mut choices: Vec<u16> = Vec::new();
@@ -4533,13 +4559,17 @@ fn set_combo_mana_choice(
                 && any_part_payable(&test_cost, choice)
             {
                 choices.push(choice);
-                let _ = test_cost.ai_pay_mana(choice, choice as u8);
+                let possible_uses =
+                    crate::mana::ManaPool::get_possible_color_uses(choice, any_color);
+                let _ = test_cost.ai_pay_mana(choice, possible_uses as u8);
                 continue;
             }
         }
         if !test_cost.is_paid() && !different {
             if let Some(&color) = ma.atoms.iter().find(|&&color| test_cost.needs_color(color)) {
-                let _ = test_cost.ai_pay_mana(color, color as u8);
+                let possible_uses =
+                    crate::mana::ManaPool::get_possible_color_uses(color, any_color);
+                let _ = test_cost.ai_pay_mana(color, possible_uses as u8);
                 choices.push(color);
                 continue;
             }

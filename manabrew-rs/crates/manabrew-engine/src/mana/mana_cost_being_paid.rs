@@ -383,7 +383,12 @@ impl ManaCostBeingPaid {
     /// AI mana payment — pay a shard using the given color name.
     /// Mirrors Java's `ManaCostBeingPaid.ai_payMana()`.
     pub fn ai_pay_mana(&mut self, color_mask: u16, possible_uses: u8) -> Option<ManaCostShard> {
-        self.try_pay_mana(color_mask, possible_uses)
+        let payable: Vec<ManaCostShard> = self
+            .get_distinct_shards()
+            .into_iter()
+            .filter(|&s| can_pay_for_shard_with_color(s, u16::from(possible_uses)))
+            .collect();
+        self.pay_one_of(&payable, color_mask, possible_uses)
     }
 
     /// Pay a mana shard using a Mana object from the pool.
