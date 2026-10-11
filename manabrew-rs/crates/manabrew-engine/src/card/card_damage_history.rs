@@ -48,12 +48,6 @@ pub struct CardDamageHistory {
 }
 
 impl CardDamageHistory {
-    /// Record that this creature is attacking alongside `num_others` other attackers.
-    pub fn record_attack(&mut self, num_others: i32) {
-        self.attacks_this_game += 1;
-        self.creature_attacked_this_combat = 1 + num_others;
-    }
-
     /// Java parity: set attack info and optional defender tracking.
     pub fn set_creature_attacked_this_combat(
         &mut self,
