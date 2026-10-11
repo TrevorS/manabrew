@@ -1540,11 +1540,12 @@ impl GameLoop {
 
                 // Warp: alt cost for creatures
                 let warp_ok = if let Some(warp_cost_str) = card.get_warp_cost() {
-                    let warp_mana = forge_foundation::ManaCost::parse(&warp_cost_str);
+                    let warp_cost = crate::cost::parse_cost(&warp_cost_str);
+                    let warp_mana = Self::raise_mana_from_cost(game, &warp_cost, card_id, player);
                     let adjusted = cost_adj.apply(&warp_mana).add(&raise_mana);
                     let reduced =
                         apply_cost_reductions(game, player, card_id, probe_host(), &adjusted);
-                    crate::mana::can_pay_spell_mana_cost_with_sources(
+                    (crate::mana::can_pay_spell_mana_cost_with_sources(
                         game,
                         self.pool(player),
                         player,
@@ -1561,7 +1562,10 @@ impl GameLoop {
                         self.action_space_probe_order(game),
                         probe_sources,
                     ) || (Self::can_use_source_level_mana_fallback(game, player, available_mana)
-                        && available_mana().can_pay(&reduced))
+                        && available_mana().can_pay(&reduced)))
+                        && crate::cost::can_pay_ignoring_mana_for_spell(
+                            &warp_cost, game, card_id, player,
+                        )
                 } else {
                     false
                 };
@@ -1948,6 +1952,7 @@ impl GameLoop {
                         ));
                     }
                     if let Some(warp_cost) = card.get_warp_cost() {
+                        let warp_cost = crate::cost::parse_cost(&warp_cost);
                         let mut warp_sa = normal_sa.clone();
                         warp_sa.alt_cost = Some(crate::spellability::AlternativeCost::Warp);
                         let warp_grants = may_play_grants(card_id)
@@ -1973,9 +1978,12 @@ impl GameLoop {
                                     card_id,
                                     &chosen_types_by_source,
                                 )
-                                .can_pay(
-                                    &cost_adj.apply(&forge_foundation::ManaCost::parse(&warp_cost)),
-                                )
+                                .can_pay(&cost_adj.apply(&Self::raise_mana_from_cost(
+                                    game, &warp_cost, card_id, player,
+                                )))
+                            && crate::cost::can_pay_ignoring_mana_for_spell(
+                                &warp_cost, game, card_id, player,
+                            )
                         {
                             for grant in 0..warp_grants {
                                 playable.push(crate::agent::PlayOption {
@@ -3236,6 +3244,44 @@ mod tests {
             )),
             2
         );
+    }
+
+    const TIMELINE_CULLER: &str = "Name:Timeline Culler\nManaCost:B B\nTypes:Creature Drix Warlock\nPT:2/2\nS:Mode$ Continuous | Affected$ Card.Self | MayPlay$ True | ValidSA$ Spell.Warp | AffectedZone$ Graveyard | EffectZone$ Graveyard | Description$ You may cast CARDNAME from your graveyard using its warp ability.\nK:Warp:B PayLife<2>\nOracle:";
+    const BLACK_SPRING: &str = "Name:Black Spring\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ B | SpellDescription$ Add {B}.\nOracle:";
+
+    fn warp_offers_at_life(zone: ZoneType, life: i32) -> usize {
+        let player = PlayerId(0);
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        game.player_mut(player).life = life;
+        let mut put = |script: &str, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, player));
+            game.move_card(card, zone, player);
+            card
+        };
+        let culler = put(TIMELINE_CULLER, zone);
+        put(BLACK_SPRING, ZoneType::Battlefield);
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        GameLoop::new(2)
+            .get_playable_cards(&game, player, false)
+            .iter()
+            .filter(|option| {
+                option.card_id == culler
+                    && option.mode
+                        == crate::agent::PlayCardMode::Alternative(
+                            crate::spellability::AlternativeCost::Warp,
+                        )
+            })
+            .count()
+    }
+
+    #[test]
+    fn a_warp_that_pays_life_is_offered_only_with_the_life_to_pay() {
+        for zone in [ZoneType::Hand, ZoneType::Graveyard] {
+            assert_eq!(warp_offers_at_life(zone, 2), 1);
+            assert_eq!(warp_offers_at_life(zone, 1), 0);
+        }
     }
 
     const FORETOLD_BOLT: &str = "Name:Foretold Bolt\nManaCost:2 R\nTypes:Instant\nK:Foretell:R\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | SpellDescription$ CARDNAME deals 2 damage to any target.\nOracle:";
