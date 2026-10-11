@@ -185,6 +185,11 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 );
                 crate::card::card_factory_util::set_face_down_state(ctx.game, card_id, sa);
             }
+            if dest_zone == ZoneType::Battlefield && sa.is_gain_control() {
+                ctx.game
+                    .card_mut(card_id)
+                    .set_controller(sa.activating_player);
+            }
             if dest_zone == ZoneType::Exile {
                 ctx.exile(card_id, Some(sa));
             } else {

@@ -423,7 +423,7 @@ impl GameState {
             let card = &self.cards[card_id.index()];
             (
                 card.zone,
-                card.controller,
+                self.card_zone_owner(card_id).unwrap_or(card.controller),
                 card.type_line.is_permanent(),
                 card.is_land(),
                 card.is_token,

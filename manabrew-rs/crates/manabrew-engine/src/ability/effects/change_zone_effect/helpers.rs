@@ -362,6 +362,11 @@ pub(super) fn apply_pre_move(
                 return false;
             }
         }
+
+        if sa.is_gain_control() {
+            let new_controller = gain_control_player(ctx.game, sa);
+            ctx.game.card_mut(card_id).set_controller(new_controller);
+        }
     }
 
     true
@@ -460,10 +465,6 @@ pub(super) fn apply_post_move(
     if dest_zone == ZoneType::Battlefield {
         if sa.is_tapped() || sa.ir.ninjutsu {
             ctx.game.tap(card_id);
-        }
-        if sa.is_gain_control() {
-            let new_controller = gain_control_player(ctx.game, sa);
-            ctx.game.card_mut(card_id).set_controller(new_controller);
         }
         if sa.ir.ninjutsu {
             let returned = sa
