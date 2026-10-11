@@ -889,6 +889,7 @@ pub struct Card {
     pub enlisted_this_combat: bool,
     /// Per-ability activation count this game (for PowerUp once-per-game restriction).
     pub activations_this_game: std::collections::BTreeMap<usize, u32>,
+    pub boon: bool,
     /// True once Renown has triggered (creature dealt combat damage to a player).
     /// Mirrors Java `Card.isRenowned()`.
     pub is_renowned: bool,
@@ -1197,6 +1198,7 @@ impl Card {
             chosen_modes_turn: None,
             enlisted_this_combat: false,
             activations_this_game: std::collections::BTreeMap::new(),
+            boon: false,
             is_renowned: false,
             zone_timestamp: 0,
             layer_timestamp: 0,
@@ -1461,6 +1463,7 @@ impl Card {
             chosen_modes_turn: self.chosen_modes_turn,
             enlisted_this_combat: self.enlisted_this_combat,
             activations_this_game: self.activations_this_game.clone(),
+            boon: self.boon,
             is_renowned: self.is_renowned,
             zone_timestamp: self.zone_timestamp,
             layer_timestamp: self.layer_timestamp,

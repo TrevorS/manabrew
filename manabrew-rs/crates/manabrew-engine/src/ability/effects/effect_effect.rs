@@ -5,7 +5,7 @@
 //! the duration specified by `Duration$` (defaults to end-of-turn).
 //!
 //! Parity caveats (documented, not yet ported):
-//! - `Boon$`, `Image$`, `SetChosenDirection` — Card lacks the setters.
+//! - `Image$`, `SetChosenDirection` — Card lacks the setters.
 //! - `NoteCounterDefined` — no `CountersNoteEffect::noteCounters` equivalent.
 //! - `RememberLKI` — snapshots via `CardCopyService::get_lki_copy` into the
 //!   effect card's `remembered_lki_cards` list (in addition to the live IDs
@@ -166,6 +166,7 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
         );
         effect.set_controller(owner);
         effect.set_effect_source(Some(source_id));
+        effect.boon = sa.ir.boon;
         effect.set_code = ctx.game.card(source_id).set_code.clone();
         effect.set_static_abilities(parsed_static_abilities.clone());
 

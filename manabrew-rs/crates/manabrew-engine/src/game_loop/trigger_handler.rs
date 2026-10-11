@@ -44,20 +44,11 @@ impl GameLoop {
                     break;
                 }
                 let is_static = pt.static_trigger;
-                let one_off_effect = pt
+                let trigger_host = pt
                     .entry
                     .spell_ability
                     .trigger_source
-                    .zip(pt.entry.spell_ability.trigger_index)
-                    .filter(|&(source, index)| {
-                        game.cards.get(source.index()).is_some_and(|card| {
-                            card.effect_source.is_some()
-                                && card.triggers.get(index).is_some_and(|trigger| {
-                                    trigger.base.card_trait_base.has_param("OneOff")
-                                })
-                        })
-                    })
-                    .map(|(source, _)| source);
+                    .zip(pt.entry.spell_ability.trigger_index);
                 let depth = game.stack.len();
                 pushed.extend(self.trigger_handler.process_pending_triggers(
                     &self.mana_pools,
@@ -65,7 +56,12 @@ impl GameLoop {
                     agents,
                     vec![pt],
                 ));
-                if let Some(effect) = one_off_effect {
+                if let Some(effect) = trigger_host
+                    .filter(|&(source, index)| {
+                        Self::removes_host_after_trigger(game, source, index)
+                    })
+                    .map(|(source, _)| source)
+                {
                     let controller = game.card(effect).controller;
                     game.remove_card_from_zone(ZoneType::Command, controller, effect);
                     game.card_mut(effect).zone = ZoneType::None;
@@ -92,6 +88,33 @@ impl GameLoop {
             }
         }
         ran
+    }
+
+    fn removes_host_after_trigger(game: &GameState, host: CardId, index: usize) -> bool {
+        let Some(card) = game.cards.get(host.index()) else {
+            return false;
+        };
+        let Some(trigger) = card.triggers.get(index) else {
+            return false;
+        };
+        let params = &trigger.base.card_trait_base;
+        let mut remove_boon = card.boon;
+        if let Some(amount) = params.get_param("BoonAmount") {
+            let ability = trigger.ensure_ability(game, host, card.controller);
+            let x = crate::svar::resolve_numeric_value(
+                game,
+                ability
+                    .as_ref()
+                    .unwrap_or(&SpellAbility::new_empty(Some(host), card.controller)),
+                amount,
+                0,
+            );
+            let y = card.get_ability_activated_this_game(ability.as_ref()) as i32;
+            if y < x {
+                remove_boon = false;
+            }
+        }
+        (params.has_param("OneOff") && card.effect_source.is_some()) || remove_boon
     }
 
     pub(crate) fn run_static_state_triggers(

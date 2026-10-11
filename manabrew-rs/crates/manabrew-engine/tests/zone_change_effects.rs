@@ -1838,3 +1838,50 @@ fn seek_picks_by_reservoir_sampling_over_the_library_from_the_top() {
     assert_eq!(game.card(bottom).zone, ZoneType::Hand);
     assert_eq!(game.card(top).zone, ZoneType::Library);
 }
+const BOON_SOURCE: &str = "Name:Boon Source\nManaCost:no cost\nTypes:Artifact\nSVar:TrigLand:Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Land.YouCtrl | TriggerZones$ Command | Execute$ TrigGain | TriggerDescription$ Whenever a land you control enters, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
+
+fn play_land_from_hand(game: &mut GameState, player: PlayerId, source: CardId) {
+    let land = put(
+        game,
+        "Name:Forest\nManaCost:no cost\nTypes:Basic Land Forest\nOracle:",
+        player,
+        ZoneType::Hand,
+    );
+    push_effect_entry(
+        game,
+        player,
+        "DB$ ChangeZone | Origin$ Hand | Destination$ Battlefield | Defined$ Targeted | ValidTgts$ Land",
+        Some(land),
+        None,
+        Some(source),
+    );
+    GameLoop::new(2).step_with_priority(game, &mut pass_agents(), false);
+}
+
+#[test]
+fn a_boon_leaves_the_command_zone_once_its_trigger_runs() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let source = put(&mut game, BOON_SOURCE, p0, ZoneType::Battlefield);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ Effect | Boon$ True | Triggers$ TrigLand | Duration$ Permanent",
+        None,
+        None,
+        Some(source),
+    );
+    GameLoop::new(2).step_with_priority(&mut game, &mut pass_agents(), false);
+    let boon = game
+        .cards_in_zone(ZoneType::Command, p0)
+        .iter()
+        .copied()
+        .find(|&card| game.card(card).card_name == "Boon Source's Boon")
+        .expect("boon in the command zone");
+    play_land_from_hand(&mut game, p0, source);
+    assert_eq!(game.player(p0).life, 21);
+    assert_ne!(game.card(boon).zone, ZoneType::Command);
+    play_land_from_hand(&mut game, p0, source);
+    assert_eq!(game.player(p0).life, 21);
+}
