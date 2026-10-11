@@ -875,6 +875,8 @@ impl GameState {
                 // even if it dies within the same resolution chain.
                 self.update_lki_snapshot(card_id);
                 apply_continuous_effects(self);
+                let lki = crate::zone::LatestState(std::sync::Arc::new(self.card(card_id).clone()));
+                self.update_zone_lki(ZoneType::Battlefield, dest_owner, card_id, lki);
                 debug_assert!(self.card_zone_location_matches_card(card_id));
                 return;
             }

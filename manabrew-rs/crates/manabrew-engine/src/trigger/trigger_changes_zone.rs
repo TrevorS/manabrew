@@ -57,6 +57,7 @@ impl TriggerBehavior for TriggerChangesZone {
             return false;
         }
         let mut moved_card = params.card;
+        let mut etb_lki = None;
         if params.origin == Some(forge_foundation::ZoneType::Battlefield)
             || (params.origin == Some(forge_foundation::ZoneType::Graveyard)
                 && destination != Some(forge_foundation::ZoneType::Battlefield))
@@ -66,7 +67,7 @@ impl TriggerBehavior for TriggerChangesZone {
             if let Some(card) = params.card {
                 let controller = game.card(card).controller;
                 let zone = game.zone(forge_foundation::ZoneType::Battlefield, controller);
-                if let Some((_, latest, _)) = zone
+                if let Some((_, latest, state)) = zone
                     .cards_added_this_turn
                     .iter()
                     .filter(|(_, added, _)| *added == card)
@@ -75,6 +76,7 @@ impl TriggerBehavior for TriggerChangesZone {
                     })
                 {
                     moved_card = Some(*latest);
+                    etb_lki = state.as_ref().map(|state| &*state.0);
                 }
             }
         }
@@ -113,7 +115,7 @@ impl TriggerBehavior for TriggerChangesZone {
                         })
                 })
             });
-        let valid = match lki_card.as_ref() {
+        let valid = match lki_card.as_ref().or(etb_lki) {
             Some(lki) => trigger.matches_optional_valid_card(&valid_card, Some(lki), game),
             None => trigger.matches_optional_valid_card_filter(&valid_card, moved_card, game),
         };

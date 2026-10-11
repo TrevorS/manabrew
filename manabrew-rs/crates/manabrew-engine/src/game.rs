@@ -1291,6 +1291,16 @@ impl GameState {
             .save_lki(zone_type, owner, card, from, latest_state);
     }
 
+    pub(crate) fn update_zone_lki(
+        &mut self,
+        zone_type: ZoneType,
+        owner: PlayerId,
+        card: CardId,
+        latest_state: crate::zone::LatestState,
+    ) {
+        self.zones.update_lki(zone_type, owner, card, latest_state);
+    }
+
     pub fn active_player(&self) -> PlayerId {
         self.turn.active_player
     }

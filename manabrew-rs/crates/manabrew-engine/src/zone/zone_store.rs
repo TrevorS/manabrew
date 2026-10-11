@@ -187,6 +187,18 @@ impl ZoneStore {
             .save_lki(card, from, latest_state);
     }
 
+    pub fn update_lki(
+        &mut self,
+        zone_type: ZoneType,
+        owner: PlayerId,
+        card: CardId,
+        latest_state: super::LatestState,
+    ) {
+        self.get_mut(zone_type, owner)
+            .expect("Zone not found")
+            .update_lki(card, latest_state);
+    }
+
     pub fn card_location(&self, card: CardId) -> Option<ZoneKey> {
         self.card_locations.get(card.index()).copied().flatten()
     }

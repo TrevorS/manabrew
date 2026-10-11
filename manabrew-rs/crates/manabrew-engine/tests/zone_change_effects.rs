@@ -1955,3 +1955,33 @@ fn a_same_name_search_reads_the_exiled_target_as_it_was_targeted() {
     assert_eq!(game.card(hound).zone, ZoneType::Exile);
     assert_eq!(game.card(pup).zone, ZoneType::Graveyard);
 }
+
+const SMALL_KIN_WATCHER: &str = "Name:Small Kin Watcher\nManaCost:1 B\nTypes:Creature Dog\nPT:2/2\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.powerLE2+YouCtrl+Other | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever another creature you control with power 2 or less enters, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
+
+const GALLERY: &str = "Name:Gallery\nManaCost:2 W\nTypes:Enchantment\nS:Mode$ Continuous | Affected$ Creature.YouCtrl | AffectedZone$ Battlefield | SetPower$ X | SetToughness$ X | Description$ Creatures you control have base power and toughness each equal to the number of creatures you control.\nSVar:X:Count$Valid Creature.YouCtrl\nOracle:";
+
+#[test]
+fn an_entering_creature_is_tested_with_the_power_it_entered_with() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    put(&mut game, GALLERY, p0, ZoneType::Battlefield);
+    let watchers: Vec<CardId> = (0..3)
+        .map(|_| put(&mut game, SMALL_KIN_WATCHER, p0, ZoneType::Graveyard))
+        .collect();
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ ChangeZoneAll | ChangeType$ Creature.YouOwn+cmcLE2 | Origin$ Graveyard | Destination$ Battlefield",
+        None,
+        None,
+        Some(source),
+    );
+    let mut agents = pass_agents();
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    for watcher in watchers {
+        assert_eq!(game.card(watcher).power(), 3);
+    }
+    assert_eq!(game.player(p0).life, 24);
+}

@@ -258,6 +258,17 @@ impl Zone {
         self.cards_added_this_turn
             .push((origin_zone, card, latest_state));
     }
+
+    pub fn update_lki(&mut self, card: CardId, latest_state: LatestState) {
+        if let Some(entry) = self
+            .cards_added_this_turn
+            .iter_mut()
+            .rev()
+            .find(|(_, added, _)| *added == card)
+        {
+            entry.2 = Some(latest_state);
+        }
+    }
 }
 
 /// Key for looking up a zone: (zone_type, owner).
