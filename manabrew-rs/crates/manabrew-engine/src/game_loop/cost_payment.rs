@@ -5243,16 +5243,7 @@ pub(crate) fn pay_life(
             _ => {}
         }
     }
-    let lost = game.player_lose_life(player, amount);
-    trigger_handler.run_trigger(
-        TriggerType::LifeLost,
-        RunParams {
-            player: Some(player),
-            life_amount: Some(amount),
-            ..Default::default()
-        },
-        false,
-    );
+    let lost = crate::player::lose_life(game, trigger_handler, None, player, amount, false, None);
     if lost > 0 {
         crate::action::run_life_lost_all(trigger_handler, &[(player, lost)]);
     }

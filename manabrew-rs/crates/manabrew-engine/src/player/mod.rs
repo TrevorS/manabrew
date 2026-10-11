@@ -41,12 +41,69 @@ pub fn can_gain_life(game: &GameState, player: PlayerId) -> bool {
     game.player_can_gain_life(player)
 }
 
-pub fn lose_life(game: &mut GameState, player: PlayerId, amount: i32) -> i32 {
-    game.player_lose_life(player, amount)
+pub fn lose_life(
+    game: &mut GameState,
+    trigger_handler: &mut TriggerHandler,
+    agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
+    player: PlayerId,
+    to_lose: i32,
+    damage: bool,
+    cause: Option<&SpellAbility>,
+) -> i32 {
+    use crate::replacement::replacement_handler::{
+        apply_replacements, apply_replacements_with_agents, ReplacementEvent,
+    };
+    use crate::replacement::replacement_result::ReplacementResult;
+
+    if to_lose <= 0 || !can_lose_life(game, player) {
+        return 0;
+    }
+    let mut event = ReplacementEvent::LifeReduced {
+        player,
+        amount: to_lose,
+        is_damage: damage,
+    };
+    let result = match agents {
+        Some(agents) => apply_replacements_with_agents(game, agents, &mut event),
+        None => apply_replacements(game, &mut event),
+    };
+    let to_lose = match (result, event) {
+        (ReplacementResult::NotReplaced, _) => to_lose,
+        (
+            ReplacementResult::Updated,
+            ReplacementEvent::LifeReduced {
+                player: affected,
+                amount,
+                ..
+            },
+        ) if affected == player => amount,
+        _ => return 0,
+    };
+    if to_lose <= 0 {
+        return 0;
+    }
+    let first_lost = game.player(player).life_lost_this_turn == 0;
+    game.player_lose_life(player, to_lose);
+    trigger_handler.run_trigger(
+        crate::trigger::TriggerType::LifeLost,
+        crate::event::RunParams {
+            player: Some(player),
+            life_amount: Some(to_lose),
+            first_time: Some(first_lost),
+            source_card: cause.and_then(|sa| sa.source),
+            source_sa: cause.map(|sa| Box::new(sa.clone())),
+            ..Default::default()
+        },
+        false,
+    );
+    to_lose
 }
 
 pub fn can_lose_life(game: &GameState, player: PlayerId) -> bool {
     game.player_can_lose_life(player)
+        && !crate::staticability::static_ability_cant_gain_lose_pay_life::any_cant_lose_life(
+            game, player,
+        )
 }
 
 pub fn can_pay_life(game: &GameState, player: PlayerId, amount: i32) -> bool {
@@ -734,50 +791,8 @@ pub fn process_damage(
     agents: Option<&mut [Box<dyn crate::agent::PlayerAgent>]>,
     player: PlayerId,
 ) -> i32 {
-    use crate::replacement::replacement_handler::{
-        apply_replacements, apply_replacements_with_agents, ReplacementEvent,
-    };
-    use crate::replacement::replacement_result::ReplacementResult;
-
     let to_lose = std::mem::take(&mut game.player_mut(player).simultaneous_damage);
-    if to_lose <= 0
-        || !game.player_can_lose_life(player)
-        || crate::staticability::static_ability_cant_gain_lose_pay_life::cant_lose_life(
-            game, player,
-        )
-    {
-        return 0;
-    }
-    let mut event = ReplacementEvent::LifeReduced {
-        player,
-        amount: to_lose,
-        is_damage: true,
-    };
-    let result = match agents {
-        Some(agents) => apply_replacements_with_agents(game, agents, &mut event),
-        None => apply_replacements(game, &mut event),
-    };
-    let to_lose = match (result, event) {
-        (ReplacementResult::NotReplaced, _) => to_lose,
-        (ReplacementResult::Updated, ReplacementEvent::LifeReduced { amount, .. }) => amount,
-        _ => return 0,
-    };
-    if to_lose <= 0 {
-        return 0;
-    }
-    let first_lost = game.player(player).life_lost_this_turn == 0;
-    game.player_lose_life(player, to_lose);
-    trigger_handler.run_trigger(
-        crate::trigger::TriggerType::LifeLost,
-        crate::event::RunParams {
-            player: Some(player),
-            life_amount: Some(to_lose),
-            first_time: Some(first_lost),
-            ..Default::default()
-        },
-        false,
-    );
-    to_lose
+    lose_life(game, trigger_handler, agents, player, to_lose, true, None)
 }
 
 pub fn can_receive_counters(game: &GameState, player: PlayerId, amount: i32) -> bool {

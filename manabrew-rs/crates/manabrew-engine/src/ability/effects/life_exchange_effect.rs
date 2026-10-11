@@ -40,7 +40,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ctx.game, p2,
         )
     {
-        let lost = super::life_lose_effect::lose_life(ctx, sa, p1, diff);
+        let lost = crate::player::lose_life(
+            ctx.game,
+            ctx.trigger_handler,
+            Some(ctx.agents),
+            p1,
+            diff,
+            false,
+            Some(sa),
+        );
         super::life_gain_effect::gain_life(ctx, sa, p2, diff);
         if lost > 0 {
             ctx.trigger_handler.run_trigger(

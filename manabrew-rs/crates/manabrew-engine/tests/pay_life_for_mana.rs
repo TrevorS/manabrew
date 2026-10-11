@@ -20,6 +20,8 @@ const DULL_STONE: &str = "Name:Dull Stone\nManaCost:no cost\nTypes:Land\nA:AB$ M
 const COSTLY_ENGINE: &str = "Name:Costly Engine\nManaCost:1\nTypes:Artifact\nA:AB$ Draw | Cost$ 1 B PayLife<2> | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
 const RENEWAL: &str = "Name:Small Renewal\nManaCost:R\nTypes:Sorcery\nA:SP$ GainLife | Defined$ You | LifeAmount$ 2 | SpellDescription$ You gain 2 life.\nOracle:";
 const BLOOD_WATCHER: &str = "Name:Blood Watcher\nManaCost:1 B\nTypes:Creature Vampire\nPT:1/1\nT:Mode$ LifeLost | ValidPlayer$ Opponent | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever an opponent loses life, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
+const LIFE_TAP: &str = "Name:Life Tap\nManaCost:1\nTypes:Artifact\nA:AB$ Draw | Cost$ PayLife<2> | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
+const BLOODLETTER: &str = "Name:Bloodletter of Aclazotz\nManaCost:1 B B B\nTypes:Creature Vampire Demon\nPT:2/4\nK:Flying\nR:Event$ LifeReduced | ValidPlayer$ Opponent | PlayerTurn$ True | ReplaceWith$ LoseTwice | ActiveZones$ Battlefield | Description$ If an opponent would lose life during your turn, they lose twice that much life instead.\nSVar:LoseTwice:DB$ ReplaceEffect | VarName$ Amount | VarValue$ ReplaceCount$Amount/Twice\nOracle:";
 
 struct CastOnce {
     spell: CardId,
@@ -211,4 +213,26 @@ fn a_failed_activation_keeps_the_life_paid_for_its_mana_and_floats_it() {
     assert_eq!(game.zone(ZoneType::Library, p0).len(), 1);
     assert_eq!(game_loop.pool(p0).total_mana(), 1);
     assert_eq!(game_loop.pool(p0).count_color(ManaAtom::BLACK), 1);
+}
+
+#[test]
+fn life_paid_during_an_opponents_turn_is_doubled_by_bloodletter() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let p1 = PlayerId(1);
+    let tap = put(&mut game, LIFE_TAP, p0, ZoneType::Battlefield);
+    put(&mut game, DULL_STONE, p0, ZoneType::Library);
+    put(&mut game, BLOODLETTER, p1, ZoneType::Battlefield);
+    game.turn.active_player = p1;
+    game.new_turn_for_player(p1);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce {
+            spell: tap,
+            cast: false,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.players[0].life, 16);
 }

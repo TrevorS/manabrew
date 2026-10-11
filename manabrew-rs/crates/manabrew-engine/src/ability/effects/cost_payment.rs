@@ -244,19 +244,7 @@ impl crate::game_loop::mana_payment::ManaPaymentHost for EffectManaPayment<'_, '
 
         self.paying_mana.extend(result.paying_mana.iter().copied());
         if result.life_paid > 0 {
-            let lost = game.player_lose_life(session.player, result.life_paid);
-            ctx.trigger_handler.run_trigger(
-                TriggerType::LifeLost,
-                RunParams {
-                    player: Some(session.player),
-                    life_amount: Some(result.life_paid),
-                    ..Default::default()
-                },
-                false,
-            );
-            if lost > 0 {
-                crate::action::run_life_lost_all(ctx.trigger_handler, &[(session.player, lost)]);
-            }
+            crate::game_loop::pay_life(game, ctx.trigger_handler, session.player, result.life_paid);
         }
 
         Some(
@@ -304,19 +292,7 @@ impl crate::game_loop::mana_payment::ManaPaymentHost for EffectManaPayment<'_, '
                 .copied(),
         );
         if life_to_pay > 0 {
-            let lost = game.player_lose_life(player, life_to_pay);
-            ctx.trigger_handler.run_trigger(
-                TriggerType::LifeLost,
-                RunParams {
-                    player: Some(player),
-                    life_amount: Some(life_to_pay),
-                    ..Default::default()
-                },
-                false,
-            );
-            if lost > 0 {
-                crate::action::run_life_lost_all(ctx.trigger_handler, &[(player, lost)]);
-            }
+            crate::game_loop::pay_life(game, ctx.trigger_handler, player, life_to_pay);
         }
         true
     }
@@ -648,21 +624,8 @@ fn pay_effect_cost_parts(
                 );
             }
             CostPart::PayLife(amount) => {
-                let lost = ctx
-                    .game
-                    .player_lose_life(payer, amount.resolve(ctx.game, source, payer));
-                ctx.trigger_handler.run_trigger(
-                    TriggerType::LifeLost,
-                    RunParams {
-                        player: Some(payer),
-                        life_amount: Some(amount.resolve(ctx.game, source, payer)),
-                        ..Default::default()
-                    },
-                    false,
-                );
-                if lost > 0 {
-                    crate::action::run_life_lost_all(ctx.trigger_handler, &[(payer, lost)]);
-                }
+                let amount = amount.resolve(ctx.game, source, payer);
+                crate::game_loop::pay_life(ctx.game, ctx.trigger_handler, payer, amount);
             }
             CostPart::Mana {
                 cost: mana_cost, ..

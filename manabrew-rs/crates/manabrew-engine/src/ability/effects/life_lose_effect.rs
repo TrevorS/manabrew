@@ -1,9 +1,6 @@
 use super::{resolve_numeric_svar, EffectContext};
 use crate::ability::ability_ir::EffectIr;
 use crate::event::RunParams;
-use crate::ids::PlayerId;
-use crate::replacement::replacement_handler::{apply_replacements_with_agents, ReplacementEvent};
-use crate::replacement::ReplacementResult;
 use crate::spellability::SpellAbility;
 use crate::trigger::TriggerType;
 
@@ -19,7 +16,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if crate::player::has_lost(ctx.game, target) {
             continue;
         }
-        let lost = lose_life(ctx, sa, target, amount);
+        let lost = crate::player::lose_life(
+            ctx.game,
+            ctx.trigger_handler,
+            Some(ctx.agents),
+            target,
+            amount,
+            false,
+            Some(sa),
+        );
         if lost > 0 {
             loss_map.push((target, lost));
         }
@@ -48,58 +53,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             false,
         );
     }
-}
-
-pub(super) fn lose_life(
-    ctx: &mut EffectContext,
-    sa: &SpellAbility,
-    target: PlayerId,
-    amount: i32,
-) -> i32 {
-    if crate::staticability::static_ability_cant_gain_lose_pay_life::cant_lose_life(
-        ctx.game, target,
-    ) {
-        return 0;
-    }
-
-    // Run LifeReduced replacement effects before losing life.
-    let mut event = ReplacementEvent::LifeReduced {
-        player: target,
-        amount,
-        is_damage: false,
-    };
-    let result = apply_replacements_with_agents(ctx.game, ctx.agents, &mut event);
-    if result == ReplacementResult::Skipped || result == ReplacementResult::Replaced {
-        return 0;
-    }
-    let amount = if let ReplacementEvent::LifeReduced {
-        amount: final_amount,
-        ..
-    } = event
-    {
-        final_amount
-    } else {
-        amount
-    };
-    if amount <= 0 {
-        return 0;
-    }
-
-    ctx.game.player_lose_life(target, amount);
-
-    ctx.trigger_handler.run_trigger(
-        TriggerType::LifeLost,
-        RunParams {
-            player: Some(target),
-            life_amount: Some(amount),
-            first_time: Some(ctx.game.player(target).life_lost_this_turn == amount),
-            source_card: sa.source,
-            source_sa: Some(Box::new(sa.clone())),
-            ..Default::default()
-        },
-        false,
-    );
-    amount
 }
 
 fn resolve_life_amount(ctx: &EffectContext, sa: &SpellAbility) -> i32 {
