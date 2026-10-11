@@ -1182,14 +1182,17 @@ fn candidate_match_context<'a>(
 ) -> valid_filter::MatchContext<'a> {
     let context = valid_filter::MatchContext::new(source, game);
     match ability {
-        Some(sa) => context.with_spell_ability(sa).with_triggering(
-            sa.get_triggering_card(crate::ability::AbilityKey::Card),
-            sa.get_triggering_value(crate::ability::AbilityKey::Player)
-                .and_then(|value| match value {
-                    crate::event::AbilityValue::Player(player) => Some(*player),
-                    _ => None,
-                }),
-        ),
+        Some(sa) => context
+            .with_spell_ability(sa)
+            .with_source_controller(sa.activating_player)
+            .with_triggering(
+                sa.get_triggering_card(crate::ability::AbilityKey::Card),
+                sa.get_triggering_value(crate::ability::AbilityKey::Player)
+                    .and_then(|value| match value {
+                        crate::event::AbilityValue::Player(player) => Some(*player),
+                        _ => None,
+                    }),
+            ),
         None => context,
     }
 }

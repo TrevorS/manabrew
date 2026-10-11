@@ -3284,6 +3284,42 @@ mod tests {
         }
     }
 
+    const ROBBERY_GRANT: &str = "Name:Robbery Grant\nManaCost:no cost\nTypes:Effect\nS:Mode$ Continuous | MayPlay$ True | MayPlayIgnoreType$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile | EffectZone$ Command | Description$ You may play those cards.\nOracle:";
+    const FULL_BORE: &str = "Name:Full Bore\nManaCost:R\nTypes:Instant\nA:SP$ Pump | ValidTgts$ Creature.YouCtrl | TgtPrompt$ Select target creature you control | NumAtt$ +3 | NumDef$ +2 | SpellDescription$ Target creature you control gets +3/+2 until end of turn.\nOracle:";
+    const RED_BEAR: &str = "Name:Red Bear\nManaCost:1 R\nTypes:Creature Bear\nPT:2/2\nOracle:";
+
+    fn stolen_full_bore_offers(caster_has_creature: bool) -> usize {
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        let mut put = |script: &str, owner: PlayerId, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, owner));
+            game.move_card(card, zone, owner);
+            card
+        };
+        let grant = put(ROBBERY_GRANT, p0, ZoneType::Command);
+        let bore = put(FULL_BORE, p1, ZoneType::Exile);
+        put(RED_BEAR, p1, ZoneType::Battlefield);
+        put(RED_SPRING, p0, ZoneType::Battlefield);
+        if caster_has_creature {
+            put(RED_BEAR, p0, ZoneType::Battlefield);
+        }
+        game.card_mut(grant).add_remembered_card(bore);
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        GameLoop::new(2)
+            .get_playable_cards(&game, p0, false)
+            .iter()
+            .filter(|option| option.card_id == bore)
+            .count()
+    }
+
+    #[test]
+    fn a_stolen_spell_checks_its_targets_for_the_player_casting_it() {
+        assert_eq!(stolen_full_bore_offers(false), 0);
+        assert_eq!(stolen_full_bore_offers(true), 1);
+    }
+
     const FORETOLD_BOLT: &str = "Name:Foretold Bolt\nManaCost:2 R\nTypes:Instant\nK:Foretell:R\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | SpellDescription$ CARDNAME deals 2 damage to any target.\nOracle:";
     const RED_SPRING: &str = "Name:Red Spring\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ R | SpellDescription$ Add {R}.\nOracle:";
 
