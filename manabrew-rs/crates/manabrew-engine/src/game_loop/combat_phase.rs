@@ -1,6 +1,5 @@
 use super::*;
 use crate::agent::DecisionContext;
-use crate::card::card_damage_history::TrackedEntity;
 
 impl GameLoop {
     pub fn step_combat(&mut self, game: &mut GameState, agents: &mut [Box<dyn PlayerAgent>]) {
@@ -456,7 +455,6 @@ impl GameLoop {
         }
 
         // Tap attackers (Vigilance skips tapping)
-        let num_attackers = chosen_attackers.len() as i32;
         game.player_attack_combat_reset(active);
         let mut tapped_attackers: Vec<CardId> = Vec::new();
         for &(attacker_id, defender) in &chosen_attackers {
@@ -482,79 +480,16 @@ impl GameLoop {
                 );
             }
             game.card_mut(attacker_id).mark_attacked_this_turn();
-            let attacker = game.card(attacker_id);
-            let (attacker_controller, zone_timestamp) =
-                (attacker.controller, attacker.zone_timestamp);
-            game.player_mut(attacker_controller)
-                .creatures_attacked_this_turn
-                .push((attacker_id, zone_timestamp));
-            // Set attacking_player to the controlling player of the defender
-            let def_player = defender.controlling_player(game);
-            game.card_mut(attacker_id).set_attacking_player(def_player);
             self.combat.declare_attacker(
                 attacker_id,
                 defender,
                 game.card(attacker_id).zone_timestamp,
             );
 
-            // Record attack in damage history
-            game.card_mut(attacker_id)
-                .damage_history
-                .record_attack(num_attackers - 1);
-            game.card_mut(attacker_id)
-                .damage_history
-                .set_creature_attacked_this_combat(
-                    Some(match defender {
-                        combat::DefenderId::Player(pid) => TrackedEntity::Player(pid),
-                        combat::DefenderId::Permanent(cid) => TrackedEntity::Card(cid),
-                    }),
-                    num_attackers - 1,
-                    matches!(defender, combat::DefenderId::Permanent(_)),
-                );
-            if let combat::DefenderId::Player(pid) = defender {
-                if !game
-                    .player(active)
-                    .attacked_players_this_turn
-                    .contains(&pid)
-                {
-                    game.player_record_attacked_player(active, pid);
-                }
-                if !game
-                    .player(active)
-                    .attacked_players_this_combat
-                    .contains(&pid)
-                {
-                    game.player_record_attacked_player(active, pid);
-                }
-            }
-
             crate::ability::effects::ring_tempts_you_effect::sync_ring_effect(
                 game,
                 &mut self.trigger_handler,
                 active,
-            );
-
-            // Fire Attacks trigger for each attacker
-            self.trigger_handler.run_trigger(
-                TriggerType::Attacks,
-                RunParams {
-                    attacker: Some(attacker_id),
-                    card: Some(attacker_id),
-                    // Java's `AbilityKey.Attacked` is the defender entity itself, which
-                    // `Attacked$` filters on; `DefendingPlayer` is a separate key.
-                    attacked_player: match defender {
-                        combat::DefenderId::Player(pid) => Some(pid),
-                        combat::DefenderId::Permanent(_) => None,
-                    },
-                    attacked_card: match defender {
-                        combat::DefenderId::Permanent(cid) => Some(cid),
-                        combat::DefenderId::Player(_) => None,
-                    },
-                    defending_player: Some(def_player),
-                    num_attackers: Some(num_attackers as usize),
-                    ..Default::default()
-                },
-                false,
             );
         }
         // Java's `PhaseHandler.declareAttackersForPlayer` collects every attacker that just
@@ -629,6 +564,15 @@ impl GameLoop {
                     ..Default::default()
                 },
                 false,
+            );
+        }
+        for &(attacker_id, _) in &self.combat.attackers {
+            combat::combat_util::check_declared_attacker(
+                game,
+                &mut self.trigger_handler,
+                attacker_id,
+                &self.combat,
+                true,
             );
         }
         // Recompute continuous effects now that `attacking_player` is set on

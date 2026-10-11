@@ -592,10 +592,78 @@ pub fn can_attacker_be_blocked_with_amount(
     i64::from(min) <= amount && amount <= i64::from(max)
 }
 
-/// Declared-attacker trigger helper.
-pub fn check_declared_attacker(game: &mut GameState, attacker_id: CardId, defender: DefenderId) {
-    let controlling = defender.controlling_player(game);
-    game.card_mut(attacker_id).set_attacking_player(controlling);
+pub fn check_declared_attacker(
+    game: &mut GameState,
+    trigger_handler: &mut crate::trigger::handler::TriggerHandler,
+    attacker_id: CardId,
+    combat: &CombatState,
+    triggers: bool,
+) {
+    let Some(defender) = combat
+        .attackers
+        .iter()
+        .find(|&&(attacker, _)| attacker == attacker_id)
+        .map(|&(_, defender)| defender)
+    else {
+        return;
+    };
+    let defending_player = defender.controlling_player(game);
+    let num_attackers = combat.attackers.len();
+
+    if triggers {
+        trigger_handler.run_trigger(
+            crate::trigger::TriggerType::Attacks,
+            crate::event::RunParams {
+                attacker: Some(attacker_id),
+                card: Some(attacker_id),
+                attacked_player: match defender {
+                    DefenderId::Player(pid) => Some(pid),
+                    DefenderId::Permanent(_) => None,
+                },
+                attacked_card: match defender {
+                    DefenderId::Permanent(cid) => Some(cid),
+                    DefenderId::Player(_) => None,
+                },
+                defending_player: Some(defending_player),
+                num_attackers: Some(num_attackers),
+                ..Default::default()
+            },
+            false,
+        );
+    }
+
+    let defender_is_battle = matches!(
+        defender,
+        DefenderId::Permanent(cid) if game.card(cid).type_line.core_types.contains(&forge_foundation::CoreType::Battle)
+    );
+    let attacker = game.card_mut(attacker_id);
+    attacker.damage_history.set_creature_attacked_this_combat(
+        Some(match defender {
+            DefenderId::Player(pid) => crate::card::card_damage_history::TrackedEntity::Player(pid),
+            DefenderId::Permanent(cid) => {
+                crate::card::card_damage_history::TrackedEntity::Card(cid)
+            }
+        }),
+        num_attackers as i32 - 1,
+        defender_is_battle,
+    );
+    attacker
+        .damage_history
+        .clear_not_attacked_since_last_upkeep_of();
+    attacker.set_attacking_player(defending_player);
+    let (controller, zone_timestamp) = (attacker.controller, attacker.zone_timestamp);
+    let player = game.player_mut(controller);
+    player
+        .creatures_attacked_this_turn
+        .push((attacker_id, zone_timestamp));
+    if let DefenderId::Player(pid) = defender {
+        if !player.attacked_players_this_turn.contains(&pid) {
+            player.attacked_players_this_turn.push(pid);
+        }
+        if !player.attacked_players_this_combat.contains(&pid) {
+            player.attacked_players_this_combat.push(pid);
+        }
+    }
 }
 
 /// Get attack constraints for a combat.
