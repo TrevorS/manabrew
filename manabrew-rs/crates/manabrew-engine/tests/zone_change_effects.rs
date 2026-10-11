@@ -1813,3 +1813,28 @@ fn a_crafted_card_counts_its_exiled_cards_as_they_are_in_exile() {
     assert_eq!(game.card(lattice).exiled_cards, vec![old_lattice, big]);
     assert_eq!(game.card(lattice).power(), 5);
 }
+#[test]
+fn seek_picks_by_reservoir_sampling_over_the_library_from_the_top() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let forest = "Name:Forest\nManaCost:no cost\nTypes:Basic Land Forest\nOracle:";
+    let bottom = put(&mut game, forest, p0, ZoneType::Library);
+    put(&mut game, forest, p0, ZoneType::Library);
+    let top = put(&mut game, forest, p0, ZoneType::Library);
+    assert_eq!(game.cards_in_zone(ZoneType::Library, p0).last(), Some(&top));
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ Seek | Type$ Card.Land",
+        None,
+        None,
+        Some(source),
+    );
+    let mut game_loop = GameLoop::new(2);
+    game_loop.game_rng = Box::new(ReverseShuffleRng);
+    game_loop.resolve_stack(&mut game, &mut pass_agents());
+    assert_eq!(game.card(bottom).zone, ZoneType::Hand);
+    assert_eq!(game.card(top).zone, ZoneType::Library);
+}
