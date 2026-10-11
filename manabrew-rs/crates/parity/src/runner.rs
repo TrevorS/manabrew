@@ -272,9 +272,14 @@ impl CapturingAgent {
     /// Build a formatting context for the current game state.
     /// Returns `None` if no game state has been captured yet.
     fn fmt_ctx(&self) -> Option<FmtCtx<'_>> {
+        self.event_fmt_ctx(None)
+    }
+
+    fn event_fmt_ctx<'g>(&'g self, event_game: Option<&'g GameState>) -> Option<FmtCtx<'g>> {
         self.inner.sync_parity_ids();
         self.inner.snapshot_game().map(|game| FmtCtx {
             game,
+            event_game,
             parity_map: &self.parity_map,
         })
     }
@@ -427,10 +432,10 @@ macro_rules! parity_agent_callback {
         $(
             fn $name(&mut self, context: DecisionContext<'_> $(, $arg: $ty)*) -> $ret {
                 self.save_snapshot($kind);
-                let fmt = self.fmt_ctx();
+                let fmt = self.event_fmt_ctx(Some(context.game));
                 let cb_args: Vec<String> = vec![$($arg.callback_arg_display(fmt.as_ref())),*];
                 let result = self.inner.$name(context, $($arg),*);
-                let outcome = $format(&result, self.fmt_ctx());
+                let outcome = $format(&result, self.event_fmt_ctx(Some(context.game)));
                 self.parity_observer.on_callback(
                     $kind,
                     &outcome,
@@ -447,10 +452,10 @@ macro_rules! parity_agent_callback {
         $(
             fn $name(&mut self, context: DecisionContext<'_> $(, $arg: $ty)*) -> $ret {
                 self.save_snapshot($kind);
-                let fmt = self.fmt_ctx();
+                let fmt = self.event_fmt_ctx(Some(context.game));
                 let cb_args: Vec<String> = vec![$($arg.callback_arg_display(fmt.as_ref())),*];
                 let result = self.inner.$name(context, $($arg),*);
-                let outcome = match self.fmt_ctx() {
+                let outcome = match self.event_fmt_ctx(Some(context.game)) {
                     Some(ctx) => result.parity_fmt(&ctx),
                     None => format!("{:?}", result),
                 };

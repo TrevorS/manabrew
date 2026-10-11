@@ -40,13 +40,19 @@ use crate::parity_card_map::ParityCardMap;
 /// Everything the formatter needs to resolve IDs to names.
 pub struct FmtCtx<'a> {
     pub game: &'a GameState,
+    pub event_game: Option<&'a GameState>,
     pub parity_map: &'a ParityCardMap,
 }
 
 impl<'a> FmtCtx<'a> {
     /// Format a single card as `Name@parityId`.
     pub fn card(&self, cid: CardId) -> String {
-        let card = self.game.card(cid);
+        // A card made during the event (a token entering) is in no snapshot yet, so it is named
+        // from the event's game and only peeked: a first touch would number it before Java does.
+        let (card, made_during_event) = match (self.game.cards.get(cid.index()), self.event_game) {
+            (None, Some(event_game)) => (event_game.card(cid), true),
+            _ => (self.game.card(cid), false),
+        };
         // Java logs Card.getName(): off the battlefield a split card's current state is
         // Original, whose name is the combined "A // B".
         let split_off_battlefield = card.zone != forge_foundation::ZoneType::Battlefield
@@ -60,6 +66,12 @@ impl<'a> FmtCtx<'a> {
         } else {
             card.card_name.as_str()
         };
+        if made_during_event {
+            return match self.parity_map.peek(cid) {
+                Some(id) => format!("{name}@{id}"),
+                None => format!("{name}@?"),
+            };
+        }
         let pid = self.parity_map.parity_id(self.game, cid);
         format!("{name}@{pid}")
     }
