@@ -34,7 +34,17 @@ impl GameLoop {
             command.run(game, &mut *self.game_rng);
         }
         self.emit_phase_trigger(game, PhaseType::CombatBegin);
-        self.step_with_priority(game, agents, false);
+        self.combat_begin_priority(game, agents, active, 0)
+    }
+
+    pub(crate) fn combat_begin_priority(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        first: PlayerId,
+        passed: usize,
+    ) -> bool {
+        self.priority_window(game, agents, false, first, passed);
         if game.game_over || game.end_turn_requested {
             self.combat.clear_with_cards(game);
             return false;
@@ -73,11 +83,21 @@ impl GameLoop {
         }
         // Unfreeze the stack now that attackers are declared.
         game.stack.unfreeze_stack();
+        self.declare_attackers_priority(game, agents, active, 0)
+    }
+
+    pub(crate) fn declare_attackers_priority(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        first: PlayerId,
+        passed: usize,
+    ) -> bool {
         // Java parity: PhaseHandler sets givePriorityToPlayer = inCombat() after
         // declare attackers. In Java, inCombat() returns `combat != null` (true
         // whenever the combat object exists, regardless of whether attackers were
         // declared), so priority is always given here.
-        self.step_with_priority(game, agents, false);
+        self.priority_window(game, agents, false, first, passed);
         if game.game_over || game.end_turn_requested {
             self.combat.clear_with_cards(game);
             return false;
@@ -616,99 +636,114 @@ impl GameLoop {
                 return false;
             }
 
-            // Unfreeze the stack now that blockers are declared.
-            game.stack.unfreeze_stack();
+            self.declare_blockers_triggers(game);
+            let active = game.active_player();
+            return self.declare_blockers_priority(game, agents, active, 0);
+        }
+        true
+    }
 
-            // Fire BlockersDeclared batch trigger before the priority
-            // window so these triggers are on the stack when players
-            // receive priority (CR 509.4). Mirrors Java's
-            // declareBlockersTurnBasedAction() which fires all block
-            // triggers before mainLoopStep() gives priority.
-            self.trigger_handler.run_trigger(
-                TriggerType::BlockersDeclared,
-                RunParams {
-                    blocker_ids: Some(self.combat.blockers.iter().map(|(b, _)| *b).collect()),
-                    ..Default::default()
-                },
-                false,
-            );
+    pub(crate) fn declare_blockers_triggers(&mut self, game: &mut GameState) {
+        // Unfreeze the stack now that blockers are declared.
+        game.stack.unfreeze_stack();
 
-            self.combat.blockers_declared = true;
-            // Fire AttackerBlocked / AttackerUnblocked triggers
-            for &(attacker_id, defender_id) in &self.combat.attackers.clone() {
-                if self.combat.is_blocked(attacker_id) {
-                    let blockers_for = self.combat.get_blockers_for(attacker_id);
+        // Fire BlockersDeclared batch trigger before the priority
+        // window so these triggers are on the stack when players
+        // receive priority (CR 509.4). Mirrors Java's
+        // declareBlockersTurnBasedAction() which fires all block
+        // triggers before mainLoopStep() gives priority.
+        self.trigger_handler.run_trigger(
+            TriggerType::BlockersDeclared,
+            RunParams {
+                blocker_ids: Some(self.combat.blockers.iter().map(|(b, _)| *b).collect()),
+                ..Default::default()
+            },
+            false,
+        );
+
+        self.combat.blockers_declared = true;
+        // Fire AttackerBlocked / AttackerUnblocked triggers
+        for &(attacker_id, defender_id) in &self.combat.attackers.clone() {
+            if self.combat.is_blocked(attacker_id) {
+                let blockers_for = self.combat.get_blockers_for(attacker_id);
+                self.trigger_handler.run_trigger(
+                    TriggerType::AttackerBlocked,
+                    RunParams {
+                        attacker: Some(attacker_id),
+                        card: Some(attacker_id),
+                        blocker_ids: Some(blockers_for.clone()),
+                        defending_player: Some(defender_id.controlling_player(game)),
+                        ..Default::default()
+                    },
+                    false,
+                );
+                self.trigger_handler.run_trigger(
+                    TriggerType::AttackerBlockedOnce,
+                    RunParams {
+                        attacker: Some(attacker_id),
+                        card: Some(attacker_id),
+                        blocker_ids: Some(blockers_for.clone()),
+                        defending_player: Some(defender_id.controlling_player(game)),
+                        ..Default::default()
+                    },
+                    false,
+                );
+                for blocker_id in blockers_for {
+                    let attacker_lki = std::sync::Arc::clone(&game.cards[attacker_id.index()]);
+                    let blocker_lki = std::sync::Arc::clone(&game.cards[blocker_id.index()]);
+                    game.card_mut(blocker_id)
+                        .add_blocked_this_turn(attacker_lki);
+                    game.card_mut(attacker_id)
+                        .add_blocked_by_this_turn(blocker_lki);
                     self.trigger_handler.run_trigger(
-                        TriggerType::AttackerBlocked,
+                        TriggerType::AttackerBlockedByCreature,
                         RunParams {
                             attacker: Some(attacker_id),
                             card: Some(attacker_id),
-                            blocker_ids: Some(blockers_for.clone()),
+                            blocker: Some(blocker_id),
+                            blocked_attacker: Some(attacker_id),
                             defending_player: Some(defender_id.controlling_player(game)),
-                            ..Default::default()
-                        },
-                        false,
-                    );
-                    self.trigger_handler.run_trigger(
-                        TriggerType::AttackerBlockedOnce,
-                        RunParams {
-                            attacker: Some(attacker_id),
-                            card: Some(attacker_id),
-                            blocker_ids: Some(blockers_for.clone()),
-                            defending_player: Some(defender_id.controlling_player(game)),
-                            ..Default::default()
-                        },
-                        false,
-                    );
-                    for blocker_id in blockers_for {
-                        let attacker_lki = std::sync::Arc::clone(&game.cards[attacker_id.index()]);
-                        let blocker_lki = std::sync::Arc::clone(&game.cards[blocker_id.index()]);
-                        game.card_mut(blocker_id)
-                            .add_blocked_this_turn(attacker_lki);
-                        game.card_mut(attacker_id)
-                            .add_blocked_by_this_turn(blocker_lki);
-                        self.trigger_handler.run_trigger(
-                            TriggerType::AttackerBlockedByCreature,
-                            RunParams {
-                                attacker: Some(attacker_id),
-                                card: Some(attacker_id),
-                                blocker: Some(blocker_id),
-                                blocked_attacker: Some(attacker_id),
-                                defending_player: Some(defender_id.controlling_player(game)),
-                                ..Default::default()
-                            },
-                            false,
-                        );
-                    }
-                } else {
-                    self.combat.blocked_attackers.remove(&attacker_id);
-                    self.trigger_handler.run_trigger(
-                        TriggerType::AttackerUnblocked,
-                        RunParams {
-                            attacker: Some(attacker_id),
-                            card: Some(attacker_id),
-                            ..Default::default()
-                        },
-                        false,
-                    );
-                    self.trigger_handler.run_trigger(
-                        TriggerType::AttackerUnblockedOnce,
-                        RunParams {
-                            attacker: Some(attacker_id),
-                            card: Some(attacker_id),
                             ..Default::default()
                         },
                         false,
                     );
                 }
+            } else {
+                self.combat.blocked_attackers.remove(&attacker_id);
+                self.trigger_handler.run_trigger(
+                    TriggerType::AttackerUnblocked,
+                    RunParams {
+                        attacker: Some(attacker_id),
+                        card: Some(attacker_id),
+                        ..Default::default()
+                    },
+                    false,
+                );
+                self.trigger_handler.run_trigger(
+                    TriggerType::AttackerUnblockedOnce,
+                    RunParams {
+                        attacker: Some(attacker_id),
+                        card: Some(attacker_id),
+                        ..Default::default()
+                    },
+                    false,
+                );
             }
+        }
+    }
 
-            self.step_with_priority(game, agents, false);
-            if game.game_over || game.end_turn_requested {
-                self.combat.clear_with_cards(game);
-                game.turn.combat_block_assignments.clear();
-                return false;
-            }
+    pub(crate) fn declare_blockers_priority(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        first: PlayerId,
+        passed: usize,
+    ) -> bool {
+        self.priority_window(game, agents, false, first, passed);
+        if game.game_over || game.end_turn_requested {
+            self.combat.clear_with_cards(game);
+            game.turn.combat_block_assignments.clear();
+            return false;
         }
         true
     }
@@ -995,14 +1030,8 @@ impl GameLoop {
             // to die (e.g. enrage) are matched while still on the battlefield.
             self.trigger_handler.flush_waiting_triggers(game);
             // Java parity: skip priority when no first-strike damage assigned.
-            if fs_damage_assigned {
-                self.step_with_priority(game, agents, false);
-            }
-            if game.game_over || game.end_turn_requested {
-                self.combat.clear_with_cards(game);
-                game.turn.combat_block_assignments.clear();
-                return false;
-            }
+            let active = game.active_player();
+            return self.combat_damage_priority(game, agents, fs_damage_assigned, active, 0);
         }
         true
     }
@@ -1076,14 +1105,27 @@ impl GameLoop {
             // Flush triggers before SBA so that triggers from creatures about
             // to die (e.g. enrage) are matched while still on the battlefield.
             self.trigger_handler.flush_waiting_triggers(game);
-            if damage_assigned {
-                self.step_with_priority(game, agents, false);
-            }
-            if game.game_over || game.end_turn_requested {
-                self.combat.clear_with_cards(game);
-                game.turn.combat_block_assignments.clear();
-                return false;
-            }
+            let active = game.active_player();
+            return self.combat_damage_priority(game, agents, damage_assigned, active, 0);
+        }
+        true
+    }
+
+    pub(crate) fn combat_damage_priority(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        damage_assigned: bool,
+        first: PlayerId,
+        passed: usize,
+    ) -> bool {
+        if damage_assigned {
+            self.priority_window(game, agents, false, first, passed);
+        }
+        if game.game_over || game.end_turn_requested {
+            self.combat.clear_with_cards(game);
+            game.turn.combat_block_assignments.clear();
+            return false;
         }
         true
     }
@@ -1106,7 +1148,10 @@ impl GameLoop {
         }
         self.emit_phase_trigger(game, PhaseType::CombatEnd);
         self.step_with_priority(game, agents, false);
+        self.end_combat(game);
+    }
 
+    pub(crate) fn end_combat(&mut self, game: &mut GameState) {
         // End-of-combat damage history reset and must_block cleanup
         for card in game.cards.iter_mut() {
             if card.zone == ZoneType::Battlefield && card.is_creature() {
