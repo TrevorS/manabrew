@@ -1985,3 +1985,20 @@ fn an_entering_creature_is_tested_with_the_power_it_entered_with() {
     }
     assert_eq!(game.player(p0).life, 24);
 }
+
+const DOORKEEPER: &str = "Name:Doorkeeper Thrull\nManaCost:1 W\nTypes:Creature Thrull\nPT:1/2\nK:Flash\nK:Flying\nS:Mode$ DisableTriggers | ValidCause$ Creature,Artifact | ValidMode$ ChangesZone,ChangesZoneAll | Destination$ Battlefield | Description$ Artifacts and creatures entering don't cause abilities to trigger.\nOracle:";
+const YARD_EXIT_WATCHER: &str = "Name:Yard Exit Watcher\nManaCost:1 B\nTypes:Creature Human\nPT:1/1\nT:Mode$ ChangesZoneAll | ValidCards$ Card.YouOwn | Origin$ Graveyard | Destination$ Any | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever one or more cards leave your graveyard, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
+
+#[test]
+fn a_disabler_returned_from_the_graveyard_does_not_stop_its_own_graveyard_leave_triggers() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    put(&mut game, YARD_EXIT_WATCHER, p0, ZoneType::Battlefield);
+    let doorkeeper = put(&mut game, DOORKEEPER, p0, ZoneType::Graveyard);
+    return_remembered(&mut game, p0, &[doorkeeper]);
+    let mut agents = pass_agents();
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(doorkeeper).zone, ZoneType::Battlefield);
+    assert_eq!(game.player(p0).life, 21);
+}

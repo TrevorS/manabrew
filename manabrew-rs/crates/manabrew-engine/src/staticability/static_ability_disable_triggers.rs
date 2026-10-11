@@ -19,17 +19,34 @@ pub fn is_disabled(
 ) -> bool {
     let host = game.card(trigger_host);
     let mut cards_filtered = None;
-    for source in game
-        .cards
-        .iter()
-        .filter(|c| c.zone.is_static_ability_source())
-    {
+    let sources: Vec<&Card> = if regtrig.looks_back_in_time() {
+        run_params
+            .change_zone_table
+            .as_ref()
+            .map_or(game.pre_sba_battlefield.as_slice(), |table| {
+                table.last_state_battlefield()
+            })
+            .iter()
+            .map(|&card_id| game.card(card_id))
+            .collect()
+    } else {
+        game.cards
+            .iter()
+            .filter(|c| c.zone.is_static_ability_source())
+            .map(|c| &**c)
+            .collect()
+    };
+    for source in sources {
         for st_ab in source.static_abilities.iter().filter(|sa| {
-            sa.check_conditions_full(
-                &crate::staticability::StaticMode::DisableTriggers,
-                source,
-                game,
-            )
+            if source.zone == ZoneType::Battlefield || !regtrig.looks_back_in_time() {
+                sa.check_conditions_full(
+                    &crate::staticability::StaticMode::DisableTriggers,
+                    source,
+                    game,
+                )
+            } else {
+                sa.check_mode(&crate::staticability::StaticMode::DisableTriggers)
+            }
         }) {
             if let Some(valid_mode) = st_ab.ir.valid_mode.as_deref() {
                 let modes = valid_mode.split(',').map(|s| s.trim());
@@ -79,17 +96,23 @@ pub fn is_disabled(
 
 /// Keep in sync with the source and static filters of `is_disabled`.
 pub fn has_disable_triggers_ability(game: &GameState) -> bool {
+    let mode = crate::staticability::StaticMode::DisableTriggers;
     game.cards
         .iter()
         .filter(|c| c.zone.is_static_ability_source())
         .any(|source| {
-            source.static_abilities.iter().any(|sa| {
-                sa.check_conditions_full(
-                    &crate::staticability::StaticMode::DisableTriggers,
-                    source,
-                    game,
-                )
-            })
+            source
+                .static_abilities
+                .iter()
+                .any(|sa| sa.check_conditions_full(&mode, source, game))
+        })
+        || game.pre_sba_battlefield.iter().any(|&card_id| {
+            let source = game.card(card_id);
+            source.zone != ZoneType::Battlefield
+                && source
+                    .static_abilities
+                    .iter()
+                    .any(|sa| sa.check_mode(&mode))
         })
 }
 

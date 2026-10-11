@@ -246,6 +246,39 @@ impl CardTraitIrOwner for Trigger {
 }
 
 impl Trigger {
+    pub fn looks_back_in_time(&self) -> bool {
+        if matches!(
+            self.kind,
+            TriggerType::Exploited
+                | TriggerType::Destroyed
+                | TriggerType::Sacrificed
+                | TriggerType::SacrificedOnce
+        ) {
+            return true;
+        }
+        if matches!(
+            self.kind,
+            TriggerType::ChangesZone | TriggerType::ChangesZoneAll
+        ) {
+            return self
+                .ir
+                .origin_zones
+                .contains(&forge_foundation::ZoneType::Battlefield)
+                || (self
+                    .ir
+                    .origin_zones
+                    .contains(&forge_foundation::ZoneType::Graveyard)
+                    && self.ir.destination_zones != [forge_foundation::ZoneType::Battlefield])
+                || self.ir.destination_zones.iter().any(|zone| {
+                    matches!(
+                        zone,
+                        forge_foundation::ZoneType::Library | forge_foundation::ZoneType::Hand
+                    )
+                });
+        }
+        false
+    }
+
     pub fn set_trigger_phases(&mut self, phases: Vec<PhaseType>) {
         self.ir.valid_phases = Some(phases);
     }

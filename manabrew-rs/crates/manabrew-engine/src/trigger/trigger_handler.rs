@@ -1470,36 +1470,7 @@ impl TriggerHandler {
     }
 
     fn looks_back_in_time(&self, trigger: &Trigger) -> bool {
-        if matches!(
-            trigger.kind,
-            TriggerType::Exploited
-                | TriggerType::Destroyed
-                | TriggerType::Sacrificed
-                | TriggerType::SacrificedOnce
-        ) {
-            return true;
-        }
-        if matches!(
-            trigger.kind,
-            TriggerType::ChangesZone | TriggerType::ChangesZoneAll
-        ) {
-            return trigger
-                .ir
-                .origin_zones
-                .contains(&forge_foundation::ZoneType::Battlefield)
-                || (trigger
-                    .ir
-                    .origin_zones
-                    .contains(&forge_foundation::ZoneType::Graveyard)
-                    && trigger.ir.destination_zones != [forge_foundation::ZoneType::Battlefield])
-                || trigger.ir.destination_zones.iter().any(|zone| {
-                    matches!(
-                        zone,
-                        forge_foundation::ZoneType::Library | forge_foundation::ZoneType::Hand
-                    )
-                });
-        }
-        false
+        trigger.looks_back_in_time()
     }
 
     fn look_back_host_view(game: &GameState, event: &TriggerWaiting) -> Option<GameState> {
