@@ -12,7 +12,22 @@ impl GameLoop {
         game.turn.combat_block_assignments.clear();
         self.combat.attacking_player = Some(active);
         self.combat.defending_player = Some(defending);
+        if self.step_combat_begin(game, agents, active)
+            && self.step_combat_declare_attackers(game, agents, active, defending)
+            && self.step_combat_declare_blockers(game, agents, defending)
+            && self.step_combat_first_strike_damage(game, agents)
+            && self.step_combat_damage(game, agents)
+        {
+            self.step_combat_end(game, agents);
+        }
+    }
 
+    pub(crate) fn step_combat_begin(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        active: PlayerId,
+    ) -> bool {
         // Begin Combat
         self.set_phase(game, agents, PhaseType::CombatBegin);
         game.turn.n_combats_this_turn += 1;
@@ -23,16 +38,25 @@ impl GameLoop {
         self.step_with_priority(game, agents, false);
         if game.game_over || game.end_turn_requested {
             self.combat.clear_with_cards(game);
-            return;
+            return false;
         }
 
         // EndCombatPhase (issue #22): if requested, exit combat early
         if game.end_combat_requested {
             game.end_combat_requested = false;
             self.combat.clear_with_cards(game);
-            return;
+            return false;
         }
+        true
+    }
 
+    pub(crate) fn step_combat_declare_attackers(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        active: PlayerId,
+        defending: PlayerId,
+    ) -> bool {
         // Recompute continuous effects before evaluating attack/block legality.
         // CantAttack / CantBlock flags are set here.
         apply_continuous_effects(game);
@@ -45,6 +69,30 @@ impl GameLoop {
         // Declare Attackers — freeze the stack during declarations.
         game.stack.freeze_stack();
         self.set_phase(game, agents, PhaseType::CombatDeclareAttackers);
+        if !self.declare_attackers_turn_based_action(game, agents, active, defending) {
+            return false;
+        }
+        // Unfreeze the stack now that attackers are declared.
+        game.stack.unfreeze_stack();
+        // Java parity: PhaseHandler sets givePriorityToPlayer = inCombat() after
+        // declare attackers. In Java, inCombat() returns `combat != null` (true
+        // whenever the combat object exists, regardless of whether attackers were
+        // declared), so priority is always given here.
+        self.step_with_priority(game, agents, false);
+        if game.game_over || game.end_turn_requested {
+            self.combat.clear_with_cards(game);
+            return false;
+        }
+        true
+    }
+
+    fn declare_attackers_turn_based_action(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        active: PlayerId,
+        defending: PlayerId,
+    ) -> bool {
         let available_attackers = combat::get_available_attackers(game, active);
         let possible_defenders = combat::get_possible_defenders(game, active);
 
@@ -99,7 +147,7 @@ impl GameLoop {
                     &possible_defenders,
                 );
                 if self.apply_pending_snapshot_restore(game, agents) {
-                    return;
+                    return false;
                 }
                 self.game_log.log(
                     GameLogEntryType::PriorityResponse,
@@ -588,18 +636,15 @@ impl GameLoop {
         // "Affected$ Creature.attackingYou | AddPower$ -1" to apply correctly.
         apply_continuous_effects(game);
         self.trigger_handler.reset_active_triggers(game);
-        // Unfreeze the stack now that attackers are declared.
-        game.stack.unfreeze_stack();
-        // Java parity: PhaseHandler sets givePriorityToPlayer = inCombat() after
-        // declare attackers. In Java, inCombat() returns `combat != null` (true
-        // whenever the combat object exists, regardless of whether attackers were
-        // declared), so priority is always given here.
-        self.step_with_priority(game, agents, false);
-        if game.game_over || game.end_turn_requested {
-            self.combat.clear_with_cards(game);
-            return;
-        }
+        true
+    }
 
+    pub(crate) fn step_combat_declare_blockers(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        defending: PlayerId,
+    ) -> bool {
         // Java parity: PhaseHandler still advances into COMBAT_DECLARE_BLOCKERS
         // even when it will be skipped due to no attackers.
         self.combat.remove_absent_combatants(&game.cards);
@@ -623,218 +668,8 @@ impl GameLoop {
             // Declare Blockers — freeze the stack during declarations.
             game.stack.freeze_stack();
             self.set_phase(game, agents, PhaseType::CombatDeclareBlockers);
-            let attacker_card_ids: Vec<CardId> =
-                self.combat.attackers.iter().map(|(a, _)| *a).collect();
-            let available_blockers = combat::get_available_blockers(game, defending);
-            let legal_blockers =
-                combat::filter_legal_blockers(game, &attacker_card_ids, &available_blockers);
-            let has_any_legal_blocker = !legal_blockers.is_empty();
-
-            if has_any_legal_blocker {
-                let max_blockers = {
-                    let raw =
-                        crate::staticability::static_ability_block_restrict::block_restrict_num(
-                            game, defending,
-                        );
-                    if raw < i32::MAX {
-                        Some(raw as usize)
-                    } else {
-                        None
-                    }
-                };
-                let enforces_block_requirements =
-                    agents[defending.index()].enforces_block_requirements();
-                let max_attempts = 5000;
-                let mut declared_blockers = Vec::new();
-                for _attempt in 0..max_attempts {
-                    agents[defending.index()].snapshot_state(game, &self.mana_pools);
-                    self.game_log.log(
-                        GameLogEntryType::PriorityWaiting,
-                        2,
-                        format!(
-                            "Waiting for {} blocker declaration",
-                            game.player(defending).name
-                        ),
-                    );
-                    let mut chosen_blockers = {
-                        let def_agent = &mut agents[defending.index()];
-                        def_agent.choose_blockers(
-                            DecisionContext::new(game, &self.mana_pools),
-                            defending,
-                            &attacker_card_ids,
-                            &available_blockers,
-                            max_blockers,
-                        )
-                    };
-                    if self.apply_pending_snapshot_restore(game, agents) {
-                        return;
-                    }
-                    // Ignore duplicate blocker assignments; first assignment wins.
-                    let mut seen_blockers = crate::HashSet::default();
-                    chosen_blockers.retain(|(blocker, _)| seen_blockers.insert(*blocker));
-                    self.game_log.log(
-                        GameLogEntryType::PriorityResponse,
-                        2,
-                        format!(
-                            "{} declared {} blocker assignment(s)",
-                            game.player(defending).name,
-                            chosen_blockers.len()
-                        ),
-                    );
-
-                    chosen_blockers.retain(|&(blocker, attacker)| {
-                        combat::can_creature_block(game, blocker, attacker)
-                    });
-                    let mut declaration = self.combat.clone();
-                    for &(blocker, attacker) in &chosen_blockers {
-                        declaration.declare_blocker(
-                            blocker,
-                            attacker,
-                            game.card(blocker).zone_timestamp,
-                        );
-                    }
-                    if enforces_block_requirements {
-                        for &blocker_id in &available_blockers {
-                            let target =
-                                combat::compute_must_block_targets(game, &declaration, blocker_id)
-                                    .into_iter()
-                                    .find(|&attacker_id| {
-                                        combat::combat_util::can_attacker_be_blocked_with_amount(
-                                            game,
-                                            &declaration,
-                                            attacker_id,
-                                            declaration.get_blockers_for(attacker_id).len() + 1,
-                                        )
-                                    });
-                            if let Some(attacker_id) = target {
-                                declaration.declare_blocker(
-                                    blocker_id,
-                                    attacker_id,
-                                    game.card(blocker_id).zone_timestamp,
-                                );
-                                chosen_blockers.push((blocker_id, attacker_id));
-                            }
-                        }
-                    }
-                    let error = if game.mirror_forge_bugs {
-                        None
-                    } else {
-                        combat::validate_blocks(game, &declaration, defending)
-                    };
-                    match error {
-                        None => {
-                            self.apply_hand_offs(game, agents);
-                            declared_blockers = chosen_blockers;
-                            break;
-                        }
-                        Some(error) => agents[defending.index()].notify(
-                            DecisionContext::new(game, &self.mana_pools),
-                            crate::agent::notification::GameNotification::Event(
-                                crate::agent::GameLogEvent::warning(error),
-                            ),
-                        ),
-                    }
-                }
-
-                for (blocker, attacker) in declared_blockers {
-                    self.combat.declare_blocker(
-                        blocker,
-                        attacker,
-                        game.card(blocker).zone_timestamp,
-                    );
-
-                    // Fire Blocks trigger for each (blocker, attacker) pair
-                    self.trigger_handler.run_trigger(
-                        TriggerType::Blocks,
-                        RunParams {
-                            blocker: Some(blocker),
-                            blocked_attacker: Some(attacker),
-                            card: Some(blocker),
-                            ..Default::default()
-                        },
-                        false,
-                    );
-                }
-
-                // Block cost checking (War Cadence effects)
-                {
-                    let mut block_cost_failures = Vec::new();
-                    for (blocker_id, attacker_id) in self.combat.blockers.clone() {
-                        let cost = combat::block_cost::get_block_cost(
-                            game,
-                            game.card(blocker_id),
-                            game.card(attacker_id),
-                        );
-                        if cost > 0 {
-                            let controller = game.card(blocker_id).controller;
-                            let description = format!(
-                                "Pay {{{cost}}} to block with {}",
-                                game.card(blocker_id).card_name
-                            );
-                            if !self.pay_combat_cost(
-                                game,
-                                agents,
-                                controller,
-                                blocker_id,
-                                cost,
-                                &description,
-                            ) {
-                                block_cost_failures.push((blocker_id, attacker_id));
-                            }
-                        }
-                    }
-                    self.combat
-                        .blockers
-                        .retain(|pair| !block_cost_failures.contains(pair));
-                }
-
-                for blocker_id in
-                    combat::combat_util::blockers_missing_group_block(game, &self.combat, defending)
-                {
-                    self.combat.undo_blocking_assignment(blocker_id);
-                }
-
-                // Record damage history for blockers
-                for &(blocker_id, attacker_id) in &self.combat.blockers {
-                    game.card_mut(blocker_id).damage_history.record_block();
-                    game.card_mut(attacker_id)
-                        .damage_history
-                        .record_got_blocked();
-                }
-
-                // Publish finalized blocker assignments for UI snapshots in this combat.
-                game.turn.combat_block_assignments = self.combat.blockers.clone();
-
-                if !self.combat.blockers.is_empty() {
-                    let blockers_msg = self
-                        .combat
-                        .blockers
-                        .iter()
-                        .map(|(blocker_id, attacker_id)| {
-                            let blocker_name = game.card(*blocker_id).log_name().to_string();
-                            let attacker_name = game.card(*attacker_id).log_name().to_string();
-                            format!("{blocker_name} -> {attacker_name}")
-                        })
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    crate::agent::notify_all_agents(
-                        agents,
-                        DecisionContext::new(game, &self.mana_pools),
-                        crate::agent::GameLogEvent::action(format!("Blockers: {blockers_msg}"))
-                            .with_player(defending),
-                    );
-                }
-            }
-
-            // Auto-order blockers by declaration order — Java's parity
-            // harness sets `legacyOrderCombatants = false` so the agent is
-            // never prompted (Combat.java:494). Mirror that to keep the RNG
-            // and trace aligned with Java.
-            for &(attacker_id, _) in &self.combat.attackers.clone() {
-                let blockers_for = self.combat.get_blockers_for(attacker_id);
-                if blockers_for.len() > 1 {
-                    self.combat.damage_order.insert(attacker_id, blockers_for);
-                }
+            if !self.declare_blockers_turn_based_action(game, agents, defending) {
+                return false;
             }
 
             // Unfreeze the stack now that blockers are declared.
@@ -928,10 +763,235 @@ impl GameLoop {
             if game.game_over || game.end_turn_requested {
                 self.combat.clear_with_cards(game);
                 game.turn.combat_block_assignments.clear();
-                return;
+                return false;
+            }
+        }
+        true
+    }
+
+    fn declare_blockers_turn_based_action(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        defending: PlayerId,
+    ) -> bool {
+        let attacker_card_ids: Vec<CardId> =
+            self.combat.attackers.iter().map(|(a, _)| *a).collect();
+        let available_blockers = combat::get_available_blockers(game, defending);
+        let legal_blockers =
+            combat::filter_legal_blockers(game, &attacker_card_ids, &available_blockers);
+        let has_any_legal_blocker = !legal_blockers.is_empty();
+
+        if has_any_legal_blocker {
+            let max_blockers = {
+                let raw = crate::staticability::static_ability_block_restrict::block_restrict_num(
+                    game, defending,
+                );
+                if raw < i32::MAX {
+                    Some(raw as usize)
+                } else {
+                    None
+                }
+            };
+            let enforces_block_requirements =
+                agents[defending.index()].enforces_block_requirements();
+            let max_attempts = 5000;
+            let mut declared_blockers = Vec::new();
+            for _attempt in 0..max_attempts {
+                agents[defending.index()].snapshot_state(game, &self.mana_pools);
+                self.game_log.log(
+                    GameLogEntryType::PriorityWaiting,
+                    2,
+                    format!(
+                        "Waiting for {} blocker declaration",
+                        game.player(defending).name
+                    ),
+                );
+                let mut chosen_blockers = {
+                    let def_agent = &mut agents[defending.index()];
+                    def_agent.choose_blockers(
+                        DecisionContext::new(game, &self.mana_pools),
+                        defending,
+                        &attacker_card_ids,
+                        &available_blockers,
+                        max_blockers,
+                    )
+                };
+                if self.apply_pending_snapshot_restore(game, agents) {
+                    return false;
+                }
+                // Ignore duplicate blocker assignments; first assignment wins.
+                let mut seen_blockers = crate::HashSet::default();
+                chosen_blockers.retain(|(blocker, _)| seen_blockers.insert(*blocker));
+                self.game_log.log(
+                    GameLogEntryType::PriorityResponse,
+                    2,
+                    format!(
+                        "{} declared {} blocker assignment(s)",
+                        game.player(defending).name,
+                        chosen_blockers.len()
+                    ),
+                );
+
+                chosen_blockers.retain(|&(blocker, attacker)| {
+                    combat::can_creature_block(game, blocker, attacker)
+                });
+                let mut declaration = self.combat.clone();
+                for &(blocker, attacker) in &chosen_blockers {
+                    declaration.declare_blocker(
+                        blocker,
+                        attacker,
+                        game.card(blocker).zone_timestamp,
+                    );
+                }
+                if enforces_block_requirements {
+                    for &blocker_id in &available_blockers {
+                        let target =
+                            combat::compute_must_block_targets(game, &declaration, blocker_id)
+                                .into_iter()
+                                .find(|&attacker_id| {
+                                    combat::combat_util::can_attacker_be_blocked_with_amount(
+                                        game,
+                                        &declaration,
+                                        attacker_id,
+                                        declaration.get_blockers_for(attacker_id).len() + 1,
+                                    )
+                                });
+                        if let Some(attacker_id) = target {
+                            declaration.declare_blocker(
+                                blocker_id,
+                                attacker_id,
+                                game.card(blocker_id).zone_timestamp,
+                            );
+                            chosen_blockers.push((blocker_id, attacker_id));
+                        }
+                    }
+                }
+                let error = if game.mirror_forge_bugs {
+                    None
+                } else {
+                    combat::validate_blocks(game, &declaration, defending)
+                };
+                match error {
+                    None => {
+                        self.apply_hand_offs(game, agents);
+                        declared_blockers = chosen_blockers;
+                        break;
+                    }
+                    Some(error) => agents[defending.index()].notify(
+                        DecisionContext::new(game, &self.mana_pools),
+                        crate::agent::notification::GameNotification::Event(
+                            crate::agent::GameLogEvent::warning(error),
+                        ),
+                    ),
+                }
+            }
+
+            for (blocker, attacker) in declared_blockers {
+                self.combat
+                    .declare_blocker(blocker, attacker, game.card(blocker).zone_timestamp);
+
+                // Fire Blocks trigger for each (blocker, attacker) pair
+                self.trigger_handler.run_trigger(
+                    TriggerType::Blocks,
+                    RunParams {
+                        blocker: Some(blocker),
+                        blocked_attacker: Some(attacker),
+                        card: Some(blocker),
+                        ..Default::default()
+                    },
+                    false,
+                );
+            }
+
+            // Block cost checking (War Cadence effects)
+            {
+                let mut block_cost_failures = Vec::new();
+                for (blocker_id, attacker_id) in self.combat.blockers.clone() {
+                    let cost = combat::block_cost::get_block_cost(
+                        game,
+                        game.card(blocker_id),
+                        game.card(attacker_id),
+                    );
+                    if cost > 0 {
+                        let controller = game.card(blocker_id).controller;
+                        let description = format!(
+                            "Pay {{{cost}}} to block with {}",
+                            game.card(blocker_id).card_name
+                        );
+                        if !self.pay_combat_cost(
+                            game,
+                            agents,
+                            controller,
+                            blocker_id,
+                            cost,
+                            &description,
+                        ) {
+                            block_cost_failures.push((blocker_id, attacker_id));
+                        }
+                    }
+                }
+                self.combat
+                    .blockers
+                    .retain(|pair| !block_cost_failures.contains(pair));
+            }
+
+            for blocker_id in
+                combat::combat_util::blockers_missing_group_block(game, &self.combat, defending)
+            {
+                self.combat.undo_blocking_assignment(blocker_id);
+            }
+
+            // Record damage history for blockers
+            for &(blocker_id, attacker_id) in &self.combat.blockers {
+                game.card_mut(blocker_id).damage_history.record_block();
+                game.card_mut(attacker_id)
+                    .damage_history
+                    .record_got_blocked();
+            }
+
+            // Publish finalized blocker assignments for UI snapshots in this combat.
+            game.turn.combat_block_assignments = self.combat.blockers.clone();
+
+            if !self.combat.blockers.is_empty() {
+                let blockers_msg = self
+                    .combat
+                    .blockers
+                    .iter()
+                    .map(|(blocker_id, attacker_id)| {
+                        let blocker_name = game.card(*blocker_id).log_name().to_string();
+                        let attacker_name = game.card(*attacker_id).log_name().to_string();
+                        format!("{blocker_name} -> {attacker_name}")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                crate::agent::notify_all_agents(
+                    agents,
+                    DecisionContext::new(game, &self.mana_pools),
+                    crate::agent::GameLogEvent::action(format!("Blockers: {blockers_msg}"))
+                        .with_player(defending),
+                );
             }
         }
 
+        // Auto-order blockers by declaration order — Java's parity
+        // harness sets `legacyOrderCombatants = false` so the agent is
+        // never prompted (Combat.java:494). Mirror that to keep the RNG
+        // and trace aligned with Java.
+        for &(attacker_id, _) in &self.combat.attackers.clone() {
+            let blockers_for = self.combat.get_blockers_for(attacker_id);
+            if blockers_for.len() > 1 {
+                self.combat.damage_order.insert(attacker_id, blockers_for);
+            }
+        }
+        true
+    }
+
+    pub(crate) fn step_combat_first_strike_damage(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+    ) -> bool {
         // Java parity: combatants may leave/re-enter during declare blockers
         // priority (e.g. sacrificing an attacker). Re-prune before damage.
         self.combat.remove_absent_combatants(&game.cards);
@@ -997,10 +1057,17 @@ impl GameLoop {
             if game.game_over || game.end_turn_requested {
                 self.combat.clear_with_cards(game);
                 game.turn.combat_block_assignments.clear();
-                return;
+                return false;
             }
         }
+        true
+    }
 
+    pub(crate) fn step_combat_damage(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+    ) -> bool {
         self.set_phase(game, agents, PhaseType::CombatDamage);
         self.combat.remove_absent_combatants(&game.cards);
         if self.combat.has_attackers() {
@@ -1071,10 +1138,17 @@ impl GameLoop {
             if game.game_over || game.end_turn_requested {
                 self.combat.clear_with_cards(game);
                 game.turn.combat_block_assignments.clear();
-                return;
+                return false;
             }
         }
+        true
+    }
 
+    pub(crate) fn step_combat_end(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+    ) {
         // End combat
         self.set_phase(game, agents, PhaseType::CombatEnd);
         let active = game.active_player();
