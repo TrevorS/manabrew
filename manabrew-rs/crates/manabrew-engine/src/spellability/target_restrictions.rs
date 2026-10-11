@@ -1291,13 +1291,6 @@ pub fn get_valid_cards_in_zone_for_sa(
     };
     let selector = restrictions.compiled_valid_tgts();
     let source = game.card(source_id);
-    let triggering_card = ability.get_triggering_card(crate::ability::AbilityKey::Card);
-    let triggering_player = ability
-        .get_triggering_value(crate::ability::AbilityKey::Player)
-        .and_then(|value| match value {
-            crate::event::AbilityValue::Player(player) => Some(*player),
-            _ => None,
-        });
 
     zone_cards
         .into_iter()
@@ -1306,9 +1299,7 @@ pub fn get_valid_cards_in_zone_for_sa(
             valid_filter::matches_valid_card_selector_with_context(
                 &selector,
                 game.card(cid),
-                valid_filter::MatchContext::new(source, game)
-                    .with_triggering(triggering_card, triggering_player)
-                    .with_spell_ability(ability),
+                candidate_match_context(game, source, Some(ability)),
             )
         })
         .collect()

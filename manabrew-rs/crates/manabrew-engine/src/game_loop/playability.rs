@@ -3344,6 +3344,41 @@ mod tests {
         assert_eq!(stolen_full_bore_offers(true), 1);
     }
 
+    const FLASHBACK_GRANT: &str = "Name:Flashback Grant\nManaCost:R\nTypes:Instant\nA:SP$ Pump | ValidTgts$ Instant.YouOwn,Sorcery.YouOwn | TgtZone$ Graveyard | KW$ Flashback | PumpZone$ Graveyard | SpellDescription$ Target instant or sorcery card in your graveyard gains flashback until end of turn.\nOracle:";
+    const RED_SHOCK: &str = "Name:Red Shock\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | SpellDescription$ Deal 2 damage to any target.\nOracle:";
+
+    fn stolen_flashback_offers(caster_has_instant_in_graveyard: bool) -> usize {
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        let mut put = |script: &str, owner: PlayerId, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, owner));
+            game.move_card(card, zone, owner);
+            card
+        };
+        let grant = put(ROBBERY_GRANT, p0, ZoneType::Command);
+        let flashback = put(FLASHBACK_GRANT, p1, ZoneType::Exile);
+        put(RED_SHOCK, p1, ZoneType::Graveyard);
+        put(RED_SPRING, p0, ZoneType::Battlefield);
+        if caster_has_instant_in_graveyard {
+            put(RED_SHOCK, p0, ZoneType::Graveyard);
+        }
+        game.card_mut(grant).add_remembered_card(flashback);
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        GameLoop::new(2)
+            .get_playable_cards(&game, p0, false)
+            .iter()
+            .filter(|option| option.card_id == flashback)
+            .count()
+    }
+
+    #[test]
+    fn a_stolen_spell_checks_its_graveyard_targets_for_the_player_casting_it() {
+        assert_eq!(stolen_flashback_offers(false), 0);
+        assert_eq!(stolen_flashback_offers(true), 1);
+    }
+
     const RED_AURA: &str = "Name:Red Aura\nManaCost:R\nTypes:Enchantment Aura\nK:Enchant:Creature.YouCtrl:creature you control\nOracle:";
 
     fn stolen_aura_offers(face_down: bool, harness_quirks: bool) -> usize {
