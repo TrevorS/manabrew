@@ -2741,13 +2741,16 @@ impl GameLoop {
         if !Self::card_trace_enabled() {
             return;
         }
-        for zone in [
+        for (zone, owner) in [
             ZoneType::Hand,
             ZoneType::Graveyard,
             ZoneType::Exile,
             ZoneType::Command,
-        ] {
-            for &card_id in game.cards_in_zone(zone, player) {
+        ]
+        .into_iter()
+        .flat_map(|zone| game.player_order.iter().map(move |&owner| (zone, owner)))
+        {
+            for &card_id in game.cards_in_zone(zone, owner) {
                 let card = game.card(card_id);
                 if !Self::card_trace_matches(&card.card_name) {
                     continue;
@@ -2757,6 +2760,20 @@ impl GameLoop {
                     .filter(|option| option.card_id == card_id)
                     .map(|option| option.mode)
                     .collect();
+                let grant = crate::staticability::static_ability_continuous::may_play_grant_source(
+                    game, player, card,
+                );
+                if owner != player && offered.is_empty() && grant.is_none() {
+                    continue;
+                }
+                let any_color =
+                    crate::staticability::static_ability_mana_convert::can_spend_mana_as_any_color(
+                        game, player, card,
+                    ) || grant.is_some_and(|(source, index)| {
+                        crate::staticability::static_ability_continuous::may_play_applies_mana_convert(
+                            game, source, index,
+                        )
+                    });
                 let mut sa =
                     crate::spellability::build_spell_ability_for_card_cast(game, card_id, player);
                 sa.restriction.variables.set_zone(zone);
@@ -2825,15 +2842,16 @@ impl GameLoop {
                     .map(|(source, _)| source.card_name.as_str())
                     .collect();
                 eprintln!(
-                    "[card-trace] T{} P{} {:?} {}#{} {zone:?}: offered {offered:?} | cant_be_cast={cant_be_cast} \
+                    "[card-trace] T{} P{} {:?} {}#{} {zone:?} of P{}: offered {offered:?} | cant_be_cast={cant_be_cast} \
                      can_play={} instant_only={must_be_instant} flash={flash} | (min targets, candidates)={targets:?} \
                      | cost {} -> {reduced} | mana {} from {:?} sources (W{} U{} B{} R{} G{} C{}) pool_pays={} \
-                     simulated_pays={simulated} | may_play from {may_play_from:?}",
+                     simulated_pays={simulated} any_color={any_color} any_color_pays={} | may_play from {may_play_from:?}",
                     game.turn.turn_number,
                     player.0,
                     game.turn.phase,
                     card.card_name,
                     card_id.index(),
+                    owner.0,
                     crate::spellability::spell::can_play(&sa, game),
                     card.mana_cost,
                     mana.total_mana(),
@@ -2845,6 +2863,7 @@ impl GameLoop {
                     mana.green(),
                     mana.colorless(),
                     mana.can_pay(&reduced),
+                    any_color && mana.can_pay_any_color(&reduced),
                 );
             }
         }
