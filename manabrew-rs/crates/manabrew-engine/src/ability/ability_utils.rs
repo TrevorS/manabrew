@@ -33,7 +33,16 @@ fn targeted_spell_abilities(sa: &SpellAbility, game: &GameState) -> Vec<SpellAbi
 fn targeted_controller_players(sa: &SpellAbility, game: &GameState) -> Vec<PlayerId> {
     let mut players = Vec::new();
     if let Some(cid) = sa.target_chosen.target_card {
-        push_unique_player(&mut players, game.card(cid).controller);
+        let card = game.card(cid);
+        let moved = sa
+            .target_zone_timestamp(cid)
+            .is_some_and(|timestamp| timestamp != card.zone_timestamp);
+        let controller = if moved {
+            card.lki_controller.unwrap_or(card.controller)
+        } else {
+            card.controller
+        };
+        push_unique_player(&mut players, controller);
     }
     for spell in targeted_spell_abilities(sa, game) {
         push_unique_player(&mut players, spell.activating_player);
@@ -2357,6 +2366,26 @@ mod tests {
         assert_eq!(
             resolve_defined_players_with_sa("TargetedOrController", &sa, p0, &game),
             vec![p1]
+        );
+    }
+
+    #[test]
+    fn a_target_that_left_the_battlefield_keeps_the_controller_it_was_targeted_under() {
+        let mut game = GameState::new(&["P0", "P1"], 20);
+        let p0 = PlayerId(0);
+        let p1 = PlayerId(1);
+        let target = make_card(&mut game, p1, p0, "Borrowed Bear");
+        game.move_card(target, ZoneType::Battlefield, p0);
+
+        let mut sa = SpellAbility::new_simple(None, p1, "DB$ ChangeZone");
+        sa.target_chosen.target_card = Some(target);
+        sa.target_chosen.target_card_zone_timestamp = Some(game.card(target).zone_timestamp);
+        game.move_card(target, ZoneType::Exile, p1);
+
+        assert_eq!(game.card(target).controller, p1);
+        assert_eq!(
+            resolve_defined_player_with_sa("TargetedController", &sa, p1, &game),
+            Some(p0)
         );
     }
 
