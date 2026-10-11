@@ -1238,8 +1238,15 @@ impl GameLoop {
                         || type_filter == "NICKNAME"
                         || type_filter == "OriginalHost"
                     {
+                        let origin = game.card(card_id).zone;
                         self.exile_with_runtime(game, card_id, None, agents);
                         self.record_paid_cost_exile(game, card_id, card_id);
+                        crate::ability::effects::emit_zone_trigger(
+                            &mut self.trigger_handler,
+                            card_id,
+                            origin,
+                            ZoneType::Exile,
+                        );
                     } else {
                         self.pay_exile_cost(
                             game,
@@ -2084,6 +2091,12 @@ impl GameLoop {
                         if game.card(card_id).zone == *from {
                             self.exile_with_runtime(game, card_id, None, agents);
                             self.record_paid_cost_exile(game, card_id, card_id);
+                            crate::ability::effects::emit_zone_trigger(
+                                &mut self.trigger_handler,
+                                card_id,
+                                *from,
+                                ZoneType::Exile,
+                            );
                         }
                     } else {
                         self.pay_exile_cost(

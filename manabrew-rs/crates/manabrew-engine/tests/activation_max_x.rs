@@ -441,3 +441,54 @@ fn a_land_played_from_another_players_exile_asks_its_player_to_pay_for_it() {
     assert_eq!(game.player(p0).life, 18);
     assert_eq!(game.player(p1).life, 20);
 }
+
+const SAWBLADES: &str = "Name:Spring-Loaded Sawblades\nManaCost:1 W\nTypes:Artifact\nK:Craft:3 W ExileCtrlOrGrave<1/Artifact.Other>\nAlternateMode:DoubleFaced\nOracle:\n\nALTERNATE\n\nName:Bladewheel Chariot\nManaCost:no cost\nColors:white\nTypes:Artifact Vehicle\nPT:5/5\nOracle:";
+const SUPER_SHREDDER: &str = "Name:Super Shredder\nManaCost:1 B\nTypes:Legendary Creature Mutant Ninja Human\nPT:1/1\nT:Mode$ ChangesZone | ValidCard$ Permanent.Other | Origin$ Battlefield | Destination$ Any | Execute$ TrigPutCounter | TriggerZones$ Battlefield | TriggerDescription$ Whenever another permanent leaves the battlefield, put a +1/+1 counter on CARDNAME.\nSVar:TrigPutCounter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1\nOracle:";
+const MIND_STONE: &str = "Name:Mind Stone\nManaCost:2\nTypes:Artifact\nOracle:";
+
+#[test]
+fn a_permanent_exiled_to_pay_a_craft_cost_leaves_the_battlefield_for_triggers() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let p1 = PlayerId(1);
+    let sawblades = put(&mut game, SAWBLADES, p0, ZoneType::Battlefield);
+    game.card_mut(sawblades).summoning_sick = false;
+    put(&mut game, MIND_STONE, p0, ZoneType::Graveyard);
+    for _ in 0..4 {
+        put(
+            &mut game,
+            "Name:Plains\nManaCost:no cost\nTypes:Basic Land Plains\nOracle:",
+            p0,
+            ZoneType::Battlefield,
+        );
+    }
+    let shredder = put(&mut game, SUPER_SHREDDER, p1, ZoneType::Battlefield);
+    for _ in 0..20 {
+        put(
+            &mut game,
+            "Name:Forest\nManaCost:no cost\nTypes:Basic Land Forest\nOracle:",
+            p0,
+            ZoneType::Library,
+        );
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Activator {
+            name: "Spring-Loaded Sawblades",
+            max_seen: Rc::new(Cell::new(None)),
+            done: false,
+            floats_mana: false,
+            pays_unless_costs: false,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.card(sawblades).card_name, "Bladewheel Chariot");
+    assert_eq!(
+        game.card(shredder)
+            .counter_count(&manabrew_engine::card::CounterType::P1P1),
+        1
+    );
+}
