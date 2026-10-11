@@ -562,6 +562,18 @@ impl GameLoop {
         agents: &mut [Box<dyn PlayerAgent>],
         is_main_phase: bool,
     ) {
+        let active = game.active_player();
+        self.priority_window(game, agents, is_main_phase, active, 0);
+    }
+
+    pub(crate) fn priority_window(
+        &mut self,
+        game: &mut GameState,
+        agents: &mut [Box<dyn PlayerAgent>],
+        is_main_phase: bool,
+        first: PlayerId,
+        mut passed: usize,
+    ) {
         let _perf_scope =
             crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::Priority);
         self.game_log.log(
@@ -577,7 +589,7 @@ impl GameLoop {
                 game.stack.len()
             ),
         );
-        game.turn.priority_player = game.active_player();
+        game.turn.priority_player = first;
         loop {
             if game.game_over {
                 return;
@@ -587,7 +599,8 @@ impl GameLoop {
             //    inside priority_round at the top of each iteration, matching
             //    Java's checkStateBasedEffects() → addAllTriggeredAbilitiesToStack()
             //    before chooseSpellAbilityToPlay()).
-            self.priority_round(game, agents, is_main_phase);
+            self.priority_round(game, agents, is_main_phase, passed);
+            passed = 0;
 
             if Self::stack_trace_enabled() {
                 let names: Vec<String> = game

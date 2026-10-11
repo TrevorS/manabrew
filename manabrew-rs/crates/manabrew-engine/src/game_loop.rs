@@ -1633,7 +1633,7 @@ mod tests {
         ];
 
         let mut game_loop = GameLoop::new(2);
-        game_loop.priority_round(&mut game, &mut agents, false);
+        game_loop.priority_round(&mut game, &mut agents, false, 0);
 
         assert!(game.stack.is_empty());
         assert!(game.cards_in_zone(ZoneType::Hand, p0).contains(&c0));

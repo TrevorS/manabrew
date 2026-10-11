@@ -40,12 +40,13 @@ impl GameLoop {
         game: &mut GameState,
         agents: &mut [Box<dyn PlayerAgent>],
         is_main_phase: bool,
+        passed: usize,
     ) {
         let _perf_scope =
             crate::perf::ParamsLookupScopeGuard::enter(crate::perf::ParamsLookupScope::Priority);
         let mut priority_player = game.turn.priority_player;
         let mut last_notified_priority: Option<PlayerId> = None;
-        let mut passed_count = 0;
+        let mut passed_count = passed;
         let num_players = game.players.len();
         while passed_count < num_players {
             if game.game_over {

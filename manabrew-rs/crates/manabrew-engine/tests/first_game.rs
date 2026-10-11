@@ -708,7 +708,7 @@ fn mulldrifter_etb_draws_two_cards() {
         Box::new(manabrew_engine::agent::PassAgent),
     ];
     game_loop.resolve_stack(&mut game, &mut agents);
-    game_loop.priority_round(&mut game, &mut agents, false);
+    game_loop.priority_round(&mut game, &mut agents, false, 0);
     game_loop.resolve_stack(&mut game, &mut agents);
 
     // Mulldrifter should be on battlefield
