@@ -356,10 +356,15 @@ impl GameLoop {
             return false;
         }
         if let Some(ref tr) = cast_sa.target_restrictions {
+            // Java's ActionSpace tests an Aura spell's CanBeEnchantedBy targets against the
+            // face-down host, which is not an attachment.
             if tr.get_min_targets(game, &cast_sa) > 0
-                && !target_restrictions::has_candidates_in_spell_ability_chain(
-                    game, player, &cast_sa,
-                )
+                && ((game.mirror_forge_bugs
+                    && card.type_line.has_subtype("Aura")
+                    && !restriction_host.is_attachment())
+                    || !target_restrictions::has_candidates_in_spell_ability_chain(
+                        game, player, &cast_sa,
+                    ))
             {
                 return false;
             }
@@ -3337,6 +3342,46 @@ mod tests {
     fn a_stolen_spell_checks_its_targets_for_the_player_casting_it() {
         assert_eq!(stolen_full_bore_offers(false), 0);
         assert_eq!(stolen_full_bore_offers(true), 1);
+    }
+
+    const RED_AURA: &str = "Name:Red Aura\nManaCost:R\nTypes:Enchantment Aura\nK:Enchant:Creature.YouCtrl:creature you control\nOracle:";
+
+    fn stolen_aura_offers(face_down: bool, harness_quirks: bool) -> usize {
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        game.mirror_forge_bugs = harness_quirks;
+        if harness_quirks {
+            game.action_space_mana_probe = crate::mana::ActionSpaceManaProbe::ComputerUtilMana;
+        }
+        let mut put = |script: &str, owner: PlayerId, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, owner));
+            game.move_card(card, zone, owner);
+            card
+        };
+        let grant = put(ROBBERY_GRANT, p0, ZoneType::Command);
+        let aura = put(RED_AURA, p1, ZoneType::Exile);
+        put(RED_BEAR, p0, ZoneType::Battlefield);
+        put(RED_SPRING, p0, ZoneType::Battlefield);
+        if face_down {
+            game.card_mut(aura).set_face_down(true);
+            game.card_mut(aura).add_may_look_face_down_exile(p0);
+        }
+        game.card_mut(grant).add_remembered_card(aura);
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        GameLoop::new(2)
+            .get_playable_cards(&game, p0, false)
+            .iter()
+            .filter(|option| option.card_id == aura)
+            .count()
+    }
+
+    #[test]
+    fn a_stolen_face_down_aura_is_offered_only_outside_the_harness_quirks() {
+        assert_eq!(stolen_aura_offers(false, true), 1);
+        assert_eq!(stolen_aura_offers(true, true), 0);
+        assert_eq!(stolen_aura_offers(true, false), 1);
     }
 
     const FORETOLD_BOLT: &str = "Name:Foretold Bolt\nManaCost:2 R\nTypes:Instant\nK:Foretell:R\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | SpellDescription$ CARDNAME deals 2 damage to any target.\nOracle:";
