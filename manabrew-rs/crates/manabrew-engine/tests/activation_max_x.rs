@@ -23,6 +23,7 @@ struct Activator {
     max_seen: Rc<Cell<Option<u32>>>,
     done: bool,
     floats_mana: bool,
+    pays_unless_costs: bool,
 }
 
 impl PlayerAgent for Activator {
@@ -182,7 +183,7 @@ impl PlayerAgent for Activator {
         _: &[GameEntity],
         _: &str,
     ) -> bool {
-        false
+        self.pays_unless_costs
     }
 }
 
@@ -223,6 +224,7 @@ fn max_x_offered(probe: ActionSpaceManaProbe) -> Option<u32> {
             max_seen: Rc::clone(&max_seen),
             done: false,
             floats_mana: false,
+            pays_unless_costs: false,
         }),
         Box::new(PassAgent),
     ];
@@ -283,6 +285,7 @@ fn life_after_activating_an_all_creature_types_land(probe: ActionSpaceManaProbe)
             max_seen: Rc::new(Cell::new(None)),
             done: false,
             floats_mana: false,
+            pays_unless_costs: false,
         }),
         Box::new(PassAgent),
     ];
@@ -334,6 +337,7 @@ fn a_seat_that_floats_mana_spends_colorless_as_any_type_on_a_stolen_card() {
             max_seen: Rc::new(Cell::new(None)),
             done: false,
             floats_mana: true,
+            pays_unless_costs: false,
         }),
         Box::new(PassAgent),
     ];
@@ -379,6 +383,7 @@ fn max_x_announced_with_weather_maker(probe: ActionSpaceManaProbe) -> Option<u32
             max_seen: Rc::clone(&max_seen),
             done: false,
             floats_mana: false,
+            pays_unless_costs: false,
         }),
         Box::new(PassAgent),
     ];
@@ -396,4 +401,43 @@ fn the_harness_x_for_a_spell_follows_the_mana_probe() {
         max_x_announced_with_weather_maker(ActionSpaceManaProbe::AutoPay),
         Some(3)
     );
+}
+
+const HALLOWED_FOUNTAIN: &str = "Name:Hallowed Fountain\nManaCost:no cost\nTypes:Land Plains Island\nR:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ DBTap | ReplacementResult$ Updated | Description$ As CARDNAME enters, you may pay 2 life. If you don't, it enters tapped.\nSVar:DBTap:DB$ Tap | ETB$ True | Defined$ Self | UnlessCost$ PayLife<2> | UnlessPayer$ You | StackDescription$ enters tapped.\nOracle:";
+
+#[test]
+fn a_land_played_from_another_players_exile_asks_its_player_to_pay_for_it() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let p1 = PlayerId(1);
+    let robbery = put(&mut game, ROBBERY_EFFECT, p0, ZoneType::Command);
+    let fountain = put(&mut game, HALLOWED_FOUNTAIN, p1, ZoneType::Exile);
+    game.card_mut(robbery).add_remembered_card(fountain);
+    for _ in 0..20 {
+        put(
+            &mut game,
+            "Name:Forest\nManaCost:no cost\nTypes:Basic Land Forest\nOracle:",
+            p0,
+            ZoneType::Library,
+        );
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Activator {
+            name: "Hallowed Fountain",
+            max_seen: Rc::new(Cell::new(None)),
+            done: false,
+            floats_mana: false,
+            pays_unless_costs: true,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.card(fountain).zone, ZoneType::Battlefield);
+    assert_eq!(game.card(fountain).controller, p0);
+    assert!(!game.card(fountain).tapped);
+    assert_eq!(game.player(p0).life, 18);
+    assert_eq!(game.player(p1).life, 20);
 }

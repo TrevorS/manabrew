@@ -250,6 +250,7 @@ impl GameLoop {
             card_name.to_string()
         };
 
+        game.card_mut(card_id).set_controller(player);
         if game.card(card_id).face_down {
             game.card_mut(card_id).turn_face_up();
         }

@@ -458,6 +458,7 @@ pub(crate) fn play_land(
     if other_face {
         ctx.game.card_mut(card_id).transform();
     }
+    ctx.game.card_mut(card_id).set_controller(player);
     ctx.move_card(card_id, ZoneType::Battlefield, player);
     ctx.game.player_record_land_play(player);
     ctx.trigger_handler
