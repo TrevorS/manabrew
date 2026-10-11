@@ -1905,3 +1905,53 @@ fn a_card_that_exiles_itself_from_the_stack_is_exiled_with_itself() {
     assert_eq!(game.card(card).zone, ZoneType::Exile);
     assert_eq!(game.card(card).exiled_with, Some(card));
 }
+
+const MOON_PUP: &str = "Name:Moon Pup\nManaCost:1 G\nTypes:Creature Wolf\nPT:2/2\nAlternateMode:DoubleFaced\nOracle:\n\nALTERNATE\n\nName:Moon Hound\nManaCost:no cost\nTypes:Creature Wolf\nPT:4/4\nOracle:";
+
+fn resolve(game: &mut GameState, sa: SpellAbility) {
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: sa,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    GameLoop::new(2).step_with_priority(game, &mut pass_agents(), false);
+}
+
+#[test]
+fn a_same_name_search_reads_the_exiled_target_as_it_was_targeted() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    main_phase(&mut game, p0);
+    let hound = put(&mut game, MOON_PUP, p1, ZoneType::Battlefield);
+    let pup = put(&mut game, MOON_PUP, p1, ZoneType::Graveyard);
+    resolve(
+        &mut game,
+        SpellAbility::new_simple(
+            Some(hound),
+            p1,
+            "DB$ SetState | Defined$ Self | Mode$ Transform",
+        ),
+    );
+    assert_eq!(game.card(hound).card_name, "Moon Hound");
+    let source = effect_source(&mut game, p0);
+    let mut sa = SpellAbility::new_simple(
+        Some(source),
+        p0,
+        "DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Creature",
+    );
+    sa.target_chosen.target_card = Some(hound);
+    sa.append_sub_ability(SpellAbility::new_simple(
+        Some(source),
+        p0,
+        "DB$ ChangeZoneAll | Origin$ Graveyard | Destination$ Exile | Defined$ TargetedController | ChangeType$ TargetedCard.sameName",
+    ));
+    resolve(&mut game, sa);
+    assert_eq!(game.card(hound).zone, ZoneType::Exile);
+    assert_eq!(game.card(pup).zone, ZoneType::Graveyard);
+}

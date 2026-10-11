@@ -1762,6 +1762,16 @@ pub fn filter_list_by_type(
         (sa.host_card_id(), filter_type.to_string())
     };
 
+    let source_object = if filter_type.starts_with("Targeted") {
+        crate::ability::spell_ability_effect::defined_card_object(
+            game,
+            sa,
+            "TargetedCard",
+            effective_source,
+        )
+    } else {
+        game.card(effective_source)
+    };
     let selector = cached_compiled_selector(&effective_filter);
     let targeted_cards = sa.target_chosen.all_target_cards();
     let targeted_players = sa.target_chosen.all_target_players();
@@ -1770,7 +1780,7 @@ pub fn filter_list_by_type(
         .copied()
         .filter(|&cid| {
             let card = game.card(cid);
-            let context = valid_filter::MatchContext::new(game.card(effective_source), game)
+            let context = valid_filter::MatchContext::new(source_object, game)
                 .with_source_controller(sa.activating_player)
                 .with_targets(&targeted_cards, &targeted_players)
                 .with_spell_ability(sa);
