@@ -209,22 +209,23 @@ pub(crate) fn card_x_property(
     source_id: CardId,
     controller: PlayerId,
     sa: &SpellAbility,
+    last_known: bool,
 ) -> i32 {
     let card = game.card(card_id);
     let parts: Vec<&str> = expr.split('/').collect();
     let value = parts.first().copied().unwrap_or("");
     let operators = parts.get(1).copied().unwrap_or("");
 
-    let in_play = card.zone == forge_foundation::ZoneType::Battlefield;
-    let net_power = if in_play {
-        card.power()
-    } else {
+    let reads_lki = last_known && card.zone != forge_foundation::ZoneType::Battlefield;
+    let net_power = if reads_lki {
         card.lki_power.unwrap_or_else(|| card.power())
-    };
-    let net_toughness = if in_play {
-        card.toughness()
     } else {
+        card.power()
+    };
+    let net_toughness = if reads_lki {
         card.lki_toughness.unwrap_or_else(|| card.toughness())
+    } else {
+        card.toughness()
     };
     let base = match value {
         "CardPower" => net_power,
@@ -349,12 +350,22 @@ fn resolve_card_list_property(
         return Some(do_x_math(num, operators, game, source_id, controller, sa));
     }
     let (fold, property) = list_property_fold(property);
+    let last_known = !reads_current_state(defined);
     Some(fold(
         cards
             .into_iter()
-            .map(|cid| card_x_property(cid, property, game, source_id, controller, sa))
+            .map(|cid| card_x_property(cid, property, game, source_id, controller, sa, last_known))
             .collect(),
     ))
+}
+
+fn reads_current_state(defined: &str) -> bool {
+    defined.starts_with("ExiledWith")
+        || matches!(defined, "Enchanted" | "Equipped")
+        || (["Remembered", "Imprinted"]
+            .iter()
+            .any(|list| defined.starts_with(list))
+            && !defined.ends_with("LKI"))
 }
 
 fn always_handle_paid(defined: &str) -> bool {
@@ -1882,7 +1893,9 @@ pub fn resolve_count_svar_for_sa(
             }
             let total = cards
                 .iter()
-                .map(|&card_id| card_x_property(card_id, property, game, source_id, controller, sa))
+                .map(|&card_id| {
+                    card_x_property(card_id, property, game, source_id, controller, sa, true)
+                })
                 .sum();
             return do_x_math(total, operators, game, source_id, controller, sa);
         }
@@ -2468,7 +2481,7 @@ pub fn resolve_count_svar_for_sa(
         .strip_prefix("Count$")
         .filter(|property| property.starts_with("CardManaCost"))
     {
-        return card_x_property(source_id, property, game, source_id, controller, sa);
+        return card_x_property(source_id, property, game, source_id, controller, sa, true);
     }
     if let Some(operators) = expr.strip_prefix("Count$YourTurns") {
         let operators = operators.strip_prefix('/').unwrap_or(operators);

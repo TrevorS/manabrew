@@ -1563,7 +1563,9 @@ pub fn handle_paid(
                 paid_cards
                     .iter()
                     .map(|&cid| {
-                        crate::svar::card_x_property(cid, card_def, game, source_id, controller, sa)
+                        crate::svar::card_x_property(
+                            cid, card_def, game, source_id, controller, sa, true,
+                        )
                     })
                     .collect(),
             );

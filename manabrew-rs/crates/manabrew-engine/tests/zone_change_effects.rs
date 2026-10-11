@@ -1787,3 +1787,29 @@ fn a_creature_put_onto_the_battlefield_under_your_control_enters_as_yours() {
     assert!(game.cards_in_zone(ZoneType::Graveyard, p1).is_empty());
     assert_eq!(game.cards_in_zone(ZoneType::Battlefield, p0).len(), 2);
 }
+#[test]
+fn a_crafted_card_counts_its_exiled_cards_as_they_are_in_exile() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let lattice = put(&mut game, SAHEELIS_LATTICE, p0, ZoneType::Battlefield);
+    let old_lattice = put(&mut game, SAHEELIS_LATTICE, p0, ZoneType::Exile);
+    game.card_mut(old_lattice).lki_power = Some(6);
+    let big = put(&mut game, BIG_DINOSAUR, p0, ZoneType::Graveyard);
+    for card in [lattice, big] {
+        game.move_card(card, ZoneType::Exile, p0);
+    }
+    game.card_mut(lattice).paid_cost_exiled_cards = vec![old_lattice, big];
+    push_effect_entry(
+        &mut game,
+        p0,
+        "AB$ ChangeZone | Origin$ Exile | Destination$ Battlefield | Transformed$ True | Defined$ CorrectedSelf | Keyword$ Craft",
+        None,
+        None,
+        Some(lattice),
+    );
+    GameLoop::new(2).resolve_stack(&mut game, &mut pass_agents());
+    manabrew_engine::staticability::layer::apply_continuous_effects(&mut game);
+    assert_eq!(game.card(lattice).exiled_cards, vec![old_lattice, big]);
+    assert_eq!(game.card(lattice).power(), 5);
+}
