@@ -1935,6 +1935,13 @@ impl TriggerHandler {
         if self.is_trigger_suppressed(*mode) {
             return Err("mode suppressed");
         }
+        if card.zone == ZoneType::Battlefield
+            && self.looks_back_in_time(trigger)
+            && !game.pre_sba_battlefield.is_empty()
+            && !game.pre_sba_battlefield.contains(&host_card)
+        {
+            return Err("not on the last state battlefield");
+        }
         if *mode == TriggerType::Always && game.stack.has_state_trigger_id(host_card, trigger.id) {
             return Err("state trigger already on the stack");
         }
