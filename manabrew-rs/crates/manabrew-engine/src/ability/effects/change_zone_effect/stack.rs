@@ -75,6 +75,7 @@ pub(super) fn resolve_stack_removal(
 
     // ExiledWith for exile
     if dest_zone == ZoneType::Exile {
+        crate::ability::spell_ability_effect::handle_exiled_with(ctx.game, sa, card_id);
         if let Some(source_id) = sa.source {
             if sa.ir.exiled_with_effect_source {
                 let exile_source = ctx.game.card(source_id).effect_source.unwrap_or(source_id);

@@ -1885,3 +1885,23 @@ fn a_boon_leaves_the_command_zone_once_its_trigger_runs() {
     play_land_from_hand(&mut game, p0, source);
     assert_eq!(game.player(p0).life, 21);
 }
+
+#[test]
+fn a_card_that_exiles_itself_from_the_stack_is_exiled_with_itself() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let card = game.create_card(make_grizzly_bears(p0));
+    game.move_card(card, ZoneType::Stack, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ ChangeZone | Defined$ Self | Origin$ Stack | Destination$ Exile | StackDescription$ None",
+        None,
+        None,
+        Some(card),
+    );
+    GameLoop::new(2).resolve_stack(&mut game, &mut pass_agents());
+    assert_eq!(game.card(card).zone, ZoneType::Exile);
+    assert_eq!(game.card(card).exiled_with, Some(card));
+}
