@@ -478,3 +478,60 @@ fn a_token_copy_of_a_copy_keeps_the_copy_s_exceptions() {
     assert!(game.card(token).has_keyword("Flying"));
     assert!(game.card(token).type_line.has_subtype("Bird"));
 }
+
+struct CountingRng(std::rc::Rc<std::cell::Cell<usize>>);
+
+impl manabrew_engine::game_rng::GameRng for CountingRng {
+    fn shuffle_cards(&mut self, _cards: &mut [CardId]) {}
+
+    fn next_int(&mut self, _bound: i32) -> i32 {
+        self.0.set(self.0.get() + 1);
+        0
+    }
+}
+
+fn copy_permanent_draws(copy_the_clone: bool) -> usize {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let spell = put(&mut game, FLYING_MIMIC, p0, ZoneType::Hand);
+    put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    let token = put(&mut game, BEAR, p0, ZoneType::Battlefield);
+    game.card_mut(token).is_token = true;
+    game.card_mut(token)
+        .svars
+        .insert("TokenScript".to_string(), "g_2_2_bear".to_string());
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce { spell, cast: false }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.card(spell).card_name, "Grizzly Bears");
+    let draws = std::rc::Rc::new(std::cell::Cell::new(0));
+    game_loop.game_rng = Box::new(CountingRng(draws.clone()));
+    let source = if copy_the_clone { spell } else { token };
+    let mut sa = SpellAbility::new_simple(Some(source), p0, "DB$ CopyPermanent | Defined$ Self");
+    sa.activating_player = p0;
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: sa,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    draws.get()
+}
+
+#[test]
+fn a_token_copy_draws_for_its_art_only_when_the_original_is_a_token() {
+    assert_eq!(copy_permanent_draws(false), 1);
+    assert_eq!(copy_permanent_draws(true), 0);
+}

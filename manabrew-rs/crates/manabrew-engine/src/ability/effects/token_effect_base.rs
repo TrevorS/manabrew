@@ -308,11 +308,14 @@ pub trait TokenEffectBase {
         for cell in token_table.cells_mut() {
             let script = cell.prototype.get_s_var("TokenScript").map(str::to_owned);
             if let Some(script) = script.as_deref() {
-                if cell.prototype.copied_permanent.is_some() {
-                    // Java builds a copy from the original's PaperToken; its image key is the only draw.
-                    ctx.rng.next_int(1);
-                } else {
-                    cell.prototype.set_code = Some(ctx.sync_token_art_rng(script, sa));
+                match cell.prototype.copied_permanent {
+                    // Java builds a copy from the original's PaperCard; only a token's PaperToken
+                    // draws, for its image key.
+                    Some(original) if ctx.game.card(original).is_token => {
+                        ctx.rng.next_int(1);
+                    }
+                    Some(_) => {}
+                    None => cell.prototype.set_code = Some(ctx.sync_token_art_rng(script, sa)),
                 }
             }
         }
