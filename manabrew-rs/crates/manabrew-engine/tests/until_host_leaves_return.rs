@@ -144,6 +144,14 @@ impl PlayerAgent for CastOnce {
     ) -> Option<bool> {
         PassAgent.choose_land_or_spell(context, player)
     }
+    fn choose_legend_keep(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        duplicates: &[CardId],
+    ) -> CardId {
+        *duplicates.last().expect("duplicates")
+    }
 }
 
 fn put(game: &mut GameState, script: &str, owner: PlayerId, zone: ZoneType) -> CardId {
@@ -280,4 +288,66 @@ fn a_card_returned_when_its_aura_exiler_leaves_does_not_see_the_aura_leave() {
     assert_eq!(game.card(watcher).zone, ZoneType::Battlefield);
     assert!(game.stack.is_empty());
     assert_eq!(game.player(p1).life, 20);
+}
+
+const DEATH_WATCHER: &str = "Name:Death Watcher\nManaCost:1 B\nTypes:Legendary Creature Human\nPT:2/2\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.Other | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever another creature dies, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
+
+#[test]
+fn a_legend_returned_during_state_checks_does_not_see_its_twin_die_to_the_legend_rule() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let p1 = PlayerId(1);
+    let crush = put(&mut game, SHATTER_CREATURE, p0, ZoneType::Hand);
+    put(&mut game, MOUNTAIN, p0, ZoneType::Battlefield);
+    let host = put(&mut game, BEARS, p0, ZoneType::Battlefield);
+    let shelter = put(&mut game, SHELTER, p0, ZoneType::Battlefield);
+    game.card_mut(shelter).attached_to = Some(host);
+    game.card_mut(host).attachments.push(shelter);
+    let watcher = put(&mut game, DEATH_WATCHER, p1, ZoneType::Battlefield);
+    let twin = put(&mut game, DEATH_WATCHER, p1, ZoneType::Exile);
+    game.card_mut(twin).exiled_by = Some(shelter);
+    game.card_mut(twin).until_host_leaves_origin = Some(ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce {
+            spell: crush,
+            cast: false,
+        }),
+        Box::new(CastOnce {
+            spell: crush,
+            cast: true,
+        }),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.card(twin).zone, ZoneType::Battlefield);
+    assert_eq!(game.card(watcher).zone, ZoneType::Graveyard);
+    assert!(game.stack.is_empty());
+    assert_eq!(game.player(p1).life, 21);
+}
+
+const FRAIL_SHEPHERD: &str = "Name:Frail Shepherd\nManaCost:1 W\nTypes:Creature Human\nPT:1/1\nS:Mode$ Continuous | Affected$ Creature.Other+YouCtrl | AddToughness$ 1 | Description$ Other creatures you control get +0/+1.\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.Other+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever another creature you control dies, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
+const HOLLOW_SPRITE: &str =
+    "Name:Hollow Sprite\nManaCost:1\nTypes:Creature Spirit\nPT:0/0\nOracle:";
+
+#[test]
+fn a_creature_that_died_in_one_state_check_does_not_see_a_later_one() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let shepherd = put(&mut game, FRAIL_SHEPHERD, p0, ZoneType::Battlefield);
+    let sprite = put(&mut game, HOLLOW_SPRITE, p0, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    game.card_mut(shepherd).damage = 1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(PassAgent), Box::new(PassAgent)];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.card(shepherd).zone, ZoneType::Graveyard);
+    assert_eq!(game.card(sprite).zone, ZoneType::Graveyard);
+    assert!(game.stack.is_empty());
+    assert_eq!(game.player(p0).life, 20);
 }

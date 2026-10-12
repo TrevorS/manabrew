@@ -2266,12 +2266,9 @@ impl GameState {
             apply_continuous_effects(self);
             self.statics_current_after_sba = statics_applied;
             if pass > 0 {
-                self.pre_sba_battlefield = self
-                    .cards
-                    .iter()
-                    .filter(|c| c.zone == ZoneType::Battlefield)
-                    .map(|c| c.id)
-                    .collect();
+                let cards = &self.cards;
+                self.pre_sba_battlefield
+                    .retain(|id| cards[id.index()].zone == ZoneType::Battlefield);
             }
             let outer_table = self
                 .pending_change_zone_table
