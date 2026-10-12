@@ -87,6 +87,8 @@ pub struct CardTraitBase {
 
     intrinsic: bool,
     suppressed: bool,
+    #[serde(default)]
+    copied_trait: bool,
 
     svars: HashMap<String, String>,
 
@@ -107,6 +109,7 @@ impl Clone for CardTraitBase {
             map_params: self.map_params.clone(),
             intrinsic: self.intrinsic,
             suppressed: self.suppressed,
+            copied_trait: self.copied_trait,
             svars: self.svars.clone(),
             intrinsic_changed_text_colors: self.intrinsic_changed_text_colors.clone(),
             intrinsic_changed_text_types: self.intrinsic_changed_text_types.clone(),
@@ -442,7 +445,11 @@ impl CardTraitBase {
     }
 
     pub fn is_copied_trait(&self) -> bool {
-        false
+        self.copied_trait
+    }
+
+    pub fn set_copied_trait(&mut self, copied: bool) {
+        self.copied_trait = copied;
     }
 
     // ── changed text ────────────────────────────────────────────────

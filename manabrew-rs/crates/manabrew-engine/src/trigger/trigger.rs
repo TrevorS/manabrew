@@ -1112,7 +1112,9 @@ impl Trigger {
         let host = game.card(host_card);
         let svar_host = self
             .original_host
-            .filter(|&original_host| original_host != host_card)
+            .filter(|&original_host| {
+                original_host != host_card && !self.base.card_trait_base.is_copied_trait()
+            })
             .map(|original_host| {
                 let mut view = host.clone();
                 view.svars.extend(

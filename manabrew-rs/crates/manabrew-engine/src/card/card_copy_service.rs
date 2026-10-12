@@ -49,6 +49,7 @@ pub fn copy_copiable_characteristics(copy_from: &Card, to: &mut Card) {
     for trigger in &mut to.triggers {
         trigger.bind_host_card_id(to.id);
         trigger.original_host.get_or_insert(copy_from.id);
+        trigger.base.card_trait_base.set_copied_trait(true);
     }
     to.svars = copy_from.svars.clone();
     if copy_from.other_part.is_some() {

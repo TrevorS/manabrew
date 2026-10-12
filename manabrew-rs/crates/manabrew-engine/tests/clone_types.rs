@@ -535,3 +535,35 @@ fn a_token_copy_draws_for_its_art_only_when_the_original_is_a_token() {
     assert_eq!(copy_permanent_draws(false), 1);
     assert_eq!(copy_permanent_draws(true), 0);
 }
+
+const TWO_FACED_SYGG: &str = "Name:Front Sygg\nManaCost:1 U\nTypes:Creature Merfolk Wizard\nPT:2/2\nT:Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigTransform | TriggerDescription$ At the beginning of your first main phase, you may pay {W}. If you do, transform NICKNAME.\nSVar:TrigTransform:AB$ SetState | Cost$ W | Defined$ Self | Mode$ Transform\nAlternateMode:DoubleFaced\nOracle:\n\nALTERNATE\n\nName:Back Sygg\nManaCost:no cost\nColors:white\nTypes:Creature Merfolk Rogue\nPT:2/2\nT:Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigTransform | TriggerDescription$ At the beginning of your first main phase, you may pay {U}. If you do, transform NICKNAME.\nSVar:TrigTransform:AB$ SetState | Cost$ U | Defined$ Self | Mode$ Transform\nOracle:";
+
+#[test]
+fn a_copy_of_a_transformed_card_keeps_the_face_it_copied_after_the_original_turns_back() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let sygg = put(&mut game, TWO_FACED_SYGG, p0, ZoneType::Battlefield);
+    game.card_mut(sygg).transform();
+    let spell = put(&mut game, GREAT_MIMIC, p0, ZoneType::Hand);
+    put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce { spell, cast: false }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.card(spell).card_name, "Back Sygg");
+    game.card_mut(sygg).transform();
+    assert_eq!(game.card(sygg).card_name, "Front Sygg");
+    let trigger = game.card(spell).triggers[0].clone();
+    let sa = trigger.build_triggered_spell_ability(
+        &game,
+        spell,
+        p0,
+        0,
+        &manabrew_engine::event::RunParams::default(),
+    );
+    assert!(sa.ability_text.contains("Cost$ U"), "{}", sa.ability_text);
+}
