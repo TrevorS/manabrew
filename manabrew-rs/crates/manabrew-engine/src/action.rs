@@ -781,6 +781,14 @@ impl GameState {
             let left_at = self.cards[card_id.index()].zone_timestamp;
             self.card_mut(card_id).lki_zone_timestamp = Some(left_at);
         }
+        if dest_zone != ZoneType::Battlefield {
+            if let Some(handler) = trigger_handler.as_deref_mut() {
+                handler.keep_immediate_trigger_host_timestamps(
+                    card_id,
+                    self.cards[card_id.index()].zone_timestamp,
+                );
+            }
+        }
 
         // Assign a zone timestamp so same-player triggers are ordered by
         // zone entry order (matching Java's Zone.cardList insertion order).

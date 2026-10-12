@@ -1294,6 +1294,19 @@ impl TriggerHandler {
         entries
     }
 
+    /// Java's `ImmediateTriggerEffect` hosts its trigger on the card object itself, which a move
+    /// onto the battlefield keeps and any other move leaves behind with its timestamp.
+    pub(crate) fn keep_immediate_trigger_host_timestamps(&mut self, card: CardId, timestamp: u64) {
+        for delayed in &mut self.delayed_triggers {
+            if delayed.mode == TriggerType::Immediate
+                && delayed.source_card == card
+                && delayed.source_timestamp.is_none()
+            {
+                delayed.source_timestamp = Some(timestamp);
+            }
+        }
+    }
+
     /// Register a delayed trigger (one-shot, fires once then is removed).
     /// Mirrors Java's `TriggerHandler.registerDelayedTrigger()`.
     pub fn register_delayed_trigger(&mut self, mut delayed: DelayedTrigger) {

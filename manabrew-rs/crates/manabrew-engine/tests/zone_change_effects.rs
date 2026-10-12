@@ -904,6 +904,38 @@ fn a_stolen_replacement_host_dying_with_its_victim_acts_for_its_last_controller(
     assert_eq!(game.player(p1).life, 20);
 }
 
+const REFLEX_HOST: &str = "Name:Reflex Host\nManaCost:1 W\nTypes:Creature Human\nPT:1/1\nA:AB$ ImmediateTrigger | Cost$ 0 | Execute$ TrigSet | SubAbility$ DBSac | SpellDescription$ When you do, your life total becomes 10. Destroy this creature.\nSVar:TrigSet:DB$ SetLife | Defined$ You | LifeAmount$ 10\nSVar:DBSac:DB$ Destroy | Defined$ Self\nOracle:";
+const DEATH_WATCHER: &str = "Name:Death Watcher\nManaCost:1 W\nTypes:Creature Human\nPT:1/1\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.Other+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever another creature you control dies, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
+
+#[test]
+fn a_reflexive_trigger_keeps_the_timestamp_of_the_host_that_left() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let host = put(&mut game, REFLEX_HOST, p0, ZoneType::Battlefield);
+    put(&mut game, DEATH_WATCHER, p0, ZoneType::Battlefield);
+    let ability = game.card(host).activated_abilities[0].ability_text.clone();
+    let mut sa = manabrew_engine::spellability::build_spell_ability(&game, host, &ability, p0);
+    sa.is_activated = true;
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: sa,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    assert_eq!(game.card(host).zone, ZoneType::Graveyard);
+    assert_eq!(game.player(p0).life, 10);
+}
+
 const FOOD_GLUTTON: &str = "Name:Food Glutton\nManaCost:2 G\nTypes:Creature Elemental\nPT:2/2\nS:Mode$ Continuous | Affected$ Creature.Other | AffectedZone$ Battlefield | AddType$ Artifact & Food | Description$ Other creatures are Food artifacts in addition to their other types.\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Food | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever a Food is put into a graveyard from the battlefield, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
 
 #[test]
