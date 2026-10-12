@@ -157,3 +157,27 @@ fn a_planeswalker_gone_after_first_strike_takes_no_regular_damage_and_gives_no_l
     assert_eq!(game.players[0].life, 23);
     assert_eq!(game.players[1].life, 20);
 }
+
+const FIRST_GAIN_WATCHER: &str = "Name:First Gain Watcher\nManaCost:2 W\nTypes:Enchantment\nT:Mode$ LifeGained | ValidPlayer$ You | TriggerZones$ Battlefield | FirstTime$ True | Execute$ TrigDrain | TriggerDescription$ Whenever you gain life for the first time each turn, each opponent loses 5 life.\nSVar:TrigDrain:DB$ LoseLife | Defined$ Player.Opponent | LifeAmount$ 5\nOracle:";
+
+#[test]
+fn lifelink_combat_damage_is_the_first_life_gained_this_turn() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let p1 = PlayerId(1);
+    let striker = put(&mut game, STRIKER, p0, ZoneType::Battlefield);
+    put(&mut game, FIRST_GAIN_WATCHER, p0, ZoneType::Battlefield);
+    put(&mut game, WALKER, p1, ZoneType::Battlefield);
+    for player in [p0, p1] {
+        for _ in 0..3 {
+            put(&mut game, STRIKER, player, ZoneType::Library);
+        }
+    }
+    game.card_mut(striker).set_summoning_sick(false);
+    game.turn.active_player = p0;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(AttackWalker), Box::new(PassAgent)];
+    let mut rng = rand::rngs::StdRng::seed_from_u64(1);
+    GameLoop::new(2).run_turn(&mut game, &mut agents, &mut rng);
+    assert_eq!(game.players[0].life, 23);
+    assert_eq!(game.players[1].life, 15);
+}

@@ -955,6 +955,18 @@ impl GameLoop {
         let life_lost_all_damage_map = game.process_damage(&mut self.trigger_handler, Some(agents));
 
         let lifelink_gains = combat::lifelink_gains_by_source(events);
+        let mut first_gain: Vec<bool> = game
+            .players
+            .iter()
+            .enumerate()
+            .map(|(index, state)| {
+                let gains_here = lifelink_gains
+                    .values()
+                    .filter(|&&(player, amount)| player.index() == index && amount > 0)
+                    .count() as i32;
+                state.life_gained_times_this_turn == gains_here
+            })
+            .collect();
         for (index, event) in events.iter().enumerate() {
             self.trigger_handler.run_trigger(
                 TriggerType::DamageDone,
@@ -973,12 +985,14 @@ impl GameLoop {
                 .all(|later| later.source != event.source);
             if let Some(&(player, amount)) = lifelink_gains.get(&event.source) {
                 if last_of_source && amount > 0 {
+                    let first_time = std::mem::take(&mut first_gain[player.index()]);
                     self.trigger_handler.run_trigger(
                         TriggerType::LifeGained,
                         RunParams {
                             player: Some(player),
                             life_amount: Some(amount),
                             source_card: Some(event.source),
+                            first_time: Some(first_time),
                             ..Default::default()
                         },
                         false,
