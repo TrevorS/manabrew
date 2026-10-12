@@ -347,6 +347,50 @@ fn a_seat_that_floats_mana_spends_colorless_as_any_type_on_a_stolen_card() {
     assert!(!game.card(courtyard).tapped);
 }
 
+const BLUE_X_DRAW: &str = "Name:Blue X Draw\nManaCost:X U\nTypes:Sorcery\nA:SP$ Draw | NumCards$ X | SpellDescription$ Draw X cards.\nSVar:X:Count$xPaid\nOracle:";
+
+#[test]
+fn a_stolen_x_spell_announces_x_with_mana_spent_as_any_type() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let robbery = put(&mut game, ROBBERY_EFFECT, p0, ZoneType::Command);
+    let spell = put(&mut game, BLUE_X_DRAW, PlayerId(1), ZoneType::Exile);
+    game.card_mut(robbery).add_remembered_card(spell);
+    for _ in 0..2 {
+        put(
+            &mut game,
+            "Name:Swamp\nManaCost:no cost\nTypes:Basic Land Swamp\nOracle:",
+            p0,
+            ZoneType::Battlefield,
+        );
+    }
+    for _ in 0..20 {
+        put(
+            &mut game,
+            "Name:Forest\nManaCost:no cost\nTypes:Basic Land Forest\nOracle:",
+            p0,
+            ZoneType::Library,
+        );
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    game.action_space_mana_probe = ActionSpaceManaProbe::ComputerUtilMana;
+    let max_seen = Rc::new(Cell::new(None));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Activator {
+            name: "Blue X Draw",
+            max_seen: Rc::clone(&max_seen),
+            done: false,
+            floats_mana: false,
+            pays_unless_costs: false,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(max_seen.get(), Some(1));
+}
+
 const WEATHER_MAKER: &str = "Name:Weather Maker\nManaCost:3\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ Any | SpellDescription$ Add one mana of any color.\nA:AB$ Mana | Cost$ T SubCounter<2/CHARGE> | Produced$ C | Amount$ 2 | SpellDescription$ Add {C}{C}.\nOracle:";
 const BLACK_SUN: &str = "Name:Black Sun\nManaCost:X B B\nTypes:Sorcery\nA:SP$ GainLife | LifeAmount$ X | Defined$ You | SpellDescription$ You gain X life.\nSVar:X:Count$xPaid\nOracle:";
 

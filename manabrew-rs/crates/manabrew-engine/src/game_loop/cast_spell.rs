@@ -1700,6 +1700,33 @@ impl GameLoop {
             Some(extra) => mana_cost.add(&extra),
             None => mana_cost,
         };
+        let announced_from_zone = game.card_current_zone(card_id);
+        if sa.is_spell && announced_from_zone != ZoneType::Hand {
+            if let Some((source, index)) =
+                crate::staticability::static_ability_continuous::may_play_spell_grant_source(
+                    game,
+                    player,
+                    game.card(card_id),
+                    &sa,
+                )
+            {
+                sa.may_play_source = Some(source);
+                sa.may_play_static = index;
+            }
+        }
+        let any_color_conversion = play_effect.is_some_and(|play| play.mana_conversion.is_some())
+            || crate::staticability::static_ability_mana_convert::can_spend_mana_as_any_color(
+                game,
+                player,
+                game.card(card_id),
+            )
+            || sa.may_play_source.is_some_and(|source| {
+                crate::staticability::static_ability_continuous::may_play_applies_mana_convert(
+                    game,
+                    source,
+                    sa.may_play_static,
+                )
+            });
         let x_count = mana_cost.count_x();
         let mut x_value = 0u32;
         let announce_x_from_play_effect = play_effect
@@ -1764,7 +1791,10 @@ impl GameLoop {
                     );
                 }
                 let harness_probes = crate::mana::computer_util_mana::harness_cost_probes_ask(game);
-                let probe_ctx = crate::mana::payment_context_for_sa(game, &sa);
+                let probe_ctx = crate::mana::ManaPaymentContext {
+                    any_color_conversion,
+                    ..crate::mana::payment_context_for_sa(game, &sa)
+                };
                 let mut x: u32 = 0;
                 while x < limit {
                     let extra_generic = ((x + 1) * x_count as u32) as i32 + commander_tax;
@@ -1800,6 +1830,8 @@ impl GameLoop {
                             &probe_ctx,
                             None,
                         )
+                    } else if any_color_conversion {
+                        available_mana.can_pay_any_color(&adjusted_full_cost)
                     } else {
                         available_mana.can_pay(&adjusted_full_cost)
                     };
@@ -1890,20 +1922,6 @@ impl GameLoop {
         let cast_rollback_rng = self.game_rng.save_state();
         let non_undoable_choices: std::cell::RefCell<Vec<mana::AutoTapChoice>> =
             std::cell::RefCell::new(Vec::new());
-        let announced_from_zone = game.card_current_zone(card_id);
-        if sa.is_spell && announced_from_zone != ZoneType::Hand {
-            if let Some((source, index)) =
-                crate::staticability::static_ability_continuous::may_play_spell_grant_source(
-                    game,
-                    player,
-                    game.card(card_id),
-                    &sa,
-                )
-            {
-                sa.may_play_source = Some(source);
-                sa.may_play_static = index;
-            }
-        }
         if sa.is_spell && !game.card_is_in_zone(card_id, ZoneType::Stack) {
             let granted_cast_keyword =
                 sa.alt_cost
@@ -2541,20 +2559,6 @@ impl GameLoop {
         };
 
         // Build mana payment context for restriction checking
-        // Check if mana conversion allows spending mana as any color
-        let any_color_conversion = play_effect.is_some_and(|play| play.mana_conversion.is_some())
-            || crate::staticability::static_ability_mana_convert::can_spend_mana_as_any_color(
-                game,
-                player,
-                game.card(card_id),
-            )
-            || sa.may_play_source.is_some_and(|source| {
-                crate::staticability::static_ability_continuous::may_play_applies_mana_convert(
-                    game,
-                    source,
-                    sa.may_play_static,
-                )
-            });
 
         let payment_ctx = {
             let card = game.card(card_id);
