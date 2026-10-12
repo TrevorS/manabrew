@@ -284,7 +284,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             for kw in split_param_list_value(Some(keywords), " & ") {
                 ctx.game
                     .card_mut(clone_target_id)
-                    .add_intrinsic_keyword(&kw);
+                    .add_intrinsic_keyword_with_triggers(&kw);
             }
         }
 

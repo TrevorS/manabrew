@@ -431,3 +431,50 @@ fn a_copy_gains_the_abilities_of_the_cards_its_copied_ability_exiled() {
         .iter()
         .any(|ability| ability.ability_text.contains("DealDamage")));
 }
+
+const FLYING_MIMIC: &str = "Name:Flying Mimic\nManaCost:U\nTypes:Creature Bird Bard\nPT:1/1\nK:Flying\nK:ETBReplacement:Copy:DBCopy:Optional\nSVar:DBCopy:DB$ Clone | Choices$ Creature.Other | AddTypes$ Bird | AddKeywords$ Flying | SpellDescription$ You may have CARDNAME enter as a copy of a creature on the battlefield, except it's a Bird in addition to its other types and it has flying.\nOracle:";
+const BEAR: &str = "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:";
+
+#[test]
+fn a_token_copy_of_a_copy_keeps_the_copy_s_exceptions() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let spell = put(&mut game, FLYING_MIMIC, p0, ZoneType::Hand);
+    put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    put(&mut game, BEAR, p0, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce { spell, cast: false }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.card(spell).card_name, "Grizzly Bears");
+    assert!(game.card(spell).has_keyword("Flying"));
+    let mut sa = SpellAbility::new_simple(Some(spell), p0, "DB$ CopyPermanent | Defined$ Self");
+    sa.activating_player = p0;
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: sa,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    let token = game
+        .zone(ZoneType::Battlefield, p0)
+        .cards
+        .iter()
+        .copied()
+        .find(|&id| game.card(id).is_token)
+        .expect("token copy");
+    assert_eq!(game.card(token).card_name, "Grizzly Bears");
+    assert!(game.card(token).has_keyword("Flying"));
+    assert!(game.card(token).type_line.has_subtype("Bird"));
+}
