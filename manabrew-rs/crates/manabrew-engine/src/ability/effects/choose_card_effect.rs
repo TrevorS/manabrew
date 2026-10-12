@@ -80,6 +80,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     } else {
         for p in tgt_players {
             let p_choices = filter_controlled_by_player(ctx.game, sa, p, &valid);
+            if let Some(types) = crate::parsing::raw_get(&sa.ability_text, "ChooseEach") {
+                chosen.extend(choose_each_type(ctx, sa, p, &p_choices, types));
+                continue;
+            }
             ctx.agents[p.index()].snapshot_state(ctx.game, ctx.mana_pools);
             chosen.extend(ctx.agents[p.index()].choose_cards_for_effect(
                 DecisionContext::new(ctx.game, ctx.mana_pools),
@@ -117,6 +121,46 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
                 .add_imprinted_card(cid);
         }
     }
+}
+
+fn choose_each_type(
+    ctx: &mut EffectContext,
+    sa: &crate::spellability::SpellAbility,
+    chooser: crate::ids::PlayerId,
+    choices: &[crate::ids::CardId],
+    types: &str,
+) -> Vec<crate::ids::CardId> {
+    let types: Vec<&str> = if types == "Party" {
+        // Java iterates CardType.Constant.PARTY_TYPES, a Guava HashSet, in this order.
+        vec!["Warrior", "Rogue", "Wizard", "Cleric"]
+    } else {
+        types.split(" & ").collect()
+    };
+    let optional = crate::parsing::raw_get(&sa.ability_text, "Mandatory").is_none();
+    let mut chosen = Vec::new();
+    for card_type in types {
+        let valid: Vec<crate::agent::GameEntity> = choices
+            .iter()
+            .copied()
+            .filter(|&card| ctx.game.card(card).has_string_type(card_type))
+            .map(crate::agent::GameEntity::Card)
+            .collect();
+        if valid.is_empty() {
+            continue;
+        }
+        ctx.agents[chooser.index()].snapshot_state(ctx.game, ctx.mana_pools);
+        if let Some(crate::agent::GameEntity::Card(card)) = ctx.agents[chooser.index()]
+            .choose_single_entity_for_effect(
+                DecisionContext::new(ctx.game, ctx.mana_pools),
+                chooser,
+                &valid,
+                optional,
+            )
+        {
+            chosen.push(card);
+        }
+    }
+    chosen
 }
 
 fn filter_controlled_by_player(
