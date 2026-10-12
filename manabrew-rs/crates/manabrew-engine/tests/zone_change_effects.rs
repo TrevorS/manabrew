@@ -1926,6 +1926,37 @@ fn a_card_exiled_again_by_rest_in_peace_does_not_return_with_its_old_exiler() {
     assert_eq!(game.card(bears).zone, ZoneType::Exile);
 }
 
+const RESTLESS_HARBOR: &str = "Name:Restless Harbor\nManaCost:no cost\nTypes:Land\nA:AB$ Animate | Cost$ 0 | Defined$ Self | Power$ 2 | Toughness$ 3 | Types$ Creature,Bird | SpellDescription$ Until end of turn, this land becomes a 2/3 Bird creature. It's still a land.\nOracle:";
+
+#[test]
+fn an_animation_of_a_land_that_was_blinked_in_response_does_nothing() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let harbor = put(&mut game, RESTLESS_HARBOR, p0, ZoneType::Battlefield);
+    let ability = game.card(harbor).activated_abilities[0]
+        .ability_text
+        .clone();
+    let mut sa = manabrew_engine::spellability::build_spell_ability(&game, harbor, &ability, p0);
+    sa.is_activated = true;
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: sa,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    game.move_card(harbor, ZoneType::Exile, p0);
+    game.move_card(harbor, ZoneType::Battlefield, p0);
+    GameLoop::new(2).resolve_stack(&mut game, &mut pass_agents());
+    assert_eq!(game.card(harbor).zone, ZoneType::Battlefield);
+    assert!(!game.card(harbor).is_creature());
+}
+
 const AUTHORITY_OF_THE_CONSULS: &str = "Name:Authority of the Consuls\nManaCost:W\nTypes:Enchantment\nR:Event$ Moved | ValidCard$ Creature.OppCtrl | Destination$ Battlefield | ReplaceWith$ ETBTapped | ReplacementResult$ Updated | ActiveZones$ Battlefield | Description$ Creatures your opponents control enter tapped.\nSVar:ETBTapped:DB$ Tap | ETB$ True | Defined$ ReplacedCard\nOracle:";
 
 #[test]

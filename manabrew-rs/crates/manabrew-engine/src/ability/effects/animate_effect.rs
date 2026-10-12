@@ -172,7 +172,10 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         let card = ctx.game.card(card_id);
         if card.phased_out
             || (sa.source == Some(card_id)
-                && !matches!(card.zone, ZoneType::Battlefield | ZoneType::Stack))
+                && (!matches!(card.zone, ZoneType::Battlefield | ZoneType::Stack)
+                    || sa
+                        .host_zone_timestamp()
+                        .is_some_and(|timestamp| timestamp != card.zone_timestamp)))
         {
             continue;
         }
