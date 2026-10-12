@@ -5328,6 +5328,14 @@ impl Card {
             .to_string()
     }
 
+    fn room_right_name(&self) -> String {
+        self.full_name
+            .split(" // ")
+            .nth(1)
+            .unwrap_or_default()
+            .to_string()
+    }
+
     pub fn update_rooms(&mut self) {
         if !self.type_line.has_subtype("Room") || self.face_down {
             return;
@@ -5341,6 +5349,7 @@ impl Card {
                     self.card_name = self.room_left_name();
                     self.transform();
                 }
+                self.card_name = self.room_right_name();
             }
             (true, false) => {
                 if self.is_transformed {
@@ -5360,6 +5369,9 @@ impl Card {
     pub fn reset_room_doors(&mut self) {
         if self.type_line.has_subtype("Room") {
             self.remove_s_var("UnlockedDoors");
+            if let Some(other) = self.other_part.as_mut() {
+                other.svars.remove("UnlockedDoors");
+            }
             self.card_name = self.room_left_name();
         }
     }
@@ -6337,6 +6349,27 @@ mod tests {
     }
 
     const UNHOLY_ANNEX: &str = "Name:Unholy Annex\nManaCost:2 B\nTypes:Enchantment Room\nAlternateMode:Split\nOracle:\n\nALTERNATE\n\nName:Ritual Chamber\nManaCost:3 B B\nTypes:Enchantment Room\nOracle:";
+
+    #[test]
+    fn a_returned_room_opens_only_the_door_it_unlocks() {
+        let mut game = crate::game::GameState::new(&["Alice", "Bob"], 20);
+        let rules = parse_card_script(UNHOLY_ANNEX).expect("script");
+        let room = game.create_card(Card::from_rules(&rules, PlayerId(0)));
+        game.move_card(room, ZoneType::Battlefield, PlayerId(0));
+        game.card_mut(room)
+            .unlock_room_door(CardStateName::RightSplit);
+        game.card_mut(room).update_rooms();
+        game.card_mut(room)
+            .unlock_room_door(CardStateName::LeftSplit);
+        game.card_mut(room).update_rooms();
+        game.move_card(room, ZoneType::Exile, PlayerId(0));
+        game.move_card(room, ZoneType::Battlefield, PlayerId(0));
+        assert_eq!(game.card(room).card_name, "");
+        game.card_mut(room)
+            .unlock_room_door(CardStateName::RightSplit);
+        game.card_mut(room).update_rooms();
+        assert_eq!(game.card(room).card_name, "Ritual Chamber");
+    }
 
     #[test]
     fn a_room_shares_a_name_with_each_open_door_and_a_split_card_with_either_half() {
