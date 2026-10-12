@@ -2273,6 +2273,13 @@ pub fn resolve_count_svar_for_sa(
                     .with_source_controller(controller)
                     .with_targets(&targeted_cards, &targeted_players)
                     .with_spell_ability(sa);
+                let replacement_last_state = (!self_only
+                    && zones == [ZoneType::Battlefield]
+                    && sa
+                        .trigger_objects
+                        .contains_key(&crate::ability::AbilityKey::ReplacedCard))
+                .then_some(game.replacement_last_state_battlefield.as_deref())
+                .flatten();
                 let matches: Vec<&crate::card::Card> = game
                     .cards
                     .iter()
@@ -2280,6 +2287,8 @@ pub fn resolve_count_svar_for_sa(
                     .filter(|card| {
                         (if self_only {
                             card.id == source_id
+                        } else if let Some(last_state) = replacement_last_state {
+                            last_state.contains(&card.id)
                         } else {
                             zones.contains(&card.zone)
                         }) && crate::card::valid_filter::matches_valid_card_selector_with_context(

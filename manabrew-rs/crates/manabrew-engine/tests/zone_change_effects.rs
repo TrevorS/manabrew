@@ -2233,3 +2233,30 @@ fn a_creature_sacrificed_with_an_artifact_sees_the_artifact_sacrificed() {
     assert!(game.stack.is_empty());
     assert_eq!(game.player(p0).life, 18);
 }
+
+const ANGEL_HERALD: &str = "Name:Angel Herald\nManaCost:1 W\nTypes:Legendary Creature Angel\nPT:2/2\nK:ETBReplacement:Other:AddExtraCounter:Mandatory:Battlefield:Creature.Angel+YouCtrl+Other\nSVar:AddExtraCounter:DB$ PutCounter | ETB$ True | Defined$ ReplacedCard | CounterType$ P1P1 | CounterNum$ X | SpellDescription$ Each other Angel you control enters with an additional +1/+1 counter on it for each Angel you already control.\nSVar:X:Count$Valid Angel.YouCtrl\nOracle:";
+const PLAIN_ANGEL: &str = "Name:Plain Angel\nManaCost:W\nTypes:Creature Angel\nPT:1/1\nOracle:";
+
+#[test]
+fn angels_returned_together_count_only_the_angels_already_there() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    put(&mut game, ANGEL_HERALD, p0, ZoneType::Battlefield);
+    let first = put(&mut game, PLAIN_ANGEL, p0, ZoneType::Graveyard);
+    let second = put(&mut game, PLAIN_ANGEL, p0, ZoneType::Graveyard);
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ ChangeZoneAll | ChangeType$ Creature.YouOwn | Origin$ Graveyard | Destination$ Battlefield",
+        None,
+        None,
+        Some(source),
+    );
+    GameLoop::new(2).resolve_stack(&mut game, &mut pass_agents());
+    for angel in [first, second] {
+        assert_eq!(game.card(angel).zone, ZoneType::Battlefield);
+        assert_eq!(game.card(angel).counter_count(&CounterType::P1P1), 1);
+    }
+}
