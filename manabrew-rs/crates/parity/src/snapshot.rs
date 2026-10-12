@@ -25,7 +25,7 @@ pub fn snapshot_game(
 
     let mut stack: Vec<String> = game
         .stack
-        .iter()
+        .iter_with_resolving()
         .map(|entry| {
             if let Some(source) = entry.spell_ability.source {
                 let card = game.card(source);

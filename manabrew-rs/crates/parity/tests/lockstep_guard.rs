@@ -1,6 +1,6 @@
 use parity::lockstep::{
     first_divergence, guard_end, guard_unverified, java_error_end, java_overran, java_timeout,
-    Desync, LockstepEnd,
+    token_cap_end, Desync, LockstepEnd,
 };
 use parity::protocol::StateSnapshot;
 use serde_json::{json, Value};
@@ -267,4 +267,55 @@ fn a_java_overrun_reports_the_first_state_difference_before_it() {
     let found = java_overran(&rust, &java);
     assert_eq!(found.kind, "state");
     assert!(found.detail.contains("then sequence"), "{}", found.detail);
+}
+
+#[test]
+fn a_rust_token_cap_is_compared_with_java_at_its_own_token_cap() {
+    let cap = "forge.game.Game$RunawayGameException: Runaway game: 167 copies of one token from one effect in one turn (cap 100); game force-ended as a draw.";
+    let rust = snapshot(false, None, 10, false);
+    assert_eq!(
+        token_cap_end(&rust, Some(&java_error(cap, 236)), 236),
+        Ok(())
+    );
+    let failure = token_cap_end(
+        &snapshot(false, None, 7, false),
+        Some(&java_error(cap, 236)),
+        236,
+    )
+    .expect_err("life differs");
+    assert!(failure.contains("life"), "{failure}");
+    assert!(token_cap_end(&rust, Some(&java_error(cap, 235)), 236).is_err());
+    let triggers =
+        "forge.game.Game$RunawayGameException: Runaway game: 25001 triggers fired in one turn";
+    assert!(token_cap_end(&rust, Some(&java_error(triggers, 236)), 236).is_err());
+    assert!(token_cap_end(&rust, Some(&java_end(236)), 236).is_err());
+}
+
+#[test]
+fn a_snapshot_taken_mid_resolution_lists_the_resolving_ability_as_java_does() {
+    use manabrew_engine::spellability::{SpellAbility, StackEntry};
+    let mut game = manabrew_engine::game::GameState::new(&["Alice", "Bob"], 20);
+    let p0 = manabrew_engine::ids::PlayerId(0);
+    let rules = forge_carddb::parse_card_script(
+        "Name:Shock\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2\nOracle:",
+    )
+    .expect("script");
+    let shock = game.create_card(manabrew_engine::card::CardInstance::from_rules(&rules, p0));
+    game.move_card(shock, forge_foundation::ZoneType::Stack, p0);
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: SpellAbility::new_simple(Some(shock), p0, "SP$ DealDamage | NumDmg$ 2"),
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    game.stack.resolve_stack().expect("entry");
+    assert_eq!(
+        parity::snapshot::snapshot_game(&game, &[]).stack,
+        vec!["Shock".to_string()]
+    );
 }

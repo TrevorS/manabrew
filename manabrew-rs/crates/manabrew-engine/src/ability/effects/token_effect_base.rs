@@ -328,6 +328,9 @@ pub trait TokenEffectBase {
         let mut creators = Vec::new();
 
         for cell in token_table.cells().iter().cloned() {
+            for agent in ctx.agents.iter_mut() {
+                agent.observe_token_request(ctx.game, cell.amount);
+            }
             let controller = cell.prototype.controller;
             for _ in 0..cell.amount {
                 let Some(token_id) = self.create_single_token(

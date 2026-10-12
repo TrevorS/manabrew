@@ -56,6 +56,7 @@ pub fn deck_search_dirs(override_dir: Option<&str>) -> Vec<&str> {
 }
 const CARD_COPY_GUARD_THRESHOLD: usize = 100;
 const DECISION_GUARD_THRESHOLD: u32 = 20_000;
+const RUNAWAY_TOKENS_PER_EFFECT: usize = 100;
 const GAME_WALL_CLOCK_LIMIT_SECS: u64 = 600;
 
 type LiveLogWriter = Arc<Mutex<BufWriter<File>>>;
@@ -323,10 +324,18 @@ impl CapturingAgent {
         None
     }
 
-    fn stop_if_card_copy_guard_tripped(&self, game: &GameState) {
+    fn stop_if_card_copy_guard_tripped(&self, game: &GameState) -> bool {
         let Some((name, count)) = Self::card_copy_guard_trip(game) else {
-            return;
+            return false;
         };
+        self.stop_at_guard(
+            game,
+            &format!("{count} copies of {name} on battlefield (limit {CARD_COPY_GUARD_THRESHOLD})"),
+        );
+        true
+    }
+
+    fn stop_at_guard(&self, game: &GameState, reason: &str) {
         if self.abort_signal.swap(true, Ordering::Relaxed) {
             return;
         }
@@ -340,17 +349,13 @@ impl CapturingAgent {
                 deciding_player: self.player_id.0,
                 kind: "$PARITY_GUARD".to_string(),
                 options: vec![],
-                choice: format!(
-                    "ABORTED: {count} copies of {name} on battlefield (limit {CARD_COPY_GUARD_THRESHOLD})"
-                ),
+                choice: format!("ABORTED: {reason}"),
                 timestamp_ms: current_timestamp_ms(),
             }));
         self.parity_observer.on_event(
             "ParityGuard",
             Some(self.player_id),
-            &format!(
-                "truncated: {count} copies of {name} on battlefield (limit {CARD_COPY_GUARD_THRESHOLD})"
-            ),
+            &format!("truncated: {reason}"),
         );
     }
 
@@ -365,26 +370,9 @@ impl CapturingAgent {
         if self.decisions.fetch_add(1, Ordering::Relaxed) < DECISION_GUARD_THRESHOLD {
             return;
         }
-        if self.abort_signal.swap(true, Ordering::Relaxed) {
-            return;
-        }
-        let snapshot = self.snapshot_with_rng_counts(game);
-        self.parity_observer
-            .push_entry(ParityLogEntry::Snapshot(snapshot.clone()));
-        self.parity_observer
-            .push_entry(ParityLogEntry::Decision(DecisionRecord {
-                turn: snapshot.turn,
-                phase: snapshot.phase.clone(),
-                deciding_player: self.player_id.0,
-                kind: "$PARITY_GUARD".to_string(),
-                options: vec![],
-                choice: format!("ABORTED: decision limit {DECISION_GUARD_THRESHOLD} reached"),
-                timestamp_ms: current_timestamp_ms(),
-            }));
-        self.parity_observer.on_event(
-            "ParityGuard",
-            Some(self.player_id),
-            &format!("truncated: decision limit {DECISION_GUARD_THRESHOLD} reached"),
+        self.stop_at_guard(
+            game,
+            &format!("decision limit {DECISION_GUARD_THRESHOLD} reached"),
         );
     }
 
@@ -688,8 +676,19 @@ impl PlayerAgent for CapturingAgent {
         if self.capture_snapshots && game.turn.turn_number != self.current_turn {
             self.pending_turn_snapshot = Some(self.snapshot_with_rng_counts(game));
         }
-        self.stop_if_card_copy_guard_tripped(game);
         self.stop_if_decision_guard_tripped(game);
+    }
+
+    fn observe_token_request(&mut self, game: &GameState, amount: usize) {
+        self.inner.observe_token_request(game, amount);
+        if amount > RUNAWAY_TOKENS_PER_EFFECT {
+            self.stop_at_guard(
+                game,
+                &format!(
+                    "Runaway game: {amount} copies of one token from one effect in one turn (cap {RUNAWAY_TOKENS_PER_EFFECT})"
+                ),
+            );
+        }
     }
 
     fn choose_action(
@@ -698,6 +697,9 @@ impl PlayerAgent for CapturingAgent {
         action_space: Option<&PriorityActionSpace>,
         priority: &mut dyn PriorityContext,
     ) -> manabrew_engine::player::actions::PlayerAction {
+        if self.stop_if_card_copy_guard_tripped(priority.context().game) {
+            return manabrew_engine::player::actions::PlayerAction::PassPriority;
+        }
         let action_space_was_provided = action_space.is_some();
         if !action_space_was_provided && self.inner.should_skip_priority_action_space() {
             self.parity_observer.on_callback(

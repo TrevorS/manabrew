@@ -394,6 +394,8 @@ fn rust_snapshots(log: &Mutex<Vec<ParityLogEntry>>) -> Vec<StateSnapshot> {
         .collect()
 }
 
+const TOKEN_CAP_RUNAWAY: &str = "copies of one token from one effect";
+
 pub fn guard_end(
     rust: &StateSnapshot,
     java_guard: Option<&StateSnapshot>,
@@ -427,6 +429,28 @@ pub fn guard_end(
     } else {
         Err(fields.join("; "))
     }
+}
+
+pub fn token_cap_end(
+    rust: &StateSnapshot,
+    java_end: Option<&Value>,
+    sent: u64,
+) -> Result<(), String> {
+    let java_end = java_end.ok_or("java did not end the game")?;
+    if !java_end["error"]
+        .as_str()
+        .is_some_and(|error| error.contains(TOKEN_CAP_RUNAWAY))
+    {
+        return Err(java_desync(java_end).map_or_else(
+            || "java did not stop at its token cap".to_string(),
+            |found| found.detail,
+        ));
+    }
+    let consumed = java_end["consumed"].as_u64().unwrap_or(0);
+    if consumed != sent {
+        return Err(format!("java consumed {consumed} of rust's {sent} draws"));
+    }
+    runaway_end(rust, java_end)
 }
 
 fn last_logged_snapshot(log: &Path) -> Option<StateSnapshot> {
@@ -847,17 +871,25 @@ pub fn play(
         let rust_guard = rust.pop();
         let java_guard = setup.log.as_deref().and_then(last_logged_snapshot);
         let turns_match = rust.len() == link.borrow().snapshots.len();
+        let token_cap = found.detail.contains(TOKEN_CAP_RUNAWAY);
         let compared = rust_guard
             .ok_or_else(|| "rust logged no snapshot at its guard".to_string())
             .and_then(|rust_guard| {
-                guard_end(
-                    &rust_guard,
-                    java_guard.as_ref(),
-                    java_end.as_ref(),
-                    link.borrow().sent,
-                )
+                if token_cap {
+                    token_cap_end(&rust_guard, java_end.as_ref(), link.borrow().sent)
+                } else {
+                    guard_end(
+                        &rust_guard,
+                        java_guard.as_ref(),
+                        java_end.as_ref(),
+                        link.borrow().sent,
+                    )
+                }
             });
         match compared {
+            Ok(()) if turns_match && token_cap => {
+                special = Some(LockstepEnd::JavaRunawayMatched(found.detail.clone()))
+            }
             Ok(()) if turns_match => {
                 special = Some(LockstepEnd::GuardMatched(found.detail.clone()))
             }

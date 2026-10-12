@@ -48,6 +48,8 @@ pub trait PlayerAgent {
 
     fn redeal(&mut self, _game: &mut GameState) {}
 
+    fn observe_token_request(&mut self, _game: &GameState, _amount: usize) {}
+
     fn hand_off_at_turn_start(&mut self, _game: &GameState) -> Option<Box<dyn PlayerAgent>> {
         None
     }

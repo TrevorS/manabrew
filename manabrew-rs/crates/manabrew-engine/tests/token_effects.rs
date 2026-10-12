@@ -12,6 +12,8 @@ use manabrew_engine::mana::ManaPool;
 use manabrew_engine::player::actions::PlayerAction;
 use manabrew_engine::spellability::{SpellAbility, StackEntry};
 use manabrew_engine::trigger::parse_trigger;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -781,4 +783,138 @@ fn empower_creates_one_jace_token_and_then_adds_loyalty_to_it() {
             .copied(),
         Some(3)
     );
+}
+
+const PARALLEL_LIVES: &str = "Name:Parallel Lives\nManaCost:3 G\nTypes:Enchantment\nR:Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Card.YouCtrl | ReplaceWith$ DoubleToken | EffectOnly$ True | Description$ If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nSVar:DoubleToken:DB$ ReplaceToken | Type$ Amount\nOracle:";
+
+struct TokenRequestWatcher {
+    requests: Rc<RefCell<Vec<(usize, usize)>>>,
+}
+
+impl PlayerAgent for TokenRequestWatcher {
+    fn observe_token_request(&mut self, game: &GameState, amount: usize) {
+        let tokens = game
+            .cards_in_all_zones(ZoneType::Battlefield)
+            .filter(|&id| game.card(id).is_token)
+            .count();
+        self.requests.borrow_mut().push((amount, tokens));
+    }
+
+    fn mulligan_decision(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        _hand: &[CardId],
+        _mulligan_count: u32,
+    ) -> bool {
+        true
+    }
+
+    fn choose_action(
+        &mut self,
+        _player: PlayerId,
+        _action_space: Option<&manabrew_engine::agent::PriorityActionSpace>,
+        _priority: &mut dyn PriorityContext,
+    ) -> PlayerAction {
+        PlayerAction::PassPriority
+    }
+
+    fn choose_attackers(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        _available: &[CardId],
+        _possible_defenders: &[manabrew_engine::combat::DefenderId],
+    ) -> Vec<(CardId, manabrew_engine::combat::DefenderId)> {
+        vec![]
+    }
+
+    fn choose_blockers(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        _attackers: &[CardId],
+        _available_blockers: &[CardId],
+        _max_blockers: Option<usize>,
+    ) -> Vec<(CardId, CardId)> {
+        vec![]
+    }
+
+    fn choose_targets_for(
+        &mut self,
+        sa: &mut SpellAbility,
+        game: &GameState,
+        mana_pools: &[ManaPool],
+    ) -> bool {
+        manabrew_engine::spellability::choose_targets_by_kind(self, sa, game, mana_pools)
+    }
+
+    fn choose_target_player(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        valid: &[PlayerId],
+        _sa: Option<&SpellAbility>,
+    ) -> Option<PlayerId> {
+        valid.first().copied()
+    }
+
+    fn choose_target_card(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        valid: &[CardId],
+        _sa: Option<&SpellAbility>,
+    ) -> Option<CardId> {
+        valid.first().copied()
+    }
+
+    fn choose_target_any(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        _valid_players: &[PlayerId],
+        _valid_cards: &[CardId],
+        _sa: Option<&SpellAbility>,
+    ) -> manabrew_engine::agent::TargetChoice {
+        manabrew_engine::agent::TargetChoice::None
+    }
+
+    fn choose_land_or_spell(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+    ) -> Option<bool> {
+        None
+    }
+}
+
+#[test]
+fn a_token_request_is_observed_at_its_doubled_amount_before_any_token_is_made() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let rules = parse_card_script(PARALLEL_LIVES).expect("script");
+    let lives = game.create_card(CardInstance::from_rules(&rules, p0));
+    game.move_card(lives, ZoneType::Battlefield, p0);
+    let ability = "SP$ Token | TokenAmount$ 3 | TokenScript$ r_1_1_goblin | TokenOwner$ You";
+    push_activated_entry(&mut game, p0, ability, None);
+    let requests = Rc::new(RefCell::new(Vec::new()));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(TokenRequestWatcher {
+            requests: requests.clone(),
+        }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.register_token("r_1_1_goblin", make_goblin_token(p0));
+    game_loop.resolve_stack(&mut game, &mut agents);
+
+    assert_eq!(*requests.borrow(), vec![(6, 0)]);
+    let goblins = game
+        .zone(ZoneType::Battlefield, p0)
+        .cards
+        .iter()
+        .filter(|&&id| game.card(id).is_token)
+        .count();
+    assert_eq!(goblins, 6);
 }
