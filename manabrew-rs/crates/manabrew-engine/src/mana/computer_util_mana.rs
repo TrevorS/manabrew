@@ -3656,7 +3656,11 @@ pub fn can_pay_spell_mana_cost_with_sources<'a>(
     }
     let mut unpaid = ManaCostBeingPaid::from_mana_cost(cost);
     let mut simulated_pool = pool.clone();
-    simulated_pool.pay_unpaid_for_spell_incremental(&mut unpaid, payment_ctx, false);
+    simulated_pool.pay_unpaid_for_spell_incremental(
+        &mut unpaid,
+        payment_ctx,
+        payment_ctx.any_color_conversion,
+    );
     if unpaid.is_paid() {
         return true;
     }
@@ -3782,7 +3786,11 @@ pub fn can_pay_spell_mana_cost_with_sources<'a>(
             to_pay,
             &mut None,
         );
-        simulated_pool.pay_unpaid_for_spell_incremental(&mut unpaid, payment_ctx, false);
+        simulated_pool.pay_unpaid_for_spell_incremental(
+            &mut unpaid,
+            payment_ctx,
+            payment_ctx.any_color_conversion,
+        );
 
         used_sources.insert(sa_payment.card_id);
     }
@@ -3848,7 +3856,11 @@ fn can_pay_mana_cost(
         order.rotate(player, &unpaid, payment_ctx, spell.has_converge());
     }
     let mut simulated_pool = pool.clone();
-    simulated_pool.pay_unpaid_for_spell_incremental(&mut unpaid, payment_ctx, false);
+    simulated_pool.pay_unpaid_for_spell_incremental(
+        &mut unpaid,
+        payment_ctx,
+        payment_ctx.any_color_conversion,
+    );
     if unpaid.is_paid() {
         return true;
     }
@@ -3868,7 +3880,11 @@ fn can_pay_mana_cost(
     let mut test_energy_pool = game.player(player).energy_counters;
 
     while !unpaid.is_paid() {
-        simulated_pool.pay_unpaid_for_spell_incremental(&mut unpaid, payment_ctx, false);
+        simulated_pool.pay_unpaid_for_spell_incremental(
+            &mut unpaid,
+            payment_ctx,
+            payment_ctx.any_color_conversion,
+        );
         if unpaid.is_paid() {
             break;
         }
@@ -5194,6 +5210,39 @@ mod tests {
 
     const TIDE_POOL: &str = "Name:Tide Pool\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ U | SpellDescription$ Add {U}.\nOracle:";
     const TREASURE_CHEST: &str = "Name:Treasure Chest\nManaCost:no cost\nTypes:Artifact\nA:AB$ Mana | Cost$ T Sac<1/CARDNAME> | Produced$ Any | SpellDescription$ Add one mana of any color.\nOracle:";
+
+    #[test]
+    fn the_test_payment_spends_floating_mana_through_the_cast_s_conversion() {
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        let rules = forge_carddb::parse_card_script(
+            "Name:One White\nManaCost:W\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1\nOracle:",
+        )
+        .expect("script");
+        let spell = game.create_card(Card::from_rules(&rules, PlayerId(1)));
+        game.move_card(spell, ZoneType::Exile, PlayerId(1));
+        let mut pool = ManaPool::new();
+        pool.add_mana(crate::mana::Mana::simple(ManaAtom::COLORLESS));
+        let ctx = |any_color_conversion| crate::mana::ManaPaymentContext {
+            is_spell: true,
+            any_color_conversion,
+            ..Default::default()
+        };
+        let cost = forge_foundation::ManaCost::parse("W");
+        let pays = |any| {
+            can_pay_mana_cost(
+                &game,
+                &pool,
+                PlayerId(0),
+                spell,
+                &cost,
+                &ctx(any),
+                &[],
+                None,
+            )
+        };
+        assert!(pays(true));
+        assert!(!pays(false));
+    }
 
     fn payment_choice(game: &mut GameState, script: &str, mana_trigger_ran: bool) -> AutoTapChoice {
         let rules = forge_carddb::parse_card_script(script).expect("script");
