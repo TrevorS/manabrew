@@ -129,11 +129,10 @@ pub fn apply_cant_be_cast_ability(
     game: &GameState,
 ) -> bool {
     // ValidCard check
-    if !valid_filter::matches_valid_card_selector_opt_in_game(
+    if !valid_filter::matches_valid_card_selector_opt_with_context(
         st_ab.ir.valid_card.as_ref(),
         card,
-        source,
-        game,
+        valid_filter::MatchContext::new(source, game).with_static_ability(st_ab),
     ) {
         return false;
     }
@@ -211,11 +210,10 @@ pub fn apply_cant_be_cast_ability(
             .cards_cast_this_turn
             .iter()
             .filter(|&&cid| {
-                valid_filter::matches_valid_card_selector_opt_in_game(
+                valid_filter::matches_valid_card_selector_opt_with_context(
                     valid,
                     game.card(cid),
-                    source,
-                    game,
+                    valid_filter::MatchContext::new(source, game).with_static_ability(st_ab),
                 )
             })
             .count() as i32;
@@ -286,11 +284,10 @@ pub fn apply_cant_be_activated_ability(
     game: &GameState,
 ) -> bool {
     // ValidCard check
-    if !valid_filter::matches_valid_card_selector_opt_in_game(
+    if !valid_filter::matches_valid_card_selector_opt_with_context(
         st_ab.ir.valid_card.as_ref(),
         card,
-        source,
-        game,
+        valid_filter::MatchContext::new(source, game).with_static_ability(st_ab),
     ) {
         return false;
     }
@@ -366,11 +363,10 @@ pub fn apply_cant_play_land_ability(
     game: &GameState,
 ) -> bool {
     // ValidCard check
-    if !valid_filter::matches_valid_card_selector_opt_in_game(
+    if !valid_filter::matches_valid_card_selector_opt_with_context(
         st_ab.ir.valid_card.as_ref(),
         card,
-        source,
-        game,
+        valid_filter::MatchContext::new(source, game).with_static_ability(st_ab),
     ) {
         return false;
     }

@@ -152,6 +152,9 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         for (replacement_effect, id) in target.replacement_effects.iter_mut().zip(replacement_ids) {
             replacement_effect.base.set_host_card_id(clone_target_id);
             replacement_effect.base.card_trait_base.set_id(id);
+            replacement_effect
+                .original_host
+                .get_or_insert(clone_source_id);
         }
         let param = |key| crate::parsing::raw_get(&sa.ability_text, key);
         for name in param(keys::ADD_SVARS)

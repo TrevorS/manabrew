@@ -583,6 +583,7 @@ pub struct MatchContext<'a> {
     pub combat: Option<&'a CombatState>,
     pub game: &'a GameState,
     pub spell_ability: Option<&'a SpellAbility>,
+    pub static_ability: Option<&'a crate::staticability::StaticAbility>,
 }
 
 impl<'a> MatchContext<'a> {
@@ -601,12 +602,21 @@ impl<'a> MatchContext<'a> {
             combat: None,
             game,
             spell_ability: None,
+            static_ability: None,
         }
     }
 
     pub fn with_spell_ability(mut self, spell_ability: &'a SpellAbility) -> Self {
         self.spell_ability = Some(spell_ability);
         self.with_host_object(spell_ability)
+    }
+
+    pub fn with_static_ability(
+        mut self,
+        static_ability: &'a crate::staticability::StaticAbility,
+    ) -> Self {
+        self.static_ability = Some(static_ability);
+        self
     }
 
     pub fn with_host_object(mut self, spell_ability: &SpellAbility) -> Self {
@@ -1194,6 +1204,7 @@ pub(super) fn matches_context_predicate(
                         sa,
                     )
                 })
+                .or_else(|| context.static_ability.and_then(|st_ab| st_ab.original_host))
                 .unwrap_or(context.source_card.id);
             card.exiled_with == Some(host)
                 && (context.source_card.exiled_cards.contains(&card.id)

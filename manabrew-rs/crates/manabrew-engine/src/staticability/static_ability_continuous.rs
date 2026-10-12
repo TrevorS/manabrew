@@ -57,11 +57,10 @@ fn may_play_affects(st_ab: &StaticAbility, source: &Card, card: &Card, game: &Ga
         )
         .contains(&card.id);
     }
-    crate::card::valid_filter::matches_valid_card_selector_opt_in_game(
+    crate::card::valid_filter::matches_valid_card_selector_opt_with_context(
         st_ab.ir.affected.as_ref(),
         card,
-        source,
-        game,
+        crate::card::valid_filter::MatchContext::new(source, game).with_static_ability(st_ab),
     )
 }
 

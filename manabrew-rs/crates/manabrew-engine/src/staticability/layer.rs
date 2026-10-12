@@ -967,11 +967,11 @@ fn apply_continuous_ability(
             };
             let selector = crate::parsing::cached_compiled_selector(filter);
             for gained in game.cards.iter().filter(|card| zones.contains(&card.zone)) {
-                if !crate::card::valid_filter::matches_valid_card_selector_in_game(
+                if !crate::card::valid_filter::matches_valid_card_selector_with_context(
                     &selector,
                     gained,
-                    source_card,
-                    game,
+                    crate::card::valid_filter::MatchContext::new(source_card, game)
+                        .with_static_ability(sa),
                 ) {
                     continue;
                 }
@@ -998,11 +998,11 @@ fn apply_continuous_ability(
             };
             let selector = crate::parsing::cached_compiled_selector(filter);
             for gained in game.cards.iter().filter(|card| zones.contains(&card.zone)) {
-                if !crate::card::valid_filter::matches_valid_card_selector_in_game(
+                if !crate::card::valid_filter::matches_valid_card_selector_with_context(
                     &selector,
                     gained,
-                    source_card,
-                    game,
+                    crate::card::valid_filter::MatchContext::new(source_card, game)
+                        .with_static_ability(sa),
                 ) {
                     continue;
                 }
@@ -1822,11 +1822,11 @@ fn static_affected_cards_into(
                 continue;
             }
             if selector.as_ref().is_none_or(|selector| {
-                crate::card::valid_filter::matches_valid_card_selector_in_game(
+                crate::card::valid_filter::matches_valid_card_selector_with_context(
                     selector,
                     card,
-                    source_card,
-                    game,
+                    crate::card::valid_filter::MatchContext::new(source_card, game)
+                        .with_static_ability(sa),
                 )
             }) {
                 affected.push(cid);
@@ -1847,11 +1847,11 @@ fn static_affected_cards_into(
             sa.ir.affected_zones.contains(&source_card.zone)
         };
         if in_affected_zone
-            && crate::card::valid_filter::matches_valid_card_selector_in_game(
+            && crate::card::valid_filter::matches_valid_card_selector_with_context(
                 &crate::parsing::cached_compiled_selector(affected_str),
                 source_card,
-                source_card,
-                game,
+                crate::card::valid_filter::MatchContext::new(source_card, game)
+                    .with_static_ability(sa),
             )
         {
             affected.push(source_id);
@@ -1867,11 +1867,11 @@ fn static_affected_cards_into(
         // Control Magic: "Card.EnchantedBy")
         if let Some(cid) = source_card.attached_to {
             if game.card(cid).zone == ZoneType::Battlefield
-                && crate::card::valid_filter::matches_valid_card_selector_in_game(
+                && crate::card::valid_filter::matches_valid_card_selector_with_context(
                     &crate::parsing::cached_compiled_selector(affected_str),
                     game.card(cid),
-                    source_card,
-                    game,
+                    crate::card::valid_filter::MatchContext::new(source_card, game)
+                        .with_static_ability(sa),
                 )
             {
                 affected.push(cid);
@@ -1892,11 +1892,11 @@ fn static_affected_cards_into(
                 None => card.zone == ZoneType::Battlefield,
             };
             if zone_matches
-                && crate::card::valid_filter::matches_valid_card_selector_in_game(
+                && crate::card::valid_filter::matches_valid_card_selector_with_context(
                     &selector,
                     card,
-                    source_card,
-                    game,
+                    crate::card::valid_filter::MatchContext::new(source_card, game)
+                        .with_static_ability(sa),
                 )
             {
                 affected.push(card.id);

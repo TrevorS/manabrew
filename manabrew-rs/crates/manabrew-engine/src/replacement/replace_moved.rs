@@ -226,6 +226,9 @@ pub(super) fn execute_replacement_ability(
     mut runtime: Option<&mut ReplacementRuntime<'_>>,
 ) -> bool {
     effect.set_replacing_objects(event, &mut sa);
+    if let Some(original_host) = effect.original_host {
+        sa.set_original_host(original_host);
+    }
     // Java `getReplacementList` hosts each replacement on the current object (`setHostCard`).
     if let Some(source) = sa.source {
         sa.source_zone_timestamp = Some(game.card(source).zone_timestamp);

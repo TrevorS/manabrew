@@ -12,6 +12,7 @@ use manabrew_engine::ids::{CardId, PlayerId};
 use manabrew_engine::mana::ManaPool;
 use manabrew_engine::player::actions::PlayerAction;
 use manabrew_engine::spellability::{SpellAbility, StackEntry};
+use manabrew_engine::staticability::static_ability_continuous::{can_play, may_play_grants};
 
 const ISLAND: &str = "Name:Island\nManaCost:no cost\nTypes:Basic Land Island\nOracle:";
 const STONE: &str = "Name:Glass Stone\nManaCost:2\nTypes:Artifact\nOracle:";
@@ -344,4 +345,89 @@ fn a_curator_that_left_and_came_back_counts_none_of_its_earlier_exiles() {
     manabrew_engine::staticability::layer::apply_continuous_effects(&mut game);
     let curator = game.card(curator);
     assert_eq!((curator.power(), curator.toughness()), (3, 3));
+}
+
+const SUPERIOR_SPIDER_MAN: &str = "Name:Superior Spider-Man\nManaCost:2 U B\nTypes:Legendary Creature Spider Human Hero\nPT:4/4\nK:ETBReplacement:Copy:DBCopy:Optional\nSVar:DBCopy:DB$ Clone | Choices$ Creature.Other | ChoiceZone$ Graveyard | NewName$ Superior Spider-Man | AddTypes$ Spider & Human & Hero | SetPower$ 4 | SetToughness$ 4 | RememberCloneOrigin$ True | SubAbility$ DBImmediateTrig | SpellDescription$ Mind Swap — You may have CARDNAME enter as a copy of any creature card in a graveyard, except his name is Superior Spider-Man and he's a 4/4 Spider Human Hero in addition to his other types. When you do, exile that card.\nSVar:DBImmediateTrig:DB$ ImmediateTrigger | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ GE1 | Execute$ TrigExile | RememberObjects$ RememberedCard | SubAbility$ DBCleanup | TriggerDescription$ When you do, exile that card.\nSVar:TrigExile:DB$ ChangeZone | Defined$ DelayTriggerRememberedLKI | Origin$ Graveyard | Destination$ Exile\nSVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\nOracle:Mind Swap — You may have Superior Spider-Man enter as a copy of any creature card in a graveyard, except his name is Superior Spider-Man and he's a 4/4 Spider Human Hero in addition to his other types. When you do, exile that card.";
+const VALGAVOTH: &str = "Name:Valgavoth, Terror Eater\nManaCost:6 B B B\nTypes:Legendary Creature Elder Demon\nPT:9/9\nK:Flying\nK:Lifelink\nK:Ward:Sac<3/Permanent.nonLand/nonland permanent>\nR:Event$ Moved | ActiveZones$ Battlefield | Destination$ Graveyard | ValidLKI$ Card.!token+YouDontCtrl+OppOwn | ReplaceWith$ Exile | Description$ If a card you didn't control would be put into an opponent's graveyard from anywhere, exile it instead.\nSVar:Exile:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard\nS:Mode$ Continuous | Condition$ PlayerTurn | MayPlay$ True | Affected$ Card.ExiledWithSource | AffectedZone$ Exile | MayPlayAltManaCost$ PayLife<ConvertedManaCost> | Description$ During your turn, you may play cards exiled with NICKNAME. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.\nOracle:Flying, lifelink\\nWard—Sacrifice three nonland permanents.\\nIf a card you didn't control would be put into an opponent's graveyard from anywhere, exile it instead.\\nDuring your turn, you may play cards exiled with Valgavoth. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.";
+const SWAMP: &str = "Name:Swamp\nManaCost:no cost\nTypes:Basic Land Swamp\nOracle:";
+
+#[test]
+fn a_copy_may_play_only_the_cards_its_copied_abilities_exiled() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let spell = put(&mut game, SUPERIOR_SPIDER_MAN, p0, ZoneType::Hand);
+    let valgavoth = put(&mut game, VALGAVOTH, p1, ZoneType::Graveyard);
+    for land in [ISLAND, ISLAND, SWAMP, SWAMP] {
+        put(&mut game, land, p0, ZoneType::Battlefield);
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce { spell, cast: false }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    for _ in 0..4 {
+        if game.card(valgavoth).zone == ZoneType::Exile {
+            break;
+        }
+        game_loop.step_with_priority(&mut game, &mut agents, true);
+    }
+    assert_eq!(game.card(valgavoth).zone, ZoneType::Exile);
+    let shock = put(&mut game, SHOCK, p1, ZoneType::Hand);
+    game.move_card_with_agents(shock, ZoneType::Graveyard, p1, &mut agents);
+    assert_eq!(game.card(shock).zone, ZoneType::Exile);
+
+    let may_play = |game: &GameState, card: CardId| {
+        may_play_grants(game, p0, game.card(card))
+            .any(|(source, st_ab)| can_play(st_ab, source, game.card(card), game))
+    };
+    assert!(!may_play(&game, valgavoth));
+    assert!(may_play(&game, shock));
+}
+
+const DARK_IMPOSTOR: &str = "Name:Dark Impostor\nManaCost:2 B\nTypes:Creature Vampire Assassin\nPT:2/2\nS:Mode$ Continuous | AffectedDefined$ Self | EffectZone$ Battlefield | GainsAbilitiesOf$ Creature.ExiledWithSource | GainsAbilitiesOfZones$ Exile | Description$ CARDNAME has all activated abilities of all creature cards exiled with it.\nA:AB$ ChangeZone | Cost$ 4 B B | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile | SubAbility$ DBCounter | SpellDescription$ Exile target creature and put a +1/+1 counter on CARDNAME.\nSVar:DBCounter:DB$ PutCounter | CounterType$ P1P1 | CounterNum$ 1 | Defined$ Self\nOracle:{4}{B}{B}: Exile target creature and put a +1/+1 counter on Dark Impostor.\\nDark Impostor has all activated abilities of all creature cards exiled with it.";
+const SORCERER: &str = "Name:Prodigal Sorcerer\nManaCost:2 U\nTypes:Creature Human Wizard\nPT:1/1\nA:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1 | SpellDescription$ CARDNAME deals 1 damage to any target.\nOracle:";
+
+#[test]
+fn a_copy_gains_the_abilities_of_the_cards_its_copied_ability_exiled() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let spell = put(&mut game, GRAVE_MIMIC, p0, ZoneType::Hand);
+    let impostor = put(&mut game, DARK_IMPOSTOR, p0, ZoneType::Graveyard);
+    put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    let sorcerer = put(&mut game, SORCERER, p1, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce { spell, cast: false }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    let ability = game.card(spell).activated_abilities[0].clone();
+    assert_eq!(ability.original_host, Some(impostor));
+    let mut sa = SpellAbility::new_simple(Some(spell), p0, &ability.ability_text);
+    sa.set_original_host(impostor);
+    sa.target_chosen.target_card = Some(sorcerer);
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: sa,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.card(sorcerer).zone, ZoneType::Exile);
+    assert!(game
+        .card(spell)
+        .activated_abilities
+        .iter()
+        .any(|ability| ability.ability_text.contains("DealDamage")));
 }

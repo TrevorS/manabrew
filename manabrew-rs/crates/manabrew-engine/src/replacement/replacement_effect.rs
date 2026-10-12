@@ -68,6 +68,8 @@ pub struct ReplacementEffect {
     /// Temporary suppression flag used by effects like commander replacement.
     #[serde(default)]
     pub suppressed: bool,
+    #[serde(default)]
+    pub original_host: Option<CardId>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -203,6 +205,7 @@ impl ReplacementEffect {
             ir: ReplacementEffectIr::from_params(&params),
             active_zones,
             suppressed: false,
+            original_host: None,
         };
         effect.sync_trait_base_params(&params);
         effect
