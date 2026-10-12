@@ -186,11 +186,8 @@ fn requirement_controller(game: &GameState, source: &Card) -> PlayerId {
 
     // Java parity: during trigger resolution, use the resolving trigger's
     // activating player rather than the host card's current controller.
-    if !game.stack.is_empty()
-        && game.stack.is_resolving()
-        && game.stack.cur_resolving_card() == Some(source.id)
-    {
-        if let Some(entry) = game.stack.peek() {
+    if game.stack.is_resolving() && game.stack.cur_resolving_card() == Some(source.id) {
+        if let Some(entry) = game.stack.resolving_entry() {
             if entry.spell_ability.is_trigger {
                 controller = entry.spell_ability.activating_player;
             }
