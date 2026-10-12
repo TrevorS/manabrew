@@ -110,7 +110,8 @@ fn cloud_doubles_its_own_triggers_while_equipped() {
     let p0 = PlayerId(0);
     let cloud = put(&mut game, CLOUD, p0, ZoneType::Battlefield);
     let trigger = game.card(cloud).triggers[0].clone();
-    let extra = |game: &GameState| extra_triggers(game, cloud, &trigger, &RunParams::default());
+    let extra =
+        |game: &GameState| extra_triggers(game, game.card(cloud), &trigger, &RunParams::default());
 
     assert_eq!(extra(&game), 0);
     let sword = put(&mut game, SWORD, p0, ZoneType::Battlefield);
