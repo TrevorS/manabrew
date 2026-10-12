@@ -540,6 +540,16 @@ impl GameLoop {
             .add(&raise_mana);
         let payable = crate::mana::apply_player_life_payment_keywords(game, player, &base);
         let reduced = apply_cost_reductions(game, player, card_id, in_hand, &payable);
+        let any_color =
+            crate::staticability::static_ability_mana_convert::can_spend_mana_as_any_color(
+                game, player, in_hand,
+            ) || sa.may_play_source.is_some_and(|source| {
+                crate::staticability::static_ability_continuous::may_play_applies_mana_convert(
+                    game,
+                    source,
+                    sa.may_play_static,
+                )
+            });
         let payment_ctx = mana::ManaPaymentContext {
             is_spell: true,
             is_activated_ability: false,
@@ -553,17 +563,26 @@ impl GameLoop {
             )),
             chosen_types_by_source: chosen_types_by_source.clone(),
             host_zone: Some(game.card(card_id).zone),
+            any_color_conversion: any_color,
             ..Default::default()
         };
-        crate::mana::can_pay_spell_mana_cost_for_action_space(
-            game,
-            self.pool(player),
-            player,
-            card_id,
-            &reduced,
-            &payment_ctx,
-            self.action_space_probe_order(game),
-        ) && !blocked
+        let mana_ok = if any_color
+            && game.action_space_mana_probe != crate::mana::ActionSpaceManaProbe::ComputerUtilMana
+        {
+            self.available_mana_for_spell_card(game, player, card_id, chosen_types_by_source)
+                .can_pay_any_color(&reduced)
+        } else {
+            crate::mana::can_pay_spell_mana_cost_for_action_space(
+                game,
+                self.pool(player),
+                player,
+                card_id,
+                &reduced,
+                &payment_ctx,
+                self.action_space_probe_order(game),
+            )
+        };
+        mana_ok && !blocked
     }
 
     fn apply_stack_statics(game: &GameState, spell_hosts: &[CardId]) -> Option<GameState> {
@@ -639,7 +658,7 @@ impl GameLoop {
         chosen_types_by_source: &crate::HashMap<CardId, String>,
     ) -> Vec<u8> {
         let card = game.card(card_id);
-        if card.face_down {
+        if card.face_down && !card.is_modal() {
             return Vec::new();
         }
         let state_name = if card.is_modal() {
@@ -669,6 +688,9 @@ impl GameLoop {
                 continue;
             }
             let mut option_sa = sa.clone();
+            option_sa.may_play_source = Some(source.id);
+            option_sa.may_play_static =
+                crate::staticability::static_ability_continuous::static_index(st_ab, source);
             if let Some(ref cost) = alt_cost {
                 option_sa.pay_costs = Some(crate::cost::parse_cost(cost));
             }
@@ -3480,6 +3502,50 @@ mod tests {
             .iter()
             .filter(|option| option.card_id == spell)
             .count()
+    }
+
+    const MODAL_WALKER: &str = "Name:Modal Walker\nManaCost:W\nTypes:Creature Human\nPT:1/1\nAlternateMode:Modal\nOracle:\n\nALTERNATE\n\nName:Walker Giant\nManaCost:G\nTypes:Creature Giant\nPT:3/3\nOracle:";
+
+    fn stolen_face_down_modal_modes(
+        probe: crate::mana::ActionSpaceManaProbe,
+    ) -> Vec<crate::agent::PlayCardMode> {
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        game.action_space_mana_probe = probe;
+        let mut put = |script: &str, owner: PlayerId, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, owner));
+            game.move_card(card, zone, owner);
+            card
+        };
+        let grant = put(ROBBERY_GRANT, p0, ZoneType::Command);
+        let walker = put(MODAL_WALKER, p1, ZoneType::Exile);
+        put(BLACK_SPRING, p0, ZoneType::Battlefield);
+        game.card_mut(walker).turn_face_down();
+        game.card_mut(walker).add_may_look_face_down_exile(p0);
+        game.card_mut(grant).add_remembered_card(walker);
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        GameLoop::new(2)
+            .get_playable_cards(&game, p0, false)
+            .iter()
+            .filter(|option| option.card_id == walker)
+            .map(|option| option.mode)
+            .collect()
+    }
+
+    #[test]
+    fn a_stolen_face_down_modal_card_offers_its_back_face_for_mana_of_any_type() {
+        use crate::agent::PlayCardMode::{Normal, Secondary};
+        use crate::mana::ActionSpaceManaProbe::{AutoPay, ComputerUtilMana};
+        assert_eq!(
+            stolen_face_down_modal_modes(AutoPay),
+            vec![Secondary, Normal]
+        );
+        assert_eq!(
+            stolen_face_down_modal_modes(ComputerUtilMana),
+            vec![Secondary, Normal]
+        );
     }
 
     #[test]

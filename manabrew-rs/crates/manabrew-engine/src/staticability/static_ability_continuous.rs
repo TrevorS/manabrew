@@ -262,7 +262,7 @@ pub fn may_play_turn(st_ab: &StaticAbility, source: &Card, game: &GameState) -> 
     st_ab.may_play_turn + spells
 }
 
-fn static_index(st_ab: &StaticAbility, source: &Card) -> Option<usize> {
+pub(crate) fn static_index(st_ab: &StaticAbility, source: &Card) -> Option<usize> {
     source
         .static_abilities
         .iter()
