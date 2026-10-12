@@ -58,8 +58,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
     let (keep_top, graveyard) = super::split_scry_piles(&top_n, &piles);
 
     // Move chosen cards to graveyard.
+    let mut moved = Vec::new();
+    let mut unmoved = Vec::new();
     for &id in &graveyard {
         ctx.move_card(id, ZoneType::Graveyard, target);
+        if ctx.game.card_zone_location(id).is_none() {
+            unmoved.push(id);
+            continue;
+        }
+        moved.push(id);
         emit_zone_trigger(
             ctx.trigger_handler,
             id,
@@ -67,11 +74,14 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             ZoneType::Graveyard,
         );
     }
+    for &id in top_n.iter().rev().filter(|id| unmoved.contains(id)) {
+        ctx.game.add_card_to_zone(ZoneType::Library, target, id);
+    }
     if crate::parsing::raw_has_key(&sa.ability_text, keys::REMEMBER_MOVED) {
         if let Some(source) = sa.source {
             ctx.game
                 .host_object_mut(source, sa)
-                .add_remembered_cards(graveyard.iter().copied());
+                .add_remembered_cards(moved.iter().copied());
         }
     }
 
@@ -268,6 +278,58 @@ mod tests {
 
         assert_eq!(ctx.game.cards_in_zone(ZoneType::Library, p0).len(), 1);
         assert_eq!(ctx.game.cards_in_zone(ZoneType::Graveyard, p0).len(), 2);
+    }
+
+    const GARRUK_PROBE: &str = "Name:Garruk Probe\nManaCost:3 B B\nTypes:Legendary Planeswalker Garruk\nLoyalty:5\nR:Event$ Moved | ValidLKI$ Creature.OppCtrl | Destination$ Graveyard | ActiveZones$ Battlefield | ReplaceWith$ DBExile | Description$ If a creature an opponent controls would die, exile it instead.\nSVar:DBExile:DB$ ChangeZone | Defined$ ReplacedCard | Origin$ Battlefield | Destination$ Exile\nOracle:";
+    const BEAR: &str = "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:";
+
+    #[test]
+    fn a_surveiled_card_whose_move_is_replaced_stays_in_the_library() {
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        let garruk = game.create_card(Card::from_rules(
+            &forge_carddb::parse_card_script(GARRUK_PROBE).expect("script"),
+            p1,
+        ));
+        game.move_card(garruk, ZoneType::Battlefield, p1);
+        let land = make_land(&mut game, p0);
+        let bear = game.create_card(Card::from_rules(
+            &forge_carddb::parse_card_script(BEAR).expect("script"),
+            p0,
+        ));
+        game.replace_zone_cards(ZoneType::Library, p0, vec![land, bear]);
+        game.card_mut(bear).zone = ZoneType::Library;
+        let sa = SpellAbility::new_simple(None, p0, "SP$ Surveil | Amount$ 1");
+        let mut trigger_handler = TriggerHandler::new();
+        let mut agents: Vec<Box<dyn PlayerAgent>> =
+            vec![Box::new(GraveyardAllAgent), Box::new(PassAgent)];
+        let mut mana_pools = vec![ManaPool::default(), ManaPool::default()];
+        let token_templates = HashMap::default();
+        let templates_variants: HashMap<(String, String), usize> = HashMap::default();
+        let token_fallback: HashMap<String, String> = HashMap::default();
+        let edition_dates: HashMap<String, String> = HashMap::default();
+        let mut rng_adapter = crate::game_rng::ThreadRngAdapter::default();
+        let mut ctx = EffectContext {
+            game: &mut game,
+            combat: None,
+            agents: &mut agents,
+            trigger_handler: &mut trigger_handler,
+            token_templates: &token_templates,
+            token_art_variants: &templates_variants,
+            token_fallback: &token_fallback,
+            edition_dates: &edition_dates,
+            mana_pools: &mut mana_pools,
+            parent_target_card: None,
+            rng: &mut rng_adapter,
+        };
+
+        super::SurveilEffect::resolve(&mut ctx, &sa);
+
+        assert_eq!(
+            ctx.game.cards_in_zone(ZoneType::Library, p0),
+            &[land, bear][..]
+        );
+        assert!(ctx.game.cards_in_zone(ZoneType::Graveyard, p0).is_empty());
     }
 
     #[test]
