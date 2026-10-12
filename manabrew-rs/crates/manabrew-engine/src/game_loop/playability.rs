@@ -369,6 +369,9 @@ impl GameLoop {
             }
         }
         mana_ok
+            && cast_sa.pay_costs.as_ref().is_none_or(|cost| {
+                crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player)
+            })
             && alt_cost.as_ref().is_none_or(|cost| {
                 crate::cost::can_pay_ignoring_mana_for_spell(cost, game, card_id, player)
             })
@@ -3580,6 +3583,41 @@ mod tests {
     const EXILED_SHOCK: &str = "Name:Shock\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | SpellDescription$ CARDNAME deals 2 damage to any target.\nOracle:";
     const SPELL_HALL: &str = "Name:Spell Hall\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ R | RestrictValid$ Spell.Instant,Spell.Sorcery | SpellDescription$ Add {R}. Spend this mana only to cast an instant or sorcery spell.\nOracle:";
     const EXILE_PLAY_EFFECT: &str = "Name:Exile Play Effect\nManaCost:no cost\nTypes:Effect\nS:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile | EffectZone$ Command | Description$ You may play the exiled cards.\nOracle:";
+
+    const SACRIFICING_DEMON: &str = "Name:Sacrificing Demon\nManaCost:B\nTypes:Creature Demon\nPT:5/4\nA:SP$ PermanentCreature | Cost$ B Sac<1/Creature>\nOracle:";
+    const BLACK_SPRING_LAND: &str = "Name:Black Spring\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ B | SpellDescription$ Add {B}.\nOracle:";
+    const SPARE_BEAR: &str = "Name:Spare Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:";
+
+    fn stolen_demon_offered(with_creature: bool) -> bool {
+        let player = PlayerId(0);
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        let mut put = |script: &str, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, player));
+            game.move_card(card, zone, player);
+            card
+        };
+        let demon = put(SACRIFICING_DEMON, ZoneType::Exile);
+        put(BLACK_SPRING_LAND, ZoneType::Battlefield);
+        if with_creature {
+            put(SPARE_BEAR, ZoneType::Battlefield);
+        }
+        let effect = put(EXILE_PLAY_EFFECT, ZoneType::Command);
+        game.card_mut(demon).set_face_down(true);
+        game.card_mut(effect).add_remembered_card(demon);
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        GameLoop::new(2)
+            .get_playable_cards(&game, player, false)
+            .iter()
+            .any(|option| option.card_id == demon)
+    }
+
+    #[test]
+    fn a_stolen_spell_needs_its_own_sacrifice_cost_to_be_payable() {
+        assert!(!stolen_demon_offered(false));
+        assert!(stolen_demon_offered(true));
+    }
 
     fn face_down_exiled_instant_offered(probe: crate::mana::ActionSpaceManaProbe) -> bool {
         let player = PlayerId(0);
