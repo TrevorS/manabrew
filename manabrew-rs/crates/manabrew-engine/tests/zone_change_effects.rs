@@ -2002,3 +2002,32 @@ fn a_disabler_returned_from_the_graveyard_does_not_stop_its_own_graveyard_leave_
     assert_eq!(game.card(doorkeeper).zone, ZoneType::Battlefield);
     assert_eq!(game.player(p0).life, 21);
 }
+
+const SACRIFICE_WATCHER: &str = "Name:Sacrifice Watcher\nManaCost:2 B\nTypes:Creature Human\nPT:2/2\nT:Mode$ Sacrificed | ValidCard$ Artifact | ValidPlayer$ You | Execute$ TrigDamage | TriggerZones$ Battlefield | TriggerDescription$ Whenever you sacrifice an artifact, each opponent loses 2 life.\nSVar:TrigDamage:DB$ LoseLife | Defined$ Opponent | LifeAmount$ 2\nOracle:";
+const ARTIFACT_BUG: &str =
+    "Name:Artifact Bug\nManaCost:2\nTypes:Artifact Creature Insect\nPT:1/1\nOracle:";
+
+#[test]
+fn a_creature_sacrificed_with_an_artifact_sees_the_artifact_sacrificed() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    main_phase(&mut game, p0);
+    put(&mut game, SACRIFICE_WATCHER, p1, ZoneType::Battlefield);
+    put(&mut game, ARTIFACT_BUG, p1, ZoneType::Battlefield);
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ Sacrifice | Amount$ 13 | SacValid$ Creature | Defined$ Player",
+        None,
+        None,
+        Some(source),
+    );
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    for _ in 0..4 {
+        game_loop.step_with_priority(&mut game, &mut agents, false);
+    }
+    assert!(game.stack.is_empty());
+    assert_eq!(game.player(p0).life, 18);
+}

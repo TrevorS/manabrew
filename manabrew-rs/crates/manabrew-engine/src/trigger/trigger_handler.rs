@@ -1607,6 +1607,24 @@ impl TriggerHandler {
                         .collect()
                 })
                 .unwrap_or_default(),
+            TriggerType::Sacrificed
+            | TriggerType::SacrificedOnce
+            | TriggerType::Destroyed
+            | TriggerType::Exploited => game
+                .pre_sba_battlefield
+                .iter()
+                .filter(|&&card_id| {
+                    game.card(card_id).zone != forge_foundation::ZoneType::Battlefield
+                })
+                .flat_map(|&card_id| {
+                    game.card(card_id).triggers.iter().enumerate().filter_map(
+                        move |(trigger_index, trigger)| {
+                            (trigger.kind == event.mode && self.looks_back_in_time(trigger))
+                                .then_some((card_id, trigger_index))
+                        },
+                    )
+                })
+                .collect(),
             _ => Vec::new(),
         }
     }
@@ -1991,6 +2009,18 @@ impl TriggerHandler {
                 .change_zone_table
                 .as_ref()
                 .is_some_and(|table| table.last_state_battlefield().contains(&host_card))
+        {
+            ZoneType::Battlefield
+        } else if matches!(
+            *mode,
+            TriggerType::Sacrificed
+                | TriggerType::SacrificedOnce
+                | TriggerType::Destroyed
+                | TriggerType::Exploited
+        ) && trigger.get_active_zone().contains(&ZoneType::Battlefield)
+            && card.zone != ZoneType::Battlefield
+            && self.looks_back_in_time(trigger)
+            && game.pre_sba_battlefield.contains(&host_card)
         {
             ZoneType::Battlefield
         } else if (*mode == TriggerType::DamageDone || *mode == TriggerType::DamageDoneOnce)
