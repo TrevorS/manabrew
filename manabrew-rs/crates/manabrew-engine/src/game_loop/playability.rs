@@ -3552,6 +3552,41 @@ mod tests {
     }
 
     #[test]
+    fn a_grant_s_life_cost_replaces_the_impending_mana_it_is_cast_for() {
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        let mut put = |script: &str, owner: PlayerId, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, owner));
+            game.move_card(card, zone, owner);
+            card
+        };
+        let grant = put(LIFE_GRANT, p0, ZoneType::Command);
+        let horror = put(IMPENDING_HORROR, p1, ZoneType::Exile);
+        game.card_mut(grant).add_remembered_card(horror);
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        let mut agents: Vec<Box<dyn crate::agent::PlayerAgent>> = vec![
+            Box::new(crate::agent::PassAgent),
+            Box::new(crate::agent::PassAgent),
+        ];
+        GameLoop::new(2).play_card_option(
+            &mut game,
+            &mut agents,
+            p0,
+            crate::agent::PlayOption {
+                card_id: horror,
+                mode: crate::agent::PlayCardMode::MayPlay(Some(
+                    crate::spellability::AlternativeCost::Impending,
+                )),
+                alt_cost_index: 0,
+            },
+        );
+        assert_eq!(game.card(horror).zone, ZoneType::Stack);
+        assert_eq!(game.player(p0).life, 15);
+    }
+
+    #[test]
     fn a_stolen_face_down_aura_is_offered_only_outside_the_harness_quirks() {
         assert_eq!(stolen_aura_offers(false, true), 1);
         assert_eq!(stolen_aura_offers(true, true), 0);

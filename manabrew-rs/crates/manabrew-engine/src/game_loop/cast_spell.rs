@@ -1231,6 +1231,8 @@ impl GameLoop {
         // is only true if the corresponding get_*_cost() returned Some earlier.
         let mana_cost = if play_effect.is_some_and(|play| play.without_mana_cost) {
             forge_foundation::ManaCost::zero()
+        } else if is_static_alternative {
+            Self::mana_from_cost(static_alt_cost.as_ref()?)
         } else if let Some(ref kw_cost) = keyword_alt_total_cost {
             Self::mana_from_cost(kw_cost)
         } else if is_foretell {
@@ -1258,8 +1260,6 @@ impl GameLoop {
         } else if is_plot_cast {
             // Plot: cast from exile for free (already paid plot cost).
             forge_foundation::ManaCost::generic(0)
-        } else if is_static_alternative {
-            Self::mana_from_cost(static_alt_cost.as_ref()?)
         } else if is_morph_facedown {
             forge_foundation::ManaCost::generic(crate::spellability::MORPH_GENERIC_COST)
         } else {
