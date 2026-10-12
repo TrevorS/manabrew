@@ -351,3 +351,45 @@ fn a_creature_that_died_in_one_state_check_does_not_see_a_later_one() {
     assert!(game.stack.is_empty());
     assert_eq!(game.player(p0).life, 20);
 }
+
+const GIADA: &str = "Name:Giada, Font of Hope\nManaCost:1 W\nTypes:Legendary Creature Angel\nPT:2/2\nK:Flying\nK:Vigilance\nK:ETBReplacement:Other:AddExtraCounter:Mandatory:Battlefield:Creature.Angel+YouCtrl+Other\nSVar:AddExtraCounter:DB$ PutCounter | ETB$ True | Defined$ ReplacedCard | CounterType$ P1P1 | CounterNum$ X | SpellDescription$ Each other Angel you control enters with an additional +1/+1 counter on it for each Angel you already control.\nSVar:X:Count$Valid Angel.YouCtrl\nA:AB$ Mana | Cost$ T | Produced$ W | RestrictValid$ Spell.Angel | SpellDescription$ Add {W}. Spend this mana only to cast an Angel spell.\nDeckHas:Ability$Counters\nDeckNeeds:Type$Angel\nOracle:Flying, vigilance\\nEach other Angel you control enters with an additional +1/+1 counter on it for each Angel you already control.\\n{T}: Add {W}. Spend this mana only to cast an Angel spell.";
+const SKY_ANGEL: &str = "Name:Sky Angel\nManaCost:2 W\nTypes:Creature Angel\nPT:3/3\nOracle:";
+const CRUSH_OPPONENT: &str = "Name:Crush Theirs\nManaCost:R\nTypes:Sorcery\nA:SP$ Destroy | ValidTgts$ Creature.OppCtrl | TgtPrompt$ Select target creature an opponent controls | SpellDescription$ Destroy target creature an opponent controls.\nOracle:";
+
+#[test]
+fn an_angel_returned_after_giada_in_the_same_state_check_gets_her_counter() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let crush = put(&mut game, CRUSH_OPPONENT, p0, ZoneType::Hand);
+    put(&mut game, MOUNTAIN, p0, ZoneType::Battlefield);
+    let host = put(&mut game, BEARS, p1, ZoneType::Battlefield);
+    let exile_under_aura = |game: &mut GameState, script: &str| {
+        let aura = put(game, SHELTER, p1, ZoneType::Battlefield);
+        game.card_mut(aura).attached_to = Some(host);
+        game.card_mut(host).attachments.push(aura);
+        let exiled = put(game, script, p0, ZoneType::Exile);
+        game.card_mut(exiled).exiled_by = Some(aura);
+        game.card_mut(exiled).until_host_leaves_origin = Some(ZoneType::Battlefield);
+        exiled
+    };
+    let giada = exile_under_aura(&mut game, GIADA);
+    let angel = exile_under_aura(&mut game, SKY_ANGEL);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce {
+            spell: crush,
+            cast: false,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.card(giada).zone, ZoneType::Battlefield);
+    assert_eq!(game.card(angel).zone, ZoneType::Battlefield);
+    assert_eq!(
+        game.card(angel)
+            .counter_count(&manabrew_engine::card::CounterType::P1P1),
+        1
+    );
+}

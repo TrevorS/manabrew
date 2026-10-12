@@ -1122,6 +1122,14 @@ impl GameState {
             .collect();
         // Java's `changeZoneUntilCommand` returns them in the order they were exiled.
         exiled_by_host.sort_unstable_by_key(|&(exiled_at, ..)| exiled_at);
+        let battlefield: Vec<CardId> = self
+            .cards
+            .iter()
+            .filter(|c| c.zone == ZoneType::Battlefield)
+            .map(|c| c.id)
+            .collect();
+        let outer_last_state = (!exiled_by_host.is_empty())
+            .then(|| self.replacement_last_state_battlefield.replace(battlefield));
         for (_, exiled_id, owner, origin) in exiled_by_host {
             let from = self.card(exiled_id).zone;
             if self.cards[exiled_id.index()]
@@ -1171,6 +1179,9 @@ impl GameState {
                     returned_zone,
                 );
             }
+        }
+        if let Some(outer_last_state) = outer_last_state {
+            self.replacement_last_state_battlefield = outer_last_state;
         }
     }
 
