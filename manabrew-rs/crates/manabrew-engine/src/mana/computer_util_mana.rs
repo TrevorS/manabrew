@@ -2094,7 +2094,13 @@ pub(crate) fn auto_payment_callback<'a, 'r: 'a>(
                 source,
                 amount,
             } => {
-                crate::game_loop::pay_life(game, runtime.trigger_handler, player, amount);
+                crate::game_loop::pay_life(
+                    game,
+                    runtime.trigger_handler,
+                    Some(agents),
+                    player,
+                    amount,
+                );
                 Some(source)
             }
             ManaPayCallback::ExileCostCardsForMana {

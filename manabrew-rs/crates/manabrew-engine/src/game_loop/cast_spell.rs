@@ -2761,6 +2761,7 @@ impl GameLoop {
                         if result.life_paid > 0 {
                             slf.pay_life_cost(
                                 game,
+                                Some(agents),
                                 session.player,
                                 session.card_id,
                                 result.life_paid,
@@ -2801,7 +2802,7 @@ impl GameLoop {
                             .borrow_mut()
                             .extend(payment.paying_sources.iter().copied());
                         if payment.life_paid > 0 {
-                            slf.pay_life_cost(game, player, card_id, payment.life_paid);
+                            slf.pay_life_cost(game, None, player, card_id, payment.life_paid);
                         }
                         true
                     } else {

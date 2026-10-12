@@ -195,6 +195,7 @@ impl GameLoop {
     pub(crate) fn pay_life_cost(
         &mut self,
         game: &mut GameState,
+        agents: Option<&mut [Box<dyn PlayerAgent>]>,
         player: PlayerId,
         source: CardId,
         amount: i32,
@@ -203,7 +204,7 @@ impl GameLoop {
         if amount <= 0 {
             return true;
         }
-        pay_life(game, &mut self.trigger_handler, player, amount)
+        pay_life(game, &mut self.trigger_handler, agents, player, amount)
     }
 
     /// Discard N cards from hand via agent choice and fire Discarded triggers.
@@ -994,6 +995,7 @@ impl GameLoop {
                                 if life_to_pay > 0 {
                                     slf.pay_life_cost(
                                         game,
+                                        Some(agents),
                                         session.player,
                                         session.card_id,
                                         life_to_pay,
@@ -1031,7 +1033,7 @@ impl GameLoop {
                                     return false;
                                 }
                                 if life_to_pay > 0 {
-                                    slf.pay_life_cost(game, player, card_id, life_to_pay);
+                                    slf.pay_life_cost(game, None, player, card_id, life_to_pay);
                                 }
                                 true
                             } else {
@@ -1051,7 +1053,7 @@ impl GameLoop {
                 }
                 CostPart::PayLife(amount) => {
                     let amount = amount.resolve_for_sa(game, card_id, player, sa.as_deref());
-                    if !self.pay_life_cost(game, player, card_id, amount) {
+                    if !self.pay_life_cost(game, Some(agents), player, card_id, amount) {
                         payment_ok = false;
                         break;
                     }
@@ -1871,6 +1873,7 @@ impl GameLoop {
                 CostPart::PayLife(amount) => {
                     if !self.pay_life_cost(
                         game,
+                        Some(agents),
                         player,
                         card_id,
                         amount.resolve(game, card_id, player),
@@ -5223,6 +5226,7 @@ fn can_exile_for_cost(game: &GameState, card_id: CardId) -> bool {
 pub(crate) fn pay_life(
     game: &mut GameState,
     trigger_handler: &mut crate::trigger::TriggerHandler,
+    mut agents: Option<&mut [Box<dyn PlayerAgent>]>,
     player: PlayerId,
     amount: i32,
 ) -> bool {
@@ -5234,16 +5238,22 @@ pub(crate) fn pay_life(
         return false;
     }
     {
-        use crate::replacement::replacement_handler::{apply_replacements, ReplacementEvent};
+        use crate::replacement::replacement_handler::{
+            apply_replacements, apply_replacements_with_agents, ReplacementEvent,
+        };
         use crate::replacement::ReplacementResult;
         let mut event = ReplacementEvent::PayLife { player, amount };
-        match apply_replacements(game, &mut event) {
+        let result = match agents.as_deref_mut() {
+            Some(agents) => apply_replacements_with_agents(game, agents, &mut event),
+            None => apply_replacements(game, &mut event),
+        };
+        match result {
             ReplacementResult::Replaced => return true,
             ReplacementResult::Skipped | ReplacementResult::Prevented => return false,
             _ => {}
         }
     }
-    let lost = crate::player::lose_life(game, trigger_handler, None, player, amount, false, None);
+    let lost = crate::player::lose_life(game, trigger_handler, agents, player, amount, false, None);
     if lost > 0 {
         crate::action::run_life_lost_all(trigger_handler, &[(player, lost)]);
     }

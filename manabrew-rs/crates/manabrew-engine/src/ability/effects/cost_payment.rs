@@ -244,7 +244,13 @@ impl crate::game_loop::mana_payment::ManaPaymentHost for EffectManaPayment<'_, '
 
         self.paying_mana.extend(result.paying_mana.iter().copied());
         if result.life_paid > 0 {
-            crate::game_loop::pay_life(game, ctx.trigger_handler, session.player, result.life_paid);
+            crate::game_loop::pay_life(
+                game,
+                ctx.trigger_handler,
+                Some(&mut *ctx.agents),
+                session.player,
+                result.life_paid,
+            );
         }
 
         Some(
@@ -292,7 +298,13 @@ impl crate::game_loop::mana_payment::ManaPaymentHost for EffectManaPayment<'_, '
                 .copied(),
         );
         if life_to_pay > 0 {
-            crate::game_loop::pay_life(game, ctx.trigger_handler, player, life_to_pay);
+            crate::game_loop::pay_life(
+                game,
+                ctx.trigger_handler,
+                Some(&mut *ctx.agents),
+                player,
+                life_to_pay,
+            );
         }
         true
     }
@@ -625,7 +637,13 @@ fn pay_effect_cost_parts(
             }
             CostPart::PayLife(amount) => {
                 let amount = amount.resolve(ctx.game, source, payer);
-                crate::game_loop::pay_life(ctx.game, ctx.trigger_handler, payer, amount);
+                crate::game_loop::pay_life(
+                    ctx.game,
+                    ctx.trigger_handler,
+                    Some(ctx.agents),
+                    payer,
+                    amount,
+                );
             }
             CostPart::Mana {
                 cost: mana_cost, ..

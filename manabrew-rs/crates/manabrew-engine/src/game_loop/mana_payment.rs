@@ -631,7 +631,7 @@ impl GameLoop {
                     source,
                     amount,
                 } => {
-                    pay_life(game, runtime.trigger_handler, player, amount);
+                    pay_life(game, runtime.trigger_handler, Some(agents), player, amount);
                     Some(source)
                 }
                 mana::ManaPayCallback::ExileCostCardsForMana {

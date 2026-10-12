@@ -13,6 +13,8 @@ use manabrew_engine::ids::{CardId, PlayerId};
 use manabrew_engine::mana::ManaPool;
 use manabrew_engine::player::actions::{AbilityRef, PlayerAction};
 use manabrew_engine::spellability::SpellAbility;
+use std::cell::Cell;
+use std::rc::Rc;
 
 const PAINFUL_SPRING: &str = "Name:Painful Spring\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T PayLife<1> | Produced$ R | SpellDescription$ Add {R}. Pay 1 life.\nOracle:";
 const BLOOD_SPRING: &str = "Name:Blood Spring\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T PayLife<1> | Produced$ B | SpellDescription$ Add {B}.\nOracle:";
@@ -26,6 +28,7 @@ const BLOODLETTER: &str = "Name:Bloodletter of Aclazotz\nManaCost:1 B B B\nTypes
 struct CastOnce {
     spell: CardId,
     cast: bool,
+    replacement_choices: Rc<Cell<usize>>,
 }
 
 impl PlayerAgent for CastOnce {
@@ -157,6 +160,17 @@ impl PlayerAgent for CastOnce {
     ) -> Option<bool> {
         PassAgent.choose_land_or_spell(context, player)
     }
+    fn choose_single_replacement_effect(
+        &mut self,
+        _context: DecisionContext<'_>,
+        _player: PlayerId,
+        _descriptions: &[String],
+        _hosts: &[CardId],
+    ) -> usize {
+        self.replacement_choices
+            .set(self.replacement_choices.get() + 1);
+        0
+    }
 }
 
 fn put(game: &mut GameState, script: &str, owner: PlayerId, zone: ZoneType) -> CardId {
@@ -178,7 +192,11 @@ fn life_paid_for_mana_is_life_lost() {
     game.new_turn_for_player(p0);
     game.turn.phase = PhaseType::Main1;
     let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
-        Box::new(CastOnce { spell, cast: false }),
+        Box::new(CastOnce {
+            spell,
+            cast: false,
+            replacement_choices: Rc::default(),
+        }),
         Box::new(PassAgent),
     ];
     GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
@@ -202,6 +220,7 @@ fn a_failed_activation_keeps_the_life_paid_for_its_mana_and_floats_it() {
         Box::new(CastOnce {
             spell: engine,
             cast: false,
+            replacement_choices: Rc::default(),
         }),
         Box::new(PassAgent),
     ];
@@ -230,9 +249,36 @@ fn life_paid_during_an_opponents_turn_is_doubled_by_bloodletter() {
         Box::new(CastOnce {
             spell: tap,
             cast: false,
+            replacement_choices: Rc::default(),
         }),
         Box::new(PassAgent),
     ];
     GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
     assert_eq!(game.players[0].life, 16);
+}
+
+#[test]
+fn a_life_payment_under_two_bloodletters_asks_which_doubles_first() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let p1 = PlayerId(1);
+    let tap = put(&mut game, LIFE_TAP, p0, ZoneType::Battlefield);
+    put(&mut game, DULL_STONE, p0, ZoneType::Library);
+    put(&mut game, BLOODLETTER, p1, ZoneType::Battlefield);
+    put(&mut game, BLOODLETTER, p1, ZoneType::Battlefield);
+    game.turn.active_player = p1;
+    game.new_turn_for_player(p1);
+    game.turn.phase = PhaseType::Main1;
+    let replacement_choices = Rc::new(Cell::new(0));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce {
+            spell: tap,
+            cast: false,
+            replacement_choices: Rc::clone(&replacement_choices),
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.players[0].life, 12);
+    assert_eq!(replacement_choices.get(), 1);
 }
