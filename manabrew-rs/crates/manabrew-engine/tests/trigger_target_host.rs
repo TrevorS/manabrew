@@ -13,6 +13,8 @@ const AVENGER: &str = "Name:Dying Avenger\nManaCost:R W\nTypes:Creature Human\nP
 const DRAINER: &str = "Name:Drainer\nManaCost:B\nTypes:Creature Human\nPT:1/1\nSVar:TrigLoseLife:DB$ LoseLife | ValidTgts$ Opponent | LifeAmount$ 1 | SubAbility$ DBGainLife\nSVar:DBGainLife:DB$ GainLife | LifeAmount$ 1\nOracle:";
 const CONSUL: &str = "Name:Consul\nManaCost:W\nTypes:Enchantment\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.OppCtrl | TriggerZones$ Battlefield | Execute$ TrigGainLife | TriggerDescription$ Whenever a creature an opponent controls enters, you gain 1 life.\nSVar:TrigGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
 const TURN_NINJA: &str = "Name:Turn Ninja\nManaCost:2\nTypes:Artifact\nS:Mode$ Continuous | Affected$ Card.Self | Condition$ PlayerTurn | AddType$ Creature | SetPower$ 1 | SetToughness$ 1\nA:AB$ ChangeZone | Cost$ 0 | ActivationZone$ Hand | Origin$ Hand | Destination$ Battlefield | Defined$ Self\nOracle:";
+const SIMULACRUM: &str =
+    "Name:Simulacrum\nManaCost:4\nTypes:Artifact Creature Golem\nPT:2/2\nOracle:";
 const SHIELD: &str = "Name:Shielder\nManaCost:W\nTypes:Enchantment\nS:Mode$ Continuous | Affected$ You | AddKeyword$ Hexproof\nOracle:";
 
 fn entry(spell_ability: SpellAbility) -> StackEntry {
@@ -120,4 +122,33 @@ fn a_resolving_ability_reads_its_hosts_turn_condition_for_its_own_controller() {
 
     assert_eq!(game.card(ninja).zone, ZoneType::Battlefield);
     assert_eq!(game.player(p1).life, 26);
+}
+
+#[test]
+fn a_stolen_creatures_dies_trigger_draws_for_the_player_who_controlled_it() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    for owner in [p0, p1] {
+        let rules = parse_card_script(AVENGER).expect("script");
+        let card = game.create_card(CardInstance::from_rules(&rules, owner));
+        game.move_card(card, ZoneType::Library, owner);
+    }
+    let simulacrum = put(&mut game, SIMULACRUM, p1);
+    game.change_controller(simulacrum, p0);
+    game.move_card(simulacrum, ZoneType::Graveyard, p1);
+    let mut sa = manabrew_engine::spellability::build_spell_ability(
+        &game,
+        simulacrum,
+        "DB$ Draw | Defined$ TriggeredCardController | NumCards$ 1",
+        p0,
+    );
+    sa.is_trigger = true;
+    sa.set_triggering_object(manabrew_engine::ability::AbilityKey::Card, simulacrum);
+    sa.set_triggering_object(manabrew_engine::ability::AbilityKey::NewCard, simulacrum);
+    game.stack.push(entry(sa));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(PassAgent), Box::new(PassAgent)];
+    GameLoop::new(2).resolve_stack(&mut game, &mut agents);
+
+    assert_eq!(game.zone(ZoneType::Hand, p0).cards.len(), 1);
+    assert_eq!(game.zone(ZoneType::Hand, p1).cards.len(), 0);
 }

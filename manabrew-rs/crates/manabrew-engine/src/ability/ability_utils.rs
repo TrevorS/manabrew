@@ -448,6 +448,20 @@ pub fn resolve_defined_player(
     })
 }
 
+fn triggering_card_controller(
+    sa: &SpellAbility,
+    game: &GameState,
+    key: AbilityKey,
+    card: CardId,
+) -> PlayerId {
+    let lki = key == AbilityKey::Card && !sa.get_triggering_cards(AbilityKey::NewCard).is_empty();
+    let card = game.card(card);
+    match card.lki_controller {
+        Some(controller) if lki => controller,
+        _ => card.controller,
+    }
+}
+
 /// Resolve a Defined$ parameter to a player ID with spell/trigger context.
 /// Mirrors Java's Triggered* player resolution for trigger SVar chains.
 pub fn resolve_defined_player_with_sa(
@@ -467,18 +481,10 @@ pub fn resolve_defined_player_with_sa(
     ) -> Option<PlayerId> {
         // Try card parsing first — trigger object values are typically CardIds,
         // and parse_player_object would misinterpret a CardId as a PlayerId.
-        let lki =
-            key == AbilityKey::Card && !sa.get_triggering_cards(AbilityKey::NewCard).is_empty();
         sa.get_triggering_cards(key)
             .into_iter()
             .next()
-            .map(|cid| {
-                let card = game.card(cid);
-                match card.lki_controller {
-                    Some(controller) if lki => controller,
-                    _ => card.controller,
-                }
-            })
+            .map(|cid| triggering_card_controller(sa, game, key, cid))
             .or_else(|| parse_player_object(sa, key))
     }
 
@@ -823,7 +829,7 @@ pub fn resolve_defined_players_with_sa(
         "TriggeredCardController" => sa
             .get_triggering_cards(AbilityKey::Card)
             .into_iter()
-            .map(|cid| game.card(cid).controller)
+            .map(|cid| triggering_card_controller(sa, game, AbilityKey::Card, cid))
             .collect(),
         "TriggeredCardOwner" => sa
             .get_triggering_cards(AbilityKey::Card)
