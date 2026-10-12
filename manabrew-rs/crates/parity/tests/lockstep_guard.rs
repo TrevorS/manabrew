@@ -273,22 +273,18 @@ fn a_java_overrun_reports_the_first_state_difference_before_it() {
 fn a_rust_token_cap_is_compared_with_java_at_its_own_token_cap() {
     let cap = "forge.game.Game$RunawayGameException: Runaway game: 167 copies of one token from one effect in one turn (cap 100); game force-ended as a draw.";
     let rust = snapshot(false, None, 10, false);
-    assert_eq!(
-        token_cap_end(&rust, Some(&java_error(cap, 236)), 236),
-        Ok(())
-    );
+    assert_eq!(token_cap_end(&rust, Some(&java_error(cap, 127))), Ok(()));
     let failure = token_cap_end(
         &snapshot(false, None, 7, false),
-        Some(&java_error(cap, 236)),
-        236,
+        Some(&java_error(cap, 127)),
     )
     .expect_err("life differs");
     assert!(failure.contains("life"), "{failure}");
-    assert!(token_cap_end(&rust, Some(&java_error(cap, 235)), 236).is_err());
+    assert!(token_cap_end(&rust, Some(&java_error(cap, 236))).is_err());
     let triggers =
         "forge.game.Game$RunawayGameException: Runaway game: 25001 triggers fired in one turn";
-    assert!(token_cap_end(&rust, Some(&java_error(triggers, 236)), 236).is_err());
-    assert!(token_cap_end(&rust, Some(&java_end(236)), 236).is_err());
+    assert!(token_cap_end(&rust, Some(&java_error(triggers, 127))).is_err());
+    assert!(token_cap_end(&rust, Some(&java_end(127))).is_err());
 }
 
 #[test]

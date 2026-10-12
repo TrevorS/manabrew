@@ -431,11 +431,7 @@ pub fn guard_end(
     }
 }
 
-pub fn token_cap_end(
-    rust: &StateSnapshot,
-    java_end: Option<&Value>,
-    sent: u64,
-) -> Result<(), String> {
+pub fn token_cap_end(rust: &StateSnapshot, java_end: Option<&Value>) -> Result<(), String> {
     let java_end = java_end.ok_or("java did not end the game")?;
     if !java_end["error"]
         .as_str()
@@ -447,8 +443,11 @@ pub fn token_cap_end(
         ));
     }
     let consumed = java_end["consumed"].as_u64().unwrap_or(0);
-    if consumed != sent {
-        return Err(format!("java consumed {consumed} of rust's {sent} draws"));
+    let drawn = rust.agent_rng_calls;
+    if consumed != drawn {
+        return Err(format!(
+            "java consumed {consumed} draws, rust had drawn {drawn} at its cap"
+        ));
     }
     runaway_end(rust, java_end)
 }
@@ -876,7 +875,7 @@ pub fn play(
             .ok_or_else(|| "rust logged no snapshot at its guard".to_string())
             .and_then(|rust_guard| {
                 if token_cap {
-                    token_cap_end(&rust_guard, java_end.as_ref(), link.borrow().sent)
+                    token_cap_end(&rust_guard, java_end.as_ref())
                 } else {
                     guard_end(
                         &rust_guard,
