@@ -212,7 +212,9 @@ pub(super) fn execute_replace_with(
     else {
         return false;
     };
-    let controller = game.card(source_card_id).controller;
+    let controller =
+        super::replacement_handler::departed_last_state_host(game, source_card_id, event)
+            .map_or(game.card(source_card_id).controller, |host| host.controller);
     let sa = build_spell_ability(game, source_card_id, &raw, controller);
     execute_replacement_ability(effect, sa, game, event, agents, runtime)
 }

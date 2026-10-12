@@ -877,6 +877,33 @@ fn a_creature_sacrificed_into_exile_by_a_replacement_does_not_die() {
     assert_eq!(game.player(PlayerId(1)).life, 20);
 }
 
+const REWARDING_WARDEN: &str = "Name:Rewarding Warden\nManaCost:2 B B\nTypes:Creature Wolf\nPT:4/3\nR:Event$ Moved | ActiveZones$ Battlefield | Origin$ Battlefield | Destination$ Graveyard | ValidLKI$ Card.Creature+OppCtrl | ReplaceWith$ DBExile | Description$ If a creature an opponent controls would die, exile it instead. When you do, you gain 1 life.\nSVar:DBExile:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard | SubAbility$ DBGain\nSVar:DBGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
+
+#[test]
+fn a_stolen_replacement_host_dying_with_its_victim_acts_for_its_last_controller() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    main_phase(&mut game, p0);
+    let warden = put(&mut game, REWARDING_WARDEN, p1, ZoneType::Battlefield);
+    game.change_controller(warden, p0);
+    let bears = game.create_card(make_grizzly_bears(p1));
+    game.move_card(bears, ZoneType::Battlefield, p1);
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ DestroyAll | ValidCards$ Creature",
+        None,
+        None,
+        Some(source),
+    );
+    let mut agents = pass_agents();
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, false);
+    assert_eq!(game.card(bears).zone, ZoneType::Exile);
+    assert_eq!(game.player(p0).life, 21);
+    assert_eq!(game.player(p1).life, 20);
+}
+
 const FOOD_GLUTTON: &str = "Name:Food Glutton\nManaCost:2 G\nTypes:Creature Elemental\nPT:2/2\nS:Mode$ Continuous | Affected$ Creature.Other | AffectedZone$ Battlefield | AddType$ Artifact & Food | Description$ Other creatures are Food artifacts in addition to their other types.\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Food | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever a Food is put into a graveyard from the battlefield, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
 
 #[test]
