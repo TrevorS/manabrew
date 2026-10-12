@@ -1156,11 +1156,28 @@ impl GameLoop {
                     }
                 }
 
-                if let Some(target_player_id) = sa.target_chosen.target_player {
-                    if Self::is_player_target_valid(target_player_id, game) {
+                for target_player_id in sa.target_chosen.all_target_players() {
+                    if Self::is_player_target_valid(target_player_id, game)
+                        && sa.target_restrictions.as_ref().zip(sa.source).is_none_or(
+                            |(tr, source)| {
+                                tr.can_target_player(
+                                    game,
+                                    target_player_id,
+                                    source,
+                                    sa.activating_player,
+                                    Some(sa),
+                                )
+                            },
+                        )
+                    {
                         fizzle = Some(false);
                     } else {
-                        sa.target_chosen.target_player = None;
+                        if sa.target_chosen.target_player == Some(target_player_id) {
+                            sa.target_chosen.target_player = None;
+                        }
+                        sa.target_chosen
+                            .additional_target_players
+                            .retain(|&p| p != target_player_id);
                     }
                 }
 

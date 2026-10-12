@@ -352,7 +352,7 @@ impl TargetRestrictions {
 
     /// Java `SpellAbility.canTarget(Player)` as `hasCandidates` asks it: the player passes
     /// `ValidTgts$` and can be targeted by the source.
-    fn can_target_player(
+    pub(crate) fn can_target_player(
         &self,
         game: &GameState,
         target: PlayerId,
