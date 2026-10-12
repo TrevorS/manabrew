@@ -2468,18 +2468,20 @@ impl GameState {
         let mut des_creats: Vec<CardId> = Vec::new();
         for cid in battlefield_cards {
             let card = &self.cards[cid.index()];
-            if !card.is_creature() {
-                continue;
+            if card.is_creature() {
+                if card.toughness() <= 0 {
+                    no_reg_creats.push(cid);
+                } else if card.lethal_damage() || card.has_deathtouch_damage {
+                    des_creats.push(cid);
+                }
+                if no_reg_creats.last() == Some(&cid) || des_creats.last() == Some(&cid) {
+                    self.card_mut(cid).has_deathtouch_damage = false;
+                    self.statics_current_after_sba = false;
+                }
             }
-            if card.toughness() <= 0 {
+            if unattached_auras.contains(&cid) && !no_reg_creats.contains(&cid) {
                 no_reg_creats.push(cid);
-            } else if card.lethal_damage() || card.has_deathtouch_damage {
-                des_creats.push(cid);
-            } else {
-                continue;
             }
-            self.card_mut(cid).has_deathtouch_damage = false;
-            self.statics_current_after_sba = false;
         }
 
         for &pid in &self.player_order.clone() {
@@ -2493,6 +2495,9 @@ impl GameState {
                 self.order_cards_by_their_owners(no_reg_creats, ZoneType::Graveyard, agents);
         }
         for cid in no_reg_creats {
+            if self.card(cid).zone != ZoneType::Battlefield {
+                continue;
+            }
             self.move_battlefield_card_to_graveyard_for_sba(cid, trigger_handler, agents, parts);
             any_changes = true;
         }
@@ -2696,27 +2701,6 @@ impl GameState {
             .collect();
         for cid in role_hosts {
             any_changes |= self.state_based_action_role(cid);
-        }
-
-        // CR 704.5n: Aura SBA — an Aura on the battlefield that is not attached
-        // to a legal permanent (or whose host left the battlefield) is put into
-        // its owner's graveyard.
-        {
-            let aura_ids: Vec<CardId> = unattached_auras
-                .into_iter()
-                .filter(|&aura_id| self.card(aura_id).zone == ZoneType::Battlefield)
-                .collect();
-            let aura_ids = self.order_cards_by_their_owners(aura_ids, ZoneType::Graveyard, agents);
-
-            for aura_id in aura_ids {
-                self.move_battlefield_card_to_graveyard_for_sba(
-                    aura_id,
-                    trigger_handler,
-                    agents,
-                    parts,
-                );
-                any_changes = true;
-            }
         }
 
         {

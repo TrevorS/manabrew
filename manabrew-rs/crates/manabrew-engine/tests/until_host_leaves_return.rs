@@ -393,3 +393,40 @@ fn an_angel_returned_after_giada_in_the_same_state_check_gets_her_counter() {
         1
     );
 }
+
+const SMALL_WATCHER: &str = "Name:Small Watcher\nManaCost:1 B\nTypes:Creature Dog\nPT:2/2\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.powerLE2+YouCtrl+Other | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever another creature you control with power 2 or less enters, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
+const BIG_ANTHEM: &str = "Name:Big Anthem\nManaCost:2 W\nTypes:Enchantment\nS:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 3 | Description$ Creatures you control get +3/+0.\nOracle:";
+const SMALL_SOLDIER: &str =
+    "Name:Small Soldier\nManaCost:W\nTypes:Creature Human Soldier\nPT:1/1\nOracle:";
+
+#[test]
+fn a_card_returned_by_an_aura_s_state_check_enters_before_the_statics_apply_again() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    let crush = put(&mut game, CRUSH_OPPONENT, p0, ZoneType::Hand);
+    put(&mut game, MOUNTAIN, p0, ZoneType::Battlefield);
+    put(&mut game, SMALL_WATCHER, p0, ZoneType::Battlefield);
+    put(&mut game, BIG_ANTHEM, p0, ZoneType::Battlefield);
+    let host = put(&mut game, BEARS, p1, ZoneType::Battlefield);
+    let shelter = put(&mut game, SHELTER, p1, ZoneType::Battlefield);
+    game.card_mut(shelter).attached_to = Some(host);
+    game.card_mut(host).attachments.push(shelter);
+    let soldier = put(&mut game, SMALL_SOLDIER, p0, ZoneType::Exile);
+    game.card_mut(soldier).exiled_by = Some(shelter);
+    game.card_mut(soldier).until_host_leaves_origin = Some(ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce {
+            spell: crush,
+            cast: false,
+        }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.card(soldier).zone, ZoneType::Battlefield);
+    assert_eq!(game.player(p0).life, 21);
+}
