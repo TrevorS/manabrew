@@ -276,15 +276,34 @@ impl GameLoop {
         }
         let available_mana =
             self.available_mana_for_spell_card(game, player, card_id, chosen_types_by_source);
-        let cost_adj =
-            crate::cost::cost_adjustment::compute_cost_adjustment(game, card, player, zone);
+        let face_down_view;
+        let (cost_game, restriction_host) = if card.face_down
+            && game.action_space_mana_probe == crate::mana::ActionSpaceManaProbe::ComputerUtilMana
+        {
+            let mut view = game.clone();
+            view.card_mut(card_id).set_original_state_as_face_down();
+            face_down_view = view;
+            (&face_down_view, face_down_view.card(card_id))
+        } else {
+            (game, card)
+        };
+        let cost_adj = crate::cost::cost_adjustment::compute_cost_adjustment(
+            cost_game,
+            restriction_host,
+            player,
+            zone,
+        );
         let alt_cost = alt_cost.as_deref().map(crate::cost::parse_cost);
         let base_cost = alt_cost
             .as_ref()
             .map(|cost| Self::raise_mana_from_cost(game, cost, card_id, player))
             .unwrap_or_else(|| card.mana_cost.clone());
-        let raise_cost =
-            crate::cost::cost_adjustment::compute_raise_cost_parts(game, card, player, zone);
+        let raise_cost = crate::cost::cost_adjustment::compute_raise_cost_parts(
+            cost_game,
+            restriction_host,
+            player,
+            zone,
+        );
         let raise_mana = raise_cost
             .as_ref()
             .map(|rc| Self::raise_mana_from_cost(game, rc, card_id, player))
@@ -301,27 +320,16 @@ impl GameLoop {
                 )
             });
         let cost = apply_cost_reductions(
-            game,
+            cost_game,
             player,
             card_id,
-            card,
+            restriction_host,
             &crate::mana::apply_player_life_payment_keywords(
                 game,
                 player,
                 &cost_adj.apply(&base_cost).add(&raise_mana),
             ),
         );
-        let face_down_host;
-        let restriction_host = if card.face_down
-            && game.action_space_mana_probe == crate::mana::ActionSpaceManaProbe::ComputerUtilMana
-        {
-            let mut host = card.clone();
-            host.set_original_state_as_face_down();
-            face_down_host = host;
-            &face_down_host
-        } else {
-            card
-        };
         let payment_ctx = mana::ManaPaymentContext {
             mana_value: Some(crate::mana::spell_restriction_mana_value(
                 game,
@@ -3617,6 +3625,41 @@ mod tests {
     fn a_stolen_spell_needs_its_own_sacrifice_cost_to_be_payable() {
         assert!(!stolen_demon_offered(false));
         assert!(stolen_demon_offered(true));
+    }
+
+    const SELF_REDUCING_ELEMENTAL: &str = "Name:Self Reducing Elemental\nManaCost:5 R\nTypes:Creature Elemental\nPT:4/5\nS:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 5 | EffectZone$ All | Description$ This spell costs {5} less to cast.\nOracle:";
+
+    fn face_down_self_reducing_spell_offered(probe: crate::mana::ActionSpaceManaProbe) -> bool {
+        let player = PlayerId(0);
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.action_space_mana_probe = probe;
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        let mut put = |script: &str, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, player));
+            game.move_card(card, zone, player);
+            card
+        };
+        let elemental = put(SELF_REDUCING_ELEMENTAL, ZoneType::Exile);
+        put(RED_SPRING, ZoneType::Battlefield);
+        let effect = put(EXILE_PLAY_EFFECT, ZoneType::Command);
+        game.card_mut(elemental).set_face_down(true);
+        game.card_mut(effect).add_remembered_card(elemental);
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        GameLoop::new(2)
+            .get_playable_cards(&game, player, false)
+            .iter()
+            .any(|option| option.card_id == elemental)
+    }
+
+    #[test]
+    fn the_harness_prices_a_face_down_stolen_spell_without_its_own_cost_reduction() {
+        assert!(face_down_self_reducing_spell_offered(
+            crate::mana::ActionSpaceManaProbe::AutoPay
+        ));
+        assert!(!face_down_self_reducing_spell_offered(
+            crate::mana::ActionSpaceManaProbe::ComputerUtilMana
+        ));
     }
 
     fn face_down_exiled_instant_offered(probe: crate::mana::ActionSpaceManaProbe) -> bool {
