@@ -1783,6 +1783,36 @@ fn a_crafted_card_counts_the_power_of_the_cards_exiled_to_craft_it() {
     assert_eq!(card.power(), 9);
 }
 
+const POWER_WATCHER: &str = "Name:Power Watcher\nManaCost:2 G\nTypes:Creature Dinosaur\nPT:2/2\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.powerGE4+Other+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever another creature you control with power 4 or greater enters, you gain 3 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 3 | Defined$ You\nOracle:";
+
+#[test]
+fn a_crafted_card_enters_with_the_power_of_the_cards_exiled_to_craft_it() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    put(&mut game, POWER_WATCHER, p0, ZoneType::Battlefield);
+    let lattice = put(&mut game, SAHEELIS_LATTICE, p0, ZoneType::Battlefield);
+    let big = put(&mut game, BIG_DINOSAUR, p0, ZoneType::Battlefield);
+    for card in [lattice, big] {
+        game.move_card(card, ZoneType::Exile, p0);
+    }
+    game.card_mut(lattice).paid_cost_exiled_cards = vec![big];
+    push_effect_entry(
+        &mut game,
+        p0,
+        "AB$ ChangeZone | Origin$ Exile | Destination$ Battlefield | Transformed$ True | Defined$ CorrectedSelf | Keyword$ Craft",
+        None,
+        None,
+        Some(lattice),
+    );
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    assert_eq!(game.card(lattice).card_name, "Mastercraft Raptor");
+    assert_eq!(game.player(p0).life, 23);
+}
+
 const SHELTERED_BY_GHOSTS: &str = "Name:Sheltered by Ghosts\nManaCost:1 W\nTypes:Enchantment Aura\nK:Enchant:Creature.YouCtrl:creature you control\nOracle:";
 
 #[test]

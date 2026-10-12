@@ -299,6 +299,21 @@ pub(super) fn apply_pre_move(
             }
         }
 
+        if sa.is_craft() {
+            let paid: Vec<CardId> = ctx
+                .game
+                .card(card_id)
+                .paid_cost_exiled_cards
+                .iter()
+                .copied()
+                .filter(|&craft| !ctx.game.card(craft).is_token)
+                .collect();
+            ctx.game.card_mut(card_id).retain_paid_list(&paid);
+            for &craft in paid.iter().filter(|&&craft| craft != card_id) {
+                ctx.game.card_mut(craft).exiled_with = Some(card_id);
+            }
+        }
+
         // AttachedTo$ — choose and attach before ETB
         if let Some(attached_to_def) = sa.attached_to() {
             let mut valid = crate::ability::ability_utils::get_defined_cards_for_sa(
@@ -383,20 +398,6 @@ pub(super) fn apply_post_move(
     lib_position: &str,
 ) {
     let controller = sa.activating_player;
-    if dest_zone == ZoneType::Battlefield && sa.is_craft() {
-        let paid: Vec<CardId> = ctx
-            .game
-            .card(card_id)
-            .paid_cost_exiled_cards
-            .iter()
-            .copied()
-            .filter(|&craft| !ctx.game.card(craft).is_token)
-            .collect();
-        ctx.game.card_mut(card_id).retain_paid_list(&paid);
-        for &craft in paid.iter().filter(|&&craft| craft != card_id) {
-            ctx.game.card_mut(craft).exiled_with = Some(card_id);
-        }
-    }
     let exile_source = sa.source.and_then(|source_id| {
         if sa.ir.exiled_with_effect_source {
             ctx.game.card(source_id).effect_source.or(Some(source_id))
