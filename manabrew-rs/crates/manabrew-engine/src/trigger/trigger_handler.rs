@@ -886,7 +886,11 @@ impl TriggerHandler {
                     entries.push((pending, controller, source_ts, 1, trigger.id));
                     let extra = crate::staticability::static_ability_panharmonicon::extra_triggers(
                         game,
-                        card_id,
+                        if lki_host {
+                            game.get_change_zone_lki_info(card_id)
+                        } else {
+                            card
+                        },
                         trigger,
                         &event.params,
                     );

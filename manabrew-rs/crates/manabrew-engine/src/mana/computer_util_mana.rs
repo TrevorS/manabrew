@@ -1504,7 +1504,10 @@ fn add_taps_for_mana_trigger_mana_impl(
             };
             // Panharmonicon: each qualifying static fires the trigger again.
             let extra = crate::staticability::static_ability_panharmonicon::extra_triggers(
-                game, host_id, trigger, &params,
+                game,
+                game.card(host_id),
+                trigger,
+                &params,
             );
             let total_fires = 1 + extra as usize;
             for _ in 0..total_fires {

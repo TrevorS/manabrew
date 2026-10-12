@@ -847,6 +847,25 @@ fn a_replacement_on_a_permanent_destroyed_by_the_same_effect_still_applies() {
 
 const DYING_WITNESS: &str = "Name:Dying Witness\nManaCost:1 W\nTypes:Creature Human\nPT:1/1\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ TrigGain | TriggerDescription$ When this creature dies, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:";
 
+const SMALL_LOOKOUT: &str = "Name:Small Lookout\nManaCost:2 W\nTypes:Legendary Creature Human Scout\nPT:2/2\nS:Mode$ Panharmonicon | ValidCard$ Creature.YouCtrl+powerLE2 | Description$ If an ability of a creature you control with power 2 or less triggers, that ability triggers an additional time.\nOracle:";
+
+#[test]
+fn a_dies_trigger_is_doubled_by_the_power_its_host_died_with() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    put(&mut game, SMALL_LOOKOUT, p0, ZoneType::Battlefield);
+    let witness = put(&mut game, DYING_WITNESS, p0, ZoneType::Battlefield);
+    game.card_mut(witness).add_counter(&CounterType::P1P1, 3);
+    game.card_mut(witness).damage = 4;
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    assert_eq!(game.card(witness).zone, ZoneType::Graveyard);
+    assert_eq!(game.player(p0).life, 21);
+}
+
 fn wipe_under_death_warden(effect: &str) -> (GameState, CardId) {
     let mut game = GameState::new(&["Alice", "Bob"], 20);
     let (p0, p1) = (PlayerId(0), PlayerId(1));

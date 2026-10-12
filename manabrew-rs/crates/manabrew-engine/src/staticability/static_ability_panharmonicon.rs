@@ -10,7 +10,7 @@ use crate::trigger::TriggerType;
 
 pub fn extra_triggers(
     game: &GameState,
-    trigger_host: CardId,
+    trig_host: &Card,
     trigger: &Trigger,
     _run_params: &RunParams,
 ) -> i32 {
@@ -26,7 +26,6 @@ pub fn extra_triggers(
     if trigger.get_spawning_ability().is_some() {
         return n;
     }
-    let trig_host = game.card(trigger_host);
     for source in game
         .cards
         .iter()
@@ -73,7 +72,7 @@ pub fn handle_panharmonicon(
     trigger: &Trigger,
     run_params: &RunParams,
 ) -> i32 {
-    extra_triggers(game, trigger_host, trigger, run_params)
+    extra_triggers(game, game.card(trigger_host), trigger, run_params)
 }
 
 pub fn apply_panharmonicon_ability(
