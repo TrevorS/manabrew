@@ -1863,6 +1863,28 @@ fn a_dug_aura_with_nothing_to_enchant_stays_in_the_library_above_the_rest() {
     assert_eq!(game.card(aura).zone, ZoneType::Library);
 }
 
+#[test]
+fn a_dug_aura_cannot_enchant_a_creature_dug_with_it() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let bears = game.create_card(make_grizzly_bears(p0));
+    game.move_card(bears, ZoneType::Library, p0);
+    let aura = put(&mut game, SHELTERED_BY_GHOSTS, p0, ZoneType::Library);
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ Dig | DigNum$ 2 | ChangeNum$ 2 | ChangeValid$ Permanent | DestinationZone$ Battlefield",
+        None,
+        None,
+        Some(source),
+    );
+    GameLoop::new(2).resolve_stack(&mut game, &mut pass_agents());
+    assert_eq!(game.card(bears).zone, ZoneType::Battlefield);
+    assert_eq!(game.card(aura).zone, ZoneType::Library);
+}
+
 const AUTHORITY_OF_THE_CONSULS: &str = "Name:Authority of the Consuls\nManaCost:W\nTypes:Enchantment\nR:Event$ Moved | ValidCard$ Creature.OppCtrl | Destination$ Battlefield | ReplaceWith$ ETBTapped | ReplacementResult$ Updated | ActiveZones$ Battlefield | Description$ Creatures your opponents control enter tapped.\nSVar:ETBTapped:DB$ Tap | ETB$ True | Defined$ ReplacedCard\nOracle:";
 
 #[test]

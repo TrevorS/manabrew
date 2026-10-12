@@ -2944,7 +2944,12 @@ impl GameState {
                 .map(GameEntity::Player)
                 .collect();
         }
-        self.cards_in_all_zones(ZoneType::Battlefield)
+        let battlefield: Vec<CardId> = match self.replacement_last_state_battlefield.as_deref() {
+            Some(last_state) => last_state.to_vec(),
+            None => self.cards_in_all_zones(ZoneType::Battlefield).collect(),
+        };
+        battlefield
+            .into_iter()
             .chain(self.cards_in_all_zones(ZoneType::Graveyard))
             .filter(|&target| {
                 target != aura_id
