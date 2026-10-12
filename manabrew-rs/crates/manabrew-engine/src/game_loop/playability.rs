@@ -2884,8 +2884,8 @@ impl GameLoop {
     }
 
     /// Java `CardFactoryUtil` builds Evoke and Impending as spells of the card, so
-    /// `getMayPlaySpellOptions` offers them in any zone it may be cast from; the hand loop builds
-    /// its own.
+    /// `getMayPlaySpellOptions` offers them in any zone it may be cast from, and with each grant's
+    /// `MayPlayAltManaCost$` as well (`copyWithManaCostReplaced`); the hand loop builds its own.
     fn may_play_keyword_cost_options(
         &self,
         game: &GameState,
@@ -2915,6 +2915,11 @@ impl GameLoop {
         if let Some((cost, _)) = game.card(card_id).get_impending_cost() {
             costs.push((crate::spellability::AlternativeCost::Impending, 0, cost));
         }
+        let may_play_costs = crate::staticability::static_ability_continuous::may_play_alt_costs(
+            game,
+            player,
+            game.card(card_id),
+        );
         let mut options = Vec::new();
         for (alt_cost, alt_cost_index, cost) in costs {
             let grants = grants(alt_cost);
@@ -2936,6 +2941,22 @@ impl GameLoop {
                     },
                     grants,
                 ));
+            }
+            for (may_play_index, may_play_cost) in may_play_costs.iter().enumerate() {
+                if self.can_cast_may_play_spell(
+                    game,
+                    player,
+                    card_id,
+                    zone,
+                    Some(may_play_cost.clone()),
+                    chosen_types_by_source,
+                ) {
+                    options.push(crate::agent::PlayOption {
+                        card_id,
+                        mode: crate::agent::PlayCardMode::MayPlay(Some(alt_cost)),
+                        alt_cost_index: may_play_index as u8,
+                    });
+                }
             }
         }
         options
@@ -3482,6 +3503,41 @@ mod tests {
             .filter(|option| option.card_id == spell)
             .count();
         assert_eq!(offered, 1);
+    }
+
+    const LIFE_GRANT: &str = "Name:Life Grant\nManaCost:no cost\nTypes:Effect\nS:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile | EffectZone$ Command | MayPlayAltManaCost$ PayLife<ConvertedManaCost> | Description$ You may play those cards by paying life equal to their mana value.\nOracle:";
+    const IMPENDING_HORROR: &str = "Name:Impending Horror\nManaCost:3 B B\nTypes:Enchantment Creature Avatar Horror\nPT:5/5\nK:Impending:5:1 B\nOracle:";
+
+    #[test]
+    fn a_grant_paying_life_for_a_spell_covers_its_impending_cast() {
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        let mut put = |script: &str, owner: PlayerId, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, owner));
+            game.move_card(card, zone, owner);
+            card
+        };
+        let grant = put(LIFE_GRANT, p0, ZoneType::Command);
+        let horror = put(IMPENDING_HORROR, p1, ZoneType::Exile);
+        game.card_mut(grant).add_remembered_card(horror);
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        let modes: Vec<crate::agent::PlayCardMode> = GameLoop::new(2)
+            .get_playable_cards(&game, p0, false)
+            .iter()
+            .filter(|option| option.card_id == horror)
+            .map(|option| option.mode)
+            .collect();
+        assert_eq!(
+            modes,
+            vec![
+                crate::agent::PlayCardMode::MayPlay(None),
+                crate::agent::PlayCardMode::MayPlay(Some(
+                    crate::spellability::AlternativeCost::Impending
+                )),
+            ]
+        );
     }
 
     #[test]
