@@ -88,6 +88,31 @@ pub(crate) fn check_condition(game: &GameState, sa: &SpellAbility) -> bool {
         }
     }
 
+    if sa.ir.condition_mana_spent.is_some() || sa.ir.condition_mana_not_spent.is_some() {
+        let host = sa.source.map(|source| game.card(source));
+        let cast = host.filter(|host| host.cast_sa.is_some());
+        let spent_all = |names: &str| {
+            let colors = names
+                .split(' ')
+                .map(|name| forge_foundation::mana::ManaAtom::from_name(&name.to_ascii_lowercase()))
+                .fold(0, |colors, color| colors | color);
+            cast.is_some_and(|host| host.colors_spent_to_cast & colors == colors)
+        };
+        if sa
+            .ir
+            .condition_mana_spent
+            .as_deref()
+            .is_some_and(|names| !spent_all(names))
+            || sa
+                .ir
+                .condition_mana_not_spent
+                .as_deref()
+                .is_some_and(spent_all)
+        {
+            return false;
+        }
+    }
+
     // Check Condition$ Kicked (most common pattern: simple kicked gate)
     if let Some(cond) = sa.ir.condition.as_deref() {
         if cond == "Kicked" {
@@ -351,5 +376,39 @@ mod tests {
         sa.target_chosen.target_card = Some(target);
 
         assert!(check_condition_present(&game, &sa, player));
+    }
+
+    #[test]
+    fn a_mana_spent_condition_reads_the_colors_paid_to_cast_the_host() {
+        let player = PlayerId(0);
+        let mut game = GameState::new(&["P1"], 20);
+        let host = game.create_card(Card::new(
+            CardId(0),
+            "Mythos".to_string(),
+            player,
+            CardTypeLine::parse("Sorcery"),
+            ManaCost::parse("2 W W"),
+            ColorSet::WHITE,
+            None,
+            None,
+            vec![],
+            vec![],
+        ));
+        let spent =
+            SpellAbility::new_simple(Some(host), player, "DB$ Draw | ConditionManaSpent$ B R");
+        let not_spent =
+            SpellAbility::new_simple(Some(host), player, "DB$ Draw | ConditionManaNotSpent$ B R");
+        assert!(!check_condition(&game, &spent));
+        assert!(check_condition(&game, &not_spent));
+        game.card_mut(host).cast_sa = Some(Box::new(spent.clone()));
+        game.card_mut(host)
+            .set_colors_spent_to_cast(forge_foundation::mana::ManaAtom::WHITE);
+        assert!(!check_condition(&game, &spent));
+        assert!(check_condition(&game, &not_spent));
+        game.card_mut(host).set_colors_spent_to_cast(
+            forge_foundation::mana::ManaAtom::BLACK | forge_foundation::mana::ManaAtom::RED,
+        );
+        assert!(check_condition(&game, &spent));
+        assert!(!check_condition(&game, &not_spent));
     }
 }
