@@ -781,6 +781,9 @@ impl GameState {
             let left_at = self.cards[card_id.index()].zone_timestamp;
             self.card_mut(card_id).lki_zone_timestamp = Some(left_at);
         }
+        if dest_zone != ZoneType::Stack {
+            self.cleanup_exiled_with(card_id);
+        }
         if dest_zone != ZoneType::Battlefield {
             if let Some(handler) = trigger_handler.as_deref_mut() {
                 handler.keep_immediate_trigger_host_timestamps(
@@ -2922,6 +2925,19 @@ impl GameState {
         }
         if self.card(card_id).zone == ZoneType::Battlefield {
             self.card_mut(card_id).summoning_sick = true;
+        }
+    }
+
+    /// Java `Card.cleanupExiledWith`, which `GameAction.changeZone` runs on the old object of
+    /// every move but one to the stack.
+    pub fn cleanup_exiled_with(&mut self, card_id: CardId) {
+        if let Some(exiler) = self.card(card_id).exiled_with {
+            if self.card(exiler).exiled_cards.contains(&card_id) {
+                self.card_mut(exiler).remove_exiled_card(card_id);
+            }
+        }
+        if self.card(card_id).exiled_with.is_some() || self.card(card_id).exiled_by.is_some() {
+            self.card_mut(card_id).cleanup_exiled_with();
         }
     }
 

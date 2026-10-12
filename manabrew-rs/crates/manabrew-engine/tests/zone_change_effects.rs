@@ -1885,6 +1885,47 @@ fn a_dug_aura_cannot_enchant_a_creature_dug_with_it() {
     assert_eq!(game.card(aura).zone, ZoneType::Library);
 }
 
+const REST_IN_PEACE: &str = "Name:Rest in Peace\nManaCost:1 W\nTypes:Enchantment\nR:Event$ Moved | ActiveZones$ Battlefield | Destination$ Graveyard | ValidCard$ Card | ReplaceWith$ Exile | Description$ If a card or token would be put into a graveyard from anywhere, exile it instead.\nSVar:Exile:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard\nOracle:";
+const HOLDING_CAGE: &str = "Name:Holding Cage\nManaCost:1 W W\nTypes:Artifact\nOracle:";
+
+#[test]
+fn a_card_exiled_again_by_rest_in_peace_does_not_return_with_its_old_exiler() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    put(&mut game, REST_IN_PEACE, p0, ZoneType::Battlefield);
+    let cage = put(&mut game, HOLDING_CAGE, p0, ZoneType::Battlefield);
+    let bears = game.create_card(make_grizzly_bears(p0));
+    game.move_card(bears, ZoneType::Exile, p0);
+    game.card_mut(bears).exiled_by = Some(cage);
+    game.card_mut(bears).exiled_with = Some(cage);
+    game.card_mut(bears).until_host_leaves_origin = Some(ZoneType::Battlefield);
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ ChangeZone | Defined$ Targeted | Origin$ Exile | Destination$ Graveyard",
+        Some(bears),
+        None,
+        Some(cage),
+    );
+    game_loop.resolve_stack(&mut game, &mut agents);
+    assert_eq!(game.card(bears).zone, ZoneType::Exile);
+    let source = effect_source(&mut game, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ Destroy | Defined$ Targeted",
+        Some(cage),
+        None,
+        Some(source),
+    );
+    game_loop.resolve_stack(&mut game, &mut agents);
+    assert_eq!(game.card(cage).zone, ZoneType::Exile);
+    assert_eq!(game.card(bears).zone, ZoneType::Exile);
+}
+
 const AUTHORITY_OF_THE_CONSULS: &str = "Name:Authority of the Consuls\nManaCost:W\nTypes:Enchantment\nR:Event$ Moved | ValidCard$ Creature.OppCtrl | Destination$ Battlefield | ReplaceWith$ ETBTapped | ReplacementResult$ Updated | ActiveZones$ Battlefield | Description$ Creatures your opponents control enter tapped.\nSVar:ETBTapped:DB$ Tap | ETB$ True | Defined$ ReplacedCard\nOracle:";
 
 #[test]
