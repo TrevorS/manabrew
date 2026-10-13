@@ -532,3 +532,54 @@ fn forge_misses_a_leyline_its_last_state_never_copied_for_a_cleanup_discard() {
 fn forge_sees_the_leyline_once_a_land_play_copies_its_last_state() {
     assert_eq!(cleanup_discard_zone(true, true), ZoneType::Exile);
 }
+
+const WITCH: &str = "Name:Dying Witch\nManaCost:1 B\nTypes:Creature Vampire Warlock\nPT:1/1\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self,Creature.Other+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever this creature or another creature you control dies, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
+const WIPE: &str = "Name:Wipe\nManaCost:R\nTypes:Sorcery\nA:SP$ DestroyAll | ValidCards$ Creature | SpellDescription$ Destroy all creatures.\nOracle:";
+
+fn witch_life_after_exiled_beside_a_dying_token(by_state_check: bool) -> i32 {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    put(&mut game, VOID_LEYLINE, p0, ZoneType::Battlefield);
+    put(&mut game, MOUNTAIN, p0, ZoneType::Battlefield);
+    let wipe = put(&mut game, WIPE, p0, ZoneType::Hand);
+    let witch = put(&mut game, WITCH, p1, ZoneType::Battlefield);
+    let rules = parse_card_script(BEARS).expect("script");
+    let mut token = CardInstance::from_rules(&rules, p1);
+    token.set_is_token(true);
+    let token = game.create_card(token);
+    game.move_card(token, ZoneType::Battlefield, p1);
+    let after = put(&mut game, BEARS, p1, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    if by_state_check {
+        game.card_mut(witch).damage = 1;
+        game.card_mut(token).damage = 2;
+        game.card_mut(after).damage = 2;
+    }
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce {
+            spell: wipe,
+            cast: by_state_check,
+        }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.card(witch).zone, ZoneType::Exile);
+    assert_eq!(game.card(token).zone, ZoneType::None);
+    assert_eq!(game.card(after).zone, ZoneType::Exile);
+    assert!(game.stack.is_empty());
+    game.player(p1).life
+}
+
+#[test]
+fn a_creature_exiled_instead_of_dying_sees_a_token_die_beside_it_to_a_wipe() {
+    assert_eq!(witch_life_after_exiled_beside_a_dying_token(false), 21);
+}
+
+#[test]
+fn a_creature_exiled_instead_of_dying_sees_a_token_die_beside_it_to_the_state_check() {
+    assert_eq!(witch_life_after_exiled_beside_a_dying_token(true), 21);
+}

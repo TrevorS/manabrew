@@ -451,6 +451,8 @@ impl ReplacementEffect {
                     // CounterTable, CounterMap). Rust's `ReplacementEvent::Moved`
                     // only carries card + zones; the other keys aren't tracked
                     // on the event today.
+                    node.replacing_objects
+                        .insert(AbilityKey::Card, crate::event::AbilityValue::Card(*card));
                     node.set_triggering_value(
                         AbilityKey::Card,
                         crate::event::AbilityValue::Card(*card),
