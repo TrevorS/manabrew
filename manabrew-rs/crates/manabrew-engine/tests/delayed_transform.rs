@@ -44,3 +44,36 @@ fn a_delayed_transform_made_before_its_host_transformed_does_nothing() {
     assert!(!card.is_transformed);
     assert_eq!(card.transform_count, 1);
 }
+
+#[test]
+fn a_transform_ability_does_nothing_once_its_host_has_left_and_returned() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let rules = parse_card_script(SHIFTER).expect("script");
+    let shifter = game.create_card(CardInstance::from_rules(&rules, p0));
+    game.move_card(shifter, ZoneType::Battlefield, p0);
+
+    let mut sa = SpellAbility::new_simple(
+        Some(shifter),
+        p0,
+        "AB$ SetState | Cost$ 0 | Defined$ Self | Mode$ Transform",
+    );
+    sa.source_zone_timestamp = Some(game.card(shifter).zone_timestamp);
+    game.move_card(shifter, ZoneType::Exile, p0);
+    game.move_card(shifter, ZoneType::Battlefield, p0);
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: sa,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(PassAgent), Box::new(PassAgent)];
+    GameLoop::new(2).resolve_stack(&mut game, &mut agents);
+
+    assert!(!game.card(shifter).is_transformed);
+}

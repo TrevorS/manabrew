@@ -64,6 +64,16 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         crate::ability::spell_ability_effect::get_target_cards(ctx.game, sa)
     };
     for card_id in cards_to_transform {
+        let object_timestamp = sa.target_zone_timestamp(card_id).or_else(|| {
+            (sa.source == Some(card_id))
+                .then(|| sa.host_zone_timestamp())
+                .flatten()
+        });
+        if object_timestamp
+            .is_some_and(|timestamp| timestamp != ctx.game.card(card_id).zone_timestamp)
+        {
+            continue;
+        }
         let face_mode = matches!(
             mode,
             Some(SpellAbilityMode::TurnFaceUp) | Some(SpellAbilityMode::TurnFaceDown)
