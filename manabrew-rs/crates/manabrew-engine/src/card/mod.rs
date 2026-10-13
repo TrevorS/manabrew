@@ -4940,6 +4940,9 @@ impl Card {
         }
     }
     pub fn get_name(&self) -> &str {
+        if self.face_down {
+            return "";
+        }
         if self.zone != ZoneType::Battlefield
             && self
                 .other_part

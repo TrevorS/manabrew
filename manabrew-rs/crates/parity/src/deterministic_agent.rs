@@ -525,7 +525,7 @@ impl DeterministicAgent {
         match departed {
             Some(lki) => format!(
                 "1|{}|O{:05}|C{:05}|I{:05}",
-                parity_card_name(lki),
+                lki.get_name(),
                 lki.owner.0,
                 lki.controller.0,
                 self.parity_id(host)
@@ -536,7 +536,7 @@ impl DeterministicAgent {
 
     fn stack_host_name(&self, host: CardId, departed: Option<&Card>) -> String {
         match departed {
-            Some(lki) => parity_card_name(lki).to_string(),
+            Some(lki) => lki.get_name().to_string(),
             None => self.card_name(host),
         }
     }
@@ -1187,7 +1187,7 @@ impl PlayerAgent for DeterministicAgent {
                 .flatten();
             refill_named(
                 &mut card_names,
-                game.cards.iter().map(|c| (c.id, parity_card_name(c))),
+                game.cards.iter().map(|c| (c.id, c.get_name())),
             );
             refill(
                 &mut card_is_land,
@@ -2833,16 +2833,6 @@ impl PlayerAgent for DeterministicAgent {
 /// exceeded. `chooseTargetsFor` loops while this is false.
 fn target_number_valid(chosen: usize, min: usize, max: usize) -> bool {
     chosen >= min && chosen <= max
-}
-
-// Keep in sync with FmtCtx::card: the action-space log names come from the snapshot, so both
-// must match Java's getName().
-fn parity_card_name(c: &Card) -> &str {
-    if c.face_down {
-        ""
-    } else {
-        c.get_name()
-    }
 }
 
 // Java's stack candidate is `si.getSourceCard()`, the ability's host object, which keeps its

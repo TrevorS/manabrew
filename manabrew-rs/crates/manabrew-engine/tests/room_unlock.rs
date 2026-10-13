@@ -226,6 +226,16 @@ fn a_face_down_room_has_mana_value_zero() {
 }
 
 #[test]
+fn a_face_down_permanent_has_no_name_to_share() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let in_library = put(&mut game, SWAMP, PlayerId(1), ZoneType::Library);
+    let face_down = put(&mut game, SWAMP, PlayerId(1), ZoneType::Battlefield);
+    game.card_mut(face_down).turn_face_down();
+    assert_eq!(game.card(face_down).get_name(), "");
+    assert!(!game.card(in_library).shares_name_with(game.card(face_down)));
+}
+
+#[test]
 fn a_room_door_cast_has_that_doors_mana_value_on_the_stack() {
     let mut game = GameState::new(&["Alice", "Bob"], 20);
     let left = room_in(&mut game, ZoneType::Stack);

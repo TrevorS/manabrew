@@ -53,7 +53,7 @@ impl<'a> FmtCtx<'a> {
             (None, Some(event_game)) => (event_game.card(cid), true),
             _ => (self.game.card(cid), false),
         };
-        let name = if card.face_down { "" } else { card.get_name() };
+        let name = card.get_name();
         if made_during_event {
             return match self.parity_map.peek(cid) {
                 Some(id) => format!("{name}@{id}"),
