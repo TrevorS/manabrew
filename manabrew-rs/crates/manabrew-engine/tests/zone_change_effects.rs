@@ -1067,6 +1067,53 @@ fn forge_collects_a_batch_arrival_before_the_watcher_enters_when_a_replacement_r
     assert_eq!(kin_watcher_life_after_a_batch_with_a_replacement(true), 22);
 }
 
+fn kin_watcher_life_after_token_copies_with_a_replacement(mirror_forge_bugs: bool) -> i32 {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    game.mirror_forge_bugs = mirror_forge_bugs;
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let early = game.create_card(make_grizzly_bears(p0));
+    game.move_card(early, ZoneType::Graveyard, p0);
+    let thief = put(&mut game, THIEF_OF_BLOOD, p0, ZoneType::Graveyard);
+    let watcher = put(&mut game, KIN_WATCHER, p0, ZoneType::Graveyard);
+    let late = game.create_card(make_grizzly_bears(p0));
+    game.move_card(late, ZoneType::Graveyard, p0);
+    let source = effect_source(&mut game, p0);
+    for card in [early, thief, watcher, late] {
+        game.card_mut(source).add_remembered_card(card);
+    }
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ CopyPermanent | Defined$ Remembered",
+        None,
+        None,
+        Some(source),
+    );
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    assert_eq!(game.cards_in_zone(ZoneType::Battlefield, p0).len(), 4);
+    game.player(p0).life
+}
+
+#[test]
+fn a_token_copy_made_in_a_batch_sees_every_other_token_in_it_enter() {
+    assert_eq!(
+        kin_watcher_life_after_token_copies_with_a_replacement(false),
+        23
+    );
+}
+
+#[test]
+fn forge_collects_a_token_arrival_before_the_watcher_token_when_a_replacement_resolves() {
+    assert_eq!(
+        kin_watcher_life_after_token_copies_with_a_replacement(true),
+        22
+    );
+}
+
 const GRAVE_LEAVE_WATCHER: &str = "Name:Grave Leave Watcher\nManaCost:R W\nTypes:Creature Bird\nPT:2/1\nT:Mode$ ChangesZoneAll | ValidCards$ Card.YouOwn | Origin$ Graveyard | Destination$ Any | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever one or more cards leave your graveyard, you gain 3 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 3 | Defined$ You\nOracle:";
 
 #[test]

@@ -328,7 +328,6 @@ pub trait TokenEffectBase {
             .collect();
         let pump_keywords = self.pump_keywords(sa);
         let mut result = TokenCreateResult::default();
-        let mut creators = Vec::new();
 
         for cell in token_table.cells().iter().cloned() {
             for agent in ctx.agents.iter_mut() {
@@ -352,28 +351,25 @@ pub trait TokenEffectBase {
                     continue;
                 };
                 result.created.push(token_id);
-                creators.push(cell.owner);
+                emit_zone_trigger(
+                    ctx.trigger_handler,
+                    token_id,
+                    ZoneType::None,
+                    ZoneType::Battlefield,
+                );
+                ctx.trigger_handler.run_trigger(
+                    TriggerType::TokenCreated,
+                    RunParams {
+                        card: Some(token_id),
+                        player: Some(cell.owner),
+                        ..Default::default()
+                    },
+                    false,
+                );
                 if self.add_token_to_combat(ctx, sa, token_id) {
                     result.combat_changed = true;
                 }
             }
-        }
-        for (&token_id, creator) in result.created.iter().zip(creators) {
-            ctx.trigger_handler.run_trigger(
-                TriggerType::TokenCreated,
-                RunParams {
-                    card: Some(token_id),
-                    player: Some(creator),
-                    ..Default::default()
-                },
-                false,
-            );
-            emit_zone_trigger(
-                ctx.trigger_handler,
-                token_id,
-                ZoneType::None,
-                ZoneType::Battlefield,
-            );
         }
 
         if let Some(action) = sa.ir.at_eot.as_deref() {
