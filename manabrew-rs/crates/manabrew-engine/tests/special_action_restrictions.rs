@@ -434,6 +434,38 @@ fn station_counts_the_power_of_a_creature_that_left_before_it_resolved() {
     assert_eq!(game.card(hull).counter_count(&charge), 3);
 }
 
+const BOLD_CREW: &str = "Name:Bold Crew\nManaCost:1 U\nTypes:Creature Human Pilot\nPT:2/2\nS:Mode$ Continuous | Affected$ Card.Self | AddPower$ 3 | Description$ CARDNAME gets +3/+0.\nT:Mode$ Taps | ValidCard$ Card.Self | Execute$ TrigDestroy | TriggerDescription$ Whenever CARDNAME becomes tapped, destroy it.\nSVar:TrigDestroy:DB$ Destroy | Defined$ Self\nOracle:";
+
+#[test]
+fn station_counts_a_dead_creature_without_its_static_boosts() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let hull = put(&mut game, STATION_HULL, p0, ZoneType::Battlefield);
+    let crew = put(&mut game, BOLD_CREW, p0, ZoneType::Battlefield);
+    game.card_mut(crew).add_counter(
+        &manabrew_engine::card::counter_type::parse_counter_type("P1P1"),
+        1,
+    );
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = forge_foundation::PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(None));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(Recorder {
+            seen: Rc::clone(&seen),
+            turn_up: hull,
+            confirm: true,
+            cast_pay: None,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+
+    assert_eq!(game.card(crew).zone, ZoneType::Graveyard);
+    let charge = manabrew_engine::card::counter_type::parse_counter_type("CHARGE");
+    assert_eq!(game.card(hull).counter_count(&charge), 3);
+}
+
 const TOKEN_PORT: &str = "Name:Token Port\nManaCost:no cost\nTypes:Land\nA:AB$ Draw | Cost$ 2 T Sac<1/Permanent.token/token> | SpellDescription$ Draw a card.\nOracle:";
 const TREASURE: &str = "Name:Treasure Token\nManaCost:no cost\nTypes:Artifact Treasure\nA:AB$ Mana | Cost$ T Sac<1/CARDNAME/this token> | Produced$ Any | Amount$ 1 | SpellDescription$ Add one mana of any color.\nOracle:";
 const SACK_WATCH: &str = "Name:Sack Watch\nManaCost:B\nTypes:Creature Halfling\nPT:1/1\nT:Mode$ Sacrificed | ValidPlayer$ You | ValidCard$ Permanent.token+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigLoseLife | TriggerDescription$ Whenever you sacrifice a token, each opponent loses 1 life.\nSVar:TrigLoseLife:DB$ LoseLife | LifeAmount$ 1 | Defined$ Player.Opponent\nOracle:";

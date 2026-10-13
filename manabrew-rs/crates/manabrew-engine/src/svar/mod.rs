@@ -1515,11 +1515,16 @@ fn resolve_paid_hash_property(
             paid_cards
                 .iter()
                 .map(|&cid| {
-                    crate::cost::cost_tap_type::tap_power_value_of(
-                        game,
-                        game.get_change_zone_lki_info(cid),
-                        Some(sa),
-                    )
+                    let lki = game.get_change_zone_lki_info(cid);
+                    if game.card(cid).zone == forge_foundation::ZoneType::Battlefield {
+                        return crate::cost::cost_tap_type::tap_power_value_of(game, lki, Some(sa));
+                    }
+                    let mut departed = lki.clone();
+                    departed.static_power_modifier = 0;
+                    departed.static_toughness_modifier = 0;
+                    departed.clear_static_layer_new_pt_and_colors();
+                    departed.clear_static_layer_changed_card_types();
+                    crate::cost::cost_tap_type::tap_power_value_of(game, &departed, Some(sa))
                 })
                 .sum(),
         );
