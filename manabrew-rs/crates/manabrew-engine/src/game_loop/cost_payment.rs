@@ -1777,16 +1777,7 @@ impl GameLoop {
                 }
                 CostPaymentContext::ManaAbility => true,
             };
-            if keeps_auto_pay_taps {
-                for tapped_id in failed_auto_pay_taps {
-                    if game.card_is_in_zone(tapped_id, ZoneType::Battlefield) {
-                        game.card_mut(tapped_id).set_tapped(true);
-                    }
-                }
-                if let Some(pool) = failed_auto_pay_pool {
-                    self.mana_pools[player.index()] = pool;
-                }
-            } else {
+            if !keeps_auto_pay_taps || matches!(context, CostPaymentContext::TriggerResolve) {
                 for choice in non_undoable_choices {
                     let Some(ability_index) = choice.mana_ability_index else {
                         continue;
@@ -1812,6 +1803,16 @@ impl GameLoop {
                             ability_index,
                         );
                     }
+                }
+            }
+            if keeps_auto_pay_taps {
+                for tapped_id in failed_auto_pay_taps {
+                    if game.card_is_in_zone(tapped_id, ZoneType::Battlefield) {
+                        game.card_mut(tapped_id).set_tapped(true);
+                    }
+                }
+                if let Some(pool) = failed_auto_pay_pool {
+                    self.mana_pools[player.index()] = pool;
                 }
             }
             return false;

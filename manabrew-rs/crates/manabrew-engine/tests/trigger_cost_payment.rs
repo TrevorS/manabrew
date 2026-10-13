@@ -254,6 +254,31 @@ fn a_failed_trigger_payment_refunds_and_keeps_its_taps_only_under_the_forge_mirr
     assert!(failed_payment_leaves_forest_tapped(true));
 }
 
+const TREASURE: &str = "Name:Treasure Token\nManaCost:no cost\nTypes:Artifact Treasure\nA:AB$ Mana | Cost$ T Sac<1/CARDNAME/this token> | Produced$ Any | Amount$ 1 | SpellDescription$ Add one mana of any color.\nOracle:";
+
+fn failed_payment_treasure_zone(mirror_forge_bugs: bool) -> ZoneType {
+    let mut setup = damage_the_warden("X");
+    setup.game.mirror_forge_bugs = mirror_forge_bugs;
+    setup.game.action_space_mana_probe = ActionSpaceManaProbe::ComputerUtilMana;
+    put(&mut setup.game, FOREST, PlayerId(0), ZoneType::Battlefield);
+    let rules = parse_card_script(TREASURE).expect("script");
+    let mut treasure = CardInstance::from_rules(&rules, PlayerId(0));
+    treasure.set_is_token(true);
+    let treasure = setup.game.create_card(treasure);
+    setup
+        .game
+        .move_card(treasure, ZoneType::Battlefield, PlayerId(0));
+    resolve(&mut setup);
+    assert_eq!(setup.game.player(PlayerId(0)).life, 20);
+    setup.game.card(treasure).zone
+}
+
+#[test]
+fn a_failed_trigger_payment_leaves_the_treasure_it_sacrificed_gone_under_the_forge_mirror_too() {
+    assert_eq!(failed_payment_treasure_zone(false), ZoneType::None);
+    assert_eq!(failed_payment_treasure_zone(true), ZoneType::None);
+}
+
 fn tied_trigger_payment_asks(mirror_forge_bugs: bool) -> Vec<usize> {
     let mut setup = damage_the_warden("1");
     setup.game.mirror_forge_bugs = mirror_forge_bugs;
