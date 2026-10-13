@@ -1763,4 +1763,41 @@ mod tests {
             .take_matched_triggers_of(&game, p0)
             .is_empty());
     }
+
+    const VEIN: &str = "Name:Test Vein\nManaCost:no cost\nTypes:Land Cave\nA:AB$ Mana | Cost$ T | Produced$ C | SpellDescription$ Add {C}.\nA:AB$ Draw | Cost$ 1 T Sac<1/CARDNAME> | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
+    const GROVE: &str = "Name:Grove Beast\nManaCost:no cost\nTypes:Land Creature Forest Beast\nPT:2/2\nK:Haste\nOracle:";
+    const STOPPER: &str = "Name:Ability Stopper\nManaCost:2 W\nTypes:Creature Dragon\nPT:3/3\nS:Mode$ CantBeActivated | AffectedZone$ Battlefield | ValidCard$ Artifact,Creature,Planeswalker | ValidSA$ Activated | Description$ Activated abilities of artifacts, creatures, and planeswalkers can't be activated.\nOracle:";
+
+    fn sacrifice_ability_offered(mirror_forge_bugs: bool) -> bool {
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        game.mirror_forge_bugs = mirror_forge_bugs;
+        game.action_space_mana_probe = crate::mana::ActionSpaceManaProbe::ComputerUtilMana;
+        let vein = put(&mut game, VEIN, p0);
+        put(&mut game, GROVE, p0);
+        put(&mut game, STOPPER, p1);
+        game.turn.active_player = p0;
+        game.new_turn_for_player(p0);
+        game.turn.phase = forge_foundation::PhaseType::Main1;
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        let draw = game
+            .card(vein)
+            .activated_abilities
+            .iter()
+            .position(|ab| !ab.is_mana_ability)
+            .expect("draw ability");
+        GameLoop::new(2)
+            .get_activatable_abilities(&game, p0, true)
+            .contains(&(vein, draw))
+    }
+
+    #[test]
+    fn a_land_whose_mana_ability_cant_be_activated_pays_nothing_for_a_sacrifice_ability() {
+        assert!(!sacrifice_ability_offered(false));
+    }
+
+    #[test]
+    fn forge_counts_a_land_whose_mana_ability_cant_be_activated_for_a_sacrifice_ability() {
+        assert!(sacrifice_ability_offered(true));
+    }
 }

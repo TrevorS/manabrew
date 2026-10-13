@@ -3527,8 +3527,11 @@ fn can_pay_mana_cost_from_current_sources(
             continue;
         }
 
+        // FORGE BUG (harness quirk, parity only): ActionSpace.addBattlefieldManaSources counts an
+        // untapped land's basic types whenever none of its mana abilities passed
+        // (ActionSpace.java:720-725), even one CantBeActivated rejected
         if card.is_land()
-            && card.lacks_basic_land_mana_abilities()
+            && (harness_cost_probes_ask(game) || card.lacks_basic_land_mana_abilities())
             && crate::cost::cost_tap::can_pay(
                 game,
                 &Default::default(),
