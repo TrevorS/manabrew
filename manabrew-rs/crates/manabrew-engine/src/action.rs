@@ -2298,9 +2298,11 @@ impl GameState {
             let outer_table = self
                 .pending_change_zone_table
                 .replace(crate::card::card_zone_table::CardZoneTable::with_last_state_lookup());
-            let outer_last_state = self
-                .replacement_last_state_battlefield
-                .replace(self.pre_sba_battlefield.clone());
+            let mut last_state = self.pre_sba_battlefield.clone();
+            if self.mirror_forge_bugs {
+                last_state.retain(|id| self.forge_last_state_battlefield.contains(id));
+            }
+            let outer_last_state = self.replacement_last_state_battlefield.replace(last_state);
             let changed = self.state_based_actions_pass(
                 &mut trigger_handler,
                 &mut legend_keep_fn,

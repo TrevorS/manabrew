@@ -48,9 +48,13 @@ impl GameLoop {
         let mut last_notified_priority: Option<PlayerId> = None;
         let mut passed_count = passed;
         let num_players = game.players.len();
+        let mut chose_action = false;
         while passed_count < num_players {
             if game.game_over {
                 return;
+            }
+            if std::mem::take(&mut chose_action) {
+                game.copy_forge_last_state_battlefield();
             }
             if self.is_aborted() {
                 game.game_over = true;
@@ -253,6 +257,7 @@ impl GameLoop {
             let _perf_scope = crate::perf::ParamsLookupScopeGuard::enter(
                 crate::perf::ParamsLookupScope::PriorityExecution,
             );
+            chose_action = !matches!(priority_action, MainPhaseAction::Pass);
             match priority_action {
                 MainPhaseAction::Pass => {
                     self.invalidate_mana_undo_for_player(priority_player);
@@ -718,6 +723,9 @@ impl GameLoop {
                     game.copy_last_state_combat_lki(&self.combat);
                 }
             }
+        }
+        if chose_action {
+            game.copy_forge_last_state_battlefield();
         }
         game.turn.priority_player = game.active_player();
     }

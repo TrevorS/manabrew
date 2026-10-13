@@ -713,6 +713,10 @@ impl GameLoop {
                 let outer_table = game
                     .pending_change_zone_table
                     .replace(crate::card::card_zone_table::CardZoneTable::default());
+                let outer_last_state = game.mirror_forge_bugs.then(|| {
+                    let last_state = game.forge_last_state_battlefield.clone();
+                    game.replacement_last_state_battlefield.replace(last_state)
+                });
                 game.begin_discard_batch();
                 for card_id in chosen.iter().take(to_discard) {
                     if game.card(*card_id).zone == ZoneType::Hand {
@@ -724,6 +728,9 @@ impl GameLoop {
                             &mut self.replacement_runtime(),
                         );
                     }
+                }
+                if let Some(outer_last_state) = outer_last_state {
+                    game.replacement_last_state_battlefield = outer_last_state;
                 }
                 if let Some(table) =
                     std::mem::replace(&mut game.pending_change_zone_table, outer_table)

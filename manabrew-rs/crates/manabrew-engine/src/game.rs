@@ -624,6 +624,11 @@ pub struct GameState {
     #[serde(skip)]
     pub replacement_last_state_battlefield: Option<Vec<CardId>>,
 
+    /// Java's `Game.lastStateBattlefield` membership, refreshed only where Java calls
+    /// `copyLastState` (`copy_forge_last_state_battlefield`); kept under `mirror_forge_bugs`.
+    #[serde(skip)]
+    pub forge_last_state_battlefield: Vec<CardId>,
+
     #[serde(skip)]
     pub change_zone_lki_info: Tracked<crate::HashMap<CardId, Arc<Card>>>,
 
@@ -711,6 +716,7 @@ impl GameState {
             last_state_battlefield_combat_lki: Tracked::default(),
             pre_sba_battlefield: Vec::new(),
             replacement_last_state_battlefield: None,
+            forge_last_state_battlefield: Vec::new(),
             change_zone_lki_info: Tracked::default(),
             departed_objects: crate::HashMap::default(),
             last_sacrificed_card: None,

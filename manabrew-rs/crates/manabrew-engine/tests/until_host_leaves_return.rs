@@ -478,3 +478,57 @@ fn a_card_returned_by_an_aura_s_state_check_enters_before_the_statics_apply_agai
     assert_eq!(game.card(soldier).zone, ZoneType::Battlefield);
     assert_eq!(game.player(p0).life, 21);
 }
+
+const VOID_LEYLINE: &str = "Name:Void Leyline\nManaCost:2 B B\nTypes:Enchantment\nR:Event$ Moved | ActiveZones$ Battlefield | Destination$ Graveyard | ValidCard$ Card.!token+OppOwn | ReplaceWith$ Exile | Description$ If a card would be put into an opponent's graveyard from anywhere, exile it instead.\nSVar:Exile:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard\nOracle:";
+
+fn cleanup_discard_zone(mirror_forge_bugs: bool, play_land_first: bool) -> ZoneType {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    game.mirror_forge_bugs = mirror_forge_bugs;
+    put(&mut game, VOID_LEYLINE, p1, ZoneType::Battlefield);
+    let land = put(&mut game, MOUNTAIN, p0, ZoneType::Hand);
+    let hand: Vec<CardId> = (0..8)
+        .map(|_| put(&mut game, BEARS, p0, ZoneType::Hand))
+        .collect();
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce {
+            spell: land,
+            cast: !play_land_first,
+        }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    if play_land_first {
+        game.turn.phase = PhaseType::Main1;
+        game_loop.step_with_priority(&mut game, &mut agents, true);
+        assert_eq!(game.card(land).zone, ZoneType::Battlefield);
+    } else {
+        game.move_card(land, ZoneType::Battlefield, p0);
+    }
+    game.turn.phase = PhaseType::Cleanup;
+    game_loop.step_cleanup(&mut game, &mut agents);
+    let discarded: Vec<ZoneType> = hand
+        .iter()
+        .map(|&card| game.card(card).zone)
+        .filter(|&zone| zone != ZoneType::Hand)
+        .collect();
+    assert_eq!(discarded.len(), 1);
+    discarded[0]
+}
+
+#[test]
+fn a_leyline_on_the_battlefield_from_the_start_exiles_a_cleanup_discard() {
+    assert_eq!(cleanup_discard_zone(false, false), ZoneType::Exile);
+}
+
+#[test]
+fn forge_misses_a_leyline_its_last_state_never_copied_for_a_cleanup_discard() {
+    assert_eq!(cleanup_discard_zone(true, false), ZoneType::Graveyard);
+}
+
+#[test]
+fn forge_sees_the_leyline_once_a_land_play_copies_its_last_state() {
+    assert_eq!(cleanup_discard_zone(true, true), ZoneType::Exile);
+}

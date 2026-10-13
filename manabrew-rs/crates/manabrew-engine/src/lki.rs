@@ -218,6 +218,18 @@ impl crate::game::GameState {
         self.last_state_graveyard = self.cards_in_all_zones(ZoneType::Graveyard).collect();
     }
 
+    pub fn copy_forge_last_state_battlefield(&mut self) {
+        if !self.mirror_forge_bugs {
+            return;
+        }
+        self.forge_last_state_battlefield = self
+            .cards
+            .iter()
+            .filter(|card| card.zone == ZoneType::Battlefield)
+            .map(|card| card.id)
+            .collect();
+    }
+
     pub fn copy_last_state_combat_lki(&mut self, combat: &crate::combat::CombatState) {
         let combat_lki: Vec<(CardId, Option<bool>)> = self
             .cards

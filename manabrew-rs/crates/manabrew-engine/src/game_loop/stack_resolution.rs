@@ -97,6 +97,7 @@ impl GameLoop {
         // LKI: Snapshot battlefield state before resolution.
         // Mirrors Java MagicStack line 623: game.copyLastState() before resolving.
         game.copy_last_state();
+        game.copy_forge_last_state_battlefield();
 
         let mut entry = game.stack.resolve_stack().unwrap();
         let stack_item_name = entry
@@ -785,6 +786,7 @@ impl GameLoop {
         // Java `removeCardFromStack` collects the waiting triggers before this `copyLastState`.
         self.trigger_handler.flush_waiting_triggers(game);
         game.copy_last_state();
+        game.copy_forge_last_state_battlefield();
         game.copy_last_state_combat_lki(&self.combat);
         self.trigger_handler.reset_active_triggers(game);
         if game.stack.is_empty() && self.trigger_handler.pre_matched_trigger_count() == 0 {
