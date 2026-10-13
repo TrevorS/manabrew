@@ -2830,17 +2830,24 @@ pub fn resolve_count_svar_for_sa(
             if let Some((_, valid_filter)) = l0.split_once(' ') {
                 let selector = crate::parsing::cached_compiled_selector(valid_filter);
                 let source = game.card(source_id);
-                let list = if sq[0].starts_with("LeftBattlefieldThisTurn") {
-                    &game.left_battlefield_this_turn
+                let cards: Vec<&crate::card::Card> = if sq[0].starts_with("LeftBattlefieldThisTurn")
+                {
+                    game.left_battlefield_this_turn
+                        .iter()
+                        .map(|card| &**card)
+                        .collect()
                 } else {
-                    &game.left_graveyard_this_turn
+                    game.left_graveyard_this_turn
+                        .iter()
+                        .map(|&card| game.card(card))
+                        .collect()
                 };
-                let count = list
-                    .iter()
-                    .filter(|&&card| {
+                let count = cards
+                    .into_iter()
+                    .filter(|card| {
                         crate::card::valid_filter::matches_valid_card_selector_with_context(
                             &selector,
-                            game.card(card),
+                            card,
                             crate::card::valid_filter::MatchContext::new(source, game)
                                 .with_host_object(sa),
                         )

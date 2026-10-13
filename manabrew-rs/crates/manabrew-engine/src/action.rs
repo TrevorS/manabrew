@@ -638,8 +638,8 @@ impl GameState {
             self.card_mut(eff_id).zone = ZoneType::None;
         }
 
-        if src_zone == ZoneType::Battlefield && dest_zone != ZoneType::Battlefield {
-            self.add_left_battlefield_this_turn(card_id);
+        if let Some(lki) = left_battlefield_lki.clone() {
+            self.add_left_battlefield_this_turn(lki);
         }
         if src_zone == ZoneType::Graveyard && dest_zone != ZoneType::Graveyard {
             self.add_left_graveyard_this_turn(card_id);
@@ -1214,7 +1214,8 @@ impl GameState {
         self.remove_card_from_zone(ZoneType::Battlefield, controller, card_id);
         self.add_card_to_zone(ZoneType::Battlefield, controller, card_id);
         self.card_mut(card_id).summoning_sick = true;
-        self.add_left_battlefield_this_turn(card_id);
+        let lki = self.cards[card_id.index()].clone();
+        self.add_left_battlefield_this_turn(lki);
         let attachments = std::mem::take(&mut self.card_mut(card_id).attachments);
         for attached in attachments {
             self.card_mut(attached).attached_to = None;

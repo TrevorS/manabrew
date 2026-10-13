@@ -2307,3 +2307,39 @@ fn angels_returned_together_count_only_the_angels_already_there() {
         assert_eq!(game.card(angel).counter_count(&CounterType::P1P1), 1);
     }
 }
+
+const WIZARD_HALL: &str = "Name:Wizard Hall\nManaCost:no cost\nTypes:Land\nOracle:";
+const COUNTING_CAT: &str = "Name:Counting Cat\nManaCost:2 W\nTypes:Creature Cat\nPT:3/1\nSVar:X:Count$LeftBattlefieldThisTurn Creature.YouCtrl\nOracle:";
+
+#[test]
+fn an_animated_land_that_left_counts_as_the_creature_it_was() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let hall = put(&mut game, WIZARD_HALL, p0, ZoneType::Battlefield);
+    let cat = put(&mut game, COUNTING_CAT, p0, ZoneType::Battlefield);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ Animate | Defined$ Self | Power$ 2 | Toughness$ 4 | Types$ Creature,Wizard",
+        None,
+        None,
+        Some(hall),
+    );
+    let mut agents = pass_agents();
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    assert!(game.card(hall).is_creature());
+    game.move_card(hall, ZoneType::Graveyard, p0);
+    push_effect_entry(
+        &mut game,
+        p0,
+        "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ X",
+        None,
+        None,
+        Some(cat),
+    );
+    game_loop.step_with_priority(&mut game, &mut agents, false);
+    let p1p1 = manabrew_engine::card::counter_type::parse_counter_type("P1P1");
+    assert_eq!(game.card(cat).counter_count(&p1p1), 1);
+}

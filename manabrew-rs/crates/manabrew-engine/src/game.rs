@@ -638,7 +638,7 @@ pub struct GameState {
     pub counter_added_this_turn:
         Tracked<BTreeMap<(GameEntity, Option<u64>, CounterType, Option<PlayerId>), i32>>,
     #[serde(skip)]
-    pub left_battlefield_this_turn: Tracked<Vec<CardId>>,
+    pub left_battlefield_this_turn: Tracked<Vec<Arc<Card>>>,
     #[serde(skip)]
     pub left_graveyard_this_turn: Tracked<Vec<CardId>>,
     #[serde(skip)]
@@ -915,7 +915,7 @@ impl GameState {
         }
     }
 
-    pub fn add_left_battlefield_this_turn(&mut self, lki: CardId) {
+    pub fn add_left_battlefield_this_turn(&mut self, lki: Arc<Card>) {
         self.left_battlefield_this_turn.push(lki);
     }
 
@@ -1036,7 +1036,7 @@ impl GameState {
     pub fn is_void(&self) -> bool {
         self.left_battlefield_this_turn
             .iter()
-            .any(|&card| !self.card(card).is_land())
+            .any(|card| !card.is_land())
             || self.stack.get_spells_cast_this_turn().iter().any(|&card| {
                 self.card(card).cast_sa.as_ref().is_some_and(|sa| {
                     sa.alt_cost == Some(crate::spellability::AlternativeCost::Warp)
