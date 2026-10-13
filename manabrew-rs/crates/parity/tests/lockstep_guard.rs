@@ -1,6 +1,6 @@
 use parity::lockstep::{
-    first_divergence, guard_end, guard_unverified, java_error_end, java_overran, java_timeout,
-    token_cap_end, Desync, LockstepEnd,
+    deferred_guard_end, first_divergence, guard_end, guard_unverified, java_error_end,
+    java_overran, java_timeout, token_cap_end, Desync, LockstepEnd,
 };
 use parity::protocol::StateSnapshot;
 use serde_json::{json, Value};
@@ -49,6 +49,36 @@ fn java_stopped_at_its_own_guard_on_rusts_draws_matches_despite_its_result() {
         guard_end(&rust, Some(&java), Some(&java_end(127)), 127),
         Ok(())
     );
+}
+
+fn java_waiting(consumed: u64, snapshot: &StateSnapshot) -> Value {
+    json!({
+        "t": "end",
+        "winner": 1,
+        "turn": 22,
+        "error": null,
+        "desync": format!("sequence: rust sent abort while java waited for draw {consumed}"),
+        "consumed": consumed,
+        "snapshot": serde_json::to_value(snapshot).expect("snapshot"),
+    })
+}
+
+#[test]
+fn a_decision_guard_stopped_at_rusts_next_draw_matches_java_waiting_for_it() {
+    let rust = snapshot(false, None, 10, false);
+    let java = java_waiting(127, &snapshot(true, Some(0), 10, true));
+    assert_eq!(deferred_guard_end(&rust, Some(&java), 127), Ok(()));
+    assert!(guard_end(&rust, None, Some(&java), 127).is_err());
+}
+
+#[test]
+fn a_decision_guard_with_java_elsewhere_is_a_failure() {
+    let rust = snapshot(false, None, 10, false);
+    let perturbed = java_waiting(127, &snapshot(false, None, 9, false));
+    let failure = deferred_guard_end(&rust, Some(&perturbed), 127).expect_err("life");
+    assert!(failure.contains("life"), "{failure}");
+    let ahead = java_waiting(128, &snapshot(false, None, 10, false));
+    assert!(deferred_guard_end(&rust, Some(&ahead), 127).is_err());
 }
 
 #[test]

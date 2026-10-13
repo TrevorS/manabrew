@@ -114,6 +114,16 @@ struct Run<'a> {
     identity: bool,
 }
 
+fn decision_limit_guard_snapshot(log: &[ParityLogEntry]) -> Option<usize> {
+    let guard = log.iter().position(|entry| {
+        matches!(entry, ParityLogEntry::Decision(d)
+            if d.kind == "$PARITY_GUARD" && d.choice.contains("decision limit"))
+    })?;
+    log[..guard]
+        .iter()
+        .rposition(|entry| matches!(entry, ParityLogEntry::Snapshot(_)))
+}
+
 fn normalized(log: &[ParityLogEntry]) -> Vec<Value> {
     log.iter()
         .map(|entry| {
@@ -328,8 +338,12 @@ fn play(run: &Run, slot: &mut Option<ForgeJvm>, game: &Game) -> (Record, f64) {
             run.data,
         )
         .expect("parity run");
-        let want = normalized(&reference.log);
-        let got = normalized(&outcome.rust_log);
+        let mut want = normalized(&reference.log);
+        let mut got = normalized(&outcome.rust_log);
+        if let Some(guard) = decision_limit_guard_snapshot(&reference.log) {
+            want.truncate(guard);
+            got.truncate(guard.min(got.len()));
+        }
         let first_diff = want
             .iter()
             .zip(&got)

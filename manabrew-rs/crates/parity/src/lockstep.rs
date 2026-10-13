@@ -24,8 +24,10 @@ use serde_json::Value;
 use crate::deterministic_agent::VerboseMode;
 use crate::java_random::{DrawTape, JavaGameRng, JavaRandom};
 use crate::parity_card_map::ParityCardMap;
-use crate::protocol::{ParityLogEntry, StateSnapshot};
-use crate::runner::{CapturingAgent, LoadedData};
+use crate::protocol::{DecisionRecord, ParityLogEntry, StateSnapshot};
+use crate::runner::{
+    CapturingAgent, LoadedData, DECISION_GUARD_BACKSTOP, DECISION_GUARD_THRESHOLD,
+};
 use crate::utils::decks::build_deck_from_templates;
 
 const READY_TIMEOUT: Duration = Duration::from_secs(300);
@@ -242,7 +244,12 @@ impl Link {
 
 struct SeatTape {
     link: Rc<RefCell<Link>>,
+    decisions: Arc<AtomicU32>,
 }
+
+struct DecisionGuardStop;
+
+const DEFERRED_DECISION_GUARD: &str = "stopped at rust's next draw";
 
 impl DrawTape for SeatTape {
     fn counts(&self) -> (u64, u64) {
@@ -251,6 +258,9 @@ impl DrawTape for SeatTape {
     }
 
     fn draw(&mut self, bound: i32) -> i32 {
+        if self.decisions.load(Ordering::Relaxed) > DECISION_GUARD_THRESHOLD {
+            resume_unwind(Box::new(DecisionGuardStop));
+        }
         let mut link = self.link.borrow_mut();
         let value = link.shared.next_int(bound);
         let line = format!("{{\"t\":\"d\",\"b\":{bound},\"v\":{value},\"f\":1}}");
@@ -526,6 +536,7 @@ impl SeatParts {
                     false,
                     Arc::clone(abort),
                     Arc::clone(&self.decisions),
+                    DECISION_GUARD_THRESHOLD + DECISION_GUARD_BACKSTOP,
                 )) as Box<dyn PlayerAgent>
             })
             .collect();
@@ -613,6 +624,19 @@ pub fn state_at_draw(
         }
         _ => None,
     }
+}
+
+pub fn deferred_guard_end(
+    rust: &StateSnapshot,
+    java_end: Option<&Value>,
+    sent: u64,
+) -> Result<(), String> {
+    let java_end = java_end.ok_or("java did not end the game")?;
+    let consumed = java_end["consumed"].as_u64().unwrap_or(0);
+    if consumed != sent {
+        return Err(format!("java consumed {consumed} of rust's {sent} draws"));
+    }
+    runaway_end(rust, java_end)
 }
 
 pub fn guard_unverified(
@@ -777,6 +801,7 @@ pub fn play(
     let (agents, seats) = parts.agents(setup, abort, &game_rng, || {
         Box::new(SeatTape {
             link: Rc::clone(&link),
+            decisions: Arc::clone(&parts.decisions),
         })
     });
     link.borrow_mut().seats = seats;
@@ -807,6 +832,29 @@ pub fn play(
 
     let mut end = match run {
         Ok(()) => None,
+        Err(panic) if panic.is::<DecisionGuardStop>() => {
+            let mut snapshot =
+                crate::snapshot::snapshot_game(runtime.game(), &runtime.loop_state().mana_pools);
+            snapshot.agent_rng_calls = link.borrow().shared.api_call_count;
+            snapshot.game_rng_calls = game_rng.borrow().api_call_count;
+            let guard = DecisionRecord {
+                turn: snapshot.turn,
+                phase: snapshot.phase.clone(),
+                deciding_player: snapshot.priority_player,
+                kind: "$PARITY_GUARD".to_string(),
+                options: vec![],
+                choice: format!(
+                    "ABORTED: decision limit {DECISION_GUARD_THRESHOLD} reached, {DEFERRED_DECISION_GUARD}"
+                ),
+                timestamp_ms: 0,
+            };
+            let mut log = shared_log.lock().unwrap();
+            log.push(ParityLogEntry::Snapshot(snapshot));
+            log.push(ParityLogEntry::Decision(guard));
+            drop(log);
+            abort.store(true, Ordering::Relaxed);
+            None
+        }
         Err(panic) => match panic.downcast::<Desync>() {
             Ok(found) => Some(*found),
             Err(panic) => {
@@ -871,11 +919,14 @@ pub fn play(
         let java_guard = setup.log.as_deref().and_then(last_logged_snapshot);
         let turns_match = rust.len() == link.borrow().snapshots.len();
         let token_cap = found.detail.contains(TOKEN_CAP_RUNAWAY);
+        let deferred = found.detail.contains(DEFERRED_DECISION_GUARD);
         let compared = rust_guard
             .ok_or_else(|| "rust logged no snapshot at its guard".to_string())
             .and_then(|rust_guard| {
                 if token_cap {
                     token_cap_end(&rust_guard, java_end.as_ref())
+                } else if deferred {
+                    deferred_guard_end(&rust_guard, java_end.as_ref(), link.borrow().sent)
                 } else {
                     guard_end(
                         &rust_guard,

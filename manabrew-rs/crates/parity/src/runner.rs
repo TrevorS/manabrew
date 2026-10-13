@@ -55,7 +55,8 @@ pub fn deck_search_dirs(override_dir: Option<&str>) -> Vec<&str> {
     }
 }
 const CARD_COPY_GUARD_THRESHOLD: usize = 100;
-const DECISION_GUARD_THRESHOLD: u32 = 20_000;
+pub(crate) const DECISION_GUARD_THRESHOLD: u32 = 20_000;
+pub(crate) const DECISION_GUARD_BACKSTOP: u32 = 5_000;
 const RUNAWAY_TOKENS_PER_EFFECT: usize = 100;
 const GAME_WALL_CLOCK_LIMIT_SECS: u64 = 600;
 
@@ -196,6 +197,7 @@ pub(crate) struct CapturingAgent {
     callback_snapshots: bool,
     abort_signal: Arc<AtomicBool>,
     decisions: Arc<AtomicU32>,
+    decision_limit: u32,
     current_turn: u32,
     current_phase: String,
     pending_turn_snapshot: Option<crate::protocol::StateSnapshot>,
@@ -227,6 +229,7 @@ impl CapturingAgent {
         callback_snapshots: bool,
         abort_signal: Arc<AtomicBool>,
         decisions: Arc<AtomicU32>,
+        decision_limit: u32,
     ) -> Self {
         let observer = Arc::new(ParityObserver::new(
             Arc::clone(&shared_log),
@@ -254,6 +257,7 @@ impl CapturingAgent {
             callback_snapshots,
             abort_signal,
             decisions,
+            decision_limit,
             current_turn: 0,
             current_phase: "Unknown".to_string(),
             pending_turn_snapshot: None,
@@ -367,12 +371,12 @@ impl CapturingAgent {
     }
 
     fn stop_if_decision_guard_tripped(&self, game: &GameState) {
-        if self.decisions.fetch_add(1, Ordering::Relaxed) < DECISION_GUARD_THRESHOLD {
+        if self.decisions.fetch_add(1, Ordering::Relaxed) < self.decision_limit {
             return;
         }
         self.stop_at_guard(
             game,
-            &format!("decision limit {DECISION_GUARD_THRESHOLD} reached"),
+            &format!("decision limit {} reached", self.decision_limit),
         );
     }
 
@@ -1524,6 +1528,7 @@ pub fn run_with_data_streaming(
             false,
             Arc::clone(&abort_signal),
             Arc::clone(&decisions),
+            DECISION_GUARD_THRESHOLD,
         )),
         Box::new(CapturingAgent::new(
             p1,
@@ -1542,6 +1547,7 @@ pub fn run_with_data_streaming(
             false,
             Arc::clone(&abort_signal),
             Arc::clone(&decisions),
+            DECISION_GUARD_THRESHOLD,
         )),
     ];
 
