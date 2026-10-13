@@ -724,6 +724,7 @@ impl GameState {
         }
         if leaves_as_new_object {
             self.card_mut(card_id).cast_from = None;
+            self.card_mut(card_id).cast_sa = None;
             self.card_mut(card_id).chosen_charm_modes.clear();
         }
         if dest_zone != ZoneType::Battlefield && !(src_zone == dest_zone && dest_zone.is_hidden()) {

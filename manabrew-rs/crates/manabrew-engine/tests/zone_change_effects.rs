@@ -2343,3 +2343,20 @@ fn an_animated_land_that_left_counts_as_the_creature_it_was() {
     let p1p1 = manabrew_engine::card::counter_type::parse_counter_type("P1P1");
     assert_eq!(game.card(cat).counter_count(&p1p1), 1);
 }
+
+const X_SORCERY: &str = "Name:X Sorcery\nManaCost:X B\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:";
+
+#[test]
+fn a_resolved_x_spell_card_has_no_x_once_it_leaves_the_stack() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let card = put(&mut game, X_SORCERY, p0, ZoneType::Stack);
+    let mut cast = SpellAbility::new_simple(Some(card), p0, "SP$ Draw | NumCards$ 1");
+    cast.x_mana_cost_paid = 1;
+    game.card_mut(card).cast_sa = Some(Box::new(cast));
+    assert_eq!(game.card(card).get_x_mana_cost_paid(), 1);
+    game.move_card(card, ZoneType::Graveyard, p0);
+    assert_eq!(game.card(card).get_x_mana_cost_paid(), 0);
+    game.move_card(card, ZoneType::Exile, p0);
+    assert_eq!(game.card(card).get_x_mana_cost_paid(), 0);
+}
