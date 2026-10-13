@@ -329,6 +329,54 @@ fn a_legend_returned_during_state_checks_does_not_see_its_twin_die_to_the_legend
     assert_eq!(game.player(p1).life, 21);
 }
 
+const DIES_ALL_WATCHER: &str = "Name:Dies All Watcher\nManaCost:2\nTypes:Artifact\nT:Mode$ ChangesZoneAll | TriggerZones$ Battlefield | ValidCards$ Creature | Origin$ Battlefield | Destination$ Graveyard | Execute$ TrigGain | TriggerDescription$ Whenever one or more creatures die, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
+const LONE_LEGEND: &str =
+    "Name:Lone Legend\nManaCost:1 W\nTypes:Legendary Creature Human\nPT:1/2\nOracle:";
+
+fn life_after_a_returned_legend_dies_to_the_legend_rule(mirror_forge_bugs: bool) -> i32 {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let (p0, p1) = (PlayerId(0), PlayerId(1));
+    game.mirror_forge_bugs = mirror_forge_bugs;
+    put(&mut game, DIES_ALL_WATCHER, p0, ZoneType::Battlefield);
+    let host = put(&mut game, BEARS, p1, ZoneType::Battlefield);
+    let shelter = put(&mut game, SHELTER, p1, ZoneType::Battlefield);
+    game.card_mut(shelter).attached_to = Some(host);
+    game.card_mut(host).attachments.push(shelter);
+    let legend = put(&mut game, LONE_LEGEND, p0, ZoneType::Battlefield);
+    let twin = put(&mut game, LONE_LEGEND, p0, ZoneType::Exile);
+    game.card_mut(twin).exiled_by = Some(shelter);
+    game.card_mut(twin).until_host_leaves_origin = Some(ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    game.card_mut(host).damage = 2;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(PassAgent), Box::new(PassAgent)];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    assert_eq!(game.card(host).zone, ZoneType::Graveyard);
+    assert_eq!(game.card(legend).zone, ZoneType::Battlefield);
+    assert_eq!(game.card(twin).zone, ZoneType::Graveyard);
+    assert!(game.stack.is_empty());
+    game.player(p0).life
+}
+
+#[test]
+fn a_creature_that_entered_during_the_state_check_is_seen_dying_in_it() {
+    assert_eq!(
+        life_after_a_returned_legend_dies_to_the_legend_rule(false),
+        22
+    );
+}
+
+#[test]
+fn forge_misses_a_creature_dying_in_the_state_check_it_entered_during() {
+    assert_eq!(
+        life_after_a_returned_legend_dies_to_the_legend_rule(true),
+        21
+    );
+}
+
 const FRAIL_SHEPHERD: &str = "Name:Frail Shepherd\nManaCost:1 W\nTypes:Creature Human\nPT:1/1\nS:Mode$ Continuous | Affected$ Creature.Other+YouCtrl | AddToughness$ 1 | Description$ Other creatures you control get +0/+1.\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.Other+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever another creature you control dies, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
 const HOLLOW_SPRITE: &str =
     "Name:Hollow Sprite\nManaCost:1\nTypes:Creature Spirit\nPT:0/0\nOracle:";

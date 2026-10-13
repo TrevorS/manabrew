@@ -21,9 +21,18 @@ pub struct CardZoneTable {
     first_time_token_creators: Vec<PlayerId>,
     last_state_battlefield: Vec<CardId>,
     last_state_graveyard: Vec<CardId>,
+    #[serde(default)]
+    looks_up_last_state: bool,
 }
 
 impl CardZoneTable {
+    pub fn with_last_state_lookup() -> Self {
+        Self {
+            looks_up_last_state: true,
+            ..Self::default()
+        }
+    }
+
     /// Java parity: special put that appends cards to an origin->destination bucket.
     pub fn put(&mut self, origin: Option<ZoneType>, destination: Option<ZoneType>, card: CardId) {
         let from = origin.unwrap_or(ZoneType::None);
@@ -80,6 +89,8 @@ impl CardZoneTable {
         source: CardId,
         source_controller: PlayerId,
     ) -> Vec<CardId> {
+        let skips_cards_missing_from_last_state =
+            self.looks_up_last_state && game.mirror_forge_bugs;
         let mut out = Vec::new();
         for (&(from, to), cards) in &self.data {
             if let Some(origins) = origin {
@@ -92,7 +103,16 @@ impl CardZoneTable {
                     continue;
                 }
             }
-            out.extend(cards.iter().map(|&card| (from, card)));
+            out.extend(
+                cards
+                    .iter()
+                    .filter(|card| {
+                        !skips_cards_missing_from_last_state
+                            || from != ZoneType::Battlefield
+                            || self.last_state_battlefield.contains(card)
+                    })
+                    .map(|&card| (from, card)),
+            );
         }
         if let Some(filter) = valid {
             out.retain(|&(from, cid)| {
@@ -154,6 +174,7 @@ impl CardZoneTable {
         Self {
             last_state_battlefield: self.last_state_battlefield.clone(),
             last_state_graveyard: self.last_state_graveyard.clone(),
+            looks_up_last_state: self.looks_up_last_state,
             ..Self::default()
         }
     }

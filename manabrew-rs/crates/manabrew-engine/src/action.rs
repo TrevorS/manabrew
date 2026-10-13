@@ -2296,7 +2296,7 @@ impl GameState {
             }
             let outer_table = self
                 .pending_change_zone_table
-                .replace(crate::card::card_zone_table::CardZoneTable::default());
+                .replace(crate::card::card_zone_table::CardZoneTable::with_last_state_lookup());
             let outer_last_state = self
                 .replacement_last_state_battlefield
                 .replace(self.pre_sba_battlefield.clone());
