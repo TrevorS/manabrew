@@ -696,6 +696,43 @@ fn a_prepared_copy_exiled_from_the_stack_stays_in_exile_only_as_forge_mirrors_it
     assert_eq!(countered_prepared_copy_zone(false), ZoneType::None);
 }
 
+fn resolved_prepared_copy_exiled_zone(mirror_forge_bugs: bool) -> ZoneType {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    game.mirror_forge_bugs = mirror_forge_bugs;
+    let p0 = PlayerId(0);
+    let rules = parse_card_script(PREPARING_SCHOLAR).expect("script");
+    let mut prepared = CardInstance::from_rules(&rules, p0);
+    prepared.set_is_token(true);
+    prepared.transform();
+    let prepared = game.create_card(prepared);
+    game.move_card(prepared, ZoneType::Exile, p0);
+    game.move_card(prepared, ZoneType::Stack, p0);
+    let mut spell = SpellAbility::new_simple(Some(prepared), p0, "SP$ Draw | NumCards$ 1");
+    spell.is_spell = true;
+    game.stack.push(StackEntry {
+        id: 0,
+        spell_ability: spell,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: Some(ZoneType::Exile),
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    game.stack.resolve_stack();
+    game.move_card(prepared, ZoneType::Exile, p0);
+    game.stack.finish_resolving();
+    game.check_state_based_actions();
+    game.card(prepared).zone
+}
+
+#[test]
+fn a_resolved_prepared_copy_exiled_as_it_leaves_the_stack_ceases_to_exist() {
+    assert_eq!(resolved_prepared_copy_exiled_zone(true), ZoneType::None);
+    assert_eq!(resolved_prepared_copy_exiled_zone(false), ZoneType::None);
+}
+
 #[test]
 fn a_targeted_copy_of_a_spell_exiled_from_the_stack_does_not_resolve() {
     let mut game = GameState::new(&["Alice", "Bob"], 20);

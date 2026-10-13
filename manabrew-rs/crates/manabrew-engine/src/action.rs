@@ -650,7 +650,8 @@ impl GameState {
         let keeps_prepared_state = self.mirror_forge_bugs
             && src_zone == ZoneType::Stack
             && dest_zone == ZoneType::Exile
-            && self.cards[card_id.index()].is_in_prepared_spell_state();
+            && self.cards[card_id.index()].is_in_prepared_spell_state()
+            && self.stack.cur_resolving_card() != Some(card_id);
         if is_token
             && dest_zone != ZoneType::Battlefield
             && dest_zone != ZoneType::Stack
