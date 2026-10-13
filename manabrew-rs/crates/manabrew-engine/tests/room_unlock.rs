@@ -216,6 +216,16 @@ fn a_room_has_the_mana_value_of_its_unlocked_doors() {
 }
 
 #[test]
+fn a_face_down_room_has_mana_value_zero() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    for zone in [ZoneType::Battlefield, ZoneType::Exile] {
+        let room = room_in(&mut game, zone);
+        game.card_mut(room).turn_face_down();
+        assert_eq!(game.card(room).mana_value(), 0);
+    }
+}
+
+#[test]
 fn a_room_door_cast_has_that_doors_mana_value_on_the_stack() {
     let mut game = GameState::new(&["Alice", "Bob"], 20);
     let left = room_in(&mut game, ZoneType::Stack);

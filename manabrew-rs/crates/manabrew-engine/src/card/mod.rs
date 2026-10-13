@@ -5569,10 +5569,13 @@ impl Card {
         if let Some(state) = self.lki_state_name {
             return state;
         }
+        if self.face_down {
+            return CardStateName::FaceDown;
+        }
         match &self.other_part {
             Some(other) if self.is_transformed => other.state_name,
             Some(other) if other.state_name == CardStateName::RightSplit => match self.zone {
-                ZoneType::Battlefield if self.type_line.has_subtype("Room") && !self.face_down => {
+                ZoneType::Battlefield if self.type_line.has_subtype("Room") => {
                     match (
                         self.room_door_unlocked(CardStateName::LeftSplit),
                         self.room_door_unlocked(CardStateName::RightSplit),
