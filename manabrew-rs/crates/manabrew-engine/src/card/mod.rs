@@ -4946,7 +4946,12 @@ impl Card {
                 .as_ref()
                 .is_some_and(|other| other.state_name == CardStateName::RightSplit)
         {
-            return &self.full_name;
+            let mut halves = self.full_name.split(" // ");
+            return match self.get_current_state_name() {
+                CardStateName::LeftSplit => halves.next().unwrap_or_default(),
+                CardStateName::RightSplit => halves.nth(1).unwrap_or_default(),
+                _ => &self.full_name,
+            };
         }
         &self.card_name
     }

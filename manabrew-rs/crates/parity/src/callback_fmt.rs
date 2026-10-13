@@ -53,19 +53,7 @@ impl<'a> FmtCtx<'a> {
             (None, Some(event_game)) => (event_game.card(cid), true),
             _ => (self.game.card(cid), false),
         };
-        // Java logs Card.getName(): off the battlefield a split card's current state is
-        // Original, whose name is the combined "A // B".
-        let split_off_battlefield = card.zone != forge_foundation::ZoneType::Battlefield
-            && card.other_part.as_ref().is_some_and(|other| {
-                other.state_name == forge_foundation::CardStateName::RightSplit
-            });
-        let name = if card.face_down {
-            ""
-        } else if split_off_battlefield {
-            card.full_name.as_str()
-        } else {
-            card.card_name.as_str()
-        };
+        let name = if card.face_down { "" } else { card.get_name() };
         if made_during_event {
             return match self.parity_map.peek(cid) {
                 Some(id) => format!("{name}@{id}"),

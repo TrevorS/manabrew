@@ -260,3 +260,24 @@ fn a_room_cast_from_the_graveyard_through_a_grant_offers_both_doors() {
         1
     );
 }
+
+#[test]
+fn a_room_door_cast_is_named_for_that_door_on_the_stack() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let room = room_in(&mut game, ZoneType::Hand);
+    assert_eq!(game.card(room).get_name(), "Quiet Annex // Loud Chamber");
+    game.move_card(room, ZoneType::Stack, PlayerId(0));
+    assert_eq!(game.card(room).get_name(), "Quiet Annex");
+    game.move_card(room, ZoneType::Hand, PlayerId(0));
+    for _ in 0..2 {
+        game.card_mut(room).transform();
+        game.move_card(room, ZoneType::Stack, PlayerId(0));
+        assert_eq!(game.card(room).get_name(), "Loud Chamber");
+        game.move_card(room, ZoneType::Battlefield, PlayerId(0));
+        game.card_mut(room)
+            .unlock_room_door(CardStateName::RightSplit);
+        game.card_mut(room).update_rooms();
+        game.move_card(room, ZoneType::Hand, PlayerId(0));
+        assert_eq!(game.card(room).get_name(), "Quiet Annex // Loud Chamber");
+    }
+}
