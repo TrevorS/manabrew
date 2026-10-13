@@ -2052,7 +2052,8 @@ impl GameLoop {
                             player,
                             ZoneType::Graveyard,
                         );
-                        if accepting_may_play_grants(card_id, &sneak_sa) > 0
+                        let sneak_grants = accepting_may_play_grants(card_id, &sneak_sa);
+                        if sneak_grants > 0
                             && self
                                 .available_mana_for_spell_card(
                                     game,
@@ -2065,13 +2066,15 @@ impl GameLoop {
                                         .apply(&forge_foundation::ManaCost::parse(&sneak_cost)),
                                 )
                         {
-                            playable.push(crate::agent::PlayOption {
-                                card_id,
-                                mode: crate::agent::PlayCardMode::Alternative(
-                                    crate::spellability::AlternativeCost::Sneak,
-                                ),
-                                alt_cost_index: 0,
-                            });
+                            for grant in 0..sneak_grants {
+                                playable.push(crate::agent::PlayOption {
+                                    card_id,
+                                    mode: crate::agent::PlayCardMode::Alternative(
+                                        crate::spellability::AlternativeCost::Sneak,
+                                    ),
+                                    alt_cost_index: grant as u8,
+                                });
+                            }
                         }
                     }
                     continue;
@@ -2394,7 +2397,8 @@ impl GameLoop {
                         player,
                         ZoneType::Exile,
                     );
-                    if accepting_may_play_grants(card_id, &sneak_sa) > 0
+                    let sneak_grants = accepting_may_play_grants(card_id, &sneak_sa);
+                    if sneak_grants > 0
                         && self
                             .available_mana_for_spell_card(
                                 game,
@@ -2406,13 +2410,15 @@ impl GameLoop {
                                 &cost_adj.apply(&forge_foundation::ManaCost::parse(&sneak_cost)),
                             )
                     {
-                        playable.push(crate::agent::PlayOption {
-                            card_id,
-                            mode: crate::agent::PlayCardMode::Alternative(
-                                crate::spellability::AlternativeCost::Sneak,
-                            ),
-                            alt_cost_index: 0,
-                        });
+                        for grant in 0..sneak_grants {
+                            playable.push(crate::agent::PlayOption {
+                                card_id,
+                                mode: crate::agent::PlayCardMode::Alternative(
+                                    crate::spellability::AlternativeCost::Sneak,
+                                ),
+                                alt_cost_index: grant as u8,
+                            });
+                        }
                     }
                 }
                 if must_be_instant && !has_flash_permission(card_id) {
@@ -3546,6 +3552,49 @@ mod tests {
             stolen_face_down_modal_modes(ComputerUtilMana),
             vec![Secondary, Normal]
         );
+    }
+
+    const TWICE_FED_SNEAK: &str = "Name:Twice Fed Sneak\nManaCost:2 W\nTypes:Creature Turtle Ninja\nPT:2/2\nK:Sneak:W\nS:Mode$ Continuous | Affected$ Card.Self+nonLand | AffectedZone$ Graveyard | EffectZone$ Graveyard | MayPlay$ True | Description$ You may play this card from your graveyard.\nS:Mode$ Continuous | Affected$ Card.Self+nonLand | AffectedZone$ Graveyard | EffectZone$ Graveyard | MayPlay$ True | Description$ You may play this card from your graveyard.\nOracle:";
+    const WHITE_SPRING: &str = "Name:White Spring\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ W | SpellDescription$ Add {W}.\nOracle:";
+    const PLAIN_BEAR: &str = "Name:Plain Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:";
+
+    #[test]
+    fn a_graveyard_sneak_is_offered_once_for_each_grant_that_lets_it_be_cast() {
+        let (p0, p1) = (PlayerId(0), PlayerId(1));
+        let mut game = GameState::new(&["Alice", "Bob"], 20);
+        game.turn.active_player = p0;
+        game.turn.priority_player = p0;
+        game.turn.phase = forge_foundation::PhaseType::CombatDeclareBlockers;
+        let mut put = |script: &str, zone: ZoneType| {
+            let rules = forge_carddb::parse_card_script(script).expect("script");
+            let card = game.create_card(Card::from_rules(&rules, p0));
+            game.move_card(card, zone, p0);
+            card
+        };
+        let sneak = put(TWICE_FED_SNEAK, ZoneType::Graveyard);
+        put(WHITE_SPRING, ZoneType::Battlefield);
+        let attacker = put(PLAIN_BEAR, ZoneType::Battlefield);
+        crate::staticability::layer::apply_continuous_effects(&mut game);
+        let mut game_loop = GameLoop::new(2);
+        let timestamp = game.card(attacker).zone_timestamp;
+        game_loop
+            .combat
+            .add_attacker(attacker, crate::combat::DefenderId::Player(p1), timestamp);
+
+        let sneaks: Vec<u8> = game_loop
+            .get_playable_cards(&game, p0, true)
+            .into_iter()
+            .filter(|option| {
+                option.card_id == sneak
+                    && option.mode
+                        == crate::agent::PlayCardMode::Alternative(
+                            crate::spellability::AlternativeCost::Sneak,
+                        )
+            })
+            .map(|option| option.alt_cost_index)
+            .collect();
+
+        assert_eq!(sneaks, vec![0, 1]);
     }
 
     #[test]
