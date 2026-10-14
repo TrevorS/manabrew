@@ -168,7 +168,75 @@ pub fn get_proto_type(sa: &SpellAbility, original: &Card, new_owner: crate::ids:
         copy.set_mana_cost(forge_foundation::mana::ManaCost::no_cost());
     }
 
+    if let Some(other) = copy.other_part.as_mut() {
+        apply_copy_exceptions_to_other_face(sa, other);
+    }
+
     copy
+}
+
+/// Java `CardFactory.getCloneStates` applies the copy's exceptions to every state it copies.
+fn apply_copy_exceptions_to_other_face(sa: &SpellAbility, other: &mut crate::card::CardOtherPart) {
+    if let Some(set_color) = sa.ir.set_color.as_deref() {
+        other.color = set_color
+            .split(',')
+            .map(ColorSet::from_names)
+            .fold(ColorSet::COLORLESS, ColorSet::union);
+    }
+    if crate::parsing::raw_has_key(&sa.ability_text, "NonLegendary") {
+        other
+            .type_line
+            .supertypes
+            .retain(|st| !st.name().eq_ignore_ascii_case("Legendary"));
+    }
+    if let Some(add_types) = sa.ir.add_types.as_deref() {
+        for t in add_types
+            .split(" & ")
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+        {
+            other.type_line.add_type(t);
+        }
+        crate::staticability::layer::sanitize_subtypes(&mut other.type_line);
+    }
+    if let Some(creature_types) = sa.ir.set_creature_types.as_deref() {
+        crate::card::card_state::set_creature_types_of(&mut other.type_line, creature_types);
+    }
+    if other.type_line.is_creature() || other.base_power.is_some() {
+        if let Some(p) = sa
+            .ir
+            .set_power
+            .as_deref()
+            .and_then(|value| value.parse().ok())
+        {
+            other.base_power = Some(p);
+        }
+        if let Some(t) = sa
+            .ir
+            .set_toughness
+            .as_deref()
+            .and_then(|value| value.parse().ok())
+        {
+            other.base_toughness = Some(t);
+        }
+    }
+    if let Some(add_kws) = sa.ir.add_keywords.as_deref() {
+        for kw in add_kws
+            .split(" & ")
+            .map(str::trim)
+            .filter(|kw| !kw.is_empty())
+        {
+            other.keywords.add(kw);
+        }
+    }
+    if sa
+        .ir
+        .set_mana_cost
+        .as_deref()
+        .is_some_and(|v| v == "0" || v.is_empty())
+    {
+        other.mana_cost = forge_foundation::mana::ManaCost::no_cost();
+    }
 }
 
 fn resolve_copy_controllers(ctx: &EffectContext, sa: &SpellAbility) -> Vec<crate::ids::PlayerId> {

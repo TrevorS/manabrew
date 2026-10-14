@@ -567,3 +567,26 @@ fn a_copy_of_a_transformed_card_keeps_the_face_it_copied_after_the_original_turn
     );
     assert!(sa.ability_text.contains("Cost$ U"), "{}", sa.ability_text);
 }
+
+const DAY_SHIFTER: &str = "Name:Day Shifter\nManaCost:1 G\nTypes:Creature Human\nPT:2/2\nAlternateMode:DoubleFaced\nOracle:\n\nALTERNATE\n\nName:Night Shifter\nManaCost:no cost\nTypes:Creature Wolf\nPT:4/4\nOracle:";
+
+#[test]
+fn a_token_copy_of_a_transforming_card_keeps_its_added_type_on_the_back_face() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let shifter = put(&mut game, DAY_SHIFTER, p0, ZoneType::Graveyard);
+    let sa = SpellAbility::new_simple(
+        None,
+        p0,
+        "DB$ CopyPermanent | Defined$ Remembered | AddTypes$ Nightmare",
+    );
+    let mut copy = manabrew_engine::ability::effects::copy_permanent_effect::get_proto_type(
+        &sa,
+        game.card(shifter),
+        p0,
+    );
+    assert!(copy.type_line.has_subtype("Nightmare"));
+    copy.transform();
+    assert_eq!(copy.card_name, "Night Shifter");
+    assert!(copy.type_line.has_subtype("Nightmare"));
+}

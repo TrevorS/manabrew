@@ -582,7 +582,10 @@ pub fn add_type(card: &mut Card, ty: &str) {
 }
 
 pub fn set_creature_types(card: &mut Card, creature_types: &str) -> bool {
-    let type_line = &mut card.state_type_line;
+    set_creature_types_of(&mut card.state_type_line, creature_types)
+}
+
+pub fn set_creature_types_of(type_line: &mut CardTypeLine, creature_types: &str) -> bool {
     if !type_line.is_creature() && !type_line.core_types.contains(&CoreType::Kindred) {
         return false;
     }
