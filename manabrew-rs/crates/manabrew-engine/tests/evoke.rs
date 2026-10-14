@@ -31,6 +31,8 @@ const ZERO_WALL: &str =
 const BIG_BEAST: &str = "Name:Big Beast\nManaCost:4 G\nTypes:Creature Beast\nPT:5/5\nOracle:";
 const PLAINS: &str = "Name:Plains\nManaCost:no cost\nTypes:Basic Land Plains\nOracle:";
 const BLINK_LIGHT: &str = "Name:Blink Light\nManaCost:W\nTypes:Instant\nA:SP$ ChangeZone | ValidTgts$ Creature.YouCtrl | Origin$ Battlefield | Destination$ Exile | RememberTargets$ True | SubAbility$ DBReturn | SpellDescription$ Exile target creature you control, then return that card to the battlefield under its owner's control.\nSVar:DBReturn:DB$ ChangeZone | Defined$ Remembered | Origin$ Exile | Destination$ Battlefield | SubAbility$ DBCleanup\nSVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\nOracle:";
+const FLASHBACK_GIFT: &str = "Name:Flashback Gift\nManaCost:W\nTypes:Sorcery\nK:Flashback:W\nA:SP$ GainLife | LifeAmount$ 1 | SpellDescription$ You gain 1 life.\nOracle:";
+const GRAVE_LEAVE_WATCHER: &str = "Name:Grave Leave Watcher\nManaCost:R W\nTypes:Creature Bird\nPT:2/1\nT:Mode$ ChangesZoneAll | ValidCards$ Card.YouOwn | Origin$ Graveyard | Destination$ Any | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever one or more cards leave your graveyard, you gain 3 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 3 | Defined$ You\nOracle:";
 const EVOKE_GRANTER: &str = "Name:Evoke Granter\nManaCost:2 R\nTypes:Creature Elemental\nPT:2/2\nS:Mode$ Continuous | Affected$ Permanent.Elemental+YouOwn | AffectedZone$ Hand | AddKeyword$ Evoke:2 | Description$ Elemental permanent spells you cast from your hand have evoke {2}.\nOracle:";
 
 #[derive(Default)]
@@ -499,4 +501,62 @@ fn an_evoked_creature_blinked_in_response_to_its_sacrifice_stays() {
     assert!(seen.borrow().blinked);
     assert_eq!(game.card(sprite).zone, ZoneType::Battlefield);
     assert_eq!(game.players[0].life, 22);
+}
+
+fn flash_back_beside_a_graveyard_watcher(
+    mirror_forge_bugs: bool,
+    watcher_in_last_state: bool,
+) -> (ZoneType, i32) {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    game.mirror_forge_bugs = mirror_forge_bugs;
+    let p0 = PlayerId(0);
+    let gift = put(&mut game, FLASHBACK_GIFT, p0, ZoneType::Graveyard);
+    put(&mut game, PLAINS, p0, ZoneType::Battlefield);
+    if watcher_in_last_state {
+        put(&mut game, GRAVE_LEAVE_WATCHER, p0, ZoneType::Battlefield);
+        game.copy_forge_last_state_battlefield();
+    } else {
+        game.copy_forge_last_state_battlefield();
+        put(&mut game, GRAVE_LEAVE_WATCHER, p0, ZoneType::Battlefield);
+    }
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(Seen::default()));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(EvokeOnce {
+            seen: Rc::clone(&seen),
+            alt_cost: AlternativeCost::Flashback,
+            alt_cost_index: 0,
+            blink_on_sacrifice: false,
+        }),
+        Box::new(PassAgent),
+    ];
+    let mut game_loop = GameLoop::new(2);
+    game_loop.step_with_priority(&mut game, &mut agents, true);
+    game_loop.resolve_stack(&mut game, &mut agents);
+    assert!(seen.borrow().cast);
+    (game.card(gift).zone, game.players[0].life)
+}
+
+#[test]
+fn a_card_cast_from_the_graveyard_leaves_it() {
+    for mirror_forge_bugs in [false, true] {
+        assert_eq!(
+            flash_back_beside_a_graveyard_watcher(mirror_forge_bugs, true),
+            (ZoneType::Exile, 24)
+        );
+    }
+}
+
+#[test]
+fn a_graveyard_cast_is_not_seen_by_a_watcher_newer_than_forges_last_state() {
+    assert_eq!(
+        flash_back_beside_a_graveyard_watcher(false, false),
+        (ZoneType::Exile, 24)
+    );
+    assert_eq!(
+        flash_back_beside_a_graveyard_watcher(true, false),
+        (ZoneType::Exile, 21)
+    );
 }

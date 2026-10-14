@@ -23,12 +23,22 @@ pub struct CardZoneTable {
     last_state_graveyard: Vec<CardId>,
     #[serde(default)]
     looks_up_last_state: bool,
+    #[serde(default)]
+    keeps_last_state_battlefield: bool,
 }
 
 impl CardZoneTable {
     pub fn with_last_state_lookup() -> Self {
         Self {
             looks_up_last_state: true,
+            ..Self::default()
+        }
+    }
+
+    pub fn with_last_state_battlefield(last_state_battlefield: Vec<CardId>) -> Self {
+        Self {
+            last_state_battlefield,
+            keeps_last_state_battlefield: true,
             ..Self::default()
         }
     }
@@ -175,6 +185,7 @@ impl CardZoneTable {
             last_state_battlefield: self.last_state_battlefield.clone(),
             last_state_graveyard: self.last_state_graveyard.clone(),
             looks_up_last_state: self.looks_up_last_state,
+            keeps_last_state_battlefield: self.keeps_last_state_battlefield,
             ..Self::default()
         }
     }
@@ -185,7 +196,9 @@ impl CardZoneTable {
 
     fn with_last_state(&self, game: &GameState) -> Self {
         let mut table = self.clone();
-        table.last_state_battlefield = game.pre_sba_battlefield.clone();
+        if !self.keeps_last_state_battlefield {
+            table.last_state_battlefield = game.pre_sba_battlefield.clone();
+        }
         table.last_state_graveyard = game.cards_in_all_zones(ZoneType::Graveyard).collect();
         table
     }

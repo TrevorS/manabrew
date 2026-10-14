@@ -354,6 +354,9 @@ impl GameLoop {
                     }
 
                     let origin_zone = game.card_current_zone(play.card_id);
+                    let forge_last_state = game
+                        .mirror_forge_bugs
+                        .then(|| game.forge_last_state_battlefield.clone());
                     let played =
                         self.with_shared_state_mutation(game, agents, |this, game, agents| {
                             this.play_card_option(game, agents, priority_player, play)
@@ -382,8 +385,14 @@ impl GameLoop {
                         self.with_shared_state_mutation(game, agents, |this, game, _agents| {
                             let current_zone = game.card_current_zone(played_id);
                             if current_zone != origin_zone {
-                                let mut trigger_list =
-                                    crate::card::card_zone_table::CardZoneTable::default();
+                                // FORGE BUG: Java's table takes `getLastStateBattlefield()` before
+                                // the play (PhaseHandler.java:1077), which only `copyLastState`
+                                // refreshes, so a look-back trigger misses a host that entered
+                                // since.
+                                let mut trigger_list = forge_last_state.map_or_else(
+                                    crate::card::card_zone_table::CardZoneTable::default,
+                                    crate::card::card_zone_table::CardZoneTable::with_last_state_battlefield,
+                                );
                                 trigger_list.put(Some(origin_zone), Some(current_zone), played_id);
                                 trigger_list.trigger_changes_zone_all(
                                     &mut this.trigger_handler,
