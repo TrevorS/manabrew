@@ -4945,11 +4945,7 @@ fn score_mana_ability(
         if mana_text == "Any" {
             score += 7;
         } else {
-            let tokens = mana_text
-                .split_whitespace()
-                .filter(|t| !t.is_empty())
-                .count();
-            score += tokens.max(1) as i32;
+            score += mana_text.len().max(1) as i32;
             if !mana_text.contains('C') {
                 score += 1;
             }

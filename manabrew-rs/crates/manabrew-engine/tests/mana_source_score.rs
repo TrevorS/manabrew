@@ -78,3 +78,52 @@ fn colorless_mana_pays_a_coloured_shard_when_mana_can_be_spent_as_any_colour() {
     assert!(!game.card(courtyard).tapped);
     assert_eq!(pool.total_mana(), 1);
 }
+
+const LUTE: &str = "Name:Resonating Lute\nManaCost:2 U R\nTypes:Artifact\nS:Mode$ Continuous | Affected$ Land.YouCtrl | AddAbility$ AnyMana | Description$ Lands you control have \"{T}: Add two mana of any one color. Spend this mana only to cast instant and sorcery spells.\"\nSVar:AnyMana:AB$ Mana | Cost$ T | Produced$ Any | Amount$ 2 | RestrictValid$ Spell.Instant,Spell.Sorcery | SpellDescription$ Add two mana of any one color. Spend this mana only to cast instant and sorcery spells.\nOracle:";
+const VERGE: &str = "Name:Riverpyre Verge\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ R | SpellDescription$ Add {R}.\nA:AB$ Mana | Cost$ T | Produced$ U | IsPresent$ Island.YouCtrl,Mountain.YouCtrl | SpellDescription$ Add {U}. Activate only if you control an Island or a Mountain.\nOracle:";
+const MONASTERY: &str = "Name:Mystic Monastery\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo U R W | SpellDescription$ Add {U}, {R}, or {W}.\nOracle:";
+const OUTPOST: &str = "Name:Nomad Outpost\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo R W B | SpellDescription$ Add {R}, {W}, or {B}.\nOracle:";
+const ISLAND: &str = "Name:Island\nManaCost:no cost\nTypes:Basic Land Island\nOracle:";
+const STOCK_UP: &str = "Name:Stock Up\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 2 | SpellDescription$ Draw two cards.\nOracle:";
+
+fn lute_pays_a_sorcery(other_land: &str, with_island: bool) -> bool {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    game.action_space_mana_probe = ActionSpaceManaProbe::ComputerUtilMana;
+    game.mirror_forge_bugs = true;
+    put(&mut game, LUTE, ZoneType::Battlefield);
+    put(&mut game, other_land, ZoneType::Battlefield);
+    put(&mut game, VERGE, ZoneType::Battlefield);
+    if with_island {
+        let island = put(&mut game, ISLAND, ZoneType::Battlefield);
+        game.card_mut(island).tapped = true;
+    }
+    let sorcery = put(&mut game, STOCK_UP, ZoneType::Hand);
+    manabrew_engine::staticability::layer::apply_continuous_effects(&mut game);
+    can_pay_spell_mana_cost_for_action_space(
+        &game,
+        &ManaPool::new(),
+        PlayerId(0),
+        sorcery,
+        &ManaCost::parse("2 U"),
+        &ManaPaymentContext {
+            is_spell: true,
+            type_line: Some(game.card(sorcery).type_line.clone()),
+            card_name: Some(game.card(sorcery).card_name.clone()),
+            card_color: Some(game.card(sorcery).color),
+            mana_value: Some(3),
+            host_zone: Some(ZoneType::Hand),
+            ..Default::default()
+        },
+        None,
+    )
+}
+
+#[test]
+fn forge_pays_blue_with_a_granted_two_mana_ability_when_the_land_has_no_blue_of_its_own() {
+    assert!(lute_pays_a_sorcery(MONASTERY, false));
+}
+
+#[test]
+fn forge_taps_a_land_for_its_own_blue_and_misses_its_granted_two_mana() {
+    assert!(!lute_pays_a_sorcery(OUTPOST, true));
+}
