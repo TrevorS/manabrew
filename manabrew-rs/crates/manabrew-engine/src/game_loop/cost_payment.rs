@@ -543,7 +543,8 @@ impl GameLoop {
                                 DecisionContext::new(game, &self.mana_pools),
                                 player,
                                 &eligible,
-                                amount.resolve(game, card_id, player) as usize,
+                                amount.resolve_for_sa(game, card_id, player, sa.as_deref())
+                                    as usize,
                             )
                         };
                         pre_picked_discards.extend(chosen);
@@ -554,7 +555,7 @@ impl GameLoop {
                     amount,
                     ..
                 } if (type_filter == "CARDNAME" || type_filter == "NICKNAME")
-                    && amount.resolve(game, card_id, player) > 0 =>
+                    && amount.resolve_for_sa(game, card_id, player, sa.as_deref()) > 0 =>
                 {
                     if !reserved_sacrifices.contains(&card_id) {
                         reserved_sacrifices.push(card_id);
@@ -615,7 +616,8 @@ impl GameLoop {
                     if !allow_reserved_source_reuse {
                         valid.retain(|cid| !reserved_sacrifices.contains(cid));
                     }
-                    let required = (amount.resolve(game, card_id, player)).max(0) as usize;
+                    let required = (amount.resolve_for_sa(game, card_id, player, sa.as_deref()))
+                        .max(0) as usize;
                     if valid.len() < required {
                         payment_ok = false;
                         break;
@@ -664,7 +666,7 @@ impl GameLoop {
                     if all_or_any {
                         continue;
                     }
-                    let amount_n = amount.resolve(game, card_id, player);
+                    let amount_n = amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     let candidates = if type_filter.eq_ignore_ascii_case("CARDNAME")
                         || type_filter.eq_ignore_ascii_case("NICKNAME")
                     {
@@ -707,7 +709,7 @@ impl GameLoop {
                         player,
                         card_id,
                         type_filter,
-                        amount.resolve(game, card_id, player),
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref()),
                         counter_type.as_ref(),
                         sa.as_deref(),
                     ) {
@@ -1078,7 +1080,7 @@ impl GameLoop {
                         player,
                         card_id,
                         type_filter,
-                        amount.resolve(game, card_id, player),
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref()),
                         sa.as_deref_mut(),
                         Some(&pre_picked_sacrifices),
                         &mut pre_sac_idx,
@@ -1106,7 +1108,7 @@ impl GameLoop {
                         let discard_count = if type_filter == "Hand" {
                             pre_picked_discards.len()
                         } else {
-                            (amount.resolve(game, card_id, player) as usize)
+                            (amount.resolve_for_sa(game, card_id, player, sa.as_deref()) as usize)
                                 .min(pre_picked_discards.len())
                         };
                         let to_discard: Vec<CardId> =
@@ -1130,7 +1132,7 @@ impl GameLoop {
                             player,
                             card_id,
                             type_filter,
-                            amount.resolve(game, card_id, player),
+                            amount.resolve_for_sa(game, card_id, player, sa.as_deref()),
                         );
                         if let Some(sa) = sa.as_deref_mut() {
                             sa.discarded_cost_cards.extend(discarded);
@@ -1150,7 +1152,7 @@ impl GameLoop {
                         player,
                         card_id,
                         type_filter,
-                        amount.resolve(game, card_id, player),
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref()),
                         decided,
                     );
                     Self::report_paid_cost_exiles(game, card_id, exiled_before, sa.as_deref_mut());
@@ -1167,7 +1169,7 @@ impl GameLoop {
                         player,
                         card_id,
                         type_filter,
-                        amount.resolve(game, card_id, player),
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref()),
                     );
                     Self::report_paid_cost_exiles(game, card_id, exiled_before, sa.as_deref_mut());
                 }
@@ -1177,7 +1179,7 @@ impl GameLoop {
                     type_filter,
                     ..
                 } => {
-                    let amount_n = amount.resolve(game, card_id, player);
+                    let amount_n = amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     let target = if type_filter.eq_ignore_ascii_case("CARDNAME")
                         || type_filter.eq_ignore_ascii_case("NICKNAME")
                     {
@@ -1203,7 +1205,7 @@ impl GameLoop {
                     type_filter,
                     ..
                 } => {
-                    let amount_n = amount.resolve(game, card_id, player);
+                    let amount_n = amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     let Some(counter_target) = self.choose_put_counter_target(
                         game,
                         agents,
@@ -1256,7 +1258,7 @@ impl GameLoop {
                             player,
                             card_id,
                             type_filter,
-                            amount.resolve(game, card_id, player),
+                            amount.resolve_for_sa(game, card_id, player, sa.as_deref()),
                             *from,
                             decided,
                         );
@@ -1278,7 +1280,7 @@ impl GameLoop {
                             player,
                             card_id,
                             type_filter,
-                            amount.resolve(game, card_id, player),
+                            amount.resolve_for_sa(game, card_id, player, sa.as_deref()),
                             sa.as_deref(),
                             decided,
                         ) else {
@@ -1307,7 +1309,7 @@ impl GameLoop {
                         player,
                         card_id,
                         type_filter,
-                        amount.resolve(game, card_id, player),
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref()),
                         *min_total_power,
                         *can_tap_source,
                         sa.as_deref_mut(),
@@ -1329,16 +1331,18 @@ impl GameLoop {
                         player,
                         card_id,
                         type_filter,
-                        amount.resolve(game, card_id, player),
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref()),
                         *can_untap_source,
                     );
                 }
                 CostPart::PayEnergy(amount) => {
-                    let resolved_amount = amount.resolve(game, card_id, player);
+                    let resolved_amount =
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     game.player_add_energy(player, -resolved_amount);
                 }
                 CostPart::PayShards(amount) => {
-                    let resolved_amount = amount.resolve(game, card_id, player);
+                    let resolved_amount =
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     game.player_add_shards(player, -resolved_amount);
                 }
                 CostPart::DamageYou(amount) => {
@@ -1346,7 +1350,7 @@ impl GameLoop {
                     damage_map.put(
                         card_id,
                         crate::card::card_damage_map::DamageTarget::Player(player),
-                        amount.resolve(game, card_id, player),
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref()),
                     );
                     let mut runtime = self.replacement_runtime();
                     game.deal_damage(
@@ -1371,7 +1375,7 @@ impl GameLoop {
                     );
                 }
                 CostPart::Mill(amount) => {
-                    for _ in 0..amount.resolve(game, card_id, player) {
+                    for _ in 0..amount.resolve_for_sa(game, card_id, player, sa.as_deref()) {
                         if let Some(top) = game.take_top_card_from_zone(ZoneType::Library, player) {
                             self.move_card_with_runtime(
                                 game,
@@ -1404,7 +1408,8 @@ impl GameLoop {
                     from,
                     ..
                 } => {
-                    let resolved_amount = amount.resolve(game, card_id, player);
+                    let resolved_amount =
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     self.pay_reveal_cost(
                         game,
                         agents,
@@ -1422,7 +1427,8 @@ impl GameLoop {
                     type_filter,
                     ..
                 } => {
-                    let resolved_amount = amount.resolve(game, card_id, player);
+                    let resolved_amount =
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     self.pay_exert_cost(
                         game,
                         agents,
@@ -1435,7 +1441,10 @@ impl GameLoop {
                 CostPart::GainLife(amount) => {
                     // Opponent gains life
                     let opponent = game.opponent_of(player);
-                    game.player_gain_life(opponent, amount.resolve(game, card_id, player));
+                    game.player_gain_life(
+                        opponent,
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref()),
+                    );
                 }
                 CostPart::GainControl {
                     amount,
@@ -1448,7 +1457,7 @@ impl GameLoop {
                         player,
                         card_id,
                         type_filter,
-                        amount.resolve(game, card_id, player),
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref()),
                     );
                 }
                 CostPart::RemoveAnyCounter { .. } => {
@@ -1491,7 +1500,7 @@ impl GameLoop {
                         player,
                         card_id,
                         type_filter,
-                        amount.resolve(game, card_id, player),
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref()),
                     );
                 }
                 CostPart::AddMana { amount, mana_type } => {
@@ -1505,7 +1514,7 @@ impl GameLoop {
                         "C" | "COLORLESS" => ManaAtom::COLORLESS,
                         _ => ManaAtom::COLORLESS,
                     };
-                    for _ in 0..amount.resolve(game, card_id, player) {
+                    for _ in 0..amount.resolve_for_sa(game, card_id, player, sa.as_deref()) {
                         let mut m = crate::mana::Mana::simple(atom);
                         m.source_card = Some(card_id);
                         self.mana_pools[player.index()].add_mana(m);
@@ -1517,7 +1526,7 @@ impl GameLoop {
                         agents,
                         player,
                         card_id,
-                        amount.resolve(game, card_id, player),
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref()),
                         mandatory,
                         context,
                         sa.as_deref_mut(),
@@ -1527,7 +1536,8 @@ impl GameLoop {
                     }
                 }
                 CostPart::ChooseColor(amount) => {
-                    let resolved_amount = amount.resolve(game, card_id, player);
+                    let resolved_amount =
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     let valid_colors = vec![
                         "White".to_string(),
                         "Blue".to_string(),
@@ -1559,7 +1569,8 @@ impl GameLoop {
                     }
                 }
                 CostPart::FlipCoin(amount) => {
-                    let resolved_amount = amount.resolve(game, card_id, player);
+                    let resolved_amount =
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     if !self.pay_flip_coin_cost(
                         game,
                         agents,
@@ -1576,7 +1587,8 @@ impl GameLoop {
                     sides,
                     result_svar,
                 } => {
-                    let resolved_amount = amount.resolve(game, card_id, player);
+                    let resolved_amount =
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     if !self.pay_roll_dice_cost(
                         game,
                         agents,
@@ -1596,7 +1608,8 @@ impl GameLoop {
                     type_filter,
                     ..
                 } => {
-                    let resolved_amount = amount.resolve(game, card_id, player);
+                    let resolved_amount =
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     self.pay_exile_from_stack_cost(
                         game,
                         agents,
@@ -1608,7 +1621,8 @@ impl GameLoop {
                     );
                 }
                 CostPart::CollectEvidence(amount) => {
-                    let resolved_amount = amount.resolve(game, card_id, player);
+                    let resolved_amount =
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     if !self.pay_collect_evidence_cost(
                         game,
                         agents,
@@ -1647,7 +1661,8 @@ impl GameLoop {
                     same_zone,
                     ..
                 } => {
-                    let resolved_amount = amount.resolve(game, card_id, player);
+                    let resolved_amount =
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     if !self.pay_put_card_to_lib_cost(
                         game,
                         agents,
@@ -1668,7 +1683,8 @@ impl GameLoop {
                     type_filter,
                     ..
                 } => {
-                    let resolved_amount = amount.resolve(game, card_id, player);
+                    let resolved_amount =
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     self.pay_enlist_cost(
                         game,
                         agents,
@@ -1706,7 +1722,8 @@ impl GameLoop {
                     exile,
                     ..
                 } => {
-                    let resolved_amount = amount.resolve(game, card_id, player);
+                    let resolved_amount =
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     if !self.pay_behold_cost(
                         game,
                         agents,
@@ -1723,7 +1740,8 @@ impl GameLoop {
                     }
                 }
                 CostPart::Blight(amount) => {
-                    let resolved_amount = amount.resolve(game, card_id, player);
+                    let resolved_amount =
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     self.pay_blight_cost(
                         game,
                         agents,
@@ -1739,7 +1757,8 @@ impl GameLoop {
                     type_filter,
                     ..
                 } => {
-                    let resolved_amount = amount.resolve(game, card_id, player);
+                    let resolved_amount =
+                        amount.resolve_for_sa(game, card_id, player, sa.as_deref());
                     if !self.pay_exile_ctrl_or_grave_cost(
                         game,
                         agents,
