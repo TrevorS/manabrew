@@ -299,6 +299,10 @@ impl crate::game::GameState {
         }
     }
 
+    pub fn host_object_is_live(&self, card_id: CardId, sa: &SpellAbility) -> bool {
+        host_object_timestamp(self.card(card_id), sa).is_none()
+    }
+
     pub fn host_object_mut(&mut self, card_id: CardId, sa: &SpellAbility) -> &mut Card {
         let Some(zone_timestamp) = host_object_timestamp(self.card(card_id), sa) else {
             return self.card_mut(card_id);

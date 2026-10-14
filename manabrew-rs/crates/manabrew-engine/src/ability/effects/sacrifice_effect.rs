@@ -324,7 +324,8 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             return;
         };
         let activator = sa.activating_player;
-        if ctx.game.card(host).controller == activator
+        if ctx.game.host_object_is_live(host, sa)
+            && ctx.game.card(host).controller == activator
             && ctx.game.card(host).zone == ZoneType::Battlefield
             && (!optional
                 || ctx.agents[activator.index()].confirm_action(

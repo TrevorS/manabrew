@@ -29,6 +29,8 @@ const GRAVE_TAX: &str = "Name:Grave Tax\nManaCost:1 W W\nTypes:Creature Bird\nPT
 const ZERO_WALL: &str =
     "Name:Zero Wall\nManaCost:1 W\nTypes:Creature Wall\nPT:0/3\nK:Defender\nOracle:";
 const BIG_BEAST: &str = "Name:Big Beast\nManaCost:4 G\nTypes:Creature Beast\nPT:5/5\nOracle:";
+const PLAINS: &str = "Name:Plains\nManaCost:no cost\nTypes:Basic Land Plains\nOracle:";
+const BLINK_LIGHT: &str = "Name:Blink Light\nManaCost:W\nTypes:Instant\nA:SP$ ChangeZone | ValidTgts$ Creature.YouCtrl | Origin$ Battlefield | Destination$ Exile | RememberTargets$ True | SubAbility$ DBReturn | SpellDescription$ Exile target creature you control, then return that card to the battlefield under its owner's control.\nSVar:DBReturn:DB$ ChangeZone | Defined$ Remembered | Origin$ Exile | Destination$ Battlefield | SubAbility$ DBCleanup\nSVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\nOracle:";
 const EVOKE_GRANTER: &str = "Name:Evoke Granter\nManaCost:2 R\nTypes:Creature Elemental\nPT:2/2\nS:Mode$ Continuous | Affected$ Permanent.Elemental+YouOwn | AffectedZone$ Hand | AddKeyword$ Evoke:2 | Description$ Elemental permanent spells you cast from your hand have evoke {2}.\nOracle:";
 
 #[derive(Default)]
@@ -36,12 +38,14 @@ struct Seen {
     cast: bool,
     sacrifice_triggers: usize,
     sacrifice_on_top: bool,
+    blinked: bool,
 }
 
 struct EvokeOnce {
     seen: Rc<RefCell<Seen>>,
     alt_cost: AlternativeCost,
     alt_cost_index: u8,
+    blink_on_sacrifice: bool,
 }
 
 impl PlayerAgent for EvokeOnce {
@@ -51,7 +55,7 @@ impl PlayerAgent for EvokeOnce {
         game: &GameState,
         pools: &[ManaPool],
     ) -> bool {
-        PassAgent.choose_targets_for(sa, game, pools)
+        manabrew_engine::spellability::choose_targets_by_kind(self, sa, game, pools)
     }
     fn mulligan_decision(
         &mut self,
@@ -92,6 +96,22 @@ impl PlayerAgent for EvokeOnce {
                 &requested
             }
         };
+        if self.blink_on_sacrifice && !self.seen.borrow().blinked {
+            let game = priority.context().game;
+            let blink = space
+                .playable
+                .iter()
+                .find(|play| game.card(play.card_id).card_name == "Blink Light")
+                .copied();
+            let sacrifice_on_top = game
+                .stack
+                .peek()
+                .is_some_and(|entry| entry.spell_ability.api == Some(ApiType::Sacrifice));
+            if let Some(blink) = blink.filter(|_| sacrifice_on_top) {
+                self.seen.borrow_mut().blinked = true;
+                return PlayerAction::CastSpell(blink);
+            }
+        }
         let play = space
             .playable
             .iter()
@@ -238,6 +258,7 @@ fn evoke_a_sprite(others: &[&str], alt_cost_index: u8) -> Evoked {
             seen: Rc::clone(&seen),
             alt_cost: AlternativeCost::Evoke,
             alt_cost_index,
+            blink_on_sacrifice: false,
         }),
         Box::new(PassAgent),
     ];
@@ -304,6 +325,7 @@ fn evoke_offered(lands: &[&str], mirror_forge_bugs: bool, zone: ZoneType) -> boo
             seen: Rc::clone(&seen),
             alt_cost: AlternativeCost::Evoke,
             alt_cost_index: 0,
+            blink_on_sacrifice: false,
         }),
         Box::new(PassAgent),
     ];
@@ -345,6 +367,7 @@ fn an_evoked_creature_keeps_the_mana_spent_for_its_enters_condition_after_the_sa
             seen: Rc::clone(&seen),
             alt_cost: AlternativeCost::Evoke,
             alt_cost_index: 0,
+            blink_on_sacrifice: false,
         }),
         Box::new(PassAgent),
     ];
@@ -371,6 +394,7 @@ fn an_exiled_card_that_may_be_cast_offers_its_impending_cost() {
             seen: Rc::clone(&seen),
             alt_cost: AlternativeCost::Impending,
             alt_cost_index: 0,
+            blink_on_sacrifice: false,
         }),
         Box::new(PassAgent),
     ];
@@ -402,6 +426,7 @@ fn a_harmonize_reduction_applies_after_a_cost_increase() {
             seen: Rc::clone(&seen),
             alt_cost: AlternativeCost::Harmonize,
             alt_cost_index: 0,
+            blink_on_sacrifice: false,
         }),
         Box::new(PassAgent),
     ];
@@ -437,6 +462,7 @@ fn a_harmonize_cast_offers_to_tap_a_creature_with_no_power() {
             seen: Rc::clone(&seen),
             alt_cost: AlternativeCost::Harmonize,
             alt_cost_index: 0,
+            blink_on_sacrifice: false,
         }),
         Box::new(PassAgent),
     ];
@@ -446,4 +472,31 @@ fn a_harmonize_cast_offers_to_tap_a_creature_with_no_power() {
     assert!(seen.borrow().cast);
     assert!(game.card(wall).tapped);
     assert_eq!(game.player(p0).life, 21);
+}
+
+#[test]
+fn an_evoked_creature_blinked_in_response_to_its_sacrifice_stays() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let sprite = put(&mut game, SPRITE, p0, ZoneType::Hand);
+    put(&mut game, BLINK_LIGHT, p0, ZoneType::Hand);
+    put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    put(&mut game, PLAINS, p0, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let seen = Rc::new(RefCell::new(Seen::default()));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(EvokeOnce {
+            seen: Rc::clone(&seen),
+            alt_cost: AlternativeCost::Evoke,
+            alt_cost_index: 0,
+            blink_on_sacrifice: true,
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert!(seen.borrow().blinked);
+    assert_eq!(game.card(sprite).zone, ZoneType::Battlefield);
+    assert_eq!(game.players[0].life, 22);
 }
