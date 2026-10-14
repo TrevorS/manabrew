@@ -583,3 +583,50 @@ fn a_creature_exiled_instead_of_dying_sees_a_token_die_beside_it_to_a_wipe() {
 fn a_creature_exiled_instead_of_dying_sees_a_token_die_beside_it_to_the_state_check() {
     assert_eq!(witch_life_after_exiled_beside_a_dying_token(true), 21);
 }
+
+const SPIDER_SAGA: &str = "Name:Spider Saga\nManaCost:1 W\nTypes:Enchantment\nOracle:";
+const RESCUE_AURA: &str = "Name:Rescue Aura\nManaCost:W\nTypes:Enchantment Aura\nK:Flash\nK:Enchant:Creature.YouCtrl:creature you control\nOracle:";
+
+#[test]
+fn a_face_down_card_given_lasting_types_has_its_own_keywords_once_it_leaves() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let saga = put(&mut game, SPIDER_SAGA, p0, ZoneType::Battlefield);
+    let rules = parse_card_script(RESCUE_AURA).expect("script");
+    let aura = game.create_card(CardInstance::from_rules(&rules, p0));
+    game.card_mut(aura).turn_face_down();
+    game.move_card(aura, ZoneType::Battlefield, p0);
+    assert_eq!(game.card(aura).zone, ZoneType::Battlefield);
+    let mut animate = SpellAbility::new_simple(
+        Some(saga),
+        p0,
+        "DB$ Animate | Defined$ Targeted | Types$ Legendary,Spider,Hero | Duration$ Permanent",
+    );
+    animate.target_chosen.target_card = Some(aura);
+    animate.source_zone_timestamp = Some(game.card(saga).zone_timestamp);
+    game.stack.push(manabrew_engine::spellability::StackEntry {
+        id: 0,
+        spell_ability: animate,
+        is_creature_spell: false,
+        is_permanent_spell: false,
+        is_pending_cast: false,
+        cast_from_zone: None,
+        optional_trigger_decider: None,
+        optional_trigger_description: None,
+        optional_trigger_source_name: None,
+    });
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(PassAgent), Box::new(PassAgent)];
+    GameLoop::new(2).resolve_stack(&mut game, &mut agents);
+    assert!(game.card(aura).type_line.has_subtype("Spider"));
+    game.move_card(aura, ZoneType::Exile, p0);
+    let keywords: Vec<String> = game
+        .card(aura)
+        .keywords
+        .iter_strings()
+        .map(str::to_string)
+        .collect();
+    assert!(
+        keywords.iter().any(|kw| kw.starts_with("Enchant:")),
+        "{keywords:?}"
+    );
+}

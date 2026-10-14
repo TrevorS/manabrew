@@ -992,12 +992,13 @@ impl GameState {
                         card.remove_changed_card_traits(record.timestamp, 0);
                     }
                 }
-                // After the animate snapshot: an animate on a face-down permanent snapshots
-                // the face-down characteristics, which turning face up then replaces.
-                card.turn_face_up();
                 // After the until-end-of-turn snapshot: that snapshot can hold what a lasting
                 // change (Earthbend) made, and the baseline predates both.
                 card.restore_changed_characteristics_baseline();
+                // After both: an animate on a face-down permanent snapshots the face-down
+                // characteristics and a lasting change there takes a face-down baseline, which
+                // turning face up then replaces.
+                card.turn_face_up();
                 card.clear_changed_card_traits_keeping_perpetual();
                 if let Some(state) = card.clone_state.take() {
                     card.restore_clone_snapshot_keeping_svars(*state);
