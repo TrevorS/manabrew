@@ -33,6 +33,10 @@ pub fn resolve_token_table(
     table: &mut TokenCreateTable,
 ) {
     let p = sa.activating_player;
+    let cause = table
+        .cells()
+        .iter()
+        .find_map(|cell| cell.prototype.token_spawning_ability.clone());
     let host = ctx.game.card(host_id).clone();
     let valid_token = |prototype: &crate::card::Card| {
         re.matches_valid_param(
@@ -79,6 +83,7 @@ pub fn resolve_token_table(
                 for script in TOKEN_EFFECT_BASE.token_scripts(sa) {
                     let mut token = TOKEN_EFFECT_BASE.get_proto_type(ctx, &script, sa, p);
                     token.set_code = Some(ctx.sync_token_art_rng(&script, sa));
+                    token.token_spawning_ability.clone_from(&cause);
                     token.set_controller(controller);
                     table.put(p, token, amount);
                 }
@@ -158,6 +163,7 @@ pub fn resolve_token_table(
                         token.set_code = Some(ctx.sync_token_art_rng(&script, sa));
                         token
                     };
+                    token.token_spawning_ability.clone_from(&cause);
                     token.set_controller(controller);
                     token.add_remembered_cards(remembered.clone());
                     table.put(affected, token, amount);

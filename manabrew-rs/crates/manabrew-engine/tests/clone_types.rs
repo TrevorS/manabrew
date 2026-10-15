@@ -590,3 +590,118 @@ fn a_token_copy_of_a_transforming_card_keeps_its_added_type_on_the_back_face() {
     assert_eq!(copy.card_name, "Night Shifter");
     assert!(copy.type_line.has_subtype("Nightmare"));
 }
+
+const PROWESS_MIMIC: &str = "Name:Prowess Mimic\nManaCost:U\nTypes:Creature Shapeshifter\nPT:1/1\nK:ETBReplacement:Copy:DBCopy:Optional\nSVar:DBCopy:DB$ Clone | Choices$ Creature.Other | AddKeywords$ Prowess | SpellDescription$ You may have CARDNAME enter as a copy of a creature, except it has prowess.\nOracle:";
+const SPELL_WATCHER: &str = "Name:Spell Watcher\nManaCost:1 U\nTypes:Creature Human Wizard\nPT:1/3\nT:Mode$ SpellCast | ValidCard$ Card.nonCreature | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever you cast a noncreature spell, you gain 1 life.\nSVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:";
+const MIRROR_MIMIC: &str = "Name:Mirror Mimic\nManaCost:U\nTypes:Creature Shapeshifter\nPT:1/1\nK:ETBReplacement:Copy:DBCopy:Optional\nSVar:DBCopy:DB$ Clone | Choices$ Creature.Other | NonLegendary$ True | SpellDescription$ You may have CARDNAME enter as a copy of a creature, except it isn't legendary.\nOracle:";
+const LEGEND: &str =
+    "Name:Lone Legend\nManaCost:1 W\nTypes:Legendary Creature Human\nPT:2/2\nOracle:";
+
+fn clone_onto_battlefield(mimic: &str, original: &str) -> (GameState, CardId, CardId) {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let spell = put(&mut game, mimic, p0, ZoneType::Hand);
+    let original = put(&mut game, original, p0, ZoneType::Battlefield);
+    put(&mut game, ISLAND, p0, ZoneType::Battlefield);
+    game.turn.active_player = p0;
+    game.new_turn_for_player(p0);
+    game.turn.phase = PhaseType::Main1;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce { spell, cast: false }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    (game, spell, original)
+}
+
+#[test]
+fn a_clone_that_adds_a_triggered_keyword_orders_its_trigger_after_the_copied_ones() {
+    let (game, copy, _) = clone_onto_battlefield(PROWESS_MIMIC, SPELL_WATCHER);
+    let copy = game.card(copy);
+    assert_eq!(copy.card_name, "Spell Watcher");
+    let ids = |keyword: bool| -> Vec<u32> {
+        copy.triggers
+            .iter()
+            .filter(|trigger| trigger.base.card_trait_base.get_keyword().is_some() == keyword)
+            .map(|trigger| trigger.id)
+            .collect()
+    };
+    let (printed, prowess) = (ids(false), ids(true));
+    assert_eq!((printed.len(), prowess.len()), (1, 1));
+    assert!(printed[0] < prowess[0], "{printed:?} {prowess:?}");
+    let other_ids: Vec<u32> = game
+        .cards
+        .iter()
+        .filter(|card| card.id != copy.id)
+        .flat_map(|card| card.triggers.iter().map(|trigger| trigger.id))
+        .collect();
+    assert!(!other_ids.contains(&prowess[0]));
+}
+
+#[test]
+fn a_clone_that_is_not_legendary_keeps_the_legend_it_copied() {
+    let (game, copy, original) = clone_onto_battlefield(MIRROR_MIMIC, LEGEND);
+    assert_eq!(game.card(copy).card_name, "Lone Legend");
+    assert!(!game.card(copy).type_line.is_legendary());
+    assert_eq!(game.card(copy).zone, ZoneType::Battlefield);
+    assert_eq!(game.card(original).zone, ZoneType::Battlefield);
+    let clone_state = game.card(copy).clone_state.as_ref().expect("clone state");
+    assert_eq!(clone_state.origin, Some(original));
+    assert!(clone_state
+        .source
+        .as_ref()
+        .is_some_and(|source| source.ability_text.contains("NonLegendary")));
+}
+
+#[test]
+fn a_token_copy_sets_power_only_on_something_with_power() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let keeper = put(&mut game, SHOAL_KEEPER, p0, ZoneType::Battlefield);
+    let stone = put(&mut game, STONE, p0, ZoneType::Battlefield);
+    let sa = SpellAbility::new_simple(
+        None,
+        p0,
+        "DB$ CopyPermanent | Defined$ Remembered | SetPower$ 4 | SetToughness$ 4",
+    );
+    let get_proto_type = manabrew_engine::ability::effects::copy_permanent_effect::get_proto_type;
+    let creature = get_proto_type(&sa, game.card(keeper), p0);
+    assert_eq!(
+        (creature.base_power, creature.base_toughness),
+        (Some(4), Some(4))
+    );
+    assert!(creature
+        .static_abilities
+        .iter()
+        .all(|sta| !sta.ir.characteristic_defining));
+    let artifact = get_proto_type(&sa, game.card(stone), p0);
+    assert_eq!((artifact.base_power, artifact.base_toughness), (None, None));
+    assert_eq!(
+        creature
+            .token_spawning_ability
+            .as_ref()
+            .map(|sa| sa.ability_text.as_str()),
+        Some(sa.ability_text.as_str())
+    );
+}
+
+#[test]
+fn a_token_copy_of_a_transforming_card_takes_its_new_name_on_both_faces() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let shifter = put(&mut game, DAY_SHIFTER, p0, ZoneType::Graveyard);
+    let sa = SpellAbility::new_simple(
+        None,
+        p0,
+        "DB$ CopyPermanent | Defined$ Remembered | NewName$ Shifter Echo | SetPower$ 1 | SetToughness$ 1",
+    );
+    let mut copy = manabrew_engine::ability::effects::copy_permanent_effect::get_proto_type(
+        &sa,
+        game.card(shifter),
+        p0,
+    );
+    assert_eq!(copy.card_name, "Shifter Echo");
+    copy.transform();
+    assert_eq!(copy.card_name, "Shifter Echo");
+    assert_eq!((copy.base_power, copy.base_toughness), (Some(1), Some(1)));
+}

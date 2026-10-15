@@ -188,7 +188,7 @@ pub trait TokenEffectBase {
         result.set_controller(owner);
         result.set_is_token(true);
         result.set_s_var("TokenScript", script);
-        result.set_s_var("TokenSpawningAbility", sa.ability_text.clone());
+        result.token_spawning_ability = Some(Box::new(sa.clone()));
         self.apply_token_power_toughness(ctx, sa, &mut result);
         result
     }

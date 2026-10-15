@@ -1,7 +1,8 @@
-use forge_foundation::{ColorSet, ZoneType};
+use forge_foundation::ZoneType;
 
 use super::{matches_valid_cards_for_sa, EffectContext};
 use crate::agent::DecisionContext;
+use crate::card::card_clone_states::CardCloneStates;
 use crate::parsing::{keys, split_param_list_value};
 use crate::spellability::SpellAbility;
 
@@ -50,8 +51,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         .clone(),
         None => ctx.game.card(clone_source_id).clone(),
     };
-    let mut state = crate::card::card_factory::get_clone_states(&src, src.owner, sa);
-    state.id = src.id;
+    let clone_states = crate::card::card_factory::get_clone_states(&src, src.owner, sa);
 
     if sa.ir.optional {
         let card_name = src.card_name.clone();
@@ -91,222 +91,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         if ctx.game.card(clone_target_id).phased_out {
             continue;
         }
-        // Step 3: Copy characteristics from source → target
-        let duration = crate::parsing::raw_get(&sa.ability_text, crate::parsing::keys::DURATION);
-        let active_animation = capture_active_animation(ctx.game.card(clone_target_id));
-        if ctx.game.card(clone_target_id).clone_state.is_none() {
-            let mut state = ctx.game.card(clone_target_id).capture_clone_state();
-            state.expires_at_cleanup = duration.is_some() || sa.ir.duration.is_some();
-            ctx.game
-                .card_mut(clone_target_id)
-                .set_clone_state(Some(state));
-        }
-        // A card copying itself keeps its replacement ids, or the Moved replacement that
-        // started the copy would no longer count as run and would fire again.
-        let replacement_ids: Vec<i32> = state
-            .replacement_effects
-            .iter()
-            .map(|re| {
-                let id = crate::core::Identifiable::id(&re.base.card_trait_base);
-                if clone_target_id == clone_source_id {
-                    id
-                } else {
-                    ctx.game.copied_replacement_id(clone_source_id, id)
-                }
-            })
-            .collect();
-        let orig_svars = ctx.game.card(source_id).svars.clone();
-        let target = ctx.game.card_mut(clone_target_id);
-        let paper_token = target.is_token && target.get_s_var("TokenScript").is_some();
-        let host_svars = (clone_target_id == source_id).then(|| orig_svars.clone());
-        let pump_start = target.base_trigger_count.min(target.triggers.len());
-        let pump_end = (pump_start + target.pump_trigger_count).min(target.triggers.len());
-        let pump_triggers = target.triggers[pump_start..pump_end].to_vec();
-        crate::card::card_copy_service::copy_copiable_characteristics(&state, target);
-        for trigger in &mut target.triggers {
-            trigger.id = ctx.trigger_handler.next_trigger_id();
-        }
-        // Java keys `ChoiceRestriction$` history by ability object (`Card.getChosenModes`),
-        // and a copy's abilities are new objects.
-        target.chosen_charm_modes.clear();
-        target.chosen_modes_your_combat.clear();
-        target.chosen_modes_your_last_combat.clear();
-        // Forge builds the sub-abilities and `Execute$` abilities of the cloning ability
-        // before the copy; this engine looks them up by name on the host when they resolve.
-        for (name, value) in host_svars.into_iter().flatten() {
-            target.svars.entry(name).or_insert(value);
-        }
-        target.add_clone_state();
-        target.update_state_for_view(paper_token, ctx.rng);
-        target.update_state_for_view(paper_token, ctx.rng);
-        target.activated_abilities = state.activated_abilities.clone();
-        for ability in &mut target.activated_abilities {
-            ability.original_host.get_or_insert(clone_source_id);
-        }
-        target.static_abilities = state.static_abilities.clone();
-        target.replacement_effects = state.replacement_effects.clone();
-        for static_ability in &mut target.static_abilities {
-            static_ability.base.set_host_card_id(clone_target_id);
-            static_ability.original_host.get_or_insert(clone_source_id);
-        }
-        for (replacement_effect, id) in target.replacement_effects.iter_mut().zip(replacement_ids) {
-            replacement_effect.base.set_host_card_id(clone_target_id);
-            replacement_effect.base.card_trait_base.set_id(id);
-            replacement_effect
-                .original_host
-                .get_or_insert(clone_source_id);
-        }
-        let param = |key| crate::parsing::raw_get(&sa.ability_text, key);
-        for name in param(keys::ADD_SVARS)
-            .into_iter()
-            .flat_map(|names| names.split(','))
-        {
-            if let Some(value) = orig_svars.get(name) {
-                target.set_s_var(name, value);
-            }
-        }
-        for name in param(keys::ADD_TRIGGERS)
-            .into_iter()
-            .flat_map(|names| names.split(','))
-        {
-            let mut next_id = target.triggers.iter().map(|t| t.id + 1).max().unwrap_or(0);
-            if let Some(mut trigger) = orig_svars
-                .get(name)
-                .and_then(|raw| crate::trigger::parse_trigger(raw, &mut next_id))
-            {
-                trigger.bind_host_card_id(clone_target_id);
-                target.triggers.push(trigger);
-            }
-        }
-        for name in param(keys::GAIN_TEXT_ABILITIES)
-            .or_else(|| param(keys::ADD_ABILITIES))
-            .into_iter()
-            .flat_map(|names| names.split(','))
-        {
-            let Some(raw) = orig_svars.get(name) else {
-                continue;
-            };
-            if let Some(ability) = crate::ability::activated::parse_activated_ability(
-                raw,
-                target.activated_abilities.len(),
-            ) {
-                target.abilities.push(raw.clone());
-                target.activated_abilities.push(ability);
-            }
-        }
-        for name in param(keys::ADD_STATIC_ABILITIES)
-            .into_iter()
-            .flat_map(|names| names.split(','))
-        {
-            if let Some(mut static_ability) = orig_svars
-                .get(name)
-                .and_then(|raw| crate::staticability::parse_static_ability(raw))
-            {
-                static_ability.base.set_host_card_id(clone_target_id);
-                target.static_abilities.push(static_ability);
-            }
-        }
-        target.ensure_crew_activated_ability();
-        target.base_ability_count = target.activated_abilities.len();
-        target.base_trigger_count = target.triggers.len();
-        target.triggers.extend(pump_triggers);
-        target.reset_changed_card_traits_baseline_to_current();
+        add_clone_state(
+            ctx.game,
+            ctx.trigger_handler,
+            ctx.rng,
+            clone_target_id,
+            &clone_states,
+        );
         if crate::parsing::raw_has_key(&sa.ability_text, crate::parsing::keys::INTO_PLAY_TAPPED) {
-            target.set_tapped(true);
-        }
-        let copied_name =
-            if crate::parsing::raw_has_key(&sa.ability_text, crate::parsing::keys::KEEP_NAME) {
-                target
-                    .clone_state
-                    .as_ref()
-                    .map(|state| state.original_card_name.clone())
-            } else {
-                crate::parsing::raw_get(&sa.ability_text, crate::parsing::keys::NEW_NAME)
-                    .map(str::to_string)
-            };
-        if let Some(name) = copied_name {
-            if src.has_prepared_spell_state() {
-                if let Some(other) = target.other_part.as_mut() {
-                    other.name = name.clone();
-                }
-            }
-            target.card_name = name;
-        }
-
-        // Step 4: Apply clone-state modifications from the cloning ability.
-        if let Some(add_types) = sa.ir.add_types.as_deref() {
-            let target = ctx.game.card_mut(clone_target_id);
-            for ty in split_param_list_value(Some(add_types), " & ") {
-                target.add_type(&ty);
-            }
-            if crate::staticability::layer::sanitize_subtypes(&mut target.state_type_line) {
-                target.update_types();
-            }
-        }
-        if let Some(creature_types) = sa.ir.set_creature_types.as_deref() {
-            ctx.game
-                .card_mut(clone_target_id)
-                .set_creature_types(creature_types);
-        }
-
-        if let Some(set_color) = sa.ir.set_color.as_deref() {
-            ctx.game.card_mut(clone_target_id).set_color(
-                set_color
-                    .split(',')
-                    .map(ColorSet::from_names)
-                    .fold(ColorSet::COLORLESS, ColorSet::union),
-            );
-        }
-
-        if let Some(power) = sa
-            .ir
-            .set_power
-            .as_deref()
-            .and_then(|value| value.parse().ok())
-        {
-            ctx.game
-                .card_mut(clone_target_id)
-                .set_base_power(Some(power));
-        }
-        if let Some(toughness) = sa
-            .ir
-            .set_toughness
-            .as_deref()
-            .and_then(|value| value.parse().ok())
-        {
-            ctx.game
-                .card_mut(clone_target_id)
-                .set_base_toughness(Some(toughness));
-        }
-
-        if let Some(add_kws) = sa.ir.add_keywords.as_deref() {
-            let keywords = add_kws.strip_prefix("IfNew ").unwrap_or(add_kws);
-            for kw in split_param_list_value(Some(keywords), " & ") {
-                ctx.game
-                    .card_mut(clone_target_id)
-                    .add_intrinsic_keyword_with_triggers(&kw);
-            }
-        }
-
-        if sa.is_activated
-            && crate::parsing::raw_has_key(
-                &sa.ability_text,
-                crate::parsing::keys::GAIN_THIS_ABILITY,
-            )
-        {
-            let target = ctx.game.card_mut(clone_target_id);
-            let index = target.activated_abilities.len();
-            if let Some(mut ability) =
-                crate::ability::activated::parse_activated_ability(&sa.ability_text, index)
-            {
-                ability.x_mana_cost_paid = Some(sa.x_mana_cost_paid);
-                target.activated_abilities.push(ability);
-                target.base_ability_count = target.activated_abilities.len();
-            }
-        }
-
-        if let Some(animation) = active_animation {
-            reapply_active_animation(ctx.game.card_mut(clone_target_id), &animation);
+            ctx.game.card_mut(clone_target_id).set_tapped(true);
         }
 
         // Step 5: Apply PumpKeywords$ (extra temporary keywords on the copy)
@@ -318,6 +111,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             }
         }
 
+        let duration = crate::parsing::raw_get(&sa.ability_text, crate::parsing::keys::DURATION);
         if duration.is_some() || sa.ir.duration.is_some() {
             let unclone = crate::phase::PhaseCommand::Unclone {
                 card: clone_target_id,
@@ -349,6 +143,179 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         // Step 6: Re-register triggers for the cloned card
         ctx.trigger_handler
             .register_active_trigger(ctx.game, clone_target_id);
+    }
+}
+
+/// Java `Card.addCloneState`: `target` takes the copiable values in `clone_states`.
+pub fn add_clone_state(
+    game: &mut crate::game::GameState,
+    trigger_handler: &mut crate::trigger::TriggerHandler,
+    rng: &mut dyn crate::game_rng::GameRng,
+    clone_target_id: crate::ids::CardId,
+    clone_states: &CardCloneStates,
+) {
+    let sa = clone_states.get_source();
+    let clone_source_id = clone_states.get_origin();
+    let Some(source_id) = clone_states.get_host() else {
+        return;
+    };
+    let mut state = clone_states.state().clone();
+    state.id = clone_source_id;
+    let duration = crate::parsing::raw_get(&sa.ability_text, crate::parsing::keys::DURATION);
+    let active_animation = capture_active_animation(game.card(clone_target_id));
+    if game.card(clone_target_id).clone_state.is_none() {
+        let mut clone_state = game.card(clone_target_id).capture_clone_state();
+        clone_state.expires_at_cleanup = duration.is_some() || sa.ir.duration.is_some();
+        game.card_mut(clone_target_id)
+            .set_clone_state(Some(clone_state));
+    }
+    if let Some(clone_state) = game.card_mut(clone_target_id).clone_state.as_mut() {
+        clone_state.origin = Some(clone_source_id);
+        clone_state.source = Some(Box::new(sa.clone()));
+    }
+    // A card copying itself keeps its replacement ids, or the Moved replacement that
+    // started the copy would no longer count as run and would fire again.
+    let replacement_ids: Vec<i32> = state
+        .replacement_effects
+        .iter()
+        .map(|re| {
+            let id = crate::core::Identifiable::id(&re.base.card_trait_base);
+            if clone_target_id == clone_source_id {
+                id
+            } else {
+                game.copied_replacement_id(clone_source_id, id)
+            }
+        })
+        .collect();
+    let orig_svars = game.card(source_id).svars.clone();
+    let target = game.card_mut(clone_target_id);
+    let paper_token = target.is_token && target.get_s_var("TokenScript").is_some();
+    let host_svars = (clone_target_id == source_id).then(|| orig_svars.clone());
+    let pump_start = target.base_trigger_count.min(target.triggers.len());
+    let pump_end = (pump_start + target.pump_trigger_count).min(target.triggers.len());
+    let pump_triggers = target.triggers[pump_start..pump_end].to_vec();
+    crate::card::card_copy_service::copy_copiable_characteristics(&state, target);
+    for trigger in &mut target.triggers {
+        trigger.id = trigger_handler.next_trigger_id();
+    }
+    // Java keys `ChoiceRestriction$` history by ability object (`Card.getChosenModes`),
+    // and a copy's abilities are new objects.
+    target.chosen_charm_modes.clear();
+    target.chosen_modes_your_combat.clear();
+    target.chosen_modes_your_last_combat.clear();
+    // Forge builds the sub-abilities and `Execute$` abilities of the cloning ability
+    // before the copy; this engine looks them up by name on the host when they resolve.
+    for (name, value) in host_svars.into_iter().flatten() {
+        target.svars.entry(name).or_insert(value);
+    }
+    target.add_clone_state();
+    target.update_state_for_view(paper_token, rng);
+    target.update_state_for_view(paper_token, rng);
+    target.activated_abilities = state.activated_abilities.clone();
+    for ability in &mut target.activated_abilities {
+        ability.original_host.get_or_insert(clone_source_id);
+    }
+    target.static_abilities = state.static_abilities.clone();
+    target.replacement_effects = state.replacement_effects.clone();
+    for static_ability in &mut target.static_abilities {
+        static_ability.base.set_host_card_id(clone_target_id);
+        static_ability.original_host.get_or_insert(clone_source_id);
+    }
+    for (replacement_effect, id) in target.replacement_effects.iter_mut().zip(replacement_ids) {
+        replacement_effect.base.set_host_card_id(clone_target_id);
+        replacement_effect.base.card_trait_base.set_id(id);
+        replacement_effect
+            .original_host
+            .get_or_insert(clone_source_id);
+    }
+    let param = |key| crate::parsing::raw_get(&sa.ability_text, key);
+    for name in param(keys::ADD_SVARS)
+        .into_iter()
+        .flat_map(|names| names.split(','))
+    {
+        if let Some(value) = orig_svars.get(name) {
+            target.set_s_var(name, value);
+        }
+    }
+    for name in param(keys::ADD_TRIGGERS)
+        .into_iter()
+        .flat_map(|names| names.split(','))
+    {
+        let mut next_id = target.triggers.iter().map(|t| t.id + 1).max().unwrap_or(0);
+        if let Some(mut trigger) = orig_svars
+            .get(name)
+            .and_then(|raw| crate::trigger::parse_trigger(raw, &mut next_id))
+        {
+            trigger.bind_host_card_id(clone_target_id);
+            target.triggers.push(trigger);
+        }
+    }
+    for name in param(keys::GAIN_TEXT_ABILITIES)
+        .or_else(|| param(keys::ADD_ABILITIES))
+        .into_iter()
+        .flat_map(|names| names.split(','))
+    {
+        let Some(raw) = orig_svars.get(name) else {
+            continue;
+        };
+        if let Some(ability) = crate::ability::activated::parse_activated_ability(
+            raw,
+            target.activated_abilities.len(),
+        ) {
+            target.abilities.push(raw.clone());
+            target.activated_abilities.push(ability);
+        }
+    }
+    for name in param(keys::ADD_STATIC_ABILITIES)
+        .into_iter()
+        .flat_map(|names| names.split(','))
+    {
+        if let Some(mut static_ability) = orig_svars
+            .get(name)
+            .and_then(|raw| crate::staticability::parse_static_ability(raw))
+        {
+            static_ability.base.set_host_card_id(clone_target_id);
+            target.static_abilities.push(static_ability);
+        }
+    }
+    target.ensure_crew_activated_ability();
+    target.base_ability_count = target.activated_abilities.len();
+    target.base_trigger_count = target.triggers.len();
+    target.triggers.extend(pump_triggers);
+    target.reset_changed_card_traits_baseline_to_current();
+    let kept_name = crate::parsing::raw_has_key(&sa.ability_text, crate::parsing::keys::KEEP_NAME)
+        .then(|| {
+            target
+                .clone_state
+                .as_ref()
+                .map(|state| state.original_card_name.clone())
+        })
+        .flatten();
+    if let Some(name) = kept_name {
+        if state.has_prepared_spell_state() {
+            if let Some(other) = target.other_part.as_mut() {
+                other.name = name.clone();
+            }
+        }
+        target.card_name = name;
+    }
+
+    if sa.is_activated
+        && crate::parsing::raw_has_key(&sa.ability_text, crate::parsing::keys::GAIN_THIS_ABILITY)
+    {
+        let target = game.card_mut(clone_target_id);
+        let index = target.activated_abilities.len();
+        if let Some(mut ability) =
+            crate::ability::activated::parse_activated_ability(&sa.ability_text, index)
+        {
+            ability.x_mana_cost_paid = Some(sa.x_mana_cost_paid);
+            target.activated_abilities.push(ability);
+            target.base_ability_count = target.activated_abilities.len();
+        }
+    }
+
+    if let Some(animation) = active_animation {
+        reapply_active_animation(game.card_mut(clone_target_id), &animation);
     }
 }
 

@@ -1,37 +1,42 @@
 //! Clone-state container (Java parity: `CardCloneStates`).
 
-use crate::HashMap;
-
 use crate::card::Card;
 use crate::ids::CardId;
+use crate::spellability::SpellAbility;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct CardCloneStates {
-    states: HashMap<String, Card>,
+    origin: CardId,
+    source: Box<SpellAbility>,
+    state: Card,
 }
 
 impl CardCloneStates {
-    pub fn get(&mut self, key: &str) -> Option<&Card> {
-        if self.states.contains_key(key) {
-            return self.states.get(key);
+    pub fn new(origin: CardId, source: &SpellAbility, state: Card) -> Self {
+        Self {
+            origin,
+            source: Box::new(source.clone()),
+            state,
         }
-
-        if let Some(original) = self.states.get("Original").cloned() {
-            self.states.insert(key.to_string(), original);
-            return self.states.get(key);
-        }
-        None
     }
 
-    pub fn add(&mut self, state_name: &str, state: Card) {
-        self.states.insert(state_name.to_string(), state);
+    pub fn get_origin(&self) -> CardId {
+        self.origin
     }
 
-    pub fn copy(&self, host: CardId, _lki: bool) -> CardCloneStates {
-        let mut copied = self.clone();
-        for state in copied.states.values_mut() {
-            state.id = host;
-        }
-        copied
+    pub fn get_source(&self) -> &SpellAbility {
+        &self.source
+    }
+
+    pub fn get_host(&self) -> Option<CardId> {
+        self.source.source
+    }
+
+    pub fn state(&self) -> &Card {
+        &self.state
+    }
+
+    pub fn into_state(self) -> Card {
+        self.state
     }
 }

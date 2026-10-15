@@ -253,6 +253,10 @@ pub struct CloneState {
     #[serde(default)]
     pub original_initial_loyalty: Option<String>,
     #[serde(skip)]
+    pub origin: Option<CardId>,
+    #[serde(skip)]
+    pub source: Option<Box<SpellAbility>>,
+    #[serde(skip)]
     original_trait_base_activated_abilities: Option<SharedVec<ActivatedAbility>>,
     #[serde(skip)]
     original_trait_base_triggers: Option<SharedVec<Trigger>>,
@@ -638,6 +642,9 @@ pub struct Card {
     /// cleared when it leaves the battlefield.
     #[serde(skip, default)]
     pub cast_sa: Option<Box<SpellAbility>>,
+    /// Java `Card.getTokenSpawningAbility`: the ability that made this token.
+    #[serde(skip, default)]
+    pub token_spawning_ability: Option<Box<SpellAbility>>,
     /// For `SP$ Charm`: last turn each mode (keyed by its SVar name) was chosen
     /// on this card instance. Feeds `ChoiceRestriction$` filtering.
     /// Mirrors the per-card mode history Java keeps on `Card`.
@@ -1092,6 +1099,7 @@ impl Card {
             clone_origin: None,
             copied_permanent: None,
             cast_sa: None,
+            token_spawning_ability: None,
             chosen_charm_modes: HashMap::default(),
             chosen_modes_your_combat: Vec::new(),
             chosen_modes_your_last_combat: Vec::new(),
@@ -1354,6 +1362,7 @@ impl Card {
             clone_origin: self.clone_origin,
             copied_permanent: self.copied_permanent,
             cast_sa: None,
+            token_spawning_ability: None,
             chosen_charm_modes: self.chosen_charm_modes.clone(),
             chosen_modes_your_combat: self.chosen_modes_your_combat.clone(),
             chosen_modes_your_last_combat: self.chosen_modes_your_last_combat.clone(),
@@ -3664,6 +3673,8 @@ impl Card {
             original_base_trigger_count: self.base_trigger_count,
             original_other_part: self.other_part.clone(),
             original_initial_loyalty: self.initial_loyalty.clone(),
+            origin: None,
+            source: None,
             original_trait_base_activated_abilities: self.trait_base_activated_abilities.clone(),
             original_trait_base_triggers: self.trait_base_triggers.clone(),
             original_trait_base_replacement_effects: self.trait_base_replacement_effects.clone(),

@@ -1,10 +1,12 @@
 use forge_carddb::CardRules;
-use forge_foundation::ZoneType;
+use forge_foundation::{ColorSet, ZoneType};
 
 use super::card_assembly;
-use super::Card;
+use super::card_clone_states::CardCloneStates;
+use super::{Card, CardOtherPart};
 use crate::game::GameState;
 use crate::ids::{CardId, PlayerId};
+use crate::parsing::{keys, raw_get, raw_has_key, split_param_list_value};
 use crate::spellability::SpellAbility;
 
 /// Build a `Card` from card rules using the 3-phase card assembly
@@ -28,7 +30,11 @@ pub fn from_rules(rules: &CardRules, owner: PlayerId) -> Card {
 }
 
 /// Java `CardFactory.getCloneStates`: the copiable values of `input` (CR 707.2).
-pub fn get_clone_states(input: &Card, new_owner: PlayerId, cause: &SpellAbility) -> Card {
+pub fn get_clone_states(
+    input: &Card,
+    new_owner: PlayerId,
+    cause: &SpellAbility,
+) -> CardCloneStates {
     let mut out = Card::new(
         CardId(0),
         if input.face_down {
@@ -73,9 +79,6 @@ pub fn get_clone_states(input: &Card, new_owner: PlayerId, cause: &SpellAbility)
                 || set_creature_types && sta.ir.add_all_creature_types)
     });
     out.set_static_abilities(static_abilities);
-    if set_creature_types {
-        out.remove_intrinsic_keyword("Changeling");
-    }
     out.set_replacement_effects(input.copiable_replacement_effects());
     out.initial_loyalty = input.initial_loyalty.clone();
     out.set_code = input.set_code.clone();
@@ -103,7 +106,138 @@ pub fn get_clone_states(input: &Card, new_owner: PlayerId, cause: &SpellAbility)
         out.other_part = input.other_part.clone();
         out.is_transformed = input.is_transformed;
     }
-    out
+    update_clone_state(&mut out, input, cause);
+    if let Some(other) = out.other_part.as_mut() {
+        update_other_clone_state(other, cause);
+    }
+    if set_creature_types {
+        out.remove_intrinsic_keyword("Changeling");
+    }
+    if set_color {
+        out.remove_intrinsic_keyword("Devoid");
+    }
+    CardCloneStates::new(input.id, cause, out)
+}
+
+fn clone_colors(cause: &SpellAbility) -> Option<ColorSet> {
+    cause.ir.set_color.as_deref().map(|set_color| {
+        set_color
+            .split(',')
+            .map(ColorSet::from_names)
+            .fold(ColorSet::COLORLESS, ColorSet::union)
+    })
+}
+
+fn clone_keywords(cause: &SpellAbility) -> (bool, Vec<String>) {
+    let Some(add_keywords) = cause.ir.add_keywords.as_deref() else {
+        return (false, Vec::new());
+    };
+    let (if_new, keywords) = match add_keywords.strip_prefix("IfNew ") {
+        Some(keywords) => (true, keywords),
+        None => (false, add_keywords),
+    };
+    (if_new, split_param_list_value(Some(keywords), " & "))
+}
+
+fn clone_power_toughness(cause: &SpellAbility) -> (Option<i32>, Option<i32>) {
+    let parse = |value: Option<&str>| value.and_then(|value| value.parse().ok());
+    (
+        parse(cause.ir.set_power.as_deref()),
+        parse(cause.ir.set_toughness.as_deref()),
+    )
+}
+
+fn clone_removes_mana_cost(cause: &SpellAbility) -> bool {
+    cause
+        .ir
+        .set_mana_cost
+        .as_deref()
+        .is_some_and(|value| value == "0" || value.is_empty())
+}
+
+fn update_clone_state(state: &mut Card, input: &Card, cause: &SpellAbility) {
+    if let Some(name) = raw_get(&cause.ability_text, keys::NEW_NAME) {
+        state.card_name = name.to_string();
+    }
+    if let Some(colors) = clone_colors(cause) {
+        state.set_color(colors);
+    }
+    if raw_has_key(&cause.ability_text, "NonLegendary") {
+        state.remove_type("Legendary");
+    }
+    if let Some(add_types) = cause.ir.add_types.as_deref() {
+        for ty in split_param_list_value(Some(add_types), " & ") {
+            state.add_type(&ty);
+        }
+        if crate::staticability::layer::sanitize_subtypes(&mut state.state_type_line) {
+            state.update_types();
+        }
+    }
+    if let Some(creature_types) = cause.ir.set_creature_types.as_deref() {
+        state.set_creature_types(creature_types);
+    }
+    let (if_new, keywords) = clone_keywords(cause);
+    for kw in keywords {
+        let (keyword, _) = crate::keyword::keyword_collection::parse_keyword_string(&kw);
+        if !(if_new && state.keywords.contains_keyword(keyword)) {
+            state.add_intrinsic_keyword_with_triggers(&kw);
+        }
+    }
+    let (power, toughness) = clone_power_toughness(cause);
+    if state.state_type_line.is_creature() || input.base_power.is_some() {
+        if power.is_some() {
+            state.set_base_power(power);
+        }
+        if toughness.is_some() {
+            state.set_base_toughness(toughness);
+        }
+    }
+    if clone_removes_mana_cost(cause) {
+        state.set_mana_cost(forge_foundation::mana::ManaCost::no_cost());
+    }
+}
+
+fn update_other_clone_state(other: &mut CardOtherPart, cause: &SpellAbility) {
+    if let Some(name) = raw_get(&cause.ability_text, keys::NEW_NAME) {
+        other.name = name.to_string();
+    }
+    if let Some(colors) = clone_colors(cause) {
+        other.color = colors;
+    }
+    if raw_has_key(&cause.ability_text, "NonLegendary") {
+        other
+            .type_line
+            .supertypes
+            .retain(|st| !st.name().eq_ignore_ascii_case("Legendary"));
+    }
+    if let Some(add_types) = cause.ir.add_types.as_deref() {
+        for ty in split_param_list_value(Some(add_types), " & ") {
+            other.type_line.add_type(&ty);
+        }
+        crate::staticability::layer::sanitize_subtypes(&mut other.type_line);
+    }
+    if let Some(creature_types) = cause.ir.set_creature_types.as_deref() {
+        super::card_state::set_creature_types_of(&mut other.type_line, creature_types);
+    }
+    let (if_new, keywords) = clone_keywords(cause);
+    for kw in keywords {
+        let (keyword, _) = crate::keyword::keyword_collection::parse_keyword_string(&kw);
+        if !(if_new && other.keywords.contains_keyword(keyword)) {
+            other.keywords.add(&kw);
+        }
+    }
+    let (power, toughness) = clone_power_toughness(cause);
+    if other.type_line.is_creature() || other.base_power.is_some() {
+        if power.is_some() {
+            other.base_power = power;
+        }
+        if toughness.is_some() {
+            other.base_toughness = toughness;
+        }
+    }
+    if clone_removes_mana_cost(cause) {
+        other.mana_cost = forge_foundation::mana::ManaCost::no_cost();
+    }
 }
 
 /// Java-parity helper for `CardFactory.copySpellAbilityAndPossiblyHost`.

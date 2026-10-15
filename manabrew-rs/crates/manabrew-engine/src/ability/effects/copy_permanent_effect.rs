@@ -1,4 +1,3 @@
-use forge_foundation::color::ColorSet;
 use forge_foundation::ZoneType;
 
 use super::token_effect_base::{TokenCreateTable, TokenEffectBase, TOKEN_EFFECT_BASE};
@@ -84,159 +83,15 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 /// `CopyPermanentEffect.getProtoType(SpellAbility, Card, Player)`.
 ///
 /// Returned `Card` carries a placeholder `CardId(0)`; callers must invoke
-/// `GameState::create_card` to receive the real id. Mana-cost strip,
-/// `SetColor`, `AddTypes`, `SetPower/Toughness`, and `AddKeywords` are applied
-/// here. Shared token lifecycle params such as `PumpKeywords` are applied by
-/// `TokenEffectBase` after the token receives its real id.
+/// `GameState::create_card` to receive the real id. The copy's exceptions come from
+/// `card_factory::get_clone_states`, as in Java; shared token lifecycle params such as
+/// `PumpKeywords` are applied by `TokenEffectBase` after the token receives its real id.
 pub fn get_proto_type(sa: &SpellAbility, original: &Card, new_owner: crate::ids::PlayerId) -> Card {
-    let mut copy = crate::card::card_factory::get_clone_states(original, new_owner, sa);
-    // Copies are tokens for zone-change purposes (cease to exist off battlefield).
+    let mut copy =
+        crate::card::card_factory::get_clone_states(original, new_owner, sa).into_state();
     copy.set_is_token(true);
-
-    // Apply SetColor$ (e.g. Embalm sets color to White).
-    if let Some(set_color) = sa.ir.set_color.as_deref() {
-        copy.set_color(
-            set_color
-                .split(',')
-                .map(ColorSet::from_names)
-                .fold(ColorSet::COLORLESS, ColorSet::union),
-        );
-    }
-
-    if crate::parsing::raw_has_key(&sa.ability_text, "NonLegendary") {
-        copy.remove_type("Legendary");
-    }
-
-    // Apply AddTypes$ (e.g. Embalm adds "Zombie").
-    if let Some(add_types) = sa.ir.add_types.as_deref() {
-        for t in add_types.split(" & ") {
-            let t = t.trim();
-            if !t.is_empty() {
-                copy.add_type(t);
-            }
-        }
-        if crate::staticability::layer::sanitize_subtypes(&mut copy.state_type_line) {
-            copy.update_types();
-        }
-    }
-    if let Some(creature_types) = sa.ir.set_creature_types.as_deref() {
-        copy.set_creature_types(creature_types);
-    }
-
-    // Apply SetPower$/SetToughness$ (e.g. Eternalize sets to 4/4).
-    if let Some(p) = sa
-        .ir
-        .set_power
-        .as_deref()
-        .and_then(|value| value.parse().ok())
-    {
-        copy.set_base_power(Some(p));
-    }
-    if let Some(t) = sa
-        .ir
-        .set_toughness
-        .as_deref()
-        .and_then(|value| value.parse().ok())
-    {
-        copy.set_base_toughness(Some(t));
-    }
-
-    // PumpKeywords$ are NOT applied at the proto stage. Mirrors Java
-    // `TokenEffectBase.java:179-182`, which applies them post-creation via
-    // `addChangedCardKeywords` + `addPumpUntil` so they expire per
-    // `PumpDuration$`. Applying them as intrinsic here would make e.g.
-    // Ashling's "Haste until end of turn" persist forever.
-    // The Rust mirror lives in `token_effect_base.rs::create_single_token`.
-
-    // Apply AddKeywords$ (e.g. additional keywords on the copy).
-    if let Some(add_kws) = sa.ir.add_keywords.as_deref() {
-        for kw in add_kws.split(" & ") {
-            let kw = kw.trim();
-            if !kw.is_empty() {
-                copy.add_intrinsic_keyword(kw);
-            }
-        }
-    }
-
-    // Strip mana cost for Embalm/Eternalize copies (they have no mana cost).
-    if sa
-        .ir
-        .set_mana_cost
-        .as_deref()
-        .is_some_and(|v| v == "0" || v.is_empty())
-    {
-        copy.set_mana_cost(forge_foundation::mana::ManaCost::no_cost());
-    }
-
-    if let Some(other) = copy.other_part.as_mut() {
-        apply_copy_exceptions_to_other_face(sa, other);
-    }
-
+    copy.token_spawning_ability = Some(Box::new(sa.clone()));
     copy
-}
-
-/// Java `CardFactory.getCloneStates` applies the copy's exceptions to every state it copies.
-fn apply_copy_exceptions_to_other_face(sa: &SpellAbility, other: &mut crate::card::CardOtherPart) {
-    if let Some(set_color) = sa.ir.set_color.as_deref() {
-        other.color = set_color
-            .split(',')
-            .map(ColorSet::from_names)
-            .fold(ColorSet::COLORLESS, ColorSet::union);
-    }
-    if crate::parsing::raw_has_key(&sa.ability_text, "NonLegendary") {
-        other
-            .type_line
-            .supertypes
-            .retain(|st| !st.name().eq_ignore_ascii_case("Legendary"));
-    }
-    if let Some(add_types) = sa.ir.add_types.as_deref() {
-        for t in add_types
-            .split(" & ")
-            .map(str::trim)
-            .filter(|t| !t.is_empty())
-        {
-            other.type_line.add_type(t);
-        }
-        crate::staticability::layer::sanitize_subtypes(&mut other.type_line);
-    }
-    if let Some(creature_types) = sa.ir.set_creature_types.as_deref() {
-        crate::card::card_state::set_creature_types_of(&mut other.type_line, creature_types);
-    }
-    if other.type_line.is_creature() || other.base_power.is_some() {
-        if let Some(p) = sa
-            .ir
-            .set_power
-            .as_deref()
-            .and_then(|value| value.parse().ok())
-        {
-            other.base_power = Some(p);
-        }
-        if let Some(t) = sa
-            .ir
-            .set_toughness
-            .as_deref()
-            .and_then(|value| value.parse().ok())
-        {
-            other.base_toughness = Some(t);
-        }
-    }
-    if let Some(add_kws) = sa.ir.add_keywords.as_deref() {
-        for kw in add_kws
-            .split(" & ")
-            .map(str::trim)
-            .filter(|kw| !kw.is_empty())
-        {
-            other.keywords.add(kw);
-        }
-    }
-    if sa
-        .ir
-        .set_mana_cost
-        .as_deref()
-        .is_some_and(|v| v == "0" || v.is_empty())
-    {
-        other.mana_cost = forge_foundation::mana::ManaCost::no_cost();
-    }
 }
 
 fn resolve_copy_controllers(ctx: &EffectContext, sa: &SpellAbility) -> Vec<crate::ids::PlayerId> {

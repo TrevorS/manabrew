@@ -108,7 +108,7 @@ fn create_army_token(
     token.set_controller(controller);
     token.set_is_token(true);
     token.set_s_var("TokenScript", army_script);
-    token.set_s_var("TokenSpawningAbility", _sa.ability_text.clone());
+    token.token_spawning_ability = Some(Box::new(_sa.clone()));
     token.card_name = format!("{amass_type} Army Token");
     token.set_type_line(CardTypeLine::parse(&format!(
         "Creature - {amass_type} Army"

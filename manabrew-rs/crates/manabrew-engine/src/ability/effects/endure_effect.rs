@@ -58,7 +58,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             token.set_controller(controller);
             token.set_is_token(true);
             token.set_s_var("TokenScript", "w_x_x_spirit");
-            token.set_s_var("TokenSpawningAbility", sa.ability_text.clone());
+            token.token_spawning_ability = Some(Box::new(sa.clone()));
             token.set_base_power(Some(amount));
             token.set_base_toughness(Some(amount));
             token_table.put(controller, token, 1);
