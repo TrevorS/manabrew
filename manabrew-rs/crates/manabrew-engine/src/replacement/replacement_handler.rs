@@ -273,6 +273,30 @@ pub enum ReplacementEvent {
 
 use crate::agent::PlayerAgent;
 
+/// A failed payment replays the mana abilities it cannot undo, where Java keeps them
+/// (`ManaRefundService.refundManaPaid`), so the replay answers each replacement decision as the
+/// payment did instead of asking again.
+#[derive(Debug, Clone, Default)]
+pub enum ReplacementDecisions {
+    #[default]
+    Ask,
+    Record(Vec<usize>),
+    Replay(std::collections::VecDeque<usize>),
+}
+
+fn decide(game: &mut GameState, ask: impl FnOnce(&GameState) -> usize) -> usize {
+    if let ReplacementDecisions::Replay(answers) = &mut game.replacement_decisions {
+        if let Some(answer) = answers.pop_front() {
+            return answer;
+        }
+    }
+    let answer = ask(game);
+    if let ReplacementDecisions::Record(answers) = &mut game.replacement_decisions {
+        answers.push(answer);
+    }
+    answer
+}
+
 pub struct ReplacementRuntime<'a> {
     pub trigger_handler: &'a mut TriggerHandler,
     pub token_templates: &'a HashMap<String, Card>,
@@ -438,32 +462,31 @@ impl ReplacementHandler {
 
         let chosen_idx = if eligible.len() > 1 && layer != ReplacementLayer::CantHappen {
             if let Some(agents) = agents.as_deref_mut() {
-                let descriptions: Vec<String> = eligible
-                    .iter()
-                    .map(|(card_id, re, _)| {
-                        let host = game.card(*card_id);
-                        let card_name = &host.card_name;
-                        let desc = re.description(host, game);
-                        format!("{card_name}: {desc}")
-                    })
-                    .collect();
+                let mana_pools = runtime
+                    .as_deref()
+                    .map(|runtime| runtime.mana_pools.as_slice());
+                decide(game, |game| {
+                    let descriptions: Vec<String> = eligible
+                        .iter()
+                        .map(|(card_id, re, _)| {
+                            let host = game.card(*card_id);
+                            let card_name = &host.card_name;
+                            let desc = re.description(host, game);
+                            format!("{card_name}: {desc}")
+                        })
+                        .collect();
 
-                let hosts: Vec<CardId> = eligible.iter().map(|(card_id, _, _)| *card_id).collect();
-                let affected_player = affected_player_for_event(event, game);
-                let agent = &mut agents[affected_player.index()];
-                agent
-                    .choose_single_replacement_effect(
-                        DecisionContext {
-                            game,
-                            mana_pools: runtime
-                                .as_deref()
-                                .map(|runtime| runtime.mana_pools.as_slice()),
-                        },
+                    let hosts: Vec<CardId> =
+                        eligible.iter().map(|(card_id, _, _)| *card_id).collect();
+                    let affected_player = affected_player_for_event(event, game);
+                    agents[affected_player.index()].choose_single_replacement_effect(
+                        DecisionContext { game, mana_pools },
                         affected_player,
                         &descriptions,
                         &hosts,
                     )
-                    .min(eligible.len() - 1)
+                })
+                .min(eligible.len() - 1)
             } else {
                 0
             }
@@ -1398,8 +1421,7 @@ pub fn run_replace_damage(
             .collect();
         possible_replacers.sort_unstable();
         let chosen_index = match agents.as_deref_mut() {
-            Some(agents) if possible_replacers.len() > 1 => {
-                let game: &GameState = game;
+            Some(agents) if possible_replacers.len() > 1 => decide(game, |game| {
                 let descriptions: Vec<String> = possible_replacers
                     .iter()
                     .map(|key| {
@@ -1409,15 +1431,14 @@ pub fn run_replace_damage(
                     })
                     .collect();
                 let hosts: Vec<CardId> = possible_replacers.iter().map(|key| key.0).collect();
-                agents[decider.index()]
-                    .choose_single_replacement_effect(
-                        DecisionContext::new(game, runtime.mana_pools),
-                        decider,
-                        &descriptions,
-                        &hosts,
-                    )
-                    .min(possible_replacers.len() - 1)
-            }
+                agents[decider.index()].choose_single_replacement_effect(
+                    DecisionContext::new(game, runtime.mana_pools),
+                    decider,
+                    &descriptions,
+                    &hosts,
+                )
+            })
+            .min(possible_replacers.len() - 1),
             _ => 0,
         };
         let chosen_re = possible_replacers[chosen_index];
@@ -1909,7 +1930,7 @@ pub(super) fn departed_last_state_host(
 }
 
 fn confirm_optional_replacement(
-    game: &GameState,
+    game: &mut GameState,
     card_id: CardId,
     effect: &ReplacementEffect,
     event: &ReplacementEvent,
@@ -1923,14 +1944,19 @@ fn confirm_optional_replacement(
         .unwrap_or_else(|| affected_player_for_event(event, game));
     let host = game.card(card_id);
     let question = replacement_question(effect, host, game, event);
+    let description = effect.description(host, game);
     match agents {
-        Some(agents) => agents[decider.index()].confirm_replacement_effect(
-            DecisionContext { game, mana_pools },
-            decider,
-            &question,
-            &effect.description(host, game),
-            Some(card_id),
-        ),
+        Some(agents) => {
+            decide(game, |game| {
+                usize::from(agents[decider.index()].confirm_replacement_effect(
+                    DecisionContext { game, mana_pools },
+                    decider,
+                    &question,
+                    &description,
+                    Some(card_id),
+                ))
+            }) != 0
+        }
         None => true,
     }
 }

@@ -282,3 +282,32 @@ fn a_life_payment_under_two_bloodletters_asks_which_doubles_first() {
     assert_eq!(game.players[0].life, 12);
     assert_eq!(replacement_choices.get(), 1);
 }
+
+#[test]
+fn a_failed_activation_does_not_ask_its_mana_abilitys_replacement_again() {
+    let mut game = GameState::new(&["Alice", "Bob"], 2);
+    let p0 = PlayerId(0);
+    let p1 = PlayerId(1);
+    let engine = put(&mut game, COSTLY_ENGINE, p0, ZoneType::Battlefield);
+    let spring = put(&mut game, BLOOD_SPRING, p0, ZoneType::Battlefield);
+    put(&mut game, DULL_STONE, p0, ZoneType::Battlefield);
+    put(&mut game, DULL_STONE, p0, ZoneType::Library);
+    put(&mut game, BLOODLETTER, p1, ZoneType::Battlefield);
+    put(&mut game, BLOODLETTER, p1, ZoneType::Battlefield);
+    game.turn.active_player = p1;
+    game.new_turn_for_player(p1);
+    game.turn.phase = PhaseType::Main1;
+    let replacement_choices = Rc::new(Cell::new(0));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(CastOnce {
+            spell: engine,
+            cast: false,
+            replacement_choices: Rc::clone(&replacement_choices),
+        }),
+        Box::new(PassAgent),
+    ];
+    GameLoop::new(2).step_with_priority(&mut game, &mut agents, true);
+    assert!(game.card(spring).tapped);
+    assert_eq!(game.players[0].life, -2);
+    assert_eq!(replacement_choices.get(), 1);
+}

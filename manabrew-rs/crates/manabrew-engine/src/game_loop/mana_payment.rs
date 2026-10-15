@@ -3,6 +3,7 @@ use super::*;
 use forge_foundation::{ManaCost, ZoneType};
 
 use crate::ability::activated::ActivatedAbility;
+use crate::replacement::replacement_handler::ReplacementDecisions;
 
 #[derive(Clone, Copy)]
 pub(crate) struct ManaPaymentSession<'a> {
@@ -48,12 +49,20 @@ impl ManaPaymentResult {
                             .first()
                             .copied()
                     })?;
+                    let replacement_decisions = game
+                        .mana_ability_decisions
+                        .iter()
+                        .rev()
+                        .find(|(source, _)| *source == card_id)
+                        .map(|(_, decisions)| decisions.clone())
+                        .unwrap_or_default();
                     Some(mana::AutoTapChoice {
                         card_id,
                         mana_ability_index: Some(index),
                         chosen_atom,
                         needs_express_choice: express_choice.is_some(),
                         cost_cards: Vec::new(),
+                        replacement_decisions,
                         mana_trigger_ran: false,
                     })
                 }
@@ -131,6 +140,7 @@ where
     let saved_pool = host.parts().2[session.player.index()].clone();
     let mut mana_loop_invalid_count = 0u32;
     let mut executed_actions: Vec<ManaCostAction> = Vec::new();
+    host.parts().0.mana_ability_decisions.clear();
 
     loop {
         let untappable_lands = host.undoable_mana_sources(session.player);
@@ -423,8 +433,17 @@ where
         let player_idx = session.player.index();
         let undo_record = host.begin_mana_undo(session.player, land_id);
         let pool_snapshot = host.parts().2[player_idx].begin_tap_tracking();
+        let outer_decisions = std::mem::replace(
+            &mut host.parts().0.replacement_decisions,
+            ReplacementDecisions::Record(Vec::new()),
+        );
         let resolved = host.resolve_mana_ability(session.player, land_id, &ab, express_choice);
         let (game, _, mana_pools) = host.parts();
+        if let ReplacementDecisions::Record(decisions) =
+            std::mem::replace(&mut game.replacement_decisions, outer_decisions)
+        {
+            game.mana_ability_decisions.push((land_id, decisions));
+        }
         let produced = mana_pools[player_idx].end_tap_tracking(&pool_snapshot);
         let produced_count = produced.len();
         if resolved {

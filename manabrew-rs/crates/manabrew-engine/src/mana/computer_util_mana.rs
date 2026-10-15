@@ -1,3 +1,4 @@
+use crate::replacement::replacement_handler::ReplacementDecisions;
 use crate::HashMap;
 use forge_foundation::mana::ManaAtom;
 use forge_foundation::{ManaCost, ManaCostShard, ZoneType};
@@ -62,6 +63,7 @@ pub struct AutoTapChoice {
     /// `AbilityManaPart.getExpressChoice()` being non-null.
     pub needs_express_choice: bool,
     pub cost_cards: Vec<CardId>,
+    pub replacement_decisions: Vec<usize>,
     pub mana_trigger_ran: bool,
 }
 
@@ -551,6 +553,7 @@ pub fn next_auto_tap_choice_with_reserved_sacrifices(
         chosen_atom,
         needs_express_choice: sa_payment.atoms.len() > 1,
         cost_cards: Vec::new(),
+        replacement_decisions: Vec::new(),
         mana_trigger_ran: false,
     })
 }
@@ -601,6 +604,7 @@ pub fn next_auto_float_choice(
         chosen_atom,
         needs_express_choice: sa_payment.atoms.len() > 1,
         cost_cards: Vec::new(),
+        replacement_decisions: Vec::new(),
         mana_trigger_ran: false,
     })
 }
@@ -866,9 +870,13 @@ fn auto_tap_lands_internal_with_ctx(
         };
         let ability = mana_ability_of(game, &sa_payment).cloned();
         let mut cost_cards = Vec::new();
+        let outer_decisions = std::mem::replace(
+            &mut game.replacement_decisions,
+            ReplacementDecisions::Record(Vec::new()),
+        );
         // Pay non-tap ability costs (sacrifice, counter removal) through callback.
         // If payment fails (e.g. sacrifice declined), remove the candidate and retry.
-        if !pay_non_tap_mana_ability_costs(
+        let costs_paid = pay_non_tap_mana_ability_costs(
             game,
             player,
             &sa_payment,
@@ -877,7 +885,15 @@ fn auto_tap_lands_internal_with_ctx(
             reserved_sacrifices,
             callback,
             &mut cost_cards,
-        ) {
+        );
+        let replacement_decisions =
+            match std::mem::replace(&mut game.replacement_decisions, outer_decisions) {
+                ReplacementDecisions::Record(decisions) => decisions,
+                _ => Vec::new(),
+            };
+        game.mana_ability_decisions
+            .push((sa_payment.card_id, replacement_decisions.clone()));
+        if !costs_paid {
             // Java: candidate became unpayable; remove and continue.
             candidates.retain(|c| c.card_id != sa_payment.card_id);
             continue;
@@ -938,6 +954,7 @@ fn auto_tap_lands_internal_with_ctx(
                 chosen_atom: trace_atom,
                 needs_express_choice: is_special_output,
                 cost_cards,
+                replacement_decisions: replacement_decisions.clone(),
                 mana_trigger_ran,
             });
         } else {
@@ -994,6 +1011,7 @@ fn auto_tap_lands_internal_with_ctx(
                 chosen_atom,
                 needs_express_choice: needs_express,
                 cost_cards,
+                replacement_decisions: replacement_decisions.clone(),
                 mana_trigger_ran,
             });
 
@@ -2203,7 +2221,11 @@ pub(crate) fn reapply_non_undoable_payment_ability(
         any_color: false,
     };
     let mut replay = auto_payment_callback(runtime, agents, cost_cards);
-    if !pay_non_tap_mana_ability_costs(
+    let outer_decisions = std::mem::replace(
+        &mut game.replacement_decisions,
+        ReplacementDecisions::Replay(choice.replacement_decisions.iter().copied().collect()),
+    );
+    let costs_paid = pay_non_tap_mana_ability_costs(
         game,
         player,
         &ma,
@@ -2212,7 +2234,9 @@ pub(crate) fn reapply_non_undoable_payment_ability(
         &[],
         &mut Some(&mut replay),
         &mut Vec::new(),
-    ) {
+    );
+    game.replacement_decisions = outer_decisions;
+    if !costs_paid {
         return false;
     }
     if has_tap_cost {
@@ -5262,6 +5286,7 @@ mod tests {
             chosen_atom: ManaAtom::BLUE,
             needs_express_choice: false,
             cost_cards: Vec::new(),
+            replacement_decisions: Vec::new(),
             mana_trigger_ran,
         }
     }

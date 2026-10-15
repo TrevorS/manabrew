@@ -628,6 +628,10 @@ pub struct GameState {
     /// `copyLastState` (`copy_forge_last_state_battlefield`); kept under `mirror_forge_bugs`.
     #[serde(skip)]
     pub forge_last_state_battlefield: Vec<CardId>,
+    #[serde(skip)]
+    pub replacement_decisions: crate::replacement::replacement_handler::ReplacementDecisions,
+    #[serde(skip)]
+    pub mana_ability_decisions: Vec<(CardId, Vec<usize>)>,
 
     #[serde(skip)]
     pub change_zone_lki_info: Tracked<crate::HashMap<CardId, Arc<Card>>>,
@@ -717,6 +721,8 @@ impl GameState {
             pre_sba_battlefield: Vec::new(),
             replacement_last_state_battlefield: None,
             forge_last_state_battlefield: Vec::new(),
+            replacement_decisions: Default::default(),
+            mana_ability_decisions: Vec::new(),
             change_zone_lki_info: Tracked::default(),
             departed_objects: crate::HashMap::default(),
             last_sacrificed_card: None,
