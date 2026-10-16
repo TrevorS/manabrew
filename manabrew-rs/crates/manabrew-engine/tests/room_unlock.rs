@@ -301,3 +301,52 @@ fn a_room_door_cast_is_named_for_that_door_on_the_stack() {
         assert_eq!(game.card(room).get_name(), "Quiet Annex // Loud Chamber");
     }
 }
+
+const ROOM_WITH_DOOR_TRIGGERS: &str = "Name:Quiet Annex\nManaCost:B\nTypes:Enchantment Room\nAlternateMode:Split\nT:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigQuiet | TriggerDescription$ Quiet.\nSVar:TrigQuiet:DB$ GainLife | LifeAmount$ 1\nOracle:\n\nALTERNATE\n\nName:Loud Chamber\nManaCost:1 B\nTypes:Enchantment Room\nT:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigLoud | TriggerDescription$ Loud.\nSVar:TrigLoud:DB$ GainLife | LifeAmount$ 2\nOracle:";
+
+fn room_opened(game: &mut GameState, doors: [CardStateName; 2]) -> CardId {
+    let room = put(
+        game,
+        ROOM_WITH_DOOR_TRIGGERS,
+        PlayerId(0),
+        ZoneType::Battlefield,
+    );
+    for door in doors {
+        game.card_mut(room).unlock_room_door(door);
+        game.card_mut(room).update_rooms();
+    }
+    room
+}
+
+#[test]
+fn a_room_with_both_doors_unlocked_is_whole_whichever_door_opened_first() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let left_first = room_opened(
+        &mut game,
+        [CardStateName::LeftSplit, CardStateName::RightSplit],
+    );
+    let right_first = room_opened(
+        &mut game,
+        [CardStateName::RightSplit, CardStateName::LeftSplit],
+    );
+    for room in [left_first, right_first] {
+        let card = game.card(room);
+        assert_eq!(card.mana_value(), 3);
+        assert_eq!(card.get_current_state_name(), CardStateName::Original);
+        assert_eq!(card.get_name(), game.card(left_first).get_name());
+        let doors: Vec<_> = card
+            .triggers
+            .iter()
+            .map(|trigger| {
+                (
+                    trigger.base.card_trait_base.get_card_state_name(),
+                    trigger.execute.as_str(),
+                )
+            })
+            .collect();
+        assert!(doors.contains(&(Some(CardStateName::LeftSplit), "TrigQuiet")));
+        assert!(doors.contains(&(Some(CardStateName::RightSplit), "TrigLoud")));
+        assert!(card.room_door_unlocked(CardStateName::LeftSplit));
+        assert!(card.room_door_unlocked(CardStateName::RightSplit));
+    }
+}

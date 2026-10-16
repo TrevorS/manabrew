@@ -266,6 +266,7 @@ impl CombatState {
     ///
     /// Mirrors Java Forge's `Combat.removeAbsentCombatants()`.
     pub fn remove_absent_combatants(&mut self, game: &mut GameState) -> bool {
+        let declared: Vec<CardId> = self.attackers.iter().map(|&(id, _)| id).collect();
         let cards = &game.cards;
         let before_attackers = self.attackers.len();
         let before_blockers = self.blockers.len();
@@ -290,6 +291,13 @@ impl CombatState {
         });
 
         let attacker_ids: HashSet<CardId> = self.attackers.iter().map(|(a, _)| *a).collect();
+        for attacker_id in declared {
+            if !attacker_ids.contains(&attacker_id)
+                && game.card(attacker_id).attacking_player.is_some()
+            {
+                game.card_mut(attacker_id).clear_attacking_player();
+            }
+        }
         self.attacker_zone_timestamps
             .retain(|attacker_id, _| attacker_ids.contains(attacker_id));
 

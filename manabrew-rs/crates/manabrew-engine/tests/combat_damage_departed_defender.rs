@@ -23,6 +23,7 @@ const WALKER: &str =
 #[derive(Default)]
 struct AttackWalker {
     defenders_seen_at_blocks: Option<Rc<RefCell<Vec<Option<DefenderId>>>>>,
+    blocks: bool,
 }
 
 impl PlayerAgent for AttackWalker {
@@ -72,7 +73,7 @@ impl PlayerAgent for AttackWalker {
         context: DecisionContext<'_>,
         _player: PlayerId,
         attackers: &[CardId],
-        _blockers: &[CardId],
+        blockers: &[CardId],
         _max: Option<usize>,
     ) -> Vec<(CardId, CardId)> {
         if let Some(seen) = &self.defenders_seen_at_blocks {
@@ -82,7 +83,10 @@ impl PlayerAgent for AttackWalker {
                     .map(|&attacker| context.game.get_defender_by_attacker(attacker)),
             );
         }
-        Vec::new()
+        match (self.blocks, blockers.first(), attackers.first()) {
+            (true, Some(&blocker), Some(&attacker)) => vec![(blocker, attacker)],
+            _ => Vec::new(),
+        }
     }
     fn choose_target_player(
         &mut self,
@@ -216,6 +220,7 @@ fn the_game_knows_which_planeswalker_an_attacker_attacks_until_combat_ends() {
         Box::new(AttackWalker::default()),
         Box::new(AttackWalker {
             defenders_seen_at_blocks: Some(Rc::clone(&seen)),
+            ..AttackWalker::default()
         }),
     ];
     let mut rng = rand::rngs::StdRng::seed_from_u64(1);
@@ -223,4 +228,42 @@ fn the_game_knows_which_planeswalker_an_attacker_attacks_until_combat_ends() {
     assert_eq!(*seen.borrow(), vec![Some(DefenderId::Permanent(walker))]);
     assert_eq!(game.get_defender_by_attacker(striker), None);
     assert!(game.turn.combat_attackers.is_empty());
+}
+
+const DOOMED_ATTACKER: &str = "Name:Doomed Raider\nManaCost:1 R\nTypes:Creature Goblin\nPT:2/2\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ TrigPing | TriggerDescription$ When this creature dies, it deals 1 damage to target creature defending player controls.\nSVar:TrigPing:DB$ DealDamage | ValidTgts$ Creature.DefenderCtrl | TgtPrompt$ Select target creature defending player controls | NumDmg$ 1\nOracle:";
+const FIRST_STRIKE_GUARD: &str =
+    "Name:Keen Guard\nManaCost:1 W\nTypes:Creature Human Soldier\nPT:2/1\nK:First Strike\nOracle:";
+const ATTACKER_DEATH_WATCHER: &str = "Name:Attacker Death Watcher\nManaCost:2 B\nTypes:Enchantment\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.attacking+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever an attacking creature you control dies, you gain 3 life.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ 3\nOracle:";
+const DIED_ATTACKING_WATCHER: &str = "Name:Died Attacking Watcher\nManaCost:2 B\nTypes:Enchantment\nT:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ Whenever a creature you control dies, you gain 5 life if it was attacking.\nSVar:TrigGain:DB$ GainLife | LifeAmount$ X\nSVar:X:TriggeredCard$Valid Creature.attacking/Times.5\nOracle:";
+
+#[test]
+fn an_attacker_that_dies_in_combat_is_not_attacking_afterwards() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let p1 = PlayerId(1);
+    let raider = put(&mut game, DOOMED_ATTACKER, p0, ZoneType::Battlefield);
+    put(&mut game, ATTACKER_DEATH_WATCHER, p0, ZoneType::Battlefield);
+    put(&mut game, DIED_ATTACKING_WATCHER, p0, ZoneType::Battlefield);
+    put(&mut game, WALKER, p1, ZoneType::Battlefield);
+    let guard = put(&mut game, FIRST_STRIKE_GUARD, p1, ZoneType::Battlefield);
+    for player in [p0, p1] {
+        for _ in 0..3 {
+            put(&mut game, STRIKER, player, ZoneType::Library);
+        }
+    }
+    game.card_mut(raider).set_summoning_sick(false);
+    game.turn.active_player = p0;
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(AttackWalker::default()),
+        Box::new(AttackWalker {
+            blocks: true,
+            ..AttackWalker::default()
+        }),
+    ];
+    let mut rng = rand::rngs::StdRng::seed_from_u64(1);
+    GameLoop::new(2).run_turn(&mut game, &mut agents, &mut rng);
+    assert_eq!(game.card(raider).zone, ZoneType::Graveyard);
+    assert_eq!(game.card(raider).attacking_player, None);
+    assert_eq!(game.players[0].life, 28);
+    assert_eq!(game.card(guard).zone, ZoneType::Graveyard);
 }

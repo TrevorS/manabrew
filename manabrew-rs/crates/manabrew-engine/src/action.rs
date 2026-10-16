@@ -595,6 +595,7 @@ impl GameState {
             self.card_mut(card_id).clear_temp_controllers();
             self.card_mut(card_id).static_control_base = None;
             self.card_mut(card_id).set_original_controller_eot(None);
+            self.card_mut(card_id).clear_attacking_player();
             let (commands, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.leaves_play_commands)
                 .into_iter()
                 .partition(|(host, _)| *host == card_id);

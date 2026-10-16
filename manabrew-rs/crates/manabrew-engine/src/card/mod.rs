@@ -5375,7 +5375,12 @@ impl Card {
         let left = self.room_door_unlocked(CardStateName::LeftSplit);
         let right = self.room_door_unlocked(CardStateName::RightSplit);
         match (left, right) {
-            (true, true) => self.card_name = self.full_name.clone(),
+            (true, true) => {
+                if self.is_transformed {
+                    self.transform();
+                }
+                self.card_name = self.full_name.clone();
+            }
             (false, true) => {
                 if !self.is_transformed {
                     self.card_name = self.room_left_name();

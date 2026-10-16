@@ -1,5 +1,5 @@
 use forge_carddb::parse_card_script;
-use forge_foundation::ZoneType;
+use forge_foundation::{PhaseType, ZoneType};
 use manabrew_engine::ability::ability_factory::build_spell_ability;
 use manabrew_engine::ability::AbilityKey;
 use manabrew_engine::card::valid_filter::matches_valid;
@@ -299,7 +299,11 @@ fn defender_ctrl_reads_the_attack_without_a_combat_state() {
     };
 
     assert!(!defender_ctrl(&game, attacker));
-    game.card_mut(attacker).set_attacking_player(p1);
+    game.turn
+        .combat_attackers
+        .push((attacker, DefenderId::Player(p1)));
+    assert!(!defender_ctrl(&game, attacker));
+    game.turn.phase = PhaseType::CombatDeclareBlockers;
     assert!(defender_ctrl(&game, attacker));
     assert!(defender_ctrl(&game, sword));
 }

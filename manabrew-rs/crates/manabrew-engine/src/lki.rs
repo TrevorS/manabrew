@@ -76,6 +76,7 @@ pub struct CardSnapshot {
     pub saddled_by: Vec<CardId>,
     pub attachments: Vec<CardId>,
     pub granted_keywords: crate::keyword::keyword_collection::KeywordCollection,
+    pub attacking_player: Option<PlayerId>,
 }
 
 impl CardSnapshot {
@@ -97,6 +98,7 @@ impl CardSnapshot {
             saddled_by: card.saddled_by_this_turn(),
             attachments: card.attachments.clone(),
             granted_keywords: card.granted_keywords.clone(),
+            attacking_player: card.attacking_player,
         }
     }
 
@@ -117,6 +119,7 @@ impl CardSnapshot {
             saddled_by,
             attachments,
             granted_keywords,
+            attacking_player,
         } = self;
         *controller == card.controller
             && *owner == card.owner
@@ -132,6 +135,7 @@ impl CardSnapshot {
             && *saddled_by == card.saddled_by_this_turn()
             && *attachments == card.attachments
             && *granted_keywords == card.granted_keywords
+            && *attacking_player == card.attacking_player
     }
 
     fn update_from_card(&mut self, card: &Card) {
@@ -151,6 +155,7 @@ impl CardSnapshot {
             saddled_by,
             attachments,
             granted_keywords,
+            attacking_player,
         } = self;
         *controller = card.controller;
         *owner = card.owner;
@@ -172,6 +177,7 @@ impl CardSnapshot {
         if *granted_keywords != card.granted_keywords {
             granted_keywords.clone_from(&card.granted_keywords);
         }
+        *attacking_player = card.attacking_player;
     }
 }
 
@@ -385,6 +391,7 @@ pub fn battlefield_lki_card(game: &crate::game::GameState, card_id: CardId) -> O
     lki.clear_changed_card_colors();
     lki.attachments = snapshot.attachments.clone();
     lki.granted_keywords = snapshot.granted_keywords.clone();
+    lki.attacking_player = snapshot.attacking_player;
     lki.static_power_modifier += snapshot.power - lki.power();
     lki.static_toughness_modifier += snapshot.toughness - lki.toughness();
     Some(lki)
@@ -576,9 +583,14 @@ pub fn resolve_triggered_card_lki_property(
         let card_id = trigger_card_object(sa, "Card").or(sa.trigger_source)?;
         let source_id = sa.source?;
         let selector = crate::parsing::cached_compiled_selector(filter);
+        let card = if is_trigger_object_on_battlefield(game, sa, card_id) {
+            game.card(card_id)
+        } else {
+            game.get_change_zone_lki_info(card_id)
+        };
         let matched = crate::card::valid_filter::matches_valid_card_selector_with_context(
             &selector,
-            game.card(card_id),
+            card,
             crate::card::valid_filter::MatchContext::new(game.card(source_id), game)
                 .with_spell_ability(sa),
         );

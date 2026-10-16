@@ -1307,7 +1307,17 @@ fn defending_player_related_to(
         Some(combat) => combat
             .get_defender_by_attacker(attacker)
             .map(|defender| defender.controlling_player(context.game)),
-        None => context.game.card(attacker).attacking_player,
+        None if context.game.turn.phase.is_combat() => context
+            .game
+            .get_defender_by_attacker(attacker)
+            .map(|defender| defender.controlling_player(context.game))
+            .or_else(|| {
+                context
+                    .game
+                    .get_change_zone_lki_info(attacker)
+                    .attacking_player
+            }),
+        None => None,
     }
 }
 
