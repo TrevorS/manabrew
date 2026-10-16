@@ -117,10 +117,11 @@ pub(super) fn choose_blockers<T: Responder>(
     _max_blockers: Option<usize>,
 ) -> Vec<(CardId, CardId)> {
     let game = live.game;
-    let mut combat = CombatState::new();
-    for &attacker in attackers {
-        combat.declare_attacker(attacker, DefenderId::Player(player), 0);
-    }
+    let combat = CombatState::with_attackers(
+        attackers
+            .iter()
+            .map(|&attacker| (attacker, DefenderId::Player(player))),
+    );
     let can_block = |blocker: CardId, attacker: CardId| {
         combat::can_creature_block(game, blocker, attacker)
             && !combat_util::lure_forbids_block(game, &combat, attacker, blocker)

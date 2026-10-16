@@ -797,7 +797,12 @@ fn card_state_to_dto(
         is_crewed: card.is_crewed,
         is_attacking: card.attacking_player.is_some(),
         attacking_player_id: card.attacking_player.map(player_id_str),
-        attack_target_id: None,
+        attack_target_id: game
+            .get_defender_by_attacker(cid)
+            .map(|defender| match defender {
+                manabrew_engine::combat::DefenderId::Player(player) => player_id_str(player),
+                manabrew_engine::combat::DefenderId::Permanent(card) => card_id_str(card),
+            }),
         // Merge intrinsic keywords with those granted by continuous effects (layer 6)
         // and temporary pump keywords (KW$ parameter, until end of turn).
         keywords: {

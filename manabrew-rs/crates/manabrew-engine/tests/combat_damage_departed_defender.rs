@@ -13,12 +13,17 @@ use manabrew_engine::mana::ManaPool;
 use manabrew_engine::player::actions::PlayerAction;
 use manabrew_engine::spellability::SpellAbility;
 use rand::SeedableRng;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 const STRIKER: &str = "Name:Bright Striker\nManaCost:2 W\nTypes:Creature Human Knight\nPT:3/3\nK:Double Strike\nK:Lifelink\nOracle:";
 const WALKER: &str =
     "Name:Test Walker\nManaCost:2 B\nTypes:Legendary Planeswalker Testa\nLoyalty:2\nOracle:";
 
-struct AttackWalker;
+#[derive(Default)]
+struct AttackWalker {
+    defenders_seen_at_blocks: Option<Rc<RefCell<Vec<Option<DefenderId>>>>>,
+}
 
 impl PlayerAgent for AttackWalker {
     fn choose_targets_for(
@@ -64,12 +69,19 @@ impl PlayerAgent for AttackWalker {
     }
     fn choose_blockers(
         &mut self,
-        _context: DecisionContext<'_>,
+        context: DecisionContext<'_>,
         _player: PlayerId,
-        _attackers: &[CardId],
+        attackers: &[CardId],
         _blockers: &[CardId],
         _max: Option<usize>,
     ) -> Vec<(CardId, CardId)> {
+        if let Some(seen) = &self.defenders_seen_at_blocks {
+            seen.borrow_mut().extend(
+                attackers
+                    .iter()
+                    .map(|&attacker| context.game.get_defender_by_attacker(attacker)),
+            );
+        }
         Vec::new()
     }
     fn choose_target_player(
@@ -150,7 +162,8 @@ fn a_planeswalker_gone_after_first_strike_takes_no_regular_damage_and_gives_no_l
     }
     game.card_mut(striker).set_summoning_sick(false);
     game.turn.active_player = p0;
-    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(AttackWalker), Box::new(PassAgent)];
+    let mut agents: Vec<Box<dyn PlayerAgent>> =
+        vec![Box::new(AttackWalker::default()), Box::new(PassAgent)];
     let mut rng = rand::rngs::StdRng::seed_from_u64(1);
     GameLoop::new(2).run_turn(&mut game, &mut agents, &mut rng);
     assert_eq!(game.card(walker).zone, ZoneType::Graveyard);
@@ -175,9 +188,39 @@ fn lifelink_combat_damage_is_the_first_life_gained_this_turn() {
     }
     game.card_mut(striker).set_summoning_sick(false);
     game.turn.active_player = p0;
-    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![Box::new(AttackWalker), Box::new(PassAgent)];
+    let mut agents: Vec<Box<dyn PlayerAgent>> =
+        vec![Box::new(AttackWalker::default()), Box::new(PassAgent)];
     let mut rng = rand::rngs::StdRng::seed_from_u64(1);
     GameLoop::new(2).run_turn(&mut game, &mut agents, &mut rng);
     assert_eq!(game.players[0].life, 23);
     assert_eq!(game.players[1].life, 15);
+}
+
+#[test]
+fn the_game_knows_which_planeswalker_an_attacker_attacks_until_combat_ends() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    let p1 = PlayerId(1);
+    let striker = put(&mut game, STRIKER, p0, ZoneType::Battlefield);
+    let walker = put(&mut game, WALKER, p1, ZoneType::Battlefield);
+    put(&mut game, STRIKER, p1, ZoneType::Battlefield);
+    for player in [p0, p1] {
+        for _ in 0..3 {
+            put(&mut game, STRIKER, player, ZoneType::Library);
+        }
+    }
+    game.card_mut(striker).set_summoning_sick(false);
+    game.turn.active_player = p0;
+    let seen = Rc::new(RefCell::new(Vec::new()));
+    let mut agents: Vec<Box<dyn PlayerAgent>> = vec![
+        Box::new(AttackWalker::default()),
+        Box::new(AttackWalker {
+            defenders_seen_at_blocks: Some(Rc::clone(&seen)),
+        }),
+    ];
+    let mut rng = rand::rngs::StdRng::seed_from_u64(1);
+    GameLoop::new(2).run_turn(&mut game, &mut agents, &mut rng);
+    assert_eq!(*seen.borrow(), vec![Some(DefenderId::Permanent(walker))]);
+    assert_eq!(game.get_defender_by_attacker(striker), None);
+    assert!(game.turn.combat_attackers.is_empty());
 }

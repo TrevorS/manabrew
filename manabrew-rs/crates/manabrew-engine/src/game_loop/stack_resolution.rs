@@ -589,11 +589,9 @@ impl GameLoop {
                         })
                     });
                     if let Some(defender) = defender {
-                        self.combat.add_attacker(
-                            card_id,
-                            defender,
-                            game.card(card_id).zone_timestamp,
-                        );
+                        let zone_timestamp = game.card(card_id).zone_timestamp;
+                        self.combat
+                            .add_attacker(game, card_id, defender, zone_timestamp);
                         let defending_player = defender.controlling_player(game);
                         let card = game.card_mut(card_id);
                         card.set_attacking_player(defending_player);

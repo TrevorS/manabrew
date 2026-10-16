@@ -500,11 +500,9 @@ impl GameLoop {
                 );
             }
             game.card_mut(attacker_id).mark_attacked_this_turn();
-            self.combat.declare_attacker(
-                attacker_id,
-                defender,
-                game.card(attacker_id).zone_timestamp,
-            );
+            let zone_timestamp = game.card(attacker_id).zone_timestamp;
+            self.combat
+                .declare_attacker(game, attacker_id, defender, zone_timestamp);
 
             crate::ability::effects::ring_tempts_you_effect::sync_ring_effect(
                 game,
@@ -611,7 +609,8 @@ impl GameLoop {
     ) -> bool {
         // Java parity: PhaseHandler still advances into COMBAT_DECLARE_BLOCKERS
         // even when it will be skipped due to no attackers.
-        self.combat.remove_absent_combatants(&game.cards);
+        self.combat.remove_absent_combatants(game);
+        self.combat.debug_assert_attackers_mirrored(game);
         if !self.combat.has_attackers() {
             self.set_phase(game, agents, PhaseType::CombatDeclareBlockers);
         }
@@ -973,7 +972,8 @@ impl GameLoop {
     ) -> bool {
         // Java parity: combatants may leave/re-enter during declare blockers
         // priority (e.g. sacrificing an attacker). Re-prune before damage.
-        self.combat.remove_absent_combatants(&game.cards);
+        self.combat.remove_absent_combatants(game);
+        self.combat.debug_assert_attackers_mirrored(game);
 
         // Pre-populate LKI cache for all combat participants so that if a
         // creature dies during damage, its combat role is already recorded.
@@ -985,7 +985,8 @@ impl GameLoop {
         }
 
         self.set_phase(game, agents, PhaseType::CombatFirstStrikeDamage);
-        self.combat.remove_absent_combatants(&game.cards);
+        self.combat.remove_absent_combatants(game);
+        self.combat.debug_assert_attackers_mirrored(game);
         if self.combat.has_attackers() {
             // LKI: Snapshot battlefield state before first strike damage.
             // Mirrors Java's Game.copyLastState() called before damage resolution.
@@ -1044,7 +1045,8 @@ impl GameLoop {
         agents: &mut [Box<dyn PlayerAgent>],
     ) -> bool {
         self.set_phase(game, agents, PhaseType::CombatDamage);
-        self.combat.remove_absent_combatants(&game.cards);
+        self.combat.remove_absent_combatants(game);
+        self.combat.debug_assert_attackers_mirrored(game);
         if self.combat.has_attackers() {
             // Run AssignDealDamage replacement effects for each attacker.
             {

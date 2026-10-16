@@ -111,7 +111,7 @@ impl CombatState {
         Self::default()
     }
 
-    pub fn clear(&mut self) {
+    fn clear(&mut self) {
         self.attacking_player = None;
         self.defending_player = None;
         self.attackers.clear();
@@ -136,10 +136,33 @@ impl CombatState {
         let lki = std::mem::take(&mut self.lki_cache);
         self.clear();
         self.lki_cache = lki;
+        self.mirror_attackers(game);
+    }
+
+    /// A combat that only simulates one, as the prompt and parity agents do to test blocks; it
+    /// writes no attackers to the game.
+    pub fn with_attackers(attackers: impl IntoIterator<Item = (CardId, DefenderId)>) -> Self {
+        let mut combat = Self::default();
+        for (attacker, defender) in attackers {
+            combat.attackers.push((attacker, defender));
+            combat.attacker_zone_timestamps.insert(attacker, 0);
+        }
+        combat
+    }
+
+    fn mirror_attackers(&self, game: &mut GameState) {
+        if game.turn.combat_attackers != self.attackers {
+            game.turn.combat_attackers.clone_from(&self.attackers);
+        }
+    }
+
+    pub fn debug_assert_attackers_mirrored(&self, game: &GameState) {
+        debug_assert_eq!(game.turn.combat_attackers, self.attackers);
     }
 
     pub fn declare_attacker(
         &mut self,
+        game: &mut GameState,
         attacker: CardId,
         defending: DefenderId,
         zone_timestamp: u64,
@@ -147,6 +170,7 @@ impl CombatState {
         self.attackers.push((attacker, defending));
         self.attacker_zone_timestamps
             .insert(attacker, zone_timestamp);
+        self.mirror_attackers(game);
     }
 
     pub fn declare_blocker(&mut self, blocker: CardId, attacker: CardId, zone_timestamp: u64) {
@@ -241,7 +265,8 @@ impl CombatState {
     /// if any combatant was removed.
     ///
     /// Mirrors Java Forge's `Combat.removeAbsentCombatants()`.
-    pub fn remove_absent_combatants(&mut self, cards: &[Arc<crate::card::Card>]) -> bool {
+    pub fn remove_absent_combatants(&mut self, game: &mut GameState) -> bool {
+        let cards = &game.cards;
         let before_attackers = self.attackers.len();
         let before_blockers = self.blockers.len();
 
@@ -279,7 +304,10 @@ impl CombatState {
             order.retain(|b| blocker_ids.contains(b));
         }
 
-        self.attackers.len() != before_attackers || self.blockers.len() != before_blockers
+        let changed =
+            self.attackers.len() != before_attackers || self.blockers.len() != before_blockers;
+        self.mirror_attackers(game);
+        changed
     }
 
     /// Check if any creature in combat has first strike or double strike.
@@ -1007,6 +1035,7 @@ impl CombatState {
         }
 
         self.clear();
+        self.mirror_attackers(game);
     }
 
     /// Remove all attacker registrations.
@@ -1020,12 +1049,19 @@ impl CombatState {
 
     /// Add an attacker to combat, targeting a defender.
     /// Mirrors Java `Combat.addAttacker()`.
-    pub fn add_attacker(&mut self, attacker: CardId, defender: DefenderId, zone_timestamp: u64) {
+    pub fn add_attacker(
+        &mut self,
+        game: &mut GameState,
+        attacker: CardId,
+        defender: DefenderId,
+        zone_timestamp: u64,
+    ) {
         // Remove from any existing band first (Java parity)
         self.attackers.retain(|(a, _)| *a != attacker);
         self.attackers.push((attacker, defender));
         self.attacker_zone_timestamps
             .insert(attacker, zone_timestamp);
+        self.mirror_attackers(game);
     }
 
     /// Add a blocker assignment.
@@ -1105,7 +1141,7 @@ impl CombatState {
 
     /// Remove an attacker from combat, cleaning up all indices.
     /// Mirrors Java `Combat.unregisterAttacker()`.
-    pub fn unregister_attacker(&mut self, card: CardId) {
+    fn unregister_attacker(&mut self, card: CardId) {
         // Remove from damage order
         self.damage_order.remove(&card);
 
@@ -1145,6 +1181,7 @@ impl CombatState {
         // Check if attacker
         if self.attackers.iter().any(|(a, _)| *a == card) {
             self.unregister_attacker(card);
+            self.mirror_attackers(game);
             game.card_mut(card).clear_attacking_player();
             return;
         }

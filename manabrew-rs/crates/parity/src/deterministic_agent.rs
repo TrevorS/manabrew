@@ -1638,10 +1638,11 @@ impl PlayerAgent for DeterministicAgent {
 
         let mut pairs = Vec::new();
         let mut blocker_counts_by_attacker: HashMap<CardId, usize> = HashMap::new();
-        let mut combat = manabrew_engine::combat::CombatState::new();
-        for &attacker in attackers {
-            combat.declare_attacker(attacker, DefenderId::Player(player), 0);
-        }
+        let mut combat = manabrew_engine::combat::CombatState::with_attackers(
+            attackers
+                .iter()
+                .map(|&attacker| (attacker, DefenderId::Player(player))),
+        );
         for &blocker in &sorted_blockers {
             // When BlockRestrict limit is reached, Java still iterates remaining
             // blockers with 0 legal options (consuming RNG for forced PASS).

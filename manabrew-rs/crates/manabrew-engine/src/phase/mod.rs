@@ -262,6 +262,10 @@ pub struct TurnState {
     pub combat_blockers_declared: bool,
     /// Authoritative blocker -> attacker assignments for the current combat.
     pub combat_block_assignments: Vec<(CardId, CardId)>,
+    /// `CombatState::attackers`, kept here by its mutators: Java's `Combat` lives on `Game`, where
+    /// the AI and the view read it, and Rust's lives on `GameLoop`.
+    #[serde(default)]
+    pub combat_attackers: Vec<(CardId, crate::combat::DefenderId)>,
 
     // Per-turn flags
     pub drawn_for_turn: bool,
@@ -286,6 +290,7 @@ impl TurnState {
             combat_attackers_declared: false,
             combat_blockers_declared: false,
             combat_block_assignments: vec![],
+            combat_attackers: vec![],
             drawn_for_turn: false,
             n_upkeeps_this_turn: 0,
             n_combats_this_turn: 0,
@@ -343,6 +348,7 @@ impl TurnState {
             self.combat_attackers_declared = false;
             self.combat_blockers_declared = false;
             self.combat_block_assignments.clear();
+            self.combat_attackers.clear();
             self.drawn_for_turn = false;
         }
 
@@ -351,6 +357,7 @@ impl TurnState {
             self.combat_attackers_declared = false;
             self.combat_blockers_declared = false;
             self.combat_block_assignments.clear();
+            self.combat_attackers.clear();
         }
 
         turn_ended
@@ -367,6 +374,7 @@ impl TurnState {
             self.combat_attackers_declared = false;
             self.combat_blockers_declared = false;
             self.combat_block_assignments.clear();
+            self.combat_attackers.clear();
             self.drawn_for_turn = false;
         }
     }
@@ -418,6 +426,7 @@ impl TurnState {
             self.combat_attackers_declared = false;
             self.combat_blockers_declared = false;
             self.combat_block_assignments.clear();
+            self.combat_attackers.clear();
             self.drawn_for_turn = false;
             Some(extra_turn)
         } else {

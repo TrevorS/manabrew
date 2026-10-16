@@ -3577,9 +3577,12 @@ mod tests {
         crate::staticability::layer::apply_continuous_effects(&mut game);
         let mut game_loop = GameLoop::new(2);
         let timestamp = game.card(attacker).zone_timestamp;
-        game_loop
-            .combat
-            .add_attacker(attacker, crate::combat::DefenderId::Player(p1), timestamp);
+        game_loop.combat.add_attacker(
+            &mut game,
+            attacker,
+            crate::combat::DefenderId::Player(p1),
+            timestamp,
+        );
 
         let sneaks: Vec<u8> = game_loop
             .get_playable_cards(&game, p0, true)

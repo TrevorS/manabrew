@@ -1313,6 +1313,16 @@ impl GameState {
         self.zones.update_lki(zone_type, owner, card, latest_state);
     }
 
+    /// Java `Combat.getDefenderByAttacker`, read from the `CombatState` attackers mirrored
+    /// into the turn.
+    pub fn get_defender_by_attacker(&self, attacker: CardId) -> Option<crate::combat::DefenderId> {
+        self.turn
+            .combat_attackers
+            .iter()
+            .find(|(card, _)| *card == attacker)
+            .map(|&(_, defender)| defender)
+    }
+
     pub fn active_player(&self) -> PlayerId {
         self.turn.active_player
     }
