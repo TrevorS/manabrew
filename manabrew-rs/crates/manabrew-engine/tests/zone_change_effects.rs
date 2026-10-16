@@ -2360,3 +2360,48 @@ fn a_resolved_x_spell_card_has_no_x_once_it_leaves_the_stack() {
     game.move_card(card, ZoneType::Exile, p0);
     assert_eq!(game.card(card).get_x_mana_cost_paid(), 0);
 }
+
+const FIELD_HEALER: &str = "Name:Field Healer\nManaCost:1 G\nTypes:Creature Cat Cleric\nPT:2/3\nAlternateMode:Prepare\nOracle:\n\nALTERNATE\n\nName:Small Renewal\nManaCost:G\nTypes:Sorcery\nA:SP$ GainLife | LifeAmount$ 2 | SpellDescription$ You gain 2 life.\nOracle:";
+
+fn effect_card_named(game: &GameState, name: &str) -> CardId {
+    game.cards
+        .iter()
+        .find(|card| card.card_name == name)
+        .map(|card| card.id)
+        .expect(name)
+}
+
+#[test]
+fn an_effect_card_records_the_ability_that_made_it() {
+    let mut game = GameState::new(&["Alice", "Bob"], 20);
+    let p0 = PlayerId(0);
+    main_phase(&mut game, p0);
+    let source = put(&mut game, BOON_SOURCE, p0, ZoneType::Battlefield);
+    let boon_text = "DB$ Effect | Boon$ True | Triggers$ TrigLand | Duration$ Permanent";
+    push_effect_entry(&mut game, p0, boon_text, None, None, Some(source));
+    let healer = put(&mut game, FIELD_HEALER, p0, ZoneType::Battlefield);
+    let prepare_text = "DB$ AlterAttribute | Defined$ Self | Attributes$ Prepared";
+    push_effect_entry(&mut game, p0, prepare_text, None, None, Some(healer));
+    let bears = game.create_card(make_grizzly_bears(PlayerId(1)));
+    game.move_card(bears, ZoneType::Battlefield, PlayerId(1));
+    let airbend_text = "DB$ Airbend | Defined$ Self";
+    push_effect_entry(&mut game, p0, airbend_text, None, None, Some(bears));
+    GameLoop::new(2).step_with_priority(&mut game, &mut pass_agents(), false);
+    let airbend = game.card(effect_card_named(&game, "Airbend Grizzly Bears"));
+    assert_eq!(airbend.owner, PlayerId(1));
+    assert_eq!(airbend.remembered_cards, vec![bears]);
+    for (name, text) in [
+        ("Boon Source's Boon", boon_text),
+        ("Field Healer's Prepared Spell", prepare_text),
+        ("Airbend Grizzly Bears", airbend_text),
+    ] {
+        let effect = game.card(effect_card_named(&game, name));
+        assert_eq!(
+            effect
+                .effect_source_ability()
+                .map(|sa| sa.ability_text.as_str()),
+            Some(text),
+            "{name}"
+        );
+    }
+}

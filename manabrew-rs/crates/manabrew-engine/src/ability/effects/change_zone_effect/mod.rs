@@ -8,7 +8,7 @@
 //! - [`stack`] — stack removal (bouncing/exiling spells)
 //! - [`move_cards`] — shared move + post-processing logic
 
-pub(super) mod helpers;
+pub(crate) mod helpers;
 mod hidden;
 mod known;
 pub(super) mod move_cards;

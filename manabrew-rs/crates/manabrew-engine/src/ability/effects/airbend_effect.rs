@@ -3,11 +3,10 @@
 //! Effect in the Command zone that grants `MayPlay` with an alternate
 //! mana cost of `{2}`, so the owner may cast the exiled card from exile.
 
-use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
+use forge_foundation::ZoneType;
 
 use super::EffectContext;
 use crate::ability::ability_ir::DefinedRef;
-use crate::card::Card;
 use crate::ids::CardId;
 use crate::staticability::parse_static_ability;
 
@@ -75,9 +74,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
         _ => sa.source.into_iter().collect(),
     };
 
-    let host_id = sa.source;
-    let host_image = host_id.map(|id| ctx.game.card(id).card_name.clone());
-
     let mut moved_any = false;
     for card_id in targets {
         if ctx.game.card(card_id).zone == ZoneType::None {
@@ -86,7 +82,6 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
 
         // Exile the card
         let old_zone = ctx.game.card(card_id).zone;
-        let owner = ctx.game.card(card_id).owner;
         ctx.exile(card_id, Some(sa));
         super::emit_zone_trigger(ctx.trigger_handler, card_id, old_zone, ZoneType::Exile);
         moved_any |= ctx.game.card(card_id).zone == ZoneType::Exile;
@@ -98,38 +93,7 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             continue;
         }
 
-        // Per-card persistent Effect in the Command zone granting
-        // `MayPlay$ True | MayPlayAltManaCost$ 2` to the exiled card while
-        // it's still exiled. Mirrors Java `AirbendEffect.resolve`.
-        let card_name_for_effect = ctx.game.card(card_id).card_name.clone();
-        let host_name = host_image.clone().unwrap_or_else(|| "Airbend".to_string());
-        let effect_name = format!("{host_name} ({card_name_for_effect})");
-
-        let mut effect = Card::new(
-            CardId(0),
-            effect_name,
-            owner,
-            CardTypeLine::parse("Effect"),
-            ManaCost::parse("0"),
-            ColorSet::COLORLESS,
-            None,
-            None,
-            vec![],
-            vec![],
-        );
-        effect.set_controller(owner);
-        effect.set_effect_source(host_id);
-        let static_text = "S$ Mode$ Continuous | MayPlay$ True | MayPlayAltManaCost$ 2 \
-            | EffectZone$ Command | Affected$ Card.IsRemembered+nonLand \
-            | AffectedZone$ Exile | Description$ You may cast the card.";
-        if let Some(static_ab) = parse_static_ability(static_text) {
-            effect.set_static_abilities(vec![static_ab]);
-        }
-        effect.add_remembered_cards([card_id]);
-        effect.set_forget_on_moved_origin(Some(ZoneType::Exile));
-
-        let effect_id = ctx.game.create_card(effect);
-        ctx.move_card(effect_id, ZoneType::Command, owner);
+        create_airbend_effect(ctx, sa, card_id);
     }
 
     if moved_any {
@@ -140,4 +104,31 @@ fn resolve(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility) {
             crate::trigger::TriggerType::Airbend,
         );
     }
+}
+
+/// Java `AirbendEffect.resolve`'s per-card effect: its owner may cast the exiled card for {2}.
+pub(crate) fn create_airbend_effect(
+    ctx: &mut EffectContext,
+    sa: &crate::spellability::SpellAbility,
+    exiled_card_id: CardId,
+) {
+    let owner = ctx.game.card(exiled_card_id).owner;
+    let card_name = ctx.game.card(exiled_card_id).card_name.clone();
+    let effect_id = crate::ability::spell_ability_effect::create_effect(
+        ctx.game,
+        sa,
+        owner,
+        &format!("Airbend {card_name}"),
+        "",
+    );
+    let static_text = "S$ Mode$ Continuous | MayPlay$ True | MayPlayAltManaCost$ 2 \
+        | EffectZone$ Command | Affected$ Card.IsRemembered+nonLand \
+        | AffectedZone$ Exile | Description$ You may cast the card.";
+    let effect = ctx.game.card_mut(effect_id);
+    if let Some(static_ab) = parse_static_ability(static_text) {
+        effect.add_static_ability(static_ab);
+    }
+    effect.add_remembered_cards([exiled_card_id]);
+    effect.set_forget_on_moved_origin(Some(ZoneType::Exile));
+    ctx.move_card(effect_id, ZoneType::Command, owner);
 }

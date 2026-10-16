@@ -3,12 +3,11 @@
 //! Contains: card matching, pre/post move logic, destination resolution,
 //! search restrictions, and effect creation.
 
-use forge_foundation::{CardTypeLine, ColorSet, ManaCost, ZoneType};
+use forge_foundation::ZoneType;
 
 use super::super::{emit_zone_trigger, parse_counter_type, parse_zone_type, EffectContext};
 use crate::agent::DecisionContext;
 use crate::card::valid_filter::{matches_valid_card_selector_with_context, MatchContext};
-use crate::card::Card;
 use crate::event::RunParams;
 use crate::ids::{CardId, PlayerId};
 use crate::parsing::keys;
@@ -494,6 +493,7 @@ pub(super) fn apply_post_move(
             let effect_id = crate::ability::spell_ability_effect::create_effect(
                 ctx.game,
                 sa,
+                sa.activating_player,
                 "Unearth Effect",
                 "",
             );
@@ -506,6 +506,8 @@ pub(super) fn apply_post_move(
             crate::ability::spell_ability_effect::add_leave_battlefield_replacement(
                 effect, "Exile",
             );
+            ctx.game
+                .move_card(effect_id, ZoneType::Command, sa.activating_player);
             ctx.game.leaves_play_commands.push((
                 card_id,
                 crate::phase::PhaseCommand::ExileEffect { effect: effect_id },
@@ -698,31 +700,28 @@ pub(super) fn apply_post_move(
 
 // ─── Warp Effect ────────────────────────────────────────────────────────────
 
-fn create_warp_effect(ctx: &mut EffectContext, sa: &SpellAbility, exiled_card_id: CardId) {
+pub(crate) fn create_warp_effect(
+    ctx: &mut EffectContext,
+    sa: &SpellAbility,
+    exiled_card_id: CardId,
+) {
     let controller = sa
         .source
         .map_or(sa.activating_player, |host| ctx.game.card(host).owner);
     let card_name = ctx.game.card(exiled_card_id).card_name.clone();
-    let mut effect = Card::new(
-        CardId(0),
-        format!("Warped {card_name}"),
+    let effect_id = crate::ability::spell_ability_effect::create_effect(
+        ctx.game,
+        sa,
         controller,
-        CardTypeLine::parse("Effect"),
-        ManaCost::parse("0"),
-        ColorSet::COLORLESS,
-        None,
-        None,
-        vec![],
-        vec![],
+        &format!("Warped {card_name}"),
+        "",
     );
-    effect.set_controller(controller);
-    effect.set_effect_source(sa.source);
+    let effect = ctx.game.card_mut(effect_id);
     effect.add_remembered_card(exiled_card_id);
     effect.set_forget_on_moved_origin(Some(ZoneType::Exile));
     let static_text = "Mode$ Continuous | MayPlay$ True | EffectZone$ Command | Affected$ Card.IsRemembered+nonLand+!ThisTurnEntered | AffectedZone$ Exile";
     if let Some(parsed) = parse_static_ability(&format!("S$ {static_text}")) {
         effect.add_static_ability(parsed);
     }
-    let eid = ctx.game.create_card(effect);
-    ctx.move_card(eid, ZoneType::Command, controller);
+    ctx.move_card(effect_id, ZoneType::Command, controller);
 }

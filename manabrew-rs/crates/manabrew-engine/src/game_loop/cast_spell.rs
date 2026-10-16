@@ -2861,7 +2861,13 @@ impl GameLoop {
         let uncounterable_after =
             self.pool(player).count_uncounterable() - self.pool(player).no_counter_mana_added();
         for _ in uncounterable_after..uncounterable_before {
-            let effect_id = crate::ability::spell_ability_effect::create_effect(game, &sa, "", "");
+            let effect_id = crate::ability::spell_ability_effect::create_effect(
+                game,
+                &sa,
+                sa.activating_player,
+                "",
+                "",
+            );
             let effect = game.card_mut(effect_id);
             if let Some(mut re) = crate::replacement::replacement_effect::parse_replacement_effect(
                 "Event$ Counter | Layer$ CantHappen | ValidSA$ Spell.IsRemembered | Description$ That spell can't be countered.",
@@ -2874,6 +2880,7 @@ impl GameLoop {
             effect.add_remembered_card(card_id);
             effect.set_forget_on_moved_origin(Some(ZoneType::Stack));
             effect.set_exile_when_no_remembered(true);
+            game.move_card(effect_id, ZoneType::Command, sa.activating_player);
         }
 
         game.card_mut(card_id)

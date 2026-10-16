@@ -146,6 +146,7 @@ fn add_type_effect(
     );
     effect.set_controller(controller);
     effect.set_effect_source(sa.source);
+    effect.set_effect_source_ability(sa);
     effect.add_remembered_card(target);
     effect.set_temp_effect_host(Some(target)); // Removed when target leaves play
 

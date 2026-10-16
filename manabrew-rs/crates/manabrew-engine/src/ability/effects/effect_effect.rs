@@ -166,6 +166,7 @@ fn resolve_impl(ctx: &mut EffectContext, sa: &SpellAbility) {
         );
         effect.set_controller(owner);
         effect.set_effect_source(Some(source_id));
+        effect.set_effect_source_ability(sa);
         effect.boon = sa.ir.boon;
         effect.set_code = ctx.game.card(source_id).set_code.clone();
         effect.set_static_abilities(parsed_static_abilities.clone());

@@ -43,6 +43,7 @@ fn create_regeneration_effect(
     let eff = crate::ability::spell_ability_effect::create_effect(
         ctx.game,
         sa,
+        sa.activating_player,
         &format!("{host_name}'s Regeneration"),
         "",
     );
@@ -72,6 +73,7 @@ fn create_regeneration_effect(
         replacement.base.set_overriding_ability(regeneration);
         effect.add_replacement_effect(replacement);
     }
+    ctx.game.move_card(eff, ZoneType::Command, controller);
     for &card in list {
         ctx.game.card_mut(card).regeneration_shields += 1;
     }

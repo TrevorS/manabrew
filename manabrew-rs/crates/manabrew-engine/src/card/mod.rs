@@ -645,6 +645,9 @@ pub struct Card {
     /// Java `Card.getTokenSpawningAbility`: the ability that made this token.
     #[serde(skip, default)]
     pub token_spawning_ability: Option<Box<SpellAbility>>,
+    /// Java `Card.getEffectSourceAbility`: the ability that made this effect card.
+    #[serde(skip, default)]
+    pub effect_source_ability: Option<Box<SpellAbility>>,
     /// For `SP$ Charm`: last turn each mode (keyed by its SVar name) was chosen
     /// on this card instance. Feeds `ChoiceRestriction$` filtering.
     /// Mirrors the per-card mode history Java keeps on `Card`.
@@ -1100,6 +1103,7 @@ impl Card {
             copied_permanent: None,
             cast_sa: None,
             token_spawning_ability: None,
+            effect_source_ability: None,
             chosen_charm_modes: HashMap::default(),
             chosen_modes_your_combat: Vec::new(),
             chosen_modes_your_last_combat: Vec::new(),
@@ -1363,6 +1367,7 @@ impl Card {
             copied_permanent: self.copied_permanent,
             cast_sa: None,
             token_spawning_ability: None,
+            effect_source_ability: None,
             chosen_charm_modes: self.chosen_charm_modes.clone(),
             chosen_modes_your_combat: self.chosen_modes_your_combat.clone(),
             chosen_modes_your_last_combat: self.chosen_modes_your_last_combat.clone(),
@@ -3132,6 +3137,14 @@ impl Card {
 
     pub fn set_effect_source(&mut self, source: Option<CardId>) {
         self.effect_source = source;
+    }
+
+    pub fn effect_source_ability(&self) -> Option<&SpellAbility> {
+        self.effect_source_ability.as_deref()
+    }
+
+    pub fn set_effect_source_ability(&mut self, sa: &SpellAbility) {
+        self.effect_source_ability = Some(Box::new(sa.clone()));
     }
 
     pub fn set_temp_effect_host(&mut self, host: Option<CardId>) {

@@ -1324,8 +1324,13 @@ impl GameState {
                 }) else {
                     return;
                 };
-                let eff =
-                    crate::ability::spell_ability_effect::create_effect(self, cause, &name, "");
+                let eff = crate::ability::spell_ability_effect::create_effect(
+                    self,
+                    cause,
+                    cause.activating_player,
+                    &name,
+                    "",
+                );
                 st_ab.ir.active_zones = vec![ZoneType::Command];
                 st_ab.ir.has_zone_keys = true;
                 st_ab.ir.affected_zones = ZoneType::ALL.to_vec();
@@ -1334,6 +1339,7 @@ impl GameState {
                 effect.add_static_ability(st_ab);
                 effect.set_forget_on_moved_origin(Some(ZoneType::Battlefield));
                 effect.set_exile_when_no_remembered(true);
+                self.move_card(eff, ZoneType::Command, cause.activating_player);
                 eff
             }
         };

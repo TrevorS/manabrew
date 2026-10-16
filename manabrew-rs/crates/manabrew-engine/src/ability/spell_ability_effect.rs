@@ -63,8 +63,14 @@ pub trait SpellAbilityEffect {
 
     /// Create a temporary effect card in the command zone.
     /// Mirrors Java's `SpellAbilityEffect.createEffect(SpellAbility, Player, String, String)`.
-    fn create_effect(game: &mut GameState, sa: &SpellAbility, name: &str, image: &str) -> CardId {
-        create_effect(game, sa, name, image)
+    fn create_effect(
+        game: &mut GameState,
+        sa: &SpellAbility,
+        controller: crate::ids::PlayerId,
+        name: &str,
+        image: &str,
+    ) -> CardId {
+        create_effect(game, sa, controller, name, image)
     }
 
     /// Run the effect (resolve entry point).
@@ -767,10 +773,16 @@ pub fn add_leave_battlefield_replacement(effect: &mut crate::card::Card, zone: &
 /// Effect cards are invisible game objects that hold continuous effects,
 /// delayed triggers, and other state that persists beyond a single resolution.
 /// They are placed in the Command zone and cleaned up when their effect ends.
-pub fn create_effect(game: &mut GameState, sa: &SpellAbility, name: &str, _image: &str) -> CardId {
+pub fn create_effect(
+    game: &mut GameState,
+    sa: &SpellAbility,
+    controller: crate::ids::PlayerId,
+    name: &str,
+    _image: &str,
+) -> CardId {
     use forge_foundation::{CardTypeLine, ColorSet, ManaCost};
 
-    let owner = sa.activating_player;
+    let owner = controller;
     let source_name = sa
         .source
         .map(|cid| game.card(cid).card_name.clone())
@@ -796,9 +808,9 @@ pub fn create_effect(game: &mut GameState, sa: &SpellAbility, name: &str, _image
     );
 
     let effect_id = game.create_card(effect_card);
-    game.move_card(effect_id, forge_foundation::ZoneType::Command, owner);
 
     // Java passes `image` for UI; Rust tracks provenance via `effect_source` instead.
+    game.card_mut(effect_id).set_effect_source_ability(sa);
     if let Some(source_id) = sa.source {
         game.card_mut(effect_id).effect_source = Some(source_id);
         game.card_mut(effect_id).set_code = game.card(source_id).set_code.clone();
@@ -1396,7 +1408,7 @@ pub fn replace_dying(game: &mut GameState, sa: &SpellAbility) -> Vec<CardId> {
         .source
         .map(|source_id| format!("{}'s Effect", game.card(source_id).card_name))
         .unwrap_or_else(|| "Effect".to_string());
-    let effect_id = create_effect(game, sa, &effect_name, "");
+    let effect_id = create_effect(game, sa, sa.activating_player, &effect_name, "");
     {
         let effect = game.card_mut(effect_id);
         effect.add_remembered_cards(cards.iter().copied());
@@ -1424,6 +1436,11 @@ pub fn replace_dying(game: &mut GameState, sa: &SpellAbility) -> Vec<CardId> {
     let effect = game.card_mut(effect_id);
     effect.set_s_var("ReplaceDying", &replace_with);
     add_replacement_effect(effect, &replacement_raw);
+    game.move_card(
+        effect_id,
+        forge_foundation::ZoneType::Command,
+        sa.activating_player,
+    );
 
     cards
 }

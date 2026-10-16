@@ -47,6 +47,7 @@ fn prepare(ctx: &mut EffectContext, sa: &crate::spellability::SpellAbility, card
     );
     effect.set_controller(activator);
     effect.set_effect_source(Some(card_id));
+    effect.set_effect_source_ability(sa);
     effect.set_s_var(
         "PreparedUnprepare",
         "DB$ AlterAttribute | Defined$ EffectSource | Attributes$ Prepared | Activate$ False",
